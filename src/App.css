@@ -211,7 +211,7 @@
 }
 .preview-crop-btn:disabled {
   /* explicit greys for disabled state (background + icon) */
-  background: #e6e6e6; /* lighter grey background */
+  background: #505050; /* lighter grey background */
   opacity: 1; /* override global button:disabled opacity */
   cursor: not-allowed;
 }
