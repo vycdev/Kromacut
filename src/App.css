@@ -191,13 +191,13 @@
 /* crop button overlay in preview */
 .preview-crop-btn {
   position: absolute;
-  right: 12px;
-  top: 12px;
+  right: 30px;
+  top: 30px;
   z-index: 10;
   background: rgba(0,0,0,0.5);
   border: 1px solid rgba(255,255,255,0.08);
   color: white;
-  padding: 0.45rem 0.55rem;
+  padding: 10px;
   border-radius: 6px;
   cursor: pointer;
   display: inline-flex;
