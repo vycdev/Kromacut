@@ -435,8 +435,43 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
                         className="crop-overlay"
                         onMouseDown={(e) => e.stopPropagation()}
                     >
-                        {/* dimmed outside */}
-                        <div className="crop-dim" />
+                        {/* dimmed outside implemented as four panels so the inside of the crop box remains clear */}
+                        <div
+                            className="crop-dim"
+                            style={{
+                                left: 0,
+                                top: 0,
+                                right: 0,
+                                height: `${selection.y}px`,
+                            }}
+                        />
+                        <div
+                            className="crop-dim"
+                            style={{
+                                left: 0,
+                                top: `${selection.y}px`,
+                                width: `${selection.x}px`,
+                                height: `${selection.h}px`,
+                            }}
+                        />
+                        <div
+                            className="crop-dim"
+                            style={{
+                                left: `${selection.x + selection.w}px`,
+                                top: `${selection.y}px`,
+                                right: 0,
+                                height: `${selection.h}px`,
+                            }}
+                        />
+                        <div
+                            className="crop-dim"
+                            style={{
+                                left: 0,
+                                top: `${selection.y + selection.h}px`,
+                                right: 0,
+                                bottom: 0,
+                            }}
+                        />
                         {/* selection box */}
                         <div
                             className="crop-box"
