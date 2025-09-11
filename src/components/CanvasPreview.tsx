@@ -443,49 +443,64 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
             >
                 <canvas ref={canvasRef} />
                 {/* small HUD showing image size and crop size (when active) */}
-                <div className="preview-hud" aria-hidden>
-                    {(() => {
-                        const img = imgRef.current;
-                        if (!img) return null;
-                        const iw = img.naturalWidth;
-                        const ih = img.naturalHeight;
-                        let text = `Image: ${iw}×${ih}`;
-                        if (isCropMode && selection) {
-                            const layout = computeImageLayout();
-                            if (layout) {
-                                const { baseScale, dx, dy } = layout;
-                                const userZoom =
-                                    zoomState || zoomRef.current || 1;
-                                const scale = baseScale * userZoom;
+                {imgRef.current ? (
+                    <div className="preview-hud" aria-hidden>
+                        {(() => {
+                            const img = imgRef.current!;
+                            const iw = img.naturalWidth;
+                            const ih = img.naturalHeight;
+                            let text = `Image: ${iw}×${ih}`;
+                            if (isCropMode && selection) {
+                                const layout = computeImageLayout();
+                                if (layout) {
+                                    const { baseScale, dx, dy } = layout;
+                                    const userZoom =
+                                        zoomState || zoomRef.current || 1;
+                                    const scale = baseScale * userZoom;
 
-                                const sx =
-                                    (selection.x - (offsetRef.current.x + dx)) /
-                                    scale;
-                                const sy =
-                                    (selection.y - (offsetRef.current.y + dy)) /
-                                    scale;
-                                const sw = selection.w / scale;
-                                const sh = selection.h / scale;
+                                    const sx =
+                                        (selection.x -
+                                            (offsetRef.current.x + dx)) /
+                                        scale;
+                                    const sy =
+                                        (selection.y -
+                                            (offsetRef.current.y + dy)) /
+                                        scale;
+                                    const sw = selection.w / scale;
+                                    const sh = selection.h / scale;
 
-                                const sxClamped = Math.max(0, Math.min(iw, sx));
-                                const syClamped = Math.max(0, Math.min(ih, sy));
-                                const swClamped = Math.max(
-                                    1,
-                                    Math.min(iw - sxClamped, sw)
-                                );
-                                const shClamped = Math.max(
-                                    1,
-                                    Math.min(ih - syClamped, sh)
-                                );
+                                    const sxClamped = Math.max(
+                                        0,
+                                        Math.min(iw, sx)
+                                    );
+                                    const syClamped = Math.max(
+                                        0,
+                                        Math.min(ih, sy)
+                                    );
+                                    const swClamped = Math.max(
+                                        1,
+                                        Math.min(iw - sxClamped, sw)
+                                    );
+                                    const shClamped = Math.max(
+                                        1,
+                                        Math.min(ih - syClamped, sh)
+                                    );
 
-                                const outW = Math.max(1, Math.round(swClamped));
-                                const outH = Math.max(1, Math.round(shClamped));
-                                text += ` • Crop: ${outW}×${outH}`;
+                                    const outW = Math.max(
+                                        1,
+                                        Math.round(swClamped)
+                                    );
+                                    const outH = Math.max(
+                                        1,
+                                        Math.round(shClamped)
+                                    );
+                                    text += ` • Crop: ${outW}×${outH}`;
+                                }
                             }
-                        }
-                        return text;
-                    })()}
-                </div>
+                            return text;
+                        })()}
+                    </div>
+                ) : null}
                 {/* crop overlay rendered on top of canvas when crop mode active */}
                 {isCropMode && selection ? (
                     <div

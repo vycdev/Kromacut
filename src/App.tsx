@@ -6,14 +6,44 @@ import UploaderControls from "./components/UploaderControls";
 
 function App(): React.ReactElement | null {
     const [imageSrc, setImageSrc] = useState<string | null>(null);
+    const [past, setPast] = useState<string[]>([]);
+    const [future, setFuture] = useState<string[]>([]);
     const [dragOver, setDragOver] = useState(false);
     const inputRef = useRef<HTMLInputElement | null>(null);
 
+    // keep refs to avoid listing state in effect deps for cleanup
+    const imageRef = useRef<string | null>(null);
+    const pastRef = useRef<string[]>([]);
+    const futureRef = useRef<string[]>([]);
+    useEffect(() => {
+        imageRef.current = imageSrc;
+    }, [imageSrc]);
+    useEffect(() => {
+        pastRef.current = past;
+    }, [past]);
+    useEffect(() => {
+        futureRef.current = future;
+    }, [future]);
+
     useEffect(() => {
         return () => {
-            if (imageSrc) URL.revokeObjectURL(imageSrc);
+            const revokeIf = (u: string | null) => {
+                if (u && u.startsWith("blob:")) {
+                    try {
+                        URL.revokeObjectURL(u);
+                    } catch (err) {
+                        console.warn(
+                            "Failed to revoke object URL on cleanup",
+                            err
+                        );
+                    }
+                }
+            };
+            revokeIf(imageRef.current);
+            pastRef.current.forEach(revokeIf);
+            futureRef.current.forEach(revokeIf);
         };
-    }, [imageSrc]);
+    }, []);
 
     const handleFiles = (file?: File) => {
         if (!file) return;
@@ -23,9 +53,10 @@ function App(): React.ReactElement | null {
             alert("Please upload an image file");
             return;
         }
-        if (imageSrc) URL.revokeObjectURL(imageSrc);
         const url = URL.createObjectURL(file);
+        setPast((p) => (imageSrc ? [...p, imageSrc as string] : p));
         setImageSrc(url);
+        setFuture([]);
     };
 
     const onChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -46,7 +77,14 @@ function App(): React.ReactElement | null {
 
     const clear = () => {
         if (imageSrc) {
-            URL.revokeObjectURL(imageSrc);
+            // only revoke if it's not referenced in history
+            if (!past.includes(imageSrc) && !future.includes(imageSrc)) {
+                try {
+                    URL.revokeObjectURL(imageSrc);
+                } catch (err) {
+                    console.warn("Failed to revoke object URL on clear", err);
+                }
+            }
             setImageSrc(null);
         }
         if (inputRef.current) inputRef.current.value = "";
@@ -171,6 +209,26 @@ function App(): React.ReactElement | null {
                                 onChoose={() => inputRef.current?.click()}
                                 onRemove={clear}
                                 canRemove={!!imageSrc && !isCropMode}
+                                onUndo={() => {
+                                    if (past.length === 0) return;
+                                    const prev = past[past.length - 1];
+                                    setPast((p) => p.slice(0, p.length - 1));
+                                    setFuture((f) =>
+                                        imageSrc ? [...f, imageSrc] : f
+                                    );
+                                    setImageSrc(prev || null);
+                                }}
+                                onRedo={() => {
+                                    if (future.length === 0) return;
+                                    const next = future[future.length - 1];
+                                    setFuture((f) => f.slice(0, f.length - 1));
+                                    setPast((p) =>
+                                        imageSrc ? [...p, imageSrc] : p
+                                    );
+                                    setImageSrc(next || null);
+                                }}
+                                canUndo={past.length > 0}
+                                canRedo={future.length > 0}
                             />
                         </div>
                         {/* placeholder for future controls (color count, layer heights, etc.) */}
