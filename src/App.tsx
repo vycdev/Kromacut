@@ -11,7 +11,7 @@ function App(): React.ReactElement | null {
     const [future, setFuture] = useState<string[]>([]);
     const [dragOver, setDragOver] = useState(false);
     const inputRef = useRef<HTMLInputElement | null>(null);
-    const [colorCount, setColorCount] = useState<number>(8);
+    const [colorCount, setColorCount] = useState<number>(4);
     const [algorithm, setAlgorithm] = useState<string>("posterize");
 
     // keep refs to avoid listing state in effect deps for cleanup

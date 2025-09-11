@@ -108,6 +108,7 @@
   line-height: 1.2;
   appearance: auto;
 }
+
 /* Restore native spinner controls by not overriding the UA appearance for number inputs.
    Remove any vendor rules that hide the controls so users get the up/down arrows. */
 .controls-group input[type="number"]:focus,
