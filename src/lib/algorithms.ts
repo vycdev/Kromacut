@@ -1,10 +1,7 @@
 // Lightweight image algorithms for StrataPaint
 // Each function operates on an ImageData instance and returns the modified ImageData.
 
-export function posterizeImageData(
-    data: ImageData,
-    weight: number
-): ImageData {
+export function posterizeImageData(data: ImageData, weight: number): ImageData {
     const d = data.data;
     // sanitize and clamp
     weight = Math.max(2, Math.min(256, Math.floor(weight)));
@@ -74,10 +71,7 @@ export function posterizeImageData(
  * by recursively splitting color boxes along the longest channel at the
  * pixel-count median. Operates on ImageData in-place and returns it.
  */
-export function medianCutImageData(
-    data: ImageData,
-    weight: number
-): ImageData {
+export function medianCutImageData(data: ImageData, weight: number): ImageData {
     const d = data.data;
     weight = Math.max(2, Math.min(256, Math.floor(weight)));
 
@@ -242,10 +236,7 @@ export function medianCutImageData(
  * K-means color quantization (weighted by pixel counts).
  * Uses k-means++ initialization and a small fixed number of iterations.
  */
-export function kmeansImageData(
-    data: ImageData,
-    weight: number
-): ImageData {
+export function kmeansImageData(data: ImageData, weight: number): ImageData {
     const d = data.data;
     weight = Math.max(2, Math.min(256, Math.floor(weight)));
 
@@ -413,10 +404,7 @@ export function kmeansImageData(
  * Octree color quantization. Builds an octree up to depth 8, reduces
  * nodes until the leaf count <= weight, then maps pixels to leaf averages.
  */
-export function octreeImageData(
-    data: ImageData,
-    weight: number
-): ImageData {
+export function octreeImageData(data: ImageData, weight: number): ImageData {
     const d = data.data;
     weight = Math.max(2, Math.min(256, Math.floor(weight)));
 

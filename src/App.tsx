@@ -510,10 +510,7 @@ function App(): React.ReactElement | null {
                                         );
                                         // call selected algorithm (mutates ImageData)
                                         if (algorithm === "median-cut") {
-                                            medianCutImageData(
-                                                data,
-                                                weight
-                                            );
+                                            medianCutImageData(data, weight);
                                         } else if (algorithm === "kmeans") {
                                             kmeansImageData(data, weight);
                                         } else if (algorithm === "octree") {
@@ -521,10 +518,7 @@ function App(): React.ReactElement | null {
                                         } else if (algorithm === "wu") {
                                             wuImageData(data, weight);
                                         } else {
-                                            posterizeImageData(
-                                                data,
-                                                weight
-                                            );
+                                            posterizeImageData(data, weight);
                                         }
                                         ctx.putImageData(data, 0, 0);
                                         // compute swatches directly from the quantized canvas so
@@ -592,9 +586,15 @@ function App(): React.ReactElement | null {
                                     fontSize: 13,
                                     fontWeight: 700,
                                     marginBottom: 8,
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 8,
                                 }}
                             >
-                                Color swatches
+                                <span>Color swatches</span>
+                                <span className="swatch-count" aria-hidden>
+                                    ({swatches.length})
+                                </span>
                             </div>
                             <div className="swatches" aria-live="polite">
                                 {swatches.length === 0 ? (

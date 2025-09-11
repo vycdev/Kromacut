@@ -541,6 +541,14 @@ button:disabled {
   max-height: 160px;
   overflow: auto;
 }
+/* small badge showing the current swatch count */
+.swatch-count {
+  font-size: 12px;
+  color: rgba(255,255,255,0.85);
+  background: rgba(0,0,0,0.35);
+  padding: 2px 6px;
+  border-radius: 999px;
+}
 .swatch {
   width: 14px;
   height: 14px;
