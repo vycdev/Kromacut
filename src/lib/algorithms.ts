@@ -236,4 +236,153 @@ export function medianCutImageData(
     return data;
 }
 
-export default { posterizeImageData, medianCutImageData };
+// (default export consolidated at end)
+
+/**
+ * K-means color quantization (weighted by pixel counts).
+ * Uses k-means++ initialization and a small fixed number of iterations.
+ */
+export function kmeansImageData(data: ImageData, colorCount: number): ImageData {
+    const d = data.data;
+    colorCount = Math.max(2, Math.min(256, Math.floor(colorCount)));
+
+    // Build unique color entries with counts
+    const map = new Map<number, number>();
+    for (let i = 0; i < d.length; i += 4) {
+        const key = (d[i] << 16) | (d[i + 1] << 8) | d[i + 2];
+        map.set(key, (map.get(key) || 0) + 1);
+    }
+    const entries: { key: number; r: number; g: number; b: number; count: number }[] = [];
+    map.forEach((count, key) => {
+        entries.push({ key, r: (key >> 16) & 0xff, g: (key >> 8) & 0xff, b: key & 0xff, count });
+    });
+
+    if (entries.length <= colorCount) return data;
+
+    // helper: squared distance
+    const dist2 = (a: { r: number; g: number; b: number }, b: { r: number; g: number; b: number }) => {
+        const dr = a.r - b.r;
+        const dg = a.g - b.g;
+        const db = a.b - b.b;
+        return dr * dr + dg * dg + db * db;
+    };
+
+    // k-means++ init
+    const centroids: { r: number; g: number; b: number }[] = [];
+    // pick first randomly weighted
+    let totalCount = 0;
+    for (const e of entries) totalCount += e.count;
+    let r = Math.random() * totalCount;
+    for (const e of entries) {
+        r -= e.count;
+        if (r <= 0) {
+            centroids.push({ r: e.r, g: e.g, b: e.b });
+            break;
+        }
+    }
+    if (centroids.length === 0) centroids.push({ r: entries[0].r, g: entries[0].g, b: entries[0].b });
+
+    while (centroids.length < colorCount) {
+        // compute D^2 to nearest centroid for each entry
+        let sum = 0;
+        const dists: number[] = new Array(entries.length);
+        for (let i = 0; i < entries.length; i++) {
+            let best = Infinity;
+            for (const c of centroids) {
+                const v = dist2(entries[i], c);
+                if (v < best) best = v;
+            }
+            dists[i] = best * entries[i].count;
+            sum += dists[i];
+        }
+        if (sum === 0) break;
+        // pick new centroid weighted by dists
+        let pick = Math.random() * sum;
+        let idx = 0;
+        for (; idx < entries.length; idx++) {
+            pick -= dists[idx];
+            if (pick <= 0) break;
+        }
+        if (idx >= entries.length) idx = entries.length - 1;
+        centroids.push({ r: entries[idx].r, g: entries[idx].g, b: entries[idx].b });
+    }
+
+    // iterate k-means (weighted) -- limited iterations for speed
+    const maxIter = 8;
+    const assignments = new Array(entries.length).fill(-1);
+    for (let iter = 0; iter < maxIter; iter++) {
+        let changed = false;
+        // assign
+        for (let i = 0; i < entries.length; i++) {
+            let best = -1;
+            let bestDist = Infinity;
+            for (let c = 0; c < centroids.length; c++) {
+                const v = dist2(entries[i], centroids[c]);
+                if (v < bestDist) {
+                    bestDist = v;
+                    best = c;
+                }
+            }
+            if (assignments[i] !== best) {
+                assignments[i] = best;
+                changed = true;
+            }
+        }
+        // recompute centroids
+        const sums: { r: number; g: number; b: number; w: number }[] = centroids.map(() => ({ r: 0, g: 0, b: 0, w: 0 }));
+        for (let i = 0; i < entries.length; i++) {
+            const a = assignments[i];
+            const e = entries[i];
+            sums[a].r += e.r * e.count;
+            sums[a].g += e.g * e.count;
+            sums[a].b += e.b * e.count;
+            sums[a].w += e.count;
+        }
+        for (let c = 0; c < centroids.length; c++) {
+            if (sums[c].w === 0) {
+                // re-seed empty centroid with a random entry
+                const pick = entries[Math.floor(Math.random() * entries.length)];
+                centroids[c] = { r: pick.r, g: pick.g, b: pick.b };
+            } else {
+                centroids[c] = {
+                    r: Math.round(sums[c].r / sums[c].w),
+                    g: Math.round(sums[c].g / sums[c].w),
+                    b: Math.round(sums[c].b / sums[c].w),
+                };
+            }
+        }
+        if (!changed) break;
+    }
+
+    // build lookup: map original color to nearest centroid
+    const lookup = new Map<number, [number, number, number]>();
+    for (let i = 0; i < entries.length; i++) {
+        let best = -1;
+        let bestDist = Infinity;
+        for (let c = 0; c < centroids.length; c++) {
+            const v = dist2(entries[i], centroids[c]);
+            if (v < bestDist) {
+                bestDist = v;
+                best = c;
+            }
+        }
+        const cent = centroids[best];
+        lookup.set(entries[i].key, [cent.r, cent.g, cent.b]);
+    }
+
+    // apply mapping
+    for (let i = 0; i < d.length; i += 4) {
+        const key = (d[i] << 16) | (d[i + 1] << 8) | d[i + 2];
+        const v = lookup.get(key);
+        if (v) {
+            d[i] = v[0];
+            d[i + 1] = v[1];
+            d[i + 2] = v[2];
+        }
+    }
+
+    return data;
+}
+
+// add to default export for convenience
+export default { posterizeImageData, medianCutImageData, kmeansImageData };

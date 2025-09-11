@@ -3,7 +3,11 @@ import "./App.css";
 import CanvasPreview from "./components/CanvasPreview";
 import type { CanvasPreviewHandle } from "./components/CanvasPreview";
 import UploaderControls from "./components/UploaderControls";
-import { posterizeImageData, medianCutImageData } from "./lib/algorithms";
+import {
+    posterizeImageData,
+    medianCutImageData,
+    kmeansImageData,
+} from "./lib/algorithms";
 
 function App(): React.ReactElement | null {
     const [imageSrc, setImageSrc] = useState<string | null>(null);
@@ -254,6 +258,7 @@ function App(): React.ReactElement | null {
                                 >
                                     <option value="posterize">Posterize</option>
                                     <option value="median-cut">Median Cut</option>
+                                    <option value="kmeans">K-means</option>
                                 </select>
                             </label>
                             <div style={{ marginTop: 8 }}>
@@ -302,6 +307,8 @@ function App(): React.ReactElement | null {
                                         // call selected algorithm (mutates ImageData)
                                         if (algorithm === "median-cut") {
                                             medianCutImageData(data, colorCount);
+                                        } else if (algorithm === "kmeans") {
+                                            kmeansImageData(data, colorCount);
                                         } else {
                                             posterizeImageData(data, colorCount);
                                         }
