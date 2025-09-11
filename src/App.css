@@ -10,6 +10,9 @@
   flex: 1 1 100%;
   min-width: 0;
   max-width: 100%;
+  /* allow vertical shrink when viewport is constrained */
+  min-height: 0;
+  height: 100vh;
 }
 
 /* ensure the root fills available width so the grid can expand */

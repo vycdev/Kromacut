@@ -13,6 +13,12 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* use border-box everywhere to make padding part of element size calculations
+   and avoid unexpected overflow when using 100% heights and padding */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
 a {
   font-weight: 500;
   color: #646cff;
@@ -38,7 +44,8 @@ body {
 html,
 body,
 #root {
-  height: 100%;
+  /* use viewport height to avoid percentage-height chains causing overflow */
+  height: 100vh;
   width: 100%;
   min-height: 100%;
   min-width: 0;
