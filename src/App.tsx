@@ -192,21 +192,7 @@ function App(): React.ReactElement | null {
             >
                 <aside className="sidebar">
                     <div className="controls-panel">
-                        <h2>Controls</h2>
-                        <p className="muted">
-                            Image settings and project controls will appear
-                            here.
-                        </p>
                         <div className="uploader-controls">
-                            <div className="placeholder small">
-                                <p>Upload an image</p>
-                                <button
-                                    type="button"
-                                    onClick={() => inputRef.current?.click()}
-                                >
-                                    Choose file
-                                </button>
-                            </div>
                             <input
                                 ref={inputRef}
                                 type="file"
@@ -214,11 +200,15 @@ function App(): React.ReactElement | null {
                                 onChange={onChange}
                                 style={{ display: "none" }}
                             />
-                            {imageSrc && (
-                                <div style={{ marginTop: 8 }}>
-                                    <button onClick={clear}>Remove</button>
-                                </div>
-                            )}
+                            <button
+                                type="button"
+                                onClick={() => inputRef.current?.click()}
+                            >
+                                Choose file
+                            </button>
+                            <button onClick={clear} disabled={!imageSrc}>
+                                Remove
+                            </button>
                         </div>
                         {/* placeholder for future controls (color count, layer heights, etc.) */}
                     </div>

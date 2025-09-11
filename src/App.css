@@ -43,15 +43,17 @@
   margin-top: 0.75rem;
 }
 
-.muted {
-  color: rgba(255,255,255,0.6);
-}
-
 .preview-area {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
   height: 100%;
+}
+
+.uploader-controls {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
 }
 
 .splitter {
@@ -136,6 +138,11 @@ button {
 
 button:hover {
   filter: brightness(0.98);
+}
+
+button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 @media (max-width: 800px) {
