@@ -1,11 +1,12 @@
 /* Minimal styles for uploader */
 .uploader-root {
-  max-width: 960px;
-  margin: 2rem auto;
+  height: 100vh;
   padding: 1rem;
-  /* inherit page text color (index.css sets dark/light themes) */
+  box-sizing: border-box;
   color: inherit;
   font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
+  display: flex;
+  flex-direction: column;
 }
 
 .uploader-root h1 {
@@ -13,16 +14,50 @@
   font-size: 1.25rem;
 }
 
+.app-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr; /* two equal halves */
+  gap: 1rem;
+  flex: 1 1 auto;
+  height: 100%;
+}
+
+.sidebar {
+  background: rgba(0,0,0,0.12);
+  padding: 1rem;
+  border-radius: 8px;
+  height: 100%;
+  box-sizing: border-box;
+}
+
+.controls-panel h2 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1rem;
+}
+
+.muted {
+  color: rgba(255,255,255,0.6);
+}
+
+.preview-area {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  height: 100%;
+}
+
 .dropzone {
   border: 2px dashed rgba(255,255,255,0.12);
   border-radius: 8px;
   padding: 2rem;
-  min-height: 220px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  /* subtle translucent panel so the dark page background shows through */
+  /* fill the preview column */
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
   background: rgba(255,255,255,0.02);
 }
 .dropzone.dragover {
@@ -40,7 +75,7 @@
 
 .preview {
   max-width: 100%;
-  max-height: 60vh;
+  max-height: 100%;
   object-fit: contain;
   border-radius: 6px;
 }
@@ -62,4 +97,22 @@ button {
 
 button:hover {
   filter: brightness(0.98);
+}
+
+@media (max-width: 800px) {
+  .app-layout {
+    grid-template-columns: 1fr;
+  }
+  .sidebar {
+    order: 2;
+    height: auto;
+  }
+  .preview-area {
+    order: 1;
+    height: auto;
+  }
+  .dropzone {
+    height: auto;
+    min-height: 220px;
+  }
 }

@@ -53,45 +53,60 @@ function App(): React.ReactElement | null {
         <div className="uploader-root">
             <h1>StrataPaint — Upload Photo</h1>
 
-            <div
-                className={`dropzone ${dragOver ? "dragover" : ""}`}
-                onDrop={onDrop}
-                onDragOver={onDragOver}
-                onDragLeave={() => setDragOver(false)}
-                onClick={() => inputRef.current?.click()}
-            >
-                {imageSrc ? (
-                    <img
-                        src={imageSrc}
-                        alt="uploaded preview"
-                        className="preview"
-                    />
-                ) : (
-                    <div className="placeholder">
-                        <p>Click or drop an image here to upload</p>
-                        <button
-                            type="button"
-                            onClick={() => inputRef.current?.click()}
-                        >
-                            Choose file
-                        </button>
+            <div className="app-layout">
+                <aside className="sidebar">
+                    <div className="controls-panel">
+                        <h2>Controls</h2>
+                        <p className="muted">
+                            Image settings and project controls will appear
+                            here.
+                        </p>
+                        {/* placeholder for future controls (color count, layer heights, etc.) */}
                     </div>
-                )}
+                </aside>
 
-                <input
-                    ref={inputRef}
-                    type="file"
-                    accept="image/*"
-                    onChange={onChange}
-                    style={{ display: "none" }}
-                />
+                <main className="preview-area">
+                    <div
+                        className={`dropzone ${dragOver ? "dragover" : ""}`}
+                        onDrop={onDrop}
+                        onDragOver={onDragOver}
+                        onDragLeave={() => setDragOver(false)}
+                        onClick={() => inputRef.current?.click()}
+                    >
+                        {imageSrc ? (
+                            <img
+                                src={imageSrc}
+                                alt="uploaded preview"
+                                className="preview"
+                            />
+                        ) : (
+                            <div className="placeholder">
+                                <p>Click or drop an image here to upload</p>
+                                <button
+                                    type="button"
+                                    onClick={() => inputRef.current?.click()}
+                                >
+                                    Choose file
+                                </button>
+                            </div>
+                        )}
+
+                        <input
+                            ref={inputRef}
+                            type="file"
+                            accept="image/*"
+                            onChange={onChange}
+                            style={{ display: "none" }}
+                        />
+                    </div>
+
+                    {imageSrc && (
+                        <div className="controls">
+                            <button onClick={clear}>Remove</button>
+                        </div>
+                    )}
+                </main>
             </div>
-
-            {imageSrc && (
-                <div className="controls">
-                    <button onClick={clear}>Remove</button>
-                </div>
-            )}
         </div>
     );
 }
