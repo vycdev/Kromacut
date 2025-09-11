@@ -170,7 +170,7 @@ function App(): React.ReactElement | null {
                             <UploaderControls
                                 onChoose={() => inputRef.current?.click()}
                                 onRemove={clear}
-                                canRemove={!!imageSrc}
+                                canRemove={!!imageSrc && !isCropMode}
                             />
                         </div>
                         {/* placeholder for future controls (color count, layer heights, etc.) */}
