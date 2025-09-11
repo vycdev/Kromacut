@@ -8,6 +8,9 @@ import React, {
 
 export interface CanvasPreviewHandle {
     redraw: () => void;
+    // promise-based helpers so callers can await the next draw cycle
+    redrawAsync?: () => Promise<void>;
+    waitForNextDraw?: () => Promise<void>;
     exportCroppedImage: () => Promise<Blob | null>;
     exportImageBlob: () => Promise<Blob | null>;
 }
@@ -91,7 +94,17 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
             ctx.imageSmoothingEnabled = true;
             ctx.imageSmoothingQuality = "high";
             ctx.drawImage(img, 0, 0, iw, ih);
+            // resolve any waiters that are awaiting the next draw
+            try {
+                const waiters = drawWaitersRef.current.splice(0);
+                waiters.forEach((r) => r());
+            } catch {
+                // ignore
+            }
         };
+
+        // list of pending resolvers that callers can await via waitForNextDraw
+        const drawWaitersRef = useRef<Array<() => void>>([]);
 
         const computeImageLayout = () => {
             const container = previewContainerRef.current;
@@ -382,6 +395,15 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
 
         useImperativeHandle(ref, () => ({
             redraw: () => drawToCanvas(),
+            redrawAsync: async (): Promise<void> => {
+                drawToCanvas();
+                await new Promise((r) => requestAnimationFrame(r));
+            },
+            waitForNextDraw: (): Promise<void> => {
+                return new Promise((resolve) => {
+                    drawWaitersRef.current.push(resolve);
+                });
+            },
             exportCroppedImage: async (): Promise<Blob | null> => {
                 const img = imgRef.current;
                 const sel = selectionRef.current;

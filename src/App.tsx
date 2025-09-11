@@ -66,8 +66,16 @@ function App(): React.ReactElement | null {
         const url = URL.createObjectURL(file);
         setPast((p) => (imageSrc ? [...p, imageSrc as string] : p));
         setImageSrc(url);
-        // update swatches for the new image
-        setTimeout(() => void updateSwatches(), 0);
+        // update swatches for the new image after the preview has drawn
+        (async () => {
+            try {
+                await canvasPreviewRef.current?.waitForNextDraw?.();
+            } catch {
+                // fallback to a single animation frame if wait isn't available
+                await new Promise((r) => requestAnimationFrame(r));
+            }
+            void updateSwatches();
+        })();
         setFuture([]);
     };
 
@@ -113,6 +121,38 @@ function App(): React.ReactElement | null {
     }, [imageSrc]);
 
     // compute color swatches (most frequent colors) when image changes
+    // helper: compute swatches directly from a canvas (synchronous)
+    const computeSwatchesFromCanvas = (
+        canvas: HTMLCanvasElement,
+        maxSwatches = 64
+    ): string[] => {
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return [];
+        const w = canvas.width;
+        const h = canvas.height;
+        const data = ctx.getImageData(0, 0, w, h).data;
+        const map = new Map<number, number>();
+        for (let i = 0; i < data.length; i += 4) {
+            const key = (data[i] << 16) | (data[i + 1] << 8) | data[i + 2];
+            map.set(key, (map.get(key) || 0) + 1);
+        }
+        return Array.from(map.entries())
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, maxSwatches)
+            .map((entry) => {
+                const key = entry[0];
+                const r = (key >> 16) & 0xff;
+                const g = (key >> 8) & 0xff;
+                const b = key & 0xff;
+                return (
+                    "#" +
+                    [r, g, b]
+                        .map((v) => v.toString(16).padStart(2, "0"))
+                        .join("")
+                );
+            });
+    };
+
     const updateSwatches = async () => {
         setSwatches([]);
         if (!canvasPreviewRef.current || !imageSrc) return;
@@ -411,6 +451,24 @@ function App(): React.ReactElement | null {
                                             );
                                         }
                                         ctx.putImageData(data, 0, 0);
+                                        // compute swatches directly from the quantized canvas so
+                                        // the UI updates immediately and doesn't depend on the
+                                        // preview redraw timing
+                                        try {
+                                            const immediate =
+                                                computeSwatchesFromCanvas(c);
+                                            if (
+                                                immediate &&
+                                                immediate.length > 0
+                                            )
+                                                setSwatches(immediate);
+                                        } catch (err) {
+                                            // fall back to the async preview-based update if something fails
+                                            console.warn(
+                                                "compute swatches from canvas failed",
+                                                err
+                                            );
+                                        }
                                         const outBlob =
                                             await new Promise<Blob | null>(
                                                 (res) =>
@@ -429,11 +487,15 @@ function App(): React.ReactElement | null {
                                         const url =
                                             URL.createObjectURL(outBlob);
                                         setImageSrc(url);
-                                        // async update swatches after canvas redraw
-                                        setTimeout(
-                                            () => void updateSwatches(),
-                                            0
-                                        );
+                                        // wait for preview to draw the new image then update swatches
+                                        try {
+                                            await canvasPreviewRef.current?.waitForNextDraw?.();
+                                        } catch {
+                                            await new Promise((r) =>
+                                                requestAnimationFrame(r)
+                                            );
+                                        }
+                                        void updateSwatches();
                                         setFuture([]);
                                     }}
                                     disabled={!imageSrc || isCropMode}
@@ -514,7 +576,16 @@ function App(): React.ReactElement | null {
                                         imageSrc ? [...f, imageSrc] : f
                                     );
                                     setImageSrc(prev || null);
-                                    setTimeout(() => void updateSwatches(), 0);
+                                    (async () => {
+                                        try {
+                                            await canvasPreviewRef.current?.waitForNextDraw?.();
+                                        } catch {
+                                            await new Promise((r) =>
+                                                requestAnimationFrame(r)
+                                            );
+                                        }
+                                        void updateSwatches();
+                                    })();
                                 }}
                             >
                                 <i
@@ -535,7 +606,16 @@ function App(): React.ReactElement | null {
                                         imageSrc ? [...p, imageSrc] : p
                                     );
                                     setImageSrc(next || null);
-                                    setTimeout(() => void updateSwatches(), 0);
+                                    (async () => {
+                                        try {
+                                            await canvasPreviewRef.current?.waitForNextDraw?.();
+                                        } catch {
+                                            await new Promise((r) =>
+                                                requestAnimationFrame(r)
+                                            );
+                                        }
+                                        void updateSwatches();
+                                    })();
                                 }}
                             >
                                 <i
@@ -584,10 +664,14 @@ function App(): React.ReactElement | null {
                                                 URL.createObjectURL(blob);
                                             setImageSrc(url);
                                             // refresh swatches after crop (allow canvas to redraw)
-                                            setTimeout(
-                                                () => void updateSwatches(),
-                                                0
-                                            );
+                                            try {
+                                                await canvasPreviewRef.current?.waitForNextDraw?.();
+                                            } catch {
+                                                await new Promise((r) =>
+                                                    requestAnimationFrame(r)
+                                                );
+                                            }
+                                            void updateSwatches();
                                             // clearing future since this is a new branch
                                             setFuture([]);
                                             setIsCropMode(false);
