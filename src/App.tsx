@@ -25,6 +25,45 @@ function App(): React.ReactElement | null {
     // cap how many swatches we display (independent from weight used for quantizers)
     const SWATCH_CAP = 2 ** 14;
 
+    // helper to convert rgb -> hsl used for swatch sorting
+    const rgbToHsl = (r: number, g: number, b: number) => {
+        r /= 255;
+        g /= 255;
+        b /= 255;
+        const max = Math.max(r, g, b);
+        const min = Math.min(r, g, b);
+        let h = 0;
+        let s = 0;
+        const l = (max + min) / 2;
+        if (max !== min) {
+            const d = max - min;
+            s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+            switch (max) {
+                case r:
+                    h = (g - b) / d + (g < b ? 6 : 0);
+                    break;
+                case g:
+                    h = (b - r) / d + 2;
+                    break;
+                case b:
+                    h = (r - g) / d + 4;
+                    break;
+            }
+            h = h * 60;
+        }
+        return { h, s, l };
+    };
+
+    // guard to cancel stale async swatch computations
+    const swatchRunRef = useRef(0);
+
+    // wrapper to change imageSrc while invalidating any in-flight swatch scans
+    const setImageSrcAndInvalidate = (u: string | null) => {
+        // bump run id so any running updateSwatches will no-op when they resume
+        swatchRunRef.current++;
+        setImageSrc(u);
+    };
+
     // keep refs to avoid listing state in effect deps for cleanup
     const imageRef = useRef<string | null>(null);
     const pastRef = useRef<string[]>([]);
@@ -67,19 +106,10 @@ function App(): React.ReactElement | null {
             alert("Please upload an image file");
             return;
         }
-        const url = URL.createObjectURL(file);
-        setPast((p) => (imageSrc ? [...p, imageSrc as string] : p));
-        setImageSrc(url);
-        // update swatches for the new image after the preview has drawn
-        (async () => {
-            try {
-                await canvasPreviewRef.current?.waitForNextDraw?.();
-            } catch {
-                // fallback to a single animation frame if wait isn't available
-                await new Promise((r) => requestAnimationFrame(r));
-            }
-            void updateSwatches();
-        })();
+    const url = URL.createObjectURL(file);
+    setPast((p) => (imageSrc ? [...p, imageSrc as string] : p));
+    setImageSrcAndInvalidate(url);
+    // swatches will be recomputed by the imageSrc effect; no manual call here
         setFuture([]);
     };
 
@@ -109,7 +139,7 @@ function App(): React.ReactElement | null {
                     console.warn("Failed to revoke object URL on clear", err);
                 }
             }
-            setImageSrc(null);
+            setImageSrcAndInvalidate(null);
         }
         if (inputRef.current) inputRef.current.value = "";
     };
@@ -129,6 +159,8 @@ function App(): React.ReactElement | null {
     // distinct colors present in the canonical image data.
 
     const updateSwatches = async () => {
+        // mark a new run so earlier async runs will no-op when they finish
+        const runId = ++swatchRunRef.current;
         setSwatches([]);
         // counts computed but not stored in state (UI removed)
         if (!imageSrc) return;
@@ -174,39 +206,13 @@ function App(): React.ReactElement | null {
                 }
                 // yield to the event loop between rows to keep UI responsive
                 await new Promise((r) => setTimeout(r, 0));
+                // if another run started while we yielded, stop this one
+                if (runId !== swatchRunRef.current) return;
             }
 
             // counts are intentionally not stored in React state (UI removed)
 
             // build sorted swatch list same as before
-            const rgbToHsl = (r: number, g: number, b: number) => {
-                r /= 255;
-                g /= 255;
-                b /= 255;
-                const max = Math.max(r, g, b);
-                const min = Math.min(r, g, b);
-                let h = 0;
-                let s = 0;
-                const l = (max + min) / 2;
-                if (max !== min) {
-                    const d = max - min;
-                    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-                    switch (max) {
-                        case r:
-                            h = (g - b) / d + (g < b ? 6 : 0);
-                            break;
-                        case g:
-                            h = (b - r) / d + 2;
-                            break;
-                        case b:
-                            h = (r - g) / d + 4;
-                            break;
-                    }
-                    h = h * 60;
-                }
-                return { h, s, l };
-            };
-
             const top = Array.from(map.entries())
                 .sort((a, b) => b[1] - a[1])
                 .slice(0, Math.min(map.size, SWATCH_CAP))
@@ -229,10 +235,13 @@ function App(): React.ReactElement | null {
                 return b.hsl.l - a.hsl.l;
             });
 
-            setSwatches(top.map((t) => t.hex));
+            // only apply results if this run is still current
+            if (runId === swatchRunRef.current)
+                setSwatches(top.map((t) => t.hex));
         } catch (err) {
             console.warn("swatches: compute failed", err);
-            setSwatches([]);
+            // only clear if still current
+            if (swatchRunRef.current === runId) setSwatches([]);
         }
     };
 
@@ -486,6 +495,80 @@ function App(): React.ReactElement | null {
                                             countUnique(data)
                                         );
                                         ctx.putImageData(data, 0, 0);
+                                        // compute and set immediate swatches from the quantized ImageData
+                                        try {
+                                            const dd = data.data;
+                                            const cmap = new Map<
+                                                number,
+                                                number
+                                            >();
+                                            for (
+                                                let i = 0;
+                                                i < dd.length;
+                                                i += 4
+                                            ) {
+                                                const k =
+                                                    (dd[i] << 16) |
+                                                    (dd[i + 1] << 8) |
+                                                    dd[i + 2];
+                                                cmap.set(
+                                                    k,
+                                                    (cmap.get(k) || 0) + 1
+                                                );
+                                            }
+                                            const topLocal = Array.from(
+                                                cmap.entries()
+                                            )
+                                                .sort((a, b) => b[1] - a[1])
+                                                .slice(
+                                                    0,
+                                                    Math.min(
+                                                        cmap.size,
+                                                        SWATCH_CAP
+                                                    )
+                                                )
+                                                .map((entry) => {
+                                                    const key = entry[0];
+                                                    const r =
+                                                        (key >> 16) & 0xff;
+                                                    const g = (key >> 8) & 0xff;
+                                                    const b = key & 0xff;
+                                                    const hex =
+                                                        "#" +
+                                                        [r, g, b]
+                                                            .map((v) =>
+                                                                v
+                                                                    .toString(
+                                                                        16
+                                                                    )
+                                                                    .padStart(
+                                                                        2,
+                                                                        "0"
+                                                                    )
+                                                            )
+                                                            .join("");
+                                                    return {
+                                                        hex,
+                                                        freq: entry[1],
+                                                        hsl: rgbToHsl(r, g, b),
+                                                    };
+                                                });
+                                            topLocal.sort((a, b) => {
+                                                if (a.hsl.h !== b.hsl.h)
+                                                    return a.hsl.h - b.hsl.h;
+                                                if (a.hsl.s !== b.hsl.s)
+                                                    return b.hsl.s - a.hsl.s;
+                                                return b.hsl.l - a.hsl.l;
+                                            });
+                                            setSwatches(
+                                                topLocal.map((t) => t.hex)
+                                            );
+                                        } catch (err) {
+                                            console.warn(
+                                                "compute immediate swatches failed",
+                                                err
+                                            );
+                                        }
                                         // compute swatches directly from the quantized canvas so
                                         // the UI updates immediately and doesn't depend on the
                                         // preview redraw timing. If we successfully computed
@@ -583,17 +666,7 @@ function App(): React.ReactElement | null {
                                             );
                                         const url =
                                             URL.createObjectURL(outBlob);
-                                        setImageSrc(url);
-                                        // wait for preview to draw the new image then update swatches
-                                        try {
-                                            await canvasPreviewRef.current?.waitForNextDraw?.();
-                                        } catch {
-                                            await new Promise((r) =>
-                                                requestAnimationFrame(r)
-                                            );
-                                        }
-                                        // refresh swatches from the canonical imageSrc
-                                        void updateSwatches();
+                                            setImageSrcAndInvalidate(url);
                                         setFuture([]);
                                     }}
                                     disabled={!imageSrc || isCropMode}
@@ -675,24 +748,14 @@ function App(): React.ReactElement | null {
                                 title="Undo"
                                 aria-label="Undo"
                                 disabled={isCropMode || past.length === 0}
-                                onClick={() => {
-                                    if (past.length === 0) return;
-                                    const prev = past[past.length - 1];
-                                    setPast((p) => p.slice(0, p.length - 1));
-                                    setFuture((f) =>
-                                        imageSrc ? [...f, imageSrc] : f
-                                    );
-                                    setImageSrc(prev || null);
-                                    (async () => {
-                                        try {
-                                            await canvasPreviewRef.current?.waitForNextDraw?.();
-                                        } catch {
-                                            await new Promise((r) =>
-                                                requestAnimationFrame(r)
-                                            );
-                                        }
-                                        void updateSwatches();
-                                    })();
+                                    onClick={() => {
+                                        if (past.length === 0) return;
+                                        const prev = past[past.length - 1];
+                                        setPast((p) => p.slice(0, p.length - 1));
+                                        setFuture((f) =>
+                                            imageSrc ? [...f, imageSrc] : f
+                                        );
+                                        setImageSrcAndInvalidate(prev || null);
                                 }}
                             >
                                 <i
@@ -705,24 +768,14 @@ function App(): React.ReactElement | null {
                                 title="Redo"
                                 aria-label="Redo"
                                 disabled={isCropMode || future.length === 0}
-                                onClick={() => {
-                                    if (future.length === 0) return;
-                                    const next = future[future.length - 1];
-                                    setFuture((f) => f.slice(0, f.length - 1));
-                                    setPast((p) =>
-                                        imageSrc ? [...p, imageSrc] : p
-                                    );
-                                    setImageSrc(next || null);
-                                    (async () => {
-                                        try {
-                                            await canvasPreviewRef.current?.waitForNextDraw?.();
-                                        } catch {
-                                            await new Promise((r) =>
-                                                requestAnimationFrame(r)
-                                            );
-                                        }
-                                        void updateSwatches();
-                                    })();
+                                    onClick={() => {
+                                        if (future.length === 0) return;
+                                        const next = future[future.length - 1];
+                                        setFuture((f) => f.slice(0, f.length - 1));
+                                        setPast((p) =>
+                                            imageSrc ? [...p, imageSrc] : p
+                                        );
+                                        setImageSrcAndInvalidate(next || null);
                                 }}
                             >
                                 <i
@@ -769,16 +822,8 @@ function App(): React.ReactElement | null {
                                             // create new URL for cropped image
                                             const url =
                                                 URL.createObjectURL(blob);
-                                            setImageSrc(url);
-                                            // refresh swatches after crop (allow canvas to redraw)
-                                            try {
-                                                await canvasPreviewRef.current?.waitForNextDraw?.();
-                                            } catch {
-                                                await new Promise((r) =>
-                                                    requestAnimationFrame(r)
-                                                );
-                                            }
-                                            void updateSwatches();
+                                            setImageSrcAndInvalidate(url);
+                                            // swatches will be recomputed by the imageSrc effect
                                             // clearing future since this is a new branch
                                             setFuture([]);
                                             setIsCropMode(false);
