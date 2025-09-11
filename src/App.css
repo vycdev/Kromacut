@@ -188,7 +188,31 @@
   border-radius: 6px;
 }
 
-/* crop UI removed */
+/* crop button (disabled when no image) */
+.preview-crop-btn {
+  position: absolute;
+  right: 12px;
+  top: 12px;
+  padding: 10px; /* requested padding */
+  margin: 25px; /* requested margin */
+  border-radius: 6px;
+  border: 1px solid rgba(0,0,0,0.08);
+  background: #ffffff;
+  color: inherit;
+  cursor: pointer;
+  z-index: 10;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.preview-crop-btn i {
+  color: rebeccapurple; /* purple crop icon */
+  font-size: 18px;
+}
+.preview-crop-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
 
 /* debug outline while dragging splitter */
 .preview-container.dragging {

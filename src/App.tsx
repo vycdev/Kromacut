@@ -194,6 +194,20 @@ function App(): React.ReactElement | null {
                             ref={canvasPreviewRef}
                             imageSrc={imageSrc}
                         />
+                        <button
+                            className="preview-crop-btn"
+                            title="Crop"
+                            aria-label="Crop"
+                            disabled={!imageSrc}
+                            onClick={() => {
+                                // intentionally no-op for now
+                            }}
+                        >
+                            <i
+                                className="fa-solid fa-crop"
+                                aria-hidden="true"
+                            ></i>
+                        </button>
                     </div>
                 </main>
             </div>
