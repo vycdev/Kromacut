@@ -19,6 +19,7 @@ function App(): React.ReactElement | null {
     const inputRef = useRef<HTMLInputElement | null>(null);
     const [colorCount, setColorCount] = useState<number>(4);
     const [algorithm, setAlgorithm] = useState<string>("kmeans");
+    const [swatches, setSwatches] = useState<string[]>([]);
 
     // keep refs to avoid listing state in effect deps for cleanup
     const imageRef = useRef<string | null>(null);
@@ -65,6 +66,8 @@ function App(): React.ReactElement | null {
         const url = URL.createObjectURL(file);
         setPast((p) => (imageSrc ? [...p, imageSrc as string] : p));
         setImageSrc(url);
+        // update swatches for the new image
+        setTimeout(() => void updateSwatches(), 0);
         setFuture([]);
     };
 
@@ -107,6 +110,89 @@ function App(): React.ReactElement | null {
     useEffect(() => {
         // mirror previous behavior: notify canvas preview to redraw when image changes
         if (canvasPreviewRef.current) canvasPreviewRef.current.redraw();
+    }, [imageSrc]);
+
+    // compute color swatches (most frequent colors) when image changes
+    const updateSwatches = async () => {
+        setSwatches([]);
+        if (!canvasPreviewRef.current || !imageSrc) return;
+
+        try {
+            // ask preview to redraw so exportImageBlob reads the latest pixels
+            try {
+                canvasPreviewRef.current.redraw?.();
+            } catch {
+                // ignore redraw errors
+            }
+            // wait a frame to let the canvas draw
+            await new Promise((r) => requestAnimationFrame(r));
+
+            const blob = await canvasPreviewRef.current.exportImageBlob();
+            if (!blob) return;
+
+            const img = await new Promise<HTMLImageElement | null>(
+                (resolve) => {
+                    const i = new Image();
+                    i.onload = () => resolve(i);
+                    i.onerror = () => resolve(null);
+                    i.src = URL.createObjectURL(blob);
+                }
+            );
+            if (!img) return;
+
+            // downscale to a small sampling canvas to keep counting fast
+            const max = 200;
+            const w = img.naturalWidth;
+            const h = img.naturalHeight;
+            const scale = Math.min(1, max / Math.max(w, h));
+            const cw = Math.max(1, Math.round(w * scale));
+            const ch = Math.max(1, Math.round(h * scale));
+            const c = document.createElement("canvas");
+            c.width = cw;
+            c.height = ch;
+            const ctx = c.getContext("2d");
+            if (!ctx) return;
+            ctx.drawImage(img, 0, 0, cw, ch);
+
+            try {
+                URL.revokeObjectURL(img.src);
+            } catch (_err) {
+                console.warn("swatches: revoke failed", _err);
+            }
+
+            const data = ctx.getImageData(0, 0, cw, ch).data;
+            const map = new Map<number, number>();
+            for (let i = 0; i < data.length; i += 4) {
+                const key = (data[i] << 16) | (data[i + 1] << 8) | data[i + 2];
+                map.set(key, (map.get(key) || 0) + 1);
+            }
+            const maxSwatches = 64;
+            const arr = Array.from(map.entries())
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, maxSwatches)
+                .map((entry) => {
+                    const key = entry[0];
+                    const r = (key >> 16) & 0xff;
+                    const g = (key >> 8) & 0xff;
+                    const b = key & 0xff;
+                    return (
+                        "#" +
+                        [r, g, b]
+                            .map((v) => v.toString(16).padStart(2, "0"))
+                            .join("")
+                    );
+                });
+            setSwatches(arr);
+        } catch (_err) {
+            console.warn("swatches: compute failed", _err);
+        }
+    };
+
+    useEffect(() => {
+        // recalc when image source changes
+        updateSwatches();
+        // also expose update trigger via ref if needed in future
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [imageSrc]);
 
     // wheel/pan handled in CanvasPreview
@@ -204,10 +290,7 @@ function App(): React.ReactElement | null {
             (layoutRef.current
                 ? Math.floor(layoutRef.current.clientWidth / 2)
                 : 300);
-        document.body.style.cursor = "col-resize";
-        document.body.style.userSelect = "none";
     };
-
     return (
         <div className="uploader-root">
             <div className="app-layout" ref={layoutRef}>
@@ -235,19 +318,18 @@ function App(): React.ReactElement | null {
                                 <input
                                     type="number"
                                     min={2}
-                                    max={256}
                                     value={colorCount}
-                                    onChange={(e) => {
-                                        // coerce to number and clamp to [2,256]
-                                        const v = Number(e.target.value);
-                                        if (Number.isNaN(v)) {
-                                            setColorCount(2);
-                                        } else {
-                                            setColorCount(
-                                                Math.max(2, Math.min(256, v))
-                                            );
-                                        }
-                                    }}
+                                    onChange={(e) =>
+                                        setColorCount(
+                                            Math.max(
+                                                2,
+                                                Math.min(
+                                                    256,
+                                                    Number(e.target.value) || 2
+                                                )
+                                            )
+                                        )
+                                    }
                                 />
                             </label>
                             <label>
@@ -260,7 +342,7 @@ function App(): React.ReactElement | null {
                                 >
                                     <option value="posterize">Posterize</option>
                                     <option value="median-cut">
-                                        Median Cut
+                                        Median-cut
                                     </option>
                                     <option value="kmeans">K-means</option>
                                     <option value="wu">Wu</option>
@@ -347,12 +429,50 @@ function App(): React.ReactElement | null {
                                         const url =
                                             URL.createObjectURL(outBlob);
                                         setImageSrc(url);
+                                        // async update swatches after canvas redraw
+                                        setTimeout(
+                                            () => void updateSwatches(),
+                                            0
+                                        );
                                         setFuture([]);
                                     }}
                                     disabled={!imageSrc || isCropMode}
                                 >
                                     Apply
                                 </button>
+                            </div>
+                        </div>
+                        {/* color swatches: separate controls group */}
+                        <div className="controls-group">
+                            <div
+                                style={{
+                                    fontSize: 13,
+                                    fontWeight: 700,
+                                    marginBottom: 8,
+                                }}
+                            >
+                                Color swatches
+                            </div>
+                            <div className="swatches" aria-live="polite">
+                                {swatches.length === 0 ? (
+                                    <div
+                                        style={{
+                                            color: "rgba(255,255,255,0.6)",
+                                            fontSize: 13,
+                                        }}
+                                    >
+                                        No swatches
+                                    </div>
+                                ) : (
+                                    swatches.map((c) => (
+                                        <div
+                                            key={c}
+                                            className="swatch"
+                                            title={c}
+                                            style={{ background: c }}
+                                        />
+                                    ))
+                                )}
                             </div>
                         </div>
                         {/* placeholder for future controls (color count, layer heights, etc.) */}
@@ -394,6 +514,7 @@ function App(): React.ReactElement | null {
                                         imageSrc ? [...f, imageSrc] : f
                                     );
                                     setImageSrc(prev || null);
+                                    setTimeout(() => void updateSwatches(), 0);
                                 }}
                             >
                                 <i
@@ -414,6 +535,7 @@ function App(): React.ReactElement | null {
                                         imageSrc ? [...p, imageSrc] : p
                                     );
                                     setImageSrc(next || null);
+                                    setTimeout(() => void updateSwatches(), 0);
                                 }}
                             >
                                 <i
@@ -461,6 +583,8 @@ function App(): React.ReactElement | null {
                                             const url =
                                                 URL.createObjectURL(blob);
                                             setImageSrc(url);
+                                            // refresh swatches after crop (allow canvas to redraw)
+                                            setTimeout(() => void updateSwatches(), 0);
                                             // clearing future since this is a new branch
                                             setFuture([]);
                                             setIsCropMode(false);
