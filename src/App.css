@@ -207,7 +207,7 @@
   background: #ffffff;
   color: inherit;
   cursor: pointer;
-  z-index: 10;
+  z-index: 100; /* place above crop overlay */
   display: inline-flex;
   align-items: center;
   justify-content: center;
