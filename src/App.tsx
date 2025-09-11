@@ -546,7 +546,10 @@ function App(): React.ReactElement | null {
                                                                 checkImg.src
                                                             );
                                                         } catch (err) {
-                                                            console.warn("swatches: compute failed", err);
+                                                            console.warn(
+                                                                "swatches: compute failed",
+                                                                err
+                                                            );
                                                             setSwatches([]);
                                                         }
                                                         const imgd =
