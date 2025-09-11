@@ -61,8 +61,13 @@ function App(): React.ReactElement | null {
     const setImageSrcAndInvalidate = (u: string | null) => {
         // bump run id so any running updateSwatches will no-op when they resume
         swatchRunRef.current++;
+        // hide indicator immediately
+        setSwatchesLoading(false);
         setImageSrc(u);
     };
+
+    // loading indicator state for swatch computation (show immediately)
+    const [swatchesLoading, setSwatchesLoading] = useState(false);
 
     // keep refs to avoid listing state in effect deps for cleanup
     const imageRef = useRef<string | null>(null);
@@ -159,11 +164,19 @@ function App(): React.ReactElement | null {
     // distinct colors present in the canonical image data.
 
     const updateSwatches = async () => {
+        // if there's no image, cancel any in-flight scans and ensure nothing shows loading
+        if (!imageSrc) {
+            swatchRunRef.current++;
+            setSwatches([]);
+            setSwatchesLoading(false);
+            return;
+        }
+
         // mark a new run so earlier async runs will no-op when they finish
         const runId = ++swatchRunRef.current;
+        // start fresh and show loading indicator immediately
         setSwatches([]);
-        // counts computed but not stored in state (UI removed)
-        if (!imageSrc) return;
+        setSwatchesLoading(true);
 
         try {
             // Load the current imageSrc directly (it may be a blob: URL)
@@ -235,13 +248,19 @@ function App(): React.ReactElement | null {
                 return b.hsl.l - a.hsl.l;
             });
 
+            // hide indicator for this run
+            if (swatchRunRef.current === runId) setSwatchesLoading(false);
+
             // only apply results if this run is still current
             if (runId === swatchRunRef.current)
                 setSwatches(top.map((t) => t.hex));
         } catch (err) {
             console.warn("swatches: compute failed", err);
             // only clear if still current
-            if (swatchRunRef.current === runId) setSwatches([]);
+            if (swatchRunRef.current === runId) {
+                setSwatches([]);
+                setSwatchesLoading(false);
+            }
         }
     };
 
@@ -691,6 +710,17 @@ function App(): React.ReactElement | null {
                                 <span className="swatch-count" aria-hidden>
                                     ({swatches.length})
                                 </span>
+                                {swatchesLoading ? (
+                                    <span
+                                        style={{
+                                            fontSize: 12,
+                                            color: "#ddd",
+                                            marginLeft: 6,
+                                        }}
+                                    >
+                                        Updating…
+                                    </span>
+                                ) : null}
                                 {/* sampled/exact counts removed per user request */}
                             </div>
                             <div className="swatches" aria-live="polite">
