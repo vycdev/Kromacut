@@ -1,42 +1,65 @@
-#root {
-  max-width: 1280px;
-  margin: 0 auto;
+/* Minimal styles for uploader */
+.uploader-root {
+  max-width: 960px;
+  margin: 2rem auto;
+  padding: 1rem;
+  /* inherit page text color (index.css sets dark/light themes) */
+  color: inherit;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
+}
+
+.uploader-root h1 {
+  margin: 0 0 1rem 0;
+  font-size: 1.25rem;
+}
+
+.dropzone {
+  border: 2px dashed rgba(255,255,255,0.12);
+  border-radius: 8px;
   padding: 2rem;
+  min-height: 220px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  /* subtle translucent panel so the dark page background shows through */
+  background: rgba(255,255,255,0.02);
+}
+.dropzone.dragover {
+  border-color: rgba(255,255,255,0.28);
+  background: rgba(255,255,255,0.03);
+}
+
+.placeholder {
   text-align: center;
 }
 
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: filter 300ms;
-}
-.logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
-}
-.logo.react:hover {
-  filter: drop-shadow(0 0 2em #61dafbaa);
+.placeholder p {
+  margin: 0 0 1rem 0;
 }
 
-@keyframes logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+.preview {
+  max-width: 100%;
+  max-height: 60vh;
+  object-fit: contain;
+  border-radius: 6px;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  a:nth-of-type(2) .logo {
-    animation: logo-spin infinite 20s linear;
-  }
+.controls {
+  margin-top: 1rem;
+  display: flex;
+  gap: 0.5rem;
 }
 
-.card {
-  padding: 2em;
+button {
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: transparent;
+  color: inherit; /* ensure text is visible on dark/light themes */
+  cursor: pointer;
 }
 
-.read-the-docs {
-  color: #888;
+button:hover {
+  filter: brightness(0.98);
 }
