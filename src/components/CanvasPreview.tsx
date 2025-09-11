@@ -91,8 +91,11 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
                 dpr * (offsetRef.current.x + dx),
                 dpr * (offsetRef.current.y + dy)
             );
-            ctx.imageSmoothingEnabled = true;
-            ctx.imageSmoothingQuality = "high";
+            // disable smoothing for preview so we don't introduce blended
+            // colors when the image is scaled; use nearest-neighbor display
+            // to show the exact pixel values after quantization.
+            ctx.imageSmoothingEnabled = false;
+            // imageSmoothingQuality is not relevant when smoothing is disabled
             ctx.drawImage(img, 0, 0, iw, ih);
             // resolve any waiters that are awaiting the next draw
             try {
@@ -437,8 +440,9 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
                 outCanvas.height = outH;
                 const ctx = outCanvas.getContext("2d");
                 if (!ctx) return null;
-                ctx.imageSmoothingEnabled = true;
-                ctx.imageSmoothingQuality = "high";
+                // draw selection without smoothing to avoid interpolation
+                ctx.imageSmoothingEnabled = false;
+                ctx.imageSmoothingQuality = "low";
                 ctx.drawImage(
                     img,
                     sxClamped,
@@ -466,8 +470,10 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
                 outCanvas.height = ih;
                 const ctx = outCanvas.getContext("2d");
                 if (!ctx) return null;
-                ctx.imageSmoothingEnabled = true;
-                ctx.imageSmoothingQuality = "high";
+                // draw without smoothing to ensure exported pixels match
+                // the source image exactly (no interpolation artifacts)
+                ctx.imageSmoothingEnabled = false;
+                ctx.imageSmoothingQuality = "low";
                 ctx.drawImage(img, 0, 0, iw, ih);
                 return await new Promise<Blob | null>((resolve) =>
                     outCanvas.toBlob((b) => resolve(b), "image/png")
@@ -482,7 +488,10 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
                 onMouseDown={startPan}
                 onDragStart={(e) => e.preventDefault()}
             >
-                <canvas ref={canvasRef} />
+                <canvas
+                    ref={canvasRef}
+                    style={{ imageRendering: "pixelated" }}
+                />
                 {/* small HUD showing image size and crop size (when active) */}
                 {imgRef.current ? (
                     <div className="preview-hud" aria-hidden>
