@@ -584,7 +584,10 @@ function App(): React.ReactElement | null {
                                                 URL.createObjectURL(blob);
                                             setImageSrc(url);
                                             // refresh swatches after crop (allow canvas to redraw)
-                                            setTimeout(() => void updateSwatches(), 0);
+                                            setTimeout(
+                                                () => void updateSwatches(),
+                                                0
+                                            );
                                             // clearing future since this is a new branch
                                             setFuture([]);
                                             setIsCropMode(false);
