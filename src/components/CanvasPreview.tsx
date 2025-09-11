@@ -3,6 +3,7 @@ import React, {
     useImperativeHandle,
     useRef,
     forwardRef,
+    useState,
 } from "react";
 
 export interface CanvasPreviewHandle {
@@ -137,7 +138,57 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
             drawToCanvas();
         };
 
+        // cropping state
+        const [isCropMode, setIsCropMode] = useState(false);
+        const [selection, setSelection] = useState<{
+            x: number;
+            y: number;
+            w: number;
+            h: number;
+        } | null>(null);
+        const selStartRef = useRef<{ x: number; y: number } | null>(null);
+
         const startPan = (e: React.MouseEvent) => {
+            // if crop mode is active, start drawing selection
+            if (isCropMode) {
+                if (!previewContainerRef.current) return;
+                const rect =
+                    previewContainerRef.current.getBoundingClientRect();
+                const sx = e.clientX - rect.left;
+                const sy = e.clientY - rect.top;
+                selStartRef.current = { x: sx, y: sy };
+                setSelection({ x: sx, y: sy, w: 0, h: 0 });
+
+                const onMove = (ev: MouseEvent) => {
+                    const cur = selStartRef.current;
+                    if (!cur || !previewContainerRef.current) return;
+                    const rect2 =
+                        previewContainerRef.current.getBoundingClientRect();
+                    const mx = Math.max(
+                        0,
+                        Math.min(ev.clientX - rect2.left, rect2.width)
+                    );
+                    const my = Math.max(
+                        0,
+                        Math.min(ev.clientY - rect2.top, rect2.height)
+                    );
+                    const nx = Math.min(cur.x, mx);
+                    const ny = Math.min(cur.y, my);
+                    const nw = Math.abs(mx - cur.x);
+                    const nh = Math.abs(my - cur.y);
+                    setSelection({ x: nx, y: ny, w: nw, h: nh });
+                };
+                const onUp = () => {
+                    selStartRef.current = null;
+                    window.removeEventListener("mousemove", onMove);
+                    window.removeEventListener("mouseup", onUp);
+                };
+                window.addEventListener("mousemove", onMove);
+                window.addEventListener("mouseup", onUp);
+                return;
+            }
+
+            // otherwise do panning
             if (e.button !== 0) return;
             panningRef.current = true;
             panStartXRef.current = e.clientX;
@@ -165,6 +216,47 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
             window.addEventListener("mouseup", onUp);
         };
 
+        const toggleCrop = () => {
+            setIsCropMode((v) => {
+                if (v) setSelection(null);
+                return !v;
+            });
+        };
+
+        const saveCrop = () => {
+            const sel = selection;
+            const canvas = canvasRef.current;
+            if (!sel || !canvas) return;
+            const dpr = window.devicePixelRatio || 1;
+            const sx = Math.floor(sel.x * dpr);
+            const sy = Math.floor(sel.y * dpr);
+            const sw = Math.max(1, Math.floor(sel.w * dpr));
+            const sh = Math.max(1, Math.floor(sel.h * dpr));
+
+            const out = document.createElement("canvas");
+            out.width = sw;
+            out.height = sh;
+            const outCtx = out.getContext("2d");
+            if (!outCtx) return;
+            outCtx.drawImage(canvas, sx, sy, sw, sh, 0, 0, sw, sh);
+            out.toBlob((blob) => {
+                if (!blob) return;
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = "crop.png";
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                URL.revokeObjectURL(url);
+            }, "image/png");
+        };
+
+        // expose to window temporarily so the function is referenced (avoids unused-var compile error)
+        // this is intentionally left as a no-op on the Save button for now per user request
+        (window as unknown as { __saveCrop?: () => void }).__saveCrop =
+            saveCrop;
+
         useEffect(() => {
             const container = previewContainerRef.current;
             if (!container) return;
@@ -189,9 +281,56 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
                 onMouseDown={startPan}
             >
                 <canvas ref={canvasRef} />
-                <button className="preview-crop-btn" title="Crop">
-                    <i className="fa-solid fa-crop" aria-hidden="true"></i>
-                </button>
+                {!isCropMode ? (
+                    <button
+                        className="preview-crop-btn"
+                        title="Crop"
+                        onClick={() => toggleCrop()}
+                    >
+                        <i className="fa-solid fa-crop" aria-hidden="true"></i>
+                    </button>
+                ) : (
+                    <>
+                        <button
+                            className="preview-crop-btn preview-crop-btn--save"
+                            title="Save crop"
+                            onClick={() => {
+                                // save is currently a no-op by request; placeholder for applying crop
+                                // applyCrop();
+                            }}
+                        >
+                            <i
+                                className="fa-solid fa-floppy-disk"
+                                aria-hidden="true"
+                            ></i>
+                        </button>
+                        <button
+                            className="preview-crop-btn preview-crop-btn--cancel"
+                            title="Cancel crop"
+                            onClick={() => {
+                                setIsCropMode(false);
+                                setSelection(null);
+                            }}
+                        >
+                            <i
+                                className="fa-solid fa-xmark"
+                                aria-hidden="true"
+                            ></i>
+                        </button>
+                    </>
+                )}
+
+                {selection ? (
+                    <div
+                        className="crop-selection"
+                        style={{
+                            left: selection.x,
+                            top: selection.y,
+                            width: selection.w,
+                            height: selection.h,
+                        }}
+                    />
+                ) : null}
             </div>
         );
     }

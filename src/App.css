@@ -207,6 +207,27 @@
 
 .preview-crop-btn i { font-size: 0.95rem; }
 
+.preview-crop-btn--save {
+  background: #646cff;
+  color: white;
+}
+
+.preview-crop-btn--cancel {
+  right: 82px;
+  background: #fff;
+  color: #555;
+  border: 1px solid rgba(0,0,0,0.08);
+}
+
+/* visual rectangle for crop selection */
+.crop-selection {
+  position: absolute;
+  border: 2px dashed rgba(100,108,255,0.9);
+  background: rgba(100,108,255,0.08);
+  pointer-events: none;
+  z-index: 9;
+}
+
 /* debug outline while dragging splitter */
 .preview-container.dragging {
   outline: 2px dashed rgba(255, 255, 255, 0.25);
