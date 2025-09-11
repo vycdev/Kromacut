@@ -20,6 +20,8 @@ function App(): React.ReactElement | null {
     const [weight, setWeight] = useState<number>(4);
     const [algorithm, setAlgorithm] = useState<string>("kmeans");
     const [swatches, setSwatches] = useState<string[]>([]);
+    // sampled/exact counters removed from UI; counts still computed locally
+    // inside updateSwatches but we don't expose them in state now.
     // cap how many swatches we display (independent from weight used for quantizers)
     const SWATCH_CAP = 2 ** 14;
 
@@ -27,9 +29,6 @@ function App(): React.ReactElement | null {
     const imageRef = useRef<string | null>(null);
     const pastRef = useRef<string[]>([]);
     const futureRef = useRef<string[]>([]);
-    // when true, the automatic imageSrc -> updateSwatches effect should skip
-    // one run because Apply already computed exact swatches synchronously.
-    const suppressAutoSwatchesRef = useRef(false);
     useEffect(() => {
         imageRef.current = imageSrc;
     }, [imageSrc]);
@@ -125,149 +124,61 @@ function App(): React.ReactElement | null {
         if (canvasPreviewRef.current) canvasPreviewRef.current.redraw();
     }, [imageSrc]);
 
-    // compute color swatches (most frequent colors) when image changes
-    // helper: compute swatches directly from a canvas (synchronous)
-    const computeSwatchesFromCanvas = (
-        canvas: HTMLCanvasElement
-    ): string[] => {
-        const ctx = canvas.getContext("2d", { willReadFrequently: true });
-        if (!ctx) return [];
-        const w = canvas.width;
-        const h = canvas.height;
-        const data = ctx.getImageData(0, 0, w, h).data;
-        const map = new Map<number, number>();
-        for (let i = 0; i < data.length; i += 4) {
-            const key = (data[i] << 16) | (data[i + 1] << 8) | data[i + 2];
-            map.set(key, (map.get(key) || 0) + 1);
-        }
-        // helper: convert rgb to hsl for sorting
-        const rgbToHsl = (r: number, g: number, b: number) => {
-            r /= 255;
-            g /= 255;
-            b /= 255;
-            const max = Math.max(r, g, b);
-            const min = Math.min(r, g, b);
-            let h = 0;
-            let s = 0;
-            const l = (max + min) / 2;
-            if (max !== min) {
-                const d = max - min;
-                s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-                switch (max) {
-                    case r:
-                        h = (g - b) / d + (g < b ? 6 : 0);
-                        break;
-                    case g:
-                        h = (b - r) / d + 2;
-                        break;
-                    case b:
-                        h = (r - g) / d + 4;
-                        break;
-                }
-                h = h * 60;
-            }
-            return { h, s, l };
-        };
-
-        // pick top frequent colors then sort them by hue/saturation/lightness
-    const top = Array.from(map.entries()).sort((a, b) => b[1] - a[1])
-            .map((entry) => {
-                const key = entry[0];
-                const r = (key >> 16) & 0xff;
-                const g = (key >> 8) & 0xff;
-                const b = key & 0xff;
-                const hex =
-                    "#" +
-                    [r, g, b]
-                        .map((v) => v.toString(16).padStart(2, "0"))
-                        .join("");
-                const hsl = rgbToHsl(r, g, b);
-                return { hex, freq: entry[1], hsl };
-            });
-
-        top.sort((a, b) => {
-            if (a.hsl.h !== b.hsl.h) return a.hsl.h - b.hsl.h;
-            if (a.hsl.s !== b.hsl.s) return b.hsl.s - a.hsl.s; // higher saturation first
-            return b.hsl.l - a.hsl.l; // brighter first
-        });
-
-    // return the full ordered list of hex colors (caller may slice for display)
-    return top.map((t) => t.hex);
-    };
+    // NOTE: computeSwatchesFromCanvas removed. Swatches are computed from
+    // imageSrc via updateSwatches so they always represent the exact set of
+    // distinct colors present in the canonical image data.
 
     const updateSwatches = async () => {
         setSwatches([]);
-        if (!canvasPreviewRef.current || !imageSrc) return;
+        // counts computed but not stored in state (UI removed)
+        if (!imageSrc) return;
 
         try {
-            // ask preview to redraw so exportImageBlob reads the latest pixels
-            try {
-                canvasPreviewRef.current.redraw?.();
-            } catch {
-                // ignore redraw errors
-            }
-            // wait a frame to let the canvas draw
-            await new Promise((r) => requestAnimationFrame(r));
-
-            const blob = await canvasPreviewRef.current.exportImageBlob();
-            if (!blob) return;
-
-            const img = await new Promise<HTMLImageElement | null>(
-                (resolve) => {
+            // Load the current imageSrc directly (it may be a blob: URL)
+            const img = await new Promise<HTMLImageElement>(
+                (resolve, reject) => {
                     const i = new Image();
                     i.onload = () => resolve(i);
-                    i.onerror = () => resolve(null);
-                    i.src = URL.createObjectURL(blob);
+                    i.onerror = () => reject(new Error("image load failed"));
+                    i.src = imageSrc;
                 }
             );
-            if (!img) return;
 
-            // Prefer computing swatches from the full-size image so we capture
-            // the exact colors. For very large images we downscale but disable
-            // image smoothing (nearest-neighbor) to avoid introducing blended
-            // colors that weren't in the original.
             const w = img.naturalWidth;
             const h = img.naturalHeight;
-            const MAX_EXACT = 1200; // max dimension to sample at full resolution
-            let cw = w;
-            let ch = h;
-            if (Math.max(w, h) > MAX_EXACT) {
-                const scale = MAX_EXACT / Math.max(w, h);
-                cw = Math.max(1, Math.round(w * scale));
-                ch = Math.max(1, Math.round(h * scale));
-            }
-            const c = document.createElement("canvas");
-            c.width = cw;
-            c.height = ch;
-            const ctx = c.getContext("2d", { willReadFrequently: true });
-            if (!ctx) return;
-            // turn off smoothing so downscaling uses nearest-neighbor and does
-            // not create intermediate blended colors.
-            // disable smoothing via guarded assignments to avoid typing/lint issues
-            type SmoothingCtx = CanvasRenderingContext2D & {
-                imageSmoothingEnabled?: boolean;
-                imageSmoothingQuality?: "low" | "medium" | "high";
-            };
-            const sctx = ctx as SmoothingCtx;
-            if (typeof sctx.imageSmoothingEnabled !== "undefined")
-                sctx.imageSmoothingEnabled = false;
-            if (typeof sctx.imageSmoothingQuality !== "undefined")
-                sctx.imageSmoothingQuality = "low";
-            ctx.drawImage(img, 0, 0, cw, ch);
 
-            try {
-                URL.revokeObjectURL(img.src);
-            } catch (_err) {
-                console.warn("swatches: revoke failed", _err);
-            }
-
-            const data = ctx.getImageData(0, 0, cw, ch).data;
+            // Tiled scan to avoid creating huge canvases for very large images.
+            // tileSize chosen for reasonable memory and perf on main thread.
+            const TILE = 1024;
             const map = new Map<number, number>();
-            for (let i = 0; i < data.length; i += 4) {
-                const key = (data[i] << 16) | (data[i + 1] << 8) | data[i + 2];
-                map.set(key, (map.get(key) || 0) + 1);
+
+            const tile = document.createElement("canvas");
+            const tctx = tile.getContext("2d", { willReadFrequently: true });
+            if (!tctx) return;
+
+            for (let y = 0; y < h; y += TILE) {
+                for (let x = 0; x < w; x += TILE) {
+                    const sw = Math.min(TILE, w - x);
+                    const sh = Math.min(TILE, h - y);
+                    tile.width = sw;
+                    tile.height = sh;
+                    // draw the region of the source image into the tile canvas
+                    tctx.clearRect(0, 0, sw, sh);
+                    tctx.drawImage(img, x, y, sw, sh, 0, 0, sw, sh);
+                    const data = tctx.getImageData(0, 0, sw, sh).data;
+                    for (let i = 0; i < data.length; i += 4) {
+                        const key =
+                            (data[i] << 16) | (data[i + 1] << 8) | data[i + 2];
+                        map.set(key, (map.get(key) || 0) + 1);
+                    }
+                }
+                // yield to the event loop between rows to keep UI responsive
+                await new Promise((r) => setTimeout(r, 0));
             }
-            // pick top frequent colors then sort by hue/saturation/lightness for display
+
+            // counts are intentionally not stored in React state (UI removed)
+
+            // build sorted swatch list same as before
             const rgbToHsl = (r: number, g: number, b: number) => {
                 r /= 255;
                 g /= 255;
@@ -319,19 +230,19 @@ function App(): React.ReactElement | null {
             });
 
             setSwatches(top.map((t) => t.hex));
-        } catch (_err) {
-            console.warn("swatches: compute failed", _err);
+        } catch (err) {
+            console.warn("swatches: compute failed", err);
+            setSwatches([]);
         }
     };
 
     useEffect(() => {
         // recalc when image source changes
-        if (suppressAutoSwatchesRef.current) {
-            // Clear the flag and skip the automatic sampled swatch refresh
-            suppressAutoSwatchesRef.current = false;
-            return;
-        }
-        updateSwatches();
+        // always compute swatches from the current imageSrc so the UI
+        // reflects the true distinct colors in the image (not the
+        // current quantizer settings). updateSwatches will perform a
+        // tiled, full-resolution scan for exact color counts.
+        void updateSwatches();
         // also expose update trigger via ref if needed in future
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [imageSrc]);
@@ -534,11 +445,21 @@ function App(): React.ReactElement | null {
                                             h
                                         );
                                         // diagnostic helper: count unique colors in ImageData
-                                        const countUnique = (imgd: ImageData) => {
+                                        const countUnique = (
+                                            imgd: ImageData
+                                        ) => {
                                             const dd = imgd.data;
                                             const s = new Set<number>();
-                                            for (let i = 0; i < dd.length; i += 4)
-                                                s.add((dd[i] << 16) | (dd[i + 1] << 8) | dd[i + 2]);
+                                            for (
+                                                let i = 0;
+                                                i < dd.length;
+                                                i += 4
+                                            )
+                                                s.add(
+                                                    (dd[i] << 16) |
+                                                        (dd[i + 1] << 8) |
+                                                        dd[i + 2]
+                                                );
                                             return s.size;
                                         };
 
@@ -556,8 +477,14 @@ function App(): React.ReactElement | null {
                                         }
                                         // post-processing enforced inside each algorithm
                                         // log counts before/after for debugging
-                                        console.log("unique before:", countUnique(data));
-                                        console.log("unique after:", countUnique(data));
+                                        console.log(
+                                            "unique before:",
+                                            countUnique(data)
+                                        );
+                                        console.log(
+                                            "unique after:",
+                                            countUnique(data)
+                                        );
                                         ctx.putImageData(data, 0, 0);
                                         // compute swatches directly from the quantized canvas so
                                         // the UI updates immediately and doesn't depend on the
@@ -565,29 +492,11 @@ function App(): React.ReactElement | null {
                                         // these exact swatches we will skip the async sampled
                                         // preview-based update which can reintroduce blended
                                         // colors when downsampling.
-                                        let immediateSwatchesComputed = false;
-                                        try {
-                                            const immediate =
-                                                computeSwatchesFromCanvas(c);
-                                            if (
-                                                immediate &&
-                                                immediate.length > 0
-                                            ) {
-                                                // keep full ordered swatch list; UI will cap display
-                                                setSwatches(immediate);
-                                                immediateSwatchesComputed =
-                                                    true;
-                                                // prevent the imageSrc effect from running the async sampled update
-                                                suppressAutoSwatchesRef.current =
-                                                    true;
-                                            }
-                                        } catch (err) {
-                                            // fall back to the async preview-based update if something fails
-                                            console.warn(
-                                                "compute swatches from canvas failed",
-                                                err
-                                            );
-                                        }
+                                        // remove immediate swatch computation here so the
+                                        // swatches always reflect the canonical imageSrc
+                                        // computed by updateSwatches(). If we need an
+                                        // immediate preview later we can add a separate
+                                        // UI affordance.
                                         const outBlob =
                                             await new Promise<Blob | null>(
                                                 (res) =>
@@ -600,34 +509,67 @@ function App(): React.ReactElement | null {
                                         // detect whether serialization changed pixels
                                         try {
                                             if (outBlob) {
-                                                const checkImg = await new Promise<HTMLImageElement | null>(
-                                                    (resolve) => {
-                                                        const i = new Image();
-                                                        i.onload = () => resolve(i);
-                                                        i.onerror = () => resolve(null);
-                                                        i.src = URL.createObjectURL(outBlob);
-                                                    }
-                                                );
-                                                if (checkImg) {
-                                                    const vc = document.createElement("canvas");
-                                                    vc.width = checkImg.naturalWidth;
-                                                    vc.height = checkImg.naturalHeight;
-                                                    const vctx = vc.getContext("2d");
-                                                    if (vctx) {
-                                                        vctx.drawImage(checkImg, 0, 0);
-                                                        try {
-                                                            URL.revokeObjectURL(checkImg.src);
-                                                        } catch (e) {
-                                                            console.warn("revoking checkImg URL failed", e);
+                                                const checkImg =
+                                                    await new Promise<HTMLImageElement | null>(
+                                                        (resolve) => {
+                                                            const i =
+                                                                new Image();
+                                                            i.onload = () =>
+                                                                resolve(i);
+                                                            i.onerror = () =>
+                                                                resolve(null);
+                                                            i.src =
+                                                                URL.createObjectURL(
+                                                                    outBlob
+                                                                );
                                                         }
-                                                        const imgd = vctx.getImageData(0, 0, vc.width, vc.height);
-                                                        const afterBlobCount = countUnique(imgd);
-                                                        console.log("unique after blob:", afterBlobCount);
+                                                    );
+                                                if (checkImg) {
+                                                    const vc =
+                                                        document.createElement(
+                                                            "canvas"
+                                                        );
+                                                    vc.width =
+                                                        checkImg.naturalWidth;
+                                                    vc.height =
+                                                        checkImg.naturalHeight;
+                                                    const vctx =
+                                                        vc.getContext("2d");
+                                                    if (vctx) {
+                                                        vctx.drawImage(
+                                                            checkImg,
+                                                            0,
+                                                            0
+                                                        );
+                                                        try {
+                                                            URL.revokeObjectURL(
+                                                                checkImg.src
+                                                            );
+                                                        } catch (err) {
+                                                            console.warn("swatches: compute failed", err);
+                                                            setSwatches([]);
+                                                        }
+                                                        const imgd =
+                                                            vctx.getImageData(
+                                                                0,
+                                                                0,
+                                                                vc.width,
+                                                                vc.height
+                                                            );
+                                                        const afterBlobCount =
+                                                            countUnique(imgd);
+                                                        console.log(
+                                                            "unique after blob:",
+                                                            afterBlobCount
+                                                        );
                                                     }
                                                 }
                                             }
                                         } catch (err) {
-                                            console.warn("post-blob check failed", err);
+                                            console.warn(
+                                                "post-blob check failed",
+                                                err
+                                            );
                                         }
                                         if (!outBlob) return;
 
@@ -647,10 +589,8 @@ function App(): React.ReactElement | null {
                                                 requestAnimationFrame(r)
                                             );
                                         }
-                                        // only run the async sampled preview-based update if we
-                                        // couldn't compute exact swatches from the quantized canvas
-                                        if (!immediateSwatchesComputed)
-                                            void updateSwatches();
+                                        // refresh swatches from the canonical imageSrc
+                                        void updateSwatches();
                                         setFuture([]);
                                     }}
                                     disabled={!imageSrc || isCropMode}
@@ -675,6 +615,7 @@ function App(): React.ReactElement | null {
                                 <span className="swatch-count" aria-hidden>
                                     ({swatches.length})
                                 </span>
+                                {/* sampled/exact counts removed per user request */}
                             </div>
                             <div className="swatches" aria-live="polite">
                                 {swatches.length === 0 ? (
@@ -687,14 +628,16 @@ function App(): React.ReactElement | null {
                                         No swatches
                                     </div>
                                 ) : (
-                                    swatches.slice(0, SWATCH_CAP).map((c) => (
-                                        <div
-                                            key={c}
-                                            className="swatch"
-                                            title={c}
-                                            style={{ background: c }}
-                                        />
-                                    ))
+                                    swatches
+                                        .slice(0, SWATCH_CAP)
+                                        .map((c) => (
+                                            <div
+                                                key={c}
+                                                className="swatch"
+                                                title={c}
+                                                style={{ background: c }}
+                                            />
+                                        ))
                                 )}
                             </div>
                         </div>

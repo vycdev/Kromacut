@@ -13,13 +13,13 @@ export function posterizeImageData(data: ImageData, weight: number): ImageData {
         const levels = weight;
         const steps = Math.max(0, levels - 1);
         const scale = steps > 0 ? 255 / steps : 0;
-    for (let i = 0; i < d.length; i += 4) {
+        for (let i = 0; i < d.length; i += 4) {
             const l = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
             const idx = steps > 0 ? Math.round((l * steps) / 255) : 0;
             const v = Math.round(idx * scale);
             d[i] = d[i + 1] = d[i + 2] = v;
         }
-    return enforcePaletteSize(data, weight);
+        return enforcePaletteSize(data, weight);
     }
 
     // For larger palettes, distribute levels across R/G/B trying to get
