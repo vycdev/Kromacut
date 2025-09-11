@@ -27,6 +27,9 @@ function App(): React.ReactElement | null {
     const imageRef = useRef<string | null>(null);
     const pastRef = useRef<string[]>([]);
     const futureRef = useRef<string[]>([]);
+    // when true, the automatic imageSrc -> updateSwatches effect should skip
+    // one run because Apply already computed exact swatches synchronously.
+    const suppressAutoSwatchesRef = useRef(false);
     useEffect(() => {
         imageRef.current = imageSrc;
     }, [imageSrc]);
@@ -125,8 +128,7 @@ function App(): React.ReactElement | null {
     // compute color swatches (most frequent colors) when image changes
     // helper: compute swatches directly from a canvas (synchronous)
     const computeSwatchesFromCanvas = (
-        canvas: HTMLCanvasElement,
-        maxSwatches = SWATCH_CAP
+        canvas: HTMLCanvasElement
     ): string[] => {
         const ctx = canvas.getContext("2d", { willReadFrequently: true });
         if (!ctx) return [];
@@ -168,9 +170,7 @@ function App(): React.ReactElement | null {
         };
 
         // pick top frequent colors then sort them by hue/saturation/lightness
-        const top = Array.from(map.entries())
-            .sort((a, b) => b[1] - a[1])
-            .slice(0, Math.min(map.size, maxSwatches))
+    const top = Array.from(map.entries()).sort((a, b) => b[1] - a[1])
             .map((entry) => {
                 const key = entry[0];
                 const r = (key >> 16) & 0xff;
@@ -191,7 +191,8 @@ function App(): React.ReactElement | null {
             return b.hsl.l - a.hsl.l; // brighter first
         });
 
-        return top.map((t) => t.hex);
+    // return the full ordered list of hex colors (caller may slice for display)
+    return top.map((t) => t.hex);
     };
 
     const updateSwatches = async () => {
@@ -221,18 +222,37 @@ function App(): React.ReactElement | null {
             );
             if (!img) return;
 
-            // downscale to a small sampling canvas to keep counting fast
-            const max = 200;
+            // Prefer computing swatches from the full-size image so we capture
+            // the exact colors. For very large images we downscale but disable
+            // image smoothing (nearest-neighbor) to avoid introducing blended
+            // colors that weren't in the original.
             const w = img.naturalWidth;
             const h = img.naturalHeight;
-            const scale = Math.min(1, max / Math.max(w, h));
-            const cw = Math.max(1, Math.round(w * scale));
-            const ch = Math.max(1, Math.round(h * scale));
+            const MAX_EXACT = 1200; // max dimension to sample at full resolution
+            let cw = w;
+            let ch = h;
+            if (Math.max(w, h) > MAX_EXACT) {
+                const scale = MAX_EXACT / Math.max(w, h);
+                cw = Math.max(1, Math.round(w * scale));
+                ch = Math.max(1, Math.round(h * scale));
+            }
             const c = document.createElement("canvas");
             c.width = cw;
             c.height = ch;
-            const ctx = c.getContext("2d");
+            const ctx = c.getContext("2d", { willReadFrequently: true });
             if (!ctx) return;
+            // turn off smoothing so downscaling uses nearest-neighbor and does
+            // not create intermediate blended colors.
+            // disable smoothing via guarded assignments to avoid typing/lint issues
+            type SmoothingCtx = CanvasRenderingContext2D & {
+                imageSmoothingEnabled?: boolean;
+                imageSmoothingQuality?: "low" | "medium" | "high";
+            };
+            const sctx = ctx as SmoothingCtx;
+            if (typeof sctx.imageSmoothingEnabled !== "undefined")
+                sctx.imageSmoothingEnabled = false;
+            if (typeof sctx.imageSmoothingQuality !== "undefined")
+                sctx.imageSmoothingQuality = "low";
             ctx.drawImage(img, 0, 0, cw, ch);
 
             try {
@@ -306,6 +326,11 @@ function App(): React.ReactElement | null {
 
     useEffect(() => {
         // recalc when image source changes
+        if (suppressAutoSwatchesRef.current) {
+            // Clear the flag and skip the automatic sampled swatch refresh
+            suppressAutoSwatchesRef.current = false;
+            return;
+        }
         updateSwatches();
         // also expose update trigger via ref if needed in future
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -430,7 +455,7 @@ function App(): React.ReactElement | null {
                         </div>
                         <div className="controls-group">
                             <label>
-                                Weight
+                                Color
                                 <input
                                     type="number"
                                     min={2}
@@ -508,6 +533,15 @@ function App(): React.ReactElement | null {
                                             w,
                                             h
                                         );
+                                        // diagnostic helper: count unique colors in ImageData
+                                        const countUnique = (imgd: ImageData) => {
+                                            const dd = imgd.data;
+                                            const s = new Set<number>();
+                                            for (let i = 0; i < dd.length; i += 4)
+                                                s.add((dd[i] << 16) | (dd[i + 1] << 8) | dd[i + 2]);
+                                            return s.size;
+                                        };
+
                                         // call selected algorithm (mutates ImageData)
                                         if (algorithm === "median-cut") {
                                             medianCutImageData(data, weight);
@@ -520,23 +554,33 @@ function App(): React.ReactElement | null {
                                         } else {
                                             posterizeImageData(data, weight);
                                         }
+                                        // post-processing enforced inside each algorithm
+                                        // log counts before/after for debugging
+                                        console.log("unique before:", countUnique(data));
+                                        console.log("unique after:", countUnique(data));
                                         ctx.putImageData(data, 0, 0);
                                         // compute swatches directly from the quantized canvas so
                                         // the UI updates immediately and doesn't depend on the
-                                        // preview redraw timing
+                                        // preview redraw timing. If we successfully computed
+                                        // these exact swatches we will skip the async sampled
+                                        // preview-based update which can reintroduce blended
+                                        // colors when downsampling.
+                                        let immediateSwatchesComputed = false;
                                         try {
                                             const immediate =
                                                 computeSwatchesFromCanvas(c);
                                             if (
                                                 immediate &&
                                                 immediate.length > 0
-                                            )
-                                                setSwatches(
-                                                    immediate.slice(
-                                                        0,
-                                                        SWATCH_CAP
-                                                    )
-                                                );
+                                            ) {
+                                                // keep full ordered swatch list; UI will cap display
+                                                setSwatches(immediate);
+                                                immediateSwatchesComputed =
+                                                    true;
+                                                // prevent the imageSrc effect from running the async sampled update
+                                                suppressAutoSwatchesRef.current =
+                                                    true;
+                                            }
                                         } catch (err) {
                                             // fall back to the async preview-based update if something fails
                                             console.warn(
@@ -552,6 +596,39 @@ function App(): React.ReactElement | null {
                                                         "image/png"
                                                     )
                                             );
+                                        // Load blob back into an image and count unique colors to
+                                        // detect whether serialization changed pixels
+                                        try {
+                                            if (outBlob) {
+                                                const checkImg = await new Promise<HTMLImageElement | null>(
+                                                    (resolve) => {
+                                                        const i = new Image();
+                                                        i.onload = () => resolve(i);
+                                                        i.onerror = () => resolve(null);
+                                                        i.src = URL.createObjectURL(outBlob);
+                                                    }
+                                                );
+                                                if (checkImg) {
+                                                    const vc = document.createElement("canvas");
+                                                    vc.width = checkImg.naturalWidth;
+                                                    vc.height = checkImg.naturalHeight;
+                                                    const vctx = vc.getContext("2d");
+                                                    if (vctx) {
+                                                        vctx.drawImage(checkImg, 0, 0);
+                                                        try {
+                                                            URL.revokeObjectURL(checkImg.src);
+                                                        } catch (e) {
+                                                            console.warn("revoking checkImg URL failed", e);
+                                                        }
+                                                        const imgd = vctx.getImageData(0, 0, vc.width, vc.height);
+                                                        const afterBlobCount = countUnique(imgd);
+                                                        console.log("unique after blob:", afterBlobCount);
+                                                    }
+                                                }
+                                            }
+                                        } catch (err) {
+                                            console.warn("post-blob check failed", err);
+                                        }
                                         if (!outBlob) return;
 
                                         // push current image into history
@@ -570,7 +647,10 @@ function App(): React.ReactElement | null {
                                                 requestAnimationFrame(r)
                                             );
                                         }
-                                        void updateSwatches();
+                                        // only run the async sampled preview-based update if we
+                                        // couldn't compute exact swatches from the quantized canvas
+                                        if (!immediateSwatchesComputed)
+                                            void updateSwatches();
                                         setFuture([]);
                                     }}
                                     disabled={!imageSrc || isCropMode}
@@ -607,7 +687,7 @@ function App(): React.ReactElement | null {
                                         No swatches
                                     </div>
                                 ) : (
-                                    swatches.map((c) => (
+                                    swatches.slice(0, SWATCH_CAP).map((c) => (
                                         <div
                                             key={c}
                                             className="swatch"

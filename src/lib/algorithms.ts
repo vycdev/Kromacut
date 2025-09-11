@@ -13,13 +13,13 @@ export function posterizeImageData(data: ImageData, weight: number): ImageData {
         const levels = weight;
         const steps = Math.max(0, levels - 1);
         const scale = steps > 0 ? 255 / steps : 0;
-        for (let i = 0; i < d.length; i += 4) {
+    for (let i = 0; i < d.length; i += 4) {
             const l = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
             const idx = steps > 0 ? Math.round((l * steps) / 255) : 0;
             const v = Math.round(idx * scale);
             d[i] = d[i + 1] = d[i + 2] = v;
         }
-        return data;
+    return enforcePaletteSize(data, weight);
     }
 
     // For larger palettes, distribute levels across R/G/B trying to get
@@ -63,7 +63,7 @@ export function posterizeImageData(data: ImageData, weight: number): ImageData {
         // leave alpha untouched
     }
 
-    return data;
+    return enforcePaletteSize(data, weight);
 }
 
 /**
@@ -98,8 +98,9 @@ export function medianCutImageData(data: ImageData, weight: number): ImageData {
     });
 
     if (entries.length <= weight) {
-        // Already fewer unique colors than requested; nothing to do.
-        return data;
+        // Already fewer unique colors than requested; still run post-pass to
+        // ensure any downstream expectations are consistent (no-op in practice).
+        return enforcePaletteSize(data, weight);
     }
 
     type Box = {
@@ -227,7 +228,7 @@ export function medianCutImageData(data: ImageData, weight: number): ImageData {
         }
     }
 
-    return data;
+    return enforcePaletteSize(data, weight);
 }
 
 // (default export consolidated at end)
@@ -263,7 +264,7 @@ export function kmeansImageData(data: ImageData, weight: number): ImageData {
         });
     });
 
-    if (entries.length <= weight) return data;
+    if (entries.length <= weight) return enforcePaletteSize(data, weight);
 
     // helper: squared distance
     const dist2 = (
@@ -397,7 +398,7 @@ export function kmeansImageData(data: ImageData, weight: number): ImageData {
         }
     }
 
-    return data;
+    return enforcePaletteSize(data, weight);
 }
 
 /**
@@ -432,7 +433,7 @@ export function octreeImageData(data: ImageData, weight: number): ImageData {
         })
     );
 
-    if (entries.length <= weight) return data;
+    if (entries.length <= weight) return enforcePaletteSize(data, weight);
 
     const MAX_DEPTH = 8;
 
@@ -582,7 +583,7 @@ export function octreeImageData(data: ImageData, weight: number): ImageData {
         }
     }
 
-    return data;
+    return enforcePaletteSize(data, weight);
 }
 
 export default {
@@ -626,7 +627,7 @@ export function wuImageData(data: ImageData, weight: number): ImageData {
         });
     });
 
-    if (entries.length <= weight) return data;
+    if (entries.length <= weight) return enforcePaletteSize(data, weight);
 
     // Wu uses a 33x33x33 cube (indices 0..32) where colors are quantized by >> 3
     const SIDE = 33;
@@ -1066,6 +1067,256 @@ export function wuImageData(data: ImageData, weight: number): ImageData {
             d[i] = v[0];
             d[i + 1] = v[1];
             d[i + 2] = v[2];
+        }
+    }
+
+    return enforcePaletteSize(data, weight);
+}
+
+/**
+ * Post-pass: merge nearest palette colors until the palette length is `target`.
+ * Operates in-place on the provided ImageData and returns it.
+ */
+export function enforcePaletteSize(data: ImageData, target: number): ImageData {
+    target = Math.max(2, Math.min(256, Math.floor(target)));
+    const d = data.data;
+
+    // build histogram of unique colors
+    const map = new Map<number, number>();
+    for (let i = 0; i < d.length; i += 4) {
+        const key = (d[i] << 16) | (d[i + 1] << 8) | d[i + 2];
+        map.set(key, (map.get(key) || 0) + 1);
+    }
+
+    const entries: {
+        key: number;
+        r: number;
+        g: number;
+        b: number;
+        count: number;
+    }[] = [];
+    map.forEach((count, key) => {
+        entries.push({
+            key,
+            r: (key >> 16) & 0xff,
+            g: (key >> 8) & 0xff,
+            b: key & 0xff,
+            count,
+        });
+    });
+
+    if (entries.length <= target) return data;
+
+    // merge nearest pairs until length == target (naive O(n^2) approach)
+    const dist2 = (
+        a: { r: number; g: number; b: number },
+        b: { r: number; g: number; b: number }
+    ) => {
+        const dr = a.r - b.r;
+        const dg = a.g - b.g;
+        const db = a.b - b.b;
+        return dr * dr + dg * dg + db * db;
+    };
+
+    // We'll operate on a mutable array of palette entries
+    const palette = entries.slice();
+
+    while (palette.length > target) {
+        let bestI = 0,
+            bestJ = 1;
+        let bestDist = Infinity;
+        for (let i = 0; i < palette.length; i++) {
+            for (let j = i + 1; j < palette.length; j++) {
+                const d2 = dist2(palette[i], palette[j]);
+                if (d2 < bestDist) {
+                    bestDist = d2;
+                    bestI = i;
+                    bestJ = j;
+                }
+            }
+        }
+        // merge bestI and bestJ into weighted average
+        const a = palette[bestI];
+        const b = palette[bestJ];
+        const wSum = a.count + b.count;
+        const nr = Math.round((a.r * a.count + b.r * b.count) / wSum);
+        const ng = Math.round((a.g * a.count + b.g * b.count) / wSum);
+        const nb = Math.round((a.b * a.count + b.b * b.count) / wSum);
+        const merged = {
+            key: (nr << 16) | (ng << 8) | nb,
+            r: nr,
+            g: ng,
+            b: nb,
+            count: wSum,
+        };
+        // replace the earlier index with merged and remove the other
+        if (bestI < bestJ) {
+            palette.splice(bestJ, 1);
+            palette.splice(bestI, 1, merged);
+        } else {
+            palette.splice(bestI, 1);
+            palette.splice(bestJ, 1, merged);
+        }
+    }
+
+    // Build mapping from original color -> nearest palette color (after merges)
+    const paletteColors = palette.map((p) => ({ r: p.r, g: p.g, b: p.b }));
+    const lookup = new Map<number, [number, number, number]>();
+    const paletteDist = (r: number, g: number, b: number, idx: number) => {
+        const p = paletteColors[idx];
+        const dr = r - p.r;
+        const dg = g - p.g;
+        const db = b - p.b;
+        return dr * dr + dg * dg + db * db;
+    };
+    // for each unique original color, find nearest merged palette color
+    for (const e of entries) {
+        let best = 0;
+        let bestD = Infinity;
+        for (let i = 0; i < paletteColors.length; i++) {
+            const d2 = paletteDist(e.r, e.g, e.b, i);
+            if (d2 < bestD) {
+                bestD = d2;
+                best = i;
+            }
+        }
+        const p = paletteColors[best];
+        lookup.set(e.key, [p.r, p.g, p.b]);
+    }
+
+    // remap pixels in-place using lookup
+    for (let i = 0; i < d.length; i += 4) {
+        const key = (d[i] << 16) | (d[i + 1] << 8) | d[i + 2];
+        const v = lookup.get(key);
+        if (v) {
+            d[i] = v[0];
+            d[i + 1] = v[1];
+            d[i + 2] = v[2];
+        }
+    }
+
+    // quick diagnostic: count unique colors after remap
+    const afterSet = new Set<number>();
+    for (let i = 0; i < d.length; i += 4) {
+        afterSet.add((d[i] << 16) | (d[i + 1] << 8) | d[i + 2]);
+    }
+    // if reduction didn't reach target for any reason, run a fallback k-means on unique colors
+    if (afterSet.size > target) {
+        // build entries array (reuse variable name) from current pixels
+        const uniq = new Map<number, number>();
+        for (let i = 0; i < d.length; i += 4) {
+            const k = (d[i] << 16) | (d[i + 1] << 8) | d[i + 2];
+            uniq.set(k, (uniq.get(k) || 0) + 1);
+        }
+        const uEntries: {
+            key: number;
+            r: number;
+            g: number;
+            b: number;
+            count: number;
+        }[] = [];
+        uniq.forEach((count, key) => {
+            uEntries.push({
+                key,
+                r: (key >> 16) & 0xff,
+                g: (key >> 8) & 0xff,
+                b: key & 0xff,
+                count,
+            });
+        });
+
+        // simple k-means on unique colors (weighted) to get exactly `target` centroids
+        const dist2 = (
+            a: { r: number; g: number; b: number },
+            b: { r: number; g: number; b: number }
+        ) => {
+            const dr = a.r - b.r;
+            const dg = a.g - b.g;
+            const db = a.b - b.b;
+            return dr * dr + dg * dg + db * db;
+        };
+
+        // init centroids by picking the most frequent `target` unique colors (or random)
+        uEntries.sort((a, b) => b.count - a.count);
+        const centroids = uEntries
+            .slice(0, Math.min(target, uEntries.length))
+            .map((e) => ({ r: e.r, g: e.g, b: e.b }));
+        while (centroids.length < target)
+            centroids.push({
+                r: uEntries[0].r,
+                g: uEntries[0].g,
+                b: uEntries[0].b,
+            });
+
+        const assignments = new Array(uEntries.length).fill(-1);
+        const maxIter = 12;
+        for (let iter = 0; iter < maxIter; iter++) {
+            let changed = false;
+            // assign
+            for (let i = 0; i < uEntries.length; i++) {
+                let best = -1;
+                let bestD = Infinity;
+                for (let c = 0; c < centroids.length; c++) {
+                    const d2 = dist2(uEntries[i], centroids[c]);
+                    if (d2 < bestD) {
+                        bestD = d2;
+                        best = c;
+                    }
+                }
+                if (assignments[i] !== best) {
+                    assignments[i] = best;
+                    changed = true;
+                }
+            }
+            // recompute centroids
+            const sums: { r: number; g: number; b: number; w: number }[] =
+                centroids.map(() => ({ r: 0, g: 0, b: 0, w: 0 }));
+            for (let i = 0; i < uEntries.length; i++) {
+                const a = assignments[i];
+                const e = uEntries[i];
+                sums[a].r += e.r * e.count;
+                sums[a].g += e.g * e.count;
+                sums[a].b += e.b * e.count;
+                sums[a].w += e.count;
+            }
+            for (let c = 0; c < centroids.length; c++) {
+                if (sums[c].w > 0) {
+                    centroids[c] = {
+                        r: Math.round(sums[c].r / sums[c].w),
+                        g: Math.round(sums[c].g / sums[c].w),
+                        b: Math.round(sums[c].b / sums[c].w),
+                    };
+                }
+            }
+            if (!changed) break;
+        }
+
+        // build centroid lookup
+        const finalLookup = new Map<number, [number, number, number]>();
+        for (let i = 0; i < uEntries.length; i++) {
+            const e = uEntries[i];
+            let best = 0;
+            let bestD = Infinity;
+            for (let c = 0; c < centroids.length; c++) {
+                const d2 = dist2(e, centroids[c]);
+                if (d2 < bestD) {
+                    bestD = d2;
+                    best = c;
+                }
+            }
+            const p = centroids[best];
+            finalLookup.set(e.key, [p.r, p.g, p.b]);
+        }
+
+        // remap pixels
+        for (let i = 0; i < d.length; i += 4) {
+            const key = (d[i] << 16) | (d[i + 1] << 8) | d[i + 2];
+            const v = finalLookup.get(key);
+            if (v) {
+                d[i] = v[0];
+                d[i + 1] = v[1];
+                d[i + 2] = v[2];
+            }
         }
     }
 
