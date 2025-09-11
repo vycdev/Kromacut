@@ -3,7 +3,7 @@ import "./App.css";
 import CanvasPreview from "./components/CanvasPreview";
 import type { CanvasPreviewHandle } from "./components/CanvasPreview";
 import UploaderControls from "./components/UploaderControls";
-import { posterizeImageData } from "./lib/algorithms";
+import { posterizeImageData, medianCutImageData } from "./lib/algorithms";
 
 function App(): React.ReactElement | null {
     const [imageSrc, setImageSrc] = useState<string | null>(null);
@@ -253,6 +253,7 @@ function App(): React.ReactElement | null {
                                     }
                                 >
                                     <option value="posterize">Posterize</option>
+                                    <option value="median-cut">Median Cut</option>
                                 </select>
                             </label>
                             <div style={{ marginTop: 8 }}>
@@ -282,7 +283,7 @@ function App(): React.ReactElement | null {
                                             );
                                         if (!img) return;
 
-                                        // draw to canvas then quantize using simple posterize or grayscale
+                                        // draw to canvas then quantize using selected algorithm
                                         const w = img.naturalWidth;
                                         const h = img.naturalHeight;
                                         const c =
@@ -298,8 +299,12 @@ function App(): React.ReactElement | null {
                                             w,
                                             h
                                         );
-                                        // posterize via algorithms module (mutates ImageData)
-                                        posterizeImageData(data, colorCount);
+                                        // call selected algorithm (mutates ImageData)
+                                        if (algorithm === "median-cut") {
+                                            medianCutImageData(data, colorCount);
+                                        } else {
+                                            posterizeImageData(data, colorCount);
+                                        }
                                         ctx.putImageData(data, 0, 0);
                                         const outBlob =
                                             await new Promise<Blob | null>(
