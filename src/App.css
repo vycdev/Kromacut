@@ -46,6 +46,22 @@
   height: 100%;
 }
 
+.splitter {
+  background: transparent;
+  width: 10px;
+  cursor: col-resize;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.splitter::before {
+  content: '';
+  width: 2px;
+  height: 40%;
+  background: rgba(255,255,255,0.08);
+  border-radius: 2px;
+}
+
 .dropzone {
   border: 2px dashed rgba(255,255,255,0.12);
   border-radius: 8px;
@@ -114,5 +130,8 @@ button:hover {
   .dropzone {
     height: auto;
     min-height: 220px;
+  }
+  .splitter {
+    display: none;
   }
 }
