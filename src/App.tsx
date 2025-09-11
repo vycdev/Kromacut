@@ -3,6 +3,7 @@ import "./App.css";
 import CanvasPreview from "./components/CanvasPreview";
 import type { CanvasPreviewHandle } from "./components/CanvasPreview";
 import UploaderControls from "./components/UploaderControls";
+import { posterizeImageData } from "./lib/algorithms";
 
 function App(): React.ReactElement | null {
     const [imageSrc, setImageSrc] = useState<string | null>(null);
@@ -252,7 +253,6 @@ function App(): React.ReactElement | null {
                                     }
                                 >
                                     <option value="posterize">Posterize</option>
-                                    <option value="grayscale">Grayscale</option>
                                 </select>
                             </label>
                             <div style={{ marginTop: 8 }}>
@@ -298,51 +298,8 @@ function App(): React.ReactElement | null {
                                             w,
                                             h
                                         );
-                                        const d = data.data;
-                                        if (algorithm === "grayscale") {
-                                            for (
-                                                let i = 0;
-                                                i < d.length;
-                                                i += 4
-                                            ) {
-                                                const avg = Math.round(
-                                                    (d[i] +
-                                                        d[i + 1] +
-                                                        d[i + 2]) /
-                                                        3
-                                                );
-                                                d[i] =
-                                                    d[i + 1] =
-                                                    d[i + 2] =
-                                                        avg;
-                                            }
-                                        } else {
-                                            // posterize: reduce channels to N levels based on colorCount's cube root
-                                            const levels = Math.max(
-                                                2,
-                                                Math.min(256, colorCount)
-                                            );
-                                            const step = Math.floor(
-                                                256 / levels
-                                            );
-                                            for (
-                                                let i = 0;
-                                                i < d.length;
-                                                i += 4
-                                            ) {
-                                                d[i] =
-                                                    Math.floor(d[i] / step) *
-                                                    step;
-                                                d[i + 1] =
-                                                    Math.floor(
-                                                        d[i + 1] / step
-                                                    ) * step;
-                                                d[i + 2] =
-                                                    Math.floor(
-                                                        d[i + 2] / step
-                                                    ) * step;
-                                            }
-                                        }
+                                        // posterize via algorithms module (mutates ImageData)
+                                        posterizeImageData(data, colorCount);
                                         ctx.putImageData(data, 0, 0);
                                         const outBlob =
                                             await new Promise<Blob | null>(
