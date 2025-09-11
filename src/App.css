@@ -254,7 +254,7 @@
 .crop-box {
   position: absolute;
   box-sizing: border-box;
-  border: 2px solid rgba(255,255,255,0.95);
+  border: 1px solid rgba(255,255,255,0.95);
   background: transparent;
   z-index: 25;
   pointer-events: auto;
@@ -278,25 +278,25 @@
 /* corners and sides */
 .corner {
   position: absolute;
-  width: 14px;
-  height: 14px;
+  width: 10px;
+  height: 10px;
   background: rgba(255,255,255,0.95);
   border-radius: 2px;
   z-index: 30;
 }
-.corner.nw { left: -7px; top: -7px; cursor: nwse-resize; }
-.corner.ne { right: -7px; top: -7px; cursor: nesw-resize; }
-.corner.sw { left: -7px; bottom: -7px; cursor: nesw-resize; }
-.corner.se { right: -7px; bottom: -7px; cursor: nwse-resize; }
+.corner.nw { left: -5px; top: -5px; cursor: nwse-resize; }
+.corner.ne { right: -5px; top: -5px; cursor: nesw-resize; }
+.corner.sw { left: -5px; bottom: -5px; cursor: nesw-resize; }
+.corner.se { right: -5px; bottom: -5px; cursor: nwse-resize; }
 .side {
   position: absolute;
   background: rgba(255,255,255,0.65);
   z-index: 28;
 }
-.side.n { left: 20%; right: 20%; top: -6px; height: 12px; cursor: ns-resize; }
-.side.s { left: 20%; right: 20%; bottom: -6px; height: 12px; cursor: ns-resize; }
-.side.w { top: 20%; bottom: 20%; left: -6px; width: 12px; cursor: ew-resize; }
-.side.e { top: 20%; bottom: 20%; right: -6px; width: 12px; cursor: ew-resize; }
+.side.n { left: 20%; right: 20%; top: -4px; height: 7px; cursor: ns-resize; }
+.side.s { left: 20%; right: 20%; bottom: -4px; height: 7px; cursor: ns-resize; }
+.side.w { top: 20%; bottom: 20%; left: -4px; width: 7px; cursor: ew-resize; }
+.side.e { top: 20%; bottom: 20%; right: -4px; width: 7px; cursor: ew-resize; }
 
 /* Ensure the selection area reveals the image by placing crop-box above the dim layer */
 .crop-box { mix-blend-mode: normal; }
