@@ -409,5 +409,197 @@ export function kmeansImageData(
     return data;
 }
 
-// add to default export for convenience
-export default { posterizeImageData, medianCutImageData, kmeansImageData };
+/**
+ * Octree color quantization. Builds an octree up to depth 8, reduces
+ * nodes until the leaf count <= colorCount, then maps pixels to leaf averages.
+ */
+export function octreeImageData(
+    data: ImageData,
+    colorCount: number
+): ImageData {
+    const d = data.data;
+    colorCount = Math.max(2, Math.min(256, Math.floor(colorCount)));
+
+    // build histogram of unique colors
+    const map = new Map<number, number>();
+    for (let i = 0; i < d.length; i += 4) {
+        const key = (d[i] << 16) | (d[i + 1] << 8) | d[i + 2];
+        map.set(key, (map.get(key) || 0) + 1);
+    }
+
+    const entries: {
+        key: number;
+        r: number;
+        g: number;
+        b: number;
+        count: number;
+    }[] = [];
+    map.forEach((count, key) =>
+        entries.push({
+            key,
+            r: (key >> 16) & 0xff,
+            g: (key >> 8) & 0xff,
+            b: key & 0xff,
+            count,
+        })
+    );
+
+    if (entries.length <= colorCount) return data;
+
+    const MAX_DEPTH = 8;
+
+    type Node = {
+        children: (Node | null)[];
+        isLeaf: boolean;
+        pixelCount: number;
+        rSum: number;
+        gSum: number;
+        bSum: number;
+        level: number;
+    };
+
+    const reducible: Node[][] = Array.from({ length: MAX_DEPTH }, () => []);
+
+    const makeNode = (level: number): Node => ({
+        children: Array(8).fill(null),
+        isLeaf: level >= MAX_DEPTH - 1,
+        pixelCount: 0,
+        rSum: 0,
+        gSum: 0,
+        bSum: 0,
+        level,
+    });
+
+    const root = makeNode(0);
+    let leafCount = 0;
+
+    const addColor = (r: number, g: number, b: number, count: number) => {
+        let node = root;
+        for (let level = 0; level < MAX_DEPTH; level++) {
+            if (node.isLeaf) {
+                node.pixelCount += count;
+                node.rSum += r * count;
+                node.gSum += g * count;
+                node.bSum += b * count;
+                return;
+            }
+            const shift = 7 - level;
+            const idx =
+                (((r >> shift) & 1) << 2) |
+                (((g >> shift) & 1) << 1) |
+                ((b >> shift) & 1);
+            if (!node.children[idx]) {
+                const child = makeNode(level + 1);
+                node.children[idx] = child;
+                if (!child.isLeaf) reducible[level + 1].push(child);
+                else leafCount++;
+            }
+            node = node.children[idx] as Node;
+        }
+        node.pixelCount += count;
+        node.rSum += r * count;
+        node.gSum += g * count;
+        node.bSum += b * count;
+    };
+
+    for (const e of entries) addColor(e.r, e.g, e.b, e.count);
+
+    const reduceOnce = (): boolean => {
+        for (let level = MAX_DEPTH - 1; level > 0; level--) {
+            const list = reducible[level];
+            while (list.length > 0) {
+                const node = list.pop() as Node;
+                let rSum = 0,
+                    gSum = 0,
+                    bSum = 0,
+                    cnt = 0,
+                    removed = 0;
+                for (let i = 0; i < 8; i++) {
+                    const ch = node.children[i];
+                    if (ch) {
+                        rSum += ch.rSum;
+                        gSum += ch.gSum;
+                        bSum += ch.bSum;
+                        cnt += ch.pixelCount;
+                        if (ch.isLeaf) removed++;
+                        node.children[i] = null;
+                    }
+                }
+                node.isLeaf = true;
+                node.rSum += rSum;
+                node.gSum += gSum;
+                node.bSum += bSum;
+                node.pixelCount += cnt;
+                leafCount = leafCount - removed + 1;
+                return true;
+            }
+        }
+        return false;
+    };
+
+    while (leafCount > colorCount) {
+        if (!reduceOnce()) break;
+    }
+
+    const lookup = new Map<number, [number, number, number]>();
+
+    const mapColorToLeaf = (
+        r: number,
+        g: number,
+        b: number
+    ): [number, number, number] => {
+        let node = root;
+        for (let level = 0; level < MAX_DEPTH; level++) {
+            if (node.isLeaf) break;
+            const shift = 7 - level;
+            const idx =
+                (((r >> shift) & 1) << 2) |
+                (((g >> shift) & 1) << 1) |
+                ((b >> shift) & 1);
+            if (!node.children[idx]) break;
+            node = node.children[idx] as Node;
+        }
+        const findLeaf = (n: Node): Node => {
+            if (n.isLeaf) return n;
+            for (let i = 0; i < 8; i++) {
+                if (n.children[i]) {
+                    const leaf = findLeaf(n.children[i] as Node);
+                    if (leaf) return leaf;
+                }
+            }
+            return n;
+        };
+        const leaf = node.isLeaf ? node : findLeaf(node);
+        if (leaf && leaf.pixelCount > 0) {
+            return [
+                Math.round(leaf.rSum / leaf.pixelCount),
+                Math.round(leaf.gSum / leaf.pixelCount),
+                Math.round(leaf.bSum / leaf.pixelCount),
+            ];
+        }
+        return [0, 0, 0];
+    };
+
+    for (const e of entries) {
+        lookup.set(e.key, mapColorToLeaf(e.r, e.g, e.b));
+    }
+
+    for (let i = 0; i < d.length; i += 4) {
+        const key = (d[i] << 16) | (d[i + 1] << 8) | d[i + 2];
+        const v = lookup.get(key);
+        if (v) {
+            d[i] = v[0];
+            d[i + 1] = v[1];
+            d[i + 2] = v[2];
+        }
+    }
+
+    return data;
+}
+
+export default {
+    posterizeImageData,
+    medianCutImageData,
+    kmeansImageData,
+    octreeImageData,
+};
