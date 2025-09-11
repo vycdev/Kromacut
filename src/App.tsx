@@ -21,7 +21,7 @@ function App(): React.ReactElement | null {
     const [algorithm, setAlgorithm] = useState<string>("kmeans");
     const [swatches, setSwatches] = useState<string[]>([]);
     // cap how many swatches we display (independent from colorCount used for quantizers)
-    const SWATCH_CAP = 4096;
+    const SWATCH_CAP = 2 ** 14;
 
     // keep refs to avoid listing state in effect deps for cleanup
     const imageRef = useRef<string | null>(null);
