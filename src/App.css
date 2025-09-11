@@ -188,45 +188,7 @@
   border-radius: 6px;
 }
 
-/* crop button overlay in preview */
-.preview-crop-btn {
-  position: absolute;
-  right: 30px;
-  top: 30px;
-  z-index: 10;
-  background: rgb(255, 255, 255);
-  border: 1px solid rgba(255,255,255,0.08);
-  color: #646cff;
-  padding: 10px;
-  border-radius: 6px;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.preview-crop-btn i { font-size: 0.95rem; }
-
-.preview-crop-btn--save {
-  background: #646cff;
-  color: white;
-}
-
-.preview-crop-btn--cancel {
-  right: 82px;
-  background: #fff;
-  color: #555;
-  border: 1px solid rgba(0,0,0,0.08);
-}
-
-/* visual rectangle for crop selection */
-.crop-selection {
-  position: absolute;
-  border: 2px dashed rgba(100,108,255,0.9);
-  background: rgba(100,108,255,0.08);
-  pointer-events: none;
-  z-index: 9;
-}
+/* crop UI removed */
 
 /* debug outline while dragging splitter */
 .preview-container.dragging {
