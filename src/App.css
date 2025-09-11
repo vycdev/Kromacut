@@ -151,6 +151,7 @@
   background: rgba(255,255,255,0.02);
   min-height: 0;
   overflow: hidden;
+  position: relative; /* anchor absolute buttons inside the dropzone */
 }
 
 /* let the dropzone flex to fill the preview column and not force intrinsic sizing */
@@ -191,10 +192,11 @@
 /* crop button (disabled when no image) */
 .preview-crop-btn {
   position: absolute;
-  right: 12px;
-  top: 12px;
-  padding: 10px; /* requested padding */
-  margin: 25px; /* requested margin */
+  top: 25px;
+  right: 25px;
+  width: 40px; /* fixed size */
+  height: 40px;
+  padding: 0;
   border-radius: 6px;
   border: 1px solid rgba(0,0,0,0.08);
   background: #ffffff;
@@ -207,7 +209,7 @@
 }
 .preview-crop-btn i {
   color: rebeccapurple; /* purple crop icon */
-  font-size: 18px;
+  font-size: 16px;
 }
 .preview-crop-btn:disabled {
   /* explicit greys for disabled state (background + icon) */
@@ -217,6 +219,18 @@
 }
 .preview-crop-btn:disabled i {
   color: #8a8a8a; /* darker grey icon */
+}
+
+/* when in crop mode, arrange save and cancel so they don't overlap */
+.preview-crop-btn.preview-crop-btn--save {
+  /* primary action stays at top-right */
+  right: 25px;
+  top: 25px;
+}
+.preview-crop-btn.preview-crop-btn--cancel {
+  /* sit to the left of the save button with an 8px gap */
+  right: calc(25px + 40px + 8px);
+  top: 25px;
 }
 
 /* debug outline while dragging splitter */

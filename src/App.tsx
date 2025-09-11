@@ -51,6 +51,7 @@ function App(): React.ReactElement | null {
         }
         if (inputRef.current) inputRef.current.value = "";
     };
+    const [isCropMode, setIsCropMode] = useState(false);
     const canvasPreviewRef = useRef<CanvasPreviewHandle | null>(null);
 
     // draw delegated to CanvasPreview component; keep refs for legacy hooks
@@ -194,20 +195,51 @@ function App(): React.ReactElement | null {
                             ref={canvasPreviewRef}
                             imageSrc={imageSrc}
                         />
-                        <button
-                            className="preview-crop-btn"
-                            title="Crop"
-                            aria-label="Crop"
-                            disabled={!imageSrc}
-                            onClick={() => {
-                                // intentionally no-op for now
-                            }}
-                        >
-                            <i
-                                className="fa-solid fa-crop"
-                                aria-hidden="true"
-                            ></i>
-                        </button>
+                        {!isCropMode ? (
+                            <button
+                                className="preview-crop-btn"
+                                title="Crop"
+                                aria-label="Crop"
+                                disabled={!imageSrc}
+                                onClick={() => {
+                                    if (imageSrc) setIsCropMode(true);
+                                }}
+                            >
+                                <i
+                                    className="fa-solid fa-crop"
+                                    aria-hidden="true"
+                                ></i>
+                            </button>
+                        ) : (
+                            <>
+                                <button
+                                    className="preview-crop-btn preview-crop-btn--save"
+                                    title="Save crop"
+                                    aria-label="Save crop"
+                                    onClick={() => {
+                                        // intentionally no-op for now
+                                    }}
+                                >
+                                    <i
+                                        className="fa-solid fa-floppy-disk"
+                                        aria-hidden="true"
+                                    ></i>
+                                </button>
+                                <button
+                                    className="preview-crop-btn preview-crop-btn--cancel"
+                                    title="Cancel crop"
+                                    aria-label="Cancel crop"
+                                    onClick={() => {
+                                        setIsCropMode(false);
+                                    }}
+                                >
+                                    <i
+                                        className="fa-solid fa-xmark"
+                                        aria-hidden="true"
+                                    ></i>
+                                </button>
+                            </>
+                        )}
                     </div>
                 </main>
             </div>
