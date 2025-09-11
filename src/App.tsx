@@ -224,7 +224,7 @@ function App(): React.ReactElement | null {
                         </div>
                         <div className="controls-group">
                             <label>
-                                Colors:
+                                Colors
                                 <input
                                     type="number"
                                     min={2}
@@ -236,16 +236,20 @@ function App(): React.ReactElement | null {
                                         if (Number.isNaN(v)) {
                                             setColorCount(2);
                                         } else {
-                                            setColorCount(Math.max(2, Math.min(256, v)));
+                                            setColorCount(
+                                                Math.max(2, Math.min(256, v))
+                                            );
                                         }
                                     }}
                                 />
                             </label>
-                            <label style={{ display: "block", marginTop: 8 }}>
-                                Algorithm:
+                            <label>
+                                Algorithm
                                 <select
                                     value={algorithm}
-                                    onChange={(e) => setAlgorithm(e.target.value)}
+                                    onChange={(e) =>
+                                        setAlgorithm(e.target.value)
+                                    }
                                 >
                                     <option value="posterize">Posterize</option>
                                     <option value="grayscale">Grayscale</option>
@@ -314,7 +318,10 @@ function App(): React.ReactElement | null {
                                             }
                                         } else {
                                             // posterize: reduce channels to N levels based on colorCount's cube root
-                                            const levels = Math.max(2, Math.min(256, colorCount));
+                                            const levels = Math.max(
+                                                2,
+                                                Math.min(256, colorCount)
+                                            );
                                             const step = Math.floor(
                                                 256 / levels
                                             );

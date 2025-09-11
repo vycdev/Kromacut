@@ -76,30 +76,40 @@
   background: rgba(255,255,255,0.01);
 }
 
+.controls-group {
+  border: 1px solid rgba(255,255,255,0.04);
+  padding: 1rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  background: rgba(255,255,255,0.01);
+}
+
 /* improved form styles for settings inside .controls-group */
 .controls-group label {
-  display: block;
-  font-size: 13px;
-  color: rgba(255,255,255,0.9);
-  margin-bottom: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 15px;
+  color: rgba(255,255,255,0.95);
+  margin-bottom: 12px;
+  font-weight: 600;
 }
 .controls-group input[type="number"],
 .controls-group select {
   width: 100%;
-  max-width: 220px;
-  padding: 6px 8px;
-  border-radius: 6px;
+  max-width: 260px;
+  padding: 8px 10px;
+  border-radius: 8px;
   border: 1px solid rgba(0,0,0,0.12);
   background: #2f2f2f; /* dark grey background */
   color: #fff;
   box-sizing: border-box;
-  font-size: 13px;
+  font-size: 15px;
+  line-height: 1.2;
+  appearance: auto;
 }
-.controls-group input[type="number"]::-webkit-outer-spin-button,
-.controls-group input[type="number"]::-webkit-inner-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
-}
+/* Restore native spinner controls by not overriding the UA appearance for number inputs.
+   Remove any vendor rules that hide the controls so users get the up/down arrows. */
 .controls-group input[type="number"]:focus,
 .controls-group select:focus {
   outline: none;
