@@ -21,7 +21,7 @@ function App(): React.ReactElement | null {
     const [algorithm, setAlgorithm] = useState<string>("kmeans");
     const [swatches, setSwatches] = useState<string[]>([]);
     // cap how many swatches we display (independent from colorCount used for quantizers)
-    const SWATCH_CAP = 256;
+    const SWATCH_CAP = 4096;
 
     // keep refs to avoid listing state in effect deps for cleanup
     const imageRef = useRef<string | null>(null);
@@ -138,21 +138,60 @@ function App(): React.ReactElement | null {
             const key = (data[i] << 16) | (data[i + 1] << 8) | data[i + 2];
             map.set(key, (map.get(key) || 0) + 1);
         }
-        return Array.from(map.entries())
+        // helper: convert rgb to hsl for sorting
+        const rgbToHsl = (r: number, g: number, b: number) => {
+            r /= 255;
+            g /= 255;
+            b /= 255;
+            const max = Math.max(r, g, b);
+            const min = Math.min(r, g, b);
+            let h = 0;
+            let s = 0;
+            const l = (max + min) / 2;
+            if (max !== min) {
+                const d = max - min;
+                s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+                switch (max) {
+                    case r:
+                        h = (g - b) / d + (g < b ? 6 : 0);
+                        break;
+                    case g:
+                        h = (b - r) / d + 2;
+                        break;
+                    case b:
+                        h = (r - g) / d + 4;
+                        break;
+                }
+                h = h * 60;
+            }
+            return { h, s, l };
+        };
+
+        // pick top frequent colors then sort them by hue/saturation/lightness
+        const top = Array.from(map.entries())
             .sort((a, b) => b[1] - a[1])
-            .slice(0, maxSwatches)
+            .slice(0, Math.min(map.size, maxSwatches))
             .map((entry) => {
                 const key = entry[0];
                 const r = (key >> 16) & 0xff;
                 const g = (key >> 8) & 0xff;
                 const b = key & 0xff;
-                return (
+                const hex =
                     "#" +
                     [r, g, b]
                         .map((v) => v.toString(16).padStart(2, "0"))
-                        .join("")
-                );
+                        .join("");
+                const hsl = rgbToHsl(r, g, b);
+                return { hex, freq: entry[1], hsl };
             });
+
+        top.sort((a, b) => {
+            if (a.hsl.h !== b.hsl.h) return a.hsl.h - b.hsl.h;
+            if (a.hsl.s !== b.hsl.s) return b.hsl.s - a.hsl.s; // higher saturation first
+            return b.hsl.l - a.hsl.l; // brighter first
+        });
+
+        return top.map((t) => t.hex);
     };
 
     const updateSwatches = async () => {
@@ -208,24 +247,58 @@ function App(): React.ReactElement | null {
                 const key = (data[i] << 16) | (data[i + 1] << 8) | data[i + 2];
                 map.set(key, (map.get(key) || 0) + 1);
             }
-            // show up to SWATCH_CAP most frequent colors found in the sampled image
-            const maxSwatches = Math.min(map.size, SWATCH_CAP);
-            const arr = Array.from(map.entries())
+            // pick top frequent colors then sort by hue/saturation/lightness for display
+            const rgbToHsl = (r: number, g: number, b: number) => {
+                r /= 255;
+                g /= 255;
+                b /= 255;
+                const max = Math.max(r, g, b);
+                const min = Math.min(r, g, b);
+                let h = 0;
+                let s = 0;
+                const l = (max + min) / 2;
+                if (max !== min) {
+                    const d = max - min;
+                    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+                    switch (max) {
+                        case r:
+                            h = (g - b) / d + (g < b ? 6 : 0);
+                            break;
+                        case g:
+                            h = (b - r) / d + 2;
+                            break;
+                        case b:
+                            h = (r - g) / d + 4;
+                            break;
+                    }
+                    h = h * 60;
+                }
+                return { h, s, l };
+            };
+
+            const top = Array.from(map.entries())
                 .sort((a, b) => b[1] - a[1])
-                .slice(0, maxSwatches)
+                .slice(0, Math.min(map.size, SWATCH_CAP))
                 .map((entry) => {
                     const key = entry[0];
                     const r = (key >> 16) & 0xff;
                     const g = (key >> 8) & 0xff;
                     const b = key & 0xff;
-                    return (
+                    const hex =
                         "#" +
                         [r, g, b]
                             .map((v) => v.toString(16).padStart(2, "0"))
-                            .join("")
-                    );
+                            .join("");
+                    return { hex, freq: entry[1], hsl: rgbToHsl(r, g, b) };
                 });
-            setSwatches(arr);
+
+            top.sort((a, b) => {
+                if (a.hsl.h !== b.hsl.h) return a.hsl.h - b.hsl.h;
+                if (a.hsl.s !== b.hsl.s) return b.hsl.s - a.hsl.s;
+                return b.hsl.l - a.hsl.l;
+            });
+
+            setSwatches(top.map((t) => t.hex));
         } catch (_err) {
             console.warn("swatches: compute failed", _err);
         }
