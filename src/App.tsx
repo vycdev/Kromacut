@@ -237,7 +237,7 @@ function App(): React.ReactElement | null {
     useEffect(() => {
         const el = layoutRef.current;
         if (el) {
-            setLeftWidth(Math.floor(el.clientWidth / 2));
+            setLeftWidth(Math.floor(el.clientWidth / 4));
         }
     }, []);
 

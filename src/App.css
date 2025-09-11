@@ -29,7 +29,7 @@
 .app-layout {
   display: grid;
   /* left column controlled by CSS variable; fallback to 1fr */
-  grid-template-columns: var(--left-width, 1fr) 10px 1fr;
+  grid-template-columns: var(--left-width, 25%) 10px 1fr;
   gap: 1rem;
   flex: 1 1 auto;
   height: 100%;
