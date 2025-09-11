@@ -20,6 +20,8 @@ function App(): React.ReactElement | null {
     const [colorCount, setColorCount] = useState<number>(4);
     const [algorithm, setAlgorithm] = useState<string>("kmeans");
     const [swatches, setSwatches] = useState<string[]>([]);
+    // cap how many swatches we display (independent from colorCount used for quantizers)
+    const SWATCH_CAP = 256;
 
     // keep refs to avoid listing state in effect deps for cleanup
     const imageRef = useRef<string | null>(null);
@@ -124,7 +126,7 @@ function App(): React.ReactElement | null {
     // helper: compute swatches directly from a canvas (synchronous)
     const computeSwatchesFromCanvas = (
         canvas: HTMLCanvasElement,
-        maxSwatches = 64
+        maxSwatches = SWATCH_CAP
     ): string[] => {
         const ctx = canvas.getContext("2d", { willReadFrequently: true });
         if (!ctx) return [];
@@ -206,7 +208,8 @@ function App(): React.ReactElement | null {
                 const key = (data[i] << 16) | (data[i + 1] << 8) | data[i + 2];
                 map.set(key, (map.get(key) || 0) + 1);
             }
-            const maxSwatches = Math.min(Math.max(2, colorCount), 64);
+            // show up to SWATCH_CAP most frequent colors found in the sampled image
+            const maxSwatches = Math.min(map.size, SWATCH_CAP);
             const arr = Array.from(map.entries())
                 .sort((a, b) => b[1] - a[1])
                 .slice(0, maxSwatches)
@@ -464,13 +467,7 @@ function App(): React.ReactElement | null {
                                                 setSwatches(
                                                     immediate.slice(
                                                         0,
-                                                        Math.min(
-                                                            Math.max(
-                                                                2,
-                                                                colorCount
-                                                            ),
-                                                            64
-                                                        )
+                                                        SWATCH_CAP
                                                     )
                                                 );
                                         } catch (err) {
