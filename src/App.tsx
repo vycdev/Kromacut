@@ -126,7 +126,7 @@ function App(): React.ReactElement | null {
         canvas: HTMLCanvasElement,
         maxSwatches = 64
     ): string[] => {
-        const ctx = canvas.getContext("2d");
+        const ctx = canvas.getContext("2d", { willReadFrequently: true });
         if (!ctx) return [];
         const w = canvas.width;
         const h = canvas.height;
@@ -206,7 +206,7 @@ function App(): React.ReactElement | null {
                 const key = (data[i] << 16) | (data[i + 1] << 8) | data[i + 2];
                 map.set(key, (map.get(key) || 0) + 1);
             }
-            const maxSwatches = 64;
+            const maxSwatches = Math.min(Math.max(2, colorCount), 64);
             const arr = Array.from(map.entries())
                 .sort((a, b) => b[1] - a[1])
                 .slice(0, maxSwatches)
@@ -461,7 +461,18 @@ function App(): React.ReactElement | null {
                                                 immediate &&
                                                 immediate.length > 0
                                             )
-                                                setSwatches(immediate);
+                                                setSwatches(
+                                                    immediate.slice(
+                                                        0,
+                                                        Math.min(
+                                                            Math.max(
+                                                                2,
+                                                                colorCount
+                                                            ),
+                                                            64
+                                                        )
+                                                    )
+                                                );
                                         } catch (err) {
                                             // fall back to the async preview-based update if something fails
                                             console.warn(

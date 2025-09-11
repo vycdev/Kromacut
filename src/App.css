@@ -548,9 +548,20 @@ button:disabled {
   flex: 0 0 auto;
   cursor: default;
 }
+.swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.12) inset;
+  border: 1px solid rgba(255,255,255,0.12);
+  flex: 0 0 auto;
+  cursor: default;
+  transition: transform 120ms ease;
+  transform-origin: center center;
+  will-change: transform;
+}
 .swatch:hover, .swatch:focus {
   transform: scale(1.15);
-  transition: transform 120ms ease;
   outline: 2px solid rgba(255,255,255,0.06);
 }
 
