@@ -321,15 +321,7 @@ function App(): React.ReactElement | null {
             <div className="app-layout" ref={layoutRef}>
                 <aside className="sidebar">
                     <div className="controls-panel">
-                        <div
-                            style={{
-                                fontSize: 12,
-                                opacity: 0.85,
-                                marginBottom: 8,
-                            }}
-                        >
-                            <div>leftWidth: {leftWidth}px</div>
-                        </div>
+                        {/* controls header removed (leftWidth debug removed) */}
                         <div className="uploader-controls">
                             <input
                                 ref={inputRef}
