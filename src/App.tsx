@@ -8,6 +8,7 @@ import {
     medianCutImageData,
     kmeansImageData,
     octreeImageData,
+    wuImageData,
 } from "./lib/algorithms";
 
 function App(): React.ReactElement | null {
@@ -262,6 +263,7 @@ function App(): React.ReactElement | null {
                                         Median Cut
                                     </option>
                                     <option value="kmeans">K-means</option>
+                                    <option value="wu">Wu</option>
                                     <option value="octree">Octree</option>
                                 </select>
                             </label>
@@ -318,6 +320,8 @@ function App(): React.ReactElement | null {
                                             kmeansImageData(data, colorCount);
                                         } else if (algorithm === "octree") {
                                             octreeImageData(data, colorCount);
+                                        } else if (algorithm === "wu") {
+                                            wuImageData(data, colorCount);
                                         } else {
                                             posterizeImageData(
                                                 data,

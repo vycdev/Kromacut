@@ -602,4 +602,484 @@ export default {
     medianCutImageData,
     kmeansImageData,
     octreeImageData,
+    wuImageData,
 };
+
+/**
+ * Wu color quantization (fast, high-quality). Builds 3D moments over a
+ * 33x33x33 color cube, partitions space to minimize squared error, and
+ * maps pixels to the computed palette. Operates in-place on ImageData.
+ */
+export function wuImageData(data: ImageData, colorCount: number): ImageData {
+    const d = data.data;
+    colorCount = Math.max(2, Math.min(256, Math.floor(colorCount)));
+
+    // Build histogram of unique colors to reduce work (weighted entries)
+    const map = new Map<number, number>();
+    for (let i = 0; i < d.length; i += 4) {
+        const key = (d[i] << 16) | (d[i + 1] << 8) | d[i + 2];
+        map.set(key, (map.get(key) || 0) + 1);
+    }
+
+    const entries: {
+        key: number;
+        r: number;
+        g: number;
+        b: number;
+        count: number;
+    }[] = [];
+    map.forEach((count, key) => {
+        entries.push({
+            key,
+            r: (key >> 16) & 0xff,
+            g: (key >> 8) & 0xff,
+            b: key & 0xff,
+            count,
+        });
+    });
+
+    if (entries.length <= colorCount) return data;
+
+    // Wu uses a 33x33x33 cube (indices 0..32) where colors are quantized by >> 3
+    const SIDE = 33;
+    const SIZE = SIDE * SIDE * SIDE;
+
+    const getIndex = (r: number, g: number, b: number) =>
+        (r * SIDE + g) * SIDE + b;
+
+    // moments: weight, r, g, b, and sum of squares
+    const vwt = new Float64Array(SIZE);
+    const vmr = new Float64Array(SIZE);
+    const vmg = new Float64Array(SIZE);
+    const vmb = new Float64Array(SIZE);
+    const m2 = new Float64Array(SIZE);
+
+    // populate histogram at quantized positions (1..32). leave 0 as padding
+    for (const e of entries) {
+        const ir = (e.r >> 3) + 1;
+        const ig = (e.g >> 3) + 1;
+        const ib = (e.b >> 3) + 1;
+        const idx = getIndex(ir, ig, ib);
+        vwt[idx] += e.count;
+        vmr[idx] += e.r * e.count;
+        vmg[idx] += e.g * e.count;
+        vmb[idx] += e.b * e.count;
+        m2[idx] += (e.r * e.r + e.g * e.g + e.b * e.b) * e.count;
+    }
+
+    // compute cumulative moments
+    for (let r = 1; r < SIDE; r++) {
+        for (let g = 1; g < SIDE; g++) {
+            let rowW = 0,
+                rowR = 0,
+                rowG = 0,
+                rowB = 0,
+                rowM2 = 0;
+            for (let b = 1; b < SIDE; b++) {
+                const idx = getIndex(r, g, b);
+                rowW += vwt[idx];
+                rowR += vmr[idx];
+                rowG += vmg[idx];
+                rowB += vmb[idx];
+                rowM2 += m2[idx];
+
+                const prev = getIndex(r - 1, g, b);
+                vwt[idx] = vwt[prev] + rowW;
+                vmr[idx] = vmr[prev] + rowR;
+                vmg[idx] = vmg[prev] + rowG;
+                vmb[idx] = vmb[prev] + rowB;
+                m2[idx] = m2[prev] + rowM2;
+            }
+        }
+    }
+
+    const vol = (
+        array: Float64Array,
+        r0: number,
+        r1: number,
+        g0: number,
+        g1: number,
+        b0: number,
+        b1: number
+    ) => {
+        const idx = (r: number, g: number, b: number) => getIndex(r, g, b);
+        const a = array[idx(r1, g1, b1)];
+        const b_ = array[idx(r1, g1, b0 - 1)];
+        const c = array[idx(r1, g0 - 1, b1)];
+        const d = array[idx(r0 - 1, g1, b1)];
+        const e = array[idx(r1, g0 - 1, b0 - 1)];
+        const f = array[idx(r0 - 1, g1, b0 - 1)];
+        const g_ = array[idx(r0 - 1, g0 - 1, b1)];
+        const h = array[idx(r0 - 1, g0 - 1, b0 - 1)];
+        return a - b_ - c - d + e + f + g_ - h;
+    };
+
+    const volumeWeight = (box: {
+        r0: number;
+        r1: number;
+        g0: number;
+        g1: number;
+        b0: number;
+        b1: number;
+    }) => vol(vwt, box.r0, box.r1, box.g0, box.g1, box.b0, box.b1);
+
+    const volumeMoment = (box: {
+        r0: number;
+        r1: number;
+        g0: number;
+        g1: number;
+        b0: number;
+        b1: number;
+    }) => ({
+        r: vol(vmr, box.r0, box.r1, box.g0, box.g1, box.b0, box.b1),
+        g: vol(vmg, box.r0, box.r1, box.g0, box.g1, box.b0, box.b1),
+        b: vol(vmb, box.r0, box.r1, box.g0, box.g1, box.b0, box.b1),
+    });
+
+    const volumeM2 = (box: {
+        r0: number;
+        r1: number;
+        g0: number;
+        g1: number;
+        b0: number;
+        b1: number;
+    }) => vol(m2, box.r0, box.r1, box.g0, box.g1, box.b0, box.b1);
+
+    const variance = (box: {
+        r0: number;
+        r1: number;
+        g0: number;
+        g1: number;
+        b0: number;
+        b1: number;
+    }) => {
+        const w = volumeWeight(box);
+        if (w === 0) return 0;
+        const m = volumeMoment(box);
+        const m2v = volumeM2(box);
+        const dr = m.r * m.r + m.g * m.g + m.b * m.b;
+        return m2v - dr / w;
+    };
+
+    type Box = {
+        r0: number;
+        r1: number;
+        g0: number;
+        g1: number;
+        b0: number;
+        b1: number;
+        vol?: number;
+    };
+
+    const createBox = (): Box => ({
+        r0: 1,
+        r1: SIDE - 1,
+        g0: 1,
+        g1: SIDE - 1,
+        b0: 1,
+        b1: SIDE - 1,
+    });
+
+    // maximize variance reduction for a given box along a chosen axis
+    const maximize = (box: Box, dir: "r" | "g" | "b") => {
+        let bestScore = -1;
+        let bestPos = -1;
+        const wholeR = volumeMoment(box).r;
+        const wholeG = volumeMoment(box).g;
+        const wholeB = volumeMoment(box).b;
+        const wholeW = volumeWeight(box);
+
+        if (dir === "r") {
+            for (let i = box.r0; i < box.r1; i++) {
+                const box1 = {
+                    r0: box.r0,
+                    r1: i,
+                    g0: box.g0,
+                    g1: box.g1,
+                    b0: box.b0,
+                    b1: box.b1,
+                };
+                const w1 = volumeWeight(box1);
+                const w2 = wholeW - w1;
+                if (w1 === 0 || w2 === 0) continue;
+                const m1 = volumeMoment(box1);
+                const m2_ = {
+                    r: wholeR - m1.r,
+                    g: wholeG - m1.g,
+                    b: wholeB - m1.b,
+                };
+                const score =
+                    (m1.r * m1.r + m1.g * m1.g + m1.b * m1.b) / w1 +
+                    (m2_.r * m2_.r + m2_.g * m2_.g + m2_.b * m2_.b) / w2;
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestPos = i;
+                }
+            }
+        } else if (dir === "g") {
+            for (let i = box.g0; i < box.g1; i++) {
+                const box1 = {
+                    r0: box.r0,
+                    r1: box.r1,
+                    g0: box.g0,
+                    g1: i,
+                    b0: box.b0,
+                    b1: box.b1,
+                };
+                const w1 = volumeWeight(box1);
+                const w2 = wholeW - w1;
+                if (w1 === 0 || w2 === 0) continue;
+                const m1 = volumeMoment(box1);
+                const m2_ = {
+                    r: wholeR - m1.r,
+                    g: wholeG - m1.g,
+                    b: wholeB - m1.b,
+                };
+                const score =
+                    (m1.r * m1.r + m1.g * m1.g + m1.b * m1.b) / w1 +
+                    (m2_.r * m2_.r + m2_.g * m2_.g + m2_.b * m2_.b) / w2;
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestPos = i;
+                }
+            }
+        } else {
+            for (let i = box.b0; i < box.b1; i++) {
+                const box1 = {
+                    r0: box.r0,
+                    r1: box.r1,
+                    g0: box.g0,
+                    g1: box.g1,
+                    b0: box.b0,
+                    b1: i,
+                };
+                const w1 = volumeWeight(box1);
+                const w2 = wholeW - w1;
+                if (w1 === 0 || w2 === 0) continue;
+                const m1 = volumeMoment(box1);
+                const m2_ = {
+                    r: wholeR - m1.r,
+                    g: wholeG - m1.g,
+                    b: wholeB - m1.b,
+                };
+                const score =
+                    (m1.r * m1.r + m1.g * m1.g + m1.b * m1.b) / w1 +
+                    (m2_.r * m2_.r + m2_.g * m2_.g + m2_.b * m2_.b) / w2;
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestPos = i;
+                }
+            }
+        }
+        return { score: bestScore, pos: bestPos };
+    };
+
+    // partition boxes
+    const boxes: Box[] = [createBox()];
+
+    while (boxes.length < colorCount) {
+        // find box with largest variance
+        let maxVar = -1;
+        let idx = -1;
+        for (let i = 0; i < boxes.length; i++) {
+            const v = variance(boxes[i]);
+            if (v > maxVar) {
+                maxVar = v;
+                idx = i;
+            }
+        }
+        if (idx === -1 || maxVar <= 0) break;
+
+        const box = boxes[idx];
+        // try splits along each axis
+        const rSplit = maximize(box, "r");
+        const gSplit = maximize(box, "g");
+        const bSplit = maximize(box, "b");
+
+        // pick best split
+        const best = [
+            { dir: "r", score: rSplit.score, pos: rSplit.pos },
+            { dir: "g", score: gSplit.score, pos: gSplit.pos },
+            { dir: "b", score: bSplit.score, pos: bSplit.pos },
+        ].sort((a, b) => b.score - a.score)[0];
+
+        if (best.score <= 0 || best.pos < 0) {
+            // Fallback median split on the largest axis to ensure progress
+            const rRange = box.r1 - box.r0;
+            const gRange = box.g1 - box.g0;
+            const bRange = box.b1 - box.b0;
+            let dir: "r" | "g" | "b" = "r";
+            if (gRange >= rRange && gRange >= bRange) dir = "g";
+            else if (bRange >= rRange && bRange >= gRange) dir = "b";
+            let mid = 0;
+            if (dir === "r") mid = Math.floor((box.r0 + box.r1) / 2);
+            else if (dir === "g") mid = Math.floor((box.g0 + box.g1) / 2);
+            else mid = Math.floor((box.b0 + box.b1) / 2);
+
+            let b1: Box, b2: Box;
+            if (dir === "r") {
+                b1 = {
+                    r0: box.r0,
+                    r1: mid,
+                    g0: box.g0,
+                    g1: box.g1,
+                    b0: box.b0,
+                    b1: box.b1,
+                };
+                b2 = {
+                    r0: mid + 1,
+                    r1: box.r1,
+                    g0: box.g0,
+                    g1: box.g1,
+                    b0: box.b0,
+                    b1: box.b1,
+                };
+            } else if (dir === "g") {
+                b1 = {
+                    r0: box.r0,
+                    r1: box.r1,
+                    g0: box.g0,
+                    g1: mid,
+                    b0: box.b0,
+                    b1: box.b1,
+                };
+                b2 = {
+                    r0: box.r0,
+                    r1: box.r1,
+                    g0: mid + 1,
+                    g1: box.g1,
+                    b0: box.b0,
+                    b1: box.b1,
+                };
+            } else {
+                b1 = {
+                    r0: box.r0,
+                    r1: box.r1,
+                    g0: box.g0,
+                    g1: box.g1,
+                    b0: box.b0,
+                    b1: mid,
+                };
+                b2 = {
+                    r0: box.r0,
+                    r1: box.r1,
+                    g0: box.g0,
+                    g1: box.g1,
+                    b0: mid + 1,
+                    b1: box.b1,
+                };
+            }
+            boxes.splice(idx, 1, b1);
+            boxes.push(b2);
+            continue;
+        }
+
+        // create two new boxes by splitting
+        let box1: Box, box2: Box;
+        if (best.dir === "r") {
+            box1 = {
+                r0: box.r0,
+                r1: best.pos,
+                g0: box.g0,
+                g1: box.g1,
+                b0: box.b0,
+                b1: box.b1,
+            };
+            box2 = {
+                r0: best.pos + 1,
+                r1: box.r1,
+                g0: box.g0,
+                g1: box.g1,
+                b0: box.b0,
+                b1: box.b1,
+            };
+        } else if (best.dir === "g") {
+            box1 = {
+                r0: box.r0,
+                r1: box.r1,
+                g0: box.g0,
+                g1: best.pos,
+                b0: box.b0,
+                b1: box.b1,
+            };
+            box2 = {
+                r0: box.r0,
+                r1: box.r1,
+                g0: best.pos + 1,
+                g1: box.g1,
+                b0: box.b0,
+                b1: box.b1,
+            };
+        } else {
+            box1 = {
+                r0: box.r0,
+                r1: box.r1,
+                g0: box.g0,
+                g1: box.g1,
+                b0: box.b0,
+                b1: best.pos,
+            };
+            box2 = {
+                r0: box.r0,
+                r1: box.r1,
+                g0: box.g0,
+                g1: box.g1,
+                b0: best.pos + 1,
+                b1: box.b1,
+            };
+        }
+        // replace current box with box1 and push box2
+        boxes.splice(idx, 1, box1);
+        boxes.push(box2);
+    }
+
+    // compute palette (average color in each box)
+    const palette: [number, number, number][] = boxes.map((b) => {
+        const w = volumeWeight(b);
+        if (w === 0) return [0, 0, 0];
+        const m = volumeMoment(b);
+        return [Math.round(m.r / w), Math.round(m.g / w), Math.round(m.b / w)];
+    });
+
+    // build lookup from original color to palette color by locating which box contains its quantized coords
+    const lookup = new Map<number, [number, number, number]>();
+    for (let pi = 0; pi < palette.length; pi++) {
+        // not needed here; we'll map by checking boxes per entry
+    }
+
+    for (const e of entries) {
+        const ir = (e.r >> 3) + 1;
+        const ig = (e.g >> 3) + 1;
+        const ib = (e.b >> 3) + 1;
+        let found = false;
+        for (let bi = 0; bi < boxes.length; bi++) {
+            const box = boxes[bi];
+            if (
+                ir >= box.r0 &&
+                ir <= box.r1 &&
+                ig >= box.g0 &&
+                ig <= box.g1 &&
+                ib >= box.b0 &&
+                ib <= box.b1
+            ) {
+                lookup.set(e.key, palette[bi]);
+                found = true;
+                break;
+            }
+        }
+        if (!found) lookup.set(e.key, palette[0]);
+    }
+
+    // apply mapping
+    for (let i = 0; i < d.length; i += 4) {
+        const key = (d[i] << 16) | (d[i + 1] << 8) | d[i + 2];
+        const v = lookup.get(key);
+        if (v) {
+            d[i] = v[0];
+            d[i + 1] = v[1];
+            d[i + 2] = v[2];
+        }
+    }
+
+    return data;
+}
