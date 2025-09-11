@@ -313,6 +313,22 @@
 /* Ensure the selection area reveals the image by placing crop-box above the dim layer */
 .crop-box { mix-blend-mode: normal; }
 
+/* small HUD shown in bottom-left of preview with image/crop sizes */
+.preview-hud {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  background: rgba(0,0,0,0.55);
+  color: #fff;
+  padding: 6px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 1;
+  z-index: 150; /* above crop controls */
+  pointer-events: none;
+  user-select: none;
+}
+
 /* debug outline while dragging splitter */
 .preview-container.dragging {
   outline: 2px dashed rgba(255, 255, 255, 0.25);
