@@ -252,10 +252,7 @@ function App(): React.ReactElement | null {
                                     setImageSrc(prev || null);
                                 }}
                             >
-                                <i
-                                    className="fa-solid fa-rotate-left"
-                                    aria-hidden
-                                />
+                                <i className="fa-solid fa-rotate-left" aria-hidden />
                             </button>
                             <button
                                 className="preview-action-btn"
@@ -272,11 +269,9 @@ function App(): React.ReactElement | null {
                                     setImageSrc(next || null);
                                 }}
                             >
-                                <i
-                                    className="fa-solid fa-rotate-right"
-                                    aria-hidden
-                                />
+                                <i className="fa-solid fa-rotate-right" aria-hidden />
                             </button>
+
                             {!isCropMode ? (
                                 <button
                                     className="preview-crop-btn"
@@ -299,30 +294,21 @@ function App(): React.ReactElement | null {
                                         title="Save crop"
                                         aria-label="Save crop"
                                         onClick={async () => {
-                                            if (!canvasPreviewRef.current)
-                                                return;
+                                            if (!canvasPreviewRef.current) return;
                                             const blob =
                                                 await canvasPreviewRef.current.exportCroppedImage();
                                             if (!blob) return;
-                                            // release old URL if we created it
-                                            if (
-                                                imageSrc &&
-                                                imageSrc.startsWith("blob:")
-                                            ) {
-                                                try {
-                                                    URL.revokeObjectURL(
-                                                        imageSrc
-                                                    );
-                                                } catch (err) {
-                                                    console.warn(
-                                                        "Failed to revoke old object URL",
-                                                        err
-                                                    );
-                                                }
+                                            // push current image into history so undo can restore it
+                                            if (imageSrc) {
+                                                setPast((p) =>
+                                                    imageSrc ? [...p, imageSrc] : p
+                                                );
                                             }
-                                            const url =
-                                                URL.createObjectURL(blob);
+                                            // create new URL for cropped image
+                                            const url = URL.createObjectURL(blob);
                                             setImageSrc(url);
+                                            // clearing future since this is a new branch
+                                            setFuture([]);
                                             setIsCropMode(false);
                                         }}
                                     >
