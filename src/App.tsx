@@ -16,7 +16,7 @@ function App(): React.ReactElement | null {
     const [dragOver, setDragOver] = useState(false);
     const inputRef = useRef<HTMLInputElement | null>(null);
     const [colorCount, setColorCount] = useState<number>(4);
-    const [algorithm, setAlgorithm] = useState<string>("posterize");
+    const [algorithm, setAlgorithm] = useState<string>("kmeans");
 
     // keep refs to avoid listing state in effect deps for cleanup
     const imageRef = useRef<string | null>(null);
