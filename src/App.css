@@ -249,6 +249,62 @@
   top: 25px;
 }
 
+/* container for top-right action buttons (undo/redo + crop) */
+.preview-actions {
+  position: absolute;
+  top: 25px;
+  right: 25px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  z-index: 120; /* above crop overlay but below HUD */
+}
+
+.preview-action-btn {
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border-radius: 6px;
+  border: 1px solid rgba(0,0,0,0.08);
+  background: #ffffff;
+  color: inherit;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.preview-action-btn[disabled] {
+  background: #505050;
+  cursor: not-allowed;
+  /* match crop button disabled appearance */
+  opacity: 1; /* override global disabled opacity */
+}
+.preview-action-btn i {
+  color: rebeccapurple;
+  font-size: 14px;
+}
+
+/* match disabled icon color to crop button */
+.preview-action-btn:disabled i {
+  color: #8a8a8a;
+}
+
+/* When crop buttons are placed inside the .preview-actions wrapper,
+   they should participate in the flex layout instead of being
+   absolutely positioned. Override the absolute offsets here. */
+.preview-actions .preview-crop-btn {
+  position: relative;
+  top: auto;
+  right: auto;
+  margin: 0;
+}
+.preview-actions .preview-crop-btn.preview-crop-btn--save,
+.preview-actions .preview-crop-btn.preview-crop-btn--cancel {
+  position: relative;
+  right: auto;
+  top: auto;
+}
+
 /* Crop overlay visuals */
 .crop-overlay {
   position: absolute;

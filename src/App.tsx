@@ -209,26 +209,6 @@ function App(): React.ReactElement | null {
                                 onChoose={() => inputRef.current?.click()}
                                 onRemove={clear}
                                 canRemove={!!imageSrc && !isCropMode}
-                                onUndo={() => {
-                                    if (past.length === 0) return;
-                                    const prev = past[past.length - 1];
-                                    setPast((p) => p.slice(0, p.length - 1));
-                                    setFuture((f) =>
-                                        imageSrc ? [...f, imageSrc] : f
-                                    );
-                                    setImageSrc(prev || null);
-                                }}
-                                onRedo={() => {
-                                    if (future.length === 0) return;
-                                    const next = future[future.length - 1];
-                                    setFuture((f) => f.slice(0, f.length - 1));
-                                    setPast((p) =>
-                                        imageSrc ? [...p, imageSrc] : p
-                                    );
-                                    setImageSrc(next || null);
-                                }}
-                                canUndo={past.length > 0}
-                                canRedo={future.length > 0}
                             />
                         </div>
                         {/* placeholder for future controls (color count, layer heights, etc.) */}
@@ -254,71 +234,119 @@ function App(): React.ReactElement | null {
                             imageSrc={imageSrc}
                             isCropMode={isCropMode}
                         />
-                        {!isCropMode ? (
+
+                        {/* Undo / Redo buttons top-right (match crop button style) */}
+                        <div className="preview-actions">
                             <button
-                                className="preview-crop-btn"
-                                title="Crop"
-                                aria-label="Crop"
-                                disabled={!imageSrc}
+                                className="preview-action-btn"
+                                title="Undo"
+                                aria-label="Undo"
+                                disabled={isCropMode || past.length === 0}
                                 onClick={() => {
-                                    if (imageSrc) setIsCropMode(true);
+                                    if (past.length === 0) return;
+                                    const prev = past[past.length - 1];
+                                    setPast((p) => p.slice(0, p.length - 1));
+                                    setFuture((f) =>
+                                        imageSrc ? [...f, imageSrc] : f
+                                    );
+                                    setImageSrc(prev || null);
                                 }}
                             >
                                 <i
-                                    className="fa-solid fa-crop"
-                                    aria-hidden="true"
-                                ></i>
+                                    className="fa-solid fa-rotate-left"
+                                    aria-hidden
+                                />
                             </button>
-                        ) : (
-                            <>
+                            <button
+                                className="preview-action-btn"
+                                title="Redo"
+                                aria-label="Redo"
+                                disabled={isCropMode || future.length === 0}
+                                onClick={() => {
+                                    if (future.length === 0) return;
+                                    const next = future[future.length - 1];
+                                    setFuture((f) => f.slice(0, f.length - 1));
+                                    setPast((p) =>
+                                        imageSrc ? [...p, imageSrc] : p
+                                    );
+                                    setImageSrc(next || null);
+                                }}
+                            >
+                                <i
+                                    className="fa-solid fa-rotate-right"
+                                    aria-hidden
+                                />
+                            </button>
+                            {!isCropMode ? (
                                 <button
-                                    className="preview-crop-btn preview-crop-btn--save"
-                                    title="Save crop"
-                                    aria-label="Save crop"
-                                    onClick={async () => {
-                                        if (!canvasPreviewRef.current) return;
-                                        const blob =
-                                            await canvasPreviewRef.current.exportCroppedImage();
-                                        if (!blob) return;
-                                        // release old URL if we created it
-                                        if (
-                                            imageSrc &&
-                                            imageSrc.startsWith("blob:")
-                                        ) {
-                                            try {
-                                                URL.revokeObjectURL(imageSrc);
-                                            } catch (err) {
-                                                console.warn(
-                                                    "Failed to revoke old object URL",
-                                                    err
-                                                );
-                                            }
-                                        }
-                                        const url = URL.createObjectURL(blob);
-                                        setImageSrc(url);
-                                        setIsCropMode(false);
-                                    }}
-                                >
-                                    <i
-                                        className="fa-solid fa-floppy-disk"
-                                        aria-hidden="true"
-                                    ></i>
-                                </button>
-                                <button
-                                    className="preview-crop-btn preview-crop-btn--cancel"
-                                    title="Cancel crop"
-                                    aria-label="Cancel crop"
+                                    className="preview-crop-btn"
+                                    title="Crop"
+                                    aria-label="Crop"
+                                    disabled={!imageSrc}
                                     onClick={() => {
-                                        setIsCropMode(false);
+                                        if (imageSrc) setIsCropMode(true);
                                     }}
                                 >
                                     <i
-                                        className="fa-solid fa-xmark"
+                                        className="fa-solid fa-crop"
                                         aria-hidden="true"
                                     ></i>
                                 </button>
-                            </>
-                        )}
+                            ) : (
+                                <>
+                                    <button
+                                        className="preview-crop-btn preview-crop-btn--save"
+                                        title="Save crop"
+                                        aria-label="Save crop"
+                                        onClick={async () => {
+                                            if (!canvasPreviewRef.current)
+                                                return;
+                                            const blob =
+                                                await canvasPreviewRef.current.exportCroppedImage();
+                                            if (!blob) return;
+                                            // release old URL if we created it
+                                            if (
+                                                imageSrc &&
+                                                imageSrc.startsWith("blob:")
+                                            ) {
+                                                try {
+                                                    URL.revokeObjectURL(
+                                                        imageSrc
+                                                    );
+                                                } catch (err) {
+                                                    console.warn(
+                                                        "Failed to revoke old object URL",
+                                                        err
+                                                    );
+                                                }
+                                            }
+                                            const url =
+                                                URL.createObjectURL(blob);
+                                            setImageSrc(url);
+                                            setIsCropMode(false);
+                                        }}
+                                    >
+                                        <i
+                                            className="fa-solid fa-floppy-disk"
+                                            aria-hidden="true"
+                                        ></i>
+                                    </button>
+                                    <button
+                                        className="preview-crop-btn preview-crop-btn--cancel"
+                                        title="Cancel crop"
+                                        aria-label="Cancel crop"
+                                        onClick={() => {
+                                            setIsCropMode(false);
+                                        }}
+                                    >
+                                        <i
+                                            className="fa-solid fa-xmark"
+                                            aria-hidden="true"
+                                        ></i>
+                                    </button>
+                                </>
+                            )}
+                        </div>
                     </div>
                 </main>
             </div>
