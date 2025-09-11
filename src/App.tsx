@@ -17,10 +17,10 @@ function App(): React.ReactElement | null {
     const [future, setFuture] = useState<string[]>([]);
     const [dragOver, setDragOver] = useState(false);
     const inputRef = useRef<HTMLInputElement | null>(null);
-    const [colorCount, setColorCount] = useState<number>(4);
+    const [weight, setWeight] = useState<number>(4);
     const [algorithm, setAlgorithm] = useState<string>("kmeans");
     const [swatches, setSwatches] = useState<string[]>([]);
-    // cap how many swatches we display (independent from colorCount used for quantizers)
+    // cap how many swatches we display (independent from weight used for quantizers)
     const SWATCH_CAP = 2 ** 14;
 
     // keep refs to avoid listing state in effect deps for cleanup
@@ -434,9 +434,9 @@ function App(): React.ReactElement | null {
                                 <input
                                     type="number"
                                     min={2}
-                                    value={colorCount}
+                                    value={weight}
                                     onChange={(e) =>
-                                        setColorCount(
+                                        setWeight(
                                             Math.max(
                                                 2,
                                                 Math.min(
@@ -512,18 +512,18 @@ function App(): React.ReactElement | null {
                                         if (algorithm === "median-cut") {
                                             medianCutImageData(
                                                 data,
-                                                colorCount
+                                                weight
                                             );
                                         } else if (algorithm === "kmeans") {
-                                            kmeansImageData(data, colorCount);
+                                            kmeansImageData(data, weight);
                                         } else if (algorithm === "octree") {
-                                            octreeImageData(data, colorCount);
+                                            octreeImageData(data, weight);
                                         } else if (algorithm === "wu") {
-                                            wuImageData(data, colorCount);
+                                            wuImageData(data, weight);
                                         } else {
                                             posterizeImageData(
                                                 data,
-                                                colorCount
+                                                weight
                                             );
                                         }
                                         ctx.putImageData(data, 0, 0);

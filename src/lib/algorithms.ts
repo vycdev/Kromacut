@@ -3,17 +3,17 @@
 
 export function posterizeImageData(
     data: ImageData,
-    colorCount: number
+    weight: number
 ): ImageData {
     const d = data.data;
     // sanitize and clamp
-    colorCount = Math.max(2, Math.min(256, Math.floor(colorCount)));
+    weight = Math.max(2, Math.min(256, Math.floor(weight)));
 
     // For very small palettes it's usually more visually pleasing to
     // quantize luminance (grayscale) rather than breaking color channels
     // which can produce strong color tints (e.g. red outlines at 2 colors).
-    if (colorCount <= 4) {
-        const levels = colorCount;
+    if (weight <= 4) {
+        const levels = weight;
         const steps = Math.max(0, levels - 1);
         const scale = steps > 0 ? 255 / steps : 0;
         for (let i = 0; i < d.length; i += 4) {
@@ -26,21 +26,21 @@ export function posterizeImageData(
     }
 
     // For larger palettes, distribute levels across R/G/B trying to get
-    // a product close to the requested colorCount while keeping channels balanced.
-    let r = Math.max(1, Math.floor(Math.cbrt(colorCount)));
+    // a product close to the requested weight while keeping channels balanced.
+    let r = Math.max(1, Math.floor(Math.cbrt(weight)));
     let g = r;
     let b = r;
 
-    // Grow the smallest channel as long as it doesn't make the product exceed colorCount
-    while (r * g * b < colorCount) {
+    // Grow the smallest channel as long as it doesn't make the product exceed weight
+    while (r * g * b < weight) {
         if (r <= g && r <= b) {
-            if ((r + 1) * g * b <= colorCount) r++;
+            if ((r + 1) * g * b <= weight) r++;
             else break;
         } else if (g <= r && g <= b) {
-            if (r * (g + 1) * b <= colorCount) g++;
+            if (r * (g + 1) * b <= weight) g++;
             else break;
         } else {
-            if (r * g * (b + 1) <= colorCount) b++;
+            if (r * g * (b + 1) <= weight) b++;
             else break;
         }
     }
@@ -70,16 +70,16 @@ export function posterizeImageData(
 }
 
 /**
- * Median-cut quantization: builds a palette of up to `colorCount` colors
+ * Median-cut quantization: builds a palette of up to `weight` colors
  * by recursively splitting color boxes along the longest channel at the
  * pixel-count median. Operates on ImageData in-place and returns it.
  */
 export function medianCutImageData(
     data: ImageData,
-    colorCount: number
+    weight: number
 ): ImageData {
     const d = data.data;
-    colorCount = Math.max(2, Math.min(256, Math.floor(colorCount)));
+    weight = Math.max(2, Math.min(256, Math.floor(weight)));
 
     // Build histogram of unique colors to reduce work
     const map = new Map<number, number>();
@@ -103,7 +103,7 @@ export function medianCutImageData(
         entries.push({ key, r, g, b, count });
     });
 
-    if (entries.length <= colorCount) {
+    if (entries.length <= weight) {
         // Already fewer unique colors than requested; nothing to do.
         return data;
     }
@@ -142,7 +142,7 @@ export function medianCutImageData(
     // start with one box containing all entries
     const boxes: Box[] = [makeBox(entries)];
 
-    while (boxes.length < colorCount) {
+    while (boxes.length < weight) {
         // pick the box with largest color range (by max channel span)
         let idx = -1;
         let maxRange = -1;
@@ -244,10 +244,10 @@ export function medianCutImageData(
  */
 export function kmeansImageData(
     data: ImageData,
-    colorCount: number
+    weight: number
 ): ImageData {
     const d = data.data;
-    colorCount = Math.max(2, Math.min(256, Math.floor(colorCount)));
+    weight = Math.max(2, Math.min(256, Math.floor(weight)));
 
     // Build unique color entries with counts
     const map = new Map<number, number>();
@@ -272,7 +272,7 @@ export function kmeansImageData(
         });
     });
 
-    if (entries.length <= colorCount) return data;
+    if (entries.length <= weight) return data;
 
     // helper: squared distance
     const dist2 = (
@@ -301,7 +301,7 @@ export function kmeansImageData(
     if (centroids.length === 0)
         centroids.push({ r: entries[0].r, g: entries[0].g, b: entries[0].b });
 
-    while (centroids.length < colorCount) {
+    while (centroids.length < weight) {
         // compute D^2 to nearest centroid for each entry
         let sum = 0;
         const dists: number[] = new Array(entries.length);
@@ -411,14 +411,14 @@ export function kmeansImageData(
 
 /**
  * Octree color quantization. Builds an octree up to depth 8, reduces
- * nodes until the leaf count <= colorCount, then maps pixels to leaf averages.
+ * nodes until the leaf count <= weight, then maps pixels to leaf averages.
  */
 export function octreeImageData(
     data: ImageData,
-    colorCount: number
+    weight: number
 ): ImageData {
     const d = data.data;
-    colorCount = Math.max(2, Math.min(256, Math.floor(colorCount)));
+    weight = Math.max(2, Math.min(256, Math.floor(weight)));
 
     // build histogram of unique colors
     const map = new Map<number, number>();
@@ -444,7 +444,7 @@ export function octreeImageData(
         })
     );
 
-    if (entries.length <= colorCount) return data;
+    if (entries.length <= weight) return data;
 
     const MAX_DEPTH = 8;
 
@@ -537,7 +537,7 @@ export function octreeImageData(
         return false;
     };
 
-    while (leafCount > colorCount) {
+    while (leafCount > weight) {
         if (!reduceOnce()) break;
     }
 
@@ -610,9 +610,9 @@ export default {
  * 33x33x33 color cube, partitions space to minimize squared error, and
  * maps pixels to the computed palette. Operates in-place on ImageData.
  */
-export function wuImageData(data: ImageData, colorCount: number): ImageData {
+export function wuImageData(data: ImageData, weight: number): ImageData {
     const d = data.data;
-    colorCount = Math.max(2, Math.min(256, Math.floor(colorCount)));
+    weight = Math.max(2, Math.min(256, Math.floor(weight)));
 
     // Build histogram of unique colors to reduce work (weighted entries)
     const map = new Map<number, number>();
@@ -638,7 +638,7 @@ export function wuImageData(data: ImageData, colorCount: number): ImageData {
         });
     });
 
-    if (entries.length <= colorCount) return data;
+    if (entries.length <= weight) return data;
 
     // Wu uses a 33x33x33 cube (indices 0..32) where colors are quantized by >> 3
     const SIDE = 33;
@@ -877,7 +877,7 @@ export function wuImageData(data: ImageData, colorCount: number): ImageData {
     // partition boxes
     const boxes: Box[] = [createBox()];
 
-    while (boxes.length < colorCount) {
+    while (boxes.length < weight) {
         // find box with largest variance
         let maxVar = -1;
         let idx = -1;
