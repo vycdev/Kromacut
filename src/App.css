@@ -210,8 +210,13 @@
   font-size: 18px;
 }
 .preview-crop-btn:disabled {
-  opacity: 0.5;
+  /* explicit greys for disabled state (background + icon) */
+  background: #e6e6e6; /* lighter grey background */
+  opacity: 1; /* override global button:disabled opacity */
   cursor: not-allowed;
+}
+.preview-crop-btn:disabled i {
+  color: #8a8a8a; /* darker grey icon */
 }
 
 /* debug outline while dragging splitter */
