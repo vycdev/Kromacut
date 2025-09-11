@@ -133,8 +133,9 @@ function App(): React.ReactElement | null {
             const newLeft = startLeftRef.current + delta;
             const el = layoutRef.current;
             if (!el) return;
-            const min = 60;
-            const max = el.clientWidth - 60;
+            // enforce minimum width for both sides = 25% of container
+            const min = Math.floor(el.clientWidth * 0.25);
+            const max = el.clientWidth - min;
             const clamped = Math.max(min, Math.min(max, newLeft));
             setLeftWidth(clamped);
             // schedule a check on the next frame AFTER layout has had a chance to update
@@ -170,6 +171,14 @@ function App(): React.ReactElement | null {
         const el = layoutRef.current;
         if (!el) return;
         const ro = new ResizeObserver(() => {
+            // clamp leftWidth to ensure both areas remain at least 25% on resize
+            const min = Math.floor(el.clientWidth * 0.25);
+            const max = el.clientWidth - min;
+            setLeftWidth((lw) => {
+                if (lw < min) return min;
+                if (lw > max) return max;
+                return lw;
+            });
             if (canvasPreviewRef.current) canvasPreviewRef.current.redraw();
         });
         ro.observe(el);
@@ -252,7 +261,10 @@ function App(): React.ReactElement | null {
                                     setImageSrc(prev || null);
                                 }}
                             >
-                                <i className="fa-solid fa-rotate-left" aria-hidden />
+                                <i
+                                    className="fa-solid fa-rotate-left"
+                                    aria-hidden
+                                />
                             </button>
                             <button
                                 className="preview-action-btn"
@@ -269,7 +281,10 @@ function App(): React.ReactElement | null {
                                     setImageSrc(next || null);
                                 }}
                             >
-                                <i className="fa-solid fa-rotate-right" aria-hidden />
+                                <i
+                                    className="fa-solid fa-rotate-right"
+                                    aria-hidden
+                                />
                             </button>
 
                             {!isCropMode ? (
@@ -294,18 +309,22 @@ function App(): React.ReactElement | null {
                                         title="Save crop"
                                         aria-label="Save crop"
                                         onClick={async () => {
-                                            if (!canvasPreviewRef.current) return;
+                                            if (!canvasPreviewRef.current)
+                                                return;
                                             const blob =
                                                 await canvasPreviewRef.current.exportCroppedImage();
                                             if (!blob) return;
                                             // push current image into history so undo can restore it
                                             if (imageSrc) {
                                                 setPast((p) =>
-                                                    imageSrc ? [...p, imageSrc] : p
+                                                    imageSrc
+                                                        ? [...p, imageSrc]
+                                                        : p
                                                 );
                                             }
                                             // create new URL for cropped image
-                                            const url = URL.createObjectURL(blob);
+                                            const url =
+                                                URL.createObjectURL(blob);
                                             setImageSrc(url);
                                             // clearing future since this is a new branch
                                             setFuture([]);
