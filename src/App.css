@@ -188,6 +188,25 @@
   border-radius: 6px;
 }
 
+/* crop button overlay in preview */
+.preview-crop-btn {
+  position: absolute;
+  right: 12px;
+  top: 12px;
+  z-index: 10;
+  background: rgba(0,0,0,0.5);
+  border: 1px solid rgba(255,255,255,0.08);
+  color: white;
+  padding: 0.45rem 0.55rem;
+  border-radius: 6px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.preview-crop-btn i { font-size: 0.95rem; }
+
 /* debug outline while dragging splitter */
 .preview-container.dragging {
   outline: 2px dashed rgba(255, 255, 255, 0.25);

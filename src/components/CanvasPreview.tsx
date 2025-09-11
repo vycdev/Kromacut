@@ -189,6 +189,9 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
                 onMouseDown={startPan}
             >
                 <canvas ref={canvasRef} />
+                <button className="preview-crop-btn" title="Crop">
+                    <i className="fa-solid fa-crop" aria-hidden="true"></i>
+                </button>
             </div>
         );
     }
