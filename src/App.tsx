@@ -106,10 +106,10 @@ function App(): React.ReactElement | null {
             alert("Please upload an image file");
             return;
         }
-    const url = URL.createObjectURL(file);
-    setPast((p) => (imageSrc ? [...p, imageSrc as string] : p));
-    setImageSrcAndInvalidate(url);
-    // swatches will be recomputed by the imageSrc effect; no manual call here
+        const url = URL.createObjectURL(file);
+        setPast((p) => (imageSrc ? [...p, imageSrc as string] : p));
+        setImageSrcAndInvalidate(url);
+        // swatches will be recomputed by the imageSrc effect; no manual call here
         setFuture([]);
     };
 
@@ -666,7 +666,7 @@ function App(): React.ReactElement | null {
                                             );
                                         const url =
                                             URL.createObjectURL(outBlob);
-                                            setImageSrcAndInvalidate(url);
+                                        setImageSrcAndInvalidate(url);
                                         setFuture([]);
                                     }}
                                     disabled={!imageSrc || isCropMode}
@@ -748,14 +748,14 @@ function App(): React.ReactElement | null {
                                 title="Undo"
                                 aria-label="Undo"
                                 disabled={isCropMode || past.length === 0}
-                                    onClick={() => {
-                                        if (past.length === 0) return;
-                                        const prev = past[past.length - 1];
-                                        setPast((p) => p.slice(0, p.length - 1));
-                                        setFuture((f) =>
-                                            imageSrc ? [...f, imageSrc] : f
-                                        );
-                                        setImageSrcAndInvalidate(prev || null);
+                                onClick={() => {
+                                    if (past.length === 0) return;
+                                    const prev = past[past.length - 1];
+                                    setPast((p) => p.slice(0, p.length - 1));
+                                    setFuture((f) =>
+                                        imageSrc ? [...f, imageSrc] : f
+                                    );
+                                    setImageSrcAndInvalidate(prev || null);
                                 }}
                             >
                                 <i
@@ -768,14 +768,14 @@ function App(): React.ReactElement | null {
                                 title="Redo"
                                 aria-label="Redo"
                                 disabled={isCropMode || future.length === 0}
-                                    onClick={() => {
-                                        if (future.length === 0) return;
-                                        const next = future[future.length - 1];
-                                        setFuture((f) => f.slice(0, f.length - 1));
-                                        setPast((p) =>
-                                            imageSrc ? [...p, imageSrc] : p
-                                        );
-                                        setImageSrcAndInvalidate(next || null);
+                                onClick={() => {
+                                    if (future.length === 0) return;
+                                    const next = future[future.length - 1];
+                                    setFuture((f) => f.slice(0, f.length - 1));
+                                    setPast((p) =>
+                                        imageSrc ? [...p, imageSrc] : p
+                                    );
+                                    setImageSrcAndInvalidate(next || null);
                                 }}
                             >
                                 <i
