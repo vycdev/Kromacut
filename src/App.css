@@ -94,8 +94,7 @@
   margin-bottom: 12px;
   font-weight: 600;
 }
-.controls-group input[type="number"],
-.controls-group select {
+.controls-group input[type="number"] {
   width: 100%;
   max-width: 100%;
   padding: 8px 10px;
@@ -107,6 +106,30 @@
   font-size: 15px;
   line-height: 1.2;
   appearance: auto;
+}
+
+/* style the select separately so we can replace the native arrow with a custom icon
+   while keeping number input spinners intact */
+.controls-group select {
+  width: 100%;
+  max-width: 100%;
+  padding: 8px 36px 8px 10px; /* reserve space on the right for the icon */
+  border-radius: 8px;
+  border: 1px solid rgba(0,0,0,0.12);
+  background: #2f2f2f; /* dark grey background */
+  color: #fff;
+  box-sizing: border-box;
+  font-size: 15px;
+  line-height: 1.2;
+  /* hide native arrow */
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  /* custom inline SVG arrow (white) */
+  background-image: url("data:image/svg+xml;utf8,<svg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2010%206'><path%20fill='%23ffffff'%20d='M0%200%20L5%206%20L10%200%20Z'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 10px 6px;
 }
 
 /* Restore native spinner controls by not overriding the UA appearance for number inputs.
