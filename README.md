@@ -56,22 +56,40 @@ npm run preview
 ```bash
 docker-compose up strata-paint-dev
 ```
+Access at `http://localhost:5173`
 
-**Production:**
+**Production (automatic build):**
 ```bash
 docker-compose up strata-paint-prod
 ```
+Access at `http://localhost:80`
+
+**Production (manual build - fastest):**
+```bash
+npm run build
+docker-compose up strata-paint-manual
+```
+Access at `http://localhost:80`
 
 ### Using Docker directly
 
-**Build the image:**
+**For production (manual build):**
 ```bash
-docker build -t strata-paint .
+npm run build
+docker build -t strata-paint --target manual .
+docker run -p 80:80 strata-paint
 ```
 
-**Run the container:**
+**For production (automatic build):**
 ```bash
+docker build -t strata-paint --target production .
 docker run -p 80:80 strata-paint
+```
+
+**For development:**
+```bash
+docker build -t strata-paint-dev --target development .
+docker run -p 5173:5173 -v $(pwd):/app -v /app/node_modules strata-paint-dev
 ```
 
 ## 🛠️ Tech Stack

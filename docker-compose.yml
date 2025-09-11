@@ -1,26 +1,35 @@
-version: '3.8'
-
 services:
   # Development environment
   strata-paint-dev:
     build:
       context: .
-      target: builder
+      target: development
     container_name: strata-paint-dev
     ports:
       - "5173:5173"
     volumes:
       - .:/app
       - /app/node_modules
-    command: npm run dev -- --host 0.0.0.0
     environment:
       - NODE_ENV=development
 
-  # Production environment
+  # Production environment (with build)
   strata-paint-prod:
     build:
       context: .
+      target: production
     container_name: strata-paint-prod
+    ports:
+      - "80:80"
+    environment:
+      - NODE_ENV=production
+      
+  # Manual build (if dist already exists)
+  strata-paint-manual:
+    build:
+      context: .
+      target: manual
+    container_name: strata-paint-manual
     ports:
       - "80:80"
     environment:
