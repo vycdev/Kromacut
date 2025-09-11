@@ -207,6 +207,8 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
         onWheelCanvasRef.current = onWheelCanvas;
 
         const startPan = (e: React.MouseEvent) => {
+            // prevent browser's native drag behavior when dragging quickly
+            e.preventDefault();
             if (e.button !== 0) return;
             panningRef.current = true;
             panStartXRef.current = e.clientX;
@@ -237,6 +239,8 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
         // Pointer interactions for crop selection
         const onSelectionPointerDown = (e: React.MouseEvent) => {
             // only handle left button
+            // prevent native drag (images/anchors) and text selection
+            e.preventDefault();
             if (e.button !== 0) return;
             const target = e.target as HTMLElement;
             const handle = target.dataset.handle;
@@ -427,6 +431,7 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
                 ref={previewContainerRef}
                 className="preview-container"
                 onMouseDown={startPan}
+                onDragStart={(e) => e.preventDefault()}
             >
                 <canvas ref={canvasRef} />
                 {/* crop overlay rendered on top of canvas when crop mode active */}
@@ -434,6 +439,7 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
                     <div
                         className="crop-overlay"
                         onMouseDown={(e) => e.stopPropagation()}
+                        onDragStart={(e) => e.preventDefault()}
                     >
                         {/* dimmed outside implemented as four panels so the inside of the crop box remains clear */}
                         <div

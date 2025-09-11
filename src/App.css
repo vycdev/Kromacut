@@ -194,6 +194,18 @@
   border-radius: 6px;
 }
 
+/* avoid browser-native drag interactions while manipulating crop or panning */
+.preview-container,
+.preview-container canvas,
+.crop-overlay,
+.crop-box {
+  -webkit-user-drag: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
 /* crop button (disabled when no image) */
 .preview-crop-btn {
   position: absolute;
