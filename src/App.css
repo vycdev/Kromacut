@@ -125,11 +125,11 @@
   -webkit-appearance: none;
   -moz-appearance: none;
   appearance: none;
-  /* custom inline SVG arrow (white) */
-  background-image: url("data:image/svg+xml;utf8,<svg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2010%206'><path%20fill='%23ffffff'%20d='M0%200%20L5%206%20L10%200%20Z'/></svg>");
+  /* custom inline SVG caret: grey stroked V with rounded caps/joins */
+  background-image: url("data:image/svg+xml;utf8,<svg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2010%206'><path%20d='M1%201%20L5%205%20L9%201'%20stroke='%23bdbdbd'%20stroke-width='1.5'%20fill='none'%20stroke-linecap='round'%20stroke-linejoin='round'/></svg>");
   background-repeat: no-repeat;
-  background-position: right 12px center;
-  background-size: 10px 6px;
+  background-position: right 13px center;
+  background-size: 12px 8px;
 }
 
 /* Restore native spinner controls by not overriding the UA appearance for number inputs.
