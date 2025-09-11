@@ -183,13 +183,12 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
 
         return (
             <div
-                className="dropzone"
+                ref={previewContainerRef}
+                className="preview-container"
                 onWheel={onWheelCanvas}
                 onMouseDown={startPan}
             >
-                <div ref={previewContainerRef} className="preview-container">
-                    <canvas ref={canvasRef} />
-                </div>
+                <canvas ref={canvasRef} />
             </div>
         );
     }

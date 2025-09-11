@@ -67,6 +67,22 @@
   font-size: 1rem;
 }
 
+/* grouped controls with subtle border and padding */
+.controls-group {
+  border: 1px solid rgba(255,255,255,0.06);
+  padding: 0.75rem;
+  border-radius: 8px;
+  margin-bottom: 0.75rem;
+  background: rgba(255,255,255,0.01);
+}
+
+/* center contents for this group */
+.controls-group--center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .placeholder.small p {
   margin: 0 0 0.5rem 0;
 }

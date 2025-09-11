@@ -164,11 +164,14 @@ function App(): React.ReactElement | null {
                             onChange={onChange}
                             style={{ display: "none" }}
                         />
-                        <UploaderControls
-                            onChoose={() => inputRef.current?.click()}
-                            onRemove={clear}
-                            canRemove={!!imageSrc}
-                        />
+
+                        <div className="controls-group controls-group--center">
+                            <UploaderControls
+                                onChoose={() => inputRef.current?.click()}
+                                onRemove={clear}
+                                canRemove={!!imageSrc}
+                            />
+                        </div>
                         {/* placeholder for future controls (color count, layer heights, etc.) */}
                     </div>
                 </aside>
