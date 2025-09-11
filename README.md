@@ -16,6 +16,3 @@ This project aims to be an open-source browser-based alternative to HueForge. Hi
 - Print instructions: output a short textual instruction list for the 3D printer (layer heights, color change layers, etc.).
 - Persistence (future): localStorage/IndexedDB save for images and settings, plus optional project import/export.
 - Future features: more advanced color quantization algorithms, palette auto-optimization, multilayer blending modes, and per-color infill settings.
-
-If you'd like, we'll continue by implementing the color reduction UI next (selector for number of colors) and a CPU-based quantization pipeline in JS.
-
