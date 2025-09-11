@@ -9,6 +9,7 @@ import React, {
 export interface CanvasPreviewHandle {
     redraw: () => void;
     exportCroppedImage: () => Promise<Blob | null>;
+    exportImageBlob: () => Promise<Blob | null>;
 }
 
 interface Props {
@@ -428,6 +429,24 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
                     outH
                 );
 
+                return await new Promise<Blob | null>((resolve) =>
+                    outCanvas.toBlob((b) => resolve(b), "image/png")
+                );
+            },
+            exportImageBlob: async (): Promise<Blob | null> => {
+                const img = imgRef.current;
+                if (!img) return null;
+                const iw = img.naturalWidth;
+                const ih = img.naturalHeight;
+                if (!iw || !ih) return null;
+                const outCanvas = document.createElement("canvas");
+                outCanvas.width = iw;
+                outCanvas.height = ih;
+                const ctx = outCanvas.getContext("2d");
+                if (!ctx) return null;
+                ctx.imageSmoothingEnabled = true;
+                ctx.imageSmoothingQuality = "high";
+                ctx.drawImage(img, 0, 0, iw, ih);
                 return await new Promise<Blob | null>((resolve) =>
                     outCanvas.toBlob((b) => resolve(b), "image/png")
                 );

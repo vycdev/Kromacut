@@ -10,6 +10,8 @@ function App(): React.ReactElement | null {
     const [future, setFuture] = useState<string[]>([]);
     const [dragOver, setDragOver] = useState(false);
     const inputRef = useRef<HTMLInputElement | null>(null);
+    const [colorCount, setColorCount] = useState<number>(8);
+    const [algorithm, setAlgorithm] = useState<string>("posterize");
 
     // keep refs to avoid listing state in effect deps for cleanup
     const imageRef = useRef<string | null>(null);
@@ -219,6 +221,147 @@ function App(): React.ReactElement | null {
                                 onRemove={clear}
                                 canRemove={!!imageSrc && !isCropMode}
                             />
+                        </div>
+                        <div className="controls-group">
+                            <label>
+                                Colors:
+                                <input
+                                    type="number"
+                                    min={2}
+                                    max={256}
+                                    value={colorCount}
+                                    onChange={(e) => {
+                                        // coerce to number and clamp to [2,256]
+                                        const v = Number(e.target.value);
+                                        if (Number.isNaN(v)) {
+                                            setColorCount(2);
+                                        } else {
+                                            setColorCount(Math.max(2, Math.min(256, v)));
+                                        }
+                                    }}
+                                />
+                            </label>
+                            <label style={{ display: "block", marginTop: 8 }}>
+                                Algorithm:
+                                <select
+                                    value={algorithm}
+                                    onChange={(e) => setAlgorithm(e.target.value)}
+                                >
+                                    <option value="posterize">Posterize</option>
+                                    <option value="grayscale">Grayscale</option>
+                                </select>
+                            </label>
+                            <div style={{ marginTop: 8 }}>
+                                <button
+                                    onClick={async () => {
+                                        if (
+                                            !canvasPreviewRef.current ||
+                                            !imageSrc
+                                        )
+                                            return;
+                                        // export current full-size image
+                                        const blob =
+                                            await canvasPreviewRef.current.exportImageBlob();
+                                        if (!blob) return;
+                                        const img =
+                                            await new Promise<HTMLImageElement | null>(
+                                                (resolve) => {
+                                                    const i = new Image();
+                                                    i.onload = () => resolve(i);
+                                                    i.onerror = () =>
+                                                        resolve(null);
+                                                    i.src =
+                                                        URL.createObjectURL(
+                                                            blob
+                                                        );
+                                                }
+                                            );
+                                        if (!img) return;
+
+                                        // draw to canvas then quantize using simple posterize or grayscale
+                                        const w = img.naturalWidth;
+                                        const h = img.naturalHeight;
+                                        const c =
+                                            document.createElement("canvas");
+                                        c.width = w;
+                                        c.height = h;
+                                        const ctx = c.getContext("2d");
+                                        if (!ctx) return;
+                                        ctx.drawImage(img, 0, 0, w, h);
+                                        const data = ctx.getImageData(
+                                            0,
+                                            0,
+                                            w,
+                                            h
+                                        );
+                                        const d = data.data;
+                                        if (algorithm === "grayscale") {
+                                            for (
+                                                let i = 0;
+                                                i < d.length;
+                                                i += 4
+                                            ) {
+                                                const avg = Math.round(
+                                                    (d[i] +
+                                                        d[i + 1] +
+                                                        d[i + 2]) /
+                                                        3
+                                                );
+                                                d[i] =
+                                                    d[i + 1] =
+                                                    d[i + 2] =
+                                                        avg;
+                                            }
+                                        } else {
+                                            // posterize: reduce channels to N levels based on colorCount's cube root
+                                            const levels = Math.max(2, Math.min(256, colorCount));
+                                            const step = Math.floor(
+                                                256 / levels
+                                            );
+                                            for (
+                                                let i = 0;
+                                                i < d.length;
+                                                i += 4
+                                            ) {
+                                                d[i] =
+                                                    Math.floor(d[i] / step) *
+                                                    step;
+                                                d[i + 1] =
+                                                    Math.floor(
+                                                        d[i + 1] / step
+                                                    ) * step;
+                                                d[i + 2] =
+                                                    Math.floor(
+                                                        d[i + 2] / step
+                                                    ) * step;
+                                            }
+                                        }
+                                        ctx.putImageData(data, 0, 0);
+                                        const outBlob =
+                                            await new Promise<Blob | null>(
+                                                (res) =>
+                                                    c.toBlob(
+                                                        (b) => res(b),
+                                                        "image/png"
+                                                    )
+                                            );
+                                        if (!outBlob) return;
+
+                                        // push current image into history
+                                        if (imageSrc)
+                                            setPast((p) =>
+                                                imageSrc ? [...p, imageSrc] : p
+                                            );
+                                        const url =
+                                            URL.createObjectURL(outBlob);
+                                        setImageSrc(url);
+                                        setFuture([]);
+                                    }}
+                                    disabled={!imageSrc || isCropMode}
+                                >
+                                    Apply
+                                </button>
+                            </div>
                         </div>
                         {/* placeholder for future controls (color count, layer heights, etc.) */}
                     </div>
