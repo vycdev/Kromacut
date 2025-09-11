@@ -139,7 +139,6 @@
 .dropzone {
   border: 2px dashed rgba(255,255,255,0.12);
   border-radius: 8px;
-  padding: 2rem;
   display: flex;
   align-items: center;
   justify-content: center;
