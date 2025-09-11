@@ -257,7 +257,9 @@ function App(): React.ReactElement | null {
                                     }
                                 >
                                     <option value="posterize">Posterize</option>
-                                    <option value="median-cut">Median Cut</option>
+                                    <option value="median-cut">
+                                        Median Cut
+                                    </option>
                                     <option value="kmeans">K-means</option>
                                 </select>
                             </label>
@@ -306,11 +308,17 @@ function App(): React.ReactElement | null {
                                         );
                                         // call selected algorithm (mutates ImageData)
                                         if (algorithm === "median-cut") {
-                                            medianCutImageData(data, colorCount);
+                                            medianCutImageData(
+                                                data,
+                                                colorCount
+                                            );
                                         } else if (algorithm === "kmeans") {
                                             kmeansImageData(data, colorCount);
                                         } else {
-                                            posterizeImageData(data, colorCount);
+                                            posterizeImageData(
+                                                data,
+                                                colorCount
+                                            );
                                         }
                                         ctx.putImageData(data, 0, 0);
                                         const outBlob =

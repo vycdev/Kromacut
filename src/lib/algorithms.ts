@@ -242,7 +242,10 @@ export function medianCutImageData(
  * K-means color quantization (weighted by pixel counts).
  * Uses k-means++ initialization and a small fixed number of iterations.
  */
-export function kmeansImageData(data: ImageData, colorCount: number): ImageData {
+export function kmeansImageData(
+    data: ImageData,
+    colorCount: number
+): ImageData {
     const d = data.data;
     colorCount = Math.max(2, Math.min(256, Math.floor(colorCount)));
 
@@ -252,15 +255,30 @@ export function kmeansImageData(data: ImageData, colorCount: number): ImageData 
         const key = (d[i] << 16) | (d[i + 1] << 8) | d[i + 2];
         map.set(key, (map.get(key) || 0) + 1);
     }
-    const entries: { key: number; r: number; g: number; b: number; count: number }[] = [];
+    const entries: {
+        key: number;
+        r: number;
+        g: number;
+        b: number;
+        count: number;
+    }[] = [];
     map.forEach((count, key) => {
-        entries.push({ key, r: (key >> 16) & 0xff, g: (key >> 8) & 0xff, b: key & 0xff, count });
+        entries.push({
+            key,
+            r: (key >> 16) & 0xff,
+            g: (key >> 8) & 0xff,
+            b: key & 0xff,
+            count,
+        });
     });
 
     if (entries.length <= colorCount) return data;
 
     // helper: squared distance
-    const dist2 = (a: { r: number; g: number; b: number }, b: { r: number; g: number; b: number }) => {
+    const dist2 = (
+        a: { r: number; g: number; b: number },
+        b: { r: number; g: number; b: number }
+    ) => {
         const dr = a.r - b.r;
         const dg = a.g - b.g;
         const db = a.b - b.b;
@@ -280,7 +298,8 @@ export function kmeansImageData(data: ImageData, colorCount: number): ImageData 
             break;
         }
     }
-    if (centroids.length === 0) centroids.push({ r: entries[0].r, g: entries[0].g, b: entries[0].b });
+    if (centroids.length === 0)
+        centroids.push({ r: entries[0].r, g: entries[0].g, b: entries[0].b });
 
     while (centroids.length < colorCount) {
         // compute D^2 to nearest centroid for each entry
@@ -304,7 +323,11 @@ export function kmeansImageData(data: ImageData, colorCount: number): ImageData 
             if (pick <= 0) break;
         }
         if (idx >= entries.length) idx = entries.length - 1;
-        centroids.push({ r: entries[idx].r, g: entries[idx].g, b: entries[idx].b });
+        centroids.push({
+            r: entries[idx].r,
+            g: entries[idx].g,
+            b: entries[idx].b,
+        });
     }
 
     // iterate k-means (weighted) -- limited iterations for speed
@@ -329,7 +352,8 @@ export function kmeansImageData(data: ImageData, colorCount: number): ImageData 
             }
         }
         // recompute centroids
-        const sums: { r: number; g: number; b: number; w: number }[] = centroids.map(() => ({ r: 0, g: 0, b: 0, w: 0 }));
+        const sums: { r: number; g: number; b: number; w: number }[] =
+            centroids.map(() => ({ r: 0, g: 0, b: 0, w: 0 }));
         for (let i = 0; i < entries.length; i++) {
             const a = assignments[i];
             const e = entries[i];
@@ -341,7 +365,8 @@ export function kmeansImageData(data: ImageData, colorCount: number): ImageData 
         for (let c = 0; c < centroids.length; c++) {
             if (sums[c].w === 0) {
                 // re-seed empty centroid with a random entry
-                const pick = entries[Math.floor(Math.random() * entries.length)];
+                const pick =
+                    entries[Math.floor(Math.random() * entries.length)];
                 centroids[c] = { r: pick.r, g: pick.g, b: pick.b };
             } else {
                 centroids[c] = {
