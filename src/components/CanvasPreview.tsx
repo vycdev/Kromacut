@@ -133,10 +133,33 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
         // initialize selection when entering crop mode
         useEffect(() => {
             if (!isCropMode) return;
-            const layout = computeImageLayout();
-            if (!layout) return;
-            const { dx, dy, dw, dh } = layout;
-            setSelection({ x: dx, y: dy, w: dw, h: dh });
+            const initSelection = () => {
+                const layout = computeImageLayout();
+                if (!layout) return false;
+                const { dx, dy, dw, dh, cw, ch } = layout;
+                const userZoom = zoomRef.current || 1;
+                // account for user pan (offsetRef) and zoom when computing visible image rect
+                const x = dx + offsetRef.current.x;
+                const y = dy + offsetRef.current.y;
+                const w = dw * userZoom;
+                const h = dh * userZoom;
+
+                // clamp to container
+                const sx = Math.max(0, Math.min(cw - 1, x));
+                const sy = Math.max(0, Math.min(ch - 1, y));
+                const sw = Math.max(1, Math.min(cw - sx, w));
+                const sh = Math.max(1, Math.min(ch - sy, h));
+                setSelection({ x: sx, y: sy, w: sw, h: sh });
+                return true;
+            };
+
+            // try to init immediately; if image hasn't loaded yet computeImageLayout may return null
+            const ok = initSelection();
+            if (ok) return;
+            // retry once on next animation frame after layout/img may be ready
+            let raf = 0 as number;
+            raf = requestAnimationFrame(() => initSelection());
+            return () => cancelAnimationFrame(raf);
         }, [isCropMode, imageSrc]);
 
         const clamp = (v: number, a: number, b: number) =>
