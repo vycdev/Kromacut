@@ -35,6 +35,14 @@
   font-size: 1rem;
 }
 
+.placeholder.small p {
+  margin: 0 0 0.5rem 0;
+}
+
+.uploader-controls {
+  margin-top: 0.75rem;
+}
+
 .muted {
   color: rgba(255,255,255,0.6);
 }
@@ -79,6 +87,21 @@
 .dropzone.dragover {
   border-color: rgba(255,255,255,0.28);
   background: rgba(255,255,255,0.03);
+}
+
+.preview-container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.preview-container canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  border-radius: 6px;
 }
 
 .placeholder {

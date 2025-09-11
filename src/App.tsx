@@ -48,6 +48,89 @@ function App(): React.ReactElement | null {
         }
         if (inputRef.current) inputRef.current.value = "";
     };
+    const canvasRef = useRef<HTMLCanvasElement | null>(null);
+    const previewContainerRef = useRef<HTMLDivElement | null>(null);
+    const imgRef = useRef<HTMLImageElement | null>(null);
+
+    // draw image to canvas with aspect-fit and HiDPI support
+    const drawToCanvas = () => {
+        const canvas = canvasRef.current;
+        const container = previewContainerRef.current;
+        if (!canvas || !container) return;
+
+        const dpr = window.devicePixelRatio || 1;
+        const cw = container.clientWidth;
+        const ch = container.clientHeight;
+
+        canvas.width = Math.max(1, Math.floor(cw * dpr));
+        canvas.height = Math.max(1, Math.floor(ch * dpr));
+        canvas.style.width = `${cw}px`;
+        canvas.style.height = `${ch}px`;
+
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return;
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.clearRect(0, 0, cw, ch);
+
+        const img = imgRef.current;
+        if (!img) return;
+
+        const iw = img.naturalWidth;
+        const ih = img.naturalHeight;
+        if (!iw || !ih) return;
+
+        // calculate aspect-fit size
+        const scale = Math.min(cw / iw, ch / ih);
+        const dw = iw * scale;
+        const dh = ih * scale;
+        const dx = (cw - dw) / 2;
+        const dy = (ch - dh) / 2;
+
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = "high";
+        ctx.drawImage(img, 0, 0, iw, ih, dx, dy, dw, dh);
+    };
+
+    // when imageSrc changes, load image element and draw
+    useEffect(() => {
+        if (!imageSrc) {
+            imgRef.current = null;
+            const canvas = canvasRef.current;
+            if (canvas) {
+                const ctx = canvas.getContext("2d");
+                if (ctx && previewContainerRef.current) {
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                }
+            }
+            return;
+        }
+
+        const img = new Image();
+        imgRef.current = img;
+        img.onload = () => {
+            // draw once loaded
+            drawToCanvas();
+        };
+        img.src = imageSrc;
+        return () => {
+            // keep reference but don't revoke here (clear handles)
+            imgRef.current = null;
+        };
+    }, [imageSrc]);
+
+    // resize observer to redraw canvas when preview area size changes
+    useEffect(() => {
+        const container = previewContainerRef.current;
+        if (!container) return;
+        const ro = new ResizeObserver(() => drawToCanvas());
+        ro.observe(container);
+        window.addEventListener("resize", drawToCanvas);
+        return () => {
+            ro.disconnect();
+            window.removeEventListener("resize", drawToCanvas);
+        };
+        // empty deps on purpose - we only want to attach once on mount
+    }, []);
     // Layout splitter state
     const layoutRef = useRef<HTMLDivElement | null>(null);
     const [leftWidth, setLeftWidth] = useState<number>(0);
@@ -102,8 +185,6 @@ function App(): React.ReactElement | null {
 
     return (
         <div className="uploader-root">
-            <h1>StrataPaint — Upload Photo</h1>
-
             <div
                 className="app-layout"
                 ref={layoutRef}
@@ -116,6 +197,29 @@ function App(): React.ReactElement | null {
                             Image settings and project controls will appear
                             here.
                         </p>
+                        <div className="uploader-controls">
+                            <div className="placeholder small">
+                                <p>Upload an image</p>
+                                <button
+                                    type="button"
+                                    onClick={() => inputRef.current?.click()}
+                                >
+                                    Choose file
+                                </button>
+                            </div>
+                            <input
+                                ref={inputRef}
+                                type="file"
+                                accept="image/*"
+                                onChange={onChange}
+                                style={{ display: "none" }}
+                            />
+                            {imageSrc && (
+                                <div style={{ marginTop: 8 }}>
+                                    <button onClick={clear}>Remove</button>
+                                </div>
+                            )}
+                        </div>
                         {/* placeholder for future controls (color count, layer heights, etc.) */}
                     </div>
                 </aside>
@@ -133,40 +237,14 @@ function App(): React.ReactElement | null {
                         onDrop={onDrop}
                         onDragOver={onDragOver}
                         onDragLeave={() => setDragOver(false)}
-                        onClick={() => inputRef.current?.click()}
                     >
-                        {imageSrc ? (
-                            <img
-                                src={imageSrc}
-                                alt="uploaded preview"
-                                className="preview"
-                            />
-                        ) : (
-                            <div className="placeholder">
-                                <p>Click or drop an image here to upload</p>
-                                <button
-                                    type="button"
-                                    onClick={() => inputRef.current?.click()}
-                                >
-                                    Choose file
-                                </button>
-                            </div>
-                        )}
-
-                        <input
-                            ref={inputRef}
-                            type="file"
-                            accept="image/*"
-                            onChange={onChange}
-                            style={{ display: "none" }}
-                        />
-                    </div>
-
-                    {imageSrc && (
-                        <div className="controls">
-                            <button onClick={clear}>Remove</button>
+                        <div
+                            ref={previewContainerRef}
+                            className="preview-container"
+                        >
+                            <canvas ref={canvasRef} />
                         </div>
-                    )}
+                    </div>
                 </main>
             </div>
         </div>
