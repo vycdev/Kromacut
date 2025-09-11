@@ -430,7 +430,7 @@ function App(): React.ReactElement | null {
                         </div>
                         <div className="controls-group">
                             <label>
-                                Colors
+                                Weight
                                 <input
                                     type="number"
                                     min={2}
