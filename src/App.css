@@ -1,12 +1,21 @@
 /* Minimal styles for uploader */
 .uploader-root {
-  height: 100vh;
+  /* fill the viewport but remain flexible inside the body */
   padding: 1rem;
   box-sizing: border-box;
   color: inherit;
   font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
   display: flex;
   flex-direction: column;
+  flex: 1 1 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* ensure the root fills available width so the grid can expand */
+.uploader-root {
+  width: 100%;
+  max-width: 100%;
 }
 
 .uploader-root h1 {
@@ -16,10 +25,24 @@
 
 .app-layout {
   display: grid;
-  grid-template-columns: 1fr 1fr; /* two equal halves */
+  /* left column controlled by CSS variable; fallback to 1fr */
+  grid-template-columns: var(--left-width, 1fr) 10px 1fr;
   gap: 1rem;
   flex: 1 1 auto;
   height: 100%;
+  /* allow flex children to shrink without forcing overflow */
+  min-height: 0;
+}
+
+/* make the grid fill its container so columns can be resized freely */
+.app-layout {
+  width: 100%;
+}
+
+/* Allow grid children to shrink when grid columns become small (prevents
+   intrinsic min-width from blocking the column resize when dragging the splitter) */
+.app-layout > * {
+  min-width: 0;
 }
 
 .sidebar {
@@ -28,6 +51,12 @@
   border-radius: 8px;
   height: 100%;
   box-sizing: border-box;
+}
+
+/* allow sidebar to shrink below its content's intrinsic width and clip/wrap content */
+.sidebar {
+  min-width: 0;
+  overflow: hidden;
 }
 
 .controls-panel h2 {
@@ -48,12 +77,28 @@
   flex-direction: column;
   gap: 0.75rem;
   height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* allow the preview-area to shrink/grow horizontally inside the grid */
+.preview-area {
+  min-width: 0;
 }
 
 .uploader-controls {
   display: flex;
   gap: 0.5rem;
   align-items: center;
+}
+
+/* let the inline buttons wrap when the sidebar narrows */
+.uploader-controls {
+  flex-wrap: wrap;
+}
+.uploader-controls button {
+  flex: 0 1 auto;
+  min-width: 0;
 }
 
 .splitter {
@@ -85,6 +130,14 @@
   height: 100%;
   box-sizing: border-box;
   background: rgba(255,255,255,0.02);
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* let the dropzone flex to fill the preview column and not force intrinsic sizing */
+.dropzone {
+  flex: 1 1 auto;
+  min-width: 0;
 }
 .dropzone.dragover {
   border-color: rgba(255,255,255,0.28);
@@ -99,11 +152,26 @@
   justify-content: center;
 }
 
+.preview-container {
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.preview-container {
+  min-height: 0;
+  overflow: hidden;
+}
+
 .preview-container canvas {
   width: 100%;
   height: 100%;
   display: block;
   border-radius: 6px;
+}
+
+/* debug outline while dragging splitter */
+.preview-container.dragging {
+  outline: 2px dashed rgba(255, 255, 255, 0.25);
 }
 
 .placeholder {

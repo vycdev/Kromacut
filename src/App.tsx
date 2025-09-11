@@ -51,6 +51,12 @@ function App(): React.ReactElement | null {
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
     const previewContainerRef = useRef<HTMLDivElement | null>(null);
     const imgRef = useRef<HTMLImageElement | null>(null);
+    const zoomRef = useRef<number>(1);
+    const offsetRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+    const panningRef = useRef(false);
+    const panStartXRef = useRef(0);
+    const panStartYRef = useRef(0);
+    const panStartOffsetRef = useRef({ x: 0, y: 0 });
 
     // draw image to canvas with aspect-fit and HiDPI support
     const drawToCanvas = () => {
@@ -69,6 +75,7 @@ function App(): React.ReactElement | null {
 
         const ctx = canvas.getContext("2d");
         if (!ctx) return;
+        // clear using device-pixel transform, then set our final transform
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         ctx.clearRect(0, 0, cw, ch);
 
@@ -80,15 +87,28 @@ function App(): React.ReactElement | null {
         if (!iw || !ih) return;
 
         // calculate aspect-fit size
-        const scale = Math.min(cw / iw, ch / ih);
-        const dw = iw * scale;
-        const dh = ih * scale;
+        const baseScale = Math.min(cw / iw, ch / ih);
+        const dw = iw * baseScale;
+        const dh = ih * baseScale;
         const dx = (cw - dw) / 2;
         const dy = (ch - dh) / 2;
 
+        const userZoom = zoomRef.current || 1;
+        const totalScale = baseScale * userZoom;
+
+        // apply final transform: scale and translation in CSS pixels (will be multiplied by dpr)
+        ctx.setTransform(
+            dpr * totalScale,
+            0,
+            0,
+            dpr * totalScale,
+            dpr * (offsetRef.current.x + dx),
+            dpr * (offsetRef.current.y + dy)
+        );
         ctx.imageSmoothingEnabled = true;
         ctx.imageSmoothingQuality = "high";
-        ctx.drawImage(img, 0, 0, iw, ih, dx, dy, dw, dh);
+        // draw image at image-space coordinates (0,0) sized to its natural pixels
+        ctx.drawImage(img, 0, 0, iw, ih);
     };
 
     // when imageSrc changes, load image element and draw
@@ -118,6 +138,80 @@ function App(): React.ReactElement | null {
         };
     }, [imageSrc]);
 
+    // pan/zoom handlers
+    const clamp = (v: number, a: number, b: number) =>
+        Math.max(a, Math.min(b, v));
+
+    const onWheelCanvas = (e: React.WheelEvent) => {
+        if (!previewContainerRef.current) return;
+        e.preventDefault();
+        const rect = previewContainerRef.current.getBoundingClientRect();
+        const cx = e.clientX - rect.left;
+        const cy = e.clientY - rect.top;
+
+        const container = previewContainerRef.current;
+        const cw = container.clientWidth;
+        const ch = container.clientHeight;
+
+        const img = imgRef.current;
+        if (!img) return;
+        const iw = img.naturalWidth;
+        const ih = img.naturalHeight;
+        if (!iw || !ih) return;
+
+        const baseScale = Math.min(cw / iw, ch / ih);
+        const dw = iw * baseScale;
+        const dh = ih * baseScale;
+        const dx = (cw - dw) / 2;
+        const dy = (ch - dh) / 2;
+
+        const z = zoomRef.current || 1;
+        const delta = -e.deltaY; // invert so wheel up zooms in
+        const factor = Math.exp(delta * 0.0015);
+        const z2 = clamp(z * factor, 0.1, 32);
+
+        // keep canvas point under cursor stable
+        const cxRel = cx;
+        const cyRel = cy;
+        const newOffsetX =
+            cxRel - dx - (cxRel - dx - offsetRef.current.x) * (z2 / z);
+        const newOffsetY =
+            cyRel - dy - (cyRel - dy - offsetRef.current.y) * (z2 / z);
+
+        zoomRef.current = z2;
+        offsetRef.current = { x: newOffsetX, y: newOffsetY };
+        drawToCanvas();
+    };
+
+    const startPan = (e: React.MouseEvent) => {
+        // only left button
+        if (e.button !== 0) return;
+        panningRef.current = true;
+        panStartXRef.current = e.clientX;
+        panStartYRef.current = e.clientY;
+        panStartOffsetRef.current = { ...offsetRef.current };
+        document.body.style.cursor = "grabbing";
+
+        const onMove = (ev: MouseEvent) => {
+            if (!panningRef.current) return;
+            const dx = ev.clientX - panStartXRef.current;
+            const dy = ev.clientY - panStartYRef.current;
+            offsetRef.current = {
+                x: panStartOffsetRef.current.x + dx,
+                y: panStartOffsetRef.current.y + dy,
+            };
+            drawToCanvas();
+        };
+        const onUp = () => {
+            panningRef.current = false;
+            document.body.style.cursor = "";
+            window.removeEventListener("mousemove", onMove);
+            window.removeEventListener("mouseup", onUp);
+        };
+        window.addEventListener("mousemove", onMove);
+        window.addEventListener("mouseup", onUp);
+    };
+
     // resize observer to redraw canvas when preview area size changes
     useEffect(() => {
         const container = previewContainerRef.current;
@@ -135,13 +229,23 @@ function App(): React.ReactElement | null {
     const layoutRef = useRef<HTMLDivElement | null>(null);
     const [leftWidth, setLeftWidth] = useState<number>(0);
     const draggingRef = useRef(false);
+    const [isDragging, setIsDragging] = useState(false);
     const startXRef = useRef(0);
     const startLeftRef = useRef(0);
 
+    // initialize leftWidth once on mount
     useEffect(() => {
         const el = layoutRef.current;
-        if (el && leftWidth === 0) {
+        if (el) {
             setLeftWidth(Math.floor(el.clientWidth / 2));
+        }
+    }, []);
+
+    // apply leftWidth to CSS variable on the layout element so grid is CSS-driven
+    useEffect(() => {
+        const el = layoutRef.current;
+        if (el) {
+            el.style.setProperty("--left-width", `${leftWidth}px`);
         }
     }, [leftWidth]);
 
@@ -152,14 +256,28 @@ function App(): React.ReactElement | null {
             const newLeft = startLeftRef.current + delta;
             const el = layoutRef.current;
             if (!el) return;
-            const min = 120;
-            const max = el.clientWidth - 120;
+            const min = 60;
+            const max = el.clientWidth - 60;
             const clamped = Math.max(min, Math.min(max, newLeft));
             setLeftWidth(clamped);
+            // schedule a check on the next frame AFTER layout has had a chance to update
+            requestAnimationFrame(() => {
+                try {
+                    drawToCanvas();
+                } catch {
+                    // ignore draw errors during rapid drag
+                }
+                try {
+                    drawToCanvas();
+                } catch {
+                    // ignore draw errors during rapid drag
+                }
+            });
         };
         const onUp = () => {
             if (!draggingRef.current) return;
             draggingRef.current = false;
+            setIsDragging(false);
             document.body.style.cursor = "";
             document.body.style.userSelect = "";
         };
@@ -171,8 +289,23 @@ function App(): React.ReactElement | null {
         };
     }, []);
 
+    // redraw when leftWidth changes (splitter moved)
+    useEffect(() => {
+        drawToCanvas();
+    }, [leftWidth]);
+
+    // observe layout changes (in case grid resizing affects preview size)
+    useEffect(() => {
+        const el = layoutRef.current;
+        if (!el) return;
+        const ro = new ResizeObserver(() => drawToCanvas());
+        ro.observe(el);
+        return () => ro.disconnect();
+    }, []);
+
     const onSplitterDown = (e: React.MouseEvent<HTMLDivElement>) => {
         draggingRef.current = true;
+        setIsDragging(true);
         startXRef.current = e.clientX;
         startLeftRef.current =
             leftWidth ||
@@ -185,13 +318,18 @@ function App(): React.ReactElement | null {
 
     return (
         <div className="uploader-root">
-            <div
-                className="app-layout"
-                ref={layoutRef}
-                style={{ gridTemplateColumns: `${leftWidth}px 10px 1fr` }}
-            >
+            <div className="app-layout" ref={layoutRef}>
                 <aside className="sidebar">
                     <div className="controls-panel">
+                        <div
+                            style={{
+                                fontSize: 12,
+                                opacity: 0.85,
+                                marginBottom: 8,
+                            }}
+                        >
+                            <div>leftWidth: {leftWidth}px</div>
+                        </div>
                         <div className="uploader-controls">
                             <input
                                 ref={inputRef}
@@ -230,7 +368,11 @@ function App(): React.ReactElement | null {
                     >
                         <div
                             ref={previewContainerRef}
-                            className="preview-container"
+                            className={`preview-container ${
+                                isDragging ? "dragging" : ""
+                            }`}
+                            onWheel={onWheelCanvas}
+                            onMouseDown={startPan}
                         >
                             <canvas ref={canvasRef} />
                         </div>
