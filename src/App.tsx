@@ -194,6 +194,7 @@ function App(): React.ReactElement | null {
                         <CanvasPreview
                             ref={canvasPreviewRef}
                             imageSrc={imageSrc}
+                            isCropMode={isCropMode}
                         />
                         {!isCropMode ? (
                             <button
@@ -216,8 +217,28 @@ function App(): React.ReactElement | null {
                                     className="preview-crop-btn preview-crop-btn--save"
                                     title="Save crop"
                                     aria-label="Save crop"
-                                    onClick={() => {
-                                        // intentionally no-op for now
+                                    onClick={async () => {
+                                        if (!canvasPreviewRef.current) return;
+                                        const blob =
+                                            await canvasPreviewRef.current.exportCroppedImage();
+                                        if (!blob) return;
+                                        // release old URL if we created it
+                                        if (
+                                            imageSrc &&
+                                            imageSrc.startsWith("blob:")
+                                        ) {
+                                            try {
+                                                URL.revokeObjectURL(imageSrc);
+                                            } catch (err) {
+                                                console.warn(
+                                                    "Failed to revoke old object URL",
+                                                    err
+                                                );
+                                            }
+                                        }
+                                        const url = URL.createObjectURL(blob);
+                                        setImageSrc(url);
+                                        setIsCropMode(false);
                                     }}
                                 >
                                     <i
