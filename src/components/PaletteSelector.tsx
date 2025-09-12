@@ -65,9 +65,15 @@ export const PaletteSelector: React.FC<Props> = ({ selected, onSelect }) => {
                                         Auto
                                     </div>
                                 ) : (
-                                    p.colors
-                                        .slice(0, 8)
-                                        .map((c, i) => (
+                                    <div
+                                        style={{
+                                            display: "flex",
+                                            gap: 4,
+                                            flexWrap: "wrap",
+                                            maxWidth: 200,
+                                        }}
+                                    >
+                                        {p.colors.map((c, i) => (
                                             <div
                                                 key={i}
                                                 className="swatch"
@@ -79,7 +85,8 @@ export const PaletteSelector: React.FC<Props> = ({ selected, onSelect }) => {
                                                     border: "1px solid rgba(0,0,0,0.15)",
                                                 }}
                                             />
-                                        ))
+                                        ))}
+                                    </div>
                                 )}
                             </div>
                             <div style={{ fontSize: 12, color: "#ddd" }}>
