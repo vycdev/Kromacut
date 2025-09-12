@@ -592,6 +592,7 @@ export default {
     kmeansImageData,
     octreeImageData,
     wuImageData,
+    mapImageToPalette,
 };
 
 /**
@@ -1317,6 +1318,67 @@ export function enforcePaletteSize(data: ImageData, target: number): ImageData {
                 d[i + 1] = v[1];
                 d[i + 2] = v[2];
             }
+        }
+    }
+
+    return data;
+}
+
+/**
+ * Map every pixel color in `data` to the nearest color from `palette`.
+ * `palette` is an array of hex strings like `#rrggbb`.
+ */
+export function mapImageToPalette(data: ImageData, palette: string[]): ImageData {
+    const d = data.data;
+    if (!palette || palette.length === 0) return data;
+
+    const hexToRgb = (h: string) => {
+        const s = h.replace(/^#/, "");
+        const r = parseInt(s.slice(0, 2), 16) || 0;
+        const g = parseInt(s.slice(2, 4), 16) || 0;
+        const b = parseInt(s.slice(4, 6), 16) || 0;
+        return [r, g, b];
+    };
+
+    const palRGB = palette.map(hexToRgb);
+
+    // build unique color histogram
+    const uniq = new Map<number, number>();
+    for (let i = 0; i < d.length; i += 4) {
+        const key = (d[i] << 16) | (d[i + 1] << 8) | d[i + 2];
+        uniq.set(key, (uniq.get(key) || 0) + 1);
+    }
+
+    // mapping from original color to nearest palette RGB
+    const mapping = new Map<number, [number, number, number]>();
+    for (const key of uniq.keys()) {
+        const r = (key >> 16) & 0xff;
+        const g = (key >> 8) & 0xff;
+        const b = key & 0xff;
+        let bestIdx = 0;
+        let bestDist = Infinity;
+        for (let i = 0; i < palRGB.length; i++) {
+            const pr = palRGB[i][0];
+            const pg = palRGB[i][1];
+            const pb = palRGB[i][2];
+            const d2 = (r - pr) * (r - pr) + (g - pg) * (g - pg) + (b - pb) * (b - pb);
+            if (d2 < bestDist) {
+                bestDist = d2;
+                bestIdx = i;
+            }
+        }
+        const p = palRGB[bestIdx];
+        mapping.set(key, [p[0], p[1], p[2]]);
+    }
+
+    // remap pixels in-place
+    for (let i = 0; i < d.length; i += 4) {
+        const key = (d[i] << 16) | (d[i + 1] << 8) | d[i + 2];
+        const v = mapping.get(key);
+        if (v) {
+            d[i] = v[0];
+            d[i + 1] = v[1];
+            d[i + 2] = v[2];
         }
     }
 

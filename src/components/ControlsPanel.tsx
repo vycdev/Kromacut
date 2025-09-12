@@ -1,30 +1,53 @@
 import React from "react";
 
 interface Props {
+    finalColors: number;
+    onFinalColorsChange: (n: number) => void;
     weight: number;
     onWeightChange: (n: number) => void;
     algorithm: string;
     setAlgorithm: (a: string) => void;
     onApply: () => void;
     disabled: boolean;
+    weightDisabled?: boolean;
 }
 
 export const ControlsPanel: React.FC<Props> = ({
+    finalColors,
+    onFinalColorsChange,
     weight,
     onWeightChange,
     algorithm,
     setAlgorithm,
     onApply,
     disabled,
+    weightDisabled = false,
 }) => {
     return (
         <div className="controls-group">
             <label>
-                Color
+                Colors
+                <input
+                    type="number"
+                    min={2}
+                    value={finalColors}
+                    onChange={(e) =>
+                        onFinalColorsChange(
+                            Math.max(
+                                2,
+                                Math.min(256, Number(e.target.value) || 2)
+                            )
+                        )
+                    }
+                />
+            </label>
+            <label>
+                Weight
                 <input
                     type="number"
                     min={2}
                     value={weight}
+                    disabled={weightDisabled}
                     onChange={(e) =>
                         onWeightChange(
                             Math.max(

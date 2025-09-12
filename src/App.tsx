@@ -15,12 +15,14 @@ import { PALETTES } from "./data/palettes";
 function App(): React.ReactElement | null {
     const [dragOver, setDragOver] = useState(false);
     const inputRef = useRef<HTMLInputElement | null>(null);
-    const [weight, setWeight] = useState<number>(4);
+    // `weight` is the algorithm parameter; `finalColors` is the postprocess target
+    const [weight, setWeight] = useState<number>(128);
+    const [finalColors, setFinalColors] = useState<number>(4);
     const [algorithm, setAlgorithm] = useState<string>("kmeans");
     const SWATCH_CAP = 2 ** 14;
     const [selectedPalette, setSelectedPalette] = useState<string>(() => {
         const matched = PALETTES.find(
-            (p) => p.id !== "auto" && p.size === weight
+            (p) => p.id !== "auto" && p.size === finalColors
         );
         return matched ? matched.id : "auto";
     });
@@ -34,6 +36,8 @@ function App(): React.ReactElement | null {
     const { applyQuantize } = useQuantize({
         algorithm,
         weight,
+        finalColors,
+        selectedPalette,
         imageSrc,
         setImage: (u, push = true) => {
             invalidate();
@@ -181,19 +185,28 @@ function App(): React.ReactElement | null {
                             selected={selectedPalette}
                             onSelect={(id, size) => {
                                 setSelectedPalette(id);
-                                if (id !== "auto") setWeight(size);
+                                // set the postprocess target to the palette size, but do not lock it
+                                if (id !== "auto") setFinalColors(size);
                             }}
                         />
                         <ControlsPanel
+                            // finalColors controls postprocessing result count
+                            finalColors={finalColors}
+                            onFinalColorsChange={(n) => {
+                                setFinalColors(n);
+                                // changing the final colors should switch to auto palette
+                                setSelectedPalette("auto");
+                            }}
+                            // weight remains the algorithm parameter
                             weight={weight}
                             onWeightChange={(n) => {
                                 setWeight(n);
-                                setSelectedPalette("auto");
                             }}
                             algorithm={algorithm}
                             setAlgorithm={setAlgorithm}
                             onApply={() => applyQuantize(canvasPreviewRef)}
                             disabled={!imageSrc || isCropMode}
+                            weightDisabled={algorithm === "none"}
                         />
                         <SwatchesPanel
                             swatches={swatches}

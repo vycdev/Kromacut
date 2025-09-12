@@ -5,6 +5,7 @@ import {
     octreeImageData,
     wuImageData,
     enforcePaletteSize,
+    mapImageToPalette,
 } from "../lib/algorithms";
 import { rgbToHsl } from "../lib/color";
 import type { CanvasPreviewHandle } from "../components/CanvasPreview";
@@ -12,6 +13,8 @@ import type { CanvasPreviewHandle } from "../components/CanvasPreview";
 interface Params {
     algorithm: string;
     weight: number;
+    finalColors: number;
+    selectedPalette: string;
     imageSrc: string | null;
     setImage: (url: string | null, pushHistory?: boolean) => void;
     onImmediateSwatches: (colors: string[]) => void;
@@ -20,6 +23,8 @@ interface Params {
 export function useQuantize({
     algorithm,
     weight,
+    finalColors,
+    selectedPalette,
     imageSrc,
     setImage,
     onImmediateSwatches,
@@ -58,10 +63,30 @@ export function useQuantize({
         else if (algorithm === "kmeans") kmeansImageData(data, weight);
         else if (algorithm === "octree") octreeImageData(data, weight);
         else if (algorithm === "wu") wuImageData(data, weight);
-        else if (algorithm === "none") enforcePaletteSize(data, weight);
-        else posterizeImageData(data, weight);
+        else if (algorithm === "none") {
+            // no algorithm pass, leave data as-is for postprocessing
+        } else posterizeImageData(data, weight);
         console.log("unique after:", countUnique(data));
+        // put algorithm result (or original) into canvas
         ctx.putImageData(data, 0, 0);
+        // postprocessing: enforce final color count or map to selected palette
+        if (selectedPalette && selectedPalette !== "auto") {
+            // find palette by id
+            try {
+                const { PALETTES } = await import("../data/palettes");
+                const pal = PALETTES.find((p) => p.id === selectedPalette);
+                if (pal && pal.colors && pal.colors.length > 0) {
+                    mapImageToPalette(data, pal.colors);
+                    ctx.putImageData(data, 0, 0);
+                }
+            } catch {
+                /* ignore dynamic import errors */
+            }
+        } else {
+            // auto: reduce to finalColors via enforcePaletteSize
+            enforcePaletteSize(data, finalColors);
+            ctx.putImageData(data, 0, 0);
+        }
         // immediate swatches
         try {
             const cmap = new Map<number, number>();
