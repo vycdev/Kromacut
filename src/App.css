@@ -575,3 +575,39 @@ button:disabled {
   outline: 2px solid rgba(255,255,255,0.06);
 }
 
+/* Thin, minimal scrollbars for palette list and swatches */
+.palette-list,
+.swatches {
+  /* fallback scroll behavior */
+  scrollbar-width: thin; /* Firefox */
+  scrollbar-color: rgba(255,255,255,0.12) transparent; /* Firefox thumb track */
+}
+
+/* WebKit browsers */
+.palette-list::-webkit-scrollbar,
+.swatches::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.palette-list::-webkit-scrollbar-track,
+.swatches::-webkit-scrollbar-track {
+  background: transparent; /* no background */
+}
+.palette-list::-webkit-scrollbar-thumb,
+.swatches::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.12);
+  border-radius: 999px;
+  border: 2px solid transparent; /* gives some breathing room */
+  background-clip: padding-box;
+}
+.palette-list::-webkit-scrollbar-button,
+.swatches::-webkit-scrollbar-button {
+  display: none; /* hide arrows */
+}
+
+/* slightly darker thumb on hover */
+.palette-list::-webkit-scrollbar-thumb:hover,
+.swatches::-webkit-scrollbar-thumb:hover {
+  background: rgba(255,255,255,0.18);
+}
+

@@ -476,6 +476,7 @@ function App(): React.ReactElement | null {
                                 Palette
                             </div>
                             <div
+                                className="palette-list"
                                 style={{
                                     display: "flex",
                                     flexDirection: "column",
