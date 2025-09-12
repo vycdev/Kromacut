@@ -87,6 +87,21 @@ export function useQuantize({
             enforcePaletteSize(data, finalColors);
             ctx.putImageData(data, 0, 0);
         }
+        // diagnostic: log final counts and what was applied
+        try {
+            const postUnique = countUnique(data);
+            console.log(
+                "postprocess: requested=",
+                finalColors,
+                "selectedPalette=",
+                selectedPalette,
+                "uniqueAfterPost=",
+                postUnique
+            );
+        } catch {
+            /* ignore */
+        }
+
         // immediate swatches
         try {
             const cmap = new Map<number, number>();

@@ -1201,8 +1201,8 @@ export function enforcePaletteSize(data: ImageData, target: number): ImageData {
     for (let i = 0; i < d.length; i += 4) {
         afterSet.add((d[i] << 16) | (d[i + 1] << 8) | d[i + 2]);
     }
-    // if reduction didn't reach target for any reason, run a fallback k-means on unique colors
-    if (afterSet.size > target) {
+    // if reduction didn't reach target for any reason (too many or too few), run a fallback k-means on unique colors
+    if (afterSet.size !== target) {
         // build entries array (reuse variable name) from current pixels
         const uniq = new Map<number, number>();
         for (let i = 0; i < d.length; i += 4) {
