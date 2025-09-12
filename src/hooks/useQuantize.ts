@@ -38,7 +38,11 @@ export function useQuantize({
     onImmediateSwatches,
 }: Params) {
     const applyQuantize = async (
-        canvasPreviewRef: React.RefObject<CanvasPreviewHandle | null>
+        canvasPreviewRef: React.RefObject<CanvasPreviewHandle | null>,
+        options?: {
+            overridePalette?: string[];
+            overrideFinalColors?: number;
+        }
     ) => {
         if (!canvasPreviewRef.current || !imageSrc) return;
         const blob = await canvasPreviewRef.current.exportImageBlob();
@@ -88,16 +92,22 @@ export function useQuantize({
         console.log("unique after:", countUnique(data));
         // put algorithm result (or original) into canvas
         ctx.putImageData(data, 0, 0);
-        // postprocessing: enforce final color count or map to selected palette
-        if (selectedPalette && selectedPalette !== "auto") {
+        // postprocessing: if an override palette is provided use it; otherwise
+        // fall back to selectedPalette (named palettes) or auto (enforce finalColors)
+        const overridePalette = options?.overridePalette;
+        const overrideFinal = options?.overrideFinalColors;
+        if (overridePalette && overridePalette.length > 0) {
+            mapImageToPalette(data, overridePalette);
+            ctx.putImageData(data, 0, 0);
+        } else if (selectedPalette && selectedPalette !== "auto") {
             const pal = PALETTES.find((p) => p.id === selectedPalette);
             if (pal && pal.colors && pal.colors.length > 0) {
                 mapImageToPalette(data, pal.colors);
                 ctx.putImageData(data, 0, 0);
             }
         } else {
-            // auto: reduce to finalColors via enforcePaletteSize
-            enforcePaletteSize(data, finalColors);
+            // auto: reduce to finalColors (or overridden final) via enforcePaletteSize
+            enforcePaletteSize(data, overrideFinal ?? finalColors);
             ctx.putImageData(data, 0, 0);
         }
         // Normalize any partial alpha AFTER post processing so uniqueness isn't skewed

@@ -203,6 +203,33 @@ function App(): React.ReactElement | null {
                             swatches={swatches}
                             loading={swatchesLoading}
                             cap={SWATCH_CAP}
+                            onSwatchDelete={async (deleted) => {
+                                // Build override palette from current swatches excluding the deleted one
+                                const remaining = swatches.filter(
+                                    (s) =>
+                                        !(
+                                            s.hex === deleted.hex &&
+                                            s.a === deleted.a
+                                        )
+                                );
+                                const palette = remaining
+                                    .filter((s) => s.a !== 0)
+                                    .map((s) => s.hex);
+                                // target is number of image colors - 1 (clamped to at least 2)
+                                const target = Math.max(2, palette.length);
+                                // applyQuantize with override palette and override final colors
+                                try {
+                                    await applyQuantize(canvasPreviewRef, {
+                                        overridePalette: palette,
+                                        overrideFinalColors: target,
+                                    });
+                                } catch (err) {
+                                    console.warn(
+                                        "applyQuantize failed for swatch delete",
+                                        err
+                                    );
+                                }
+                            }}
                         />
                     </div>
                 </aside>

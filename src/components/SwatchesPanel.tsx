@@ -11,9 +11,15 @@ interface Props {
     swatches: SwatchEntry[];
     loading: boolean;
     cap: number;
+    onSwatchDelete?: (sw: SwatchEntry) => Promise<void> | void;
 }
 
-export const SwatchesPanel: React.FC<Props> = ({ swatches, loading, cap }) => {
+export const SwatchesPanel: React.FC<Props> = ({
+    swatches,
+    loading,
+    cap,
+    onSwatchDelete,
+}) => {
     const [openSwatch, setOpenSwatch] = useState<SwatchEntry | null>(null);
     const [pickerColor, setPickerColor] = useState<string>("#000000");
     const [rgba, setRgba] = useState<{
@@ -312,8 +318,21 @@ export const SwatchesPanel: React.FC<Props> = ({ swatches, loading, cap }) => {
                                     }}
                                 >
                                     <button
-                                        onClick={() => {
-                                            // delete placeholder - does nothing yet
+                                        onClick={async () => {
+                                            if (!openSwatch) return;
+                                            try {
+                                                if (onSwatchDelete) {
+                                                    await onSwatchDelete(
+                                                        openSwatch
+                                                    );
+                                                }
+                                            } catch (err) {
+                                                console.warn(
+                                                    "swatch delete handler failed",
+                                                    err
+                                                );
+                                            }
+                                            closeModal();
                                         }}
                                         style={{
                                             flex: 1,
