@@ -270,20 +270,20 @@ function App(): React.ReactElement | null {
                                     const [r1, g1, b1] = parseHex(original.hex);
                                     const [r2, g2, b2] = parseHex(newHex);
                                     if (original.a === 0) {
-                                        // Replace fully transparent pixels: give them the new color (opaque)
+                                        // Replace fully transparent pixels: update RGB but keep them transparent
                                         for (let i = 0; i < dd.length; i += 4) {
                                             if (dd[i + 3] === 0) {
                                                 dd[i] = r2;
                                                 dd[i + 1] = g2;
                                                 dd[i + 2] = b2;
-                                                dd[i + 3] = 255;
+                                                // keep dd[i+3] === 0 (transparent)
                                             }
                                         }
                                     } else {
-                                        // Replace pixels that match the original RGB exactly (ignore fully transparent pixels)
+                                        // Replace pixels that match the original RGB and original alpha exactly
+                                        const origA = original.a;
                                         for (let i = 0; i < dd.length; i += 4) {
-                                            const a = dd[i + 3];
-                                            if (a === 0) continue;
+                                            if (dd[i + 3] !== origA) continue;
                                             if (
                                                 dd[i] === r1 &&
                                                 dd[i + 1] === g1 &&
@@ -292,6 +292,7 @@ function App(): React.ReactElement | null {
                                                 dd[i] = r2;
                                                 dd[i + 1] = g2;
                                                 dd[i + 2] = b2;
+                                                // preserve dd[i+3]
                                             }
                                         }
                                     }

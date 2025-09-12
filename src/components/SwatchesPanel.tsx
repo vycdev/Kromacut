@@ -43,11 +43,16 @@ export const SwatchesPanel: React.FC<Props> = ({
             const b = parseInt(hex.slice(4, 6), 16) || 0;
             const a = typeof openSwatch.a === "number" ? openSwatch.a / 255 : 1;
             setRgba({ r, g, b, a });
+            // include alpha byte in the displayed hex (RRGGBBAA)
+            const aHex = Math.round(a * 255)
+                .toString(16)
+                .padStart(2, "0");
             setPickerColor(
                 "#" +
                     [r, g, b]
                         .map((v) => v.toString(16).padStart(2, "0"))
-                        .join("")
+                        .join("") +
+                    aHex
             );
         }
     }, [openSwatch]);
@@ -212,6 +217,9 @@ export const SwatchesPanel: React.FC<Props> = ({
                                             a: number;
                                         }) => {
                                             setRgba(c);
+                                            const aHex = Math.round(c.a * 255)
+                                                .toString(16)
+                                                .padStart(2, "0");
                                             setPickerColor(
                                                 "#" +
                                                     [c.r, c.g, c.b]
@@ -223,7 +231,8 @@ export const SwatchesPanel: React.FC<Props> = ({
                                                                     "0"
                                                                 )
                                                         )
-                                                        .join("")
+                                                        .join("") +
+                                                    aHex
                                             );
                                         }}
                                     />
@@ -271,11 +280,40 @@ export const SwatchesPanel: React.FC<Props> = ({
                                     value={pickerColor}
                                     onChange={(e) => {
                                         const v = e.target.value;
-                                        if (/^#?[0-9a-fA-F]{0,6}$/.test(v)) {
+                                        // allow up to 8 hex digits (RRGGBBAA)
+                                        if (/^#?[0-9a-fA-F]{0,8}$/.test(v)) {
                                             const hex = v.startsWith("#")
                                                 ? v.slice(1)
                                                 : v;
-                                            if (hex.length === 6) {
+                                            if (hex.length === 8) {
+                                                const r =
+                                                    parseInt(
+                                                        hex.slice(0, 2),
+                                                        16
+                                                    ) || 0;
+                                                const g =
+                                                    parseInt(
+                                                        hex.slice(2, 4),
+                                                        16
+                                                    ) || 0;
+                                                const b =
+                                                    parseInt(
+                                                        hex.slice(4, 6),
+                                                        16
+                                                    ) || 0;
+                                                const a =
+                                                    (parseInt(
+                                                        hex.slice(6, 8),
+                                                        16
+                                                    ) || 255) / 255;
+                                                setRgba((p) => ({
+                                                    ...p,
+                                                    r,
+                                                    g,
+                                                    b,
+                                                    a,
+                                                }));
+                                            } else if (hex.length === 6) {
                                                 const r =
                                                     parseInt(
                                                         hex.slice(0, 2),
@@ -356,10 +394,13 @@ export const SwatchesPanel: React.FC<Props> = ({
                                     <button
                                         onClick={async () => {
                                             if (!openSwatch) return;
-                                            // normalize hex: prefer pickerColor if it's a full 6-digit hex
+                                            // normalize hex: allow 6 or 8 digit input; always produce 8-digit (#RRGGBBAA)
                                             let hex = pickerColor || "";
                                             const normFromRgba = () => {
-                                                const { r, g, b } = rgba;
+                                                const { r, g, b, a } = rgba;
+                                                const aHex = Math.round(a * 255)
+                                                    .toString(16)
+                                                    .padStart(2, "0");
                                                 return (
                                                     "#" +
                                                     [r, g, b]
@@ -371,11 +412,14 @@ export const SwatchesPanel: React.FC<Props> = ({
                                                                     "0"
                                                                 )
                                                         )
-                                                        .join("")
+                                                        .join("") +
+                                                    aHex
                                                 );
                                             };
                                             if (
-                                                !/^#?[0-9a-fA-F]{6}$/.test(hex)
+                                                !/^#?[0-9a-fA-F]{6,8}$/.test(
+                                                    hex
+                                                )
                                             ) {
                                                 hex = normFromRgba();
                                             } else {
@@ -385,6 +429,15 @@ export const SwatchesPanel: React.FC<Props> = ({
                                                 hex =
                                                     "#" +
                                                     hex.slice(1).toLowerCase();
+                                                // if user provided 6-digit, append alpha from rgba
+                                                if (hex.length === 7) {
+                                                    const aHex = Math.round(
+                                                        rgba.a * 255
+                                                    )
+                                                        .toString(16)
+                                                        .padStart(2, "0");
+                                                    hex = hex + aHex;
+                                                }
                                             }
                                             try {
                                                 if (onSwatchApply) {
