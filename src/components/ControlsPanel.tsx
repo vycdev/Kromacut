@@ -2,7 +2,7 @@ import React from "react";
 
 interface Props {
     weight: number;
-    setWeight: (n: number) => void;
+    onWeightChange: (n: number) => void;
     algorithm: string;
     setAlgorithm: (a: string) => void;
     onApply: () => void;
@@ -11,7 +11,7 @@ interface Props {
 
 export const ControlsPanel: React.FC<Props> = ({
     weight,
-    setWeight,
+    onWeightChange,
     algorithm,
     setAlgorithm,
     onApply,
@@ -26,7 +26,7 @@ export const ControlsPanel: React.FC<Props> = ({
                     min={2}
                     value={weight}
                     onChange={(e) =>
-                        setWeight(
+                        onWeightChange(
                             Math.max(
                                 2,
                                 Math.min(256, Number(e.target.value) || 2)

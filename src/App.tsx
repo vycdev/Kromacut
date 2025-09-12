@@ -18,18 +18,17 @@ function App(): React.ReactElement | null {
     const [weight, setWeight] = useState<number>(4);
     const [algorithm, setAlgorithm] = useState<string>("kmeans");
     const SWATCH_CAP = 2 ** 14;
-    const [selectedPalette, setSelectedPalette] = useState<string>("auto");
+    const [selectedPalette, setSelectedPalette] = useState<string>(() => {
+        const matched = PALETTES.find(
+            (p) => p.id !== "auto" && p.size === weight
+        );
+        return matched ? matched.id : "auto";
+    });
     const { imageSrc, setImage, clearCurrent, undo, redo, canUndo, canRedo } =
         useImageHistory(benchy, undefined);
     const { swatches, swatchesLoading, invalidate, immediateOverride } =
         useSwatches(imageSrc);
-    // keep selectedPalette in sync with numeric weight
-    useEffect(() => {
-        const matched = PALETTES.find(
-            (p) => p.id !== "auto" && p.size === weight
-        );
-        setSelectedPalette(matched ? matched.id : "auto");
-    }, [weight]);
+    // initial selectedPalette derived from initial weight above
     const canvasPreviewRef = useRef<CanvasPreviewHandle | null>(null);
     const [isCropMode, setIsCropMode] = useState(false);
     const { applyQuantize } = useQuantize({
@@ -43,13 +42,7 @@ function App(): React.ReactElement | null {
         onImmediateSwatches: immediateOverride,
     });
 
-    // keep selectedPalette in sync with manual changes to the numeric color input
-    useEffect(() => {
-        const matched = PALETTES.find(
-            (p) => p.id !== "auto" && p.size === weight
-        );
-        setSelectedPalette(matched ? matched.id : "auto");
-    }, [weight]);
+    // removed duplicate syncing: manual changes to the numeric input should set Auto via onWeightChange
     // redraw when image changes
     useEffect(() => {
         canvasPreviewRef.current?.redraw();
@@ -193,7 +186,10 @@ function App(): React.ReactElement | null {
                         />
                         <ControlsPanel
                             weight={weight}
-                            setWeight={setWeight}
+                            onWeightChange={(n) => {
+                                setWeight(n);
+                                setSelectedPalette("auto");
+                            }}
                             algorithm={algorithm}
                             setAlgorithm={setAlgorithm}
                             onApply={() => applyQuantize(canvasPreviewRef)}
