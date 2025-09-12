@@ -262,14 +262,11 @@ export const SwatchesPanel: React.FC<Props> = ({ swatches, loading, cap }) => {
                                         }}
                                         style={{
                                             padding: "8px 12px",
-                                            background:
-                                                "linear-gradient(180deg,#2b6df6,#1c4fe8)",
-                                            border: 0,
-                                            color: "#fff",
+                                            background: "#f3f4f6",
+                                            border: "1px solid #d1d5db",
+                                            color: "#111827",
                                             borderRadius: 8,
                                             cursor: "pointer",
-                                            boxShadow:
-                                                "0 6px 18px rgba(28,79,232,0.24)",
                                         }}
                                     >
                                         Apply
