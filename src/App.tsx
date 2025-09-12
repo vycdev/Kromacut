@@ -466,14 +466,9 @@ function App(): React.ReactElement | null {
                                 className="preview-crop-btn"
                                 title="Toggle checkerboard"
                                 aria-label="Toggle checkerboard"
-                                onClick={() =>
-                                    setShowCheckerboard((s) => !s)
-                                }
+                                onClick={() => setShowCheckerboard((s) => !s)}
                             >
-                                <i
-                                    className="fa-solid fa-square-caret-down"
-                                    aria-hidden
-                                />
+                                <i className="fa-solid fa-square" aria-hidden />
                             </button>
                             {/* moved uploader buttons into the top-right preview actions */}
                             <button
