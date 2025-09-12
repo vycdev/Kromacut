@@ -492,7 +492,7 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
                     showCheckerboard
                         ? {
                               background:
-                                  "repeating-conic-gradient(#666 0% 25%, #333 0% 50%) 50% / 8px 8px",
+                                  "repeating-conic-gradient(#666 0% 25%, #333 0% 50%) 50% / 16px 16px",
                           }
                         : undefined
                 }
