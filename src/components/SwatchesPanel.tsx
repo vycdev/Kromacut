@@ -150,7 +150,13 @@ export const SwatchesPanel: React.FC<Props> = ({ swatches, loading, cap }) => {
                                     color: "#888",
                                     cursor: "pointer",
                                     fontSize: 18,
-                                    lineHeight: 1,
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    width: 36,
+                                    height: 36,
+                                    padding: 0,
+                                    borderRadius: 8,
                                 }}
                             >
                                 ×
