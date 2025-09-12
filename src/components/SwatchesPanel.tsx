@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { HexColorPicker } from "react-colorful";
+import { RgbaColorPicker } from "react-colorful";
 
 interface SwatchEntry {
     hex: string;
@@ -16,11 +16,20 @@ interface Props {
 export const SwatchesPanel: React.FC<Props> = ({ swatches, loading, cap }) => {
     const [openSwatch, setOpenSwatch] = useState<SwatchEntry | null>(null);
     const [pickerColor, setPickerColor] = useState<string>("#000000");
+    const [rgba, setRgba] = useState<{ r: number; g: number; b: number; a: number }>(
+        { r: 0, g: 0, b: 0, a: 1 }
+    );
 
     useEffect(() => {
         if (openSwatch) {
-            // initialize picker with the swatch hex (opaque swatches) or black for transparent
-            setPickerColor(openSwatch.a === 0 ? "#000000" : openSwatch.hex);
+            // initialize picker color and RGBA from the swatch
+            const hex = (openSwatch.hex || "#000000").replace(/^#/, "");
+            const r = parseInt(hex.slice(0, 2), 16) || 0;
+            const g = parseInt(hex.slice(2, 4), 16) || 0;
+            const b = parseInt(hex.slice(4, 6), 16) || 0;
+            const a = typeof openSwatch.a === "number" ? openSwatch.a / 255 : 1;
+            setRgba({ r, g, b, a });
+            setPickerColor("#" + [r, g, b].map((v) => v.toString(16).padStart(2, "0")).join(""));
         }
     }, [openSwatch]);
 
@@ -175,11 +184,12 @@ export const SwatchesPanel: React.FC<Props> = ({ swatches, loading, cap }) => {
                                 }}
                             >
                                 <div style={{ maxWidth: 420 }}>
-                                    <HexColorPicker
-                                        color={pickerColor}
-                                        onChange={(c: string) =>
-                                            setPickerColor(c)
-                                        }
+                                    <RgbaColorPicker
+                                        color={rgba}
+                                        onChange={(c: { r: number; g: number; b: number; a: number }) => {
+                                            setRgba(c);
+                                            setPickerColor("#" + [c.r, c.g, c.b].map((v) => v.toString(16).padStart(2, "0")).join(""));
+                                        }}
                                     />
                                 </div>
 
@@ -203,7 +213,7 @@ export const SwatchesPanel: React.FC<Props> = ({ swatches, loading, cap }) => {
                                             width: "100%",
                                             height: 103,
                                             borderRadius: 8,
-                                            background: pickerColor,
+                                            background: `rgba(${rgba.r}, ${rgba.g}, ${rgba.b}, ${rgba.a})`,
                                             border: "1px solid rgba(255,255,255,0.06)",
                                         }}
                                     />
@@ -213,10 +223,15 @@ export const SwatchesPanel: React.FC<Props> = ({ swatches, loading, cap }) => {
                                     value={pickerColor}
                                     onChange={(e) => {
                                         const v = e.target.value;
-                                        if (/^#?[0-9a-fA-F]{0,8}$/.test(v)) {
-                                            setPickerColor(
-                                                v.startsWith("#") ? v : "#" + v
-                                            );
+                                        if (/^#?[0-9a-fA-F]{0,6}$/.test(v)) {
+                                            const hex = v.startsWith("#") ? v.slice(1) : v;
+                                            if (hex.length === 6) {
+                                                const r = parseInt(hex.slice(0, 2), 16) || 0;
+                                                const g = parseInt(hex.slice(2, 4), 16) || 0;
+                                                const b = parseInt(hex.slice(4, 6), 16) || 0;
+                                                setRgba((p) => ({ ...p, r, g, b }));
+                                            }
+                                            setPickerColor(v.startsWith("#") ? v : "#" + v);
                                         }
                                     }}
                                     style={{
