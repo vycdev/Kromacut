@@ -159,7 +159,10 @@ export const SwatchesPanel: React.FC<Props> = ({ swatches, loading, cap }) => {
                                     borderRadius: 8,
                                 }}
                             >
-                                ×
+                                <i
+                                    className="fa-solid fa-xmark"
+                                    aria-hidden="true"
+                                />
                             </button>
                         </div>
 
