@@ -6,6 +6,7 @@ export interface SwatchEntry {
     hex: string;
     a: number;
     count: number;
+    isTransparent?: boolean;
 }
 export function useSwatches(imageSrc: string | null) {
     const [swatches, setSwatches] = useState<SwatchEntry[]>([]);
@@ -59,6 +60,7 @@ export function useSwatches(imageSrc: string | null) {
                     setLoading(false);
                     return;
                 }
+                let transparentCount = 0;
                 for (let y = 0; y < h; y += TILE) {
                     for (let x = 0; x < w; x += TILE) {
                         const sw = Math.min(TILE, w - x);
@@ -69,6 +71,11 @@ export function useSwatches(imageSrc: string | null) {
                         tctx.drawImage(img, x, y, sw, sh, 0, 0, sw, sh);
                         const data = tctx.getImageData(0, 0, sw, sh).data;
                         for (let i = 0; i < data.length; i += 4) {
+                            const a = data[i + 3];
+                            if (a === 0) {
+                                transparentCount++;
+                                continue;
+                            }
                             const key =
                                 (data[i] << 16) |
                                 (data[i + 1] << 8) |
@@ -100,9 +107,21 @@ export function useSwatches(imageSrc: string | null) {
                     return b.hsl.l - a.hsl.l;
                 });
                 if (runId === runRef.current && !cancelled) {
-                    setSwatches(
-                        top.map((t) => ({ hex: t.hex, a: 255, count: t.freq }))
-                    );
+                    const result = top.map((t) => ({
+                        hex: t.hex,
+                        a: 255,
+                        count: t.freq,
+                        isTransparent: false,
+                    }));
+                    if (transparentCount > 0) {
+                        result.push({
+                            hex: "#000000",
+                            a: 0,
+                            count: transparentCount,
+                            isTransparent: true,
+                        });
+                    }
+                    setSwatches(result);
                     setLoading(false);
                 }
             } catch (err) {

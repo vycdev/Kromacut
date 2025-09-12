@@ -19,7 +19,12 @@ interface Params {
     imageSrc: string | null;
     setImage: (url: string | null, pushHistory?: boolean) => void;
     onImmediateSwatches: (
-        colors: { hex: string; a: number; count: number }[]
+        colors: {
+            hex: string;
+            a: number;
+            count: number;
+            isTransparent?: boolean;
+        }[]
     ) => void;
 }
 
@@ -150,13 +155,14 @@ export function useQuantize({
             const structured = topLocal.map((t) => {
                 const num = parseInt(t.hex.slice(1), 16);
                 const cnt = cmap.get(num) || 0;
-                return { hex: t.hex, a: 255, count: cnt };
+                return { hex: t.hex, a: 255, count: cnt, isTransparent: false };
             });
             if (transparentCount > 0) {
                 structured.push({
                     hex: "#000000",
                     a: 0,
                     count: transparentCount,
+                    isTransparent: true,
                 });
             }
             onImmediateSwatches(structured);

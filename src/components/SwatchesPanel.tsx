@@ -4,6 +4,7 @@ interface SwatchEntry {
     hex: string;
     a: number;
     count: number;
+    isTransparent?: boolean;
 }
 interface Props {
     swatches: SwatchEntry[];
@@ -25,8 +26,12 @@ export const SwatchesPanel: React.FC<Props> = ({ swatches, loading, cap }) => {
                 }}
             >
                 <span>Image colors</span>
-                <span className="swatch-count" aria-hidden>
-                    ({swatches.length})
+                <span
+                    className="swatch-count"
+                    aria-hidden
+                    title="Number of opaque color swatches (transparent excluded)"
+                >
+                    ({swatches.filter((s) => !s.isTransparent).length})
                 </span>
                 {loading && (
                     <span
