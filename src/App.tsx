@@ -230,6 +230,84 @@ function App(): React.ReactElement | null {
                                     );
                                 }
                             }}
+                            onSwatchApply={async (original, newHex) => {
+                                // Perform literal pixel replacement on the full-size image
+                                if (!canvasPreviewRef.current || !imageSrc)
+                                    return;
+                                try {
+                                    const blob =
+                                        await canvasPreviewRef.current.exportImageBlob();
+                                    if (!blob) return;
+                                    const img =
+                                        await new Promise<HTMLImageElement | null>(
+                                            (res) => {
+                                                const i = new Image();
+                                                i.onload = () => res(i);
+                                                i.onerror = () => res(null);
+                                                i.src =
+                                                    URL.createObjectURL(blob);
+                                            }
+                                        );
+                                    if (!img) return;
+                                    const w = img.naturalWidth;
+                                    const h = img.naturalHeight;
+                                    const c = document.createElement("canvas");
+                                    c.width = w;
+                                    c.height = h;
+                                    const ctx = c.getContext("2d");
+                                    if (!ctx) return;
+                                    ctx.drawImage(img, 0, 0, w, h);
+                                    const data = ctx.getImageData(0, 0, w, h);
+                                    const dd = data.data;
+                                    const parseHex = (s: string) => {
+                                        const raw = s.replace(/^#/, "");
+                                        return [
+                                            parseInt(raw.slice(0, 2), 16) || 0,
+                                            parseInt(raw.slice(2, 4), 16) || 0,
+                                            parseInt(raw.slice(4, 6), 16) || 0,
+                                        ];
+                                    };
+                                    const [r1, g1, b1] = parseHex(original.hex);
+                                    const [r2, g2, b2] = parseHex(newHex);
+                                    if (original.a === 0) {
+                                        // Replace fully transparent pixels: give them the new color (opaque)
+                                        for (let i = 0; i < dd.length; i += 4) {
+                                            if (dd[i + 3] === 0) {
+                                                dd[i] = r2;
+                                                dd[i + 1] = g2;
+                                                dd[i + 2] = b2;
+                                                dd[i + 3] = 255;
+                                            }
+                                        }
+                                    } else {
+                                        // Replace pixels that match the original RGB exactly (ignore fully transparent pixels)
+                                        for (let i = 0; i < dd.length; i += 4) {
+                                            const a = dd[i + 3];
+                                            if (a === 0) continue;
+                                            if (
+                                                dd[i] === r1 &&
+                                                dd[i + 1] === g1 &&
+                                                dd[i + 2] === b1
+                                            ) {
+                                                dd[i] = r2;
+                                                dd[i + 1] = g2;
+                                                dd[i + 2] = b2;
+                                            }
+                                        }
+                                    }
+                                    ctx.putImageData(data, 0, 0);
+                                    const outBlob =
+                                        await new Promise<Blob | null>((res) =>
+                                            c.toBlob((b) => res(b), "image/png")
+                                        );
+                                    if (!outBlob) return;
+                                    const url = URL.createObjectURL(outBlob);
+                                    invalidate();
+                                    setImage(url, true);
+                                } catch (err) {
+                                    console.warn("literal replace failed", err);
+                                }
+                            }}
                         />
                     </div>
                 </aside>

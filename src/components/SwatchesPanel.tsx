@@ -12,6 +12,10 @@ interface Props {
     loading: boolean;
     cap: number;
     onSwatchDelete?: (sw: SwatchEntry) => Promise<void> | void;
+    onSwatchApply?: (
+        original: SwatchEntry,
+        newHex: string
+    ) => Promise<void> | void;
 }
 
 export const SwatchesPanel: React.FC<Props> = ({
@@ -19,6 +23,7 @@ export const SwatchesPanel: React.FC<Props> = ({
     loading,
     cap,
     onSwatchDelete,
+    onSwatchApply,
 }) => {
     const [openSwatch, setOpenSwatch] = useState<SwatchEntry | null>(null);
     const [pickerColor, setPickerColor] = useState<string>("#000000");
@@ -349,8 +354,52 @@ export const SwatchesPanel: React.FC<Props> = ({
                                     </button>
 
                                     <button
-                                        onClick={() => {
-                                            // Apply currently does nothing (placeholder)
+                                        onClick={async () => {
+                                            if (!openSwatch) return;
+                                            // normalize hex: prefer pickerColor if it's a full 6-digit hex
+                                            let hex = pickerColor || "";
+                                            const normFromRgba = () => {
+                                                const { r, g, b } = rgba;
+                                                return (
+                                                    "#" +
+                                                    [r, g, b]
+                                                        .map((v) =>
+                                                            v
+                                                                .toString(16)
+                                                                .padStart(
+                                                                    2,
+                                                                    "0"
+                                                                )
+                                                        )
+                                                        .join("")
+                                                );
+                                            };
+                                            if (
+                                                !/^#?[0-9a-fA-F]{6}$/.test(hex)
+                                            ) {
+                                                hex = normFromRgba();
+                                            } else {
+                                                if (!hex.startsWith("#"))
+                                                    hex = "#" + hex;
+                                                // normalize to lowercase
+                                                hex =
+                                                    "#" +
+                                                    hex.slice(1).toLowerCase();
+                                            }
+                                            try {
+                                                if (onSwatchApply) {
+                                                    await onSwatchApply(
+                                                        openSwatch,
+                                                        hex
+                                                    );
+                                                }
+                                            } catch (err) {
+                                                console.warn(
+                                                    "swatch apply handler failed",
+                                                    err
+                                                );
+                                            }
+                                            closeModal();
                                         }}
                                         style={{
                                             flex: 1,
