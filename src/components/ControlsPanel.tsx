@@ -41,7 +41,7 @@ export const ControlsPanel: React.FC<Props> = ({
                     value={algorithm}
                     onChange={(e) => setAlgorithm(e.target.value)}
                 >
-                        <option value="none">None (postprocess only)</option>
+                    <option value="none">None (postprocess only)</option>
                     <option value="posterize">Posterize</option>
                     <option value="median-cut">Median-cut</option>
                     <option value="kmeans">K-means</option>
