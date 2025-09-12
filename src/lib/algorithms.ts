@@ -1334,16 +1334,120 @@ export function mapImageToPalette(
 ): ImageData {
     const d = data.data;
     if (!palette || palette.length === 0) return data;
+    // helpers: parse palette color strings (hex, #rrggbb, hsl(...), rgb(...))
+    const clamp = (v: number, a = 0, b = 255) => Math.max(a, Math.min(b, v));
 
-    const hexToRgb = (h: string) => {
-        const s = h.replace(/^#/, "");
-        const r = parseInt(s.slice(0, 2), 16) || 0;
-        const g = parseInt(s.slice(2, 4), 16) || 0;
-        const b = parseInt(s.slice(4, 6), 16) || 0;
+    const parseHex = (s: string): [number, number, number] => {
+        const raw = s.replace(/^#/, "").trim();
+        if (raw.length === 3) {
+            const r = parseInt(raw[0] + raw[0], 16);
+            const g = parseInt(raw[1] + raw[1], 16);
+            const b = parseInt(raw[2] + raw[2], 16);
+            return [r, g, b];
+        }
+        const r = parseInt(raw.slice(0, 2), 16) || 0;
+        const g = parseInt(raw.slice(2, 4), 16) || 0;
+        const b = parseInt(raw.slice(4, 6), 16) || 0;
         return [r, g, b];
     };
 
-    const palRGB = palette.map(hexToRgb);
+    const hslToRgb = (h: number, s: number, l: number): [number, number, number] => {
+        // h in degrees, s/l in [0,1]
+        const c = (1 - Math.abs(2 * l - 1)) * s;
+        const hh = (h % 360 + 360) % 360;
+        const x = c * (1 - Math.abs(((hh / 60) % 2) - 1));
+        let r1 = 0,
+            g1 = 0,
+            b1 = 0;
+        if (hh < 60) [r1, g1, b1] = [c, x, 0];
+        else if (hh < 120) [r1, g1, b1] = [x, c, 0];
+        else if (hh < 180) [r1, g1, b1] = [0, c, x];
+        else if (hh < 240) [r1, g1, b1] = [0, x, c];
+        else if (hh < 300) [r1, g1, b1] = [x, 0, c];
+        else [r1, g1, b1] = [c, 0, x];
+        const m = l - c / 2;
+        return [
+            Math.round(clamp((r1 + m) * 255)),
+            Math.round(clamp((g1 + m) * 255)),
+            Math.round(clamp((b1 + m) * 255)),
+        ];
+    };
+
+    const parseColor = (s: string): [number, number, number] => {
+        const str = (s || "").trim();
+        if (!str) return [0, 0, 0];
+        // hex
+        if (str.startsWith("#") || /^[0-9A-Fa-f]{6}$/.test(str) || /^[0-9A-Fa-f]{3}$/.test(str)) {
+            try {
+                return parseHex(str);
+            } catch {
+                return [0, 0, 0];
+            }
+        }
+        // hsl(...) - accept both `hsl(0 0% 20%)` and `hsl(0,0%,20%)`
+    const hsl = str.match(/hsl\(\s*([\d.-]+)(?:deg)?(?:\s*,\s*|\s+)([\d.]+)%?(?:\s*,\s*|\s+)([\d.]+)%?\s*\)/i);
+        if (hsl) {
+            const h = Number(hsl[1]);
+            const s = Number(hsl[2]) / 100;
+            const l = Number(hsl[3]) / 100;
+            return hslToRgb(h, s, l);
+        }
+        // rgb(...) or rgba(...)
+        const rgb = str.match(/rgba?\(\s*([\d.]+)\s*(?:,|\s)\s*([\d.]+)%?\s*(?:,|\s)\s*([\d.]+)%?(?:\s*,\s*[\d.]+)?\s*\)/i);
+        if (rgb) {
+            // if percentages were used, the regex still captures raw numbers; we try to detect % by presence of '%'
+            const hasPercent = /%/.test(str);
+            if (hasPercent) {
+                return [
+                    Math.round(clamp((Number(rgb[1]) / 100) * 255)),
+                    Math.round(clamp((Number(rgb[2]) / 100) * 255)),
+                    Math.round(clamp((Number(rgb[3]) / 100) * 255)),
+                ];
+            }
+            return [
+                Math.round(clamp(Number(rgb[1]))),
+                Math.round(clamp(Number(rgb[2]))),
+                Math.round(clamp(Number(rgb[3]))),
+            ];
+        }
+        // fallback: try parse hex without #
+        const raw = str.replace(/[^0-9A-Fa-f]/g, "");
+        if (raw.length === 6) return parseHex(raw);
+        return [0, 0, 0];
+    };
+
+    // convert sRGB [0..255] to Lab using D65 reference
+    const srgbToLab = (r: number, g: number, b: number) => {
+        // normalize
+        let R = r / 255;
+        let G = g / 255;
+        let B = b / 255;
+        const toLinear = (u: number) =>
+            u <= 0.04045 ? u / 12.92 : Math.pow((u + 0.055) / 1.055, 2.4);
+        R = toLinear(R);
+        G = toLinear(G);
+        B = toLinear(B);
+        // sRGB D65
+        const X = R * 0.4124564 + G * 0.3575761 + B * 0.1804375;
+        const Y = R * 0.2126729 + G * 0.7151522 + B * 0.072175;
+        const Z = R * 0.0193339 + G * 0.119192 + B * 0.9503041;
+        // reference white
+        const Xn = 0.95047;
+        const Yn = 1.0;
+        const Zn = 1.08883;
+        const fx = (t: number) => (t > 0.008856 ? Math.cbrt(t) : 7.787 * t + 16 / 116);
+        const fxX = fx(X / Xn);
+        const fxY = fx(Y / Yn);
+        const fxZ = fx(Z / Zn);
+        const L = Math.max(0, 116 * fxY - 16);
+        const a = 500 * (fxX - fxY);
+        const bb = 200 * (fxY - fxZ);
+        return [L, a, bb];
+    };
+
+    // build palette in Lab space and keep RGB for output
+    const palRGB: [number, number, number][] = palette.map((p) => parseColor(p));
+    const palLab = palRGB.map((c) => srgbToLab(c[0], c[1], c[2]));
 
     // build unique color histogram
     const uniq = new Map<number, number>();
@@ -1352,20 +1456,20 @@ export function mapImageToPalette(
         uniq.set(key, (uniq.get(key) || 0) + 1);
     }
 
-    // mapping from original color to nearest palette RGB
+    // mapping from original color to nearest palette RGB using ΔE (Lab distance)
     const mapping = new Map<number, [number, number, number]>();
     for (const key of uniq.keys()) {
         const r = (key >> 16) & 0xff;
         const g = (key >> 8) & 0xff;
         const b = key & 0xff;
+        const lab = srgbToLab(r, g, b);
         let bestIdx = 0;
         let bestDist = Infinity;
-        for (let i = 0; i < palRGB.length; i++) {
-            const pr = palRGB[i][0];
-            const pg = palRGB[i][1];
-            const pb = palRGB[i][2];
-            const d2 =
-                (r - pr) * (r - pr) + (g - pg) * (g - pg) + (b - pb) * (b - pb);
+        for (let i = 0; i < palLab.length; i++) {
+            const dl = lab[0] - palLab[i][0];
+            const da = lab[1] - palLab[i][1];
+            const db = lab[2] - palLab[i][2];
+            const d2 = dl * dl + da * da + db * db;
             if (d2 < bestDist) {
                 bestDist = d2;
                 bestIdx = i;
