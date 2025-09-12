@@ -10,22 +10,18 @@ import { useSwatches } from "./hooks/useSwatches";
 import type { SwatchEntry } from "./hooks/useSwatches";
 import { useImageHistory } from "./hooks/useImageHistory";
 import { useQuantize } from "./hooks/useQuantize";
-import { PALETTES } from "./data/palettes";
+// ...existing imports
 
 function App(): React.ReactElement | null {
     const [dragOver, setDragOver] = useState(false);
     const inputRef = useRef<HTMLInputElement | null>(null);
     // `weight` is the algorithm parameter; `finalColors` is the postprocess target
     const [weight, setWeight] = useState<number>(128);
-    const [finalColors, setFinalColors] = useState<number>(4);
+    const [finalColors, setFinalColors] = useState<number>(16);
     const [algorithm, setAlgorithm] = useState<string>("kmeans");
     const SWATCH_CAP = 2 ** 14;
-    const [selectedPalette, setSelectedPalette] = useState<string>(() => {
-        const matched = PALETTES.find(
-            (p) => p.id !== "auto" && p.size === finalColors
-        );
-        return matched ? matched.id : "auto";
-    });
+    // default to the Auto palette
+    const [selectedPalette, setSelectedPalette] = useState<string>("auto");
     const { imageSrc, setImage, clearCurrent, undo, redo, canUndo, canRedo } =
         useImageHistory(logo, undefined);
     const { swatches, swatchesLoading, invalidate, immediateOverride } =
