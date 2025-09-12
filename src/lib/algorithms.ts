@@ -1225,6 +1225,11 @@ export function mapImageToPalette(
     data: ImageData,
     palette: string[]
 ): ImageData {
+    // window debug augmentation (safe access)
+    interface PaletteDebugWindow extends Window {
+        __lastPaletteDebugKey?: string;
+    }
+    const dbgWindow: PaletteDebugWindow = window as PaletteDebugWindow;
     const d = data.data;
     if (!palette || palette.length === 0) return data;
 
@@ -1325,6 +1330,35 @@ export function mapImageToPalette(
     };
 
     const palRGB: [number, number, number][] = palette.map(parseColor);
+    // Debug: log palette parsing results and flag any unexpected black parses
+    try {
+        const parsedReport = palRGB.map((c, i) => ({
+            original: palette[i],
+            parsed: `#${c[0].toString(16).padStart(2, "0")}${c[1]
+                .toString(16)
+                .padStart(2, "0")}${c[2].toString(16).padStart(2, "0")}`,
+        }));
+        const suspicious = parsedReport.filter(
+            (p) =>
+                p.parsed === "#000000" &&
+                !/^#0{3,6}$/i.test(p.original) &&
+                !/hsl\(.*0% 0%.*\)/i.test(p.original) &&
+                !/rgb\(\s*0\s*,?\s*0\s*,?\s*0\s*\)/i.test(p.original)
+        );
+        if (suspicious.length) {
+            console.warn(
+                "[palette-parse] Unexpected black parses:",
+                suspicious
+            );
+        }
+        // Only log once per distinct palette content length to avoid noise
+        if (dbgWindow.__lastPaletteDebugKey !== palette.join("|")) {
+            dbgWindow.__lastPaletteDebugKey = palette.join("|");
+            console.log("[palette-parse] palette parsed:", parsedReport);
+        }
+    } catch {
+        /* ignore debug errors */
+    }
     const palLab = palRGB.map(([r, g, b]) => srgbToLab(r, g, b));
     const allowed = new Set<number>(
         palRGB.map(([r, g, b]) => (r << 16) | (g << 8) | b)

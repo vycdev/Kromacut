@@ -116,10 +116,14 @@ export function useQuantize({
         // immediate swatches
         try {
             const cmap = new Map<number, number>();
+            let transparentCount = 0;
             const dd = data.data;
             const SWATCH_CAP = 2 ** 14;
             for (let i = 0; i < dd.length; i += 4) {
-                if (dd[i + 3] === 0) continue; // skip fully transparent pixels
+                if (dd[i + 3] === 0) {
+                    transparentCount++;
+                    continue;
+                } // track transparent separately
                 const k = (dd[i] << 16) | (dd[i + 1] << 8) | dd[i + 2];
                 cmap.set(k, (cmap.get(k) || 0) + 1);
             }
@@ -143,13 +147,19 @@ export function useQuantize({
                 if (a.hsl.s !== b.hsl.s) return b.hsl.s - a.hsl.s;
                 return b.hsl.l - a.hsl.l;
             });
-            onImmediateSwatches(
-                topLocal.map((t) => {
-                    const num = parseInt(t.hex.slice(1), 16);
-                    const cnt = cmap.get(num) || 0;
-                    return { hex: t.hex, a: 255, count: cnt };
-                })
-            );
+            const structured = topLocal.map((t) => {
+                const num = parseInt(t.hex.slice(1), 16);
+                const cnt = cmap.get(num) || 0;
+                return { hex: t.hex, a: 255, count: cnt };
+            });
+            if (transparentCount > 0) {
+                structured.push({
+                    hex: "#000000",
+                    a: 0,
+                    count: transparentCount,
+                });
+            }
+            onImmediateSwatches(structured);
         } catch (err) {
             console.warn("immediate swatches failed", err);
         }
