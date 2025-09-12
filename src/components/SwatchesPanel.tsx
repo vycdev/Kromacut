@@ -275,19 +275,7 @@ export const SwatchesPanel: React.FC<Props> = ({ swatches, loading, cap }) => {
                                         Apply
                                     </button>
 
-                                    <button
-                                        onClick={() => closeModal()}
-                                        style={{
-                                            padding: "8px 12px",
-                                            background: "transparent",
-                                            border: "1px solid rgba(255,255,255,0.06)",
-                                            color: "#ddd",
-                                            borderRadius: 8,
-                                            cursor: "pointer",
-                                        }}
-                                    >
-                                        Cancel
-                                    </button>
+                                    {/* Cancel button removed (close handled by header ×) */}
                                 </div>
                             </div>
                         </div>
