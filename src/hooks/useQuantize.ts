@@ -4,6 +4,7 @@ import {
     kmeansImageData,
     octreeImageData,
     wuImageData,
+    enforcePaletteSize,
 } from "../lib/algorithms";
 import { rgbToHsl } from "../lib/color";
 import type { CanvasPreviewHandle } from "../components/CanvasPreview";
@@ -53,11 +54,12 @@ export function useQuantize({
                 s.add((dd[i] << 16) | (dd[i + 1] << 8) | dd[i + 2]);
             return s.size;
         };
-        if (algorithm === "median-cut") medianCutImageData(data, weight);
-        else if (algorithm === "kmeans") kmeansImageData(data, weight);
-        else if (algorithm === "octree") octreeImageData(data, weight);
-        else if (algorithm === "wu") wuImageData(data, weight);
-        else posterizeImageData(data, weight);
+    if (algorithm === "median-cut") medianCutImageData(data, weight);
+    else if (algorithm === "kmeans") kmeansImageData(data, weight);
+    else if (algorithm === "octree") octreeImageData(data, weight);
+    else if (algorithm === "wu") wuImageData(data, weight);
+    else if (algorithm === "none") enforcePaletteSize(data, weight);
+    else posterizeImageData(data, weight);
         console.log("unique after:", countUnique(data));
         ctx.putImageData(data, 0, 0);
         // immediate swatches
