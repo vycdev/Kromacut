@@ -177,46 +177,8 @@ export const SwatchesPanel: React.FC<Props> = ({ swatches, loading, cap }) => {
                                     />
                                 </div>
 
-                                <div
-                                    style={{
-                                        marginTop: "auto",
-                                        display: "flex",
-                                        justifyContent: "flex-end",
-                                        gap: 8,
-                                    }}
-                                >
-                                    <button
-                                        onClick={() => {
-                                            // delete placeholder - does nothing yet
-                                        }}
-                                        style={{
-                                            padding: "8px 12px",
-                                            background: "transparent",
-                                            border: "1px solid rgba(255,60,60,0.12)",
-                                            color: "#ff6b6b",
-                                            borderRadius: 8,
-                                            cursor: "pointer",
-                                        }}
-                                    >
-                                        Delete
-                                    </button>
-
-                                    <button
-                                        onClick={() => {
-                                            // Apply currently does nothing (placeholder)
-                                        }}
-                                        style={{
-                                            padding: "8px 12px",
-                                            background: "#f3f4f6",
-                                            border: "1px solid #d1d5db",
-                                            color: "#111827",
-                                            borderRadius: 8,
-                                            cursor: "pointer",
-                                        }}
-                                    >
-                                        Apply
-                                    </button>
-                                </div>
+                                {/* actions moved to the right column (preview area) */}
+                                <div style={{ marginTop: "auto" }} />
                             </div>
 
                             {/* Right column: preview above hex input */}
@@ -266,6 +228,47 @@ export const SwatchesPanel: React.FC<Props> = ({ swatches, loading, cap }) => {
                                         fontFamily: "monospace",
                                     }}
                                 />
+
+                                <div
+                                    style={{
+                                        display: "flex",
+                                        justifyContent: "flex-end",
+                                        gap: 8,
+                                        marginTop: 6,
+                                    }}
+                                >
+                                    <button
+                                        onClick={() => {
+                                            // delete placeholder - does nothing yet
+                                        }}
+                                        style={{
+                                            padding: "8px 12px",
+                                            background: "transparent",
+                                            border: "1px solid rgba(255,60,60,0.12)",
+                                            color: "#ff6b6b",
+                                            borderRadius: 8,
+                                            cursor: "pointer",
+                                        }}
+                                    >
+                                        Delete
+                                    </button>
+
+                                    <button
+                                        onClick={() => {
+                                            // Apply currently does nothing (placeholder)
+                                        }}
+                                        style={{
+                                            padding: "8px 12px",
+                                            background: "#f3f4f6",
+                                            border: "1px solid #d1d5db",
+                                            color: "#111827",
+                                            borderRadius: 8,
+                                            cursor: "pointer",
+                                        }}
+                                    >
+                                        Apply
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
