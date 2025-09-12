@@ -7,6 +7,7 @@ import {
     enforcePaletteSize,
     mapImageToPalette,
 } from "../lib/algorithms";
+import { PALETTES } from "../data/palettes";
 import { rgbToHsl } from "../lib/color";
 import type { CanvasPreviewHandle } from "../components/CanvasPreview";
 
@@ -71,16 +72,10 @@ export function useQuantize({
         ctx.putImageData(data, 0, 0);
         // postprocessing: enforce final color count or map to selected palette
         if (selectedPalette && selectedPalette !== "auto") {
-            // find palette by id
-            try {
-                const { PALETTES } = await import("../data/palettes");
-                const pal = PALETTES.find((p) => p.id === selectedPalette);
-                if (pal && pal.colors && pal.colors.length > 0) {
-                    mapImageToPalette(data, pal.colors);
-                    ctx.putImageData(data, 0, 0);
-                }
-            } catch {
-                /* ignore dynamic import errors */
+            const pal = PALETTES.find((p) => p.id === selectedPalette);
+            if (pal && pal.colors && pal.colors.length > 0) {
+                mapImageToPalette(data, pal.colors);
+                ctx.putImageData(data, 0, 0);
             }
         } else {
             // auto: reduce to finalColors via enforcePaletteSize

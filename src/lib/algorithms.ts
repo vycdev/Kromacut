@@ -78,6 +78,8 @@ export function medianCutImageData(data: ImageData, weight: number): ImageData {
     // Build histogram of unique colors to reduce work
     const map = new Map<number, number>();
     for (let i = 0; i < d.length; i += 4) {
+        const a = d[i + 3];
+        if (a === 0) continue; // ignore fully transparent pixels
         const key = (d[i] << 16) | (d[i + 1] << 8) | d[i + 2];
         map.set(key, (map.get(key) || 0) + 1);
     }
@@ -219,6 +221,8 @@ export function medianCutImageData(data: ImageData, weight: number): ImageData {
 
     // apply lookup
     for (let i = 0; i < d.length; i += 4) {
+        const a = d[i + 3];
+        if (a === 0) continue; // leave transparent pixels untouched
         const key = (d[i] << 16) | (d[i + 1] << 8) | d[i + 2];
         const v = lookup.get(key);
         if (v) {
@@ -244,6 +248,8 @@ export function kmeansImageData(data: ImageData, weight: number): ImageData {
     // Build unique color entries with counts
     const map = new Map<number, number>();
     for (let i = 0; i < d.length; i += 4) {
+        const a = d[i + 3];
+        if (a === 0) continue;
         const key = (d[i] << 16) | (d[i + 1] << 8) | d[i + 2];
         map.set(key, (map.get(key) || 0) + 1);
     }
@@ -389,6 +395,8 @@ export function kmeansImageData(data: ImageData, weight: number): ImageData {
 
     // apply mapping
     for (let i = 0; i < d.length; i += 4) {
+        const a = d[i + 3];
+        if (a === 0) continue;
         const key = (d[i] << 16) | (d[i + 1] << 8) | d[i + 2];
         const v = lookup.get(key);
         if (v) {
@@ -412,6 +420,8 @@ export function octreeImageData(data: ImageData, weight: number): ImageData {
     // build histogram of unique colors
     const map = new Map<number, number>();
     for (let i = 0; i < d.length; i += 4) {
+        const a = d[i + 3];
+        if (a === 0) continue;
         const key = (d[i] << 16) | (d[i + 1] << 8) | d[i + 2];
         map.set(key, (map.get(key) || 0) + 1);
     }
@@ -574,6 +584,8 @@ export function octreeImageData(data: ImageData, weight: number): ImageData {
     }
 
     for (let i = 0; i < d.length; i += 4) {
+        const a = d[i + 3];
+        if (a === 0) continue;
         const key = (d[i] << 16) | (d[i + 1] << 8) | d[i + 2];
         const v = lookup.get(key);
         if (v) {
@@ -607,6 +619,8 @@ export function wuImageData(data: ImageData, weight: number): ImageData {
     // Build histogram of unique colors to reduce work (weighted entries)
     const map = new Map<number, number>();
     for (let i = 0; i < d.length; i += 4) {
+        const a = d[i + 3];
+        if (a === 0) continue;
         const key = (d[i] << 16) | (d[i + 1] << 8) | d[i + 2];
         map.set(key, (map.get(key) || 0) + 1);
     }
@@ -1106,7 +1120,109 @@ export function enforcePaletteSize(data: ImageData, target: number): ImageData {
         });
     });
 
-    if (entries.length <= target) return data;
+    if (entries.length === target) return data;
+
+    // If there are fewer unique colors than requested, run k-means to expand
+    // to exactly `target` centroids (creates new centroids from existing colors).
+    if (entries.length < target) {
+        const uEntries = entries.slice();
+        // simple k-means on unique colors (weighted) to get exactly `target` centroids
+        const dist2 = (
+            a: { r: number; g: number; b: number },
+            b: { r: number; g: number; b: number }
+        ) => {
+            const dr = a.r - b.r;
+            const dg = a.g - b.g;
+            const db = a.b - b.b;
+            return dr * dr + dg * dg + db * db;
+        };
+
+        uEntries.sort((a, b) => b.count - a.count);
+        const centroids = uEntries
+            .slice(0, Math.min(target, uEntries.length))
+            .map((e) => ({ r: e.r, g: e.g, b: e.b }));
+        while (centroids.length < target)
+            centroids.push({
+                r: uEntries[0].r,
+                g: uEntries[0].g,
+                b: uEntries[0].b,
+            });
+
+        const assignments = new Array(uEntries.length).fill(-1);
+        const maxIter = 12;
+        for (let iter = 0; iter < maxIter; iter++) {
+            let changed = false;
+            // assign
+            for (let i = 0; i < uEntries.length; i++) {
+                let best = -1;
+                let bestD = Infinity;
+                for (let c = 0; c < centroids.length; c++) {
+                    const d2 = dist2(uEntries[i], centroids[c]);
+                    if (d2 < bestD) {
+                        bestD = d2;
+                        best = c;
+                    }
+                }
+                if (assignments[i] !== best) {
+                    assignments[i] = best;
+                    changed = true;
+                }
+            }
+            // recompute centroids
+            const sums: { r: number; g: number; b: number; w: number }[] =
+                centroids.map(() => ({ r: 0, g: 0, b: 0, w: 0 }));
+            for (let i = 0; i < uEntries.length; i++) {
+                const a = assignments[i];
+                const e = uEntries[i];
+                sums[a].r += e.r * e.count;
+                sums[a].g += e.g * e.count;
+                sums[a].b += e.b * e.count;
+                sums[a].w += e.count;
+            }
+            for (let c = 0; c < centroids.length; c++) {
+                if (sums[c].w > 0) {
+                    centroids[c] = {
+                        r: Math.round(sums[c].r / sums[c].w),
+                        g: Math.round(sums[c].g / sums[c].w),
+                        b: Math.round(sums[c].b / sums[c].w),
+                    };
+                }
+            }
+            if (!changed) break;
+        }
+
+        // build centroid lookup
+        const finalLookup = new Map<number, [number, number, number]>();
+        for (let i = 0; i < uEntries.length; i++) {
+            const e = uEntries[i];
+            let best = 0;
+            let bestD = Infinity;
+            for (let c = 0; c < centroids.length; c++) {
+                const d2 = dist2(e, centroids[c]);
+                if (d2 < bestD) {
+                    bestD = d2;
+                    best = c;
+                }
+            }
+            const p = centroids[best];
+            finalLookup.set(e.key, [p.r, p.g, p.b]);
+        }
+
+        // remap pixels
+        for (let i = 0; i < d.length; i += 4) {
+                const a = d[i + 3];
+                if (a === 0) continue;
+                const key = (d[i] << 16) | (d[i + 1] << 8) | d[i + 2];
+                const v = finalLookup.get(key);
+                if (v) {
+                    d[i] = v[0];
+                    d[i + 1] = v[1];
+                    d[i + 2] = v[2];
+                }
+        }
+
+        return data;
+    }
 
     // merge nearest pairs until length == target (naive O(n^2) approach)
     const dist2 = (
@@ -1464,9 +1580,11 @@ export function mapImageToPalette(
     );
     const palLab = palRGB.map((c) => srgbToLab(c[0], c[1], c[2]));
 
-    // build unique color histogram
+    // build unique color histogram (ignore fully-transparent pixels)
     const uniq = new Map<number, number>();
     for (let i = 0; i < d.length; i += 4) {
+        const a = d[i + 3];
+        if (a === 0) continue;
         const key = (d[i] << 16) | (d[i + 1] << 8) | d[i + 2];
         uniq.set(key, (uniq.get(key) || 0) + 1);
     }
@@ -1494,8 +1612,10 @@ export function mapImageToPalette(
         mapping.set(key, [p[0], p[1], p[2]]);
     }
 
-    // remap pixels in-place
+    // remap pixels in-place (skip transparent pixels)
     for (let i = 0; i < d.length; i += 4) {
+        const a = d[i + 3];
+        if (a === 0) continue;
         const key = (d[i] << 16) | (d[i + 1] << 8) | d[i + 2];
         const v = mapping.get(key);
         if (v) {
