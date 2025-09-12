@@ -89,9 +89,11 @@ export const PaletteSelector: React.FC<Props> = ({ selected, onSelect }) => {
                                     </div>
                                 )}
                             </div>
-                            <div style={{ fontSize: 12, color: "#ddd" }}>
-                                {p.id === "auto" ? "Auto" : p.size}
-                            </div>
+                            {p.id === "auto" ? null : (
+                                <div style={{ fontSize: 12, color: "#ddd" }}>
+                                    {p.size}
+                                </div>
+                            )}
                         </button>
                     );
                 })}
