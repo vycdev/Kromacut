@@ -73,13 +73,16 @@ export function useSwatches(imageSrc: string | null) {
                         for (let i = 0; i < data.length; i += 4) {
                             const a = data[i + 3];
                             if (a === 0) {
+                                // accumulate fully transparent pixels into a single bucket
                                 transparentCount++;
                                 continue;
                             }
+                            // include alpha in the key so semi-transparent colors are preserved
+                            const r = data[i];
+                            const g = data[i + 1];
+                            const b = data[i + 2];
                             const key =
-                                (data[i] << 16) |
-                                (data[i + 1] << 8) |
-                                data[i + 2];
+                                ((r << 24) | (g << 16) | (b << 8) | a) >>> 0;
                             map.set(key, (map.get(key) || 0) + 1);
                         }
                     }
@@ -91,15 +94,22 @@ export function useSwatches(imageSrc: string | null) {
                     .slice(0, Math.min(map.size, SWATCH_CAP))
                     .map((entry) => {
                         const key = entry[0];
-                        const r = (key >> 16) & 0xff;
-                        const g = (key >> 8) & 0xff;
-                        const b = key & 0xff;
+                        // decode unsigned 32-bit key with alpha in the low byte
+                        const r = (key >>> 24) & 0xff;
+                        const g = (key >>> 16) & 0xff;
+                        const b = (key >>> 8) & 0xff;
+                        const a = key & 0xff;
                         const hex =
                             "#" +
                             [r, g, b]
                                 .map((v) => v.toString(16).padStart(2, "0"))
                                 .join("");
-                        return { hex, hsl: rgbToHsl(r, g, b), freq: entry[1] };
+                        return {
+                            hex,
+                            a,
+                            hsl: rgbToHsl(r, g, b),
+                            freq: entry[1],
+                        };
                     });
                 top.sort((a, b) => {
                     if (a.hsl.h !== b.hsl.h) return a.hsl.h - b.hsl.h;
@@ -109,11 +119,13 @@ export function useSwatches(imageSrc: string | null) {
                 if (runId === runRef.current && !cancelled) {
                     const result = top.map((t) => ({
                         hex: t.hex,
-                        a: 255,
+                        a: typeof t.a === "number" ? t.a : 255,
                         count: t.freq,
-                        isTransparent: false,
+                        isTransparent:
+                            typeof t.a === "number" ? t.a === 0 : false,
                     }));
                     if (transparentCount > 0) {
+                        // preserve the single fully-transparent bucket
                         result.push({
                             hex: "#000000",
                             a: 0,

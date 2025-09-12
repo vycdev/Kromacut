@@ -261,22 +261,37 @@ function App(): React.ReactElement | null {
                                     const dd = data.data;
                                     const parseHex = (s: string) => {
                                         const raw = s.replace(/^#/, "");
-                                        return [
-                                            parseInt(raw.slice(0, 2), 16) || 0,
-                                            parseInt(raw.slice(2, 4), 16) || 0,
-                                            parseInt(raw.slice(4, 6), 16) || 0,
+                                        const r =
+                                            parseInt(raw.slice(0, 2), 16) || 0;
+                                        const g =
+                                            parseInt(raw.slice(2, 4), 16) || 0;
+                                        const b =
+                                            parseInt(raw.slice(4, 6), 16) || 0;
+                                        const a =
+                                            raw.length >= 8
+                                                ? parseInt(
+                                                      raw.slice(6, 8),
+                                                      16
+                                                  ) || 255
+                                                : 255;
+                                        return [r, g, b, a] as [
+                                            number,
+                                            number,
+                                            number,
+                                            number
                                         ];
                                     };
                                     const [r1, g1, b1] = parseHex(original.hex);
-                                    const [r2, g2, b2] = parseHex(newHex);
+                                    const [r2, g2, b2, newA] = parseHex(newHex);
+                                    // Apply the new alpha when replacing pixels. If newHex had no alpha, newA === 255.
                                     if (original.a === 0) {
-                                        // Replace fully transparent pixels: update RGB but keep them transparent
+                                        // Replace fully transparent pixels: update RGB and set alpha to newA
                                         for (let i = 0; i < dd.length; i += 4) {
                                             if (dd[i + 3] === 0) {
                                                 dd[i] = r2;
                                                 dd[i + 1] = g2;
                                                 dd[i + 2] = b2;
-                                                // keep dd[i+3] === 0 (transparent)
+                                                dd[i + 3] = newA;
                                             }
                                         }
                                     } else {
@@ -292,7 +307,7 @@ function App(): React.ReactElement | null {
                                                 dd[i] = r2;
                                                 dd[i + 1] = g2;
                                                 dd[i + 2] = b2;
-                                                // preserve dd[i+3]
+                                                dd[i + 3] = newA;
                                             }
                                         }
                                     }

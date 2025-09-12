@@ -102,12 +102,20 @@ export const SwatchesPanel: React.FC<Props> = ({
                         };
                         if (s.a === 0) {
                             style.background = `repeating-conic-gradient(#666 0% 25%, #333 0% 50%) 50% / 8px 8px`;
+                        } else if (s.a < 255) {
+                            // semi-transparent color: use rgba background so opacity shows
+                            const r = parseInt(s.hex.slice(1, 3), 16) || 0;
+                            const g = parseInt(s.hex.slice(3, 5), 16) || 0;
+                            const b = parseInt(s.hex.slice(5, 7), 16) || 0;
+                            style.background = `rgba(${r}, ${g}, ${b}, ${(
+                                s.a / 255
+                            ).toFixed(3)})`;
                         } else {
                             style.background = s.hex;
                         }
                         return (
                             <div
-                                key={s.hex + s.a}
+                                key={s.hex + "-" + s.a}
                                 className="swatch"
                                 role="button"
                                 tabIndex={0}
