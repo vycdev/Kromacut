@@ -310,6 +310,35 @@ function App(): React.ReactElement | null {
                                     </button>
                                 </>
                             )}
+                            {/* Download full image button (same style as crop) */}
+                            <button
+                                className="preview-crop-btn"
+                                title="Download image"
+                                aria-label="Download image"
+                                disabled={!imageSrc}
+                                onClick={async () => {
+                                    if (!canvasPreviewRef.current) return;
+                                    const blob =
+                                        await canvasPreviewRef.current.exportImageBlob();
+                                    if (!blob) {
+                                        alert("No image available to download");
+                                        return;
+                                    }
+                                    const url = URL.createObjectURL(blob);
+                                    const a = document.createElement("a");
+                                    a.href = url;
+                                    a.download = "image.png";
+                                    document.body.appendChild(a);
+                                    a.click();
+                                    a.remove();
+                                    URL.revokeObjectURL(url);
+                                }}
+                            >
+                                <i
+                                    className="fa-solid fa-download"
+                                    aria-hidden="true"
+                                />
+                            </button>
                             {/* moved uploader buttons into the top-right preview actions */}
                             <button
                                 className="preview-crop-btn"
