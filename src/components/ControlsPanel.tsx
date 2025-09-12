@@ -42,7 +42,7 @@ export const ControlsPanel: React.FC<Props> = ({
                 />
             </label>
             <label>
-                Weight
+                Algorithm Weight
                 <input
                     type="number"
                     min={2}
