@@ -44,7 +44,12 @@ export function useImageHistory(
             if (onBeforeSet) onBeforeSet();
             setFuture([]);
             setImageSrc((prev) => {
-                if (pushHistory && prev) setPast((p) => [...p, prev]);
+                if (pushHistory && prev)
+                    setPast((p) => {
+                        // avoid pushing the same URL twice in a row
+                        if (p.length > 0 && p[p.length - 1] === prev) return p;
+                        return [...p, prev];
+                    });
                 return next;
             });
         },
@@ -55,7 +60,15 @@ export function useImageHistory(
         setPast((p) => {
             if (p.length === 0) return p;
             const prev = p[p.length - 1];
-            setFuture((f) => (imageRef.current ? [...f, imageRef.current] : f));
+            setFuture((f) => {
+                // avoid pushing duplicate current image into future
+                if (imageRef.current) {
+                    if (f.length > 0 && f[f.length - 1] === imageRef.current)
+                        return f;
+                    return [...f, imageRef.current];
+                }
+                return f;
+            });
             if (onBeforeSet) onBeforeSet();
             setImageSrc(prev);
             return p.slice(0, p.length - 1);
@@ -66,7 +79,14 @@ export function useImageHistory(
         setFuture((f) => {
             if (f.length === 0) return f;
             const next = f[f.length - 1];
-            setPast((p) => (imageRef.current ? [...p, imageRef.current] : p));
+            setPast((p) => {
+                if (imageRef.current) {
+                    if (p.length > 0 && p[p.length - 1] === imageRef.current)
+                        return p;
+                    return [...p, imageRef.current];
+                }
+                return p;
+            });
             if (onBeforeSet) onBeforeSet();
             setImageSrc(next);
             return f.slice(0, f.length - 1);
