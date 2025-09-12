@@ -190,18 +190,13 @@ export const SwatchesPanel: React.FC<Props> = ({ swatches, loading, cap }) => {
                                     gap: 10,
                                 }}
                             >
-                                <div
-                                    style={{
-                                        display: "flex",
-                                        justifyContent: "center",
-                                    }}
-                                >
+                                <div style={{ width: "100%" }}>
                                     <div
                                         aria-hidden
                                         style={{
-                                            width: 72,
+                                            width: "100%",
                                             height: 72,
-                                            borderRadius: 10,
+                                            borderRadius: 8,
                                             background: pickerColor,
                                             border: "1px solid rgba(255,255,255,0.06)",
                                         }}
