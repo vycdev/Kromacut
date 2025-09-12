@@ -235,13 +235,25 @@ export const SwatchesPanel: React.FC<Props> = ({ swatches, loading, cap }) => {
                                     <div
                                         aria-hidden
                                         style={{
+                                            position: "relative",
                                             width: "100%",
                                             height: 103,
                                             borderRadius: 8,
-                                            background: `rgba(${rgba.r}, ${rgba.g}, ${rgba.b}, ${rgba.a})`,
+                                            overflow: "hidden",
+                                            background:
+                                                "repeating-conic-gradient(#666 0% 25%, #333 0% 50%) 50% / 16px 16px",
                                             border: "1px solid rgba(255,255,255,0.06)",
                                         }}
-                                    />
+                                    >
+                                        <div
+                                            aria-hidden
+                                            style={{
+                                                position: "absolute",
+                                                inset: 0,
+                                                background: `rgba(${rgba.r}, ${rgba.g}, ${rgba.b}, ${rgba.a})`,
+                                            }}
+                                        />
+                                    </div>
                                 </div>
 
                                 <input
