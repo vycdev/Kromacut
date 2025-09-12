@@ -158,51 +158,34 @@ export const SwatchesPanel: React.FC<Props> = ({ swatches, loading, cap }) => {
                         </div>
 
                         <div style={{ display: "flex", gap: 0 }}>
+                            {/* Left column: preview above hex input */}
                             <div
                                 style={{
+                                    width: 160,
                                     display: "flex",
                                     flexDirection: "column",
                                     gap: 10,
+                                    paddingRight: 12,
                                 }}
                             >
-                                {/* preview moved to the left column, above the picker */}
                                 <div
                                     style={{
                                         display: "flex",
-                                        justifyContent: "flex-start",
+                                        justifyContent: "center",
                                     }}
                                 >
                                     <div
                                         aria-hidden
                                         style={{
-                                            width: 56,
-                                            height: 56,
-                                            borderRadius: 8,
+                                            width: 72,
+                                            height: 72,
+                                            borderRadius: 10,
                                             background: pickerColor,
                                             border: "1px solid rgba(255,255,255,0.06)",
                                         }}
                                     />
                                 </div>
-                                <div style={{ width: 260 }}>
-                                    <HexAlphaColorPicker
-                                        color={pickerColor}
-                                        onChange={(c: string) =>
-                                            setPickerColor(c)
-                                        }
-                                    />
-                                </div>
-                                {/* original preview/text removed; preview now sits above the hex input on the right */}
-                            </div>
 
-                            <div
-                                style={{
-                                    flex: 1,
-                                    display: "flex",
-                                    flexDirection: "column",
-                                    gap: 8,
-                                }}
-                            >
-                                {/* hex input (editable) */}
                                 <input
                                     value={pickerColor}
                                     onChange={(e) => {
@@ -223,6 +206,25 @@ export const SwatchesPanel: React.FC<Props> = ({ swatches, loading, cap }) => {
                                         fontFamily: "monospace",
                                     }}
                                 />
+                            </div>
+
+                            {/* Right column: picker and actions */}
+                            <div
+                                style={{
+                                    flex: 1,
+                                    display: "flex",
+                                    flexDirection: "column",
+                                    gap: 8,
+                                }}
+                            >
+                                <div style={{ maxWidth: 420 }}>
+                                    <HexAlphaColorPicker
+                                        color={pickerColor}
+                                        onChange={(c: string) =>
+                                            setPickerColor(c)
+                                        }
+                                    />
+                                </div>
 
                                 <div
                                     style={{
@@ -263,8 +265,6 @@ export const SwatchesPanel: React.FC<Props> = ({ swatches, loading, cap }) => {
                                     >
                                         Apply
                                     </button>
-
-                                    {/* Cancel button removed (close handled by header ×) */}
                                 </div>
                             </div>
                         </div>
