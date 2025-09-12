@@ -112,10 +112,7 @@ export const SwatchesPanel: React.FC<Props> = ({ swatches, loading, cap }) => {
                         background: "rgba(0,0,0,0.5)",
                         zIndex: 1000,
                     }}
-                    onClick={(e) => {
-                        // close when clicking backdrop
-                        if (e.target === e.currentTarget) closeModal();
-                    }}
+                    // clicking the backdrop should not close the modal (close via header button or Escape)
                 >
                     <div
                         style={{
