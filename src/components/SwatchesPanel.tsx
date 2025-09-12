@@ -119,134 +119,121 @@ export const SwatchesPanel: React.FC<Props> = ({ swatches, loading, cap }) => {
                 >
                     <div
                         style={{
-                            background: "#111",
-                            padding: 16,
-                            borderRadius: 8,
-                            minWidth: 280,
-                            boxShadow: "0 6px 24px rgba(0,0,0,0.6)",
+                            background: "linear-gradient(180deg,#0f1113,#0b0c0d)",
+                            padding: 18,
+                            borderRadius: 12,
+                            minWidth: 420,
+                            maxWidth: 'min(90vw,680px)',
+                            boxShadow: "0 12px 48px rgba(2,6,23,0.75)",
+                            color: '#eee',
+                            border: '1px solid rgba(255,255,255,0.03)'
                         }}
                     >
-                        <div style={{ marginBottom: 12, fontWeight: 700 }}>
-                            Edit swatch
-                        </div>
-
-                        <div
-                            style={{
-                                display: "flex",
-                                gap: 12,
-                                alignItems: "flex-start",
-                                marginBottom: 12,
-                            }}
-                        >
-                            {/* Color preview */}
-                            <div
-                                style={{
-                                    display: "flex",
-                                    flexDirection: "column",
-                                    alignItems: "center",
-                                    gap: 8,
-                                }}
-                            >
-                                <div
-                                    aria-hidden
-                                    style={{
-                                        width: 56,
-                                        height: 56,
-                                        borderRadius: 6,
-                                        background: pickerColor,
-                                        border: "1px solid rgba(255,255,255,0.08)",
-                                    }}
-                                />
-                                <div style={{ color: "#ddd", fontSize: 12 }}>
-                                    {openSwatch.a === 0
-                                        ? "(transparent)"
-                                        : openSwatch.hex}
-                                </div>
-                            </div>
-
-                            {/* react-colorful integrated picker */}
-                            <div
-                                style={{
-                                    flex: 1,
-                                    display: "flex",
-                                    gap: 12,
-                                    alignItems: "flex-start",
-                                }}
-                            >
-                                <div style={{ minWidth: 220 }}>
-                                    <HexAlphaColorPicker
-                                        color={pickerColor}
-                                        onChange={(c) => setPickerColor(c)}
-                                    />
-                                </div>
-                                <div
-                                    style={{
-                                        display: "flex",
-                                        flexDirection: "column",
-                                        gap: 8,
-                                        flex: 1,
-                                    }}
-                                >
-                                    <div
-                                        style={{ color: "#ddd", fontSize: 12 }}
-                                    >
-                                        Hex
-                                    </div>
-                                    <input
-                                        aria-label="Hex color"
-                                        value={pickerColor}
-                                        onChange={(e) => {
-                                            const v = e.target.value;
-                                            if (
-                                                /^#?[0-9a-fA-F]{0,8}$/.test(v)
-                                            ) {
-                                                setPickerColor(
-                                                    v.startsWith("#")
-                                                        ? v
-                                                        : "#" + v
-                                                );
-                                            }
-                                        }}
-                                        style={{
-                                            width: "100%",
-                                            padding: "6px 8px",
-                                            background: "#222",
-                                            border: "1px solid #333",
-                                            color: "#fff",
-                                        }}
-                                    />
-                                </div>
-                            </div>
-                        </div>
-
-                        <div
-                            style={{
-                                display: "flex",
-                                justifyContent: "flex-end",
-                                gap: 8,
-                            }}
-                        >
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                            <div style={{ fontSize: 16, fontWeight: 800 }}>Edit swatch</div>
                             <button
-                                onClick={() => {
-                                    // Apply currently does nothing (placeholder)
-                                    // Future: apply color back to image / palette
-                                }}
-                                style={{
-                                    padding: "6px 10px",
-                                    cursor: "pointer",
-                                }}
-                            >
-                                Apply
-                            </button>
-                            <button
+                                aria-label="Close"
                                 onClick={() => closeModal()}
                                 style={{
-                                    padding: "6px 10px",
-                                    cursor: "pointer",
+                                    background: 'transparent',
+                                    border: 0,
+                                    color: '#888',
+                                    cursor: 'pointer',
+                                    fontSize: 18,
+                                    lineHeight: 1
                                 }}
                             >
-                                Cancel
+                                ×
                             </button>
+                        </div>
+
+                        <div style={{ display: 'flex', gap: 18 }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                                <div style={{ width: 260 }}>
+                                    <HexAlphaColorPicker
+                                        color={pickerColor}
+                                        onChange={(c: string) => setPickerColor(c)}
+                                    />
+                                </div>
+                                <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                                    <div style={{ width: 56, height: 56, borderRadius: 8, background: pickerColor, border: '1px solid rgba(255,255,255,0.06)' }} />
+                                    <div style={{ color: '#bbb', fontSize: 13 }}>
+                                        {openSwatch.a === 0 ? '(transparent)' : openSwatch.hex}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                <label style={{ color: '#bbb', fontSize: 12 }}>Hex</label>
+                                <input
+                                    aria-label="Hex color"
+                                    value={pickerColor}
+                                    onChange={(e) => {
+                                        const v = e.target.value;
+                                        if (/^#?[0-9a-fA-F]{0,8}$/.test(v)) {
+                                            setPickerColor(v.startsWith('#') ? v : '#' + v);
+                                        }
+                                    }}
+                                    style={{
+                                        width: '100%',
+                                        padding: '8px 10px',
+                                        background: '#0b0d0e',
+                                        border: '1px solid rgba(255,255,255,0.04)',
+                                        color: '#fff',
+                                        borderRadius: 6,
+                                        fontFamily: 'monospace'
+                                    }}
+                                />
+
+                                <div style={{ marginTop: 'auto', display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                                    <button
+                                        onClick={() => {
+                                            // delete placeholder - does nothing yet
+                                        }}
+                                        style={{
+                                            padding: '8px 12px',
+                                            background: 'transparent',
+                                            border: '1px solid rgba(255,60,60,0.12)',
+                                            color: '#ff6b6b',
+                                            borderRadius: 8,
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        Delete
+                                    </button>
+
+                                    <button
+                                        onClick={() => {
+                                            // Apply currently does nothing (placeholder)
+                                        }}
+                                        style={{
+                                            padding: '8px 12px',
+                                            background: 'linear-gradient(180deg,#2b6df6,#1c4fe8)',
+                                            border: 0,
+                                            color: '#fff',
+                                            borderRadius: 8,
+                                            cursor: 'pointer',
+                                            boxShadow: '0 6px 18px rgba(28,79,232,0.24)'
+                                        }}
+                                    >
+                                        Apply
+                                    </button>
+
+                                    <button
+                                        onClick={() => closeModal()}
+                                        style={{
+                                            padding: '8px 12px',
+                                            background: 'transparent',
+                                            border: '1px solid rgba(255,255,255,0.06)',
+                                            color: '#ddd',
+                                            borderRadius: 8,
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        Cancel
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
