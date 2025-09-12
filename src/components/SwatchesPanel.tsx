@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { HexAlphaColorPicker } from "react-colorful";
+import { HexColorPicker } from "react-colorful";
 
 interface SwatchEntry {
     hex: string;
@@ -169,7 +169,7 @@ export const SwatchesPanel: React.FC<Props> = ({ swatches, loading, cap }) => {
                                 }}
                             >
                                 <div style={{ maxWidth: 420 }}>
-                                    <HexAlphaColorPicker
+                                    <HexColorPicker
                                         color={pickerColor}
                                         onChange={(c: string) =>
                                             setPickerColor(c)
