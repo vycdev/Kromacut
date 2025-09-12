@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import "./App.css";
+import benchy from "./assets/benchy.png";
 import CanvasPreview from "./components/CanvasPreview";
 import type { CanvasPreviewHandle } from "./components/CanvasPreview";
 import UploaderControls from "./components/UploaderControls";
@@ -13,7 +14,7 @@ import {
 import { PALETTES } from "./data/palettes";
 
 function App(): React.ReactElement | null {
-    const [imageSrc, setImageSrc] = useState<string | null>(null);
+    const [imageSrc, setImageSrc] = useState<string | null>(benchy);
     const [past, setPast] = useState<string[]>([]);
     const [future, setFuture] = useState<string[]>([]);
     const [dragOver, setDragOver] = useState(false);
