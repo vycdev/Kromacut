@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import "./App.css";
-import benchy from "./assets/benchy.png";
+import logo from "./assets/logo.png";
 import CanvasPreview from "./components/CanvasPreview";
 import type { CanvasPreviewHandle } from "./components/CanvasPreview";
 import { PaletteSelector } from "./components/PaletteSelector";
@@ -27,7 +27,7 @@ function App(): React.ReactElement | null {
         return matched ? matched.id : "auto";
     });
     const { imageSrc, setImage, clearCurrent, undo, redo, canUndo, canRedo } =
-        useImageHistory(benchy, undefined);
+        useImageHistory(logo, undefined);
     const { swatches, swatchesLoading, invalidate, immediateOverride } =
         useSwatches(imageSrc);
     // initial selectedPalette derived from initial weight above
