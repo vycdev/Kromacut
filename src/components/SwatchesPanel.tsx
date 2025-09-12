@@ -158,63 +158,14 @@ export const SwatchesPanel: React.FC<Props> = ({ swatches, loading, cap }) => {
                         </div>
 
                         <div style={{ display: "flex", gap: 0 }}>
-                            {/* Left column: preview above hex input */}
-                            <div
-                                style={{
-                                    width: 160,
-                                    display: "flex",
-                                    flexDirection: "column",
-                                    gap: 10,
-                                    paddingRight: 12,
-                                }}
-                            >
-                                <div
-                                    style={{
-                                        display: "flex",
-                                        justifyContent: "center",
-                                    }}
-                                >
-                                    <div
-                                        aria-hidden
-                                        style={{
-                                            width: 72,
-                                            height: 72,
-                                            borderRadius: 10,
-                                            background: pickerColor,
-                                            border: "1px solid rgba(255,255,255,0.06)",
-                                        }}
-                                    />
-                                </div>
-
-                                <input
-                                    value={pickerColor}
-                                    onChange={(e) => {
-                                        const v = e.target.value;
-                                        if (/^#?[0-9a-fA-F]{0,8}$/.test(v)) {
-                                            setPickerColor(
-                                                v.startsWith("#") ? v : "#" + v
-                                            );
-                                        }
-                                    }}
-                                    style={{
-                                        width: "100%",
-                                        padding: "8px 10px",
-                                        background: "#0b0d0e",
-                                        border: "1px solid rgba(255,255,255,0.04)",
-                                        color: "#fff",
-                                        borderRadius: 6,
-                                        fontFamily: "monospace",
-                                    }}
-                                />
-                            </div>
-
-                            {/* Right column: picker and actions */}
+                            {/* Left column: picker and actions */}
                             <div
                                 style={{
                                     flex: 1,
                                     display: "flex",
                                     flexDirection: "column",
                                     gap: 8,
+                                    paddingRight: 12,
                                 }}
                             >
                                 <div style={{ maxWidth: 420 }}>
@@ -266,6 +217,55 @@ export const SwatchesPanel: React.FC<Props> = ({ swatches, loading, cap }) => {
                                         Apply
                                     </button>
                                 </div>
+                            </div>
+
+                            {/* Right column: preview above hex input */}
+                            <div
+                                style={{
+                                    width: 160,
+                                    display: "flex",
+                                    flexDirection: "column",
+                                    gap: 10,
+                                }}
+                            >
+                                <div
+                                    style={{
+                                        display: "flex",
+                                        justifyContent: "center",
+                                    }}
+                                >
+                                    <div
+                                        aria-hidden
+                                        style={{
+                                            width: 72,
+                                            height: 72,
+                                            borderRadius: 10,
+                                            background: pickerColor,
+                                            border: "1px solid rgba(255,255,255,0.06)",
+                                        }}
+                                    />
+                                </div>
+
+                                <input
+                                    value={pickerColor}
+                                    onChange={(e) => {
+                                        const v = e.target.value;
+                                        if (/^#?[0-9a-fA-F]{0,8}$/.test(v)) {
+                                            setPickerColor(
+                                                v.startsWith("#") ? v : "#" + v
+                                            );
+                                        }
+                                    }}
+                                    style={{
+                                        width: "100%",
+                                        padding: "8px 10px",
+                                        background: "#0b0d0e",
+                                        border: "1px solid rgba(255,255,255,0.04)",
+                                        color: "#fff",
+                                        borderRadius: 6,
+                                        fontFamily: "monospace",
+                                    }}
+                                />
                             </div>
                         </div>
                     </div>
