@@ -24,7 +24,79 @@ function App(): React.ReactElement | null {
     // inside updateSwatches but we don't expose them in state now.
     // cap how many swatches we display (independent from weight used for quantizers)
     const SWATCH_CAP = 2 ** 14;
+    // built-in palettes used by the selector
+    const PALETTES: Array<{
+        id: string;
+        label: string;
+        colors: string[];
+        size: number;
+    }> = [
+        { id: "auto", label: "Auto", colors: [], size: 0 },
+        {
+            id: "p4",
+            label: "4",
+            size: 4,
+            colors: ["#d7263d", "#021c1e", "#f2e86d", "#3bceac"],
+        },
+        {
+            id: "p8",
+            label: "8",
+            size: 8,
+            colors: [
+                "#264653",
+                "#2a9d8f",
+                "#e9c46a",
+                "#f4a261",
+                "#e76f51",
+                "#8ab17d",
+                "#6a4c93",
+                "#ef476f",
+            ],
+        },
+        {
+            id: "p16",
+            label: "16",
+            size: 16,
+            colors: [
+                "#e63946",
+                "#f1faee",
+                "#a8dadc",
+                "#457b9d",
+                "#1d3557",
+                "#ffb4a2",
+                "#ffd6a5",
+                "#fdffb6",
+                "#cdeac0",
+                "#a3e635",
+                "#80ed99",
+                "#00b4d8",
+                "#0077b6",
+                "#023e8a",
+                "#ef233c",
+                "#ffd6e0",
+            ],
+        },
+        {
+            id: "p32",
+            label: "32",
+            size: 32,
+            colors: Array.from({ length: 32 }).map((_, i) => {
+                const hue = Math.round((i * 360) / 32);
+                return `hsl(${hue} 70% 55%)`;
+            }),
+        },
+    ];
 
+    const [selectedPalette, setSelectedPalette] = useState<string>("auto");
+
+    // keep selectedPalette in sync with manual changes to the numeric color input
+    useEffect(() => {
+        const matched = PALETTES.find(
+            (p) => p.id !== "auto" && p.size === weight
+        );
+        setSelectedPalette(matched ? matched.id : "auto");
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [weight]);
     // helper to convert rgb -> hsl used for swatch sorting
     const rgbToHsl = (r: number, g: number, b: number) => {
         r /= 255;
@@ -391,6 +463,120 @@ function App(): React.ReactElement | null {
                                 onRemove={clear}
                                 canRemove={!!imageSrc && !isCropMode}
                             />
+                        </div>
+                        {/* Palette selector: Auto + preset palettes (4/8/16/32) */}
+                        <div className="controls-group">
+                            <div
+                                style={{
+                                    fontSize: 13,
+                                    fontWeight: 700,
+                                    marginBottom: 8,
+                                }}
+                            >
+                                Palette
+                            </div>
+                            <div
+                                style={{
+                                    display: "flex",
+                                    flexDirection: "column",
+                                    gap: 8,
+                                    // allow vertical scrolling when many palettes
+                                    maxHeight: 200,
+                                    overflowY: "auto",
+                                    paddingRight: 4,
+                                }}
+                            >
+                                {/* build small inline palette chooser using module-level PALETTES */}
+                                {PALETTES.map((p) => {
+                                    const active = p.id === selectedPalette;
+                                    return (
+                                        <button
+                                            key={p.id}
+                                            type="button"
+                                            onClick={() => {
+                                                // select palette
+                                                setSelectedPalette(p.id);
+                                                // Auto does not change numeric color input
+                                                if (p.id !== "auto")
+                                                    setWeight(p.size);
+                                            }}
+                                            title={
+                                                p.id === "auto"
+                                                    ? "Auto"
+                                                    : `${p.size} colors`
+                                            }
+                                            style={{
+                                                // stretch to group width with a small inner margin
+                                                width: "100%",
+                                                boxSizing: "border-box",
+                                                justifyContent: "space-between",
+                                                border: active
+                                                    ? "2px solid #fff"
+                                                    : "1px solid rgba(255,255,255,0.06)",
+                                                padding: "8px 10px",
+                                                background: "transparent",
+                                                display: "flex",
+                                                alignItems: "center",
+                                                gap: 12,
+                                                cursor: "pointer",
+                                                borderRadius: 6,
+                                            }}
+                                        >
+                                            <div
+                                                style={{
+                                                    display: "flex",
+                                                    gap: 4,
+                                                }}
+                                            >
+                                                {p.id === "auto" ? (
+                                                    <div
+                                                        style={{
+                                                            width: 36,
+                                                            height: 20,
+                                                            display: "flex",
+                                                            alignItems:
+                                                                "center",
+                                                            justifyContent:
+                                                                "center",
+                                                            color: "#ddd",
+                                                            fontSize: 12,
+                                                        }}
+                                                    >
+                                                        Auto
+                                                    </div>
+                                                ) : (
+                                                    p.colors
+                                                        .slice(0, 8)
+                                                        .map((c, i) => (
+                                                            <div
+                                                                key={i}
+                                                                className="swatch"
+                                                                style={{
+                                                                    width: 12,
+                                                                    height: 12,
+                                                                    borderRadius: 2,
+                                                                    background:
+                                                                        c,
+                                                                    border: "1px solid rgba(0,0,0,0.15)",
+                                                                }}
+                                                            />
+                                                        ))
+                                                )}
+                                            </div>
+                                            <div
+                                                style={{
+                                                    fontSize: 12,
+                                                    color: "#ddd",
+                                                }}
+                                            >
+                                                {p.id === "auto"
+                                                    ? "Auto"
+                                                    : `${p.size}`}
+                                            </div>
+                                        </button>
+                                    );
+                                })}
+                            </div>
                         </div>
                         <div className="controls-group">
                             <label>
