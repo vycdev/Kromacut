@@ -8,7 +8,8 @@ export type Palette = {
 export const PALETTES: Palette[] = [
     { id: "auto", label: "Auto", colors: [], size: 0 },
 
-    // Curated popular palettes (primary set for each size)
+    // Colored palettes grouped and ordered by size (ascending)
+    // 4-color palettes
     {
         id: "p4",
         label: "4",
@@ -23,6 +24,7 @@ export const PALETTES: Palette[] = [
         colors: ["#FFB3BA", "#FFDFBA", "#FFFFBA", "#BAFFC9"],
     },
 
+    // 8-color palettes
     {
         id: "p8",
         label: "8",
@@ -55,7 +57,129 @@ export const PALETTES: Palette[] = [
             "#859900",
         ],
     },
+    {
+        id: "material_8",
+        label: "Material (8)",
+        size: 8,
+        colors: [
+            "#E53935",
+            "#D81B60",
+            "#8E24AA",
+            "#5E35B1",
+            "#3949AB",
+            "#1E88E5",
+            "#039BE5",
+            "#00ACC1",
+        ],
+    },
+    {
+        id: "brewer_set2",
+        label: "ColorBrewer Set2 (8)",
+        size: 8,
+        colors: [
+            "#66c2a5",
+            "#fc8d62",
+            "#8da0cb",
+            "#e78ac3",
+            "#a6d854",
+            "#ffd92f",
+            "#e5c494",
+            "#b3b3b3",
+        ],
+    },
 
+    // 9-color palettes
+    {
+        id: "brewer_set1",
+        label: "ColorBrewer Set1 (9)",
+        size: 9,
+        colors: [
+            "#e41a1c",
+            "#377eb8",
+            "#4daf4a",
+            "#984ea3",
+            "#ff7f00",
+            "#ffff33",
+            "#a65628",
+            "#f781bf",
+            "#999999",
+        ],
+    },
+    {
+        id: "pastel_9",
+        label: "Pastel (9)",
+        size: 9,
+        colors: [
+            "#fbb4ae",
+            "#b3cde3",
+            "#ccebc5",
+            "#decbe4",
+            "#fed9a6",
+            "#ffffcc",
+            "#e5d8bd",
+            "#fddaec",
+            "#f2f2f2",
+        ],
+    },
+
+    // 10-color palettes
+    {
+        id: "flat_ui_10",
+        label: "Flat UI (10)",
+        size: 10,
+        colors: [
+            "#1abc9c",
+            "#2ecc71",
+            "#3498db",
+            "#9b59b6",
+            "#34495e",
+            "#16a085",
+            "#27ae60",
+            "#2980b9",
+            "#8e44ad",
+            "#2c3e50",
+        ],
+    },
+    {
+        id: "d3_category10",
+        label: "D3 Category 10",
+        size: 10,
+        colors: [
+            "#1f77b4",
+            "#ff7f0e",
+            "#2ca02c",
+            "#d62728",
+            "#9467bd",
+            "#8c564b",
+            "#e377c2",
+            "#7f7f7f",
+            "#bcbd22",
+            "#17becf",
+        ],
+    },
+
+    // 12-color palettes
+    {
+        id: "paired_12",
+        label: "Paired (12)",
+        size: 12,
+        colors: [
+            "#a6cee3",
+            "#1f78b4",
+            "#b2df8a",
+            "#33a02c",
+            "#fb9a99",
+            "#e31a1c",
+            "#fdbf6f",
+            "#ff7f00",
+            "#cab2d6",
+            "#6a3d9a",
+            "#ffff99",
+            "#b15928",
+        ],
+    },
+
+    // 16-color palettes
     {
         id: "p16",
         label: "16",
@@ -104,6 +228,7 @@ export const PALETTES: Palette[] = [
         ],
     },
 
+    // 32-color palettes
     {
         id: "p32",
         label: "32",
@@ -146,7 +271,7 @@ export const PALETTES: Palette[] = [
         ],
     },
 
-    // Grayscale palettes (4/8/16/32 shades)
+    // Grayscale palettes (kept at the end)
     {
         id: "g4",
         label: "Gray 4",
