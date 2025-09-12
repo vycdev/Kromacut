@@ -2,8 +2,13 @@ import { useEffect, useRef, useState } from "react";
 import { rgbToHsl } from "../lib/color";
 
 // Manages swatch computation with cancellation & immediate override
+export interface SwatchEntry {
+    hex: string;
+    a: number;
+    count: number;
+}
 export function useSwatches(imageSrc: string | null) {
-    const [swatches, setSwatches] = useState<string[]>([]);
+    const [swatches, setSwatches] = useState<SwatchEntry[]>([]);
     const [loading, setLoading] = useState(false);
     const runRef = useRef(0);
     const SWATCH_CAP = 2 ** 14; // matches previous constant
@@ -13,7 +18,7 @@ export function useSwatches(imageSrc: string | null) {
         setLoading(false);
     };
 
-    const immediateOverride = (colors: string[]) => {
+    const immediateOverride = (colors: SwatchEntry[]) => {
         runRef.current++; // cancel any inflight computation
         setSwatches(colors);
         setLoading(false);
@@ -95,7 +100,9 @@ export function useSwatches(imageSrc: string | null) {
                     return b.hsl.l - a.hsl.l;
                 });
                 if (runId === runRef.current && !cancelled) {
-                    setSwatches(top.map((t) => t.hex));
+                    setSwatches(
+                        top.map((t) => ({ hex: t.hex, a: 255, count: t.freq }))
+                    );
                     setLoading(false);
                 }
             } catch (err) {

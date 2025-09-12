@@ -7,6 +7,7 @@ import { PaletteSelector } from "./components/PaletteSelector";
 import { ControlsPanel } from "./components/ControlsPanel";
 import { SwatchesPanel } from "./components/SwatchesPanel";
 import { useSwatches } from "./hooks/useSwatches";
+import type { SwatchEntry } from "./hooks/useSwatches";
 import { useImageHistory } from "./hooks/useImageHistory";
 import { useQuantize } from "./hooks/useQuantize";
 import { PALETTES } from "./data/palettes";
@@ -42,7 +43,8 @@ function App(): React.ReactElement | null {
             invalidate();
             setImage(u, push);
         },
-        onImmediateSwatches: immediateOverride,
+        onImmediateSwatches: (colors: SwatchEntry[]) =>
+            immediateOverride(colors),
     });
 
     // removed duplicate syncing: manual changes to the numeric input should set Auto via onWeightChange

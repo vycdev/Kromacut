@@ -1096,9 +1096,10 @@ export function enforcePaletteSize(data: ImageData, target: number): ImageData {
     target = Math.max(2, Math.min(256, Math.floor(target)));
     const d = data.data;
 
-    // build histogram of unique colors
+    // build histogram of unique colors (ignore fully transparent)
     const map = new Map<number, number>();
     for (let i = 0; i < d.length; i += 4) {
+        if (d[i + 3] === 0) continue;
         const key = (d[i] << 16) | (d[i + 1] << 8) | d[i + 2];
         map.set(key, (map.get(key) || 0) + 1);
     }
@@ -1120,109 +1121,8 @@ export function enforcePaletteSize(data: ImageData, target: number): ImageData {
         });
     });
 
-    if (entries.length === target) return data;
-
-    // If there are fewer unique colors than requested, run k-means to expand
-    // to exactly `target` centroids (creates new centroids from existing colors).
-    if (entries.length < target) {
-        const uEntries = entries.slice();
-        // simple k-means on unique colors (weighted) to get exactly `target` centroids
-        const dist2 = (
-            a: { r: number; g: number; b: number },
-            b: { r: number; g: number; b: number }
-        ) => {
-            const dr = a.r - b.r;
-            const dg = a.g - b.g;
-            const db = a.b - b.b;
-            return dr * dr + dg * dg + db * db;
-        };
-
-        uEntries.sort((a, b) => b.count - a.count);
-        const centroids = uEntries
-            .slice(0, Math.min(target, uEntries.length))
-            .map((e) => ({ r: e.r, g: e.g, b: e.b }));
-        while (centroids.length < target)
-            centroids.push({
-                r: uEntries[0].r,
-                g: uEntries[0].g,
-                b: uEntries[0].b,
-            });
-
-        const assignments = new Array(uEntries.length).fill(-1);
-        const maxIter = 12;
-        for (let iter = 0; iter < maxIter; iter++) {
-            let changed = false;
-            // assign
-            for (let i = 0; i < uEntries.length; i++) {
-                let best = -1;
-                let bestD = Infinity;
-                for (let c = 0; c < centroids.length; c++) {
-                    const d2 = dist2(uEntries[i], centroids[c]);
-                    if (d2 < bestD) {
-                        bestD = d2;
-                        best = c;
-                    }
-                }
-                if (assignments[i] !== best) {
-                    assignments[i] = best;
-                    changed = true;
-                }
-            }
-            // recompute centroids
-            const sums: { r: number; g: number; b: number; w: number }[] =
-                centroids.map(() => ({ r: 0, g: 0, b: 0, w: 0 }));
-            for (let i = 0; i < uEntries.length; i++) {
-                const a = assignments[i];
-                const e = uEntries[i];
-                sums[a].r += e.r * e.count;
-                sums[a].g += e.g * e.count;
-                sums[a].b += e.b * e.count;
-                sums[a].w += e.count;
-            }
-            for (let c = 0; c < centroids.length; c++) {
-                if (sums[c].w > 0) {
-                    centroids[c] = {
-                        r: Math.round(sums[c].r / sums[c].w),
-                        g: Math.round(sums[c].g / sums[c].w),
-                        b: Math.round(sums[c].b / sums[c].w),
-                    };
-                }
-            }
-            if (!changed) break;
-        }
-
-        // build centroid lookup
-        const finalLookup = new Map<number, [number, number, number]>();
-        for (let i = 0; i < uEntries.length; i++) {
-            const e = uEntries[i];
-            let best = 0;
-            let bestD = Infinity;
-            for (let c = 0; c < centroids.length; c++) {
-                const d2 = dist2(e, centroids[c]);
-                if (d2 < bestD) {
-                    bestD = d2;
-                    best = c;
-                }
-            }
-            const p = centroids[best];
-            finalLookup.set(e.key, [p.r, p.g, p.b]);
-        }
-
-        // remap pixels
-        for (let i = 0; i < d.length; i += 4) {
-            const a = d[i + 3];
-            if (a === 0) continue;
-            const key = (d[i] << 16) | (d[i + 1] << 8) | d[i + 2];
-            const v = finalLookup.get(key);
-            if (v) {
-                d[i] = v[0];
-                d[i + 1] = v[1];
-                d[i + 2] = v[2];
-            }
-        }
-
-        return data;
-    }
+    // If unique colors are already <= target, leave them (user allows fewer)
+    if (entries.length <= target) return data;
 
     // merge nearest pairs until length == target (naive O(n^2) approach)
     const dist2 = (
@@ -1310,131 +1210,8 @@ export function enforcePaletteSize(data: ImageData, target: number): ImageData {
             d[i + 1] = v[1];
             d[i + 2] = v[2];
         }
-    }
-
-    // quick diagnostic: count unique colors after remap
-    const afterSet = new Set<number>();
-    for (let i = 0; i < d.length; i += 4) {
-        afterSet.add((d[i] << 16) | (d[i + 1] << 8) | d[i + 2]);
-    }
-    // if reduction didn't reach target for any reason (too many or too few), run a fallback k-means on unique colors
-    if (afterSet.size !== target) {
-        // build entries array (reuse variable name) from current pixels
-        const uniq = new Map<number, number>();
-        for (let i = 0; i < d.length; i += 4) {
-            const k = (d[i] << 16) | (d[i + 1] << 8) | d[i + 2];
-            uniq.set(k, (uniq.get(k) || 0) + 1);
-        }
-        const uEntries: {
-            key: number;
-            r: number;
-            g: number;
-            b: number;
-            count: number;
-        }[] = [];
-        uniq.forEach((count, key) => {
-            uEntries.push({
-                key,
-                r: (key >> 16) & 0xff,
-                g: (key >> 8) & 0xff,
-                b: key & 0xff,
-                count,
-            });
-        });
-
-        // simple k-means on unique colors (weighted) to get exactly `target` centroids
-        const dist2 = (
-            a: { r: number; g: number; b: number },
-            b: { r: number; g: number; b: number }
-        ) => {
-            const dr = a.r - b.r;
-            const dg = a.g - b.g;
-            const db = a.b - b.b;
-            return dr * dr + dg * dg + db * db;
-        };
-
-        // init centroids by picking the most frequent `target` unique colors (or random)
-        uEntries.sort((a, b) => b.count - a.count);
-        const centroids = uEntries
-            .slice(0, Math.min(target, uEntries.length))
-            .map((e) => ({ r: e.r, g: e.g, b: e.b }));
-        while (centroids.length < target)
-            centroids.push({
-                r: uEntries[0].r,
-                g: uEntries[0].g,
-                b: uEntries[0].b,
-            });
-
-        const assignments = new Array(uEntries.length).fill(-1);
-        const maxIter = 12;
-        for (let iter = 0; iter < maxIter; iter++) {
-            let changed = false;
-            // assign
-            for (let i = 0; i < uEntries.length; i++) {
-                let best = -1;
-                let bestD = Infinity;
-                for (let c = 0; c < centroids.length; c++) {
-                    const d2 = dist2(uEntries[i], centroids[c]);
-                    if (d2 < bestD) {
-                        bestD = d2;
-                        best = c;
-                    }
-                }
-                if (assignments[i] !== best) {
-                    assignments[i] = best;
-                    changed = true;
-                }
-            }
-            // recompute centroids
-            const sums: { r: number; g: number; b: number; w: number }[] =
-                centroids.map(() => ({ r: 0, g: 0, b: 0, w: 0 }));
-            for (let i = 0; i < uEntries.length; i++) {
-                const a = assignments[i];
-                const e = uEntries[i];
-                sums[a].r += e.r * e.count;
-                sums[a].g += e.g * e.count;
-                sums[a].b += e.b * e.count;
-                sums[a].w += e.count;
-            }
-            for (let c = 0; c < centroids.length; c++) {
-                if (sums[c].w > 0) {
-                    centroids[c] = {
-                        r: Math.round(sums[c].r / sums[c].w),
-                        g: Math.round(sums[c].g / sums[c].w),
-                        b: Math.round(sums[c].b / sums[c].w),
-                    };
-                }
-            }
-            if (!changed) break;
-        }
-
-        // build centroid lookup
-        const finalLookup = new Map<number, [number, number, number]>();
-        for (let i = 0; i < uEntries.length; i++) {
-            const e = uEntries[i];
-            let best = 0;
-            let bestD = Infinity;
-            for (let c = 0; c < centroids.length; c++) {
-                const d2 = dist2(e, centroids[c]);
-                if (d2 < bestD) {
-                    bestD = d2;
-                    best = c;
-                }
-            }
-            const p = centroids[best];
-            finalLookup.set(e.key, [p.r, p.g, p.b]);
-        }
-
-        // remap pixels
-        for (let i = 0; i < d.length; i += 4) {
-            const key = (d[i] << 16) | (d[i + 1] << 8) | d[i + 2];
-            const v = finalLookup.get(key);
-            if (v) {
-                d[i] = v[0];
-                d[i + 1] = v[1];
-                d[i + 2] = v[2];
-            }
-        }
+        // normalize any partial alpha to fully opaque if not zero
+        if (d[i + 3] > 0 && d[i + 3] < 255) d[i + 3] = 255;
     }
 
     return data;
@@ -1450,9 +1227,9 @@ export function mapImageToPalette(
 ): ImageData {
     const d = data.data;
     if (!palette || palette.length === 0) return data;
-    // helpers: parse palette color strings (hex, #rrggbb, hsl(...), rgb(...))
-    const clamp = (v: number, a = 0, b = 255) => Math.max(a, Math.min(b, v));
 
+    // --- Parsing helpers ---
+    const clamp = (v: number, a = 0, b = 255) => (v < a ? a : v > b ? b : v);
     const parseHex = (s: string): [number, number, number] => {
         const raw = s.replace(/^#/, "").trim();
         if (raw.length === 3) {
@@ -1461,18 +1238,17 @@ export function mapImageToPalette(
             const b = parseInt(raw[2] + raw[2], 16);
             return [r, g, b];
         }
-        const r = parseInt(raw.slice(0, 2), 16) || 0;
-        const g = parseInt(raw.slice(2, 4), 16) || 0;
-        const b = parseInt(raw.slice(4, 6), 16) || 0;
-        return [r, g, b];
+        return [
+            parseInt(raw.slice(0, 2), 16) || 0,
+            parseInt(raw.slice(2, 4), 16) || 0,
+            parseInt(raw.slice(4, 6), 16) || 0,
+        ];
     };
-
     const hslToRgb = (
         h: number,
         s: number,
         l: number
     ): [number, number, number] => {
-        // h in degrees, s/l in [0,1]
         const c = (1 - Math.abs(2 * l - 1)) * s;
         const hh = ((h % 360) + 360) % 360;
         const x = c * (1 - Math.abs(((hh / 60) % 2) - 1));
@@ -1492,138 +1268,124 @@ export function mapImageToPalette(
             Math.round(clamp((b1 + m) * 255)),
         ];
     };
-
     const parseColor = (s: string): [number, number, number] => {
-        const str = (s || "").trim();
-        if (!str) return [0, 0, 0];
-        // hex
-        if (
-            str.startsWith("#") ||
-            /^[0-9A-Fa-f]{6}$/.test(str) ||
-            /^[0-9A-Fa-f]{3}$/.test(str)
-        ) {
-            try {
-                return parseHex(str);
-            } catch {
-                return [0, 0, 0];
-            }
-        }
-        // hsl(...) - accept both `hsl(0 0% 20%)` and `hsl(0,0%,20%)`
+        const str = s.trim();
+        if (str.startsWith("#") || /^[0-9A-Fa-f]{3,6}$/.test(str))
+            return parseHex(str);
         const hsl = str.match(
             /hsl\(\s*([\d.-]+)(?:deg)?(?:\s*,\s*|\s+)([\d.]+)%?(?:\s*,\s*|\s+)([\d.]+)%?\s*\)/i
         );
-        if (hsl) {
-            const h = Number(hsl[1]);
-            const s = Number(hsl[2]) / 100;
-            const l = Number(hsl[3]) / 100;
-            return hslToRgb(h, s, l);
-        }
-        // rgb(...) or rgba(...)
+        if (hsl)
+            return hslToRgb(
+                Number(hsl[1]),
+                Number(hsl[2]) / 100,
+                Number(hsl[3]) / 100
+            );
         const rgb = str.match(
-            /rgba?\(\s*([\d.]+)\s*(?:,|\s)\s*([\d.]+)%?\s*(?:,|\s)\s*([\d.]+)%?(?:\s*,\s*[\d.]+)?\s*\)/i
+            /rgba?\(\s*([\d.]+)\s*(?:,|\s)\s*([\d.]+)%?\s*(?:,|\s)\s*([\d.]+)%?/i
         );
         if (rgb) {
-            // if percentages were used, the regex still captures raw numbers; we try to detect % by presence of '%'
-            const hasPercent = /%/.test(str);
-            if (hasPercent) {
+            const hasPct = /%/.test(str);
+            if (hasPct)
                 return [
                     Math.round(clamp((Number(rgb[1]) / 100) * 255)),
                     Math.round(clamp((Number(rgb[2]) / 100) * 255)),
                     Math.round(clamp((Number(rgb[3]) / 100) * 255)),
                 ];
-            }
             return [
                 Math.round(clamp(Number(rgb[1]))),
                 Math.round(clamp(Number(rgb[2]))),
                 Math.round(clamp(Number(rgb[3]))),
             ];
         }
-        // fallback: try parse hex without #
-        const raw = str.replace(/[^0-9A-Fa-f]/g, "");
-        if (raw.length === 6) return parseHex(raw);
         return [0, 0, 0];
     };
-
-    // convert sRGB [0..255] to Lab using D65 reference
+    // sRGB -> Lab (D65)
     const srgbToLab = (r: number, g: number, b: number) => {
-        // normalize
-        let R = r / 255;
-        let G = g / 255;
-        let B = b / 255;
-        const toLinear = (u: number) =>
+        let R = r / 255,
+            G = g / 255,
+            B = b / 255;
+        const toLin = (u: number) =>
             u <= 0.04045 ? u / 12.92 : Math.pow((u + 0.055) / 1.055, 2.4);
-        R = toLinear(R);
-        G = toLinear(G);
-        B = toLinear(B);
-        // sRGB D65
+        R = toLin(R);
+        G = toLin(G);
+        B = toLin(B);
         const X = R * 0.4124564 + G * 0.3575761 + B * 0.1804375;
         const Y = R * 0.2126729 + G * 0.7151522 + B * 0.072175;
         const Z = R * 0.0193339 + G * 0.119192 + B * 0.9503041;
-        // reference white
-        const Xn = 0.95047;
-        const Yn = 1.0;
-        const Zn = 1.08883;
-        const fx = (t: number) =>
+        const Xn = 0.95047,
+            Yn = 1,
+            Zn = 1.08883;
+        const f = (t: number) =>
             t > 0.008856 ? Math.cbrt(t) : 7.787 * t + 16 / 116;
-        const fxX = fx(X / Xn);
-        const fxY = fx(Y / Yn);
-        const fxZ = fx(Z / Zn);
-        const L = Math.max(0, 116 * fxY - 16);
-        const a = 500 * (fxX - fxY);
-        const bb = 200 * (fxY - fxZ);
-        return [L, a, bb];
+        const fx = f(X / Xn),
+            fy = f(Y / Yn),
+            fz = f(Z / Zn);
+        return [116 * fy - 16, 500 * (fx - fy), 200 * (fy - fz)];
     };
 
-    // build palette in Lab space and keep RGB for output
-    const palRGB: [number, number, number][] = palette.map((p) =>
-        parseColor(p)
+    const palRGB: [number, number, number][] = palette.map(parseColor);
+    const palLab = palRGB.map(([r, g, b]) => srgbToLab(r, g, b));
+    const allowed = new Set<number>(
+        palRGB.map(([r, g, b]) => (r << 16) | (g << 8) | b)
     );
-    const palLab = palRGB.map((c) => srgbToLab(c[0], c[1], c[2]));
 
-    // build unique color histogram (ignore fully-transparent pixels)
-    const uniq = new Map<number, number>();
-    for (let i = 0; i < d.length; i += 4) {
-        const a = d[i + 3];
-        if (a === 0) continue;
-        const key = (d[i] << 16) | (d[i + 1] << 8) | d[i + 2];
-        uniq.set(key, (uniq.get(key) || 0) + 1);
-    }
-
-    // mapping from original color to nearest palette RGB using ΔE (Lab distance)
-    const mapping = new Map<number, [number, number, number]>();
-    for (const key of uniq.keys()) {
+    // Cache original color -> nearest palette color to avoid repeated Lab distance work
+    const cache = new Map<number, [number, number, number]>();
+    const labCache = new Map<number, [number, number, number]>();
+    const getLab = (key: number) => {
+        let v = labCache.get(key);
+        if (v) return v;
         const r = (key >> 16) & 0xff;
         const g = (key >> 8) & 0xff;
         const b = key & 0xff;
-        const lab = srgbToLab(r, g, b);
-        let bestIdx = 0;
-        let bestDist = Infinity;
-        for (let i = 0; i < palLab.length; i++) {
-            const dl = lab[0] - palLab[i][0];
-            const da = lab[1] - palLab[i][1];
-            const db = lab[2] - palLab[i][2];
-            const d2 = dl * dl + da * da + db * db;
-            if (d2 < bestDist) {
-                bestDist = d2;
-                bestIdx = i;
-            }
-        }
-        const p = palRGB[bestIdx];
-        mapping.set(key, [p[0], p[1], p[2]]);
-    }
+        v = srgbToLab(r, g, b) as [number, number, number];
+        labCache.set(key, v);
+        return v;
+    };
 
-    // remap pixels in-place (skip transparent pixels)
     for (let i = 0; i < d.length; i += 4) {
         const a = d[i + 3];
-        if (a === 0) continue;
+        if (a === 0) continue; // leave fully transparent pixels as-is
         const key = (d[i] << 16) | (d[i + 1] << 8) | d[i + 2];
-        const v = mapping.get(key);
-        if (v) {
-            d[i] = v[0];
-            d[i + 1] = v[1];
-            d[i + 2] = v[2];
+        let mapped = cache.get(key);
+        if (!mapped) {
+            // If already exactly a palette color just reuse
+            if (allowed.has(key)) {
+                mapped = [(key >> 16) & 0xff, (key >> 8) & 0xff, key & 0xff];
+            } else {
+                const lab = getLab(key);
+                let best = 0;
+                let bestD = Infinity;
+                for (let pi = 0; pi < palLab.length; pi++) {
+                    const dl = lab[0] - palLab[pi][0];
+                    const da = lab[1] - palLab[pi][1];
+                    const db = lab[2] - palLab[pi][2];
+                    const d2 = dl * dl + da * da + db * db;
+                    if (d2 < bestD) {
+                        bestD = d2;
+                        best = pi;
+                    }
+                }
+                mapped = [palRGB[best][0], palRGB[best][1], palRGB[best][2]];
+            }
+            cache.set(key, mapped);
         }
+        d[i] = mapped[0];
+        d[i + 1] = mapped[1];
+        d[i + 2] = mapped[2];
+        if (a < 255) d[i + 3] = 255; // normalize any partial alpha
     }
 
+    // Debug (dev only): scan for strays (should be zero)
+    // Lightweight stray check (can comment out if noisy)
+    let stray = 0;
+    for (let i = 0; i < d.length; i += 4) {
+        if (d[i + 3] === 0) continue;
+        const k = (d[i] << 16) | (d[i + 1] << 8) | d[i + 2];
+        if (!allowed.has(k)) stray++;
+    }
+    if (stray > 0)
+        console.warn("[palette-map] stray colors after mapping:", stray);
     return data;
 }

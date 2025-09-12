@@ -1,7 +1,12 @@
 import React from "react";
 
+interface SwatchEntry {
+    hex: string;
+    a: number;
+    count: number;
+}
 interface Props {
-    swatches: string[];
+    swatches: SwatchEntry[];
     loading: boolean;
     cap: number;
 }
@@ -41,12 +46,15 @@ export const SwatchesPanel: React.FC<Props> = ({ swatches, loading, cap }) => {
                 ) : (
                     swatches
                         .slice(0, cap)
-                        .map((c) => (
+                        .map((s) => (
                             <div
-                                key={c}
+                                key={s.hex + s.a}
                                 className="swatch"
-                                title={c}
-                                style={{ background: c }}
+                                title={`${s.hex}  alpha:${s.a}  count:${s.count}`}
+                                style={{
+                                    background: s.hex,
+                                    position: "relative",
+                                }}
                             />
                         ))
                 )}

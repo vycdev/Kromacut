@@ -18,7 +18,9 @@ interface Params {
     selectedPalette: string;
     imageSrc: string | null;
     setImage: (url: string | null, pushHistory?: boolean) => void;
-    onImmediateSwatches: (colors: string[]) => void;
+    onImmediateSwatches: (
+        colors: { hex: string; a: number; count: number }[]
+    ) => void;
 }
 
 export function useQuantize({
@@ -54,11 +56,22 @@ export function useQuantize({
         ctx.drawImage(img, 0, 0, w, h);
         const data = ctx.getImageData(0, 0, w, h);
         const countUnique = (imgd: ImageData) => {
+            // Count only non-transparent pixels; ignore fully transparent so they don't inflate palette size
             const s = new Set<number>();
             const dd = imgd.data;
-            for (let i = 0; i < dd.length; i += 4)
+            for (let i = 0; i < dd.length; i += 4) {
+                if (dd[i + 3] === 0) continue;
                 s.add((dd[i] << 16) | (dd[i + 1] << 8) | dd[i + 2]);
+            }
             return s.size;
+        };
+        const finalizeAlpha = (imgd: ImageData) => {
+            // Any partially transparent (0<alpha<255) pixel becomes fully opaque
+            const dd = imgd.data;
+            for (let i = 0; i < dd.length; i += 4) {
+                const a = dd[i + 3];
+                if (a > 0 && a < 255) dd[i + 3] = 255;
+            }
         };
         if (algorithm === "median-cut") medianCutImageData(data, weight);
         else if (algorithm === "kmeans") kmeansImageData(data, weight);
@@ -82,6 +95,9 @@ export function useQuantize({
             enforcePaletteSize(data, finalColors);
             ctx.putImageData(data, 0, 0);
         }
+        // Normalize any partial alpha AFTER post processing so uniqueness isn't skewed
+        finalizeAlpha(data);
+        ctx.putImageData(data, 0, 0);
         // diagnostic: log final counts and what was applied
         try {
             const postUnique = countUnique(data);
@@ -103,6 +119,7 @@ export function useQuantize({
             const dd = data.data;
             const SWATCH_CAP = 2 ** 14;
             for (let i = 0; i < dd.length; i += 4) {
+                if (dd[i + 3] === 0) continue; // skip fully transparent pixels
                 const k = (dd[i] << 16) | (dd[i + 1] << 8) | dd[i + 2];
                 cmap.set(k, (cmap.get(k) || 0) + 1);
             }
@@ -126,7 +143,13 @@ export function useQuantize({
                 if (a.hsl.s !== b.hsl.s) return b.hsl.s - a.hsl.s;
                 return b.hsl.l - a.hsl.l;
             });
-            onImmediateSwatches(topLocal.map((t) => t.hex));
+            onImmediateSwatches(
+                topLocal.map((t) => {
+                    const num = parseInt(t.hex.slice(1), 16);
+                    const cnt = cmap.get(num) || 0;
+                    return { hex: t.hex, a: 255, count: cnt };
+                })
+            );
         } catch (err) {
             console.warn("immediate swatches failed", err);
         }
