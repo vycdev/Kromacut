@@ -18,10 +18,11 @@ export interface CanvasPreviewHandle {
 interface Props {
     imageSrc: string | null;
     isCropMode?: boolean;
+    showCheckerboard?: boolean;
 }
 
 const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
-    ({ imageSrc, isCropMode }, ref) => {
+    ({ imageSrc, isCropMode, showCheckerboard }, ref) => {
         const canvasRef = useRef<HTMLCanvasElement | null>(null);
         const previewContainerRef = useRef<HTMLDivElement | null>(null);
         const imgRef = useRef<HTMLImageElement | null>(null);
@@ -487,6 +488,14 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
                 className="preview-container"
                 onMouseDown={startPan}
                 onDragStart={(e) => e.preventDefault()}
+                style={
+                    showCheckerboard
+                        ? {
+                              background:
+                                  "repeating-conic-gradient(#666 0% 25%, #333 0% 50%) 50% / 8px 8px",
+                          }
+                        : undefined
+                }
             >
                 <canvas
                     ref={canvasRef}

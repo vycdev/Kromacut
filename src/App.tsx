@@ -28,6 +28,7 @@ function App(): React.ReactElement | null {
         useSwatches(imageSrc);
     // initial selectedPalette derived from initial weight above
     const canvasPreviewRef = useRef<CanvasPreviewHandle | null>(null);
+    const [showCheckerboard, setShowCheckerboard] = useState<boolean>(true);
     const [isCropMode, setIsCropMode] = useState(false);
     const { applyQuantize } = useQuantize({
         algorithm,
@@ -353,6 +354,7 @@ function App(): React.ReactElement | null {
                             ref={canvasPreviewRef}
                             imageSrc={imageSrc}
                             isCropMode={isCropMode}
+                            showCheckerboard={showCheckerboard}
                         />
                         <div className="preview-actions">
                             <button
@@ -458,6 +460,19 @@ function App(): React.ReactElement | null {
                                 <i
                                     className="fa-solid fa-download"
                                     aria-hidden="true"
+                                />
+                            </button>
+                            <button
+                                className="preview-crop-btn"
+                                title="Toggle checkerboard"
+                                aria-label="Toggle checkerboard"
+                                onClick={() =>
+                                    setShowCheckerboard((s) => !s)
+                                }
+                            >
+                                <i
+                                    className="fa-solid fa-square-caret-down"
+                                    aria-hidden
                                 />
                             </button>
                             {/* moved uploader buttons into the top-right preview actions */}
