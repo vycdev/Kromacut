@@ -173,30 +173,7 @@ export const SwatchesPanel: React.FC<Props> = ({ swatches, loading, cap }) => {
                                         }
                                     />
                                 </div>
-                                <div
-                                    style={{
-                                        display: "flex",
-                                        gap: 10,
-                                        alignItems: "center",
-                                    }}
-                                >
-                                    <div
-                                        style={{
-                                            width: 56,
-                                            height: 56,
-                                            borderRadius: 8,
-                                            background: pickerColor,
-                                            border: "1px solid rgba(255,255,255,0.06)",
-                                        }}
-                                    />
-                                    <div
-                                        style={{ color: "#bbb", fontSize: 13 }}
-                                    >
-                                        {openSwatch.a === 0
-                                            ? "(transparent)"
-                                            : openSwatch.hex}
-                                    </div>
-                                </div>
+                                {/* original preview/text removed; preview now sits above the hex input on the right */}
                             </div>
 
                             <div
@@ -207,6 +184,25 @@ export const SwatchesPanel: React.FC<Props> = ({ swatches, loading, cap }) => {
                                     gap: 8,
                                 }}
                             >
+                                {/* preview moved here, above the editable hex */}
+                                <div
+                                    style={{
+                                        display: "flex",
+                                        justifyContent: "flex-end",
+                                    }}
+                                >
+                                    <div
+                                        aria-hidden
+                                        style={{
+                                            width: 56,
+                                            height: 56,
+                                            borderRadius: 8,
+                                            background: pickerColor,
+                                            border: "1px solid rgba(255,255,255,0.06)",
+                                        }}
+                                    />
+                                </div>
+
                                 <label style={{ color: "#bbb", fontSize: 12 }}>
                                     Hex
                                 </label>
