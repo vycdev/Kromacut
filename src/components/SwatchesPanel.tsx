@@ -195,7 +195,7 @@ export const SwatchesPanel: React.FC<Props> = ({ swatches, loading, cap }) => {
                                         aria-hidden
                                         style={{
                                             width: "100%",
-                                            height: 72,
+                                            height: 103,
                                             borderRadius: 8,
                                             background: pickerColor,
                                             border: "1px solid rgba(255,255,255,0.06)",
