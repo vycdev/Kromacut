@@ -165,6 +165,24 @@ export const SwatchesPanel: React.FC<Props> = ({ swatches, loading, cap }) => {
                                     gap: 10,
                                 }}
                             >
+                                {/* preview moved to the left column, above the picker */}
+                                <div
+                                    style={{
+                                        display: "flex",
+                                        justifyContent: "flex-start",
+                                    }}
+                                >
+                                    <div
+                                        aria-hidden
+                                        style={{
+                                            width: 56,
+                                            height: 56,
+                                            borderRadius: 8,
+                                            background: pickerColor,
+                                            border: "1px solid rgba(255,255,255,0.06)",
+                                        }}
+                                    />
+                                </div>
                                 <div style={{ width: 260 }}>
                                     <HexAlphaColorPicker
                                         color={pickerColor}
@@ -184,30 +202,8 @@ export const SwatchesPanel: React.FC<Props> = ({ swatches, loading, cap }) => {
                                     gap: 8,
                                 }}
                             >
-                                {/* preview moved here, above the editable hex */}
-                                <div
-                                    style={{
-                                        display: "flex",
-                                        justifyContent: "flex-end",
-                                    }}
-                                >
-                                    <div
-                                        aria-hidden
-                                        style={{
-                                            width: 56,
-                                            height: 56,
-                                            borderRadius: 8,
-                                            background: pickerColor,
-                                            border: "1px solid rgba(255,255,255,0.06)",
-                                        }}
-                                    />
-                                </div>
-
-                                <label style={{ color: "#bbb", fontSize: 12 }}>
-                                    Hex
-                                </label>
+                                {/* hex input (editable) */}
                                 <input
-                                    aria-label="Hex color"
                                     value={pickerColor}
                                     onChange={(e) => {
                                         const v = e.target.value;
