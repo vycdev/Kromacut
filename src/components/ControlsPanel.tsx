@@ -26,7 +26,7 @@ export const ControlsPanel: React.FC<Props> = ({
     return (
         <div className="controls-group">
             <label>
-                Colors
+                Number of colors
                 <input
                     type="number"
                     min={2}

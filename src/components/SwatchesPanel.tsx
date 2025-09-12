@@ -19,7 +19,7 @@ export const SwatchesPanel: React.FC<Props> = ({ swatches, loading, cap }) => {
                     gap: 8,
                 }}
             >
-                <span>Color swatches</span>
+                <span>Image colors</span>
                 <span className="swatch-count" aria-hidden>
                     ({swatches.length})
                 </span>

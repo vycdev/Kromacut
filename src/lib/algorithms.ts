@@ -1328,7 +1328,10 @@ export function enforcePaletteSize(data: ImageData, target: number): ImageData {
  * Map every pixel color in `data` to the nearest color from `palette`.
  * `palette` is an array of hex strings like `#rrggbb`.
  */
-export function mapImageToPalette(data: ImageData, palette: string[]): ImageData {
+export function mapImageToPalette(
+    data: ImageData,
+    palette: string[]
+): ImageData {
     const d = data.data;
     if (!palette || palette.length === 0) return data;
 
@@ -1361,7 +1364,8 @@ export function mapImageToPalette(data: ImageData, palette: string[]): ImageData
             const pr = palRGB[i][0];
             const pg = palRGB[i][1];
             const pb = palRGB[i][2];
-            const d2 = (r - pr) * (r - pr) + (g - pg) * (g - pg) + (b - pb) * (b - pb);
+            const d2 =
+                (r - pr) * (r - pr) + (g - pg) * (g - pg) + (b - pb) * (b - pb);
             if (d2 < bestDist) {
                 bestDist = d2;
                 bestIdx = i;
