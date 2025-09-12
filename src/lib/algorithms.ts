@@ -1351,10 +1351,14 @@ export function mapImageToPalette(
         return [r, g, b];
     };
 
-    const hslToRgb = (h: number, s: number, l: number): [number, number, number] => {
+    const hslToRgb = (
+        h: number,
+        s: number,
+        l: number
+    ): [number, number, number] => {
         // h in degrees, s/l in [0,1]
         const c = (1 - Math.abs(2 * l - 1)) * s;
-        const hh = (h % 360 + 360) % 360;
+        const hh = ((h % 360) + 360) % 360;
         const x = c * (1 - Math.abs(((hh / 60) % 2) - 1));
         let r1 = 0,
             g1 = 0,
@@ -1377,7 +1381,11 @@ export function mapImageToPalette(
         const str = (s || "").trim();
         if (!str) return [0, 0, 0];
         // hex
-        if (str.startsWith("#") || /^[0-9A-Fa-f]{6}$/.test(str) || /^[0-9A-Fa-f]{3}$/.test(str)) {
+        if (
+            str.startsWith("#") ||
+            /^[0-9A-Fa-f]{6}$/.test(str) ||
+            /^[0-9A-Fa-f]{3}$/.test(str)
+        ) {
             try {
                 return parseHex(str);
             } catch {
@@ -1385,7 +1393,9 @@ export function mapImageToPalette(
             }
         }
         // hsl(...) - accept both `hsl(0 0% 20%)` and `hsl(0,0%,20%)`
-    const hsl = str.match(/hsl\(\s*([\d.-]+)(?:deg)?(?:\s*,\s*|\s+)([\d.]+)%?(?:\s*,\s*|\s+)([\d.]+)%?\s*\)/i);
+        const hsl = str.match(
+            /hsl\(\s*([\d.-]+)(?:deg)?(?:\s*,\s*|\s+)([\d.]+)%?(?:\s*,\s*|\s+)([\d.]+)%?\s*\)/i
+        );
         if (hsl) {
             const h = Number(hsl[1]);
             const s = Number(hsl[2]) / 100;
@@ -1393,7 +1403,9 @@ export function mapImageToPalette(
             return hslToRgb(h, s, l);
         }
         // rgb(...) or rgba(...)
-        const rgb = str.match(/rgba?\(\s*([\d.]+)\s*(?:,|\s)\s*([\d.]+)%?\s*(?:,|\s)\s*([\d.]+)%?(?:\s*,\s*[\d.]+)?\s*\)/i);
+        const rgb = str.match(
+            /rgba?\(\s*([\d.]+)\s*(?:,|\s)\s*([\d.]+)%?\s*(?:,|\s)\s*([\d.]+)%?(?:\s*,\s*[\d.]+)?\s*\)/i
+        );
         if (rgb) {
             // if percentages were used, the regex still captures raw numbers; we try to detect % by presence of '%'
             const hasPercent = /%/.test(str);
@@ -1435,7 +1447,8 @@ export function mapImageToPalette(
         const Xn = 0.95047;
         const Yn = 1.0;
         const Zn = 1.08883;
-        const fx = (t: number) => (t > 0.008856 ? Math.cbrt(t) : 7.787 * t + 16 / 116);
+        const fx = (t: number) =>
+            t > 0.008856 ? Math.cbrt(t) : 7.787 * t + 16 / 116;
         const fxX = fx(X / Xn);
         const fxY = fx(Y / Yn);
         const fxZ = fx(Z / Zn);
@@ -1446,7 +1459,9 @@ export function mapImageToPalette(
     };
 
     // build palette in Lab space and keep RGB for output
-    const palRGB: [number, number, number][] = palette.map((p) => parseColor(p));
+    const palRGB: [number, number, number][] = palette.map((p) =>
+        parseColor(p)
+    );
     const palLab = palRGB.map((c) => srgbToLab(c[0], c[1], c[2]));
 
     // build unique color histogram
