@@ -1210,15 +1210,15 @@ export function enforcePaletteSize(data: ImageData, target: number): ImageData {
 
         // remap pixels
         for (let i = 0; i < d.length; i += 4) {
-                const a = d[i + 3];
-                if (a === 0) continue;
-                const key = (d[i] << 16) | (d[i + 1] << 8) | d[i + 2];
-                const v = finalLookup.get(key);
-                if (v) {
-                    d[i] = v[0];
-                    d[i + 1] = v[1];
-                    d[i + 2] = v[2];
-                }
+            const a = d[i + 3];
+            if (a === 0) continue;
+            const key = (d[i] << 16) | (d[i + 1] << 8) | d[i + 2];
+            const v = finalLookup.get(key);
+            if (v) {
+                d[i] = v[0];
+                d[i + 1] = v[1];
+                d[i + 2] = v[2];
+            }
         }
 
         return data;
