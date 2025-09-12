@@ -226,10 +226,10 @@ export const SwatchesPanel: React.FC<Props> = ({ swatches, loading, cap }) => {
 
                                 <div
                                     style={{
-                                        display: "flex",
-                                        justifyContent: "flex-end",
-                                        gap: 8,
                                         marginTop: 6,
+                                        display: "flex",
+                                        gap: 8,
+                                        width: "100%",
                                     }}
                                 >
                                     <button
@@ -237,6 +237,8 @@ export const SwatchesPanel: React.FC<Props> = ({ swatches, loading, cap }) => {
                                             // delete placeholder - does nothing yet
                                         }}
                                         style={{
+                                            flex: 1,
+                                            minWidth: 0,
                                             padding: "8px 12px",
                                             background: "transparent",
                                             border: "1px solid rgba(255,60,60,0.12)",
@@ -253,6 +255,8 @@ export const SwatchesPanel: React.FC<Props> = ({ swatches, loading, cap }) => {
                                             // Apply currently does nothing (placeholder)
                                         }}
                                         style={{
+                                            flex: 1,
+                                            minWidth: 0,
                                             padding: "8px 12px",
                                             background: "#f3f4f6",
                                             border: "1px solid #d1d5db",
