@@ -3,7 +3,6 @@ import "./App.css";
 import benchy from "./assets/benchy.png";
 import CanvasPreview from "./components/CanvasPreview";
 import type { CanvasPreviewHandle } from "./components/CanvasPreview";
-import UploaderControls from "./components/UploaderControls";
 import { PaletteSelector } from "./components/PaletteSelector";
 import { ControlsPanel } from "./components/ControlsPanel";
 import { SwatchesPanel } from "./components/SwatchesPanel";
@@ -174,13 +173,7 @@ function App(): React.ReactElement | null {
                             }}
                             style={{ display: "none" }}
                         />
-                        <div className="controls-group controls-group--center">
-                            <UploaderControls
-                                onChoose={() => inputRef.current?.click()}
-                                onRemove={clear}
-                                canRemove={!!imageSrc && !isCropMode}
-                            />
-                        </div>
+                        {/* file input stays here (hidden); uploader buttons moved to preview actions */}
                         <PaletteSelector
                             selected={selectedPalette}
                             onSelect={(id, size) => {
@@ -319,6 +312,30 @@ function App(): React.ReactElement | null {
                                     </button>
                                 </>
                             )}
+                            {/* moved uploader buttons into the top-right preview actions */}
+                            <button
+                                className="preview-crop-btn"
+                                title="Choose file"
+                                aria-label="Choose file"
+                                onClick={() => inputRef.current?.click()}
+                            >
+                                <i
+                                    className="fa-solid fa-file-upload"
+                                    aria-hidden="true"
+                                />
+                            </button>
+                            <button
+                                className="preview-crop-btn"
+                                title="Remove image"
+                                aria-label="Remove image"
+                                onClick={clear}
+                                disabled={!imageSrc || isCropMode}
+                            >
+                                <i
+                                    className="fa-solid fa-trash"
+                                    aria-hidden="true"
+                                />
+                            </button>
                         </div>
                     </div>
                 </main>
