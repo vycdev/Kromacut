@@ -157,7 +157,7 @@ export const SwatchesPanel: React.FC<Props> = ({ swatches, loading, cap }) => {
                             </button>
                         </div>
 
-                        <div style={{ display: "flex", gap: 18 }}>
+                        <div style={{ display: "flex", gap: 0 }}>
                             <div
                                 style={{
                                     display: "flex",
