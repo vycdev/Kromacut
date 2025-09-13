@@ -61,16 +61,7 @@ export const SwatchesPanel: React.FC<Props> = ({
 
     return (
         <div className="controls-group">
-            <div
-                style={{
-                    fontSize: 13,
-                    fontWeight: 700,
-                    marginBottom: 8,
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                }}
-            >
+            <div className="swatches-header">
                 <span>Image colors</span>
                 <span
                     className="swatch-count"
@@ -79,27 +70,14 @@ export const SwatchesPanel: React.FC<Props> = ({
                 >
                     ({swatches.filter((s) => !s.isTransparent).length})
                 </span>
-                {loading && (
-                    <span
-                        style={{ fontSize: 12, color: "#ddd", marginLeft: 6 }}
-                    >
-                        Updating…
-                    </span>
-                )}
+                {loading && <span className="swatches-loading">Updating…</span>}
             </div>
             <div className="swatches" aria-live="polite">
                 {swatches.length === 0 ? (
-                    <div
-                        style={{ color: "rgba(255,255,255,0.6)", fontSize: 13 }}
-                    >
-                        No swatches
-                    </div>
+                    <div className="swatches-empty">No swatches</div>
                 ) : (
                     swatches.slice(0, cap).map((s) => {
-                        const style: React.CSSProperties = {
-                            position: "relative",
-                            cursor: "pointer",
-                        };
+                        const style: React.CSSProperties = {};
                         if (s.a === 0) {
                             style.background = `repeating-conic-gradient(#666 0% 25%, #333 0% 50%) 50% / 8px 8px`;
                         } else if (s.a < 255) {
@@ -116,7 +94,7 @@ export const SwatchesPanel: React.FC<Props> = ({
                         return (
                             <div
                                 key={s.hex + "-" + s.a}
-                                className="swatch"
+                                className="swatch swatch-interactive"
                                 role="button"
                                 tabIndex={0}
                                 onClick={() => setOpenSwatch(s)}
@@ -144,58 +122,15 @@ export const SwatchesPanel: React.FC<Props> = ({
                     onKeyDown={(e) => {
                         if (e.key === "Escape") closeModal();
                     }}
-                    style={{
-                        position: "fixed",
-                        inset: 0,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        background: "rgba(0,0,0,0.5)",
-                        zIndex: 1000,
-                    }}
-                    // clicking the backdrop should not close the modal (close via header button or Escape)
+                    className="swatch-modal-overlay"
                 >
-                    <div
-                        style={{
-                            background:
-                                "linear-gradient(180deg,#0f1113,#0b0c0d)",
-                            padding: 18,
-                            borderRadius: 12,
-                            minWidth: 420,
-                            maxWidth: "min(90vw,680px)",
-                            boxShadow: "0 12px 48px rgba(2,6,23,0.75)",
-                            color: "#eee",
-                            border: "1px solid rgba(255,255,255,0.03)",
-                        }}
-                    >
-                        <div
-                            style={{
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "space-between",
-                                marginBottom: 12,
-                            }}
-                        >
-                            <div style={{ fontSize: 16, fontWeight: 800 }}>
-                                Edit swatch
-                            </div>
+                    <div className="swatch-modal">
+                        <div className="swatch-modal-header">
+                            <div className="swatch-modal-title">Edit swatch</div>
                             <button
                                 aria-label="Close"
                                 onClick={() => closeModal()}
-                                style={{
-                                    background: "transparent",
-                                    border: 0,
-                                    color: "#888",
-                                    cursor: "pointer",
-                                    fontSize: 18,
-                                    display: "inline-flex",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                    width: 36,
-                                    height: 36,
-                                    padding: 0,
-                                    borderRadius: 8,
-                                }}
+                                className="swatch-modal-close"
                             >
                                 <i
                                     className="fa-solid fa-xmark"
@@ -204,18 +139,10 @@ export const SwatchesPanel: React.FC<Props> = ({
                             </button>
                         </div>
 
-                        <div style={{ display: "flex", gap: 0 }}>
+                        <div className="swatch-modal-body">
                             {/* Left column: picker and actions */}
-                            <div
-                                style={{
-                                    flex: 1,
-                                    display: "flex",
-                                    flexDirection: "column",
-                                    gap: 8,
-                                    paddingRight: 12,
-                                }}
-                            >
-                                <div style={{ maxWidth: 420 }}>
+                            <div className="swatch-modal-left">
+                                <div className="swatch-picker-wrapper">
                                     <RgbaColorPicker
                                         color={rgba}
                                         onChange={(c: {
@@ -249,35 +176,14 @@ export const SwatchesPanel: React.FC<Props> = ({
                                 {/* actions moved to the right column (preview area) */}
                                 <div style={{ marginTop: "auto" }} />
                             </div>
-
                             {/* Right column: preview above hex input */}
-                            <div
-                                style={{
-                                    width: 160,
-                                    display: "flex",
-                                    flexDirection: "column",
-                                    gap: 10,
-                                }}
-                            >
+                            <div className="swatch-modal-right">
                                 <div style={{ width: "100%" }}>
-                                    <div
-                                        aria-hidden
-                                        style={{
-                                            position: "relative",
-                                            width: "100%",
-                                            height: 103,
-                                            borderRadius: 8,
-                                            overflow: "hidden",
-                                            background:
-                                                "repeating-conic-gradient(#666 0% 25%, #333 0% 50%) 50% / 16px 16px",
-                                            border: "1px solid rgba(255,255,255,0.06)",
-                                        }}
-                                    >
+                                    <div aria-hidden className="swatch-preview-box">
                                         <div
                                             aria-hidden
+                                            className="swatch-preview-fill"
                                             style={{
-                                                position: "absolute",
-                                                inset: 0,
                                                 background: `rgba(${rgba.r}, ${rgba.g}, ${rgba.b}, ${rgba.a})`,
                                             }}
                                         />
@@ -349,25 +255,9 @@ export const SwatchesPanel: React.FC<Props> = ({
                                             );
                                         }
                                     }}
-                                    style={{
-                                        width: "100%",
-                                        padding: "8px 10px",
-                                        background: "#0b0d0e",
-                                        border: "1px solid rgba(255,255,255,0.04)",
-                                        color: "#fff",
-                                        borderRadius: 6,
-                                        fontFamily: "monospace",
-                                    }}
+                                    className="swatch-hex-input"
                                 />
-
-                                <div
-                                    style={{
-                                        marginTop: 6,
-                                        display: "flex",
-                                        gap: 8,
-                                        width: "100%",
-                                    }}
-                                >
+                                <div className="swatch-actions">
                                     <button
                                         onClick={async () => {
                                             if (!openSwatch) return;
@@ -385,16 +275,7 @@ export const SwatchesPanel: React.FC<Props> = ({
                                             }
                                             closeModal();
                                         }}
-                                        style={{
-                                            flex: 1,
-                                            minWidth: 0,
-                                            padding: "8px 12px",
-                                            background: "transparent",
-                                            border: "1px solid rgba(255,60,60,0.12)",
-                                            color: "#ff6b6b",
-                                            borderRadius: 8,
-                                            cursor: "pointer",
-                                        }}
+                                        className="swatch-delete-btn"
                                     >
                                         Delete
                                     </button>
@@ -462,16 +343,7 @@ export const SwatchesPanel: React.FC<Props> = ({
                                             }
                                             closeModal();
                                         }}
-                                        style={{
-                                            flex: 1,
-                                            minWidth: 0,
-                                            padding: "8px 12px",
-                                            background: "#f3f4f6",
-                                            border: "1px solid #d1d5db",
-                                            color: "#111827",
-                                            borderRadius: 8,
-                                            cursor: "pointer",
-                                        }}
+                                        className="swatch-apply-btn"
                                     >
                                         Apply
                                     </button>
