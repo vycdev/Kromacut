@@ -6,6 +6,7 @@ import type { CanvasPreviewHandle } from "./components/CanvasPreview";
 import { PaletteSelector } from "./components/PaletteSelector";
 import { ControlsPanel } from "./components/ControlsPanel";
 import { SwatchesPanel } from "./components/SwatchesPanel";
+import AdjustmentsPanel from "./components/AdjustmentsPanel";
 import { useSwatches } from "./hooks/useSwatches";
 import type { SwatchEntry } from "./hooks/useSwatches";
 import { useImageHistory } from "./hooks/useImageHistory";
@@ -293,47 +294,11 @@ function App(): React.ReactElement | null {
                             className="hidden-file-input"
                         />
                         {/* file input stays here (hidden); uploader buttons moved to preview actions */}
-                        {/* Adjustments group (UI-only sliders) */}
-                        <div className="controls-group adjustments-group">
-                            <div
-                                style={{
-                                    fontSize: 13,
-                                    fontWeight: 700,
-                                    marginBottom: 8,
-                                }}
-                            >
-                                Adjustments
-                            </div>
-                            <div className="adjustments-content">
-                                {SLIDER_DEFS.map((s) => (
-                                    <label
-                                        key={s.key}
-                                        className="adjustment-row"
-                                    >
-                                        <div className="adjustment-label">
-                                            {s.label}
-                                            <span className="adjustment-unit">
-                                                {adjustments[s.key]}
-                                                {s.unit ? ` ${s.unit}` : ""}
-                                            </span>
-                                        </div>
-                                        <input
-                                            type="range"
-                                            min={s.min}
-                                            max={s.max}
-                                            step={s.step}
-                                            value={adjustments[s.key]}
-                                            onChange={(e) =>
-                                                setAdjustment(
-                                                    s.key,
-                                                    Number(e.target.value)
-                                                )
-                                            }
-                                        />
-                                    </label>
-                                ))}
-                            </div>
-                        </div>
+                        <AdjustmentsPanel
+                            defs={SLIDER_DEFS}
+                            adjustments={adjustments}
+                            setAdjustment={setAdjustment}
+                        />
                         <PaletteSelector
                             selected={selectedPalette}
                             onSelect={(id, size) => {
