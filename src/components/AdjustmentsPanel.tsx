@@ -80,16 +80,48 @@ export const AdjustmentsPanel: React.FC<Props> = React.memo(
             return () => window.removeEventListener("pointerup", up);
         }, [handlePointerUp]);
 
+        const handleReset = useCallback(() => {
+            const next: Record<string, number> = {};
+            defs.forEach((d) => (next[d.key] = d.default));
+            setValues(next);
+            draggingRef.current = false;
+            // Direct commit (immediate) for reset action
+            onCommit?.(next);
+            dirtyRef.current = false;
+        }, [defs, onCommit]);
+
         return (
             <div className="controls-group adjustments-group">
                 <div
                     style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: 8,
                         fontSize: 13,
                         fontWeight: 700,
                         marginBottom: 8,
                     }}
                 >
-                    Adjustments
+                    <span>Adjustments</span>
+                    <button
+                        type="button"
+                        onClick={handleReset}
+                        style={{
+                            fontSize: 11,
+                            fontWeight: 600,
+                            padding: "2px 6px",
+                            border: "1px solid #444",
+                            background: "#222",
+                            color: "#ddd",
+                            borderRadius: 3,
+                            cursor: "pointer",
+                        }}
+                        title="Reset all adjustments to defaults"
+                        aria-label="Reset adjustments"
+                    >
+                        Reset
+                    </button>
                 </div>
                 <div className="adjustments-content">
                     {defs.map((s) => {
