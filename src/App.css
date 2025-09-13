@@ -233,7 +233,7 @@
   flex-direction: column;
 }
 .adjustments-group .adjustments-content {
-  max-height: 120px; /* content area should be scrollable, slightly smaller to allow header */
+  max-height: 240px; /* doubled: content area should be scrollable, slightly smaller to allow header */
   overflow-y: auto;
   display: flex;
   flex-direction: column;
