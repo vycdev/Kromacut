@@ -224,6 +224,34 @@
   color: #ddd;
 }
 
+/* Adjustments controls (UI-only sliders) */
+.adjustments-group {
+  max-height: 160px; /* shouldn't be too high */
+  overflow-y: auto;
+  padding: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+.adjustment-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.adjustment-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+  font-weight: 600;
+}
+.adjustment-unit {
+  font-size: 12px;
+  color: #ccc;
+  margin-left: 8px;
+}
+.adjustments-group input[type="range"] {
+  width: 100%;
+}
+
 .app-layout {
   display: grid;
   /* left column controlled by CSS variable; fallback to 1fr */
@@ -773,9 +801,10 @@ button:disabled {
   outline: 2px solid rgba(255,255,255,0.06);
 }
 
-/* Thin, minimal scrollbars for palette list and swatches */
+/* Thin, minimal scrollbars for palette list, swatches, and adjustments */
 .palette-list,
-.swatches {
+.swatches,
+.adjustments-group {
   /* fallback scroll behavior */
   scrollbar-width: thin; /* Firefox */
   scrollbar-color: rgba(255,255,255,0.12) transparent; /* Firefox thumb track */
@@ -783,29 +812,34 @@ button:disabled {
 
 /* WebKit browsers */
 .palette-list::-webkit-scrollbar,
-.swatches::-webkit-scrollbar {
+.swatches::-webkit-scrollbar,
+.adjustments-group::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 .palette-list::-webkit-scrollbar-track,
-.swatches::-webkit-scrollbar-track {
+.swatches::-webkit-scrollbar-track,
+.adjustments-group::-webkit-scrollbar-track {
   background: transparent; /* no background */
 }
 .palette-list::-webkit-scrollbar-thumb,
-.swatches::-webkit-scrollbar-thumb {
+.swatches::-webkit-scrollbar-thumb,
+.adjustments-group::-webkit-scrollbar-thumb {
   background: rgba(255,255,255,0.12);
   border-radius: 999px;
   border: 2px solid transparent; /* gives some breathing room */
   background-clip: padding-box;
 }
 .palette-list::-webkit-scrollbar-button,
-.swatches::-webkit-scrollbar-button {
+.swatches::-webkit-scrollbar-button,
+.adjustments-group::-webkit-scrollbar-button {
   display: none; /* hide arrows */
 }
 
 /* slightly darker thumb on hover */
 .palette-list::-webkit-scrollbar-thumb:hover,
-.swatches::-webkit-scrollbar-thumb:hover {
+.swatches::-webkit-scrollbar-thumb:hover,
+.adjustments-group::-webkit-scrollbar-thumb:hover {
   background: rgba(255,255,255,0.18);
 }
 
