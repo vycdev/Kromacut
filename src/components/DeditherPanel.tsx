@@ -150,34 +150,43 @@ export const DeditherPanel: React.FC<Props> = ({
             >
                 <div style={{ fontSize: 13, fontWeight: 700 }}>Dedither</div>
             </div>
-            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                <label
-                    style={{ display: "flex", alignItems: "center", gap: 8 }}
-                >
-                    <span style={{ fontSize: 13 }}>Weight</span>
-                    <input
-                        type="range"
-                        min={0}
-                        max={9}
-                        step={1}
-                        value={weight}
-                        onChange={(e) => setWeight(Number(e.target.value))}
-                        style={{ width: 160 }}
-                    />
-                    <div
-                        style={{
-                            width: 28,
-                            textAlign: "right",
-                            fontWeight: 700,
-                        }}
-                    >
-                        {weight}
-                    </div>
-                </label>
+
+            {/* Weight label + value on a single row */}
+            <div
+                style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    marginBottom: 8,
+                }}
+            >
+                <span style={{ fontSize: 13, fontWeight: 600 }}>Weight</span>
+                <div style={{ width: 28, textAlign: "right", fontWeight: 700 }}>
+                    {weight}
+                </div>
+            </div>
+
+            {/* Slider on its own row, full width */}
+            <div style={{ marginBottom: 8 }}>
+                <input
+                    type="range"
+                    min={0}
+                    max={9}
+                    step={1}
+                    value={weight}
+                    onChange={(e) => setWeight(Number(e.target.value))}
+                    style={{ width: "100%" }}
+                    className="range--styled"
+                />
+            </div>
+
+            {/* Apply button below the slider */}
+            <div>
                 <button
                     className="apply-btn"
                     onClick={handleApply}
                     disabled={working}
+                    style={{ width: "100%" }}
                 >
                     {working ? "Working..." : "Apply"}
                 </button>
