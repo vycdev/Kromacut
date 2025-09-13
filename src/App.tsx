@@ -184,6 +184,7 @@ function App(): React.ReactElement | null {
                             className="hidden-file-input"
                         />
                         {/* file input stays here (hidden); uploader buttons moved to preview actions */}
+                        <div className="controls-scroll">
                         <AdjustmentsPanel
                             defs={SLIDER_DEFS}
                             adjustments={adjustments}
@@ -364,6 +365,7 @@ function App(): React.ReactElement | null {
                                 }
                             }}
                         />
+                        </div>
                     </div>
                 </aside>
                 <div

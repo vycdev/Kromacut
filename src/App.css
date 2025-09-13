@@ -369,6 +369,13 @@
   overflow: hidden;
 }
 
+.controls-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
 .controls-panel h2 {
   margin: 0 0 0.5rem 0;
   font-size: 1rem;
@@ -389,6 +396,13 @@
   border-radius: 8px;
   margin-bottom: 1rem;
   background: rgba(255,255,255,0.01);
+}
+
+/* scroll wrapper for the controls panel to allow inner groups to scroll */
+.controls-scroll {
+  overflow-y: auto;
+  padding-right: 4px; /* allow room for scrollbar */
+  min-height: 0;
 }
 
 /* improved form styles for settings inside .controls-group */
@@ -886,7 +900,8 @@ button:disabled {
 .palette-list,
 .swatches,
 .adjustments-group .adjustments-content,
-.adjustments-group {
+.adjustments-group,
+.controls-scroll {
   /* fallback scroll behavior */
   scrollbar-width: thin; /* Firefox */
   scrollbar-color: rgba(255,255,255,0.12) transparent; /* Firefox thumb track */
