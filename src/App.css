@@ -26,6 +26,47 @@
   font-size: 1.25rem;
 }
 
+/* Top header (site-brand + actions) */
+.app-header {
+  height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
+  box-sizing: border-box;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  margin-bottom: 8px;
+}
+.app-header .header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.header-logo {
+  height: 28px;
+  width: auto;
+}
+.app-header .header-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.header-btn {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.03);
+  color: inherit;
+  text-decoration: none;
+  border: 1px solid rgba(255,255,255,0.04);
+  font-weight: 700;
+}
+.header-btn i { font-size: 14px; }
+.header-btn--patreon { background: linear-gradient(90deg,#ff424d,#ff8248); color: white; }
+.header-btn--github { background: rgba(0,0,0,0.6); color: white; }
+
 /* SwatchesPanel extracted styles */
 .swatches-header {
   font-size: 13px;

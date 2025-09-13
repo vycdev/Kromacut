@@ -170,6 +170,31 @@ function App(): React.ReactElement | null {
     };
     return (
         <div className="uploader-root">
+            <header className="app-header">
+                <div className="header-left">
+                    <img src={logo} alt="StrataPaint" className="header-logo" />
+                </div>
+                <div className="header-actions">
+                    <a
+                        className="header-btn header-btn--patreon"
+                        href="https://www.patreon.com/cw/vycdev"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                    >
+                        <i className="fa-brands fa-patreon" aria-hidden />
+                        <span>Support me</span>
+                    </a>
+                    <a
+                        className="header-btn header-btn--github"
+                        href="https://github.com/vycdev/StrataPaint"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                    >
+                        <i className="fa-brands fa-github" aria-hidden />
+                        <span>GitHub</span>
+                    </a>
+                </div>
+            </header>
             <div className="app-layout" ref={layoutRef}>
                 <aside className="sidebar">
                     <div className="controls-panel">
