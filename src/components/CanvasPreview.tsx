@@ -228,9 +228,14 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
                 const cy = rect.height / 2;
                 const prevLayout = computeImageLayout();
                 if (prevLayout) {
-                    const prevScale = prevLayout.baseScale * (zoomRef.current || 1);
-                    const imgX = (cx - (offsetRef.current.x + prevLayout.dx)) / prevScale;
-                    const imgY = (cy - (offsetRef.current.y + prevLayout.dy)) / prevScale;
+                    const prevScale =
+                        prevLayout.baseScale * (zoomRef.current || 1);
+                    const imgX =
+                        (cx - (offsetRef.current.x + prevLayout.dx)) /
+                        prevScale;
+                    const imgY =
+                        (cy - (offsetRef.current.y + prevLayout.dy)) /
+                        prevScale;
                     prevCenterImageCoord = { x: imgX, y: imgY };
                 }
             }
@@ -244,7 +249,8 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
                 const iw = img.naturalWidth;
                 const ih = img.naturalHeight;
                 if (iw && ih) {
-                    originalCanvasRef.current = document.createElement("canvas");
+                    originalCanvasRef.current =
+                        document.createElement("canvas");
                     originalCanvasRef.current.width = iw;
                     originalCanvasRef.current.height = ih;
                     const octx = originalCanvasRef.current.getContext("2d");
@@ -263,9 +269,16 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
                     const cy = rect.height / 2;
                     const newLayout = computeImageLayout();
                     if (newLayout) {
-                        const newScale = newLayout.baseScale * (zoomRef.current || 1);
-                        const newOffsetX = cx - newLayout.dx - prevCenterImageCoord.x * newScale;
-                        const newOffsetY = cy - newLayout.dy - prevCenterImageCoord.y * newScale;
+                        const newScale =
+                            newLayout.baseScale * (zoomRef.current || 1);
+                        const newOffsetX =
+                            cx -
+                            newLayout.dx -
+                            prevCenterImageCoord.x * newScale;
+                        const newOffsetY =
+                            cy -
+                            newLayout.dy -
+                            prevCenterImageCoord.y * newScale;
                         offsetRef.current = { x: newOffsetX, y: newOffsetY };
                     }
                 }
