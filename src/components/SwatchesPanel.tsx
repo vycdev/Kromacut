@@ -126,7 +126,9 @@ export const SwatchesPanel: React.FC<Props> = ({
                 >
                     <div className="swatch-modal">
                         <div className="swatch-modal-header">
-                            <div className="swatch-modal-title">Edit swatch</div>
+                            <div className="swatch-modal-title">
+                                Edit swatch
+                            </div>
                             <button
                                 aria-label="Close"
                                 onClick={() => closeModal()}
@@ -179,7 +181,10 @@ export const SwatchesPanel: React.FC<Props> = ({
                             {/* Right column: preview above hex input */}
                             <div className="swatch-modal-right">
                                 <div style={{ width: "100%" }}>
-                                    <div aria-hidden className="swatch-preview-box">
+                                    <div
+                                        aria-hidden
+                                        className="swatch-preview-box"
+                                    >
                                         <div
                                             aria-hidden
                                             className="swatch-preview-fill"
