@@ -28,15 +28,7 @@ function App(): React.ReactElement | null {
         useImageHistory(logo, undefined);
     const { swatches, swatchesLoading, invalidate, immediateOverride } =
         useSwatches(imageSrc);
-    const [adjustments, setAdjustments] = useState<Record<string, number>>(
-        () =>
-            Object.fromEntries(
-                SLIDER_DEFS.map((s) => [s.key, s.default])
-            ) as Record<string, number>
-    );
-
-    const setAdjustment = (k: string, v: number) =>
-        setAdjustments((p) => ({ ...p, [k]: v }));
+    // adjustments managed locally inside AdjustmentsPanel now
     // initial selectedPalette derived from initial weight above
     const canvasPreviewRef = useRef<CanvasPreviewHandle | null>(null);
     const [showCheckerboard, setShowCheckerboard] = useState<boolean>(true);
@@ -185,11 +177,7 @@ function App(): React.ReactElement | null {
                         />
                         {/* file input stays here (hidden); uploader buttons moved to preview actions */}
                         <div className="controls-scroll">
-                            <AdjustmentsPanel
-                                defs={SLIDER_DEFS}
-                                adjustments={adjustments}
-                                setAdjustment={setAdjustment}
-                            />
+                            <AdjustmentsPanel defs={SLIDER_DEFS} />
                             <PaletteSelector
                                 selected={selectedPalette}
                                 onSelect={(id, size) => {

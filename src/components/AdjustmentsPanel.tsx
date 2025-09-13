@@ -1,6 +1,6 @@
-import React from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 
-type SliderDef = {
+export type SliderDef = {
     key: string;
     label: string;
     min: number;
@@ -12,51 +12,104 @@ type SliderDef = {
 
 interface Props {
     defs: SliderDef[];
-    adjustments: Record<string, number>;
-    setAdjustment: (k: string, v: number) => void;
+    initial?: Record<string, number>;
+    /**
+     * Called when user finishes an interaction (pointer up / blur) or on explicit programmatic flush.
+     */
+    onCommit?: (vals: Record<string, number>) => void;
 }
 
-export const AdjustmentsPanel: React.FC<Props> = ({
-    defs,
-    adjustments,
-    setAdjustment,
-}) => {
-    return (
-        <div className="controls-group adjustments-group">
-            <div
-                style={{
-                    fontSize: 13,
-                    fontWeight: 700,
-                    marginBottom: 8,
-                }}
-            >
-                Adjustments
+// Memoize to avoid parent re-render noise when props are stable
+export const AdjustmentsPanel: React.FC<Props> = React.memo(
+    ({ defs, initial, onCommit }) => {
+        // Local state only; parent not updated per-drag
+        const [values, setValues] = useState<Record<string, number>>(() => {
+            const base: Record<string, number> = {};
+            defs.forEach((d) => {
+                base[d.key] = initial?.[d.key] ?? d.default;
+            });
+            return base;
+        });
+
+        // Track if a commit is pending (user dragging)
+        const dirtyRef = useRef(false);
+        const frameRef = useRef<number | null>(null);
+
+        const scheduleSet = useCallback((k: string, v: number) => {
+            setValues((prev) => {
+                if (prev[k] === v) return prev; // no change
+                return { ...prev, [k]: v };
+            });
+            dirtyRef.current = true;
+        }, []);
+
+        const flush = useCallback(() => {
+            if (!dirtyRef.current) return;
+            dirtyRef.current = false;
+            onCommit?.(values);
+        }, [onCommit, values]);
+
+        // Commit on unmount to avoid losing last drag position
+        useEffect(() => () => flush(), [flush]);
+
+        const handlePointerUp = useCallback(() => {
+            // Defer flush to next frame so final value state is applied
+            if (frameRef.current) cancelAnimationFrame(frameRef.current);
+            frameRef.current = requestAnimationFrame(() => flush());
+        }, [flush]);
+
+        // Attach a global pointerup listener only while dragging (simple approach)
+        useEffect(() => {
+            const up = () => handlePointerUp();
+            window.addEventListener("pointerup", up);
+            return () => window.removeEventListener("pointerup", up);
+        }, [handlePointerUp]);
+
+        return (
+            <div className="controls-group adjustments-group">
+                <div
+                    style={{
+                        fontSize: 13,
+                        fontWeight: 700,
+                        marginBottom: 8,
+                    }}
+                >
+                    Adjustments
+                </div>
+                <div className="adjustments-content">
+                    {defs.map((s) => {
+                        const displayVal = values[s.key];
+                        return (
+                            <label key={s.key} className="adjustment-row">
+                                <div className="adjustment-label">
+                                    {s.label}
+                                    <span className="adjustment-unit">
+                                        {displayVal}
+                                        {s.unit ? ` ${s.unit}` : ""}
+                                    </span>
+                                </div>
+                                <input
+                                    type="range"
+                                    min={s.min}
+                                    max={s.max}
+                                    step={s.step}
+                                    value={displayVal}
+                                    onChange={(e) =>
+                                        scheduleSet(
+                                            s.key,
+                                            Number(e.target.value)
+                                        )
+                                    }
+                                />
+                            </label>
+                        );
+                    })}
+                </div>
             </div>
-            <div className="adjustments-content">
-                {defs.map((s) => (
-                    <label key={s.key} className="adjustment-row">
-                        <div className="adjustment-label">
-                            {s.label}
-                            <span className="adjustment-unit">
-                                {adjustments[s.key]}
-                                {s.unit ? ` ${s.unit}` : ""}
-                            </span>
-                        </div>
-                        <input
-                            type="range"
-                            min={s.min}
-                            max={s.max}
-                            step={s.step}
-                            value={adjustments[s.key]}
-                            onChange={(e) =>
-                                setAdjustment(s.key, Number(e.target.value))
-                            }
-                        />
-                    </label>
-                ))}
-            </div>
-        </div>
-    );
-};
+        );
+    }
+);
+
+AdjustmentsPanel.displayName = "AdjustmentsPanel";
 
 export default AdjustmentsPanel;
