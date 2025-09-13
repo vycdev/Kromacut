@@ -6,7 +6,7 @@ import React, {
     forwardRef,
     useCallback,
 } from "react";
-import { applyAdjustments } from "../lib/applyAdjustments";
+import { applyAdjustments, isAllDefault } from "../lib/applyAdjustments";
 
 export interface CanvasPreviewHandle {
     redraw: () => void;
@@ -52,6 +52,11 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
             startY: number;
             orig: { x: number; y: number; w: number; h: number };
         }>(null);
+
+        // Offscreen originals & processed versions
+        const originalCanvasRef = useRef<HTMLCanvasElement | null>(null);
+        const processedCanvasRef = useRef<HTMLCanvasElement | null>(null);
+        const lastAdjSigRef = useRef<string>("");
 
         const drawToCanvas = useCallback(() => {
             const canvas = canvasRef.current;
@@ -100,44 +105,73 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
             // to show the exact pixel values after quantization.
             ctx.imageSmoothingEnabled = false;
             // imageSmoothingQuality is not relevant when smoothing is disabled
-            // If adjustments present and any non-default, process before drawing.
-            if (adjustments) {
-                // Detect any non-zero (excluding undefined)
-                let needs = false;
-                for (const k in adjustments) {
-                    const v = adjustments[k];
-                    if (v && v !== 0) {
-                        needs = true;
-                        break;
-                    }
-                }
-                if (needs) {
+            const original = originalCanvasRef.current;
+            if (adjustments && !isAllDefault(adjustments)) {
+                const sig = JSON.stringify(adjustments);
+                // Recompute processed canvas only if signature changed or missing.
+                if (sig !== lastAdjSigRef.current) {
                     try {
-                        // create offscreen canvas (not using OffscreenCanvas for broader support)
-                        const off = document.createElement("canvas");
-                        off.width = iw;
-                        off.height = ih;
-                        const octx = off.getContext("2d");
-                        if (octx) {
-                            octx.imageSmoothingEnabled = false;
-                            octx.drawImage(img, 0, 0, iw, ih);
-                            const imgData = octx.getImageData(0, 0, iw, ih);
+                        const baseSource: HTMLCanvasElement | HTMLImageElement =
+                            original ?? img;
+                        const iw2 =
+                            baseSource instanceof HTMLImageElement
+                                ? baseSource.naturalWidth
+                                : iw;
+                        const ih2 =
+                            baseSource instanceof HTMLImageElement
+                                ? baseSource.naturalHeight
+                                : ih;
+                        let srcCtx: CanvasRenderingContext2D | null = null;
+                        if (original) {
+                            srcCtx = original.getContext("2d");
+                        } else {
+                            // lazily build original if missing
+                            originalCanvasRef.current =
+                                document.createElement("canvas");
+                            originalCanvasRef.current.width = iw2;
+                            originalCanvasRef.current.height = ih2;
+                            const octx =
+                                originalCanvasRef.current.getContext("2d");
+                            if (octx) {
+                                octx.imageSmoothingEnabled = false;
+                                octx.drawImage(img, 0, 0, iw2, ih2);
+                                srcCtx = octx;
+                            }
+                        }
+                        if (srcCtx) {
+                            const imgData = srcCtx.getImageData(0, 0, iw, ih);
                             const adjData = applyAdjustments(
                                 imgData,
                                 adjustments
                             );
-                            ctx.putImageData(adjData, 0, 0);
-                        } else {
-                            ctx.drawImage(img, 0, 0, iw, ih);
+                            const proc = document.createElement("canvas");
+                            proc.width = iw;
+                            proc.height = ih;
+                            const pctx = proc.getContext("2d");
+                            if (pctx) pctx.putImageData(adjData, 0, 0);
+                            processedCanvasRef.current = proc;
+                            lastAdjSigRef.current = sig;
                         }
                     } catch {
-                        ctx.drawImage(img, 0, 0, iw, ih);
+                        // fallback to original draw
                     }
+                }
+                if (processedCanvasRef.current) {
+                    ctx.drawImage(processedCanvasRef.current, 0, 0, iw, ih);
+                } else if (original) {
+                    ctx.drawImage(original, 0, 0, iw, ih);
                 } else {
                     ctx.drawImage(img, 0, 0, iw, ih);
                 }
             } else {
-                ctx.drawImage(img, 0, 0, iw, ih);
+                // No adjustments – ensure processed cache cleared so future adjustment toggles refresh.
+                processedCanvasRef.current = null;
+                lastAdjSigRef.current = "";
+                if (original) {
+                    ctx.drawImage(original, 0, 0, iw, ih);
+                } else {
+                    ctx.drawImage(img, 0, 0, iw, ih);
+                }
             }
             // resolve any waiters that are awaiting the next draw
             try {
@@ -187,11 +221,29 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
                 // reset zoom when a new image loads
                 zoomRef.current = 1;
                 setZoomState(1);
+                // prepare offscreen original & processed clones
+                const iw = img.naturalWidth;
+                const ih = img.naturalHeight;
+                if (iw && ih) {
+                    originalCanvasRef.current =
+                        document.createElement("canvas");
+                    originalCanvasRef.current.width = iw;
+                    originalCanvasRef.current.height = ih;
+                    const octx = originalCanvasRef.current.getContext("2d");
+                    if (octx) {
+                        octx.imageSmoothingEnabled = false;
+                        octx.drawImage(img, 0, 0, iw, ih);
+                    }
+                    processedCanvasRef.current = null; // invalidate processed
+                    lastAdjSigRef.current = "";
+                }
                 drawToCanvas();
             };
             img.src = imageSrc;
             return () => {
                 imgRef.current = null;
+                originalCanvasRef.current = null;
+                processedCanvasRef.current = null;
             };
         }, [imageSrc, drawToCanvas]);
 
@@ -437,6 +489,11 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
                 );
             };
         }, [drawToCanvas]);
+
+        // Trigger redraw when adjustments object changes
+        useEffect(() => {
+            drawToCanvas();
+        }, [adjustments, drawToCanvas]);
 
         useImperativeHandle(ref, () => ({
             redraw: () => drawToCanvas(),

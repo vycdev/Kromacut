@@ -30,10 +30,15 @@ export const AdjustmentsPanel: React.FC<Props> = React.memo(
             });
             return base;
         });
+        // Keep a ref to latest values for unmount commit without recreating flush
+        const valuesRef = useRef(values);
+        valuesRef.current = values;
 
         // Track if a commit is pending (user dragging)
         const dirtyRef = useRef(false);
         const frameRef = useRef<number | null>(null);
+        // Track active dragging so we only flush once per drag interaction
+        const draggingRef = useRef(false);
 
         const scheduleSet = useCallback((k: string, v: number) => {
             setValues((prev) => {
@@ -46,13 +51,23 @@ export const AdjustmentsPanel: React.FC<Props> = React.memo(
         const flush = useCallback(() => {
             if (!dirtyRef.current) return;
             dirtyRef.current = false;
-            onCommit?.(values);
-        }, [onCommit, values]);
+            onCommit?.(valuesRef.current);
+        }, [onCommit]);
 
-        // Commit on unmount to avoid losing last drag position
-        useEffect(() => () => flush(), [flush]);
+        // Commit on unmount ONLY (not on every value change)
+        useEffect(() => {
+            return () => {
+                if (dirtyRef.current) {
+                    onCommit?.(valuesRef.current);
+                    dirtyRef.current = false;
+                }
+            };
+            // eslint-disable-next-line react-hooks/exhaustive-deps
+        }, []);
 
         const handlePointerUp = useCallback(() => {
+            if (!draggingRef.current) return; // only commit if a drag was active
+            draggingRef.current = false;
             // Defer flush to next frame so final value state is applied
             if (frameRef.current) cancelAnimationFrame(frameRef.current);
             frameRef.current = requestAnimationFrame(() => flush());
@@ -94,12 +109,21 @@ export const AdjustmentsPanel: React.FC<Props> = React.memo(
                                     max={s.max}
                                     step={s.step}
                                     value={displayVal}
-                                    onChange={(e) =>
+                                    onChange={(e) => {
+                                        // mark drag started if not already (covers keyboard / clicks)
+                                        if (!draggingRef.current) {
+                                            draggingRef.current = true;
+                                        }
                                         scheduleSet(
                                             s.key,
                                             Number(e.target.value)
-                                        )
-                                    }
+                                        );
+                                    }}
+                                    onPointerDown={() => {
+                                        draggingRef.current = true;
+                                    }}
+                                    onPointerUp={() => handlePointerUp()}
+                                    onBlur={() => handlePointerUp()}
                                 />
                             </label>
                         );
