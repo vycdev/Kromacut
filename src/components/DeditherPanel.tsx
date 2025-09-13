@@ -170,7 +170,7 @@ export const DeditherPanel: React.FC<Props> = ({
             <div style={{ marginBottom: 8 }}>
                 <input
                     type="range"
-                    min={0}
+                    min={1}
                     max={9}
                     step={1}
                     value={weight}
