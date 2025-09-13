@@ -72,8 +72,12 @@ export const ControlsPanel: React.FC<Props> = ({
                     <option value="octree">Octree</option>
                 </select>
             </label>
-            <div style={{ marginTop: 8 }}>
-                <button onClick={onApply} disabled={disabled}>
+            <div>
+                <button
+                    onClick={onApply}
+                    disabled={disabled}
+                    className="apply-btn"
+                >
                     Apply
                 </button>
             </div>

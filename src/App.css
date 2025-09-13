@@ -526,12 +526,14 @@
 .controls-group .apply-btn {
   margin-top: 8px;
   padding: 0.5rem 0.75rem;
+  width: 100%;
   border-radius: 6px;
   border: 1px solid rgba(0,0,0,0.12);
   background: #2f2f2f; /* dark grey */
   color: #fff;
   cursor: pointer;
 }
+
 .controls-group .apply-btn:disabled {
   background: #505050;
   color: #8a8a8a;

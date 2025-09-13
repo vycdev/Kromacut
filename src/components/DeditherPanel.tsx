@@ -186,7 +186,6 @@ export const DeditherPanel: React.FC<Props> = ({
                     className="apply-btn"
                     onClick={handleApply}
                     disabled={working}
-                    style={{ width: "100%" }}
                 >
                     {working ? "Working..." : "Apply"}
                 </button>
