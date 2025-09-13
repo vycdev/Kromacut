@@ -51,6 +51,8 @@ function App(): React.ReactElement | null {
     // persistent (committed) adjustments applied on redraw. Key/value map.
     const [adjustments, setAdjustments] =
         useState<Record<string, number>>(ADJUSTMENT_DEFAULTS);
+    // epoch counter to force remount of AdjustmentsPanel when we bake & reset
+    const [adjustmentsEpoch, setAdjustmentsEpoch] = useState(0);
 
     // removed duplicate syncing: manual changes to the numeric input should set Auto via onWeightChange
     // redraw when image changes
@@ -183,7 +185,9 @@ function App(): React.ReactElement | null {
                         {/* file input stays here (hidden); uploader buttons moved to preview actions */}
                         <div className="controls-scroll">
                             <AdjustmentsPanel
+                                key={adjustmentsEpoch}
                                 defs={SLIDER_DEFS}
+                                initial={ADJUSTMENT_DEFAULTS}
                                 onCommit={(vals) => {
                                     setAdjustments(vals);
                                     // schedule a redraw
@@ -202,6 +206,7 @@ function App(): React.ReactElement | null {
                                         setImage(url, true);
                                         // After baking, reset adjustments state to defaults
                                         setAdjustments(ADJUSTMENT_DEFAULTS);
+                                        setAdjustmentsEpoch((e) => e + 1);
                                     } catch (e) {
                                         console.warn(
                                             "Bake adjustments failed",
