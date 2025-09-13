@@ -1,4 +1,11 @@
-import React, { useEffect, useImperativeHandle, useRef, useState, forwardRef, useCallback } from "react";
+import React, {
+    useEffect,
+    useImperativeHandle,
+    useRef,
+    useState,
+    forwardRef,
+    useCallback,
+} from "react";
 import { applyAdjustments } from "../lib/applyAdjustments";
 
 export interface CanvasPreviewHandle {
@@ -99,7 +106,10 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
                 let needs = false;
                 for (const k in adjustments) {
                     const v = adjustments[k];
-                    if (v && v !== 0) { needs = true; break; }
+                    if (v && v !== 0) {
+                        needs = true;
+                        break;
+                    }
                 }
                 if (needs) {
                     try {
@@ -112,7 +122,10 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
                             octx.imageSmoothingEnabled = false;
                             octx.drawImage(img, 0, 0, iw, ih);
                             const imgData = octx.getImageData(0, 0, iw, ih);
-                            const adjData = applyAdjustments(imgData, adjustments);
+                            const adjData = applyAdjustments(
+                                imgData,
+                                adjustments
+                            );
                             ctx.putImageData(adjData, 0, 0);
                         } else {
                             ctx.drawImage(img, 0, 0, iw, ih);
@@ -133,7 +146,7 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
             } catch {
                 // ignore
             }
-    }, [adjustments]);
+        }, [adjustments]);
 
         // list of pending resolvers that callers can await via waitForNextDraw
         const drawWaitersRef = useRef<Array<() => void>>([]);
@@ -180,7 +193,7 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
             return () => {
                 imgRef.current = null;
             };
-    }, [imageSrc, drawToCanvas]);
+        }, [imageSrc, drawToCanvas]);
 
         // initialize selection when entering crop mode
         useEffect(() => {
@@ -423,7 +436,7 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
                     wrapper as EventListener
                 );
             };
-    }, [drawToCanvas]);
+        }, [drawToCanvas]);
 
         useImperativeHandle(ref, () => ({
             redraw: () => drawToCanvas(),

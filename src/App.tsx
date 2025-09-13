@@ -49,7 +49,8 @@ function App(): React.ReactElement | null {
     });
 
     // persistent (committed) adjustments applied on redraw. Key/value map.
-    const [adjustments, setAdjustments] = useState<Record<string, number>>(ADJUSTMENT_DEFAULTS);
+    const [adjustments, setAdjustments] =
+        useState<Record<string, number>>(ADJUSTMENT_DEFAULTS);
 
     // removed duplicate syncing: manual changes to the numeric input should set Auto via onWeightChange
     // redraw when image changes
