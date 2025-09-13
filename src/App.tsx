@@ -7,6 +7,7 @@ import { PaletteSelector } from "./components/PaletteSelector";
 import { ControlsPanel } from "./components/ControlsPanel";
 import { SwatchesPanel } from "./components/SwatchesPanel";
 import AdjustmentsPanel from "./components/AdjustmentsPanel";
+import { ADJUSTMENT_DEFAULTS } from "./lib/applyAdjustments";
 import SLIDER_DEFS from "./components/sliderDefs";
 import { useSwatches } from "./hooks/useSwatches";
 import type { SwatchEntry } from "./hooks/useSwatches";
@@ -46,6 +47,9 @@ function App(): React.ReactElement | null {
         onImmediateSwatches: (colors: SwatchEntry[]) =>
             immediateOverride(colors),
     });
+
+    // persistent (committed) adjustments applied on redraw. Key/value map.
+    const [adjustments, setAdjustments] = useState<Record<string, number>>(ADJUSTMENT_DEFAULTS);
 
     // removed duplicate syncing: manual changes to the numeric input should set Auto via onWeightChange
     // redraw when image changes
@@ -177,7 +181,16 @@ function App(): React.ReactElement | null {
                         />
                         {/* file input stays here (hidden); uploader buttons moved to preview actions */}
                         <div className="controls-scroll">
-                            <AdjustmentsPanel defs={SLIDER_DEFS} />
+                            <AdjustmentsPanel
+                                defs={SLIDER_DEFS}
+                                onCommit={(vals) => {
+                                    setAdjustments(vals);
+                                    // schedule a redraw
+                                    requestAnimationFrame(() =>
+                                        canvasPreviewRef.current?.redraw()
+                                    );
+                                }}
+                            />
                             <PaletteSelector
                                 selected={selectedPalette}
                                 onSelect={(id, size) => {
@@ -416,6 +429,7 @@ function App(): React.ReactElement | null {
                             imageSrc={imageSrc}
                             isCropMode={isCropMode}
                             showCheckerboard={showCheckerboard}
+                            adjustments={adjustments}
                         />
                         <div className="preview-actions">
                             <button

@@ -1,10 +1,5 @@
-import React, {
-    useEffect,
-    useImperativeHandle,
-    useRef,
-    useState,
-    forwardRef,
-} from "react";
+import React, { useEffect, useImperativeHandle, useRef, useState, forwardRef, useCallback } from "react";
+import { applyAdjustments } from "../lib/applyAdjustments";
 
 export interface CanvasPreviewHandle {
     redraw: () => void;
@@ -19,10 +14,11 @@ interface Props {
     imageSrc: string | null;
     isCropMode?: boolean;
     showCheckerboard?: boolean;
+    adjustments?: Record<string, number>;
 }
 
 const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
-    ({ imageSrc, isCropMode, showCheckerboard }, ref) => {
+    ({ imageSrc, isCropMode, showCheckerboard, adjustments }, ref) => {
         const canvasRef = useRef<HTMLCanvasElement | null>(null);
         const previewContainerRef = useRef<HTMLDivElement | null>(null);
         const imgRef = useRef<HTMLImageElement | null>(null);
@@ -50,7 +46,7 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
             orig: { x: number; y: number; w: number; h: number };
         }>(null);
 
-        const drawToCanvas = () => {
+        const drawToCanvas = useCallback(() => {
             const canvas = canvasRef.current;
             const container = previewContainerRef.current;
             if (!canvas || !container) return;
@@ -97,7 +93,39 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
             // to show the exact pixel values after quantization.
             ctx.imageSmoothingEnabled = false;
             // imageSmoothingQuality is not relevant when smoothing is disabled
-            ctx.drawImage(img, 0, 0, iw, ih);
+            // If adjustments present and any non-default, process before drawing.
+            if (adjustments) {
+                // Detect any non-zero (excluding undefined)
+                let needs = false;
+                for (const k in adjustments) {
+                    const v = adjustments[k];
+                    if (v && v !== 0) { needs = true; break; }
+                }
+                if (needs) {
+                    try {
+                        // create offscreen canvas (not using OffscreenCanvas for broader support)
+                        const off = document.createElement("canvas");
+                        off.width = iw;
+                        off.height = ih;
+                        const octx = off.getContext("2d");
+                        if (octx) {
+                            octx.imageSmoothingEnabled = false;
+                            octx.drawImage(img, 0, 0, iw, ih);
+                            const imgData = octx.getImageData(0, 0, iw, ih);
+                            const adjData = applyAdjustments(imgData, adjustments);
+                            ctx.putImageData(adjData, 0, 0);
+                        } else {
+                            ctx.drawImage(img, 0, 0, iw, ih);
+                        }
+                    } catch {
+                        ctx.drawImage(img, 0, 0, iw, ih);
+                    }
+                } else {
+                    ctx.drawImage(img, 0, 0, iw, ih);
+                }
+            } else {
+                ctx.drawImage(img, 0, 0, iw, ih);
+            }
             // resolve any waiters that are awaiting the next draw
             try {
                 const waiters = drawWaitersRef.current.splice(0);
@@ -105,7 +133,7 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
             } catch {
                 // ignore
             }
-        };
+    }, [adjustments]);
 
         // list of pending resolvers that callers can await via waitForNextDraw
         const drawWaitersRef = useRef<Array<() => void>>([]);
@@ -152,7 +180,7 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
             return () => {
                 imgRef.current = null;
             };
-        }, [imageSrc]);
+    }, [imageSrc, drawToCanvas]);
 
         // initialize selection when entering crop mode
         useEffect(() => {
@@ -395,7 +423,7 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
                     wrapper as EventListener
                 );
             };
-        }, []);
+    }, [drawToCanvas]);
 
         useImperativeHandle(ref, () => ({
             redraw: () => drawToCanvas(),
