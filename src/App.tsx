@@ -28,24 +28,120 @@ function App(): React.ReactElement | null {
         useSwatches(imageSrc);
     // UI-only adjustments sliders (no processing yet)
     const SLIDER_DEFS = [
-        { key: "exposure", label: "Exposure", min: -3, max: 3, step: 0.01, default: 0, unit: "stops" },
-        { key: "contrast", label: "Contrast", min: -100, max: 100, step: 1, default: 0, unit: "%" },
-        { key: "highlights", label: "Highlights", min: -100, max: 100, step: 1, default: 0, unit: "%" },
-        { key: "shadows", label: "Shadows", min: -100, max: 100, step: 1, default: 0, unit: "%" },
-        { key: "whites", label: "Whites", min: -100, max: 100, step: 1, default: 0, unit: "%" },
-        { key: "blacks", label: "Blacks", min: -100, max: 100, step: 1, default: 0, unit: "%" },
-        { key: "saturation", label: "Saturation", min: -100, max: 100, step: 1, default: 0, unit: "%" },
-        { key: "vibrance", label: "Vibrance", min: -100, max: 100, step: 1, default: 0, unit: "%" },
-        { key: "hue", label: "Hue", min: -180, max: 180, step: 1, default: 0, unit: "deg" },
-        { key: "temperature", label: "Temperature", min: -100, max: 100, step: 1, default: 0, unit: "" },
-        { key: "tint", label: "Tint", min: -100, max: 100, step: 1, default: 0, unit: "" },
-        { key: "clarity", label: "Clarity", min: -100, max: 100, step: 1, default: 0, unit: "" },
+        {
+            key: "exposure",
+            label: "Exposure",
+            min: -3,
+            max: 3,
+            step: 0.01,
+            default: 0,
+            unit: "stops",
+        },
+        {
+            key: "contrast",
+            label: "Contrast",
+            min: -100,
+            max: 100,
+            step: 1,
+            default: 0,
+            unit: "%",
+        },
+        {
+            key: "highlights",
+            label: "Highlights",
+            min: -100,
+            max: 100,
+            step: 1,
+            default: 0,
+            unit: "%",
+        },
+        {
+            key: "shadows",
+            label: "Shadows",
+            min: -100,
+            max: 100,
+            step: 1,
+            default: 0,
+            unit: "%",
+        },
+        {
+            key: "whites",
+            label: "Whites",
+            min: -100,
+            max: 100,
+            step: 1,
+            default: 0,
+            unit: "%",
+        },
+        {
+            key: "blacks",
+            label: "Blacks",
+            min: -100,
+            max: 100,
+            step: 1,
+            default: 0,
+            unit: "%",
+        },
+        {
+            key: "saturation",
+            label: "Saturation",
+            min: -100,
+            max: 100,
+            step: 1,
+            default: 0,
+            unit: "%",
+        },
+        {
+            key: "vibrance",
+            label: "Vibrance",
+            min: -100,
+            max: 100,
+            step: 1,
+            default: 0,
+            unit: "%",
+        },
+        {
+            key: "hue",
+            label: "Hue",
+            min: -180,
+            max: 180,
+            step: 1,
+            default: 0,
+            unit: "deg",
+        },
+        {
+            key: "temperature",
+            label: "Temperature",
+            min: -100,
+            max: 100,
+            step: 1,
+            default: 0,
+            unit: "",
+        },
+        {
+            key: "tint",
+            label: "Tint",
+            min: -100,
+            max: 100,
+            step: 1,
+            default: 0,
+            unit: "",
+        },
+        {
+            key: "clarity",
+            label: "Clarity",
+            min: -100,
+            max: 100,
+            step: 1,
+            default: 0,
+            unit: "",
+        },
     ];
-    const [adjustments, setAdjustments] = useState<Record<string, number>>(() =>
-        Object.fromEntries(SLIDER_DEFS.map((s) => [s.key, s.default])) as Record<
-            string,
-            number
-        >
+    const [adjustments, setAdjustments] = useState<Record<string, number>>(
+        () =>
+            Object.fromEntries(
+                SLIDER_DEFS.map((s) => [s.key, s.default])
+            ) as Record<string, number>
     );
 
     const setAdjustment = (k: string, v: number) =>
@@ -199,15 +295,27 @@ function App(): React.ReactElement | null {
                         {/* file input stays here (hidden); uploader buttons moved to preview actions */}
                         {/* Adjustments group (UI-only sliders) */}
                         <div className="controls-group adjustments-group">
-                            <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>
+                            <div
+                                style={{
+                                    fontSize: 13,
+                                    fontWeight: 700,
+                                    marginBottom: 8,
+                                }}
+                            >
                                 Adjustments
                             </div>
-                            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                            <div className="adjustments-content">
                                 {SLIDER_DEFS.map((s) => (
-                                    <label key={s.key} className="adjustment-row">
+                                    <label
+                                        key={s.key}
+                                        className="adjustment-row"
+                                    >
                                         <div className="adjustment-label">
                                             {s.label}
-                                            <span className="adjustment-unit">{adjustments[s.key]}{s.unit ? ` ${s.unit}` : ''}</span>
+                                            <span className="adjustment-unit">
+                                                {adjustments[s.key]}
+                                                {s.unit ? ` ${s.unit}` : ""}
+                                            </span>
                                         </div>
                                         <input
                                             type="range"
@@ -215,7 +323,12 @@ function App(): React.ReactElement | null {
                                             max={s.max}
                                             step={s.step}
                                             value={adjustments[s.key]}
-                                            onChange={(e) => setAdjustment(s.key, Number(e.target.value))}
+                                            onChange={(e) =>
+                                                setAdjustment(
+                                                    s.key,
+                                                    Number(e.target.value)
+                                                )
+                                            }
                                         />
                                     </label>
                                 ))}

@@ -226,10 +226,19 @@
 
 /* Adjustments controls (UI-only sliders) */
 .adjustments-group {
-  max-height: 160px; /* shouldn't be too high */
-  overflow-y: auto;
+  /* container holds the title and the scrollable content; keep header fixed */
   padding: 0.5rem;
   margin-bottom: 0.75rem;
+  display: flex;
+  flex-direction: column;
+}
+.adjustments-group .adjustments-content {
+  max-height: 120px; /* content area should be scrollable, slightly smaller to allow header */
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-right: 4px; /* match other groups' right padding for scrollbar */
 }
 .adjustment-row {
   display: flex;
@@ -804,6 +813,7 @@ button:disabled {
 /* Thin, minimal scrollbars for palette list, swatches, and adjustments */
 .palette-list,
 .swatches,
+.adjustments-group .adjustments-content,
 .adjustments-group {
   /* fallback scroll behavior */
   scrollbar-width: thin; /* Firefox */
@@ -813,17 +823,20 @@ button:disabled {
 /* WebKit browsers */
 .palette-list::-webkit-scrollbar,
 .swatches::-webkit-scrollbar,
+.adjustments-group .adjustments-content::-webkit-scrollbar,
 .adjustments-group::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 .palette-list::-webkit-scrollbar-track,
 .swatches::-webkit-scrollbar-track,
+.adjustments-group .adjustments-content::-webkit-scrollbar-track,
 .adjustments-group::-webkit-scrollbar-track {
   background: transparent; /* no background */
 }
 .palette-list::-webkit-scrollbar-thumb,
 .swatches::-webkit-scrollbar-thumb,
+.adjustments-group .adjustments-content::-webkit-scrollbar-thumb,
 .adjustments-group::-webkit-scrollbar-thumb {
   background: rgba(255,255,255,0.12);
   border-radius: 999px;
@@ -832,6 +845,7 @@ button:disabled {
 }
 .palette-list::-webkit-scrollbar-button,
 .swatches::-webkit-scrollbar-button,
+.adjustments-group .adjustments-content::-webkit-scrollbar-button,
 .adjustments-group::-webkit-scrollbar-button {
   display: none; /* hide arrows */
 }
@@ -839,6 +853,7 @@ button:disabled {
 /* slightly darker thumb on hover */
 .palette-list::-webkit-scrollbar-thumb:hover,
 .swatches::-webkit-scrollbar-thumb:hover,
+.adjustments-group .adjustments-content::-webkit-scrollbar-thumb:hover,
 .adjustments-group::-webkit-scrollbar-thumb:hover {
   background: rgba(255,255,255,0.18);
 }
