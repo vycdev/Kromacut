@@ -13,15 +13,15 @@ export type SliderDef = {
 interface Props {
     defs: SliderDef[];
     initial?: Record<string, number>;
-    /**
-     * Called when user finishes an interaction (pointer up / blur) or on explicit programmatic flush.
-     */
+    /** Called when user finishes a slider drag (pointer up). */
     onCommit?: (vals: Record<string, number>) => void;
+    /** Explicit bake/apply: permanently apply current adjustments to the underlying image. */
+    onBake?: (vals: Record<string, number>) => void;
 }
 
 // Memoize to avoid parent re-render noise when props are stable
 export const AdjustmentsPanel: React.FC<Props> = React.memo(
-    ({ defs, initial, onCommit }) => {
+    ({ defs, initial, onCommit, onBake }) => {
         // Local state only; parent not updated per-drag
         const [values, setValues] = useState<Record<string, number>>(() => {
             const base: Record<string, number> = {};
@@ -89,6 +89,14 @@ export const AdjustmentsPanel: React.FC<Props> = React.memo(
             onCommit?.(next);
             dirtyRef.current = false;
         }, [defs, onCommit]);
+        const handleBake = useCallback(() => {
+            // Ensure any in-progress drag is flushed before bake
+            if (dirtyRef.current) {
+                dirtyRef.current = false;
+                onCommit?.(valuesRef.current);
+            }
+            onBake?.(valuesRef.current);
+        }, [onBake, onCommit]);
 
         return (
             <div className="controls-group adjustments-group">
@@ -104,24 +112,44 @@ export const AdjustmentsPanel: React.FC<Props> = React.memo(
                     }}
                 >
                     <span>Adjustments</span>
-                    <button
-                        type="button"
-                        onClick={handleReset}
-                        style={{
-                            fontSize: 11,
-                            fontWeight: 600,
-                            padding: "2px 6px",
-                            border: "1px solid #444",
-                            background: "#222",
-                            color: "#ddd",
-                            borderRadius: 3,
-                            cursor: "pointer",
-                        }}
-                        title="Reset all adjustments to defaults"
-                        aria-label="Reset adjustments"
-                    >
-                        Reset
-                    </button>
+                    <div style={{ display: "flex", gap: 4 }}>
+                        <button
+                            type="button"
+                            onClick={handleBake}
+                            style={{
+                                fontSize: 11,
+                                fontWeight: 600,
+                                padding: "2px 6px",
+                                border: "1px solid #555",
+                                background: "#2a2a2a",
+                                color: "#eee",
+                                borderRadius: 3,
+                                cursor: "pointer",
+                            }}
+                            title="Apply (bake) adjustments to the image"
+                            aria-label="Apply adjustments"
+                        >
+                            Apply
+                        </button>
+                        <button
+                            type="button"
+                            onClick={handleReset}
+                            style={{
+                                fontSize: 11,
+                                fontWeight: 600,
+                                padding: "2px 6px",
+                                border: "1px solid #444",
+                                background: "#222",
+                                color: "#ddd",
+                                borderRadius: 3,
+                                cursor: "pointer",
+                            }}
+                            title="Reset all adjustments to defaults"
+                            aria-label="Reset adjustments"
+                        >
+                            Reset
+                        </button>
+                    </div>
                 </div>
                 <div className="adjustments-content">
                     {defs.map((s) => {

@@ -15,6 +15,7 @@ export interface CanvasPreviewHandle {
     waitForNextDraw?: () => Promise<void>;
     exportCroppedImage: () => Promise<Blob | null>;
     exportImageBlob: () => Promise<Blob | null>;
+    exportAdjustedImageBlob?: () => Promise<Blob | null>;
 }
 
 interface Props {
@@ -576,6 +577,31 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
                 ctx.drawImage(img, 0, 0, iw, ih);
                 return await new Promise<Blob | null>((resolve) =>
                     outCanvas.toBlob((b) => resolve(b), "image/png")
+                );
+            },
+            exportAdjustedImageBlob: async (): Promise<Blob | null> => {
+                const img = imgRef.current;
+                if (!img) return null;
+                const iw = img.naturalWidth;
+                const ih = img.naturalHeight;
+                if (!iw || !ih) return null;
+                const canvas = document.createElement("canvas");
+                canvas.width = iw;
+                canvas.height = ih;
+                const ctx = canvas.getContext("2d");
+                if (!ctx) return null;
+                ctx.imageSmoothingEnabled = false;
+                ctx.imageSmoothingQuality = "low";
+                // Prefer processed canvas if exists, else original or image element
+                if (processedCanvasRef.current) {
+                    ctx.drawImage(processedCanvasRef.current, 0, 0, iw, ih);
+                } else if (originalCanvasRef.current) {
+                    ctx.drawImage(originalCanvasRef.current, 0, 0, iw, ih);
+                } else {
+                    ctx.drawImage(img, 0, 0, iw, ih);
+                }
+                return await new Promise<Blob | null>((resolve) =>
+                    canvas.toBlob((b) => resolve(b), "image/png")
                 );
             },
         }));

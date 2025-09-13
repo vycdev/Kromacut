@@ -191,6 +191,24 @@ function App(): React.ReactElement | null {
                                         canvasPreviewRef.current?.redraw()
                                     );
                                 }}
+                                onBake={async () => {
+                                    if (!canvasPreviewRef.current) return;
+                                    try {
+                                        const blob =
+                                            await canvasPreviewRef.current.exportAdjustedImageBlob?.();
+                                        if (!blob) return;
+                                        const url = URL.createObjectURL(blob);
+                                        invalidate();
+                                        setImage(url, true);
+                                        // After baking, reset adjustments state to defaults
+                                        setAdjustments(ADJUSTMENT_DEFAULTS);
+                                    } catch (e) {
+                                        console.warn(
+                                            "Bake adjustments failed",
+                                            e
+                                        );
+                                    }
+                                }}
                             />
                             <PaletteSelector
                                 selected={selectedPalette}
