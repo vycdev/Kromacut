@@ -7,6 +7,7 @@ import { PaletteSelector } from "./components/PaletteSelector";
 import { ControlsPanel } from "./components/ControlsPanel";
 import { SwatchesPanel } from "./components/SwatchesPanel";
 import AdjustmentsPanel from "./components/AdjustmentsPanel";
+import DeditherPanel from "./components/DeditherPanel";
 import { ADJUSTMENT_DEFAULTS } from "./lib/applyAdjustments";
 import SLIDER_DEFS from "./components/sliderDefs";
 import { useSwatches } from "./hooks/useSwatches";
@@ -213,6 +214,13 @@ function App(): React.ReactElement | null {
                                             e
                                         );
                                     }
+                                }}
+                            />
+                            <DeditherPanel
+                                canvasRef={canvasPreviewRef}
+                                onApplyResult={(url) => {
+                                    invalidate();
+                                    setImage(url, true);
                                 }}
                             />
                             <PaletteSelector
