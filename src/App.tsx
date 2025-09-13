@@ -170,7 +170,7 @@ function App(): React.ReactElement | null {
                                 if (e.target.files && e.target.files[0])
                                     handleFiles(e.target.files[0]);
                             }}
-                            style={{ display: "none" }}
+                            className="hidden-file-input"
                         />
                         {/* file input stays here (hidden); uploader buttons moved to preview actions */}
                         <PaletteSelector
