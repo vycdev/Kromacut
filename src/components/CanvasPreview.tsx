@@ -216,18 +216,35 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
                 return;
             }
 
+            // Capture visible center image coordinates so we can preserve the
+            // user's view when the underlying image is replaced (e.g. after
+            // baking, dedithering, or cropping). If there's no previous layout
+            // available we'll fall back to the existing offset.
+            const container = previewContainerRef.current;
+            let prevCenterImageCoord: { x: number; y: number } | null = null;
+            if (container && imgRef.current) {
+                const rect = container.getBoundingClientRect();
+                const cx = rect.width / 2;
+                const cy = rect.height / 2;
+                const prevLayout = computeImageLayout();
+                if (prevLayout) {
+                    const prevScale = prevLayout.baseScale * (zoomRef.current || 1);
+                    const imgX = (cx - (offsetRef.current.x + prevLayout.dx)) / prevScale;
+                    const imgY = (cy - (offsetRef.current.y + prevLayout.dy)) / prevScale;
+                    prevCenterImageCoord = { x: imgX, y: imgY };
+                }
+            }
+
             const img = new Image();
             imgRef.current = img;
             img.onload = () => {
-                // reset zoom when a new image loads
-                zoomRef.current = 1;
-                setZoomState(1);
-                // prepare offscreen original & processed clones
+                // preserve current zoom (don't reset) and try to restore the
+                // same image coordinate under the container center so the view
+                // doesn't jump when swapping the image source.
                 const iw = img.naturalWidth;
                 const ih = img.naturalHeight;
                 if (iw && ih) {
-                    originalCanvasRef.current =
-                        document.createElement("canvas");
+                    originalCanvasRef.current = document.createElement("canvas");
                     originalCanvasRef.current.width = iw;
                     originalCanvasRef.current.height = ih;
                     const octx = originalCanvasRef.current.getContext("2d");
@@ -238,6 +255,21 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
                     processedCanvasRef.current = null; // invalidate processed
                     lastAdjSigRef.current = "";
                 }
+
+                // restore view center if we computed it earlier
+                if (prevCenterImageCoord && container) {
+                    const rect = container.getBoundingClientRect();
+                    const cx = rect.width / 2;
+                    const cy = rect.height / 2;
+                    const newLayout = computeImageLayout();
+                    if (newLayout) {
+                        const newScale = newLayout.baseScale * (zoomRef.current || 1);
+                        const newOffsetX = cx - newLayout.dx - prevCenterImageCoord.x * newScale;
+                        const newOffsetY = cy - newLayout.dy - prevCenterImageCoord.y * newScale;
+                        offsetRef.current = { x: newOffsetX, y: newOffsetY };
+                    }
+                }
+
                 drawToCanvas();
             };
             img.src = imageSrc;
