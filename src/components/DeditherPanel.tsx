@@ -10,7 +10,7 @@ export const DeditherPanel: React.FC<Props> = ({
     canvasRef,
     onApplyResult,
 }) => {
-    const [threshold, setThreshold] = useState<number>(4);
+    const [weight, setWeight] = useState<number>(4);
     const [working, setWorking] = useState(false);
 
     const handleApply = useCallback(async () => {
@@ -88,7 +88,7 @@ export const DeditherPanel: React.FC<Props> = ({
                         }
                     }
 
-                    if (sameCount >= threshold) {
+                    if (sameCount >= weight) {
                         // keep original
                         continue;
                     }
@@ -136,7 +136,7 @@ export const DeditherPanel: React.FC<Props> = ({
         } finally {
             setWorking(false);
         }
-    }, [canvasRef, threshold, onApplyResult]);
+    }, [canvasRef, weight, onApplyResult]);
 
     return (
         <div className="controls-group">
@@ -154,29 +154,25 @@ export const DeditherPanel: React.FC<Props> = ({
                 <label
                     style={{ display: "flex", alignItems: "center", gap: 8 }}
                 >
-                    <span style={{ fontSize: 13 }}>N</span>
+                    <span style={{ fontSize: 13 }}>Weight</span>
                     <input
-                        type="number"
+                        type="range"
                         min={0}
                         max={9}
-                        value={threshold}
-                        onChange={(e) =>
-                            setThreshold(
-                                Math.max(
-                                    0,
-                                    Math.min(9, Number(e.target.value) || 0)
-                                )
-                            )
-                        }
-                        style={{
-                            width: 64,
-                            padding: "6px 8px",
-                            borderRadius: 6,
-                            background: "#222",
-                            color: "#fff",
-                            border: "1px solid rgba(255,255,255,0.06)",
-                        }}
+                        step={1}
+                        value={weight}
+                        onChange={(e) => setWeight(Number(e.target.value))}
+                        style={{ width: 160 }}
                     />
+                    <div
+                        style={{
+                            width: 28,
+                            textAlign: "right",
+                            fontWeight: 700,
+                        }}
+                    >
+                        {weight}
+                    </div>
                 </label>
                 <button
                     className="apply-btn"
