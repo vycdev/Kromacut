@@ -267,7 +267,8 @@ export default function ThreeDControls({ swatches }: ThreeDControlsProps) {
                                             dragOverIndex === displayIdx &&
                                             dragOverPosition === "above"
                                                 ? "inset 0 2px 0 0 rebeccapurple"
-                                                : dragOverIndex === displayIdx &&
+                                                : dragOverIndex ===
+                                                      displayIdx &&
                                                   dragOverPosition === "below"
                                                 ? "inset 0 -2px 0 0 rebeccapurple"
                                                 : undefined,
