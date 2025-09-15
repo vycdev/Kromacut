@@ -112,6 +112,9 @@ export default function ThreeDView({
         // (Typical 3D printing coordinate system uses Z as vertical.)
         scene.add(mesh);
         meshRef.current = mesh;
+        try {
+            (window as unknown as { __STRATA_LAST_MESH?: THREE.Mesh }).__STRATA_LAST_MESH = mesh;
+        } catch { /* no-op */ }
 
         const resize = () => {
             if (!el || !cameraRef.current || !rendererRef.current) return;
@@ -445,6 +448,9 @@ export default function ThreeDView({
                 const oldGeom = mesh.geometry as THREE.BufferGeometry;
                 mesh.geometry = finalGeom;
                 oldGeom.dispose();
+                try {
+                    (window as unknown as { __STRATA_LAST_MESH?: THREE.Mesh }).__STRATA_LAST_MESH = mesh;
+                } catch { /* ignore */ }
 
                 // Direct pixel to mm mapping: each pixel spans pixelSize mm.
                 const finalW = bbox ? bbox.boxW : w;

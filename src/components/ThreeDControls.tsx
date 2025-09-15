@@ -21,7 +21,7 @@ export default function ThreeDControls({
 }: ThreeDControlsProps) {
     // 3D printing controls (owned by this component)
     const [layerHeight, setLayerHeight] = useState<number>(0.12); // mm
-    const [baseSliceHeight, setBaseSliceHeight] = useState<number>(layerHeight);
+    const [baseSliceHeight, setBaseSliceHeight] = useState<number>(0);
     const [colorSliceHeights, setColorSliceHeights] = useState<number[]>([]);
 
     // derive non-transparent swatches once per render and memoize
@@ -38,9 +38,10 @@ export default function ThreeDControls({
     // and snap it to the nearest multiple of layerHeight to keep it aligned.
     useEffect(() => {
         setBaseSliceHeight((prev) => {
-            const clamped = Math.max(layerHeight, Math.min(10, prev));
+            const clamped = Math.max(0, Math.min(10, prev));
+            if (layerHeight <= 0) return clamped; // safety
             const multiple = Math.round(clamped / layerHeight) * layerHeight;
-            const snapped = Math.max(layerHeight, Math.min(10, multiple));
+            const snapped = Math.max(0, Math.min(10, multiple));
             return Number(snapped.toFixed(8));
         });
     }, [layerHeight]);
@@ -265,7 +266,7 @@ export default function ThreeDControls({
                     >
                         <input
                             type="range"
-                            min={layerHeight}
+                            min={0}
                             max={10}
                             step={layerHeight}
                             value={baseSliceHeight}
