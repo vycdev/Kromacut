@@ -33,9 +33,11 @@ export default function ThreeDControls({ swatches }: ThreeDControlsProps) {
         setColorSliceHeights((prev) => {
             const next = filtered.map((_, i) => {
                 const existing = prev[i];
-                const base = typeof existing === "number" ? existing : layerHeight;
+                const base =
+                    typeof existing === "number" ? existing : layerHeight;
                 const clamped = Math.max(layerHeight, Math.min(10, base));
-                const multiple = Math.round(clamped / layerHeight) * layerHeight;
+                const multiple =
+                    Math.round(clamped / layerHeight) * layerHeight;
                 const snapped = Math.max(layerHeight, Math.min(10, multiple));
                 return Number(snapped.toFixed(8));
             });
@@ -126,62 +128,72 @@ export default function ThreeDControls({ swatches }: ThreeDControlsProps) {
 
             {/* Per-color slice heights */}
             <div className="controls-group">
-                <div style={{ fontWeight: 700, marginBottom: 8, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div
+                    style={{
+                        fontWeight: 700,
+                        marginBottom: 8,
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                    }}
+                >
                     <div>Color slice heights</div>
-                    <div className="adjustment-unit">{filtered.length} colors</div>
+                    <div className="adjustment-unit">
+                        {filtered.length} colors
+                    </div>
                 </div>
                 <div
                     style={{ display: "flex", flexDirection: "column", gap: 8 }}
                 >
                     {filtered.map((s, idx) => {
-                            const val = colorSliceHeights[idx] ?? layerHeight;
-                            return (
+                        const val = colorSliceHeights[idx] ?? layerHeight;
+                        return (
+                            <div
+                                key={`${s.hex}-${idx}`}
+                                style={{
+                                    display: "flex",
+                                    gap: 8,
+                                    alignItems: "center",
+                                }}
+                            >
                                 <div
-                                    key={`${s.hex}-${idx}`}
                                     style={{
-                                        display: "flex",
-                                        gap: 8,
-                                        alignItems: "center",
+                                        width: 28,
+                                        height: 20,
+                                        background: s.hex,
+                                        border: "1px solid #ccc",
+                                        borderRadius: 3,
+                                    }}
+                                />
+                                <input
+                                    type="range"
+                                    min={layerHeight}
+                                    max={10}
+                                    step={layerHeight}
+                                    value={val}
+                                    onChange={(e) => {
+                                        const v = Number(e.target.value);
+                                        if (Number.isNaN(v)) return;
+                                        setColorSliceHeights((prev) => {
+                                            const next = prev.slice();
+                                            next[idx] = v;
+                                            return next;
+                                        });
+                                    }}
+                                    className="range--styled"
+                                    style={{ flex: 1 }}
+                                />
+                                <div
+                                    style={{
+                                        width: 72,
+                                        textAlign: "right",
                                     }}
                                 >
-                                    <div
-                                        style={{
-                                            width: 28,
-                                            height: 20,
-                                            background: s.hex,
-                                            border: "1px solid #ccc",
-                                            borderRadius: 3,
-                                        }}
-                                    />
-                                    <input
-                                        type="range"
-                                        min={layerHeight}
-                                        max={10}
-                                        step={layerHeight}
-                                        value={val}
-                                        onChange={(e) => {
-                                            const v = Number(e.target.value);
-                                            if (Number.isNaN(v)) return;
-                                            setColorSliceHeights((prev) => {
-                                                const next = prev.slice();
-                                                next[idx] = v;
-                                                return next;
-                                            });
-                                        }}
-                                        className="range--styled"
-                                        style={{ flex: 1 }}
-                                    />
-                                    <div
-                                        style={{
-                                            width: 72,
-                                            textAlign: "right",
-                                        }}
-                                    >
-                                        {val.toFixed(2)} mm
-                                    </div>
+                                    {val.toFixed(2)} mm
                                 </div>
-                            );
-                        })}
+                            </div>
+                        );
+                    })}
                 </div>
             </div>
         </div>
