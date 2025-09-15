@@ -6,9 +6,19 @@ type Swatch = { hex: string; a: number };
 
 interface ThreeDControlsProps {
     swatches: Swatch[] | null;
+    onChange?: (state: {
+        layerHeight: number;
+        baseSliceHeight: number;
+        colorSliceHeights: number[];
+        colorOrder: number[];
+        filteredSwatches: Swatch[];
+    }) => void;
 }
 
-export default function ThreeDControls({ swatches }: ThreeDControlsProps) {
+export default function ThreeDControls({
+    swatches,
+    onChange,
+}: ThreeDControlsProps) {
     // 3D printing controls (owned by this component)
     const [layerHeight, setLayerHeight] = useState<number>(0.12); // mm
     const [baseSliceHeight, setBaseSliceHeight] = useState<number>(layerHeight);
@@ -144,16 +154,32 @@ export default function ThreeDControls({ swatches }: ThreeDControlsProps) {
 
     // stable per-row change handler so memoized rows don't re-render due to
     // a new function identity being created each parent render
-    const onRowChange = useCallback(
-        (idx: number, v: number) => {
-            setColorSliceHeights((prev) => {
-                const next = prev.slice();
-                next[idx] = v;
-                return next;
-            });
-        },
-        [setColorSliceHeights]
-    );
+    const onRowChange = useCallback((idx: number, v: number) => {
+        setColorSliceHeights((prev) => {
+            const next = prev.slice();
+            next[idx] = v;
+            return next;
+        });
+    }, []);
+
+    // Emit consolidated state upwards when any relevant 3D printing parameter changes
+    useEffect(() => {
+        if (!onChange) return;
+        onChange({
+            layerHeight,
+            baseSliceHeight,
+            colorSliceHeights,
+            colorOrder,
+            filteredSwatches: filtered,
+        });
+    }, [
+        onChange,
+        layerHeight,
+        baseSliceHeight,
+        colorSliceHeights,
+        colorOrder,
+        filtered,
+    ]);
 
     return (
         <div className="controls-scroll">

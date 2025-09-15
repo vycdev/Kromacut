@@ -58,6 +58,20 @@ function App(): React.ReactElement | null {
     const [adjustmentsEpoch, setAdjustmentsEpoch] = useState(0);
     // UI mode toggles (2D / 3D) - UI only for now
     const [mode, setMode] = useState<"2d" | "3d">("2d");
+    // 3D printing shared state
+    const [threeDState, setThreeDState] = useState<{
+        layerHeight: number;
+        baseSliceHeight: number;
+        colorSliceHeights: number[];
+        colorOrder: number[];
+        filteredSwatches: { hex: string; a: number }[];
+    }>({
+        layerHeight: 0.12,
+        baseSliceHeight: 0.12,
+        colorSliceHeights: [],
+        colorOrder: [],
+        filteredSwatches: [],
+    });
 
     // removed duplicate syncing: manual changes to the numeric input should set Auto via onWeightChange
     // redraw when image changes
@@ -535,7 +549,10 @@ function App(): React.ReactElement | null {
                                 </div>
                             </>
                         ) : (
-                            <ThreeDControls swatches={swatches} />
+                            <ThreeDControls
+                                swatches={swatches}
+                                onChange={(s) => setThreeDState(s)}
+                            />
                         )}
                     </div>
                 </aside>
@@ -577,7 +594,16 @@ function App(): React.ReactElement | null {
                                 adjustments={adjustments}
                             />
                         ) : (
-                            <ThreeDView imageSrc={imageSrc} />
+                            <ThreeDView
+                                imageSrc={imageSrc}
+                                baseSliceHeight={threeDState.baseSliceHeight}
+                                layerHeight={threeDState.layerHeight}
+                                colorSliceHeights={
+                                    threeDState.colorSliceHeights
+                                }
+                                colorOrder={threeDState.colorOrder}
+                                swatches={threeDState.filteredSwatches}
+                            />
                         )}
                         <div className="preview-actions">
                             <button
