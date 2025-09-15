@@ -525,6 +525,39 @@
     background: rgba(255, 255, 255, 0.01);
 }
 
+/* Mode selector section (sits above settings, same width as settings) */
+.mode-section {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.5rem;
+    margin-bottom: 1rem;
+}
+.mode-tabs {
+    display: inline-flex;
+    gap: 8px;
+    background: transparent;
+    border-radius: 8px;
+}
+.mode-btn {
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    background: rgba(255, 255, 255, 0.02);
+    color: inherit;
+    cursor: pointer;
+    font-weight: 700;
+}
+.mode-btn--active {
+    background: linear-gradient(90deg, #6b21a8, #4f46e5);
+    color: white;
+    border-color: rgba(255, 255, 255, 0.08);
+}
+.mode-btn:focus {
+    outline: none;
+    box-shadow: 0 0 0 6px rgba(79, 70, 229, 0.06);
+}
+
 /* scroll wrapper for the controls panel to allow inner groups to scroll */
 .controls-scroll {
     overflow-y: auto;

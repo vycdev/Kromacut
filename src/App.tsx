@@ -54,6 +54,8 @@ function App(): React.ReactElement | null {
         useState<Record<string, number>>(ADJUSTMENT_DEFAULTS);
     // epoch counter to force remount of AdjustmentsPanel when we bake & reset
     const [adjustmentsEpoch, setAdjustmentsEpoch] = useState(0);
+    // UI mode toggles (2D / 3D) - UI only for now
+    const [mode, setMode] = useState<"2d" | "3d">("2d");
 
     // removed duplicate syncing: manual changes to the numeric input should set Auto via onWeightChange
     // redraw when image changes
@@ -197,6 +199,33 @@ function App(): React.ReactElement | null {
             </header>
             <div className="app-layout" ref={layoutRef}>
                 <aside className="sidebar">
+                    <div
+                        className="controls-group mode-section"
+                        aria-hidden={false}
+                    >
+                        <div className="mode-tabs">
+                            <button
+                                type="button"
+                                className={`mode-btn ${
+                                    mode === "2d" ? "mode-btn--active" : ""
+                                }`}
+                                onClick={() => setMode("2d")}
+                                aria-pressed={mode === "2d"}
+                            >
+                                2D Mode
+                            </button>
+                            <button
+                                type="button"
+                                className={`mode-btn ${
+                                    mode === "3d" ? "mode-btn--active" : ""
+                                }`}
+                                onClick={() => setMode("3d")}
+                                aria-pressed={mode === "3d"}
+                            >
+                                3D Mode
+                            </button>
+                        </div>
+                    </div>
                     <div className="controls-panel">
                         <input
                             ref={inputRef}
