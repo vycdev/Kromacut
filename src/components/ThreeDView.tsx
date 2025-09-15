@@ -100,6 +100,10 @@ export default function ThreeDView({
         mesh.rotation.x = -Math.PI / 2; // lay flat
         scene.add(mesh);
 
+        // We'll later scale mesh.x & mesh.z so that horizontal dimensions are in mm like vertical heights.
+        // Strategy: constrain the largest image dimension to MAX_VIEW_DIM_MM (print-bed friendly) and scale the other proportionally.
+        const MAX_VIEW_DIM_MM = 120; // target max dimension (can externalize later)
+
         // Build height + color data from image according to stacking rules
         // Steps:
         // 1. Draw image to an offscreen canvas (treat partial alpha >0 as opaque).
@@ -188,7 +192,11 @@ export default function ThreeDView({
                         }
                     }
                     // assign height to vertex Y component (since plane rotated later, using position.y for elevation after rotation.x)
-                    positionAttr.setZ(vi, height); // Actually for PlaneGeometry attributes: (x,y,z) with y=0 initially; we'll use z for up after rotation? Simpler: adjust positionAttr.setZ.
+                    // Quantize final height to nearest layer multiple to guarantee print layer alignment
+                    if (layerHeight > 0) {
+                        height = Math.round(height / layerHeight) * layerHeight;
+                    }
+                    positionAttr.setZ(vi, height); // Actually for PlaneGeometry attributes: (x,y,z) with y=0 initially; we'll use z for up after rotation.
                     // Assign color = pixel color (normalized)
                     colors[vi * 3 + 0] = r / 255;
                     colors[vi * 3 + 1] = g / 255;
@@ -326,6 +334,16 @@ export default function ThreeDView({
                 );
                 geometry.setIndex(indices);
                 geometry.computeVertexNormals();
+
+                // After geometry & heights prepared, scale mesh horizontally to reflect mm sizes.
+                // Determine mm per pixel so that the larger side equals MAX_VIEW_DIM_MM.
+                const maxDimPx = Math.max(w, h);
+                const mmPerPixel = MAX_VIEW_DIM_MM / maxDimPx;
+                const widthMm = w * mmPerPixel;
+                const heightMm = h * mmPerPixel; // image Y dimension maps to mesh Z after rotation
+                mesh.scale.x = widthMm; // X axis width in mm
+                mesh.scale.z = heightMm; // Z axis depth in mm (since rotated)
+                // Vertical (Y) already in mm because we input mm heights directly; no scale change needed.
             } catch (err) {
                 // ignore failures quietly
                 if (console && console.warn)
