@@ -68,7 +68,7 @@ function App(): React.ReactElement | null {
 
     // Ensure baseSliceHeight stays within valid bounds when layerHeight changes
     useEffect(() => {
-        setBaseSliceHeight((v) => Math.max(layerHeight, Math.min(1, v)));
+        setBaseSliceHeight((v) => Math.max(layerHeight, Math.min(10, v)));
     }, [layerHeight]);
 
     const handleFiles = (file?: File) => {
@@ -616,7 +616,7 @@ function App(): React.ReactElement | null {
                                                 <input
                                                     type="range"
                                                     min={layerHeight}
-                                                    max={1}
+                                                    max={10}
                                                     step={layerHeight}
                                                     value={baseSliceHeight}
                                                     onChange={(e) => {
