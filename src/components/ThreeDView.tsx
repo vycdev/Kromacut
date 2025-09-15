@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
-import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
+import { OrbitControls } from "three/examples/jsm/Addons.js";
 
 interface ThreeDViewProps {
     imageSrc?: string | null;
@@ -17,7 +17,6 @@ export default function ThreeDView({ imageSrc }: ThreeDViewProps) {
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
         renderer.setSize(el.clientWidth, el.clientHeight);
-        renderer.outputColorSpace = (THREE as any).SRGBColorSpace || undefined;
         el.appendChild(renderer.domElement);
 
         const scene = new THREE.Scene();
@@ -59,23 +58,25 @@ export default function ThreeDView({ imageSrc }: ThreeDViewProps) {
         scene.add(mesh);
 
         // load image as texture and use as displacement map + color map
-        let texture: THREE.Texture | null = null;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        let texture: any = null;
         if (imageSrc) {
             const loader = new THREE.TextureLoader();
             // cross origin setting for remote images
             (loader as unknown as { crossOrigin: string }).crossOrigin = "";
             loader.load(
                 imageSrc,
-                (tex: THREE.Texture) => {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                (tex: any) => {
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    tex.wrapS = tex.wrapT = (
-                        THREE as unknown as any
+                    (tex as any).wrapS = (tex as any).wrapT = (
+                        THREE as any
                     ).RepeatWrapping;
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    tex.minFilter = (THREE as unknown as any).LinearFilter;
+                    (tex as any).minFilter = (THREE as any).LinearFilter;
                     // safe fallback for anisotropy
                     try {
-                        tex.anisotropy =
+                        (tex as any).anisotropy =
                             renderer.capabilities.getMaxAnisotropy();
                     } catch (err) {
                         if (typeof console !== "undefined" && console.warn)
@@ -84,9 +85,9 @@ export default function ThreeDView({ imageSrc }: ThreeDViewProps) {
                     texture = tex;
                     // use texture as color map and displacement map approximation
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    (material as unknown as any).map = tex;
+                    (material as any).map = tex;
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    (material as unknown as any).displacementMap = tex;
+                    (material as any).displacementMap = tex;
                     material.needsUpdate = true;
                 },
                 undefined,
