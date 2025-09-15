@@ -56,6 +56,8 @@ function App(): React.ReactElement | null {
     const [adjustmentsEpoch, setAdjustmentsEpoch] = useState(0);
     // UI mode toggles (2D / 3D) - UI only for now
     const [mode, setMode] = useState<"2d" | "3d">("2d");
+    // 3D printing controls
+    const [layerHeight, setLayerHeight] = useState<number>(0.12); // mm
 
     // removed duplicate syncing: manual changes to the numeric input should set Auto via onWeightChange
     // redraw when image changes
@@ -531,7 +533,34 @@ function App(): React.ReactElement | null {
                                     />
                                 </div>
                             </>
-                        ) : null}
+                        ) : (
+                            <>
+                                <div className="controls-scroll">
+                                    <div className="controls-group">
+                                        <label>
+                                            <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+                                                <span style={{fontWeight:700}}>Layer height</span>
+                                                <span className="adjustment-unit">{layerHeight.toFixed(2)} mm</span>
+                                            </div>
+                                            <div style={{display: 'flex', gap: '8px', alignItems: 'center'}}>
+                                                <input
+                                                    type="number"
+                                                    min={0.01}
+                                                    max={1}
+                                                    step={0.01}
+                                                    value={layerHeight}
+                                                    onChange={(e) => {
+                                                        const v = Number(e.target.value);
+                                                        if (!Number.isNaN(v)) setLayerHeight(v);
+                                                    }}
+                                                    style={{width: '100%'}}
+                                                />
+                                            </div>
+                                        </label>
+                                    </div>
+                                </div>
+                            </>
+                        )}
                     </div>
                 </aside>
                 <div
