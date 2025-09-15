@@ -11,6 +11,8 @@ interface ThreeDViewProps {
     swatches: { hex: string; a: number }[]; // filtered (non-transparent) swatches in original order
     pixelSize?: number; // mm per pixel horizontally (X & Z). Default 0.01 => 100px = 1mm
     heightScale?: number; // vertical exaggeration (1 = real scale)
+    stepped?: boolean; // if true, flatten each cell to a uniform height (square plateaus instead of spikes)
+    pixelColumns?: boolean; // if true, final build uses one plateau per image pixel (rectangular towers)
 }
 
 // Convert hex color to RGB tuple
@@ -45,6 +47,8 @@ export default function ThreeDView({
     swatches,
     pixelSize = 0.01,
     heightScale = 1,
+    stepped = true,
+    pixelColumns = true,
 }: ThreeDViewProps) {
     const mountRef = useRef<HTMLDivElement | null>(null);
     const rafRef = useRef<number | null>(null);
@@ -158,6 +162,8 @@ export default function ThreeDView({
             swatches: swatches.map((s) => s.hex),
             pixelSize,
             heightScale,
+            stepped,
+            pixelColumns,
         });
         if (paramsKey === lastParamsKeyRef.current) return; // nothing changed logically
         lastParamsKeyRef.current = paramsKey;
@@ -294,6 +300,37 @@ export default function ThreeDView({
                         if (token !== buildTokenRef.current) return;
                         lastYield = performance.now();
                     }
+                }
+
+                // Optional: flatten heights per cell to eliminate single-vertex spikes (creates square plateaus)
+                if (stepped) {
+                    const widthSegments = resolution;
+                    const heightSegments = resolution;
+                    const vertsPerRow = widthSegments + 1;
+                    for (let y = 0; y < heightSegments; y++) {
+                        for (let x = 0; x < widthSegments; x++) {
+                            const a = y * vertsPerRow + x;
+                            const bI = a + 1;
+                            const c = a + vertsPerRow;
+                            const d = c + 1;
+                            const hA = posAttr.getZ(a);
+                            const hB = posAttr.getZ(bI);
+                            const hC = posAttr.getZ(c);
+                            const hD = posAttr.getZ(d);
+                            // Use max so that a tall pixel produces a full-height plateau rather than being averaged down
+                            const cellH = Math.max(hA, hB, hC, hD);
+                            posAttr.setZ(a, cellH);
+                            posAttr.setZ(bI, cellH);
+                            posAttr.setZ(c, cellH);
+                            posAttr.setZ(d, cellH);
+                        }
+                        if (performance.now() - lastYield > YIELD_EVERY_MS) {
+                            await new Promise((r) => requestAnimationFrame(r));
+                            if (token !== buildTokenRef.current) return;
+                            lastYield = performance.now();
+                        }
+                    }
+                    posAttr.needsUpdate = true;
                 }
                 planeGeom.setAttribute(
                     "color",
@@ -460,6 +497,228 @@ export default function ThreeDView({
                 // console.log(`[3D] ${mode} build @${resolution} took ${(performance.now()-t0).toFixed(1)}ms`);
             };
 
+            // Build per-pixel column geometry (plateaus) for the FINAL pass when pixelColumns is enabled
+            const buildPixelGeometry = async (
+                img: HTMLImageElement,
+                mode: "preview" | "final",
+                bbox: { minX: number; minY: number; boxW: number; boxH: number }
+            ) => {
+                if (token !== buildTokenRef.current) return;
+                const fullW = img.naturalWidth;
+                const fullH = img.naturalHeight;
+                const { minX, minY, boxW, boxH } = bbox;
+                // Safety guard for enormous images
+                if (boxW * boxH > 1_200_000) {
+                    console.warn(
+                        "[3D] pixelColumns fallback to adaptive (image too large)"
+                    );
+                    return buildGeometry(
+                        img,
+                        chooseResolution(boxW, boxH),
+                        mode,
+                        bbox
+                    );
+                }
+                const canvas = document.createElement("canvas");
+                canvas.width = fullW;
+                canvas.height = fullH;
+                const ctx = canvas.getContext("2d");
+                if (!ctx) return;
+                ctx.drawImage(img, 0, 0, fullW, fullH);
+                const { data } = ctx.getImageData(0, 0, fullW, fullH);
+
+                // Precompute cumulative heights
+                const orderPositions = new Map<number, number>();
+                colorOrder.forEach((fi, pos) => orderPositions.set(fi, pos));
+                const cumulativePerOrderPos: number[] = [];
+                let running = 0;
+                colorOrder.forEach((fi, pos) => {
+                    running += colorSliceHeights[fi] || 0;
+                    cumulativePerOrderPos[pos] = running;
+                });
+
+                // Allocate arrays for pixel heights & colors
+                const pixHeights = new Float32Array(boxW * boxH);
+                const pixColors = new Uint8Array(boxW * boxH * 3);
+
+                let lastYield = performance.now();
+                const YIELD_MS = 12;
+                for (let y = 0; y < boxH; y++) {
+                    for (let x = 0; x < boxW; x++) {
+                        const px = minX + x;
+                        const py = minY + y;
+                        const idx = (py * fullW + px) * 4;
+                        const r = data[idx];
+                        const g = data[idx + 1];
+                        const b = data[idx + 2];
+                        const a = data[idx + 3];
+                        const opaque = a > 0;
+                        let height = opaque ? baseSliceHeight : 0;
+                        if (opaque && swatches.length) {
+                            const swatchIndex = findSwatchIndex(
+                                r,
+                                g,
+                                b,
+                                swatches
+                            );
+                            if (swatchIndex !== -1) {
+                                const orderPos =
+                                    orderPositions.get(swatchIndex);
+                                if (orderPos !== undefined)
+                                    height +=
+                                        cumulativePerOrderPos[orderPos] || 0;
+                            }
+                        }
+                        if (layerHeight > 0)
+                            height =
+                                Math.round(height / layerHeight) * layerHeight;
+                        pixHeights[y * boxW + x] = height;
+                        const base = (y * boxW + x) * 3;
+                        pixColors[base] = r;
+                        pixColors[base + 1] = g;
+                        pixColors[base + 2] = b;
+                    }
+                    if (performance.now() - lastYield > YIELD_MS) {
+                        await new Promise((r) => requestAnimationFrame(r));
+                        if (token !== buildTokenRef.current) return;
+                        lastYield = performance.now();
+                    }
+                }
+                if (token !== buildTokenRef.current) return;
+
+                // Geometry: one vertex per (boxW+1)*(boxH+1). Assign each vertex the height of its owning pixel (clamp to edge)
+                const geom = new THREE.PlaneGeometry(1, 1, boxW, boxH);
+                const posAttr = geom.getAttribute("position");
+                const vertexColors = new Float32Array(posAttr.count * 3);
+                const vertsPerRow = boxW + 1;
+                for (let vy = 0; vy < boxH + 1; vy++) {
+                    for (let vx = 0; vx < boxW + 1; vx++) {
+                        const px = Math.min(boxW - 1, vx);
+                        const py = Math.min(boxH - 1, vy);
+                        const hVal = pixHeights[py * boxW + px];
+                        const colorBase = (py * boxW + px) * 3;
+                        const vi = vy * vertsPerRow + vx;
+                        posAttr.setZ(vi, hVal);
+                        vertexColors[vi * 3] = pixColors[colorBase] / 255;
+                        vertexColors[vi * 3 + 1] =
+                            pixColors[colorBase + 1] / 255;
+                        vertexColors[vi * 3 + 2] =
+                            pixColors[colorBase + 2] / 255;
+                    }
+                    if (performance.now() - lastYield > YIELD_MS) {
+                        await new Promise((r) => requestAnimationFrame(r));
+                        if (token !== buildTokenRef.current) return;
+                        lastYield = performance.now();
+                    }
+                }
+                geom.setAttribute(
+                    "color",
+                    new THREE.BufferAttribute(vertexColors, 3)
+                );
+
+                // For preview mode we skip walls/bottom
+                let finalGeom: THREE.BufferGeometry = geom;
+                if (mode === "final") {
+                    const topPositions = new Float32Array(posAttr.count * 3);
+                    for (let i = 0; i < posAttr.count; i++) {
+                        topPositions[i * 3] = posAttr.getX(i);
+                        topPositions[i * 3 + 1] = posAttr.getY(i);
+                        topPositions[i * 3 + 2] = posAttr.getZ(i);
+                    }
+                    const bottomPositions = new Float32Array(posAttr.count * 3);
+                    bottomPositions.set(topPositions);
+                    for (let i = 0; i < posAttr.count; i++)
+                        bottomPositions[i * 3 + 2] = 0;
+                    const bottomColors = new Float32Array(vertexColors.length);
+                    bottomColors.set(vertexColors);
+                    const widthSegments = boxW;
+                    const heightSegments = boxH;
+                    const vertsRow = widthSegments + 1;
+                    const topIndices: number[] = [];
+                    for (let y = 0; y < heightSegments; y++) {
+                        for (let x = 0; x < widthSegments; x++) {
+                            const a = y * vertsRow + x;
+                            const b = a + 1;
+                            const c = a + vertsRow;
+                            const d = c + 1;
+                            topIndices.push(a, c, b, b, c, d);
+                        }
+                    }
+                    const bottomOffset = posAttr.count;
+                    const indices: number[] = [...topIndices];
+                    for (let i = topIndices.length - 1; i >= 0; i--)
+                        indices.push(bottomOffset + topIndices[i]);
+                    const heightAt = (vx: number, vy: number) =>
+                        topPositions[(vy * vertsRow + vx) * 3 + 2];
+                    const pushWall = (tA: number, tB: number) => {
+                        const bA = tA + bottomOffset;
+                        const bB = tB + bottomOffset;
+                        indices.push(tA, bA, bB, tA, bB, tB);
+                    };
+                    for (let x = 0; x < widthSegments; x++) {
+                        if (heightAt(x, 0) > 0 || heightAt(x + 1, 0) > 0)
+                            pushWall(0 * vertsRow + x, 0 * vertsRow + (x + 1));
+                        if (
+                            heightAt(x, heightSegments) > 0 ||
+                            heightAt(x + 1, heightSegments) > 0
+                        )
+                            pushWall(
+                                heightSegments * vertsRow + (x + 1),
+                                heightSegments * vertsRow + x
+                            );
+                    }
+                    for (let y = 0; y < heightSegments; y++) {
+                        if (heightAt(0, y) > 0 || heightAt(0, y + 1) > 0)
+                            pushWall((y + 1) * vertsRow + 0, y * vertsRow + 0);
+                        if (
+                            heightAt(widthSegments, y) > 0 ||
+                            heightAt(widthSegments, y + 1) > 0
+                        )
+                            pushWall(
+                                y * vertsRow + widthSegments,
+                                (y + 1) * vertsRow + widthSegments
+                            );
+                    }
+                    const combinedPositions = new Float32Array(
+                        topPositions.length * 2
+                    );
+                    combinedPositions.set(topPositions, 0);
+                    combinedPositions.set(bottomPositions, topPositions.length);
+                    const combinedColors = new Float32Array(
+                        vertexColors.length * 2
+                    );
+                    combinedColors.set(vertexColors, 0);
+                    combinedColors.set(vertexColors, vertexColors.length);
+                    finalGeom = new THREE.BufferGeometry();
+                    finalGeom.setAttribute(
+                        "position",
+                        new THREE.BufferAttribute(combinedPositions, 3)
+                    );
+                    finalGeom.setAttribute(
+                        "color",
+                        new THREE.BufferAttribute(combinedColors, 3)
+                    );
+                    finalGeom.setIndex(indices);
+                    finalGeom.computeVertexNormals();
+                    geom.dispose();
+                }
+                if (token !== buildTokenRef.current) return;
+                // Swap onto mesh
+                const mesh = meshRef.current;
+                if (!mesh) return;
+                const old = mesh.geometry as THREE.BufferGeometry;
+                mesh.geometry = finalGeom;
+                old.dispose();
+
+                const finalW = boxW;
+                const finalH = boxH;
+                mesh.scale.set(
+                    finalW * pixelSize,
+                    finalH * pixelSize,
+                    heightScale
+                );
+            };
+
             (async () => {
                 const img = await loadImage();
                 if (!img || token !== buildTokenRef.current) return;
@@ -501,10 +760,16 @@ export default function ThreeDView({
                 const previewRes = Math.max(32, Math.round(fullRes / 3));
                 const bbox = { minX, minY, boxW, boxH };
                 // Quick preview using bbox
-                await buildGeometry(img, previewRes, "preview", bbox);
+                if (pixelColumns) {
+                    // For performance, preview still uses adaptive sampling
+                    await buildGeometry(img, previewRes, "preview", bbox);
+                } else {
+                    await buildGeometry(img, previewRes, "preview", bbox);
+                }
                 if (token !== buildTokenRef.current) return;
                 requestIdle(() => {
-                    buildGeometry(img, fullRes, "final", bbox);
+                    if (pixelColumns) buildPixelGeometry(img, "final", bbox);
+                    else buildGeometry(img, fullRes, "final", bbox);
                 });
             })();
         }, 120); // 120ms debounce
@@ -522,6 +787,8 @@ export default function ThreeDView({
         swatches,
         pixelSize,
         heightScale,
+        stepped,
+        pixelColumns,
     ]);
 
     return <div style={{ width: "100%", height: "100%" }} ref={mountRef} />;
