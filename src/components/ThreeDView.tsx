@@ -93,6 +93,8 @@ export default function ThreeDView({
             side: THREE.DoubleSide,
             vertexColors: true,
         });
+        // Use flat shading so stepped layers don't look smoothly rounded
+        material.flatShading = true;
 
         const mesh = new THREE.Mesh(geometry, material);
         mesh.rotation.x = -Math.PI / 2; // lay flat
@@ -165,8 +167,8 @@ export default function ThreeDView({
                     );
                     const py = Math.min(
                         h - 1,
-                        Math.max(0, Math.round((1 - v) * (h - 1)))
-                    ); // flip v so image isn't upside down
+                        Math.max(0, Math.round(v * (h - 1)))
+                    ); // removed vertical flip so orientation matches 2D preview
                     const idx = (py * w + px) * 4;
                     const r = data[idx];
                     const g = data[idx + 1];
