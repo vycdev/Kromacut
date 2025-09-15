@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import ThreeDControls from "./components/ThreeDControls";
+import ThreeDView from "./components/ThreeDView";
 import "./App.css";
 import logo from "./assets/logo.png";
 import CanvasPreview from "./components/CanvasPreview";
@@ -63,7 +64,6 @@ function App(): React.ReactElement | null {
     useEffect(() => {
         canvasPreviewRef.current?.redraw();
     }, [imageSrc]);
-
 
     const handleFiles = (file?: File) => {
         if (!file) return;
@@ -577,9 +577,7 @@ function App(): React.ReactElement | null {
                                 adjustments={adjustments}
                             />
                         ) : (
-                            <div className="three-placeholder">
-                                <p>3D view active — rendering scene here.</p>
-                            </div>
+                            <ThreeDView imageSrc={imageSrc} />
                         )}
                         <div className="preview-actions">
                             <button
