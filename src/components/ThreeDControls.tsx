@@ -261,25 +261,15 @@ export default function ThreeDControls({ swatches }: ThreeDControlsProps) {
                                         display: "flex",
                                         gap: 8,
                                         alignItems: "center",
-                                        borderTop:
+                                        // Use inset box-shadow for top/bottom indicator so it doesn't
+                                        // affect layout (no element displacement when shown).
+                                        boxShadow:
                                             dragOverIndex === displayIdx &&
                                             dragOverPosition === "above"
-                                                ? "2px solid rebeccapurple"
-                                                : undefined,
-                                        borderBottom:
-                                            dragOverIndex === displayIdx &&
-                                            dragOverPosition === "below"
-                                                ? "2px solid rebeccapurple"
-                                                : undefined,
-                                        paddingTop:
-                                            dragOverIndex === displayIdx &&
-                                            dragOverPosition === "above"
-                                                ? 4
-                                                : undefined,
-                                        paddingBottom:
-                                            dragOverIndex === displayIdx &&
-                                            dragOverPosition === "below"
-                                                ? 4
+                                                ? "inset 0 2px 0 0 rebeccapurple"
+                                                : dragOverIndex === displayIdx &&
+                                                  dragOverPosition === "below"
+                                                ? "inset 0 -2px 0 0 rebeccapurple"
                                                 : undefined,
                                         borderRadius:
                                             dragOverIndex === displayIdx
