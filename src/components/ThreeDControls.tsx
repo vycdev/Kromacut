@@ -162,16 +162,35 @@ export default function ThreeDControls({
         });
     }, []);
 
-    // Emit consolidated state upwards when any relevant 3D printing parameter changes
+    // Emit consolidated state upwards only when references or primitive values actually change.
+    const lastEmittedRef = useRef<{
+        layerHeight: number;
+        baseSliceHeight: number;
+        colorSliceHeights: number[];
+        colorOrder: number[];
+        filteredSwatches: Swatch[];
+    } | null>(null);
+
     useEffect(() => {
         if (!onChange) return;
-        onChange({
+        const prev = lastEmittedRef.current;
+        const same =
+            prev &&
+            prev.layerHeight === layerHeight &&
+            prev.baseSliceHeight === baseSliceHeight &&
+            prev.colorSliceHeights === colorSliceHeights &&
+            prev.colorOrder === colorOrder &&
+            prev.filteredSwatches === filtered;
+        if (same) return;
+        const next = {
             layerHeight,
             baseSliceHeight,
             colorSliceHeights,
             colorOrder,
             filteredSwatches: filtered,
-        });
+        };
+        lastEmittedRef.current = next;
+        onChange(next);
     }, [
         onChange,
         layerHeight,

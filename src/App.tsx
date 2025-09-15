@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import ThreeDControls from "./components/ThreeDControls";
 import ThreeDView from "./components/ThreeDView";
 import "./App.css";
@@ -186,6 +186,31 @@ function App(): React.ReactElement | null {
                 ? Math.floor(layoutRef.current.clientWidth / 2)
                 : 300);
     };
+    // Stable handler to avoid recreating function each render and to prevent redundant state sets
+    const handleThreeDStateChange = useCallback(
+        (s: {
+            layerHeight: number;
+            baseSliceHeight: number;
+            colorSliceHeights: number[];
+            colorOrder: number[];
+            filteredSwatches: { hex: string; a: number }[];
+        }) => {
+            setThreeDState((prev) => {
+                if (
+                    prev.layerHeight === s.layerHeight &&
+                    prev.baseSliceHeight === s.baseSliceHeight &&
+                    prev.colorSliceHeights === s.colorSliceHeights &&
+                    prev.colorOrder === s.colorOrder &&
+                    prev.filteredSwatches === s.filteredSwatches
+                ) {
+                    return prev; // no change; avoid triggering rerender cascade
+                }
+                return s;
+            });
+        },
+        []
+    );
+
     return (
         <div className="uploader-root">
             <header className="app-header">
@@ -551,7 +576,7 @@ function App(): React.ReactElement | null {
                         ) : (
                             <ThreeDControls
                                 swatches={swatches}
-                                onChange={(s) => setThreeDState(s)}
+                                onChange={handleThreeDStateChange}
                             />
                         )}
                     </div>
