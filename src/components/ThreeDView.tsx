@@ -195,6 +195,134 @@ export default function ThreeDView({
                 positionAttr.needsUpdate = true;
                 const colorAttr = new THREE.BufferAttribute(colors, 3);
                 geometry.setAttribute("color", colorAttr);
+
+                // Build filled solid: add bottom surface and simple perimeter walls
+                // (Interior holes not walled yet; transparent interior cavities will remain open.)
+                const widthSegments = TARGET_RES;
+                const heightSegments = TARGET_RES;
+                const vertsPerRow = widthSegments + 1;
+                const topVertexCount = vertexCount;
+                const topPositions = new Float32Array(topVertexCount * 3);
+                for (let i = 0; i < topVertexCount; i++) {
+                    topPositions[i * 3 + 0] = positionAttr.getX(i);
+                    topPositions[i * 3 + 1] = positionAttr.getY(i);
+                    topPositions[i * 3 + 2] = positionAttr.getZ(i); // height in local (before rotation)
+                }
+                // Bottom positions (z=0 where top has >0; still 0 elsewhere). We keep same x,y.
+                const bottomPositions = new Float32Array(topVertexCount * 3);
+                for (let i = 0; i < topVertexCount; i++) {
+                    bottomPositions[i * 3 + 0] = topPositions[i * 3 + 0];
+                    bottomPositions[i * 3 + 1] = topPositions[i * 3 + 1];
+                    bottomPositions[i * 3 + 2] = 0; // base plane
+                }
+                // Colors for bottom duplicate top colors
+                const bottomColors = new Float32Array(topVertexCount * 3);
+                bottomColors.set(colors);
+
+                // Indices for top (reuse existing if present, else build)
+                const topIndices: number[] = [];
+                if (geometry.index) {
+                    const arr = geometry.index.array as ArrayLike<number>;
+                    for (let i = 0; i < arr.length; i++)
+                        topIndices.push(arr[i]);
+                } else {
+                    for (let y = 0; y < heightSegments; y++) {
+                        for (let x = 0; x < widthSegments; x++) {
+                            const a = y * vertsPerRow + x;
+                            const b = a + 1;
+                            const c = a + vertsPerRow;
+                            const d = c + 1;
+                            // two triangles (a,c,b) (b,c,d) matching PlaneGeometry winding
+                            topIndices.push(a, c, b, b, c, d);
+                        }
+                    }
+                }
+
+                const bottomOffset = topVertexCount;
+                const indices: number[] = [];
+                // Top surface indices
+                indices.push(...topIndices);
+                // Bottom surface: reverse winding for proper normals
+                for (let i = topIndices.length - 1; i >= 0; i--) {
+                    indices.push(bottomOffset + topIndices[i]);
+                }
+
+                // Helper to get height from topPositions (z component)
+                const heightAt = (vx: number, vy: number) => {
+                    const idx = vy * vertsPerRow + vx;
+                    return topPositions[idx * 3 + 2];
+                };
+
+                // Add perimeter side walls (edges where y==0, y==heightSegments, x==0, x==widthSegments)
+                const pushWall = (tA: number, tB: number) => {
+                    const bA = tA + bottomOffset;
+                    const bB = tB + bottomOffset;
+                    // Two triangles (tA, bA, bB) (tA, bB, tB)
+                    indices.push(tA, bA, bB, tA, bB, tB);
+                };
+
+                // y == 0 edge
+                for (let x = 0; x < widthSegments; x++) {
+                    const h1 = heightAt(x, 0);
+                    const h2 = heightAt(x + 1, 0);
+                    if (h1 > 0 || h2 > 0) {
+                        const v1 = 0 * vertsPerRow + x;
+                        const v2 = 0 * vertsPerRow + (x + 1);
+                        pushWall(v1, v2);
+                    }
+                }
+                // y == heightSegments edge
+                for (let x = 0; x < widthSegments; x++) {
+                    const h1 = heightAt(x, heightSegments);
+                    const h2 = heightAt(x + 1, heightSegments);
+                    if (h1 > 0 || h2 > 0) {
+                        const v1 = heightSegments * vertsPerRow + x;
+                        const v2 = heightSegments * vertsPerRow + (x + 1);
+                        pushWall(v2, v1); // reverse order so normals face outward
+                    }
+                }
+                // x == 0 edge
+                for (let y = 0; y < heightSegments; y++) {
+                    const h1 = heightAt(0, y);
+                    const h2 = heightAt(0, y + 1);
+                    if (h1 > 0 || h2 > 0) {
+                        const v1 = y * vertsPerRow + 0;
+                        const v2 = (y + 1) * vertsPerRow + 0;
+                        pushWall(v2, v1); // oriented outward
+                    }
+                }
+                // x == widthSegments edge
+                for (let y = 0; y < heightSegments; y++) {
+                    const h1 = heightAt(widthSegments, y);
+                    const h2 = heightAt(widthSegments, y + 1);
+                    if (h1 > 0 || h2 > 0) {
+                        const v1 = y * vertsPerRow + widthSegments;
+                        const v2 = (y + 1) * vertsPerRow + widthSegments;
+                        pushWall(v1, v2); // outward
+                    }
+                }
+
+                // Combine buffers
+                const combinedPositions = new Float32Array(
+                    (topVertexCount + topVertexCount) * 3
+                );
+                combinedPositions.set(topPositions, 0);
+                combinedPositions.set(bottomPositions, topVertexCount * 3);
+                const combinedColors = new Float32Array(
+                    (topVertexCount + topVertexCount) * 3
+                );
+                combinedColors.set(colors, 0);
+                combinedColors.set(bottomColors, topVertexCount * 3);
+
+                geometry.setAttribute(
+                    "position",
+                    new THREE.BufferAttribute(combinedPositions, 3)
+                );
+                geometry.setAttribute(
+                    "color",
+                    new THREE.BufferAttribute(combinedColors, 3)
+                );
+                geometry.setIndex(indices);
                 geometry.computeVertexNormals();
             } catch (err) {
                 // ignore failures quietly
