@@ -750,6 +750,24 @@
     overflow: hidden;
 }
 
+/* Placeholder shown when in 3D mode (before Three.js view is added) */
+.three-placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: rgba(255, 255, 255, 0.8);
+    background: linear-gradient(180deg, rgba(0,0,0,0.02), rgba(0,0,0,0.04));
+}
+.three-placeholder p {
+    margin: 0;
+    padding: 1rem 1.25rem;
+    border: 1px dashed rgba(255,255,255,0.06);
+    border-radius: 8px;
+    background: rgba(0,0,0,0.25);
+}
+
 .preview-container canvas {
     width: 100%;
     height: 100%;

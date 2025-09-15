@@ -556,13 +556,19 @@ function App(): React.ReactElement | null {
                         }}
                         onDragLeave={() => setDragOver(false)}
                     >
-                        <CanvasPreview
-                            ref={canvasPreviewRef}
-                            imageSrc={imageSrc}
-                            isCropMode={isCropMode}
-                            showCheckerboard={showCheckerboard}
-                            adjustments={adjustments}
-                        />
+                        {mode === "2d" ? (
+                            <CanvasPreview
+                                ref={canvasPreviewRef}
+                                imageSrc={imageSrc}
+                                isCropMode={isCropMode}
+                                showCheckerboard={showCheckerboard}
+                                adjustments={adjustments}
+                            />
+                        ) : (
+                            <div className="three-placeholder">
+                                <p>3D view active — rendering scene here.</p>
+                            </div>
+                        )}
                         <div className="preview-actions">
                             <button
                                 className="preview-action-btn"
