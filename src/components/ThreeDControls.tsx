@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { DragEvent } from "react";
 
 type Swatch = { hex: string; a: number };
 
@@ -17,6 +18,11 @@ export default function ThreeDControls({ swatches }: ThreeDControlsProps) {
         return swatches ? swatches.filter((s) => s.a !== 0) : [];
     }, [swatches]);
 
+    // ordering state: indices into `filtered` that control displayed order.
+    const [colorOrder, setColorOrder] = useState<number[]>([]);
+    const prevFilteredRef = useRef<Swatch[] | null>(null);
+    const prevHeightsRef = useRef<number[]>([]);
+
     // Ensure baseSliceHeight stays within valid bounds when layerHeight changes
     // and snap it to the nearest multiple of layerHeight to keep it aligned.
     useEffect(() => {
@@ -28,22 +34,71 @@ export default function ThreeDControls({ swatches }: ThreeDControlsProps) {
         });
     }, [layerHeight]);
 
-    // Initialize or resize per-color slice heights when swatches change.
+    // Initialize or resize per-color slice heights and preserve ordering when swatches change.
     useEffect(() => {
-        setColorSliceHeights((prev) => {
-            const next = filtered.map((_, i) => {
-                const existing = prev[i];
-                const base =
-                    typeof existing === "number" ? existing : layerHeight;
-                const clamped = Math.max(layerHeight, Math.min(10, base));
-                const multiple =
-                    Math.round(clamped / layerHeight) * layerHeight;
-                const snapped = Math.max(layerHeight, Math.min(10, multiple));
-                return Number(snapped.toFixed(8));
-            });
-            return next;
+        // Build next heights reusing previous heights when possible (match by hex+alpha)
+        const prevFiltered = prevFilteredRef.current || [];
+        const prevHeights = prevHeightsRef.current || [];
+        const nextHeights = filtered.map((s) => {
+            const found = prevFiltered.findIndex(
+                (p) => p.hex === s.hex && p.a === s.a
+            );
+            const existing = found !== -1 ? prevHeights[found] : undefined;
+            const base = typeof existing === "number" ? existing : layerHeight;
+            const clamped = Math.max(layerHeight, Math.min(10, base));
+            const multiple = Math.round(clamped / layerHeight) * layerHeight;
+            const snapped = Math.max(layerHeight, Math.min(10, multiple));
+            return Number(snapped.toFixed(8));
         });
+        setColorSliceHeights(nextHeights);
+
+        // Build next order preserving previous ordering of colors when possible
+        const nextOrder: number[] = [];
+        // First, push indices from prevFiltered in their previous order if still present
+        for (let i = 0; i < prevFiltered.length; i++) {
+            const p = prevFiltered[i];
+            const idx = filtered.findIndex(
+                (f) => f.hex === p.hex && f.a === p.a
+            );
+            if (idx !== -1 && !nextOrder.includes(idx)) nextOrder.push(idx);
+        }
+        // Then append any remaining indices
+        for (let i = 0; i < filtered.length; i++)
+            if (!nextOrder.includes(i)) nextOrder.push(i);
+        setColorOrder(nextOrder);
+
+        // stash for next diff
+        prevFilteredRef.current = filtered.slice();
+        prevHeightsRef.current = nextHeights.slice();
     }, [filtered, layerHeight]);
+
+    // drag ordering helpers
+    const dragStartRef = useRef<number | null>(null);
+    const handleDragStart = (e: DragEvent<HTMLDivElement>, fi: number) => {
+        dragStartRef.current = fi;
+        e.dataTransfer?.setData("text/plain", String(fi));
+        if (e.dataTransfer) e.dataTransfer.effectAllowed = "move";
+    };
+    const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
+        e.preventDefault();
+        if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
+    };
+    const handleDrop = (e: DragEvent<HTMLDivElement>, toDisplayIdx: number) => {
+        e.preventDefault();
+        const fromStr = e.dataTransfer?.getData("text/plain");
+        const fromFi = fromStr ? Number(fromStr) : dragStartRef.current;
+        if (fromFi == null || Number.isNaN(fromFi)) return;
+        const currentOrder =
+            colorOrder.length === filtered.length
+                ? colorOrder.slice()
+                : filtered.map((_, i) => i);
+        const fromPos = currentOrder.indexOf(fromFi);
+        if (fromPos === -1) return;
+        currentOrder.splice(fromPos, 1);
+        currentOrder.splice(toDisplayIdx, 0, fromFi);
+        setColorOrder(currentOrder);
+        dragStartRef.current = null;
+    };
 
     return (
         <div className="controls-scroll">
@@ -145,55 +200,67 @@ export default function ThreeDControls({ swatches }: ThreeDControlsProps) {
                 <div
                     style={{ display: "flex", flexDirection: "column", gap: 8 }}
                 >
-                    {filtered.map((s, idx) => {
-                        const val = colorSliceHeights[idx] ?? layerHeight;
-                        return (
-                            <div
-                                key={`${s.hex}-${idx}`}
-                                style={{
-                                    display: "flex",
-                                    gap: 8,
-                                    alignItems: "center",
-                                }}
-                            >
+                    {
+                        // determine display order; fallback to natural order when colorOrder not initialized
+                        (colorOrder.length === filtered.length
+                            ? colorOrder
+                            : filtered.map((_, i) => i)
+                        ).map((fi, displayIdx) => {
+                            const s = filtered[fi];
+                            const val = colorSliceHeights[fi] ?? layerHeight;
+
+                            return (
                                 <div
+                                    key={`${s.hex}-${fi}`}
+                                    draggable
+                                    onDragStart={(e) => handleDragStart(e, fi)}
+                                    onDragOver={handleDragOver}
+                                    onDrop={(e) => handleDrop(e, displayIdx)}
                                     style={{
-                                        width: 28,
-                                        height: 20,
-                                        background: s.hex,
-                                        border: "1px solid #ccc",
-                                        borderRadius: 3,
-                                    }}
-                                />
-                                <input
-                                    type="range"
-                                    min={layerHeight}
-                                    max={10}
-                                    step={layerHeight}
-                                    value={val}
-                                    onChange={(e) => {
-                                        const v = Number(e.target.value);
-                                        if (Number.isNaN(v)) return;
-                                        setColorSliceHeights((prev) => {
-                                            const next = prev.slice();
-                                            next[idx] = v;
-                                            return next;
-                                        });
-                                    }}
-                                    className="range--styled"
-                                    style={{ flex: 1 }}
-                                />
-                                <div
-                                    style={{
-                                        width: 72,
-                                        textAlign: "right",
+                                        display: "flex",
+                                        gap: 8,
+                                        alignItems: "center",
                                     }}
                                 >
-                                    {val.toFixed(2)} mm
+                                    <div
+                                        style={{
+                                            width: 28,
+                                            height: 20,
+                                            background: s.hex,
+                                            border: "1px solid #ccc",
+                                            borderRadius: 3,
+                                        }}
+                                    />
+                                    <input
+                                        type="range"
+                                        min={layerHeight}
+                                        max={10}
+                                        step={layerHeight}
+                                        value={val}
+                                        onChange={(e) => {
+                                            const v = Number(e.target.value);
+                                            if (Number.isNaN(v)) return;
+                                            setColorSliceHeights((prev) => {
+                                                const next = prev.slice();
+                                                next[fi] = v;
+                                                return next;
+                                            });
+                                        }}
+                                        className="range--styled"
+                                        style={{ flex: 1 }}
+                                    />
+                                    <div
+                                        style={{
+                                            width: 72,
+                                            textAlign: "right",
+                                        }}
+                                    >
+                                        {val.toFixed(2)} mm
+                                    </div>
                                 </div>
-                            </div>
-                        );
-                    })}
+                            );
+                        })
+                    }
                 </div>
             </div>
         </div>
