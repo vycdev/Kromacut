@@ -628,6 +628,7 @@ function App(): React.ReactElement | null {
                                 }
                                 colorOrder={threeDState.colorOrder}
                                 swatches={threeDState.filteredSwatches}
+                                pixelSize={0.01}
                             />
                         )}
                         <div className="preview-actions">

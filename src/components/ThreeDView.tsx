@@ -9,6 +9,8 @@ interface ThreeDViewProps {
     colorSliceHeights: number[]; // per color height increments (mm)
     colorOrder: number[]; // ordering (indices into swatches)
     swatches: { hex: string; a: number }[]; // filtered (non-transparent) swatches in original order
+    pixelSize?: number; // mm per pixel horizontally (X & Z). Default 0.01 => 100px = 1mm
+    heightScale?: number; // vertical exaggeration (1 = real scale)
 }
 
 // Convert hex color to RGB tuple
@@ -41,6 +43,8 @@ export default function ThreeDView({
     colorSliceHeights,
     colorOrder,
     swatches,
+    pixelSize = 0.01,
+    heightScale = 1,
 }: ThreeDViewProps) {
     const mountRef = useRef<HTMLDivElement | null>(null);
     const rafRef = useRef<number | null>(null);
@@ -99,7 +103,9 @@ export default function ThreeDView({
         });
         materialRef.current = material;
         const mesh = new THREE.Mesh(placeholderGeom, material);
-        mesh.rotation.x = -Math.PI / 2;
+        // We keep the geometry un-rotated so that:
+        // X axis -> image width, Y axis -> image height, Z axis -> vertical (height map)
+        // (Typical 3D printing coordinate system uses Z as vertical.)
         scene.add(mesh);
         meshRef.current = mesh;
 
@@ -150,6 +156,8 @@ export default function ThreeDView({
             colorSliceHeights,
             colorOrder,
             swatches: swatches.map((s) => s.hex),
+            pixelSize,
+            heightScale,
         });
         if (paramsKey === lastParamsKeyRef.current) return; // nothing changed logically
         lastParamsKeyRef.current = paramsKey;
@@ -159,7 +167,6 @@ export default function ThreeDView({
             window.clearTimeout(debounceTimerRef.current);
         debounceTimerRef.current = window.setTimeout(() => {
             const token = ++buildTokenRef.current;
-            const MAX_VIEW_DIM_MM = 120;
 
             const chooseResolution = (w: number, h: number) => {
                 const maxDim = Math.max(w, h);
@@ -199,7 +206,13 @@ export default function ThreeDView({
             const buildGeometry = async (
                 img: HTMLImageElement,
                 resolution: number,
-                mode: "preview" | "final"
+                mode: "preview" | "final",
+                bbox?: {
+                    minX: number;
+                    minY: number;
+                    boxW: number;
+                    boxH: number;
+                }
             ) => {
                 if (token !== buildTokenRef.current) return; // superseded
                 const w = img.naturalWidth;
@@ -242,13 +255,18 @@ export default function ThreeDView({
                     const vz = posAttr.getY(vi);
                     const u = vx + 0.5;
                     const v = vz + 0.5;
+                    // Map to bounding box if provided, otherwise full image
+                    const bMinX = bbox ? bbox.minX : 0;
+                    const bMinY = bbox ? bbox.minY : 0;
+                    const bW = bbox ? bbox.boxW : w;
+                    const bH = bbox ? bbox.boxH : h;
                     const px = Math.min(
                         w - 1,
-                        Math.max(0, Math.round(u * (w - 1)))
+                        Math.max(0, Math.round(bMinX + u * (bW - 1)))
                     );
                     const py = Math.min(
                         h - 1,
-                        Math.max(0, Math.round(v * (h - 1)))
+                        Math.max(0, Math.round(bMinY + v * (bH - 1)))
                     );
                     const idx = (py * w + px) * 4;
                     const r = data[idx];
@@ -391,10 +409,53 @@ export default function ThreeDView({
                 mesh.geometry = finalGeom;
                 oldGeom.dispose();
 
-                const maxDimPx = Math.max(w, h);
-                const mmPerPixel = MAX_VIEW_DIM_MM / maxDimPx;
-                mesh.scale.x = w * mmPerPixel;
-                mesh.scale.z = h * mmPerPixel;
+                // Direct pixel to mm mapping: each pixel spans pixelSize mm.
+                const finalW = bbox ? bbox.boxW : w;
+                const finalH = bbox ? bbox.boxH : h;
+                // Map pixel domain to X (width) & Y (height). Heights already in mm on Z; apply optional exaggeration via heightScale.
+                mesh.scale.set(
+                    finalW * pixelSize,
+                    finalH * pixelSize,
+                    heightScale
+                );
+
+                if (typeof window !== "undefined") {
+                    console.debug("[3D] scaled model", {
+                        pxW: finalW,
+                        pxH: finalH,
+                        mmW: finalW * pixelSize,
+                        mmH: finalH * pixelSize,
+                        aspect: (finalW / finalH).toFixed(3),
+                        heightScale,
+                        scale: mesh.scale.toArray(),
+                    });
+                }
+
+                // Auto-frame using bounding sphere for consistent view
+                try {
+                    const camera = cameraRef.current;
+                    const controls = controlsRef.current;
+                    if (camera && controls) {
+                        const box = new THREE.Box3().setFromObject(mesh);
+                        const sphere = new THREE.Sphere();
+                        box.getBoundingSphere(sphere);
+                        const fov = (camera.fov * Math.PI) / 180;
+                        const distance = sphere.radius / Math.sin(fov / 2);
+                        // Use an oblique direction to show thickness
+                        const dir = new THREE.Vector3(0.9, 0.8, 1).normalize();
+                        const camPos = sphere.center
+                            .clone()
+                            .add(dir.multiplyScalar(distance * 1.35));
+                        camera.position.copy(camPos);
+                        controls.target.copy(sphere.center);
+                        camera.near = Math.max(0.01, sphere.radius * 0.01);
+                        camera.far = sphere.radius * 20;
+                        camera.updateProjectionMatrix();
+                        controls.update();
+                    }
+                } catch {
+                    /* framing failure ignored */
+                }
                 // (Optional instrumentation)
                 // console.log(`[3D] ${mode} build @${resolution} took ${(performance.now()-t0).toFixed(1)}ms`);
             };
@@ -404,13 +465,46 @@ export default function ThreeDView({
                 if (!img || token !== buildTokenRef.current) return;
                 const w = img.naturalWidth;
                 const h = img.naturalHeight;
-                const fullRes = chooseResolution(w, h);
+                // compute opaque bounding box
+                const c = document.createElement("canvas");
+                c.width = w;
+                c.height = h;
+                const cx = c.getContext("2d");
+                if (!cx) return;
+                cx.drawImage(img, 0, 0, w, h);
+                const imgd = cx.getImageData(0, 0, w, h).data;
+                let minX = w,
+                    minY = h,
+                    maxX = 0,
+                    maxY = 0;
+                for (let y = 0; y < h; y++) {
+                    for (let x = 0; x < w; x++) {
+                        const a = imgd[(y * w + x) * 4 + 3];
+                        if (a > 0) {
+                            if (x < minX) minX = x;
+                            if (y < minY) minY = y;
+                            if (x > maxX) maxX = x;
+                            if (y > maxY) maxY = y;
+                        }
+                    }
+                }
+                if (maxX < minX || maxY < minY) {
+                    // no opaque pixels — fallback to full image
+                    minX = 0;
+                    minY = 0;
+                    maxX = w - 1;
+                    maxY = h - 1;
+                }
+                const boxW = maxX - minX + 1;
+                const boxH = maxY - minY + 1;
+                const fullRes = chooseResolution(boxW, boxH);
                 const previewRes = Math.max(32, Math.round(fullRes / 3));
-                // Quick preview
-                await buildGeometry(img, previewRes, "preview");
+                const bbox = { minX, minY, boxW, boxH };
+                // Quick preview using bbox
+                await buildGeometry(img, previewRes, "preview", bbox);
                 if (token !== buildTokenRef.current) return;
                 requestIdle(() => {
-                    buildGeometry(img, fullRes, "final");
+                    buildGeometry(img, fullRes, "final", bbox);
                 });
             })();
         }, 120); // 120ms debounce
@@ -426,6 +520,8 @@ export default function ThreeDView({
         colorSliceHeights,
         colorOrder,
         swatches,
+        pixelSize,
+        heightScale,
     ]);
 
     return <div style={{ width: "100%", height: "100%" }} ref={mountRef} />;
