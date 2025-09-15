@@ -636,7 +636,8 @@ function App(): React.ReactElement | null {
                                                     Base slice height
                                                 </span>
                                                 <span className="adjustment-unit">
-                                                    {baseSliceHeight.toFixed(2)} mm
+                                                    {baseSliceHeight.toFixed(2)}{" "}
+                                                    mm
                                                 </span>
                                             </div>
                                             <div
@@ -740,8 +741,12 @@ function App(): React.ReactElement | null {
                                                                         (
                                                                             prev
                                                                         ) => {
-                                                                            const next = prev.slice();
-                                                                            next[idx] = v;
+                                                                            const next =
+                                                                                prev.slice();
+                                                                            next[
+                                                                                idx
+                                                                            ] =
+                                                                                v;
                                                                             return next;
                                                                         }
                                                                     );
@@ -754,10 +759,12 @@ function App(): React.ReactElement | null {
                                                             <div
                                                                 style={{
                                                                     width: 72,
-                                                                    textAlign: "right",
+                                                                    textAlign:
+                                                                        "right",
                                                                 }}
                                                             >
-                                                                {val.toFixed(2)} mm
+                                                                {val.toFixed(2)}{" "}
+                                                                mm
                                                             </div>
                                                         </div>
                                                     );
