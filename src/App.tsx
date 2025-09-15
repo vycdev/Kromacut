@@ -713,59 +713,123 @@ function App(): React.ReactElement | null {
                             {/* Download full image button (same style as crop) */}
                             <button
                                 className="preview-crop-btn"
-                                title={mode === "3d" ? "Download STL" : "Download image"}
-                                aria-label={mode === "3d" ? "Download STL" : "Download image"}
+                                title={
+                                    mode === "3d"
+                                        ? "Download STL"
+                                        : "Download image"
+                                }
+                                aria-label={
+                                    mode === "3d"
+                                        ? "Download STL"
+                                        : "Download image"
+                                }
                                 disabled={!imageSrc}
                                 onClick={async () => {
                                     if (mode === "3d") {
                                         // Attempt to locate ThreeDView's mesh via DOM -> react root -> global ref (quick approach)
                                         // For a more robust solution we'd lift a ref from ThreeDView via props.
-                                        interface StrataWindow extends Window { __STRATA_LAST_MESH?: THREE.Mesh }
-                                        const strataWin = window as StrataWindow;
-                                        const threeMesh = strataWin.__STRATA_LAST_MESH;
+                                        interface StrataWindow extends Window {
+                                            __STRATA_LAST_MESH?: THREE.Mesh;
+                                        }
+                                        const strataWin =
+                                            window as StrataWindow;
+                                        const threeMesh =
+                                            strataWin.__STRATA_LAST_MESH;
                                         if (!threeMesh) {
                                             alert("3D mesh not ready yet");
                                             return;
                                         }
-                                        const geometry = threeMesh.geometry as THREE.BufferGeometry;
+                                        const geometry =
+                                            threeMesh.geometry as THREE.BufferGeometry;
                                         geometry.computeVertexNormals();
-                                        const pos = geometry.getAttribute("position");
+                                        const pos =
+                                            geometry.getAttribute("position");
                                         const index = geometry.getIndex();
                                         if (!pos) {
                                             alert("No geometry to export");
                                             return;
                                         }
-                                        const getTri = (a: number, b: number, c: number) => {
-                                            const ax = pos.getX(a), ay = pos.getY(a), az = pos.getZ(a);
-                                            const bx = pos.getX(b), by = pos.getY(b), bz = pos.getZ(b);
-                                            const cx = pos.getX(c), cy = pos.getY(c), cz = pos.getZ(c);
+                                        const getTri = (
+                                            a: number,
+                                            b: number,
+                                            c: number
+                                        ) => {
+                                            const ax = pos.getX(a),
+                                                ay = pos.getY(a),
+                                                az = pos.getZ(a);
+                                            const bx = pos.getX(b),
+                                                by = pos.getY(b),
+                                                bz = pos.getZ(b);
+                                            const cx = pos.getX(c),
+                                                cy = pos.getY(c),
+                                                cz = pos.getZ(c);
                                             // normal via cross product
-                                            const ux = bx - ax, uy = by - ay, uz = bz - az;
-                                            const vx = cx - ax, vy = cy - ay, vz = cz - az;
+                                            const ux = bx - ax,
+                                                uy = by - ay,
+                                                uz = bz - az;
+                                            const vx = cx - ax,
+                                                vy = cy - ay,
+                                                vz = cz - az;
                                             let nx = uy * vz - uz * vy;
                                             let ny = uz * vx - ux * vz;
                                             let nz = ux * vy - uy * vx;
-                                            const len = Math.hypot(nx, ny, nz) || 1;
-                                            nx /= len; ny /= len; nz /= len;
-                                            return { ax, ay, az, bx, by, bz, cx, cy, cz, nx, ny, nz };
+                                            const len =
+                                                Math.hypot(nx, ny, nz) || 1;
+                                            nx /= len;
+                                            ny /= len;
+                                            nz /= len;
+                                            return {
+                                                ax,
+                                                ay,
+                                                az,
+                                                bx,
+                                                by,
+                                                bz,
+                                                cx,
+                                                cy,
+                                                cz,
+                                                nx,
+                                                ny,
+                                                nz,
+                                            };
                                         };
                                         const facets: string[] = [];
                                         if (index) {
-                                            for (let i = 0; i < index.count; i += 3) {
+                                            for (
+                                                let i = 0;
+                                                i < index.count;
+                                                i += 3
+                                            ) {
                                                 const a = index.getX(i);
                                                 const b = index.getX(i + 1);
                                                 const c = index.getX(i + 2);
                                                 const t = getTri(a, b, c);
-                                                facets.push(`facet normal ${t.nx} ${t.ny} ${t.nz}\n  outer loop\n    vertex ${t.ax} ${t.ay} ${t.az}\n    vertex ${t.bx} ${t.by} ${t.bz}\n    vertex ${t.cx} ${t.cy} ${t.cz}\n  endloop\nendfacet`);
+                                                facets.push(
+                                                    `facet normal ${t.nx} ${t.ny} ${t.nz}\n  outer loop\n    vertex ${t.ax} ${t.ay} ${t.az}\n    vertex ${t.bx} ${t.by} ${t.bz}\n    vertex ${t.cx} ${t.cy} ${t.cz}\n  endloop\nendfacet`
+                                                );
                                             }
                                         } else {
-                                            for (let i = 0; i < pos.count; i += 3) {
-                                                const t = getTri(i, i + 1, i + 2);
-                                                facets.push(`facet normal ${t.nx} ${t.ny} ${t.nz}\n  outer loop\n    vertex ${t.ax} ${t.ay} ${t.az}\n    vertex ${t.bx} ${t.by} ${t.bz}\n    vertex ${t.cx} ${t.cy} ${t.cz}\n  endloop\nendfacet`);
+                                            for (
+                                                let i = 0;
+                                                i < pos.count;
+                                                i += 3
+                                            ) {
+                                                const t = getTri(
+                                                    i,
+                                                    i + 1,
+                                                    i + 2
+                                                );
+                                                facets.push(
+                                                    `facet normal ${t.nx} ${t.ny} ${t.nz}\n  outer loop\n    vertex ${t.ax} ${t.ay} ${t.az}\n    vertex ${t.bx} ${t.by} ${t.bz}\n    vertex ${t.cx} ${t.cy} ${t.cz}\n  endloop\nendfacet`
+                                                );
                                             }
                                         }
-                                        const stl = `solid strata_model\n${facets.join("\n")}\nendsolid strata_model`;
-                                        const blob = new Blob([stl], { type: "model/stl" });
+                                        const stl = `solid strata_model\n${facets.join(
+                                            "\n"
+                                        )}\nendsolid strata_model`;
+                                        const blob = new Blob([stl], {
+                                            type: "model/stl",
+                                        });
                                         const url = URL.createObjectURL(blob);
                                         const a = document.createElement("a");
                                         a.href = url;
@@ -778,7 +842,8 @@ function App(): React.ReactElement | null {
                                     }
                                     // 2D image path
                                     if (!canvasPreviewRef.current) return;
-                                    const blob = await canvasPreviewRef.current.exportImageBlob();
+                                    const blob =
+                                        await canvasPreviewRef.current.exportImageBlob();
                                     if (!blob) {
                                         alert("No image available to download");
                                         return;
@@ -793,7 +858,10 @@ function App(): React.ReactElement | null {
                                     URL.revokeObjectURL(url);
                                 }}
                             >
-                                <i className="fa-solid fa-download" aria-hidden="true" />
+                                <i
+                                    className="fa-solid fa-download"
+                                    aria-hidden="true"
+                                />
                             </button>
                             {mode === "2d" && (
                                 <>
