@@ -177,6 +177,7 @@ function App(): React.ReactElement | null {
             <header className="app-header">
                 <div className="header-left">
                     <img src={logo} alt="StrataPaint" className="header-logo" />
+                    <span className="header-title">StrataPaint</span>
                 </div>
                 <div className="header-actions">
                     <a

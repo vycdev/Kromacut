@@ -47,6 +47,22 @@
     height: 28px;
     width: auto;
 }
+/* Title next to the logo */
+.header-title {
+    font-weight: 800;
+    font-size: 1rem;
+    color: #ffffff;
+    letter-spacing: 0.2px;
+    margin-left: 4px;
+    user-select: none;
+}
+
+@media (max-width: 800px) {
+    /* hide title on smaller screens to preserve header real estate */
+    .header-title {
+        display: none;
+    }
+}
 .app-header .header-actions {
     display: flex;
     gap: 8px;
