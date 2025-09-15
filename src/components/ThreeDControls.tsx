@@ -212,8 +212,6 @@ export default function ThreeDControls({ swatches }: ThreeDControlsProps) {
                             return (
                                 <div
                                     key={`${s.hex}-${fi}`}
-                                    draggable
-                                    onDragStart={(e) => handleDragStart(e, fi)}
                                     onDragOver={handleDragOver}
                                     onDrop={(e) => handleDrop(e, displayIdx)}
                                     style={{
@@ -222,6 +220,29 @@ export default function ThreeDControls({ swatches }: ThreeDControlsProps) {
                                         alignItems: "center",
                                     }}
                                 >
+                                    <div
+                                        // drag handle: only this element is draggable
+                                        draggable
+                                        onDragStart={(e) =>
+                                            handleDragStart(e, fi)
+                                        }
+                                        style={{
+                                            width: 20,
+                                            height: 20,
+                                            display: "flex",
+                                            alignItems: "center",
+                                            justifyContent: "center",
+                                            cursor: "grab",
+                                            color: "#666",
+                                        }}
+                                        aria-label="Reorder color"
+                                        title="Drag to reorder"
+                                    >
+                                        <i
+                                            className="fa-solid fa-grip-vertical"
+                                            aria-hidden
+                                        />
+                                    </div>
                                     <div
                                         style={{
                                             width: 28,
