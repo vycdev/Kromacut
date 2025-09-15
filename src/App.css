@@ -502,6 +502,10 @@
     background: rgba(0, 0, 0, 0.12);
     padding: 1rem;
     border-radius: 8px;
+    /* make the sidebar a column flex container so header controls (mode tabs)
+       and the settings panel share available vertical space without overflow */
+    display: flex;
+    flex-direction: column;
     height: 100%;
     box-sizing: border-box;
 }
@@ -515,7 +519,9 @@
 .controls-panel {
     display: flex;
     flex-direction: column;
-    height: 100%;
+    /* let the controls panel flex to fill remaining sidebar height (after mode tabs)
+       so inner groups can scroll if needed */
+    flex: 1 1 auto;
     min-height: 0;
 }
 
@@ -578,6 +584,13 @@
 .controls-scroll {
     overflow-y: auto;
     padding-right: 4px; /* allow room for scrollbar */
+    min-height: 0;
+}
+
+/* ensure the scroll region inside the controls panel grows to fill available
+   space so its content can scroll instead of pushing the panel taller */
+.controls-panel > .controls-scroll {
+    flex: 1 1 auto;
     min-height: 0;
 }
 
