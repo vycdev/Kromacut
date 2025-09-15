@@ -67,8 +67,18 @@ function App(): React.ReactElement | null {
     }, [imageSrc]);
 
     // Ensure baseSliceHeight stays within valid bounds when layerHeight changes
+    // and snap it to the nearest multiple of layerHeight to keep it aligned.
     useEffect(() => {
-        setBaseSliceHeight((v) => Math.max(layerHeight, Math.min(10, v)));
+        setBaseSliceHeight((prev) => {
+            // clamp previous value first
+            const clamped = Math.max(layerHeight, Math.min(10, prev));
+            // snap to nearest multiple of layerHeight
+            const multiple = Math.round(clamped / layerHeight) * layerHeight;
+            // ensure the snapped value still respects bounds
+            const snapped = Math.max(layerHeight, Math.min(10, multiple));
+            // reduce floating point noise
+            return Number(snapped.toFixed(8));
+        });
     }, [layerHeight]);
 
     const handleFiles = (file?: File) => {
