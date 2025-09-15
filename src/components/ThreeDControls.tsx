@@ -142,6 +142,19 @@ export default function ThreeDControls({ swatches }: ThreeDControlsProps) {
         [colorOrder, filtered, dragOverPosition]
     );
 
+    // stable per-row change handler so memoized rows don't re-render due to
+    // a new function identity being created each parent render
+    const onRowChange = useCallback(
+        (idx: number, v: number) => {
+            setColorSliceHeights((prev) => {
+                const next = prev.slice();
+                next[idx] = v;
+                return next;
+            });
+        },
+        [setColorSliceHeights]
+    );
+
     return (
         <div className="controls-scroll">
             <div className="controls-group">
@@ -264,13 +277,7 @@ export default function ThreeDControls({ swatches }: ThreeDControlsProps) {
                                     onDragOver={handleDragOver}
                                     onDragLeave={handleDragLeave}
                                     onDrop={handleDrop}
-                                    onChange={(idx, v) => {
-                                        setColorSliceHeights((prev) => {
-                                            const next = prev.slice();
-                                            next[idx] = v;
-                                            return next;
-                                        });
-                                    }}
+                                    onChange={onRowChange}
                                 />
                             );
                         })
