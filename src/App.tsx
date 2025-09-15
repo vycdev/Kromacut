@@ -227,265 +227,311 @@ function App(): React.ReactElement | null {
                         </div>
                     </div>
                     <div className="controls-panel">
-                        <input
-                            ref={inputRef}
-                            type="file"
-                            accept="image/*"
-                            onChange={(e) => {
-                                if (e.target.files && e.target.files[0])
-                                    handleFiles(e.target.files[0]);
-                            }}
-                            className="hidden-file-input"
-                        />
-                        {/* file input stays here (hidden); uploader buttons moved to preview actions */}
-                        <div className="controls-scroll">
-                            <AdjustmentsPanel
-                                key={adjustmentsEpoch}
-                                defs={SLIDER_DEFS}
-                                initial={ADJUSTMENT_DEFAULTS}
-                                onCommit={(vals) => {
-                                    setAdjustments(vals);
-                                    // schedule a redraw
-                                    requestAnimationFrame(() =>
-                                        canvasPreviewRef.current?.redraw()
-                                    );
-                                }}
-                                onBake={async () => {
-                                    if (!canvasPreviewRef.current) return;
-                                    try {
-                                        const blob =
-                                            await canvasPreviewRef.current.exportAdjustedImageBlob?.();
-                                        if (!blob) return;
-                                        const url = URL.createObjectURL(blob);
-                                        invalidate();
-                                        setImage(url, true);
-                                        // After baking, reset adjustments state to defaults
-                                        setAdjustments(ADJUSTMENT_DEFAULTS);
-                                        setAdjustmentsEpoch((e) => e + 1);
-                                    } catch (e) {
-                                        console.warn(
-                                            "Bake adjustments failed",
-                                            e
-                                        );
-                                    }
-                                }}
-                            />
-                            <DeditherPanel
-                                canvasRef={canvasPreviewRef}
-                                onApplyResult={(url) => {
-                                    invalidate();
-                                    setImage(url, true);
-                                }}
-                            />
-                            <PaletteSelector
-                                selected={selectedPalette}
-                                onSelect={(id, size) => {
-                                    setSelectedPalette(id);
-                                    // set the postprocess target to the palette size, but do not lock it
-                                    if (id !== "auto") setFinalColors(size);
-                                }}
-                            />
-                            <ControlsPanel
-                                // finalColors controls postprocessing result count
-                                finalColors={finalColors}
-                                onFinalColorsChange={(n) => {
-                                    setFinalColors(n);
-                                    // changing the final colors should switch to auto palette
-                                    setSelectedPalette("auto");
-                                }}
-                                // weight remains the algorithm parameter
-                                weight={weight}
-                                onWeightChange={(n) => {
-                                    setWeight(n);
-                                }}
-                                algorithm={algorithm}
-                                setAlgorithm={setAlgorithm}
-                                onApply={() => applyQuantize(canvasPreviewRef)}
-                                disabled={!imageSrc || isCropMode}
-                                weightDisabled={algorithm === "none"}
-                            />
-                            <SwatchesPanel
-                                swatches={swatches}
-                                loading={swatchesLoading}
-                                cap={SWATCH_CAP}
-                                onSwatchDelete={async (deleted) => {
-                                    // Build override palette from current swatches excluding the deleted one
-                                    const remaining = swatches.filter(
-                                        (s) =>
-                                            !(
-                                                s.hex === deleted.hex &&
-                                                s.a === deleted.a
-                                            )
-                                    );
-                                    const palette = remaining
-                                        .filter((s) => s.a !== 0)
-                                        .map((s) => s.hex);
-                                    // target is number of image colors - 1 (clamped to at least 2)
-                                    const target = Math.max(2, palette.length);
-                                    // applyQuantize with override palette and override final colors
-                                    try {
-                                        await applyQuantize(canvasPreviewRef, {
-                                            overridePalette: palette,
-                                            overrideFinalColors: target,
-                                        });
-                                    } catch (err) {
-                                        console.warn(
-                                            "applyQuantize failed for swatch delete",
-                                            err
-                                        );
-                                    }
-                                }}
-                                onSwatchApply={async (original, newHex) => {
-                                    // Perform literal pixel replacement on the full-size image
-                                    if (!canvasPreviewRef.current || !imageSrc)
-                                        return;
-                                    try {
-                                        const blob =
-                                            await canvasPreviewRef.current.exportImageBlob();
-                                        if (!blob) return;
-                                        const img =
-                                            await new Promise<HTMLImageElement | null>(
-                                                (res) => {
-                                                    const i = new Image();
-                                                    i.onload = () => res(i);
-                                                    i.onerror = () => res(null);
-                                                    i.src =
-                                                        URL.createObjectURL(
-                                                            blob
-                                                        );
-                                                }
+                        {mode === "2d" ? (
+                            <>
+                                <input
+                                    ref={inputRef}
+                                    type="file"
+                                    accept="image/*"
+                                    onChange={(e) => {
+                                        if (e.target.files && e.target.files[0])
+                                            handleFiles(e.target.files[0]);
+                                    }}
+                                    className="hidden-file-input"
+                                />
+                                {/* file input stays here (hidden); uploader buttons moved to preview actions */}
+                                <div className="controls-scroll">
+                                    <AdjustmentsPanel
+                                        key={adjustmentsEpoch}
+                                        defs={SLIDER_DEFS}
+                                        initial={ADJUSTMENT_DEFAULTS}
+                                        onCommit={(vals) => {
+                                            setAdjustments(vals);
+                                            // schedule a redraw
+                                            requestAnimationFrame(() =>
+                                                canvasPreviewRef.current?.redraw()
                                             );
-                                        if (!img) return;
-                                        const w = img.naturalWidth;
-                                        const h = img.naturalHeight;
-                                        const c =
-                                            document.createElement("canvas");
-                                        c.width = w;
-                                        c.height = h;
-                                        const ctx = c.getContext("2d");
-                                        if (!ctx) return;
-                                        ctx.drawImage(img, 0, 0, w, h);
-                                        const data = ctx.getImageData(
-                                            0,
-                                            0,
-                                            w,
-                                            h
-                                        );
-                                        const dd = data.data;
-                                        const parseHex = (s: string) => {
-                                            const raw = s.replace(/^#/, "");
-                                            const r = Number.parseInt(
-                                                raw.slice(0, 2),
-                                                16
-                                            );
-                                            const g = Number.parseInt(
-                                                raw.slice(2, 4),
-                                                16
-                                            );
-                                            const b = Number.parseInt(
-                                                raw.slice(4, 6),
-                                                16
-                                            );
-                                            const a =
-                                                raw.length >= 8
-                                                    ? Number.parseInt(
-                                                          raw.slice(6, 8),
-                                                          16
-                                                      )
-                                                    : 255;
-                                            return [
-                                                Number.isNaN(r) ? 0 : r,
-                                                Number.isNaN(g) ? 0 : g,
-                                                Number.isNaN(b) ? 0 : b,
-                                                Number.isNaN(a) ? 255 : a,
-                                            ] as [
-                                                number,
-                                                number,
-                                                number,
-                                                number
-                                            ];
-                                        };
-                                        const [r1, g1, b1] = parseHex(
-                                            original.hex
-                                        );
-                                        const [r2, g2, b2, newA] =
-                                            parseHex(newHex);
-                                        // Apply the new alpha when replacing pixels. If newHex had no alpha, newA === 255.
-                                        if (original.a === 0) {
-                                            // Replace fully transparent pixels.
-                                            for (
-                                                let i = 0;
-                                                i < dd.length;
-                                                i += 4
-                                            ) {
-                                                if (dd[i + 3] === 0) {
-                                                    if (newA === 0) {
-                                                        // canonical transparent representation: black + alpha 0
-                                                        dd[i] = 0;
-                                                        dd[i + 1] = 0;
-                                                        dd[i + 2] = 0;
-                                                        dd[i + 3] = 0;
-                                                    } else {
-                                                        dd[i] = r2;
-                                                        dd[i + 1] = g2;
-                                                        dd[i + 2] = b2;
-                                                        dd[i + 3] = newA;
-                                                    }
-                                                }
+                                        }}
+                                        onBake={async () => {
+                                            if (!canvasPreviewRef.current)
+                                                return;
+                                            try {
+                                                const blob =
+                                                    await canvasPreviewRef.current.exportAdjustedImageBlob?.();
+                                                if (!blob) return;
+                                                const url =
+                                                    URL.createObjectURL(blob);
+                                                invalidate();
+                                                setImage(url, true);
+                                                // After baking, reset adjustments state to defaults
+                                                setAdjustments(
+                                                    ADJUSTMENT_DEFAULTS
+                                                );
+                                                setAdjustmentsEpoch(
+                                                    (e) => e + 1
+                                                );
+                                            } catch (e) {
+                                                console.warn(
+                                                    "Bake adjustments failed",
+                                                    e
+                                                );
                                             }
-                                        } else {
-                                            // Replace pixels that match the original RGB and original alpha exactly
-                                            const origA = original.a;
-                                            for (
-                                                let i = 0;
-                                                i < dd.length;
-                                                i += 4
-                                            ) {
-                                                if (dd[i + 3] !== origA)
-                                                    continue;
-                                                if (
-                                                    dd[i] === r1 &&
-                                                    dd[i + 1] === g1 &&
-                                                    dd[i + 2] === b1
-                                                ) {
-                                                    if (newA === 0) {
-                                                        // set canonical transparent black
-                                                        dd[i] = 0;
-                                                        dd[i + 1] = 0;
-                                                        dd[i + 2] = 0;
-                                                        dd[i + 3] = 0;
-                                                    } else {
-                                                        dd[i] = r2;
-                                                        dd[i + 1] = g2;
-                                                        dd[i + 2] = b2;
-                                                        dd[i + 3] = newA;
-                                                    }
-                                                }
-                                            }
+                                        }}
+                                    />
+                                    <DeditherPanel
+                                        canvasRef={canvasPreviewRef}
+                                        onApplyResult={(url) => {
+                                            invalidate();
+                                            setImage(url, true);
+                                        }}
+                                    />
+                                    <PaletteSelector
+                                        selected={selectedPalette}
+                                        onSelect={(id, size) => {
+                                            setSelectedPalette(id);
+                                            // set the postprocess target to the palette size, but do not lock it
+                                            if (id !== "auto")
+                                                setFinalColors(size);
+                                        }}
+                                    />
+                                    <ControlsPanel
+                                        // finalColors controls postprocessing result count
+                                        finalColors={finalColors}
+                                        onFinalColorsChange={(n) => {
+                                            setFinalColors(n);
+                                            // changing the final colors should switch to auto palette
+                                            setSelectedPalette("auto");
+                                        }}
+                                        // weight remains the algorithm parameter
+                                        weight={weight}
+                                        onWeightChange={(n) => {
+                                            setWeight(n);
+                                        }}
+                                        algorithm={algorithm}
+                                        setAlgorithm={setAlgorithm}
+                                        onApply={() =>
+                                            applyQuantize(canvasPreviewRef)
                                         }
-                                        ctx.putImageData(data, 0, 0);
-                                        const outBlob =
-                                            await new Promise<Blob | null>(
-                                                (res) =>
-                                                    c.toBlob(
-                                                        (b) => res(b),
-                                                        "image/png"
+                                        disabled={!imageSrc || isCropMode}
+                                        weightDisabled={algorithm === "none"}
+                                    />
+                                    <SwatchesPanel
+                                        swatches={swatches}
+                                        loading={swatchesLoading}
+                                        cap={SWATCH_CAP}
+                                        onSwatchDelete={async (deleted) => {
+                                            // Build override palette from current swatches excluding the deleted one
+                                            const remaining = swatches.filter(
+                                                (s) =>
+                                                    !(
+                                                        s.hex === deleted.hex &&
+                                                        s.a === deleted.a
                                                     )
                                             );
-                                        if (!outBlob) return;
-                                        const url =
-                                            URL.createObjectURL(outBlob);
-                                        invalidate();
-                                        setImage(url, true);
-                                    } catch (err) {
-                                        console.warn(
-                                            "literal replace failed",
-                                            err
-                                        );
-                                    }
-                                }}
-                            />
-                        </div>
+                                            const palette = remaining
+                                                .filter((s) => s.a !== 0)
+                                                .map((s) => s.hex);
+                                            // target is number of image colors - 1 (clamped to at least 2)
+                                            const target = Math.max(
+                                                2,
+                                                palette.length
+                                            );
+                                            // applyQuantize with override palette and override final colors
+                                            try {
+                                                await applyQuantize(
+                                                    canvasPreviewRef,
+                                                    {
+                                                        overridePalette:
+                                                            palette,
+                                                        overrideFinalColors:
+                                                            target,
+                                                    }
+                                                );
+                                            } catch (err) {
+                                                console.warn(
+                                                    "applyQuantize failed for swatch delete",
+                                                    err
+                                                );
+                                            }
+                                        }}
+                                        onSwatchApply={async (
+                                            original,
+                                            newHex
+                                        ) => {
+                                            // Perform literal pixel replacement on the full-size image
+                                            if (
+                                                !canvasPreviewRef.current ||
+                                                !imageSrc
+                                            )
+                                                return;
+                                            try {
+                                                const blob =
+                                                    await canvasPreviewRef.current.exportImageBlob();
+                                                if (!blob) return;
+                                                const img =
+                                                    await new Promise<HTMLImageElement | null>(
+                                                        (res) => {
+                                                            const i =
+                                                                new Image();
+                                                            i.onload = () =>
+                                                                res(i);
+                                                            i.onerror = () =>
+                                                                res(null);
+                                                            i.src =
+                                                                URL.createObjectURL(
+                                                                    blob
+                                                                );
+                                                        }
+                                                    );
+                                                if (!img) return;
+                                                const w = img.naturalWidth;
+                                                const h = img.naturalHeight;
+                                                const c =
+                                                    document.createElement(
+                                                        "canvas"
+                                                    );
+                                                c.width = w;
+                                                c.height = h;
+                                                const ctx = c.getContext("2d");
+                                                if (!ctx) return;
+                                                ctx.drawImage(img, 0, 0, w, h);
+                                                const data = ctx.getImageData(
+                                                    0,
+                                                    0,
+                                                    w,
+                                                    h
+                                                );
+                                                const dd = data.data;
+                                                const parseHex = (
+                                                    s: string
+                                                ) => {
+                                                    const raw = s.replace(
+                                                        /^#/,
+                                                        ""
+                                                    );
+                                                    const r = Number.parseInt(
+                                                        raw.slice(0, 2),
+                                                        16
+                                                    );
+                                                    const g = Number.parseInt(
+                                                        raw.slice(2, 4),
+                                                        16
+                                                    );
+                                                    const b = Number.parseInt(
+                                                        raw.slice(4, 6),
+                                                        16
+                                                    );
+                                                    const a =
+                                                        raw.length >= 8
+                                                            ? Number.parseInt(
+                                                                  raw.slice(
+                                                                      6,
+                                                                      8
+                                                                  ),
+                                                                  16
+                                                              )
+                                                            : 255;
+                                                    return [
+                                                        Number.isNaN(r) ? 0 : r,
+                                                        Number.isNaN(g) ? 0 : g,
+                                                        Number.isNaN(b) ? 0 : b,
+                                                        Number.isNaN(a)
+                                                            ? 255
+                                                            : a,
+                                                    ] as [
+                                                        number,
+                                                        number,
+                                                        number,
+                                                        number
+                                                    ];
+                                                };
+                                                const [r1, g1, b1] = parseHex(
+                                                    original.hex
+                                                );
+                                                const [r2, g2, b2, newA] =
+                                                    parseHex(newHex);
+                                                // Apply the new alpha when replacing pixels. If newHex had no alpha, newA === 255.
+                                                if (original.a === 0) {
+                                                    // Replace fully transparent pixels.
+                                                    for (
+                                                        let i = 0;
+                                                        i < dd.length;
+                                                        i += 4
+                                                    ) {
+                                                        if (dd[i + 3] === 0) {
+                                                            if (newA === 0) {
+                                                                // canonical transparent representation: black + alpha 0
+                                                                dd[i] = 0;
+                                                                dd[i + 1] = 0;
+                                                                dd[i + 2] = 0;
+                                                                dd[i + 3] = 0;
+                                                            } else {
+                                                                dd[i] = r2;
+                                                                dd[i + 1] = g2;
+                                                                dd[i + 2] = b2;
+                                                                dd[i + 3] =
+                                                                    newA;
+                                                            }
+                                                        }
+                                                    }
+                                                } else {
+                                                    // Replace pixels that match the original RGB and original alpha exactly
+                                                    const origA = original.a;
+                                                    for (
+                                                        let i = 0;
+                                                        i < dd.length;
+                                                        i += 4
+                                                    ) {
+                                                        if (dd[i + 3] !== origA)
+                                                            continue;
+                                                        if (
+                                                            dd[i] === r1 &&
+                                                            dd[i + 1] === g1 &&
+                                                            dd[i + 2] === b1
+                                                        ) {
+                                                            if (newA === 0) {
+                                                                // set canonical transparent black
+                                                                dd[i] = 0;
+                                                                dd[i + 1] = 0;
+                                                                dd[i + 2] = 0;
+                                                                dd[i + 3] = 0;
+                                                            } else {
+                                                                dd[i] = r2;
+                                                                dd[i + 1] = g2;
+                                                                dd[i + 2] = b2;
+                                                                dd[i + 3] =
+                                                                    newA;
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                                ctx.putImageData(data, 0, 0);
+                                                const outBlob =
+                                                    await new Promise<Blob | null>(
+                                                        (res) =>
+                                                            c.toBlob(
+                                                                (b) => res(b),
+                                                                "image/png"
+                                                            )
+                                                    );
+                                                if (!outBlob) return;
+                                                const url =
+                                                    URL.createObjectURL(
+                                                        outBlob
+                                                    );
+                                                invalidate();
+                                                setImage(url, true);
+                                            } catch (err) {
+                                                console.warn(
+                                                    "literal replace failed",
+                                                    err
+                                                );
+                                            }
+                                        }}
+                                    />
+                                </div>
+                            </>
+                        ) : null}
                     </div>
                 </aside>
                 <div
