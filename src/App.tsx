@@ -594,58 +594,59 @@ function App(): React.ReactElement | null {
                                     aria-hidden
                                 />
                             </button>
-                            {!isCropMode ? (
-                                <button
-                                    className="preview-crop-btn"
-                                    title="Crop"
-                                    aria-label="Crop"
-                                    disabled={!imageSrc}
-                                    onClick={() => {
-                                        if (imageSrc) setIsCropMode(true);
-                                    }}
-                                >
-                                    <i
-                                        className="fa-solid fa-crop"
-                                        aria-hidden="true"
-                                    ></i>
-                                </button>
-                            ) : (
-                                <>
+                            {mode === "2d" &&
+                                (!isCropMode ? (
                                     <button
-                                        className="preview-crop-btn preview-crop-btn--save"
-                                        title="Save crop"
-                                        aria-label="Save crop"
-                                        onClick={async () => {
-                                            if (!canvasPreviewRef.current)
-                                                return;
-                                            const blob =
-                                                await canvasPreviewRef.current.exportCroppedImage();
-                                            if (!blob) return;
-                                            const url =
-                                                URL.createObjectURL(blob);
-                                            invalidate();
-                                            setImage(url, true);
-                                            setIsCropMode(false);
+                                        className="preview-crop-btn"
+                                        title="Crop"
+                                        aria-label="Crop"
+                                        disabled={!imageSrc}
+                                        onClick={() => {
+                                            if (imageSrc) setIsCropMode(true);
                                         }}
                                     >
                                         <i
-                                            className="fa-solid fa-floppy-disk"
+                                            className="fa-solid fa-crop"
                                             aria-hidden="true"
                                         ></i>
                                     </button>
-                                    <button
-                                        className="preview-crop-btn preview-crop-btn--cancel"
-                                        title="Cancel crop"
-                                        aria-label="Cancel crop"
-                                        onClick={() => setIsCropMode(false)}
-                                    >
-                                        <i
-                                            className="fa-solid fa-xmark"
-                                            aria-hidden="true"
-                                        ></i>
-                                    </button>
-                                </>
-                            )}
+                                ) : (
+                                    <>
+                                        <button
+                                            className="preview-crop-btn preview-crop-btn--save"
+                                            title="Save crop"
+                                            aria-label="Save crop"
+                                            onClick={async () => {
+                                                if (!canvasPreviewRef.current)
+                                                    return;
+                                                const blob =
+                                                    await canvasPreviewRef.current.exportCroppedImage();
+                                                if (!blob) return;
+                                                const url =
+                                                    URL.createObjectURL(blob);
+                                                invalidate();
+                                                setImage(url, true);
+                                                setIsCropMode(false);
+                                            }}
+                                        >
+                                            <i
+                                                className="fa-solid fa-floppy-disk"
+                                                aria-hidden="true"
+                                            ></i>
+                                        </button>
+                                        <button
+                                            className="preview-crop-btn preview-crop-btn--cancel"
+                                            title="Cancel crop"
+                                            aria-label="Cancel crop"
+                                            onClick={() => setIsCropMode(false)}
+                                        >
+                                            <i
+                                                className="fa-solid fa-xmark"
+                                                aria-hidden="true"
+                                            ></i>
+                                        </button>
+                                    </>
+                                ))}
                             {/* Download full image button (same style as crop) */}
                             <button
                                 className="preview-crop-btn"
@@ -675,38 +676,49 @@ function App(): React.ReactElement | null {
                                     aria-hidden="true"
                                 />
                             </button>
-                            <button
-                                className="preview-crop-btn"
-                                title="Toggle checkerboard"
-                                aria-label="Toggle checkerboard"
-                                onClick={() => setShowCheckerboard((s) => !s)}
-                            >
-                                <i className="fa-solid fa-square" aria-hidden />
-                            </button>
-                            {/* moved uploader buttons into the top-right preview actions */}
-                            <button
-                                className="preview-crop-btn"
-                                title="Choose file"
-                                aria-label="Choose file"
-                                onClick={() => inputRef.current?.click()}
-                            >
-                                <i
-                                    className="fa-solid fa-file-upload"
-                                    aria-hidden="true"
-                                />
-                            </button>
-                            <button
-                                className="preview-crop-btn"
-                                title="Remove image"
-                                aria-label="Remove image"
-                                onClick={clear}
-                                disabled={!imageSrc || isCropMode}
-                            >
-                                <i
-                                    className="fa-solid fa-trash"
-                                    aria-hidden="true"
-                                />
-                            </button>
+                            {mode === "2d" && (
+                                <>
+                                    <button
+                                        className="preview-crop-btn"
+                                        title="Toggle checkerboard"
+                                        aria-label="Toggle checkerboard"
+                                        onClick={() =>
+                                            setShowCheckerboard((s) => !s)
+                                        }
+                                    >
+                                        <i
+                                            className="fa-solid fa-square"
+                                            aria-hidden
+                                        />
+                                    </button>
+                                    {/* moved uploader buttons into the top-right preview actions */}
+                                    <button
+                                        className="preview-crop-btn"
+                                        title="Choose file"
+                                        aria-label="Choose file"
+                                        onClick={() =>
+                                            inputRef.current?.click()
+                                        }
+                                    >
+                                        <i
+                                            className="fa-solid fa-file-upload"
+                                            aria-hidden
+                                        />
+                                    </button>
+                                    <button
+                                        className="preview-crop-btn"
+                                        title="Remove image"
+                                        aria-label="Remove image"
+                                        onClick={clear}
+                                        disabled={!imageSrc || isCropMode}
+                                    >
+                                        <i
+                                            className="fa-solid fa-trash"
+                                            aria-hidden
+                                        />
+                                    </button>
+                                </>
+                            )}
                         </div>
                     </div>
                 </main>
