@@ -13,7 +13,8 @@
         "@fortawesome/fontawesome-free": "^6.4.0",
         "react": "^19.1.1",
         "react-colorful": "^5.6.1",
-        "react-dom": "^19.1.1"
+        "react-dom": "^19.1.1",
+        "three": "^0.180.0"
     },
     "devDependencies": {
         "@eslint/js": "^9.33.0",
