@@ -538,11 +538,30 @@ function App(): React.ReactElement | null {
                                 <div className="controls-scroll">
                                     <div className="controls-group">
                                         <label>
-                                            <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-                                                <span style={{fontWeight:700}}>Layer height</span>
-                                                <span className="adjustment-unit">{layerHeight.toFixed(2)} mm</span>
+                                            <div
+                                                style={{
+                                                    display: "flex",
+                                                    justifyContent:
+                                                        "space-between",
+                                                    alignItems: "center",
+                                                }}
+                                            >
+                                                <span
+                                                    style={{ fontWeight: 700 }}
+                                                >
+                                                    Layer height
+                                                </span>
+                                                <span className="adjustment-unit">
+                                                    {layerHeight.toFixed(2)} mm
+                                                </span>
                                             </div>
-                                            <div style={{display: 'flex', gap: '8px', alignItems: 'center'}}>
+                                            <div
+                                                style={{
+                                                    display: "flex",
+                                                    gap: "8px",
+                                                    alignItems: "center",
+                                                }}
+                                            >
                                                 <input
                                                     type="number"
                                                     min={0.01}
@@ -550,10 +569,13 @@ function App(): React.ReactElement | null {
                                                     step={0.01}
                                                     value={layerHeight}
                                                     onChange={(e) => {
-                                                        const v = Number(e.target.value);
-                                                        if (!Number.isNaN(v)) setLayerHeight(v);
+                                                        const v = Number(
+                                                            e.target.value
+                                                        );
+                                                        if (!Number.isNaN(v))
+                                                            setLayerHeight(v);
                                                     }}
-                                                    style={{width: '100%'}}
+                                                    style={{ width: "100%" }}
                                                 />
                                             </div>
                                         </label>
