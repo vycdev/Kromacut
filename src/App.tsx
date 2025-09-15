@@ -58,9 +58,7 @@ function App(): React.ReactElement | null {
     const [mode, setMode] = useState<"2d" | "3d">("2d");
     // 3D printing controls
     const [layerHeight, setLayerHeight] = useState<number>(0.12); // mm
-    const [baseSliceHeight, setBaseSliceHeight] = useState<number>(
-        layerHeight
-    );
+    const [baseSliceHeight, setBaseSliceHeight] = useState<number>(layerHeight);
 
     // removed duplicate syncing: manual changes to the numeric input should set Auto via onWeightChange
     // redraw when image changes
@@ -604,7 +602,8 @@ function App(): React.ReactElement | null {
                                                     Base slice height
                                                 </span>
                                                 <span className="adjustment-unit">
-                                                    {baseSliceHeight.toFixed(2)} mm
+                                                    {baseSliceHeight.toFixed(2)}{" "}
+                                                    mm
                                                 </span>
                                             </div>
                                             <div
@@ -624,7 +623,8 @@ function App(): React.ReactElement | null {
                                                         const v = Number(
                                                             e.target.value
                                                         );
-                                                        if (Number.isNaN(v)) return;
+                                                        if (Number.isNaN(v))
+                                                            return;
                                                         setBaseSliceHeight(v);
                                                     }}
                                                     className="range--styled"
