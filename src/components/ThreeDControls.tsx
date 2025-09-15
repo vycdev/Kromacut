@@ -74,14 +74,22 @@ export default function ThreeDControls({ swatches }: ThreeDControlsProps) {
 
     // drag ordering helpers
     const dragStartRef = useRef<number | null>(null);
+    const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
     const handleDragStart = (e: DragEvent<HTMLDivElement>, fi: number) => {
         dragStartRef.current = fi;
         e.dataTransfer?.setData("text/plain", String(fi));
         if (e.dataTransfer) e.dataTransfer.effectAllowed = "move";
     };
-    const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
+    const handleDragOver = (
+        e: DragEvent<HTMLDivElement>,
+        toDisplayIdx: number
+    ) => {
         e.preventDefault();
+        setDragOverIndex(toDisplayIdx);
         if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
+    };
+    const handleDragLeave = () => {
+        setDragOverIndex(null);
     };
     const handleDrop = (e: DragEvent<HTMLDivElement>, toDisplayIdx: number) => {
         e.preventDefault();
@@ -98,6 +106,7 @@ export default function ThreeDControls({ swatches }: ThreeDControlsProps) {
         currentOrder.splice(toDisplayIdx, 0, fromFi);
         setColorOrder(currentOrder);
         dragStartRef.current = null;
+        setDragOverIndex(null);
     };
 
     return (
@@ -212,12 +221,27 @@ export default function ThreeDControls({ swatches }: ThreeDControlsProps) {
                             return (
                                 <div
                                     key={`${s.hex}-${fi}`}
-                                    onDragOver={handleDragOver}
+                                    onDragOver={(e) =>
+                                        handleDragOver(e, displayIdx)
+                                    }
+                                    onDragLeave={handleDragLeave}
                                     onDrop={(e) => handleDrop(e, displayIdx)}
                                     style={{
                                         display: "flex",
                                         gap: 8,
                                         alignItems: "center",
+                                        border:
+                                            dragOverIndex === displayIdx
+                                                ? "2px solid rebeccapurple"
+                                                : undefined,
+                                        padding:
+                                            dragOverIndex === displayIdx
+                                                ? 4
+                                                : undefined,
+                                        borderRadius:
+                                            dragOverIndex === displayIdx
+                                                ? 6
+                                                : undefined,
                                     }}
                                 >
                                     <div
