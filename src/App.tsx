@@ -545,6 +545,11 @@ function App(): React.ReactElement | null {
                         className={`dropzone ${dragOver ? "dragover" : ""}`}
                         onDrop={(e) => {
                             e.preventDefault();
+                            // disable dropping into the scene when in 3D mode
+                            if (mode === "3d") {
+                                setDragOver(false);
+                                return;
+                            }
                             setDragOver(false);
                             const file =
                                 e.dataTransfer.files && e.dataTransfer.files[0];
@@ -552,6 +557,8 @@ function App(): React.ReactElement | null {
                         }}
                         onDragOver={(e) => {
                             e.preventDefault();
+                            // don't show drag overlay or allow drops in 3D mode
+                            if (mode === "3d") return;
                             setDragOver(true);
                         }}
                         onDragLeave={() => setDragOver(false)}
