@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 type Swatch = { hex: string; a: number };
 
@@ -11,6 +11,11 @@ export default function ThreeDControls({ swatches }: ThreeDControlsProps) {
     const [layerHeight, setLayerHeight] = useState<number>(0.12); // mm
     const [baseSliceHeight, setBaseSliceHeight] = useState<number>(layerHeight);
     const [colorSliceHeights, setColorSliceHeights] = useState<number[]>([]);
+
+    // derive non-transparent swatches once per render and memoize
+    const filtered = useMemo(() => {
+        return swatches ? swatches.filter((s) => s.a !== 0) : [];
+    }, [swatches]);
 
     // Ensure baseSliceHeight stays within valid bounds when layerHeight changes
     // and snap it to the nearest multiple of layerHeight to keep it aligned.
@@ -25,21 +30,18 @@ export default function ThreeDControls({ swatches }: ThreeDControlsProps) {
 
     // Initialize or resize per-color slice heights when swatches change.
     useEffect(() => {
-        const filtered = swatches ? swatches.filter((s) => s.a !== 0) : [];
         setColorSliceHeights((prev) => {
             const next = filtered.map((_, i) => {
                 const existing = prev[i];
-                const base =
-                    typeof existing === "number" ? existing : layerHeight;
+                const base = typeof existing === "number" ? existing : layerHeight;
                 const clamped = Math.max(layerHeight, Math.min(10, base));
-                const multiple =
-                    Math.round(clamped / layerHeight) * layerHeight;
+                const multiple = Math.round(clamped / layerHeight) * layerHeight;
                 const snapped = Math.max(layerHeight, Math.min(10, multiple));
                 return Number(snapped.toFixed(8));
             });
             return next;
         });
-    }, [swatches, layerHeight]);
+    }, [filtered, layerHeight]);
 
     return (
         <div className="controls-scroll">
@@ -124,15 +126,14 @@ export default function ThreeDControls({ swatches }: ThreeDControlsProps) {
 
             {/* Per-color slice heights */}
             <div className="controls-group">
-                <div style={{ fontWeight: 700, marginBottom: 8 }}>
-                    Color slice heights
+                <div style={{ fontWeight: 700, marginBottom: 8, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div>Color slice heights</div>
+                    <div className="adjustment-unit">{filtered.length} colors</div>
                 </div>
                 <div
                     style={{ display: "flex", flexDirection: "column", gap: 8 }}
                 >
-                    {(swatches || [])
-                        .filter((s) => s.a !== 0)
-                        .map((s, idx) => {
+                    {filtered.map((s, idx) => {
                             const val = colorSliceHeights[idx] ?? layerHeight;
                             return (
                                 <div
