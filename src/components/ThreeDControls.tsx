@@ -75,8 +75,12 @@ export default function ThreeDControls({ swatches }: ThreeDControlsProps) {
     // drag ordering helpers
     const dragStartRef = useRef<number | null>(null);
     const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+    const [dragOverPosition, setDragOverPosition] =
+        useState<'above' | 'below' | null>(null);
     const handleDragStart = (e: DragEvent<HTMLDivElement>, fi: number) => {
         dragStartRef.current = fi;
+        setDragOverIndex(null);
+        setDragOverPosition(null);
         e.dataTransfer?.setData("text/plain", String(fi));
         if (e.dataTransfer) e.dataTransfer.effectAllowed = "move";
     };
@@ -85,11 +89,22 @@ export default function ThreeDControls({ swatches }: ThreeDControlsProps) {
         toDisplayIdx: number
     ) => {
         e.preventDefault();
+        // determine whether the pointer is in the top or bottom half of the row
+        const cur = e.currentTarget as HTMLElement | null;
+        if (cur) {
+            const rect = cur.getBoundingClientRect();
+            const mid = rect.top + rect.height / 2;
+            const pos = e.clientY <= mid ? 'above' : 'below';
+            setDragOverPosition(pos);
+        } else {
+            setDragOverPosition(null);
+        }
         setDragOverIndex(toDisplayIdx);
         if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
     };
     const handleDragLeave = () => {
         setDragOverIndex(null);
+        setDragOverPosition(null);
     };
     const handleDrop = (e: DragEvent<HTMLDivElement>, toDisplayIdx: number) => {
         e.preventDefault();
@@ -102,11 +117,26 @@ export default function ThreeDControls({ swatches }: ThreeDControlsProps) {
                 : filtered.map((_, i) => i);
         const fromPos = currentOrder.indexOf(fromFi);
         if (fromPos === -1) return;
+
+        // compute insertion index based on above/below. If dropping below, insert after
+        // the target row; otherwise insert before it. Adjust for removal index shift.
+        let insertAt = toDisplayIdx + (dragOverPosition === 'below' ? 1 : 0);
+
+        // remove the dragged item first
         currentOrder.splice(fromPos, 1);
-        currentOrder.splice(toDisplayIdx, 0, fromFi);
+
+        // if the item was before the insertion point, removing it shifts the index left
+        if (fromPos < insertAt) insertAt -= 1;
+
+        // clamp insertAt
+        if (insertAt < 0) insertAt = 0;
+        if (insertAt > currentOrder.length) insertAt = currentOrder.length;
+
+        currentOrder.splice(insertAt, 0, fromFi);
         setColorOrder(currentOrder);
         dragStartRef.current = null;
         setDragOverIndex(null);
+        setDragOverPosition(null);
     };
 
     return (
@@ -227,22 +257,34 @@ export default function ThreeDControls({ swatches }: ThreeDControlsProps) {
                                     onDragLeave={handleDragLeave}
                                     onDrop={(e) => handleDrop(e, displayIdx)}
                                     style={{
-                                        display: "flex",
-                                        gap: 8,
-                                        alignItems: "center",
-                                        border:
-                                            dragOverIndex === displayIdx
-                                                ? "2px solid rebeccapurple"
-                                                : undefined,
-                                        padding:
-                                            dragOverIndex === displayIdx
-                                                ? 4
-                                                : undefined,
-                                        borderRadius:
-                                            dragOverIndex === displayIdx
-                                                ? 6
-                                                : undefined,
-                                    }}
+                                            display: "flex",
+                                            gap: 8,
+                                            alignItems: "center",
+                                            borderTop:
+                                                dragOverIndex === displayIdx &&
+                                                dragOverPosition === 'above'
+                                                    ? "2px solid rebeccapurple"
+                                                    : undefined,
+                                            borderBottom:
+                                                dragOverIndex === displayIdx &&
+                                                dragOverPosition === 'below'
+                                                    ? "2px solid rebeccapurple"
+                                                    : undefined,
+                                            paddingTop:
+                                                dragOverIndex === displayIdx &&
+                                                dragOverPosition === 'above'
+                                                    ? 4
+                                                    : undefined,
+                                            paddingBottom:
+                                                dragOverIndex === displayIdx &&
+                                                dragOverPosition === 'below'
+                                                    ? 4
+                                                    : undefined,
+                                            borderRadius:
+                                                dragOverIndex === displayIdx
+                                                    ? 6
+                                                    : undefined,
+                                        }}
                                 >
                                     <div
                                         // drag handle: only this element is draggable
