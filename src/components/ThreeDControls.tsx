@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { DragEvent } from "react";
+import ThreeDColorRow from "./ThreeDColorRow";
 
 type Swatch = { hex: string; a: number };
 
@@ -78,67 +79,68 @@ export default function ThreeDControls({ swatches }: ThreeDControlsProps) {
     const [dragOverPosition, setDragOverPosition] = useState<
         "above" | "below" | null
     >(null);
-    const handleDragStart = (e: DragEvent<HTMLDivElement>, fi: number) => {
-        dragStartRef.current = fi;
-        setDragOverIndex(null);
-        setDragOverPosition(null);
-        e.dataTransfer?.setData("text/plain", String(fi));
-        if (e.dataTransfer) e.dataTransfer.effectAllowed = "move";
-    };
-    const handleDragOver = (
-        e: DragEvent<HTMLDivElement>,
-        toDisplayIdx: number
-    ) => {
-        e.preventDefault();
-        // determine whether the pointer is in the top or bottom half of the row
-        const cur = e.currentTarget as HTMLElement | null;
-        if (cur) {
-            const rect = cur.getBoundingClientRect();
-            const mid = rect.top + rect.height / 2;
-            const pos = e.clientY <= mid ? "above" : "below";
-            setDragOverPosition(pos);
-        } else {
+
+    const handleDragStart = useCallback(
+        (e: DragEvent<HTMLDivElement>, fi: number) => {
+            dragStartRef.current = fi;
+            setDragOverIndex(null);
             setDragOverPosition(null);
-        }
-        setDragOverIndex(toDisplayIdx);
-        if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
-    };
-    const handleDragLeave = () => {
+            e.dataTransfer?.setData("text/plain", String(fi));
+            if (e.dataTransfer) e.dataTransfer.effectAllowed = "move";
+        },
+        []
+    );
+
+    const handleDragOver = useCallback(
+        (e: DragEvent<HTMLDivElement>, toDisplayIdx: number) => {
+            e.preventDefault();
+            const cur = e.currentTarget as HTMLElement | null;
+            if (cur) {
+                const rect = cur.getBoundingClientRect();
+                const mid = rect.top + rect.height / 2;
+                const pos = e.clientY <= mid ? "above" : "below";
+                setDragOverPosition(pos);
+            } else {
+                setDragOverPosition(null);
+            }
+            setDragOverIndex(toDisplayIdx);
+            if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
+        },
+        []
+    );
+
+    const handleDragLeave = useCallback(() => {
         setDragOverIndex(null);
         setDragOverPosition(null);
-    };
-    const handleDrop = (e: DragEvent<HTMLDivElement>, toDisplayIdx: number) => {
-        e.preventDefault();
-        const fromStr = e.dataTransfer?.getData("text/plain");
-        const fromFi = fromStr ? Number(fromStr) : dragStartRef.current;
-        if (fromFi == null || Number.isNaN(fromFi)) return;
-        const currentOrder =
-            colorOrder.length === filtered.length
-                ? colorOrder.slice()
-                : filtered.map((_, i) => i);
-        const fromPos = currentOrder.indexOf(fromFi);
-        if (fromPos === -1) return;
+    }, []);
 
-        // compute insertion index based on above/below. If dropping below, insert after
-        // the target row; otherwise insert before it. Adjust for removal index shift.
-        let insertAt = toDisplayIdx + (dragOverPosition === "below" ? 1 : 0);
+    const handleDrop = useCallback(
+        (e: DragEvent<HTMLDivElement>, toDisplayIdx: number) => {
+            e.preventDefault();
+            const fromStr = e.dataTransfer?.getData("text/plain");
+            const fromFi = fromStr ? Number(fromStr) : dragStartRef.current;
+            if (fromFi == null || Number.isNaN(fromFi)) return;
+            const currentOrder =
+                colorOrder.length === filtered.length
+                    ? colorOrder.slice()
+                    : filtered.map((_, i) => i);
+            const fromPos = currentOrder.indexOf(fromFi);
+            if (fromPos === -1) return;
 
-        // remove the dragged item first
-        currentOrder.splice(fromPos, 1);
-
-        // if the item was before the insertion point, removing it shifts the index left
-        if (fromPos < insertAt) insertAt -= 1;
-
-        // clamp insertAt
-        if (insertAt < 0) insertAt = 0;
-        if (insertAt > currentOrder.length) insertAt = currentOrder.length;
-
-        currentOrder.splice(insertAt, 0, fromFi);
-        setColorOrder(currentOrder);
-        dragStartRef.current = null;
-        setDragOverIndex(null);
-        setDragOverPosition(null);
-    };
+            let insertAt =
+                toDisplayIdx + (dragOverPosition === "below" ? 1 : 0);
+            currentOrder.splice(fromPos, 1);
+            if (fromPos < insertAt) insertAt -= 1;
+            if (insertAt < 0) insertAt = 0;
+            if (insertAt > currentOrder.length) insertAt = currentOrder.length;
+            currentOrder.splice(insertAt, 0, fromFi);
+            setColorOrder(currentOrder);
+            dragStartRef.current = null;
+            setDragOverIndex(null);
+            setDragOverPosition(null);
+        },
+        [colorOrder, filtered, dragOverPosition]
+    );
 
     return (
         <div className="controls-scroll">
@@ -248,95 +250,28 @@ export default function ThreeDControls({ swatches }: ThreeDControlsProps) {
                         ).map((fi, displayIdx) => {
                             const s = filtered[fi];
                             const val = colorSliceHeights[fi] ?? layerHeight;
-
                             return (
-                                <div
+                                <ThreeDColorRow
                                     key={`${s.hex}-${fi}`}
-                                    onDragOver={(e) =>
-                                        handleDragOver(e, displayIdx)
-                                    }
+                                    fi={fi}
+                                    displayIdx={displayIdx}
+                                    hex={s.hex}
+                                    value={val}
+                                    layerHeight={layerHeight}
+                                    isDragOver={dragOverIndex === displayIdx}
+                                    dragPosition={dragOverPosition}
+                                    onDragStart={handleDragStart}
+                                    onDragOver={handleDragOver}
                                     onDragLeave={handleDragLeave}
-                                    onDrop={(e) => handleDrop(e, displayIdx)}
-                                    style={{
-                                        display: "flex",
-                                        gap: 8,
-                                        alignItems: "center",
-                                        // Use inset box-shadow for top/bottom indicator so it doesn't
-                                        // affect layout (no element displacement when shown).
-                                        boxShadow:
-                                            dragOverIndex === displayIdx &&
-                                            dragOverPosition === "above"
-                                                ? "inset 0 2px 0 0 rebeccapurple"
-                                                : dragOverIndex ===
-                                                      displayIdx &&
-                                                  dragOverPosition === "below"
-                                                ? "inset 0 -2px 0 0 rebeccapurple"
-                                                : undefined,
-                                        borderRadius:
-                                            dragOverIndex === displayIdx
-                                                ? 6
-                                                : undefined,
+                                    onDrop={handleDrop}
+                                    onChange={(idx, v) => {
+                                        setColorSliceHeights((prev) => {
+                                            const next = prev.slice();
+                                            next[idx] = v;
+                                            return next;
+                                        });
                                     }}
-                                >
-                                    <div
-                                        // drag handle: only this element is draggable
-                                        draggable
-                                        onDragStart={(e) =>
-                                            handleDragStart(e, fi)
-                                        }
-                                        style={{
-                                            width: 20,
-                                            height: 20,
-                                            display: "flex",
-                                            alignItems: "center",
-                                            justifyContent: "center",
-                                            cursor: "grab",
-                                            color: "#666",
-                                        }}
-                                        aria-label="Reorder color"
-                                        title="Drag to reorder"
-                                    >
-                                        <i
-                                            className="fa-solid fa-grip-vertical"
-                                            aria-hidden
-                                        />
-                                    </div>
-                                    <div
-                                        style={{
-                                            width: 28,
-                                            height: 20,
-                                            background: s.hex,
-                                            border: "1px solid #ccc",
-                                            borderRadius: 3,
-                                        }}
-                                    />
-                                    <input
-                                        type="range"
-                                        min={layerHeight}
-                                        max={10}
-                                        step={layerHeight}
-                                        value={val}
-                                        onChange={(e) => {
-                                            const v = Number(e.target.value);
-                                            if (Number.isNaN(v)) return;
-                                            setColorSliceHeights((prev) => {
-                                                const next = prev.slice();
-                                                next[fi] = v;
-                                                return next;
-                                            });
-                                        }}
-                                        className="range--styled"
-                                        style={{ flex: 1 }}
-                                    />
-                                    <div
-                                        style={{
-                                            width: 72,
-                                            textAlign: "right",
-                                        }}
-                                    >
-                                        {val.toFixed(2)} mm
-                                    </div>
-                                </div>
+                                />
                             );
                         })
                     }
