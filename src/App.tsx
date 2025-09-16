@@ -827,18 +827,30 @@ function App(): React.ReactElement | null {
                                                     const c = index.getX(i + 2);
                                                     const t = getTri(a, b, c);
                                                     parts.push(
-                                                        `facet normal ${t.nx} ${t.ny} ${t.nz}\n  outer loop\n    vertex ${t.ax * sx} ${t.ay * sy} ${t.az * sz}\n    vertex ${t.bx * sx} ${t.by * sy} ${t.bz * sz}\n    vertex ${t.cx * sx} ${t.cy * sy} ${t.cz * sz}\n  endloop\nendfacet\n`
+                                                        `facet normal ${t.nx} ${
+                                                            t.ny
+                                                        } ${
+                                                            t.nz
+                                                        }\n  outer loop\n    vertex ${
+                                                            t.ax * sx
+                                                        } ${t.ay * sy} ${
+                                                            t.az * sz
+                                                        }\n    vertex ${
+                                                            t.bx * sx
+                                                        } ${t.by * sy} ${
+                                                            t.bz * sz
+                                                        }\n    vertex ${
+                                                            t.cx * sx
+                                                        } ${t.cy * sy} ${
+                                                            t.cz * sz
+                                                        }\n  endloop\nendfacet\n`
                                                     );
                                                     if (tri % CHUNK === 0) {
                                                         setExportProgress(
                                                             tri / totalTris
                                                         );
-                                                        await new Promise(
-                                                            (r) =>
-                                                                setTimeout(
-                                                                    r,
-                                                                    0
-                                                                )
+                                                        await new Promise((r) =>
+                                                            setTimeout(r, 0)
                                                         );
                                                     }
                                                 }
@@ -854,25 +866,35 @@ function App(): React.ReactElement | null {
                                                         i + 2
                                                     );
                                                     parts.push(
-                                                        `facet normal ${t.nx} ${t.ny} ${t.nz}\n  outer loop\n    vertex ${t.ax * sx} ${t.ay * sy} ${t.az * sz}\n    vertex ${t.bx * sx} ${t.by * sy} ${t.bz * sz}\n    vertex ${t.cx * sx} ${t.cy * sy} ${t.cz * sz}\n  endloop\nendfacet\n`
+                                                        `facet normal ${t.nx} ${
+                                                            t.ny
+                                                        } ${
+                                                            t.nz
+                                                        }\n  outer loop\n    vertex ${
+                                                            t.ax * sx
+                                                        } ${t.ay * sy} ${
+                                                            t.az * sz
+                                                        }\n    vertex ${
+                                                            t.bx * sx
+                                                        } ${t.by * sy} ${
+                                                            t.bz * sz
+                                                        }\n    vertex ${
+                                                            t.cx * sx
+                                                        } ${t.cy * sy} ${
+                                                            t.cz * sz
+                                                        }\n  endloop\nendfacet\n`
                                                     );
                                                     if (tri % CHUNK === 0) {
                                                         setExportProgress(
                                                             tri / totalTris
                                                         );
-                                                        await new Promise(
-                                                            (r) =>
-                                                                setTimeout(
-                                                                    r,
-                                                                    0
-                                                                )
+                                                        await new Promise((r) =>
+                                                            setTimeout(r, 0)
                                                         );
                                                     }
                                                 }
                                             }
-                                            parts.push(
-                                                "endsolid strata_model"
-                                            );
+                                            parts.push("endsolid strata_model");
                                             setExportProgress(1);
                                             const blob = new Blob(parts, {
                                                 type: "model/stl",
@@ -897,9 +919,10 @@ function App(): React.ReactElement | null {
                                             );
                                         } finally {
                                             setExportingSTL(false);
-                                            setTimeout(() =>
-                                                setExportProgress(0),
-                                            300);
+                                            setTimeout(
+                                                () => setExportProgress(0),
+                                                300
+                                            );
                                         }
                                         return;
                                     }
