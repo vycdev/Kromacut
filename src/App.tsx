@@ -79,6 +79,21 @@ function App(): React.ReactElement | null {
     });
     // Signal to force a rebuild of the 3D view when incremented
     const [threeDBuildSignal, setThreeDBuildSignal] = useState(0);
+    const prevModeRef = useRef<typeof mode>(mode);
+
+    // When the user switches to 3D mode, trigger the rebuild signal (same effect as the Rebuild button).
+    // Schedule the rebuild on a short timeout so that the ThreeDControls have a chance to mount
+    // and emit their initial state (filteredSwatches / color heights) before ThreeDView starts building.
+    useEffect(() => {
+        let t: number | undefined;
+        if (prevModeRef.current !== mode && mode === "3d") {
+            t = window.setTimeout(() => setThreeDBuildSignal((s) => s + 1), 50);
+        }
+        prevModeRef.current = mode;
+        return () => {
+            if (t) clearTimeout(t);
+        };
+    }, [mode]);
 
     // removed duplicate syncing: manual changes to the numeric input should set Auto via onWeightChange
     // redraw when image changes
@@ -583,12 +598,11 @@ function App(): React.ReactElement | null {
                                 </div>
                             </>
                         ) : (
-                                <ThreeDControls
-                                    swatches={swatches}
-                                    onChange={handleThreeDStateChange}
-                                    persisted={threeDState}
-                                    onRebuild={() => setThreeDBuildSignal((s) => s + 1)}
-                                />
+                            <ThreeDControls
+                                swatches={swatches}
+                                onChange={handleThreeDStateChange}
+                                persisted={threeDState}
+                            />
                         )}
                     </div>
                 </aside>
