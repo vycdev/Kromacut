@@ -296,12 +296,10 @@ export default function ThreeDView({
                     cumulativePerOrderPos[pos] = running;
                 });
 
-                const planeGeom = new THREE.PlaneGeometry(
-                    1,
-                    1,
-                    resolution,
-                    resolution
-                );
+                // Create plane geometry and expand to non-indexed so faces do not share vertices.
+                const indexedPlane = new THREE.PlaneGeometry(1, 1, resolution, resolution);
+                const planeGeom = indexedPlane.toNonIndexed();
+                indexedPlane.dispose();
                 const posAttr = planeGeom.getAttribute("position");
                 const vertexCount = posAttr.count;
                 const colors = new Float32Array(vertexCount * 3);
@@ -309,45 +307,44 @@ export default function ThreeDView({
                 // Progressive yielding to keep main thread responsive
                 let lastYield = performance.now();
                 const YIELD_EVERY_MS = 12;
-                for (let vi = 0; vi < vertexCount; vi++) {
-                    const vx = posAttr.getX(vi);
-                    const vz = posAttr.getY(vi);
-                    const u = vx + 0.5;
-                    const v = vz + 0.5;
-                    // Map to bounding box if provided, otherwise full image
+
+                // Iterate triangles (3 vertices per triangle) and sample color/height at triangle centroid
+                for (let vi = 0; vi < vertexCount; vi += 3) {
+                    // Compute centroid of the triangle in plane coords
+                    const cx = (posAttr.getX(vi) + posAttr.getX(vi + 1) + posAttr.getX(vi + 2)) / 3;
+                    const cz = (posAttr.getY(vi) + posAttr.getY(vi + 1) + posAttr.getY(vi + 2)) / 3;
+                    const u = cx + 0.5;
+                    const v = cz + 0.5;
                     const bMinX = bbox ? bbox.minX : 0;
                     const bMinY = bbox ? bbox.minY : 0;
                     const bW = bbox ? bbox.boxW : w;
                     const bH = bbox ? bbox.boxH : h;
-                    const px = Math.min(
-                        w - 1,
-                        Math.max(0, Math.round(bMinX + u * (bW - 1)))
-                    );
-                    const py = Math.min(
-                        h - 1,
-                        Math.max(0, Math.round(bMinY + v * (bH - 1)))
-                    );
+                    const px = Math.min(w - 1, Math.max(0, Math.round(bMinX + u * (bW - 1))));
+                    const py = Math.min(h - 1, Math.max(0, Math.round(bMinY + v * (bH - 1))));
                     const idx = (py * w + px) * 4;
                     const r = data[idx];
                     const g = data[idx + 1];
-                    const b = data[idx + 2];
+                    const bcol = data[idx + 2];
                     const a = data[idx + 3];
                     const opaque = a > 0;
                     let height = opaque ? baseSliceHeight : 0;
                     if (opaque && swatches.length) {
-                        const swatchIndex = findSwatchIndex(r, g, b, swatches);
+                        const swatchIndex = findSwatchIndex(r, g, bcol, swatches);
                         if (swatchIndex !== -1) {
                             const orderPos = orderPositions.get(swatchIndex);
-                            if (orderPos !== undefined)
-                                height += cumulativePerOrderPos[orderPos] || 0;
+                            if (orderPos !== undefined) height += cumulativePerOrderPos[orderPos] || 0;
                         }
                     }
-                    if (layerHeight > 0)
-                        height = Math.round(height / layerHeight) * layerHeight;
-                    posAttr.setZ(vi, height);
-                    colors[vi * 3 + 0] = r / 255;
-                    colors[vi * 3 + 1] = g / 255;
-                    colors[vi * 3 + 2] = b / 255;
+                    if (layerHeight > 0) height = Math.round(height / layerHeight) * layerHeight;
+
+                    // Assign centroid-derived height and color to all three vertices of the triangle
+                    for (let k = 0; k < 3; k++) {
+                        posAttr.setZ(vi + k, height);
+                        colors[(vi + k) * 3 + 0] = r / 255;
+                        colors[(vi + k) * 3 + 1] = g / 255;
+                        colors[(vi + k) * 3 + 2] = bcol / 255;
+                    }
+
                     if (performance.now() - lastYield > YIELD_EVERY_MS) {
                         await new Promise((r) => requestAnimationFrame(r));
                         if (token !== buildTokenRef.current) return;
@@ -385,10 +382,7 @@ export default function ThreeDView({
                     }
                     posAttr.needsUpdate = true;
                 }
-                planeGeom.setAttribute(
-                    "color",
-                    new THREE.BufferAttribute(colors, 3)
-                );
+                planeGeom.setAttribute("color", new THREE.BufferAttribute(colors, 3));
 
                 // If preview mode, skip walls/bottom for speed
                 let finalGeom: THREE.BufferGeometry;
@@ -477,15 +471,13 @@ export default function ThreeDView({
                     combinedColors.set(colors, 0);
                     combinedColors.set(bottomColors, topVertexCount * 3);
                     finalGeom = new THREE.BufferGeometry();
-                    finalGeom.setAttribute(
-                        "position",
-                        new THREE.BufferAttribute(combinedPositions, 3)
-                    );
-                    finalGeom.setAttribute(
-                        "color",
-                        new THREE.BufferAttribute(combinedColors, 3)
-                    );
+                    finalGeom.setAttribute("position", new THREE.BufferAttribute(combinedPositions, 3));
+                    finalGeom.setAttribute("color", new THREE.BufferAttribute(combinedColors, 3));
                     finalGeom.setIndex(indices);
+                    // Expand to non-indexed so faces have their own vertices and don't blend colors
+                    const indexedFinal = finalGeom;
+                    finalGeom = indexedFinal.toNonIndexed();
+                    indexedFinal.dispose();
                     finalGeom.computeVertexNormals();
                     planeGeom.dispose();
                 }
