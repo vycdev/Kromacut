@@ -292,6 +292,19 @@ export default function ThreeDView({
                     tex.magFilter = THREE.NearestFilter;
                     tex.minFilter = THREE.NearestFilter;
                     tex.generateMipmaps = false;
+                    tex.wrapS = THREE.ClampToEdgeWrapping;
+                    tex.wrapT = THREE.ClampToEdgeWrapping;
+                    // If a bounding box is provided, map UV 0..1 to that cropped region
+                    if (bbox) {
+                        tex.repeat.set(bbox.boxW / w, bbox.boxH / h);
+                        tex.offset.set(
+                            bbox.minX / w,
+                            1 - (bbox.minY + bbox.boxH) / h
+                        );
+                    } else {
+                        tex.repeat.set(1, 1);
+                        tex.offset.set(0, 0);
+                    }
                     tex.needsUpdate = true;
                     const mat = materialRef.current;
                     if (mat) {
@@ -500,11 +513,14 @@ export default function ThreeDView({
                     const topPositions = new Float32Array(topVertexCount * 3);
                     // copy UVs from plane geometry (posAttr corresponds to planeGeom non-indexed)
                     const uvAttr = planeGeom.getAttribute("uv");
-                    const topUVs = new Float32Array((uvAttr ? uvAttr.count : 0) * 2);
-                    if (uvAttr) for (let i = 0; i < uvAttr.count; i++) {
-                        topUVs[i * 2] = uvAttr.getX(i);
-                        topUVs[i * 2 + 1] = uvAttr.getY(i);
-                    }
+                    const topUVs = new Float32Array(
+                        (uvAttr ? uvAttr.count : 0) * 2
+                    );
+                    if (uvAttr)
+                        for (let i = 0; i < uvAttr.count; i++) {
+                            topUVs[i * 2] = uvAttr.getX(i);
+                            topUVs[i * 2 + 1] = uvAttr.getY(i);
+                        }
                     for (let i = 0; i < topVertexCount; i++) {
                         topPositions[i * 3 + 0] = posAttr.getX(i);
                         topPositions[i * 3 + 1] = posAttr.getY(i);
@@ -591,7 +607,10 @@ export default function ThreeDView({
                         const combinedUVs = new Float32Array(topUVs.length * 2);
                         combinedUVs.set(topUVs, 0);
                         combinedUVs.set(topUVs, topUVs.length);
-                        finalGeom.setAttribute("uv", new THREE.BufferAttribute(combinedUVs, 2));
+                        finalGeom.setAttribute(
+                            "uv",
+                            new THREE.BufferAttribute(combinedUVs, 2)
+                        );
                     }
                     finalGeom.setAttribute(
                         "color",
@@ -702,6 +721,28 @@ export default function ThreeDView({
                 if (!ctx) return;
                 ctx.drawImage(img, 0, 0, fullW, fullH);
                 const { data } = ctx.getImageData(0, 0, fullW, fullH);
+
+                // Create and assign a CanvasTexture for the pixelColumns path as well
+                try {
+                    const tex = new THREE.CanvasTexture(canvas);
+                    tex.magFilter = THREE.NearestFilter;
+                    tex.minFilter = THREE.NearestFilter;
+                    tex.generateMipmaps = false;
+                    tex.wrapS = THREE.ClampToEdgeWrapping;
+                    tex.wrapT = THREE.ClampToEdgeWrapping;
+                    // Map UV 0..1 to the bbox region
+                    tex.repeat.set(boxW / fullW, boxH / fullH);
+                    tex.offset.set(minX / fullW, 1 - (minY + boxH) / fullH);
+                    tex.needsUpdate = true;
+                    const mat = materialRef.current;
+                    if (mat) {
+                        mat.map = tex;
+                        mat.vertexColors = false;
+                        mat.needsUpdate = true;
+                    }
+                } catch {
+                    /* ignore */
+                }
 
                 // Precompute cumulative heights
                 const orderPositions = new Map<number, number>();
@@ -887,7 +928,10 @@ export default function ThreeDView({
                             uvs[bi * 2 + 1] = v;
                         }
                     }
-                    finalGeom.setAttribute("uv", new THREE.BufferAttribute(uvs, 2));
+                    finalGeom.setAttribute(
+                        "uv",
+                        new THREE.BufferAttribute(uvs, 2)
+                    );
                     finalGeom.setAttribute(
                         "color",
                         new THREE.BufferAttribute(combinedColors, 3)
