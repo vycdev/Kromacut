@@ -765,144 +765,79 @@ function App(): React.ReactElement | null {
                                         // Prepare async incremental export
                                         setExportingSTL(true);
                                         setExportProgress(0);
-                                        const parts: string[] = [
-                                            "solid strata_model\n",
-                                        ];
-                                        const getTri = (
-                                            a: number,
-                                            b: number,
-                                            c: number
-                                        ) => {
-                                            const ax = pos.getX(a),
-                                                ay = pos.getY(a),
-                                                az = pos.getZ(a);
-                                            const bx = pos.getX(b),
-                                                by = pos.getY(b),
-                                                bz = pos.getZ(b);
-                                            const cx = pos.getX(c),
-                                                cy = pos.getY(c),
-                                                cz = pos.getZ(c);
-                                            const ux = bx - ax,
-                                                uy = by - ay,
-                                                uz = bz - az;
-                                            const vx = cx - ax,
-                                                vy = cy - ay,
-                                                vz = cz - az;
+                                        // Determine triangle count first
+                                        const getTri = (a: number, b: number, c: number) => {
+                                            const ax = pos.getX(a), ay = pos.getY(a), az = pos.getZ(a);
+                                            const bx = pos.getX(b), by = pos.getY(b), bz = pos.getZ(b);
+                                            const cx = pos.getX(c), cy = pos.getY(c), cz = pos.getZ(c);
+                                            const ux = bx - ax, uy = by - ay, uz = bz - az;
+                                            const vx = cx - ax, vy = cy - ay, vz = cz - az;
                                             let nx = uy * vz - uz * vy;
                                             let ny = uz * vx - ux * vz;
                                             let nz = ux * vy - uy * vx;
-                                            const len =
-                                                Math.hypot(nx, ny, nz) || 1;
-                                            nx /= len;
-                                            ny /= len;
-                                            nz /= len;
-                                            return {
-                                                ax,
-                                                ay,
-                                                az,
-                                                bx,
-                                                by,
-                                                bz,
-                                                cx,
-                                                cy,
-                                                cz,
-                                                nx,
-                                                ny,
-                                                nz,
-                                            };
+                                            const len = Math.hypot(nx, ny, nz) || 1;
+                                            nx /= len; ny /= len; nz /= len;
+                                            return { ax, ay, az, bx, by, bz, cx, cy, cz, nx, ny, nz };
                                         };
-                                        const totalTris = index
-                                            ? index.count / 3
-                                            : pos.count / 3;
-                                        const CHUNK = 6000; // triangles per yield
+                                        const totalTris = index ? index.count / 3 : pos.count / 3;
+                                        const headerBytes = 80;
+                                        const triSize = 50;
+                                        const totalBytes = headerBytes + 4 + totalTris * triSize;
+                                        let buffer: ArrayBuffer;
                                         try {
+                                            buffer = new ArrayBuffer(totalBytes);
+                                        } catch (allocErr) {
+                                            console.warn("Allocation failed for binary STL", allocErr);
+                                            alert("Model too large for binary STL in memory.");
+                                            setExportingSTL(false);
+                                            return;
+                                        }
+                                        const view = new DataView(buffer);
+                                        const headerStr = "StrataPaint Binary STL";
+                                        for (let i = 0; i < headerStr.length && i < 80; i++) view.setUint8(i, headerStr.charCodeAt(i));
+                                        view.setUint32(headerBytes, totalTris, true);
+                                        const sx_f = sx, sy_f = sy, sz_f = sz;
+                                        const CHUNK = 20000;
+                                        let offset = headerBytes + 4;
+                                        try {
+                                            const writeTri = (t: ReturnType<typeof getTri>) => {
+                                                view.setFloat32(offset + 0, t.nx, true);
+                                                view.setFloat32(offset + 4, t.ny, true);
+                                                view.setFloat32(offset + 8, t.nz, true);
+                                                view.setFloat32(offset + 12, t.ax * sx_f, true);
+                                                view.setFloat32(offset + 16, t.ay * sy_f, true);
+                                                view.setFloat32(offset + 20, t.az * sz_f, true);
+                                                view.setFloat32(offset + 24, t.bx * sx_f, true);
+                                                view.setFloat32(offset + 28, t.by * sy_f, true);
+                                                view.setFloat32(offset + 32, t.bz * sz_f, true);
+                                                view.setFloat32(offset + 36, t.cx * sx_f, true);
+                                                view.setFloat32(offset + 40, t.cy * sy_f, true);
+                                                view.setFloat32(offset + 44, t.cz * sz_f, true);
+                                                view.setUint16(offset + 48, 0, true);
+                                                offset += triSize;
+                                            };
                                             if (index) {
-                                                for (
-                                                    let i = 0, tri = 0;
-                                                    i < index.count;
-                                                    i += 3, tri++
-                                                ) {
-                                                    const a = index.getX(i);
-                                                    const b = index.getX(i + 1);
-                                                    const c = index.getX(i + 2);
-                                                    const t = getTri(a, b, c);
-                                                    parts.push(
-                                                        `facet normal ${t.nx} ${
-                                                            t.ny
-                                                        } ${
-                                                            t.nz
-                                                        }\n  outer loop\n    vertex ${
-                                                            t.ax * sx
-                                                        } ${t.ay * sy} ${
-                                                            t.az * sz
-                                                        }\n    vertex ${
-                                                            t.bx * sx
-                                                        } ${t.by * sy} ${
-                                                            t.bz * sz
-                                                        }\n    vertex ${
-                                                            t.cx * sx
-                                                        } ${t.cy * sy} ${
-                                                            t.cz * sz
-                                                        }\n  endloop\nendfacet\n`
-                                                    );
+                                                for (let i = 0, tri = 0; i < index.count; i += 3, tri++) {
+                                                    const a = index.getX(i), b = index.getX(i + 1), c = index.getX(i + 2);
+                                                    writeTri(getTri(a, b, c));
                                                     if (tri % CHUNK === 0) {
-                                                        setExportProgress(
-                                                            tri / totalTris
-                                                        );
-                                                        await new Promise((r) =>
-                                                            setTimeout(r, 0)
-                                                        );
+                                                        setExportProgress(tri / totalTris);
+                                                        await new Promise(r => setTimeout(r, 0));
                                                     }
                                                 }
                                             } else {
-                                                for (
-                                                    let i = 0, tri = 0;
-                                                    i < pos.count;
-                                                    i += 3, tri++
-                                                ) {
-                                                    const t = getTri(
-                                                        i,
-                                                        i + 1,
-                                                        i + 2
-                                                    );
-                                                    parts.push(
-                                                        `facet normal ${t.nx} ${
-                                                            t.ny
-                                                        } ${
-                                                            t.nz
-                                                        }\n  outer loop\n    vertex ${
-                                                            t.ax * sx
-                                                        } ${t.ay * sy} ${
-                                                            t.az * sz
-                                                        }\n    vertex ${
-                                                            t.bx * sx
-                                                        } ${t.by * sy} ${
-                                                            t.bz * sz
-                                                        }\n    vertex ${
-                                                            t.cx * sx
-                                                        } ${t.cy * sy} ${
-                                                            t.cz * sz
-                                                        }\n  endloop\nendfacet\n`
-                                                    );
+                                                for (let i = 0, tri = 0; i < pos.count; i += 3, tri++) {
+                                                    writeTri(getTri(i, i + 1, i + 2));
                                                     if (tri % CHUNK === 0) {
-                                                        setExportProgress(
-                                                            tri / totalTris
-                                                        );
-                                                        await new Promise((r) =>
-                                                            setTimeout(r, 0)
-                                                        );
+                                                        setExportProgress(tri / totalTris);
+                                                        await new Promise(r => setTimeout(r, 0));
                                                     }
                                                 }
                                             }
-                                            parts.push("endsolid strata_model");
                                             setExportProgress(1);
-                                            const blob = new Blob(parts, {
-                                                type: "model/stl",
-                                            });
-                                            const url =
-                                                URL.createObjectURL(blob);
-                                            const a =
-                                                document.createElement("a");
+                                            const blob = new Blob([buffer], { type: "model/stl" });
+                                            const url = URL.createObjectURL(blob);
+                                            const a = document.createElement("a");
                                             a.href = url;
                                             a.download = "model.stl";
                                             document.body.appendChild(a);
