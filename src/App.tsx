@@ -629,7 +629,7 @@ function App(): React.ReactElement | null {
                                 }
                                 colorOrder={threeDState.colorOrder}
                                 swatches={threeDState.filteredSwatches}
-                                pixelSize={0.01}
+                                pixelSize={1}
                             />
                         )}
                         <div className="preview-actions">
@@ -793,6 +793,9 @@ function App(): React.ReactElement | null {
                                                 nz,
                                             };
                                         };
+                                        const sx = threeMesh.scale.x;
+                                        const sy = threeMesh.scale.y;
+                                        const sz = threeMesh.scale.z;
                                         const facets: string[] = [];
                                         if (index) {
                                             for (
@@ -805,7 +808,23 @@ function App(): React.ReactElement | null {
                                                 const c = index.getX(i + 2);
                                                 const t = getTri(a, b, c);
                                                 facets.push(
-                                                    `facet normal ${t.nx} ${t.ny} ${t.nz}\n  outer loop\n    vertex ${t.ax} ${t.ay} ${t.az}\n    vertex ${t.bx} ${t.by} ${t.bz}\n    vertex ${t.cx} ${t.cy} ${t.cz}\n  endloop\nendfacet`
+                                                    `facet normal ${t.nx} ${
+                                                        t.ny
+                                                    } ${
+                                                        t.nz
+                                                    }\n  outer loop\n    vertex ${
+                                                        t.ax * sx
+                                                    } ${t.ay * sy} ${
+                                                        t.az * sz
+                                                    }\n    vertex ${
+                                                        t.bx * sx
+                                                    } ${t.by * sy} ${
+                                                        t.bz * sz
+                                                    }\n    vertex ${
+                                                        t.cx * sx
+                                                    } ${t.cy * sy} ${
+                                                        t.cz * sz
+                                                    }\n  endloop\nendfacet`
                                                 );
                                             }
                                         } else {
@@ -820,7 +839,23 @@ function App(): React.ReactElement | null {
                                                     i + 2
                                                 );
                                                 facets.push(
-                                                    `facet normal ${t.nx} ${t.ny} ${t.nz}\n  outer loop\n    vertex ${t.ax} ${t.ay} ${t.az}\n    vertex ${t.bx} ${t.by} ${t.bz}\n    vertex ${t.cx} ${t.cy} ${t.cz}\n  endloop\nendfacet`
+                                                    `facet normal ${t.nx} ${
+                                                        t.ny
+                                                    } ${
+                                                        t.nz
+                                                    }\n  outer loop\n    vertex ${
+                                                        t.ax * sx
+                                                    } ${t.ay * sy} ${
+                                                        t.az * sz
+                                                    }\n    vertex ${
+                                                        t.bx * sx
+                                                    } ${t.by * sy} ${
+                                                        t.bz * sz
+                                                    }\n    vertex ${
+                                                        t.cx * sx
+                                                    } ${t.cy * sy} ${
+                                                        t.cz * sz
+                                                    }\n  endloop\nendfacet`
                                                 );
                                             }
                                         }
