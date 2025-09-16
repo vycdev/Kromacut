@@ -176,7 +176,9 @@ export default function ThreeDView({
         const el = mountRef.current;
         if (!el) return;
         const overlay = Array.from(el.children).find(
-            (c) => c.nodeType === 1 && (c as HTMLElement).textContent === "Building 3D model…"
+            (c) =>
+                c.nodeType === 1 &&
+                (c as HTMLElement).textContent === "Building 3D model…"
         ) as HTMLElement | undefined;
         if (!overlay) return;
         overlay.style.display = isBuilding ? "flex" : "none";
@@ -825,7 +827,8 @@ export default function ThreeDView({
                             res();
                             return;
                         }
-                        if (pixelColumns) await buildPixelGeometry(img, "final", bbox);
+                        if (pixelColumns)
+                            await buildPixelGeometry(img, "final", bbox);
                         else await buildGeometry(img, fullRes, "final", bbox);
                         res();
                     })
