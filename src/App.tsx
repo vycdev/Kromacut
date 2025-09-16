@@ -77,6 +77,8 @@ function App(): React.ReactElement | null {
         filteredSwatches: [],
         pixelSize: 0.1,
     });
+    // Signal to force a rebuild of the 3D view when incremented
+    const [threeDBuildSignal, setThreeDBuildSignal] = useState(0);
 
     // removed duplicate syncing: manual changes to the numeric input should set Auto via onWeightChange
     // redraw when image changes
@@ -581,11 +583,12 @@ function App(): React.ReactElement | null {
                                 </div>
                             </>
                         ) : (
-                            <ThreeDControls
-                                swatches={swatches}
-                                onChange={handleThreeDStateChange}
-                                persisted={threeDState}
-                            />
+                                <ThreeDControls
+                                    swatches={swatches}
+                                    onChange={handleThreeDStateChange}
+                                    persisted={threeDState}
+                                    onRebuild={() => setThreeDBuildSignal((s) => s + 1)}
+                                />
                         )}
                     </div>
                 </aside>
@@ -637,6 +640,7 @@ function App(): React.ReactElement | null {
                                 colorOrder={threeDState.colorOrder}
                                 swatches={threeDState.filteredSwatches}
                                 pixelSize={threeDState.pixelSize}
+                                rebuildSignal={threeDBuildSignal}
                             />
                         )}
                         <div className="preview-actions">

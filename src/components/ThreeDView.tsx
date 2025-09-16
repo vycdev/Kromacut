@@ -13,6 +13,7 @@ interface ThreeDViewProps {
     heightScale?: number; // vertical exaggeration (1 = real scale)
     stepped?: boolean; // if true, flatten each cell to a uniform height (square plateaus instead of spikes)
     pixelColumns?: boolean; // if true, final build uses one plateau per image pixel (rectangular towers)
+    rebuildSignal?: number;
 }
 
 // Convert hex color to RGB tuple
@@ -49,6 +50,7 @@ export default function ThreeDView({
     heightScale = 1,
     stepped = true,
     pixelColumns = true,
+    rebuildSignal = 0,
 }: ThreeDViewProps) {
     const mountRef = useRef<HTMLDivElement | null>(null);
     const rafRef = useRef<number | null>(null);
@@ -188,10 +190,18 @@ export default function ThreeDView({
     const buildTokenRef = useRef(0);
     const debounceTimerRef = useRef<number | null>(null);
     const lastParamsKeyRef = useRef<string | null>(null);
+    const lastRebuildRef = useRef<number>(rebuildSignal);
 
     useEffect(() => {
         const mesh = meshRef.current;
         if (!mesh || !imageSrc) return;
+
+        // If parent requested a rebuild via the rebuildSignal, clear the last params key
+        // to force the effect to proceed even if params otherwise match.
+        if (rebuildSignal !== lastRebuildRef.current) {
+            lastParamsKeyRef.current = null;
+            lastRebuildRef.current = rebuildSignal;
+        }
 
         // Stable key of inputs to avoid duplicate builds when references unchanged
         const paramsKey = JSON.stringify({
@@ -852,6 +862,7 @@ export default function ThreeDView({
         heightScale,
         stepped,
         pixelColumns,
+        rebuildSignal,
     ]);
 
     return <div style={{ width: "100%", height: "100%" }} ref={mountRef} />;

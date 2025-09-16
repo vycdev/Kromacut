@@ -16,6 +16,7 @@ interface ThreeDControlsStateShape {
 interface ThreeDControlsProps {
     swatches: Swatch[] | null;
     onChange?: (state: ThreeDControlsStateShape) => void;
+    onRebuild?: () => void;
     /**
      * Persisted state from a previous mount used to hydrate this component
      * when the user switches away from 3D mode and comes back later.
@@ -27,6 +28,7 @@ export default function ThreeDControls({
     swatches,
     onChange,
     persisted,
+    onRebuild,
 }: ThreeDControlsProps) {
     // 3D printing controls (owned by this component)
     const [layerHeight, setLayerHeight] = useState<number>(
@@ -259,6 +261,16 @@ export default function ThreeDControls({
 
     return (
         <div className="controls-scroll">
+            <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
+                <button
+                    type="button"
+                    className="preview-crop-btn"
+                    onClick={() => onRebuild && onRebuild()}
+                    title="Rebuild 3D model"
+                >
+                    Rebuild 3D
+                </button>
+            </div>
             <div className="controls-group">
                 <label>
                     <div
