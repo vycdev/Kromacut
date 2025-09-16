@@ -66,12 +66,14 @@ function App(): React.ReactElement | null {
         colorSliceHeights: number[];
         colorOrder: number[];
         filteredSwatches: { hex: string; a: number }[];
+        pixelSize: number;
     }>({
         layerHeight: 0.12,
         baseSliceHeight: 0,
         colorSliceHeights: [],
         colorOrder: [],
         filteredSwatches: [],
+        pixelSize: 0.1,
     });
 
     // removed duplicate syncing: manual changes to the numeric input should set Auto via onWeightChange
@@ -195,6 +197,7 @@ function App(): React.ReactElement | null {
             colorSliceHeights: number[];
             colorOrder: number[];
             filteredSwatches: { hex: string; a: number }[];
+            pixelSize: number;
         }) => {
             setThreeDState((prev) => {
                 if (
@@ -202,7 +205,8 @@ function App(): React.ReactElement | null {
                     prev.baseSliceHeight === s.baseSliceHeight &&
                     prev.colorSliceHeights === s.colorSliceHeights &&
                     prev.colorOrder === s.colorOrder &&
-                    prev.filteredSwatches === s.filteredSwatches
+                    prev.filteredSwatches === s.filteredSwatches &&
+                    prev.pixelSize === s.pixelSize
                 ) {
                     return prev; // no change; avoid triggering rerender cascade
                 }
@@ -629,7 +633,7 @@ function App(): React.ReactElement | null {
                                 }
                                 colorOrder={threeDState.colorOrder}
                                 swatches={threeDState.filteredSwatches}
-                                pixelSize={1}
+                                pixelSize={threeDState.pixelSize}
                             />
                         )}
                         <div className="preview-actions">

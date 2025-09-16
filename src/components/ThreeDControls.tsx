@@ -12,6 +12,7 @@ interface ThreeDControlsProps {
         colorSliceHeights: number[];
         colorOrder: number[];
         filteredSwatches: Swatch[];
+        pixelSize: number; // mm per pixel (XY)
     }) => void;
 }
 
@@ -23,6 +24,7 @@ export default function ThreeDControls({
     const [layerHeight, setLayerHeight] = useState<number>(0.12); // mm
     const [baseSliceHeight, setBaseSliceHeight] = useState<number>(0);
     const [colorSliceHeights, setColorSliceHeights] = useState<number[]>([]);
+    const [pixelSize, setPixelSize] = useState<number>(0.1); // mm per pixel (XY plane)
 
     // derive non-transparent swatches once per render and memoize
     const filtered = useMemo(() => {
@@ -170,6 +172,7 @@ export default function ThreeDControls({
         colorSliceHeights: number[];
         colorOrder: number[];
         filteredSwatches: Swatch[];
+        pixelSize: number;
     } | null>(null);
 
     useEffect(() => {
@@ -181,7 +184,8 @@ export default function ThreeDControls({
             prev.baseSliceHeight === baseSliceHeight &&
             prev.colorSliceHeights === colorSliceHeights &&
             prev.colorOrder === colorOrder &&
-            prev.filteredSwatches === filtered;
+            prev.filteredSwatches === filtered &&
+            prev.pixelSize === pixelSize;
         if (same) return;
         const next = {
             layerHeight,
@@ -189,6 +193,7 @@ export default function ThreeDControls({
             colorSliceHeights,
             colorOrder,
             filteredSwatches: filtered,
+            pixelSize,
         };
         lastEmittedRef.current = next;
         onChange(next);
@@ -199,6 +204,7 @@ export default function ThreeDControls({
         colorSliceHeights,
         colorOrder,
         filtered,
+        pixelSize,
     ]);
 
     return (
@@ -233,6 +239,45 @@ export default function ThreeDControls({
                             onChange={(e) => {
                                 const v = Number(e.target.value);
                                 if (!Number.isNaN(v)) setLayerHeight(v);
+                            }}
+                            style={{ width: "100%" }}
+                        />
+                    </div>
+                </label>
+            </div>
+
+            {/* Pixel size (XY scaling) */}
+            <div className="controls-group">
+                <label>
+                    <div
+                        style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                        }}
+                    >
+                        <span style={{ fontWeight: 700 }}>Pixel size (XY)</span>
+                        <span className="adjustment-unit">
+                            {pixelSize.toFixed(3)} mm/pixel
+                        </span>
+                    </div>
+                    <div
+                        style={{
+                            display: "flex",
+                            gap: "8px",
+                            alignItems: "center",
+                        }}
+                    >
+                        <input
+                            type="number"
+                            min={0.01}
+                            max={10}
+                            step={0.01}
+                            value={pixelSize}
+                            onChange={(e) => {
+                                const v = Number(e.target.value);
+                                if (Number.isNaN(v)) return;
+                                setPixelSize(Math.max(0.01, Math.min(10, v)));
                             }}
                             style={{ width: "100%" }}
                         />
