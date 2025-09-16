@@ -59,6 +59,8 @@ function App(): React.ReactElement | null {
     const [adjustmentsEpoch, setAdjustmentsEpoch] = useState(0);
     // UI mode toggles (2D / 3D) - UI only for now
     const [mode, setMode] = useState<"2d" | "3d">("2d");
+    const [exportingSTL, setExportingSTL] = useState(false);
+    const [exportProgress, setExportProgress] = useState(0); // 0..1
     // 3D printing shared state
     const [threeDState, setThreeDState] = useState<{
         layerHeight: number;
@@ -719,40 +721,53 @@ function App(): React.ReactElement | null {
                                 className="preview-crop-btn"
                                 title={
                                     mode === "3d"
-                                        ? "Download STL"
+                                        ? exportingSTL
+                                            ? `Exporting STL… ${Math.round(
+                                                  exportProgress * 100
+                                              )}%`
+                                            : "Download STL"
                                         : "Download image"
                                 }
                                 aria-label={
                                     mode === "3d"
-                                        ? "Download STL"
+                                        ? exportingSTL
+                                            ? "Exporting STL"
+                                            : "Download STL"
                                         : "Download image"
                                 }
-                                disabled={!imageSrc}
+                                disabled={!imageSrc || exportingSTL}
                                 onClick={async () => {
                                     if (mode === "3d") {
-                                        // Attempt to locate ThreeDView's mesh via DOM -> react root -> global ref (quick approach)
-                                        // For a more robust solution we'd lift a ref from ThreeDView via props.
+                                        if (exportingSTL) return;
                                         interface StrataWindow extends Window {
                                             __STRATA_LAST_MESH?: THREE.Mesh;
                                         }
-                                        const strataWin =
-                                            window as StrataWindow;
-                                        const threeMesh =
-                                            strataWin.__STRATA_LAST_MESH;
+                                        const threeMesh = (
+                                            window as StrataWindow
+                                        ).__STRATA_LAST_MESH;
                                         if (!threeMesh) {
                                             alert("3D mesh not ready yet");
                                             return;
                                         }
                                         const geometry =
                                             threeMesh.geometry as THREE.BufferGeometry;
-                                        geometry.computeVertexNormals();
                                         const pos =
                                             geometry.getAttribute("position");
-                                        const index = geometry.getIndex();
                                         if (!pos) {
                                             alert("No geometry to export");
                                             return;
                                         }
+                                        geometry.computeVertexNormals();
+                                        const index = geometry.getIndex();
+                                        const sx = threeMesh.scale.x;
+                                        const sy = threeMesh.scale.y;
+                                        const sz = threeMesh.scale.z;
+                                        // Prepare async incremental export
+                                        setExportingSTL(true);
+                                        setExportProgress(0);
+                                        const parts: string[] = [
+                                            "solid strata_model\n",
+                                        ];
                                         const getTri = (
                                             a: number,
                                             b: number,
@@ -767,7 +782,6 @@ function App(): React.ReactElement | null {
                                             const cx = pos.getX(c),
                                                 cy = pos.getY(c),
                                                 cz = pos.getZ(c);
-                                            // normal via cross product
                                             const ux = bx - ax,
                                                 uy = by - ay,
                                                 uz = bz - az;
@@ -797,86 +811,96 @@ function App(): React.ReactElement | null {
                                                 nz,
                                             };
                                         };
-                                        const sx = threeMesh.scale.x;
-                                        const sy = threeMesh.scale.y;
-                                        const sz = threeMesh.scale.z;
-                                        const facets: string[] = [];
-                                        if (index) {
-                                            for (
-                                                let i = 0;
-                                                i < index.count;
-                                                i += 3
-                                            ) {
-                                                const a = index.getX(i);
-                                                const b = index.getX(i + 1);
-                                                const c = index.getX(i + 2);
-                                                const t = getTri(a, b, c);
-                                                facets.push(
-                                                    `facet normal ${t.nx} ${
-                                                        t.ny
-                                                    } ${
-                                                        t.nz
-                                                    }\n  outer loop\n    vertex ${
-                                                        t.ax * sx
-                                                    } ${t.ay * sy} ${
-                                                        t.az * sz
-                                                    }\n    vertex ${
-                                                        t.bx * sx
-                                                    } ${t.by * sy} ${
-                                                        t.bz * sz
-                                                    }\n    vertex ${
-                                                        t.cx * sx
-                                                    } ${t.cy * sy} ${
-                                                        t.cz * sz
-                                                    }\n  endloop\nendfacet`
-                                                );
+                                        const totalTris = index
+                                            ? index.count / 3
+                                            : pos.count / 3;
+                                        const CHUNK = 6000; // triangles per yield
+                                        try {
+                                            if (index) {
+                                                for (
+                                                    let i = 0, tri = 0;
+                                                    i < index.count;
+                                                    i += 3, tri++
+                                                ) {
+                                                    const a = index.getX(i);
+                                                    const b = index.getX(i + 1);
+                                                    const c = index.getX(i + 2);
+                                                    const t = getTri(a, b, c);
+                                                    parts.push(
+                                                        `facet normal ${t.nx} ${t.ny} ${t.nz}\n  outer loop\n    vertex ${t.ax * sx} ${t.ay * sy} ${t.az * sz}\n    vertex ${t.bx * sx} ${t.by * sy} ${t.bz * sz}\n    vertex ${t.cx * sx} ${t.cy * sy} ${t.cz * sz}\n  endloop\nendfacet\n`
+                                                    );
+                                                    if (tri % CHUNK === 0) {
+                                                        setExportProgress(
+                                                            tri / totalTris
+                                                        );
+                                                        await new Promise(
+                                                            (r) =>
+                                                                setTimeout(
+                                                                    r,
+                                                                    0
+                                                                )
+                                                        );
+                                                    }
+                                                }
+                                            } else {
+                                                for (
+                                                    let i = 0, tri = 0;
+                                                    i < pos.count;
+                                                    i += 3, tri++
+                                                ) {
+                                                    const t = getTri(
+                                                        i,
+                                                        i + 1,
+                                                        i + 2
+                                                    );
+                                                    parts.push(
+                                                        `facet normal ${t.nx} ${t.ny} ${t.nz}\n  outer loop\n    vertex ${t.ax * sx} ${t.ay * sy} ${t.az * sz}\n    vertex ${t.bx * sx} ${t.by * sy} ${t.bz * sz}\n    vertex ${t.cx * sx} ${t.cy * sy} ${t.cz * sz}\n  endloop\nendfacet\n`
+                                                    );
+                                                    if (tri % CHUNK === 0) {
+                                                        setExportProgress(
+                                                            tri / totalTris
+                                                        );
+                                                        await new Promise(
+                                                            (r) =>
+                                                                setTimeout(
+                                                                    r,
+                                                                    0
+                                                                )
+                                                        );
+                                                    }
+                                                }
                                             }
-                                        } else {
-                                            for (
-                                                let i = 0;
-                                                i < pos.count;
-                                                i += 3
-                                            ) {
-                                                const t = getTri(
-                                                    i,
-                                                    i + 1,
-                                                    i + 2
-                                                );
-                                                facets.push(
-                                                    `facet normal ${t.nx} ${
-                                                        t.ny
-                                                    } ${
-                                                        t.nz
-                                                    }\n  outer loop\n    vertex ${
-                                                        t.ax * sx
-                                                    } ${t.ay * sy} ${
-                                                        t.az * sz
-                                                    }\n    vertex ${
-                                                        t.bx * sx
-                                                    } ${t.by * sy} ${
-                                                        t.bz * sz
-                                                    }\n    vertex ${
-                                                        t.cx * sx
-                                                    } ${t.cy * sy} ${
-                                                        t.cz * sz
-                                                    }\n  endloop\nendfacet`
-                                                );
-                                            }
+                                            parts.push(
+                                                "endsolid strata_model"
+                                            );
+                                            setExportProgress(1);
+                                            const blob = new Blob(parts, {
+                                                type: "model/stl",
+                                            });
+                                            const url =
+                                                URL.createObjectURL(blob);
+                                            const a =
+                                                document.createElement("a");
+                                            a.href = url;
+                                            a.download = "model.stl";
+                                            document.body.appendChild(a);
+                                            a.click();
+                                            a.remove();
+                                            URL.revokeObjectURL(url);
+                                        } catch (err) {
+                                            console.warn(
+                                                "STL export failed",
+                                                err
+                                            );
+                                            alert(
+                                                "STL export failed. See console for details."
+                                            );
+                                        } finally {
+                                            setExportingSTL(false);
+                                            setTimeout(() =>
+                                                setExportProgress(0),
+                                            300);
                                         }
-                                        const stl = `solid strata_model\n${facets.join(
-                                            "\n"
-                                        )}\nendsolid strata_model`;
-                                        const blob = new Blob([stl], {
-                                            type: "model/stl",
-                                        });
-                                        const url = URL.createObjectURL(blob);
-                                        const a = document.createElement("a");
-                                        a.href = url;
-                                        a.download = "model.stl";
-                                        document.body.appendChild(a);
-                                        a.click();
-                                        a.remove();
-                                        URL.revokeObjectURL(url);
                                         return;
                                     }
                                     // 2D image path
@@ -897,10 +921,17 @@ function App(): React.ReactElement | null {
                                     URL.revokeObjectURL(url);
                                 }}
                             >
-                                <i
-                                    className="fa-solid fa-download"
-                                    aria-hidden="true"
-                                />
+                                {mode === "3d" && exportingSTL ? (
+                                    <i
+                                        className="fa-solid fa-spinner fa-spin"
+                                        aria-hidden="true"
+                                    />
+                                ) : (
+                                    <i
+                                        className="fa-solid fa-download"
+                                        aria-hidden="true"
+                                    />
+                                )}
                             </button>
                             {mode === "2d" && (
                                 <>
