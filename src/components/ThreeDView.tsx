@@ -296,38 +296,24 @@ export default function ThreeDView({
                     cumulativePerOrderPos[pos] = running;
                 });
 
-                // Create plane geometry and expand to non-indexed so faces do not share vertices.
+                // Create indexed plane geometry (grid) and compute per-vertex heights on the indexed grid.
                 const indexedPlane = new THREE.PlaneGeometry(
                     1,
                     1,
                     resolution,
                     resolution
                 );
-                const planeGeom = indexedPlane.toNonIndexed();
-                indexedPlane.dispose();
-                const posAttr = planeGeom.getAttribute("position");
-                const vertexCount = posAttr.count;
-                const colors = new Float32Array(vertexCount * 3);
-
-                // Progressive yielding to keep main thread responsive
-                let lastYield = performance.now();
+                const idxPos = indexedPlane.getAttribute("position");
+                const indexedVertexCount = idxPos.count;
                 const YIELD_EVERY_MS = 12;
+                let lastYield = performance.now();
 
-                // Iterate triangles (3 vertices per triangle) and sample color/height at triangle centroid
-                for (let vi = 0; vi < vertexCount; vi += 3) {
-                    // Compute centroid of the triangle in plane coords
-                    const cx =
-                        (posAttr.getX(vi) +
-                            posAttr.getX(vi + 1) +
-                            posAttr.getX(vi + 2)) /
-                        3;
-                    const cz =
-                        (posAttr.getY(vi) +
-                            posAttr.getY(vi + 1) +
-                            posAttr.getY(vi + 2)) /
-                        3;
-                    const u = cx + 0.5;
-                    const v = cz + 0.5;
+                // Compute heights on the indexed grid vertices
+                for (let vi = 0; vi < indexedVertexCount; vi++) {
+                    const vx = idxPos.getX(vi);
+                    const vz = idxPos.getY(vi);
+                    const u = vx + 0.5;
+                    const v = vz + 0.5;
                     const bMinX = bbox ? bbox.minX : 0;
                     const bMinY = bbox ? bbox.minY : 0;
                     const bW = bbox ? bbox.boxW : w;
@@ -362,15 +348,87 @@ export default function ThreeDView({
                     }
                     if (layerHeight > 0)
                         height = Math.round(height / layerHeight) * layerHeight;
+                    idxPos.setZ(vi, height);
 
-                    // Assign centroid-derived height and color to all three vertices of the triangle
+                    if (performance.now() - lastYield > YIELD_EVERY_MS) {
+                        await new Promise((r) => requestAnimationFrame(r));
+                        if (token !== buildTokenRef.current) return;
+                        lastYield = performance.now();
+                    }
+                }
+
+                // Optional: flatten heights per cell to eliminate single-vertex spikes (creates square plateaus)
+                if (stepped) {
+                    const widthSegments = resolution;
+                    const heightSegments = resolution;
+                    const vertsPerRow = widthSegments + 1;
+                    for (let y = 0; y < heightSegments; y++) {
+                        for (let x = 0; x < widthSegments; x++) {
+                            const a = y * vertsPerRow + x;
+                            const bI = a + 1;
+                            const c = a + vertsPerRow;
+                            const d = c + 1;
+                            const hA = idxPos.getZ(a);
+                            const hB = idxPos.getZ(bI);
+                            const hC = idxPos.getZ(c);
+                            const hD = idxPos.getZ(d);
+                            const cellH = Math.max(hA, hB, hC, hD);
+                            idxPos.setZ(a, cellH);
+                            idxPos.setZ(bI, cellH);
+                            idxPos.setZ(c, cellH);
+                            idxPos.setZ(d, cellH);
+                        }
+                        if (performance.now() - lastYield > YIELD_EVERY_MS) {
+                            await new Promise((r) => requestAnimationFrame(r));
+                            if (token !== buildTokenRef.current) return;
+                            lastYield = performance.now();
+                        }
+                    }
+                    idxPos.needsUpdate = true;
+                }
+
+                // Convert to non-indexed for per-triangle coloring (faces do not share vertices)
+                const planeGeom = indexedPlane.toNonIndexed();
+                const posAttr = planeGeom.getAttribute("position");
+                const vertexCount = posAttr.count;
+                const colors = new Float32Array(vertexCount * 3);
+
+                // Iterate triangles (3 vertices per triangle) and sample color at triangle centroid, then assign uniform color per triangle
+                lastYield = performance.now();
+                for (let vi = 0; vi < vertexCount; vi += 3) {
+                    const cx =
+                        (posAttr.getX(vi) +
+                            posAttr.getX(vi + 1) +
+                            posAttr.getX(vi + 2)) /
+                        3;
+                    const cz =
+                        (posAttr.getY(vi) +
+                            posAttr.getY(vi + 1) +
+                            posAttr.getY(vi + 2)) /
+                        3;
+                    const u = cx + 0.5;
+                    const v = cz + 0.5;
+                    const bMinX = bbox ? bbox.minX : 0;
+                    const bMinY = bbox ? bbox.minY : 0;
+                    const bW = bbox ? bbox.boxW : w;
+                    const bH = bbox ? bbox.boxH : h;
+                    const px = Math.min(
+                        w - 1,
+                        Math.max(0, Math.round(bMinX + u * (bW - 1)))
+                    );
+                    const py = Math.min(
+                        h - 1,
+                        Math.max(0, Math.round(bMinY + v * (bH - 1)))
+                    );
+                    const idx = (py * w + px) * 4;
+                    const r = data[idx];
+                    const g = data[idx + 1];
+                    const bcol = data[idx + 2];
                     for (let k = 0; k < 3; k++) {
-                        posAttr.setZ(vi + k, height);
                         colors[(vi + k) * 3 + 0] = r / 255;
                         colors[(vi + k) * 3 + 1] = g / 255;
                         colors[(vi + k) * 3 + 2] = bcol / 255;
                     }
-
                     if (performance.now() - lastYield > YIELD_EVERY_MS) {
                         await new Promise((r) => requestAnimationFrame(r));
                         if (token !== buildTokenRef.current) return;
