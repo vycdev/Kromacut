@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/Addons.js";
 
@@ -58,6 +58,7 @@ export default function ThreeDView({
     const controlsRef = useRef<OrbitControls | null>(null);
     const meshRef = useRef<THREE.Mesh | null>(null);
     const materialRef = useRef<THREE.MeshStandardMaterial | null>(null);
+    const [isBuilding, setIsBuilding] = useState(false);
 
     // 1. Initialize Three.js scene once
     useEffect(() => {
@@ -138,6 +139,25 @@ export default function ThreeDView({
         };
         rafRef.current = requestAnimationFrame(animate);
 
+        // Create an overlay element for build-in-progress messaging
+        const overlay = document.createElement("div");
+        overlay.style.position = "absolute";
+        overlay.style.left = "0";
+        overlay.style.top = "0";
+        overlay.style.width = "100%";
+        overlay.style.height = "100%";
+        overlay.style.display = "none";
+        overlay.style.alignItems = "center";
+        overlay.style.justifyContent = "center";
+        overlay.style.pointerEvents = "none";
+        overlay.style.zIndex = "10";
+        overlay.style.color = "#fff";
+        overlay.style.fontFamily = "sans-serif";
+        overlay.style.fontSize = "14px";
+        overlay.textContent = "Building 3D model…";
+        el.style.position = el.style.position || "relative";
+        el.appendChild(overlay);
+
         return () => {
             if (rafRef.current) cancelAnimationFrame(rafRef.current);
             ro.disconnect();
@@ -147,8 +167,20 @@ export default function ThreeDView({
             renderer.dispose();
             if (renderer.domElement.parentNode)
                 renderer.domElement.parentNode.removeChild(renderer.domElement);
+            if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
         };
     }, []);
+
+    // Sync overlay visibility when build state changes
+    useEffect(() => {
+        const el = mountRef.current;
+        if (!el) return;
+        const overlay = Array.from(el.children).find(
+            (c) => c.nodeType === 1 && (c as HTMLElement).textContent === "Building 3D model…"
+        ) as HTMLElement | undefined;
+        if (!overlay) return;
+        overlay.style.display = isBuilding ? "flex" : "none";
+    }, [isBuilding]);
 
     // 2. Rebuild mesh geometry whenever inputs change (debounced, progressive, adaptive resolution)
     const buildTokenRef = useRef(0);
@@ -180,6 +212,8 @@ export default function ThreeDView({
             window.clearTimeout(debounceTimerRef.current);
         debounceTimerRef.current = window.setTimeout(() => {
             const token = ++buildTokenRef.current;
+            // mark that a build is in progress for the overlay
+            setIsBuilding(true);
 
             const chooseResolution = (w: number, h: number) => {
                 const maxDim = Math.max(w, h);
@@ -780,11 +814,23 @@ export default function ThreeDView({
                 } else {
                     await buildGeometry(img, previewRes, "preview", bbox);
                 }
-                if (token !== buildTokenRef.current) return;
-                requestIdle(() => {
-                    if (pixelColumns) buildPixelGeometry(img, "final", bbox);
-                    else buildGeometry(img, fullRes, "final", bbox);
-                });
+                if (token !== buildTokenRef.current) {
+                    setIsBuilding(false);
+                    return;
+                }
+                // Schedule final build in an idle callback and await it so we can clear the building state
+                await new Promise<void>((res) =>
+                    requestIdle(async () => {
+                        if (token !== buildTokenRef.current) {
+                            res();
+                            return;
+                        }
+                        if (pixelColumns) await buildPixelGeometry(img, "final", bbox);
+                        else await buildGeometry(img, fullRes, "final", bbox);
+                        res();
+                    })
+                );
+                if (token === buildTokenRef.current) setIsBuilding(false);
             })();
         }, 120); // 120ms debounce
 
