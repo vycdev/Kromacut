@@ -4,27 +4,43 @@ import ThreeDColorRow from "./ThreeDColorRow";
 
 type Swatch = { hex: string; a: number };
 
+interface ThreeDControlsStateShape {
+    layerHeight: number;
+    baseSliceHeight: number;
+    colorSliceHeights: number[];
+    colorOrder: number[];
+    filteredSwatches: Swatch[];
+    pixelSize: number; // mm per pixel (XY)
+}
+
 interface ThreeDControlsProps {
     swatches: Swatch[] | null;
-    onChange?: (state: {
-        layerHeight: number;
-        baseSliceHeight: number;
-        colorSliceHeights: number[];
-        colorOrder: number[];
-        filteredSwatches: Swatch[];
-        pixelSize: number; // mm per pixel (XY)
-    }) => void;
+    onChange?: (state: ThreeDControlsStateShape) => void;
+    /**
+     * Persisted state from a previous mount used to hydrate this component
+     * when the user switches away from 3D mode and comes back later.
+     */
+    persisted?: ThreeDControlsStateShape | null;
 }
 
 export default function ThreeDControls({
     swatches,
     onChange,
+    persisted,
 }: ThreeDControlsProps) {
     // 3D printing controls (owned by this component)
-    const [layerHeight, setLayerHeight] = useState<number>(0.12); // mm
-    const [baseSliceHeight, setBaseSliceHeight] = useState<number>(0);
-    const [colorSliceHeights, setColorSliceHeights] = useState<number[]>([]);
-    const [pixelSize, setPixelSize] = useState<number>(0.1); // mm per pixel (XY plane)
+    const [layerHeight, setLayerHeight] = useState<number>(
+        persisted?.layerHeight ?? 0.12
+    ); // mm
+    const [baseSliceHeight, setBaseSliceHeight] = useState<number>(
+        persisted?.baseSliceHeight ?? 0
+    );
+    const [colorSliceHeights, setColorSliceHeights] = useState<number[]>(
+        persisted?.colorSliceHeights?.slice() ?? []
+    );
+    const [pixelSize, setPixelSize] = useState<number>(
+        persisted?.pixelSize ?? 0.1
+    ); // mm per pixel (XY plane)
 
     // derive non-transparent swatches once per render and memoize
     const filtered = useMemo(() => {
@@ -32,9 +48,23 @@ export default function ThreeDControls({
     }, [swatches]);
 
     // ordering state: indices into `filtered` that control displayed order.
-    const [colorOrder, setColorOrder] = useState<number[]>([]);
-    const prevFilteredRef = useRef<Swatch[] | null>(null);
-    const prevHeightsRef = useRef<number[]>([]);
+    const [colorOrder, setColorOrder] = useState<number[]>(
+        persisted?.colorOrder?.slice() ?? []
+    );
+    const prevFilteredRef = useRef<Swatch[] | null>(
+        persisted?.filteredSwatches ? persisted.filteredSwatches.slice() : null
+    );
+    const prevHeightsRef = useRef<number[]>(
+        persisted?.colorSliceHeights ? persisted.colorSliceHeights.slice() : []
+    );
+
+    // guard so we only emit immediately after hydration if needed
+    const hydratedRef = useRef<boolean>(false);
+    useEffect(() => {
+        if (persisted && !hydratedRef.current) {
+            hydratedRef.current = true; // states already initialized from persisted above
+        }
+    }, [persisted]);
 
     // Ensure baseSliceHeight stays within valid bounds when layerHeight changes
     // and snap it to the nearest multiple of layerHeight to keep it aligned.
@@ -187,7 +217,7 @@ export default function ThreeDControls({
             prev.filteredSwatches === filtered &&
             prev.pixelSize === pixelSize;
         if (same) return;
-        const next = {
+        const next: ThreeDControlsStateShape = {
             layerHeight,
             baseSliceHeight,
             colorSliceHeights,

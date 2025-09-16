@@ -584,6 +584,7 @@ function App(): React.ReactElement | null {
                             <ThreeDControls
                                 swatches={swatches}
                                 onChange={handleThreeDStateChange}
+                                persisted={threeDState}
                             />
                         )}
                     </div>
