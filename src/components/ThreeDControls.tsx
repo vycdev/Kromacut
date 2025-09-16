@@ -57,6 +57,9 @@ export default function ThreeDControls({
     const prevHeightsRef = useRef<number[]>(
         persisted?.colorSliceHeights ? persisted.colorSliceHeights.slice() : []
     );
+    const prevOrderRef = useRef<number[]>(
+        persisted?.colorOrder ? persisted.colorOrder.slice() : []
+    );
 
     // guard so we only emit immediately after hydration if needed
     const hydratedRef = useRef<boolean>(false);
@@ -80,14 +83,25 @@ export default function ThreeDControls({
 
     // Initialize or resize per-color slice heights and preserve ordering when swatches change.
     useEffect(() => {
-        // Build next heights reusing previous heights when possible (match by hex+alpha)
+        // If we have no swatches currently (e.g., initial mount while upstream still loading),
+        // avoid clearing previously persisted state. We'll wait for real data.
+        if (filtered.length === 0) return;
+
         const prevFiltered = prevFilteredRef.current || [];
         const prevHeights = prevHeightsRef.current || [];
+        const prevOrder = prevOrderRef.current || [];
+
+        // Map prior heights by (hex,a) signature for quick lookup.
+        const heightMap = new Map<string, number>();
+        for (let i = 0; i < prevFiltered.length; i++) {
+            const pf = prevFiltered[i];
+            const key = pf.hex + ":" + pf.a;
+            heightMap.set(key, prevHeights[i]);
+        }
+
         const nextHeights = filtered.map((s) => {
-            const found = prevFiltered.findIndex(
-                (p) => p.hex === s.hex && p.a === s.a
-            );
-            const existing = found !== -1 ? prevHeights[found] : undefined;
+            const key = s.hex + ":" + s.a;
+            const existing = heightMap.get(key);
             const base = typeof existing === "number" ? existing : layerHeight;
             const clamped = Math.max(layerHeight, Math.min(10, base));
             const multiple = Math.round(clamped / layerHeight) * layerHeight;
@@ -96,24 +110,28 @@ export default function ThreeDControls({
         });
         setColorSliceHeights(nextHeights);
 
-        // Build next order preserving previous ordering of colors when possible
+        // Reconstruct order using previous colorOrder mapping if available.
         const nextOrder: number[] = [];
-        // First, push indices from prevFiltered in their previous order if still present
-        for (let i = 0; i < prevFiltered.length; i++) {
-            const p = prevFiltered[i];
-            const idx = filtered.findIndex(
-                (f) => f.hex === p.hex && f.a === p.a
-            );
-            if (idx !== -1 && !nextOrder.includes(idx)) nextOrder.push(idx);
+        if (prevOrder.length && prevFiltered.length) {
+            // prevOrder contains indices into prevFiltered; iterate in that order.
+            for (const prevIdx of prevOrder) {
+                const sw = prevFiltered[prevIdx];
+                if (!sw) continue;
+                const idx = filtered.findIndex(
+                    (f) => f.hex === sw.hex && f.a === sw.a
+                );
+                if (idx !== -1 && !nextOrder.includes(idx)) nextOrder.push(idx);
+            }
         }
-        // Then append any remaining indices
+        // Fallback / append any remaining colors not yet in order.
         for (let i = 0; i < filtered.length; i++)
             if (!nextOrder.includes(i)) nextOrder.push(i);
         setColorOrder(nextOrder);
 
-        // stash for next diff
+        // Stash for next diff
         prevFilteredRef.current = filtered.slice();
         prevHeightsRef.current = nextHeights.slice();
+        prevOrderRef.current = nextOrder.slice();
     }, [filtered, layerHeight]);
 
     // drag ordering helpers
@@ -178,6 +196,8 @@ export default function ThreeDControls({
             if (insertAt > currentOrder.length) insertAt = currentOrder.length;
             currentOrder.splice(insertAt, 0, fromFi);
             setColorOrder(currentOrder);
+            // update refs so persistence picks up new order immediately
+            prevOrderRef.current = currentOrder.slice();
             dragStartRef.current = null;
             setDragOverIndex(null);
             setDragOverPosition(null);
