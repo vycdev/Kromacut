@@ -286,6 +286,23 @@ export default function ThreeDView({
                 ctx.drawImage(img, 0, 0, w, h);
                 const { data } = ctx.getImageData(0, 0, w, h);
 
+                // Create a canvas-based texture for crisp sampling and apply nearest-neighbor filtering
+                try {
+                    const tex = new THREE.CanvasTexture(canvas);
+                    tex.magFilter = THREE.NearestFilter;
+                    tex.minFilter = THREE.NearestFilter;
+                    tex.generateMipmaps = false;
+                    tex.needsUpdate = true;
+                    const mat = materialRef.current;
+                    if (mat) {
+                        mat.map = tex;
+                        mat.vertexColors = false;
+                        mat.needsUpdate = true;
+                    }
+                } catch {
+                    /* ignore texture assign failure */
+                }
+
                 // Precompute cumulative heights
                 const orderPositions = new Map<number, number>();
                 colorOrder.forEach((fi, pos) => orderPositions.set(fi, pos));
@@ -481,6 +498,13 @@ export default function ThreeDView({
                     const vertsPerRow = widthSegments + 1;
                     const topVertexCount = posAttr.count;
                     const topPositions = new Float32Array(topVertexCount * 3);
+                    // copy UVs from plane geometry (posAttr corresponds to planeGeom non-indexed)
+                    const uvAttr = planeGeom.getAttribute("uv");
+                    const topUVs = new Float32Array((uvAttr ? uvAttr.count : 0) * 2);
+                    if (uvAttr) for (let i = 0; i < uvAttr.count; i++) {
+                        topUVs[i * 2] = uvAttr.getX(i);
+                        topUVs[i * 2 + 1] = uvAttr.getY(i);
+                    }
                     for (let i = 0; i < topVertexCount; i++) {
                         topPositions[i * 3 + 0] = posAttr.getX(i);
                         topPositions[i * 3 + 1] = posAttr.getY(i);
@@ -562,6 +586,13 @@ export default function ThreeDView({
                         "position",
                         new THREE.BufferAttribute(combinedPositions, 3)
                     );
+                    // attach UVs so texture maps correctly (top and bottom share same uvs)
+                    if (topUVs && topUVs.length) {
+                        const combinedUVs = new Float32Array(topUVs.length * 2);
+                        combinedUVs.set(topUVs, 0);
+                        combinedUVs.set(topUVs, topUVs.length);
+                        finalGeom.setAttribute("uv", new THREE.BufferAttribute(combinedUVs, 2));
+                    }
                     finalGeom.setAttribute(
                         "color",
                         new THREE.BufferAttribute(combinedColors, 3)
@@ -839,6 +870,24 @@ export default function ThreeDView({
                         "position",
                         new THREE.BufferAttribute(combinedPositions, 3)
                     );
+                    // Build UVs for grid: map XY from -0.5..0.5 to 0..1 for the top and bottom
+                    const vertCount = posAttr.count;
+                    const uvs = new Float32Array(vertCount * 2 * 2); // top + bottom
+                    const vertsRowGrid = boxW + 1;
+                    for (let vy = 0; vy < boxH + 1; vy++) {
+                        for (let vx = 0; vx < boxW + 1; vx++) {
+                            const vi = vy * vertsRowGrid + vx;
+                            const u = vx / boxW;
+                            const v = 1 - vy / boxH; // flip Y so texture appears upright
+                            uvs[vi * 2] = u;
+                            uvs[vi * 2 + 1] = v;
+                            // duplicate for bottom verts
+                            const bi = vi + vertCount;
+                            uvs[bi * 2] = u;
+                            uvs[bi * 2 + 1] = v;
+                        }
+                    }
+                    finalGeom.setAttribute("uv", new THREE.BufferAttribute(uvs, 2));
                     finalGeom.setAttribute(
                         "color",
                         new THREE.BufferAttribute(combinedColors, 3)
