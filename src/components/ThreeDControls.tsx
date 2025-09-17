@@ -288,29 +288,43 @@ export default function ThreeDControls({
     // Build a plain-text representation of the instructions for copying
     const buildInstructionsText = () => {
         const lines: string[] = [];
-        lines.push("3D print instructions");
+        lines.push("3D Print Instructions");
+        lines.push("---------------------");
         lines.push(`Layer height: ${layerHeight.toFixed(3)} mm`);
+        // static recommended settings
+        lines.push("Recommended: Layer loops: 1; Infill: 100%");
+        lines.push("");
+
         if (swapPlan.length) {
             const first = swapPlan[0];
             if (first.type === "start")
                 lines.push(`Start with color: ${first.swatch.hex}`);
         }
+
+        lines.push("");
         lines.push("Color swap plan:");
         if (swapPlan.length <= 1) {
             lines.push("- No swaps — only one color configured.");
         } else {
+            // number the entries for clarity
+            let idx = 1;
             for (const entry of swapPlan) {
                 if (entry.type === "start") {
-                    lines.push(`- Start print with ${entry.swatch.hex}`);
+                    lines.push(`${idx}. Start with ${entry.swatch.hex}`);
                 } else {
                     lines.push(
-                        `- Swap to ${entry.swatch.hex} at layer ${
+                        `${idx}. Swap to ${entry.swatch.hex} at layer ${
                             entry.layer
                         } (~${entry.height.toFixed(3)} mm)`
                     );
                 }
+                idx++;
             }
         }
+        lines.push("");
+        lines.push(
+            "Notes: Heights are approximate. Confirm in slicer before printing."
+        );
         return lines.join("\n");
     };
 
@@ -553,138 +567,120 @@ export default function ThreeDControls({
 
                 <div style={{ fontSize: 13, lineHeight: "1.4" }}>
                     <div style={{ marginBottom: 8 }}>
-                        <strong>1.</strong> Layer height —{" "}
-                        {layerHeight.toFixed(3)} mm
+                        <div style={{ fontWeight: 700 }}>Recommended</div>
+                        <div style={{ fontSize: 12, color: "#bbb" }}>
+                            Wall loops <strong>1</strong>, Infill{" "}
+                            <strong>100%</strong>
+                        </div>
                     </div>
 
-                    <div
-                        style={{
-                            marginBottom: 8,
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 8,
-                        }}
-                    >
-                        <strong style={{ width: 18 }}>2.</strong>
-                        <div>
-                            <div
-                                style={{
-                                    display: "flex",
-                                    alignItems: "center",
-                                    gap: 8,
-                                }}
-                            >
-                                <div style={{ fontWeight: 700 }}>
-                                    Start with color
-                                </div>
-                                {swapPlan.length ? (
-                                    (() => {
-                                        const entry = swapPlan[0];
-                                        if (entry && entry.type === "start") {
-                                            const sw = entry.swatch;
-                                            return (
-                                                <div
-                                                    style={{
-                                                        display: "flex",
-                                                        alignItems: "center",
-                                                        gap: 6,
-                                                    }}
-                                                >
-                                                    <span
-                                                        style={{
-                                                            width: 14,
-                                                            height: 14,
-                                                            display:
-                                                                "inline-block",
-                                                            background: sw.hex,
-                                                            border: "1px solid #000",
-                                                        }}
-                                                    />
-                                                    <span
-                                                        style={{
-                                                            fontFamily:
-                                                                "monospace",
-                                                        }}
-                                                    >
-                                                        {sw.hex}
-                                                    </span>
-                                                </div>
-                                            );
-                                        }
-                                        return <span>—</span>;
-                                    })()
-                                ) : (
-                                    <span>—</span>
-                                )}
-                            </div>
+                    <div style={{ marginBottom: 8 }}>
+                        <strong>Layer height:</strong> {layerHeight.toFixed(3)}{" "}
+                        mm
+                    </div>
+
+                    <div style={{ marginBottom: 8 }}>
+                        <div style={{ fontWeight: 700 }}>Start with</div>
+                        <div style={{ marginTop: 6 }}>
+                            {swapPlan.length && swapPlan[0].type === "start" ? (
+                                (() => {
+                                    const sw = swapPlan[0].swatch;
+                                    return (
+                                        <div
+                                            style={{
+                                                display: "flex",
+                                                alignItems: "center",
+                                                gap: 8,
+                                            }}
+                                        >
+                                            <span
+                                                style={{
+                                                    width: 14,
+                                                    height: 14,
+                                                    display: "inline-block",
+                                                    background: sw.hex,
+                                                    border: "1px solid #000",
+                                                }}
+                                            />
+                                            <span
+                                                style={{
+                                                    fontFamily: "monospace",
+                                                }}
+                                            >
+                                                {sw.hex}
+                                            </span>
+                                        </div>
+                                    );
+                                })()
+                            ) : (
+                                <div>—</div>
+                            )}
                         </div>
                     </div>
 
                     <div>
-                        <strong>3.</strong>
-                        <div style={{ marginTop: 6 }}>
-                            <div style={{ marginBottom: 6 }}>
-                                Color swap plan:
-                            </div>
-                            {swapPlan.length <= 1 ? (
-                                <div>No swaps — only one color configured.</div>
-                            ) : (
-                                <ol style={{ paddingLeft: 18, marginTop: 6 }}>
-                                    {swapPlan.map((entry, idx) => {
-                                        if (entry.type === "start")
-                                            return (
-                                                <li key={idx}>
-                                                    Start print with{" "}
-                                                    <span
-                                                        style={{
-                                                            fontFamily:
-                                                                "monospace",
-                                                        }}
-                                                    >
-                                                        {entry.swatch.hex}
-                                                    </span>
-                                                </li>
-                                            );
+                        <div style={{ fontWeight: 700, marginBottom: 6 }}>
+                            Color swap plan
+                        </div>
+                        {swapPlan.length <= 1 ? (
+                            <div>No swaps — only one color configured.</div>
+                        ) : (
+                            <ol style={{ paddingLeft: 18, marginTop: 6 }}>
+                                {swapPlan.map((entry, idx) => {
+                                    if (entry.type === "start")
                                         return (
                                             <li key={idx}>
-                                                Swap to{" "}
+                                                Start with{" "}
                                                 <span
                                                     style={{
-                                                        display: "inline-flex",
-                                                        alignItems: "center",
-                                                        gap: 6,
+                                                        fontFamily: "monospace",
                                                     }}
                                                 >
-                                                    <span
-                                                        style={{
-                                                            width: 12,
-                                                            height: 12,
-                                                            display:
-                                                                "inline-block",
-                                                            background:
-                                                                entry.swatch
-                                                                    .hex,
-                                                            border: "1px solid #000",
-                                                        }}
-                                                    />
-                                                    <span
-                                                        style={{
-                                                            fontFamily:
-                                                                "monospace",
-                                                        }}
-                                                    >
-                                                        {entry.swatch.hex}
-                                                    </span>
-                                                </span>{" "}
-                                                at layer{" "}
-                                                <strong>{entry.layer}</strong>{" "}
-                                                (~{entry.height.toFixed(3)} mm)
+                                                    {entry.swatch.hex}
+                                                </span>
                                             </li>
                                         );
-                                    })}
-                                </ol>
-                            )}
-                        </div>
+                                    return (
+                                        <li key={idx}>
+                                            Swap to{" "}
+                                            <span
+                                                style={{
+                                                    display: "inline-flex",
+                                                    alignItems: "center",
+                                                    gap: 6,
+                                                }}
+                                            >
+                                                <span
+                                                    style={{
+                                                        width: 12,
+                                                        height: 12,
+                                                        display: "inline-block",
+                                                        background:
+                                                            entry.swatch.hex,
+                                                        border: "1px solid #000",
+                                                    }}
+                                                />
+                                                <span
+                                                    style={{
+                                                        fontFamily: "monospace",
+                                                    }}
+                                                >
+                                                    {entry.swatch.hex}
+                                                </span>
+                                            </span>{" "}
+                                            at layer{" "}
+                                            <strong>{entry.layer}</strong> (~
+                                            {entry.height.toFixed(3)} mm)
+                                        </li>
+                                    );
+                                })}
+                            </ol>
+                        )}
+                    </div>
+
+                    <div style={{ marginTop: 8, fontSize: 12, color: "#aaa" }}>
+                        Notes: Heights are approximate. Confirm in slicer before
+                        printing.
                     </div>
                 </div>
             </div>
