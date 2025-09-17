@@ -71,7 +71,7 @@ function App(): React.ReactElement | null {
         pixelSize: number;
     }>({
         layerHeight: 0.12,
-            baseSliceHeight: 0.2,
+        baseSliceHeight: 0.2,
         colorSliceHeights: [],
         colorOrder: [],
         filteredSwatches: [],
