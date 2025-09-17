@@ -257,6 +257,37 @@ export default function ThreeDControls({
         pixelSize,
     ]);
 
+    // Prepare dynamic 3D print instruction data derived from current control state
+    type SwapEntry =
+        | { type: "start"; swatch: Swatch }
+        | { type: "swap"; swatch: Swatch; layer: number; height: number };
+
+    // Build cumulative slice heights following the same logic used by the renderer
+    const cumulativeHeights: number[] = [];
+    let run = 0;
+    for (let pos = 0; pos < colorOrder.length; pos++) {
+        const fi = colorOrder[pos];
+        const h = Number(colorSliceHeights[fi] ?? 0) || 0;
+        run += h;
+        cumulativeHeights[pos] = run;
+    }
+
+    // Build swap plan entries (typed)
+    const swapPlan: SwapEntry[] = [];
+    for (let pos = 0; pos < colorOrder.length; pos++) {
+        const fi = colorOrder[pos];
+        const sw = filtered[fi];
+        if (!sw) continue;
+        if (pos === 0) {
+            swapPlan.push({ type: "start", swatch: sw });
+            continue;
+        }
+        const prevCum = cumulativeHeights[pos - 1] ?? 0;
+        const heightAt = Math.max(0, (baseSliceHeight ?? 0) + prevCum);
+        const layerNum = layerHeight > 0 ? Math.floor(heightAt / layerHeight) + 1 : 1;
+        swapPlan.push({ type: "swap", swatch: sw, layer: layerNum, height: heightAt });
+    }
+
     return (
         <div className="controls-scroll">
             <div className="controls-group">
@@ -423,6 +454,82 @@ export default function ThreeDControls({
                             );
                         })
                     }
+                </div>
+            </div>
+
+            {/* 3D printing instruction group (dynamic) */}
+            <div className="controls-group">
+                <div
+                    style={{
+                        fontWeight: 700,
+                        marginBottom: 8,
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                    }}
+                >
+                    <div>3D print instructions</div>
+                </div>
+
+                <div style={{ fontSize: 13, lineHeight: "1.4" }}>
+                    <div style={{ marginBottom: 8 }}>
+                        <strong>1.</strong> Layer height — {layerHeight.toFixed(3)} mm
+                    </div>
+
+                    <div style={{ marginBottom: 8, display: "flex", alignItems: "center", gap: 8 }}>
+                        <strong style={{ width: 18 }}>2.</strong>
+                        <div>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                <div style={{ fontWeight: 700 }}>Start with color</div>
+                                {swapPlan.length ? (
+                                    (() => {
+                                        const entry = swapPlan[0];
+                                        if (entry && entry.type === "start") {
+                                            const sw = entry.swatch;
+                                            return (
+                                                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                                    <span style={{ width: 14, height: 14, display: "inline-block", background: sw.hex, border: "1px solid #000" }} />
+                                                    <span style={{ fontFamily: "monospace" }}>{sw.hex}</span>
+                                                </div>
+                                            );
+                                        }
+                                        return <span>—</span>;
+                                    })()
+                                ) : (
+                                    <span>—</span>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <strong>3.</strong>
+                        <div style={{ marginTop: 6 }}>
+                            <div style={{ marginBottom: 6 }}>Color swap plan:</div>
+                            {swapPlan.length <= 1 ? (
+                                <div>No swaps — only one color configured.</div>
+                            ) : (
+                                <ol style={{ paddingLeft: 18, marginTop: 6 }}>
+                                    {swapPlan.map((entry, idx) => {
+                                        if (entry.type === "start") return (
+                                            <li key={idx}>
+                                                Start print with <span style={{ fontFamily: "monospace" }}>{entry.swatch.hex}</span>
+                                            </li>
+                                        );
+                                        return (
+                                            <li key={idx}>
+                                                Swap to <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                                                    <span style={{ width: 12, height: 12, display: "inline-block", background: entry.swatch.hex, border: "1px solid #000" }} />
+                                                    <span style={{ fontFamily: "monospace" }}>{entry.swatch.hex}</span>
+                                                </span>
+                                                {' '}at layer <strong>{entry.layer}</strong> (~{entry.height.toFixed(3)} mm)
+                                            </li>
+                                        );
+                                    })}
+                                </ol>
+                            )}
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
