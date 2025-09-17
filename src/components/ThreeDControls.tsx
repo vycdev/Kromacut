@@ -69,17 +69,8 @@ export default function ThreeDControls({
         }
     }, [persisted]);
 
-    // Ensure baseSliceHeight stays within valid bounds when layerHeight changes
-    // and snap it to the nearest multiple of layerHeight to keep it aligned.
-    useEffect(() => {
-        setBaseSliceHeight((prev) => {
-            const clamped = Math.max(0, Math.min(10, prev));
-            if (layerHeight <= 0) return clamped; // safety
-            const multiple = Math.round(clamped / layerHeight) * layerHeight;
-            const snapped = Math.max(0, Math.min(10, multiple));
-            return Number(snapped.toFixed(8));
-        });
-    }, [layerHeight]);
+    // Note: baseSliceHeight is intentionally freeform now (no snapping to layerHeight).
+    // We still enforce reasonable bounds when the user edits it.
 
     // Initialize or resize per-color slice heights and preserve ordering when swatches change.
     useEffect(() => {
@@ -284,49 +275,18 @@ export default function ThreeDControls({
         }
         const prevCum = cumulativeHeights[pos - 1] ?? 0;
         const heightAt = Math.max(0, (baseSliceHeight ?? 0) + prevCum);
-        const layerNum = layerHeight > 0 ? Math.floor(heightAt / layerHeight) + 1 : 1;
-        swapPlan.push({ type: "swap", swatch: sw, layer: layerNum, height: heightAt });
+        const layerNum =
+            layerHeight > 0 ? Math.floor(heightAt / layerHeight) + 1 : 1;
+        swapPlan.push({
+            type: "swap",
+            swatch: sw,
+            layer: layerNum,
+            height: heightAt,
+        });
     }
 
     return (
         <div className="controls-scroll">
-            <div className="controls-group">
-                <label>
-                    <div
-                        style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            alignItems: "center",
-                        }}
-                    >
-                        <span style={{ fontWeight: 700 }}>Layer height</span>
-                        <span className="adjustment-unit">
-                            {layerHeight.toFixed(2)} mm
-                        </span>
-                    </div>
-                    <div
-                        style={{
-                            display: "flex",
-                            gap: "8px",
-                            alignItems: "center",
-                        }}
-                    >
-                        <input
-                            type="number"
-                            min={0.01}
-                            max={1}
-                            step={0.01}
-                            value={layerHeight}
-                            onChange={(e) => {
-                                const v = Number(e.target.value);
-                                if (!Number.isNaN(v)) setLayerHeight(v);
-                            }}
-                            style={{ width: "100%" }}
-                        />
-                    </div>
-                </label>
-            </div>
-
             {/* Pixel size (XY scaling) */}
             <div className="controls-group">
                 <label>
@@ -366,7 +326,44 @@ export default function ThreeDControls({
                 </label>
             </div>
 
-            {/* Base slice height */}
+            <div className="controls-group">
+                <label>
+                    <div
+                        style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                        }}
+                    >
+                        <span style={{ fontWeight: 700 }}>Layer height</span>
+                        <span className="adjustment-unit">
+                            {layerHeight.toFixed(2)} mm
+                        </span>
+                    </div>
+                    <div
+                        style={{
+                            display: "flex",
+                            gap: "8px",
+                            alignItems: "center",
+                        }}
+                    >
+                        <input
+                            type="number"
+                            min={0.01}
+                            max={10}
+                            step={0.01}
+                            value={layerHeight}
+                            onChange={(e) => {
+                                const v = Number(e.target.value);
+                                if (!Number.isNaN(v)) setLayerHeight(v);
+                            }}
+                            style={{ width: "100%" }}
+                        />
+                    </div>
+                </label>
+            </div>
+
+            {/* Base slice height (numeric input) */}
             <div className="controls-group">
                 <label>
                     <div
@@ -391,17 +388,17 @@ export default function ThreeDControls({
                         }}
                     >
                         <input
-                            type="range"
+                            type="number"
                             min={0}
                             max={10}
-                            step={layerHeight}
+                            step={0.01}
                             value={baseSliceHeight}
                             onChange={(e) => {
-                                const v = Number(e.target.value);
+                                let v = Number(e.target.value);
                                 if (Number.isNaN(v)) return;
+                                v = Math.max(0, Math.min(10, v));
                                 setBaseSliceHeight(v);
                             }}
-                            className="range--styled"
                             style={{ width: "100%" }}
                         />
                     </div>
@@ -473,23 +470,61 @@ export default function ThreeDControls({
 
                 <div style={{ fontSize: 13, lineHeight: "1.4" }}>
                     <div style={{ marginBottom: 8 }}>
-                        <strong>1.</strong> Layer height — {layerHeight.toFixed(3)} mm
+                        <strong>1.</strong> Layer height —{" "}
+                        {layerHeight.toFixed(3)} mm
                     </div>
 
-                    <div style={{ marginBottom: 8, display: "flex", alignItems: "center", gap: 8 }}>
+                    <div
+                        style={{
+                            marginBottom: 8,
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 8,
+                        }}
+                    >
                         <strong style={{ width: 18 }}>2.</strong>
                         <div>
-                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                <div style={{ fontWeight: 700 }}>Start with color</div>
+                            <div
+                                style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 8,
+                                }}
+                            >
+                                <div style={{ fontWeight: 700 }}>
+                                    Start with color
+                                </div>
                                 {swapPlan.length ? (
                                     (() => {
                                         const entry = swapPlan[0];
                                         if (entry && entry.type === "start") {
                                             const sw = entry.swatch;
                                             return (
-                                                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                                                    <span style={{ width: 14, height: 14, display: "inline-block", background: sw.hex, border: "1px solid #000" }} />
-                                                    <span style={{ fontFamily: "monospace" }}>{sw.hex}</span>
+                                                <div
+                                                    style={{
+                                                        display: "flex",
+                                                        alignItems: "center",
+                                                        gap: 6,
+                                                    }}
+                                                >
+                                                    <span
+                                                        style={{
+                                                            width: 14,
+                                                            height: 14,
+                                                            display:
+                                                                "inline-block",
+                                                            background: sw.hex,
+                                                            border: "1px solid #000",
+                                                        }}
+                                                    />
+                                                    <span
+                                                        style={{
+                                                            fontFamily:
+                                                                "monospace",
+                                                        }}
+                                                    >
+                                                        {sw.hex}
+                                                    </span>
                                                 </div>
                                             );
                                         }
@@ -505,24 +540,62 @@ export default function ThreeDControls({
                     <div>
                         <strong>3.</strong>
                         <div style={{ marginTop: 6 }}>
-                            <div style={{ marginBottom: 6 }}>Color swap plan:</div>
+                            <div style={{ marginBottom: 6 }}>
+                                Color swap plan:
+                            </div>
                             {swapPlan.length <= 1 ? (
                                 <div>No swaps — only one color configured.</div>
                             ) : (
                                 <ol style={{ paddingLeft: 18, marginTop: 6 }}>
                                     {swapPlan.map((entry, idx) => {
-                                        if (entry.type === "start") return (
-                                            <li key={idx}>
-                                                Start print with <span style={{ fontFamily: "monospace" }}>{entry.swatch.hex}</span>
-                                            </li>
-                                        );
+                                        if (entry.type === "start")
+                                            return (
+                                                <li key={idx}>
+                                                    Start print with{" "}
+                                                    <span
+                                                        style={{
+                                                            fontFamily:
+                                                                "monospace",
+                                                        }}
+                                                    >
+                                                        {entry.swatch.hex}
+                                                    </span>
+                                                </li>
+                                            );
                                         return (
                                             <li key={idx}>
-                                                Swap to <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                                                    <span style={{ width: 12, height: 12, display: "inline-block", background: entry.swatch.hex, border: "1px solid #000" }} />
-                                                    <span style={{ fontFamily: "monospace" }}>{entry.swatch.hex}</span>
-                                                </span>
-                                                {' '}at layer <strong>{entry.layer}</strong> (~{entry.height.toFixed(3)} mm)
+                                                Swap to{" "}
+                                                <span
+                                                    style={{
+                                                        display: "inline-flex",
+                                                        alignItems: "center",
+                                                        gap: 6,
+                                                    }}
+                                                >
+                                                    <span
+                                                        style={{
+                                                            width: 12,
+                                                            height: 12,
+                                                            display:
+                                                                "inline-block",
+                                                            background:
+                                                                entry.swatch
+                                                                    .hex,
+                                                            border: "1px solid #000",
+                                                        }}
+                                                    />
+                                                    <span
+                                                        style={{
+                                                            fontFamily:
+                                                                "monospace",
+                                                        }}
+                                                    >
+                                                        {entry.swatch.hex}
+                                                    </span>
+                                                </span>{" "}
+                                                at layer{" "}
+                                                <strong>{entry.layer}</strong>{" "}
+                                                (~{entry.height.toFixed(3)} mm)
                                             </li>
                                         );
                                     })}
