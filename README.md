@@ -40,6 +40,36 @@ StrataPaint is a browser-first app that helps you reduce an image to a small pal
 - Layer height used to compute the exact layer numbers at which color swaps happen in the plain-text plan. 
 - Per-color slice heights are snapped/multiplied to sensible values relative to `layerHeight` when the swatches change or are initialized.
 
+## Transmission Distance (TD) — what it is and how to use it here
+
+Transmission Distance (TD) is the concept HueForge uses to produce perceptual intermediate shades by stacking translucent filament layers: instead of relying purely on opaque color pigments, TD models how light transmits through thin layers of filament and how stacking different colors (and varying thickness) produces new perceived colors. HueForge does a lot of this work automatically for you (generating intermediate shades and mapping them to layer swaps). For a full conceptual description see the HueForge blog: https://shop.thehueforge.com/blogs/news/what-is-hueforge
+
+Important notes about Transmission Distance in StrataPaint:
+
+- StrataPaint does NOT compute Transmission Distance or blend shades automatically. All TD-like effects are done manually by you in the app.
+- Recommended workflow when you want TD-style results:
+	1. Reduce your image to a palette with *more colors* than you actually intend to print. The extra colors give you candidate shades to use as intermediate/translucent-looking layers.
+	2. Use the per-color slice heights and ordering controls in the 3D panel to approximate the stacked thicknesses and ordering that would produce the target intermediate shades. Small adjustments to `base slice height`, per-color slice heights, and `layerHeight` change the produced layer numbers and perceived blends.
+	3. Iterate with actual filament on a small test print: translucency and perceived mix depend heavily on filament brand, color, and print settings.
+
+All of the automated Transmission Distance processing that HueForge performs is manual in StrataPaint — you are given the building blocks (palette, per-color heights, order, and the 3D preview) and you experiment until you find a stack that gives the visual result you want.
+
+TD test image and quick experiment
+
+- This repository includes a small test image `tdTest.png` (found in `src/assets/tdTest.png`).
+- The app header includes a `Load TD Test` button that will load that image into the preview so you can quickly experiment with layer ordering and per-color slice heights.
+
+You can try a quick experiment:
+
+1. Click `Load TD Test Image` in the app header.
+2. Reduce colors to your desired number.
+3. Generate and download your 3d model. 
+4. Follow the layer color swap instructions and print your 3d model to see results.  
+
+Preview of the included TD test image:
+
+![TD Test Image](src/assets/tdTest.png)
+
 ## Contributing
 
 Contributions welcome. Open issues or PRs for bugs, improvements, or feature suggestions. If you plan a larger change (architecture, algorithms), open an issue first describing the approach so we can discuss it.
