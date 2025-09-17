@@ -33,7 +33,7 @@ export default function ThreeDControls({
         persisted?.layerHeight ?? 0.12
     ); // mm
     const [baseSliceHeight, setBaseSliceHeight] = useState<number>(
-        persisted?.baseSliceHeight ?? 0
+        persisted?.baseSliceHeight ?? 0.2
     );
     const [colorSliceHeights, setColorSliceHeights] = useState<number[]>(
         persisted?.colorSliceHeights?.slice() ?? []
