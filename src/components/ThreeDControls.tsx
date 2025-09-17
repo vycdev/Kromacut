@@ -285,6 +285,63 @@ export default function ThreeDControls({
         });
     }
 
+    // Build a plain-text representation of the instructions for copying
+    const buildInstructionsText = () => {
+        const lines: string[] = [];
+        lines.push("3D print instructions");
+        lines.push(`Layer height: ${layerHeight.toFixed(3)} mm`);
+        if (swapPlan.length) {
+            const first = swapPlan[0];
+            if (first.type === "start")
+                lines.push(`Start with color: ${first.swatch.hex}`);
+        }
+        lines.push("Color swap plan:");
+        if (swapPlan.length <= 1) {
+            lines.push("- No swaps — only one color configured.");
+        } else {
+            for (const entry of swapPlan) {
+                if (entry.type === "start") {
+                    lines.push(`- Start print with ${entry.swatch.hex}`);
+                } else {
+                    lines.push(
+                        `- Swap to ${entry.swatch.hex} at layer ${entry.layer} (~${entry.height.toFixed(3)} mm)`
+                    );
+                }
+            }
+        }
+        return lines.join("\n");
+    };
+
+    // Clipboard copy with fallback and brief copied feedback
+    const [copied, setCopied] = useState(false);
+    const copyTimerRef = useRef<number | null>(null);
+    const copyToClipboard = async () => {
+        const text = buildInstructionsText();
+        try {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                await navigator.clipboard.writeText(text);
+            } else {
+                // fallback for older browsers
+                const ta = document.createElement("textarea");
+                ta.value = text;
+                // avoid scrolling to bottom
+                ta.style.position = "fixed";
+                ta.style.opacity = "0";
+                document.body.appendChild(ta);
+                ta.focus();
+                ta.select();
+                document.execCommand("copy");
+                ta.remove();
+            }
+            setCopied(true);
+            if (copyTimerRef.current) window.clearTimeout(copyTimerRef.current);
+            copyTimerRef.current = window.setTimeout(() => setCopied(false), 2000);
+        } catch (err) {
+            // best-effort: ignore failures silently for now
+            console.error("Copy to clipboard failed", err);
+        }
+    };
+
     return (
         <div className="controls-scroll">
             {/* Pixel size (XY scaling) */}
@@ -457,16 +514,35 @@ export default function ThreeDControls({
             {/* 3D printing instruction group (dynamic) */}
             <div className="controls-group">
                 <div
-                    style={{
-                        fontWeight: 700,
-                        marginBottom: 8,
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                    }}
-                >
-                    <div>3D print instructions</div>
-                </div>
+                        style={{
+                            fontWeight: 700,
+                            marginBottom: 8,
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                        }}
+                    >
+                        <div>3D print instructions</div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            <button
+                                type="button"
+                                onClick={copyToClipboard}
+                                title="Copy print instructions to clipboard"
+                                style={{
+                                    padding: "4px 8px",
+                                    fontSize: 12,
+                                    cursor: "pointer",
+                                }}
+                            >
+                                Copy
+                            </button>
+                            {copied && (
+                                <span style={{ fontSize: 12, color: "#0a0" }}>
+                                    Copied!
+                                </span>
+                            )}
+                        </div>
+                    </div>
 
                 <div style={{ fontSize: 13, lineHeight: "1.4" }}>
                     <div style={{ marginBottom: 8 }}>
