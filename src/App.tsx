@@ -21,7 +21,6 @@ import { useQuantize } from "./hooks/useQuantize";
 
 function App(): React.ReactElement | null {
     const [dragOver, setDragOver] = useState(false);
-    const inputRef = useRef<HTMLInputElement | null>(null);
     // `weight` is the algorithm parameter; `finalColors` is the postprocess target
     const [weight, setWeight] = useState<number>(128);
     const [finalColors, setFinalColors] = useState<number>(16);
@@ -35,6 +34,7 @@ function App(): React.ReactElement | null {
         useSwatches(imageSrc);
     // adjustments managed locally inside AdjustmentsPanel now
     // initial selectedPalette derived from initial weight above
+    const inputRef = useRef<HTMLInputElement | null>(null);
     const canvasPreviewRef = useRef<CanvasPreviewHandle | null>(null);
     const [showCheckerboard, setShowCheckerboard] = useState<boolean>(true);
     const [isCropMode, setIsCropMode] = useState(false);
@@ -71,7 +71,7 @@ function App(): React.ReactElement | null {
         pixelSize: number;
     }>({
         layerHeight: 0.12,
-        baseSliceHeight: 0,
+            baseSliceHeight: 0.2,
         colorSliceHeights: [],
         colorOrder: [],
         filteredSwatches: [],
