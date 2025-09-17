@@ -116,6 +116,8 @@ export function useSwatches(imageSrc: string | null) {
                     if (a.hsl.s !== b.hsl.s) return b.hsl.s - a.hsl.s;
                     return b.hsl.l - a.hsl.l;
                 });
+                // Present colors from darkest to lightest (reverse the previous ordering)
+                top.reverse();
                 if (runId === runRef.current && !cancelled) {
                     const result = top.map((t) => ({
                         hex: t.hex,
