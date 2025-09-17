@@ -540,7 +540,11 @@ export default function ThreeDControls({
                             onClick={copyToClipboard}
                             title="Copy print instructions to clipboard"
                             aria-pressed={copied}
-                            className={copied ? "compact-btn copied-pressed" : "compact-btn"}
+                            className={
+                                copied
+                                    ? "compact-btn copied-pressed"
+                                    : "compact-btn"
+                            }
                         >
                             {copied ? "Copied!" : "Copy"}
                         </button>
