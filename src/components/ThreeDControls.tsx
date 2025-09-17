@@ -304,7 +304,9 @@ export default function ThreeDControls({
                     lines.push(`- Start print with ${entry.swatch.hex}`);
                 } else {
                     lines.push(
-                        `- Swap to ${entry.swatch.hex} at layer ${entry.layer} (~${entry.height.toFixed(3)} mm)`
+                        `- Swap to ${entry.swatch.hex} at layer ${
+                            entry.layer
+                        } (~${entry.height.toFixed(3)} mm)`
                     );
                 }
             }
@@ -335,7 +337,10 @@ export default function ThreeDControls({
             }
             setCopied(true);
             if (copyTimerRef.current) window.clearTimeout(copyTimerRef.current);
-            copyTimerRef.current = window.setTimeout(() => setCopied(false), 2000);
+            copyTimerRef.current = window.setTimeout(
+                () => setCopied(false),
+                2000
+            );
         } catch (err) {
             // best-effort: ignore failures silently for now
             console.error("Copy to clipboard failed", err);
@@ -514,35 +519,41 @@ export default function ThreeDControls({
             {/* 3D printing instruction group (dynamic) */}
             <div className="controls-group">
                 <div
+                    style={{
+                        fontWeight: 700,
+                        marginBottom: 8,
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                    }}
+                >
+                    <div>3D print instructions</div>
+                    <div
                         style={{
-                            fontWeight: 700,
-                            marginBottom: 8,
                             display: "flex",
-                            justifyContent: "space-between",
                             alignItems: "center",
+                            gap: 8,
                         }}
                     >
-                        <div>3D print instructions</div>
-                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                            <button
-                                type="button"
-                                onClick={copyToClipboard}
-                                title="Copy print instructions to clipboard"
-                                style={{
-                                    padding: "4px 8px",
-                                    fontSize: 12,
-                                    cursor: "pointer",
-                                }}
-                            >
-                                Copy
-                            </button>
-                            {copied && (
-                                <span style={{ fontSize: 12, color: "#0a0" }}>
-                                    Copied!
-                                </span>
-                            )}
-                        </div>
+                        <button
+                            type="button"
+                            onClick={copyToClipboard}
+                            title="Copy print instructions to clipboard"
+                            style={{
+                                padding: "4px 8px",
+                                fontSize: 12,
+                                cursor: "pointer",
+                            }}
+                        >
+                            Copy
+                        </button>
+                        {copied && (
+                            <span style={{ fontSize: 12, color: "#0a0" }}>
+                                Copied!
+                            </span>
+                        )}
                     </div>
+                </div>
 
                 <div style={{ fontSize: 13, lineHeight: "1.4" }}>
                     <div style={{ marginBottom: 8 }}>
