@@ -540,16 +540,7 @@ export default function ThreeDControls({
                             onClick={copyToClipboard}
                             title="Copy print instructions to clipboard"
                             aria-pressed={copied}
-                            style={{
-                                padding: "4px 8px",
-                                fontSize: 12,
-                                cursor: "pointer",
-                                borderRadius: 8,
-                                transition:
-                                    "background 150ms ease, color 150ms ease",
-                            }}
-                            // apply a purple background when copied to match app accent
-                            className={copied ? "copied-pressed" : undefined}
+                            className={copied ? "compact-btn copied-pressed" : "compact-btn"}
                         >
                             {copied ? "Copied!" : "Copy"}
                         </button>
