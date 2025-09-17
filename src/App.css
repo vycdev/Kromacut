@@ -93,6 +93,12 @@
     transition: background-color 0.1s, border-color 0.1s, color 0.1s;
 }
 
+.header-btn--test {
+    background: linear-gradient(90deg, #2b6fd6, #2b9bd6);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
 .header-btn--github {
     background: linear-gradient(90deg, #4a009e, #1c0069);
     color: white;

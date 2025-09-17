@@ -4,6 +4,7 @@ import ThreeDControls from "./components/ThreeDControls";
 import ThreeDView from "./components/ThreeDView";
 import "./App.css";
 import logo from "./assets/logo.png";
+import tdTestImg from "./assets/tdTest.png";
 import CanvasPreview from "./components/CanvasPreview";
 import type { CanvasPreviewHandle } from "./components/CanvasPreview";
 import { PaletteSelector } from "./components/PaletteSelector";
@@ -243,6 +244,19 @@ function App(): React.ReactElement | null {
                     <span className="header-title">StrataPaint</span>
                 </div>
                 <div className="header-actions">
+                    <button
+                        type="button"
+                        className="header-btn header-btn--test"
+                        onClick={() => {
+                            // load the bundled test image into the preview
+                            invalidate();
+                            setImage(tdTestImg, true);
+                        }}
+                        title="Load TD Test Image"
+                    >
+                        <i className="fa-solid fa-image" aria-hidden />
+                        <span>Load TD Test Image</span>
+                    </button>
                     <a
                         className="header-btn header-btn--github"
                         href="https://github.com/vycdev/StrataPaint"
