@@ -252,7 +252,7 @@ function App(): React.ReactElement | null {
                             invalidate();
                             setImage(tdTestImg, true);
                         }}
-                        title="Load TD Test Image"
+                        title="Load TD Test"
                     >
                         <i className="fa-solid fa-image" aria-hidden />
                         <span>Load TD Test Image</span>
