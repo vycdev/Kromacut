@@ -95,6 +95,13 @@ button:focus-visible {
   }
 }
 
+/* pressed/copied style used by several controls to indicate success */
+.copied-pressed {
+  background-color: #6b21a8; /* purple-700 */
+  color: #fff;
+  border-color: #5b1890;
+}
+
 /* Make disabled form controls visually distinct (greyed out) */
 .controls-group input[disabled],
 .controls-group select[disabled],
