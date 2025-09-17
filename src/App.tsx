@@ -255,7 +255,7 @@ function App(): React.ReactElement | null {
                         title="Load TD Test"
                     >
                         <i className="fa-solid fa-image" aria-hidden />
-                        <span>Load TD Test Image</span>
+                        <span>Load TD Test</span>
                     </button>
                     <a
                         className="header-btn header-btn--github"
