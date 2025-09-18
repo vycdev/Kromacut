@@ -60,7 +60,8 @@ export function useThreeScene(
         meshRef.current = mesh;
         // keep mesh simple (no explicit shadow config)
         try {
-            (window as unknown as { __KROMACUT_LAST_MESH?: THREE.Mesh }).__KROMACUT_LAST_MESH = mesh;
+            (window as unknown as { __KROMACUT_LAST_MESH?: THREE.Mesh }).__KROMACUT_LAST_MESH =
+                mesh;
         } catch {
             /* no-op */
         }
