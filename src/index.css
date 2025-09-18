@@ -3,7 +3,8 @@
     line-height: 1.5;
     font-weight: 400;
 
-    color-scheme: light dark;
+    /* Force dark mode by default; we'll override any light-mode media rules below */
+    color-scheme: dark;
     color: rgba(255, 255, 255, 0.87);
     background-color: #242424;
 
@@ -94,6 +95,49 @@ button:focus-visible {
     }
     button {
         background-color: #f9f9f9;
+    }
+}
+
+/* ======================================================================
+   Force dark theme overrides
+
+   Some browsers and platforms can force a page into light mode based on
+   OS settings; the app UI is designed for a dark palette and should not
+   be rendered in light mode. These rules apply after the normal rules and
+   use !important to ensure the dark theme is enforced.
+   ====================================================================== */
+:root {
+    color-scheme: dark !important;
+    color: rgba(255, 255, 255, 0.87) !important;
+    background-color: #121212 !important;
+}
+
+/* Buttons and controls: prefer the dark backgrounds used across the app */
+button,
+.compact-btn {
+    background-color: #1a1a1a !important;
+    color: #eee !important;
+    border-color: transparent !important;
+}
+
+/* Disabled controls: dark-friendly appearance */
+.controls-group input[disabled],
+.controls-group select[disabled],
+.controls-group button[disabled] {
+    background-color: rgba(255, 255, 255, 0.03) !important;
+    color: rgba(255, 255, 255, 0.55) !important;
+    opacity: 1 !important;
+}
+
+/* Ensure media queries that target light preference cannot override these rules */
+@media (prefers-color-scheme: light) {
+    :root,
+    button,
+    .compact-btn,
+    .controls-group input[disabled],
+    .controls-group select[disabled],
+    .controls-group button[disabled] {
+        color-scheme: dark !important;
     }
 }
 
