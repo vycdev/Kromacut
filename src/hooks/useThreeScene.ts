@@ -36,11 +36,11 @@ export function useThreeScene(
     controls.dampingFactor = 0.08;
     controlsRef.current = controls;
 
-    // Lights
-    const hemi = new THREE.HemisphereLight(0xffffff, 0x444444, 0.6);
+    // Lights (kept simple, increase intensity slightly)
+    const hemi = new THREE.HemisphereLight(0xffffff, 0x444444, 0.9);
     hemi.position.set(0, 1, 0);
     scene.add(hemi);
-    const dir = new THREE.DirectionalLight(0xffffff, 0.8);
+    const dir = new THREE.DirectionalLight(0xffffff, 1.1);
     dir.position.set(2, 3, 1);
     scene.add(dir);
 
@@ -58,6 +58,7 @@ export function useThreeScene(
     const mesh = new THREE.Mesh(placeholderGeom, material);
     scene.add(mesh);
     meshRef.current = mesh;
+    // keep mesh simple (no explicit shadow config)
     try {
       (window as unknown as { __STRATA_LAST_MESH?: THREE.Mesh }).__STRATA_LAST_MESH = mesh;
     } catch {
