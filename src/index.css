@@ -15,7 +15,9 @@
 
 /* use border-box everywhere to make padding part of element size calculations
    and avoid unexpected overflow when using 100% heights and padding */
-*, *::before, *::after {
+*,
+*::before,
+*::after {
   box-sizing: border-box;
 }
 
@@ -127,8 +129,8 @@ button:focus-visible {
   opacity: 0.55;
   cursor: not-allowed;
   /* subtle background to indicate disabled state */
-  background-color: rgba(255,255,255,0.03);
-  color: rgba(255,255,255,0.55);
+  background-color: rgba(255, 255, 255, 0.03);
+  color: rgba(255, 255, 255, 0.55);
   border-color: transparent;
 }
 

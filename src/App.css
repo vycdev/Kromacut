@@ -1,813 +1,825 @@
 /* Minimal styles for uploader */
 .uploader-root {
-    /* fill the viewport but remain flexible inside the body */
-    padding: 1rem;
-    box-sizing: border-box;
-    color: inherit;
-    font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue",
-        Arial;
-    display: flex;
-    flex-direction: column;
-    flex: 1 1 100%;
-    min-width: 0;
-    max-width: 100%;
-    /* allow vertical shrink when viewport is constrained */
-    min-height: 0;
-    height: 100vh;
+  /* fill the viewport but remain flexible inside the body */
+  padding: 1rem;
+  box-sizing: border-box;
+  color: inherit;
+  font-family:
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    Roboto,
+    'Helvetica Neue',
+    Arial;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 100%;
+  min-width: 0;
+  max-width: 100%;
+  /* allow vertical shrink when viewport is constrained */
+  min-height: 0;
+  height: 100vh;
 }
 
 /* ensure the root fills available width so the grid can expand */
 .uploader-root {
-    width: 100%;
-    max-width: 100%;
+  width: 100%;
+  max-width: 100%;
 }
 
 .uploader-root h1 {
-    margin: 0 0 1rem 0;
-    font-size: 1.25rem;
+  margin: 0 0 1rem 0;
+  font-size: 1.25rem;
 }
 
 /* Top header (site-brand + actions) */
 .app-header {
-    height: 50px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0 12px;
-    box-sizing: border-box;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
-    margin-bottom: 8px;
+  height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
+  box-sizing: border-box;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  margin-bottom: 8px;
 }
 .app-header .header-left {
-    display: flex;
-    align-items: center;
-    gap: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 .header-logo {
-    height: 28px;
-    width: auto;
+  height: 28px;
+  width: auto;
 }
 /* Title next to the logo */
 .header-title {
-    font-weight: 800;
-    font-size: 1rem;
-    color: #ffffff;
-    letter-spacing: 0.2px;
-    margin-left: 4px;
-    user-select: none;
+  font-weight: 800;
+  font-size: 1rem;
+  color: #ffffff;
+  letter-spacing: 0.2px;
+  margin-left: 4px;
+  user-select: none;
 }
 
 @media (max-width: 800px) {
-    /* hide title on smaller screens to preserve header real estate */
-    .header-title {
-        display: none;
-    }
+  /* hide title on smaller screens to preserve header real estate */
+  .header-title {
+    display: none;
+  }
 }
 .app-header .header-actions {
-    display: flex;
-    gap: 8px;
-    align-items: center;
+  display: flex;
+  gap: 8px;
+  align-items: center;
 }
 .header-btn {
-    display: inline-flex;
-    gap: 8px;
-    align-items: center;
-    padding: 6px 10px;
-    border-radius: 8px;
-    background: rgba(255, 255, 255, 0.03);
-    color: inherit;
-    text-decoration: none;
-    border: 1px solid rgba(255, 255, 255, 0.04);
-    font-weight: 700;
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  color: inherit;
+  text-decoration: none;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  font-weight: 700;
 }
 
 .header-btn i {
-    font-size: 14px;
+  font-size: 14px;
 }
 
-
 .header-btn--patreon {
-    background: linear-gradient(90deg, #ff424d, #ff8248);
-    color: white;
-    border: 1px solid rgba(255, 255, 255, 0.274);
-    transition: background-color 0.1s, border-color 0.1s, color 0.1s;
+  background: linear-gradient(90deg, #ff424d, #ff8248);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.274);
+  transition:
+    background-color 0.1s,
+    border-color 0.1s,
+    color 0.1s;
 }
 
 .header-btn--test {
-    background: linear-gradient(90deg, #2b6fd6, #2b9bd6);
-    color: white;
-    border: 1px solid rgba(255, 255, 255, 0.12);
+  background: linear-gradient(90deg, #2b6fd6, #2b9bd6);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.12);
 }
 
 .header-btn--github {
-    background: linear-gradient(90deg, #4a009e, #1c0069);
-    color: white;
-    border: 1px solid rgba(255, 255, 255, 0.274);
-    transition: background-color 0.1s, border-color 0.1s, color 0.1s;
+  background: linear-gradient(90deg, #4a009e, #1c0069);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.274);
+  transition:
+    background-color 0.1s,
+    border-color 0.1s,
+    color 0.1s;
 }
 
 .header-btn:hover {
-    background: rgba(255, 255, 255, 0.05);
-    border-color: rgba(255, 255, 255, 0.06);
-    color: white;
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.06);
+  color: white;
 
-    transition: background-color 0.1s, border-color 0.1s, color 0.1s;
+  transition:
+    background-color 0.1s,
+    border-color 0.1s,
+    color 0.1s;
 }
 
 /* SwatchesPanel extracted styles */
 .swatches-header {
-    font-size: 13px;
-    font-weight: 700;
-    margin-bottom: 8px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 .swatches-loading {
-    font-size: 12px;
-    color: #ddd;
-    margin-left: 6px;
+  font-size: 12px;
+  color: #ddd;
+  margin-left: 6px;
 }
 .swatches-empty {
-    color: rgba(255, 255, 255, 0.6);
-    font-size: 13px;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 13px;
 }
 .swatch-interactive {
-    position: relative;
-    cursor: pointer;
+  position: relative;
+  cursor: pointer;
 }
 .swatch-transparent-bg {
-    background: repeating-conic-gradient(#666 0% 25%, #333 0% 50%) 50% / 8px 8px;
+  background: repeating-conic-gradient(#666 0% 25%, #333 0% 50%) 50% / 8px 8px;
 }
 .swatch-modal-overlay {
-    position: fixed;
-    inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: rgba(0, 0, 0, 0.5);
-    z-index: 1000;
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
 }
 .swatch-modal {
-    background: linear-gradient(180deg, #0f1113, #0b0c0d);
-    padding: 18px;
-    border-radius: 12px;
-    min-width: 420px;
-    max-width: min(90vw, 680px);
-    box-shadow: 0 12px 48px rgba(2, 6, 23, 0.75);
-    color: #eee;
-    border: 1px solid rgba(255, 255, 255, 0.03);
+  background: linear-gradient(180deg, #0f1113, #0b0c0d);
+  padding: 18px;
+  border-radius: 12px;
+  min-width: 420px;
+  max-width: min(90vw, 680px);
+  box-shadow: 0 12px 48px rgba(2, 6, 23, 0.75);
+  color: #eee;
+  border: 1px solid rgba(255, 255, 255, 0.03);
 }
 .swatch-modal-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
 }
 .swatch-modal-title {
-    font-size: 16px;
-    font-weight: 800;
+  font-size: 16px;
+  font-weight: 800;
 }
 .swatch-modal-close {
-    background: transparent;
-    border: 0;
-    color: #888;
-    cursor: pointer;
-    font-size: 18px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 36px;
-    height: 36px;
-    padding: 0;
-    border-radius: 8px;
+  background: transparent;
+  border: 0;
+  color: #888;
+  cursor: pointer;
+  font-size: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border-radius: 8px;
 }
 .swatch-modal-body {
-    display: flex;
-    gap: 0;
+  display: flex;
+  gap: 0;
 }
 .swatch-modal-left {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    padding-right: 12px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-right: 12px;
 }
 .swatch-picker-wrapper {
-    max-width: 420px;
+  max-width: 420px;
 }
 .swatch-modal-right {
-    width: 160px;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
+  width: 160px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 .swatch-preview-box {
-    position: relative;
-    width: 100%;
-    height: 103px;
-    border-radius: 8px;
-    overflow: hidden;
-    background: repeating-conic-gradient(#666 0% 25%, #333 0% 50%) 50% / 16px
-        16px;
-    border: 1px solid rgba(255, 255, 255, 0.06);
+  position: relative;
+  width: 100%;
+  height: 103px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: repeating-conic-gradient(#666 0% 25%, #333 0% 50%) 50% / 16px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
 }
 .swatch-preview-fill {
-    position: absolute;
-    inset: 0;
+  position: absolute;
+  inset: 0;
 }
 .swatch-hex-input {
-    width: 100%;
-    padding: 8px 10px;
-    background: #0b0d0e;
-    border: 1px solid rgba(255, 255, 255, 0.04);
-    color: #fff;
-    border-radius: 6px;
-    font-family: monospace;
+  width: 100%;
+  padding: 8px 10px;
+  background: #0b0d0e;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  color: #fff;
+  border-radius: 6px;
+  font-family: monospace;
 }
 .swatch-actions {
-    margin-top: 6px;
-    display: flex;
-    gap: 8px;
-    width: 100%;
+  margin-top: 6px;
+  display: flex;
+  gap: 8px;
+  width: 100%;
 }
 .swatch-delete-btn {
-    flex: 1;
-    min-width: 0;
-    padding: 8px 12px;
-    background: transparent;
-    border: 1px solid rgba(255, 60, 60, 0.12);
-    color: #ff6b6b;
-    border-radius: 8px;
-    cursor: pointer;
+  flex: 1;
+  min-width: 0;
+  padding: 8px 12px;
+  background: transparent;
+  border: 1px solid rgba(255, 60, 60, 0.12);
+  color: #ff6b6b;
+  border-radius: 8px;
+  cursor: pointer;
 }
 .swatch-apply-btn {
-    flex: 1;
-    min-width: 0;
-    padding: 8px 12px;
-    background: #f3f4f6;
-    border: 1px solid #d1d5db;
-    color: #111827;
-    border-radius: 8px;
-    cursor: pointer;
+  flex: 1;
+  min-width: 0;
+  padding: 8px 12px;
+  background: #f3f4f6;
+  border: 1px solid #d1d5db;
+  color: #111827;
+  border-radius: 8px;
+  cursor: pointer;
 }
 
 /* PaletteSelector extracted styles */
 .palette-header {
-    font-size: 13px;
-    font-weight: 700;
-    margin-bottom: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 8px;
 }
 .palette-list {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    max-height: 200px;
-    overflow-y: auto;
-    padding-right: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 200px;
+  overflow-y: auto;
+  padding-right: 4px;
 }
 .palette-item {
-    width: 100%;
-    box-sizing: border-box;
-    justify-content: space-between;
-    border: 1px solid rgba(255, 255, 255, 0.06);
-    padding: 8px 10px;
-    background: transparent;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    cursor: pointer;
-    border-radius: 6px;
+  width: 100%;
+  box-sizing: border-box;
+  justify-content: space-between;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 8px 10px;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  border-radius: 6px;
 }
 .palette-item--active {
-    border: 2px solid #fff;
+  border: 2px solid #fff;
 }
 .palette-item-leading {
-    display: flex;
-    gap: 4px;
+  display: flex;
+  gap: 4px;
 }
 .palette-auto-label {
-    width: 36px;
-    height: 20px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #ddd;
-    font-size: 12px;
+  width: 36px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ddd;
+  font-size: 12px;
 }
 .palette-color-grid {
-    display: flex;
-    gap: 4px;
-    flex-wrap: wrap;
-    max-width: 200px;
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  max-width: 200px;
 }
 .palette-color-swatch {
-    width: 12px;
-    height: 12px;
-    border-radius: 2px;
-    border: 1px solid rgba(0, 0, 0, 0.15);
-    box-sizing: border-box;
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  box-sizing: border-box;
 }
 .palette-size-label {
-    font-size: 12px;
-    color: #ddd;
+  font-size: 12px;
+  color: #ddd;
 }
 
 /* Adjustments controls (UI-only sliders) */
 .adjustments-group {
-    /* container holds the title and the scrollable content; keep header fixed */
-    padding: 0.5rem;
-    margin-bottom: 0.75rem;
-    display: flex;
-    flex-direction: column;
+  /* container holds the title and the scrollable content; keep header fixed */
+  padding: 0.5rem;
+  margin-bottom: 0.75rem;
+  display: flex;
+  flex-direction: column;
 }
 .adjustments-group .adjustments-content {
-    max-height: 240px; /* doubled: content area should be scrollable, slightly smaller to allow header */
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    padding-right: 4px; /* match other groups' right padding for scrollbar */
+  max-height: 240px; /* doubled: content area should be scrollable, slightly smaller to allow header */
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-right: 4px; /* match other groups' right padding for scrollbar */
 }
 .adjustment-row {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 .adjustment-label {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-size: 13px;
-    font-weight: 600;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+  font-weight: 600;
 }
 .adjustment-unit {
-    font-size: 12px;
-    color: #ccc;
-    margin-left: 8px;
+  font-size: 12px;
+  color: #ccc;
+  margin-left: 8px;
 }
-.adjustments-group input[type="range"] {
-    -webkit-appearance: none;
-    appearance: none;
-    width: 100%;
-    height: 28px;
-    background: transparent;
-    margin: 0;
-    padding: 0;
-    cursor: pointer;
+.adjustments-group input[type='range'] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 28px;
+  background: transparent;
+  margin: 0;
+  padding: 0;
+  cursor: pointer;
 }
 
 /* reuse same slider visuals for other custom range inputs when they opt-in */
 .controls-group .range--styled {
-    -webkit-appearance: none;
-    appearance: none;
-    width: 100%;
-    height: 28px;
-    background: transparent;
-    margin: 0;
-    padding: 0;
-    cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 28px;
+  background: transparent;
+  margin: 0;
+  padding: 0;
+  cursor: pointer;
 }
 
 /* WebKit chrome/safari */
-.adjustments-group input[type="range"]::-webkit-slider-runnable-track {
-    height: 8px;
-    background: rgba(255, 255, 255, 0.08);
-    border-radius: 999px;
-    border: none;
+.adjustments-group input[type='range']::-webkit-slider-runnable-track {
+  height: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  border: none;
 }
-.adjustments-group input[type="range"]::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    appearance: none;
-    width: 16px;
-    height: 16px;
-    border-radius: 50%;
-    background: #ffffff;
-    border: 3px solid rebeccapurple;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
-    margin-top: -4px; /* center the thumb relative to the track */
+.adjustments-group input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 3px solid rebeccapurple;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+  margin-top: -4px; /* center the thumb relative to the track */
 }
-.adjustments-group input[type="range"]::-webkit-slider-runnable-track:hover {
-    background: rgba(255, 255, 255, 0.1);
+.adjustments-group input[type='range']::-webkit-slider-runnable-track:hover {
+  background: rgba(255, 255, 255, 0.1);
 }
-.adjustments-group input[type="range"]:focus {
-    outline: none;
+.adjustments-group input[type='range']:focus {
+  outline: none;
 }
-.adjustments-group input[type="range"]:focus::-webkit-slider-runnable-track {
-    box-shadow: 0 0 0 6px rgba(128, 0, 128, 0.06);
+.adjustments-group input[type='range']:focus::-webkit-slider-runnable-track {
+  box-shadow: 0 0 0 6px rgba(128, 0, 128, 0.06);
 }
 
 /* reuse adjustments slider visuals for opt-in range inputs inside controls-group */
 .controls-group .range--styled::-webkit-slider-runnable-track {
-    height: 8px;
-    background: rgba(255, 255, 255, 0.08);
-    border-radius: 999px;
-    border: none;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  border: none;
 }
 .controls-group .range--styled::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    appearance: none;
-    width: 16px;
-    height: 16px;
-    border-radius: 50%;
-    background: #ffffff;
-    border: 3px solid rebeccapurple;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
-    margin-top: -4px; /* center the thumb relative to the track */
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 3px solid rebeccapurple;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+  margin-top: -4px; /* center the thumb relative to the track */
 }
 .controls-group .range--styled::-webkit-slider-runnable-track:hover {
-    background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.1);
 }
 .controls-group .range--styled:focus {
-    outline: none;
+  outline: none;
 }
 .controls-group .range--styled:focus::-webkit-slider-runnable-track {
-    box-shadow: 0 0 0 6px rgba(128, 0, 128, 0.06);
+  box-shadow: 0 0 0 6px rgba(128, 0, 128, 0.06);
 }
 
 /* Firefox */
-.adjustments-group input[type="range"]::-moz-range-track {
-    height: 8px;
-    background: rgba(255, 255, 255, 0.08);
-    border-radius: 999px;
+.adjustments-group input[type='range']::-moz-range-track {
+  height: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
 }
-.adjustments-group input[type="range"]::-moz-range-progress {
-    background: rebeccapurple;
-    height: 8px;
-    border-radius: 999px;
+.adjustments-group input[type='range']::-moz-range-progress {
+  background: rebeccapurple;
+  height: 8px;
+  border-radius: 999px;
 }
-.adjustments-group input[type="range"]::-moz-range-thumb {
-    width: 16px;
-    height: 16px;
-    border-radius: 50%;
-    background: #ffffff;
-    border: 3px solid rebeccapurple;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+.adjustments-group input[type='range']::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 3px solid rebeccapurple;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
 }
 
 /* Firefox styles for controls-group opt-in range */
 .controls-group .range--styled::-moz-range-track {
-    height: 8px;
-    background: rgba(255, 255, 255, 0.08);
-    border-radius: 999px;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
 }
 .controls-group .range--styled::-moz-range-progress {
-    background: rebeccapurple;
-    height: 8px;
-    border-radius: 999px;
+  background: rebeccapurple;
+  height: 8px;
+  border-radius: 999px;
 }
 .controls-group .range--styled::-moz-range-thumb {
-    width: 16px;
-    height: 16px;
-    border-radius: 50%;
-    background: #ffffff;
-    border: 3px solid rebeccapurple;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 3px solid rebeccapurple;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
 }
 
 /* Disabled state */
-.adjustments-group input[type="range"]:disabled::-webkit-slider-thumb,
-.adjustments-group input[type="range"]:disabled::-moz-range-thumb {
-    background: #cfcfcf;
-    border-color: rgba(0, 0, 0, 0.12);
-    box-shadow: none;
+.adjustments-group input[type='range']:disabled::-webkit-slider-thumb,
+.adjustments-group input[type='range']:disabled::-moz-range-thumb {
+  background: #cfcfcf;
+  border-color: rgba(0, 0, 0, 0.12);
+  box-shadow: none;
 }
 
 /* Small polish for label/value */
 .adjustment-label {
-    gap: 8px;
+  gap: 8px;
 }
 .adjustment-label .adjustment-unit {
-    color: #e6e6e6;
-    font-weight: 700;
+  color: #e6e6e6;
+  font-weight: 700;
 }
 
 .app-layout {
-    display: grid;
-    /* left column controlled by CSS variable; fallback to 1fr */
-    grid-template-columns: var(--left-width, 25%) 10px 1fr;
-    gap: 1rem;
-    flex: 1 1 auto;
-    height: 100%;
-    /* allow flex children to shrink without forcing overflow */
-    min-height: 0;
+  display: grid;
+  /* left column controlled by CSS variable; fallback to 1fr */
+  grid-template-columns: var(--left-width, 25%) 10px 1fr;
+  gap: 1rem;
+  flex: 1 1 auto;
+  height: 100%;
+  /* allow flex children to shrink without forcing overflow */
+  min-height: 0;
 }
 
 /* make the grid fill its container so columns can be resized freely */
 .app-layout {
-    width: 100%;
+  width: 100%;
 }
 
 /* Allow grid children to shrink when grid columns become small (prevents
    intrinsic min-width from blocking the column resize when dragging the splitter) */
 .app-layout > * {
-    min-width: 0;
+  min-width: 0;
 }
 
 .sidebar {
-    background: rgba(0, 0, 0, 0.12);
-    padding: 1rem;
-    border-radius: 8px;
-    /* make the sidebar a column flex container so header controls (mode tabs)
+  background: rgba(0, 0, 0, 0.12);
+  padding: 1rem;
+  border-radius: 8px;
+  /* make the sidebar a column flex container so header controls (mode tabs)
        and the settings panel share available vertical space without overflow */
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-    box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  box-sizing: border-box;
 }
 
 /* allow sidebar to shrink below its content's intrinsic width and clip/wrap content */
 .sidebar {
-    min-width: 0;
-    overflow: hidden;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .controls-panel {
-    display: flex;
-    flex-direction: column;
-    /* let the controls panel flex to fill remaining sidebar height (after mode tabs)
+  display: flex;
+  flex-direction: column;
+  /* let the controls panel flex to fill remaining sidebar height (after mode tabs)
        so inner groups can scroll if needed */
-    flex: 1 1 auto;
-    min-height: 0;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .controls-panel h2 {
-    margin: 0 0 0.5rem 0;
-    font-size: 1rem;
+  margin: 0 0 0.5rem 0;
+  font-size: 1rem;
 }
 
 /* grouped controls with subtle border and padding */
 .controls-group {
-    border: 1px solid rgba(255, 255, 255, 0.06);
-    padding: 0.75rem;
-    border-radius: 8px;
-    margin-bottom: 0.75rem;
-    background: rgba(255, 255, 255, 0.01);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 0.75rem;
+  border-radius: 8px;
+  margin-bottom: 0.75rem;
+  background: rgba(255, 255, 255, 0.01);
 }
 
 .controls-group {
-    border: 1px solid rgba(255, 255, 255, 0.04);
-    padding: 1rem;
-    border-radius: 8px;
-    margin-bottom: 1rem;
-    background: rgba(255, 255, 255, 0.01);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  padding: 1rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  background: rgba(255, 255, 255, 0.01);
 }
 
 /* Mode selector section (sits above settings, same width as settings) */
 .mode-section {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0.5rem;
-    margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem;
+  margin-bottom: 1rem;
 }
 .mode-tabs {
-    display: inline-flex;
-    gap: 8px;
-    background: transparent;
-    border-radius: 8px;
+  display: inline-flex;
+  gap: 8px;
+  background: transparent;
+  border-radius: 8px;
 }
 .mode-btn {
-    padding: 8px 12px;
-    border-radius: 8px;
-    border: 1px solid rgba(255, 255, 255, 0.06);
-    background: rgba(255, 255, 255, 0.02);
-    color: inherit;
-    cursor: pointer;
-    font-weight: 700;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.02);
+  color: inherit;
+  cursor: pointer;
+  font-weight: 700;
 }
 .mode-btn--active {
-    background: linear-gradient(90deg, #6b21a8, #4f46e5);
-    color: white;
-    border-color: rgba(255, 255, 255, 0.08);
+  background: linear-gradient(90deg, #6b21a8, #4f46e5);
+  color: white;
+  border-color: rgba(255, 255, 255, 0.08);
 }
 .mode-btn:focus {
-    outline: none;
-    box-shadow: 0 0 0 6px rgba(79, 70, 229, 0.06);
+  outline: none;
+  box-shadow: 0 0 0 6px rgba(79, 70, 229, 0.06);
 }
 
 /* scroll wrapper for the controls panel to allow inner groups to scroll */
 .controls-scroll {
-    overflow-y: auto;
-    padding-right: 4px; /* allow room for scrollbar */
-    min-height: 0;
+  overflow-y: auto;
+  padding-right: 4px; /* allow room for scrollbar */
+  min-height: 0;
 }
 
 /* ensure the scroll region inside the controls panel grows to fill available
    space so its content can scroll instead of pushing the panel taller */
 .controls-panel > .controls-scroll {
-    flex: 1 1 auto;
-    min-height: 0;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 /* improved form styles for settings inside .controls-group */
 .controls-group label {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    font-size: 15px;
-    color: rgba(255, 255, 255, 0.95);
-    margin-bottom: 12px;
-    font-weight: 600;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 15px;
+  color: rgba(255, 255, 255, 0.95);
+  margin-bottom: 12px;
+  font-weight: 600;
 }
 
-.controls-group input[type="number"] {
-    width: 100%;
-    max-width: 100%;
-    padding: 8px 10px;
-    border-radius: 8px;
-    border: 1px solid rgba(0, 0, 0, 0.12);
-    background: #2f2f2f; /* dark grey background */
-    color: #fff;
-    box-sizing: border-box;
-    font-size: 15px;
-    line-height: 1.2;
-    appearance: auto;
+.controls-group input[type='number'] {
+  width: 100%;
+  max-width: 100%;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  background: #2f2f2f; /* dark grey background */
+  color: #fff;
+  box-sizing: border-box;
+  font-size: 15px;
+  line-height: 1.2;
+  appearance: auto;
 }
 
 /* style the select separately so we can replace the native arrow with a custom icon
    while keeping number input spinners intact */
 .controls-group select {
-    width: 100%;
-    max-width: 100%;
-    padding: 8px 36px 8px 10px; /* reserve space on the right for the icon */
-    border-radius: 8px;
-    border: 1px solid rgba(0, 0, 0, 0.12);
-    background: #2f2f2f; /* dark grey background */
-    color: #fff;
-    box-sizing: border-box;
-    font-size: 15px;
-    line-height: 1.2;
-    /* hide native arrow */
-    -webkit-appearance: none;
-    -moz-appearance: none;
-    appearance: none;
-    /* custom inline SVG caret: grey stroked V with rounded caps/joins */
-    background-image: url("data:image/svg+xml;utf8,<svg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2010%206'><path%20d='M1%201%20L5%205%20L9%201'%20stroke='%23bdbdbd'%20stroke-width='1.5'%20fill='none'%20stroke-linecap='round'%20stroke-linejoin='round'/></svg>");
-    background-repeat: no-repeat;
-    background-position: right 13px center;
-    background-size: 12px 8px;
+  width: 100%;
+  max-width: 100%;
+  padding: 8px 36px 8px 10px; /* reserve space on the right for the icon */
+  border-radius: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  background: #2f2f2f; /* dark grey background */
+  color: #fff;
+  box-sizing: border-box;
+  font-size: 15px;
+  line-height: 1.2;
+  /* hide native arrow */
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  /* custom inline SVG caret: grey stroked V with rounded caps/joins */
+  background-image: url("data:image/svg+xml;utf8,<svg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2010%206'><path%20d='M1%201%20L5%205%20L9%201'%20stroke='%23bdbdbd'%20stroke-width='1.5'%20fill='none'%20stroke-linecap='round'%20stroke-linejoin='round'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 13px center;
+  background-size: 12px 8px;
 }
 
 /* Restore native spinner controls by not overriding the UA appearance for number inputs.
    Remove any vendor rules that hide the controls so users get the up/down arrows. */
-.controls-group input[type="number"]:focus,
+.controls-group input[type='number']:focus,
 .controls-group select:focus {
-    outline: none;
-    border-color: rgba(128, 0, 128, 0.25);
-    box-shadow: 0 0 0 4px rgba(128, 0, 128, 0.06);
+  outline: none;
+  border-color: rgba(128, 0, 128, 0.25);
+  box-shadow: 0 0 0 4px rgba(128, 0, 128, 0.06);
 }
 .controls-group .apply-btn {
-    margin-top: 8px;
-    padding: 0.5rem 0.75rem;
-    width: 100%;
-    border-radius: 6px;
-    border: 1px solid rgba(0, 0, 0, 0.12);
-    background: #2f2f2f; /* dark grey */
-    color: #fff;
-    cursor: pointer;
+  margin-top: 8px;
+  padding: 0.5rem 0.75rem;
+  width: 100%;
+  border-radius: 6px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  background: #2f2f2f; /* dark grey */
+  color: #fff;
+  cursor: pointer;
 }
 
 .controls-group .apply-btn:disabled {
-    background: #505050;
-    color: #8a8a8a;
-    opacity: 1;
-    cursor: not-allowed;
+  background: #505050;
+  color: #8a8a8a;
+  opacity: 1;
+  cursor: not-allowed;
 }
 
 /* center contents for this group */
 .controls-group--center {
-    display: flex;
-    align-items: center;
-    justify-content: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .placeholder.small p {
-    margin: 0 0 0.5rem 0;
+  margin: 0 0 0.5rem 0;
 }
 
 .uploader-controls {
-    margin-top: 0.75rem;
+  margin-top: 0.75rem;
 }
 
 .preview-area {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-    height: 100%;
-    min-height: 0;
-    overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
 }
 
 /* allow the preview-area to shrink/grow horizontally inside the grid */
 .preview-area {
-    min-width: 0;
+  min-width: 0;
 }
 
 .uploader-controls {
-    display: flex;
-    gap: 0.5rem;
-    align-items: center;
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
 }
 
 /* let the inline buttons wrap when the sidebar narrows */
 .uploader-controls {
-    flex-wrap: wrap;
+  flex-wrap: wrap;
 }
 .uploader-controls button {
-    flex: 0 1 auto;
-    min-width: 0;
+  flex: 0 1 auto;
+  min-width: 0;
 }
 
 .splitter {
-    background: transparent;
-    width: 10px;
-    cursor: col-resize;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+  background: transparent;
+  width: 10px;
+  cursor: col-resize;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .splitter::before {
-    content: "";
-    width: 2px;
-    height: 40%;
-    background: rgba(255, 255, 255, 0.08);
-    border-radius: 2px;
+  content: '';
+  width: 2px;
+  height: 40%;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 2px;
 }
 
 .dropzone {
-    border: 2px dashed rgba(255, 255, 255, 0.12);
-    border-radius: 8px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    /* fill the preview column */
-    width: 100%;
-    height: 100%;
-    box-sizing: border-box;
-    background: rgba(255, 255, 255, 0.02);
-    min-height: 0;
-    overflow: hidden;
-    position: relative; /* anchor absolute buttons inside the dropzone */
+  border: 2px dashed rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  /* fill the preview column */
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  background: rgba(255, 255, 255, 0.02);
+  min-height: 0;
+  overflow: hidden;
+  position: relative; /* anchor absolute buttons inside the dropzone */
 }
 
 /* let the dropzone flex to fill the preview column and not force intrinsic sizing */
 .dropzone {
-    flex: 1 1 auto;
-    min-width: 0;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 .dropzone.dragover {
-    border-color: rgba(255, 255, 255, 0.28);
-    background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(255, 255, 255, 0.28);
+  background: rgba(255, 255, 255, 0.03);
 }
 
 .preview-container {
-    width: 100%;
-    height: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .preview-container {
-    min-width: 0;
-    box-sizing: border-box;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 /* position anchor for crop overlay */
 .preview-container {
-    position: relative;
+  position: relative;
 }
 
 .preview-container {
-    min-height: 0;
-    overflow: hidden;
+  min-height: 0;
+  overflow: hidden;
 }
 
 /* Placeholder shown when in 3D mode (before Three.js view is added) */
 .three-placeholder {
-    width: 100%;
-    height: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: rgba(255, 255, 255, 0.8);
-    background: linear-gradient(180deg, rgba(0,0,0,0.02), rgba(0,0,0,0.04));
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.8);
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.02), rgba(0, 0, 0, 0.04));
 }
 .three-placeholder p {
-    margin: 0;
-    padding: 1rem 1.25rem;
-    border: 1px dashed rgba(255,255,255,0.06);
-    border-radius: 8px;
-    background: rgba(0,0,0,0.25);
+  margin: 0;
+  padding: 1rem 1.25rem;
+  border: 1px dashed rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.25);
 }
 
 .preview-container canvas {
-    width: 100%;
-    height: 100%;
-    display: block;
-    border-radius: 6px;
+  width: 100%;
+  height: 100%;
+  display: block;
+  border-radius: 6px;
 }
 
 /* avoid browser-native drag interactions while manipulating crop or panning */
@@ -815,362 +827,362 @@
 .preview-container canvas,
 .crop-overlay,
 .crop-box {
-    -webkit-user-drag: none;
-    -webkit-user-select: none;
-    -moz-user-select: none;
-    -ms-user-select: none;
-    user-select: none;
+  -webkit-user-drag: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
 }
 
 /* crop button (disabled when no image) */
 .preview-crop-btn {
-    position: absolute;
-    top: 25px;
-    right: 25px;
-    width: 40px; /* fixed size */
-    height: 40px;
-    padding: 0;
-    border-radius: 6px;
-    border: 1px solid rgba(0, 0, 0, 0.08);
-    background: #ffffff;
-    color: inherit;
-    cursor: pointer;
-    z-index: 100; /* place above crop overlay */
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
+  position: absolute;
+  top: 25px;
+  right: 25px;
+  width: 40px; /* fixed size */
+  height: 40px;
+  padding: 0;
+  border-radius: 6px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: #ffffff;
+  color: inherit;
+  cursor: pointer;
+  z-index: 100; /* place above crop overlay */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 .preview-crop-btn i {
-    color: rebeccapurple; /* purple crop icon */
-    font-size: 16px;
+  color: rebeccapurple; /* purple crop icon */
+  font-size: 16px;
 }
 .preview-crop-btn:disabled {
-    /* explicit greys for disabled state (background + icon) */
-    background: #505050; /* lighter grey background */
-    opacity: 1; /* override global button:disabled opacity */
-    cursor: not-allowed;
+  /* explicit greys for disabled state (background + icon) */
+  background: #505050; /* lighter grey background */
+  opacity: 1; /* override global button:disabled opacity */
+  cursor: not-allowed;
 }
 .preview-crop-btn:disabled i {
-    color: #8a8a8a; /* darker grey icon */
+  color: #8a8a8a; /* darker grey icon */
 }
 
 /* when in crop mode, arrange save and cancel so they don't overlap */
 .preview-crop-btn.preview-crop-btn--save {
-    /* primary action stays at top-right */
-    right: 25px;
-    top: 25px;
+  /* primary action stays at top-right */
+  right: 25px;
+  top: 25px;
 }
 .preview-crop-btn.preview-crop-btn--cancel {
-    /* sit to the left of the save button with an 8px gap */
-    right: calc(25px + 40px + 8px);
-    top: 25px;
+  /* sit to the left of the save button with an 8px gap */
+  right: calc(25px + 40px + 8px);
+  top: 25px;
 }
 
 /* container for top-right action buttons (undo/redo + crop) */
 .preview-actions {
-    position: absolute;
-    top: 25px;
-    right: 25px;
-    display: flex;
-    gap: 8px;
-    align-items: center;
-    z-index: 120; /* above crop overlay but below HUD */
+  position: absolute;
+  top: 25px;
+  right: 25px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  z-index: 120; /* above crop overlay but below HUD */
 }
 
 .preview-action-btn {
-    width: 40px;
-    height: 40px;
-    padding: 0;
-    border-radius: 6px;
-    border: 1px solid rgba(0, 0, 0, 0.08);
-    background: #ffffff;
-    color: inherit;
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border-radius: 6px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: #ffffff;
+  color: inherit;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 .preview-action-btn[disabled] {
-    background: #505050;
-    cursor: not-allowed;
-    /* match crop button disabled appearance */
-    opacity: 1; /* override global disabled opacity */
+  background: #505050;
+  cursor: not-allowed;
+  /* match crop button disabled appearance */
+  opacity: 1; /* override global disabled opacity */
 }
 .preview-action-btn i {
-    color: rebeccapurple;
-    font-size: 14px;
+  color: rebeccapurple;
+  font-size: 14px;
 }
 
 /* match disabled icon color to crop button */
 .preview-action-btn:disabled i {
-    color: #8a8a8a;
+  color: #8a8a8a;
 }
 
 /* When crop buttons are placed inside the .preview-actions wrapper,
    they should participate in the flex layout instead of being
    absolutely positioned. Override the absolute offsets here. */
 .preview-actions .preview-crop-btn {
-    position: relative;
-    top: auto;
-    right: auto;
-    margin: 0;
+  position: relative;
+  top: auto;
+  right: auto;
+  margin: 0;
 }
 .preview-actions .preview-crop-btn.preview-crop-btn--save,
 .preview-actions .preview-crop-btn.preview-crop-btn--cancel {
-    position: relative;
-    right: auto;
-    top: auto;
+  position: relative;
+  right: auto;
+  top: auto;
 }
 
 /* Crop overlay visuals */
 .crop-overlay {
-    position: absolute;
-    inset: 0;
-    pointer-events: auto;
-    z-index: 20;
+  position: absolute;
+  inset: 0;
+  pointer-events: auto;
+  z-index: 20;
 }
 .crop-dim {
-    position: absolute;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.45);
-    /* the selection box will sit above this and reveal the image */
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  /* the selection box will sit above this and reveal the image */
 }
 .crop-box {
-    position: absolute;
-    box-sizing: border-box;
-    border: 1px solid rgba(255, 255, 255, 0.95);
-    background: transparent;
-    z-index: 25;
-    pointer-events: auto;
-    /* subtle corner marks via pseudo elements handled by .corner */
+  position: absolute;
+  box-sizing: border-box;
+  border: 1px solid rgba(255, 255, 255, 0.95);
+  background: transparent;
+  z-index: 25;
+  pointer-events: auto;
+  /* subtle corner marks via pseudo elements handled by .corner */
 }
 .crop-grid {
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
 }
 .crop-grid .v,
 .crop-grid .h {
-    position: absolute;
-    background: rgba(255, 255, 255, 0.6);
+  position: absolute;
+  background: rgba(255, 255, 255, 0.6);
 }
 .crop-grid .v1 {
-    left: 33.3333%;
-    top: 0;
-    bottom: 0;
-    width: 1px;
+  left: 33.3333%;
+  top: 0;
+  bottom: 0;
+  width: 1px;
 }
 .crop-grid .v2 {
-    left: 66.6666%;
-    top: 0;
-    bottom: 0;
-    width: 1px;
+  left: 66.6666%;
+  top: 0;
+  bottom: 0;
+  width: 1px;
 }
 .crop-grid .h1 {
-    top: 33.3333%;
-    left: 0;
-    right: 0;
-    height: 1px;
+  top: 33.3333%;
+  left: 0;
+  right: 0;
+  height: 1px;
 }
 .crop-grid .h2 {
-    top: 66.6666%;
-    left: 0;
-    right: 0;
-    height: 1px;
+  top: 66.6666%;
+  left: 0;
+  right: 0;
+  height: 1px;
 }
 
 /* corners and sides */
 .corner {
-    position: absolute;
-    width: 10px;
-    height: 10px;
-    background: rgba(255, 255, 255, 0.95);
-    border-radius: 2px;
-    z-index: 30;
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 2px;
+  z-index: 30;
 }
 .corner.nw {
-    left: -5px;
-    top: -5px;
-    cursor: nwse-resize;
+  left: -5px;
+  top: -5px;
+  cursor: nwse-resize;
 }
 .corner.ne {
-    right: -5px;
-    top: -5px;
-    cursor: nesw-resize;
+  right: -5px;
+  top: -5px;
+  cursor: nesw-resize;
 }
 .corner.sw {
-    left: -5px;
-    bottom: -5px;
-    cursor: nesw-resize;
+  left: -5px;
+  bottom: -5px;
+  cursor: nesw-resize;
 }
 .corner.se {
-    right: -5px;
-    bottom: -5px;
-    cursor: nwse-resize;
+  right: -5px;
+  bottom: -5px;
+  cursor: nwse-resize;
 }
 .side {
-    position: absolute;
-    background: rgba(255, 255, 255, 0.65);
-    z-index: 28;
+  position: absolute;
+  background: rgba(255, 255, 255, 0.65);
+  z-index: 28;
 }
 .side.n {
-    left: 20%;
-    right: 20%;
-    top: -4px;
-    height: 7px;
-    cursor: ns-resize;
+  left: 20%;
+  right: 20%;
+  top: -4px;
+  height: 7px;
+  cursor: ns-resize;
 }
 .side.s {
-    left: 20%;
-    right: 20%;
-    bottom: -4px;
-    height: 7px;
-    cursor: ns-resize;
+  left: 20%;
+  right: 20%;
+  bottom: -4px;
+  height: 7px;
+  cursor: ns-resize;
 }
 .side.w {
-    top: 20%;
-    bottom: 20%;
-    left: -4px;
-    width: 7px;
-    cursor: ew-resize;
+  top: 20%;
+  bottom: 20%;
+  left: -4px;
+  width: 7px;
+  cursor: ew-resize;
 }
 .side.e {
-    top: 20%;
-    bottom: 20%;
-    right: -4px;
-    width: 7px;
-    cursor: ew-resize;
+  top: 20%;
+  bottom: 20%;
+  right: -4px;
+  width: 7px;
+  cursor: ew-resize;
 }
 
 /* Ensure the selection area reveals the image by placing crop-box above the dim layer */
 .crop-box {
-    mix-blend-mode: normal;
+  mix-blend-mode: normal;
 }
 
 /* small HUD shown in bottom-left of preview with image/crop sizes */
 .preview-hud {
-    position: absolute;
-    left: 10px;
-    bottom: 10px;
-    background: rgba(0, 0, 0, 0.55);
-    color: #fff;
-    padding: 6px 8px;
-    border-radius: 6px;
-    font-size: 12px;
-    line-height: 1;
-    z-index: 150; /* above crop controls */
-    pointer-events: none;
-    user-select: none;
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  padding: 6px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 1;
+  z-index: 150; /* above crop controls */
+  pointer-events: none;
+  user-select: none;
 }
 
 /* debug outline while dragging splitter */
 .preview-container.dragging {
-    outline: 2px dashed rgba(255, 255, 255, 0.25);
+  outline: 2px dashed rgba(255, 255, 255, 0.25);
 }
 
 .placeholder {
-    text-align: center;
+  text-align: center;
 }
 
 .placeholder p {
-    margin: 0 0 1rem 0;
+  margin: 0 0 1rem 0;
 }
 
 .preview {
-    max-width: 100%;
-    max-height: 100%;
-    object-fit: contain;
-    border-radius: 6px;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: 6px;
 }
 
 .controls {
-    margin-top: 1rem;
-    display: flex;
-    gap: 0.5rem;
+  margin-top: 1rem;
+  display: flex;
+  gap: 0.5rem;
 }
 
 button {
-    padding: 0.5rem 1rem;
-    border-radius: 6px;
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    background: transparent;
-    color: inherit; /* ensure text is visible on dark/light themes */
-    cursor: pointer;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: transparent;
+  color: inherit; /* ensure text is visible on dark/light themes */
+  cursor: pointer;
 }
 
 button:hover {
-    filter: brightness(0.98);
+  filter: brightness(0.98);
 }
 
 button:disabled {
-    opacity: 0.45;
-    cursor: not-allowed;
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 @media (max-width: 800px) {
-    .app-layout {
-        grid-template-columns: 1fr;
-    }
-    .sidebar {
-        order: 2;
-        height: auto;
-    }
-    .preview-area {
-        order: 1;
-        height: auto;
-    }
-    .dropzone {
-        height: auto;
-        min-height: 220px;
-    }
-    .splitter {
-        display: none;
-    }
+  .app-layout {
+    grid-template-columns: 1fr;
+  }
+  .sidebar {
+    order: 2;
+    height: auto;
+  }
+  .preview-area {
+    order: 1;
+    height: auto;
+  }
+  .dropzone {
+    height: auto;
+    min-height: 220px;
+  }
+  .splitter {
+    display: none;
+  }
 }
 
 /* Swatches grid (small color preview boxes) */
 .swatches {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    align-items: center;
-    margin-top: 6px;
-    max-height: 160px;
-    overflow: auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin-top: 6px;
+  max-height: 160px;
+  overflow: auto;
 }
 /* small badge showing the current swatch count */
 .swatch-count {
-    font-size: 12px;
-    color: rgba(255, 255, 255, 0.85);
-    background: rgba(0, 0, 0, 0.35);
-    padding: 2px 6px;
-    border-radius: 999px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.85);
+  background: rgba(0, 0, 0, 0.35);
+  padding: 2px 6px;
+  border-radius: 999px;
 }
 .swatch {
-    width: 14px;
-    height: 14px;
-    border-radius: 3px;
-    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.12) inset;
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    flex: 0 0 auto;
-    cursor: default;
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.12) inset;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  flex: 0 0 auto;
+  cursor: default;
 }
 .swatch {
-    width: 14px;
-    height: 14px;
-    border-radius: 3px;
-    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.12) inset;
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    flex: 0 0 auto;
-    cursor: default;
-    transition: transform 120ms ease;
-    transform-origin: center center;
-    will-change: transform;
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.12) inset;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  flex: 0 0 auto;
+  cursor: default;
+  transition: transform 120ms ease;
+  transform-origin: center center;
+  will-change: transform;
 }
 .swatch:hover,
 .swatch:focus {
-    transform: scale(1.15);
-    outline: 2px solid rgba(255, 255, 255, 0.06);
+  transform: scale(1.15);
+  outline: 2px solid rgba(255, 255, 255, 0.06);
 }
 
 /* Thin, minimal scrollbars for palette list, swatches, and adjustments */
@@ -1179,9 +1191,9 @@ button:disabled {
 .adjustments-group .adjustments-content,
 .adjustments-group,
 .controls-scroll {
-    /* fallback scroll behavior */
-    scrollbar-width: thin; /* Firefox */
-    scrollbar-color: rgba(255, 255, 255, 0.12) transparent; /* Firefox thumb track */
+  /* fallback scroll behavior */
+  scrollbar-width: thin; /* Firefox */
+  scrollbar-color: rgba(255, 255, 255, 0.12) transparent; /* Firefox thumb track */
 }
 
 /* WebKit browsers */
@@ -1189,29 +1201,29 @@ button:disabled {
 .swatches::-webkit-scrollbar,
 .adjustments-group .adjustments-content::-webkit-scrollbar,
 .adjustments-group::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+  width: 8px;
+  height: 8px;
 }
 .palette-list::-webkit-scrollbar-track,
 .swatches::-webkit-scrollbar-track,
 .adjustments-group .adjustments-content::-webkit-scrollbar-track,
 .adjustments-group::-webkit-scrollbar-track {
-    background: transparent; /* no background */
+  background: transparent; /* no background */
 }
 .palette-list::-webkit-scrollbar-thumb,
 .swatches::-webkit-scrollbar-thumb,
 .adjustments-group .adjustments-content::-webkit-scrollbar-thumb,
 .adjustments-group::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.12);
-    border-radius: 999px;
-    border: 2px solid transparent; /* gives some breathing room */
-    background-clip: padding-box;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  border: 2px solid transparent; /* gives some breathing room */
+  background-clip: padding-box;
 }
 .palette-list::-webkit-scrollbar-button,
 .swatches::-webkit-scrollbar-button,
 .adjustments-group .adjustments-content::-webkit-scrollbar-button,
 .adjustments-group::-webkit-scrollbar-button {
-    display: none; /* hide arrows */
+  display: none; /* hide arrows */
 }
 
 /* slightly darker thumb on hover */
@@ -1219,9 +1231,9 @@ button:disabled {
 .swatches::-webkit-scrollbar-thumb:hover,
 .adjustments-group .adjustments-content::-webkit-scrollbar-thumb:hover,
 .adjustments-group::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.18);
 }
 
 .hidden-file-input {
-    display: none;
+  display: none;
 }
