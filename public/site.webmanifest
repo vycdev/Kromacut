@@ -7,5 +7,7 @@
     ],
     "theme_color": "#ffffff",
     "background_color": "#ffffff",
+    "description": "Kromacut — turn images into stacked color-layer 3D prints. Reduce palettes, tune slice heights, preview, and export STL models.",
+    "start_url": "/",
     "display": "standalone"
 }
