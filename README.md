@@ -1,5 +1,7 @@
 # Kromacut
 
+[![Patreon](https://img.shields.io/badge/Patreon-Support-orange?logo=patreon&logoColor=white)](https://www.patreon.com/cw/vycdev) [![Discord](https://img.shields.io/badge/Discord-Join%20Chat-5865F2?logo=discord&logoColor=white)](https://discord.gg/nU63sFMcnX) [![YouTube](https://img.shields.io/badge/YouTube-@vycdev-red?logo=youtube&logoColor=white)](https://www.youtube.com/@vycdev)
+
 Open-source HueForge-style tool for converting images into stacked, color-layered 3D prints.
 
 Kromacut is a browser-first app that helps you reduce an image to a small palette, preview how the image maps to stacked layers, tweak per-color layer heights and ordering, and export a printable STL along with printer swap instructions.
