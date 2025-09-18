@@ -64,16 +64,7 @@ export function useQuantize({
         if (!ctx) return;
         ctx.drawImage(img, 0, 0, w, h);
         const data = ctx.getImageData(0, 0, w, h);
-        const countUnique = (imgd: ImageData) => {
-            // Count only non-transparent pixels; ignore fully transparent so they don't inflate palette size
-            const s = new Set<number>();
-            const dd = imgd.data;
-            for (let i = 0; i < dd.length; i += 4) {
-                if (dd[i + 3] === 0) continue;
-                s.add((dd[i] << 16) | (dd[i + 1] << 8) | dd[i + 2]);
-            }
-            return s.size;
-        };
+        // helper to finalize alpha after postprocessing
         const finalizeAlpha = (imgd: ImageData) => {
             // Any partially transparent (0<alpha<255) pixel becomes fully opaque
             const dd = imgd.data;
@@ -89,7 +80,7 @@ export function useQuantize({
         else if (algorithm === "none") {
             // no algorithm pass, leave data as-is for postprocessing
         } else posterizeImageData(data, weight);
-        console.log("unique after:", countUnique(data));
+    // debug-only: uniqueness diagnostic removed
         // put algorithm result (or original) into canvas
         ctx.putImageData(data, 0, 0);
         // postprocessing: if an override palette is provided use it; otherwise
@@ -114,19 +105,7 @@ export function useQuantize({
         finalizeAlpha(data);
         ctx.putImageData(data, 0, 0);
         // diagnostic: log final counts and what was applied
-        try {
-            const postUnique = countUnique(data);
-            console.log(
-                "postprocess: requested=",
-                finalColors,
-                "selectedPalette=",
-                selectedPalette,
-                "uniqueAfterPost=",
-                postUnique
-            );
-        } catch {
-            /* ignore */
-        }
+        // debug-only: postprocess diagnostic removed
 
         // immediate swatches
         try {

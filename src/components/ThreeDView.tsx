@@ -651,18 +651,6 @@ export default function ThreeDView({
                     heightScale
                 );
 
-                if (typeof window !== "undefined") {
-                    console.debug("[3D] scaled model", {
-                        pxW: finalW,
-                        pxH: finalH,
-                        mmW: finalW * pixelSize,
-                        mmH: finalH * pixelSize,
-                        aspect: (finalW / finalH).toFixed(3),
-                        heightScale,
-                        scale: mesh.scale.toArray(),
-                    });
-                }
-
                 // Auto-frame using bounding sphere for consistent view
                 try {
                     const camera = cameraRef.current;
