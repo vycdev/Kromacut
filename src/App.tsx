@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import * as THREE from 'three';
+import type * as THREE from 'three';
 import ThreeDControls from './components/ThreeDControls';
 import ThreeDView from './components/ThreeDView';
 import './App.css';
@@ -18,10 +18,16 @@ import { useSwatches } from './hooks/useSwatches';
 import type { SwatchEntry } from './hooks/useSwatches';
 import { useImageHistory } from './hooks/useImageHistory';
 import { useQuantize } from './hooks/useQuantize';
+import Header from './components/Header';
+import ModeTabs from './components/ModeTabs';
+import PreviewActions from './components/PreviewActions';
+import { useHorizontalSplit } from './hooks/useHorizontalSplit';
+import { useDropzone } from './hooks/useDropzone';
+import { exportMeshToStlBlob } from './lib/exportStl';
 // ...existing imports
 
 function App(): React.ReactElement | null {
-    const [dragOver, setDragOver] = useState(false);
+    // dropzone state managed by hook below
     // `weight` is the algorithm parameter; `finalColors` is the postprocess target
     const [weight, setWeight] = useState<number>(128);
     const [finalColors, setFinalColors] = useState<number>(16);
@@ -125,86 +131,14 @@ function App(): React.ReactElement | null {
     // startPan handled in CanvasPreview
     // resize observer handled by CanvasPreview; keep for layout redraw hook
     // Layout splitter state
-    const layoutRef = useRef<HTMLDivElement | null>(null);
-    const [leftWidth, setLeftWidth] = useState<number>(0);
-    const draggingRef = useRef(false);
-    const startXRef = useRef(0);
-    const startLeftRef = useRef(0);
-
-    // initialize leftWidth once on mount
-    useEffect(() => {
-        const el = layoutRef.current;
-        if (el) setLeftWidth(Math.floor(el.clientWidth / 4));
-    }, []);
-
-    // apply leftWidth to CSS variable on the layout element so grid is CSS-driven
-    useEffect(() => {
-        const el = layoutRef.current;
-        if (el) el.style.setProperty('--left-width', `${leftWidth}px`);
-    }, [leftWidth]);
-
-    useEffect(() => {
-        const onMove = (e: MouseEvent) => {
-            if (!draggingRef.current) return;
-            const delta = e.clientX - startXRef.current;
-            const newLeft = startLeftRef.current + delta;
-            const el = layoutRef.current;
-            if (!el) return;
-            const min = Math.floor(el.clientWidth * 0.25);
-            const max = el.clientWidth - min;
-            const clamped = Math.max(min, Math.min(max, newLeft));
-            setLeftWidth(clamped);
-            requestAnimationFrame(() => {
-                try {
-                    canvasPreviewRef.current?.redraw();
-                } catch {
-                    /* ignore rapid drag redraw error */
-                }
-            });
-        };
-        const onUp = () => {
-            if (!draggingRef.current) return;
-            draggingRef.current = false;
-            document.body.style.cursor = '';
-            document.body.style.userSelect = '';
-        };
-        window.addEventListener('mousemove', onMove);
-        window.addEventListener('mouseup', onUp);
-        return () => {
-            window.removeEventListener('mousemove', onMove);
-            window.removeEventListener('mouseup', onUp);
-        };
-    }, []);
-
-    // redraw when leftWidth changes (splitter moved)
-    useEffect(() => {
-        canvasPreviewRef.current?.redraw();
-    }, [leftWidth]);
-
-    // observe layout changes (in case grid resizing affects preview size)
-    useEffect(() => {
-        const el = layoutRef.current;
-        if (!el) return;
-        const ro = new ResizeObserver(() => {
-            const min = Math.floor(el.clientWidth * 0.25);
-            const max = el.clientWidth - min;
-            setLeftWidth((lw) => {
-                if (lw < min) return min;
-                if (lw > max) return max;
-                return lw;
-            });
+    const { layoutRef, onSplitterDown } = useHorizontalSplit(() => {
+        try {
             canvasPreviewRef.current?.redraw();
-        });
-        ro.observe(el);
-        return () => ro.disconnect();
-    }, []);
-
-    const onSplitterDown = (e: React.MouseEvent<HTMLDivElement>) => {
-        draggingRef.current = true;
-        startXRef.current = e.clientX;
-        startLeftRef.current =
-            leftWidth || (layoutRef.current ? Math.floor(layoutRef.current.clientWidth / 2) : 300);
-    };
+        } catch {
+            /* noop */
+        }
+    });
+    const dropzone = useDropzone({ enabled: mode === '2d', onFile: handleFiles });
     // Stable handler to avoid recreating function each render and to prevent redundant state sets
     const handleThreeDStateChange = useCallback(
         (s: {
@@ -234,67 +168,15 @@ function App(): React.ReactElement | null {
 
     return (
         <div className="uploader-root">
-            <header className="app-header">
-                <div className="header-left">
-                    <img src={logo} alt="StrataPaint" className="header-logo" />
-                    <span className="header-title">StrataPaint</span>
-                </div>
-                <div className="header-actions">
-                    <button
-                        type="button"
-                        className="header-btn header-btn--test"
-                        onClick={() => {
-                            // load the bundled test image into the preview
-                            invalidate();
-                            setImage(tdTestImg, true);
-                        }}
-                        title="Load TD Test"
-                    >
-                        <i className="fa-solid fa-image" aria-hidden />
-                        <span>Load TD Test</span>
-                    </button>
-                    <a
-                        className="header-btn header-btn--github"
-                        href="https://github.com/vycdev/StrataPaint"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                    >
-                        <i className="fa-brands fa-github" aria-hidden />
-                        <span>GitHub</span>
-                    </a>
-                    <a
-                        className="header-btn header-btn--patreon"
-                        href="https://www.patreon.com/cw/vycdev"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                    >
-                        <i className="fa-brands fa-patreon" aria-hidden />
-                        <span>Support me</span>
-                    </a>
-                </div>
-            </header>
+            <Header
+                onLoadTest={() => {
+                    invalidate();
+                    setImage(tdTestImg, true);
+                }}
+            />
             <div className="app-layout" ref={layoutRef}>
                 <aside className="sidebar">
-                    <div className="controls-group mode-section" aria-hidden={false}>
-                        <div className="mode-tabs">
-                            <button
-                                type="button"
-                                className={`mode-btn ${mode === '2d' ? 'mode-btn--active' : ''}`}
-                                onClick={() => setMode('2d')}
-                                aria-pressed={mode === '2d'}
-                            >
-                                2D Mode
-                            </button>
-                            <button
-                                type="button"
-                                className={`mode-btn ${mode === '3d' ? 'mode-btn--active' : ''}`}
-                                onClick={() => setMode('3d')}
-                                aria-pressed={mode === '3d'}
-                            >
-                                3D Mode
-                            </button>
-                        </div>
-                    </div>
+                    <ModeTabs mode={mode} onChange={setMode} />
                     <div className="controls-panel">
                         {mode === '2d' ? (
                             <>
@@ -520,25 +402,10 @@ function App(): React.ReactElement | null {
                 />
                 <main className="preview-area">
                     <div
-                        className={`dropzone ${dragOver ? 'dragover' : ''}`}
-                        onDrop={(e) => {
-                            e.preventDefault();
-                            // disable dropping into the scene when in 3D mode
-                            if (mode === '3d') {
-                                setDragOver(false);
-                                return;
-                            }
-                            setDragOver(false);
-                            const file = e.dataTransfer.files && e.dataTransfer.files[0];
-                            if (file) handleFiles(file);
-                        }}
-                        onDragOver={(e) => {
-                            e.preventDefault();
-                            // don't show drag overlay or allow drops in 3D mode
-                            if (mode === '3d') return;
-                            setDragOver(true);
-                        }}
-                        onDragLeave={() => setDragOver(false)}
+                        className={`dropzone ${dropzone.dragOver ? 'dragover' : ''}`}
+                        onDrop={dropzone.onDrop}
+                        onDragOver={dropzone.onDragOver}
+                        onDragLeave={dropzone.onDragLeave}
                     >
                         {mode === '2d' ? (
                             <CanvasPreview
@@ -560,299 +427,79 @@ function App(): React.ReactElement | null {
                                 rebuildSignal={threeDBuildSignal}
                             />
                         )}
-                        <div className="preview-actions">
-                            <button
-                                className="preview-action-btn"
-                                title="Undo"
-                                aria-label="Undo"
-                                disabled={isCropMode || !canUndo}
-                                onClick={() => undo()}
-                            >
-                                <i className="fa-solid fa-rotate-left" aria-hidden />
-                            </button>
-                            <button
-                                className="preview-action-btn"
-                                title="Redo"
-                                aria-label="Redo"
-                                disabled={isCropMode || !canRedo}
-                                onClick={() => redo()}
-                            >
-                                <i className="fa-solid fa-rotate-right" aria-hidden />
-                            </button>
-                            {mode === '2d' &&
-                                (!isCropMode ? (
-                                    <button
-                                        className="preview-crop-btn"
-                                        title="Crop"
-                                        aria-label="Crop"
-                                        disabled={!imageSrc}
-                                        onClick={() => {
-                                            if (imageSrc) setIsCropMode(true);
-                                        }}
-                                    >
-                                        <i className="fa-solid fa-crop" aria-hidden="true"></i>
-                                    </button>
-                                ) : (
-                                    <>
-                                        <button
-                                            className="preview-crop-btn preview-crop-btn--save"
-                                            title="Save crop"
-                                            aria-label="Save crop"
-                                            onClick={async () => {
-                                                if (!canvasPreviewRef.current) return;
-                                                const blob =
-                                                    await canvasPreviewRef.current.exportCroppedImage();
-                                                if (!blob) return;
-                                                const url = URL.createObjectURL(blob);
-                                                invalidate();
-                                                setImage(url, true);
-                                                setIsCropMode(false);
-                                            }}
-                                        >
-                                            <i
-                                                className="fa-solid fa-floppy-disk"
-                                                aria-hidden="true"
-                                            ></i>
-                                        </button>
-                                        <button
-                                            className="preview-crop-btn preview-crop-btn--cancel"
-                                            title="Cancel crop"
-                                            aria-label="Cancel crop"
-                                            onClick={() => setIsCropMode(false)}
-                                        >
-                                            <i className="fa-solid fa-xmark" aria-hidden="true"></i>
-                                        </button>
-                                    </>
-                                ))}
-                            {/* Download full image button (same style as crop) */}
-                            <button
-                                className="preview-crop-btn"
-                                title={
-                                    mode === '3d'
-                                        ? exportingSTL
-                                            ? `Exporting STL… ${Math.round(exportProgress * 100)}%`
-                                            : 'Download STL'
-                                        : 'Download image'
+                        <PreviewActions
+                            mode={mode}
+                            canUndo={canUndo}
+                            canRedo={canRedo}
+                            isCropMode={isCropMode}
+                            imageAvailable={!!imageSrc}
+                            exportingSTL={exportingSTL}
+                            exportProgress={exportProgress}
+                            onUndo={undo}
+                            onRedo={redo}
+                            onEnterCrop={() => imageSrc && setIsCropMode(true)}
+                            onSaveCrop={async () => {
+                                if (!canvasPreviewRef.current) return;
+                                const blob = await canvasPreviewRef.current.exportCroppedImage();
+                                if (!blob) return;
+                                const url = URL.createObjectURL(blob);
+                                invalidate();
+                                setImage(url, true);
+                                setIsCropMode(false);
+                            }}
+                            onCancelCrop={() => setIsCropMode(false)}
+                            onToggleCheckerboard={() => setShowCheckerboard((s) => !s)}
+                            onPickFile={() => inputRef.current?.click()}
+                            onClear={clear}
+                            onExportImage={async () => {
+                                if (!canvasPreviewRef.current) return;
+                                const blob = await canvasPreviewRef.current.exportImageBlob();
+                                if (!blob) {
+                                    alert('No image available to download');
+                                    return;
                                 }
-                                aria-label={
-                                    mode === '3d'
-                                        ? exportingSTL
-                                            ? 'Exporting STL'
-                                            : 'Download STL'
-                                        : 'Download image'
+                                const url = URL.createObjectURL(blob);
+                                const a = document.createElement('a');
+                                a.href = url;
+                                a.download = 'image.png';
+                                document.body.appendChild(a);
+                                a.click();
+                                a.remove();
+                                URL.revokeObjectURL(url);
+                            }}
+                            onExportStl={async () => {
+                                if (exportingSTL) return;
+                                interface StrataWindow extends Window {
+                                    __STRATA_LAST_MESH?: THREE.Mesh;
                                 }
-                                disabled={!imageSrc || exportingSTL}
-                                onClick={async () => {
-                                    if (mode === '3d') {
-                                        if (exportingSTL) return;
-                                        interface StrataWindow extends Window {
-                                            __STRATA_LAST_MESH?: THREE.Mesh;
-                                        }
-                                        const threeMesh = (window as StrataWindow)
-                                            .__STRATA_LAST_MESH;
-                                        if (!threeMesh) {
-                                            alert('3D mesh not ready yet');
-                                            return;
-                                        }
-                                        const geometry = threeMesh.geometry as THREE.BufferGeometry;
-                                        const pos = geometry.getAttribute('position');
-                                        if (!pos) {
-                                            alert('No geometry to export');
-                                            return;
-                                        }
-                                        geometry.computeVertexNormals();
-                                        const index = geometry.getIndex();
-                                        const sx = threeMesh.scale.x;
-                                        const sy = threeMesh.scale.y;
-                                        const sz = threeMesh.scale.z;
-                                        // Prepare async incremental export
-                                        setExportingSTL(true);
-                                        setExportProgress(0);
-                                        // Determine triangle count first
-                                        const getTri = (a: number, b: number, c: number) => {
-                                            const ax = pos.getX(a),
-                                                ay = pos.getY(a),
-                                                az = pos.getZ(a);
-                                            const bx = pos.getX(b),
-                                                by = pos.getY(b),
-                                                bz = pos.getZ(b);
-                                            const cx = pos.getX(c),
-                                                cy = pos.getY(c),
-                                                cz = pos.getZ(c);
-                                            const ux = bx - ax,
-                                                uy = by - ay,
-                                                uz = bz - az;
-                                            const vx = cx - ax,
-                                                vy = cy - ay,
-                                                vz = cz - az;
-                                            let nx = uy * vz - uz * vy;
-                                            let ny = uz * vx - ux * vz;
-                                            let nz = ux * vy - uy * vx;
-                                            const len = Math.hypot(nx, ny, nz) || 1;
-                                            nx /= len;
-                                            ny /= len;
-                                            nz /= len;
-                                            return {
-                                                ax,
-                                                ay,
-                                                az,
-                                                bx,
-                                                by,
-                                                bz,
-                                                cx,
-                                                cy,
-                                                cz,
-                                                nx,
-                                                ny,
-                                                nz,
-                                            };
-                                        };
-                                        const totalTris = index ? index.count / 3 : pos.count / 3;
-                                        const headerBytes = 80;
-                                        const triSize = 50;
-                                        const totalBytes = headerBytes + 4 + totalTris * triSize;
-                                        let buffer: ArrayBuffer;
-                                        try {
-                                            buffer = new ArrayBuffer(totalBytes);
-                                        } catch (allocErr) {
-                                            console.warn(
-                                                'Allocation failed for binary STL',
-                                                allocErr
-                                            );
-                                            alert('Model too large for binary STL in memory.');
-                                            setExportingSTL(false);
-                                            return;
-                                        }
-                                        const view = new DataView(buffer);
-                                        const headerStr = 'StrataPaint Binary STL';
-                                        for (let i = 0; i < headerStr.length && i < 80; i++)
-                                            view.setUint8(i, headerStr.charCodeAt(i));
-                                        view.setUint32(headerBytes, totalTris, true);
-                                        const sx_f = sx,
-                                            sy_f = sy,
-                                            sz_f = sz;
-                                        const CHUNK = 20000;
-                                        let offset = headerBytes + 4;
-                                        try {
-                                            const writeTri = (t: ReturnType<typeof getTri>) => {
-                                                view.setFloat32(offset + 0, t.nx, true);
-                                                view.setFloat32(offset + 4, t.ny, true);
-                                                view.setFloat32(offset + 8, t.nz, true);
-                                                view.setFloat32(offset + 12, t.ax * sx_f, true);
-                                                view.setFloat32(offset + 16, t.ay * sy_f, true);
-                                                view.setFloat32(offset + 20, t.az * sz_f, true);
-                                                view.setFloat32(offset + 24, t.bx * sx_f, true);
-                                                view.setFloat32(offset + 28, t.by * sy_f, true);
-                                                view.setFloat32(offset + 32, t.bz * sz_f, true);
-                                                view.setFloat32(offset + 36, t.cx * sx_f, true);
-                                                view.setFloat32(offset + 40, t.cy * sy_f, true);
-                                                view.setFloat32(offset + 44, t.cz * sz_f, true);
-                                                view.setUint16(offset + 48, 0, true);
-                                                offset += triSize;
-                                            };
-                                            if (index) {
-                                                for (
-                                                    let i = 0, tri = 0;
-                                                    i < index.count;
-                                                    i += 3, tri++
-                                                ) {
-                                                    const a = index.getX(i),
-                                                        b = index.getX(i + 1),
-                                                        c = index.getX(i + 2);
-                                                    writeTri(getTri(a, b, c));
-                                                    if (tri % CHUNK === 0) {
-                                                        setExportProgress(tri / totalTris);
-                                                        await new Promise((r) => setTimeout(r, 0));
-                                                    }
-                                                }
-                                            } else {
-                                                for (
-                                                    let i = 0, tri = 0;
-                                                    i < pos.count;
-                                                    i += 3, tri++
-                                                ) {
-                                                    writeTri(getTri(i, i + 1, i + 2));
-                                                    if (tri % CHUNK === 0) {
-                                                        setExportProgress(tri / totalTris);
-                                                        await new Promise((r) => setTimeout(r, 0));
-                                                    }
-                                                }
-                                            }
-                                            setExportProgress(1);
-                                            const blob = new Blob([buffer], {
-                                                type: 'model/stl',
-                                            });
-                                            const url = URL.createObjectURL(blob);
-                                            const a = document.createElement('a');
-                                            a.href = url;
-                                            a.download = 'model.stl';
-                                            document.body.appendChild(a);
-                                            a.click();
-                                            a.remove();
-                                            URL.revokeObjectURL(url);
-                                        } catch (err) {
-                                            console.warn('STL export failed', err);
-                                            alert('STL export failed. See console for details.');
-                                        } finally {
-                                            setExportingSTL(false);
-                                            setTimeout(() => setExportProgress(0), 300);
-                                        }
-                                        return;
-                                    }
-                                    // 2D image path
-                                    if (!canvasPreviewRef.current) return;
-                                    const blob = await canvasPreviewRef.current.exportImageBlob();
-                                    if (!blob) {
-                                        alert('No image available to download');
-                                        return;
-                                    }
+                                const threeMesh = (window as StrataWindow).__STRATA_LAST_MESH;
+                                if (!threeMesh) {
+                                    alert('3D mesh not ready yet');
+                                    return;
+                                }
+                                setExportingSTL(true);
+                                setExportProgress(0);
+                                try {
+                                    const blob = await exportMeshToStlBlob(threeMesh, (p) =>
+                                        setExportProgress(p)
+                                    );
                                     const url = URL.createObjectURL(blob);
                                     const a = document.createElement('a');
                                     a.href = url;
-                                    a.download = 'image.png';
+                                    a.download = 'model.stl';
                                     document.body.appendChild(a);
                                     a.click();
                                     a.remove();
                                     URL.revokeObjectURL(url);
-                                }}
-                            >
-                                {mode === '3d' && exportingSTL ? (
-                                    <i className="fa-solid fa-spinner fa-spin" aria-hidden="true" />
-                                ) : (
-                                    <i className="fa-solid fa-download" aria-hidden="true" />
-                                )}
-                            </button>
-                            {mode === '2d' && (
-                                <>
-                                    <button
-                                        className="preview-crop-btn"
-                                        title="Toggle checkerboard"
-                                        aria-label="Toggle checkerboard"
-                                        onClick={() => setShowCheckerboard((s) => !s)}
-                                    >
-                                        <i className="fa-solid fa-square" aria-hidden />
-                                    </button>
-                                    {/* moved uploader buttons into the top-right preview actions */}
-                                    <button
-                                        className="preview-crop-btn"
-                                        title="Choose file"
-                                        aria-label="Choose file"
-                                        onClick={() => inputRef.current?.click()}
-                                    >
-                                        <i className="fa-solid fa-file-upload" aria-hidden />
-                                    </button>
-                                    <button
-                                        className="preview-crop-btn"
-                                        title="Remove image"
-                                        aria-label="Remove image"
-                                        onClick={clear}
-                                        disabled={!imageSrc || isCropMode}
-                                    >
-                                        <i className="fa-solid fa-trash" aria-hidden />
-                                    </button>
-                                </>
-                            )}
-                        </div>
+                                } catch (err) {
+                                    console.warn('STL export failed', err);
+                                    alert('STL export failed. See console for details.');
+                                } finally {
+                                    setExportingSTL(false);
+                                    setTimeout(() => setExportProgress(0), 300);
+                                }
+                            }}
+                        />
                     </div>
                 </main>
             </div>
