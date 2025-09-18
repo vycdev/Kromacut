@@ -80,7 +80,7 @@ export function useQuantize({
         else if (algorithm === "none") {
             // no algorithm pass, leave data as-is for postprocessing
         } else posterizeImageData(data, weight);
-    // debug-only: uniqueness diagnostic removed
+        // debug-only: uniqueness diagnostic removed
         // put algorithm result (or original) into canvas
         ctx.putImageData(data, 0, 0);
         // postprocessing: if an override palette is provided use it; otherwise
