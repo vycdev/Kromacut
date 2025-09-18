@@ -61,7 +61,7 @@ TD test image and quick experiment
 
 You can try a quick experiment:
 
-1. Click `Load TD Test Image` in the app header.
+1. Click `Load TD Test` in the app header.
 2. Reduce colors to your desired number.
 3. Generate and download your 3d model. 
 4. Follow the layer color swap instructions and print your 3d model to see results.  
