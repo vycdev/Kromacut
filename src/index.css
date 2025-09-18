@@ -107,9 +107,10 @@ button:focus-visible {
    use !important to ensure the dark theme is enforced.
    ====================================================================== */
 :root {
+    /* slightly lighter than pure black to reduce contrast strain */
     color-scheme: dark !important;
-    color: rgba(255, 255, 255, 0.87) !important;
-    background-color: #121212 !important;
+    color: rgba(255, 255, 255, 0.92) !important;
+    background-color: #1e1e1e !important;
 }
 
 /* Buttons and controls: prefer the dark backgrounds used across the app */
@@ -118,6 +119,23 @@ button,
     background-color: #1a1a1a !important;
     color: #eee !important;
     border-color: transparent !important;
+}
+
+/* Ensure icons inside non-disabled buttons are white (covers SVG icons, font icons, and .icon wrappers).
+   This prevents theme or hover color leaking (purple) onto canvas/toolbar icons. */
+button:not([disabled]) svg,
+button:not([disabled]) svg *,
+button:not([disabled]) i,
+button:not([disabled]) .icon,
+button:not([disabled]) .fa,
+.compact-btn:not([disabled]) svg,
+.compact-btn:not([disabled]) svg *,
+.compact-btn:not([disabled]) i,
+.compact-btn:not([disabled]) .icon,
+.compact-btn:not([disabled]) .fa {
+    color: #ffffff !important;
+    fill: #ffffff !important;
+    stroke: #ffffff !important;
 }
 
 /* Disabled controls: dark-friendly appearance */
