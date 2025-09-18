@@ -54,8 +54,10 @@ export default function ThreeDView({
 }: ThreeDViewProps) {
     const mountRef = useRef<HTMLDivElement | null>(null);
     const [isBuilding, setIsBuilding] = useState(false);
-    const { cameraRef, controlsRef, meshRef, materialRef } =
-        useThreeScene(mountRef, setIsBuilding);
+    const { cameraRef, controlsRef, meshRef, materialRef } = useThreeScene(
+        mountRef,
+        setIsBuilding
+    );
 
     // Three.js initialization moved into `useThreeScene` hook for clarity.
 

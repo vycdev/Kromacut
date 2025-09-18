@@ -64,8 +64,9 @@ export function useThreeScene(
         scene.add(mesh);
         meshRef.current = mesh;
         try {
-            (window as unknown as { __STRATA_LAST_MESH?: THREE.Mesh }).__STRATA_LAST_MESH =
-                mesh;
+            (
+                window as unknown as { __STRATA_LAST_MESH?: THREE.Mesh }
+            ).__STRATA_LAST_MESH = mesh;
         } catch {
             /* no-op */
         }
