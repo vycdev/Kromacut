@@ -450,7 +450,7 @@ export default function ThreeDView({
                 mesh.geometry = finalGeom;
                 oldGeom.dispose();
                 try {
-                    (window as unknown as { __STRATA_LAST_MESH?: THREE.Mesh }).__STRATA_LAST_MESH =
+                    (window as unknown as { __KROMACUT_LAST_MESH?: THREE.Mesh }).__KROMACUT_LAST_MESH =
                         mesh;
                 } catch {
                     /* ignore */

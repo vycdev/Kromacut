@@ -9,8 +9,8 @@ export const Header: React.FC<Props> = ({ onLoadTest }) => {
     return (
         <header className="app-header">
             <div className="header-left">
-                <img src={logo} alt="StrataPaint" className="header-logo" />
-                <span className="header-title">StrataPaint</span>
+                <img src={logo} alt="Kromacut" className="header-logo" />
+                <span className="header-title">Kromacut</span>
             </div>
             <div className="header-actions">
                 <button
@@ -24,7 +24,7 @@ export const Header: React.FC<Props> = ({ onLoadTest }) => {
                 </button>
                 <a
                     className="header-btn header-btn--github"
-                    href="https://github.com/vycdev/StrataPaint"
+                    href="https://github.com/vycdev/Kromacut"
                     target="_blank"
                     rel="noopener noreferrer"
                 >

@@ -1,4 +1,4 @@
-// Binary STL exporter for three.js meshes
+// Binary STL exporter for three.js meshes (Kromacut)
 // Exports the mesh's geometry (respecting current scale) into a binary STL Blob.
 // Progress callback receives values in [0,1].
 import type * as THREE from 'three';
@@ -58,7 +58,7 @@ export async function exportMeshToStlBlob(
         throw new Error('Allocation failed for binary STL buffer');
     }
     const view = new DataView(buffer);
-    const headerStr = 'StrataPaint Binary STL';
+    const headerStr = 'Kromacut Binary STL';
     for (let i = 0; i < headerStr.length && i < 80; i++) view.setUint8(i, headerStr.charCodeAt(i));
     view.setUint32(headerBytes, totalTris, true);
 

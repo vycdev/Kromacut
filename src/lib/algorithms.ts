@@ -1,4 +1,4 @@
-// Lightweight image algorithms for StrataPaint
+// Lightweight image algorithms for Kromacut
 // Each function operates on an ImageData instance and returns the modified ImageData.
 
 export function posterizeImageData(data: ImageData, weight: number): ImageData {

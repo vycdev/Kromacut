@@ -53,10 +53,10 @@ export function useAppHandlers(params: UseAppHandlersParams) {
 
     const onExportStl = useCallback(async () => {
         if (exportingSTL) return;
-        interface StrataWindow extends Window {
-            __STRATA_LAST_MESH?: THREE.Mesh;
+        interface KromacutWindow extends Window {
+            __KROMACUT_LAST_MESH?: THREE.Mesh;
         }
-        const threeMesh = (window as StrataWindow).__STRATA_LAST_MESH;
+        const threeMesh = (window as KromacutWindow).__KROMACUT_LAST_MESH;
         if (!threeMesh) {
             alert('3D mesh not ready yet');
             return;

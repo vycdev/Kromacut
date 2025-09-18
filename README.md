@@ -1,8 +1,8 @@
-# StrataPaint
+# Kromacut
 
 Open-source HueForge-style tool for converting images into stacked, color-layered 3D prints.
 
-StrataPaint is a browser-first app that helps you reduce an image to a small palette, preview how the image maps to stacked layers, tweak per-color layer heights and ordering, and export a printable STL along with printer swap instructions.
+Kromacut is a browser-first app that helps you reduce an image to a small palette, preview how the image maps to stacked layers, tweak per-color layer heights and ordering, and export a printable STL along with printer swap instructions.
 
 ## Notable Features
 
@@ -44,15 +44,15 @@ StrataPaint is a browser-first app that helps you reduce an image to a small pal
 
 Transmission Distance (TD) is the concept HueForge uses to produce perceptual intermediate shades by stacking translucent filament layers: instead of relying purely on opaque color pigments, TD models how light transmits through thin layers of filament and how stacking different colors (and varying thickness) produces new perceived colors. HueForge does a lot of this work automatically for you (generating intermediate shades and mapping them to layer swaps). For a full conceptual description see the HueForge blog: https://shop.thehueforge.com/blogs/news/what-is-hueforge
 
-Important notes about Transmission Distance in StrataPaint:
+Important notes about Transmission Distance in Kromacut:
 
-- StrataPaint does NOT compute Transmission Distance or blend shades automatically. All TD-like effects are done manually by you in the app.
+- Kromacut does NOT compute Transmission Distance or blend shades automatically. All TD-like effects are done manually by you in the app.
 - Recommended workflow when you want TD-style results:
 	1. Reduce your image to a palette with *more colors* than you actually intend to print. The extra colors give you candidate shades to use as intermediate/translucent-looking layers.
 	2. Use the per-color slice heights and ordering controls in the 3D panel to approximate the stacked thicknesses and ordering that would produce the target intermediate shades. Small adjustments to `base slice height`, per-color slice heights, and `layerHeight` change the produced layer numbers and perceived blends.
 	3. Iterate with actual filament on a small test print: translucency and perceived mix depend heavily on filament brand, color, and print settings.
 
-All of the automated Transmission Distance processing that HueForge performs is manual in StrataPaint — you are given the building blocks (palette, per-color heights, order, and the 3D preview) and you experiment until you find a stack that gives the visual result you want.
+All of the automated Transmission Distance processing that HueForge performs is manual in Kromacut — you are given the building blocks (palette, per-color heights, order, and the 3D preview) and you experiment until you find a stack that gives the visual result you want.
 
 TD test image and quick experiment
 
