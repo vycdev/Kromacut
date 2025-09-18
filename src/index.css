@@ -1,16 +1,16 @@
 :root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
+    font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+    line-height: 1.5;
+    font-weight: 400;
 
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
+    color-scheme: light dark;
+    color: rgba(255, 255, 255, 0.87);
+    background-color: #242424;
 
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
 }
 
 /* use border-box everywhere to make padding part of element size calculations
@@ -18,27 +18,27 @@
 *,
 *::before,
 *::after {
-  box-sizing: border-box;
+    box-sizing: border-box;
 }
 
 a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
+    font-weight: 500;
+    color: #646cff;
+    text-decoration: inherit;
 }
 a:hover {
-  color: #535bf2;
+    color: #535bf2;
 }
 
 body {
-  margin: 0;
-  display: flex;
-  /* ensure children stretch to fill available space so layout resizes predictably */
-  align-items: stretch;
-  justify-content: stretch;
-  min-width: 320px;
-  min-height: 100vh;
-  width: 100%;
+    margin: 0;
+    display: flex;
+    /* ensure children stretch to fill available space so layout resizes predictably */
+    align-items: stretch;
+    justify-content: stretch;
+    min-width: 320px;
+    min-height: 100vh;
+    width: 100%;
 }
 
 /* ensure the document root and react mount point fill the viewport
@@ -46,100 +46,100 @@ body {
 html,
 body,
 #root {
-  /* use viewport height to avoid percentage-height chains causing overflow */
-  height: 100vh;
-  width: 100%;
-  min-height: 100%;
-  min-width: 0;
+    /* use viewport height to avoid percentage-height chains causing overflow */
+    height: 100vh;
+    width: 100%;
+    min-height: 100%;
+    min-width: 0;
 }
 
 #root {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  justify-content: stretch;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: stretch;
 }
 
 h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
+    font-size: 3.2em;
+    line-height: 1.1;
 }
 
 button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
-  font-family: inherit;
-  background-color: #1a1a1a;
-  cursor: pointer;
-  transition: border-color 0.25s;
+    border-radius: 8px;
+    border: 1px solid transparent;
+    padding: 0.6em 1.2em;
+    font-size: 1em;
+    font-weight: 500;
+    font-family: inherit;
+    background-color: #1a1a1a;
+    cursor: pointer;
+    transition: border-color 0.25s;
 }
 button:hover {
-  border-color: #646cff;
+    border-color: #646cff;
 }
 button:focus,
 button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
+    outline: 4px auto -webkit-focus-ring-color;
 }
 
 @media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
-  }
-  a:hover {
-    color: #747bff;
-  }
-  button {
-    background-color: #f9f9f9;
-  }
+    :root {
+        color: #213547;
+        background-color: #ffffff;
+    }
+    a:hover {
+        color: #747bff;
+    }
+    button {
+        background-color: #f9f9f9;
+    }
 }
 
 /* pressed/copied style used by several controls to indicate success */
 .copied-pressed {
-  background-color: #6b21a8; /* purple-700 */
-  color: #fff;
-  border-color: #5b1890;
+    background-color: #6b21a8; /* purple-700 */
+    color: #fff;
+    border-color: #5b1890;
 }
 
 /* compact button used in adjustments and other control headers */
 .compact-btn {
-  font-size: 11px;
-  font-weight: 600;
-  padding: 2px 6px;
-  border: 1px solid #555;
-  background: #2a2a2a;
-  color: #eee;
-  border-radius: 3px;
-  cursor: pointer;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 6px;
+    border: 1px solid #555;
+    background: #2a2a2a;
+    color: #eee;
+    border-radius: 3px;
+    cursor: pointer;
 }
 
 .compact-btn.copied-pressed {
-  background-color: #6b21a8; /* purple */
-  color: #fff;
-  border-color: #5b1890;
+    background-color: #6b21a8; /* purple */
+    color: #fff;
+    border-color: #5b1890;
 }
 
 /* Make disabled form controls visually distinct (greyed out) */
 .controls-group input[disabled],
 .controls-group select[disabled],
 .controls-group button[disabled] {
-  opacity: 0.55;
-  cursor: not-allowed;
-  /* subtle background to indicate disabled state */
-  background-color: rgba(255, 255, 255, 0.03);
-  color: rgba(255, 255, 255, 0.55);
-  border-color: transparent;
+    opacity: 0.55;
+    cursor: not-allowed;
+    /* subtle background to indicate disabled state */
+    background-color: rgba(255, 255, 255, 0.03);
+    color: rgba(255, 255, 255, 0.55);
+    border-color: transparent;
 }
 
 @media (prefers-color-scheme: light) {
-  .controls-group input[disabled],
-  .controls-group select[disabled],
-  .controls-group button[disabled] {
-    background-color: #f3f4f6;
-    color: #6b7280; /* neutral gray */
-    opacity: 1; /* use explicit color in light theme */
-  }
+    .controls-group input[disabled],
+    .controls-group select[disabled],
+    .controls-group button[disabled] {
+        background-color: #f3f4f6;
+        color: #6b7280; /* neutral gray */
+        opacity: 1; /* use explicit color in light theme */
+    }
 }
