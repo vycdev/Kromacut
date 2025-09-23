@@ -294,7 +294,12 @@ export default function ThreeDView({
                             let hMax = 0;
                             // cells (vx-1,vy-1), (vx-1,vy), (vx,vy-1), (vx,vy)
                             const check = (cx: number, cy: number) => {
-                                if (cx >= 0 && cy >= 0 && cx < widthSegments && cy < heightSegments) {
+                                if (
+                                    cx >= 0 &&
+                                    cy >= 0 &&
+                                    cx < widthSegments &&
+                                    cy < heightSegments
+                                ) {
                                     const h = cellHeights[cy * widthSegments + cx];
                                     if (h > hMax) hMax = h;
                                 }
