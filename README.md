@@ -6,6 +6,22 @@ Open-source HueForge-style tool for converting images into stacked, color-layere
 
 Kromacut is a browser-first app that helps you reduce an image to a small palette, preview how the image maps to stacked layers, tweak per-color layer heights and ordering, and export a printable STL along with printer swap instructions.
 
+## Examples
+
+A quick look at what Kromacut produces from a source image to a printable model:
+
+- Fuji test image (2D input) → 3D preview → per-color sliced view → real print
+
+| 2D Input | 3D Preview | Sliced by Colors | Real Print |
+|---|---|---|---|
+| ![Fuji 2D Input](content/fuji2d.png) | ![Fuji 3D Preview](content/fuji3d.png) | ![Fuji Sliced](content/fuji3dsliced.png) | ![Printed Result](content/printed.jpg) |
+
+Another minimal test you can try yourself in the app header: the Transmission Distance (TD) test image.
+
+| TD Test |
+|---|
+| ![TD Test Image](src/assets/tdTest.png) |
+
 ## Notable Features
 
 - Image upload and preview (drag & drop or file picker).
