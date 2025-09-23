@@ -14,15 +14,15 @@ A quick look at what Kromacut produces from a source image to a printable model:
 
 | 2D Input | 3D Preview |
 |---|---|
-| <img src="content/fuji2d.png" alt="Fuji 2D Input" width="420" /> | <img src="content/fuji3d.png" alt="Fuji 3D Preview" width="420" /> |
+| <img src="content/fuji2d.png" alt="Fuji 2D Input" width="600" /> | <img src="content/fuji3d.png" alt="Fuji 3D Preview" width="600" /> |
 | Sliced by Colors | Real Print |
-| <img src="content/fuji3dsliced.png" alt="Fuji Sliced" width="420" /> | <img src="content/printed.jpg" alt="Printed Result" width="420" /> |
+| <img src="content/fuji3dsliced.png" alt="Fuji Sliced" width="600" /> | <img src="content/printed.jpg" alt="Printed Result" width="600" /> |
 
 Another minimal test you can try yourself in the app header: the Transmission Distance (TD) test image.
 
 | TD Test |
 |---|
-| <img src="src/assets/tdTest.png" alt="TD Test Image" width="420" /> |
+| <img src="src/assets/tdTest.png" alt="TD Test Image" width="600" /> |
 
 ## Notable Features
 
@@ -88,7 +88,7 @@ You can try a quick experiment:
 
 Preview of the included TD test image:
 
-<img src="src/assets/tdTest.png" alt="TD Test Image" width="420" />
+<img src="src/assets/tdTest.png" alt="TD Test Image" width="600" />
 
 ## Contributing
 
