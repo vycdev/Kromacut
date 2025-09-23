@@ -25,18 +25,31 @@ function hexToRGB(hex: string): [number, number, number] {
     return [r, g, b];
 }
 
-// Simple color match: exact RGB equality (image already quantized to palette)
-function findSwatchIndex(
-    r: number,
-    g: number,
-    b: number,
-    swatches: { hex: string; a: number }[]
-): number {
-    for (let i = 0; i < swatches.length; i++) {
-        const [sr, sg, sb] = hexToRGB(swatches[i].hex);
-        if (sr === r && sg === g && sb === b) return i;
-    }
-    return -1;
+// Nearest-color match with small cache to avoid exact equality issues
+function buildNearestSwatchFinder(swatches: { hex: string; a: number }[]) {
+    const rgb = swatches.map((s) => hexToRGB(s.hex));
+    const cache = new Map<number, number>(); // key = (r<<16)|(g<<8)|b -> swatch index
+    return (r: number, g: number, b: number) => {
+        const key = ((r & 0xff) << 16) | ((g & 0xff) << 8) | (b & 0xff);
+        const cached = cache.get(key);
+        if (cached !== undefined) return cached;
+        let best = -1;
+        let bestD = Infinity;
+        for (let i = 0; i < rgb.length; i++) {
+            const [sr, sg, sb] = rgb[i];
+            const dr = sr - r;
+            const dg = sg - g;
+            const db = sb - b;
+            const d = dr * dr + dg * dg + db * db;
+            if (d < bestD) {
+                bestD = d;
+                best = i;
+                if (d === 0) break; // exact match
+            }
+        }
+        cache.set(key, best);
+        return best;
+    };
 }
 
 export default function ThreeDView({
@@ -48,7 +61,7 @@ export default function ThreeDView({
     swatches,
     pixelSize = 0.01,
     heightScale = 1,
-    stepped = true,
+    stepped = false,
     pixelColumns = true,
     rebuildSignal = 0,
 }: ThreeDViewProps) {
@@ -152,18 +165,24 @@ export default function ThreeDView({
                     boxH: number;
                 }
             ) => {
+                const nearestSwatchIndex = buildNearestSwatchFinder(swatches);
                 if (token !== buildTokenRef.current) return; // superseded
                 const w = img.naturalWidth;
                 const h = img.naturalHeight;
                 if (!w || !h) return;
                 // const t0 = performance.now(); // instrumentation placeholder
+                // Prepare a cropped canvas of the opaque bounding box for consistent sampling
                 const canvas = document.createElement('canvas');
-                canvas.width = w;
-                canvas.height = h;
+                const bMinX = bbox ? bbox.minX : 0;
+                const bMinY = bbox ? bbox.minY : 0;
+                const bW = bbox ? bbox.boxW : w;
+                const bH = bbox ? bbox.boxH : h;
+                canvas.width = bW;
+                canvas.height = bH;
                 const ctx = canvas.getContext('2d');
                 if (!ctx) return;
-                ctx.drawImage(img, 0, 0, w, h);
-                const { data } = ctx.getImageData(0, 0, w, h);
+                ctx.drawImage(img, bMinX, bMinY, bW, bH, 0, 0, bW, bH);
+                const { data } = ctx.getImageData(0, 0, bW, bH);
 
                 // Create a canvas-based texture for crisp sampling and apply nearest-neighbor filtering
                 try {
@@ -173,14 +192,9 @@ export default function ThreeDView({
                     tex.generateMipmaps = false;
                     tex.wrapS = THREE.ClampToEdgeWrapping;
                     tex.wrapT = THREE.ClampToEdgeWrapping;
-                    // If a bounding box is provided, map UV 0..1 to that cropped region
-                    if (bbox) {
-                        tex.repeat.set(bbox.boxW / w, bbox.boxH / h);
-                        tex.offset.set(bbox.minX / w, 1 - (bbox.minY + bbox.boxH) / h);
-                    } else {
-                        tex.repeat.set(1, 1);
-                        tex.offset.set(0, 0);
-                    }
+                    // Using cropped canvas: 0..1 UVs map to the entire cropped image
+                    tex.repeat.set(1, 1);
+                    tex.offset.set(0, 0);
                     tex.needsUpdate = true;
                     const mat = materialRef.current;
                     if (mat) {
@@ -206,22 +220,19 @@ export default function ThreeDView({
                 const indexedPlane = new THREE.PlaneGeometry(1, 1, resolution, resolution);
                 const idxPos = indexedPlane.getAttribute('position');
                 const indexedVertexCount = idxPos.count;
+                const uvIdx = indexedPlane.getAttribute('uv') as THREE.BufferAttribute | null;
                 const YIELD_EVERY_MS = 12;
                 let lastYield = performance.now();
 
                 // Compute heights on the indexed grid vertices
                 for (let vi = 0; vi < indexedVertexCount; vi++) {
-                    const vx = idxPos.getX(vi);
-                    const vz = idxPos.getY(vi);
-                    const u = vx + 0.5;
-                    const v = vz + 0.5;
-                    const bMinX = bbox ? bbox.minX : 0;
-                    const bMinY = bbox ? bbox.minY : 0;
-                    const bW = bbox ? bbox.boxW : w;
-                    const bH = bbox ? bbox.boxH : h;
-                    const px = Math.min(w - 1, Math.max(0, Math.round(bMinX + u * (bW - 1))));
-                    const py = Math.min(h - 1, Math.max(0, Math.round(bMinY + v * (bH - 1))));
-                    const idx = (py * w + px) * 4;
+                    // Prefer UVs for consistent sampling across geometry
+                    const u = uvIdx ? uvIdx.getX(vi) : idxPos.getX(vi) + 0.5;
+                    const v = uvIdx ? uvIdx.getY(vi) : idxPos.getY(vi) + 0.5;
+                    const px = Math.min(bW - 1, Math.max(0, Math.round(u * (bW - 1))));
+                    // Flip Y so v=0 corresponds to top of the image
+                    const py = Math.min(bH - 1, Math.max(0, Math.round((1 - v) * (bH - 1))));
+                    const idx = (py * bW + px) * 4;
                     const r = data[idx];
                     const g = data[idx + 1];
                     const bcol = data[idx + 2];
@@ -229,7 +240,7 @@ export default function ThreeDView({
                     const opaque = a > 0;
                     let height = opaque ? baseSliceHeight : 0;
                     if (opaque && swatches.length) {
-                        const swatchIndex = findSwatchIndex(r, g, bcol, swatches);
+                        const swatchIndex = nearestSwatchIndex(r, g, bcol);
                         if (swatchIndex !== -1) {
                             const orderPos = orderPositions.get(swatchIndex);
                             if (orderPos !== undefined)
@@ -251,21 +262,49 @@ export default function ThreeDView({
                     const widthSegments = resolution;
                     const heightSegments = resolution;
                     const vertsPerRow = widthSegments + 1;
+                    // Snapshot original Z values to avoid propagation during stepping
+                    const origZ = new Float32Array(idxPos.count);
+                    for (let vi = 0; vi < idxPos.count; vi++) origZ[vi] = idxPos.getZ(vi);
+
+                    // Compute per-cell heights from original grid
+                    const cellHeights = new Float32Array(widthSegments * heightSegments);
                     for (let y = 0; y < heightSegments; y++) {
                         for (let x = 0; x < widthSegments; x++) {
                             const a = y * vertsPerRow + x;
                             const bI = a + 1;
                             const c = a + vertsPerRow;
                             const d = c + 1;
-                            const hA = idxPos.getZ(a);
-                            const hB = idxPos.getZ(bI);
-                            const hC = idxPos.getZ(c);
-                            const hD = idxPos.getZ(d);
+                            const hA = origZ[a];
+                            const hB = origZ[bI];
+                            const hC = origZ[c];
+                            const hD = origZ[d];
                             const cellH = Math.max(hA, hB, hC, hD);
-                            idxPos.setZ(a, cellH);
-                            idxPos.setZ(bI, cellH);
-                            idxPos.setZ(c, cellH);
-                            idxPos.setZ(d, cellH);
+                            cellHeights[y * widthSegments + x] = cellH;
+                        }
+                        if (performance.now() - lastYield > YIELD_EVERY_MS) {
+                            await new Promise((r) => requestAnimationFrame(r));
+                            if (token !== buildTokenRef.current) return;
+                            lastYield = performance.now();
+                        }
+                    }
+
+                    // For each vertex, set height to max of adjacent cell heights (up to 4)
+                    for (let vy = 0; vy < heightSegments + 1; vy++) {
+                        for (let vx = 0; vx < widthSegments + 1; vx++) {
+                            let hMax = 0;
+                            // cells (vx-1,vy-1), (vx-1,vy), (vx,vy-1), (vx,vy)
+                            const check = (cx: number, cy: number) => {
+                                if (cx >= 0 && cy >= 0 && cx < widthSegments && cy < heightSegments) {
+                                    const h = cellHeights[cy * widthSegments + cx];
+                                    if (h > hMax) hMax = h;
+                                }
+                            };
+                            check(vx - 1, vy - 1);
+                            check(vx - 1, vy);
+                            check(vx, vy - 1);
+                            check(vx, vy);
+                            const vi = vy * vertsPerRow + vx;
+                            idxPos.setZ(vi, hMax);
                         }
                         if (performance.now() - lastYield > YIELD_EVERY_MS) {
                             await new Promise((r) => requestAnimationFrame(r));
@@ -328,9 +367,11 @@ export default function ThreeDView({
                     }
                     const bottomOffset = gridVertexCount;
                     const indices: number[] = [...topIndices];
-                    for (let i = topIndices.length - 1; i >= 0; i--) indices.push(bottomOffset + topIndices[i]);
+                    for (let i = topIndices.length - 1; i >= 0; i--)
+                        indices.push(bottomOffset + topIndices[i]);
 
-                    const heightAt = (vx: number, vy: number) => topPositions[(vy * vertsPerRow + vx) * 3 + 2];
+                    const heightAt = (vx: number, vy: number) =>
+                        topPositions[(vy * vertsPerRow + vx) * 3 + 2];
                     const pushWall = (tA: number, tB: number) => {
                         const bA = tA + bottomOffset;
                         const bB = tB + bottomOffset;
@@ -340,12 +381,19 @@ export default function ThreeDView({
                         if (heightAt(x, 0) > 0 || heightAt(x + 1, 0) > 0)
                             pushWall(0 * vertsPerRow + x, 0 * vertsPerRow + (x + 1));
                         if (heightAt(x, heightSegments) > 0 || heightAt(x + 1, heightSegments) > 0)
-                            pushWall(heightSegments * vertsPerRow + (x + 1), heightSegments * vertsPerRow + x);
+                            pushWall(
+                                heightSegments * vertsPerRow + (x + 1),
+                                heightSegments * vertsPerRow + x
+                            );
                     }
                     for (let y = 0; y < heightSegments; y++) {
-                        if (heightAt(0, y) > 0 || heightAt(0, y + 1) > 0) pushWall((y + 1) * vertsPerRow + 0, y * vertsPerRow + 0);
+                        if (heightAt(0, y) > 0 || heightAt(0, y + 1) > 0)
+                            pushWall((y + 1) * vertsPerRow + 0, y * vertsPerRow + 0);
                         if (heightAt(widthSegments, y) > 0 || heightAt(widthSegments, y + 1) > 0)
-                            pushWall(y * vertsPerRow + widthSegments, (y + 1) * vertsPerRow + widthSegments);
+                            pushWall(
+                                y * vertsPerRow + widthSegments,
+                                (y + 1) * vertsPerRow + widthSegments
+                            );
                     }
 
                     const combinedPositions = new Float32Array(gridVertexCount * 2 * 3);
@@ -353,8 +401,12 @@ export default function ThreeDView({
                     combinedPositions.set(bottomPositions, gridVertexCount * 3);
 
                     finalGeom = new THREE.BufferGeometry();
-                    finalGeom.setAttribute('position', new THREE.BufferAttribute(combinedPositions, 3));
-                    if (combinedUVs) finalGeom.setAttribute('uv', new THREE.BufferAttribute(combinedUVs, 2));
+                    finalGeom.setAttribute(
+                        'position',
+                        new THREE.BufferAttribute(combinedPositions, 3)
+                    );
+                    if (combinedUVs)
+                        finalGeom.setAttribute('uv', new THREE.BufferAttribute(combinedUVs, 2));
                     finalGeom.setIndex(indices);
 
                     // Expand to non-indexed to avoid 16-bit index limits and ensure per-face shading consistency
@@ -422,6 +474,7 @@ export default function ThreeDView({
                 mode: 'preview' | 'final',
                 bbox: { minX: number; minY: number; boxW: number; boxH: number }
             ) => {
+                const nearestSwatchIndex = buildNearestSwatchFinder(swatches);
                 if (token !== buildTokenRef.current) return;
                 const fullW = img.naturalWidth;
                 const fullH = img.naturalHeight;
@@ -489,7 +542,7 @@ export default function ThreeDView({
                         const opaque = a > 0;
                         let height = opaque ? baseSliceHeight : 0;
                         if (opaque && swatches.length) {
-                            const swatchIndex = findSwatchIndex(r, g, b, swatches);
+                            const swatchIndex = nearestSwatchIndex(r, g, b);
                             if (swatchIndex !== -1) {
                                 const orderPos = orderPositions.get(swatchIndex);
                                 if (orderPos !== undefined)
