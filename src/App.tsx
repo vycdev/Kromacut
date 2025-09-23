@@ -32,7 +32,7 @@ function App(): React.ReactElement | null {
     const [weight, setWeight] = useState<number>(128);
     const [finalColors, setFinalColors] = useState<number>(16);
     const [algorithm, setAlgorithm] = useState<string>('kmeans');
-    const SWATCH_CAP = 2 ** 14;
+    const SWATCH_CAP = 2 ** 10;
     // default to the Auto palette
     const [selectedPalette, setSelectedPalette] = useState<string>('auto');
     const { imageSrc, setImage, clearCurrent, undo, redo, canUndo, canRedo } = useImageHistory(

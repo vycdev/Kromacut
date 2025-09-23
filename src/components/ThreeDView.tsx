@@ -276,104 +276,46 @@ export default function ThreeDView({
                     idxPos.needsUpdate = true;
                 }
 
-                // Convert to non-indexed for per-triangle coloring (faces do not share vertices)
-                const planeGeom = indexedPlane.toNonIndexed();
-                const posAttr = planeGeom.getAttribute('position');
-                const vertexCount = posAttr.count;
-                const colors = new Float32Array(vertexCount * 3);
-
-                // Iterate triangles (3 vertices per triangle) and sample color at triangle centroid, then assign uniform color per triangle
-                lastYield = performance.now();
-                for (let vi = 0; vi < vertexCount; vi += 3) {
-                    const cx = (posAttr.getX(vi) + posAttr.getX(vi + 1) + posAttr.getX(vi + 2)) / 3;
-                    const cz = (posAttr.getY(vi) + posAttr.getY(vi + 1) + posAttr.getY(vi + 2)) / 3;
-                    const u = cx + 0.5;
-                    const v = cz + 0.5;
-                    const bMinX = bbox ? bbox.minX : 0;
-                    const bMinY = bbox ? bbox.minY : 0;
-                    const bW = bbox ? bbox.boxW : w;
-                    const bH = bbox ? bbox.boxH : h;
-                    const px = Math.min(w - 1, Math.max(0, Math.round(bMinX + u * (bW - 1))));
-                    const py = Math.min(h - 1, Math.max(0, Math.round(bMinY + v * (bH - 1))));
-                    const idx = (py * w + px) * 4;
-                    const r = data[idx];
-                    const g = data[idx + 1];
-                    const bcol = data[idx + 2];
-                    for (let k = 0; k < 3; k++) {
-                        colors[(vi + k) * 3 + 0] = r / 255;
-                        colors[(vi + k) * 3 + 1] = g / 255;
-                        colors[(vi + k) * 3 + 2] = bcol / 255;
-                    }
-                    if (performance.now() - lastYield > YIELD_EVERY_MS) {
-                        await new Promise((r) => requestAnimationFrame(r));
-                        if (token !== buildTokenRef.current) return;
-                        lastYield = performance.now();
-                    }
-                }
-
-                // Optional: flatten heights per cell to eliminate single-vertex spikes (creates square plateaus)
-                if (stepped) {
-                    const widthSegments = resolution;
-                    const heightSegments = resolution;
-                    const vertsPerRow = widthSegments + 1;
-                    for (let y = 0; y < heightSegments; y++) {
-                        for (let x = 0; x < widthSegments; x++) {
-                            const a = y * vertsPerRow + x;
-                            const bI = a + 1;
-                            const c = a + vertsPerRow;
-                            const d = c + 1;
-                            const hA = posAttr.getZ(a);
-                            const hB = posAttr.getZ(bI);
-                            const hC = posAttr.getZ(c);
-                            const hD = posAttr.getZ(d);
-                            // Use max so that a tall pixel produces a full-height plateau rather than being averaged down
-                            const cellH = Math.max(hA, hB, hC, hD);
-                            posAttr.setZ(a, cellH);
-                            posAttr.setZ(bI, cellH);
-                            posAttr.setZ(c, cellH);
-                            posAttr.setZ(d, cellH);
-                        }
-                        if (performance.now() - lastYield > YIELD_EVERY_MS) {
-                            await new Promise((r) => requestAnimationFrame(r));
-                            if (token !== buildTokenRef.current) return;
-                            lastYield = performance.now();
-                        }
-                    }
-                    posAttr.needsUpdate = true;
-                }
-                planeGeom.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-
-                // If preview mode, skip walls/bottom for speed
+                // If preview mode, convert the indexed grid to non-indexed for fast rendering and skip walls/bottom
                 let finalGeom: THREE.BufferGeometry;
                 if (mode === 'preview') {
-                    finalGeom = planeGeom;
+                    finalGeom = indexedPlane.toNonIndexed();
+                    indexedPlane.dispose();
                 } else {
+                    // Build final solid by duplicating the indexed grid (top + bottom) and stitching side walls
                     const widthSegments = resolution;
                     const heightSegments = resolution;
                     const vertsPerRow = widthSegments + 1;
-                    const topVertexCount = posAttr.count;
-                    const topPositions = new Float32Array(topVertexCount * 3);
-                    // copy UVs from plane geometry (posAttr corresponds to planeGeom non-indexed)
-                    const uvAttr = planeGeom.getAttribute('uv');
-                    const topUVs = new Float32Array((uvAttr ? uvAttr.count : 0) * 2);
-                    if (uvAttr)
-                        for (let i = 0; i < uvAttr.count; i++) {
-                            topUVs[i * 2] = uvAttr.getX(i);
-                            topUVs[i * 2 + 1] = uvAttr.getY(i);
+
+                    const gridVertexCount = idxPos.count; // (resolution+1)^2
+                    // Copy positions in indexed grid order
+                    const topPositions = new Float32Array(gridVertexCount * 3);
+                    for (let i = 0; i < gridVertexCount; i++) {
+                        topPositions[i * 3 + 0] = idxPos.getX(i);
+                        topPositions[i * 3 + 1] = idxPos.getY(i);
+                        topPositions[i * 3 + 2] = idxPos.getZ(i);
+                    }
+                    const bottomPositions = new Float32Array(gridVertexCount * 3);
+                    bottomPositions.set(topPositions);
+                    for (let i = 0; i < gridVertexCount; i++) bottomPositions[i * 3 + 2] = 0;
+
+                    // UVs in indexed grid order (duplicate for bottom)
+                    const uvGrid = indexedPlane.getAttribute('uv') as THREE.BufferAttribute | null;
+                    let combinedUVs: Float32Array | null = null;
+                    if (uvGrid) {
+                        combinedUVs = new Float32Array(uvGrid.count * 2 * 2);
+                        for (let i = 0; i < uvGrid.count; i++) {
+                            const u = uvGrid.getX(i);
+                            const v = uvGrid.getY(i);
+                            combinedUVs[i * 2] = u;
+                            combinedUVs[i * 2 + 1] = v;
+                            const bi = i + uvGrid.count;
+                            combinedUVs[bi * 2] = u;
+                            combinedUVs[bi * 2 + 1] = v;
                         }
-                    for (let i = 0; i < topVertexCount; i++) {
-                        topPositions[i * 3 + 0] = posAttr.getX(i);
-                        topPositions[i * 3 + 1] = posAttr.getY(i);
-                        topPositions[i * 3 + 2] = posAttr.getZ(i);
                     }
-                    const bottomPositions = new Float32Array(topVertexCount * 3);
-                    for (let i = 0; i < topVertexCount; i++) {
-                        bottomPositions[i * 3 + 0] = topPositions[i * 3 + 0];
-                        bottomPositions[i * 3 + 1] = topPositions[i * 3 + 1];
-                        bottomPositions[i * 3 + 2] = 0;
-                    }
-                    const bottomColors = new Float32Array(topVertexCount * 3);
-                    bottomColors.set(colors);
+
+                    // Build indices: top, bottom (reversed), and side walls referencing grid order
                     const topIndices: number[] = [];
                     for (let y = 0; y < heightSegments; y++) {
                         for (let x = 0; x < widthSegments; x++) {
@@ -384,12 +326,11 @@ export default function ThreeDView({
                             topIndices.push(a, c, b, b, c, d);
                         }
                     }
-                    const bottomOffset = topVertexCount;
+                    const bottomOffset = gridVertexCount;
                     const indices: number[] = [...topIndices];
-                    for (let i = topIndices.length - 1; i >= 0; i--)
-                        indices.push(bottomOffset + topIndices[i]);
-                    const heightAt = (vx: number, vy: number) =>
-                        topPositions[(vy * vertsPerRow + vx) * 3 + 2];
+                    for (let i = topIndices.length - 1; i >= 0; i--) indices.push(bottomOffset + topIndices[i]);
+
+                    const heightAt = (vx: number, vy: number) => topPositions[(vy * vertsPerRow + vx) * 3 + 2];
                     const pushWall = (tA: number, tB: number) => {
                         const bA = tA + bottomOffset;
                         const bB = tB + bottomOffset;
@@ -399,46 +340,29 @@ export default function ThreeDView({
                         if (heightAt(x, 0) > 0 || heightAt(x + 1, 0) > 0)
                             pushWall(0 * vertsPerRow + x, 0 * vertsPerRow + (x + 1));
                         if (heightAt(x, heightSegments) > 0 || heightAt(x + 1, heightSegments) > 0)
-                            pushWall(
-                                heightSegments * vertsPerRow + (x + 1),
-                                heightSegments * vertsPerRow + x
-                            );
+                            pushWall(heightSegments * vertsPerRow + (x + 1), heightSegments * vertsPerRow + x);
                     }
                     for (let y = 0; y < heightSegments; y++) {
-                        if (heightAt(0, y) > 0 || heightAt(0, y + 1) > 0)
-                            pushWall((y + 1) * vertsPerRow + 0, y * vertsPerRow + 0);
+                        if (heightAt(0, y) > 0 || heightAt(0, y + 1) > 0) pushWall((y + 1) * vertsPerRow + 0, y * vertsPerRow + 0);
                         if (heightAt(widthSegments, y) > 0 || heightAt(widthSegments, y + 1) > 0)
-                            pushWall(
-                                y * vertsPerRow + widthSegments,
-                                (y + 1) * vertsPerRow + widthSegments
-                            );
+                            pushWall(y * vertsPerRow + widthSegments, (y + 1) * vertsPerRow + widthSegments);
                     }
-                    const combinedPositions = new Float32Array(topVertexCount * 2 * 3);
+
+                    const combinedPositions = new Float32Array(gridVertexCount * 2 * 3);
                     combinedPositions.set(topPositions, 0);
-                    combinedPositions.set(bottomPositions, topVertexCount * 3);
-                    const combinedColors = new Float32Array(topVertexCount * 2 * 3);
-                    combinedColors.set(colors, 0);
-                    combinedColors.set(bottomColors, topVertexCount * 3);
+                    combinedPositions.set(bottomPositions, gridVertexCount * 3);
+
                     finalGeom = new THREE.BufferGeometry();
-                    finalGeom.setAttribute(
-                        'position',
-                        new THREE.BufferAttribute(combinedPositions, 3)
-                    );
-                    // attach UVs so texture maps correctly (top and bottom share same uvs)
-                    if (topUVs && topUVs.length) {
-                        const combinedUVs = new Float32Array(topUVs.length * 2);
-                        combinedUVs.set(topUVs, 0);
-                        combinedUVs.set(topUVs, topUVs.length);
-                        finalGeom.setAttribute('uv', new THREE.BufferAttribute(combinedUVs, 2));
-                    }
-                    finalGeom.setAttribute('color', new THREE.BufferAttribute(combinedColors, 3));
+                    finalGeom.setAttribute('position', new THREE.BufferAttribute(combinedPositions, 3));
+                    if (combinedUVs) finalGeom.setAttribute('uv', new THREE.BufferAttribute(combinedUVs, 2));
                     finalGeom.setIndex(indices);
-                    // Expand to non-indexed so faces have their own vertices and don't blend colors
+
+                    // Expand to non-indexed to avoid 16-bit index limits and ensure per-face shading consistency
                     const indexedFinal = finalGeom;
                     finalGeom = indexedFinal.toNonIndexed();
                     indexedFinal.dispose();
                     finalGeom.computeVertexNormals();
-                    planeGeom.dispose();
+                    indexedPlane.dispose();
                 }
 
                 if (token !== buildTokenRef.current) {
@@ -700,6 +624,10 @@ export default function ThreeDView({
                     finalGeom.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
                     finalGeom.setAttribute('color', new THREE.BufferAttribute(combinedColors, 3));
                     finalGeom.setIndex(indices);
+                    // Convert to non-indexed to avoid driver 16-bit index limits across devices
+                    const indexed = finalGeom;
+                    finalGeom = indexed.toNonIndexed();
+                    indexed.dispose();
                     finalGeom.computeVertexNormals();
                     geom.dispose();
                 }
