@@ -34,7 +34,7 @@ export const PaletteSelector: React.FC<Props> = ({ selected, onSelect }) => {
                     <SelectTrigger id="palette-select">
                         <SelectValue placeholder="Select a palette" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="max-h-48 overflow-y-auto">
                         {PALETTES.map((p) => (
                             <SelectItem key={p.id} value={p.id}>
                                 <div className="flex items-center gap-2">
