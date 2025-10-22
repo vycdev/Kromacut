@@ -46,6 +46,9 @@ export const ControlsPanel: React.FC<Props> = ({
                 <h3 className="text-sm font-semibold text-foreground mb-4">
                     Quantization Settings
                 </h3>
+                <p className="text-xs text-muted-foreground mb-4">
+                    Configure palette and reduce colors
+                </p>
                 <div className="space-y-4">
                     <div className="space-y-2">
                         <Label htmlFor="palette-select" className="font-medium">
