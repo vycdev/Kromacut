@@ -253,6 +253,34 @@ body,
     @apply bg-background text-foreground;
     letter-spacing: var(--tracking-normal);
     }
+  
+  /* Scrollbar styling using theme colors - these MUST be in CSS as they're pseudo-elements */
+  ::-webkit-scrollbar {
+    @apply w-2.5 h-2.5;
+  }
+  
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    @apply bg-muted-foreground rounded-md border border-border;
+    background-clip: padding-box;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-foreground;
+  }
+  
+  ::-webkit-scrollbar-thumb:active {
+    @apply bg-primary;
+  }
+  
+  /* Firefox scrollbar - these MUST use CSS variables as Tailwind doesn't support this syntax */
+  * {
+    scrollbar-color: var(--muted-foreground) transparent;
+    scrollbar-width: thin;
+  }
 }
 
 /* Hide default number input spinners - ONLY the browser default removal */

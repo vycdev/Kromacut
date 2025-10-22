@@ -71,10 +71,10 @@ const NumberInput = React.forwardRef<HTMLInputElement, NumberInputProps>(
                     onChange={onChange}
                     {...props}
                 />
-                <div className="absolute right-0.5 top-1/2 -translate-y-1/2 flex flex-col gap-0.5 h-5 pointer-events-auto">
+                <div className="absolute right-0.5 top-1/2 -translate-y-1/2 flex flex-col gap-px h-[1.875rem] pointer-events-auto">
                     <button
                         type="button"
-                        className="flex items-center justify-center w-6 h-2.5 px-0 border border-border/50 bg-muted hover:bg-muted/80 active:bg-primary text-foreground cursor-pointer text-xs font-bold transition-colors rounded-t-sm disabled:opacity-50 disabled:cursor-not-allowed user-select-none hover:text-foreground"
+                        className="flex items-center justify-center w-5 h-[0.875rem] px-0 border border-input bg-background hover:bg-accent hover:text-accent-foreground active:bg-accent text-muted-foreground cursor-pointer text-[10px] leading-none transition-colors rounded-t disabled:opacity-50 disabled:cursor-not-allowed select-none"
                         onClick={handleIncrement}
                         tabIndex={-1}
                         aria-label="Increment"
@@ -83,7 +83,7 @@ const NumberInput = React.forwardRef<HTMLInputElement, NumberInputProps>(
                     </button>
                     <button
                         type="button"
-                        className="flex items-center justify-center w-6 h-2.5 px-0 border border-border/50 bg-muted hover:bg-muted/80 active:bg-primary text-foreground cursor-pointer text-xs font-bold transition-colors rounded-b-sm disabled:opacity-50 disabled:cursor-not-allowed user-select-none hover:text-foreground"
+                        className="flex items-center justify-center w-5 h-[0.875rem] px-0 border border-input bg-background hover:bg-accent hover:text-accent-foreground active:bg-accent text-muted-foreground cursor-pointer text-[10px] leading-none transition-colors rounded-b disabled:opacity-50 disabled:cursor-not-allowed select-none"
                         onClick={handleDecrement}
                         tabIndex={-1}
                         aria-label="Decrement"
