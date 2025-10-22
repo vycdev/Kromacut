@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import ThreeDControls from './components/ThreeDControls';
 import ThreeDView from './components/ThreeDView';
-import './App.css';
 import logo from './assets/logo.png';
 import tdTestImg from './assets/tdTest.png';
 import CanvasPreview from './components/CanvasPreview';
@@ -179,17 +178,17 @@ function App(): React.ReactElement | null {
     );
 
     return (
-        <div className="uploader-root">
+        <div className="p-4 box-border text-inherit font-sans flex flex-col flex-1 min-w-0 max-w-full min-h-0 h-screen w-full">
             <Header
                 onLoadTest={() => {
                     invalidate();
                     setImage(tdTestImg, true);
                 }}
             />
-            <div className="app-layout" ref={layoutRef}>
-                <aside className="sidebar">
+            <div className="app-layout flex flex-1 min-h-0" ref={layoutRef}>
+                <aside className="w-80 bg-gray-900 border-r border-gray-700 flex flex-col">
                     <ModeTabs mode={mode} onChange={setMode} />
-                    <div className="controls-panel">
+                    <div className="flex-1 overflow-y-auto p-4">
                         {mode === '2d' ? (
                             <>
                                 <input
@@ -285,14 +284,14 @@ function App(): React.ReactElement | null {
                     </div>
                 </aside>
                 <div
-                    className="splitter"
+                    className="w-1 bg-gray-700 cursor-col-resize hover:bg-gray-600 transition-colors"
                     onMouseDown={onSplitterDown}
                     role="separator"
                     aria-orientation="vertical"
                 />
-                <main className="preview-area">
+                <main className="flex-1 bg-gray-800 flex flex-col">
                     <div
-                        className={`dropzone ${dropzone.dragOver ? 'dragover' : ''}`}
+                        className={`flex-1 relative ${dropzone.dragOver ? 'bg-blue-900/20' : ''}`}
                         onDrop={dropzone.onDrop}
                         onDragOver={dropzone.onDragOver}
                         onDragLeave={dropzone.onDragLeave}

@@ -7,11 +7,15 @@ interface Props {
 
 export const ModeTabs: React.FC<Props> = ({ mode, onChange }) => {
     return (
-        <div className="controls-group mode-section" aria-hidden={false}>
-            <div className="mode-tabs">
+        <div className="mb-4" aria-hidden={false}>
+            <div className="flex bg-gray-800 rounded-lg p-1">
                 <button
                     type="button"
-                    className={`mode-btn ${mode === '2d' ? 'mode-btn--active' : ''}`}
+                    className={`flex-1 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                        mode === '2d'
+                            ? 'bg-blue-600 text-white'
+                            : 'text-gray-400 hover:text-white hover:bg-gray-700'
+                    }`}
                     onClick={() => onChange('2d')}
                     aria-pressed={mode === '2d'}
                 >
@@ -19,7 +23,11 @@ export const ModeTabs: React.FC<Props> = ({ mode, onChange }) => {
                 </button>
                 <button
                     type="button"
-                    className={`mode-btn ${mode === '3d' ? 'mode-btn--active' : ''}`}
+                    className={`flex-1 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                        mode === '3d'
+                            ? 'bg-blue-600 text-white'
+                            : 'text-gray-400 hover:text-white hover:bg-gray-700'
+                    }`}
                     onClick={() => onChange('3d')}
                     aria-pressed={mode === '3d'}
                 >
