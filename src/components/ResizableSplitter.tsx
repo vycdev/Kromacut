@@ -79,7 +79,7 @@ export const ResizableSplitter: React.FC<ResizableSplitterProps> = ({
     return (
         <div
             ref={containerRef}
-            className={`flex h-full ${className}`}
+            className={`flex h-full w-full ${className}`}
             key={`splitter-${leftWidth}`}
             style={{
                 height: '100%',

@@ -180,7 +180,7 @@ function App(): React.ReactElement | null {
                     setImage(tdTestImg, true);
                 }}
             />
-            <div className="flex flex-1 min-h-0" ref={layoutRef}>
+            <div className="flex flex-1 min-h-0 w-full" ref={layoutRef}>
                 <ResizableSplitter defaultSize={30} minSize={20} maxSize={50}>
                     <aside className="w-full bg-gray-900 border-r border-gray-700 flex flex-col">
                         <ModeTabs mode={mode} onChange={setMode} />
