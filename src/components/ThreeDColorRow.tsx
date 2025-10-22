@@ -20,7 +20,7 @@ function ThreeDColorRowInner({ fi, displayIdx, hex, value, layerHeight, onChange
 
     return (
         <SortableItem value={String(fi)} asChild>
-            <div className="flex gap-2 items-center px-3 py-2.5 rounded-lg transition-all duration-100 group hover:bg-accent/5 data-dragging:bg-primary/15 data-dragging:scale-105 data-dragging:shadow-lg">
+            <div className="flex gap-2 items-center px-3 py-2.5 rounded-lg transition-all duration-100 group hover:bg-accent/5 data-dragging:bg-primary/15 data-dragging:shadow-lg">
                 {/* Drag handle */}
                 <SortableItemHandle asChild>
                     <Button

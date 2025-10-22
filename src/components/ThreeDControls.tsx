@@ -365,8 +365,8 @@ export default function ThreeDControls({ swatches, onChange, persisted }: ThreeD
                     onValueChange={handleColorOrderChange}
                     orientation="vertical"
                 >
-                    <SortableContent className="space-y-2" asChild>
-                        <div>
+                    <SortableContent asChild>
+                        <div className="space-y-2">
                             {displayOrder.map((fi, displayIdx) => {
                                 const s = filtered[fi];
                                 const val = colorSliceHeights[fi] ?? layerHeight;
@@ -385,10 +385,7 @@ export default function ThreeDControls({ swatches, onChange, persisted }: ThreeD
                         </div>
                     </SortableContent>
                     <SortableOverlay>
-                        <div
-                            className="w-full rounded-lg bg-primary/10"
-                            style={{ height: '45px' }}
-                        />
+                        <div className="rounded-lg bg-primary/10 h-11" />
                     </SortableOverlay>
                 </Sortable>
             </Card>
