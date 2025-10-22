@@ -705,7 +705,7 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
                         />
                         {/* selection box */}
                         <div
-                            className="crop-box"
+                            className="crop-box text-primary"
                             style={{
                                 left: selection.x,
                                 top: selection.y,
@@ -723,22 +723,22 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
                             </div>
                             {/* corners */}
                             <div
-                                className="corner nw"
+                                className="corner nw bg-primary"
                                 data-handle="nw"
                                 onMouseDown={onSelectionPointerDown}
                             />
                             <div
-                                className="corner ne"
+                                className="corner ne bg-primary"
                                 data-handle="ne"
                                 onMouseDown={onSelectionPointerDown}
                             />
                             <div
-                                className="corner sw"
+                                className="corner sw bg-primary"
                                 data-handle="sw"
                                 onMouseDown={onSelectionPointerDown}
                             />
                             <div
-                                className="corner se"
+                                className="corner se bg-primary"
                                 data-handle="se"
                                 onMouseDown={onSelectionPointerDown}
                             />

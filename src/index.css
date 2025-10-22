@@ -253,52 +253,20 @@ body,
     @apply bg-background text-foreground;
     letter-spacing: var(--tracking-normal);
     }
-  
-  /* Scrollbar styling using theme colors */
-  ::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
-  }
-  
-  ::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  
-  ::-webkit-scrollbar-thumb {
-    background: var(--muted-foreground);
-    border-radius: 4px;
-  }
-  
-  ::-webkit-scrollbar-thumb:hover {
-    background: var(--foreground);
-  }
-  
-  ::-webkit-scrollbar-thumb:active {
-    background: var(--primary);
-  }
-  
-  /* Firefox scrollbar */
-  * {
-    scrollbar-color: var(--muted-foreground) transparent;
-    scrollbar-width: thin;
-  }
 }
 
-/* Hide default number input spinners */
+/* Hide default number input spinners - ONLY the browser default removal */
 input[type="number"]::-webkit-outer-spin-button,
 input[type="number"]::-webkit-inner-spin-button {
   -webkit-appearance: none;
   margin: 0;
-  opacity: 0;
-  width: 0;
-  height: 0;
 }
 
 input[type="number"] {
   -moz-appearance: textfield;
 }
 
-/* Crop overlay styling */
+/* Crop overlay - structural only, no theming */
 .crop-overlay {
   position: absolute;
   inset: 0;
@@ -312,8 +280,8 @@ input[type="number"] {
 
 .crop-box {
   position: absolute;
-  border: 2px solid var(--primary);
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+  border: 2px solid;
+  border-color: currentColor;
   z-index: 10;
 }
 
@@ -352,7 +320,6 @@ input[type="number"] {
   position: absolute;
   width: 12px;
   height: 12px;
-  background: var(--primary);
   border: 1px solid white;
     cursor: pointer;
   z-index: 11;
@@ -382,38 +349,38 @@ input[type="number"] {
   cursor: nwse-resize;
 }
 
-.edge {
+.side {
   position: absolute;
   background: transparent;
   z-index: 9;
 }
 
-.edge.n,
-.edge.s {
+.side.n,
+.side.s {
   height: 8px;
   width: 100%;
   cursor: ns-resize;
 }
 
-.edge.n {
+.side.n {
   top: -4px;
 }
 
-.edge.s {
+.side.s {
   bottom: -4px;
 }
 
-.edge.e,
-.edge.w {
+.side.e,
+.side.w {
   width: 8px;
   height: 100%;
   cursor: ew-resize;
 }
 
-.edge.e {
+.side.e {
   right: -4px;
 }
 
-.edge.w {
+.side.w {
   left: -4px;
 }

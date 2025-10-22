@@ -71,10 +71,10 @@ const NumberInput = React.forwardRef<HTMLInputElement, NumberInputProps>(
                     onChange={onChange}
                     {...props}
                 />
-                <div className="absolute right-0.5 top-1/2 -translate-y-1/2 flex flex-col gap-px h-[18px] pointer-events-auto">
+                <div className="absolute right-0.5 top-1/2 -translate-y-1/2 flex flex-col gap-0.5 h-5 pointer-events-auto">
                     <button
                         type="button"
-                        className="flex items-center justify-center w-5 h-2 px-0.5 border-none bg-muted-foreground hover:bg-foreground active:bg-primary text-background cursor-pointer text-xs transition-colors rounded-t-sm disabled:opacity-50 disabled:cursor-not-allowed user-select-none"
+                        className="flex items-center justify-center w-6 h-2.5 px-0 border border-border/50 bg-muted hover:bg-muted/80 active:bg-primary text-foreground cursor-pointer text-xs font-bold transition-colors rounded-t-sm disabled:opacity-50 disabled:cursor-not-allowed user-select-none hover:text-foreground"
                         onClick={handleIncrement}
                         tabIndex={-1}
                         aria-label="Increment"
@@ -83,7 +83,7 @@ const NumberInput = React.forwardRef<HTMLInputElement, NumberInputProps>(
                     </button>
                     <button
                         type="button"
-                        className="flex items-center justify-center w-5 h-2 px-0.5 border-none bg-muted-foreground hover:bg-foreground active:bg-primary text-background cursor-pointer text-xs transition-colors rounded-b-sm disabled:opacity-50 disabled:cursor-not-allowed user-select-none"
+                        className="flex items-center justify-center w-6 h-2.5 px-0 border border-border/50 bg-muted hover:bg-muted/80 active:bg-primary text-foreground cursor-pointer text-xs font-bold transition-colors rounded-b-sm disabled:opacity-50 disabled:cursor-not-allowed user-select-none hover:text-foreground"
                         onClick={handleDecrement}
                         tabIndex={-1}
                         aria-label="Decrement"
