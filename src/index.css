@@ -41,10 +41,6 @@
 }
 
 :root {
-    /* Force dark mode by default */
-    color-scheme: dark !important;
-    color: rgba(255, 255, 255, 0.92) !important;
-    background-color: #1e1e1e !important;
     --background: oklch(0.9885 0.0057 84.5659);
     --foreground: oklch(0.3660 0.0251 49.6085);
     --card: oklch(0.9686 0.0091 78.2818);
