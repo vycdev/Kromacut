@@ -102,15 +102,20 @@ export const AdjustmentsPanel: React.FC<Props> = React.memo(
         }, [onBake, onCommit]);
 
         return (
-            <Card className="p-4 space-y-3">
+            <Card className="p-4 border border-border/50 space-y-4">
                 <div className="flex items-center justify-between gap-2">
-                    <span className="font-bold text-foreground">Adjustments</span>
+                    <div>
+                        <h3 className="text-sm font-semibold text-foreground">Adjustments</h3>
+                        <p className="text-xs text-muted-foreground mt-1">
+                            Fine-tune image properties
+                        </p>
+                    </div>
                     <div className="flex gap-2">
                         <Button
                             type="button"
                             onClick={handleBake}
                             size="sm"
-                            className="bg-primary hover:bg-primary/80 text-primary-foreground font-semibold"
+                            className="bg-green-600 hover:bg-green-700 text-white font-semibold transition-colors"
                             title="Apply (bake) adjustments to the image"
                             aria-label="Apply adjustments"
                         >
@@ -120,7 +125,7 @@ export const AdjustmentsPanel: React.FC<Props> = React.memo(
                             type="button"
                             onClick={handleReset}
                             size="sm"
-                            className="bg-muted hover:bg-muted/80 text-muted-foreground font-semibold"
+                            className="bg-amber-600 hover:bg-amber-700 text-white font-semibold transition-colors"
                             title="Reset all adjustments to defaults"
                             aria-label="Reset adjustments"
                         >
@@ -128,14 +133,15 @@ export const AdjustmentsPanel: React.FC<Props> = React.memo(
                         </Button>
                     </div>
                 </div>
-                <div className="space-y-3">
+                <div className="h-px bg-border/50" />
+                <div className="space-y-4">
                     {defs.map((s) => {
                         const displayVal = values[s.key];
                         return (
                             <label key={s.key} className="block space-y-2">
                                 <div className="flex justify-between items-center text-sm">
                                     <span className="font-medium text-foreground">{s.label}</span>
-                                    <span className="text-muted-foreground">
+                                    <span className="px-2 py-1 rounded-full bg-primary/10 text-primary text-xs font-mono font-semibold">
                                         {displayVal}
                                         {s.unit ? ` ${s.unit}` : ''}
                                     </span>
