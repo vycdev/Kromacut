@@ -297,3 +297,123 @@ input[type="number"]::-webkit-inner-spin-button {
 input[type="number"] {
   -moz-appearance: textfield;
 }
+
+/* Crop overlay styling */
+.crop-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 50;
+}
+
+.crop-dim {
+  position: absolute;
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.crop-box {
+  position: absolute;
+  border: 2px solid var(--primary);
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+  z-index: 10;
+}
+
+.crop-grid {
+  position: absolute;
+  inset: 0;
+}
+
+.crop-grid .v,
+.crop-grid .h {
+  position: absolute;
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.crop-grid .v {
+  width: 1px;
+  height: 100%;
+  left: 33.333%;
+}
+
+.crop-grid .v2 {
+  left: 66.666%;
+}
+
+.crop-grid .h {
+  width: 100%;
+  height: 1px;
+  top: 33.333%;
+}
+
+.crop-grid .h2 {
+  top: 66.666%;
+}
+
+.corner {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  background: var(--primary);
+  border: 1px solid white;
+    cursor: pointer;
+  z-index: 11;
+}
+
+.corner.nw {
+  top: -6px;
+  left: -6px;
+  cursor: nwse-resize;
+}
+
+.corner.ne {
+  top: -6px;
+  right: -6px;
+  cursor: nesw-resize;
+}
+
+.corner.sw {
+  bottom: -6px;
+  left: -6px;
+  cursor: nesw-resize;
+}
+
+.corner.se {
+  bottom: -6px;
+  right: -6px;
+  cursor: nwse-resize;
+}
+
+.edge {
+  position: absolute;
+  background: transparent;
+  z-index: 9;
+}
+
+.edge.n,
+.edge.s {
+  height: 8px;
+  width: 100%;
+  cursor: ns-resize;
+}
+
+.edge.n {
+  top: -4px;
+}
+
+.edge.s {
+  bottom: -4px;
+}
+
+.edge.e,
+.edge.w {
+  width: 8px;
+  height: 100%;
+  cursor: ew-resize;
+}
+
+.edge.e {
+  right: -4px;
+}
+
+.edge.w {
+  left: -4px;
+}
