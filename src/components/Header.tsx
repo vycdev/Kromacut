@@ -16,12 +16,12 @@ export const Header: React.FC<Props> = ({ onLoadTest }) => {
                     Kromacut
                 </span>
             </div>
-            <div className="flex gap-2 items-center">
+            <div className="flex gap-2.5 items-center">
                 <Button
                     size="sm"
                     onClick={onLoadTest}
                     title="Load TD Test"
-                    className="bg-primary hover:bg-primary/80 text-primary-foreground font-semibold"
+                    className="bg-blue-600 hover:bg-blue-700 text-white font-semibold transition-all duration-200 shadow-md hover:shadow-lg hover:scale-105 active:scale-95 gap-1.5"
                 >
                     <Image className="w-4 h-4" />
                     <span>Load TD Test</span>
@@ -29,7 +29,7 @@ export const Header: React.FC<Props> = ({ onLoadTest }) => {
                 <Button
                     size="sm"
                     asChild
-                    className="bg-slate-700 hover:bg-slate-600 text-white font-semibold transition-colors shadow-sm hover:shadow-md"
+                    className="bg-slate-700 hover:bg-slate-600 text-white font-semibold transition-all duration-200 shadow-md hover:shadow-lg hover:scale-105 active:scale-95 gap-1.5"
                 >
                     <a
                         href="https://github.com/vycdev/Kromacut"
@@ -42,7 +42,7 @@ export const Header: React.FC<Props> = ({ onLoadTest }) => {
                 </Button>
                 <Button
                     size="sm"
-                    className="bg-gradient-to-r from-destructive to-orange-500 hover:from-destructive/80 hover:to-orange-600 text-destructive-foreground font-semibold"
+                    className="bg-gradient-to-r from-rose-500 to-orange-500 hover:from-rose-600 hover:to-orange-600 text-white font-semibold transition-all duration-200 shadow-md hover:shadow-lg hover:scale-105 active:scale-95 gap-1.5"
                     asChild
                 >
                     <a

@@ -72,12 +72,14 @@ export const SwatchesPanel: React.FC<Props> = ({
                         {swatches.filter((s) => !s.isTransparent).length}
                     </span>
                     {loading && (
-                        <span className="text-xs text-muted-foreground animate-pulse">Updating…</span>
+                        <span className="text-xs text-muted-foreground animate-pulse">
+                            Updating…
+                        </span>
                     )}
                 </div>
             </div>
             <div
-                className="grid gap-1"
+                className="grid gap-2 p-3 rounded-lg bg-muted/30"
                 style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(15px, 1fr))' }}
                 aria-live="polite"
             >
@@ -100,12 +102,9 @@ export const SwatchesPanel: React.FC<Props> = ({
                             swatchStyle.background = s.hex;
                         }
                         return (
-                            <div
+                            <button
                                 key={s.hex + '-' + s.a}
-                                className="w-full rounded border border-border cursor-pointer hover:ring-1 hover:ring-primary transition-all"
-                                style={{ aspectRatio: '1', ...swatchStyle }}
-                                role="button"
-                                tabIndex={0}
+                                type="button"
                                 onClick={() => setOpenSwatch(s)}
                                 onKeyDown={(e) => {
                                     if (e.key === 'Enter' || e.key === ' ') {
@@ -115,6 +114,8 @@ export const SwatchesPanel: React.FC<Props> = ({
                                 title={`${s.hex}${
                                     s.a === 0 ? ' (transparent)' : ''
                                 }  alpha:${s.a}  count:${s.count}`}
+                                className="rounded border border-border/70 cursor-pointer hover:border-primary hover:shadow-md transition-all duration-200 hover:scale-110"
+                                style={{ aspectRatio: '1', ...swatchStyle }}
                             />
                         );
                     })
@@ -136,8 +137,12 @@ export const SwatchesPanel: React.FC<Props> = ({
                         {/* Header */}
                         <div className="flex justify-between items-center p-6 border-b border-border/50">
                             <div>
-                                <h2 className="font-semibold text-foreground text-base">Edit Color</h2>
-                                <p className="text-xs text-muted-foreground mt-1">Adjust the color and transparency</p>
+                                <h2 className="font-semibold text-foreground text-base">
+                                    Edit Color
+                                </h2>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                    Adjust the color and transparency
+                                </p>
                             </div>
                             <button
                                 aria-label="Close"
@@ -176,7 +181,10 @@ export const SwatchesPanel: React.FC<Props> = ({
 
                             {/* Preview */}
                             <div className="flex justify-center">
-                                <div aria-hidden className="w-20 h-20 border-2 border-border rounded-lg shadow-md overflow-hidden">
+                                <div
+                                    aria-hidden
+                                    className="w-20 h-20 border-2 border-border rounded-lg shadow-md overflow-hidden"
+                                >
                                     <div
                                         aria-hidden
                                         className="w-full h-full"
@@ -189,7 +197,9 @@ export const SwatchesPanel: React.FC<Props> = ({
 
                             {/* Hex input */}
                             <div className="space-y-2">
-                                <label className="text-xs font-medium text-foreground">Hex Value</label>
+                                <label className="text-xs font-medium text-foreground">
+                                    Hex Value
+                                </label>
                                 <Input
                                     value={pickerColor}
                                     onChange={(e) => {
@@ -200,7 +210,8 @@ export const SwatchesPanel: React.FC<Props> = ({
                                                 const r = parseInt(hex.slice(0, 2), 16) || 0;
                                                 const g = parseInt(hex.slice(2, 4), 16) || 0;
                                                 const b = parseInt(hex.slice(4, 6), 16) || 0;
-                                                const a = (parseInt(hex.slice(6, 8), 16) || 255) / 255;
+                                                const a =
+                                                    (parseInt(hex.slice(6, 8), 16) || 255) / 255;
                                                 setRgba((p) => ({
                                                     ...p,
                                                     r,

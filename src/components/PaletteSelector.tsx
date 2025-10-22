@@ -19,29 +19,32 @@ export const PaletteSelector: React.FC<Props> = ({ selected, onSelect }) => {
                 {PALETTES.map((p) => {
                     const isActive = p.id === selected;
                     return (
-                        <Button
+                        <button
                             key={p.id}
                             type="button"
                             onClick={() => onSelect(p.id, p.size)}
                             title={p.id === 'auto' ? 'Auto' : `${p.size} colors`}
-                            variant={isActive ? 'default' : 'outline'}
-                            className="h-auto p-3 flex flex-col items-center gap-2 transition-all duration-200 hover:border-primary"
+                            className={`h-auto p-3 flex flex-col items-center gap-2.5 rounded-lg border-2 transition-all duration-200 ${
+                                isActive
+                                    ? 'border-primary bg-primary/5 shadow-md'
+                                    : 'border-border hover:border-primary/50 hover:bg-accent/5'
+                            }`}
                         >
                             <div className="w-full">
                                 {p.id === 'auto' ? (
-                                    <div className="text-sm font-bold text-center py-2">Auto</div>
+                                    <div className="text-sm font-bold text-center py-2 text-foreground">Auto</div>
                                 ) : (
                                     <div
-                                        className="grid gap-1"
+                                        className="grid gap-1.5 p-2 bg-muted/30 rounded"
                                         style={{
                                             gridTemplateColumns:
-                                                'repeat(auto-fill, minmax(14px, 1fr))',
+                                                'repeat(auto-fill, minmax(16px, 1fr))',
                                         }}
                                     >
                                         {p.colors.map((c, i) => (
                                             <div
                                                 key={i}
-                                                className="aspect-square rounded-sm border border-border/50 transition-all hover:border-border"
+                                                className="aspect-square rounded border border-border/70 transition-all hover:border-primary shadow-sm"
                                                 style={{ background: c }}
                                             />
                                         ))}
@@ -49,11 +52,11 @@ export const PaletteSelector: React.FC<Props> = ({ selected, onSelect }) => {
                                 )}
                             </div>
                             {p.id === 'auto' ? null : (
-                                <div className="text-xs font-semibold text-muted-foreground bg-muted/50 px-2 py-1 rounded">
+                                <div className="text-xs font-semibold text-primary bg-primary/10 px-2.5 py-1 rounded-full">
                                     {p.size} colors
                                 </div>
                             )}
-                        </Button>
+                        </button>
                     );
                 })}
             </div>
