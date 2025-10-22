@@ -163,7 +163,11 @@ export const DeditherPanel: React.FC<Props> = ({ canvasRef, onApplyResult }) => 
                 />
             </div>
 
-            <Button onClick={handleApply} disabled={working} className="w-full">
+            <Button
+                onClick={handleApply}
+                disabled={working}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold disabled:bg-blue-600/50 disabled:cursor-not-allowed"
+            >
                 {working ? 'Working...' : 'Apply'}
             </Button>
         </Card>

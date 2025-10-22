@@ -110,7 +110,7 @@ export const AdjustmentsPanel: React.FC<Props> = React.memo(
                             type="button"
                             onClick={handleBake}
                             size="sm"
-                            variant="secondary"
+                            className="bg-green-600 hover:bg-green-700 text-white font-semibold"
                             title="Apply (bake) adjustments to the image"
                             aria-label="Apply adjustments"
                         >
@@ -120,7 +120,7 @@ export const AdjustmentsPanel: React.FC<Props> = React.memo(
                             type="button"
                             onClick={handleReset}
                             size="sm"
-                            variant="secondary"
+                            className="bg-amber-600 hover:bg-amber-700 text-white font-semibold"
                             title="Reset all adjustments to defaults"
                             aria-label="Reset adjustments"
                         >

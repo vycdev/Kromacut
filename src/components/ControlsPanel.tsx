@@ -76,7 +76,11 @@ export const ControlsPanel: React.FC<Props> = ({
                     </SelectContent>
                 </Select>
             </div>
-            <Button onClick={onApply} disabled={disabled} className="w-full">
+            <Button
+                onClick={onApply}
+                disabled={disabled}
+                className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold disabled:bg-purple-600/50 disabled:cursor-not-allowed"
+            >
                 Apply
             </Button>
         </div>
