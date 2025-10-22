@@ -70,29 +70,34 @@ export const SwatchesPanel: React.FC<Props> = ({
                     <span className="text-xs text-muted-foreground animate-pulse">Updating…</span>
                 )}
             </div>
-            <div className="grid grid-cols-4 gap-2" aria-live="polite">
+            <div
+                className="grid gap-1"
+                style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(15px, 1fr))' }}
+                aria-live="polite"
+            >
                 {swatches.length === 0 ? (
-                    <div className="col-span-4 py-4 text-center text-sm text-muted-foreground">
+                    <div className="col-span-full py-4 text-center text-sm text-muted-foreground">
                         No swatches
                     </div>
                 ) : (
                     swatches.slice(0, cap).map((s) => {
                         const swatchStyle: React.CSSProperties = {};
                         if (s.a === 0) {
-                            swatchStyle.background = `repeating-conic-gradient(#666 0% 25%, #333 0% 50%) 50% / 8px 8px`;
+                            swatchStyle.background = `repeating-conic-gradient(rgba(255,255,255,0.1) 0% 25%, rgba(0,0,0,0.1) 0% 50%) 50% / 4px 4px`;
                         } else if (s.a < 255) {
                             const r = parseInt(s.hex.slice(1, 3), 16) || 0;
                             const g = parseInt(s.hex.slice(3, 5), 16) || 0;
                             const b = parseInt(s.hex.slice(5, 7), 16) || 0;
                             const alpha = (s.a / 255).toFixed(3);
-                            swatchStyle.background = `linear-gradient(rgba(${r}, ${g}, ${b}, ${alpha}), rgba(${r}, ${g}, ${b}, ${alpha})), repeating-conic-gradient(#666 0% 25%, #333 0% 50%) 50% / 8px 8px`;
+                            swatchStyle.background = `linear-gradient(rgba(${r}, ${g}, ${b}, ${alpha}), rgba(${r}, ${g}, ${b}, ${alpha})), repeating-conic-gradient(rgba(255,255,255,0.1) 0% 25%, rgba(0,0,0,0.1) 0% 50%) 50% / 4px 4px`;
                         } else {
                             swatchStyle.background = s.hex;
                         }
                         return (
                             <div
                                 key={s.hex + '-' + s.a}
-                                className="h-12 rounded border border-border cursor-pointer hover:ring-2 hover:ring-primary transition-all"
+                                className="w-full rounded border border-border cursor-pointer hover:ring-1 hover:ring-primary transition-all"
+                                style={{ aspectRatio: '1', ...swatchStyle }}
                                 role="button"
                                 tabIndex={0}
                                 onClick={() => setOpenSwatch(s)}
@@ -104,7 +109,6 @@ export const SwatchesPanel: React.FC<Props> = ({
                                 title={`${s.hex}${
                                     s.a === 0 ? ' (transparent)' : ''
                                 }  alpha:${s.a}  count:${s.count}`}
-                                style={swatchStyle}
                             />
                         );
                     })

@@ -253,4 +253,30 @@ body,
     @apply bg-background text-foreground;
     letter-spacing: var(--tracking-normal);
     }
+  
+  /* Custom scrollbar styling */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    background: var(--background);
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    background: var(--muted-foreground);
+    border-radius: 4px;
+    border: 2px solid var(--background);
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--foreground);
+  }
+  
+  /* Firefox scrollbar */
+  * {
+    scrollbar-color: var(--muted-foreground) var(--background);
+    scrollbar-width: thin;
+  }
 }
