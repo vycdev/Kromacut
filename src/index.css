@@ -260,8 +260,14 @@ body,
     height: 14px;
   }
   
-  /* Hide scrollbar buttons (up/down arrows) */
+  /* Hide scrollbar buttons (up/down arrows) - set size to 0 */
   ::-webkit-scrollbar-button {
+    width: 0;
+    height: 0;
+  }
+  
+  ::-webkit-scrollbar-button:start:increment,
+  ::-webkit-scrollbar-button:end:decrement {
     display: none;
   }
   
