@@ -47,13 +47,30 @@ function ThreeDColorRowInner({
     };
 
     const handleDragStart = (e: React.DragEvent<HTMLDivElement>) => {
-        // Create drag image
+        // Create a proper drag ghost image with the full element
         if (rowRef.current) {
-            const img = new Image();
-            img.src =
-                'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="1" height="1"%3E%3C/svg%3E';
-            e.dataTransfer.setDragImage(img, 0, 0);
+            // Create a clone of the element to use as drag image
+            const dragGhost = rowRef.current.cloneNode(true) as HTMLElement;
+            dragGhost.style.position = 'absolute';
+            dragGhost.style.top = '-9999px';
+            dragGhost.style.left = '-9999px';
+            dragGhost.style.width = rowRef.current.offsetWidth + 'px';
+            dragGhost.style.opacity = '0.8';
+            dragGhost.style.zIndex = '10000';
+            dragGhost.style.pointerEvents = 'none';
+            dragGhost.style.borderRadius = '8px';
+            dragGhost.style.boxShadow = '0 10px 25px rgba(0, 0, 0, 0.5)';
+            document.body.appendChild(dragGhost);
+
+            // Set the drag image
+            e.dataTransfer.setDragImage(dragGhost, 0, 0);
+
+            // Clean up after a short delay
+            setTimeout(() => {
+                document.body.removeChild(dragGhost);
+            }, 0);
         }
+
         e.dataTransfer.effectAllowed = 'move';
         e.dataTransfer.setData('text/plain', String(fi));
         onDragStart(e, fi);
@@ -61,8 +78,8 @@ function ThreeDColorRowInner({
 
     const dragIndicatorClass = isDragOver
         ? dragPosition === 'above'
-            ? 'ring-2 ring-primary ring-inset rounded-lg shadow-lg -translate-y-0.5 bg-primary/10 scale-100'
-            : 'ring-2 ring-primary ring-inset rounded-lg shadow-lg translate-y-0.5 bg-primary/10 scale-100'
+            ? 'ring-2 ring-primary ring-inset rounded-lg shadow-lg -translate-y-1 bg-primary/15 scale-105'
+            : 'ring-2 ring-primary ring-inset rounded-lg shadow-lg translate-y-1 bg-primary/15 scale-105'
         : 'hover:bg-accent/5 scale-100';
 
     return (
@@ -71,7 +88,8 @@ function ThreeDColorRowInner({
             onDragOver={(e) => onDragOver(e, displayIdx)}
             onDragLeave={onDragLeave}
             onDrop={(e) => onDrop(e, displayIdx)}
-            className={`flex gap-2 items-center px-3 py-2.5 rounded-lg transition-all duration-150 group ${dragIndicatorClass}`}
+            className={`flex gap-2 items-center px-3 py-2.5 rounded-lg transition-all duration-100 group ${dragIndicatorClass}`}
+            style={{ transformOrigin: 'left center' }}
         >
             {/* Drag handle */}
             <div
