@@ -279,9 +279,9 @@ function App(): React.ReactElement | null {
                             )}
                         </div>
                     </aside>
-                    <main className="h-full bg-gray-800 flex flex-col min-h-0">
+                    <main className="h-full w-full bg-gray-800 flex flex-col min-h-0">
                         <div
-                            className={`flex-1 relative min-h-0 ${dropzone.dragOver ? 'bg-blue-900/20' : ''}`}
+                            className={`flex-1 relative min-h-0 w-full ${dropzone.dragOver ? 'bg-blue-900/20' : ''}`}
                             onDrop={dropzone.onDrop}
                             onDragOver={dropzone.onDragOver}
                             onDragLeave={dropzone.onDragLeave}

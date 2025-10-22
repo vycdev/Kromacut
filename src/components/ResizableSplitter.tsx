@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { Separator } from '@/components/ui/separator';
 
 interface ResizableSplitterProps {
@@ -20,6 +20,20 @@ export const ResizableSplitter: React.FC<ResizableSplitterProps> = ({
     const separatorRef = useRef<HTMLDivElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const isDraggingRef = useRef(false);
+
+    // Update flexbox widths when leftWidth changes
+    useEffect(() => {
+        if (containerRef.current) {
+            const element = containerRef.current;
+
+            // Set flex basis only for left panel, let right panel grow naturally
+            const leftPanel = element.children[0] as HTMLElement;
+
+            if (leftPanel) {
+                leftPanel.style.flexBasis = `${leftWidth}%`;
+            }
+        }
+    }, [leftWidth]);
 
     const handleMouseDown = useCallback(
         (e: React.MouseEvent) => {
@@ -65,21 +79,20 @@ export const ResizableSplitter: React.FC<ResizableSplitterProps> = ({
     return (
         <div
             ref={containerRef}
-            className={`grid h-full ${className}`}
+            className={`flex h-full ${className}`}
+            key={`splitter-${leftWidth}`}
             style={{
-                gridTemplateColumns: `${leftWidth}% 4px 1fr`,
-                gridTemplateRows: '1fr',
                 height: '100%',
             }}
         >
-            <div className="overflow-hidden h-full">{children[0]}</div>
+            <div className="overflow-hidden h-full flex-shrink-0">{children[0]}</div>
             <Separator
                 ref={separatorRef}
                 orientation="vertical"
-                className="bg-gray-700 hover:bg-gray-600 cursor-col-resize transition-colors"
+                className="bg-gray-700 hover:bg-gray-600 cursor-col-resize transition-colors flex-shrink-0"
                 onMouseDown={handleMouseDown}
             />
-            <div className="overflow-hidden min-w-0 h-full">{children[1]}</div>
+            <div className="overflow-hidden min-w-0 h-full flex-1">{children[1]}</div>
         </div>
     );
 };
