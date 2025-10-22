@@ -294,3 +294,88 @@ body,
     scrollbar-width: thin;
   }
 }
+
+/* Number input spinner styling */
+input[type="number"] {
+  position: relative;
+}
+
+/* Hide default number input spinners */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+/* Custom spinner buttons container */
+.number-input-wrapper {
+  position: relative;
+  display: inline-block;
+  width: 100%;
+}
+
+.number-input-wrapper input[type="number"] {
+  width: 100%;
+  padding-right: 28px;
+}
+
+.number-input-spinners {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  height: 18px;
+  pointer-events: auto;
+}
+
+.number-input-spinner-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 8px;
+  padding: 0;
+  border: none;
+  background: var(--muted-foreground);
+  color: var(--background);
+  cursor: pointer;
+  font-size: 10px;
+  line-height: 1;
+  transition: all 0.15s ease;
+  border-radius: 1px;
+  user-select: none;
+}
+
+.number-input-spinner-btn:hover {
+  background: var(--foreground);
+  color: var(--background);
+}
+
+.number-input-spinner-btn:active {
+  background: var(--primary);
+  color: white;
+}
+
+.number-input-spinner-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: var(--muted-foreground);
+}
+
+.number-input-spinner-btn-up {
+  border-radius: 1px 1px 0 0;
+}
+
+.number-input-spinner-btn-down {
+  border-radius: 0 0 1px 1px;
+}

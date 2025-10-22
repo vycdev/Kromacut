@@ -1,6 +1,6 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Input, NumberInput } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
     Select,
@@ -37,10 +37,10 @@ export const ControlsPanel: React.FC<Props> = ({
         <div className="space-y-3">
             <div className="space-y-2">
                 <Label htmlFor="final-colors">Number of colors</Label>
-                <Input
+                <NumberInput
                     id="final-colors"
-                    type="number"
                     min={2}
+                    max={256}
                     value={finalColors}
                     onChange={(e) =>
                         onFinalColorsChange(Math.max(2, Math.min(256, Number(e.target.value) || 2)))
@@ -49,10 +49,10 @@ export const ControlsPanel: React.FC<Props> = ({
             </div>
             <div className="space-y-2">
                 <Label htmlFor="weight">Algorithm Weight</Label>
-                <Input
+                <NumberInput
                     id="weight"
-                    type="number"
                     min={2}
+                    max={256}
                     value={weight}
                     disabled={weightDisabled}
                     onChange={(e) =>

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { DragEvent } from 'react';
 import { Card } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
+import { Input, NumberInput } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import ThreeDColorRow from './ThreeDColorRow';
 
@@ -346,8 +346,7 @@ export default function ThreeDControls({ swatches, onChange, persisted }: ThreeD
                             {pixelSize.toFixed(3)} mm/pixel
                         </span>
                     </div>
-                    <Input
-                        type="number"
+                    <NumberInput
                         min={0.01}
                         max={10}
                         step={0.01}
@@ -369,8 +368,7 @@ export default function ThreeDControls({ swatches, onChange, persisted }: ThreeD
                             {layerHeight.toFixed(2)} mm
                         </span>
                     </div>
-                    <Input
-                        type="number"
+                    <NumberInput
                         min={0.01}
                         max={10}
                         step={0.01}
@@ -392,8 +390,7 @@ export default function ThreeDControls({ swatches, onChange, persisted }: ThreeD
                             {baseSliceHeight.toFixed(2)} mm
                         </span>
                     </div>
-                    <Input
-                        type="number"
+                    <NumberInput
                         min={0}
                         max={10}
                         step={0.01}
