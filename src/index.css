@@ -254,32 +254,44 @@ body,
     letter-spacing: var(--tracking-normal);
     }
   
-  /* Scrollbar styling - VSCode style (only visible on hover) */
+  /* Scrollbar styling - true auto-hide */
   ::-webkit-scrollbar {
-    @apply w-3 h-3;
+    width: 10px;
+    height: 10px;
   }
   
   ::-webkit-scrollbar-track {
-    @apply bg-transparent;
+    background: transparent;
   }
   
   ::-webkit-scrollbar-thumb {
-    @apply bg-muted-foreground/50 rounded transition-opacity duration-200;
-    background-clip: padding-box;
+    @apply bg-muted-foreground rounded;
+    opacity: 0;
+    transition: opacity 0.3s ease;
   }
   
   ::-webkit-scrollbar-thumb:hover {
-    @apply bg-muted-foreground;
+    opacity: 1;
   }
   
-  ::-webkit-scrollbar-thumb:active {
-    @apply bg-foreground;
+  /* Show scrollbar when scrolling */
+  *::-webkit-scrollbar-thumb:active {
+    opacity: 1;
   }
   
-  /* Firefox scrollbar - VSCode style */
+  /* Make scrollbar visible on parent hover */
+  *:hover::-webkit-scrollbar-thumb {
+    opacity: 0.5;
+  }
+  
+  /* Firefox scrollbar - auto-hide */
   * {
-    scrollbar-color: var(--muted-foreground) transparent;
+    scrollbar-color: rgba(0, 0, 0, 0) transparent;
     scrollbar-width: thin;
+  }
+  
+  *:hover {
+    scrollbar-color: var(--muted-foreground) transparent;
   }
 }
 
