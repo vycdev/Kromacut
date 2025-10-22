@@ -254,10 +254,15 @@ body,
     letter-spacing: var(--tracking-normal);
     }
   
-  /* Scrollbar styling - true auto-hide */
+  /* Scrollbar styling - true auto-hide with custom styling */
   ::-webkit-scrollbar {
-    width: 10px;
-    height: 10px;
+    width: 14px;
+    height: 14px;
+  }
+  
+  /* Hide scrollbar buttons (up/down arrows) */
+  ::-webkit-scrollbar-button {
+    display: none;
   }
   
   ::-webkit-scrollbar-track {
@@ -265,33 +270,36 @@ body,
   }
   
   ::-webkit-scrollbar-thumb {
-    @apply bg-muted-foreground rounded;
+    background: #4a5568;
+    border-radius: 8px;
     opacity: 0;
     transition: opacity 0.3s ease;
   }
   
   ::-webkit-scrollbar-thumb:hover {
+    background: #5a6578;
     opacity: 1;
   }
   
   /* Show scrollbar when scrolling */
   *::-webkit-scrollbar-thumb:active {
     opacity: 1;
+    background: #6b7684;
   }
   
   /* Make scrollbar visible on parent hover */
   *:hover::-webkit-scrollbar-thumb {
-    opacity: 0.5;
+    opacity: 0.6;
   }
   
-  /* Firefox scrollbar - auto-hide */
+  /* Firefox scrollbar - auto-hide with styling */
   * {
-    scrollbar-color: rgba(0, 0, 0, 0) transparent;
+    scrollbar-color: transparent transparent;
     scrollbar-width: thin;
   }
   
   *:hover {
-    scrollbar-color: var(--muted-foreground) transparent;
+    scrollbar-color: #4a5568 transparent;
   }
 }
 
