@@ -365,25 +365,30 @@ export default function ThreeDControls({ swatches, onChange, persisted }: ThreeD
                     onValueChange={handleColorOrderChange}
                     orientation="vertical"
                 >
-                    <SortableContent className="space-y-2">
-                        {displayOrder.map((fi, displayIdx) => {
-                            const s = filtered[fi];
-                            const val = colorSliceHeights[fi] ?? layerHeight;
-                            return (
-                                <ThreeDColorRow
-                                    key={`${s.hex}-${fi}`}
-                                    fi={fi}
-                                    displayIdx={displayIdx}
-                                    hex={s.hex}
-                                    value={val}
-                                    layerHeight={layerHeight}
-                                    onChange={onRowChange}
-                                />
-                            );
-                        })}
+                    <SortableContent className="space-y-2" asChild>
+                        <div>
+                            {displayOrder.map((fi, displayIdx) => {
+                                const s = filtered[fi];
+                                const val = colorSliceHeights[fi] ?? layerHeight;
+                                return (
+                                    <ThreeDColorRow
+                                        key={`${s.hex}-${fi}`}
+                                        fi={fi}
+                                        displayIdx={displayIdx}
+                                        hex={s.hex}
+                                        value={val}
+                                        layerHeight={layerHeight}
+                                        onChange={onRowChange}
+                                    />
+                                );
+                            })}
+                        </div>
                     </SortableContent>
                     <SortableOverlay>
-                        <div className="flex gap-2 items-center px-3 py-2.5 rounded-lg bg-primary/10" />
+                        <div
+                            className="w-full rounded-lg bg-primary/10"
+                            style={{ height: '45px' }}
+                        />
                     </SortableOverlay>
                 </Sortable>
             </Card>
