@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
+import { RotateCcw } from 'lucide-react';
 import type { CanvasPreviewHandle } from './CanvasPreview';
 
 interface Props {
@@ -13,6 +14,7 @@ interface Props {
 export const DeditherPanel: React.FC<Props> = ({ canvasRef, onApplyResult }) => {
     const [weight, setWeight] = useState<number>(4);
     const [working, setWorking] = useState(false);
+    const DEFAULT_WEIGHT = 4;
 
     const handleApply = useCallback(async () => {
         if (!canvasRef.current) return;
@@ -140,17 +142,40 @@ export const DeditherPanel: React.FC<Props> = ({ canvasRef, onApplyResult }) => 
     }, [canvasRef, weight, onApplyResult]);
 
     return (
-        <Card className="p-4 space-y-3">
+        <Card className="p-4 border border-border/50 space-y-4">
             <div className="flex justify-between items-center">
-                <span className="font-bold text-foreground">Dedither</span>
+                <div>
+                    <h3 className="text-sm font-semibold text-foreground">Dedither</h3>
+                    <p className="text-xs text-muted-foreground mt-1">Smooth dithered patterns</p>
+                </div>
             </div>
 
+            <div className="h-px bg-border/50" />
+
             <div className="space-y-2">
-                <div className="flex justify-between items-center">
-                    <Label htmlFor="weight-slider" className="text-sm font-medium">
+                <div className="flex justify-between items-center text-sm gap-2">
+                    <Label htmlFor="weight-slider" className="font-medium">
                         Weight
                     </Label>
-                    <span className="text-sm text-muted-foreground">{weight}</span>
+                    <div className="flex items-center gap-2">
+                        <span className="px-2 py-1 rounded-full bg-primary/10 text-primary text-xs font-mono font-semibold">
+                            {weight}
+                        </span>
+                        <button
+                            type="button"
+                            onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setWeight(DEFAULT_WEIGHT);
+                            }}
+                            disabled={weight === DEFAULT_WEIGHT}
+                            title="Reset weight to default"
+                            aria-label="Reset weight"
+                            className="h-5 w-5 flex-shrink-0 flex items-center justify-center rounded-md text-muted-foreground hover:text-amber-600 hover:bg-amber-600/15 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-muted-foreground"
+                        >
+                            <RotateCcw className="w-3.5 h-3.5" />
+                        </button>
+                    </div>
                 </div>
                 <Slider
                     id="weight-slider"
@@ -166,7 +191,7 @@ export const DeditherPanel: React.FC<Props> = ({ canvasRef, onApplyResult }) => 
             <Button
                 onClick={handleApply}
                 disabled={working}
-                className="w-full bg-primary hover:bg-primary/80 text-primary-foreground font-semibold disabled:bg-primary/50 disabled:cursor-not-allowed"
+                className="w-full bg-primary hover:bg-primary/80 text-primary-foreground font-semibold disabled:bg-primary/50 disabled:cursor-not-allowed transition-colors"
             >
                 {working ? 'Working...' : 'Apply'}
             </Button>
