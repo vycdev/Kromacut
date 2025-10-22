@@ -254,50 +254,34 @@ body,
     letter-spacing: var(--tracking-normal);
     }
   
-  /* Custom scrollbar styling */
+  /* Scrollbar styling using theme colors */
   ::-webkit-scrollbar {
-    width: 10px;
-    height: 10px;
+    width: 8px;
+    height: 8px;
   }
   
   ::-webkit-scrollbar-track {
-    background: var(--background);
-    border-radius: 5px;
+    background: transparent;
   }
   
   ::-webkit-scrollbar-thumb {
-    background: linear-gradient(180deg, var(--muted-foreground) 0%, var(--muted-foreground) 100%);
-    border-radius: 5px;
-    border: 2px solid var(--background);
-    box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.1);
-    transition: all 0.3s ease;
+    background: var(--muted-foreground);
+    border-radius: 4px;
   }
   
   ::-webkit-scrollbar-thumb:hover {
-    background: linear-gradient(180deg, var(--foreground) 0%, var(--muted-foreground) 100%);
-    border: 2px solid var(--background);
-    box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.2);
+    background: var(--foreground);
   }
   
   ::-webkit-scrollbar-thumb:active {
-    background: var(--foreground);
-    box-shadow: inset 0 0 8px rgba(0, 0, 0, 0.3);
-  }
-  
-  ::-webkit-scrollbar-corner {
-    background: var(--background);
+    background: var(--primary);
   }
   
   /* Firefox scrollbar */
   * {
-    scrollbar-color: var(--muted-foreground) var(--background);
+    scrollbar-color: var(--muted-foreground) transparent;
     scrollbar-width: thin;
   }
-}
-
-/* Number input spinner styling */
-input[type="number"] {
-  position: relative;
 }
 
 /* Hide default number input spinners */
@@ -312,70 +296,4 @@ input[type="number"]::-webkit-inner-spin-button {
 
 input[type="number"] {
   -moz-appearance: textfield;
-}
-
-/* Custom spinner buttons container */
-.number-input-wrapper {
-  position: relative;
-  display: inline-block;
-  width: 100%;
-}
-
-.number-input-wrapper input[type="number"] {
-  width: 100%;
-  padding-right: 28px;
-}
-
-.number-input-spinners {
-  position: absolute;
-  right: 4px;
-  top: 50%;
-  transform: translateY(-50%);
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  height: 18px;
-  pointer-events: auto;
-}
-
-.number-input-spinner-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 8px;
-  padding: 0;
-  border: none;
-  background: var(--muted-foreground);
-  color: var(--background);
-  cursor: pointer;
-  font-size: 10px;
-  line-height: 1;
-  transition: all 0.15s ease;
-  border-radius: 1px;
-  user-select: none;
-}
-
-.number-input-spinner-btn:hover {
-  background: var(--foreground);
-  color: var(--background);
-}
-
-.number-input-spinner-btn:active {
-  background: var(--primary);
-  color: white;
-}
-
-.number-input-spinner-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  background: var(--muted-foreground);
-}
-
-.number-input-spinner-btn-up {
-  border-radius: 1px 1px 0 0;
-}
-
-.number-input-spinner-btn-down {
-  border-radius: 0 0 1px 1px;
 }
