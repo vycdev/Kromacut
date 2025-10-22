@@ -1,3 +1,5 @@
+import { Button } from '@/components/ui/button';
+
 interface Props {
     onChoose: () => void;
     onRemove: () => void;
@@ -6,13 +8,13 @@ interface Props {
 
 export default function UploaderControls({ onChoose, onRemove, canRemove }: Props) {
     return (
-        <div className="p-4 bg-gray-800 border-b border-gray-700">
-            <button type="button" onClick={onChoose}>
+        <div className="p-4 bg-card border-b border-border flex gap-2">
+            <Button variant="secondary" onClick={onChoose}>
                 Choose file
-            </button>
-            <button onClick={onRemove} disabled={!canRemove}>
+            </Button>
+            <Button variant="secondary" onClick={onRemove} disabled={!canRemove}>
                 Remove
-            </button>
+            </Button>
         </div>
     );
 }

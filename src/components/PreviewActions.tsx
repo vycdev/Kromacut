@@ -1,4 +1,5 @@
 import React from 'react';
+import { Button } from '@/components/ui/button';
 
 export interface PreviewActionsProps {
     mode: '2d' | '3d';
@@ -41,60 +42,66 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
 }) => {
     return (
         <div className="absolute top-4 right-4 flex flex-wrap gap-2 z-10">
-            <button
-                className="px-3 py-2 bg-gray-800 text-white rounded-md hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            <Button
+                variant="secondary"
+                size="sm"
                 title="Undo"
                 aria-label="Undo"
                 disabled={isCropMode || !canUndo}
                 onClick={onUndo}
             >
                 <i className="fa-solid fa-rotate-left" aria-hidden />
-            </button>
-            <button
-                className="px-3 py-2 bg-gray-800 text-white rounded-md hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            </Button>
+            <Button
+                variant="secondary"
+                size="sm"
                 title="Redo"
                 aria-label="Redo"
                 disabled={isCropMode || !canRedo}
                 onClick={onRedo}
             >
                 <i className="fa-solid fa-rotate-right" aria-hidden />
-            </button>
+            </Button>
 
             {mode === '2d' &&
                 (!isCropMode ? (
-                    <button
-                        className="px-3 py-2 bg-gray-800 text-white rounded-md hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    <Button
+                        variant="secondary"
+                        size="sm"
                         title="Crop"
                         aria-label="Crop"
                         disabled={!imageAvailable}
                         onClick={onEnterCrop}
                     >
                         <i className="fa-solid fa-crop" aria-hidden="true"></i>
-                    </button>
+                    </Button>
                 ) : (
                     <>
-                        <button
-                            className="px-3 py-2 bg-gray-800 text-white rounded-md hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors px-3 py-2 bg-gray-800 text-white rounded-md hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors--save"
+                        <Button
+                            variant="secondary"
+                            size="sm"
                             title="Save crop"
                             aria-label="Save crop"
                             onClick={onSaveCrop}
                         >
                             <i className="fa-solid fa-floppy-disk" aria-hidden="true"></i>
-                        </button>
-                        <button
-                            className="px-3 py-2 bg-gray-800 text-white rounded-md hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors px-3 py-2 bg-gray-800 text-white rounded-md hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors--cancel"
+                        </Button>
+                        <Button
+                            variant="secondary"
+                            size="sm"
                             title="Cancel crop"
                             aria-label="Cancel crop"
                             onClick={onCancelCrop}
                         >
                             <i className="fa-solid fa-xmark" aria-hidden="true"></i>
-                        </button>
+                        </Button>
                     </>
                 ))}
 
             {/* Download button: image in 2D; STL in 3D */}
-            <button
-                className="px-3 py-2 bg-gray-800 text-white rounded-md hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            <Button
+                variant="secondary"
+                size="sm"
                 title={
                     mode === '3d'
                         ? exportingSTL
@@ -120,35 +127,38 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
                 ) : (
                     <i className="fa-solid fa-download" aria-hidden="true" />
                 )}
-            </button>
+            </Button>
 
             {mode === '2d' && (
                 <>
-                    <button
-                        className="px-3 py-2 bg-gray-800 text-white rounded-md hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    <Button
+                        variant="secondary"
+                        size="sm"
                         title="Toggle checkerboard"
                         aria-label="Toggle checkerboard"
                         onClick={onToggleCheckerboard}
                     >
                         <i className="fa-solid fa-square" aria-hidden />
-                    </button>
-                    <button
-                        className="px-3 py-2 bg-gray-800 text-white rounded-md hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    </Button>
+                    <Button
+                        variant="secondary"
+                        size="sm"
                         title="Choose file"
                         aria-label="Choose file"
                         onClick={onPickFile}
                     >
                         <i className="fa-solid fa-file-upload" aria-hidden />
-                    </button>
-                    <button
-                        className="px-3 py-2 bg-gray-800 text-white rounded-md hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    </Button>
+                    <Button
+                        variant="secondary"
+                        size="sm"
                         title="Remove image"
                         aria-label="Remove image"
                         onClick={onClear}
                         disabled={!imageAvailable || isCropMode}
                     >
                         <i className="fa-solid fa-trash" aria-hidden />
-                    </button>
+                    </Button>
                 </>
             )}
         </div>

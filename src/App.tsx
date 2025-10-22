@@ -184,7 +184,7 @@ function App(): React.ReactElement | null {
                 <ResizableSplitter defaultSize={30} minSize={20} maxSize={50}>
                     <aside className="w-full bg-card border-r border-border flex flex-col">
                         <ModeTabs mode={mode} onChange={setMode} />
-                        <div className="flex-1 overflow-y-auto p-4">
+                        <div className="flex-1 overflow-auto p-4">
                             {mode === '2d' ? (
                                 <>
                                     <input
@@ -281,7 +281,7 @@ function App(): React.ReactElement | null {
                     </aside>
                     <main className="h-full w-full bg-background flex flex-col min-h-0">
                         <div
-                            className={`flex-1 relative min-h-0 w-full ${dropzone.dragOver ? 'bg-blue-900/20' : ''}`}
+                            className={`flex-1 relative min-h-0 w-full ${dropzone.dragOver ? 'bg-primary/20' : ''}`}
                             onDrop={dropzone.onDrop}
                             onDragOver={dropzone.onDragOver}
                             onDragLeave={dropzone.onDragLeave}

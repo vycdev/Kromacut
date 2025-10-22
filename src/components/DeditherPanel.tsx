@@ -1,4 +1,7 @@
 import React, { useCallback, useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Slider } from '@/components/ui/slider';
+import { Label } from '@/components/ui/label';
 import type { CanvasPreviewHandle } from './CanvasPreview';
 
 interface Props {
@@ -136,55 +139,32 @@ export const DeditherPanel: React.FC<Props> = ({ canvasRef, onApplyResult }) => 
     }, [canvasRef, weight, onApplyResult]);
 
     return (
-        <div className="controls-group">
-            <div
-                style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    marginBottom: 8,
-                }}
-            >
-                <div style={{ fontSize: 13, fontWeight: 700 }}>Dedither</div>
+        <div className="space-y-3">
+            <div className="flex justify-between items-center">
+                <Label className="text-sm font-semibold">Dedither</Label>
             </div>
 
-            {/* Weight label + value on a single row */}
-            <div
-                style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    marginBottom: 8,
-                }}
-            >
-                <span style={{ fontSize: 13, fontWeight: 600 }}>Weight</span>
-                <div style={{ width: 28, textAlign: 'right', fontWeight: 700 }}>{weight}</div>
-            </div>
-
-            {/* Slider on its own row, full width */}
-            <div style={{ marginBottom: 8 }}>
-                <input
-                    type="range"
+            <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                    <Label htmlFor="weight-slider" className="text-sm font-medium">
+                        Weight
+                    </Label>
+                    <span className="text-sm font-bold">{weight}</span>
+                </div>
+                <Slider
+                    id="weight-slider"
                     min={1}
                     max={9}
                     step={1}
-                    value={weight}
-                    onChange={(e) => setWeight(Number(e.target.value))}
-                    style={{ width: '100%' }}
-                    className="range--styled"
+                    value={[weight]}
+                    onValueChange={(value) => setWeight(value[0])}
+                    className="w-full"
                 />
             </div>
 
-            {/* Apply button below the slider */}
-            <div>
-                <button
-                    className="w-full px-4 py-2 bg-blue-600 text-white rounded-md font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    onClick={handleApply}
-                    disabled={working}
-                >
-                    {working ? 'Working...' : 'Apply'}
-                </button>
-            </div>
+            <Button onClick={handleApply} disabled={working} className="w-full">
+                {working ? 'Working...' : 'Apply'}
+            </Button>
         </div>
     );
 };

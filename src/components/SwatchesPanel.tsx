@@ -164,7 +164,7 @@ export const SwatchesPanel: React.FC<Props> = ({
                                 <div style={{ width: '100%' }}>
                                     <div
                                         aria-hidden
-                                        className="w-8 h-8 border border-gray-600 rounded"
+                                        className="w-8 h-8 border border-border rounded"
                                     >
                                         <div
                                             aria-hidden
