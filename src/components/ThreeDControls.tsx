@@ -187,6 +187,40 @@ export default function ThreeDControls({ swatches, onChange, persisted }: ThreeD
         });
     }, []);
 
+    // Move color up in order
+    const moveColorUp = useCallback(
+        (displayIdx: number) => {
+            if (displayIdx <= 0) return;
+            const currentOrder =
+                colorOrder.length === filtered.length
+                    ? colorOrder.slice()
+                    : filtered.map((_, i) => i);
+            [currentOrder[displayIdx - 1], currentOrder[displayIdx]] = [
+                currentOrder[displayIdx],
+                currentOrder[displayIdx - 1],
+            ];
+            setColorOrder(currentOrder);
+        },
+        [colorOrder, filtered]
+    );
+
+    // Move color down in order
+    const moveColorDown = useCallback(
+        (displayIdx: number) => {
+            const currentOrder =
+                colorOrder.length === filtered.length
+                    ? colorOrder.slice()
+                    : filtered.map((_, i) => i);
+            if (displayIdx >= currentOrder.length - 1) return;
+            [currentOrder[displayIdx], currentOrder[displayIdx + 1]] = [
+                currentOrder[displayIdx + 1],
+                currentOrder[displayIdx],
+            ];
+            setColorOrder(currentOrder);
+        },
+        [colorOrder, filtered]
+    );
+
     // Emit consolidated state upwards only when references or primitive values actually change.
     const lastEmittedRef = useRef<{
         layerHeight: number;
@@ -435,6 +469,16 @@ export default function ThreeDControls({ swatches, onChange, persisted }: ThreeD
                                     onDragLeave={handleDragLeave}
                                     onDrop={handleDrop}
                                     onChange={onRowChange}
+                                    onMoveUp={() => moveColorUp(displayIdx)}
+                                    onMoveDown={() => moveColorDown(displayIdx)}
+                                    canMoveUp={displayIdx > 0}
+                                    canMoveDown={
+                                        displayIdx <
+                                        (colorOrder.length === filtered.length
+                                            ? colorOrder.length
+                                            : filtered.length) -
+                                            1
+                                    }
                                 />
                             );
                         })
