@@ -254,9 +254,9 @@ body,
     letter-spacing: var(--tracking-normal);
     }
   
-  /* Scrollbar styling using theme colors - these MUST be in CSS as they're pseudo-elements */
+  /* Scrollbar styling - VSCode style (only visible on hover) */
   ::-webkit-scrollbar {
-    @apply w-2.5 h-2.5;
+    @apply w-3 h-3;
   }
   
   ::-webkit-scrollbar-track {
@@ -264,19 +264,19 @@ body,
   }
   
   ::-webkit-scrollbar-thumb {
-    @apply bg-muted-foreground rounded-md border border-border;
+    @apply bg-muted-foreground/50 rounded transition-opacity duration-200;
     background-clip: padding-box;
   }
   
   ::-webkit-scrollbar-thumb:hover {
-    @apply bg-foreground;
+    @apply bg-muted-foreground;
   }
   
   ::-webkit-scrollbar-thumb:active {
-    @apply bg-primary;
+    @apply bg-foreground;
   }
   
-  /* Firefox scrollbar - these MUST use CSS variables as Tailwind doesn't support this syntax */
+  /* Firefox scrollbar - VSCode style */
   * {
     scrollbar-color: var(--muted-foreground) transparent;
     scrollbar-width: thin;

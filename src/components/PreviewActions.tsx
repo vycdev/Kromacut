@@ -60,7 +60,7 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
                 aria-label="Undo"
                 disabled={isCropMode || !canUndo}
                 onClick={onUndo}
-                className="bg-muted hover:bg-muted/80 text-foreground disabled:opacity-50 disabled:cursor-not-allowed"
+                className="bg-primary hover:bg-primary/80 text-primary-foreground disabled:opacity-50 disabled:cursor-not-allowed"
             >
                 <RotateCcw className="w-4 h-4" />
             </Button>
@@ -70,7 +70,7 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
                 aria-label="Redo"
                 disabled={isCropMode || !canRedo}
                 onClick={onRedo}
-                className="bg-muted hover:bg-muted/80 text-foreground disabled:opacity-50 disabled:cursor-not-allowed"
+                className="bg-primary hover:bg-primary/80 text-primary-foreground disabled:opacity-50 disabled:cursor-not-allowed"
             >
                 <RotateCw className="w-4 h-4" />
             </Button>
@@ -83,7 +83,7 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
                         aria-label="Crop"
                         disabled={!imageAvailable}
                         onClick={onEnterCrop}
-                        className="bg-accent hover:bg-accent/80 text-accent-foreground disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="bg-primary hover:bg-primary/80 text-primary-foreground disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         <Crop className="w-4 h-4" />
                     </Button>
@@ -148,7 +148,7 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
                         title="Toggle checkerboard"
                         aria-label="Toggle checkerboard"
                         onClick={onToggleCheckerboard}
-                        className="bg-muted hover:bg-muted/80 text-foreground"
+                        className="bg-primary hover:bg-primary/80 text-primary-foreground"
                     >
                         <Grid3x3 className="w-4 h-4" />
                     </Button>
