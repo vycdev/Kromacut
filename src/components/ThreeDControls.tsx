@@ -286,13 +286,24 @@ export default function ThreeDControls({ swatches, onChange, persisted }: ThreeD
 
     return (
         <div className="space-y-4">
+            {/* Settings Section Header */}
+            <div className="space-y-1 px-1">
+                <h3 className="text-sm font-semibold text-foreground">3D Print Settings</h3>
+                <p className="text-xs text-muted-foreground">Configure your printing parameters</p>
+            </div>
+
             {/* Pixel size (XY scaling) */}
-            <Card className="p-4">
+            <Card className="p-4 border border-border/50 hover:border-border transition-colors">
                 <label className="block space-y-3">
                     <div className="flex justify-between items-center">
-                        <span className="font-bold text-foreground">Pixel size (XY)</span>
-                        <span className="text-sm text-muted-foreground">
-                            {pixelSize.toFixed(3)} mm/pixel
+                        <div className="flex items-center gap-2">
+                            <span className="font-semibold text-foreground">Pixel Size (XY)</span>
+                            <span className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary font-medium">
+                                mm/pixel
+                            </span>
+                        </div>
+                        <span className="text-sm font-mono text-primary">
+                            {pixelSize.toFixed(3)}
                         </span>
                     </div>
                     <NumberInput
@@ -309,12 +320,18 @@ export default function ThreeDControls({ swatches, onChange, persisted }: ThreeD
                 </label>
             </Card>
 
-            <Card className="p-4">
+            {/* Layer height */}
+            <Card className="p-4 border border-border/50 hover:border-border transition-colors">
                 <label className="block space-y-3">
                     <div className="flex justify-between items-center">
-                        <span className="font-bold text-foreground">Layer height</span>
-                        <span className="text-sm text-muted-foreground">
-                            {layerHeight.toFixed(2)} mm
+                        <div className="flex items-center gap-2">
+                            <span className="font-semibold text-foreground">Layer Height</span>
+                            <span className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary font-medium">
+                                mm
+                            </span>
+                        </div>
+                        <span className="text-sm font-mono text-primary">
+                            {layerHeight.toFixed(2)}
                         </span>
                     </div>
                     <NumberInput
@@ -330,13 +347,18 @@ export default function ThreeDControls({ swatches, onChange, persisted }: ThreeD
                 </label>
             </Card>
 
-            {/* Base slice height (numeric input) */}
-            <Card className="p-4">
+            {/* Base slice height */}
+            <Card className="p-4 border border-border/50 hover:border-border transition-colors">
                 <label className="block space-y-3">
                     <div className="flex justify-between items-center">
-                        <span className="font-bold text-foreground">Base slice height</span>
-                        <span className="text-sm text-muted-foreground">
-                            {baseSliceHeight.toFixed(2)} mm
+                        <div className="flex items-center gap-2">
+                            <span className="font-semibold text-foreground">Base Slice Height</span>
+                            <span className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary font-medium">
+                                mm
+                            </span>
+                        </div>
+                        <span className="text-sm font-mono text-primary">
+                            {baseSliceHeight.toFixed(2)}
                         </span>
                     </div>
                     <NumberInput
@@ -355,11 +377,19 @@ export default function ThreeDControls({ swatches, onChange, persisted }: ThreeD
             </Card>
 
             {/* Per-color slice heights with Sortable */}
-            <Card className="p-4 space-y-3">
-                <div className="flex justify-between items-center">
-                    <span className="font-bold text-foreground">Color slice heights</span>
-                    <span className="text-sm text-muted-foreground">{filtered.length} colors</span>
+            <Card className="p-4 border border-border/50">
+                <div className="flex justify-between items-center mb-4">
+                    <div>
+                        <h4 className="font-semibold text-foreground">Color Slice Heights</h4>
+                        <p className="text-xs text-muted-foreground mt-1">
+                            Drag to reorder, adjust sliders to customize
+                        </p>
+                    </div>
+                    <span className="px-2 py-1 rounded-full bg-primary/10 text-primary text-xs font-semibold">
+                        {filtered.length} colors
+                    </span>
                 </div>
+                <div className="h-px bg-border/50 mb-4" />
                 <Sortable
                     value={displayOrder.map(String)}
                     onValueChange={handleColorOrderChange}
@@ -391,92 +421,133 @@ export default function ThreeDControls({ swatches, onChange, persisted }: ThreeD
             </Card>
 
             {/* 3D printing instruction group (dynamic) */}
-            <Card className="p-4 space-y-3">
-                <div className="flex justify-between items-center">
-                    <span className="font-bold text-foreground">3D print instructions</span>
-                    <div className="flex items-center gap-2">
-                        <button
-                            type="button"
-                            onClick={copyToClipboard}
-                            title="Copy print instructions to clipboard"
-                            aria-pressed={copied}
-                            className={copied ? 'compact-btn copied-pressed' : 'compact-btn'}
-                        >
-                            {copied ? 'Copied!' : 'Copy'}
-                        </button>
+            <Card className="p-4 border border-border/50 mt-6">
+                <div className="flex justify-between items-start mb-4">
+                    <div>
+                        <h4 className="font-semibold text-foreground">Print Instructions</h4>
+                        <p className="text-xs text-muted-foreground mt-1">
+                            Generated swap plan for your printer
+                        </p>
                     </div>
+                    <button
+                        type="button"
+                        onClick={copyToClipboard}
+                        title="Copy print instructions to clipboard"
+                        aria-pressed={copied}
+                        className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-200 ${
+                            copied
+                                ? 'bg-green-600 text-white'
+                                : 'bg-primary text-primary-foreground hover:bg-primary/90'
+                        }`}
+                    >
+                        {copied ? '✓ Copied!' : 'Copy'}
+                    </button>
                 </div>
 
-                <div className="text-sm leading-relaxed">
-                    <div className="mb-2">
-                        <div className="font-bold text-foreground">Recommended</div>
-                        <div className="text-sm text-muted-foreground">
-                            Wall loops <strong>1</strong>, Infill <strong>100%</strong>
+                <div className="h-px bg-border/50 mb-4" />
+
+                <div className="space-y-4 text-sm">
+                    {/* Recommended Settings */}
+                    <div className="p-3 rounded-lg bg-primary/5 border border-primary/20">
+                        <div className="font-semibold text-foreground mb-2">
+                            Recommended Settings
+                        </div>
+                        <div className="space-y-1 text-muted-foreground text-xs">
+                            <div>
+                                • Wall loops: <span className="text-foreground font-medium">1</span>
+                            </div>
+                            <div>
+                                • Infill: <span className="text-foreground font-medium">100%</span>
+                            </div>
+                            <div>
+                                • Layer height:{' '}
+                                <span className="text-foreground font-mono">
+                                    {layerHeight.toFixed(3)} mm
+                                </span>
+                            </div>
                         </div>
                     </div>
 
-                    <div className="mb-2">
-                        <strong>Layer height:</strong> {layerHeight.toFixed(3)} mm
-                    </div>
-
-                    <div className="mb-2">
-                        <div className="font-bold text-foreground">Start with</div>
-                        <div className="mt-2">
-                            {swapPlan.length && swapPlan[0].type === 'start' ? (
-                                (() => {
-                                    const sw = swapPlan[0].swatch;
-                                    return (
-                                        <div className="flex items-center gap-2">
-                                            <span
-                                                className="block w-5 h-5 inline-block"
-                                                style={{
-                                                    background: sw.hex,
-                                                    border: '1px solid #000',
-                                                }}
-                                            />
-                                            <span className="font-mono">{sw.hex}</span>
-                                        </div>
-                                    );
-                                })()
-                            ) : (
-                                <div>—</div>
-                            )}
-                        </div>
-                    </div>
-
+                    {/* Start Color */}
                     <div>
-                        <div className="font-bold text-foreground mb-2">Color swap plan</div>
-                        {swapPlan.length <= 1 ? (
-                            <div>No swaps — only one color configured.</div>
+                        <div className="font-semibold text-foreground mb-2">Start with Color</div>
+                        {swapPlan.length && swapPlan[0].type === 'start' ? (
+                            (() => {
+                                const sw = swapPlan[0].swatch;
+                                return (
+                                    <div className="flex items-center gap-3 p-3 rounded-lg bg-accent/5 border border-border/50">
+                                        <span
+                                            className="block w-6 h-6 rounded border-2 border-border flex-shrink-0"
+                                            style={{ background: sw.hex }}
+                                            title={sw.hex}
+                                        />
+                                        <span className="font-mono text-sm text-foreground">
+                                            {sw.hex}
+                                        </span>
+                                    </div>
+                                );
+                            })()
                         ) : (
-                            <ol className="pl-5 mt-2">
+                            <div className="text-muted-foreground text-sm">—</div>
+                        )}
+                    </div>
+
+                    {/* Color Swap Plan */}
+                    <div>
+                        <div className="font-semibold text-foreground mb-2">Color Swap Plan</div>
+                        {swapPlan.length <= 1 ? (
+                            <div className="text-muted-foreground text-sm p-3 rounded-lg bg-accent/5 border border-border/50">
+                                Only one color configured — no swaps needed.
+                            </div>
+                        ) : (
+                            <ol className="space-y-2">
                                 {swapPlan.map((entry, idx) => {
                                     if (entry.type === 'start')
                                         return (
-                                            <li key={idx}>
+                                            <li
+                                                key={idx}
+                                                className="flex items-center gap-2 text-muted-foreground text-xs"
+                                            >
+                                                <span className="text-primary font-semibold flex-shrink-0">
+                                                    {idx}.
+                                                </span>
                                                 Start with{' '}
-                                                <span className="font-mono">
+                                                <span className="font-mono text-foreground">
                                                     {entry.swatch.hex}
                                                 </span>
                                             </li>
                                         );
                                     return (
-                                        <li key={idx}>
-                                            Swap to{' '}
-                                            <span className="inline-flex items-center gap-2">
-                                                <span
-                                                    className="block w-4 h-4 inline-block"
-                                                    style={{
-                                                        background: entry.swatch.hex,
-                                                        border: '1px solid #000',
-                                                    }}
-                                                />
-                                                <span className="font-mono">
-                                                    {entry.swatch.hex}
+                                        <li
+                                            key={idx}
+                                            className="flex items-start gap-2 text-muted-foreground text-xs p-2 rounded bg-accent/5"
+                                        >
+                                            <span className="text-primary font-semibold flex-shrink-0">
+                                                {idx}.
+                                            </span>
+                                            <div className="flex-1">
+                                                Swap to
+                                                <span className="inline-flex items-center gap-2 ml-2">
+                                                    <span
+                                                        className="inline-block w-4 h-4 rounded border border-border"
+                                                        style={{ background: entry.swatch.hex }}
+                                                    />
+                                                    <span className="font-mono text-foreground">
+                                                        {entry.swatch.hex}
+                                                    </span>
                                                 </span>
-                                            </span>{' '}
-                                            at layer <strong>{entry.layer}</strong> (~
-                                            {entry.height.toFixed(3)} mm)
+                                                <div className="mt-1">
+                                                    at layer{' '}
+                                                    <span className="font-semibold text-foreground">
+                                                        {entry.layer}
+                                                    </span>{' '}
+                                                    (~
+                                                    <span className="font-mono text-foreground">
+                                                        {entry.height.toFixed(3)} mm
+                                                    </span>
+                                                    )
+                                                </div>
+                                            </div>
                                         </li>
                                     );
                                 })}
@@ -484,8 +555,8 @@ export default function ThreeDControls({ swatches, onChange, persisted }: ThreeD
                         )}
                     </div>
 
-                    <div className="mt-3 text-sm text-muted-foreground">
-                        Notes: Heights are approximate. Confirm in slicer before printing.
+                    <div className="text-xs text-muted-foreground p-3 rounded-lg bg-accent/5 border border-border/50 italic">
+                        ℹ️ Heights are approximate. Always confirm in your slicer before printing.
                     </div>
                 </div>
             </Card>
