@@ -8,12 +8,12 @@ interface Props {
 
 export const ModeTabs: React.FC<Props> = ({ mode, onChange }) => {
     return (
-        <div className="mb-4" aria-hidden={false}>
-            <div className="flex bg-muted rounded-lg p-1">
+        <div className="p-4 border-b border-border" aria-hidden={false}>
+            <div className="flex gap-2 rounded-lg">
                 <Button
                     variant={mode === '2d' ? 'default' : 'ghost'}
                     size="sm"
-                    className="flex-1"
+                    className="flex-1 font-semibold"
                     onClick={() => onChange('2d')}
                     aria-pressed={mode === '2d'}
                 >
@@ -22,7 +22,7 @@ export const ModeTabs: React.FC<Props> = ({ mode, onChange }) => {
                 <Button
                     variant={mode === '3d' ? 'default' : 'ghost'}
                     size="sm"
-                    className="flex-1"
+                    className="flex-1 font-semibold"
                     onClick={() => onChange('3d')}
                     aria-pressed={mode === '3d'}
                 >

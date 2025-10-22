@@ -2,6 +2,7 @@ import React, { useCallback, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Label } from '@/components/ui/label';
+import { Card } from '@/components/ui/card';
 import type { CanvasPreviewHandle } from './CanvasPreview';
 
 interface Props {
@@ -139,9 +140,9 @@ export const DeditherPanel: React.FC<Props> = ({ canvasRef, onApplyResult }) => 
     }, [canvasRef, weight, onApplyResult]);
 
     return (
-        <div className="space-y-3">
+        <Card className="p-4 space-y-3">
             <div className="flex justify-between items-center">
-                <Label className="text-sm font-semibold">Dedither</Label>
+                <span className="font-bold text-foreground">Dedither</span>
             </div>
 
             <div className="space-y-2">
@@ -149,7 +150,7 @@ export const DeditherPanel: React.FC<Props> = ({ canvasRef, onApplyResult }) => 
                     <Label htmlFor="weight-slider" className="text-sm font-medium">
                         Weight
                     </Label>
-                    <span className="text-sm font-bold">{weight}</span>
+                    <span className="text-sm text-muted-foreground">{weight}</span>
                 </div>
                 <Slider
                     id="weight-slider"
@@ -165,7 +166,7 @@ export const DeditherPanel: React.FC<Props> = ({ canvasRef, onApplyResult }) => 
             <Button onClick={handleApply} disabled={working} className="w-full">
                 {working ? 'Working...' : 'Apply'}
             </Button>
-        </div>
+        </Card>
     );
 };
 

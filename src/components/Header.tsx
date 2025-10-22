@@ -8,7 +8,7 @@ interface Props {
 
 export const Header: React.FC<Props> = ({ onLoadTest }) => {
     return (
-        <header className="h-12 flex items-center justify-between px-3 border-b border-border mb-2">
+        <header className="h-12 flex items-center justify-between px-4 border-b border-border bg-card">
             <div className="flex items-center gap-2">
                 <img src={logo} alt="Kromacut" className="h-7 w-auto" />
                 <span className="font-extrabold text-base text-foreground tracking-wide ml-1 select-none max-md:hidden">
