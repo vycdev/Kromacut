@@ -3,6 +3,7 @@ import { Card } from '@/components/ui/card';
 import { Input, NumberInput } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import ThreeDColorRow from './ThreeDColorRow';
+import { ThreeDColorRowOverlay } from './ThreeDColorRow';
 import { Sortable, SortableContent, SortableOverlay } from '@/components/ui/sortable';
 
 type Swatch = { hex: string; a: number };
@@ -426,15 +427,12 @@ export default function ThreeDControls({ swatches, onChange, persisted }: ThreeD
                             const s = filtered[fi];
                             const val = colorSliceHeights[fi] ?? layerHeight;
                             return (
-                                <ThreeDColorRow
+                                <ThreeDColorRowOverlay
                                     fi={fi}
-                                    displayIdx={0}
                                     hex={s.hex}
                                     value={val}
                                     layerHeight={layerHeight}
                                     onChange={onRowChange}
-                                    canMoveUp={false}
-                                    canMoveDown={false}
                                 />
                             );
                         }}
