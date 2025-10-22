@@ -171,7 +171,7 @@ export const DeditherPanel: React.FC<Props> = ({ canvasRef, onApplyResult }) => 
                             disabled={weight === DEFAULT_WEIGHT}
                             title="Reset weight to default"
                             aria-label="Reset weight"
-                            className="h-5 w-5 flex-shrink-0 flex items-center justify-center rounded-md text-muted-foreground hover:text-amber-600 hover:bg-amber-600/15 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-muted-foreground select-none"
+                            className="h-5 w-5 flex-shrink-0 flex items-center justify-center rounded-md text-muted-foreground hover:text-amber-600 hover:bg-amber-600/15 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-muted-foreground select-none cursor-pointer"
                         >
                             <RotateCcw className="w-3.5 h-3.5" />
                         </button>
