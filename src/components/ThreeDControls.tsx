@@ -527,18 +527,18 @@ export default function ThreeDControls({ swatches, onChange, persisted }: ThreeD
                                             <span className="text-primary font-semibold flex-shrink-0">
                                                 {idx}.
                                             </span>
-                                            <div className="flex-1">
-                                                Swap to
-                                                <span className="inline-flex items-center gap-2 ml-2">
+                                            <div className="flex-1 flex flex-col gap-1.5">
+                                                <div className="flex items-center gap-2">
+                                                    <span>Swap to</span>
                                                     <span
-                                                        className="inline-block w-4 h-4 rounded border border-border"
+                                                        className="inline-block w-4 h-4 rounded border border-border flex-shrink-0"
                                                         style={{ background: entry.swatch.hex }}
                                                     />
                                                     <span className="font-mono text-foreground">
                                                         {entry.swatch.hex}
                                                     </span>
-                                                </span>
-                                                <div className="mt-1">
+                                                </div>
+                                                <div>
                                                     at layer{' '}
                                                     <span className="font-semibold text-foreground">
                                                         {entry.layer}
