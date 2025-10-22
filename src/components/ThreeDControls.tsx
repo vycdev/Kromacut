@@ -299,7 +299,9 @@ export default function ThreeDControls({ swatches, onChange, persisted }: ThreeD
                     <div className="space-y-3">
                         <label className="block space-y-3">
                             <div className="flex justify-between items-center">
-                                <span className="font-semibold text-foreground">Pixel Size (XY)</span>
+                                <span className="font-semibold text-foreground">
+                                    Pixel Size (XY)
+                                </span>
                                 <span className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary font-medium">
                                     mm/pixel
                                 </span>
@@ -344,7 +346,9 @@ export default function ThreeDControls({ swatches, onChange, persisted }: ThreeD
                     <div className="space-y-3">
                         <label className="block space-y-3">
                             <div className="flex justify-between items-center">
-                                <span className="font-semibold text-foreground">Base Slice Height</span>
+                                <span className="font-semibold text-foreground">
+                                    Base Slice Height
+                                </span>
                                 <span className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary font-medium">
                                     mm
                                 </span>
@@ -533,8 +537,11 @@ export default function ThreeDControls({ swatches, onChange, persisted }: ThreeD
                         )}
                     </div>
 
-                    <div className="text-xs text-muted-foreground p-3 rounded-lg bg-accent/5 border border-border/50 italic">
-                        ℹ️ Heights are approximate. Always confirm in your slicer before printing.
+                    <div className="text-xs text-muted-foreground p-3 rounded-lg bg-accent/5 border border-border/50">
+                        <span>ℹ️</span>{' '}
+                        <span className="italic">
+                            Heights are approximate. Always confirm in your slicer before printing.
+                        </span>
                     </div>
                 </div>
             </Card>
