@@ -609,7 +609,7 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
         return (
             <div
                 ref={previewContainerRef}
-                className="preview-container"
+                className="w-full h-full relative overflow-hidden"
                 onMouseDown={startPan}
                 onDragStart={(e) => e.preventDefault()}
                 style={
@@ -624,7 +624,10 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
                 <canvas ref={canvasRef} style={{ imageRendering: 'pixelated' }} />
                 {/* small HUD showing image size and crop size (when active) */}
                 {imgRef.current ? (
-                    <div className="preview-hud" aria-hidden>
+                    <div
+                        className="absolute top-2 left-2 bg-black/80 text-white text-xs px-2 py-1 rounded"
+                        aria-hidden
+                    >
                         {(() => {
                             const img = imgRef.current!;
                             const iw = img.naturalWidth;

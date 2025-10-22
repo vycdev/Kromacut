@@ -289,9 +289,9 @@ function App(): React.ReactElement | null {
                     role="separator"
                     aria-orientation="vertical"
                 />
-                <main className="flex-1 bg-gray-800 flex flex-col">
+                <main className="flex-1 bg-gray-800 flex flex-col min-h-0">
                     <div
-                        className={`flex-1 relative ${dropzone.dragOver ? 'bg-blue-900/20' : ''}`}
+                        className={`flex-1 relative min-h-0 ${dropzone.dragOver ? 'bg-blue-900/20' : ''}`}
                         onDrop={dropzone.onDrop}
                         onDragOver={dropzone.onDragOver}
                         onDragLeave={dropzone.onDragLeave}

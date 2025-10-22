@@ -162,10 +162,13 @@ export const SwatchesPanel: React.FC<Props> = ({
                             {/* Right column: preview above hex input */}
                             <div className="swatch-modal-right">
                                 <div style={{ width: '100%' }}>
-                                    <div aria-hidden className="swatch-preview-box">
+                                    <div
+                                        aria-hidden
+                                        className="w-8 h-8 border border-gray-600 rounded"
+                                    >
                                         <div
                                             aria-hidden
-                                            className="swatch-preview-fill"
+                                            className="w-full h-full rounded"
                                             style={{
                                                 background: `rgba(${rgba.r}, ${rgba.g}, ${rgba.b}, ${rgba.a})`,
                                             }}

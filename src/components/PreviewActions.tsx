@@ -40,9 +40,9 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
     onExportStl,
 }) => {
     return (
-        <div className="preview-actions">
+        <div className="absolute top-4 right-4 flex flex-wrap gap-2 z-10">
             <button
-                className="preview-action-btn"
+                className="px-3 py-2 bg-gray-800 text-white rounded-md hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 title="Undo"
                 aria-label="Undo"
                 disabled={isCropMode || !canUndo}
@@ -51,7 +51,7 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
                 <i className="fa-solid fa-rotate-left" aria-hidden />
             </button>
             <button
-                className="preview-action-btn"
+                className="px-3 py-2 bg-gray-800 text-white rounded-md hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 title="Redo"
                 aria-label="Redo"
                 disabled={isCropMode || !canRedo}
@@ -63,7 +63,7 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
             {mode === '2d' &&
                 (!isCropMode ? (
                     <button
-                        className="preview-crop-btn"
+                        className="px-3 py-2 bg-gray-800 text-white rounded-md hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                         title="Crop"
                         aria-label="Crop"
                         disabled={!imageAvailable}
@@ -74,7 +74,7 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
                 ) : (
                     <>
                         <button
-                            className="preview-crop-btn preview-crop-btn--save"
+                            className="px-3 py-2 bg-gray-800 text-white rounded-md hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors px-3 py-2 bg-gray-800 text-white rounded-md hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors--save"
                             title="Save crop"
                             aria-label="Save crop"
                             onClick={onSaveCrop}
@@ -82,7 +82,7 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
                             <i className="fa-solid fa-floppy-disk" aria-hidden="true"></i>
                         </button>
                         <button
-                            className="preview-crop-btn preview-crop-btn--cancel"
+                            className="px-3 py-2 bg-gray-800 text-white rounded-md hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors px-3 py-2 bg-gray-800 text-white rounded-md hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors--cancel"
                             title="Cancel crop"
                             aria-label="Cancel crop"
                             onClick={onCancelCrop}
@@ -94,7 +94,7 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
 
             {/* Download button: image in 2D; STL in 3D */}
             <button
-                className="preview-crop-btn"
+                className="px-3 py-2 bg-gray-800 text-white rounded-md hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 title={
                     mode === '3d'
                         ? exportingSTL
@@ -125,7 +125,7 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
             {mode === '2d' && (
                 <>
                     <button
-                        className="preview-crop-btn"
+                        className="px-3 py-2 bg-gray-800 text-white rounded-md hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                         title="Toggle checkerboard"
                         aria-label="Toggle checkerboard"
                         onClick={onToggleCheckerboard}
@@ -133,7 +133,7 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
                         <i className="fa-solid fa-square" aria-hidden />
                     </button>
                     <button
-                        className="preview-crop-btn"
+                        className="px-3 py-2 bg-gray-800 text-white rounded-md hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                         title="Choose file"
                         aria-label="Choose file"
                         onClick={onPickFile}
@@ -141,7 +141,7 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
                         <i className="fa-solid fa-file-upload" aria-hidden />
                     </button>
                     <button
-                        className="preview-crop-btn"
+                        className="px-3 py-2 bg-gray-800 text-white rounded-md hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                         title="Remove image"
                         aria-label="Remove image"
                         onClick={onClear}

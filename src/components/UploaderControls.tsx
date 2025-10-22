@@ -6,7 +6,7 @@ interface Props {
 
 export default function UploaderControls({ onChoose, onRemove, canRemove }: Props) {
     return (
-        <div className="uploader-controls">
+        <div className="p-4 bg-gray-800 border-b border-gray-700">
             <button type="button" onClick={onChoose}>
                 Choose file
             </button>
