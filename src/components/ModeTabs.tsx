@@ -8,8 +8,8 @@ interface Props {
 
 export const ModeTabs: React.FC<Props> = ({ mode, onChange }) => {
     return (
-        <div className="p-4 border-b border-border" aria-hidden={false}>
-            <div className="flex gap-2 rounded-lg">
+        <div className="p-4 border-b border-border pr-[25px]" aria-hidden={false}>
+            <div className="flex gap-2">
                 <Button
                     variant={mode === '2d' ? 'default' : 'outline'}
                     size="sm"
