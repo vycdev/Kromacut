@@ -299,16 +299,9 @@ export default function ThreeDControls({ swatches, onChange, persisted }: ThreeD
                     <div className="space-y-3">
                         <label className="block space-y-3">
                             <div className="flex justify-between items-center">
-                                <div className="flex items-center gap-2">
-                                    <span className="font-semibold text-foreground">
-                                        Pixel Size (XY)
-                                    </span>
-                                    <span className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary font-medium">
-                                        mm/pixel
-                                    </span>
-                                </div>
-                                <span className="px-2.5 py-1 rounded-full bg-primary/10 text-primary text-xs font-mono font-semibold">
-                                    {pixelSize.toFixed(3)}
+                                <span className="font-semibold text-foreground">Pixel Size (XY)</span>
+                                <span className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary font-medium">
+                                    mm/pixel
                                 </span>
                             </div>
                             <NumberInput
@@ -329,16 +322,9 @@ export default function ThreeDControls({ swatches, onChange, persisted }: ThreeD
                     <div className="space-y-3">
                         <label className="block space-y-3">
                             <div className="flex justify-between items-center">
-                                <div className="flex items-center gap-2">
-                                    <span className="font-semibold text-foreground">
-                                        Layer Height
-                                    </span>
-                                    <span className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary font-medium">
-                                        mm
-                                    </span>
-                                </div>
-                                <span className="px-2.5 py-1 rounded-full bg-primary/10 text-primary text-xs font-mono font-semibold">
-                                    {layerHeight.toFixed(2)}
+                                <span className="font-semibold text-foreground">Layer Height</span>
+                                <span className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary font-medium">
+                                    mm
                                 </span>
                             </div>
                             <NumberInput
@@ -358,16 +344,9 @@ export default function ThreeDControls({ swatches, onChange, persisted }: ThreeD
                     <div className="space-y-3">
                         <label className="block space-y-3">
                             <div className="flex justify-between items-center">
-                                <div className="flex items-center gap-2">
-                                    <span className="font-semibold text-foreground">
-                                        Base Slice Height
-                                    </span>
-                                    <span className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary font-medium">
-                                        mm
-                                    </span>
-                                </div>
-                                <span className="px-2.5 py-1 rounded-full bg-primary/10 text-primary text-xs font-mono font-semibold">
-                                    {baseSliceHeight.toFixed(2)}
+                                <span className="font-semibold text-foreground">Base Slice Height</span>
+                                <span className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary font-medium">
+                                    mm
                                 </span>
                             </div>
                             <NumberInput
@@ -515,21 +494,7 @@ export default function ThreeDControls({ swatches, onChange, persisted }: ThreeD
                         ) : (
                             <ol className="space-y-2">
                                 {swapPlan.map((entry, idx) => {
-                                    if (entry.type === 'start')
-                                        return (
-                                            <li
-                                                key={idx}
-                                                className="flex items-center gap-2 text-muted-foreground text-xs p-2 rounded bg-accent/5"
-                                            >
-                                                <span className="text-primary font-semibold flex-shrink-0">
-                                                    {idx}.
-                                                </span>
-                                                Start with{' '}
-                                                <span className="font-mono text-foreground">
-                                                    {entry.swatch.hex}
-                                                </span>
-                                            </li>
-                                        );
+                                    if (entry.type === 'start') return null;
                                     return (
                                         <li
                                             key={idx}
