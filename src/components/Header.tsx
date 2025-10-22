@@ -21,7 +21,7 @@ export const Header: React.FC<Props> = ({ onLoadTest }) => {
                     size="sm"
                     onClick={onLoadTest}
                     title="Load TD Test"
-                    className="bg-blue-600 hover:bg-blue-700 text-white font-semibold transition-all duration-200 shadow-md hover:shadow-lg hover:scale-105 active:scale-95 gap-1.5"
+                    className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold transition-all duration-200 shadow-md hover:shadow-lg active:scale-95 gap-1.5"
                 >
                     <Image className="w-4 h-4" />
                     <span>Load TD Test</span>
