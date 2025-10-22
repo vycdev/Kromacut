@@ -790,5 +790,5 @@ export default function ThreeDView({
         meshRef,
     ]);
 
-    return <div style={{ width: '100%', height: '100%' }} ref={mountRef} />;
+    return <div className="w-full h-full" ref={mountRef} />;
 }

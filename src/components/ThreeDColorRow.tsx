@@ -1,4 +1,5 @@
 import React from 'react';
+import { Slider } from '@/components/ui/slider';
 
 type Props = {
     fi: number;
@@ -15,13 +16,6 @@ type Props = {
     onChange: (fi: number, value: number) => void;
 };
 
-const swatchBoxStyle: React.CSSProperties = {
-    width: 28,
-    height: 20,
-    border: '1px solid #ccc',
-    borderRadius: 3,
-};
-
 function ThreeDColorRowInner({
     fi,
     displayIdx,
@@ -36,60 +30,49 @@ function ThreeDColorRowInner({
     onDrop,
     onChange,
 }: Props) {
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const v = Number(e.target.value);
-        if (Number.isNaN(v)) return;
-        onChange(fi, v);
+    const handleChange = (v: number[]) => {
+        onChange(fi, v[0]);
     };
 
-    const boxShadow = isDragOver
+    const boxShadowClass = isDragOver
         ? dragPosition === 'above'
-            ? 'inset 0 2px 0 0 rebeccapurple'
-            : 'inset 0 -2px 0 0 rebeccapurple'
-        : undefined;
+            ? 'ring-2 ring-purple-500 ring-inset rounded'
+            : 'ring-2 ring-purple-500 ring-inset rounded'
+        : '';
 
     return (
         <div
             onDragOver={(e) => onDragOver(e, displayIdx)}
             onDragLeave={onDragLeave}
             onDrop={(e) => onDrop(e, displayIdx)}
-            style={{
-                display: 'flex',
-                gap: 8,
-                alignItems: 'center',
-                boxShadow,
-                borderRadius: isDragOver ? 6 : undefined,
-            }}
+            className={`flex gap-2 items-center ${boxShadowClass} transition-all`}
         >
             <div
                 draggable
                 onDragStart={(e) => onDragStart(e, fi)}
-                style={{
-                    width: 20,
-                    height: 20,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    cursor: 'grab',
-                    color: '#666',
-                }}
+                className="w-5 h-5 flex items-center justify-center cursor-grab text-muted-foreground hover:text-foreground transition-colors"
                 aria-label="Reorder color"
                 title="Drag to reorder"
             >
-                <i className="fa-solid fa-grip-vertical" aria-hidden />
+                <i className="fa-solid fa-grip-vertical text-xs" aria-hidden />
             </div>
-            <div style={{ ...swatchBoxStyle, background: hex }} />
-            <input
-                type="range"
-                min={layerHeight}
-                max={10}
-                step={layerHeight}
-                value={value}
-                onChange={handleChange}
-                className="range--styled"
-                style={{ flex: 1 }}
+            <div
+                className="w-7 h-5 border border-border rounded"
+                style={{ background: hex }}
+                title={hex}
             />
-            <div style={{ width: 72, textAlign: 'right' }}>{value.toFixed(2)} mm</div>
+            <div className="flex-1">
+                <Slider
+                    min={layerHeight}
+                    max={10}
+                    step={layerHeight}
+                    value={[value]}
+                    onValueChange={handleChange}
+                />
+            </div>
+            <div className="w-16 text-right text-sm font-medium text-muted-foreground">
+                {value.toFixed(2)} mm
+            </div>
         </div>
     );
 }

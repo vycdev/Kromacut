@@ -1,4 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Slider } from '@/components/ui/slider';
+import { Card } from '@/components/ui/card';
 
 export type SliderDef = {
     key: string;
@@ -99,82 +102,54 @@ export const AdjustmentsPanel: React.FC<Props> = React.memo(
         }, [onBake, onCommit]);
 
         return (
-            <div className="controls-group adjustments-group">
-                <div
-                    style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        gap: 8,
-                        fontSize: 13,
-                        fontWeight: 700,
-                        marginBottom: 8,
-                    }}
-                >
-                    <span>Adjustments</span>
-                    <div style={{ display: 'flex', gap: 4 }}>
-                        <button
+            <Card className="p-4 space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                    <span className="font-bold text-foreground">Adjustments</span>
+                    <div className="flex gap-2">
+                        <Button
                             type="button"
                             onClick={handleBake}
-                            style={{
-                                fontSize: 11,
-                                fontWeight: 600,
-                                padding: '2px 6px',
-                                border: '1px solid #555',
-                                background: '#2a2a2a',
-                                color: '#eee',
-                                borderRadius: 3,
-                                cursor: 'pointer',
-                            }}
+                            size="sm"
+                            variant="secondary"
                             title="Apply (bake) adjustments to the image"
                             aria-label="Apply adjustments"
                         >
                             Apply
-                        </button>
-                        <button
+                        </Button>
+                        <Button
                             type="button"
                             onClick={handleReset}
-                            style={{
-                                fontSize: 11,
-                                fontWeight: 600,
-                                padding: '2px 6px',
-                                border: '1px solid #444',
-                                background: '#222',
-                                color: '#ddd',
-                                borderRadius: 3,
-                                cursor: 'pointer',
-                            }}
+                            size="sm"
+                            variant="secondary"
                             title="Reset all adjustments to defaults"
                             aria-label="Reset adjustments"
                         >
                             Reset
-                        </button>
+                        </Button>
                     </div>
                 </div>
-                <div className="adjustments-content">
+                <div className="space-y-3">
                     {defs.map((s) => {
                         const displayVal = values[s.key];
                         return (
-                            <label key={s.key} className="adjustment-row">
-                                <div className="adjustment-label">
-                                    {s.label}
-                                    <span className="adjustment-unit">
+                            <label key={s.key} className="block space-y-2">
+                                <div className="flex justify-between items-center text-sm">
+                                    <span className="font-medium text-foreground">{s.label}</span>
+                                    <span className="text-muted-foreground">
                                         {displayVal}
                                         {s.unit ? ` ${s.unit}` : ''}
                                     </span>
                                 </div>
-                                <input
-                                    type="range"
+                                <Slider
                                     min={s.min}
                                     max={s.max}
                                     step={s.step}
-                                    value={displayVal}
-                                    onChange={(e) => {
-                                        // mark drag started if not already (covers keyboard / clicks)
+                                    value={[displayVal]}
+                                    onValueChange={(val) => {
                                         if (!draggingRef.current) {
                                             draggingRef.current = true;
                                         }
-                                        scheduleSet(s.key, Number(e.target.value));
+                                        scheduleSet(s.key, val[0]);
                                     }}
                                     onPointerDown={() => {
                                         draggingRef.current = true;
@@ -186,7 +161,7 @@ export const AdjustmentsPanel: React.FC<Props> = React.memo(
                         );
                     })}
                 </div>
-            </div>
+            </Card>
         );
     }
 );

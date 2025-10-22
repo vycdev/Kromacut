@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { DragEvent } from 'react';
+import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import ThreeDColorRow from './ThreeDColorRow';
 
 type Swatch = { hex: string; a: number };
@@ -333,132 +336,85 @@ export default function ThreeDControls({ swatches, onChange, persisted }: ThreeD
     };
 
     return (
-        <div className="controls-scroll">
+        <div className="space-y-4">
             {/* Pixel size (XY scaling) */}
-            <div className="controls-group">
-                <label>
-                    <div
-                        style={{
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                        }}
-                    >
-                        <span style={{ fontWeight: 700 }}>Pixel size (XY)</span>
-                        <span className="adjustment-unit">{pixelSize.toFixed(3)} mm/pixel</span>
+            <Card className="p-4">
+                <label className="block space-y-3">
+                    <div className="flex justify-between items-center">
+                        <span className="font-bold text-foreground">Pixel size (XY)</span>
+                        <span className="text-sm text-muted-foreground">
+                            {pixelSize.toFixed(3)} mm/pixel
+                        </span>
                     </div>
-                    <div
-                        style={{
-                            display: 'flex',
-                            gap: '8px',
-                            alignItems: 'center',
+                    <Input
+                        type="number"
+                        min={0.01}
+                        max={10}
+                        step={0.01}
+                        value={pixelSize}
+                        onChange={(e) => {
+                            const v = Number(e.target.value);
+                            if (Number.isNaN(v)) return;
+                            setPixelSize(Math.max(0.01, Math.min(10, v)));
                         }}
-                    >
-                        <input
-                            type="number"
-                            min={0.01}
-                            max={10}
-                            step={0.01}
-                            value={pixelSize}
-                            onChange={(e) => {
-                                const v = Number(e.target.value);
-                                if (Number.isNaN(v)) return;
-                                setPixelSize(Math.max(0.01, Math.min(10, v)));
-                            }}
-                            style={{ width: '100%' }}
-                        />
-                    </div>
+                    />
                 </label>
-            </div>
+            </Card>
 
-            <div className="controls-group">
-                <label>
-                    <div
-                        style={{
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                        }}
-                    >
-                        <span style={{ fontWeight: 700 }}>Layer height</span>
-                        <span className="adjustment-unit">{layerHeight.toFixed(2)} mm</span>
+            <Card className="p-4">
+                <label className="block space-y-3">
+                    <div className="flex justify-between items-center">
+                        <span className="font-bold text-foreground">Layer height</span>
+                        <span className="text-sm text-muted-foreground">
+                            {layerHeight.toFixed(2)} mm
+                        </span>
                     </div>
-                    <div
-                        style={{
-                            display: 'flex',
-                            gap: '8px',
-                            alignItems: 'center',
+                    <Input
+                        type="number"
+                        min={0.01}
+                        max={10}
+                        step={0.01}
+                        value={layerHeight}
+                        onChange={(e) => {
+                            const v = Number(e.target.value);
+                            if (!Number.isNaN(v)) setLayerHeight(v);
                         }}
-                    >
-                        <input
-                            type="number"
-                            min={0.01}
-                            max={10}
-                            step={0.01}
-                            value={layerHeight}
-                            onChange={(e) => {
-                                const v = Number(e.target.value);
-                                if (!Number.isNaN(v)) setLayerHeight(v);
-                            }}
-                            style={{ width: '100%' }}
-                        />
-                    </div>
+                    />
                 </label>
-            </div>
+            </Card>
 
             {/* Base slice height (numeric input) */}
-            <div className="controls-group">
-                <label>
-                    <div
-                        style={{
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                        }}
-                    >
-                        <span style={{ fontWeight: 700 }}>Base slice height</span>
-                        <span className="adjustment-unit">{baseSliceHeight.toFixed(2)} mm</span>
+            <Card className="p-4">
+                <label className="block space-y-3">
+                    <div className="flex justify-between items-center">
+                        <span className="font-bold text-foreground">Base slice height</span>
+                        <span className="text-sm text-muted-foreground">
+                            {baseSliceHeight.toFixed(2)} mm
+                        </span>
                     </div>
-                    <div
-                        style={{
-                            display: 'flex',
-                            gap: '8px',
-                            alignItems: 'center',
+                    <Input
+                        type="number"
+                        min={0}
+                        max={10}
+                        step={0.01}
+                        value={baseSliceHeight}
+                        onChange={(e) => {
+                            let v = Number(e.target.value);
+                            if (Number.isNaN(v)) return;
+                            v = Math.max(0, Math.min(10, v));
+                            setBaseSliceHeight(v);
                         }}
-                    >
-                        <input
-                            type="number"
-                            min={0}
-                            max={10}
-                            step={0.01}
-                            value={baseSliceHeight}
-                            onChange={(e) => {
-                                let v = Number(e.target.value);
-                                if (Number.isNaN(v)) return;
-                                v = Math.max(0, Math.min(10, v));
-                                setBaseSliceHeight(v);
-                            }}
-                            style={{ width: '100%' }}
-                        />
-                    </div>
+                    />
                 </label>
-            </div>
+            </Card>
 
             {/* Per-color slice heights */}
-            <div className="controls-group">
-                <div
-                    style={{
-                        fontWeight: 700,
-                        marginBottom: 8,
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                    }}
-                >
-                    <div>Color slice heights</div>
-                    <div className="adjustment-unit">{filtered.length} colors</div>
+            <Card className="p-4 space-y-3">
+                <div className="flex justify-between items-center">
+                    <span className="font-bold text-foreground">Color slice heights</span>
+                    <span className="text-sm text-muted-foreground">{filtered.length} colors</span>
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <div className="space-y-2">
                     {
                         // determine display order; fallback to natural order when colorOrder not initialized
                         (colorOrder.length === filtered.length
@@ -487,27 +443,13 @@ export default function ThreeDControls({ swatches, onChange, persisted }: ThreeD
                         })
                     }
                 </div>
-            </div>
+            </Card>
 
             {/* 3D printing instruction group (dynamic) */}
-            <div className="controls-group">
-                <div
-                    style={{
-                        fontWeight: 700,
-                        marginBottom: 8,
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                    }}
-                >
-                    <div>3D print instructions</div>
-                    <div
-                        style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 8,
-                        }}
-                    >
+            <Card className="p-4 space-y-3">
+                <div className="flex justify-between items-center">
+                    <span className="font-bold text-foreground">3D print instructions</span>
+                    <div className="flex items-center gap-2">
                         <button
                             type="button"
                             onClick={copyToClipboard}
@@ -520,48 +462,34 @@ export default function ThreeDControls({ swatches, onChange, persisted }: ThreeD
                     </div>
                 </div>
 
-                <div style={{ fontSize: 13, lineHeight: '1.4' }}>
-                    <div style={{ marginBottom: 8 }}>
-                        <div style={{ fontWeight: 700 }}>Recommended</div>
-                        <div style={{ fontSize: 12, color: '#bbb' }}>
+                <div className="text-sm leading-relaxed">
+                    <div className="mb-2">
+                        <div className="font-bold text-foreground">Recommended</div>
+                        <div className="text-sm text-muted-foreground">
                             Wall loops <strong>1</strong>, Infill <strong>100%</strong>
                         </div>
                     </div>
 
-                    <div style={{ marginBottom: 8 }}>
+                    <div className="mb-2">
                         <strong>Layer height:</strong> {layerHeight.toFixed(3)} mm
                     </div>
 
-                    <div style={{ marginBottom: 8 }}>
-                        <div style={{ fontWeight: 700 }}>Start with</div>
-                        <div style={{ marginTop: 6 }}>
+                    <div className="mb-2">
+                        <div className="font-bold text-foreground">Start with</div>
+                        <div className="mt-2">
                             {swapPlan.length && swapPlan[0].type === 'start' ? (
                                 (() => {
                                     const sw = swapPlan[0].swatch;
                                     return (
-                                        <div
-                                            style={{
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                gap: 8,
-                                            }}
-                                        >
+                                        <div className="flex items-center gap-2">
                                             <span
+                                                className="block w-5 h-5 inline-block"
                                                 style={{
-                                                    width: 14,
-                                                    height: 14,
-                                                    display: 'inline-block',
                                                     background: sw.hex,
                                                     border: '1px solid #000',
                                                 }}
                                             />
-                                            <span
-                                                style={{
-                                                    fontFamily: 'monospace',
-                                                }}
-                                            >
-                                                {sw.hex}
-                                            </span>
+                                            <span className="font-mono">{sw.hex}</span>
                                         </div>
                                     );
                                 })()
@@ -572,21 +500,17 @@ export default function ThreeDControls({ swatches, onChange, persisted }: ThreeD
                     </div>
 
                     <div>
-                        <div style={{ fontWeight: 700, marginBottom: 6 }}>Color swap plan</div>
+                        <div className="font-bold text-foreground mb-2">Color swap plan</div>
                         {swapPlan.length <= 1 ? (
                             <div>No swaps — only one color configured.</div>
                         ) : (
-                            <ol style={{ paddingLeft: 18, marginTop: 6 }}>
+                            <ol className="pl-5 mt-2">
                                 {swapPlan.map((entry, idx) => {
                                     if (entry.type === 'start')
                                         return (
                                             <li key={idx}>
                                                 Start with{' '}
-                                                <span
-                                                    style={{
-                                                        fontFamily: 'monospace',
-                                                    }}
-                                                >
+                                                <span className="font-mono">
                                                     {entry.swatch.hex}
                                                 </span>
                                             </li>
@@ -594,27 +518,15 @@ export default function ThreeDControls({ swatches, onChange, persisted }: ThreeD
                                     return (
                                         <li key={idx}>
                                             Swap to{' '}
-                                            <span
-                                                style={{
-                                                    display: 'inline-flex',
-                                                    alignItems: 'center',
-                                                    gap: 6,
-                                                }}
-                                            >
+                                            <span className="inline-flex items-center gap-2">
                                                 <span
+                                                    className="block w-4 h-4 inline-block"
                                                     style={{
-                                                        width: 12,
-                                                        height: 12,
-                                                        display: 'inline-block',
                                                         background: entry.swatch.hex,
                                                         border: '1px solid #000',
                                                     }}
                                                 />
-                                                <span
-                                                    style={{
-                                                        fontFamily: 'monospace',
-                                                    }}
-                                                >
+                                                <span className="font-mono">
                                                     {entry.swatch.hex}
                                                 </span>
                                             </span>{' '}
@@ -627,11 +539,11 @@ export default function ThreeDControls({ swatches, onChange, persisted }: ThreeD
                         )}
                     </div>
 
-                    <div style={{ marginTop: 8, fontSize: 12, color: '#aaa' }}>
+                    <div className="mt-3 text-sm text-muted-foreground">
                         Notes: Heights are approximate. Confirm in slicer before printing.
                     </div>
                 </div>
-            </div>
+            </Card>
         </div>
     );
 }
