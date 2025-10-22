@@ -68,7 +68,7 @@ export const ResizableSplitter: React.FC<ResizableSplitterProps> = ({
     return (
         <div
             ref={containerRef}
-            className={`flex h-full w-full ${className}`}
+            className={`flex h-full w-full overflow-hidden ${className}`}
             style={
                 {
                     height: '100%',
@@ -77,7 +77,7 @@ export const ResizableSplitter: React.FC<ResizableSplitterProps> = ({
             }
         >
             <div
-                className="overflow-hidden h-full flex-shrink-0"
+                className="flex flex-col min-h-0 flex-shrink-0 overflow-hidden"
                 style={{ flexBasis: `${leftWidth}%` }}
             >
                 {children[0]}

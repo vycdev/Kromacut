@@ -182,9 +182,9 @@ function App(): React.ReactElement | null {
             />
             <div className="flex flex-1 min-h-0 w-full" ref={layoutRef}>
                 <ResizableSplitter defaultSize={30} minSize={20} maxSize={50}>
-                    <aside className="w-full bg-card border-r border-border flex flex-col">
+                    <aside className="w-full bg-card border-r border-border flex flex-col min-h-0">
                         <ModeTabs mode={mode} onChange={setMode} />
-                        <div className="flex-1 overflow-auto p-4">
+                        <div className="flex-1 overflow-y-auto overflow-x-auto p-4">
                             {mode === '2d' ? (
                                 <>
                                     <input

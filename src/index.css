@@ -244,13 +244,3 @@ body,
     --shadow-xl: 0px 2px 3px 0px hsl(0 0% 5% / 0.18), 0px 8px 10px -1px hsl(0 0% 5% / 0.18);
     --shadow-2xl: 0px 2px 3px 0px hsl(0 0% 5% / 0.45);
 }
-
-@layer base {
-  * {
-    @apply border-border outline-ring/50;
-    }
-  body {
-    @apply bg-background text-foreground;
-    letter-spacing: var(--tracking-normal);
-    }
-}
