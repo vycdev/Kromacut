@@ -93,6 +93,20 @@ export const AdjustmentsPanel: React.FC<Props> = React.memo(
             onCommit?.(next);
             dirtyRef.current = false;
         }, [defs, onCommit]);
+
+        const handleResetSingle = useCallback(
+            (key: string, defaultVal: number) => {
+                setValues((prev) => {
+                    if (prev[key] === defaultVal) return prev;
+                    return { ...prev, [key]: defaultVal };
+                });
+                draggingRef.current = false;
+                dirtyRef.current = true;
+                onCommit?.({ ...valuesRef.current, [key]: defaultVal });
+            },
+            [onCommit]
+        );
+
         const handleBake = useCallback(() => {
             // Ensure any in-progress drag is flushed before bake
             if (dirtyRef.current) {
@@ -111,43 +125,47 @@ export const AdjustmentsPanel: React.FC<Props> = React.memo(
                             Fine-tune image properties
                         </p>
                     </div>
-                    <div className="flex gap-2">
-                        <Button
-                            type="button"
-                            onClick={handleBake}
-                            size="sm"
-                            className="bg-green-600 hover:bg-green-700 text-white font-semibold transition-all duration-200 shadow-md hover:shadow-lg hover:scale-105 active:scale-95 gap-1.5"
-                            title="Apply (bake) adjustments to the image"
-                            aria-label="Apply adjustments"
-                        >
-                            <Check className="w-4 h-4" />
-                            <span>Apply</span>
-                        </Button>
-                        <Button
-                            type="button"
-                            onClick={handleReset}
-                            size="sm"
-                            className="bg-amber-600 hover:bg-amber-700 text-white font-semibold transition-all duration-200 shadow-md hover:shadow-lg hover:scale-105 active:scale-95 gap-1.5"
-                            title="Reset all adjustments to defaults"
-                            aria-label="Reset adjustments"
-                        >
-                            <RotateCcw className="w-4 h-4" />
-                            <span>Reset</span>
-                        </Button>
-                    </div>
+                    <Button
+                        type="button"
+                        onClick={handleBake}
+                        size="sm"
+                        className="bg-green-600 hover:bg-green-700 text-white font-semibold transition-all duration-200 shadow-md hover:shadow-lg hover:scale-105 active:scale-95 gap-1.5"
+                        title="Apply (bake) adjustments to the image"
+                        aria-label="Apply adjustments"
+                    >
+                        <Check className="w-4 h-4" />
+                        <span>Apply</span>
+                    </Button>
                 </div>
                 <div className="h-px bg-border/50" />
                 <div className="space-y-4">
                     {defs.map((s) => {
                         const displayVal = values[s.key];
+                        const isDefault = displayVal === s.default;
                         return (
-                            <label key={s.key} className="block space-y-2">
-                                <div className="flex justify-between items-center text-sm">
+                            <div key={s.key} className="space-y-2">
+                                <div className="flex justify-between items-center text-sm gap-2">
                                     <span className="font-medium text-foreground">{s.label}</span>
-                                    <span className="px-2 py-1 rounded-full bg-primary/10 text-primary text-xs font-mono font-semibold">
-                                        {displayVal}
-                                        {s.unit ? ` ${s.unit}` : ''}
-                                    </span>
+                                    <div className="flex items-center gap-2">
+                                        <span className="px-2 py-1 rounded-full bg-primary/10 text-primary text-xs font-mono font-semibold">
+                                            {displayVal}
+                                            {s.unit ? ` ${s.unit}` : ''}
+                                        </span>
+                                        <button
+                                            type="button"
+                                            onClick={(e) => {
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                                handleResetSingle(s.key, s.default);
+                                            }}
+                                            disabled={isDefault}
+                                            title={`Reset ${s.label} to default`}
+                                            aria-label={`Reset ${s.label}`}
+                                            className="h-5 w-5 flex-shrink-0 flex items-center justify-center rounded-md text-muted-foreground hover:text-amber-600 hover:bg-amber-600/15 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-muted-foreground"
+                                        >
+                                            <RotateCcw className="w-3.5 h-3.5" />
+                                        </button>
+                                    </div>
                                 </div>
                                 <Slider
                                     min={s.min}
@@ -166,7 +184,7 @@ export const AdjustmentsPanel: React.FC<Props> = React.memo(
                                     onPointerUp={() => handlePointerUp()}
                                     onBlur={() => handlePointerUp()}
                                 />
-                            </label>
+                            </div>
                         );
                     })}
                 </div>
