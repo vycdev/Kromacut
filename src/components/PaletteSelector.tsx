@@ -44,8 +44,13 @@ export const PaletteSelector: React.FC<Props> = ({ selected, onSelect }) => {
                                             {p.colors.slice(0, 5).map((c, i) => (
                                                 <div
                                                     key={i}
-                                                    className="w-4 h-4 rounded-sm border border-border/60"
-                                                    style={{ background: c }}
+                                                    className="rounded border border-border/70 cursor-pointer hover:border-primary hover:shadow-md transition-all duration-200 hover:scale-110"
+                                                    style={{
+                                                        background: c,
+                                                        width: '15px',
+                                                        height: '15px',
+                                                        aspectRatio: '1',
+                                                    }}
                                                 />
                                             ))}
                                             {p.colors.length > 5 && (
