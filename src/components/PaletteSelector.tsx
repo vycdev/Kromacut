@@ -28,11 +28,17 @@ export const PaletteSelector: React.FC<Props> = ({ selected, onSelect }) => {
                                 {p.id === 'auto' ? (
                                     <div className="text-xs font-bold text-center">Auto</div>
                                 ) : (
-                                    <div className="grid grid-cols-4 gap-1">
+                                    <div
+                                        className="grid gap-1"
+                                        style={{
+                                            gridTemplateColumns:
+                                                'repeat(auto-fill, minmax(12px, 1fr))',
+                                        }}
+                                    >
                                         {p.colors.map((c, i) => (
                                             <div
                                                 key={i}
-                                                className="aspect-square rounded border border-border"
+                                                className="aspect-square rounded-sm border border-border"
                                                 style={{ background: c }}
                                             />
                                         ))}
