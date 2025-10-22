@@ -3,6 +3,7 @@ import { RgbaColorPicker } from 'react-colorful';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
+import { X } from 'lucide-react';
 
 interface SwatchEntry {
     hex: string;
@@ -134,7 +135,7 @@ export const SwatchesPanel: React.FC<Props> = ({
                                 onClick={() => closeModal()}
                                 className="text-muted-foreground hover:text-foreground transition-colors"
                             >
-                                <i className="fa-solid fa-xmark" aria-hidden="true" />
+                                <X className="w-5 h-5" />
                             </button>
                         </div>
 

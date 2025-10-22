@@ -1,5 +1,17 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
+import {
+    RotateCcw,
+    RotateCw,
+    Crop,
+    Save,
+    X,
+    Loader,
+    Download,
+    Grid3x3,
+    Upload,
+    Trash2,
+} from 'lucide-react';
 
 export interface PreviewActionsProps {
     mode: '2d' | '3d';
@@ -50,7 +62,7 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
                 disabled={isCropMode || !canUndo}
                 onClick={onUndo}
             >
-                <i className="fa-solid fa-rotate-left" aria-hidden />
+                <RotateCcw className="w-4 h-4" />
             </Button>
             <Button
                 variant="secondary"
@@ -60,7 +72,7 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
                 disabled={isCropMode || !canRedo}
                 onClick={onRedo}
             >
-                <i className="fa-solid fa-rotate-right" aria-hidden />
+                <RotateCw className="w-4 h-4" />
             </Button>
 
             {mode === '2d' &&
@@ -73,7 +85,7 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
                         disabled={!imageAvailable}
                         onClick={onEnterCrop}
                     >
-                        <i className="fa-solid fa-crop" aria-hidden="true"></i>
+                        <Crop className="w-4 h-4" />
                     </Button>
                 ) : (
                     <>
@@ -84,7 +96,7 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
                             aria-label="Save crop"
                             onClick={onSaveCrop}
                         >
-                            <i className="fa-solid fa-floppy-disk" aria-hidden="true"></i>
+                            <Save className="w-4 h-4" />
                         </Button>
                         <Button
                             variant="secondary"
@@ -93,7 +105,7 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
                             aria-label="Cancel crop"
                             onClick={onCancelCrop}
                         >
-                            <i className="fa-solid fa-xmark" aria-hidden="true"></i>
+                            <X className="w-4 h-4" />
                         </Button>
                     </>
                 ))}
@@ -123,9 +135,9 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
                 }}
             >
                 {mode === '3d' && exportingSTL ? (
-                    <i className="fa-solid fa-spinner fa-spin" aria-hidden="true" />
+                    <Loader className="w-4 h-4 animate-spin" />
                 ) : (
-                    <i className="fa-solid fa-download" aria-hidden="true" />
+                    <Download className="w-4 h-4" />
                 )}
             </Button>
 
@@ -138,7 +150,7 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
                         aria-label="Toggle checkerboard"
                         onClick={onToggleCheckerboard}
                     >
-                        <i className="fa-solid fa-square" aria-hidden />
+                        <Grid3x3 className="w-4 h-4" />
                     </Button>
                     <Button
                         variant="secondary"
@@ -147,7 +159,7 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
                         aria-label="Choose file"
                         onClick={onPickFile}
                     >
-                        <i className="fa-solid fa-file-upload" aria-hidden />
+                        <Upload className="w-4 h-4" />
                     </Button>
                     <Button
                         variant="secondary"
@@ -157,7 +169,7 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
                         onClick={onClear}
                         disabled={!imageAvailable || isCropMode}
                     >
-                        <i className="fa-solid fa-trash" aria-hidden />
+                        <Trash2 className="w-4 h-4" />
                     </Button>
                 </>
             )}

@@ -1,5 +1,6 @@
 import React from 'react';
 import { Slider } from '@/components/ui/slider';
+import { GripVertical } from 'lucide-react';
 
 type Props = {
     fi: number;
@@ -54,7 +55,7 @@ function ThreeDColorRowInner({
                 aria-label="Reorder color"
                 title="Drag to reorder"
             >
-                <i className="fa-solid fa-grip-vertical text-xs" aria-hidden />
+                <GripVertical className="w-4 h-4" />
             </div>
             <div
                 className="w-7 h-5 border border-border rounded"
