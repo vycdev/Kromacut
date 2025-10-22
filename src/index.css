@@ -281,21 +281,21 @@ body,
   }
   
   ::-webkit-scrollbar-thumb {
-    background: #4a5568;
+    background: hsl(from var(--primary) h s l / 1);
     border-radius: 8px;
     opacity: 0;
     transition: opacity 0.3s ease;
   }
   
   ::-webkit-scrollbar-thumb:hover {
-    background: #5a6578;
+    background: hsl(from var(--primary) h s calc(l - 10%) / 1);
     opacity: 1;
   }
   
   /* Show scrollbar when scrolling */
   *::-webkit-scrollbar-thumb:active {
     opacity: 1;
-    background: #6b7684;
+    background: hsl(from var(--primary) h s calc(l - 15%) / 1);
   }
   
   /* Make scrollbar visible on parent hover */
