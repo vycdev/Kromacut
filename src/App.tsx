@@ -5,8 +5,6 @@ import logo from './assets/logo.png';
 import tdTestImg from './assets/tdTest.png';
 import CanvasPreview from './components/CanvasPreview';
 import type { CanvasPreviewHandle } from './components/CanvasPreview';
-import { PaletteSelector } from './components/PaletteSelector';
-import { ControlsPanel } from './components/ControlsPanel';
 import { SwatchesPanel } from './components/SwatchesPanel';
 import AdjustmentsPanel from './components/AdjustmentsPanel';
 import DeditherPanel from './components/DeditherPanel';
@@ -23,6 +21,7 @@ import { useDropzone } from './hooks/useDropzone';
 import { exportMeshToStlBlob } from './lib/exportStl';
 import { useAppHandlers } from './hooks/useAppHandlers';
 import ResizableSplitter from './components/ResizableSplitter';
+import { ControlsPanel } from './components/ControlsPanel';
 // ...existing imports
 
 function App(): React.ReactElement | null {
@@ -234,14 +233,6 @@ function App(): React.ReactElement | null {
                                                 setImage(url, true);
                                             }}
                                         />
-                                        <PaletteSelector
-                                            selected={selectedPalette}
-                                            onSelect={(id, size) => {
-                                                setSelectedPalette(id);
-                                                // set the postprocess target to the palette size, but do not lock it
-                                                if (id !== 'auto') setFinalColors(size);
-                                            }}
-                                        />
                                         <ControlsPanel
                                             // finalColors controls postprocessing result count
                                             finalColors={finalColors}
@@ -260,6 +251,12 @@ function App(): React.ReactElement | null {
                                             onApply={() => applyQuantize(canvasPreviewRef)}
                                             disabled={!imageSrc || isCropMode}
                                             weightDisabled={algorithm === 'none'}
+                                            selectedPalette={selectedPalette}
+                                            onPaletteSelect={(id, size) => {
+                                                setSelectedPalette(id);
+                                                // set the postprocess target to the palette size, but do not lock it
+                                                if (id !== 'auto') setFinalColors(size);
+                                            }}
                                         />
                                         <SwatchesPanel
                                             swatches={swatches}

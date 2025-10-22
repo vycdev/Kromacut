@@ -11,6 +11,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import { PALETTES } from '../data/palettes';
 
 interface Props {
     finalColors: number;
@@ -22,6 +23,8 @@ interface Props {
     onApply: () => void;
     disabled: boolean;
     weightDisabled?: boolean;
+    selectedPalette: string;
+    onPaletteSelect: (id: string, size: number) => void;
 }
 
 export const ControlsPanel: React.FC<Props> = ({
@@ -34,6 +37,8 @@ export const ControlsPanel: React.FC<Props> = ({
     onApply,
     disabled,
     weightDisabled = false,
+    selectedPalette,
+    onPaletteSelect,
 }) => {
     return (
         <Card className="p-4 border border-border/50 space-y-4">
@@ -42,6 +47,58 @@ export const ControlsPanel: React.FC<Props> = ({
                     Quantization Settings
                 </h3>
                 <div className="space-y-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="palette-select" className="font-medium">
+                            Palette
+                        </Label>
+                        <Select
+                            value={selectedPalette}
+                            onValueChange={(paletteId) => {
+                                const palette = PALETTES.find((p: any) => p.id === paletteId);
+                                if (palette) {
+                                    onPaletteSelect(paletteId, palette.size);
+                                }
+                            }}
+                        >
+                            <SelectTrigger id="palette-select">
+                                <SelectValue placeholder="Select a palette" />
+                            </SelectTrigger>
+                            <SelectContent className="max-h-48 overflow-y-auto">
+                                {PALETTES.map((p: any) => (
+                                    <SelectItem key={p.id} value={p.id}>
+                                        <div className="flex items-center gap-2">
+                                            <span>
+                                                {p.id === 'auto' ? 'Auto' : `${p.size} colors`}
+                                            </span>
+                                            {p.id !== 'auto' && (
+                                                <div className="flex gap-1">
+                                                    {p.colors
+                                                        .slice(0, 5)
+                                                        .map((c: string, i: number) => (
+                                                            <div
+                                                                key={i}
+                                                                className="rounded border border-border/70 cursor-pointer hover:border-primary hover:shadow-md transition-all duration-200 hover:scale-110 select-none"
+                                                                style={{
+                                                                    background: c,
+                                                                    width: '15px',
+                                                                    height: '15px',
+                                                                    aspectRatio: '1',
+                                                                }}
+                                                            />
+                                                        ))}
+                                                    {p.colors.length > 5 && (
+                                                        <div className="text-xs text-muted-foreground">
+                                                            +{p.colors.length - 5}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
                     <div className="space-y-2">
                         <div className="flex justify-between items-center">
                             <Label htmlFor="final-colors" className="font-medium">
@@ -103,9 +160,9 @@ export const ControlsPanel: React.FC<Props> = ({
                             </SelectContent>
                         </Select>
                     </div>
+                    <div className="h-px bg-border/50" />
                 </div>
             </div>
-            <div className="h-px bg-border/50" />
             <Button
                 onClick={onApply}
                 disabled={disabled}
@@ -117,3 +174,5 @@ export const ControlsPanel: React.FC<Props> = ({
         </Card>
     );
 };
+
+export default ControlsPanel;
