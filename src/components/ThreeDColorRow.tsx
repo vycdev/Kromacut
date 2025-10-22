@@ -43,7 +43,7 @@ function ThreeDColorRowInner({ fi, displayIdx, hex, value, layerHeight, onChange
                 />
 
                 {/* Height slider - interactive area */}
-                <div className="flex-1 min-w-0">
+                <div className="flex-1">
                     <Slider
                         min={layerHeight}
                         max={10}
@@ -54,16 +54,9 @@ function ThreeDColorRowInner({ fi, displayIdx, hex, value, layerHeight, onChange
                     />
                 </div>
 
-                {/* Height value display - monowidth for alignment */}
-                <div className="flex-shrink-0 min-w-[3.5rem] text-right">
-                    <div className="text-xs font-semibold text-primary font-mono tracking-tight">
-                        {value.toFixed(2)}
-                    </div>
-                </div>
-
-                {/* Unit label */}
-                <div className="flex-shrink-0 text-xs text-muted-foreground font-medium min-w-[1.5rem]">
-                    mm
+                {/* Height value display with badge styling */}
+                <div className="flex-shrink-0 px-2.5 py-1 rounded-full bg-primary/10 text-primary text-xs font-mono font-semibold">
+                    {value.toFixed(2)} mm
                 </div>
             </div>
         </SortableItem>
