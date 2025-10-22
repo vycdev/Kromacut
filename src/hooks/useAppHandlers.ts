@@ -44,7 +44,8 @@ export function useAppHandlers(params: UseAppHandlersParams) {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = 'image.png';
+        const timestamp = new Date().toISOString().slice(0, 10);
+        a.download = `kromacut-${timestamp}.png`;
         document.body.appendChild(a);
         a.click();
         a.remove();
@@ -68,7 +69,8 @@ export function useAppHandlers(params: UseAppHandlersParams) {
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = 'model.stl';
+            const timestamp = new Date().toISOString().slice(0, 10);
+            a.download = `kromacut-${timestamp}.stl`;
             document.body.appendChild(a);
             a.click();
             a.remove();
