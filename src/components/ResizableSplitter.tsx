@@ -18,6 +18,7 @@ export const ResizableSplitter: React.FC<ResizableSplitterProps> = ({
 }) => {
     const [leftWidth, setLeftWidth] = useState(defaultSize);
     const separatorRef = useRef<HTMLDivElement>(null);
+    const containerRef = useRef<HTMLDivElement>(null);
     const isDraggingRef = useRef(false);
 
     const handleMouseDown = useCallback(
@@ -27,7 +28,7 @@ export const ResizableSplitter: React.FC<ResizableSplitterProps> = ({
 
             const startX = e.clientX;
             const startWidth = leftWidth;
-            const container = separatorRef.current?.parentElement;
+            const container = containerRef.current;
             const containerWidth = container?.clientWidth || window.innerWidth;
 
             const handleMouseMove = (e: MouseEvent) => {
@@ -40,6 +41,9 @@ export const ResizableSplitter: React.FC<ResizableSplitterProps> = ({
                 // Constrain the width within min/max bounds
                 const constrainedWidth = Math.max(minSize, Math.min(maxSize, newWidth));
                 setLeftWidth(constrainedWidth);
+
+                // Prevent default to avoid any interference
+                e.preventDefault();
             };
 
             const handleMouseUp = () => {
@@ -59,19 +63,23 @@ export const ResizableSplitter: React.FC<ResizableSplitterProps> = ({
     );
 
     return (
-        <div className={`flex h-full ${className}`}>
-            <div className="flex-shrink-0 overflow-hidden" style={{ width: `${leftWidth}%` }}>
-                {children[0]}
-            </div>
+        <div
+            ref={containerRef}
+            className={`grid h-full ${className}`}
+            style={{
+                gridTemplateColumns: `${leftWidth}% 4px 1fr`,
+                gridTemplateRows: '1fr',
+                height: '100%',
+            }}
+        >
+            <div className="overflow-hidden h-full">{children[0]}</div>
             <Separator
                 ref={separatorRef}
                 orientation="vertical"
-                className="w-1 bg-gray-700 hover:bg-gray-600 cursor-col-resize transition-colors flex-shrink-0"
+                className="bg-gray-700 hover:bg-gray-600 cursor-col-resize transition-colors"
                 onMouseDown={handleMouseDown}
             />
-            <div className="flex-1 overflow-hidden" style={{ width: `${100 - leftWidth}%` }}>
-                {children[1]}
-            </div>
+            <div className="overflow-hidden min-w-0 h-full">{children[1]}</div>
         </div>
     );
 };
