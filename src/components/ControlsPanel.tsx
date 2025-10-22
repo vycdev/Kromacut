@@ -163,7 +163,7 @@ export const ControlsPanel: React.FC<Props> = ({
             <Button
                 onClick={onApply}
                 disabled={disabled}
-                className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold disabled:bg-green-600/50 disabled:cursor-not-allowed transition-all duration-200 shadow-md hover:shadow-lg hover:scale-105 active:scale-95 gap-1.5"
+                className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold disabled:bg-green-600/50 disabled:cursor-not-allowed transition-all duration-200 shadow-md hover:shadow-lg active:scale-95 gap-1.5"
             >
                 <Check className="w-4 h-4" />
                 <span>Apply Quantization</span>

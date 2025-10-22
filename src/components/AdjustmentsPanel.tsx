@@ -129,7 +129,7 @@ export const AdjustmentsPanel: React.FC<Props> = React.memo(
                         type="button"
                         onClick={handleBake}
                         size="sm"
-                        className="bg-green-600 hover:bg-green-700 text-white font-semibold transition-all duration-200 shadow-md hover:shadow-lg hover:scale-105 active:scale-95 gap-1.5"
+                        className="bg-green-600 hover:bg-green-700 text-white font-semibold transition-all duration-200 shadow-md hover:shadow-lg active:scale-95 gap-1.5"
                         title="Apply (bake) adjustments to the image"
                         aria-label="Apply adjustments"
                     >
