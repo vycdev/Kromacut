@@ -11,22 +11,22 @@ export const ModeTabs: React.FC<Props> = ({ mode, onChange }) => {
         <div className="p-4 border-b border-border" aria-hidden={false}>
             <div className="flex gap-2 rounded-lg">
                 <Button
-                    variant={mode === '2d' ? 'default' : 'ghost'}
+                    variant={mode === '2d' ? 'default' : 'outline'}
                     size="sm"
                     className="flex-1 font-semibold"
                     onClick={() => onChange('2d')}
                     aria-pressed={mode === '2d'}
                 >
-                    2D Mode
+                    2D
                 </Button>
                 <Button
-                    variant={mode === '3d' ? 'default' : 'ghost'}
+                    variant={mode === '3d' ? 'default' : 'outline'}
                     size="sm"
                     className="flex-1 font-semibold"
                     onClick={() => onChange('3d')}
                     aria-pressed={mode === '3d'}
                 >
-                    3D Mode
+                    3D
                 </Button>
             </div>
         </div>
