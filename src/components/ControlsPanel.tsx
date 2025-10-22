@@ -2,6 +2,7 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Input, NumberInput } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Card } from '@/components/ui/card';
 import {
     Select,
     SelectContent,
@@ -34,7 +35,7 @@ export const ControlsPanel: React.FC<Props> = ({
     weightDisabled = false,
 }) => {
     return (
-        <div className="space-y-3">
+        <Card className="p-4 space-y-3">
             <div className="space-y-2">
                 <Label htmlFor="final-colors">Number of colors</Label>
                 <NumberInput
@@ -83,6 +84,6 @@ export const ControlsPanel: React.FC<Props> = ({
             >
                 Apply
             </Button>
-        </div>
+        </Card>
     );
 };
