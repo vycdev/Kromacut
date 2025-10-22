@@ -57,19 +57,24 @@ export const SwatchesPanel: React.FC<Props> = ({
     const closeModal = () => setOpenSwatch(null);
 
     return (
-        <Card className="p-4 space-y-3">
+        <Card className="p-4 border border-border/50 space-y-4">
             <div className="flex justify-between items-center">
-                <span className="font-bold text-foreground">Image colors</span>
-                <span
-                    className="text-sm text-muted-foreground"
-                    aria-hidden
-                    title="Number of opaque color swatches (transparent excluded)"
-                >
-                    ({swatches.filter((s) => !s.isTransparent).length})
-                </span>
-                {loading && (
-                    <span className="text-xs text-muted-foreground animate-pulse">Updating…</span>
-                )}
+                <div>
+                    <h3 className="text-sm font-semibold text-foreground">Image colors</h3>
+                    <p className="text-xs text-muted-foreground mt-1">Detected color palette</p>
+                </div>
+                <div className="flex items-center gap-2">
+                    <span
+                        className="px-2 py-1 rounded-full bg-primary/10 text-primary text-xs font-semibold font-mono"
+                        aria-hidden
+                        title="Number of opaque color swatches (transparent excluded)"
+                    >
+                        {swatches.filter((s) => !s.isTransparent).length}
+                    </span>
+                    {loading && (
+                        <span className="text-xs text-muted-foreground animate-pulse">Updating…</span>
+                    )}
+                </div>
             </div>
             <div
                 className="grid gap-1"
@@ -125,21 +130,25 @@ export const SwatchesPanel: React.FC<Props> = ({
                     onKeyDown={(e) => {
                         if (e.key === 'Escape') closeModal();
                     }}
-                    className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+                    className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm"
                 >
-                    <Card className="w-full max-w-md">
-                        <div className="flex justify-between items-center p-6 border-b border-border">
-                            <div className="font-bold text-foreground text-lg">Edit swatch</div>
+                    <Card className="w-full max-w-sm border border-border/50 shadow-xl">
+                        {/* Header */}
+                        <div className="flex justify-between items-center p-6 border-b border-border/50">
+                            <div>
+                                <h2 className="font-semibold text-foreground text-base">Edit Color</h2>
+                                <p className="text-xs text-muted-foreground mt-1">Adjust the color and transparency</p>
+                            </div>
                             <button
                                 aria-label="Close"
                                 onClick={() => closeModal()}
-                                className="text-muted-foreground hover:text-foreground transition-colors"
+                                className="h-6 w-6 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded transition-colors"
                             >
-                                <X className="w-5 h-5" />
+                                <X className="w-4 h-4" />
                             </button>
                         </div>
 
-                        <div className="p-6 space-y-4">
+                        <div className="p-6 space-y-5">
                             {/* Color picker */}
                             <div className="flex justify-center">
                                 <RgbaColorPicker
@@ -167,10 +176,10 @@ export const SwatchesPanel: React.FC<Props> = ({
 
                             {/* Preview */}
                             <div className="flex justify-center">
-                                <div aria-hidden className="w-16 h-16 border border-border rounded">
+                                <div aria-hidden className="w-20 h-20 border-2 border-border rounded-lg shadow-md overflow-hidden">
                                     <div
                                         aria-hidden
-                                        className="w-full h-full rounded"
+                                        className="w-full h-full"
                                         style={{
                                             background: `rgba(${rgba.r}, ${rgba.g}, ${rgba.b}, ${rgba.a})`,
                                         }}
@@ -179,46 +188,50 @@ export const SwatchesPanel: React.FC<Props> = ({
                             </div>
 
                             {/* Hex input */}
-                            <Input
-                                value={pickerColor}
-                                onChange={(e) => {
-                                    const v = e.target.value;
-                                    if (/^#?[0-9a-fA-F]{0,8}$/.test(v)) {
-                                        const hex = v.startsWith('#') ? v.slice(1) : v;
-                                        if (hex.length === 8) {
-                                            const r = parseInt(hex.slice(0, 2), 16) || 0;
-                                            const g = parseInt(hex.slice(2, 4), 16) || 0;
-                                            const b = parseInt(hex.slice(4, 6), 16) || 0;
-                                            const a = (parseInt(hex.slice(6, 8), 16) || 255) / 255;
-                                            setRgba((p) => ({
-                                                ...p,
-                                                r,
-                                                g,
-                                                b,
-                                                a,
-                                            }));
-                                        } else if (hex.length === 6) {
-                                            const r = parseInt(hex.slice(0, 2), 16) || 0;
-                                            const g = parseInt(hex.slice(2, 4), 16) || 0;
-                                            const b = parseInt(hex.slice(4, 6), 16) || 0;
-                                            setRgba((p) => ({
-                                                ...p,
-                                                r,
-                                                g,
-                                                b,
-                                            }));
+                            <div className="space-y-2">
+                                <label className="text-xs font-medium text-foreground">Hex Value</label>
+                                <Input
+                                    value={pickerColor}
+                                    onChange={(e) => {
+                                        const v = e.target.value;
+                                        if (/^#?[0-9a-fA-F]{0,8}$/.test(v)) {
+                                            const hex = v.startsWith('#') ? v.slice(1) : v;
+                                            if (hex.length === 8) {
+                                                const r = parseInt(hex.slice(0, 2), 16) || 0;
+                                                const g = parseInt(hex.slice(2, 4), 16) || 0;
+                                                const b = parseInt(hex.slice(4, 6), 16) || 0;
+                                                const a = (parseInt(hex.slice(6, 8), 16) || 255) / 255;
+                                                setRgba((p) => ({
+                                                    ...p,
+                                                    r,
+                                                    g,
+                                                    b,
+                                                    a,
+                                                }));
+                                            } else if (hex.length === 6) {
+                                                const r = parseInt(hex.slice(0, 2), 16) || 0;
+                                                const g = parseInt(hex.slice(2, 4), 16) || 0;
+                                                const b = parseInt(hex.slice(4, 6), 16) || 0;
+                                                setRgba((p) => ({
+                                                    ...p,
+                                                    r,
+                                                    g,
+                                                    b,
+                                                }));
+                                            }
+                                            setPickerColor(v.startsWith('#') ? v : '#' + v);
                                         }
-                                        setPickerColor(v.startsWith('#') ? v : '#' + v);
-                                    }
-                                }}
-                                placeholder="#RRGGBBAA"
-                            />
+                                    }}
+                                    placeholder="#RRGGBBAA"
+                                    className="font-mono text-sm"
+                                />
+                            </div>
 
                             {/* Actions */}
-                            <div className="flex gap-2 pt-2">
+                            <div className="flex gap-2 pt-3">
                                 <Button
                                     variant="outline"
-                                    className="flex-1"
+                                    className="flex-1 transition-colors"
                                     onClick={async () => {
                                         if (!openSwatch) return;
                                         try {
@@ -235,7 +248,7 @@ export const SwatchesPanel: React.FC<Props> = ({
                                 </Button>
 
                                 <Button
-                                    className="flex-1"
+                                    className="flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold transition-all duration-200 shadow-md hover:shadow-lg hover:scale-105 active:scale-95"
                                     onClick={async () => {
                                         if (!openSwatch) return;
                                         let hex = pickerColor || '';

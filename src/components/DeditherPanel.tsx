@@ -188,6 +188,8 @@ export const DeditherPanel: React.FC<Props> = ({ canvasRef, onApplyResult }) => 
                 />
             </div>
 
+            <div className="h-px bg-border/50" />
+
             <Button
                 onClick={handleApply}
                 disabled={working}
