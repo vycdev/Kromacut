@@ -104,9 +104,6 @@ export const ControlsPanel: React.FC<Props> = ({
                             <Label htmlFor="final-colors" className="font-medium">
                                 Number of Colors
                             </Label>
-                            <span className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary font-medium">
-                                {finalColors} colors
-                            </span>
                         </div>
                         <NumberInput
                             id="final-colors"
@@ -125,9 +122,6 @@ export const ControlsPanel: React.FC<Props> = ({
                             <Label htmlFor="weight" className="font-medium">
                                 Algorithm Weight
                             </Label>
-                            <span className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary font-medium">
-                                {weight}
-                            </span>
                         </div>
                         <NumberInput
                             id="weight"
