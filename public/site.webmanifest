@@ -1,13 +1,1 @@
-{
-    "name": "Kromacut",
-    "short_name": "Kromacut",
-    "icons": [
-        { "src": "/android-chrome-192x192.png", "sizes": "192x192", "type": "image/png" },
-        { "src": "/android-chrome-512x512.png", "sizes": "512x512", "type": "image/png" }
-    ],
-    "theme_color": "#ffffff",
-    "background_color": "#ffffff",
-    "description": "Kromacut — turn images into stacked color-layer 3D prints. Reduce palettes, tune slice heights, preview, and export STL models.",
-    "start_url": "/",
-    "display": "standalone"
-}
+{"name":"","short_name":"","icons":[{"src":"/android-chrome-192x192.png","sizes":"192x192","type":"image/png"},{"src":"/android-chrome-512x512.png","sizes":"512x512","type":"image/png"}],"theme_color":"#ffffff","background_color":"#ffffff","display":"standalone"}
