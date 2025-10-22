@@ -42,7 +42,7 @@ function App(): React.ReactElement | null {
     // initial selectedPalette derived from initial weight above
     const inputRef = useRef<HTMLInputElement | null>(null);
     const canvasPreviewRef = useRef<CanvasPreviewHandle | null>(null);
-    const [showCheckerboard, setShowCheckerboard] = useState<boolean>(true);
+    const [showCheckerboard, setShowCheckerboard] = useState<boolean>(false);
     const [isCropMode, setIsCropMode] = useState(false);
     const { applyQuantize } = useQuantize({
         algorithm,
