@@ -125,40 +125,6 @@ export default function ThreeDControls({ swatches, onChange, persisted }: ThreeD
         });
     }, []);
 
-    // Move color up in order
-    const moveColorUp = useCallback(
-        (displayIdx: number) => {
-            if (displayIdx <= 0) return;
-            const currentOrder =
-                colorOrder.length === filtered.length
-                    ? colorOrder.slice()
-                    : filtered.map((_, i) => i);
-            [currentOrder[displayIdx - 1], currentOrder[displayIdx]] = [
-                currentOrder[displayIdx],
-                currentOrder[displayIdx - 1],
-            ];
-            setColorOrder(currentOrder);
-        },
-        [colorOrder, filtered]
-    );
-
-    // Move color down in order
-    const moveColorDown = useCallback(
-        (displayIdx: number) => {
-            const currentOrder =
-                colorOrder.length === filtered.length
-                    ? colorOrder.slice()
-                    : filtered.map((_, i) => i);
-            if (displayIdx >= currentOrder.length - 1) return;
-            [currentOrder[displayIdx], currentOrder[displayIdx + 1]] = [
-                currentOrder[displayIdx + 1],
-                currentOrder[displayIdx],
-            ];
-            setColorOrder(currentOrder);
-        },
-        [colorOrder, filtered]
-    );
-
     // Handle sortable reordering
     const handleColorOrderChange = useCallback((newOrder: string[]) => {
         const newColorOrder = newOrder.map((v) => Number(v));
@@ -412,10 +378,6 @@ export default function ThreeDControls({ swatches, onChange, persisted }: ThreeD
                                     value={val}
                                     layerHeight={layerHeight}
                                     onChange={onRowChange}
-                                    onMoveUp={() => moveColorUp(displayIdx)}
-                                    onMoveDown={() => moveColorDown(displayIdx)}
-                                    canMoveUp={displayIdx > 0}
-                                    canMoveDown={displayIdx < displayOrder.length - 1}
                                 />
                             );
                         })}

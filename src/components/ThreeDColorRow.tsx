@@ -1,6 +1,6 @@
 import React from 'react';
 import { Slider } from '@/components/ui/slider';
-import { ChevronUp, ChevronDown, GripVertical } from 'lucide-react';
+import { GripVertical } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { SortableItem, SortableItemHandle } from '@/components/ui/sortable';
 
@@ -11,24 +11,9 @@ type Props = {
     value: number;
     layerHeight: number;
     onChange: (fi: number, value: number) => void;
-    onMoveUp?: () => void;
-    onMoveDown?: () => void;
-    canMoveUp?: boolean;
-    canMoveDown?: boolean;
 };
 
-function ThreeDColorRowInner({
-    fi,
-    displayIdx,
-    hex,
-    value,
-    layerHeight,
-    onChange,
-    onMoveUp,
-    onMoveDown,
-    canMoveUp = false,
-    canMoveDown = false,
-}: Props) {
+function ThreeDColorRowInner({ fi, displayIdx, hex, value, layerHeight, onChange }: Props) {
     const handleChange = (v: number[]) => {
         onChange(fi, v[0]);
     };
@@ -76,32 +61,6 @@ function ThreeDColorRowInner({
 
                 {/* Unit label */}
                 <div className="flex-shrink-0 text-xs text-muted-foreground font-medium">mm</div>
-
-                {/* Up/Down reorder buttons - better visibility on hover */}
-                <div className="flex-shrink-0 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
-                    <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-7 w-7 text-muted-foreground hover:text-primary hover:bg-primary/10 active:bg-primary/20 transition-colors duration-150"
-                        onClick={onMoveUp}
-                        disabled={!canMoveUp}
-                        title="Move color up in order"
-                        aria-label="Move color up"
-                    >
-                        <ChevronUp className="w-3.5 h-3.5" />
-                    </Button>
-                    <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-7 w-7 text-muted-foreground hover:text-primary hover:bg-primary/10 active:bg-primary/20 transition-colors duration-150"
-                        onClick={onMoveDown}
-                        disabled={!canMoveDown}
-                        title="Move color down in order"
-                        aria-label="Move color down"
-                    >
-                        <ChevronDown className="w-3.5 h-3.5" />
-                    </Button>
-                </div>
             </div>
         </SortableItem>
     );
