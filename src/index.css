@@ -258,17 +258,22 @@ body,
   ::-webkit-scrollbar {
     width: 14px;
     height: 14px;
+    background-color: transparent;
   }
   
-  /* Hide scrollbar buttons (up/down arrows) - set size to 0 */
+  /* Hide scrollbar arrow buttons by making them transparent */
   ::-webkit-scrollbar-button {
-    width: 0;
-    height: 0;
+    background-color: transparent;
+    width: 14px;
+    height: 14px;
   }
   
-  ::-webkit-scrollbar-button:start:increment,
+  ::-webkit-scrollbar-button:start:increment {
+    background-color: transparent;
+  }
+  
   ::-webkit-scrollbar-button:end:decrement {
-    display: none;
+    background-color: transparent;
   }
   
   ::-webkit-scrollbar-track {
