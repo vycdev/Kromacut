@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Slider } from '@/components/ui/slider';
 import { GripVertical } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -14,7 +14,13 @@ type Props = {
 };
 
 function ThreeDColorRowInner({ fi, displayIdx, hex, value, layerHeight, onChange }: Props) {
+    const [tempValue, setTempValue] = useState<number>(value);
+
     const handleChange = (v: number[]) => {
+        setTempValue(v[0]);
+    };
+
+    const handleValueCommit = (v: number[]) => {
         onChange(fi, v[0]);
     };
 
@@ -48,15 +54,16 @@ function ThreeDColorRowInner({ fi, displayIdx, hex, value, layerHeight, onChange
                         min={layerHeight}
                         max={10}
                         step={layerHeight}
-                        value={[value]}
+                        value={[tempValue]}
                         onValueChange={handleChange}
+                        onValueCommit={handleValueCommit}
                         className="cursor-pointer"
                     />
                 </div>
 
                 {/* Height value display with badge styling */}
                 <div className="flex-shrink-0 px-2.5 py-1 rounded-full bg-primary/10 text-primary text-xs font-mono font-semibold">
-                    {value.toFixed(2)} mm
+                    {tempValue.toFixed(2)} mm
                 </div>
             </div>
         </SortableItem>
