@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { Separator } from '@/components/ui/separator';
 
 interface ResizableSplitterProps {
@@ -20,44 +20,33 @@ export const ResizableSplitter: React.FC<ResizableSplitterProps> = ({
     const separatorRef = useRef<HTMLDivElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const isDraggingRef = useRef(false);
-
-    // Update flexbox widths when leftWidth changes
-    useEffect(() => {
-        if (containerRef.current) {
-            const element = containerRef.current;
-
-            // Set flex basis only for left panel, let right panel grow naturally
-            const leftPanel = element.children[0] as HTMLElement;
-
-            if (leftPanel) {
-                leftPanel.style.flexBasis = `${leftWidth}%`;
-            }
-        }
-    }, [leftWidth]);
+    const dragStartRef = useRef({ startX: 0, startWidth: 0 });
 
     const handleMouseDown = useCallback(
         (e: React.MouseEvent) => {
             e.preventDefault();
-            isDraggingRef.current = true;
+            e.stopPropagation();
 
-            const startX = e.clientX;
-            const startWidth = leftWidth;
+            isDraggingRef.current = true;
+            dragStartRef.current = {
+                startX: e.clientX,
+                startWidth: leftWidth,
+            };
+
             const container = containerRef.current;
-            const containerWidth = container?.clientWidth || window.innerWidth;
+            if (!container) return;
 
             const handleMouseMove = (e: MouseEvent) => {
                 if (!isDraggingRef.current) return;
 
-                const deltaX = e.clientX - startX;
+                const deltaX = e.clientX - dragStartRef.current.startX;
+                const containerWidth = container.clientWidth;
                 const deltaPercent = (deltaX / containerWidth) * 100;
-                const newWidth = startWidth + deltaPercent;
+                const newWidth = dragStartRef.current.startWidth + deltaPercent;
 
                 // Constrain the width within min/max bounds
                 const constrainedWidth = Math.max(minSize, Math.min(maxSize, newWidth));
                 setLeftWidth(constrainedWidth);
-
-                // Prevent default to avoid any interference
-                e.preventDefault();
             };
 
             const handleMouseUp = () => {
@@ -80,12 +69,19 @@ export const ResizableSplitter: React.FC<ResizableSplitterProps> = ({
         <div
             ref={containerRef}
             className={`flex h-full w-full ${className}`}
-            key={`splitter-${leftWidth}`}
-            style={{
-                height: '100%',
-            }}
+            style={
+                {
+                    height: '100%',
+                    '--left-width': `${leftWidth}%`,
+                } as React.CSSProperties
+            }
         >
-            <div className="overflow-hidden h-full flex-shrink-0">{children[0]}</div>
+            <div
+                className="overflow-hidden h-full flex-shrink-0"
+                style={{ flexBasis: `${leftWidth}%` }}
+            >
+                {children[0]}
+            </div>
             <Separator
                 ref={separatorRef}
                 orientation="vertical"
