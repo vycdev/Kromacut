@@ -488,7 +488,9 @@ export default function ThreeDControls({ swatches, onChange, persisted }: ThreeD
                                 );
                             })()
                         ) : (
-                            <div className="text-muted-foreground text-sm p-3 rounded-lg bg-muted/30">—</div>
+                            <div className="text-muted-foreground text-sm p-3 rounded-lg bg-muted/30">
+                                —
+                            </div>
                         )}
                     </div>
 
@@ -506,7 +508,7 @@ export default function ThreeDControls({ swatches, onChange, persisted }: ThreeD
                                         return (
                                             <li
                                                 key={idx}
-                                                className="flex items-center gap-2 text-muted-foreground text-xs"
+                                                className="flex items-center gap-2 text-muted-foreground text-xs p-2 rounded bg-accent/5"
                                             >
                                                 <span className="text-primary font-semibold flex-shrink-0">
                                                     {idx}.
