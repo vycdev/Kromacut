@@ -89,7 +89,7 @@ export const ResizableSplitter: React.FC<ResizableSplitterProps> = ({
             <Separator
                 ref={separatorRef}
                 orientation="vertical"
-                className="bg-gray-700 hover:bg-gray-600 cursor-col-resize transition-colors flex-shrink-0"
+                className="bg-gray-700 hover:bg-gray-600 cursor-col-resize transition-colors flex-shrink-0 w-2"
                 onMouseDown={handleMouseDown}
             />
             <div className="overflow-hidden min-w-0 h-full flex-1">{children[1]}</div>
