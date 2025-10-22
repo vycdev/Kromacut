@@ -37,8 +37,8 @@ function ThreeDColorRowInner({
 
     const boxShadowClass = isDragOver
         ? dragPosition === 'above'
-            ? 'ring-2 ring-purple-500 ring-inset rounded'
-            : 'ring-2 ring-purple-500 ring-inset rounded'
+            ? 'ring-2 ring-primary ring-inset rounded'
+            : 'ring-2 ring-primary ring-inset rounded'
         : '';
 
     return (

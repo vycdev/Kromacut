@@ -60,7 +60,7 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
                 aria-label="Undo"
                 disabled={isCropMode || !canUndo}
                 onClick={onUndo}
-                className="bg-gray-700 hover:bg-gray-600 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                className="bg-muted hover:bg-muted/80 text-foreground disabled:opacity-50 disabled:cursor-not-allowed"
             >
                 <RotateCcw className="w-4 h-4" />
             </Button>
@@ -70,7 +70,7 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
                 aria-label="Redo"
                 disabled={isCropMode || !canRedo}
                 onClick={onRedo}
-                className="bg-gray-700 hover:bg-gray-600 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                className="bg-muted hover:bg-muted/80 text-foreground disabled:opacity-50 disabled:cursor-not-allowed"
             >
                 <RotateCw className="w-4 h-4" />
             </Button>
@@ -83,7 +83,7 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
                         aria-label="Crop"
                         disabled={!imageAvailable}
                         onClick={onEnterCrop}
-                        className="bg-yellow-600 hover:bg-yellow-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="bg-accent hover:bg-accent/80 text-accent-foreground disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         <Crop className="w-4 h-4" />
                     </Button>
@@ -94,7 +94,7 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
                             title="Save crop"
                             aria-label="Save crop"
                             onClick={onSaveCrop}
-                            className="bg-green-600 hover:bg-green-700 text-white"
+                            className="bg-primary hover:bg-primary/80 text-primary-foreground"
                         >
                             <Save className="w-4 h-4" />
                         </Button>
@@ -103,7 +103,7 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
                             title="Cancel crop"
                             aria-label="Cancel crop"
                             onClick={onCancelCrop}
-                            className="bg-red-600 hover:bg-red-700 text-white"
+                            className="bg-destructive hover:bg-destructive/80 text-destructive-foreground"
                         >
                             <X className="w-4 h-4" />
                         </Button>
@@ -132,7 +132,7 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
                     if (mode === '3d') await onExportStl();
                     else await onExportImage();
                 }}
-                className="bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                className="bg-primary hover:bg-primary/80 text-primary-foreground disabled:opacity-50 disabled:cursor-not-allowed"
             >
                 {mode === '3d' && exportingSTL ? (
                     <Loader className="w-4 h-4 animate-spin" />
@@ -148,7 +148,7 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
                         title="Toggle checkerboard"
                         aria-label="Toggle checkerboard"
                         onClick={onToggleCheckerboard}
-                        className="bg-indigo-600 hover:bg-indigo-700 text-white"
+                        className="bg-muted hover:bg-muted/80 text-foreground"
                     >
                         <Grid3x3 className="w-4 h-4" />
                     </Button>
@@ -157,7 +157,7 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
                         title="Choose file"
                         aria-label="Choose file"
                         onClick={onPickFile}
-                        className="bg-purple-600 hover:bg-purple-700 text-white"
+                        className="bg-primary hover:bg-primary/80 text-primary-foreground"
                     >
                         <Upload className="w-4 h-4" />
                     </Button>
@@ -167,7 +167,7 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
                         aria-label="Remove image"
                         onClick={onClear}
                         disabled={!imageAvailable || isCropMode}
-                        className="bg-red-700 hover:bg-red-800 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="bg-destructive hover:bg-destructive/80 text-destructive-foreground disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         <Trash2 className="w-4 h-4" />
                     </Button>

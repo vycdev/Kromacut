@@ -80,7 +80,7 @@ export const ControlsPanel: React.FC<Props> = ({
             <Button
                 onClick={onApply}
                 disabled={disabled}
-                className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold disabled:bg-purple-600/50 disabled:cursor-not-allowed"
+                className="w-full bg-primary hover:bg-primary/80 text-primary-foreground font-semibold disabled:bg-primary/50 disabled:cursor-not-allowed"
             >
                 Apply
             </Button>
