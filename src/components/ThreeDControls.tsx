@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { DragEvent } from 'react';
 import { Card } from '@/components/ui/card';
 import { Input, NumberInput } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import ThreeDColorRow from './ThreeDColorRow';
+import { Sortable, SortableContent, SortableOverlay } from '@/components/ui/sortable';
 
 type Swatch = { hex: string; a: number };
 
@@ -115,68 +115,6 @@ export default function ThreeDControls({ swatches, onChange, persisted }: ThreeD
         prevOrderRef.current = nextOrder.slice();
     }, [filtered, layerHeight]);
 
-    // drag ordering helpers
-    const dragStartRef = useRef<number | null>(null);
-    const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
-    const [dragOverPosition, setDragOverPosition] = useState<'above' | 'below' | null>(null);
-
-    const handleDragStart = useCallback((e: DragEvent<HTMLDivElement>, fi: number) => {
-        dragStartRef.current = fi;
-        setDragOverIndex(null);
-        setDragOverPosition(null);
-        e.dataTransfer?.setData('text/plain', String(fi));
-        if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
-    }, []);
-
-    const handleDragOver = useCallback((e: DragEvent<HTMLDivElement>, toDisplayIdx: number) => {
-        e.preventDefault();
-        const cur = e.currentTarget as HTMLElement | null;
-        if (cur) {
-            const rect = cur.getBoundingClientRect();
-            const mid = rect.top + rect.height / 2;
-            const pos = e.clientY <= mid ? 'above' : 'below';
-            setDragOverPosition(pos);
-        } else {
-            setDragOverPosition(null);
-        }
-        setDragOverIndex(toDisplayIdx);
-        if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
-    }, []);
-
-    const handleDragLeave = useCallback(() => {
-        setDragOverIndex(null);
-        setDragOverPosition(null);
-    }, []);
-
-    const handleDrop = useCallback(
-        (e: DragEvent<HTMLDivElement>, toDisplayIdx: number) => {
-            e.preventDefault();
-            const fromStr = e.dataTransfer?.getData('text/plain');
-            const fromFi = fromStr ? Number(fromStr) : dragStartRef.current;
-            if (fromFi == null || Number.isNaN(fromFi)) return;
-            const currentOrder =
-                colorOrder.length === filtered.length
-                    ? colorOrder.slice()
-                    : filtered.map((_, i) => i);
-            const fromPos = currentOrder.indexOf(fromFi);
-            if (fromPos === -1) return;
-
-            let insertAt = toDisplayIdx + (dragOverPosition === 'below' ? 1 : 0);
-            currentOrder.splice(fromPos, 1);
-            if (fromPos < insertAt) insertAt -= 1;
-            if (insertAt < 0) insertAt = 0;
-            if (insertAt > currentOrder.length) insertAt = currentOrder.length;
-            currentOrder.splice(insertAt, 0, fromFi);
-            setColorOrder(currentOrder);
-            // update refs so persistence picks up new order immediately
-            prevOrderRef.current = currentOrder.slice();
-            dragStartRef.current = null;
-            setDragOverIndex(null);
-            setDragOverPosition(null);
-        },
-        [colorOrder, filtered, dragOverPosition]
-    );
-
     // stable per-row change handler so memoized rows don't re-render due to
     // a new function identity being created each parent render
     const onRowChange = useCallback((idx: number, v: number) => {
@@ -220,6 +158,13 @@ export default function ThreeDControls({ swatches, onChange, persisted }: ThreeD
         },
         [colorOrder, filtered]
     );
+
+    // Handle sortable reordering
+    const handleColorOrderChange = useCallback((newOrder: string[]) => {
+        const newColorOrder = newOrder.map((v) => Number(v));
+        setColorOrder(newColorOrder);
+        prevOrderRef.current = newColorOrder.slice();
+    }, []);
 
     // Emit consolidated state upwards only when references or primitive values actually change.
     const lastEmittedRef = useRef<{
@@ -369,6 +314,10 @@ export default function ThreeDControls({ swatches, onChange, persisted }: ThreeD
         }
     };
 
+    // Get the current display order for the sortable
+    const displayOrder =
+        colorOrder.length === filtered.length ? colorOrder : filtered.map((_, i) => i);
+
     return (
         <div className="space-y-4">
             {/* Pixel size (XY scaling) */}
@@ -439,19 +388,19 @@ export default function ThreeDControls({ swatches, onChange, persisted }: ThreeD
                 </label>
             </Card>
 
-            {/* Per-color slice heights */}
+            {/* Per-color slice heights with Sortable */}
             <Card className="p-4 space-y-3">
                 <div className="flex justify-between items-center">
                     <span className="font-bold text-foreground">Color slice heights</span>
                     <span className="text-sm text-muted-foreground">{filtered.length} colors</span>
                 </div>
-                <div className="space-y-2">
-                    {
-                        // determine display order; fallback to natural order when colorOrder not initialized
-                        (colorOrder.length === filtered.length
-                            ? colorOrder
-                            : filtered.map((_, i) => i)
-                        ).map((fi, displayIdx) => {
+                <Sortable
+                    value={displayOrder.map(String)}
+                    onValueChange={handleColorOrderChange}
+                    orientation="vertical"
+                >
+                    <SortableContent className="space-y-2">
+                        {displayOrder.map((fi, displayIdx) => {
                             const s = filtered[fi];
                             const val = colorSliceHeights[fi] ?? layerHeight;
                             return (
@@ -462,28 +411,35 @@ export default function ThreeDControls({ swatches, onChange, persisted }: ThreeD
                                     hex={s.hex}
                                     value={val}
                                     layerHeight={layerHeight}
-                                    isDragOver={dragOverIndex === displayIdx}
-                                    dragPosition={dragOverPosition}
-                                    onDragStart={handleDragStart}
-                                    onDragOver={handleDragOver}
-                                    onDragLeave={handleDragLeave}
-                                    onDrop={handleDrop}
                                     onChange={onRowChange}
                                     onMoveUp={() => moveColorUp(displayIdx)}
                                     onMoveDown={() => moveColorDown(displayIdx)}
                                     canMoveUp={displayIdx > 0}
-                                    canMoveDown={
-                                        displayIdx <
-                                        (colorOrder.length === filtered.length
-                                            ? colorOrder.length
-                                            : filtered.length) -
-                                            1
-                                    }
+                                    canMoveDown={displayIdx < displayOrder.length - 1}
                                 />
                             );
-                        })
-                    }
-                </div>
+                        })}
+                    </SortableContent>
+                    <SortableOverlay>
+                        {({ value }) => {
+                            const fi = Number(value);
+                            const s = filtered[fi];
+                            const val = colorSliceHeights[fi] ?? layerHeight;
+                            return (
+                                <ThreeDColorRow
+                                    fi={fi}
+                                    displayIdx={0}
+                                    hex={s.hex}
+                                    value={val}
+                                    layerHeight={layerHeight}
+                                    onChange={onRowChange}
+                                    canMoveUp={false}
+                                    canMoveDown={false}
+                                />
+                            );
+                        }}
+                    </SortableOverlay>
+                </Sortable>
             </Card>
 
             {/* 3D printing instruction group (dynamic) */}
