@@ -55,22 +55,22 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
     return (
         <div className="absolute top-4 right-4 flex flex-wrap gap-2 z-10">
             <Button
-                variant="secondary"
-                size="sm"
+                size="icon"
                 title="Undo"
                 aria-label="Undo"
                 disabled={isCropMode || !canUndo}
                 onClick={onUndo}
+                className="bg-gray-700 hover:bg-gray-600 text-white disabled:opacity-50 disabled:cursor-not-allowed"
             >
                 <RotateCcw className="w-4 h-4" />
             </Button>
             <Button
-                variant="secondary"
-                size="sm"
+                size="icon"
                 title="Redo"
                 aria-label="Redo"
                 disabled={isCropMode || !canRedo}
                 onClick={onRedo}
+                className="bg-gray-700 hover:bg-gray-600 text-white disabled:opacity-50 disabled:cursor-not-allowed"
             >
                 <RotateCw className="w-4 h-4" />
             </Button>
@@ -78,32 +78,32 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
             {mode === '2d' &&
                 (!isCropMode ? (
                     <Button
-                        variant="secondary"
-                        size="sm"
+                        size="icon"
                         title="Crop"
                         aria-label="Crop"
                         disabled={!imageAvailable}
                         onClick={onEnterCrop}
+                        className="bg-yellow-600 hover:bg-yellow-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         <Crop className="w-4 h-4" />
                     </Button>
                 ) : (
                     <>
                         <Button
-                            variant="secondary"
-                            size="sm"
+                            size="icon"
                             title="Save crop"
                             aria-label="Save crop"
                             onClick={onSaveCrop}
+                            className="bg-green-600 hover:bg-green-700 text-white"
                         >
                             <Save className="w-4 h-4" />
                         </Button>
                         <Button
-                            variant="secondary"
-                            size="sm"
+                            size="icon"
                             title="Cancel crop"
                             aria-label="Cancel crop"
                             onClick={onCancelCrop}
+                            className="bg-red-600 hover:bg-red-700 text-white"
                         >
                             <X className="w-4 h-4" />
                         </Button>
@@ -112,8 +112,7 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
 
             {/* Download button: image in 2D; STL in 3D */}
             <Button
-                variant="secondary"
-                size="sm"
+                size="icon"
                 title={
                     mode === '3d'
                         ? exportingSTL
@@ -133,6 +132,7 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
                     if (mode === '3d') await onExportStl();
                     else await onExportImage();
                 }}
+                className="bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
             >
                 {mode === '3d' && exportingSTL ? (
                     <Loader className="w-4 h-4 animate-spin" />
@@ -144,30 +144,30 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
             {mode === '2d' && (
                 <>
                     <Button
-                        variant="secondary"
-                        size="sm"
+                        size="icon"
                         title="Toggle checkerboard"
                         aria-label="Toggle checkerboard"
                         onClick={onToggleCheckerboard}
+                        className="bg-indigo-600 hover:bg-indigo-700 text-white"
                     >
                         <Grid3x3 className="w-4 h-4" />
                     </Button>
                     <Button
-                        variant="secondary"
-                        size="sm"
+                        size="icon"
                         title="Choose file"
                         aria-label="Choose file"
                         onClick={onPickFile}
+                        className="bg-purple-600 hover:bg-purple-700 text-white"
                     >
                         <Upload className="w-4 h-4" />
                     </Button>
                     <Button
-                        variant="secondary"
-                        size="sm"
+                        size="icon"
                         title="Remove image"
                         aria-label="Remove image"
                         onClick={onClear}
                         disabled={!imageAvailable || isCropMode}
+                        className="bg-red-700 hover:bg-red-800 text-white disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         <Trash2 className="w-4 h-4" />
                     </Button>
