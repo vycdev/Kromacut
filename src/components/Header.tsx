@@ -29,7 +29,7 @@ export const Header: React.FC<Props> = ({ onLoadTest }) => {
                 <Button
                     size="sm"
                     asChild
-                    className="bg-slate-700 hover:bg-slate-600 text-white font-semibold transition-all duration-200 shadow-md hover:shadow-lg hover:scale-105 active:scale-95 gap-1.5"
+                    className="bg-gradient-to-r from-purple-500 to-violet-600 hover:from-purple-600 hover:to-violet-700 text-white font-semibold transition-all duration-200 shadow-md hover:shadow-lg active:scale-95 gap-1.5"
                 >
                     <a
                         href="https://github.com/vycdev/Kromacut"
