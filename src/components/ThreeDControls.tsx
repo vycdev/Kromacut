@@ -302,7 +302,7 @@ export default function ThreeDControls({ swatches, onChange, persisted }: ThreeD
                                 mm/pixel
                             </span>
                         </div>
-                        <span className="text-sm font-mono text-primary">
+                        <span className="px-2.5 py-1 rounded-full bg-primary/10 text-primary text-xs font-mono font-semibold">
                             {pixelSize.toFixed(3)}
                         </span>
                     </div>
@@ -330,7 +330,7 @@ export default function ThreeDControls({ swatches, onChange, persisted }: ThreeD
                                 mm
                             </span>
                         </div>
-                        <span className="text-sm font-mono text-primary">
+                        <span className="px-2.5 py-1 rounded-full bg-primary/10 text-primary text-xs font-mono font-semibold">
                             {layerHeight.toFixed(2)}
                         </span>
                     </div>
@@ -357,7 +357,7 @@ export default function ThreeDControls({ swatches, onChange, persisted }: ThreeD
                                 mm
                             </span>
                         </div>
-                        <span className="text-sm font-mono text-primary">
+                        <span className="px-2.5 py-1 rounded-full bg-primary/10 text-primary text-xs font-mono font-semibold">
                             {baseSliceHeight.toFixed(2)}
                         </span>
                     </div>

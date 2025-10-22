@@ -179,23 +179,7 @@ export const SwatchesPanel: React.FC<Props> = ({
                                 />
                             </div>
 
-                            {/* Preview */}
-                            <div className="flex justify-center">
-                                <div
-                                    aria-hidden
-                                    className="w-20 h-20 border-2 border-border rounded-lg shadow-md overflow-hidden"
-                                >
-                                    <div
-                                        aria-hidden
-                                        className="w-full h-full"
-                                        style={{
-                                            background: `rgba(${rgba.r}, ${rgba.g}, ${rgba.b}, ${rgba.a})`,
-                                        }}
-                                    />
-                                </div>
-                            </div>
-
-                            {/* Hex input */}
+                            {/* Hex input and Preview in a row */}
                             <div className="space-y-2">
                                 <label className="text-xs font-medium text-foreground">
                                     Hex Value
