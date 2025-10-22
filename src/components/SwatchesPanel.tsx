@@ -114,7 +114,7 @@ export const SwatchesPanel: React.FC<Props> = ({
                                 title={`${s.hex}${
                                     s.a === 0 ? ' (transparent)' : ''
                                 }  alpha:${s.a}  count:${s.count}`}
-                                className="rounded border border-border/70 cursor-pointer hover:border-primary hover:shadow-md transition-all duration-200 hover:scale-110"
+                                className="rounded border border-border/70 cursor-pointer hover:border-primary hover:shadow-md transition-all duration-200 hover:scale-110 select-none"
                                 style={{ aspectRatio: '1', ...swatchStyle }}
                             />
                         );
@@ -147,7 +147,7 @@ export const SwatchesPanel: React.FC<Props> = ({
                             <button
                                 aria-label="Close"
                                 onClick={() => closeModal()}
-                                className="h-6 w-6 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded transition-colors"
+                                className="h-6 w-6 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded transition-colors select-none"
                             >
                                 <X className="w-4 h-4" />
                             </button>

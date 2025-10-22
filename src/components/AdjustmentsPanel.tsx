@@ -161,7 +161,7 @@ export const AdjustmentsPanel: React.FC<Props> = React.memo(
                                             disabled={isDefault}
                                             title={`Reset ${s.label} to default`}
                                             aria-label={`Reset ${s.label}`}
-                                            className="h-5 w-5 flex-shrink-0 flex items-center justify-center rounded-md text-muted-foreground hover:text-amber-600 hover:bg-amber-600/15 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-muted-foreground"
+                                            className="h-5 w-5 flex-shrink-0 flex items-center justify-center rounded-md text-muted-foreground hover:text-amber-600 hover:bg-amber-600/15 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-muted-foreground select-none"
                                         >
                                             <RotateCcw className="w-3.5 h-3.5" />
                                         </button>
