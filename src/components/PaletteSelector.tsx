@@ -1,6 +1,13 @@
 import React from 'react';
-import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import { PALETTES } from '../data/palettes';
 
 interface Props {
@@ -10,55 +17,49 @@ interface Props {
 
 export const PaletteSelector: React.FC<Props> = ({ selected, onSelect }) => {
     return (
-        <Card className="p-4 border border-border/50 space-y-4">
-            <div>
-                <h3 className="text-sm font-semibold text-foreground">Palette</h3>
-                <p className="text-xs text-muted-foreground mt-1">Choose a color palette</p>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-                {PALETTES.map((p) => {
-                    const isActive = p.id === selected;
-                    return (
-                        <button
-                            key={p.id}
-                            type="button"
-                            onClick={() => onSelect(p.id, p.size)}
-                            title={p.id === 'auto' ? 'Auto' : `${p.size} colors`}
-                            className={`h-auto p-3 flex flex-col items-center gap-2.5 rounded-lg border-2 transition-all duration-200 ${
-                                isActive
-                                    ? 'border-primary bg-primary/5 shadow-md'
-                                    : 'border-border hover:border-primary/50 hover:bg-accent/5'
-                            }`}
-                        >
-                            <div className="w-full">
-                                {p.id === 'auto' ? (
-                                    <div className="text-sm font-bold text-center py-2 text-foreground">Auto</div>
-                                ) : (
-                                    <div
-                                        className="grid gap-1.5 p-2 bg-muted/30 rounded"
-                                        style={{
-                                            gridTemplateColumns:
-                                                'repeat(auto-fill, minmax(16px, 1fr))',
-                                        }}
-                                    >
-                                        {p.colors.map((c, i) => (
-                                            <div
-                                                key={i}
-                                                className="aspect-square rounded border border-border/70 transition-all hover:border-primary shadow-sm"
-                                                style={{ background: c }}
-                                            />
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                            {p.id === 'auto' ? null : (
-                                <div className="text-xs font-semibold text-primary bg-primary/10 px-2.5 py-1 rounded-full">
-                                    {p.size} colors
+        <Card className="p-4 border border-border/50 space-y-3">
+            <div className="space-y-2">
+                <Label htmlFor="palette-select" className="font-medium">
+                    Palette
+                </Label>
+                <Select
+                    value={selected}
+                    onValueChange={(paletteId) => {
+                        const palette = PALETTES.find((p) => p.id === paletteId);
+                        if (palette) {
+                            onSelect(paletteId, palette.size);
+                        }
+                    }}
+                >
+                    <SelectTrigger id="palette-select">
+                        <SelectValue placeholder="Select a palette" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {PALETTES.map((p) => (
+                            <SelectItem key={p.id} value={p.id}>
+                                <div className="flex items-center gap-2">
+                                    <span>{p.id === 'auto' ? 'Auto' : `${p.size} colors`}</span>
+                                    {p.id !== 'auto' && (
+                                        <div className="flex gap-1">
+                                            {p.colors.slice(0, 5).map((c, i) => (
+                                                <div
+                                                    key={i}
+                                                    className="w-4 h-4 rounded-sm border border-border/60"
+                                                    style={{ background: c }}
+                                                />
+                                            ))}
+                                            {p.colors.length > 5 && (
+                                                <div className="text-xs text-muted-foreground">
+                                                    +{p.colors.length - 5}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
-                            )}
-                        </button>
-                    );
-                })}
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
             </div>
         </Card>
     );

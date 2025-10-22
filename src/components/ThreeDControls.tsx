@@ -470,25 +470,25 @@ export default function ThreeDControls({ swatches, onChange, persisted }: ThreeD
 
                     {/* Start Color */}
                     <div>
-                        <div className="font-semibold text-foreground mb-2">Start with Color</div>
+                        <div className="font-semibold text-foreground mb-3">Start with Color</div>
                         {swapPlan.length && swapPlan[0].type === 'start' ? (
                             (() => {
                                 const sw = swapPlan[0].swatch;
                                 return (
-                                    <div className="flex items-center gap-3 p-3 rounded-lg bg-accent/5 border border-border/50">
+                                    <div className="flex items-center gap-3 p-4 rounded-lg bg-primary/5 border-2 border-primary/30 shadow-sm">
                                         <span
-                                            className="block w-6 h-6 rounded border-2 border-border flex-shrink-0"
+                                            className="block w-8 h-8 rounded-md border-2 border-border flex-shrink-0 shadow-md"
                                             style={{ background: sw.hex }}
                                             title={sw.hex}
                                         />
-                                        <span className="font-mono text-sm text-foreground">
+                                        <span className="font-mono text-sm font-semibold text-foreground">
                                             {sw.hex}
                                         </span>
                                     </div>
                                 );
                             })()
                         ) : (
-                            <div className="text-muted-foreground text-sm">—</div>
+                            <div className="text-muted-foreground text-sm p-3 rounded-lg bg-muted/30">—</div>
                         )}
                     </div>
 
