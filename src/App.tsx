@@ -173,7 +173,7 @@ function App(): React.ReactElement | null {
     );
 
     return (
-        <div className="p-4 box-border text-inherit font-sans flex flex-col flex-1 min-w-0 max-w-full min-h-0 h-screen w-full">
+        <div className="box-border text-inherit font-sans flex flex-col flex-1 min-w-0 max-w-full min-h-0 h-screen w-full">
             <Header
                 onLoadTest={() => {
                     invalidate();
