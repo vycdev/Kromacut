@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
-import { RotateCcw } from 'lucide-react';
+import { RotateCcw, Check } from 'lucide-react';
 import type { CanvasPreviewHandle } from './CanvasPreview';
 
 interface Props {
@@ -191,9 +191,10 @@ export const DeditherPanel: React.FC<Props> = ({ canvasRef, onApplyResult }) => 
             <Button
                 onClick={handleApply}
                 disabled={working}
-                className="w-full bg-primary hover:bg-primary/80 text-primary-foreground font-semibold disabled:bg-primary/50 disabled:cursor-not-allowed transition-colors"
+                className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold disabled:bg-green-600/50 disabled:cursor-not-allowed transition-all duration-200 shadow-md hover:shadow-lg hover:scale-105 active:scale-95 gap-1.5"
             >
-                {working ? 'Working...' : 'Apply'}
+                <Check className="w-4 h-4" />
+                <span>{working ? 'Working...' : 'Apply'}</span>
             </Button>
         </Card>
     );
