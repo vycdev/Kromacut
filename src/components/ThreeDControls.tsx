@@ -286,94 +286,105 @@ export default function ThreeDControls({ swatches, onChange, persisted }: ThreeD
 
     return (
         <div className="space-y-4">
-            {/* Settings Section Header */}
-            <div className="space-y-1 px-1">
-                <h3 className="text-sm font-semibold text-foreground">3D Print Settings</h3>
-                <p className="text-xs text-muted-foreground">Configure your printing parameters</p>
-            </div>
-
-            {/* Pixel size (XY scaling) */}
-            <Card className="p-4 border border-border/50 hover:border-border transition-colors">
-                <label className="block space-y-3">
-                    <div className="flex justify-between items-center">
-                        <div className="flex items-center gap-2">
-                            <span className="font-semibold text-foreground">Pixel Size (XY)</span>
-                            <span className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary font-medium">
-                                mm/pixel
-                            </span>
-                        </div>
-                        <span className="px-2.5 py-1 rounded-full bg-primary/10 text-primary text-xs font-mono font-semibold">
-                            {pixelSize.toFixed(3)}
-                        </span>
+            {/* Printing Parameters Card */}
+            <Card className="p-4 border border-border/50">
+                <div className="space-y-1 mb-4">
+                    <h3 className="text-sm font-semibold text-foreground">3D Print Settings</h3>
+                    <p className="text-xs text-muted-foreground">
+                        Configure your printing parameters
+                    </p>
+                </div>
+                <div className="space-y-4">
+                    {/* Pixel size (XY scaling) */}
+                    <div className="space-y-3">
+                        <label className="block space-y-3">
+                            <div className="flex justify-between items-center">
+                                <div className="flex items-center gap-2">
+                                    <span className="font-semibold text-foreground">
+                                        Pixel Size (XY)
+                                    </span>
+                                    <span className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary font-medium">
+                                        mm/pixel
+                                    </span>
+                                </div>
+                                <span className="px-2.5 py-1 rounded-full bg-primary/10 text-primary text-xs font-mono font-semibold">
+                                    {pixelSize.toFixed(3)}
+                                </span>
+                            </div>
+                            <NumberInput
+                                min={0.01}
+                                max={10}
+                                step={0.01}
+                                value={pixelSize}
+                                onChange={(e) => {
+                                    const v = Number(e.target.value);
+                                    if (Number.isNaN(v)) return;
+                                    setPixelSize(Math.max(0.01, Math.min(10, v)));
+                                }}
+                            />
+                        </label>
                     </div>
-                    <NumberInput
-                        min={0.01}
-                        max={10}
-                        step={0.01}
-                        value={pixelSize}
-                        onChange={(e) => {
-                            const v = Number(e.target.value);
-                            if (Number.isNaN(v)) return;
-                            setPixelSize(Math.max(0.01, Math.min(10, v)));
-                        }}
-                    />
-                </label>
-            </Card>
 
-            {/* Layer height */}
-            <Card className="p-4 border border-border/50 hover:border-border transition-colors">
-                <label className="block space-y-3">
-                    <div className="flex justify-between items-center">
-                        <div className="flex items-center gap-2">
-                            <span className="font-semibold text-foreground">Layer Height</span>
-                            <span className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary font-medium">
-                                mm
-                            </span>
-                        </div>
-                        <span className="px-2.5 py-1 rounded-full bg-primary/10 text-primary text-xs font-mono font-semibold">
-                            {layerHeight.toFixed(2)}
-                        </span>
+                    {/* Layer height */}
+                    <div className="space-y-3">
+                        <label className="block space-y-3">
+                            <div className="flex justify-between items-center">
+                                <div className="flex items-center gap-2">
+                                    <span className="font-semibold text-foreground">
+                                        Layer Height
+                                    </span>
+                                    <span className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary font-medium">
+                                        mm
+                                    </span>
+                                </div>
+                                <span className="px-2.5 py-1 rounded-full bg-primary/10 text-primary text-xs font-mono font-semibold">
+                                    {layerHeight.toFixed(2)}
+                                </span>
+                            </div>
+                            <NumberInput
+                                min={0.01}
+                                max={10}
+                                step={0.01}
+                                value={layerHeight}
+                                onChange={(e) => {
+                                    const v = Number(e.target.value);
+                                    if (!Number.isNaN(v)) setLayerHeight(v);
+                                }}
+                            />
+                        </label>
                     </div>
-                    <NumberInput
-                        min={0.01}
-                        max={10}
-                        step={0.01}
-                        value={layerHeight}
-                        onChange={(e) => {
-                            const v = Number(e.target.value);
-                            if (!Number.isNaN(v)) setLayerHeight(v);
-                        }}
-                    />
-                </label>
-            </Card>
 
-            {/* Base slice height */}
-            <Card className="p-4 border border-border/50 hover:border-border transition-colors">
-                <label className="block space-y-3">
-                    <div className="flex justify-between items-center">
-                        <div className="flex items-center gap-2">
-                            <span className="font-semibold text-foreground">Base Slice Height</span>
-                            <span className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary font-medium">
-                                mm
-                            </span>
-                        </div>
-                        <span className="px-2.5 py-1 rounded-full bg-primary/10 text-primary text-xs font-mono font-semibold">
-                            {baseSliceHeight.toFixed(2)}
-                        </span>
+                    {/* Base slice height */}
+                    <div className="space-y-3">
+                        <label className="block space-y-3">
+                            <div className="flex justify-between items-center">
+                                <div className="flex items-center gap-2">
+                                    <span className="font-semibold text-foreground">
+                                        Base Slice Height
+                                    </span>
+                                    <span className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary font-medium">
+                                        mm
+                                    </span>
+                                </div>
+                                <span className="px-2.5 py-1 rounded-full bg-primary/10 text-primary text-xs font-mono font-semibold">
+                                    {baseSliceHeight.toFixed(2)}
+                                </span>
+                            </div>
+                            <NumberInput
+                                min={0}
+                                max={10}
+                                step={0.01}
+                                value={baseSliceHeight}
+                                onChange={(e) => {
+                                    let v = Number(e.target.value);
+                                    if (Number.isNaN(v)) return;
+                                    v = Math.max(0, Math.min(10, v));
+                                    setBaseSliceHeight(v);
+                                }}
+                            />
+                        </label>
                     </div>
-                    <NumberInput
-                        min={0}
-                        max={10}
-                        step={0.01}
-                        value={baseSliceHeight}
-                        onChange={(e) => {
-                            let v = Number(e.target.value);
-                            if (Number.isNaN(v)) return;
-                            v = Math.max(0, Math.min(10, v));
-                            setBaseSliceHeight(v);
-                        }}
-                    />
-                </label>
+                </div>
             </Card>
 
             {/* Per-color slice heights with Sortable */}
