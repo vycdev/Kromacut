@@ -19,10 +19,10 @@ import { useQuantize } from './hooks/useQuantize';
 import Header from './components/Header';
 import ModeTabs from './components/ModeTabs';
 import PreviewActions from './components/PreviewActions';
-import { useHorizontalSplit } from './hooks/useHorizontalSplit';
 import { useDropzone } from './hooks/useDropzone';
 import { exportMeshToStlBlob } from './lib/exportStl';
 import { useAppHandlers } from './hooks/useAppHandlers';
+import ResizableSplitter from './components/ResizableSplitter';
 // ...existing imports
 
 function App(): React.ReactElement | null {
@@ -130,13 +130,8 @@ function App(): React.ReactElement | null {
     // startPan handled in CanvasPreview
     // resize observer handled by CanvasPreview; keep for layout redraw hook
     // Layout splitter state
-    const { layoutRef, onSplitterDown } = useHorizontalSplit(() => {
-        try {
-            canvasPreviewRef.current?.redraw();
-        } catch {
-            /* noop */
-        }
-    });
+    const layoutRef = useRef<HTMLDivElement | null>(null);
+
     const dropzone = useDropzone({ enabled: mode === '2d', onFile: handleFiles });
     const { onExportImage, onExportStl, onSwatchApply, onSwatchDelete } = useAppHandlers({
         canvasPreviewRef,
@@ -185,166 +180,163 @@ function App(): React.ReactElement | null {
                     setImage(tdTestImg, true);
                 }}
             />
-            <div className="app-layout flex flex-1 min-h-0" ref={layoutRef}>
-                <aside className="w-80 bg-gray-900 border-r border-gray-700 flex flex-col">
-                    <ModeTabs mode={mode} onChange={setMode} />
-                    <div className="flex-1 overflow-y-auto p-4">
-                        {mode === '2d' ? (
-                            <>
-                                <input
-                                    ref={inputRef}
-                                    type="file"
-                                    accept="image/*"
-                                    onChange={(e) => {
-                                        if (e.target.files && e.target.files[0])
-                                            handleFiles(e.target.files[0]);
-                                    }}
-                                    className="hidden-file-input"
-                                />
-                                {/* file input stays here (hidden); uploader buttons moved to preview actions */}
-                                <div className="controls-scroll">
-                                    <AdjustmentsPanel
-                                        key={adjustmentsEpoch}
-                                        defs={SLIDER_DEFS}
-                                        initial={ADJUSTMENT_DEFAULTS}
-                                        onCommit={(vals) => {
-                                            setAdjustments(vals);
-                                            // schedule a redraw
-                                            requestAnimationFrame(() =>
-                                                canvasPreviewRef.current?.redraw()
-                                            );
+            <div className="flex flex-1 min-h-0" ref={layoutRef}>
+                <ResizableSplitter defaultSize={30} minSize={20} maxSize={50}>
+                    <aside className="w-full bg-gray-900 border-r border-gray-700 flex flex-col">
+                        <ModeTabs mode={mode} onChange={setMode} />
+                        <div className="flex-1 overflow-y-auto p-4">
+                            {mode === '2d' ? (
+                                <>
+                                    <input
+                                        ref={inputRef}
+                                        type="file"
+                                        accept="image/*"
+                                        onChange={(e) => {
+                                            if (e.target.files && e.target.files[0])
+                                                handleFiles(e.target.files[0]);
                                         }}
-                                        onBake={async () => {
-                                            if (!canvasPreviewRef.current) return;
-                                            try {
-                                                const blob =
-                                                    await canvasPreviewRef.current.exportAdjustedImageBlob?.();
-                                                if (!blob) return;
-                                                const url = URL.createObjectURL(blob);
+                                        className="hidden-file-input"
+                                    />
+                                    {/* file input stays here (hidden); uploader buttons moved to preview actions */}
+                                    <div className="space-y-4">
+                                        <AdjustmentsPanel
+                                            key={adjustmentsEpoch}
+                                            defs={SLIDER_DEFS}
+                                            initial={ADJUSTMENT_DEFAULTS}
+                                            onCommit={(vals) => {
+                                                setAdjustments(vals);
+                                                // schedule a redraw
+                                                requestAnimationFrame(() =>
+                                                    canvasPreviewRef.current?.redraw()
+                                                );
+                                            }}
+                                            onBake={async () => {
+                                                if (!canvasPreviewRef.current) return;
+                                                try {
+                                                    const blob =
+                                                        await canvasPreviewRef.current.exportAdjustedImageBlob?.();
+                                                    if (!blob) return;
+                                                    const url = URL.createObjectURL(blob);
+                                                    invalidate();
+                                                    setImage(url, true);
+                                                    // After baking, reset adjustments state to defaults
+                                                    setAdjustments(ADJUSTMENT_DEFAULTS);
+                                                    setAdjustmentsEpoch((e) => e + 1);
+                                                } catch (e) {
+                                                    console.warn('Bake adjustments failed', e);
+                                                }
+                                            }}
+                                        />
+                                        <DeditherPanel
+                                            canvasRef={canvasPreviewRef}
+                                            onApplyResult={(url) => {
                                                 invalidate();
                                                 setImage(url, true);
-                                                // After baking, reset adjustments state to defaults
-                                                setAdjustments(ADJUSTMENT_DEFAULTS);
-                                                setAdjustmentsEpoch((e) => e + 1);
-                                            } catch (e) {
-                                                console.warn('Bake adjustments failed', e);
-                                            }
-                                        }}
-                                    />
-                                    <DeditherPanel
-                                        canvasRef={canvasPreviewRef}
-                                        onApplyResult={(url) => {
-                                            invalidate();
-                                            setImage(url, true);
-                                        }}
-                                    />
-                                    <PaletteSelector
-                                        selected={selectedPalette}
-                                        onSelect={(id, size) => {
-                                            setSelectedPalette(id);
-                                            // set the postprocess target to the palette size, but do not lock it
-                                            if (id !== 'auto') setFinalColors(size);
-                                        }}
-                                    />
-                                    <ControlsPanel
-                                        // finalColors controls postprocessing result count
-                                        finalColors={finalColors}
-                                        onFinalColorsChange={(n) => {
-                                            setFinalColors(n);
-                                            // changing the final colors should switch to auto palette
-                                            setSelectedPalette('auto');
-                                        }}
-                                        // weight remains the algorithm parameter
-                                        weight={weight}
-                                        onWeightChange={(n) => {
-                                            setWeight(n);
-                                        }}
-                                        algorithm={algorithm}
-                                        setAlgorithm={setAlgorithm}
-                                        onApply={() => applyQuantize(canvasPreviewRef)}
-                                        disabled={!imageSrc || isCropMode}
-                                        weightDisabled={algorithm === 'none'}
-                                    />
-                                    <SwatchesPanel
-                                        swatches={swatches}
-                                        loading={swatchesLoading}
-                                        cap={SWATCH_CAP}
-                                        onSwatchDelete={onSwatchDelete}
-                                        onSwatchApply={onSwatchApply}
-                                    />
-                                </div>
-                            </>
-                        ) : (
-                            <ThreeDControls
-                                swatches={swatches}
-                                onChange={handleThreeDStateChange}
-                                persisted={threeDState}
-                            />
-                        )}
-                    </div>
-                </aside>
-                <div
-                    className="w-1 bg-gray-700 cursor-col-resize hover:bg-gray-600 transition-colors"
-                    onMouseDown={onSplitterDown}
-                    role="separator"
-                    aria-orientation="vertical"
-                />
-                <main className="flex-1 bg-gray-800 flex flex-col min-h-0">
-                    <div
-                        className={`flex-1 relative min-h-0 ${dropzone.dragOver ? 'bg-blue-900/20' : ''}`}
-                        onDrop={dropzone.onDrop}
-                        onDragOver={dropzone.onDragOver}
-                        onDragLeave={dropzone.onDragLeave}
-                    >
-                        {mode === '2d' ? (
-                            <CanvasPreview
-                                ref={canvasPreviewRef}
-                                imageSrc={imageSrc}
+                                            }}
+                                        />
+                                        <PaletteSelector
+                                            selected={selectedPalette}
+                                            onSelect={(id, size) => {
+                                                setSelectedPalette(id);
+                                                // set the postprocess target to the palette size, but do not lock it
+                                                if (id !== 'auto') setFinalColors(size);
+                                            }}
+                                        />
+                                        <ControlsPanel
+                                            // finalColors controls postprocessing result count
+                                            finalColors={finalColors}
+                                            onFinalColorsChange={(n) => {
+                                                setFinalColors(n);
+                                                // changing the final colors should switch to auto palette
+                                                setSelectedPalette('auto');
+                                            }}
+                                            // weight remains the algorithm parameter
+                                            weight={weight}
+                                            onWeightChange={(n) => {
+                                                setWeight(n);
+                                            }}
+                                            algorithm={algorithm}
+                                            setAlgorithm={setAlgorithm}
+                                            onApply={() => applyQuantize(canvasPreviewRef)}
+                                            disabled={!imageSrc || isCropMode}
+                                            weightDisabled={algorithm === 'none'}
+                                        />
+                                        <SwatchesPanel
+                                            swatches={swatches}
+                                            loading={swatchesLoading}
+                                            cap={SWATCH_CAP}
+                                            onSwatchDelete={onSwatchDelete}
+                                            onSwatchApply={onSwatchApply}
+                                        />
+                                    </div>
+                                </>
+                            ) : (
+                                <ThreeDControls
+                                    swatches={swatches}
+                                    onChange={handleThreeDStateChange}
+                                    persisted={threeDState}
+                                />
+                            )}
+                        </div>
+                    </aside>
+                    <main className="flex-1 bg-gray-800 flex flex-col min-h-0">
+                        <div
+                            className={`flex-1 relative min-h-0 ${dropzone.dragOver ? 'bg-blue-900/20' : ''}`}
+                            onDrop={dropzone.onDrop}
+                            onDragOver={dropzone.onDragOver}
+                            onDragLeave={dropzone.onDragLeave}
+                        >
+                            {mode === '2d' ? (
+                                <CanvasPreview
+                                    ref={canvasPreviewRef}
+                                    imageSrc={imageSrc}
+                                    isCropMode={isCropMode}
+                                    showCheckerboard={showCheckerboard}
+                                    adjustments={adjustments}
+                                />
+                            ) : (
+                                <ThreeDView
+                                    imageSrc={imageSrc}
+                                    baseSliceHeight={threeDState.baseSliceHeight}
+                                    layerHeight={threeDState.layerHeight}
+                                    colorSliceHeights={threeDState.colorSliceHeights}
+                                    colorOrder={threeDState.colorOrder}
+                                    swatches={threeDState.filteredSwatches}
+                                    pixelSize={threeDState.pixelSize}
+                                    rebuildSignal={threeDBuildSignal}
+                                />
+                            )}
+                            <PreviewActions
+                                mode={mode}
+                                canUndo={canUndo}
+                                canRedo={canRedo}
                                 isCropMode={isCropMode}
-                                showCheckerboard={showCheckerboard}
-                                adjustments={adjustments}
+                                imageAvailable={!!imageSrc}
+                                exportingSTL={exportingSTL}
+                                exportProgress={exportProgress}
+                                onUndo={undo}
+                                onRedo={redo}
+                                onEnterCrop={() => imageSrc && setIsCropMode(true)}
+                                onSaveCrop={async () => {
+                                    if (!canvasPreviewRef.current) return;
+                                    const blob =
+                                        await canvasPreviewRef.current.exportCroppedImage();
+                                    if (!blob) return;
+                                    const url = URL.createObjectURL(blob);
+                                    invalidate();
+                                    setImage(url, true);
+                                    setIsCropMode(false);
+                                }}
+                                onCancelCrop={() => setIsCropMode(false)}
+                                onToggleCheckerboard={() => setShowCheckerboard((s) => !s)}
+                                onPickFile={() => inputRef.current?.click()}
+                                onClear={clear}
+                                onExportImage={onExportImage}
+                                onExportStl={onExportStl}
                             />
-                        ) : (
-                            <ThreeDView
-                                imageSrc={imageSrc}
-                                baseSliceHeight={threeDState.baseSliceHeight}
-                                layerHeight={threeDState.layerHeight}
-                                colorSliceHeights={threeDState.colorSliceHeights}
-                                colorOrder={threeDState.colorOrder}
-                                swatches={threeDState.filteredSwatches}
-                                pixelSize={threeDState.pixelSize}
-                                rebuildSignal={threeDBuildSignal}
-                            />
-                        )}
-                        <PreviewActions
-                            mode={mode}
-                            canUndo={canUndo}
-                            canRedo={canRedo}
-                            isCropMode={isCropMode}
-                            imageAvailable={!!imageSrc}
-                            exportingSTL={exportingSTL}
-                            exportProgress={exportProgress}
-                            onUndo={undo}
-                            onRedo={redo}
-                            onEnterCrop={() => imageSrc && setIsCropMode(true)}
-                            onSaveCrop={async () => {
-                                if (!canvasPreviewRef.current) return;
-                                const blob = await canvasPreviewRef.current.exportCroppedImage();
-                                if (!blob) return;
-                                const url = URL.createObjectURL(blob);
-                                invalidate();
-                                setImage(url, true);
-                                setIsCropMode(false);
-                            }}
-                            onCancelCrop={() => setIsCropMode(false)}
-                            onToggleCheckerboard={() => setShowCheckerboard((s) => !s)}
-                            onPickFile={() => inputRef.current?.click()}
-                            onClear={clear}
-                            onExportImage={onExportImage}
-                            onExportStl={onExportStl}
-                        />
-                    </div>
-                </main>
+                        </div>
+                    </main>
+                </ResizableSplitter>
             </div>
         </div>
     );
