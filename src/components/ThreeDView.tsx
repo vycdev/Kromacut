@@ -192,6 +192,7 @@ export default function ThreeDView({
                     tex.generateMipmaps = false;
                     tex.wrapS = THREE.ClampToEdgeWrapping;
                     tex.wrapT = THREE.ClampToEdgeWrapping;
+                    tex.colorSpace = THREE.SRGBColorSpace;
                     // Using cropped canvas: 0..1 UVs map to the entire cropped image
                     tex.repeat.set(1, 1);
                     tex.offset.set(0, 0);
@@ -511,6 +512,7 @@ export default function ThreeDView({
                     tex.generateMipmaps = false;
                     tex.wrapS = THREE.ClampToEdgeWrapping;
                     tex.wrapT = THREE.ClampToEdgeWrapping;
+                    tex.colorSpace = THREE.SRGBColorSpace;
                     // Map UV 0..1 to the bbox region
                     tex.repeat.set(boxW / fullW, boxH / fullH);
                     tex.offset.set(minX / fullW, 1 - (minY + boxH) / fullH);

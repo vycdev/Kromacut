@@ -12,7 +12,7 @@ export function useThreeScene(
     const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
     const controlsRef = useRef<OrbitControls | null>(null);
     const meshRef = useRef<THREE.Mesh | null>(null);
-    const materialRef = useRef<THREE.MeshLambertMaterial | null>(null);
+    const materialRef = useRef<THREE.MeshStandardMaterial | null>(null);
 
     useEffect(() => {
         const el = mountRef.current;
@@ -41,23 +41,25 @@ export function useThreeScene(
         controls.dampingFactor = 0.08;
         controlsRef.current = controls;
 
-        // Lights - minimal to avoid whitewashing
-        const ambient = new THREE.AmbientLight(0xffffff, 0.1);
-        scene.add(ambient);
+        // Lights - optimized for MeshStandardMaterial
+        const hemiLight = new THREE.HemisphereLight(0xffffff, 0x888888, 1);
+        scene.add(hemiLight);
 
-        // Single directional light for depth perception
-        const key = new THREE.DirectionalLight(0xffffff, 0.8);
+        // Strong directional light for definition
+        const key = new THREE.DirectionalLight(0xffffff, 1);
         key.position.set(2, 3, 1);
         scene.add(key);
 
         // Placeholder plane (very low res) – will be replaced when image builds
         const placeholderGeom = new THREE.PlaneGeometry(1, 1, 1, 1);
-        const material = new THREE.MeshLambertMaterial({
+        const material = new THREE.MeshStandardMaterial({
             color: 0xffffff,
             side: THREE.DoubleSide,
-            vertexColors: false,
             transparent: false,
+            metalness: 0.1,
+            roughness: 0.9,
         });
+        material.vertexColors = false;
         materialRef.current = material;
         const mesh = new THREE.Mesh(placeholderGeom, material);
         scene.add(mesh);
