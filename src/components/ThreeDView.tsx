@@ -771,74 +771,36 @@ export default function ThreeDView({
                         indices.push(tA, bA, bB, tA, bB, tB);
                     };
 
-                    // Build walls for all edges with height differences (after recomputation)
-                    // Vertical walls (north-south direction)
-                    for (let x = 0; x <= widthSegments; x++) {
-                        for (let y = 0; y < heightSegments; y++) {
-                            const hA = heightAt(x, y);
-                            const hB = heightAt(x, y + 1);
-                            // Build walls for any height difference, or boundary between h=0 and h>0
-                            if (
-                                (hA > 0 && hB === 0) ||
-                                (hA === 0 && hB > 0) ||
-                                Math.abs(hA - hB) > 1e-6
-                            ) {
+                    // Build walls strictly from pixel occupancy (opaque vs transparent) to avoid banding
+                    const isOpaque = (cx: number, cy: number) =>
+                        cx >= 0 &&
+                        cy >= 0 &&
+                        cx < boxW &&
+                        cy < boxH &&
+                        pixHeights[cy * boxW + cx] > 0;
+
+                    // Vertical edges: between column x-1 and x for each row y
+                    for (let x = 0; x <= boxW; x++) {
+                        for (let y = 0; y < boxH; y++) {
+                            const leftOpaque = isOpaque(x - 1, y);
+                            const rightOpaque = isOpaque(x, y);
+                            if (leftOpaque !== rightOpaque) {
                                 const tA = y * vertsRow + x;
                                 const tB = (y + 1) * vertsRow + x;
                                 pushWall(tA, tB);
                             }
                         }
                     }
-
-                    // Horizontal walls (east-west direction)
-                    for (let y = 0; y <= heightSegments; y++) {
-                        for (let x = 0; x < widthSegments; x++) {
-                            const hA = heightAt(x, y);
-                            const hB = heightAt(x + 1, y);
-                            // Build walls for any height difference, or boundary between h=0 and h>0
-                            if (
-                                (hA > 0 && hB === 0) ||
-                                (hA === 0 && hB > 0) ||
-                                Math.abs(hA - hB) > 1e-6
-                            ) {
+                    // Horizontal edges: between row y-1 and y for each column x
+                    for (let y = 0; y <= boxH; y++) {
+                        for (let x = 0; x < boxW; x++) {
+                            const topOpaque = isOpaque(x, y - 1);
+                            const bottomOpaque = isOpaque(x, y);
+                            if (topOpaque !== bottomOpaque) {
                                 const tA = y * vertsRow + x;
                                 const tB = y * vertsRow + (x + 1);
                                 pushWall(tA, tB);
                             }
-                        }
-                    }
-
-                    // Explicit outer-perimeter walls based on pixel occupancy (seals remaining holes)
-                    // Left and right edges
-                    for (let y = 0; y < boxH; y++) {
-                        if (pixHeights[y * boxW + 0] > 0) {
-                            // Left boundary between (0,y) -> (0,y+1)
-                            const tA = y * vertsRow + 0;
-                            const tB = (y + 1) * vertsRow + 0;
-                            pushWall(tA, tB);
-                        }
-                        if (pixHeights[y * boxW + (boxW - 1)] > 0) {
-                            // Right boundary between (boxW,y) -> (boxW,y+1)
-                            const xR = vertsRow - 1;
-                            const tA = y * vertsRow + xR;
-                            const tB = (y + 1) * vertsRow + xR;
-                            pushWall(tA, tB);
-                        }
-                    }
-                    // Top and bottom edges
-                    for (let x = 0; x < boxW; x++) {
-                        if (pixHeights[0 * boxW + x] > 0) {
-                            // Top boundary between (x,0) -> (x+1,0)
-                            const tA = 0 * vertsRow + x;
-                            const tB = 0 * vertsRow + (x + 1);
-                            pushWall(tA, tB);
-                        }
-                        if (pixHeights[(boxH - 1) * boxW + x] > 0) {
-                            // Bottom boundary between (x,boxH) -> (x+1,boxH)
-                            const yB = heightSegments; // equals boxH
-                            const tA = yB * vertsRow + x;
-                            const tB = yB * vertsRow + (x + 1);
-                            pushWall(tA, tB);
                         }
                     }
 
