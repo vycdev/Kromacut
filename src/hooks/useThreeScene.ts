@@ -12,7 +12,7 @@ export function useThreeScene(
     const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
     const controlsRef = useRef<OrbitControls | null>(null);
     const meshRef = useRef<THREE.Mesh | null>(null);
-    const materialRef = useRef<THREE.MeshStandardMaterial | null>(null);
+    const materialRef = useRef<THREE.MeshPhongMaterial | null>(null);
 
     useEffect(() => {
         const el = mountRef.current;
@@ -41,27 +41,30 @@ export function useThreeScene(
         controls.dampingFactor = 0.08;
         controlsRef.current = controls;
 
-        // Lights - optimized for color vibrancy
-        // Subtle ambient light for overall base visibility
-        const ambient = new THREE.AmbientLight(0xffffff, 0.2);
+        // Lights - optimized for Phong material
+        const ambient = new THREE.AmbientLight(0xffffff, 0.3);
         scene.add(ambient);
 
-        // Reduced hemisphere light to prevent color washing
-        const hemi = new THREE.HemisphereLight(0xffffff, 0x333333, 0.1);
+        // Gentle hemisphere for natural 3D feel
+        const hemi = new THREE.HemisphereLight(0xffffff, 0x444444, 0.25);
         hemi.position.set(0, 1, 0);
         scene.add(hemi);
 
-        // Strong directional light for contrast and definition
-        const dir = new THREE.DirectionalLight(0xffffff, 1);
-        dir.position.set(2, 3, 1);
-        scene.add(dir);
+        // Key directional for definition
+        const key = new THREE.DirectionalLight(0xffffff, 1);
+        key.position.set(2.5, 3, 1.2);
+        scene.add(key);
+
+        // Fill directional to open shadows
+        const fill = new THREE.DirectionalLight(0xffffff, 0.6);
+        fill.position.set(-2.5, 1.5, -1.2);
+        scene.add(fill);
 
         // Placeholder plane (very low res) – will be replaced when image builds
         const placeholderGeom = new THREE.PlaneGeometry(1, 1, 1, 1);
-        const material = new THREE.MeshStandardMaterial({
+        const material = new THREE.MeshPhongMaterial({
             color: 0xffffff,
-            metalness: 0,
-            roughness: 0.5,
+            shininess: 20,
             side: THREE.DoubleSide,
             vertexColors: false,
             flatShading: true,
