@@ -67,6 +67,11 @@ export default function ThreeDView({
 }: ThreeDViewProps) {
     const mountRef = useRef<HTMLDivElement | null>(null);
     const [isBuilding, setIsBuilding] = useState(false);
+    const [modelDimensions, setModelDimensions] = useState<{
+        width: number;
+        height: number;
+        depth: number;
+    } | null>(null);
     const { cameraRef, controlsRef, meshRef, materialRef } = useThreeScene(mountRef, setIsBuilding);
 
     // Three.js initialization moved into `useThreeScene` hook for clarity.
@@ -450,6 +455,17 @@ export default function ThreeDView({
                 const finalH = bbox ? bbox.boxH : h;
                 // Map pixel domain to X (width) & Y (height). Heights already in mm on Z; apply optional exaggeration via heightScale.
                 mesh.scale.set(finalW * pixelSize, finalH * pixelSize, heightScale);
+
+                // Calculate maximum height (depth) of the model
+                const box = new THREE.Box3().setFromObject(mesh);
+                const maxDepth = box.max.z - box.min.z;
+
+                // Update model dimensions for display
+                setModelDimensions({
+                    width: finalW * pixelSize,
+                    height: finalH * pixelSize,
+                    depth: maxDepth,
+                });
 
                 // Auto-frame using bounding sphere for consistent view
                 try {
@@ -880,6 +896,17 @@ export default function ThreeDView({
                 const finalW = boxW;
                 const finalH = boxH;
                 mesh.scale.set(finalW * pixelSize, finalH * pixelSize, heightScale);
+
+                // Calculate maximum height (depth) of the model
+                const box = new THREE.Box3().setFromObject(mesh);
+                const maxDepth = box.max.z - box.min.z;
+
+                // Update model dimensions for display
+                setModelDimensions({
+                    width: finalW * pixelSize,
+                    height: finalH * pixelSize,
+                    depth: maxDepth,
+                });
             };
 
             (async () => {
@@ -970,5 +997,17 @@ export default function ThreeDView({
         meshRef,
     ]);
 
-    return <div className="w-full h-full" ref={mountRef} />;
+    return (
+        <div className="w-full h-full relative" ref={mountRef}>
+            {modelDimensions && (
+                <div
+                    className="absolute top-2 left-2 bg-black/80 text-foreground text-xs px-2 py-1 rounded z-10"
+                    aria-hidden
+                >
+                    {modelDimensions.width.toFixed(1)}×{modelDimensions.height.toFixed(1)}×
+                    {modelDimensions.depth.toFixed(1)} mm
+                </div>
+            )}
+        </div>
+    );
 }
