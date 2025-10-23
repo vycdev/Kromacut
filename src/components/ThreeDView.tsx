@@ -642,21 +642,21 @@ export default function ThreeDView({
                         }
                     }
                     posAttr.needsUpdate = true;
-                    // Fix top vertex colors at opaque/transparent boundaries
+
+                    // Expand boundary colors: for vertices still near-black, search outward for nearest opaque neighbor
                     const blackEps = 1e-5;
                     for (let vy = 0; vy < boxH + 1; vy++) {
                         for (let vx = 0; vx < boxW + 1; vx++) {
                             const vi = vy * vertsPerRow + vx;
-                            const z = posAttr.getZ(vi);
                             const r = vertexColors[vi * 3];
                             const g = vertexColors[vi * 3 + 1];
                             const b = vertexColors[vi * 3 + 2];
-                            // Vertex is part of solid (z>0) but has near-black color: pull color from nearest opaque pixel
-                            if (z > 0 && r <= blackEps && g <= blackEps && b <= blackEps) {
+                            // Still black after cell-max? Search outward up to radius 3 for nearest opaque
+                            if (r <= blackEps && g <= blackEps && b <= blackEps) {
                                 const px = Math.min(boxW - 1, Math.max(0, vx));
                                 const py = Math.min(boxH - 1, Math.max(0, vy));
                                 let found = false;
-                                for (let radius = 1; radius <= 2 && !found; radius++) {
+                                for (let radius = 1; radius <= 3 && !found; radius++) {
                                     for (let dy = -radius; dy <= radius && !found; dy++) {
                                         for (let dx = -radius; dx <= radius && !found; dx++) {
                                             const nx = px + dx;
