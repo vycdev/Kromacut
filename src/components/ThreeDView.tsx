@@ -627,7 +627,7 @@ export default function ThreeDView({
                                     }
                                 }
                             };
-                            // Four adjacent cells around this vertex
+                            // Four adjacent cells around this vertex only
                             consider(vx - 1, vy - 1);
                             consider(vx - 1, vy);
                             consider(vx, vy - 1);
@@ -764,16 +764,13 @@ export default function ThreeDView({
                         indices.push(tA, bA, bB, tA, bB, tB);
                     };
 
-                    // Build walls for all edges with height differences
+                    // Build walls for all edges with height differences (after recomputation)
                     // Vertical walls (north-south direction)
                     for (let x = 0; x <= widthSegments; x++) {
                         for (let y = 0; y < heightSegments; y++) {
                             const hA = heightAt(x, y);
                             const hB = heightAt(x, y + 1);
-                            // Only build wall at opaque/transparent boundaries
-                            const isAOpaque = hA > 0;
-                            const isBOpaque = hB > 0;
-                            if (isAOpaque !== isBOpaque) {
+                            if (Math.abs(hA - hB) > 0.001) {
                                 const tA = y * vertsRow + x;
                                 const tB = (y + 1) * vertsRow + x;
                                 pushWall(tA, tB);
@@ -786,10 +783,7 @@ export default function ThreeDView({
                         for (let x = 0; x < widthSegments; x++) {
                             const hA = heightAt(x, y);
                             const hB = heightAt(x + 1, y);
-                            // Only build wall at opaque/transparent boundaries
-                            const isAOpaque = hA > 0;
-                            const isBOpaque = hB > 0;
-                            if (isAOpaque !== isBOpaque) {
+                            if (Math.abs(hA - hB) > 0.001) {
                                 const tA = y * vertsRow + x;
                                 const tB = y * vertsRow + (x + 1);
                                 pushWall(tA, tB);
