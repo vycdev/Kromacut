@@ -199,6 +199,7 @@ export default function ThreeDView({
                     const mat = materialRef.current;
                     if (mat) {
                         mat.map = tex;
+                        mat.alphaMap = tex;
                         mat.vertexColors = false;
                         mat.flatShading = true;
                         mat.needsUpdate = true;
@@ -513,6 +514,7 @@ export default function ThreeDView({
                     const mat = materialRef.current;
                     if (mat) {
                         mat.map = tex;
+                        mat.alphaMap = tex;
                         mat.vertexColors = false;
                         mat.flatShading = true;
                         mat.needsUpdate = true;

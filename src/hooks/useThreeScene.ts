@@ -61,10 +61,12 @@ export function useThreeScene(
         const material = new THREE.MeshStandardMaterial({
             color: 0xffffff,
             metalness: 0,
-            roughness: 0.8,
+            roughness: 0.5,
             side: THREE.DoubleSide,
             vertexColors: false,
             flatShading: true,
+            transparent: false,
+            alphaTest: 0.01,
         });
         materialRef.current = material;
         const mesh = new THREE.Mesh(placeholderGeom, material);
