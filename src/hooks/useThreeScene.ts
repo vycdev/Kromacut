@@ -21,7 +21,7 @@ export function useThreeScene(
         renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
         renderer.setSize(el.clientWidth, el.clientHeight);
         renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        renderer.toneMappingExposure = 1.3;
+        renderer.toneMappingExposure = 2;
         renderer.outputColorSpace = THREE.SRGBColorSpace;
         el.appendChild(renderer.domElement);
         rendererRef.current = renderer;
@@ -42,11 +42,11 @@ export function useThreeScene(
         controlsRef.current = controls;
 
         // Lights - optimized for MeshStandardMaterial
-        const hemiLight = new THREE.HemisphereLight(0xffffff, 0x888888, 1);
+        const hemiLight = new THREE.HemisphereLight(0xffffff, 0x888888, 1.5);
         scene.add(hemiLight);
 
         // Strong directional light for definition
-        const key = new THREE.DirectionalLight(0xffffff, 1);
+        const key = new THREE.DirectionalLight(0xffffff, 1.5);
         key.position.set(2, 3, 1);
         scene.add(key);
 

@@ -595,9 +595,17 @@ export default function ThreeDView({
                         const colorBase = (py * boxW + px) * 3;
                         const vi = vy * vertsPerRow + vx;
                         posAttr.setZ(vi, hVal);
-                        vertexColors[vi * 3] = pixColors[colorBase] / 255;
-                        vertexColors[vi * 3 + 1] = pixColors[colorBase + 1] / 255;
-                        vertexColors[vi * 3 + 2] = pixColors[colorBase + 2] / 255;
+                        // Convert sRGB to linear color space for vertex colors
+                        const color = new THREE.Color();
+                        color.setRGB(
+                            pixColors[colorBase] / 255,
+                            pixColors[colorBase + 1] / 255,
+                            pixColors[colorBase + 2] / 255
+                        );
+                        color.convertSRGBToLinear();
+                        vertexColors[vi * 3] = color.r;
+                        vertexColors[vi * 3 + 1] = color.g;
+                        vertexColors[vi * 3 + 2] = color.b;
                     }
                     if (performance.now() - lastYield > YIELD_MS) {
                         await new Promise((r) => requestAnimationFrame(r));
@@ -637,9 +645,13 @@ export default function ThreeDView({
                             const vi = vy * vertsPerRow + vx;
                             posAttr.setZ(vi, hMax);
                             if (hMax > 0) {
-                                vertexColors[vi * 3] = colorR;
-                                vertexColors[vi * 3 + 1] = colorG;
-                                vertexColors[vi * 3 + 2] = colorB;
+                                // Convert sRGB to linear color space for vertex colors
+                                const color = new THREE.Color();
+                                color.setRGB(colorR, colorG, colorB);
+                                color.convertSRGBToLinear();
+                                vertexColors[vi * 3] = color.r;
+                                vertexColors[vi * 3 + 1] = color.g;
+                                vertexColors[vi * 3 + 2] = color.b;
                             }
                         }
                     }
@@ -666,11 +678,17 @@ export default function ThreeDView({
                                             if (nx >= 0 && nx < boxW && ny >= 0 && ny < boxH) {
                                                 if (pixHeights[ny * boxW + nx] > 0) {
                                                     const base = (ny * boxW + nx) * 3;
-                                                    vertexColors[vi * 3] = pixColors[base] / 255;
-                                                    vertexColors[vi * 3 + 1] =
-                                                        pixColors[base + 1] / 255;
-                                                    vertexColors[vi * 3 + 2] =
-                                                        pixColors[base + 2] / 255;
+                                                    // Convert sRGB to linear color space for vertex colors
+                                                    const color = new THREE.Color();
+                                                    color.setRGB(
+                                                        pixColors[base] / 255,
+                                                        pixColors[base + 1] / 255,
+                                                        pixColors[base + 2] / 255
+                                                    );
+                                                    color.convertSRGBToLinear();
+                                                    vertexColors[vi * 3] = color.r;
+                                                    vertexColors[vi * 3 + 1] = color.g;
+                                                    vertexColors[vi * 3 + 2] = color.b;
                                                     found = true;
                                                 }
                                             }
