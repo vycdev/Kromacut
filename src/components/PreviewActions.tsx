@@ -19,6 +19,7 @@ export interface PreviewActionsProps {
     canRedo: boolean;
     isCropMode: boolean;
     imageAvailable: boolean;
+    hasValidCropSelection?: boolean;
     exportingSTL: boolean;
     exportProgress: number; // 0..1
     onUndo: () => void;
@@ -39,6 +40,7 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
     canRedo,
     isCropMode,
     imageAvailable,
+    hasValidCropSelection = false,
     exportingSTL,
     exportProgress,
     onUndo,
@@ -53,7 +55,7 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
     onExportStl,
 }) => {
     return (
-        <div className="absolute top-4 right-4 flex flex-wrap gap-2 z-10">
+        <div className="absolute top-4 right-4 flex flex-wrap gap-2 z-[60]">
             <Button
                 size="icon"
                 title="Undo"
@@ -93,8 +95,9 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
                             size="icon"
                             title="Save crop"
                             aria-label="Save crop"
+                            disabled={!hasValidCropSelection}
                             onClick={onSaveCrop}
-                            className="bg-primary hover:bg-primary/80 text-primary-foreground"
+                            className="bg-primary hover:bg-primary/80 text-primary-foreground disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             <Save className="w-4 h-4" />
                         </Button>

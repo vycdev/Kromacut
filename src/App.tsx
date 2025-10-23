@@ -44,6 +44,7 @@ function App(): React.ReactElement | null {
     const canvasPreviewRef = useRef<CanvasPreviewHandle | null>(null);
     const [showCheckerboard, setShowCheckerboard] = useState<boolean>(false);
     const [isCropMode, setIsCropMode] = useState(false);
+    const [hasValidCropSelection, setHasValidCropSelection] = useState(false);
     const { applyQuantize } = useQuantize({
         algorithm,
         weight,
@@ -284,13 +285,14 @@ function App(): React.ReactElement | null {
                             onDragLeave={dropzone.onDragLeave}
                         >
                             {mode === '2d' ? (
-                                <CanvasPreview
-                                    ref={canvasPreviewRef}
-                                    imageSrc={imageSrc}
-                                    isCropMode={isCropMode}
-                                    showCheckerboard={showCheckerboard}
-                                    adjustments={adjustments}
-                                />
+                                        <CanvasPreview
+                                            ref={canvasPreviewRef}
+                                            imageSrc={imageSrc}
+                                            isCropMode={isCropMode}
+                                            showCheckerboard={showCheckerboard}
+                                            adjustments={adjustments}
+                                            onCropSelectionChange={setHasValidCropSelection}
+                                        />
                             ) : (
                                 <ThreeDView
                                     imageSrc={imageSrc}
@@ -309,6 +311,7 @@ function App(): React.ReactElement | null {
                                 canRedo={canRedo}
                                 isCropMode={isCropMode}
                                 imageAvailable={!!imageSrc}
+                                hasValidCropSelection={hasValidCropSelection}
                                 exportingSTL={exportingSTL}
                                 exportProgress={exportProgress}
                                 onUndo={undo}

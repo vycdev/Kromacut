@@ -15,6 +15,8 @@ export interface CanvasPreviewHandle {
     waitForNextDraw?: () => Promise<void>;
     exportCroppedImage: () => Promise<Blob | null>;
     exportImageBlob: () => Promise<Blob | null>;
+    hasValidCropSelection: () => boolean;
+    onCropSelectionChange?: (hasValid: boolean) => void;
     exportAdjustedImageBlob?: () => Promise<Blob | null>;
 }
 
@@ -23,10 +25,11 @@ interface Props {
     isCropMode?: boolean;
     showCheckerboard?: boolean;
     adjustments?: Record<string, number>;
+    onCropSelectionChange?: (hasValid: boolean) => void;
 }
 
 const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
-    ({ imageSrc, isCropMode, showCheckerboard, adjustments }, ref) => {
+    ({ imageSrc, isCropMode, showCheckerboard, adjustments, onCropSelectionChange }, ref) => {
         const canvasRef = useRef<HTMLCanvasElement | null>(null);
         const previewContainerRef = useRef<HTMLDivElement | null>(null);
         const imgRef = useRef<HTMLImageElement | null>(null);
@@ -47,6 +50,7 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
         }>(null);
         const selectionRef = useRef(selection);
         selectionRef.current = selection;
+        const [hasValidCropSelection, setHasValidCropSelection] = useState(false);
         const draggingRef = useRef<null | {
             type: 'move' | 'resize';
             handle?: string;
@@ -306,6 +310,21 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
             return () => cancelAnimationFrame(raf);
         }, [isCropMode, imageSrc]);
 
+        // update hasValidCropSelection when selection changes
+        useEffect(() => {
+            const img = imgRef.current;
+            const sel = selectionRef.current;
+            if (!img || !sel) {
+                setHasValidCropSelection(false);
+                onCropSelectionChange?.(false);
+                return;
+            }
+            const layout = computeImageLayout();
+            const isValid = !!layout;
+            setHasValidCropSelection(isValid);
+            onCropSelectionChange?.(isValid);
+        }, [selection, onCropSelectionChange]);
+
         const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
 
         // native wheel handler (non-passive) so we can call preventDefault()
@@ -562,6 +581,9 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
                 return await new Promise<Blob | null>((resolve) =>
                     outCanvas.toBlob((b) => resolve(b), 'image/png')
                 );
+            },
+            hasValidCropSelection: (): boolean => {
+                return hasValidCropSelection;
             },
             exportImageBlob: async (): Promise<Blob | null> => {
                 const img = imgRef.current;
