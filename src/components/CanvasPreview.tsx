@@ -32,6 +32,7 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
         const imgRef = useRef<HTMLImageElement | null>(null);
         const zoomRef = useRef<number>(1);
         const [zoomState, setZoomState] = useState<number>(1);
+        const [imageLoaded, setImageLoaded] = useState<boolean>(false);
         const offsetRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
         const panningRef = useRef(false);
         const panStartXRef = useRef(0);
@@ -196,6 +197,7 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
         useEffect(() => {
             if (!imageSrc) {
                 imgRef.current = null;
+                setImageLoaded(false);
                 const canvas = canvasRef.current;
                 if (canvas) {
                     const ctx = canvas.getContext('2d');
@@ -227,6 +229,7 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
 
             const img = new Image();
             imgRef.current = img;
+            setImageLoaded(false); // Reset loading state
             img.onload = () => {
                 // preserve current zoom (don't reset) and try to restore the
                 // same image coordinate under the container center so the view
@@ -234,6 +237,7 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
                 const iw = img.naturalWidth;
                 const ih = img.naturalHeight;
                 if (iw && ih) {
+                    setImageLoaded(true); // Image is now loaded
                     originalCanvasRef.current = document.createElement('canvas');
                     originalCanvasRef.current.width = iw;
                     originalCanvasRef.current.height = ih;
@@ -623,7 +627,7 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
             >
                 <canvas ref={canvasRef} style={{ imageRendering: 'pixelated' }} />
                 {/* small HUD showing image size and crop size (when active) */}
-                {imgRef.current ? (
+                {imageLoaded && imgRef.current ? (
                     <div
                         className="absolute top-2 left-2 bg-black/80 text-foreground text-xs px-2 py-1 rounded"
                         aria-hidden
