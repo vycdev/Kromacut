@@ -20,6 +20,8 @@ export function useThreeScene(
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
         renderer.setSize(el.clientWidth, el.clientHeight);
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.4;
         el.appendChild(renderer.domElement);
         rendererRef.current = renderer;
 
@@ -38,11 +40,18 @@ export function useThreeScene(
         controls.dampingFactor = 0.08;
         controlsRef.current = controls;
 
-        // Lights (kept simple, increase intensity slightly)
-        const hemi = new THREE.HemisphereLight(0xffffff, 0x444444, 0.9);
+        // Lights - optimized for color vibrancy
+        // Subtle ambient light for overall base visibility
+        const ambient = new THREE.AmbientLight(0xffffff, 0.1);
+        scene.add(ambient);
+
+        // Reduced hemisphere light to prevent color washing
+        const hemi = new THREE.HemisphereLight(0xffffff, 0x444444, 0.4);
         hemi.position.set(0, 1, 0);
         scene.add(hemi);
-        const dir = new THREE.DirectionalLight(0xffffff, 1.1);
+
+        // Strong directional light for contrast and definition
+        const dir = new THREE.DirectionalLight(0xffffff, 1.5);
         dir.position.set(2, 3, 1);
         scene.add(dir);
 
@@ -50,8 +59,8 @@ export function useThreeScene(
         const placeholderGeom = new THREE.PlaneGeometry(1, 1, 1, 1);
         const material = new THREE.MeshStandardMaterial({
             color: 0xffffff,
-            metalness: 0.0,
-            roughness: 0.85,
+            metalness: 0.3,
+            roughness: 0.3,
             side: THREE.DoubleSide,
             vertexColors: true,
             flatShading: true,
