@@ -385,22 +385,26 @@ export default function ThreeDView({
                         indices.push(tA, bA, bB, tA, bB, tB);
                     };
                     for (let x = 0; x < widthSegments; x++) {
-                        if (heightAt(x, 0) > 0 || heightAt(x + 1, 0) > 0)
-                            pushWall(0 * vertsPerRow + x, 0 * vertsPerRow + (x + 1));
-                        if (heightAt(x, heightSegments) > 0 || heightAt(x + 1, heightSegments) > 0)
-                            pushWall(
-                                heightSegments * vertsPerRow + (x + 1),
-                                heightSegments * vertsPerRow + x
-                            );
+                        for (let y = 0; y < heightSegments; y++) {
+                            const hA = heightAt(x, y);
+                            const hB = heightAt(x, y + 1);
+                            if (Math.abs(hA - hB) > 0.001) {
+                                const tA = y * vertsPerRow + x;
+                                const tB = (y + 1) * vertsPerRow + x;
+                                pushWall(tA, tB);
+                            }
+                        }
                     }
                     for (let y = 0; y < heightSegments; y++) {
-                        if (heightAt(0, y) > 0 || heightAt(0, y + 1) > 0)
-                            pushWall((y + 1) * vertsPerRow + 0, y * vertsPerRow + 0);
-                        if (heightAt(widthSegments, y) > 0 || heightAt(widthSegments, y + 1) > 0)
-                            pushWall(
-                                y * vertsPerRow + widthSegments,
-                                (y + 1) * vertsPerRow + widthSegments
-                            );
+                        for (let x = 0; x < widthSegments; x++) {
+                            const hA = heightAt(x, y);
+                            const hB = heightAt(x + 1, y);
+                            if (Math.abs(hA - hB) > 0.001) {
+                                const tA = y * vertsPerRow + x;
+                                const tB = y * vertsPerRow + (x + 1);
+                                pushWall(tA, tB);
+                            }
+                        }
                     }
 
                     const combinedPositions = new Float32Array(gridVertexCount * 2 * 3);
@@ -637,24 +641,40 @@ export default function ThreeDView({
                         const bB = tB + bottomOffset;
                         indices.push(tA, bA, bB, tA, bB, tB);
                     };
-                    for (let x = 0; x < widthSegments; x++) {
-                        if (heightAt(x, 0) > 0 || heightAt(x + 1, 0) > 0)
-                            pushWall(0 * vertsRow + x, 0 * vertsRow + (x + 1));
-                        if (heightAt(x, heightSegments) > 0 || heightAt(x + 1, heightSegments) > 0)
-                            pushWall(
-                                heightSegments * vertsRow + (x + 1),
-                                heightSegments * vertsRow + x
-                            );
+
+                    // Build walls for all edges with height differences
+                    // Vertical walls (north-south direction)
+                    for (let x = 0; x <= widthSegments; x++) {
+                        for (let y = 0; y < heightSegments; y++) {
+                            const hA = heightAt(x, y);
+                            const hB = heightAt(x, y + 1);
+                            // Only build wall at opaque/transparent boundaries
+                            const isAOpaque = hA > 0;
+                            const isBOpaque = hB > 0;
+                            if (isAOpaque !== isBOpaque) {
+                                const tA = y * vertsRow + x;
+                                const tB = (y + 1) * vertsRow + x;
+                                pushWall(tA, tB);
+                            }
+                        }
                     }
-                    for (let y = 0; y < heightSegments; y++) {
-                        if (heightAt(0, y) > 0 || heightAt(0, y + 1) > 0)
-                            pushWall((y + 1) * vertsRow + 0, y * vertsRow + 0);
-                        if (heightAt(widthSegments, y) > 0 || heightAt(widthSegments, y + 1) > 0)
-                            pushWall(
-                                y * vertsRow + widthSegments,
-                                (y + 1) * vertsRow + widthSegments
-                            );
+
+                    // Horizontal walls (east-west direction)
+                    for (let y = 0; y <= heightSegments; y++) {
+                        for (let x = 0; x < widthSegments; x++) {
+                            const hA = heightAt(x, y);
+                            const hB = heightAt(x + 1, y);
+                            // Only build wall at opaque/transparent boundaries
+                            const isAOpaque = hA > 0;
+                            const isBOpaque = hB > 0;
+                            if (isAOpaque !== isBOpaque) {
+                                const tA = y * vertsRow + x;
+                                const tB = y * vertsRow + (x + 1);
+                                pushWall(tA, tB);
+                            }
+                        }
                     }
+
                     const combinedPositions = new Float32Array(topPositions.length * 2);
                     combinedPositions.set(topPositions, 0);
                     combinedPositions.set(bottomPositions, topPositions.length);
