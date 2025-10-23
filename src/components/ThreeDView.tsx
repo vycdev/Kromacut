@@ -1001,10 +1001,10 @@ export default function ThreeDView({
         <div className="w-full h-full relative" ref={mountRef}>
             {modelDimensions && (
                 <div
-                    className="absolute top-2 left-2 bg-black/80 text-foreground text-xs px-2 py-1 rounded z-10"
+                    className="absolute top-2 left-2 px-2 py-1 rounded-full bg-primary/10 text-primary text-xs font-mono font-semibold z-10"
                     aria-hidden
                 >
-                    {modelDimensions.width.toFixed(1)}×{modelDimensions.height.toFixed(1)}×
+                    Model: {modelDimensions.width.toFixed(1)}×{modelDimensions.height.toFixed(1)}×
                     {modelDimensions.depth.toFixed(1)} mm
                 </div>
             )}

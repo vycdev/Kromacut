@@ -651,7 +651,7 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
                 {/* small HUD showing image size and crop size (when active) */}
                 {imageLoaded && imgRef.current ? (
                     <div
-                        className="absolute top-2 left-2 bg-black/80 text-foreground text-xs px-2 py-1 rounded"
+                        className="absolute top-2 left-2 px-2 py-1 rounded-full bg-primary/10 text-primary text-xs font-mono font-semibold"
                         aria-hidden
                     >
                         {(() => {
