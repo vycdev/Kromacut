@@ -1,6 +1,6 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import { Image, Github, Heart } from 'lucide-react';
+import { Image, Github, Heart, Moon, Sun } from 'lucide-react';
 import logo from '../assets/logo.png';
 
 interface Props {
@@ -8,6 +8,23 @@ interface Props {
 }
 
 export const Header: React.FC<Props> = ({ onLoadTest }) => {
+    const [isDark, setIsDark] = React.useState(() => {
+        return document.documentElement.classList.contains('dark');
+    });
+
+    const toggleTheme = () => {
+        const root = document.documentElement;
+        if (isDark) {
+            root.classList.remove('dark');
+            localStorage.setItem('theme', 'light');
+            setIsDark(false);
+        } else {
+            root.classList.add('dark');
+            localStorage.setItem('theme', 'dark');
+            setIsDark(true);
+        }
+    };
+
     return (
         <header className="h-12 flex items-center justify-between px-4 border-b border-border bg-card">
             <div className="flex items-center gap-2">
@@ -53,6 +70,14 @@ export const Header: React.FC<Props> = ({ onLoadTest }) => {
                         <Heart className="w-4 h-4 fill-current" />
                         <span>Support me</span>
                     </a>
+                </Button>
+                <Button
+                    size="sm"
+                    onClick={toggleTheme}
+                    title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+                    className="bg-secondary hover:bg-secondary/80 text-secondary-foreground font-semibold transition-all duration-200 shadow-md hover:shadow-lg active:scale-95"
+                >
+                    {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
                 </Button>
             </div>
         </header>
