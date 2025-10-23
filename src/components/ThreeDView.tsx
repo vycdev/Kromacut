@@ -518,7 +518,9 @@ export default function ThreeDView({
                     const mat = materialRef.current;
                     if (mat) {
                         mat.map = tex;
-                        mat.alphaMap = tex;
+                        // Use alpha only in preview; for final we rely on geometry (no alphaMap)
+                        mat.alphaMap = mode === 'preview' ? tex : null;
+                        mat.transparent = mode === 'preview';
                         mat.vertexColors = false;
                         mat.flatShading = true;
                         mat.needsUpdate = true;
@@ -614,19 +616,69 @@ export default function ThreeDView({
                     }
                     const bottomPositions = new Float32Array(posAttr.count * 3);
                     bottomPositions.set(topPositions);
-                    for (let i = 0; i < posAttr.count; i++) bottomPositions[i * 3 + 2] = 0;
+                    // Slightly offset bottom to avoid z-fighting with near-zero top faces
+                    const Z_EPSILON = 1e-4;
+                    for (let i = 0; i < posAttr.count; i++) bottomPositions[i * 3 + 2] = -Z_EPSILON;
                     const bottomColors = new Float32Array(vertexColors.length);
                     bottomColors.set(vertexColors);
+
+                    // Fix boundary colors: extend opaque colors to transparent boundaries
+                    const vertsRowBoundary = boxW + 1;
+                    for (let vy = 0; vy < boxH + 1; vy++) {
+                        for (let vx = 0; vx < boxW + 1; vx++) {
+                            const vi = vy * vertsRowBoundary + vx;
+                            const px = Math.min(boxW - 1, vx);
+                            const py = Math.min(boxH - 1, vy);
+                            const colorBase = (py * boxW + px) * 3;
+
+                            // If this vertex is transparent, try to use adjacent opaque color
+                            if (
+                                vertexColors[vi * 3] === 0 &&
+                                vertexColors[vi * 3 + 1] === 0 &&
+                                vertexColors[vi * 3 + 2] === 0
+                            ) {
+                                let foundColor = false;
+                                // Check adjacent cells for opaque color
+                                for (let dy = -1; dy <= 1 && !foundColor; dy++) {
+                                    for (let dx = -1; dx <= 1 && !foundColor; dx++) {
+                                        const nx = px + dx;
+                                        const ny = py + dy;
+                                        if (nx >= 0 && nx < boxW && ny >= 0 && ny < boxH) {
+                                            const nBase = (ny * boxW + nx) * 3;
+                                            if (
+                                                vertexColors[nBase] !== 0 ||
+                                                vertexColors[nBase + 1] !== 0 ||
+                                                vertexColors[nBase + 2] !== 0
+                                            ) {
+                                                bottomColors[vi * 3] = vertexColors[nBase];
+                                                bottomColors[vi * 3 + 1] = vertexColors[nBase + 1];
+                                                bottomColors[vi * 3 + 2] = vertexColors[nBase + 2];
+                                                foundColor = true;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                     const widthSegments = boxW;
                     const heightSegments = boxH;
                     const vertsRow = widthSegments + 1;
                     const topIndices: number[] = [];
                     for (let y = 0; y < heightSegments; y++) {
                         for (let x = 0; x < widthSegments; x++) {
+                            // Skip top faces for fully transparent cells to avoid alpha artifacts
                             const a = y * vertsRow + x;
                             const b = a + 1;
                             const c = a + vertsRow;
                             const d = c + 1;
+                            const hA = topPositions[a * 3 + 2];
+                            const hB = topPositions[b * 3 + 2];
+                            const hC = topPositions[c * 3 + 2];
+                            const hD = topPositions[d * 3 + 2];
+                            if (hA === 0 && hB === 0 && hC === 0 && hD === 0) {
+                                continue;
+                            }
                             topIndices.push(a, c, b, b, c, d);
                         }
                     }
@@ -720,6 +772,16 @@ export default function ThreeDView({
                 const old = mesh.geometry as THREE.BufferGeometry;
                 mesh.geometry = finalGeom;
                 old.dispose();
+
+                // Use vertex colors (no texture) for final solid geometry to avoid undefined UVs on walls
+                const mat = materialRef.current;
+                if (mat) {
+                    mat.map = null;
+                    mat.alphaMap = null;
+                    mat.transparent = false;
+                    mat.vertexColors = true;
+                    mat.needsUpdate = true;
+                }
 
                 const finalW = boxW;
                 const finalH = boxH;
