@@ -66,7 +66,6 @@ export function useThreeScene(
             vertexColors: false,
             flatShading: true,
             transparent: false,
-            alphaTest: 0.01,
         });
         materialRef.current = material;
         const mesh = new THREE.Mesh(placeholderGeom, material);
