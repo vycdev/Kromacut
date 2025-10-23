@@ -43,16 +43,16 @@ export function useThreeScene(
 
         // Lights - optimized for color vibrancy
         // Subtle ambient light for overall base visibility
-        const ambient = new THREE.AmbientLight(0xffffff, 0.3);
+        const ambient = new THREE.AmbientLight(0xffffff, 0.2);
         scene.add(ambient);
 
         // Reduced hemisphere light to prevent color washing
-        const hemi = new THREE.HemisphereLight(0xffffff, 0x444444, 0.4);
+        const hemi = new THREE.HemisphereLight(0xffffff, 0x333333, 0.1);
         hemi.position.set(0, 1, 0);
         scene.add(hemi);
 
         // Strong directional light for contrast and definition
-        const dir = new THREE.DirectionalLight(0xffffff, 1.2);
+        const dir = new THREE.DirectionalLight(0xffffff, 1);
         dir.position.set(2, 3, 1);
         scene.add(dir);
 
@@ -63,7 +63,7 @@ export function useThreeScene(
             metalness: 0,
             roughness: 0.8,
             side: THREE.DoubleSide,
-            vertexColors: true,
+            vertexColors: false,
             flatShading: true,
         });
         materialRef.current = material;
