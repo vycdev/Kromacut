@@ -51,7 +51,7 @@ export function useThreeScene(
         scene.add(hemi);
 
         // Strong directional light for contrast and definition
-        const dir = new THREE.DirectionalLight(0xffffff, 1.5);
+        const dir = new THREE.DirectionalLight(0xffffff, 1.8);
         dir.position.set(2, 3, 1);
         scene.add(dir);
 
@@ -59,8 +59,8 @@ export function useThreeScene(
         const placeholderGeom = new THREE.PlaneGeometry(1, 1, 1, 1);
         const material = new THREE.MeshStandardMaterial({
             color: 0xffffff,
-            metalness: 0.3,
-            roughness: 0.3,
+            metalness: 0.5,
+            roughness: 0.2,
             side: THREE.DoubleSide,
             vertexColors: true,
             flatShading: true,
