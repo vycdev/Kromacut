@@ -189,6 +189,7 @@ export default function ThreeDView({
                     const tex = new THREE.CanvasTexture(canvas);
                     tex.magFilter = THREE.NearestFilter;
                     tex.minFilter = THREE.NearestFilter;
+                    tex.colorSpace = THREE.SRGBColorSpace;
                     tex.generateMipmaps = false;
                     tex.wrapS = THREE.ClampToEdgeWrapping;
                     tex.wrapT = THREE.ClampToEdgeWrapping;

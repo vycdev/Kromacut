@@ -21,7 +21,8 @@ export function useThreeScene(
         renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
         renderer.setSize(el.clientWidth, el.clientHeight);
         renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        renderer.toneMappingExposure = 1.4;
+        renderer.toneMappingExposure = 1;
+        renderer.outputColorSpace = THREE.SRGBColorSpace;
         el.appendChild(renderer.domElement);
         rendererRef.current = renderer;
 
@@ -42,7 +43,7 @@ export function useThreeScene(
 
         // Lights - optimized for color vibrancy
         // Subtle ambient light for overall base visibility
-        const ambient = new THREE.AmbientLight(0xffffff, 0.1);
+        const ambient = new THREE.AmbientLight(0xffffff, 0.3);
         scene.add(ambient);
 
         // Reduced hemisphere light to prevent color washing
@@ -51,7 +52,7 @@ export function useThreeScene(
         scene.add(hemi);
 
         // Strong directional light for contrast and definition
-        const dir = new THREE.DirectionalLight(0xffffff, 1.8);
+        const dir = new THREE.DirectionalLight(0xffffff, 1.2);
         dir.position.set(2, 3, 1);
         scene.add(dir);
 
@@ -59,8 +60,8 @@ export function useThreeScene(
         const placeholderGeom = new THREE.PlaneGeometry(1, 1, 1, 1);
         const material = new THREE.MeshStandardMaterial({
             color: 0xffffff,
-            metalness: 0.5,
-            roughness: 0.2,
+            metalness: 0,
+            roughness: 0.8,
             side: THREE.DoubleSide,
             vertexColors: true,
             flatShading: true,
