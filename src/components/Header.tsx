@@ -72,10 +72,10 @@ export const Header: React.FC<Props> = ({ onLoadTest }) => {
                     </a>
                 </Button>
                 <Button
-                    size="sm"
+                    size="icon"
                     onClick={toggleTheme}
                     title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-                    className="bg-secondary hover:bg-secondary/80 text-secondary-foreground font-semibold transition-all duration-200 shadow-md hover:shadow-lg active:scale-95"
+                    className="h-8 w-8 bg-secondary hover:bg-secondary/80 text-secondary-foreground font-semibold transition-all duration-200 shadow-md hover:shadow-lg active:scale-95"
                 >
                     {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
                 </Button>
