@@ -12,7 +12,7 @@ export function useThreeScene(
     const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
     const controlsRef = useRef<OrbitControls | null>(null);
     const meshRef = useRef<THREE.Mesh | null>(null);
-    const materialRef = useRef<THREE.MeshPhongMaterial | null>(null);
+    const materialRef = useRef<THREE.MeshLambertMaterial | null>(null);
 
     useEffect(() => {
         const el = mountRef.current;
@@ -21,7 +21,7 @@ export function useThreeScene(
         renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
         renderer.setSize(el.clientWidth, el.clientHeight);
         renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        renderer.toneMappingExposure = 1;
+        renderer.toneMappingExposure = 1.3;
         renderer.outputColorSpace = THREE.SRGBColorSpace;
         el.appendChild(renderer.domElement);
         rendererRef.current = renderer;
@@ -41,33 +41,21 @@ export function useThreeScene(
         controls.dampingFactor = 0.08;
         controlsRef.current = controls;
 
-        // Lights - optimized for Phong material
-        const ambient = new THREE.AmbientLight(0xffffff, 0.3);
+        // Lights - minimal to avoid whitewashing
+        const ambient = new THREE.AmbientLight(0xffffff, 0.1);
         scene.add(ambient);
 
-        // Gentle hemisphere for natural 3D feel
-        const hemi = new THREE.HemisphereLight(0xffffff, 0x444444, 0.25);
-        hemi.position.set(0, 1, 0);
-        scene.add(hemi);
-
-        // Key directional for definition
-        const key = new THREE.DirectionalLight(0xffffff, 1);
-        key.position.set(2.5, 3, 1.2);
+        // Single directional light for depth perception
+        const key = new THREE.DirectionalLight(0xffffff, 0.8);
+        key.position.set(2, 3, 1);
         scene.add(key);
-
-        // Fill directional to open shadows
-        const fill = new THREE.DirectionalLight(0xffffff, 0.6);
-        fill.position.set(-2.5, 1.5, -1.2);
-        scene.add(fill);
 
         // Placeholder plane (very low res) – will be replaced when image builds
         const placeholderGeom = new THREE.PlaneGeometry(1, 1, 1, 1);
-        const material = new THREE.MeshPhongMaterial({
+        const material = new THREE.MeshLambertMaterial({
             color: 0xffffff,
-            shininess: 20,
             side: THREE.DoubleSide,
             vertexColors: false,
-            flatShading: true,
             transparent: false,
         });
         materialRef.current = material;

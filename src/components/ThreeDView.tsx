@@ -699,7 +699,6 @@ export default function ThreeDView({
                             const vi = vy * vertsRowBoundary + vx;
                             const px = Math.min(boxW - 1, vx);
                             const py = Math.min(boxH - 1, vy);
-                            const colorBase = (py * boxW + px) * 3;
 
                             // If this vertex is transparent, try to use adjacent opaque color
                             if (
@@ -756,8 +755,6 @@ export default function ThreeDView({
                     const indices: number[] = [...topIndices];
                     for (let i = topIndices.length - 1; i >= 0; i--)
                         indices.push(bottomOffset + topIndices[i]);
-                    const heightAt = (vx: number, vy: number) =>
-                        topPositions[(vy * vertsRow + vx) * 3 + 2];
                     // Deduplicate walls per edge to avoid z-fighting stripes
                     const addedWallEdges = new Set<string>();
                     const pushWall = (tA: number, tB: number) => {
