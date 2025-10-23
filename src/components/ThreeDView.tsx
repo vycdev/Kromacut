@@ -758,7 +758,14 @@ export default function ThreeDView({
                         indices.push(bottomOffset + topIndices[i]);
                     const heightAt = (vx: number, vy: number) =>
                         topPositions[(vy * vertsRow + vx) * 3 + 2];
+                    // Deduplicate walls per edge to avoid z-fighting stripes
+                    const addedWallEdges = new Set<string>();
                     const pushWall = (tA: number, tB: number) => {
+                        const a = Math.min(tA, tB);
+                        const b = Math.max(tA, tB);
+                        const key = `${a}-${b}`;
+                        if (addedWallEdges.has(key)) return;
+                        addedWallEdges.add(key);
                         const bA = tA + bottomOffset;
                         const bB = tB + bottomOffset;
                         indices.push(tA, bA, bB, tA, bB, tB);
