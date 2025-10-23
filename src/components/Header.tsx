@@ -38,7 +38,7 @@ export const Header: React.FC<Props> = ({ onLoadTest }) => {
                     size="sm"
                     onClick={onLoadTest}
                     title="Load TD Test"
-                    className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold transition-all duration-200 shadow-md hover:shadow-lg active:scale-95 gap-1.5"
+                    className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold transition-all duration-200 shadow-md hover:shadow-lg hover:scale-105 active:scale-95 gap-1.5"
                 >
                     <Image className="w-4 h-4" />
                     <span>Load TD Test</span>
@@ -46,7 +46,7 @@ export const Header: React.FC<Props> = ({ onLoadTest }) => {
                 <Button
                     size="sm"
                     asChild
-                    className="bg-gradient-to-r from-purple-500 to-violet-600 hover:from-purple-600 hover:to-violet-700 text-white font-semibold transition-all duration-200 shadow-md hover:shadow-lg active:scale-95 gap-1.5"
+                    className="bg-gradient-to-r from-purple-500 to-violet-600 hover:from-purple-600 hover:to-violet-700 text-white font-semibold transition-all duration-200 shadow-md hover:shadow-lg hover:scale-105 active:scale-95 gap-1.5"
                 >
                     <a
                         href="https://github.com/vycdev/Kromacut"
@@ -75,7 +75,7 @@ export const Header: React.FC<Props> = ({ onLoadTest }) => {
                     size="icon"
                     onClick={toggleTheme}
                     title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-                    className="h-8 w-8 bg-secondary hover:bg-secondary/80 text-secondary-foreground font-semibold transition-all duration-200 shadow-md hover:shadow-lg active:scale-95"
+                    className="h-8 w-8 bg-secondary hover:bg-secondary/80 text-secondary-foreground font-semibold transition-all duration-200 shadow-md hover:shadow-lg hover:scale-105 active:scale-95"
                 >
                     {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
                 </Button>
