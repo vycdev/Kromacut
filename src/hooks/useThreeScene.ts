@@ -24,7 +24,9 @@ export function useThreeScene(
         rendererRef.current = renderer;
 
         const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x0b0c0d);
+        // Set background based on current theme
+        const isDarkMode = document.documentElement.classList.contains('dark');
+        scene.background = new THREE.Color(isDarkMode ? 0x0b0c0d : 0xffffff);
         sceneRef.current = scene;
 
         const camera = new THREE.PerspectiveCamera(45, el.clientWidth / el.clientHeight, 0.1, 1000);
@@ -77,6 +79,22 @@ export function useThreeScene(
         const ro = new ResizeObserver(resize);
         ro.observe(el);
 
+        // Watch for theme changes
+        const updateBackgroundForTheme = () => {
+            const isDarkMode = document.documentElement.classList.contains('dark');
+            if (sceneRef.current) {
+                sceneRef.current.background = new THREE.Color(isDarkMode ? 0x0b0c0d : 0xffffff);
+            }
+        };
+
+        const themeObserver = new MutationObserver(() => {
+            updateBackgroundForTheme();
+        });
+        themeObserver.observe(document.documentElement, {
+            attributes: true,
+            attributeFilter: ['class'],
+        });
+
         const animate = () => {
             controls.update();
             renderer.render(scene, camera);
@@ -106,6 +124,7 @@ export function useThreeScene(
         return () => {
             if (rafRef.current) cancelAnimationFrame(rafRef.current);
             ro.disconnect();
+            themeObserver.disconnect();
             controls.dispose();
             placeholderGeom.dispose();
             material.dispose();
