@@ -608,6 +608,76 @@ export default function ThreeDView({
                 // For preview mode we skip walls/bottom
                 let finalGeom: THREE.BufferGeometry = geom;
                 if (mode === 'final') {
+                    // Recompute vertex heights and colors from neighboring opaque cells to avoid boundary holes
+                    for (let vy = 0; vy < boxH + 1; vy++) {
+                        for (let vx = 0; vx < boxW + 1; vx++) {
+                            let hMax = 0;
+                            let colorR = 0,
+                                colorG = 0,
+                                colorB = 0;
+                            const consider = (cx: number, cy: number) => {
+                                if (cx >= 0 && cy >= 0 && cx < boxW && cy < boxH) {
+                                    const h = pixHeights[cy * boxW + cx];
+                                    if (h > hMax) {
+                                        hMax = h;
+                                        const base = (cy * boxW + cx) * 3;
+                                        colorR = pixColors[base] / 255;
+                                        colorG = pixColors[base + 1] / 255;
+                                        colorB = pixColors[base + 2] / 255;
+                                    }
+                                }
+                            };
+                            // Four adjacent cells around this vertex
+                            consider(vx - 1, vy - 1);
+                            consider(vx - 1, vy);
+                            consider(vx, vy - 1);
+                            consider(vx, vy);
+                            const vi = vy * vertsPerRow + vx;
+                            posAttr.setZ(vi, hMax);
+                            if (hMax > 0) {
+                                vertexColors[vi * 3] = colorR;
+                                vertexColors[vi * 3 + 1] = colorG;
+                                vertexColors[vi * 3 + 2] = colorB;
+                            }
+                        }
+                    }
+                    posAttr.needsUpdate = true;
+                    // Fix top vertex colors at opaque/transparent boundaries
+                    const blackEps = 1e-5;
+                    for (let vy = 0; vy < boxH + 1; vy++) {
+                        for (let vx = 0; vx < boxW + 1; vx++) {
+                            const vi = vy * vertsPerRow + vx;
+                            const z = posAttr.getZ(vi);
+                            const r = vertexColors[vi * 3];
+                            const g = vertexColors[vi * 3 + 1];
+                            const b = vertexColors[vi * 3 + 2];
+                            // Vertex is part of solid (z>0) but has near-black color: pull color from nearest opaque pixel
+                            if (z > 0 && r <= blackEps && g <= blackEps && b <= blackEps) {
+                                const px = Math.min(boxW - 1, Math.max(0, vx));
+                                const py = Math.min(boxH - 1, Math.max(0, vy));
+                                let found = false;
+                                for (let radius = 1; radius <= 2 && !found; radius++) {
+                                    for (let dy = -radius; dy <= radius && !found; dy++) {
+                                        for (let dx = -radius; dx <= radius && !found; dx++) {
+                                            const nx = px + dx;
+                                            const ny = py + dy;
+                                            if (nx >= 0 && nx < boxW && ny >= 0 && ny < boxH) {
+                                                if (pixHeights[ny * boxW + nx] > 0) {
+                                                    const base = (ny * boxW + nx) * 3;
+                                                    vertexColors[vi * 3] = pixColors[base] / 255;
+                                                    vertexColors[vi * 3 + 1] =
+                                                        pixColors[base + 1] / 255;
+                                                    vertexColors[vi * 3 + 2] =
+                                                        pixColors[base + 2] / 255;
+                                                    found = true;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                     const topPositions = new Float32Array(posAttr.count * 3);
                     for (let i = 0; i < posAttr.count; i++) {
                         topPositions[i * 3] = posAttr.getX(i);
@@ -732,7 +802,7 @@ export default function ThreeDView({
                     combinedPositions.set(bottomPositions, topPositions.length);
                     const combinedColors = new Float32Array(vertexColors.length * 2);
                     combinedColors.set(vertexColors, 0);
-                    combinedColors.set(vertexColors, vertexColors.length);
+                    combinedColors.set(bottomColors, vertexColors.length);
                     finalGeom = new THREE.BufferGeometry();
                     finalGeom.setAttribute(
                         'position',
