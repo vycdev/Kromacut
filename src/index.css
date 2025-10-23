@@ -297,7 +297,7 @@ body,
     }
 
     *:hover {
-        scrollbar-color: #4a5568 transparent;
+        scrollbar-color: hsl(from var(--primary) h s l / 1) transparent;
     }
 }
 
