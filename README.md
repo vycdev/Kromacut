@@ -90,6 +90,10 @@ Preview of the included TD test image:
 
 <img src="src/assets/tdTest.png" alt="TD Test Image" width="600" />
 
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=vycdev/kromacut&type=date&legend=top-left)](https://www.star-history.com/#vycdev/kromacut&type=date&legend=top-left)
+
 ## Contributing
 
 Contributions welcome. Open issues or PRs for bugs, improvements, or feature suggestions. If you plan a larger change (architecture, algorithms), open an issue first describing the approach so we can discuss it.
