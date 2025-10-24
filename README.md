@@ -14,7 +14,7 @@ A quick look at what Kromacut produces from a source image to a printable model:
 
 | 2D Input | 3D Preview |
 |---|---|
-| <img src="content/fuji2d.png" alt="Fuji 2D Input" width="600" /> | <img src="content/fuji3d.png" alt="Fuji 3D Preview" width="600" /> |
+| <img src="content/fuji2d_new.png" alt="Fuji 2D Input" width="600" /> | <img src="content/fuji3d_new.png" alt="Fuji 3D Preview" width="600" /> |
 | Sliced by Colors | Real Print |
 | <img src="content/fuji3dsliced.png" alt="Fuji Sliced" width="600" /> | <img src="content/printed.jpg" alt="Printed Result" width="600" /> |
 
