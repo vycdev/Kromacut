@@ -1,4 +1,4 @@
-<img align="left" height="100" width="100" src="./content/logo.png">
+<img align="left" height="120" width="120" src="./content/logo.png">
 
 # Kromacut
 
