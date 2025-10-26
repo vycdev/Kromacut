@@ -278,6 +278,9 @@ export default function ThreeDControls({ swatches, onChange, persisted }: ThreeD
         }
         lines.push('');
         lines.push('Notes: Heights are approximate. Confirm in slicer before printing.');
+        lines.push('');
+        lines.push('---------------------');
+        lines.push('Made with Kromacut by vycdev!');
         return lines.join('\n');
     };
 
