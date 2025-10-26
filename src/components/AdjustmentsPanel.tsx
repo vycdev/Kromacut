@@ -84,16 +84,6 @@ export const AdjustmentsPanel: React.FC<Props> = React.memo(
             return () => window.removeEventListener('pointerup', up);
         }, [handlePointerUp]);
 
-        const handleReset = useCallback(() => {
-            const next: Record<string, number> = {};
-            defs.forEach((d) => (next[d.key] = d.default));
-            setValues(next);
-            draggingRef.current = false;
-            // Direct commit (immediate) for reset action
-            onCommit?.(next);
-            dirtyRef.current = false;
-        }, [defs, onCommit]);
-
         const handleResetSingle = useCallback(
             (key: string, defaultVal: number) => {
                 setValues((prev) => {
