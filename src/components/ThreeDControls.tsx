@@ -4,6 +4,7 @@ import { NumberInput } from '@/components/ui/input';
 import ThreeDColorRow from './ThreeDColorRow';
 import { Sortable, SortableContent, SortableOverlay } from '@/components/ui/sortable';
 import { Button } from '@/components/ui/button';
+import { Check } from 'lucide-react';
 
 type Swatch = { hex: string; a: number };
 
@@ -338,10 +339,10 @@ export default function ThreeDControls({ swatches, onChange, persisted }: ThreeD
                 <Button
                     onClick={handleApply}
                     disabled={!hasPendingChanges}
-                    className="w-full"
-                    variant={hasPendingChanges ? 'default' : 'secondary'}
+                    className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold disabled:bg-green-600/50 disabled:cursor-not-allowed transition-all duration-200 shadow-md hover:shadow-lg active:scale-95 gap-1.5"
                 >
-                    {hasPendingChanges ? 'Apply Changes' : 'No Changes'}
+                    <Check className="w-4 h-4" />
+                    <span>{hasPendingChanges ? 'Apply Changes' : 'No Changes'}</span>
                 </Button>
             </div>
 
