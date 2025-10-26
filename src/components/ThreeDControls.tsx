@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Card } from '@/components/ui/card';
-import { Input, NumberInput } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { NumberInput } from '@/components/ui/input';
 import ThreeDColorRow from './ThreeDColorRow';
 import { Sortable, SortableContent, SortableOverlay } from '@/components/ui/sortable';
+import { Button } from '@/components/ui/button';
 
 type Swatch = { hex: string; a: number };
 
@@ -27,6 +27,11 @@ interface ThreeDControlsProps {
 }
 
 export default function ThreeDControls({ swatches, onChange, persisted }: ThreeDControlsProps) {
+    // Track last applied state to detect pending changes
+    const [lastAppliedState, setLastAppliedState] = useState<ThreeDControlsStateShape | null>(
+        persisted ?? null
+    );
+
     // 3D printing controls (owned by this component)
     const [layerHeight, setLayerHeight] = useState<number>(persisted?.layerHeight ?? 0.12); // mm
     const [baseSliceHeight, setBaseSliceHeight] = useState<number>(
@@ -142,28 +147,9 @@ export default function ThreeDControls({ swatches, onChange, persisted }: ThreeD
         prevOrderRef.current = newColorOrder.slice();
     }, []);
 
-    // Emit consolidated state upwards only when references or primitive values actually change.
-    const lastEmittedRef = useRef<{
-        layerHeight: number;
-        baseSliceHeight: number;
-        colorSliceHeights: number[];
-        colorOrder: number[];
-        filteredSwatches: Swatch[];
-        pixelSize: number;
-    } | null>(null);
-
-    useEffect(() => {
+    // Apply handler - explicitly triggers the rebuild
+    const handleApply = useCallback(() => {
         if (!onChange) return;
-        const prev = lastEmittedRef.current;
-        const same =
-            prev &&
-            prev.layerHeight === layerHeight &&
-            prev.baseSliceHeight === baseSliceHeight &&
-            prev.colorSliceHeights === colorSliceHeights &&
-            prev.colorOrder === colorOrder &&
-            prev.filteredSwatches === filtered &&
-            prev.pixelSize === pixelSize;
-        if (same) return;
         const next: ThreeDControlsStateShape = {
             layerHeight,
             baseSliceHeight,
@@ -172,7 +158,7 @@ export default function ThreeDControls({ swatches, onChange, persisted }: ThreeD
             filteredSwatches: filtered,
             pixelSize,
         };
-        lastEmittedRef.current = next;
+        setLastAppliedState(next);
         onChange(next);
     }, [
         onChange,
@@ -183,6 +169,57 @@ export default function ThreeDControls({ swatches, onChange, persisted }: ThreeD
         filtered,
         pixelSize,
     ]);
+
+    // Check if there are pending changes (deep comparison for arrays)
+    const hasPendingChanges = useMemo(() => {
+        if (!lastAppliedState) return false;
+
+        // Deep compare arrays
+        const heightsEqual =
+            lastAppliedState.colorSliceHeights.length === colorSliceHeights.length &&
+            lastAppliedState.colorSliceHeights.every((h, i) => h === colorSliceHeights[i]);
+        const orderEqual =
+            lastAppliedState.colorOrder.length === colorOrder.length &&
+            lastAppliedState.colorOrder.every((o, i) => o === colorOrder[i]);
+        const swatchesEqual =
+            lastAppliedState.filteredSwatches.length === filtered.length &&
+            lastAppliedState.filteredSwatches.every(
+                (s, i) => s.hex === filtered[i].hex && s.a === filtered[i].a
+            );
+
+        return (
+            lastAppliedState.layerHeight !== layerHeight ||
+            lastAppliedState.baseSliceHeight !== baseSliceHeight ||
+            !heightsEqual ||
+            !orderEqual ||
+            !swatchesEqual ||
+            lastAppliedState.pixelSize !== pixelSize
+        );
+    }, [
+        lastAppliedState,
+        layerHeight,
+        baseSliceHeight,
+        colorSliceHeights,
+        colorOrder,
+        filtered,
+        pixelSize,
+    ]);
+
+    // Track if we've auto-applied yet
+    const hasAutoApplied = useRef(false);
+
+    // Auto-apply on mount when switching to 3D mode
+    useEffect(() => {
+        if (persisted && !hasAutoApplied.current) {
+            hasAutoApplied.current = true;
+            // Small delay to ensure all state is initialized
+            const timer = setTimeout(() => {
+                handleApply();
+            }, 10);
+            return () => clearTimeout(timer);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [persisted]);
 
     // Prepare dynamic 3D print instruction data derived from current control state
     type SwapEntry =
@@ -296,6 +333,18 @@ export default function ThreeDControls({ swatches, onChange, persisted }: ThreeD
 
     return (
         <div className="space-y-4">
+            {/* Apply button */}
+            <div className="flex justify-end">
+                <Button
+                    onClick={handleApply}
+                    disabled={!hasPendingChanges}
+                    className="w-full"
+                    variant={hasPendingChanges ? 'default' : 'secondary'}
+                >
+                    {hasPendingChanges ? 'Apply Changes' : 'No Changes'}
+                </Button>
+            </div>
+
             {/* Printing Parameters Card */}
             <Card className="p-4 border border-border/50">
                 <div className="space-y-1 mb-4">
@@ -403,7 +452,7 @@ export default function ThreeDControls({ swatches, onChange, persisted }: ThreeD
                 >
                     <SortableContent asChild>
                         <div className="space-y-2">
-                            {displayOrder.map((fi, displayIdx) => {
+                            {displayOrder.map((fi) => {
                                 const s = filtered[fi];
                                 const val = colorSliceHeights[fi] ?? layerHeight;
                                 return (
