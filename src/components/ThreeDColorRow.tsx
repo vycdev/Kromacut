@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Slider } from '@/components/ui/slider';
 import { GripVertical } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -6,15 +6,19 @@ import { SortableItem, SortableItemHandle } from '@/components/ui/sortable';
 
 type Props = {
     fi: number;
-    displayIdx: number;
     hex: string;
     value: number;
     layerHeight: number;
     onChange: (fi: number, value: number) => void;
 };
 
-function ThreeDColorRowInner({ fi, displayIdx, hex, value, layerHeight, onChange }: Props) {
+function ThreeDColorRowInner({ fi, hex, value, layerHeight, onChange }: Props) {
     const [tempValue, setTempValue] = useState<number>(value);
+
+    // Sync tempValue when the value prop changes (e.g., when layerHeight changes)
+    useEffect(() => {
+        setTempValue(value);
+    }, [value]);
 
     const handleChange = (v: number[]) => {
         setTempValue(v[0]);

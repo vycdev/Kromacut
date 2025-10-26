@@ -80,14 +80,24 @@ export default function ThreeDControls({ swatches, onChange, persisted }: ThreeD
         for (let i = 0; i < prevFiltered.length; i++) {
             const pf = prevFiltered[i];
             const key = pf.hex + ':' + pf.a;
-            heightMap.set(key, prevHeights[i]);
+            const prevHeight = prevHeights[i];
+            // Only store valid, finite heights
+            if (typeof prevHeight === 'number' && isFinite(prevHeight) && prevHeight >= 0) {
+                heightMap.set(key, prevHeight);
+            }
         }
 
         const nextHeights = filtered.map((s) => {
             const key = s.hex + ':' + s.a;
             const existing = heightMap.get(key);
-            const base = typeof existing === 'number' ? existing : layerHeight;
+            // Guard against invalid existing values
+            const isValid = typeof existing === 'number' && isFinite(existing) && existing >= 0;
+            const base = isValid ? existing : layerHeight;
             const clamped = Math.max(layerHeight, Math.min(10, base));
+            // Guard against division by zero or invalid layerHeight
+            if (!layerHeight || !isFinite(layerHeight) || layerHeight <= 0) {
+                return isValid ? base : 0.2; // fallback to base or safe default
+            }
             const multiple = Math.round(clamped / layerHeight) * layerHeight;
             const snapped = Math.max(layerHeight, Math.min(10, multiple));
             return Number(snapped.toFixed(8));
@@ -336,7 +346,9 @@ export default function ThreeDControls({ swatches, onChange, persisted }: ThreeD
                                 value={layerHeight}
                                 onChange={(e) => {
                                     const v = Number(e.target.value);
-                                    if (!Number.isNaN(v)) setLayerHeight(v);
+                                    if (!Number.isNaN(v) && v >= 0.01 && v <= 10 && isFinite(v)) {
+                                        setLayerHeight(v);
+                                    }
                                 }}
                             />
                         </label>
@@ -398,7 +410,6 @@ export default function ThreeDControls({ swatches, onChange, persisted }: ThreeD
                                     <ThreeDColorRow
                                         key={`${s.hex}-${fi}`}
                                         fi={fi}
-                                        displayIdx={displayIdx}
                                         hex={s.hex}
                                         value={val}
                                         layerHeight={layerHeight}
