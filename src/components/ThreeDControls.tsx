@@ -28,11 +28,6 @@ interface ThreeDControlsProps {
 }
 
 export default function ThreeDControls({ swatches, onChange, persisted }: ThreeDControlsProps) {
-    // Track last applied state to detect pending changes
-    const [lastAppliedState, setLastAppliedState] = useState<ThreeDControlsStateShape | null>(
-        persisted ?? null
-    );
-
     // 3D printing controls (owned by this component)
     const [layerHeight, setLayerHeight] = useState<number>(persisted?.layerHeight ?? 0.12); // mm
     const [baseSliceHeight, setBaseSliceHeight] = useState<number>(
@@ -148,6 +143,16 @@ export default function ThreeDControls({ swatches, onChange, persisted }: ThreeD
         prevOrderRef.current = newColorOrder.slice();
     }, []);
 
+    // Stable signature of current settings for cheap change detection
+    const currentSignature = useMemo(() => {
+        const swSig = filtered.map((s) => `${s.hex}:${s.a}`).join('|');
+        const heightsSig = colorSliceHeights.join(',');
+        const orderSig = colorOrder.join(',');
+        return `${layerHeight}|${baseSliceHeight}|${pixelSize}|${heightsSig}|${orderSig}|${swSig}`;
+    }, [layerHeight, baseSliceHeight, pixelSize, colorSliceHeights, colorOrder, filtered]);
+
+    const [appliedSignature, setAppliedSignature] = useState<string | null>(null);
+
     // Apply handler - explicitly triggers the rebuild
     const handleApply = useCallback(() => {
         if (!onChange) return;
@@ -159,7 +164,7 @@ export default function ThreeDControls({ swatches, onChange, persisted }: ThreeD
             filteredSwatches: filtered,
             pixelSize,
         };
-        setLastAppliedState(next);
+        setAppliedSignature(currentSignature);
         onChange(next);
     }, [
         onChange,
@@ -169,58 +174,36 @@ export default function ThreeDControls({ swatches, onChange, persisted }: ThreeD
         colorOrder,
         filtered,
         pixelSize,
+        currentSignature,
     ]);
 
-    // Check if there are pending changes (deep comparison for arrays)
+    // Pending changes flag based on signature comparison
     const hasPendingChanges = useMemo(() => {
-        if (!lastAppliedState) return false;
+        if (appliedSignature === null) return false; // before first apply, keep disabled
+        return appliedSignature !== currentSignature;
+    }, [appliedSignature, currentSignature]);
 
-        // Deep compare arrays
-        const heightsEqual =
-            lastAppliedState.colorSliceHeights.length === colorSliceHeights.length &&
-            lastAppliedState.colorSliceHeights.every((h, i) => h === colorSliceHeights[i]);
-        const orderEqual =
-            lastAppliedState.colorOrder.length === colorOrder.length &&
-            lastAppliedState.colorOrder.every((o, i) => o === colorOrder[i]);
-        const swatchesEqual =
-            lastAppliedState.filteredSwatches.length === filtered.length &&
-            lastAppliedState.filteredSwatches.every(
-                (s, i) => s.hex === filtered[i].hex && s.a === filtered[i].a
-            );
-
-        return (
-            lastAppliedState.layerHeight !== layerHeight ||
-            lastAppliedState.baseSliceHeight !== baseSliceHeight ||
-            !heightsEqual ||
-            !orderEqual ||
-            !swatchesEqual ||
-            lastAppliedState.pixelSize !== pixelSize
-        );
-    }, [
-        lastAppliedState,
-        layerHeight,
-        baseSliceHeight,
-        colorSliceHeights,
-        colorOrder,
-        filtered,
-        pixelSize,
-    ]);
-
-    // Track if we've auto-applied yet
-    const hasAutoApplied = useRef(false);
+    // Track if we've done initial auto-apply
+    const isFirstMount = useRef(true);
 
     // Auto-apply on mount when switching to 3D mode
+    // Wait for swatches to be loaded and color heights to be initialized
     useEffect(() => {
-        if (persisted && !hasAutoApplied.current) {
-            hasAutoApplied.current = true;
-            // Small delay to ensure all state is initialized
+        if (
+            persisted &&
+            isFirstMount.current &&
+            filtered.length > 0 &&
+            colorSliceHeights.length > 0
+        ) {
+            // Apply after a delay to ensure all initialization effects have run
             const timer = setTimeout(() => {
+                isFirstMount.current = false;
                 handleApply();
-            }, 10);
+            }, 200);
             return () => clearTimeout(timer);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [persisted]);
+    }, [persisted, filtered.length, colorSliceHeights.length]);
 
     // Prepare dynamic 3D print instruction data derived from current control state
     type SwapEntry =
