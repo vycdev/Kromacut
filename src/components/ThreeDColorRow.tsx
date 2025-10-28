@@ -9,10 +9,11 @@ type Props = {
     hex: string;
     value: number;
     layerHeight: number;
+    minHeight?: number;
     onChange: (fi: number, value: number) => void;
 };
 
-function ThreeDColorRowInner({ fi, hex, value, layerHeight, onChange }: Props) {
+function ThreeDColorRowInner({ fi, hex, value, layerHeight, minHeight, onChange }: Props) {
     const [tempValue, setTempValue] = useState<number>(value);
 
     // Sync tempValue when the value prop changes (e.g., when layerHeight changes)
@@ -55,7 +56,7 @@ function ThreeDColorRowInner({ fi, hex, value, layerHeight, onChange }: Props) {
                 {/* Height slider - interactive area */}
                 <div className="flex-1">
                     <Slider
-                        min={layerHeight}
+                        min={typeof minHeight === 'number' ? minHeight : layerHeight}
                         max={10}
                         step={layerHeight}
                         value={[tempValue]}

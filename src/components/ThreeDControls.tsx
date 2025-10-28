@@ -236,10 +236,10 @@ export default function ThreeDControls({ swatches, onChange, persisted }: ThreeD
         // Map geometry height to slicer layer index using slicer's first layer height.
         // We report the layer whose top is at or above this height, matching slicer UI labels.
         const effFirst = Math.max(0, slicerFirstLayerHeight || 0);
-        let layerNum = 2;
+        let layerNum = 1;
         if (layerHeight > 0) {
             const delta = Math.max(0, heightAt - effFirst);
-            layerNum = 2 + Math.ceil(delta / layerHeight);
+            layerNum = 1 + Math.ceil(delta / layerHeight);
         }
         swapPlan.push({
             type: 'swap',
@@ -326,6 +326,21 @@ export default function ThreeDControls({ swatches, onChange, persisted }: ThreeD
     // Get the current display order for the sortable
     const displayOrder =
         colorOrder.length === filtered.length ? colorOrder : filtered.map((_, i) => i);
+
+    // Ensure the currently-first color in display order cannot be below the slicer first layer height
+    useEffect(() => {
+        if (displayOrder.length === 0) return;
+        const firstFi = displayOrder[0];
+        const current = colorSliceHeights[firstFi];
+        const minFirst = Math.max(layerHeight, slicerFirstLayerHeight);
+        if (typeof current === 'number' && isFinite(current) && current < minFirst) {
+            setColorSliceHeights((prev) => {
+                const next = prev.slice();
+                next[firstFi] = minFirst;
+                return next;
+            });
+        }
+    }, [displayOrder, colorSliceHeights, layerHeight, slicerFirstLayerHeight]);
 
     return (
         <div className="space-y-4">
@@ -450,9 +465,13 @@ export default function ThreeDControls({ swatches, onChange, persisted }: ThreeD
                 >
                     <SortableContent asChild>
                         <div className="space-y-2">
-                            {displayOrder.map((fi) => {
+                            {displayOrder.map((fi, idx) => {
                                 const s = filtered[fi];
                                 const val = colorSliceHeights[fi] ?? layerHeight;
+                                const isFirst = idx === 0;
+                                const minForRow = isFirst
+                                    ? Math.max(layerHeight, slicerFirstLayerHeight)
+                                    : layerHeight;
                                 return (
                                     <ThreeDColorRow
                                         key={`${s.hex}-${fi}`}
@@ -460,6 +479,7 @@ export default function ThreeDControls({ swatches, onChange, persisted }: ThreeD
                                         hex={s.hex}
                                         value={val}
                                         layerHeight={layerHeight}
+                                        minHeight={minForRow}
                                         onChange={onRowChange}
                                     />
                                 );
