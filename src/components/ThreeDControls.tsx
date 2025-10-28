@@ -11,6 +11,7 @@ type Swatch = { hex: string; a: number };
 interface ThreeDControlsStateShape {
     layerHeight: number;
     baseSliceHeight: number;
+    slicerFirstLayerHeight: number;
     colorSliceHeights: number[];
     colorOrder: number[];
     filteredSwatches: Swatch[];
@@ -32,6 +33,9 @@ export default function ThreeDControls({ swatches, onChange, persisted }: ThreeD
     const [layerHeight, setLayerHeight] = useState<number>(persisted?.layerHeight ?? 0.12); // mm
     const [baseSliceHeight, setBaseSliceHeight] = useState<number>(
         persisted?.baseSliceHeight ?? 0.2
+    );
+    const [slicerFirstLayerHeight, setSlicerFirstLayerHeight] = useState<number>(
+        persisted?.slicerFirstLayerHeight ?? 0.2
     );
     const [colorSliceHeights, setColorSliceHeights] = useState<number[]>(
         persisted?.colorSliceHeights?.slice() ?? []
@@ -148,8 +152,16 @@ export default function ThreeDControls({ swatches, onChange, persisted }: ThreeD
         const swSig = filtered.map((s) => `${s.hex}:${s.a}`).join('|');
         const heightsSig = colorSliceHeights.join(',');
         const orderSig = colorOrder.join(',');
-        return `${layerHeight}|${baseSliceHeight}|${pixelSize}|${heightsSig}|${orderSig}|${swSig}`;
-    }, [layerHeight, baseSliceHeight, pixelSize, colorSliceHeights, colorOrder, filtered]);
+        return `${layerHeight}|${baseSliceHeight}|${slicerFirstLayerHeight}|${pixelSize}|${heightsSig}|${orderSig}|${swSig}`;
+    }, [
+        layerHeight,
+        baseSliceHeight,
+        slicerFirstLayerHeight,
+        pixelSize,
+        colorSliceHeights,
+        colorOrder,
+        filtered,
+    ]);
 
     const [appliedSignature, setAppliedSignature] = useState<string | null>(null);
 
@@ -159,6 +171,7 @@ export default function ThreeDControls({ swatches, onChange, persisted }: ThreeD
         const next: ThreeDControlsStateShape = {
             layerHeight,
             baseSliceHeight,
+            slicerFirstLayerHeight,
             colorSliceHeights,
             colorOrder,
             filteredSwatches: filtered,
@@ -170,6 +183,7 @@ export default function ThreeDControls({ swatches, onChange, persisted }: ThreeD
         onChange,
         layerHeight,
         baseSliceHeight,
+        slicerFirstLayerHeight,
         colorSliceHeights,
         colorOrder,
         filtered,
@@ -232,7 +246,14 @@ export default function ThreeDControls({ swatches, onChange, persisted }: ThreeD
         }
         const prevCum = cumulativeHeights[pos - 1] ?? 0;
         const heightAt = Math.max(0, (baseSliceHeight ?? 0) + prevCum);
-        const layerNum = layerHeight > 0 ? Math.floor(heightAt / layerHeight) + 1 : 1;
+        // Map geometry height to slicer layer index using slicer's first layer height.
+        // We report the layer whose top is at or above this height, matching slicer UI labels.
+        const effFirst = Math.max(0, slicerFirstLayerHeight || 0);
+        let layerNum = 1;
+        if (layerHeight > 0) {
+            const delta = Math.max(0, heightAt - effFirst);
+            layerNum = Math.max(1, 1 + Math.ceil(delta / layerHeight));
+        }
         swapPlan.push({
             type: 'swap',
             swatch: sw,
@@ -247,6 +268,7 @@ export default function ThreeDControls({ swatches, onChange, persisted }: ThreeD
         lines.push('3D Print Instructions');
         lines.push('---------------------');
         lines.push(`Layer height: ${layerHeight.toFixed(3)} mm`);
+        lines.push(`First layer height: ${slicerFirstLayerHeight.toFixed(3)} mm`);
         // static recommended settings
         lines.push('Recommended: Layer loops: 1; Infill: 100%');
         lines.push('');
@@ -390,6 +412,32 @@ export default function ThreeDControls({ swatches, onChange, persisted }: ThreeD
                         </label>
                     </div>
 
+                    {/* Slicer first layer height */}
+                    <div className="space-y-3">
+                        <label className="block space-y-3">
+                            <div className="flex justify-between items-center">
+                                <span className="font-semibold text-foreground">
+                                    First Layer Height
+                                </span>
+                                <span className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary font-medium">
+                                    mm
+                                </span>
+                            </div>
+                            <NumberInput
+                                min={0}
+                                max={10}
+                                step={0.01}
+                                value={slicerFirstLayerHeight}
+                                onChange={(e) => {
+                                    const v = Number(e.target.value);
+                                    if (Number.isNaN(v)) return;
+                                    const clamped = Math.max(0, Math.min(10, v));
+                                    setSlicerFirstLayerHeight(clamped);
+                                }}
+                            />
+                        </label>
+                    </div>
+
                     {/* Base slice height */}
                     <div className="space-y-3">
                         <label className="block space-y-3">
@@ -504,6 +552,12 @@ export default function ThreeDControls({ swatches, onChange, persisted }: ThreeD
                                 • Layer height:{' '}
                                 <span className="text-foreground font-mono">
                                     {layerHeight.toFixed(3)} mm
+                                </span>
+                            </div>
+                            <div>
+                                • First layer height:{' '}
+                                <span className="text-foreground font-mono">
+                                    {slicerFirstLayerHeight.toFixed(3)} mm
                                 </span>
                             </div>
                         </div>

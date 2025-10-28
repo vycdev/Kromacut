@@ -70,6 +70,7 @@ function App(): React.ReactElement | null {
     const [threeDState, setThreeDState] = useState<{
         layerHeight: number;
         baseSliceHeight: number;
+        slicerFirstLayerHeight: number;
         colorSliceHeights: number[];
         colorOrder: number[];
         filteredSwatches: { hex: string; a: number }[];
@@ -77,6 +78,7 @@ function App(): React.ReactElement | null {
     }>({
         layerHeight: 0.12,
         baseSliceHeight: 0.2,
+        slicerFirstLayerHeight: 0.2,
         colorSliceHeights: [],
         colorOrder: [],
         filteredSwatches: [],
@@ -150,6 +152,7 @@ function App(): React.ReactElement | null {
         (s: {
             layerHeight: number;
             baseSliceHeight: number;
+            slicerFirstLayerHeight: number;
             colorSliceHeights: number[];
             colorOrder: number[];
             filteredSwatches: { hex: string; a: number }[];
@@ -159,6 +162,7 @@ function App(): React.ReactElement | null {
                 if (
                     prev.layerHeight === s.layerHeight &&
                     prev.baseSliceHeight === s.baseSliceHeight &&
+                    prev.slicerFirstLayerHeight === s.slicerFirstLayerHeight &&
                     prev.colorSliceHeights === s.colorSliceHeights &&
                     prev.colorOrder === s.colorOrder &&
                     prev.filteredSwatches === s.filteredSwatches &&
@@ -285,14 +289,14 @@ function App(): React.ReactElement | null {
                             onDragLeave={dropzone.onDragLeave}
                         >
                             {mode === '2d' ? (
-                                        <CanvasPreview
-                                            ref={canvasPreviewRef}
-                                            imageSrc={imageSrc}
-                                            isCropMode={isCropMode}
-                                            showCheckerboard={showCheckerboard}
-                                            adjustments={adjustments}
-                                            onCropSelectionChange={setHasValidCropSelection}
-                                        />
+                                <CanvasPreview
+                                    ref={canvasPreviewRef}
+                                    imageSrc={imageSrc}
+                                    isCropMode={isCropMode}
+                                    showCheckerboard={showCheckerboard}
+                                    adjustments={adjustments}
+                                    onCropSelectionChange={setHasValidCropSelection}
+                                />
                             ) : (
                                 <ThreeDView
                                     imageSrc={imageSrc}
