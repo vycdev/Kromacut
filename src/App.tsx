@@ -69,7 +69,6 @@ function App(): React.ReactElement | null {
     // 3D printing shared state
     const [threeDState, setThreeDState] = useState<{
         layerHeight: number;
-        baseSliceHeight: number;
         slicerFirstLayerHeight: number;
         colorSliceHeights: number[];
         colorOrder: number[];
@@ -77,7 +76,6 @@ function App(): React.ReactElement | null {
         pixelSize: number;
     }>({
         layerHeight: 0.12,
-        baseSliceHeight: 0.2,
         slicerFirstLayerHeight: 0.2,
         colorSliceHeights: [],
         colorOrder: [],
@@ -151,7 +149,6 @@ function App(): React.ReactElement | null {
     const handleThreeDStateChange = useCallback(
         (s: {
             layerHeight: number;
-            baseSliceHeight: number;
             slicerFirstLayerHeight: number;
             colorSliceHeights: number[];
             colorOrder: number[];
@@ -161,7 +158,6 @@ function App(): React.ReactElement | null {
             setThreeDState((prev) => {
                 if (
                     prev.layerHeight === s.layerHeight &&
-                    prev.baseSliceHeight === s.baseSliceHeight &&
                     prev.slicerFirstLayerHeight === s.slicerFirstLayerHeight &&
                     prev.colorSliceHeights === s.colorSliceHeights &&
                     prev.colorOrder === s.colorOrder &&
@@ -300,7 +296,7 @@ function App(): React.ReactElement | null {
                             ) : (
                                 <ThreeDView
                                     imageSrc={imageSrc}
-                                    baseSliceHeight={threeDState.baseSliceHeight}
+                                    baseSliceHeight={0}
                                     layerHeight={threeDState.layerHeight}
                                     colorSliceHeights={threeDState.colorSliceHeights}
                                     colorOrder={threeDState.colorOrder}
