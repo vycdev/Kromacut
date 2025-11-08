@@ -349,7 +349,30 @@ export default function ThreeDView({
                     }
                     const bottomPositions = new Float32Array(gridVertexCount * 3);
                     bottomPositions.set(topPositions);
-                    for (let i = 0; i < gridVertexCount; i++) bottomPositions[i * 3 + 2] = 0;
+                    const Z_EPSILON = 1e-4;
+                    for (let i = 0; i < gridVertexCount; i++)
+                        bottomPositions[i * 3 + 2] = -Z_EPSILON;
+
+                    // Track which cells are opaque (have non-zero height)
+                    const cellOpaque = new Array<boolean>(widthSegments * heightSegments);
+                    const HEIGHT_EPS = 1e-6;
+                    for (let y = 0; y < heightSegments; y++) {
+                        for (let x = 0; x < widthSegments; x++) {
+                            const a = y * vertsPerRow + x;
+                            const b = a + 1;
+                            const c = a + vertsPerRow;
+                            const d = c + 1;
+                            const hA = topPositions[a * 3 + 2];
+                            const hB = topPositions[b * 3 + 2];
+                            const hC = topPositions[c * 3 + 2];
+                            const hD = topPositions[d * 3 + 2];
+                            cellOpaque[y * widthSegments + x] =
+                                Math.abs(hA) > HEIGHT_EPS ||
+                                Math.abs(hB) > HEIGHT_EPS ||
+                                Math.abs(hC) > HEIGHT_EPS ||
+                                Math.abs(hD) > HEIGHT_EPS;
+                        }
+                    }
 
                     // UVs in indexed grid order (duplicate for bottom)
                     const uvGrid = indexedPlane.getAttribute('uv') as THREE.BufferAttribute | null;
@@ -367,45 +390,59 @@ export default function ThreeDView({
                         }
                     }
 
-                    // Build indices: top, bottom (reversed), and side walls referencing grid order
+                    // Build indices: top and bottom faces only for opaque cells
                     const topIndices: number[] = [];
+                    const bottomIndices: number[] = [];
                     for (let y = 0; y < heightSegments; y++) {
                         for (let x = 0; x < widthSegments; x++) {
+                            if (!cellOpaque[y * widthSegments + x]) continue;
                             const a = y * vertsPerRow + x;
                             const b = a + 1;
                             const c = a + vertsPerRow;
                             const d = c + 1;
+                            // Top face (CCW when viewed from above)
                             topIndices.push(a, c, b, b, c, d);
+                            // Bottom face (CW when viewed from above, reversed winding)
+                            bottomIndices.push(a, b, c, b, d, c);
                         }
                     }
                     const bottomOffset = gridVertexCount;
                     const indices: number[] = [...topIndices];
-                    for (let i = topIndices.length - 1; i >= 0; i--)
-                        indices.push(bottomOffset + topIndices[i]);
+                    for (let i = 0; i < bottomIndices.length; i++) {
+                        indices.push(bottomOffset + bottomIndices[i]);
+                    }
 
-                    const heightAt = (vx: number, vy: number) =>
-                        topPositions[(vy * vertsPerRow + vx) * 3 + 2];
+                    // Build walls: only where there's a transition between opaque and transparent
+                    const isCellOpaque = (cx: number, cy: number) => {
+                        if (cx < 0 || cy < 0 || cx >= widthSegments || cy >= heightSegments)
+                            return false;
+                        return cellOpaque[cy * widthSegments + cx];
+                    };
                     const pushWall = (tA: number, tB: number) => {
                         const bA = tA + bottomOffset;
                         const bB = tB + bottomOffset;
+                        // Wall quad: ensure consistent winding (outward normal)
                         indices.push(tA, bA, bB, tA, bB, tB);
                     };
-                    for (let x = 0; x < widthSegments; x++) {
+
+                    // Vertical walls: between columns
+                    for (let x = 0; x <= widthSegments; x++) {
                         for (let y = 0; y < heightSegments; y++) {
-                            const hA = heightAt(x, y);
-                            const hB = heightAt(x, y + 1);
-                            if (Math.abs(hA - hB) > 0.001) {
+                            const leftOpaque = isCellOpaque(x - 1, y);
+                            const rightOpaque = isCellOpaque(x, y);
+                            if (leftOpaque !== rightOpaque) {
                                 const tA = y * vertsPerRow + x;
                                 const tB = (y + 1) * vertsPerRow + x;
                                 pushWall(tA, tB);
                             }
                         }
                     }
-                    for (let y = 0; y < heightSegments; y++) {
+                    // Horizontal walls: between rows
+                    for (let y = 0; y <= heightSegments; y++) {
                         for (let x = 0; x < widthSegments; x++) {
-                            const hA = heightAt(x, y);
-                            const hB = heightAt(x + 1, y);
-                            if (Math.abs(hA - hB) > 0.001) {
+                            const topOpaque = isCellOpaque(x, y - 1);
+                            const bottomOpaque = isCellOpaque(x, y);
+                            if (topOpaque !== bottomOpaque) {
                                 const tA = y * vertsPerRow + x;
                                 const tB = y * vertsPerRow + (x + 1);
                                 pushWall(tA, tB);
@@ -770,27 +807,27 @@ export default function ThreeDView({
                     const heightSegments = boxH;
                     const vertsRow = widthSegments + 1;
                     const topIndices: number[] = [];
+                    const bottomIndices: number[] = [];
+                    const HEIGHT_EPS = 1e-6;
                     for (let y = 0; y < heightSegments; y++) {
                         for (let x = 0; x < widthSegments; x++) {
-                            // Skip top faces for fully transparent cells to avoid z-fighting with bottom
+                            const cellIdx = y * boxW + x;
+                            if (pixHeights[cellIdx] <= HEIGHT_EPS) continue;
                             const a = y * vertsRow + x;
                             const b = a + 1;
                             const c = a + vertsRow;
                             const d = c + 1;
-                            const hA = topPositions[a * 3 + 2];
-                            const hB = topPositions[b * 3 + 2];
-                            const hC = topPositions[c * 3 + 2];
-                            const hD = topPositions[d * 3 + 2];
-                            if (hA === 0 && hB === 0 && hC === 0 && hD === 0) {
-                                continue;
-                            }
+                            // Top face (CCW when viewed from above)
                             topIndices.push(a, c, b, b, c, d);
+                            // Bottom face (CW when viewed from above, reversed winding)
+                            bottomIndices.push(a, b, c, b, d, c);
                         }
                     }
                     const bottomOffset = posAttr.count;
                     const indices: number[] = [...topIndices];
-                    for (let i = topIndices.length - 1; i >= 0; i--)
-                        indices.push(bottomOffset + topIndices[i]);
+                    for (let i = 0; i < bottomIndices.length; i++) {
+                        indices.push(bottomOffset + bottomIndices[i]);
+                    }
                     // Deduplicate walls per edge to avoid z-fighting stripes
                     const addedWallEdges = new Set<string>();
                     const pushWall = (tA: number, tB: number) => {
@@ -810,7 +847,7 @@ export default function ThreeDView({
                         cy >= 0 &&
                         cx < boxW &&
                         cy < boxH &&
-                        pixHeights[cy * boxW + cx] > 0;
+                        pixHeights[cy * boxW + cx] > HEIGHT_EPS;
 
                     // Vertical edges: between column x-1 and x for each row y
                     for (let x = 0; x <= boxW; x++) {
