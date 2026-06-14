@@ -1,4 +1,5 @@
 import type { Filament } from '../types';
+import { normalizeHexColor } from './colorUtils.ts';
 
 export interface AutoPaintProfile {
     id: string;
@@ -309,10 +310,11 @@ export function parseHueForgeCSV(csv: string, profileName = 'HueForge Import'): 
     const filaments: import('../types').Filament[] = [];
     for (const line of lines.slice(1)) {
         const row = parseRow(line, delimiter);
-        const color = col(row, 'Color');
+        const colorRaw = col(row, 'Color');
+        const color = normalizeHexColor(colorRaw, '');
         const tdRaw = col(row, 'TD');
         const td = parseFloat(tdRaw);
-        if (!color || isNaN(td)) continue;
+        if (!color || isNaN(td) || td < 0.5 || td > 10.0) continue;
 
         const rawId = col(row, 'Uuid').replace(/[{}]/g, '');
         const id = rawId || crypto.randomUUID();

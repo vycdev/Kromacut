@@ -38,7 +38,7 @@ test('parseHueForgeCSV parses filaments from HueForge CSV', () => {
 test('parseHueForgeCSV maps color and TD correctly', () => {
     const [profile] = parseHueForgeCSV(HUEFORGE_CSV)!;
     const [first] = profile.filaments;
-    assert.equal(first.color, '#bf9c81');
+    assert.equal(first.color, '#BF9C81');
     assert.equal(first.td, 1.7);
 });
 
@@ -50,7 +50,7 @@ test('parseHueForgeCSV strips braces from UUIDs', () => {
 
 test('parseHueForgeCSV formats names as <mfr>-<color-name>-<color-hex>', () => {
     const [profile] = parseHueForgeCSV(HUEFORGE_CSV)!;
-    assert.equal(profile.filaments[0].name, 'Inland Basic-Light Brown-#bf9c81');
+    assert.equal(profile.filaments[0].name, 'Inland Basic-Light Brown-#BF9C81');
     assert.equal(profile.filaments[1].name, 'Overture Basic-Blue-#033877');
 });
 
@@ -65,10 +65,10 @@ test('parseHueForgeCSV handles columns in non-standard order', () => {
 1.7,Light Brown,{631cbb3a-9db8-45b4-96cd-5d21a5f3b2e9},#bf9c81,Inland Basic,PLA`;
     const [profile] = parseHueForgeCSV(csv)!;
     const [f] = profile.filaments;
-    assert.equal(f.color, '#bf9c81');
+    assert.equal(f.color, '#BF9C81');
     assert.equal(f.td, 1.7);
     assert.equal(f.brand, 'Inland Basic');
-    assert.equal(f.name, 'Inland Basic-Light Brown-#bf9c81');
+    assert.equal(f.name, 'Inland Basic-Light Brown-#BF9C81');
     assert.equal(f.id, '631cbb3a-9db8-45b4-96cd-5d21a5f3b2e9');
 });
 
@@ -78,8 +78,8 @@ test('parseHueForgeCSV handles quoted fields containing commas', () => {
     const [profile] = parseHueForgeCSV(csv)!;
     const [f] = profile.filaments;
     assert.equal(f.brand, 'Inland, Basic');
-    assert.equal(f.color, '#bf9c81');
-    assert.equal(f.name, 'Inland, Basic-Light, Brown-#bf9c81');
+    assert.equal(f.color, '#BF9C81');
+    assert.equal(f.name, 'Inland, Basic-Light, Brown-#BF9C81');
     assert.equal(f.td, 1.7);
 });
 
@@ -107,7 +107,7 @@ Overture Basic\t#033877\tBlue\t3.5\t{c8518afd-068e-4a5c-90d2-9981d4d7edde}`;
     const profiles = parseHueForgeCSV(tsv, 'My Spools');
     assert.ok(profiles);
     assert.equal(profiles[0].filaments.length, 2);
-    assert.equal(profiles[0].filaments[0].color, '#bf9c81');
+    assert.equal(profiles[0].filaments[0].color, '#BF9C81');
     assert.equal(profiles[0].filaments[0].brand, 'Inland Basic');
     assert.equal(profiles[0].filaments[1].color, '#033877');
 });
@@ -117,6 +117,27 @@ test('parseHueForgeCSV TSV does not split on commas in values', () => {
 Inland, Basic\t#bf9c81\tLight Brown\t1.7`;
     const [profile] = parseHueForgeCSV(tsv)!;
     assert.equal(profile.filaments[0].brand, 'Inland, Basic');
+});
+
+test('parseHueForgeCSV skips rows with invalid hex color', () => {
+    const csv = `Brand,Color,Name,TD
+Inland Basic,red,Light Brown,1.7
+Inland Basic,rgb(255,0,0),Light Brown,1.7
+Overture Basic,#033877,Blue,3.5`;
+    const [profile] = parseHueForgeCSV(csv)!;
+    assert.equal(profile.filaments.length, 1);
+    assert.equal(profile.filaments[0].color, '#033877');
+});
+
+test('parseHueForgeCSV skips rows with TD out of plausible range', () => {
+    const csv = `Brand,Color,Name,TD
+Inland Basic,#bf9c81,Light Brown,-1
+Inland Basic,#bf9c81,Light Brown,0
+Inland Basic,#bf9c81,Light Brown,99
+Overture Basic,#033877,Blue,3.5`;
+    const [profile] = parseHueForgeCSV(csv)!;
+    assert.equal(profile.filaments.length, 1);
+    assert.equal(profile.filaments[0].td, 3.5);
 });
 
 test('auto-paint profiles can be renamed without changing filament data', () => {
