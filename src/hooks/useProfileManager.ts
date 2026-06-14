@@ -151,8 +151,8 @@ export function useProfileManager({ filaments, setFilaments }: UseProfileManager
             const reader = new FileReader();
             reader.onload = () => {
                 const content = reader.result as string;
-                const isCSV = file.name.toLowerCase().endsWith('.csv');
-                const profileName = file.name.replace(/\.csv$/i, '') || 'HueForge Import';
+                const isCSV = /\.(csv|tsv)$/i.test(file.name);
+                const profileName = file.name.replace(/\.(csv|tsv)$/i, '') || 'HueForge Import';
                 const incoming = isCSV
                     ? parseHueForgeCSV(content, profileName)
                     : parseProfileFile(content);

@@ -72,6 +72,53 @@ test('parseHueForgeCSV handles columns in non-standard order', () => {
     assert.equal(f.id, '631cbb3a-9db8-45b4-96cd-5d21a5f3b2e9');
 });
 
+test('parseHueForgeCSV handles quoted fields containing commas', () => {
+    const csv = `Brand,Color,Name,TD,Uuid
+"Inland, Basic",#bf9c81,"Light, Brown",1.7,{631cbb3a-9db8-45b4-96cd-5d21a5f3b2e9}`;
+    const [profile] = parseHueForgeCSV(csv)!;
+    const [f] = profile.filaments;
+    assert.equal(f.brand, 'Inland, Basic');
+    assert.equal(f.color, '#bf9c81');
+    assert.equal(f.name, 'Inland, Basic-Light, Brown-#bf9c81');
+    assert.equal(f.td, 1.7);
+});
+
+test('parseHueForgeCSV handles escaped quotes inside quoted fields', () => {
+    const csv = `Brand,Color,Name,TD
+"Brand ""X""",#ff0000,Red,2.1`;
+    const [profile] = parseHueForgeCSV(csv)!;
+    assert.equal(profile.filaments[0].brand, 'Brand "X"');
+});
+
+test('parseHueForgeCSV handles field with backslash and embedded quote (double-escape)', () => {
+    // brand value: backslash \"  (backslash + quote, 12 chars)
+    // RFC 4180: wrap in quotes, double the interior " → "backslash \"""
+    // JS template: \\ for the literal backslash → "backslash \\"""
+    const csv = `Brand,Color,Name,TD
+"backslash \\""",#aa1122,Red,1.5`;
+    const [profile] = parseHueForgeCSV(csv)!;
+    assert.equal(profile.filaments[0].brand, 'backslash \\"');
+});
+
+test('parseHueForgeCSV parses TSV input', () => {
+    const tsv = `Brand\tColor\tName\tTD\tUuid
+Inland Basic\t#bf9c81\tLight Brown\t1.7\t{631cbb3a-9db8-45b4-96cd-5d21a5f3b2e9}
+Overture Basic\t#033877\tBlue\t3.5\t{c8518afd-068e-4a5c-90d2-9981d4d7edde}`;
+    const profiles = parseHueForgeCSV(tsv, 'My Spools');
+    assert.ok(profiles);
+    assert.equal(profiles[0].filaments.length, 2);
+    assert.equal(profiles[0].filaments[0].color, '#bf9c81');
+    assert.equal(profiles[0].filaments[0].brand, 'Inland Basic');
+    assert.equal(profiles[0].filaments[1].color, '#033877');
+});
+
+test('parseHueForgeCSV TSV does not split on commas in values', () => {
+    const tsv = `Brand\tColor\tName\tTD
+Inland, Basic\t#bf9c81\tLight Brown\t1.7`;
+    const [profile] = parseHueForgeCSV(tsv)!;
+    assert.equal(profile.filaments[0].brand, 'Inland, Basic');
+});
+
 test('auto-paint profiles can be renamed without changing filament data', () => {
     const profiles: AutoPaintProfile[] = [
         {

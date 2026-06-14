@@ -226,17 +226,70 @@ export function parseProfileFile(json: string): AutoPaintProfile[] | null {
     }
 }
 
+/** Infer delimiter from the header line: tab if tabs are present, otherwise comma. */
+function detectDelimiter(headerLine: string): ',' | '\t' {
+    return headerLine.includes('\t') ? '\t' : ',';
+}
+
 /**
- * Parse a HueForge spool library CSV into a single AutoPaint profile.
+ * Parse one CSV/TSV row into fields, handling RFC 4180 double-quoted fields
+ * (commas and newlines inside quotes, "" as escaped quote).
+ */
+function parseRow(line: string, delimiter: ',' | '\t'): string[] {
+    const fields: string[] = [];
+    let pos = 0;
+
+    while (pos <= line.length) {
+        if (pos === line.length) {
+            // line ended with a delimiter — trailing empty field
+            fields.push('');
+            break;
+        }
+
+        if (line[pos] === '"') {
+            let field = '';
+            pos++; // skip opening quote
+            for (;;) {
+                if (pos >= line.length) break; // unclosed quote — accept what we have
+                if (line[pos] === '"') {
+                    if (pos + 1 < line.length && line[pos + 1] === '"') {
+                        field += '"';
+                        pos += 2; // escaped quote ""
+                    } else {
+                        pos++; // closing quote
+                        break;
+                    }
+                } else {
+                    field += line[pos++];
+                }
+            }
+            fields.push(field);
+            if (pos < line.length && line[pos] === delimiter) pos++;
+            if (pos === line.length) break; // last field, no trailing delimiter
+        } else {
+            const end = line.indexOf(delimiter, pos);
+            if (end === -1) {
+                fields.push(line.slice(pos));
+                break;
+            }
+            fields.push(line.slice(pos, end));
+            pos = end + 1;
+            // if pos === line.length the loop continues and pushes trailing ''
+        }
+    }
+
+    return fields;
+}
+
+/**
+ * Parse a HueForge spool library CSV or TSV into a single AutoPaint profile.
  *
- * The CSV must have a header row. Column order is flexible — columns are
- * matched by name. Required columns: Color (hex), TD (float). Optional but
- * recommended: Brand, Name, Uuid.
+ * Accepts comma-separated (CSV) or tab-separated (TSV) input — detected from
+ * the header row. Column order is flexible. Required columns: Color (hex),
+ * TD (float). Optional: Brand, Name, Uuid.
  *
- * Each filament's display name is formatted as `<Brand>-<Name>-<Color>`,
- * e.g. `Inland Basic-Light Brown-#bf9c81`. Rows missing both Color and TD
- * are skipped. UUIDs are used as filament IDs when present (braces stripped);
- * a random UUID is generated for rows without one.
+ * Quoted fields with embedded commas are handled per RFC 4180 ("" escapes a
+ * literal quote). Rows missing Color or TD are skipped.
  *
  * Returns null if the input has no header, no valid data rows, or cannot be
  * parsed.
@@ -245,7 +298,9 @@ export function parseHueForgeCSV(csv: string, profileName = 'HueForge Import'): 
     const lines = csv.split(/\r?\n/).filter((l) => l.trim());
     if (lines.length < 2) return null;
 
-    const headers = lines[0].split(',').map((h) => h.trim());
+    const delimiter = detectDelimiter(lines[0]);
+    const headers = parseRow(lines[0], delimiter).map((h) => h.trim());
+
     const col = (row: string[], name: string) => {
         const i = headers.indexOf(name);
         return i >= 0 ? row[i]?.trim() ?? '' : '';
@@ -253,7 +308,7 @@ export function parseHueForgeCSV(csv: string, profileName = 'HueForge Import'): 
 
     const filaments: import('../types').Filament[] = [];
     for (const line of lines.slice(1)) {
-        const row = line.split(',');
+        const row = parseRow(line, delimiter);
         const color = col(row, 'Color');
         const tdRaw = col(row, 'TD');
         const td = parseFloat(tdRaw);
