@@ -34,6 +34,7 @@ import { UpdateChecker } from './components/UpdateChecker';
 import ProgressOverlay from './components/ProgressOverlay';
 import DocsPage from './components/docs/DocsPage';
 import { defaultDocSlug } from './docs';
+import { loadCameraMode, saveCameraMode } from './lib/cameraPrefs';
 import { buildDocsPath, parseDocsLocation } from './lib/docs/navigation';
 import { applyHomeSeo } from './lib/seo';
 import {
@@ -201,7 +202,7 @@ function App(): React.ReactElement | null {
     // UI mode toggles (2D / 3D) - UI only for now
     const [mode, setMode] = useState<'2d' | '3d'>('2d');
     const [docsOpen, setDocsOpen] = useState(() => parseDocsLocation(window.location) !== null);
-    const [isOrtho, setIsOrtho] = useState(false);
+    const [isOrtho, setIsOrtho] = useState(loadCameraMode);
     const [exportingSTL, setExportingSTL] = useState(false);
     const [exportProgress, setExportProgress] = useState(0); // 0..1
     const [exportStep, setExportStep] = useState<ExportProgressStep>({
@@ -733,7 +734,13 @@ function App(): React.ReactElement | null {
                                     onExport3MF={onExport3MF}
                                     flatPaintModel={builtFlatPaint}
                                     isOrtho={isOrtho}
-                                    onToggleCamera={() => setIsOrtho((v) => !v)}
+                                    onToggleCamera={() =>
+                                        setIsOrtho((v) => {
+                                            const next = !v;
+                                            saveCameraMode(next);
+                                            return next;
+                                        })
+                                    }
                                 />
                             </div>
                         </main>
