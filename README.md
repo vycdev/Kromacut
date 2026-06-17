@@ -219,7 +219,7 @@ The result card shows:
 
 Click **Add to filaments** to insert the suggestion directly into the filament list (named `Kromacut-Suggestion-01`, `02`, etc.). You can then re-run auto-paint with the expanded set and repeat as many times as needed.
 
-**How it works:** The algorithm models the full set of Beer-Lambert blend lines between existing filaments — every pair of filaments produces a blend segment in CIE L\*a\*b\* color space that the print can reach by layering. It then identifies underserved image colors (those furthest from any reachable point) and evaluates candidates drawn from those colors and from extrapolated positions: colors that, when blended with an existing filament, would hit the underserved target exactly. The winner is the candidate whose addition most reduces weighted-average error across all image pixels.
+**How it works (heuristic):** The algorithm estimates how well the current filament set covers the image's color range by checking each image color against each filament and Beer-Lambert blend curve. It identifies underserved colors (those with the largest estimated error) and generates candidates from those colors plus extrapolated positions — colors that, when optically blended with an existing filament, would be closer to the underserved target. The winner is the candidate whose addition most reduces weighted-average estimated error across all image pixels. This is an inventory-planning heuristic: the improvement numbers are relative estimates, not predictions of a specific auto-paint result.
 
 ### Quick start
 
