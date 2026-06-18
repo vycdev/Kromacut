@@ -158,8 +158,8 @@ export interface ColorCandidate {
     td: number;
     /**
      * % reduction in blend-aware weighted-average ΔE vs current filament set.
-     * The baseline accounts for existing filament↔filament blend lines, so this
-     * reflects genuine new coverage added by the candidate.
+     * The baseline estimates existing filament↔filament blend potential, so this
+     * reflects the candidate's estimated inventory-planning benefit.
      */
     improvementPct: number;
     /** Number of image pixels whose blend-aware error improves with this candidate. */
@@ -182,11 +182,10 @@ export interface NextBestColorResult {
  *
  * Candidate generation (two sources):
  *   1. Swatch colors in the p75 most underserved (by blend-aware reachable error).
- *   2. Extrapolated colors: for each underserved swatch S and filament F, solve
- *      blend(C, F, t) = S for C at t ∈ {0.3, 0.5, 0.7}. These are colors that,
- *      when blended with an existing filament, hit the underserved swatch exactly —
- *      often better than the swatch color itself because they pull the blend line
- *      further into uncovered Lab space.
+ *   2. Extrapolated heuristic colors: for each underserved swatch S and filament F,
+ *      solve blend(C, F, t) = S in Lab space for C at t ∈ {0.3, 0.5, 0.7}.
+ *      These candidates may improve coverage when paired with an existing filament,
+ *      and are then scored against the same estimated blend curves.
  *
  * Scoring: for each candidate C, gain = Σ_i max(0, currentReachable_i −
  *   newReachable_i) × count_i, where newReachable_i is the minimum ΔE achievable
@@ -209,9 +208,9 @@ export function nextBestColor(
 
     // -------------------------------------------------------------------------
     // Baseline: blend-aware reachable error for every swatch.
-    // Uses Beer-Lambert blend curves (matching autoPaint's blendColors) rather
-    // than straight Lab segments, so the achievability estimate matches what
-    // the print model can actually produce at each filament's TD.
+    // Uses sampled Beer-Lambert-style blend curves as an inventory-planning
+    // heuristic. This estimates potential coverage, but does not predict the
+    // exact auto-paint stack for the current print settings.
     //
     // Blend curves are pre-computed once per filament pair so the expensive
     // rgbToLab conversion isn't repeated for every swatch.
