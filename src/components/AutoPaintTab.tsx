@@ -32,8 +32,7 @@ import type { CalibrationResult } from '../lib/calibration';
 import FilamentRow from './FilamentRow';
 import { FilamentCalibrationWizard } from './FilamentCalibrationWizard';
 import { getConfidenceLabel, getConfidenceColor } from '../lib/calibration';
-import { nextBestColor } from '../lib/nextBestColor';
-import type { NextBestColorResult } from '../lib/nextBestColor';
+import { useNextBestColorWorker } from '../hooks/useNextBestColorWorker';
 
 interface AutoPaintSliceData {
     virtualSwatches: Swatch[];
@@ -161,12 +160,18 @@ export default function AutoPaintTab({
     regionWeightingMode,
     setRegionWeightingMode,
 }: AutoPaintTabProps) {
-    const [nextBestResult, setNextBestResult] = React.useState<NextBestColorResult | null>(null);
+    const {
+        result: nextBestResult,
+        isComputing: isNextBestComputing,
+        error: nextBestError,
+        requestSuggestion: requestNextBestSuggestion,
+        reset: resetNextBestSuggestion,
+    } = useNextBestColorWorker();
     const suggestionCountRef = React.useRef(0);
 
     React.useEffect(() => {
-        setNextBestResult(null);
-    }, [filaments, imageSwatches]);
+        resetNextBestSuggestion();
+    }, [filaments, imageSwatches, resetNextBestSuggestion]);
     const [localDitherLineWidth, setLocalDitherLineWidth] = React.useState(
         ditherLineWidth.toString()
     );
@@ -988,12 +993,15 @@ export default function AutoPaintTab({
                                 size="sm"
                                 variant="outline"
                                 className="w-full h-7 text-xs"
-                                onClick={() =>
-                                    setNextBestResult(nextBestColor(filaments, imageSwatches))
-                                }
+                                disabled={isNextBestComputing}
+                                onClick={() => requestNextBestSuggestion(filaments, imageSwatches)}
                             >
-                                <Sparkles className="w-3 h-3 mr-1.5" />
-                                Suggest next filament
+                                {isNextBestComputing ? (
+                                    <Loader2 className="w-3 h-3 mr-1.5 animate-spin" />
+                                ) : (
+                                    <Sparkles className="w-3 h-3 mr-1.5" />
+                                )}
+                                {isNextBestComputing ? 'Finding suggestion...' : 'Suggest next filament'}
                             </Button>
                             {nextBestResult?.candidate && (
                                 <div className="p-2.5 rounded-md border border-border/50 bg-muted/30 space-y-1.5">
@@ -1052,7 +1060,7 @@ export default function AutoPaintTab({
                                                 td: nextBestResult.candidate!.td,
                                                 name: `Kromacut-Suggestion-${nn}`,
                                             });
-                                            setNextBestResult(null);
+                                            resetNextBestSuggestion();
                                         }}
                                     >
                                         <Plus className="w-3 h-3 mr-1.5" />
@@ -1063,6 +1071,11 @@ export default function AutoPaintTab({
                             {nextBestResult && !nextBestResult.candidate && (
                                 <p className="text-[10px] text-muted-foreground text-center">
                                     Current filament set already covers all image colors well.
+                                </p>
+                            )}
+                            {nextBestError && (
+                                <p className="text-[10px] text-destructive text-center">
+                                    {nextBestError}
                                 </p>
                             )}
                         </div>
