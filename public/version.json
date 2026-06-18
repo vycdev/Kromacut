@@ -1,5 +1,5 @@
 {
-  "version": "3.0.0",
+  "version": "3.1.0",
   "download_url": "https://github.com/vycdev/Kromacut/releases/latest",
-  "release_notes": "Major release with AGPL licensing, in-app docs, image resize, smooth meshing improvements, and export fixes"
+  "release_notes": "Kromacut 3.1.0 adds orthographic preview mode, experimental Flat Paint, desktop update settings, and next-best-color filament suggestions."
 }

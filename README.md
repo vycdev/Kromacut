@@ -2,7 +2,7 @@
 
 # Kromacut
 
-[![Patreon](https://img.shields.io/badge/Patreon-Support-orange?logo=patreon&logoColor=white)](https://www.patreon.com/cw/vycdev) [![Discord](https://img.shields.io/badge/Discord-Join%20Chat-5865F2?logo=discord&logoColor=white)](https://discord.gg/nU63sFMcnX) [![YouTube](https://img.shields.io/badge/YouTube-@vycdev-red?logo=youtube&logoColor=white)](https://www.youtube.com/@vycdev) [![Release](https://img.shields.io/github/v/release/vycdev/kromacut)](https://github.com/vycdev/Kromacut/releases/latest) [![Repo size](https://img.shields.io/github/repo-size/vycdev/kromacut)](https://github.com/vycdev/Kromacut) [![Total downloads](https://img.shields.io/github/downloads/vycdev/Kromacut/total?label=total%20downloads)](https://github.com/vycdev/Kromacut/releases) [![Latest downloads](https://img.shields.io/github/downloads/vycdev/Kromacut/latest/total)](https://github.com/vycdev/Kromacut/releases/latest)
+[![Patreon](https://img.shields.io/badge/Patreon-Support-orange?logo=patreon&logoColor=white)](https://www.patreon.com/cw/vycdev) [![Discord](https://img.shields.io/badge/Discord-Join%20Chat-5865F2?logo=discord&logoColor=white)](https://discord.gg/nU63sFMcnX) [![YouTube](https://img.shields.io/badge/YouTube-@vycdev-red?logo=youtube&logoColor=white)](https://www.youtube.com/@vycdev) [![Release](https://img.shields.io/github/v/release/vycdev/kromacut?cacheSeconds=3600)](https://github.com/vycdev/Kromacut/releases/latest) [![Repo size](https://img.shields.io/github/repo-size/vycdev/kromacut?cacheSeconds=3600)](https://github.com/vycdev/Kromacut) [![Total downloads](https://img.shields.io/github/downloads/vycdev/Kromacut/total?label=total%20downloads&cacheSeconds=3600)](https://github.com/vycdev/Kromacut/releases) [![Latest downloads](https://img.shields.io/github/downloads/vycdev/Kromacut/latest/total?cacheSeconds=3600)](https://github.com/vycdev/Kromacut/releases/latest)
 
 Open-source HueForge-style tool for converting images into stacked, color-layered 3D prints.
 
@@ -176,6 +176,7 @@ Region weighting is most useful when filament budget is limited and you want the
 | **Enhanced color matching** | Optimizes filament ordering for best color reproduction rather than simple luminance sorting. Uses advanced algorithms (exhaustive, simulated annealing, genetic) automatically selected based on filament count. Scoring considers weighted DeltaE accuracy, height spread, layer count, and transition waste. |
 | **Allow repeated filament swaps** | (Requires Enhanced color matching) Allows a filament to appear more than once in the stack. This creates intermediate blended colors — for example, a thin white layer over red produces pink. The algorithm greedily inserts up to 4 extra swaps, each at the position that best improves the score. |
 | **Height dithering** | (Requires Enhanced color matching) Applies block-aware Floyd-Steinberg error diffusion to the quantized height map. Instead of sharp stair-steps between layer heights, dithering produces a stippled gradient that simulates intermediate heights, resulting in smoother tonal transitions in the print. Edge pixels between different heights are protected from dithering to avoid staircase artifacts. |
+| **Flat Paint (flat face-down print)** | Builds a uniform-thickness slab printed image-side down instead of a stepped relief. Each pixel column's layer order is reversed so the artwork sits against the build plate (already mirrored — don't mirror in the slicer) under a transparent carrier layer, and the back is filled with the foundation filament so every layer has the full footprint. The result has a smooth, glass-flat face — great for bookmarks and coasters. Requires a multi-material printer (AMS/toolchanger); export as 3MF, which contains one object per filament plus the clear carrier object. Flat Paint and Smooth Meshing toggle each other off because flat prints always use the full-footprint slab layout. |
 | **Dither line width** | (Requires Height dithering) Controls the minimum dot size for the dither pattern in mm. This should roughly match your printer's line/nozzle width so dither dots are actually printable. Default: `0.42 mm`. |
 | **Optimizer algorithm** | Choose which optimization algorithm to use: Auto (recommended), Exhaustive, Simulated Annealing, or Genetic. Auto selects the best algorithm based on search space size. |
 | **Optimizer seed** | Set a random seed for reproducible optimizer results. Leave blank for random behavior. Useful for testing and comparing configurations. |
@@ -202,6 +203,24 @@ When auto-paint is active and filaments are defined, the UI displays a **Transit
 - The start and end height of each zone (in mm) and its thickness (Δ).
 - A **compressed** badge on zones that have been reduced below their ideal thickness due to a Max Height constraint.
 - Total model height and total number of physical layers.
+
+### Next-best-color suggestion
+
+After running auto-paint, a **Suggest next filament** button appears at the bottom of the panel. Click it to run a blend-aware analysis that finds the single filament addition that would most reduce the average color error (ΔE) across the image.
+
+The result card shows:
+
+| Field | Description |
+|---|---|
+| **Hex** | Suggested filament color. |
+| **Est. ΔE** | Estimated reduction in blend-aware average ΔE if this filament is added. A rough relative estimate — not a calibration confidence rating. |
+| **TD** | Recommended starting Transmission Distance, borrowed from the nearest existing filament by color distance. Adjust after printing a test patch. |
+| **Captures** | Percentage of image pixels whose blend-aware color error would improve with this filament. |
+| **Isolation** | How far this color sits from existing filaments in perceptual color space (0–1). Higher means it fills a more distinct gap; lower means it overlaps territory already covered by blending. |
+
+Click **Add to filaments** to insert the suggestion directly into the filament list (named `Kromacut-Suggestion-01`, `02`, etc.). You can then re-run auto-paint with the expanded set and repeat as many times as needed.
+
+**How it works (heuristic):** The algorithm estimates how well the current filament set covers the image's color range by checking each image color against each filament and Beer-Lambert blend curve. It identifies underserved colors (those with the largest estimated error) and generates candidates from those colors plus extrapolated positions — colors that, when optically blended with an existing filament, would be closer to the underserved target. The winner is the candidate whose addition most reduces weighted-average estimated error across all image pixels. This is an inventory-planning heuristic: the improvement numbers are relative estimates, not predictions of a specific auto-paint result.
 
 ### Quick start
 

@@ -1,5 +1,7 @@
 import type { DocLinkTarget, DocRecord } from '@/types/docs';
 
+const DOCS_PATH_PREFIX = '/docs';
+
 function cleanDocSlug(value: string): string {
     return value
         .trim()
@@ -22,30 +24,41 @@ function safeDecodeURIComponent(value: string): string | null {
     }
 }
 
-export function buildDocsHash(docSlug: string, headingSlug?: string): string {
-    const encodedDoc = encodeURIComponent(docSlug);
+export function buildDocsPath(docSlug: string, headingSlug?: string): string {
+    const encodedDoc = encodeURIComponent(cleanDocSlug(docSlug));
     const encodedHeading = headingSlug ? `#${encodeURIComponent(headingSlug)}` : '';
-    return `#docs/${encodedDoc}${encodedHeading}`;
+    return `${DOCS_PATH_PREFIX}/${encodedDoc}${encodedHeading}`;
 }
 
-export function parseDocsHash(hash: string): DocLinkTarget | null {
-    const raw = hash.replace(/^#/, '');
-    if (!raw.startsWith('docs/')) return null;
+export function parseDocsPath(pathname: string, hash = ''): DocLinkTarget | null {
+    const normalizedPath = pathname.replace(/\/+$/, '') || '/';
+    if (normalizedPath !== DOCS_PATH_PREFIX && !normalizedPath.startsWith(`${DOCS_PATH_PREFIX}/`)) {
+        return null;
+    }
 
-    const { docPart, headingPart } = splitDocAndHeading(raw.slice('docs/'.length));
-    const decodedDocPart = safeDecodeURIComponent(docPart);
-    if (decodedDocPart === null) return null;
+    const rawDocSlug = normalizedPath.slice(DOCS_PATH_PREFIX.length).replace(/^\/+/, '');
+    const decodedDocSlug = rawDocSlug ? safeDecodeURIComponent(rawDocSlug) : 'overview';
+    if (decodedDocSlug === null) return null;
 
-    const decodedHeading = headingPart ? safeDecodeURIComponent(headingPart) : undefined;
+    const rawHeading = hash.replace(/^#/, '');
+    const decodedHeading = rawHeading ? safeDecodeURIComponent(rawHeading) : undefined;
     if (decodedHeading === null) return null;
 
-    const docSlug = cleanDocSlug(decodedDocPart);
+    const docSlug = cleanDocSlug(decodedDocSlug);
     if (!docSlug) return null;
 
     return {
         docSlug,
         headingSlug: decodedHeading,
     };
+}
+
+export function parseDocsLocation(location: Pick<Location, 'pathname' | 'hash'>): DocLinkTarget | null {
+    return parseDocsPath(location.pathname, location.hash);
+}
+
+export function isDocsPath(pathname: string): boolean {
+    return parseDocsPath(pathname) !== null;
 }
 
 export function resolveDocHref(

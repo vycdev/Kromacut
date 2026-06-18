@@ -9,12 +9,14 @@ export function useThreeScene(
     const rafRef = useRef<number | null>(null);
     const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
     const sceneRef = useRef<THREE.Scene | null>(null);
-    const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
+    const cameraRef = useRef<THREE.PerspectiveCamera | THREE.OrthographicCamera | null>(null);
+    const perspCameraRef = useRef<THREE.PerspectiveCamera | null>(null);
     const controlsRef = useRef<OrbitControls | null>(null);
     const modelGroupRef = useRef<THREE.Group | null>(null);
     const materialRef = useRef<THREE.MeshStandardMaterial | null>(null);
 
     const requestRenderRef = useRef<(() => void) | null>(null);
+    const switchCameraRef = useRef<((isOrtho: boolean) => void) | null>(null);
 
     useEffect(() => {
         const el = mountRef.current;
@@ -36,6 +38,7 @@ export function useThreeScene(
 
         const camera = new THREE.PerspectiveCamera(45, el.clientWidth / el.clientHeight, 0.1, 1000);
         camera.position.set(0, 0.9, 1.8);
+        perspCameraRef.current = camera;
         cameraRef.current = camera;
 
         const controls = new OrbitControls(camera, renderer.domElement);
@@ -93,13 +96,57 @@ export function useThreeScene(
         };
         requestRenderRef.current = requestRender;
 
+        const switchCamera = (isOrtho: boolean) => {
+            const cam = cameraRef.current;
+            const persp = perspCameraRef.current;
+            const ctrl = controlsRef.current;
+            if (!cam || !persp || !ctrl || !el) return;
+            const aspect = el.clientWidth / el.clientHeight;
+
+            if (isOrtho && cam instanceof THREE.PerspectiveCamera) {
+                const target = ctrl.target.clone();
+                const dist = cam.position.distanceTo(target);
+                const fovRad = (cam.fov * Math.PI) / 180;
+                const viewH = 2 * dist * Math.tan(fovRad / 2);
+                const viewW = viewH * aspect;
+                const ortho = new THREE.OrthographicCamera(
+                    -viewW / 2, viewW / 2, viewH / 2, -viewH / 2, cam.near, cam.far
+                );
+                ortho.position.copy(cam.position);
+                ortho.quaternion.copy(cam.quaternion);
+                ortho.updateProjectionMatrix();
+                cameraRef.current = ortho;
+                ctrl.object = ortho as unknown as THREE.Camera;
+            } else if (!isOrtho && cam instanceof THREE.OrthographicCamera) {
+                persp.position.copy(cam.position);
+                persp.quaternion.copy(cam.quaternion);
+                persp.near = cam.near;
+                persp.far = cam.far;
+                persp.aspect = aspect;
+                persp.updateProjectionMatrix();
+                cameraRef.current = persp;
+                ctrl.object = persp as unknown as THREE.Camera;
+            }
+            ctrl.update();
+            requestRender();
+        };
+        switchCameraRef.current = switchCamera;
+
         const resize = () => {
             if (!el || !cameraRef.current || !rendererRef.current) return;
             const w = el.clientWidth;
             const h = el.clientHeight;
             rendererRef.current.setSize(w, h);
-            cameraRef.current!.aspect = w / h;
-            cameraRef.current!.updateProjectionMatrix();
+            const cam = cameraRef.current;
+            if (cam instanceof THREE.PerspectiveCamera) {
+                cam.aspect = w / h;
+            } else if (cam instanceof THREE.OrthographicCamera) {
+                const viewH = cam.top - cam.bottom;
+                const viewW = viewH * (w / h);
+                cam.left = -viewW / 2;
+                cam.right = viewW / 2;
+            }
+            cam.updateProjectionMatrix();
             requestRender();
         };
         const ro = new ResizeObserver(resize);
@@ -124,7 +171,7 @@ export function useThreeScene(
 
         const animate = () => {
             if (controlsRef.current) controlsRef.current.update();
-            renderer.render(scene, camera);
+            if (cameraRef.current) renderer.render(scene, cameraRef.current);
             rafRef.current = requestAnimationFrame(animate);
         };
         rafRef.current = requestAnimationFrame(animate);
@@ -142,9 +189,11 @@ export function useThreeScene(
             rendererRef.current = null;
             sceneRef.current = null;
             cameraRef.current = null;
+            perspCameraRef.current = null;
             controlsRef.current = null;
             modelGroupRef.current = null;
             materialRef.current = null;
+            switchCameraRef.current = null;
             setIsBuilding(false);
         };
     }, [mountRef, setIsBuilding]);
@@ -157,6 +206,7 @@ export function useThreeScene(
         modelGroupRef,
         materialRef,
         requestRender: () => requestRenderRef.current?.(),
+        switchCamera: (isOrtho: boolean) => switchCameraRef.current?.(isOrtho),
     } as const;
 }
 

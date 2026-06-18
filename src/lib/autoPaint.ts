@@ -26,6 +26,8 @@ import {
 import { generateCenterWeightedMapSimple, generateEdgeWeightedMapSimple } from './regionWeighting';
 import { computeProfileConfidence } from './calibration';
 
+export { LAYER_ACTIVATION_EPSILON } from './layerActivation';
+
 /** RGB color representation (0-255 range) */
 export interface RGB {
     r: number;

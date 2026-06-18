@@ -28,6 +28,10 @@ export type { Filament, ThreeDControlsStateShape } from '../types';
 interface ThreeDControlsProps {
     swatches: Swatch[] | null;
     imageDimensions: ImageDimensions | null;
+    /** Snapshot of the settings used for the model currently built in the preview/export pane. */
+    builtState?: ThreeDControlsStateShape | null;
+    /** Whether the model currently built in the preview/export pane is a Flat Paint slab. */
+    builtFlatPaint?: boolean;
     onChange?: (state: ThreeDControlsStateShape) => void;
     /**
      * Called whenever non-build settings change so the parent can keep
@@ -41,9 +45,17 @@ interface ThreeDControlsProps {
     persisted?: ThreeDControlsStateShape | null;
 }
 
-export default function ThreeDControls({ swatches, imageDimensions, onChange, onSettingsChange, persisted }: ThreeDControlsProps) {
+export default function ThreeDControls({
+    swatches,
+    imageDimensions,
+    builtState = null,
+    builtFlatPaint = false,
+    onChange,
+    onSettingsChange,
+    persisted,
+}: ThreeDControlsProps) {
     // --- Filaments ---
-    const { filaments, setFilaments, addFilament, removeFilament, updateFilament } = useFilaments({
+    const { filaments, setFilaments, addFilament, addFilamentWithProps, removeFilament, updateFilament } = useFilaments({
         initial: persisted?.filaments?.length ? persisted.filaments : undefined,
     });
 
@@ -64,9 +76,16 @@ export default function ThreeDControls({ swatches, imageDimensions, onChange, on
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
+    const initialPaintMode = persisted?.paintMode ?? 'manual';
+    const initialFlatPaint = persisted?.flatPaint ?? false;
+
     // --- Print Settings ---
     const [initialPrintSettings] = useState(() => {
         const stored = loadPrintSettingsFromStorage();
+        const storedSmoothMeshing =
+            stored?.smoothMeshing ??
+            persisted?.smoothMeshing ??
+            DEFAULT_PRINT_SETTINGS.smoothMeshing;
         return {
             layerHeight:
                 stored?.layerHeight ?? persisted?.layerHeight ?? DEFAULT_PRINT_SETTINGS.layerHeight,
@@ -76,8 +95,7 @@ export default function ThreeDControls({ swatches, imageDimensions, onChange, on
                 DEFAULT_PRINT_SETTINGS.slicerFirstLayerHeight,
             pixelSize:
                 stored?.pixelSize ?? persisted?.pixelSize ?? DEFAULT_PRINT_SETTINGS.pixelSize,
-            smoothMeshing:
-                stored?.smoothMeshing ?? persisted?.smoothMeshing ?? DEFAULT_PRINT_SETTINGS.smoothMeshing,
+            smoothMeshing: storedSmoothMeshing,
         };
     });
 
@@ -90,14 +108,13 @@ export default function ThreeDControls({ swatches, imageDimensions, onChange, on
     const [calibrationLayerHeight, setCalibrationLayerHeight] = useState<number>(
         persisted?.calibrationLayerHeight ?? initialPrintSettings.layerHeight
     );
-    const [paintMode, setPaintMode] = useState<'manual' | 'autopaint'>(
-        persisted?.paintMode ?? 'manual'
-    );
+    const [paintMode, setPaintMode] = useState<'manual' | 'autopaint'>(initialPaintMode);
     const [autoPaintMaxHeight, setAutoPaintMaxHeight] = useState<number | undefined>(undefined);
     const [enhancedColorMatch, setEnhancedColorMatch] = useState(persisted?.enhancedColorMatch ?? false);
     const [allowRepeatedSwaps, setAllowRepeatedSwaps] = useState(persisted?.allowRepeatedSwaps ?? false);
     const [heightDithering, setHeightDithering] = useState(persisted?.heightDithering ?? false);
     const [ditherLineWidth, setDitherLineWidth] = useState(persisted?.ditherLineWidth ?? 0.42);
+    const [flatPaint, setFlatPaint] = useState(initialFlatPaint);
 
     // --- Optimizer Options ---
     const [optimizerAlgorithm, setOptimizerAlgorithm] = useState<'exhaustive' | 'simulated-annealing' | 'genetic' | 'auto'>(
@@ -124,6 +141,20 @@ export default function ThreeDControls({ swatches, imageDimensions, onChange, on
         }
     }, []);
 
+    const flatPaintActive = paintMode === 'autopaint' && flatPaint;
+    const effectiveSmoothMeshing = flatPaintActive ? false : smoothMeshing;
+
+    const handleSmoothMeshingChange = useCallback((enabled: boolean) => {
+        setSmoothMeshing(enabled);
+        if (enabled) {
+            setFlatPaint(false);
+        }
+    }, []);
+
+    const handleFlatPaintChange = useCallback((enabled: boolean) => {
+        setFlatPaint(enabled);
+    }, []);
+
     // Sync non-build settings to parent so persisted stays current across mode switches
     useEffect(() => {
         onSettingsChange?.({
@@ -133,13 +164,14 @@ export default function ThreeDControls({ swatches, imageDimensions, onChange, on
             allowRepeatedSwaps,
             heightDithering,
             ditherLineWidth,
+            flatPaint,
             optimizerAlgorithm,
             optimizerSeed,
             regionWeightingMode,
             smoothMeshing,
         });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [paintMode, filaments, enhancedColorMatch, allowRepeatedSwaps, heightDithering, ditherLineWidth, optimizerAlgorithm, optimizerSeed, regionWeightingMode, smoothMeshing]);
+    }, [paintMode, filaments, enhancedColorMatch, allowRepeatedSwaps, heightDithering, ditherLineWidth, flatPaint, optimizerAlgorithm, optimizerSeed, regionWeightingMode, smoothMeshing]);
 
     useEffect(() => {
         savePrintSettingsToStorage({ layerHeight, slicerFirstLayerHeight, pixelSize, smoothMeshing });
@@ -210,10 +242,19 @@ export default function ThreeDControls({ swatches, imageDimensions, onChange, on
             paintMode === 'autopaint' && autoPaintSliceData
                 ? autoPaintSliceData.colorSliceHeights
                 : colorSliceHeights;
-        const depth = estimateOrder.reduce((total, swatchIndex, position) => {
-            const height = estimateHeights[swatchIndex] ?? 0;
-            return total + (position === 0 ? Math.max(height, slicerFirstLayerHeight) : height);
-        }, 0);
+        const depth =
+            flatPaintActive && paintMode === 'autopaint'
+                ? Math.max(slicerFirstLayerHeight, layerHeight) +
+                  estimateOrder.filter((swatchIndex) => (estimateHeights[swatchIndex] ?? 0) > 0)
+                      .length *
+                      layerHeight
+                : estimateOrder.reduce((total, swatchIndex, position) => {
+                      const height = estimateHeights[swatchIndex] ?? 0;
+                      return (
+                          total +
+                          (position === 0 ? Math.max(height, slicerFirstLayerHeight) : height)
+                      );
+                  }, 0);
 
         return {
             width: widthPx * pixelSize,
@@ -225,27 +266,39 @@ export default function ThreeDControls({ swatches, imageDimensions, onChange, on
         colorOrder,
         colorSliceHeights,
         imageDimensions,
+        flatPaintActive,
+        layerHeight,
         paintMode,
         pixelSize,
         slicerFirstLayerHeight,
     ]);
 
+    const instructionPaintMode = builtState?.paintMode ?? paintMode;
+    const instructionAutoPaintResult = builtState?.autoPaintResult ?? autoPaintResult;
+    const instructionColorOrder = builtState?.colorOrder ?? colorOrder;
+    const instructionColorSliceHeights = builtState?.colorSliceHeights ?? colorSliceHeights;
+    const instructionFiltered = builtState?.filteredSwatches ?? filtered;
+    const instructionLayerHeight = builtState?.layerHeight ?? layerHeight;
+    const instructionSlicerFirstLayerHeight =
+        builtState?.slicerFirstLayerHeight ?? slicerFirstLayerHeight;
+    const instructionFlatPaint = builtState ? builtFlatPaint : flatPaintActive;
     const instructionColorCount =
-        paintMode === 'autopaint'
-            ? autoPaintResult?.layers.length ?? 0
-            : displayOrder.length;
+        instructionPaintMode === 'autopaint'
+            ? instructionAutoPaintResult?.layers.length ?? 0
+            : instructionColorOrder.length;
     const isInstructionOverLimit = instructionColorCount > 64;
 
     // --- Swap Plan ---
     const { swapPlan, copied, copyToClipboard } = useSwapPlan({
-        colorOrder,
-        colorSliceHeights,
-        filtered,
-        layerHeight,
-        slicerFirstLayerHeight,
-        paintMode,
-        autoPaintResult,
+        colorOrder: instructionColorOrder,
+        colorSliceHeights: instructionColorSliceHeights,
+        filtered: instructionFiltered,
+        layerHeight: instructionLayerHeight,
+        slicerFirstLayerHeight: instructionSlicerFirstLayerHeight,
+        paintMode: instructionPaintMode,
+        autoPaintResult: instructionAutoPaintResult,
         disabled: isInstructionOverLimit,
+        flatPaint: instructionFlatPaint,
     });
 
     // --- Apply handler ---
@@ -266,6 +319,7 @@ export default function ThreeDControls({ swatches, imageDimensions, onChange, on
                 allowRepeatedSwaps,
                 heightDithering,
                 ditherLineWidth,
+                flatPaint,
                 optimizerAlgorithm,
                 optimizerSeed,
                 regionWeightingMode,
@@ -285,6 +339,7 @@ export default function ThreeDControls({ swatches, imageDimensions, onChange, on
                 pixelSize,
                 filaments,
                 paintMode,
+                flatPaint,
                 optimizerAlgorithm,
                 optimizerSeed,
                 regionWeightingMode,
@@ -306,6 +361,7 @@ export default function ThreeDControls({ swatches, imageDimensions, onChange, on
         allowRepeatedSwaps,
         heightDithering,
         ditherLineWidth,
+        flatPaint,
         optimizerAlgorithm,
         optimizerSeed,
         regionWeightingMode,
@@ -345,11 +401,11 @@ export default function ThreeDControls({ swatches, imageDimensions, onChange, on
                 slicerFirstLayerHeight={slicerFirstLayerHeight}
                 pixelSize={pixelSize}
                 modelSizeEstimate={modelSizeEstimate}
-                smoothMeshing={smoothMeshing}
+                smoothMeshing={effectiveSmoothMeshing}
                 onLayerHeightChange={setLayerHeight}
                 onSlicerFirstLayerHeightChange={setSlicerFirstLayerHeight}
                 onPixelSizeChange={setPixelSize}
-                onSmoothMeshingChange={setSmoothMeshing}
+                onSmoothMeshingChange={handleSmoothMeshingChange}
                 onReset={handleResetPrintSettings}
                 allDefault={
                     layerHeight === DEFAULT_PRINT_SETTINGS.layerHeight &&
@@ -376,6 +432,7 @@ export default function ThreeDControls({ swatches, imageDimensions, onChange, on
                 <AutoPaintTab
                     filaments={filaments}
                     addFilament={addFilament}
+                    addFilamentWithProps={addFilamentWithProps}
                     removeFilament={removeFilament}
                     updateFilament={updateFilament}
                     profiles={profileManager.profiles}
@@ -407,6 +464,7 @@ export default function ThreeDControls({ swatches, imageDimensions, onChange, on
                     calibrationLayerHeight={calibrationLayerHeight}
                     setCalibrationLayerHeight={setCalibrationLayerHeight}
                     filteredCount={filtered.length}
+                    imageSwatches={filtered}
                     enhancedColorMatch={enhancedColorMatch}
                     setEnhancedColorMatch={handleEnhancedColorMatchChange}
                     allowRepeatedSwaps={allowRepeatedSwaps}
@@ -415,6 +473,8 @@ export default function ThreeDControls({ swatches, imageDimensions, onChange, on
                     setHeightDithering={setHeightDithering}
                     ditherLineWidth={ditherLineWidth}
                     setDitherLineWidth={setDitherLineWidth}
+                    flatPaint={flatPaint}
+                    setFlatPaint={handleFlatPaintChange}
                     optimizerAlgorithm={optimizerAlgorithm}
                     setOptimizerAlgorithm={setOptimizerAlgorithm}
                     optimizerSeed={optimizerSeed}
@@ -501,12 +561,13 @@ export default function ThreeDControls({ swatches, imageDimensions, onChange, on
             {/* Print Instructions */}
             <PrintInstructions
                 swapPlan={swapPlan}
-                layerHeight={layerHeight}
-                slicerFirstLayerHeight={slicerFirstLayerHeight}
+                layerHeight={instructionLayerHeight}
+                slicerFirstLayerHeight={instructionSlicerFirstLayerHeight}
                 copied={copied}
                 onCopy={copyToClipboard}
                 tooManyColors={isInstructionOverLimit}
                 colorCount={instructionColorCount}
+                flatPaint={instructionFlatPaint}
             />
         </div>
     );

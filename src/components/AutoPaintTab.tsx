@@ -32,6 +32,7 @@ import type { CalibrationResult } from '../lib/calibration';
 import FilamentRow from './FilamentRow';
 import { FilamentCalibrationWizard } from './FilamentCalibrationWizard';
 import { getConfidenceLabel, getConfidenceColor } from '../lib/calibration';
+import { useNextBestColorWorker } from '../hooks/useNextBestColorWorker';
 
 interface AutoPaintSliceData {
     virtualSwatches: Swatch[];
@@ -44,6 +45,7 @@ interface AutoPaintTabProps {
     // Filament state
     filaments: Filament[];
     addFilament: () => void;
+    addFilamentWithProps: (props: { color: string; td: number; name: string }) => void;
     removeFilament: (id: string) => void;
     updateFilament: (id: string, updates: Partial<Omit<Filament, 'id'>>) => void;
 
@@ -81,6 +83,7 @@ interface AutoPaintTabProps {
 
     // Image colors
     filteredCount: number;
+    imageSwatches: Array<{ hex: string; count?: number }>;
 
     // Enhanced matching options
     enhancedColorMatch: boolean;
@@ -91,6 +94,10 @@ interface AutoPaintTabProps {
     setHeightDithering: (v: boolean) => void;
     ditherLineWidth: number;
     setDitherLineWidth: (v: number) => void;
+
+    // Flat Paint (flat face-down print)
+    flatPaint: boolean;
+    setFlatPaint: (v: boolean) => void;
 
     // Optimizer options
     optimizerAlgorithm: 'exhaustive' | 'simulated-annealing' | 'genetic' | 'auto';
@@ -104,6 +111,7 @@ interface AutoPaintTabProps {
 export default function AutoPaintTab({
     filaments,
     addFilament,
+    addFilamentWithProps,
     removeFilament,
     updateFilament,
     profiles,
@@ -134,6 +142,7 @@ export default function AutoPaintTab({
     error,
     calibrationLayerHeight,
     filteredCount,
+    imageSwatches,
     enhancedColorMatch,
     setEnhancedColorMatch,
     allowRepeatedSwaps,
@@ -142,6 +151,8 @@ export default function AutoPaintTab({
     setHeightDithering,
     ditherLineWidth,
     setDitherLineWidth,
+    flatPaint,
+    setFlatPaint,
     optimizerAlgorithm,
     setOptimizerAlgorithm,
     optimizerSeed,
@@ -149,6 +160,18 @@ export default function AutoPaintTab({
     regionWeightingMode,
     setRegionWeightingMode,
 }: AutoPaintTabProps) {
+    const {
+        result: nextBestResult,
+        isComputing: isNextBestComputing,
+        error: nextBestError,
+        requestSuggestion: requestNextBestSuggestion,
+        reset: resetNextBestSuggestion,
+    } = useNextBestColorWorker();
+    const suggestionCountRef = React.useRef(0);
+
+    React.useEffect(() => {
+        resetNextBestSuggestion();
+    }, [filaments, imageSwatches, resetNextBestSuggestion]);
     const [localDitherLineWidth, setLocalDitherLineWidth] = React.useState(
         ditherLineWidth.toString()
     );
@@ -596,6 +619,27 @@ export default function AutoPaintTab({
                         </div>
                     )}
 
+                    {/* Flat Paint */}
+                    {filaments.length > 0 && (
+                        <div className="space-y-3 pt-2">
+                            <div className="h-px bg-border/50" />
+                            <div className="flex items-center justify-between">
+                                <Label
+                                    htmlFor="flat-paint"
+                                    className="text-xs font-medium text-foreground cursor-pointer"
+                                >
+                                    Flat Paint
+                                </Label>
+                                <Switch
+                                    id="flat-paint"
+                                    data-testid="autopaint-flat-paint"
+                                    checked={flatPaint}
+                                    onCheckedChange={setFlatPaint}
+                                />
+                            </div>
+                        </div>
+                    )}
+
                     {/* Optimizer Settings */}
                     {filaments.length > 0 && (
                         <div
@@ -938,6 +982,101 @@ export default function AutoPaintTab({
                                         )}
                                     </div>
                                 </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Next-best-color suggestion */}
+                    {autoPaintResult && imageSwatches.length > 0 && (
+                        <div className="mt-3 space-y-2">
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                className="w-full h-7 text-xs"
+                                disabled={isNextBestComputing}
+                                onClick={() => requestNextBestSuggestion(filaments, imageSwatches)}
+                            >
+                                {isNextBestComputing ? (
+                                    <Loader2 className="w-3 h-3 mr-1.5 animate-spin" />
+                                ) : (
+                                    <Sparkles className="w-3 h-3 mr-1.5" />
+                                )}
+                                {isNextBestComputing ? 'Finding suggestion...' : 'Suggest next filament'}
+                            </Button>
+                            {nextBestResult?.candidate && (
+                                <div className="p-2.5 rounded-md border border-border/50 bg-muted/30 space-y-1.5">
+                                    <div className="flex items-center gap-2">
+                                        <span
+                                            className="w-5 h-5 rounded border border-border/50 flex-shrink-0"
+                                            style={{ backgroundColor: nextBestResult.candidate.hex }}
+                                        />
+                                        <span className="text-xs font-mono font-semibold flex-1">
+                                            {nextBestResult.candidate.hex.toUpperCase()}
+                                        </span>
+                                        <span
+                                            className="text-xs font-semibold cursor-default"
+                                            title="Estimated reduction in blend-aware average color error (ΔE) across the image if this filament is added. Higher is better, but this is a rough estimate, not a confidence rating."
+                                        >
+                                            Est. ΔE{' '}
+                                            <span className="text-sm font-bold text-green-600 dark:text-green-400">
+                                                +{nextBestResult.candidate.improvementPct.toFixed(1)}%
+                                            </span>
+                                        </span>
+                                    </div>
+                                    <div className="grid grid-cols-3 gap-1.5 text-[10px] text-muted-foreground">
+                                        <span title="Recommended starting transmittance-distance value, borrowed from the nearest existing filament by color distance (ΔE).">
+                                            TD:{' '}
+                                            <span className="font-semibold text-foreground">
+                                                {nextBestResult.candidate.td.toFixed(2)}
+                                            </span>
+                                        </span>
+                                        <span title="Percentage of image pixels whose blend-aware color error would improve with this filament added.">
+                                            Captures:{' '}
+                                            <span className="font-semibold text-foreground">
+                                                {(
+                                                    (nextBestResult.candidate.pixelsCaptured /
+                                                        nextBestResult.totalPixels) *
+                                                    100
+                                                ).toFixed(1)}
+                                                %
+                                            </span>
+                                        </span>
+                                        <span title="How far this color sits from existing filaments in perceptual color space (0–1). Higher means it fills a more distinct gap; lower means it overlaps with colors already covered.">
+                                            Isolation:{' '}
+                                            <span className="font-semibold text-foreground">
+                                                {nextBestResult.candidate.isolationScore.toFixed(2)}
+                                            </span>
+                                        </span>
+                                    </div>
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="w-full h-7 text-xs mt-0.5"
+                                        onClick={() => {
+                                            suggestionCountRef.current += 1;
+                                            const nn = String(suggestionCountRef.current).padStart(2, '0');
+                                            addFilamentWithProps({
+                                                color: nextBestResult.candidate!.hex,
+                                                td: nextBestResult.candidate!.td,
+                                                name: `Kromacut-Suggestion-${nn}`,
+                                            });
+                                            resetNextBestSuggestion();
+                                        }}
+                                    >
+                                        <Plus className="w-3 h-3 mr-1.5" />
+                                        Add to filaments
+                                    </Button>
+                                </div>
+                            )}
+                            {nextBestResult && !nextBestResult.candidate && (
+                                <p className="text-[10px] text-muted-foreground text-center">
+                                    Current filament set already covers all image colors well.
+                                </p>
+                            )}
+                            {nextBestError && (
+                                <p className="text-[10px] text-destructive text-center">
+                                    {nextBestError}
+                                </p>
                             )}
                         </div>
                     )}

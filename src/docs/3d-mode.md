@@ -80,6 +80,20 @@ Optional controls appear with enhanced matching:
 - **Line width** should roughly match the printer line or nozzle width used for dither dots.
 - **Optimizer Settings** let you choose **Algorithm**, **Region priority**, and an optional **Seed**.
 
+## Flat Paint
+
+**Flat Paint (flat face-down print)** builds a uniform-thickness slab instead of a stepped relief. Every printed layer has the full model footprint:
+
+- The artwork is placed face down against the build plate, under a **transparent carrier layer** that prints first and becomes the smooth viewing face. Use clear filament for the carrier object.
+- Each pixel column's layer order is reversed so the print looks identical to the normal model when viewed from the face side, and the space behind the image is filled with the foundation filament.
+- The model is already mirrored for face-down printing — do not mirror it again in the slicer. After printing, flip the piece over to view the image.
+
+Because a single printed layer contains several filaments side by side, Flat Paint requires a multi-material printer (AMS or toolchanger). Export as **3MF**: the model contains one object per filament, plus the carrier object, ready for per-object filament assignment in the slicer.
+
+Flat Paint works in both standard and enhanced color matching modes. Expect heavier geometry and slower slicing than a normal build — flat models are best for bookmarks, coasters, and other pieces that benefit from a smooth, glass-flat face.
+
+Flat Paint and **Smooth Meshing** are mutually exclusive. Turning one on turns the other off because Flat Paint already uses a full-footprint slab layout instead of smoothed boundary contours.
+
 ## Optimizer Settings
 
 | Setting         | Meaning                                                      |
@@ -100,10 +114,20 @@ After Auto-paint computes a result, Kromacut can show:
 
 Low confidence usually means you should calibrate filaments, add a missing filament color, or loosen a restrictive max height.
 
+## Preview Controls
+
+The toolbar in the top-right corner of the 3D preview contains controls for the active view:
+
+- **Camera toggle** — switches between perspective and orthographic projection. Perspective gives a natural depth effect; orthographic removes foreshortening and is useful for checking layer alignment. The button icon reflects the current mode, and the camera position is preserved when toggling.
+- **Undo / Redo** — steps through changes to the 3D settings.
+- **Download** — exports the current model as a .stl or a .3mf.
+
 ## Layer Preview
 
 After building, the bottom **Layer Preview** bar lets you show only a height range of the model. Drag the lower and upper handles to inspect how the print builds.
 
 Hover over color segments to see the start layer or swap layer. The preview range is only for inspection; exports still include the complete model.
+
+In Flat Paint mode the bar shows a plain track because printed layers contain several filaments at once — there is no single swap sequence. Orbit underneath the model to inspect the artwork face.
 
 Next: [Generating and exporting output](generating-exporting-output).

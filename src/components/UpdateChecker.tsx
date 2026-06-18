@@ -9,38 +9,55 @@ import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Download, X } from 'lucide-react';
-import { invoke, isTauri } from '@tauri-apps/api/core';
-
-interface VersionInfo {
-    version: string;
-    download_url?: string;
-    release_notes?: string;
-}
+import {
+    checkForDesktopUpdates,
+    isDesktopUpdateSupported,
+    openDesktopReleasesPage,
+    type VersionInfo,
+} from '@/lib/desktopUpdates';
+import {
+    getUpdateCheckOnStartup,
+    subscribeToUpdateCheckOnStartup,
+} from '@/lib/updatePreferences';
 
 export function UpdateChecker() {
     const [updateAvailable, setUpdateAvailable] = useState<VersionInfo | null>(null);
     const [dismissed, setDismissed] = useState(false);
     const [checking, setChecking] = useState(false);
+    const [checkOnStartup, setCheckOnStartup] = useState(() => getUpdateCheckOnStartup());
 
     useEffect(() => {
-        // Only check for updates in Tauri environment
-        if (!isTauri()) return;
+        if (!isDesktopUpdateSupported()) return;
+
+        return subscribeToUpdateCheckOnStartup(setCheckOnStartup);
+    }, []);
+
+    useEffect(() => {
+        if (!checkOnStartup) {
+            setUpdateAvailable(null);
+            setChecking(false);
+        }
+    }, [checkOnStartup]);
+
+    useEffect(() => {
+        if (!isDesktopUpdateSupported() || !checkOnStartup) return;
+
+        let active = true;
 
         const checkForUpdates = async () => {
             setChecking(true);
             try {
-                const currentVersion = await invoke<string>('get_app_version');
-                const updateInfo = await invoke<VersionInfo | null>('check_for_updates', {
-                    currentVersion,
-                });
+                const updateInfo = await checkForDesktopUpdates();
 
-                if (updateInfo) {
+                if (active) {
                     setUpdateAvailable(updateInfo);
                 }
             } catch (error) {
                 console.error('Failed to check for updates:', error);
             } finally {
-                setChecking(false);
+                if (active) {
+                    setChecking(false);
+                }
             }
         };
 
@@ -50,16 +67,19 @@ export function UpdateChecker() {
         // Check periodically (every 4 hours)
         const interval = setInterval(checkForUpdates, 4 * 60 * 60 * 1000);
 
-        return () => clearInterval(interval);
-    }, []);
+        return () => {
+            active = false;
+            clearInterval(interval);
+        };
+    }, [checkOnStartup]);
 
-    if (!isTauri() || !updateAvailable || dismissed || checking) {
+    if (!isDesktopUpdateSupported() || !checkOnStartup || !updateAvailable || dismissed || checking) {
         return null;
     }
 
     const handleDownload = async () => {
         try {
-            await invoke('open_releases_page');
+            await openDesktopReleasesPage();
         } catch (error) {
             console.error('Failed to open releases page:', error);
         }

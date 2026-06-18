@@ -6,9 +6,13 @@ import useThreeScene from '../hooks/useThreeScene';
 import {
     generateGreedyMesh,
     generateSmoothMesh,
+    type MeshData,
     type MeshMetrics,
     type MeshProgress,
 } from '../lib/meshing';
+import { LAYER_ACTIVATION_EPSILON } from '../lib/layerActivation';
+import { normalizeHexColor as normalizeHexColorValue } from '../lib/colorUtils';
+import { buildFlatPaintLayout, heightMapToFlatPaintLayerCounts } from '../lib/flatPaint';
 import {
     clampProgress,
     layeredBuildScanProgress,
@@ -39,6 +43,8 @@ interface ThreeDViewProps {
     heightDithering?: boolean; // Floyd-Steinberg error diffusion on height map
     ditherLineWidth?: number; // Minimum dot size in mm for dithering
     smoothMeshing?: boolean; // Smooth connected boundaries using welded grid topology
+    isOrtho?: boolean;
+    flatPaint?: boolean; // Build a flat face-down slab (Flat Paint style, auto-paint only)
 }
 
 // Convert hex color to RGB tuple
@@ -131,10 +137,7 @@ function sliderSpanPercentCss(startPercent: number, endPercent: number) {
 }
 
 function normalizeHexColor(hex: string | undefined) {
-    const fallback = '#3b82f6';
-    if (!hex) return fallback;
-    const value = hex.startsWith('#') ? hex : `#${hex}`;
-    return /^#[0-9a-f]{6}$/i.test(value) ? value.toUpperCase() : fallback;
+    return normalizeHexColorValue(hex, '#3b82f6');
 }
 
 function layerNumberForTransition(
@@ -199,6 +202,33 @@ function createFlatShadedGeometry(
     return geom;
 }
 
+function remapMeshZRange(mesh: MeshData, baseZ: number, topZ: number, heightScale: number): MeshData {
+    const positions = new Float32Array(mesh.positions.length);
+    let minZ = Infinity;
+    let maxZ = -Infinity;
+
+    for (let i = 2; i < mesh.positions.length; i += 3) {
+        minZ = Math.min(minZ, mesh.positions[i]);
+        maxZ = Math.max(maxZ, mesh.positions[i]);
+    }
+
+    const sourceSpan = maxZ - minZ || 1;
+    const targetBase = baseZ * heightScale;
+    const targetSpan = (topZ - baseZ) * heightScale;
+
+    for (let i = 0; i < mesh.positions.length; i += 3) {
+        positions[i] = mesh.positions[i];
+        positions[i + 1] = mesh.positions[i + 1];
+        positions[i + 2] = targetBase + ((mesh.positions[i + 2] - minZ) / sourceSpan) * targetSpan;
+    }
+
+    return {
+        positions,
+        indices: mesh.indices,
+        metrics: mesh.metrics,
+    };
+}
+
 interface E2EBuildMetrics {
     status: 'building' | 'complete';
     startedAt?: number;
@@ -226,6 +256,7 @@ interface E2EBuildMetrics {
         autoPaintEnabled: boolean;
         enhancedColorMatch: boolean;
         heightDithering: boolean;
+        flatPaint?: boolean;
     };
 }
 
@@ -259,6 +290,12 @@ function updateE2EBuild(metrics: E2EBuildMetrics) {
             next,
         ];
     }
+}
+
+function clearLastMeshRef() {
+    if (typeof window === 'undefined') return;
+    (window as unknown as { __KROMACUT_LAST_MESH?: THREE.Object3D }).__KROMACUT_LAST_MESH =
+        undefined;
 }
 
 function collectMeshStats(root: THREE.Object3D) {
@@ -304,6 +341,8 @@ export default function ThreeDView({
     heightDithering = false,
     ditherLineWidth = 0.42,
     smoothMeshing = false,
+    isOrtho = false,
+    flatPaint = false,
 }: ThreeDViewProps) {
     const mountRef = useRef<HTMLDivElement | null>(null);
     const [isBuilding, setIsBuilding] = useState(false);
@@ -323,10 +362,13 @@ export default function ThreeDView({
         xPercent: number;
     } | null>(null);
     const previewTrackRef = useRef<HTMLDivElement | null>(null);
-    const { cameraRef, controlsRef, modelGroupRef, materialRef, requestRender } = useThreeScene(
+    const { cameraRef, controlsRef, modelGroupRef, materialRef, requestRender, switchCamera } = useThreeScene(
         mountRef,
         setIsBuilding
     );
+    useEffect(() => {
+        switchCamera(isOrtho);
+    }, [isOrtho, switchCamera]);
 
     const progressRef = useRef(0);
     const progressLastUpdateRef = useRef(0);
@@ -399,6 +441,9 @@ export default function ThreeDView({
 
     const layerPreviewSegments = useMemo<LayerPreviewSegment[]>(() => {
         if (maxModelHeight <= 0 || colorOrder.length === 0) return [];
+        // Flat Paint: printed layers contain several filaments side by side, so a
+        // single global swap sequence does not exist — show a plain track.
+        if (flatPaint) return [];
 
         const segments: LayerPreviewSegment[] = [];
         let running = 0;
@@ -448,6 +493,7 @@ export default function ThreeDView({
         filamentSwatches,
         swatches,
         layerHeight,
+        flatPaint,
     ]);
 
     const updateHoveredSegment = (
@@ -478,6 +524,7 @@ export default function ThreeDView({
     const debounceTimerRef = useRef<number | null>(null);
     const lastParamsKeyRef = useRef<string | null>(null);
     const lastRebuildRef = useRef<number>(rebuildSignal);
+    const lastImageSrcRef = useRef<string | null | undefined>(imageSrc);
 
     useEffect(() => {
         return () => {
@@ -492,6 +539,9 @@ export default function ThreeDView({
         const modelGroup = modelGroupRef.current;
         if (!modelGroup) return;
 
+        const imageChanged = imageSrc !== lastImageSrcRef.current;
+        lastImageSrcRef.current = imageSrc;
+
         if (!imageSrc) {
             buildTokenRef.current++;
             if (debounceTimerRef.current !== null) {
@@ -499,12 +549,31 @@ export default function ThreeDView({
                 debounceTimerRef.current = null;
             }
             modelGroup.clear();
+            clearLastMeshRef();
             setIsBuilding(false);
             setModelDimensions(null);
             setMaxModelHeight(0);
+            setPreviewMinHeight(0);
             setPreviewHeight(null);
             requestRender();
             return;
+        }
+
+        if (imageChanged) {
+            buildTokenRef.current++;
+            lastParamsKeyRef.current = null;
+            if (debounceTimerRef.current !== null) {
+                window.clearTimeout(debounceTimerRef.current);
+                debounceTimerRef.current = null;
+            }
+            modelGroup.clear();
+            clearLastMeshRef();
+            setIsBuilding(false);
+            setModelDimensions(null);
+            setMaxModelHeight(0);
+            setPreviewMinHeight(0);
+            setPreviewHeight(null);
+            requestRender();
         }
 
         const rebuildRequested = rebuildSignal !== lastRebuildRef.current;
@@ -521,9 +590,12 @@ export default function ThreeDView({
                 debounceTimerRef.current = null;
             }
             modelGroup.clear();
+            clearLastMeshRef();
             setIsBuilding(false);
             return;
         }
+
+        const buildSmoothMeshing = smoothMeshing && !flatPaint;
 
         // Stable key of inputs to avoid duplicate builds when references unchanged
         const paramsKey = JSON.stringify({
@@ -534,6 +606,8 @@ export default function ThreeDView({
             colorSliceHeights,
             colorOrder,
             swatches: swatches.map((s) => s.hex),
+            // Filament colors shape Flat Paint geometry (zone merging + export groups)
+            filamentSwatches: filamentSwatches?.map((s) => s.hex),
             pixelSize,
             heightScale,
             stepped,
@@ -545,6 +619,7 @@ export default function ThreeDView({
             heightDithering,
             ditherLineWidth,
             smoothMeshing,
+            flatPaint,
         });
         if (paramsKey === lastParamsKeyRef.current) return; // nothing changed logically
         lastParamsKeyRef.current = paramsKey;
@@ -552,7 +627,7 @@ export default function ThreeDView({
         // Debounce rapid changes (e.g., dragging slider)
         if (debounceTimerRef.current !== null) window.clearTimeout(debounceTimerRef.current);
         const token = ++buildTokenRef.current;
-        setActiveBuildSmoothMeshing(smoothMeshing);
+        setActiveBuildSmoothMeshing(buildSmoothMeshing);
         debounceTimerRef.current = window.setTimeout(() => {
             debounceTimerRef.current = null;
             const buildStartedAt = performance.now();
@@ -567,10 +642,11 @@ export default function ThreeDView({
                     pixelSize,
                     layerHeight,
                     slicerFirstLayerHeight,
-                    smoothMeshing,
+                    smoothMeshing: buildSmoothMeshing,
                     autoPaintEnabled,
                     enhancedColorMatch,
                     heightDithering,
+                    flatPaint,
                 },
             });
 
@@ -615,6 +691,7 @@ export default function ThreeDView({
 
                 // Clear current model
                 modelGroup.clear();
+                clearLastMeshRef();
 
                 const YIELD_MS = 12;
                 let lastYield = performance.now();
@@ -1161,58 +1238,273 @@ export default function ThreeDView({
                         }
                     }
 
-                    // Build each layer once; smooth meshing does not run overhang repair passes.
-                    const layerBuildOrder = Array.from(
-                        { length: colorOrder.length },
-                        (_, layerIndex) => layerIndex
-                    );
-                    const builtLayerMeshes: Array<THREE.Mesh | undefined> = new Array(
-                        colorOrder.length
-                    );
+                    if (flatPaint) {
+                        // === FLAT_PAINT: uniform face-down slab ===
+                        // Reverse each pixel column so the visible blend layer
+                        // touches the plate (mirrored in X so the artwork reads
+                        // correctly once the finished print is flipped over),
+                        // backfill behind the columns with the foundation
+                        // filament, and add a transparent carrier first layer.
+                        const orientedCounts = new Uint16Array(boxW * boxH);
+                        {
+                            const rawCounts = heightMapToFlatPaintLayerCounts(
+                                pixelHeightMap,
+                                cumulativeHeights,
+                                layerHeight
+                            );
+                            for (let y = 0; y < boxH; y++) {
+                                const srcRow = y * boxW;
+                                const dstRow = (boxH - 1 - y) * boxW;
+                                for (let x = 0; x < boxW; x++) {
+                                    orientedCounts[dstRow + (boxW - 1 - x)] =
+                                        rawCounts[srcRow + x];
+                                }
+                            }
+                        }
 
-                    for (
-                        let buildLayerIndex = 0;
-                        buildLayerIndex < layerBuildOrder.length;
-                        buildLayerIndex++
-                    ) {
-                        const i = layerBuildOrder[buildLayerIndex];
-                        if (token !== buildTokenRef.current) return;
+                        const layout = buildFlatPaintLayout({
+                            layerCounts: orientedCounts,
+                            width: boxW,
+                            height: boxH,
+                            layerCount: colorOrder.length,
+                            layerHeight,
+                            carrierThickness: Math.max(slicerFirstLayerHeight, layerHeight),
+                            layerVirtualHexes: colorOrder.map(
+                                (swatchIdx) => swatches[swatchIdx]?.hex ?? '#888888'
+                            ),
+                            layerFilamentHexes: colorOrder.map(
+                                (swatchIdx) =>
+                                    (filamentSwatches?.[swatchIdx] ?? swatches[swatchIdx])?.hex ??
+                                    '#888888'
+                            ),
+                        });
 
-                        const swatchIdx = colorOrder[i];
-                        if (!swatches[swatchIdx]) continue;
-                        const colorHex = swatches[swatchIdx].hex;
-                        const thickness =
-                            i === 0
-                                ? Math.max(
-                                      colorSliceHeights[swatchIdx] || 0,
-                                      slicerFirstLayerHeight
-                                  )
-                                : colorSliceHeights[swatchIdx] || 0;
-                        if (thickness <= 0.0001) continue;
+                        const partCount = Math.max(1, layout.parts.length);
+                        const scanSpanEnd = 1 / (colorOrder.length + 1);
+                        const pushPartDetail = (
+                            partIndex: number,
+                            label: string,
+                            progress: number
+                        ) => {
+                            const stepProgress = clampProgress(progress);
+                            pushBuildOverlayStep({
+                                stepLabel: `Flat Paint part ${partIndex + 1} of ${partCount}: ${label}`,
+                                stepIndex: Math.min(partCount + 1, partIndex + 2),
+                                stepCount: partCount + 1,
+                                stepProgress,
+                            });
+                            pushProgress(
+                                progressInSpan(
+                                    scanSpanEnd,
+                                    1 - scanSpanEnd,
+                                    (partIndex + stepProgress) / partCount
+                                )
+                            );
+                        };
 
-                        const topZ = i === 0 ? cumulativeHeights[0] : cumulativeHeights[i];
-                        const baseZ = i === 0 ? 0 : cumulativeHeights[i - 1];
+                        const flatMeshCache = new WeakMap<Uint8Array, Promise<MeshData>>();
+                        const partIdxForProgress = (part: (typeof layout.parts)[number]) =>
+                            layout.parts.indexOf(part);
+                        const getFlatMaskMesh = (part: (typeof layout.parts)[number]) => {
+                            const cached = flatMeshCache.get(part.mask);
+                            if (cached) return cached;
 
-                        // Identify active pixels for this layer using precomputed height map
-                        const activePixels = new Uint8Array(boxW * boxH);
-                        let activeCount = 0;
+                            const promise = generateGreedyMesh(
+                                part.mask,
+                                boxW,
+                                boxH,
+                                1,
+                                0,
+                                pixelSize,
+                                1,
+                                {
+                                    yieldIntervalMs: 8,
+                                    onProgress: (progress: MeshProgress) => {
+                                        pushPartDetail(
+                                            partIdxForProgress(part),
+                                            progress.label,
+                                            progressInSpan(0, 0.9, progress.progress)
+                                        );
+                                    },
+                                }
+                            );
+                            flatMeshCache.set(part.mask, promise);
+                            return promise;
+                        };
 
-                        for (let y = 0; y < boxH; y++) {
-                            for (let x = 0; x < boxW; x++) {
-                                const mapIdx = y * boxW + x;
-                                const pixelHeight = pixelHeightMap[mapIdx];
+                        for (let partIdx = 0; partIdx < layout.parts.length; partIdx++) {
+                            const part = layout.parts[partIdx];
+                            if (token !== buildTokenRef.current) return;
+                            if (part.activeCount === 0) continue;
 
-                                if (pixelHeight > 0 && pixelHeight >= topZ - 0.001) {
-                                    activePixels[(boxH - 1 - y) * boxW + x] = 1;
-                                    activeCount++;
+                            // Flat Paint always uses the greedy mesher: smoothed
+                            // boundaries would open gaps between side-by-side
+                            // color regions inside the slab.
+                            const generatedMesh = remapMeshZRange(
+                                await getFlatMaskMesh(part),
+                                part.baseZ,
+                                part.topZ,
+                                heightScale
+                            );
+                            meshBuildMetrics.push({
+                                layerIndex: partIdx,
+                                swatchIndex: part.classIndex,
+                                activePixelCount: part.activeCount,
+                                vertexCount: generatedMesh.positions.length / 3,
+                                triangleCount: generatedMesh.indices.length / 3,
+                                metrics: generatedMesh.metrics,
+                            });
+
+                            const geom = createFlatShadedGeometry(
+                                generatedMesh.positions,
+                                generatedMesh.indices,
+                                {
+                                    activePixels: part.mask,
+                                    width: boxW,
+                                    height: boxH,
+                                    pixelSize,
+                                    topZ: part.topZ * heightScale,
+                                    compactHeightfield: true,
+                                }
+                            );
+                            const isCarrier = part.kind === 'carrier';
+                            const mat = new THREE.MeshStandardMaterial({
+                                color: part.previewHex,
+                                side: THREE.FrontSide,
+                                metalness: 0,
+                                roughness: isCarrier ? 0.3 : 0.7,
+                                flatShading: true,
+                                transparent: isCarrier,
+                                opacity: isCarrier ? 0.3 : 1,
+                            });
+
+                            const mesh = new THREE.Mesh(geom, mat);
+                            // Store slab Z range for the preview slider
+                            mesh.userData.baseZ = part.baseZ;
+                            mesh.userData.topZ = part.topZ;
+                            // Export metadata: one 3MF object per physical filament
+                            mesh.userData.kromacutExportGroup = part.exportGroup;
+                            mesh.userData.kromacutFilamentHex = part.filamentHex;
+                            mesh.userData.kromacutMaterialKey = part.exportGroup;
+                            mesh.userData.kromacutPartName = part.partName;
+                            modelGroup.add(mesh);
+                            pushPartDetail(partIdx, 'Part mesh complete', 1);
+
+                            if (performance.now() - lastYield > YIELD_MS) {
+                                await new Promise((r) => requestAnimationFrame(r));
+                                if (token !== buildTokenRef.current) return;
+                                lastYield = performance.now();
+                            }
+                        }
+                    } else {
+                        // Build each layer once; smooth meshing does not run overhang repair passes.
+                        const layerBuildOrder = Array.from(
+                            { length: colorOrder.length },
+                            (_, layerIndex) => layerIndex
+                        );
+                        const builtLayerMeshes: Array<THREE.Mesh | undefined> = new Array(
+                            colorOrder.length
+                        );
+
+                        for (
+                            let buildLayerIndex = 0;
+                            buildLayerIndex < layerBuildOrder.length;
+                            buildLayerIndex++
+                        ) {
+                            const i = layerBuildOrder[buildLayerIndex];
+                            if (token !== buildTokenRef.current) return;
+
+                            const swatchIdx = colorOrder[i];
+                            if (!swatches[swatchIdx]) continue;
+                            const colorHex = swatches[swatchIdx].hex;
+                            const thickness =
+                                i === 0
+                                    ? Math.max(
+                                          colorSliceHeights[swatchIdx] || 0,
+                                          slicerFirstLayerHeight
+                                      )
+                                    : colorSliceHeights[swatchIdx] || 0;
+                            if (thickness <= 0.0001) continue;
+
+                            const topZ = i === 0 ? cumulativeHeights[0] : cumulativeHeights[i];
+                            const baseZ = i === 0 ? 0 : cumulativeHeights[i - 1];
+
+                            // Identify active pixels for this layer using precomputed height map
+                            const activePixels = new Uint8Array(boxW * boxH);
+                            let activeCount = 0;
+
+                            for (let y = 0; y < boxH; y++) {
+                                for (let x = 0; x < boxW; x++) {
+                                    const mapIdx = y * boxW + x;
+                                    const pixelHeight = pixelHeightMap[mapIdx];
+
+                                    if (
+                                        pixelHeight > 0 &&
+                                        pixelHeight >= topZ - LAYER_ACTIVATION_EPSILON
+                                    ) {
+                                        activePixels[(boxH - 1 - y) * boxW + x] = 1;
+                                        activeCount++;
+                                    }
+                                }
+
+                                pushLayerDetail(
+                                    buildLayerIndex,
+                                    'Selecting active pixels',
+                                    progressInSpan(0, 0.35, (y + 1) / boxH)
+                                );
+
+                                if (performance.now() - lastYield > YIELD_MS) {
+                                    await new Promise((r) => requestAnimationFrame(r));
+                                    if (token !== buildTokenRef.current) return;
+                                    lastYield = performance.now();
                                 }
                             }
 
-                            pushLayerDetail(
-                                buildLayerIndex,
-                                'Selecting active pixels',
-                                progressInSpan(0, 0.35, (y + 1) / boxH)
+                            if (activeCount === 0) continue;
+
+                            // Generate mesh for this layer
+                            const generatedMesh = await (
+                                buildSmoothMeshing ? generateSmoothMesh : generateGreedyMesh
+                            )(activePixels, boxW, boxH, thickness, baseZ, pixelSize, heightScale, {
+                                yieldIntervalMs: 8,
+                                onProgress: meshProgressReporter(buildLayerIndex),
+                            });
+                            meshBuildMetrics.push({
+                                layerIndex: i,
+                                swatchIndex: swatchIdx,
+                                activePixelCount: activeCount,
+                                vertexCount: generatedMesh.positions.length / 3,
+                                triangleCount: generatedMesh.indices.length / 3,
+                                metrics: generatedMesh.metrics,
+                            });
+
+                            const geom = createFlatShadedGeometry(
+                                generatedMesh.positions,
+                                generatedMesh.indices,
+                                {
+                                    activePixels,
+                                    width: boxW,
+                                    height: boxH,
+                                    pixelSize,
+                                    topZ: (baseZ + thickness) * heightScale,
+                                    compactHeightfield: !buildSmoothMeshing,
+                                }
                             );
+                            pushLayerDetail(buildLayerIndex, 'Preparing preview geometry', 0.96);
+                            const mat = new THREE.MeshStandardMaterial({
+                                color: colorHex,
+                                side: THREE.FrontSide,
+                                metalness: 0,
+                                roughness: 0.7,
+                                flatShading: true,
+                            });
+
+                            const mesh = new THREE.Mesh(geom, mat);
+                            // Store layer Z range for preview slider
+                            mesh.userData.baseZ = baseZ;
+                            mesh.userData.topZ = topZ;
+                            builtLayerMeshes[i] = mesh;
+                            pushLayerDetail(buildLayerIndex, 'Layer mesh complete', 1);
 
                             if (performance.now() - lastYield > YIELD_MS) {
                                 await new Promise((r) => requestAnimationFrame(r));
@@ -1221,62 +1513,10 @@ export default function ThreeDView({
                             }
                         }
 
-                        if (activeCount === 0) continue;
-
-                        // Generate mesh for this layer
-                        const generatedMesh = await (
-                            smoothMeshing ? generateSmoothMesh : generateGreedyMesh
-                        )(activePixels, boxW, boxH, thickness, baseZ, pixelSize, heightScale, {
-                            yieldIntervalMs: 8,
-                            onProgress: meshProgressReporter(buildLayerIndex),
-                        });
-                        meshBuildMetrics.push({
-                            layerIndex: i,
-                            swatchIndex: swatchIdx,
-                            activePixelCount: activeCount,
-                            vertexCount: generatedMesh.positions.length / 3,
-                            triangleCount: generatedMesh.indices.length / 3,
-                            metrics: generatedMesh.metrics,
-                        });
-
-                        const geom = createFlatShadedGeometry(
-                            generatedMesh.positions,
-                            generatedMesh.indices,
-                            {
-                                activePixels,
-                                width: boxW,
-                                height: boxH,
-                                pixelSize,
-                                topZ: (baseZ + thickness) * heightScale,
-                                compactHeightfield: !smoothMeshing,
+                        for (const mesh of builtLayerMeshes) {
+                            if (mesh) {
+                                modelGroup.add(mesh);
                             }
-                        );
-                        pushLayerDetail(buildLayerIndex, 'Preparing preview geometry', 0.96);
-                        const mat = new THREE.MeshStandardMaterial({
-                            color: colorHex,
-                            side: THREE.FrontSide,
-                            metalness: 0,
-                            roughness: 0.7,
-                            flatShading: true,
-                        });
-
-                        const mesh = new THREE.Mesh(geom, mat);
-                        // Store layer Z range for preview slider
-                        mesh.userData.baseZ = baseZ;
-                        mesh.userData.topZ = topZ;
-                        builtLayerMeshes[i] = mesh;
-                        pushLayerDetail(buildLayerIndex, 'Layer mesh complete', 1);
-
-                        if (performance.now() - lastYield > YIELD_MS) {
-                            await new Promise((r) => requestAnimationFrame(r));
-                            if (token !== buildTokenRef.current) return;
-                            lastYield = performance.now();
-                        }
-                    }
-
-                    for (const mesh of builtLayerMeshes) {
-                        if (mesh) {
-                            modelGroup.add(mesh);
                         }
                     }
                 } else {
@@ -1397,7 +1637,7 @@ export default function ThreeDView({
 
                         // Generate Optimized Greedy Mesh
                         const generatedMesh = await (
-                            smoothMeshing ? generateSmoothMesh : generateGreedyMesh
+                            buildSmoothMeshing ? generateSmoothMesh : generateGreedyMesh
                         )(activePixels, boxW, boxH, thickness, baseZ, pixelSize, heightScale, {
                             yieldIntervalMs: 8,
                             onProgress: meshProgressReporter(buildLayerIndex),
@@ -1420,7 +1660,7 @@ export default function ThreeDView({
                                 height: boxH,
                                 pixelSize,
                                 topZ: (baseZ + thickness) * heightScale,
-                                compactHeightfield: !smoothMeshing,
+                                compactHeightfield: !buildSmoothMeshing,
                             }
                         );
                         pushLayerDetail(buildLayerIndex, 'Preparing preview geometry', 0.96);
@@ -1497,10 +1737,11 @@ export default function ThreeDView({
                         pixelSize,
                         layerHeight,
                         slicerFirstLayerHeight,
-                        smoothMeshing,
+                        smoothMeshing: buildSmoothMeshing,
                         autoPaintEnabled,
                         enhancedColorMatch,
                         heightDithering,
+                        flatPaint,
                     },
                 });
 
@@ -1511,17 +1752,34 @@ export default function ThreeDView({
                     if (camera && controls) {
                         const sphere = new THREE.Sphere();
                         box.getBoundingSphere(sphere);
-                        // ... same framing logic ...
-                        const fov = (camera.fov * Math.PI) / 180;
-                        const distance = sphere.radius / Math.sin(fov / 2);
                         const dir = new THREE.Vector3(0.9, 0.8, 1).normalize();
-                        const camPos = sphere.center
-                            .clone()
-                            .add(dir.multiplyScalar(distance * 1.35));
-                        camera.position.copy(camPos);
-                        controls.target.copy(sphere.center);
-                        camera.near = Math.max(0.01, sphere.radius * 0.01);
-                        camera.far = sphere.radius * 20;
+                        if (camera instanceof THREE.PerspectiveCamera) {
+                            const fov = (camera.fov * Math.PI) / 180;
+                            const distance = sphere.radius / Math.sin(fov / 2);
+                            const camPos = sphere.center
+                                .clone()
+                                .add(dir.multiplyScalar(distance * 1.35));
+                            camera.position.copy(camPos);
+                            controls.target.copy(sphere.center);
+                            camera.near = Math.max(0.01, sphere.radius * 0.01);
+                            camera.far = sphere.radius * 20;
+                        } else if (camera instanceof THREE.OrthographicCamera) {
+                            const distance = sphere.radius * 2.5;
+                            const camPos = sphere.center
+                                .clone()
+                                .add(dir.multiplyScalar(distance));
+                            camera.position.copy(camPos);
+                            controls.target.copy(sphere.center);
+                            camera.near = 0.01;
+                            camera.far = sphere.radius * 20;
+                            // Expand frustum to fit the sphere
+                            const viewH = sphere.radius * 2.5;
+                            const aspect = (camera.right - camera.left) / (camera.top - camera.bottom);
+                            camera.top = viewH / 2;
+                            camera.bottom = -viewH / 2;
+                            camera.left = -(viewH * aspect) / 2;
+                            camera.right = (viewH * aspect) / 2;
+                        }
                         camera.updateProjectionMatrix();
                         controls.update();
                     }
@@ -1601,6 +1859,7 @@ export default function ThreeDView({
         colorSliceHeights,
         colorOrder,
         swatches,
+        filamentSwatches,
         pixelSize,
         heightScale,
         stepped,
@@ -1613,6 +1872,7 @@ export default function ThreeDView({
         heightDithering,
         ditherLineWidth,
         smoothMeshing,
+        flatPaint,
         cameraRef,
         controlsRef,
         materialRef,

@@ -7,7 +7,7 @@ import type {
     MarkdownRendererProps,
 } from '@/types/docs';
 import { resolveDocAsset } from '@/docs/assets';
-import { buildDocsHash, isSafeExternalHref, resolveDocHref } from '@/lib/docs/navigation';
+import { buildDocsPath, isSafeExternalHref, resolveDocHref } from '@/lib/docs/navigation';
 
 function linkClassName() {
     return 'font-semibold text-primary underline underline-offset-4 hover:text-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded-sm';
@@ -67,7 +67,7 @@ function renderInlineNodes(
             return (
                 <a
                     key={key}
-                    href={buildDocsHash(target.docSlug, target.headingSlug)}
+                    href={buildDocsPath(target.docSlug, target.headingSlug)}
                     onClick={(event) => {
                         event.preventDefault();
                         props.onNavigate(target);
@@ -132,7 +132,7 @@ function renderHeading(
         <>
             <span>{renderInlineNodes(block.children, props, `heading-${block.id}`)}</span>
             <a
-                href={buildDocsHash(target.docSlug, target.headingSlug)}
+                href={buildDocsPath(target.docSlug, target.headingSlug)}
                 onClick={(event) => {
                     event.preventDefault();
                     props.onNavigate(target);

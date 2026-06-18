@@ -2,6 +2,22 @@
 
 All notable changes to Kromacut are documented in this file.
 
+## v3.1.0 - unreleased
+
+### Added
+
+- **Orthographic camera toggle** - Added a camera toggle button to the 3D preview toolbar that switches between perspective and orthographic projection. The button shows the current mode and preserves the camera position and depth range when toggling. The selected mode persists across page refreshes.
+- **Flat Paint mode (experimental)** - Added a Flat Paint option to Auto-paint that builds a uniform, face-down slab: each pixel column's layer order is reversed so the artwork sits flat against the build plate (pre-mirrored for face-down printing) under a transparent carrier layer, the back is filled with the foundation filament so every layer has the full footprint, and 3MF export merges the parts into one object per physical filament for AMS/toolchanger printers. Includes flat-mode print instructions, a performance warning for tall stacks, mutual exclusion with Smooth Meshing, and regression tests covering the layout, meshing, STL compaction, and 3MF grouping.
+- **Desktop update settings** - Added desktop-only settings to manually check for updates and control whether update notices run on startup.
+- **Next-best-color suggestion** — "Suggest next filament" button in the Auto-paint panel recommends the single filament addition that would most reduce the average color error (ΔE) across the image. The result card shows the suggested hex color, a recommended starting TD, an estimated ΔE improvement, the proportion of image pixels that benefit, and an isolation score. Clicking "Add to filaments" inserts the suggestion directly into the filament list with a `Kromacut-Suggestion-NN` name. This is an inventory-planning heuristic — re-run auto-paint after adding the suggestion to see the actual result.
+
+### Changed
+
+- **Header settings dialog** - Replaced the standalone theme toggle with a centered settings dialog that contains compact System, Dark, and Light theme options plus the current app version.
+- **SEO-friendly docs URLs** - Documentation now uses real `/docs/...` URLs with per-page metadata, generated static HTML pages, a sitemap, and robots.txt output.
+
+### Fixed
+
 ## v3.0.0 - 2026-06-01
 
 ### Added

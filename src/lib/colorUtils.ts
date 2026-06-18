@@ -3,6 +3,17 @@
  */
 
 /**
+ * Normalize a hex color to canonical `#RRGGBB` uppercase form.
+ * Accepts values with or without the leading '#'; anything that is not a
+ * 6-digit hex color returns the fallback unchanged.
+ */
+export function normalizeHexColor(hex: string | undefined, fallback: string): string {
+    if (!hex) return fallback;
+    const value = hex.startsWith('#') ? hex : `#${hex}`;
+    return /^#[0-9a-f]{6}$/i.test(value) ? value.toUpperCase() : fallback;
+}
+
+/**
  * Compute perceived luminance (0–1) from a hex color string.
  * Uses the standard sRGB luminance coefficients.
  */

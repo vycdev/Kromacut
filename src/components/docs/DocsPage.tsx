@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { docs, defaultDocSlug } from '@/docs';
 import type { DocLinkTarget, DocRecord, TocEntry } from '@/types/docs';
-import { buildDocsHash, parseDocsHash } from '@/lib/docs/navigation';
+import { applyDocSeo } from '@/lib/seo';
+import { buildDocsPath, parseDocsLocation } from '@/lib/docs/navigation';
 import MarkdownRenderer from './MarkdownRenderer';
 
 function getInitialTarget(): DocLinkTarget {
     if (typeof window === 'undefined') return { docSlug: defaultDocSlug };
-    return parseDocsHash(window.location.hash) ?? { docSlug: defaultDocSlug };
+    return parseDocsLocation(window.location) ?? { docSlug: defaultDocSlug };
 }
 
 function findDoc(slug: string): DocRecord {
@@ -62,21 +63,29 @@ export default function DocsPage() {
         setActiveDocSlug(nextDoc.meta.slug);
         setPendingHeading(target.headingSlug);
         setActiveHeading(target.headingSlug);
-        window.history.pushState(null, '', buildDocsHash(nextDoc.meta.slug, target.headingSlug));
+        window.history.pushState(null, '', buildDocsPath(nextDoc.meta.slug, target.headingSlug));
     }, []);
 
     useEffect(() => {
-        const onHashChange = () => {
-            const target = parseDocsHash(window.location.hash);
+        const onLocationChange = () => {
+            const target = parseDocsLocation(window.location);
             if (!target) return;
             const nextDoc = findDoc(target.docSlug);
             setActiveDocSlug(nextDoc.meta.slug);
             setPendingHeading(target.headingSlug);
             setActiveHeading(target.headingSlug);
         };
-        window.addEventListener('hashchange', onHashChange);
-        return () => window.removeEventListener('hashchange', onHashChange);
+        window.addEventListener('hashchange', onLocationChange);
+        window.addEventListener('popstate', onLocationChange);
+        return () => {
+            window.removeEventListener('hashchange', onLocationChange);
+            window.removeEventListener('popstate', onLocationChange);
+        };
     }, []);
+
+    useEffect(() => {
+        applyDocSeo(activeDoc);
+    }, [activeDoc]);
 
     useEffect(() => {
         const scrollElement = scrollRef.current;
@@ -162,7 +171,7 @@ export default function DocsPage() {
                                         return (
                                             <li key={doc.meta.slug}>
                                                 <a
-                                                    href={buildDocsHash(doc.meta.slug)}
+                                                    href={buildDocsPath(doc.meta.slug)}
                                                     onClick={(event) => {
                                                         event.preventDefault();
                                                         navigate({ docSlug: doc.meta.slug });
@@ -227,7 +236,7 @@ export default function DocsPage() {
                             return (
                                 <a
                                     key={entry.id}
-                                    href={buildDocsHash(activeDoc.meta.slug, entry.id)}
+                                    href={buildDocsPath(activeDoc.meta.slug, entry.id)}
                                     onClick={(event) => {
                                         event.preventDefault();
                                         navigate({

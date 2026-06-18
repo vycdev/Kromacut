@@ -37,6 +37,8 @@ export interface ThreeDControlsStateShape {
     allowRepeatedSwaps?: boolean;
     heightDithering?: boolean;
     ditherLineWidth?: number;
+    /** Flat Paint: build a flat, face-down slab (auto-paint only) */
+    flatPaint?: boolean;
     // Optimizer options
     optimizerAlgorithm?: 'exhaustive' | 'simulated-annealing' | 'genetic' | 'auto';
     optimizerSeed?: number;

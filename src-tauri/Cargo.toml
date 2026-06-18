@@ -1,6 +1,6 @@
 [package]
 name = "kromacut"
-version = "3.0.0"
+version = "3.1.0"
 description = "Kromacut - Multi-color lithophane 3D print generator"
 authors = ["vycdev"]
 license = "AGPL-3.0-only"

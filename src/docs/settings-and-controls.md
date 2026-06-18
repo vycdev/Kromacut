@@ -18,15 +18,19 @@ This page collects controls that affect the whole app or are easy to miss.
 | Discord      | Opens the community link.                                 |
 | GitHub       | Opens the project page.                                   |
 | Support me   | Opens the support link.                                   |
-| Theme button | Switches between dark and light mode.                     |
+| Settings     | Opens the settings dialog, including theme and desktop update controls. |
 
-The theme choice is saved for later sessions.
+The theme selector offers **System**, **Dark**, and **Light**. **System** follows the operating system or browser color-scheme preference and updates when that preference changes. The theme choice is saved for later sessions.
+
+The settings dialog also shows the current Kromacut version.
 
 ## Workspace Modes
 
 Use the **2D** and **3D** buttons to switch between image preparation and model generation.
 
 The vertical splitter between the controls panel and preview can be dragged. Make the left panel wider when working with detailed settings, or make the preview wider when inspecting the image or model.
+
+Documentation pages use shareable `/docs/...` links. Opening one of those links takes you directly to the matching guide.
 
 ## Saved Print Settings
 
@@ -43,6 +47,7 @@ Auto-paint settings are preserved across sessions, including:
 - Enhanced color matching.
 - Repeated swaps.
 - Height dithering and line width.
+- Flat Paint.
 - Optimizer algorithm and seed.
 - Region priority.
 
@@ -63,5 +68,7 @@ Use profile import and export to move calibrated filaments between browsers or s
 ## Desktop Update Notices
 
 In the desktop app, Kromacut can show an update notice when a newer version is available. The notice lets you open the download page or dismiss the reminder.
+
+Open **Settings** to check for updates manually. The desktop settings also include **Check on startup**, which controls whether Kromacut checks for updates when the app opens. This is enabled by default, and manual checks still work when it is off.
 
 Next: [Troubleshooting](troubleshooting).

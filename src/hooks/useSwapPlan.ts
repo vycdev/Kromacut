@@ -15,6 +15,8 @@ export interface UseSwapPlanOptions {
     paintMode: 'manual' | 'autopaint';
     autoPaintResult?: AutoPaintResult;
     disabled?: boolean;
+    /** Flat Paint prints have no manual swap sequence (multi-material per layer) */
+    flatPaint?: boolean;
 }
 
 export function useSwapPlan({
@@ -26,9 +28,10 @@ export function useSwapPlan({
     paintMode,
     autoPaintResult,
     disabled = false,
+    flatPaint = false,
 }: UseSwapPlanOptions) {
     const swapPlan = useMemo(() => {
-        if (disabled) {
+        if (disabled || flatPaint) {
             return [] as SwapEntry[];
         }
 
@@ -110,17 +113,43 @@ export function useSwapPlan({
         paintMode,
         autoPaintResult,
         disabled,
+        flatPaint,
     ]);
 
     // Build a plain-text representation of the instructions for copying
     const buildInstructionsText = () => {
         const lines: string[] = [];
+        const appendFooter = () => {
+            lines.push('');
+            lines.push('Notes: Heights are approximate. Confirm in slicer before printing.');
+            lines.push('');
+            lines.push('---------------------');
+            lines.push('Made with Kromacut by vycdev!');
+        };
+
         lines.push('3D Print Instructions');
         lines.push('---------------------');
         lines.push(`Layer height: ${layerHeight.toFixed(3)} mm`);
         lines.push(`First layer height: ${slicerFirstLayerHeight.toFixed(3)} mm`);
         lines.push('Recommended: Layer loops: 1; Infill: 100%');
         lines.push('');
+
+        if (flatPaint) {
+            lines.push('Flat Paint mode (flat face-down print):');
+            lines.push('- Export as 3MF: the model contains one object per filament.');
+            lines.push(
+                '- Assign each object to its filament in the slicer (multi-material printer required).'
+            );
+            lines.push(
+                '- Use clear/transparent filament for the carrier object — it is the first printed layer and becomes the smooth viewing face.'
+            );
+            lines.push(
+                '- Print as-is: the artwork is already mirrored for face-down printing. Do not mirror in the slicer.'
+            );
+            lines.push('- After printing, flip the piece over: the image side is the bottom.');
+            appendFooter();
+            return lines.join('\n');
+        }
 
         if (swapPlan.length) {
             const first = swapPlan[0];
@@ -146,11 +175,7 @@ export function useSwapPlan({
                 idx++;
             }
         }
-        lines.push('');
-        lines.push('Notes: Heights are approximate. Confirm in slicer before printing.');
-        lines.push('');
-        lines.push('---------------------');
-        lines.push('Made with Kromacut by vycdev!');
+        appendFooter();
         return lines.join('\n');
     };
 

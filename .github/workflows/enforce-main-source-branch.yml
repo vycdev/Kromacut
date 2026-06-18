@@ -1,0 +1,25 @@
+name: Enforce main source branch
+
+on:
+    pull_request:
+        branches:
+            - main
+        types:
+            - opened
+            - reopened
+            - synchronize
+            - edited
+            - ready_for_review
+
+permissions: {}
+
+jobs:
+    require_develop_into_main:
+        name: Require develop into main
+        runs-on: ubuntu-latest
+        steps:
+            - name: Only allow develop into main
+              if: ${{ github.head_ref != 'develop' || github.event.pull_request.head.repo.full_name != github.repository }}
+              run: |
+                  echo "Pull requests into main must come from the develop branch in this repository."
+                  exit 1
