@@ -184,7 +184,7 @@ Goal: pin current behavior and make quality measurable before changing anything.
       deliberately** in Phases 3/4 — their job is making behavior changes visible,
       not frozen.
 - [x] **0.3 Determinism tests**: per algorithm, same seed twice → deep-equal result.
-- [ ] **0.4 Benchmark harness** (`tests/benchmark/autoPaintBench.ts`, runnable via a
+- [x] **0.4 Benchmark harness** (`tests/benchmark/autoPaintBench.ts`, runnable via a
   package script, not part of CI gating initially). Per image × profile × algorithm ×
   seed, emit JSON with:
   - Weighted mean ΔE (report **both** CIE76 and CIEDE2000) from clustered targets to
@@ -198,7 +198,7 @@ Goal: pin current behavior and make quality measurable before changing anything.
     compression ratio under a fixed `maxHeight` scenario.
   - Cost: wall time, evaluations, iterations.
   - Stability: cross-seed rank agreement for SA/GA.
-- [ ] **0.5 Acceptance rule for later phases** (documented in the harness README):
+- [x] **0.5 Acceptance rule for later phases** (documented in the harness README):
       end-to-end realized ΔE improves on average across fixtures and regresses on no
       fixture beyond tolerance (suggest 5%), within cost budgets (≤2 s for 8 filaments).
 

@@ -9,6 +9,7 @@
         "build": "tsc -b && vite build && node scripts/generate-docs-seo-pages.mjs",
         "test": "node --no-warnings --experimental-strip-types tests/run-tests.ts",
         "test:autopaint:update": "node --no-warnings --experimental-strip-types scripts/generate-auto-paint-goldens.ts",
+        "benchmark:autopaint": "node --no-warnings --experimental-strip-types tests/benchmark/autoPaintBench.ts",
         "test:e2e": "playwright test --grep @smoke",
         "test:e2e:matrix": "playwright test --grep @matrix",
         "test:e2e:stress": "playwright test --grep @stress",
