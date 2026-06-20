@@ -1,0 +1,1218 @@
+{
+  "B&W / logo-png / enhanced=false / repeats=false": {
+    "filamentOrder": [
+      "plvjtmc",
+      "p9c63ms"
+    ],
+    "transitionZones": [
+      {
+        "filamentId": "plvjtmc",
+        "startHeight": 0,
+        "endHeight": 0.16,
+        "idealThickness": 0.16,
+        "actualThickness": 0.16
+      },
+      {
+        "filamentId": "p9c63ms",
+        "startHeight": 0.16,
+        "endHeight": 0.5800000000000001,
+        "idealThickness": 0.42000000000000004,
+        "actualThickness": 0.42000000000000004
+      }
+    ],
+    "totalHeight": 0.5800000000000001,
+    "compressionRatio": 1
+  },
+  "B&W / logo-png / enhanced=false / repeats=true": {
+    "filamentOrder": [
+      "plvjtmc",
+      "p9c63ms"
+    ],
+    "transitionZones": [
+      {
+        "filamentId": "plvjtmc",
+        "startHeight": 0,
+        "endHeight": 0.16,
+        "idealThickness": 0.16,
+        "actualThickness": 0.16
+      },
+      {
+        "filamentId": "p9c63ms",
+        "startHeight": 0.16,
+        "endHeight": 0.5800000000000001,
+        "idealThickness": 0.42000000000000004,
+        "actualThickness": 0.42000000000000004
+      }
+    ],
+    "totalHeight": 0.5800000000000001,
+    "compressionRatio": 1
+  },
+  "B&W / logo-png / enhanced=true / repeats=false": {
+    "filamentOrder": [
+      "p9c63ms",
+      "plvjtmc"
+    ],
+    "transitionZones": [
+      {
+        "filamentId": "p9c63ms",
+        "startHeight": 0,
+        "endHeight": 0.7800000000000001,
+        "idealThickness": 0.7800000000000001,
+        "actualThickness": 0.7800000000000001
+      },
+      {
+        "filamentId": "plvjtmc",
+        "startHeight": 0.7800000000000001,
+        "endHeight": 0.8600000000000001,
+        "idealThickness": 0.08,
+        "actualThickness": 0.08
+      }
+    ],
+    "totalHeight": 0.8600000000000001,
+    "compressionRatio": 1
+  },
+  "B&W / logo-png / enhanced=true / repeats=true": {
+    "filamentOrder": [
+      "p9c63ms",
+      "plvjtmc",
+      "p9c63ms"
+    ],
+    "transitionZones": [
+      {
+        "filamentId": "p9c63ms",
+        "startHeight": 0,
+        "endHeight": 0.7800000000000001,
+        "idealThickness": 0.7800000000000001,
+        "actualThickness": 0.7800000000000001
+      },
+      {
+        "filamentId": "plvjtmc",
+        "startHeight": 0.7800000000000001,
+        "endHeight": 0.8600000000000001,
+        "idealThickness": 0.08,
+        "actualThickness": 0.08
+      },
+      {
+        "filamentId": "p9c63ms",
+        "startHeight": 0.8600000000000001,
+        "endHeight": 1.2800000000000002,
+        "idealThickness": 0.42000000000000004,
+        "actualThickness": 0.42000000000000004
+      }
+    ],
+    "totalHeight": 1.2800000000000002,
+    "compressionRatio": 1
+  },
+  "B&W / large-jpeg / enhanced=false / repeats=false": {
+    "filamentOrder": [
+      "plvjtmc",
+      "p9c63ms"
+    ],
+    "transitionZones": [
+      {
+        "filamentId": "plvjtmc",
+        "startHeight": 0,
+        "endHeight": 0.16,
+        "idealThickness": 0.16,
+        "actualThickness": 0.16
+      },
+      {
+        "filamentId": "p9c63ms",
+        "startHeight": 0.16,
+        "endHeight": 0.5800000000000001,
+        "idealThickness": 0.42000000000000004,
+        "actualThickness": 0.42000000000000004
+      }
+    ],
+    "totalHeight": 0.5800000000000001,
+    "compressionRatio": 1
+  },
+  "B&W / large-jpeg / enhanced=false / repeats=true": {
+    "filamentOrder": [
+      "plvjtmc",
+      "p9c63ms"
+    ],
+    "transitionZones": [
+      {
+        "filamentId": "plvjtmc",
+        "startHeight": 0,
+        "endHeight": 0.16,
+        "idealThickness": 0.16,
+        "actualThickness": 0.16
+      },
+      {
+        "filamentId": "p9c63ms",
+        "startHeight": 0.16,
+        "endHeight": 0.5800000000000001,
+        "idealThickness": 0.42000000000000004,
+        "actualThickness": 0.42000000000000004
+      }
+    ],
+    "totalHeight": 0.5800000000000001,
+    "compressionRatio": 1
+  },
+  "B&W / large-jpeg / enhanced=true / repeats=false": {
+    "filamentOrder": [
+      "plvjtmc",
+      "p9c63ms"
+    ],
+    "transitionZones": [
+      {
+        "filamentId": "plvjtmc",
+        "startHeight": 0,
+        "endHeight": 0.16,
+        "idealThickness": 0.16,
+        "actualThickness": 0.16
+      },
+      {
+        "filamentId": "p9c63ms",
+        "startHeight": 0.16,
+        "endHeight": 0.5800000000000001,
+        "idealThickness": 0.42000000000000004,
+        "actualThickness": 0.42000000000000004
+      }
+    ],
+    "totalHeight": 0.5800000000000001,
+    "compressionRatio": 1
+  },
+  "B&W / large-jpeg / enhanced=true / repeats=true": {
+    "filamentOrder": [
+      "plvjtmc",
+      "p9c63ms"
+    ],
+    "transitionZones": [
+      {
+        "filamentId": "plvjtmc",
+        "startHeight": 0,
+        "endHeight": 0.16,
+        "idealThickness": 0.16,
+        "actualThickness": 0.16
+      },
+      {
+        "filamentId": "p9c63ms",
+        "startHeight": 0.16,
+        "endHeight": 0.5800000000000001,
+        "idealThickness": 0.42000000000000004,
+        "actualThickness": 0.42000000000000004
+      }
+    ],
+    "totalHeight": 0.5800000000000001,
+    "compressionRatio": 1
+  },
+  "GH#27 / logo-png / enhanced=false / repeats=false": {
+    "filamentOrder": [
+      "plvjtmc",
+      "h8zuocq",
+      "xud8mzr",
+      "y202l1e"
+    ],
+    "transitionZones": [
+      {
+        "filamentId": "plvjtmc",
+        "startHeight": 0,
+        "endHeight": 0.16,
+        "idealThickness": 0.16,
+        "actualThickness": 0.16
+      },
+      {
+        "filamentId": "h8zuocq",
+        "startHeight": 0.16,
+        "endHeight": 0.405,
+        "idealThickness": 0.245,
+        "actualThickness": 0.245
+      },
+      {
+        "filamentId": "xud8mzr",
+        "startHeight": 0.405,
+        "endHeight": 0.645,
+        "idealThickness": 0.24,
+        "actualThickness": 0.24
+      },
+      {
+        "filamentId": "y202l1e",
+        "startHeight": 0.645,
+        "endHeight": 0.974,
+        "idealThickness": 0.329,
+        "actualThickness": 0.329
+      }
+    ],
+    "totalHeight": 0.974,
+    "compressionRatio": 1
+  },
+  "GH#27 / logo-png / enhanced=false / repeats=true": {
+    "filamentOrder": [
+      "plvjtmc",
+      "h8zuocq",
+      "xud8mzr",
+      "y202l1e"
+    ],
+    "transitionZones": [
+      {
+        "filamentId": "plvjtmc",
+        "startHeight": 0,
+        "endHeight": 0.16,
+        "idealThickness": 0.16,
+        "actualThickness": 0.16
+      },
+      {
+        "filamentId": "h8zuocq",
+        "startHeight": 0.16,
+        "endHeight": 0.405,
+        "idealThickness": 0.245,
+        "actualThickness": 0.245
+      },
+      {
+        "filamentId": "xud8mzr",
+        "startHeight": 0.405,
+        "endHeight": 0.645,
+        "idealThickness": 0.24,
+        "actualThickness": 0.24
+      },
+      {
+        "filamentId": "y202l1e",
+        "startHeight": 0.645,
+        "endHeight": 0.974,
+        "idealThickness": 0.329,
+        "actualThickness": 0.329
+      }
+    ],
+    "totalHeight": 0.974,
+    "compressionRatio": 1
+  },
+  "GH#27 / logo-png / enhanced=true / repeats=false": {
+    "filamentOrder": [
+      "h8zuocq",
+      "xud8mzr",
+      "plvjtmc",
+      "y202l1e"
+    ],
+    "transitionZones": [
+      {
+        "filamentId": "h8zuocq",
+        "startHeight": 0,
+        "endHeight": 0.45500000000000007,
+        "idealThickness": 0.45500000000000007,
+        "actualThickness": 0.45500000000000007
+      },
+      {
+        "filamentId": "xud8mzr",
+        "startHeight": 0.45500000000000007,
+        "endHeight": 0.6950000000000001,
+        "idealThickness": 0.24,
+        "actualThickness": 0.24
+      },
+      {
+        "filamentId": "plvjtmc",
+        "startHeight": 0.6950000000000001,
+        "endHeight": 0.775,
+        "idealThickness": 0.08,
+        "actualThickness": 0.08
+      },
+      {
+        "filamentId": "y202l1e",
+        "startHeight": 0.775,
+        "endHeight": 1.104,
+        "idealThickness": 0.329,
+        "actualThickness": 0.329
+      }
+    ],
+    "totalHeight": 1.104,
+    "compressionRatio": 1
+  },
+  "GH#27 / logo-png / enhanced=true / repeats=true": {
+    "filamentOrder": [
+      "h8zuocq",
+      "xud8mzr",
+      "h8zuocq",
+      "y202l1e",
+      "plvjtmc",
+      "y202l1e",
+      "plvjtmc"
+    ],
+    "transitionZones": [
+      {
+        "filamentId": "h8zuocq",
+        "startHeight": 0,
+        "endHeight": 0.45500000000000007,
+        "idealThickness": 0.45500000000000007,
+        "actualThickness": 0.45500000000000007
+      },
+      {
+        "filamentId": "xud8mzr",
+        "startHeight": 0.45500000000000007,
+        "endHeight": 0.6950000000000001,
+        "idealThickness": 0.24,
+        "actualThickness": 0.24
+      },
+      {
+        "filamentId": "h8zuocq",
+        "startHeight": 0.6950000000000001,
+        "endHeight": 0.935,
+        "idealThickness": 0.24,
+        "actualThickness": 0.24
+      },
+      {
+        "filamentId": "y202l1e",
+        "startHeight": 0.935,
+        "endHeight": 1.264,
+        "idealThickness": 0.329,
+        "actualThickness": 0.329
+      },
+      {
+        "filamentId": "plvjtmc",
+        "startHeight": 1.264,
+        "endHeight": 1.344,
+        "idealThickness": 0.08,
+        "actualThickness": 0.08
+      },
+      {
+        "filamentId": "y202l1e",
+        "startHeight": 1.344,
+        "endHeight": 1.673,
+        "idealThickness": 0.329,
+        "actualThickness": 0.329
+      },
+      {
+        "filamentId": "plvjtmc",
+        "startHeight": 1.673,
+        "endHeight": 1.7530000000000001,
+        "idealThickness": 0.08,
+        "actualThickness": 0.08
+      }
+    ],
+    "totalHeight": 1.7530000000000001,
+    "compressionRatio": 1
+  },
+  "GH#27 / large-jpeg / enhanced=false / repeats=false": {
+    "filamentOrder": [
+      "plvjtmc",
+      "h8zuocq",
+      "xud8mzr",
+      "y202l1e"
+    ],
+    "transitionZones": [
+      {
+        "filamentId": "plvjtmc",
+        "startHeight": 0,
+        "endHeight": 0.16,
+        "idealThickness": 0.16,
+        "actualThickness": 0.16
+      },
+      {
+        "filamentId": "h8zuocq",
+        "startHeight": 0.16,
+        "endHeight": 0.405,
+        "idealThickness": 0.245,
+        "actualThickness": 0.245
+      },
+      {
+        "filamentId": "xud8mzr",
+        "startHeight": 0.405,
+        "endHeight": 0.645,
+        "idealThickness": 0.24,
+        "actualThickness": 0.24
+      },
+      {
+        "filamentId": "y202l1e",
+        "startHeight": 0.645,
+        "endHeight": 0.974,
+        "idealThickness": 0.329,
+        "actualThickness": 0.329
+      }
+    ],
+    "totalHeight": 0.974,
+    "compressionRatio": 1
+  },
+  "GH#27 / large-jpeg / enhanced=false / repeats=true": {
+    "filamentOrder": [
+      "plvjtmc",
+      "h8zuocq",
+      "xud8mzr",
+      "y202l1e"
+    ],
+    "transitionZones": [
+      {
+        "filamentId": "plvjtmc",
+        "startHeight": 0,
+        "endHeight": 0.16,
+        "idealThickness": 0.16,
+        "actualThickness": 0.16
+      },
+      {
+        "filamentId": "h8zuocq",
+        "startHeight": 0.16,
+        "endHeight": 0.405,
+        "idealThickness": 0.245,
+        "actualThickness": 0.245
+      },
+      {
+        "filamentId": "xud8mzr",
+        "startHeight": 0.405,
+        "endHeight": 0.645,
+        "idealThickness": 0.24,
+        "actualThickness": 0.24
+      },
+      {
+        "filamentId": "y202l1e",
+        "startHeight": 0.645,
+        "endHeight": 0.974,
+        "idealThickness": 0.329,
+        "actualThickness": 0.329
+      }
+    ],
+    "totalHeight": 0.974,
+    "compressionRatio": 1
+  },
+  "GH#27 / large-jpeg / enhanced=true / repeats=false": {
+    "filamentOrder": [
+      "xud8mzr",
+      "y202l1e",
+      "plvjtmc",
+      "h8zuocq"
+    ],
+    "transitionZones": [
+      {
+        "filamentId": "xud8mzr",
+        "startHeight": 0,
+        "endHeight": 0.4810000000000001,
+        "idealThickness": 0.4810000000000001,
+        "actualThickness": 0.4810000000000001
+      },
+      {
+        "filamentId": "y202l1e",
+        "startHeight": 0.4810000000000001,
+        "endHeight": 0.81,
+        "idealThickness": 0.329,
+        "actualThickness": 0.329
+      },
+      {
+        "filamentId": "plvjtmc",
+        "startHeight": 0.81,
+        "endHeight": 0.89,
+        "idealThickness": 0.08,
+        "actualThickness": 0.08
+      },
+      {
+        "filamentId": "h8zuocq",
+        "startHeight": 0.89,
+        "endHeight": 1.135,
+        "idealThickness": 0.245,
+        "actualThickness": 0.245
+      }
+    ],
+    "totalHeight": 1.135,
+    "compressionRatio": 1
+  },
+  "GH#27 / large-jpeg / enhanced=true / repeats=true": {
+    "filamentOrder": [
+      "xud8mzr",
+      "plvjtmc",
+      "xud8mzr",
+      "plvjtmc",
+      "y202l1e",
+      "xud8mzr",
+      "plvjtmc",
+      "h8zuocq"
+    ],
+    "transitionZones": [
+      {
+        "filamentId": "xud8mzr",
+        "startHeight": 0,
+        "endHeight": 0.4810000000000001,
+        "idealThickness": 0.4810000000000001,
+        "actualThickness": 0.4810000000000001
+      },
+      {
+        "filamentId": "plvjtmc",
+        "startHeight": 0.4810000000000001,
+        "endHeight": 0.561,
+        "idealThickness": 0.08,
+        "actualThickness": 0.08
+      },
+      {
+        "filamentId": "xud8mzr",
+        "startHeight": 0.561,
+        "endHeight": 0.8200000000000001,
+        "idealThickness": 0.259,
+        "actualThickness": 0.259
+      },
+      {
+        "filamentId": "plvjtmc",
+        "startHeight": 0.8200000000000001,
+        "endHeight": 0.9,
+        "idealThickness": 0.08,
+        "actualThickness": 0.08
+      },
+      {
+        "filamentId": "y202l1e",
+        "startHeight": 0.9,
+        "endHeight": 1.229,
+        "idealThickness": 0.329,
+        "actualThickness": 0.329
+      },
+      {
+        "filamentId": "xud8mzr",
+        "startHeight": 1.229,
+        "endHeight": 1.488,
+        "idealThickness": 0.259,
+        "actualThickness": 0.259
+      },
+      {
+        "filamentId": "plvjtmc",
+        "startHeight": 1.488,
+        "endHeight": 1.568,
+        "idealThickness": 0.08,
+        "actualThickness": 0.08
+      },
+      {
+        "filamentId": "h8zuocq",
+        "startHeight": 1.568,
+        "endHeight": 1.8130000000000002,
+        "idealThickness": 0.245,
+        "actualThickness": 0.245
+      }
+    ],
+    "totalHeight": 1.8130000000000002,
+    "compressionRatio": 1
+  },
+  "Current 8 Colors / logo-png / enhanced=false / repeats=false": {
+    "filamentOrder": [
+      "plvjtmc",
+      "azwg1yp",
+      "vsn9q6u",
+      "98z555k",
+      "upcjpfe",
+      "xyyxysq",
+      "w8cncoa",
+      "p9c63ms"
+    ],
+    "transitionZones": [
+      {
+        "filamentId": "plvjtmc",
+        "startHeight": 0,
+        "endHeight": 0.16,
+        "idealThickness": 0.16,
+        "actualThickness": 0.16
+      },
+      {
+        "filamentId": "azwg1yp",
+        "startHeight": 0.16,
+        "endHeight": 0.356,
+        "idealThickness": 0.19599999999999998,
+        "actualThickness": 0.19599999999999998
+      },
+      {
+        "filamentId": "vsn9q6u",
+        "startHeight": 0.356,
+        "endHeight": 0.6219999999999999,
+        "idealThickness": 0.26599999999999996,
+        "actualThickness": 0.26599999999999996
+      },
+      {
+        "filamentId": "98z555k",
+        "startHeight": 0.6219999999999999,
+        "endHeight": 0.8949999999999998,
+        "idealThickness": 0.27299999999999996,
+        "actualThickness": 0.27299999999999996
+      },
+      {
+        "filamentId": "upcjpfe",
+        "startHeight": 0.8949999999999998,
+        "endHeight": 1.2379999999999998,
+        "idealThickness": 0.343,
+        "actualThickness": 0.343
+      },
+      {
+        "filamentId": "xyyxysq",
+        "startHeight": 1.2379999999999998,
+        "endHeight": 1.5949999999999998,
+        "idealThickness": 0.357,
+        "actualThickness": 0.357
+      },
+      {
+        "filamentId": "w8cncoa",
+        "startHeight": 1.5949999999999998,
+        "endHeight": 2.0359999999999996,
+        "idealThickness": 0.44099999999999995,
+        "actualThickness": 0.44099999999999995
+      },
+      {
+        "filamentId": "p9c63ms",
+        "startHeight": 2.0359999999999996,
+        "endHeight": 2.4559999999999995,
+        "idealThickness": 0.42000000000000004,
+        "actualThickness": 0.42000000000000004
+      }
+    ],
+    "totalHeight": 2.4559999999999995,
+    "compressionRatio": 1
+  },
+  "Current 8 Colors / logo-png / enhanced=false / repeats=true": {
+    "filamentOrder": [
+      "plvjtmc",
+      "azwg1yp",
+      "vsn9q6u",
+      "98z555k",
+      "upcjpfe",
+      "xyyxysq",
+      "w8cncoa",
+      "p9c63ms"
+    ],
+    "transitionZones": [
+      {
+        "filamentId": "plvjtmc",
+        "startHeight": 0,
+        "endHeight": 0.16,
+        "idealThickness": 0.16,
+        "actualThickness": 0.16
+      },
+      {
+        "filamentId": "azwg1yp",
+        "startHeight": 0.16,
+        "endHeight": 0.356,
+        "idealThickness": 0.19599999999999998,
+        "actualThickness": 0.19599999999999998
+      },
+      {
+        "filamentId": "vsn9q6u",
+        "startHeight": 0.356,
+        "endHeight": 0.6219999999999999,
+        "idealThickness": 0.26599999999999996,
+        "actualThickness": 0.26599999999999996
+      },
+      {
+        "filamentId": "98z555k",
+        "startHeight": 0.6219999999999999,
+        "endHeight": 0.8949999999999998,
+        "idealThickness": 0.27299999999999996,
+        "actualThickness": 0.27299999999999996
+      },
+      {
+        "filamentId": "upcjpfe",
+        "startHeight": 0.8949999999999998,
+        "endHeight": 1.2379999999999998,
+        "idealThickness": 0.343,
+        "actualThickness": 0.343
+      },
+      {
+        "filamentId": "xyyxysq",
+        "startHeight": 1.2379999999999998,
+        "endHeight": 1.5949999999999998,
+        "idealThickness": 0.357,
+        "actualThickness": 0.357
+      },
+      {
+        "filamentId": "w8cncoa",
+        "startHeight": 1.5949999999999998,
+        "endHeight": 2.0359999999999996,
+        "idealThickness": 0.44099999999999995,
+        "actualThickness": 0.44099999999999995
+      },
+      {
+        "filamentId": "p9c63ms",
+        "startHeight": 2.0359999999999996,
+        "endHeight": 2.4559999999999995,
+        "idealThickness": 0.42000000000000004,
+        "actualThickness": 0.42000000000000004
+      }
+    ],
+    "totalHeight": 2.4559999999999995,
+    "compressionRatio": 1
+  },
+  "Current 8 Colors / logo-png / enhanced=true / repeats=false": {
+    "filamentOrder": [
+      "p9c63ms",
+      "plvjtmc",
+      "upcjpfe",
+      "azwg1yp",
+      "98z555k",
+      "xyyxysq",
+      "w8cncoa",
+      "vsn9q6u"
+    ],
+    "transitionZones": [
+      {
+        "filamentId": "p9c63ms",
+        "startHeight": 0,
+        "endHeight": 0.7800000000000001,
+        "idealThickness": 0.7800000000000001,
+        "actualThickness": 0.7800000000000001
+      },
+      {
+        "filamentId": "plvjtmc",
+        "startHeight": 0.7800000000000001,
+        "endHeight": 0.8600000000000001,
+        "idealThickness": 0.08,
+        "actualThickness": 0.08
+      },
+      {
+        "filamentId": "upcjpfe",
+        "startHeight": 0.8600000000000001,
+        "endHeight": 1.203,
+        "idealThickness": 0.343,
+        "actualThickness": 0.343
+      },
+      {
+        "filamentId": "azwg1yp",
+        "startHeight": 1.203,
+        "endHeight": 1.399,
+        "idealThickness": 0.19599999999999998,
+        "actualThickness": 0.19599999999999998
+      },
+      {
+        "filamentId": "98z555k",
+        "startHeight": 1.399,
+        "endHeight": 1.672,
+        "idealThickness": 0.27299999999999996,
+        "actualThickness": 0.27299999999999996
+      },
+      {
+        "filamentId": "xyyxysq",
+        "startHeight": 1.672,
+        "endHeight": 2.029,
+        "idealThickness": 0.357,
+        "actualThickness": 0.357
+      },
+      {
+        "filamentId": "w8cncoa",
+        "startHeight": 2.029,
+        "endHeight": 2.4699999999999998,
+        "idealThickness": 0.44099999999999995,
+        "actualThickness": 0.44099999999999995
+      },
+      {
+        "filamentId": "vsn9q6u",
+        "startHeight": 2.4699999999999998,
+        "endHeight": 2.7359999999999998,
+        "idealThickness": 0.26599999999999996,
+        "actualThickness": 0.26599999999999996
+      }
+    ],
+    "totalHeight": 2.7359999999999998,
+    "compressionRatio": 1
+  },
+  "Current 8 Colors / logo-png / enhanced=true / repeats=true": {
+    "filamentOrder": [
+      "vsn9q6u",
+      "98z555k",
+      "vsn9q6u",
+      "azwg1yp",
+      "xyyxysq",
+      "w8cncoa",
+      "upcjpfe",
+      "azwg1yp",
+      "p9c63ms",
+      "plvjtmc",
+      "azwg1yp",
+      "w8cncoa"
+    ],
+    "transitionZones": [
+      {
+        "filamentId": "vsn9q6u",
+        "startHeight": 0,
+        "endHeight": 0.49400000000000005,
+        "idealThickness": 0.49400000000000005,
+        "actualThickness": 0.49400000000000005
+      },
+      {
+        "filamentId": "98z555k",
+        "startHeight": 0.49400000000000005,
+        "endHeight": 0.767,
+        "idealThickness": 0.27299999999999996,
+        "actualThickness": 0.27299999999999996
+      },
+      {
+        "filamentId": "vsn9q6u",
+        "startHeight": 0.767,
+        "endHeight": 1.033,
+        "idealThickness": 0.26599999999999996,
+        "actualThickness": 0.26599999999999996
+      },
+      {
+        "filamentId": "azwg1yp",
+        "startHeight": 1.033,
+        "endHeight": 1.2289999999999999,
+        "idealThickness": 0.19599999999999998,
+        "actualThickness": 0.19599999999999998
+      },
+      {
+        "filamentId": "xyyxysq",
+        "startHeight": 1.2289999999999999,
+        "endHeight": 1.5859999999999999,
+        "idealThickness": 0.357,
+        "actualThickness": 0.357
+      },
+      {
+        "filamentId": "w8cncoa",
+        "startHeight": 1.5859999999999999,
+        "endHeight": 2.0269999999999997,
+        "idealThickness": 0.44099999999999995,
+        "actualThickness": 0.44099999999999995
+      },
+      {
+        "filamentId": "upcjpfe",
+        "startHeight": 2.0269999999999997,
+        "endHeight": 2.3699999999999997,
+        "idealThickness": 0.343,
+        "actualThickness": 0.343
+      },
+      {
+        "filamentId": "azwg1yp",
+        "startHeight": 2.3699999999999997,
+        "endHeight": 2.566,
+        "idealThickness": 0.19599999999999998,
+        "actualThickness": 0.19599999999999998
+      },
+      {
+        "filamentId": "p9c63ms",
+        "startHeight": 2.566,
+        "endHeight": 2.9859999999999998,
+        "idealThickness": 0.42000000000000004,
+        "actualThickness": 0.42000000000000004
+      },
+      {
+        "filamentId": "plvjtmc",
+        "startHeight": 2.9859999999999998,
+        "endHeight": 3.066,
+        "idealThickness": 0.08,
+        "actualThickness": 0.08
+      },
+      {
+        "filamentId": "azwg1yp",
+        "startHeight": 3.066,
+        "endHeight": 3.262,
+        "idealThickness": 0.19599999999999998,
+        "actualThickness": 0.19599999999999998
+      },
+      {
+        "filamentId": "w8cncoa",
+        "startHeight": 3.262,
+        "endHeight": 3.703,
+        "idealThickness": 0.44099999999999995,
+        "actualThickness": 0.44099999999999995
+      }
+    ],
+    "totalHeight": 3.703,
+    "compressionRatio": 1
+  },
+  "Current 8 Colors / large-jpeg / enhanced=false / repeats=false": {
+    "filamentOrder": [
+      "plvjtmc",
+      "azwg1yp",
+      "vsn9q6u",
+      "98z555k",
+      "upcjpfe",
+      "xyyxysq",
+      "w8cncoa",
+      "p9c63ms"
+    ],
+    "transitionZones": [
+      {
+        "filamentId": "plvjtmc",
+        "startHeight": 0,
+        "endHeight": 0.16,
+        "idealThickness": 0.16,
+        "actualThickness": 0.16
+      },
+      {
+        "filamentId": "azwg1yp",
+        "startHeight": 0.16,
+        "endHeight": 0.356,
+        "idealThickness": 0.19599999999999998,
+        "actualThickness": 0.19599999999999998
+      },
+      {
+        "filamentId": "vsn9q6u",
+        "startHeight": 0.356,
+        "endHeight": 0.6219999999999999,
+        "idealThickness": 0.26599999999999996,
+        "actualThickness": 0.26599999999999996
+      },
+      {
+        "filamentId": "98z555k",
+        "startHeight": 0.6219999999999999,
+        "endHeight": 0.8949999999999998,
+        "idealThickness": 0.27299999999999996,
+        "actualThickness": 0.27299999999999996
+      },
+      {
+        "filamentId": "upcjpfe",
+        "startHeight": 0.8949999999999998,
+        "endHeight": 1.2379999999999998,
+        "idealThickness": 0.343,
+        "actualThickness": 0.343
+      },
+      {
+        "filamentId": "xyyxysq",
+        "startHeight": 1.2379999999999998,
+        "endHeight": 1.5949999999999998,
+        "idealThickness": 0.357,
+        "actualThickness": 0.357
+      },
+      {
+        "filamentId": "w8cncoa",
+        "startHeight": 1.5949999999999998,
+        "endHeight": 2.0359999999999996,
+        "idealThickness": 0.44099999999999995,
+        "actualThickness": 0.44099999999999995
+      },
+      {
+        "filamentId": "p9c63ms",
+        "startHeight": 2.0359999999999996,
+        "endHeight": 2.4559999999999995,
+        "idealThickness": 0.42000000000000004,
+        "actualThickness": 0.42000000000000004
+      }
+    ],
+    "totalHeight": 2.4559999999999995,
+    "compressionRatio": 1
+  },
+  "Current 8 Colors / large-jpeg / enhanced=false / repeats=true": {
+    "filamentOrder": [
+      "plvjtmc",
+      "azwg1yp",
+      "vsn9q6u",
+      "98z555k",
+      "upcjpfe",
+      "xyyxysq",
+      "w8cncoa",
+      "p9c63ms"
+    ],
+    "transitionZones": [
+      {
+        "filamentId": "plvjtmc",
+        "startHeight": 0,
+        "endHeight": 0.16,
+        "idealThickness": 0.16,
+        "actualThickness": 0.16
+      },
+      {
+        "filamentId": "azwg1yp",
+        "startHeight": 0.16,
+        "endHeight": 0.356,
+        "idealThickness": 0.19599999999999998,
+        "actualThickness": 0.19599999999999998
+      },
+      {
+        "filamentId": "vsn9q6u",
+        "startHeight": 0.356,
+        "endHeight": 0.6219999999999999,
+        "idealThickness": 0.26599999999999996,
+        "actualThickness": 0.26599999999999996
+      },
+      {
+        "filamentId": "98z555k",
+        "startHeight": 0.6219999999999999,
+        "endHeight": 0.8949999999999998,
+        "idealThickness": 0.27299999999999996,
+        "actualThickness": 0.27299999999999996
+      },
+      {
+        "filamentId": "upcjpfe",
+        "startHeight": 0.8949999999999998,
+        "endHeight": 1.2379999999999998,
+        "idealThickness": 0.343,
+        "actualThickness": 0.343
+      },
+      {
+        "filamentId": "xyyxysq",
+        "startHeight": 1.2379999999999998,
+        "endHeight": 1.5949999999999998,
+        "idealThickness": 0.357,
+        "actualThickness": 0.357
+      },
+      {
+        "filamentId": "w8cncoa",
+        "startHeight": 1.5949999999999998,
+        "endHeight": 2.0359999999999996,
+        "idealThickness": 0.44099999999999995,
+        "actualThickness": 0.44099999999999995
+      },
+      {
+        "filamentId": "p9c63ms",
+        "startHeight": 2.0359999999999996,
+        "endHeight": 2.4559999999999995,
+        "idealThickness": 0.42000000000000004,
+        "actualThickness": 0.42000000000000004
+      }
+    ],
+    "totalHeight": 2.4559999999999995,
+    "compressionRatio": 1
+  },
+  "Current 8 Colors / large-jpeg / enhanced=true / repeats=false": {
+    "filamentOrder": [
+      "azwg1yp",
+      "98z555k",
+      "upcjpfe",
+      "xyyxysq",
+      "w8cncoa",
+      "vsn9q6u",
+      "plvjtmc",
+      "p9c63ms"
+    ],
+    "transitionZones": [
+      {
+        "filamentId": "azwg1yp",
+        "startHeight": 0,
+        "endHeight": 0.364,
+        "idealThickness": 0.364,
+        "actualThickness": 0.364
+      },
+      {
+        "filamentId": "98z555k",
+        "startHeight": 0.364,
+        "endHeight": 0.637,
+        "idealThickness": 0.27299999999999996,
+        "actualThickness": 0.27299999999999996
+      },
+      {
+        "filamentId": "upcjpfe",
+        "startHeight": 0.637,
+        "endHeight": 0.98,
+        "idealThickness": 0.343,
+        "actualThickness": 0.343
+      },
+      {
+        "filamentId": "xyyxysq",
+        "startHeight": 0.98,
+        "endHeight": 1.337,
+        "idealThickness": 0.357,
+        "actualThickness": 0.357
+      },
+      {
+        "filamentId": "w8cncoa",
+        "startHeight": 1.337,
+        "endHeight": 1.778,
+        "idealThickness": 0.44099999999999995,
+        "actualThickness": 0.44099999999999995
+      },
+      {
+        "filamentId": "vsn9q6u",
+        "startHeight": 1.778,
+        "endHeight": 2.044,
+        "idealThickness": 0.26599999999999996,
+        "actualThickness": 0.26599999999999996
+      },
+      {
+        "filamentId": "plvjtmc",
+        "startHeight": 2.044,
+        "endHeight": 2.124,
+        "idealThickness": 0.08,
+        "actualThickness": 0.08
+      },
+      {
+        "filamentId": "p9c63ms",
+        "startHeight": 2.124,
+        "endHeight": 2.544,
+        "idealThickness": 0.42000000000000004,
+        "actualThickness": 0.42000000000000004
+      }
+    ],
+    "totalHeight": 2.544,
+    "compressionRatio": 1
+  },
+  "Current 8 Colors / large-jpeg / enhanced=true / repeats=true": {
+    "filamentOrder": [
+      "azwg1yp",
+      "98z555k",
+      "plvjtmc",
+      "p9c63ms",
+      "w8cncoa",
+      "xyyxysq",
+      "vsn9q6u",
+      "upcjpfe",
+      "98z555k",
+      "upcjpfe",
+      "plvjtmc",
+      "w8cncoa"
+    ],
+    "transitionZones": [
+      {
+        "filamentId": "azwg1yp",
+        "startHeight": 0,
+        "endHeight": 0.364,
+        "idealThickness": 0.364,
+        "actualThickness": 0.364
+      },
+      {
+        "filamentId": "98z555k",
+        "startHeight": 0.364,
+        "endHeight": 0.637,
+        "idealThickness": 0.27299999999999996,
+        "actualThickness": 0.27299999999999996
+      },
+      {
+        "filamentId": "plvjtmc",
+        "startHeight": 0.637,
+        "endHeight": 0.717,
+        "idealThickness": 0.08,
+        "actualThickness": 0.08
+      },
+      {
+        "filamentId": "p9c63ms",
+        "startHeight": 0.717,
+        "endHeight": 1.137,
+        "idealThickness": 0.42000000000000004,
+        "actualThickness": 0.42000000000000004
+      },
+      {
+        "filamentId": "w8cncoa",
+        "startHeight": 1.137,
+        "endHeight": 1.5779999999999998,
+        "idealThickness": 0.44099999999999995,
+        "actualThickness": 0.44099999999999995
+      },
+      {
+        "filamentId": "xyyxysq",
+        "startHeight": 1.5779999999999998,
+        "endHeight": 1.9349999999999998,
+        "idealThickness": 0.357,
+        "actualThickness": 0.357
+      },
+      {
+        "filamentId": "vsn9q6u",
+        "startHeight": 1.9349999999999998,
+        "endHeight": 2.2009999999999996,
+        "idealThickness": 0.26599999999999996,
+        "actualThickness": 0.26599999999999996
+      },
+      {
+        "filamentId": "upcjpfe",
+        "startHeight": 2.2009999999999996,
+        "endHeight": 2.5439999999999996,
+        "idealThickness": 0.343,
+        "actualThickness": 0.343
+      },
+      {
+        "filamentId": "98z555k",
+        "startHeight": 2.5439999999999996,
+        "endHeight": 2.8169999999999997,
+        "idealThickness": 0.27299999999999996,
+        "actualThickness": 0.27299999999999996
+      },
+      {
+        "filamentId": "upcjpfe",
+        "startHeight": 2.8169999999999997,
+        "endHeight": 3.1599999999999997,
+        "idealThickness": 0.343,
+        "actualThickness": 0.343
+      },
+      {
+        "filamentId": "plvjtmc",
+        "startHeight": 3.1599999999999997,
+        "endHeight": 3.2399999999999998,
+        "idealThickness": 0.08,
+        "actualThickness": 0.08
+      },
+      {
+        "filamentId": "w8cncoa",
+        "startHeight": 3.2399999999999998,
+        "endHeight": 3.6809999999999996,
+        "idealThickness": 0.44099999999999995,
+        "actualThickness": 0.44099999999999995
+      }
+    ],
+    "totalHeight": 3.6809999999999996,
+    "compressionRatio": 1
+  }
+}

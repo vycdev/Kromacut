@@ -1513,7 +1513,7 @@ export function autoPaintToSliceHeights(
         currentZ += thickness;
         layerIndex++;
 
-        if (layerIndex > 500) {
+        if (layerIndex >= 500) {
             console.warn('autoPaintToSliceHeights: too many layers, stopping at 500');
             break;
         }
