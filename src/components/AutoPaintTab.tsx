@@ -353,7 +353,7 @@ export default function AutoPaintTab({
                         <input
                             ref={importInputRef}
                             type="file"
-                            accept=".kfil,.kapp,.json,.csv"
+                            accept=".kfil,.kapp,.json,.csv,.tsv"
                             data-testid="autopaint-profile-import-input"
                             className="hidden"
                             onChange={handleImportFile}

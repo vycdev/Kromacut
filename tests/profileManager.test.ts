@@ -112,6 +112,17 @@ Overture Basic\t#033877\tBlue\t3.5\t{c8518afd-068e-4a5c-90d2-9981d4d7edde}`;
     assert.equal(profiles[0].filaments[1].color, '#033877');
 });
 
+test('parseHueForgeCSV handles quoted fields containing newlines', () => {
+    const csv = `Brand,Color,Name,TD
+"Inland\nBasic",#bf9c81,"Light\nBrown",1.7`;
+    const [profile] = parseHueForgeCSV(csv)!;
+    const [f] = profile.filaments;
+    assert.equal(f.brand, 'Inland\nBasic');
+    assert.equal(f.name, 'Inland\nBasic-Light\nBrown-#BF9C81');
+    assert.equal(f.color, '#BF9C81');
+    assert.equal(f.td, 1.7);
+});
+
 test('parseHueForgeCSV TSV does not split on commas in values', () => {
     const tsv = `Brand\tColor\tName\tTD
 Inland, Basic\t#bf9c81\tLight Brown\t1.7`;

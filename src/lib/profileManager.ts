@@ -233,53 +233,65 @@ function detectDelimiter(headerLine: string): ',' | '\t' {
 }
 
 /**
- * Parse one CSV/TSV row into fields, handling RFC 4180 double-quoted fields
- * (commas and newlines inside quotes, "" as escaped quote).
+ * Parse a CSV/TSV string into rows of fields per RFC 4180: handles embedded
+ * commas, "" escaped quotes, and newlines inside quoted fields.
  */
-function parseRow(line: string, delimiter: ',' | '\t'): string[] {
-    const fields: string[] = [];
+function parseCSV(content: string, delimiter: ',' | '\t'): string[][] {
+    const rows: string[][] = [];
+    let fields: string[] = [];
+    let field = '';
     let pos = 0;
+    const len = content.length;
 
-    while (pos <= line.length) {
-        if (pos === line.length) {
-            // line ended with a delimiter — trailing empty field
-            fields.push('');
+    while (pos <= len) {
+        if (pos === len) {
+            fields.push(field);
+            if (fields.some((f) => f.trim())) rows.push(fields);
             break;
         }
 
-        if (line[pos] === '"') {
-            let field = '';
-            pos++; // skip opening quote
+        const ch = content[pos];
+
+        if (ch === '"') {
+            pos++;
             for (;;) {
-                if (pos >= line.length) break; // unclosed quote — accept what we have
-                if (line[pos] === '"') {
-                    if (pos + 1 < line.length && line[pos + 1] === '"') {
+                if (pos >= len) break; // unclosed quote at EOF — accept what we have
+                if (content[pos] === '"') {
+                    if (pos + 1 < len && content[pos + 1] === '"') {
                         field += '"';
-                        pos += 2; // escaped quote ""
+                        pos += 2;
                     } else {
                         pos++; // closing quote
                         break;
                     }
                 } else {
-                    field += line[pos++];
+                    field += content[pos++];
                 }
             }
+        } else if (ch === delimiter) {
             fields.push(field);
-            if (pos < line.length && line[pos] === delimiter) pos++;
-            if (pos === line.length) break; // last field, no trailing delimiter
+            field = '';
+            pos++;
+        } else if (ch === '\r') {
+            pos++;
+            if (pos < len && content[pos] === '\n') pos++;
+            fields.push(field);
+            field = '';
+            if (fields.some((f) => f.trim())) rows.push(fields);
+            fields = [];
+        } else if (ch === '\n') {
+            fields.push(field);
+            field = '';
+            if (fields.some((f) => f.trim())) rows.push(fields);
+            fields = [];
+            pos++;
         } else {
-            const end = line.indexOf(delimiter, pos);
-            if (end === -1) {
-                fields.push(line.slice(pos));
-                break;
-            }
-            fields.push(line.slice(pos, end));
-            pos = end + 1;
-            // if pos === line.length the loop continues and pushes trailing ''
+            field += ch;
+            pos++;
         }
     }
 
-    return fields;
+    return rows;
 }
 
 /**
@@ -289,18 +301,20 @@ function parseRow(line: string, delimiter: ',' | '\t'): string[] {
  * the header row. Column order is flexible. Required columns: Color (hex),
  * TD (float). Optional: Brand, Name, Uuid.
  *
- * Quoted fields with embedded commas are handled per RFC 4180 ("" escapes a
- * literal quote). Rows missing Color or TD are skipped.
+ * Quoted fields with embedded commas, newlines, and "" escaped quotes are
+ * supported per RFC 4180. Rows missing Color or TD are skipped.
  *
  * Returns null if the input has no header, no valid data rows, or cannot be
  * parsed.
  */
 export function parseHueForgeCSV(csv: string, profileName = 'HueForge Import'): AutoPaintProfile[] | null {
-    const lines = csv.split(/\r?\n/).filter((l) => l.trim());
-    if (lines.length < 2) return null;
+    const firstNewline = csv.indexOf('\n');
+    const headerLine = firstNewline >= 0 ? csv.slice(0, firstNewline) : csv;
+    const delimiter = detectDelimiter(headerLine);
+    const rows = parseCSV(csv, delimiter);
+    if (rows.length < 2) return null;
 
-    const delimiter = detectDelimiter(lines[0]);
-    const headers = parseRow(lines[0], delimiter).map((h) => h.trim());
+    const headers = rows[0].map((h) => h.trim());
 
     const col = (row: string[], name: string) => {
         const i = headers.indexOf(name);
@@ -308,8 +322,7 @@ export function parseHueForgeCSV(csv: string, profileName = 'HueForge Import'): 
     };
 
     const filaments: import('../types').Filament[] = [];
-    for (const line of lines.slice(1)) {
-        const row = parseRow(line, delimiter);
+    for (const row of rows.slice(1)) {
         const colorRaw = col(row, 'Color');
         const color = normalizeHexColor(colorRaw, '');
         const tdRaw = col(row, 'TD');

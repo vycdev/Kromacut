@@ -72,7 +72,7 @@ Use the **upload icon** in the Auto-paint profile toolbar to import a file. Use 
 | Kromacut profile | `.kfil` | Native format. Supports single profiles and arrays of profiles in one file. |
 | Legacy Kromacut profile | `.kapp` | Older native format, still fully supported on import. |
 | Raw JSON | `.json` | Accepted if the file contains a profile object or an array of profile objects. |
-| HueForge spool CSV | `.csv` | See below. |
+| HueForge spool CSV/TSV | `.csv`, `.tsv` | See below. |
 
 ### Duplicate handling
 
@@ -86,7 +86,7 @@ A short summary of how many profiles were imported, overwritten, skipped, or ren
 
 ### Importing from HueForge
 
-HueForge spool library exports (`.csv`) can be imported directly. Use **Export Spools** in HueForge to save a CSV, then click the upload icon in the Auto-paint filament profile toolbar and select the file. Each spool becomes a filament entry named `<Brand>-<Color Name>-<Hex>`, for example `Inland Basic-Light Brown-#bf9c81`. HueForge UUIDs are preserved as filament IDs so re-importing the same library does not create duplicates.
+HueForge spool library exports (`.csv` or `.tsv`) can be imported directly. Use **Export Spools** in HueForge to save a CSV, then click the upload icon in the Auto-paint filament profile toolbar and select the file. The delimiter (comma or tab) is detected automatically from the header row. Each spool becomes a filament entry named `<Brand>-<Color Name>-<Hex>`, for example `Inland Basic-Light Brown-#bf9c81`. HueForge UUIDs are preserved as filament IDs so re-importing the same library does not create duplicates.
 
 ## Desktop Update Notices
 
