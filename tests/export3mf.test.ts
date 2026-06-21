@@ -1406,6 +1406,31 @@ test('3MF export keeps generated meshes as separate layer objects', async () => 
     );
 });
 
+test('3MF export does not require FileReader to read generated model XML', async () => {
+    const { exportObjectTo3MFBlob } = await loadExport3mfModule();
+    const previousFileReader = globalThis.FileReader;
+
+    class RejectingFileReader {
+        error = new DOMException('Generated blobs must not be re-read', 'NotReadableError');
+        onerror: ((event: { target: RejectingFileReader }) => void) | null = null;
+
+        readAsArrayBuffer() {
+            this.onerror?.({ target: this });
+        }
+    }
+
+    globalThis.FileReader = RejectingFileReader as unknown as typeof FileReader;
+    try {
+        const root = new THREE.Group();
+        root.add(createLayerMesh(createSharedCubeGeometry(), 0xff0000));
+
+        const blob = await exportObjectTo3MFBlob(root);
+        assert.ok(blob.size > 0);
+    } finally {
+        globalThis.FileReader = previousFileReader;
+    }
+});
+
 test('exports include preview-hidden layers with their original filament colors', async () => {
     const root = new THREE.Group();
     const first = createLayerMesh(createSharedCubeGeometry(), 0xff0000);

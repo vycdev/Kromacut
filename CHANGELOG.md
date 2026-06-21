@@ -8,6 +8,7 @@ All notable changes to Kromacut are documented in this file.
 
 - **Auto-paint regression baseline** - Added focused layer-invariant coverage, per-algorithm seeded determinism checks, and 24 seeded stack snapshots across the 2-, 4-, and 8-filament profiles, both image fixtures, Enhanced matching states, and repeated-swap states.
 - **Auto-paint benchmark harness** - Added an on-demand JSON benchmark that measures palette and preview-realized color error, coverage, stack cost, compression impact, runtime, and optimizer iterations across the saved fixture profiles.
+- **Auto-paint optimization progress** - Enhanced matching now reports an approximate completion percentage while its background search is running.
 
 ### Changed
 
@@ -21,6 +22,8 @@ All notable changes to Kromacut are documented in this file.
 - **Auto-paint region priority** - Center and Edge priority now use the actual locations of each image color. Center prioritizes colors near the image middle; Edge prioritizes colors near the outer border. The optimizer no longer allocates a full-image weight map or guesses location from color brightness.
 
 - **Auto-paint layer cap** - Corrected the slice-data safety limit so exceptionally tall auto-paint stacks stop at 500 layers rather than returning 501.
+
+- **Desktop 3MF export reliability** - 3MF model XML now goes directly into the archive instead of being read back through `FileReader`, avoiding desktop WebView `NotReadableError` failures during export.
 
 ## v3.1.0 - 2026-06-18
 

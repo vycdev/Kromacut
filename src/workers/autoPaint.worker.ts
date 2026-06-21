@@ -11,6 +11,8 @@ import type { Filament } from '../types';
 import type { OptimizerOptions } from '../lib/optimizer';
 import type { AutoPaintResult } from '../lib/autoPaint';
 
+type WorkerOptimizerOptions = Omit<OptimizerOptions, 'onProgress'>;
+
 export interface AutoPaintWorkerRequest {
     id: number;
     filaments: Filament[];
@@ -20,17 +22,49 @@ export interface AutoPaintWorkerRequest {
     maxHeight?: number;
     enhancedColorMatch?: boolean;
     allowRepeatedSwaps?: boolean;
-    optimizerOptions?: Partial<OptimizerOptions>;
+    optimizerOptions?: Partial<WorkerOptimizerOptions>;
 }
 
-export interface AutoPaintWorkerResponse {
+export interface AutoPaintWorkerResult {
     id: number;
     result?: AutoPaintResult;
     error?: string;
 }
 
+export interface AutoPaintWorkerProgress {
+    type: 'progress';
+    id: number;
+    progress: number;
+    iteration: number;
+    total: number;
+    bestScore: number;
+}
+
+export type AutoPaintWorkerResponse = AutoPaintWorkerResult | AutoPaintWorkerProgress;
+
 self.onmessage = (e: MessageEvent<AutoPaintWorkerRequest>) => {
     const req = e.data;
+    const PROGRESS_INTERVAL_MS = 100;
+    let lastProgress = 0;
+    let lastProgressAt = -Infinity;
+
+    const reportProgress = (iteration: number, total: number, bestScore: number) => {
+        const progress = Math.max(lastProgress, Math.min(1, total > 0 ? iteration / total : 0));
+        const now = performance.now();
+        if (progress < 1 && now - lastProgressAt < PROGRESS_INTERVAL_MS) return;
+
+        lastProgress = progress;
+        lastProgressAt = now;
+        const response: AutoPaintWorkerProgress = {
+            type: 'progress',
+            id: req.id,
+            progress,
+            iteration,
+            total,
+            bestScore,
+        };
+        self.postMessage(response);
+    };
 
     try {
         const result = generateAutoLayers(
@@ -41,13 +75,17 @@ self.onmessage = (e: MessageEvent<AutoPaintWorkerRequest>) => {
             req.maxHeight,
             req.enhancedColorMatch,
             req.allowRepeatedSwaps,
-            req.optimizerOptions
+            {
+                ...req.optimizerOptions,
+                onProgress: reportProgress,
+            }
         );
 
-        const response: AutoPaintWorkerResponse = { id: req.id, result };
+        reportProgress(1, 1, result.optimizerMetadata?.score ?? Infinity);
+        const response: AutoPaintWorkerResult = { id: req.id, result };
         self.postMessage(response);
     } catch (err) {
-        const response: AutoPaintWorkerResponse = {
+        const response: AutoPaintWorkerResult = {
             id: req.id,
             error: err instanceof Error ? err.message : String(err),
         };

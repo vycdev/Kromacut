@@ -13,7 +13,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { AutoPaintResult } from '../lib/autoPaint';
 import type { Filament, Swatch } from '../types';
-import type { AutoPaintWorkerRequest, AutoPaintWorkerResponse } from '../workers/autoPaint.worker';
+import type {
+    AutoPaintWorkerProgress,
+    AutoPaintWorkerRequest,
+    AutoPaintWorkerResponse,
+} from '../workers/autoPaint.worker';
 
 export interface UseAutoPaintWorkerOptions {
     paintMode: 'manual' | 'autopaint';
@@ -32,10 +36,21 @@ export interface UseAutoPaintWorkerOptions {
 export interface UseAutoPaintWorkerResult {
     autoPaintResult: AutoPaintResult | undefined;
     isComputing: boolean;
+    progress: number;
     error?: string;
 }
 
 let nextRequestId = 1;
+
+export function isCurrentAutoPaintWorkerResponse(responseId: number, activeRequestId: number): boolean {
+    return responseId === activeRequestId;
+}
+
+function isAutoPaintWorkerProgress(
+    response: AutoPaintWorkerResponse
+): response is AutoPaintWorkerProgress {
+    return 'type' in response && response.type === 'progress';
+}
 
 function useStableValueByKey<T>(value: T, key: string): T {
     const stableRef = useRef<{ key: string; value: T } | null>(null);
@@ -62,6 +77,7 @@ export function useAutoPaintWorker(opts: UseAutoPaintWorkerOptions): UseAutoPain
 
     const [autoPaintResult, setAutoPaintResult] = useState<AutoPaintResult | undefined>(undefined);
     const [isComputing, setIsComputing] = useState(false);
+    const [progress, setProgress] = useState(0);
     const [error, setError] = useState<string | undefined>(undefined);
 
     const workerRef = useRef<Worker | null>(null);
@@ -86,6 +102,7 @@ export function useAutoPaintWorker(opts: UseAutoPaintWorkerOptions): UseAutoPain
 
             activeRequestIdRef.current = 0;
             setIsComputing(false);
+            setProgress(nextError ? 0 : 1);
             setError(nextError);
 
             if (nextError) {
@@ -150,7 +167,12 @@ export function useAutoPaintWorker(opts: UseAutoPaintWorkerOptions): UseAutoPain
 
             workerRef.current.onmessage = (e: MessageEvent<AutoPaintWorkerResponse>) => {
                 const resp = e.data;
-                if (resp.id !== activeRequestIdRef.current) return;
+                if (!isCurrentAutoPaintWorkerResponse(resp.id, activeRequestIdRef.current)) return;
+
+                if (isAutoPaintWorkerProgress(resp)) {
+                    setProgress((current) => Math.max(current, resp.progress));
+                    return;
+                }
 
                 if (resp.error) {
                     finishRequest(resp.id, resp.error);
@@ -190,6 +212,7 @@ export function useAutoPaintWorker(opts: UseAutoPaintWorkerOptions): UseAutoPain
             cancelWorker();
             setAutoPaintResult(undefined);
             setIsComputing(false);
+            setProgress(0);
             setError(undefined);
             return;
         }
@@ -201,6 +224,7 @@ export function useAutoPaintWorker(opts: UseAutoPaintWorkerOptions): UseAutoPain
         activeRequestIdRef.current = id;
         setAutoPaintResult(undefined);
         setIsComputing(true);
+        setProgress(0);
         setError(undefined);
 
         debounceTimerRef.current = setTimeout(() => {
@@ -259,5 +283,5 @@ export function useAutoPaintWorker(opts: UseAutoPaintWorkerOptions): UseAutoPain
         finishRequest,
     ]);
 
-    return { autoPaintResult, isComputing, error };
+    return { autoPaintResult, isComputing, progress, error };
 }

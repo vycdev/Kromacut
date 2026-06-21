@@ -634,9 +634,12 @@ export async function exportObjectTo3MFBlob(
 
     flushXmlChunk();
 
-    const finalBlob = new Blob(xmlParts, { type: 'text/xml' });
-
-    zip.folder('3D')?.file('3dmodel.model', finalBlob);
+    // JSZip reads Blob inputs through FileReader. In the Tauri webview that
+    // extra read can fail with NotReadableError even though this XML was just
+    // generated in memory. Passing text lets JSZip encode it directly.
+    const modelXml = xmlParts.join('');
+    xmlParts.length = 0;
+    zip.folder('3D')?.file('3dmodel.model', modelXml);
 
     // Generate Metadata/model_settings.config
     // This is required for Bambu Studio / Orca Slicer / Creality Print to correctly identify

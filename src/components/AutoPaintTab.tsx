@@ -77,6 +77,7 @@ interface AutoPaintTabProps {
     autoPaintResult?: AutoPaintResult;
     autoPaintSliceData?: AutoPaintSliceData;
     isComputing?: boolean;
+    progress?: number;
     error?: string;
     calibrationLayerHeight: number;
     setCalibrationLayerHeight: (v: number) => void;
@@ -139,6 +140,7 @@ export default function AutoPaintTab({
     autoPaintResult,
     autoPaintSliceData,
     isComputing = false,
+    progress = 0,
     error,
     calibrationLayerHeight,
     filteredCount,
@@ -513,7 +515,10 @@ export default function AutoPaintTab({
                             {isComputing && (
                                 <div className="flex items-center gap-1.5 text-[10px] text-primary">
                                     <Loader2 className="w-3 h-3 animate-spin" />
-                                    <span>Optimizing filament order...</span>
+                                    <span>
+                                        Optimizing filament order...
+                                        {progress > 0 ? ` ${Math.round(progress * 100)}%` : ''}
+                                    </span>
                                 </div>
                             )}
                             {error && !isComputing && (

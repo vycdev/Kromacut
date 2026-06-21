@@ -345,15 +345,15 @@ values and re-map internally (decision log §4).
 Goal: fix F9 ergonomics. Independent of phases 3-4 but nicer after them (beam search
 has natural progress).
 
-- [ ] **5.1** Optimizer accepts `onProgress(iteration, total, bestScore)`; worker
+- [x] **5.1** Optimizer accepts `onProgress(iteration, total, bestScore)`; worker
       throttles (~10 Hz) `postMessage({ type: 'progress', id, ... })`; final message
       keeps the current shape (`{ id, result }`) for compatibility.
-- [ ] **5.2** Hook surfaces `progress` in `UseAutoPaintWorkerResult`; AutoPaintTab
+- [x] **5.2** Hook surfaces `progress` in `UseAutoPaintWorkerResult`; AutoPaintTab
       shows it next to the spinner ("Optimizing… 43%").
-- [ ] **5.3** Keep terminate-based cancel; optionally keep a warm worker between
-      requests and cancel via `id` checks instead of terminate (measure startup cost
-      first — only do this if it's noticeable).
-- [ ] **5.4 Tests**: progress monotonic 0→1 (mirror `tests/algorithms-progress.test.ts`
+- [x] **5.3** Kept terminate-based cancellation. A warm worker was not added because
+      its startup cost is not currently noticeable enough to justify a more complex
+      cancellation path.
+- [x] **5.4 Tests**: progress monotonic 0→1 (mirror `tests/algorithms-progress.test.ts`
       pattern); stale progress messages (old `id`) ignored.
 
 Risk: low.

@@ -69,6 +69,31 @@ test('each optimizer produces the same result for the same seed', async (t) => {
     }
 });
 
+test('optimizer progress is monotonic and completes for every algorithm', async (t) => {
+    const { optimizeFilamentOrder } = await loadOptimizerModule();
+    const algorithms = ['exhaustive', 'simulated-annealing', 'genetic', 'auto'] as const;
+
+    for (const algorithm of algorithms) {
+        await t.test(algorithm, () => {
+            const samples: number[] = [];
+            optimizeFilamentOrder(filaments, context, {
+                algorithm,
+                seed: 42,
+                maxIterations: 30,
+                cachingEnabled: false,
+                onProgress: (iteration, total) => samples.push(total > 0 ? iteration / total : 0),
+            });
+
+            assert.ok(samples.length > 0);
+            assert.equal(samples.at(-1), 1);
+            assert.ok(
+                samples.every((sample, index) => index === 0 || sample >= samples[index - 1]),
+                'progress must never move backwards'
+            );
+        });
+    }
+});
+
 function withoutCacheState<T extends { cacheHit?: boolean }>(result: T): Omit<T, 'cacheHit'> {
     const outcome = { ...result };
     delete outcome.cacheHit;

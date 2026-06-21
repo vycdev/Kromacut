@@ -33,6 +33,7 @@ export interface OptimizerOptions {
     eliteCount?: number; // Retained for persisted optimizer compatibility
     beamWidth?: number; // Number of partial stacks kept by beam search
     cachingEnabled?: boolean; // Enable result caching
+    onProgress?: (iteration: number, total: number, bestScore: number) => void;
 }
 
 export interface OptimizerResult {
@@ -254,6 +255,33 @@ function isBetterCandidate(
     return sequenceKey(candidate.order) < sequenceKey(current.order);
 }
 
+function reportProgress(
+    options: OptimizerOptions,
+    iteration: number,
+    total: number,
+    bestScore: number
+) {
+    options.onProgress?.(Math.min(iteration, total), Math.max(total, 1), bestScore);
+}
+
+function orderedSubsetCount(filamentCount: number): number {
+    let total = 0;
+    let permutations = 1;
+    for (let length = 1; length <= filamentCount; length++) {
+        permutations *= filamentCount - length + 1;
+        total += permutations;
+    }
+    return total;
+}
+
+function repeatedInsertionUpperBound(filamentCount: number): number {
+    let total = 0;
+    for (let extra = 0; extra < MAX_EXTRA_REPEATS; extra++) {
+        total += filamentCount * (filamentCount + extra + 1);
+    }
+    return total;
+}
+
 function expandWithRepeatedFilaments(
     initial: ScoredSequence,
     filaments: Filament[],
@@ -310,14 +338,19 @@ function optimizeExhaustive(
     }
 
     const allowRepeatedSwaps = options.allowRepeatedSwaps ?? false;
+    const totalIterations =
+        orderedSubsetCount(filaments.length) +
+        (allowRepeatedSwaps ? repeatedInsertionUpperBound(filaments.length) : 0);
     let best: ScoredSequence | null = null;
     let iterations = 0;
+    reportProgress(options, 0, totalIterations, Infinity);
 
     const visit = (sequence: Filament[], remaining: Filament[]): void => {
         if (sequence.length > 0) {
             const candidate = { order: sequence, score: scoreSequence(sequence) };
             iterations++;
             if (isBetterCandidate(candidate, best)) best = candidate;
+            reportProgress(options, iterations, totalIterations, best?.score ?? Infinity);
         }
 
         for (let index = 0; index < remaining.length; index++) {
@@ -365,13 +398,17 @@ function optimizeBeamSearch(
     const allowRepeatedSwaps = options.allowRepeatedSwaps ?? false;
     const maximumLength = maxSequenceLength(filaments, allowRepeatedSwaps);
     const beamWidth = options.beamWidth ?? DEFAULT_BEAM_WIDTH;
+    const totalIterations =
+        filaments.length + (maximumLength - 1) * beamWidth * filaments.length;
     let iterations = 0;
     let best: ScoredSequence | null = null;
+    reportProgress(options, 0, totalIterations, Infinity);
 
     let beam = filaments.map((filament) => {
         const candidate = { order: [filament], score: scoreSequence([filament]) };
         iterations++;
         if (isBetterCandidate(candidate, best)) best = candidate;
+        reportProgress(options, iterations, totalIterations, best?.score ?? Infinity);
         return candidate;
     });
     beam.sort((left, right) =>
@@ -402,6 +439,7 @@ function optimizeBeamSearch(
                 candidates.set(key, candidate);
                 iterations++;
                 if (isBetterCandidate(candidate, best)) best = candidate;
+                reportProgress(options, iterations, totalIterations, best?.score ?? Infinity);
             }
         }
 
@@ -538,6 +576,7 @@ function optimizeSimulatedAnnealing(
     let bestScore = currentScore;
     let temperature = initialTemp;
     let iterations = 0;
+    reportProgress(options, 0, maxIterations, bestScore);
 
     while (iterations < maxIterations && temperature > minTemp) {
         iterations++;
@@ -550,6 +589,7 @@ function optimizeSimulatedAnnealing(
         );
         if (sequenceEquals(newOrder, currentOrder)) {
             temperature *= coolingRate;
+            reportProgress(options, iterations, maxIterations, bestScore);
             continue;
         }
 
@@ -570,6 +610,7 @@ function optimizeSimulatedAnnealing(
         }
 
         temperature *= coolingRate;
+        reportProgress(options, iterations, maxIterations, bestScore);
     }
 
     // Convergence check: did we stabilize?
@@ -655,6 +696,7 @@ export function optimizeFilamentOrder(
     if (opts.cachingEnabled) {
         const cached = globalCache.get(cacheKey);
         if (cached) {
+            reportProgress(opts, 1, 1, cached.score);
             return { ...cached, cacheHit: true };
         }
     }
@@ -682,6 +724,7 @@ export function optimizeFilamentOrder(
     // Tag the result with the resolved algorithm
     result.resolvedAlgorithm =
         algorithm === 'genetic' ? 'variable-length-sa' : algorithm;
+    reportProgress(opts, result.iterations, result.iterations, result.score);
 
     if (opts.cachingEnabled) {
         globalCache.set(cacheKey, result);

@@ -80,6 +80,8 @@ Optional controls appear with enhanced matching:
 - **Line width** should roughly match the printer line or nozzle width used for dither dots.
 - **Optimizer Settings** let you choose **Algorithm**, **Region priority**, and an optional **Seed**.
 
+While Kromacut is optimizing a filament order, the panel shows an approximate completion percentage. Starting a new calculation cancels the older one, so the percentage always belongs to the current settings.
+
 ## Flat Paint
 
 **Flat Paint (flat face-down print)** builds a uniform-thickness slab instead of a stepped relief. Every printed layer has the full model footprint:

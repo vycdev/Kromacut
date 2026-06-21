@@ -209,6 +209,7 @@ export default function ThreeDControls({
     const {
         autoPaintResult,
         isComputing: isAutoPaintComputing,
+        progress: autoPaintProgress,
         error: autoPaintError,
     } = useAutoPaintWorker({
         paintMode,
@@ -459,6 +460,7 @@ export default function ThreeDControls({
                     autoPaintResult={autoPaintResult}
                     autoPaintSliceData={autoPaintSliceData}
                     isComputing={isAutoPaintComputing}
+                    progress={autoPaintProgress}
                     error={autoPaintError}
                     calibrationLayerHeight={calibrationLayerHeight}
                     setCalibrationLayerHeight={setCalibrationLayerHeight}
