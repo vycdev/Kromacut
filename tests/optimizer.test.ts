@@ -68,3 +68,74 @@ test('each optimizer produces the same result for the same seed', async (t) => {
         });
     }
 });
+
+function withoutCacheState<T extends { cacheHit?: boolean }>(result: T): Omit<T, 'cacheHit'> {
+    const outcome = { ...result };
+    delete outcome.cacheHit;
+    return outcome as Omit<T, 'cacheHit'>;
+}
+
+test('cache keys include all weighted clusters and optimizer tuning', async () => {
+    const { clearOptimizerCache, getOptimizerCacheStats, optimizeFilamentOrder } =
+        await loadOptimizerModule();
+    clearOptimizerCache();
+
+    const manyClusters = {
+        ...context,
+        imageColors: Array.from({ length: 21 }, (_, index) => ({
+            L: 10 + index * 3,
+            a: index - 10,
+            b: 10 - index,
+            weight: index === 20 ? 0.01 : 1,
+        })),
+    };
+    const options = {
+        algorithm: 'simulated-annealing' as const,
+        seed: 12345,
+        maxIterations: 30,
+        temperature: 75,
+        cachingEnabled: true,
+    };
+
+    const first = optimizeFilamentOrder(filaments, manyClusters, options);
+    const cached = optimizeFilamentOrder(filaments, manyClusters, options);
+    assert.equal(first.cacheHit, undefined);
+    assert.equal(cached.cacheHit, true);
+    assert.equal(getOptimizerCacheStats().size, 1);
+
+    const regionWeightedClusters = {
+        ...manyClusters,
+        imageColors: manyClusters.imageColors.map((cluster, index) => ({
+            ...cluster,
+            weight: index === 20 ? 0.5 : cluster.weight,
+        })),
+    };
+    const changedWeight = optimizeFilamentOrder(filaments, regionWeightedClusters, options);
+    assert.equal(changedWeight.cacheHit, undefined, 'a changed spatial weight must miss cache');
+    assert.equal(getOptimizerCacheStats().size, 2);
+
+    const changedTemperature = optimizeFilamentOrder(filaments, manyClusters, {
+        ...options,
+        temperature: 76,
+    });
+    assert.equal(changedTemperature.cacheHit, undefined, 'a changed temperature must miss cache');
+    assert.equal(getOptimizerCacheStats().size, 3);
+});
+
+test('default optimizer seeds are stable and cacheable', async () => {
+    const { clearOptimizerCache, optimizeFilamentOrder } = await loadOptimizerModule();
+    clearOptimizerCache();
+
+    const options = {
+        algorithm: 'genetic' as const,
+        maxIterations: 20,
+        populationSize: 16,
+        cachingEnabled: true,
+    };
+    const first = optimizeFilamentOrder(filaments, context, options);
+    const second = optimizeFilamentOrder(filaments, context, options);
+
+    assert.equal(first.cacheHit, undefined);
+    assert.equal(second.cacheHit, true);
+    assert.deepEqual(withoutCacheState(second), withoutCacheState(first));
+});

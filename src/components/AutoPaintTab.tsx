@@ -738,7 +738,7 @@ export default function AutoPaintTab({
                                     <Input
                                         id="optimizer-seed"
                                         type="text"
-                                        placeholder="Random"
+                                        placeholder="Automatic"
                                         value={localOptimizerSeed}
                                         onChange={(e) => setLocalOptimizerSeed(e.target.value)}
                                         onBlur={() => {

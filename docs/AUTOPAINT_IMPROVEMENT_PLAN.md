@@ -238,15 +238,15 @@ labels say (today they are swapped or no-ops — treat as bug fix, note in CHANG
 
 Goal: fix F5, F6. Small, independent, immediately shippable.
 
-- [ ] **2.1** Cache key includes cluster **weights**, full cluster set (not first 20),
+- [x] **2.1** Cache key includes cluster **weights**, full cluster set (not first 20),
       and all algorithm-relevant options (temperature, cooling, population, mutation,
       elite, maxIterations). Simplest robust form: hash a canonical JSON of
       `{filaments, clusters(L,a,b,weight), layerHeight, firstLayerHeight, algorithm,
     seed, tuning}`.
-- [ ] **2.2** Default seed = stable 32-bit hash of the same canonical inputs instead of
+- [x] **2.2** Default seed = stable 32-bit hash of the same canonical inputs instead of
       `Date.now()` (`optimizer.ts:525`). User-provided seed still overrides. This makes
       every run reproducible and cacheable; remove the `hasExplicitSeed` cache gating.
-- [ ] **2.3 Tests**: same inputs, no seed, twice → identical result. Toggling region
+- [x] **2.3 Tests**: same inputs, no seed, twice → identical result. Toggling region
       mode with a fixed seed → different cache entries (regression test for F5).
       Changing only `temperature` → cache miss.
 

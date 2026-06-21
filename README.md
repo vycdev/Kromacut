@@ -154,7 +154,7 @@ The optimizer displays metadata after generation:
 - **Converged** — Whether the algorithm reached a stable solution
 - **Cache hit** — Whether results were retrieved from cache (instant)
 
-**Optimizer seed** — Set a random seed for reproducible results across runs. Useful for A/B testing different configurations.
+**Optimizer seed** — Leave blank for an automatic stable seed, or enter a number to use a specific repeatable seed for A/B comparisons.
 
 ### Region Weighting
 
@@ -179,8 +179,8 @@ Region weighting is most useful when filament budget is limited and you want the
 | **Flat Paint (flat face-down print)** | Builds a uniform-thickness slab printed image-side down instead of a stepped relief. Each pixel column's layer order is reversed so the artwork sits against the build plate (already mirrored — don't mirror in the slicer) under a transparent carrier layer, and the back is filled with the foundation filament so every layer has the full footprint. The result has a smooth, glass-flat face — great for bookmarks and coasters. Requires a multi-material printer (AMS/toolchanger); export as 3MF, which contains one object per filament plus the clear carrier object. Flat Paint and Smooth Meshing toggle each other off because flat prints always use the full-footprint slab layout. |
 | **Dither line width** | (Requires Height dithering) Controls the minimum dot size for the dither pattern in mm. This should roughly match your printer's line/nozzle width so dither dots are actually printable. Default: `0.42 mm`. |
 | **Optimizer algorithm** | Choose which optimization algorithm to use: Auto (recommended), Exhaustive, Simulated Annealing, or Genetic. Auto selects the best algorithm based on search space size. |
-| **Optimizer seed** | Set a random seed for reproducible optimizer results. Leave blank for random behavior. Useful for testing and comparing configurations. |
-| **Region weighting** | Prioritize specific image regions: Uniform (equal), Center (Gaussian falloff), or Edge (Sobel detection). Helps focus quality budget on important areas. |
+| **Optimizer seed** | Leave blank for an automatic stable seed, or enter a number for a specific repeatable run. |
+| **Region weighting** | Prioritize specific image regions: Uniform (equal), Center (image middle), or Edge (outer image border). Helps focus quality budget on important areas. |
 
 ### Filament profiles
 

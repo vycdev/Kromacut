@@ -5,7 +5,6 @@
  * for multi-material lithophanes. Supports:
  * - Simulated Annealing: Probabilistic global optimization with temperature scheduling
  * - Genetic Algorithm: Population-based evolutionary optimization
- * - Region Weighting: Prioritize important image areas (faces, focal points)
  * - Deterministic Seeding: Reproducible results for A/B testing
  * - Result Caching: Skip redundant computations
  */
@@ -89,48 +88,11 @@ class OptimizerCache {
     private cache = new Map<string, OptimizerResult>();
     private maxSize = 100;
 
-    private getCacheKey(
-        filaments: Filament[],
-        context: ScoringContext,
-        algorithm?: string,
-        seed?: number
-    ): string {
-        // Create stable key from filaments and context
-        const filamentKey = filaments
-            .map((f) => `${f.color}:${f.td.toFixed(2)}`)
-            .sort()
-            .join('|');
-
-        const imageKey = context.imageColors
-            .slice(0, 20) // Sample first 20 colors for hash
-            .map((c) => `${c.L.toFixed(1)},${c.a.toFixed(1)},${c.b.toFixed(1)}`)
-            .join('|');
-
-        const algoKey = algorithm ?? 'auto';
-        const seedKey = seed ?? 0;
-
-        return `${filamentKey}__${imageKey}__${context.layerHeight}__${context.firstLayerHeight}__${algoKey}__${seedKey}`;
-    }
-
-    get(
-        filaments: Filament[],
-        context: ScoringContext,
-        algorithm?: string,
-        seed?: number
-    ): OptimizerResult | null {
-        const key = this.getCacheKey(filaments, context, algorithm, seed);
+    get(key: string): OptimizerResult | null {
         return this.cache.get(key) || null;
     }
 
-    set(
-        filaments: Filament[],
-        context: ScoringContext,
-        result: OptimizerResult,
-        algorithm?: string,
-        seed?: number
-    ): void {
-        const key = this.getCacheKey(filaments, context, algorithm, seed);
-
+    set(key: string, result: OptimizerResult): void {
         // Evict oldest if at capacity
         if (this.cache.size >= this.maxSize) {
             const firstKey = this.cache.keys().next().value;
@@ -150,6 +112,52 @@ class OptimizerCache {
 }
 
 const globalCache = new OptimizerCache();
+
+function tuningFingerprint(options: OptimizerOptions) {
+    return {
+        maxIterations: options.maxIterations ?? null,
+        temperature: options.temperature ?? null,
+        coolingRate: options.coolingRate ?? null,
+        populationSize: options.populationSize ?? null,
+        mutationRate: options.mutationRate ?? null,
+        eliteCount: options.eliteCount ?? null,
+    };
+}
+
+function canonicalOptimizerInput(
+    filaments: Filament[],
+    context: ScoringContext,
+    algorithm: string,
+    options: OptimizerOptions,
+    seed?: number
+): string {
+    return JSON.stringify({
+        filaments: filaments.map((filament) => ({
+            id: filament.id,
+            color: filament.color,
+            td: filament.td,
+        })),
+        clusters: context.imageColors.map((color) => ({
+            L: color.L,
+            a: color.a,
+            b: color.b,
+            weight: color.weight,
+        })),
+        layerHeight: context.layerHeight,
+        firstLayerHeight: context.firstLayerHeight,
+        algorithm,
+        seed: seed ?? null,
+        tuning: tuningFingerprint(options),
+    });
+}
+
+function stableHash32(value: string): number {
+    let hash = 0x811c9dc5;
+    for (let index = 0; index < value.length; index++) {
+        hash = Math.imul(hash ^ value.charCodeAt(index), 0x01000193);
+    }
+    return hash >>> 0;
+}
 
 // ============================================================================
 // Scoring Functions
@@ -515,12 +523,8 @@ export function optimizeFilamentOrder(
     context: ScoringContext,
     options: Partial<OptimizerOptions> = {}
 ): OptimizerResult {
-    // Determine if user provided explicit seed (for caching purposes)
-    const hasExplicitSeed = options.seed !== undefined;
-
     const opts: OptimizerOptions = {
         algorithm: 'auto',
-        seed: Date.now(),
         cachingEnabled: true,
         ...options,
     };
@@ -537,9 +541,13 @@ export function optimizeFilamentOrder(
         }
     }
 
-    // Only check cache if user provided explicit seed (random seeds should not be cached)
-    if (opts.cachingEnabled && hasExplicitSeed) {
-        const cached = globalCache.get(filaments, context, algorithm, opts.seed);
+    const defaultSeedInput = canonicalOptimizerInput(filaments, context, algorithm, opts);
+    const seed = opts.seed ?? stableHash32(defaultSeedInput);
+    opts.seed = seed;
+    const cacheKey = canonicalOptimizerInput(filaments, context, algorithm, opts, seed);
+
+    if (opts.cachingEnabled) {
+        const cached = globalCache.get(cacheKey);
         if (cached) {
             return { ...cached, cacheHit: true };
         }
@@ -564,9 +572,8 @@ export function optimizeFilamentOrder(
     // Tag the result with the resolved algorithm
     result.resolvedAlgorithm = algorithm;
 
-    // Only cache if user provided explicit seed (don't cache random results)
-    if (opts.cachingEnabled && hasExplicitSeed) {
-        globalCache.set(filaments, context, result, algorithm, opts.seed);
+    if (opts.cachingEnabled) {
+        globalCache.set(cacheKey, result);
     }
 
     return result;

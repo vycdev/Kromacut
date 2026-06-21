@@ -100,7 +100,7 @@ Flat Paint and **Smooth Meshing** are mutually exclusive. Turning one on turns t
 | --------------- | ------------------------------------------------------------ |
 | Algorithm       | Auto, Exhaustive, Simulated Annealing, or Genetic Algorithm. |
 | Region priority | Uniform, Center-weighted, or Edge-weighted matching.         |
-| Seed (optional) | A number that makes optimizer results repeatable.            |
+| Seed (optional) | Overrides the automatic stable seed for an intentional comparison. |
 
 Use **Auto (smart selection)** unless you have a reason to compare algorithms.
 
