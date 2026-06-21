@@ -1,4 +1,5 @@
 import type { Filament } from '../types';
+import { normalizeHexColor } from './colorUtils.ts';
 
 export interface AutoPaintProfile {
     id: string;
@@ -224,6 +225,132 @@ export function parseProfileFile(json: string): AutoPaintProfile[] | null {
     } catch {
         return null;
     }
+}
+
+/** Infer delimiter from the header line: tab if tabs are present, otherwise comma. */
+function detectDelimiter(headerLine: string): ',' | '\t' {
+    return headerLine.includes('\t') ? '\t' : ',';
+}
+
+/**
+ * Parse a CSV/TSV string into rows of fields per RFC 4180: handles embedded
+ * commas, "" escaped quotes, and newlines inside quoted fields.
+ */
+function parseCSV(content: string, delimiter: ',' | '\t'): string[][] {
+    const rows: string[][] = [];
+    let fields: string[] = [];
+    let field = '';
+    let pos = 0;
+    const len = content.length;
+
+    while (pos <= len) {
+        if (pos === len) {
+            fields.push(field);
+            if (fields.some((f) => f.trim())) rows.push(fields);
+            break;
+        }
+
+        const ch = content[pos];
+
+        if (ch === '"') {
+            pos++;
+            for (;;) {
+                if (pos >= len) break; // unclosed quote at EOF — accept what we have
+                if (content[pos] === '"') {
+                    if (pos + 1 < len && content[pos + 1] === '"') {
+                        field += '"';
+                        pos += 2;
+                    } else {
+                        pos++; // closing quote
+                        break;
+                    }
+                } else {
+                    field += content[pos++];
+                }
+            }
+        } else if (ch === delimiter) {
+            fields.push(field);
+            field = '';
+            pos++;
+        } else if (ch === '\r') {
+            pos++;
+            if (pos < len && content[pos] === '\n') pos++;
+            fields.push(field);
+            field = '';
+            if (fields.some((f) => f.trim())) rows.push(fields);
+            fields = [];
+        } else if (ch === '\n') {
+            fields.push(field);
+            field = '';
+            if (fields.some((f) => f.trim())) rows.push(fields);
+            fields = [];
+            pos++;
+        } else {
+            field += ch;
+            pos++;
+        }
+    }
+
+    return rows;
+}
+
+/**
+ * Parse a HueForge spool library CSV or TSV into a single AutoPaint profile.
+ *
+ * Accepts comma-separated (CSV) or tab-separated (TSV) input — detected from
+ * the header row. Column order is flexible. Required columns: Color (hex),
+ * TD (float). Optional: Brand, Name, Uuid.
+ *
+ * Quoted fields with embedded commas, newlines, and "" escaped quotes are
+ * supported per RFC 4180. Rows missing Color or TD are skipped.
+ *
+ * Returns null if the input has no header, no valid data rows, or cannot be
+ * parsed.
+ */
+export function parseHueForgeCSV(csv: string, profileName = 'HueForge Import'): AutoPaintProfile[] | null {
+    const firstNewline = csv.indexOf('\n');
+    const headerLine = firstNewline >= 0 ? csv.slice(0, firstNewline) : csv;
+    const delimiter = detectDelimiter(headerLine);
+    const rows = parseCSV(csv, delimiter);
+    if (rows.length < 2) return null;
+
+    const headers = rows[0].map((h) => h.trim());
+
+    const col = (row: string[], name: string) => {
+        const i = headers.indexOf(name);
+        return i >= 0 ? row[i]?.trim() ?? '' : '';
+    };
+
+    const filaments: import('../types').Filament[] = [];
+    for (const row of rows.slice(1)) {
+        const colorRaw = col(row, 'Color');
+        const color = normalizeHexColor(colorRaw, '');
+        const tdRaw = col(row, 'TD');
+        const td = parseFloat(tdRaw);
+        if (!color || isNaN(td) || td < 0.5 || td > 10.0) continue;
+
+        const rawId = col(row, 'Uuid').replace(/[{}]/g, '');
+        const id = rawId || crypto.randomUUID();
+        const colorName = col(row, 'Name');
+        const brand = col(row, 'Brand') || undefined;
+        const name = brand && colorName ? `${brand}-${colorName}-${color}` : colorName || undefined;
+
+        filaments.push({ id, color, td, name, brand });
+    }
+
+    if (filaments.length === 0) return null;
+
+    const now = Date.now();
+    return [
+        {
+            id: crypto.randomUUID(),
+            name: profileName,
+            version: CURRENT_PROFILE_VERSION,
+            filaments,
+            createdAt: now,
+            updatedAt: now,
+        },
+    ];
 }
 
 /** Build an export blob for a profile. */
