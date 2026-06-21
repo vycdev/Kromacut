@@ -14,6 +14,7 @@ All notable changes to Kromacut are documented in this file.
 
 - **Auto-paint optimizer objective** - Enhanced color matching now evaluates the same zone-compressed, layer-snapped color-to-height path used by the printable preview. All optimizer algorithms share that scorer, including Max Height constraints, so selected filament orders better match the finished model. Repeated optical calculations are memoized during searches.
 - **Auto-paint sequence search** - Enhanced matching can now omit filaments that do not improve the printable stack and can natively add up to four non-adjacent repeated swaps when they create useful blends. Auto uses exact subset search through six filaments, deterministic beam search through twelve, and variable-length annealing beyond that.
+- **Calibrated Auto-paint previews** - Calibrated filaments now use their measured red, green, and blue TD values when simulating blends, while the scalar working TD continues to control layer-zone thickness.
 
 ### Fixed
 
@@ -23,7 +24,7 @@ All notable changes to Kromacut are documented in this file.
 
 - **Auto-paint layer cap** - Corrected the slice-data safety limit so exceptionally tall auto-paint stacks stop at 500 layers rather than returning 501.
 
-- **Desktop 3MF export reliability** - 3MF model XML now goes directly into the archive instead of being read back through `FileReader`, avoiding desktop WebView `NotReadableError` failures during export.
+- **Desktop 3MF export reliability** - 3MF model XML now streams into the archive in bounded chunks, avoiding desktop WebView `FileReader` `NotReadableError` failures and `RangeError: Invalid string length` on large exports.
 
 ## v3.1.0 - 2026-06-18
 

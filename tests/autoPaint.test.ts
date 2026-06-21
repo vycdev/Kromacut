@@ -39,6 +39,16 @@ function assertAlmostEqual(actual: number, expected: number, message?: string) {
     );
 }
 
+test('CIEDE2000 distance matches the published reference pair', async () => {
+    const { deltaE2000Lab } = await loadAutoPaintModule();
+    const distance = deltaE2000Lab(
+        { L: 50, a: 2.6772, b: -79.7751 },
+        { L: 50, a: 0, b: -82.7485 }
+    );
+
+    assert.ok(Math.abs(distance - 2.0425) < 0.0001);
+});
+
 test('transition thickness stays printable and respects its TD cap', async () => {
     const { calculateTransitionThickness, hexToRgb } = await loadAutoPaintModule();
     const layerHeight = 0.1;
@@ -63,6 +73,78 @@ test('transition thickness stays printable and respects its TD cap', async () =>
         nearIdenticalThickness,
         layerHeight,
         'near-identical colors should use exactly one layer'
+    );
+});
+
+test('calibrated per-channel TDs tint blends without changing scalar TD behavior', async () => {
+    const { blendColors } = await loadAutoPaintModule();
+    const background = { r: 0, g: 0, b: 0 };
+    const filament = { r: 200, g: 200, b: 200 };
+
+    const scalar = blendColors(background, filament, 1, 0.25);
+    const equalChannels = blendColors(background, filament, [1, 1, 1], 0.25);
+    const calibrated = blendColors(background, filament, [0.5, 1, 2], 0.25);
+
+    assert.deepEqual(equalChannels, scalar, 'equal channel TDs must preserve legacy scalar blending');
+    assert.ok(
+        calibrated.r > calibrated.g && calibrated.g > calibrated.b,
+        'shorter channel TDs must become opaque sooner'
+    );
+});
+
+test('calibrated channel TDs flow through generated auto-paint preview slices', async () => {
+    const { autoPaintToSliceHeights, generateAutoLayers, hexToRgb } =
+        await loadAutoPaintModule();
+    const baseFilaments = [
+        { id: 'black', color: '#000000', td: 1 },
+        { id: 'white', color: '#ffffff', td: 16 },
+    ];
+    const calibratedFilaments = [
+        baseFilaments[0],
+        {
+            ...baseFilaments[1],
+            calibration: {
+                color: '#ffffff',
+                measurements: [],
+                td: [8, 16, 32] as [number, number, number],
+                tdSingleValue: 16,
+                confidence: 1,
+                calibrationDate: '2026-01-01T00:00:00.000Z',
+            },
+        },
+    ];
+    const swatches = [
+        { hex: '#000000', count: 1 },
+        { hex: '#ffffff', count: 1 },
+    ];
+    const scalarResult = generateAutoLayers(baseFilaments, swatches, 0.1, 0.2, undefined, false);
+    const calibratedResult = generateAutoLayers(
+        calibratedFilaments,
+        swatches,
+        0.1,
+        0.2,
+        undefined,
+        false
+    );
+    const scalarSlices = autoPaintToSliceHeights(scalarResult, 0.1, 0.2);
+    const calibratedSlices = autoPaintToSliceHeights(calibratedResult, 0.1, 0.2);
+
+    assert.deepEqual(
+        calibratedSlices.colorSliceHeights,
+        scalarSlices.colorSliceHeights,
+        'zone thickness remains governed by the scalar working TD'
+    );
+    const whiteLayer = calibratedSlices.filamentSwatches.findIndex((swatch) => swatch.hex === '#ffffff');
+    assert.ok(whiteLayer >= 0, 'the calibrated filament should contribute preview layers');
+
+    const scalarColor = hexToRgb(scalarSlices.virtualSwatches[whiteLayer].hex);
+    const calibratedColor = hexToRgb(calibratedSlices.virtualSwatches[whiteLayer].hex);
+    assert.equal(scalarColor.r, scalarColor.g, 'the scalar white blend remains neutral');
+    assert.equal(scalarColor.g, scalarColor.b, 'the scalar white blend remains neutral');
+    assert.notEqual(
+        calibratedColor.r,
+        calibratedColor.b,
+        'calibrated channel TDs produce their measured color bias'
     );
 });
 

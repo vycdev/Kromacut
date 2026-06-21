@@ -134,7 +134,7 @@ Each filament row in the Auto-paint tab includes a **calibration wizard** to hel
 4. **Automatic TD calculation** — The wizard performs exponential regression on your measurements to compute the optimal TD value with a confidence score (High/Medium/Low/Very Low).
 5. **Save profile** — Keep calibrated filaments in a reusable profile for future projects.
 
-Calibrated filaments display a confidence badge next to their TD value. Higher confidence = more accurate optical simulation = better print results.
+Calibrated filaments display a confidence badge next to their TD value. Higher confidence = more accurate optical simulation = better print results. Auto-paint also uses the calibrated red, green, and blue TD values for preview blending, while the working TD continues to set layer-zone thickness.
 
 ### Advanced Optimizer
 

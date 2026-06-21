@@ -145,6 +145,29 @@ test('cache keys include all weighted clusters and optimizer tuning', async () =
     });
     assert.equal(changedTemperature.cacheHit, undefined, 'a changed temperature must miss cache');
     assert.equal(getOptimizerCacheStats().size, 3);
+
+    const calibratedFilaments = filaments.map((filament, index) =>
+        index === 2
+            ? {
+                  ...filament,
+                  calibration: {
+                      color: filament.color,
+                      measurements: [],
+                      td: [1.2, 1.8, 2.4] as [number, number, number],
+                      tdSingleValue: filament.td,
+                      confidence: 1,
+                      calibrationDate: '2026-01-01T00:00:00.000Z',
+                  },
+              }
+            : filament
+    );
+    const changedCalibration = optimizeFilamentOrder(calibratedFilaments, manyClusters, options);
+    assert.equal(
+        changedCalibration.cacheHit,
+        undefined,
+        'changed per-channel calibration TDs must miss cache'
+    );
+    assert.equal(getOptimizerCacheStats().size, 4);
 });
 
 test('default optimizer seeds are stable and cacheable', async () => {

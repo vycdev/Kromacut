@@ -147,6 +147,7 @@ function canonicalOptimizerInput(
             id: filament.id,
             color: filament.color,
             td: filament.td,
+            calibrationTd: filament.calibration?.td ?? null,
         })),
         clusters: context.imageColors.map((color) => ({
             L: color.L,
@@ -181,7 +182,11 @@ export function createSequenceScorer(context: ScoringContext): (filaments: Filam
 
     return (filaments) => {
         if (filaments.length === 0) return Infinity;
-        const sequenceKey = filaments.map((filament) => `${filament.id}:${filament.color}:${filament.td}`).join('|');
+        const sequenceKey = filaments
+            .map((filament) =>
+                [filament.id, filament.color, filament.td, ...(filament.calibration?.td ?? [])].join(':')
+            )
+            .join('|');
         let palette = paletteCache.get(sequenceKey);
         if (!palette) {
             palette = buildAchievableColorPalette(

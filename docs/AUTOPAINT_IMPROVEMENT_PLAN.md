@@ -364,23 +364,21 @@ Goal: close F8 where measurement proves it helps. Each item independent; ship on
 with harness evidence. These change preview colors for existing projects — CHANGELOG
 each.
 
-- [ ] **6a Per-channel TD blending where calibration exists**: `blendColors` uses
+- [x] **6a Per-channel TD blending where calibration exists**: `blendColors` uses
       `calibration.td: [r,g,b]` (per-channel transmission, gamma-space — consistent
       with how calibration measures) when present; scalar `tdSingleValue` fallback
       unchanged for uncalibrated filaments. Touches `blendColors` call sites in
       `autoPaint.ts` only; `Filament` already carries `calibration`.
-- [ ] **6b Compression-aware backgrounds**: carry the actual blended end-color of zone
-      _i−1_ forward as zone _i_'s background in `buildAchievableColorPalette` and
-      `autoPaintToSliceHeights` (today: pure color, `autoPaint.ts:656-663, 1499-1506`).
-      Makes compressed previews honest and lets the (unified) scorer see compression
-      damage. Optionally: when `compressionRatio < 0.9`, re-score the top-k candidate
-      orders under compression and pick the best (bounded cost).
-- [ ] **6c CIEDE2000** behind a metric constant for scoring + clustering distances
-      (~3-4× distance cost; affordable at ≤32 targets). Adopt only if harness shows
-      end-to-end improvement on saturated fixtures.
-- [ ] **6d FRONTLIT_TD_SCALE**: leave at 0.1 for now; add a calibration-wizard-derived
-      frontlit factor as a future item (requires new measurement flow — out of scope).
-- [ ] **6e Cleanup**: delete dead `luminanceToHeight` (`autoPaint.ts:1551`); update the
+- [ ] **6b Compression-aware backgrounds**: implemented behind
+      `USE_COMPRESSION_AWARE_BACKGROUNDS`, but not enabled. The harness regressed the
+      8-color large-image case from ΔE 11.58 to 13.26 (14.5%), beyond the 5% tolerance.
+      Revisit only with a better compression model or measured compressed-stack data.
+- [x] **6c CIEDE2000 evaluation**: implemented behind `OPTIMIZER_DISTANCE_METRIC` for
+      scoring and clustering, but retained CIE76. The harness put CIEDE2000's two
+      8-filament runs at 4.1–4.7 s, over the 2 s budget, so it did not earn adoption.
+- [x] **6d FRONTLIT_TD_SCALE**: deliberately retained at 0.1. A calibrated front-lit
+      factor needs a new measurement workflow and remains out of scope.
+- [x] **6e Cleanup**: deleted dead `luminanceToHeight`; updated the
       stale module doc header (`autoPaint.ts:1-17`).
 
 Risk: medium (visual shifts); mitigated by gating + harness + CHANGELOG.

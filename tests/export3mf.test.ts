@@ -1406,7 +1406,7 @@ test('3MF export keeps generated meshes as separate layer objects', async () => 
     );
 });
 
-test('3MF export does not require FileReader to read generated model XML', async () => {
+test('3MF export streams generated model XML without FileReader', async () => {
     const { exportObjectTo3MFBlob } = await loadExport3mfModule();
     const previousFileReader = globalThis.FileReader;
 
@@ -1429,6 +1429,13 @@ test('3MF export does not require FileReader to read generated model XML', async
     } finally {
         globalThis.FileReader = previousFileReader;
     }
+});
+
+test('3MF export keeps generated model XML chunked for large models', () => {
+    const source = readFileSync(resolve(process.cwd(), 'src/lib/export3mf.ts'), 'utf8');
+
+    assert.doesNotMatch(source, /xmlParts\.join\(/);
+    assert.match(source, /encodeXmlChunks\(xmlParts\.splice\(0\)\)/);
 });
 
 test('exports include preview-hidden layers with their original filament colors', async () => {

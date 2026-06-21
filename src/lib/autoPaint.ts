@@ -1,19 +1,11 @@
 /**
- * Auto-Paint Algorithm for Filament Painting (HueForge-style lithophanes)
+ * Auto-paint optical model and printable color-stack planner.
  *
- * This module implements a physically-accurate optical simulation for
- * multi-filament lithophane printing using the Beer-Lambert law.
+ * This module models multi-filament prints with Beer-Lambert blending, then
+ * turns the selected filament stack into layer zones and preview colors.
  *
- * Key concepts:
- * 1. TRANSITION ZONES: Each filament needs enough vertical space to fully
- *    transition from the previous color to its pure color.
- * 2. CUMULATIVE HEIGHT: Total height = sum of all transition zones.
- * 3. COMPRESSION: If user sets a max height below the ideal, zones are compressed.
- * 4. LUMINANCE MAPPING: Image pixel brightness maps to position within zones.
- * 5. ENHANCED COLOR MATCHING: Optimizes filament ordering by evaluating all
- *    permutations for best color reproduction (DeltaE-based).
- * 6. REPEATED SWAPS: Allows filaments to appear multiple times in the stack
- *    to create intermediate blended colors (e.g., thin white over red = pink).
+ * It keeps the optimizer and preview on the same model: optional calibrated
+ * per-channel TDs and printable layer sampling are shared by both paths.
  */
 
 import type { Filament } from '../types';
@@ -23,7 +15,7 @@ import {
     type OptimizerResult,
     type ScoringContext,
 } from './optimizer';
-import { computeProfileConfidence } from './calibration';
+import { computeProfileConfidence, type CalibrationRgb } from './calibration';
 
 export { LAYER_ACTIVATION_EPSILON } from './layerActivation';
 
@@ -46,11 +38,14 @@ export interface WeightedLab extends Lab {
     weight: number;
 }
 
+type ColorDistanceMetric = 'cie76' | 'ciede2000';
+
 /** A transition zone between two filaments */
 export interface TransitionZone {
     filamentId: string;
     filamentColor: string;
     filamentTd: number; // Transmission Distance of this filament
+    filamentTdChannels?: CalibrationRgb; // Calibrated R, G, B TDs when available
     startHeight: number; // mm from Z=0
     endHeight: number; // mm from Z=0
     idealThickness: number; // Uncompressed zone thickness
@@ -209,34 +204,103 @@ export function getLuminance(color: RGB): number {
  *
  * @param backgroundColor - The color of the existing stack
  * @param filamentColor - The color of the filament being added
- * @param filamentTD - Transmission Distance of the filament (mm)
+ * @param filamentTD - Scalar working TD or calibrated R, G, B TDs (mm)
  * @param layerThickness - How thick the filament layer is (mm)
  * @returns The resulting blended color
  */
 export function blendColors(
     backgroundColor: RGB,
     filamentColor: RGB,
-    filamentTD: number,
+    filamentTD: number | CalibrationRgb,
     layerThickness: number
 ): RGB {
-    // Prevent division by zero or invalid TD
-    if (filamentTD <= 0 || layerThickness <= 0) {
+    if (layerThickness <= 0) {
         return filamentColor;
     }
 
-    // Beer-Lambert law: transmission = 10^(-thickness/TD)
-    // At thickness == TD, transmission = 10^(-1) = 0.1 (10%)
-    const transmission = Math.pow(0.1, layerThickness / filamentTD);
+    const channelTd: CalibrationRgb =
+        typeof filamentTD === 'number' ? [filamentTD, filamentTD, filamentTD] : filamentTD;
+    if (channelTd.some((td) => !Number.isFinite(td) || td <= 0)) {
+        return filamentColor;
+    }
 
-    // Opacity is the inverse of transmission
-    const opacity = 1 - transmission;
-
-    // Linear interpolation (simple RGB mixing)
-    return {
-        r: filamentColor.r * opacity + backgroundColor.r * transmission,
-        g: filamentColor.g * opacity + backgroundColor.g * transmission,
-        b: filamentColor.b * opacity + backgroundColor.b * transmission,
+    const blendChannel = (background: number, filament: number, td: number) => {
+        // Beer-Lambert law: transmission = 10^(-thickness/TD).
+        // At thickness == TD, transmission = 10^(-1) = 0.1 (10%).
+        const transmission = Math.pow(0.1, layerThickness / td);
+        return filament * (1 - transmission) + background * transmission;
     };
+
+    return {
+        r: blendChannel(backgroundColor.r, filamentColor.r, channelTd[0]),
+        g: blendChannel(backgroundColor.g, filamentColor.g, channelTd[1]),
+        b: blendChannel(backgroundColor.b, filamentColor.b, channelTd[2]),
+    };
+}
+
+/** Calculate Delta E (CIEDE2000) directly from Lab values. */
+export function deltaE2000Lab(lab1: Lab, lab2: Lab): number {
+    const chroma1 = Math.hypot(lab1.a, lab1.b);
+    const chroma2 = Math.hypot(lab2.a, lab2.b);
+    const averageChroma = (chroma1 + chroma2) / 2;
+    const g = 0.5 * (1 - Math.sqrt(averageChroma ** 7 / (averageChroma ** 7 + 25 ** 7)));
+    const a1 = (1 + g) * lab1.a;
+    const a2 = (1 + g) * lab2.a;
+    const adjustedChroma1 = Math.hypot(a1, lab1.b);
+    const adjustedChroma2 = Math.hypot(a2, lab2.b);
+    const hue = (a: number, b: number) => (Math.atan2(b, a) * 180 / Math.PI + 360) % 360;
+    const hue1 = hue(a1, lab1.b);
+    const hue2 = hue(a2, lab2.b);
+    const deltaL = lab2.L - lab1.L;
+    const deltaChroma = adjustedChroma2 - adjustedChroma1;
+    const hueDifference =
+        adjustedChroma1 * adjustedChroma2 === 0
+            ? 0
+            : Math.abs(hue2 - hue1) <= 180
+              ? hue2 - hue1
+              : hue2 <= hue1
+                ? hue2 - hue1 + 360
+                : hue2 - hue1 - 360;
+    const deltaHue =
+        2 * Math.sqrt(adjustedChroma1 * adjustedChroma2) * Math.sin((hueDifference / 2) * Math.PI / 180);
+    const meanL = (lab1.L + lab2.L) / 2;
+    const meanChroma = (adjustedChroma1 + adjustedChroma2) / 2;
+    const meanHue =
+        adjustedChroma1 * adjustedChroma2 === 0
+            ? hue1 + hue2
+            : Math.abs(hue1 - hue2) <= 180
+              ? (hue1 + hue2) / 2
+              : hue1 + hue2 < 360
+                ? (hue1 + hue2 + 360) / 2
+                : (hue1 + hue2 - 360) / 2;
+    const hueWeight =
+        1 -
+        0.17 * Math.cos((meanHue - 30) * Math.PI / 180) +
+        0.24 * Math.cos(2 * meanHue * Math.PI / 180) +
+        0.32 * Math.cos((3 * meanHue + 6) * Math.PI / 180) -
+        0.2 * Math.cos((4 * meanHue - 63) * Math.PI / 180);
+    const lightnessScale = 1 + 0.015 * (meanL - 50) ** 2 / Math.sqrt(20 + (meanL - 50) ** 2);
+    const chromaScale = 1 + 0.045 * meanChroma;
+    const hueScale = 1 + 0.015 * meanChroma * hueWeight;
+    const rotation =
+        -2 *
+        Math.sqrt(meanChroma ** 7 / (meanChroma ** 7 + 25 ** 7)) *
+        Math.sin((60 * Math.exp(-(((meanHue - 275) / 25) ** 2))) * Math.PI / 180);
+
+    return Math.sqrt(
+        (deltaL / lightnessScale) ** 2 +
+            (deltaChroma / chromaScale) ** 2 +
+            (deltaHue / hueScale) ** 2 +
+            rotation * (deltaChroma / chromaScale) * (deltaHue / hueScale)
+    );
+}
+
+const OPTIMIZER_DISTANCE_METRIC: ColorDistanceMetric = 'cie76';
+
+function optimizerColorDistance(left: Lab, right: Lab): number {
+    return OPTIMIZER_DISTANCE_METRIC === 'ciede2000'
+        ? deltaE2000Lab(left, right)
+        : deltaELab(left, right);
 }
 
 /**
@@ -268,6 +332,37 @@ const DELTA_E_THRESHOLD = 2.3; // "Just noticeable difference"
  * Scale user-entered TD values down for internal simulation.
  */
 const FRONTLIT_TD_SCALE = 0.1;
+const USE_CALIBRATED_CHANNEL_TD = true;
+const USE_COMPRESSION_AWARE_BACKGROUNDS = false;
+
+type AutoPaintFilament = Pick<Filament, 'id' | 'color' | 'td' | 'calibration'>;
+
+function calibratedTdChannels(filament: AutoPaintFilament): CalibrationRgb | undefined {
+    if (!USE_CALIBRATED_CHANNEL_TD) return undefined;
+    const channels = filament.calibration?.td;
+    if (!channels || channels.some((td) => !Number.isFinite(td) || td <= 0)) {
+        return undefined;
+    }
+    return channels;
+}
+
+function scaleFilamentForFrontlight(filament: Filament): Filament {
+    const scaledTd = filament.td * FRONTLIT_TD_SCALE;
+    if (!filament.calibration) {
+        return { ...filament, td: scaledTd };
+    }
+
+    const calibration = filament.calibration;
+    return {
+        ...filament,
+        td: scaledTd,
+        calibration: {
+            ...calibration,
+            td: calibration.td.map((td) => td * FRONTLIT_TD_SCALE) as CalibrationRgb,
+            tdSingleValue: calibration.tdSingleValue * FRONTLIT_TD_SCALE,
+        },
+    };
+}
 
 /**
  * Simulate adding filament layers until the blended color matches the
@@ -336,7 +431,7 @@ export function calculateTransitionThickness(
  * @returns Object with ideal height and zone breakdown
  */
 export function calculateIdealHeight(
-    sortedFilaments: Array<{ id: string; color: string; td: number }>,
+    sortedFilaments: AutoPaintFilament[],
     layerHeight: number,
     baseThickness: number = 0.6,
     transitionThicknessCache?: Map<string, number>
@@ -363,6 +458,7 @@ export function calculateIdealHeight(
         filamentId: firstFilament.id,
         filamentColor: firstFilament.color,
         filamentTd: firstFilament.td,
+        filamentTdChannels: calibratedTdChannels(firstFilament),
         startHeight: 0,
         endHeight: foundationThickness,
         idealThickness: foundationThickness,
@@ -401,6 +497,7 @@ export function calculateIdealHeight(
             filamentId: filament.id,
             filamentColor: filament.color,
             filamentTd: filament.td,
+            filamentTdChannels: calibratedTdChannels(filament),
             startHeight: currentHeight,
             endHeight: currentHeight + transitionThickness,
             idealThickness: transitionThickness,
@@ -457,6 +554,37 @@ export function compressZones(
     return { compressedZones, compressionRatio };
 }
 
+function buildZoneBackgrounds(zones: TransitionZone[]): RGB[] {
+    if (zones.length === 0) return [];
+
+    const backgrounds: RGB[] = [];
+    let previousEndColor = hexToRgb(zones[0].filamentColor);
+
+    for (let index = 0; index < zones.length; index++) {
+        const zone = zones[index];
+        const filamentColor = hexToRgb(zone.filamentColor);
+        const backgroundColor =
+            index === 0
+                ? filamentColor
+                : USE_COMPRESSION_AWARE_BACKGROUNDS
+                  ? previousEndColor
+                  : hexToRgb(zones[index - 1].filamentColor);
+        backgrounds.push(backgroundColor);
+
+        previousEndColor =
+            index === 0
+                ? filamentColor
+                : blendColors(
+                      backgroundColor,
+                      filamentColor,
+                      zone.filamentTdChannels ?? zone.filamentTd,
+                      zone.actualThickness
+                  );
+    }
+
+    return backgrounds;
+}
+
 // =============================================================================
 // IMAGE COLOR ANALYSIS
 // =============================================================================
@@ -505,24 +633,21 @@ export function clusterImageColors(
         totalCount: number;
     }> = [];
 
-    const thresholdSq = threshold * threshold;
-
     for (const item of items) {
         // Find nearest existing cluster
         let bestIdx = -1;
-        let bestDeSq = Infinity;
+        let bestDistance = Infinity;
 
         for (let ci = 0; ci < clusters.length; ci++) {
             const c = clusters[ci];
-            const deSq =
-                (item.lab.L - c.L) ** 2 + (item.lab.a - c.a) ** 2 + (item.lab.b - c.b) ** 2;
-            if (deSq < bestDeSq) {
-                bestDeSq = deSq;
+            const distance = optimizerColorDistance(item.lab, c);
+            if (distance < bestDistance) {
+                bestDistance = distance;
                 bestIdx = ci;
             }
         }
 
-        if (bestIdx >= 0 && bestDeSq < thresholdSq) {
+        if (bestIdx >= 0 && bestDistance < threshold) {
             // Merge into existing cluster (weighted centroid update)
             const c = clusters[bestIdx];
             const total = c.totalCount + item.count;
@@ -585,7 +710,7 @@ export function clusterImageColors(
  * @returns Array of achievable { height, lab, rgb } at each layer step
  */
 export function buildAchievableColorPalette(
-    sequence: Array<{ id: string; color: string; td: number }>,
+    sequence: AutoPaintFilament[],
     layerHeight: number,
     firstLayerHeight: number,
     maxHeight?: number,
@@ -595,7 +720,7 @@ export function buildAchievableColorPalette(
 
     // Calculate zones for this sequence
     const { zones } = calculateIdealHeight(
-        sequence.map((f) => ({ id: f.id, color: f.color, td: f.td })),
+        sequence,
         layerHeight,
         Math.max(firstLayerHeight, layerHeight),
         transitionThicknessCache
@@ -607,6 +732,7 @@ export function buildAchievableColorPalette(
         maxHeight === undefined ? zones : compressZones(zones, maxHeight).compressedZones;
     const totalHeight = activeZones[activeZones.length - 1].endHeight;
     const palette: Array<{ height: number; lab: Lab; rgb: RGB }> = [];
+    const zoneBackgrounds = buildZoneBackgrounds(activeZones);
 
     let currentZ = 0;
     let layerIndex = 0;
@@ -643,11 +769,10 @@ export function buildAchievableColorPalette(
         if (activeZoneIndex === 0) {
             blendedColor = filamentColor;
         } else {
-            const bgColor = hexToRgb(activeZones[activeZoneIndex - 1].filamentColor);
             blendedColor = blendColors(
-                bgColor,
+                zoneBackgrounds[activeZoneIndex],
                 filamentColor,
-                zone.filamentTd,
+                zone.filamentTdChannels ?? zone.filamentTd,
                 thicknessInCurrentZone
             );
         }
@@ -709,11 +834,7 @@ export function scoreSequenceAgainstImage(
         let bestIdx = 0;
         for (let ri = 0; ri < paletteEntries.length; ri++) {
             const entry = paletteEntries[ri];
-            const de = Math.sqrt(
-                (entry.lab.L - target.L) ** 2 +
-                    (entry.lab.a - target.a) ** 2 +
-                    (entry.lab.b - target.b) ** 2
-            );
+            const de = optimizerColorDistance(entry.lab, target);
             if (de < minDE) {
                 minDE = de;
                 bestHeight = entry.height;
@@ -744,11 +865,11 @@ export function scoreSequenceAgainstImage(
             const projectedL = start.lab.L + t * dL;
             const projectedA = start.lab.a + t * da;
             const projectedB = start.lab.b + t * db;
-            const projectedDistance = Math.sqrt(
-                (target.L - projectedL) ** 2 +
-                    (target.a - projectedA) ** 2 +
-                    (target.b - projectedB) ** 2
-            );
+            const projectedDistance = optimizerColorDistance(target, {
+                L: projectedL,
+                a: projectedA,
+                b: projectedB,
+            });
             if (projectedDistance < minDE) {
                 minDE = projectedDistance;
                 bestHeight = start.height + t * (end.height - start.height);
@@ -758,11 +879,7 @@ export function scoreSequenceAgainstImage(
         const mappedIdx = paletteEntries.findIndex((entry) => entry.height >= bestHeight);
         bestIdx = mappedIdx >= 0 ? mappedIdx : paletteEntries.length - 1;
         const mappedColor = paletteEntries[bestIdx].lab;
-        const mappedDeltaE = Math.sqrt(
-            (mappedColor.L - target.L) ** 2 +
-                (mappedColor.a - target.a) ** 2 +
-                (mappedColor.b - target.b) ** 2
-        );
+        const mappedDeltaE = optimizerColorDistance(mappedColor, target);
 
         weightedDeltaE += mappedDeltaE * target.weight;
         bestMatchHeights.push(bestHeight);
@@ -860,10 +977,7 @@ function findBestFilamentOrderWithOptimizer(
     };
 
     // Apply frontlit TD scale
-    const scaledFilaments = filaments.map((f) => ({
-        ...f,
-        td: f.td * FRONTLIT_TD_SCALE,
-    }));
+    const scaledFilaments = filaments.map(scaleFilamentForFrontlight);
 
     // Run optimizer
     const result = optimizeFilamentOrder(scaledFilaments, context, {
@@ -980,14 +1094,11 @@ export function generateAutoLayers(
     const filamentOrder = sortedFilaments.map((f) => f.id);
 
     // Apply frontlit TD scale for internal simulation
-    const scaledFilaments = sortedFilaments.map((f) => ({
-        ...f,
-        td: f.td * FRONTLIT_TD_SCALE,
-    }));
+    const scaledFilaments = sortedFilaments.map(scaleFilamentForFrontlight);
 
     // --- STEP 3: CALCULATE IDEAL HEIGHT WITH TRANSITION ZONES ---
     const { idealHeight, zones } = calculateIdealHeight(
-        scaledFilaments.map((f) => ({ id: f.id, color: f.color, td: f.td })),
+        scaledFilaments,
         layerHeight,
         Math.max(firstLayerHeight, layerHeight)
     );
@@ -1109,6 +1220,7 @@ export function autoPaintToSliceHeights(
     const colorOrder: number[] = [];
 
     const zones = result.transitionZones;
+    const zoneBackgrounds = buildZoneBackgrounds(zones);
 
     // Generate layers at each layerHeight increment from 0 to totalHeight.
     // For each layer, simulate the Beer-Lambert blended color at that Z.
@@ -1150,11 +1262,10 @@ export function autoPaintToSliceHeights(
         if (activeZoneIndex === 0) {
             blendedColor = filamentColor;
         } else {
-            const bgColor = hexToRgb(zones[activeZoneIndex - 1].filamentColor);
             blendedColor = blendColors(
-                bgColor,
+                zoneBackgrounds[activeZoneIndex],
                 filamentColor,
-                zone.filamentTd,
+                zone.filamentTdChannels ?? zone.filamentTd,
                 thicknessInCurrentZone
             );
         }
@@ -1179,53 +1290,6 @@ export function autoPaintToSliceHeights(
         virtualSwatches,
         filamentSwatches,
     };
-}
-
-// =============================================================================
-// LUMINANCE-TO-HEIGHT MAPPING
-// =============================================================================
-
-/**
- * Map a pixel's luminance to a target height within the transition zones.
- *
- * This is the key function that determines how image brightness translates
- * to physical height in the 3D model.
- *
- * The mapping works as follows:
- * - Darkest pixels (luminance = 0) → minimum height (base layer only)
- * - Lightest pixels (luminance = 1) → maximum height (all layers)
- * - Mid-tones → proportional position within the transition zones
- *
- * @param normalizedLuminance - Pixel luminance normalized to 0-1
- * @param transitionZones - The computed transition zones
- * @param totalHeight - Total model height
- * @param firstLayerHeight - First layer height
- * @returns Target height in mm
- */
-export function luminanceToHeight(
-    normalizedLuminance: number,
-    transitionZones: TransitionZone[],
-    totalHeight: number,
-    firstLayerHeight: number
-): number {
-    if (transitionZones.length === 0) {
-        return firstLayerHeight;
-    }
-
-    // Base height (darkest pixels get at least the foundation)
-    const baseHeight = transitionZones[0].endHeight;
-
-    if (normalizedLuminance <= 0) {
-        return baseHeight;
-    }
-
-    if (normalizedLuminance >= 1) {
-        return totalHeight;
-    }
-
-    // Linear interpolation from base to total height
-    // This gives a smooth gradient where brightness = height
-    return baseHeight + normalizedLuminance * (totalHeight - baseHeight);
 }
 
 // =============================================================================
