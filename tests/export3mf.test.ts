@@ -40,9 +40,7 @@ interface AutoPaintModule {
         maxHeight?: number,
         enhancedColorMatch?: boolean,
         allowRepeatedSwaps?: boolean,
-        optimizerOptions?: { algorithm: OptimizerAlgorithm; seed?: number },
-        regionWeightingMode?: 'uniform' | 'center' | 'edge',
-        imageDimensions?: { width: number; height: number } | null
+        optimizerOptions?: { algorithm: OptimizerAlgorithm; seed?: number }
     ): unknown;
     autoPaintToSliceHeights(
         result: unknown,
@@ -789,9 +787,7 @@ async function buildAutoPaintLogoRegressionStack(
         {
             algorithm: 'auto',
             seed,
-        },
-        'uniform',
-        { width: image.width, height: image.height }
+        }
     );
     const sliceData = autoPaintToSliceHeights(autoPaintResult, layerHeight, firstLayerHeight);
     const cumulativeHeights = buildCumulativeHeights(

@@ -1,7 +1,16 @@
 import type { AutoPaintResult } from '../lib/autoPaint';
 import type { CalibrationResult } from '../lib/calibration';
 
-export type Swatch = { hex: string; a: number };
+export type Swatch = {
+    hex: string;
+    a: number;
+    /** Raw pixel count, kept for display and non-spatial consumers. */
+    count?: number;
+    /** Sum of center-priority weights for this color's source pixels. */
+    centerWeight?: number;
+    /** Sum of edge-priority weights for this color's source pixels. */
+    edgeWeight?: number;
+};
 
 export interface CustomPalette {
     id: string;

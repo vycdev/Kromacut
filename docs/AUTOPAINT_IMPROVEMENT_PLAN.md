@@ -208,24 +208,24 @@ Risk: none (additive). Estimated scope: tests only.
 
 Goal: per-color weights actually reflect where colors sit in the image. Fixes F4.
 
-- [ ] **1.1** Extend swatch extraction (`useSwatches.ts`) to accumulate, per color, in
+- [x] **1.1** Extend swatch extraction (`useSwatches.ts`) to accumulate, per color, in
       the same tile pass that builds the histogram: `centerWeight` and `edgeWeight`
       (sum of the geometric per-pixel weight functions evaluated inline — no
       Float32Array maps materialized). Both modes computed in one pass so switching
       modes never rescans the image. Swatch entries gain optional fields; existing
       consumers unaffected.
-- [ ] **1.2** Thread the chosen mode's weighted count through
+- [x] **1.2** Thread the chosen mode's weighted count through
       `useAutoPaintWorker` → worker request → `generateAutoLayers`: when mode ≠
       `uniform`, use the weighted count as `count` input to `clusterImageColors`
       (which already weights by count). Keep raw count for display.
-- [ ] **1.3** Delete `applyRegionWeightHeuristic` (`autoPaint.ts:868-924`) and the
+- [x] **1.3** Delete `applyRegionWeightHeuristic` (`autoPaint.ts:868-924`) and the
       per-request map generation in `generateAutoLayers:1267-1282`. Remove
       `regionWeights` from `OptimizerOptions`/`ScoringContext` (or keep as deprecated
       no-op field if persisted anywhere — verify; current persistence stores only the
       mode string, so removal should be safe).
-- [ ] **1.4** Repeated-swaps path uses the same weighted targets (fixes the
+- [x] **1.4** Repeated-swaps path uses the same weighted targets (fixes the
       inconsistency at `autoPaint.ts:1098`).
-- [ ] **1.5 Tests**: synthetic fixture (red center disc on blue border):
+- [x] **1.5 Tests**: synthetic fixture (red center disc on blue border):
   - `center` mode must rank red clusters above blue; `edge` mode the reverse.
   - Mode `uniform` byte-identical to pre-change output (golden snapshot).
   - No `Float32Array(width*height)` allocation in the worker path (can assert via

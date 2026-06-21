@@ -21,8 +21,6 @@ export interface AutoPaintWorkerRequest {
     enhancedColorMatch?: boolean;
     allowRepeatedSwaps?: boolean;
     optimizerOptions?: Partial<OptimizerOptions>;
-    regionWeightingMode: 'uniform' | 'center' | 'edge';
-    imageDimensions?: { width: number; height: number } | null;
 }
 
 export interface AutoPaintWorkerResponse {
@@ -43,9 +41,7 @@ self.onmessage = (e: MessageEvent<AutoPaintWorkerRequest>) => {
             req.maxHeight,
             req.enhancedColorMatch,
             req.allowRepeatedSwaps,
-            req.optimizerOptions,
-            req.regionWeightingMode,
-            req.imageDimensions
+            req.optimizerOptions
         );
 
         const response: AutoPaintWorkerResponse = { id: req.id, result };

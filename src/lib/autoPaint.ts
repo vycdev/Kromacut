@@ -23,7 +23,6 @@ import {
     type OptimizerResult,
     type ScoringContext,
 } from './optimizer';
-import { generateCenterWeightedMapSimple, generateEdgeWeightedMapSimple } from './regionWeighting';
 import { computeProfileConfidence } from './calibration';
 
 export { LAYER_ACTIVATION_EPSILON } from './layerActivation';
@@ -466,7 +465,7 @@ export function compressZones(
  * @param threshold - DeltaE merge threshold (default 5.0)
  * @returns Weighted Lab targets, normalized so weights sum to 1.0
  */
-function clusterImageColors(
+export function clusterImageColors(
     swatches: Array<{ hex: string; count?: number }>,
     maxClusters: number = 32,
     threshold: number = 5.0
@@ -854,76 +853,6 @@ function findBestFilamentOrder(
 }
 
 /**
- * Apply region weighting heuristic to clustered colors.
- * 
- * This is an approximation since spatial information is lost during clustering.
- * We analyze the region weight distribution and adjust cluster weights accordingly:
- * - High-weight regions (center or edges) boost colors commonly found there
- * - Uses luminance as a proxy for spatial distribution (centers tend brighter, edges darker)
- * 
- * @param clusters Weighted Lab color clusters
- * @param regionWeights Per-pixel region importance weights
- * @returns Adjusted color clusters with modified weights
- */
-function applyRegionWeightHeuristic(
-    clusters: WeightedLab[],
-    regionWeights: Float32Array
-): WeightedLab[] {
-    if (clusters.length === 0 || regionWeights.length === 0) return clusters;
-
-    // Calculate average region weight to determine mode strength
-    let sumWeight = 0;
-    for (let i = 0; i < regionWeights.length; i++) {
-        sumWeight += regionWeights[i];
-    }
-    const avgWeight = sumWeight / regionWeights.length;
-
-    // Calculate luminance variance to detect contrast distribution
-    // Higher contrast (edge mode) vs more uniform (center mode)
-    let sumSqDiff = 0;
-    for (let i = 0; i < regionWeights.length; i++) {
-        const diff = regionWeights[i] - avgWeight;
-        sumSqDiff += diff * diff;
-    }
-    const variance = sumSqDiff / regionWeights.length;
-    const isHighContrast = variance > 0.05; // Threshold for edge-weighted pattern
-
-    // Apply heuristic adjustments
-    let totalAdjustedWeight = 0;
-    const adjustedClusters = clusters.map((cluster) => {
-        let modifier = 1.0;
-
-        if (isHighContrast) {
-            // Edge-weighted mode: boost high-contrast colors (very light or very dark)
-            const isHighContrast = cluster.L < 30 || cluster.L > 70;
-            modifier = isHighContrast ? 1.3 : 0.85;
-        } else {
-            // Center-weighted mode: boost mid-luminance colors (typical of center regions)
-            const isMidLuminance = cluster.L >= 35 && cluster.L <= 65;
-            modifier = isMidLuminance ? 1.2 : 0.9;
-        }
-
-        const adjustedWeight = cluster.weight * modifier;
-        totalAdjustedWeight += adjustedWeight;
-
-        return {
-            ...cluster,
-            weight: adjustedWeight,
-        };
-    });
-
-    // Renormalize to sum to 1.0
-    if (totalAdjustedWeight > 0) {
-        return adjustedClusters.map((c) => ({
-            ...c,
-            weight: c.weight / totalAdjustedWeight,
-        }));
-    }
-
-    return clusters;
-}
-
-/**
  * Advanced optimizer path using simulated annealing / genetic algorithm
  */
 function findBestFilamentOrderWithOptimizer(
@@ -933,22 +862,14 @@ function findBestFilamentOrderWithOptimizer(
     firstLayerHeight: number,
     optimizerOptions: Partial<OptimizerOptions>
 ): { sortedFilaments: Filament[]; result: OptimizerResult } {
-    // Cluster image colors into weighted Lab targets
-    let imageTargets = clusterImageColors(imageSwatches, 32, 5.0);
-
-    // Apply region weight heuristic if region weights are provided
-    // Note: This is an approximation since we've lost pixel positions during clustering.
-    // Proper implementation would require weighting pixels before aggregation.
-    if (optimizerOptions.regionWeights) {
-        imageTargets = applyRegionWeightHeuristic(imageTargets, optimizerOptions.regionWeights);
-    }
+    // Spatial weighting has already been folded into swatch counts by the caller.
+    const imageTargets = clusterImageColors(imageSwatches, 32, 5.0);
 
     // Build scoring context
     const context: ScoringContext = {
         imageColors: imageTargets,
         layerHeight,
         firstLayerHeight,
-        regionWeights: optimizerOptions.regionWeights,
     };
 
     // Apply frontlit TD scale
@@ -1204,9 +1125,7 @@ function buildRepeatedSwapSequence(
  * @param maxHeight - Optional maximum height constraint (undefined = auto)
  * @param enhancedColorMatch - If true, optimize filament ordering for best color reproduction
  * @param allowRepeatedSwaps - If true, allow filaments to appear multiple times in the stack
- * @param optimizerOptions - Advanced optimizer settings (algorithm, seeding, region weighting)
- * @param regionWeightingMode - Region weighting strategy: uniform, center, or edge
- * @param imageDimensions - Image width and height for region weight map generation
+ * @param optimizerOptions - Advanced optimizer settings (algorithm and seeding)
  * @returns Generated layer segments with zone information
  */
 export function generateAutoLayers(
@@ -1217,9 +1136,7 @@ export function generateAutoLayers(
     maxHeight?: number,
     enhancedColorMatch?: boolean,
     allowRepeatedSwaps?: boolean,
-    optimizerOptions?: Partial<OptimizerOptions>,
-    regionWeightingMode: 'uniform' | 'center' | 'edge' = 'uniform',
-    imageDimensions?: { width: number; height: number } | null
+    optimizerOptions?: Partial<OptimizerOptions>
 ): AutoPaintResult {
     // --- STEP 1: VALIDATION ---
     if (filaments.length === 0) {
@@ -1262,35 +1179,6 @@ export function generateAutoLayers(
     let sortedFilaments: Filament[];
     let optimizerResult: OptimizerResult | undefined;
 
-    // Generate region weight map if dimensions are available and mode is not uniform
-    let regionWeights: Float32Array | undefined;
-    if (imageDimensions && regionWeightingMode !== 'uniform') {
-        if (regionWeightingMode === 'center') {
-            // Center-weighted: prioritize center of image
-            regionWeights = generateCenterWeightedMapSimple(
-                imageDimensions.width,
-                imageDimensions.height,
-                0.5 // strength parameter
-            );
-        } else if (regionWeightingMode === 'edge') {
-            // Edge-weighted (geometry-based): prioritize border regions.
-            regionWeights = generateEdgeWeightedMapSimple(
-                imageDimensions.width,
-                imageDimensions.height
-            );
-        }
-    }
-
-    // Merge region weights into optimizer options
-    const mergedOptimizerOptions: Partial<OptimizerOptions> | undefined = optimizerOptions
-        ? {
-              ...optimizerOptions,
-              regionWeights: regionWeights ?? optimizerOptions.regionWeights,
-          }
-        : regionWeights
-          ? { regionWeights }
-          : undefined;
-
     if (enhancedColorMatch) {
         // Enhanced: find the ordering that best covers the image's color palette
         const orderingResult = findBestFilamentOrder(
@@ -1298,7 +1186,7 @@ export function generateAutoLayers(
             imageSwatches,
             layerHeight,
             firstLayerHeight,
-            mergedOptimizerOptions
+            optimizerOptions
         );
 
         sortedFilaments = orderingResult.sortedFilaments;

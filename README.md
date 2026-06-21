@@ -164,7 +164,7 @@ Prioritize accuracy in specific image regions during optimization:
 |---|---|
 | **Uniform** | All pixels weighted equally (default). |
 | **Center** | Gaussian falloff from center — faces and subjects in the middle get higher priority. |
-| **Edge** | Sobel edge detection — high-contrast boundaries prioritized over flat regions. |
+| **Edge** | Colors nearer the outer edges of the image get higher priority. |
 
 Region weighting is most useful when filament budget is limited and you want the optimizer to focus on visually important areas.
 

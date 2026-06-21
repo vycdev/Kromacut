@@ -12,13 +12,13 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { AutoPaintResult } from '../lib/autoPaint';
-import type { Filament } from '../types';
+import type { Filament, Swatch } from '../types';
 import type { AutoPaintWorkerRequest, AutoPaintWorkerResponse } from '../workers/autoPaint.worker';
 
 export interface UseAutoPaintWorkerOptions {
     paintMode: 'manual' | 'autopaint';
     filaments: Filament[];
-    filtered: Array<{ hex: string; a: number } & Record<string, unknown>>;
+    filtered: Swatch[];
     layerHeight: number;
     slicerFirstLayerHeight: number;
     autoPaintMaxHeight?: number;
@@ -27,7 +27,6 @@ export interface UseAutoPaintWorkerOptions {
     optimizerAlgorithm: 'exhaustive' | 'simulated-annealing' | 'genetic' | 'auto';
     optimizerSeed?: number;
     regionWeightingMode: 'uniform' | 'center' | 'edge';
-    imageDimensions?: { width: number; height: number } | null;
 }
 
 export interface UseAutoPaintWorkerResult {
@@ -59,7 +58,6 @@ export function useAutoPaintWorker(opts: UseAutoPaintWorkerOptions): UseAutoPain
         optimizerAlgorithm,
         optimizerSeed,
         regionWeightingMode,
-        imageDimensions,
     } = opts;
 
     const [autoPaintResult, setAutoPaintResult] = useState<AutoPaintResult | undefined>(undefined);
@@ -107,17 +105,39 @@ export function useAutoPaintWorker(opts: UseAutoPaintWorkerOptions): UseAutoPain
             .join(';');
     }, [filaments]);
 
+    const selectedImageSwatches = useMemo(() => {
+        const rawSwatches = filtered.map((swatch) => ({
+            hex: swatch.hex,
+            rawCount: swatch.count ?? 1,
+            weightedCount:
+                regionWeightingMode === 'center'
+                    ? swatch.centerWeight
+                    : regionWeightingMode === 'edge'
+                      ? swatch.edgeWeight
+                      : undefined,
+        }));
+        const totalWeight = rawSwatches.reduce(
+            (total, swatch) => total + (swatch.weightedCount ?? 0),
+            0
+        );
+
+        return rawSwatches.map((swatch) => ({
+            hex: swatch.hex,
+            count:
+                regionWeightingMode !== 'uniform' && totalWeight > 0
+                    ? swatch.weightedCount ?? 0
+                    : swatch.rawCount,
+        }));
+    }, [filtered, regionWeightingMode]);
+
     const filteredKey = useMemo(() => {
-        return filtered.map((s) => `${s.hex}:${(s.count as number | undefined) ?? 0}`).join(';');
-    }, [filtered]);
+        return selectedImageSwatches.map((s) => `${s.hex}:${s.count}`).join(';');
+    }, [selectedImageSwatches]);
 
     // Keep stable references when only array identity changes but content does not.
     const stableFilaments = useStableValueByKey(filaments, filamentsKey);
     const stableImageSwatches = useStableValueByKey(
-        filtered.map((s) => ({
-            hex: s.hex,
-            count: s.count as number | undefined,
-        })),
+        selectedImageSwatches,
         filteredKey
     );
 
@@ -204,8 +224,6 @@ export function useAutoPaintWorker(opts: UseAutoPaintWorkerOptions): UseAutoPain
                         algorithm,
                         ...(optimizerSeed !== undefined && { seed: optimizerSeed }),
                     },
-                    regionWeightingMode,
-                    imageDimensions: imageDimensions ?? undefined,
                 };
 
                 worker.postMessage(request);
@@ -238,7 +256,6 @@ export function useAutoPaintWorker(opts: UseAutoPaintWorkerOptions): UseAutoPain
         optimizerAlgorithm,
         optimizerSeed,
         regionWeightingMode,
-        imageDimensions,
         getWorker,
         stableFilaments,
         stableImageSwatches,

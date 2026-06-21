@@ -20,6 +20,51 @@ export interface RegionWeightOptions {
     customMask?: Float32Array; // User-provided weights
 }
 
+const DEFAULT_CENTER_WEIGHT_STRENGTH = 0.5;
+
+function normalizedDistanceAt(x: number, y: number, width: number, height: number): number {
+    const centerX = width / 2;
+    const centerY = height / 2;
+    const maxDistance = Math.hypot(centerX, centerY);
+
+    if (maxDistance === 0) return 0;
+    return Math.hypot(x - centerX, y - centerY) / maxDistance;
+}
+
+function normalizedWeight(raw: number, min: number, max: number): number {
+    const range = max - min;
+    return range > 0 ? (raw - min) / range : 1;
+}
+
+function nearestCenterDistance(width: number, height: number): number {
+    const nearestX = Math.abs(Math.floor(width / 2) - width / 2);
+    const nearestY = Math.abs(Math.floor(height / 2) - height / 2);
+    const maxDistance = Math.hypot(width / 2, height / 2);
+    return maxDistance > 0 ? Math.hypot(nearestX, nearestY) / maxDistance : 0;
+}
+
+/** Scalar equivalent of generateCenterWeightedMapSimple. */
+export function centerWeightAt(
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    strength: number = DEFAULT_CENTER_WEIGHT_STRENGTH
+): number {
+    const denominator = 2 * (1 - strength);
+    const raw = Math.exp(-(normalizedDistanceAt(x, y, width, height) ** 2 / denominator));
+    const min = Math.exp(-1 / denominator);
+    const max = Math.exp(-(nearestCenterDistance(width, height) ** 2 / denominator));
+
+    return normalizedWeight(raw, min, max);
+}
+
+/** Scalar equivalent of generateEdgeWeightedMapSimple. */
+export function edgeWeightAt(x: number, y: number, width: number, height: number): number {
+    const raw = normalizedDistanceAt(x, y, width, height) ** 1.35;
+    return normalizedWeight(raw, nearestCenterDistance(width, height) ** 1.35, 1);
+}
+
 // ============================================================================
 // Weight Map Generation
 // ============================================================================
@@ -76,26 +121,12 @@ export function generateCenterWeightedMapSimple(
     strength: number = 0.5
 ): Float32Array {
     const weights = new Float32Array(width * height);
-    const centerX = width / 2;
-    const centerY = height / 2;
-    const maxDist = Math.sqrt(centerX * centerX + centerY * centerY);
 
     for (let y = 0; y < height; y++) {
         for (let x = 0; x < width; x++) {
-            const dx = x - centerX;
-            const dy = y - centerY;
-            const dist = Math.sqrt(dx * dx + dy * dy);
-            const normalizedDist = dist / maxDist;
-
-            // Gaussian fall-off: weight = 1 at center, decreases with distance
-            // strength controls how quickly weight falls off
-            const weight = Math.exp(-((normalizedDist * normalizedDist) / (2 * (1 - strength))));
-
-            weights[y * width + x] = weight;
+            weights[y * width + x] = centerWeightAt(x, y, width, height, strength);
         }
     }
-
-    normalizeWeights(weights);
     return weights;
 }
 
@@ -105,23 +136,12 @@ export function generateCenterWeightedMapSimple(
  */
 export function generateEdgeWeightedMapSimple(width: number, height: number): Float32Array {
     const weights = new Float32Array(width * height);
-    const centerX = width / 2;
-    const centerY = height / 2;
-    const maxDist = Math.sqrt(centerX * centerX + centerY * centerY);
 
     for (let y = 0; y < height; y++) {
         for (let x = 0; x < width; x++) {
-            const dx = x - centerX;
-            const dy = y - centerY;
-            const dist = Math.sqrt(dx * dx + dy * dy);
-            const normalizedDist = maxDist > 0 ? dist / maxDist : 0;
-
-            // Low in center, high toward borders
-            weights[y * width + x] = Math.pow(normalizedDist, 1.35);
+            weights[y * width + x] = edgeWeightAt(x, y, width, height);
         }
     }
-
-    normalizeWeights(weights);
     return weights;
 }
 

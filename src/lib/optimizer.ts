@@ -26,7 +26,6 @@ export interface OptimizerOptions {
     populationSize?: number; // Population size for GA
     mutationRate?: number; // Mutation probability for GA
     eliteCount?: number; // Number of elite individuals to preserve in GA
-    regionWeights?: Float32Array; // Per-pixel importance weights (0-1)
     cachingEnabled?: boolean; // Enable result caching
 }
 
@@ -43,7 +42,6 @@ export interface ScoringContext {
     imageColors: Array<Lab & { weight: number }>; // Weighted Lab colors from image
     layerHeight: number;
     firstLayerHeight: number;
-    regionWeights?: Float32Array; // Per-pixel importance
 }
 
 // ============================================================================

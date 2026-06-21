@@ -222,7 +222,6 @@ export default function ThreeDControls({
         optimizerAlgorithm,
         optimizerSeed,
         regionWeightingMode,
-        imageDimensions,
     });
 
     const autoPaintSliceData = useMemo(() => {

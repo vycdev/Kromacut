@@ -13,6 +13,8 @@ All notable changes to Kromacut are documented in this file.
 
 ### Fixed
 
+- **Auto-paint region priority** - Center and Edge priority now use the actual locations of each image color. Center prioritizes colors near the image middle; Edge prioritizes colors near the outer border. The optimizer no longer allocates a full-image weight map or guesses location from color brightness.
+
 - **Auto-paint layer cap** - Corrected the slice-data safety limit so exceptionally tall auto-paint stacks stop at 500 layers rather than returning 501.
 
 ## v3.1.0 - 2026-06-18

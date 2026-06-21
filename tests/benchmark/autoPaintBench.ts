@@ -96,7 +96,7 @@ for (const scenario of autoPaintGoldenScenarios().filter(
         const seeds = algorithm === 'simulated-annealing' || algorithm === 'genetic' ? SEEDS : [SEEDS[0]];
         for (const seed of seeds) {
             const start = performance.now();
-            const result = autoPaint.generateAutoLayers(scenario.filaments, scenario.imageSwatches, LAYER_HEIGHT, FIRST_LAYER_HEIGHT, undefined, scenario.enhancedColorMatch, scenario.allowRepeatedSwaps, { algorithm, seed }, 'uniform', scenario.imageDimensions);
+            const result = autoPaint.generateAutoLayers(scenario.filaments, scenario.imageSwatches, LAYER_HEIGHT, FIRST_LAYER_HEIGHT, undefined, scenario.enhancedColorMatch, scenario.allowRepeatedSwaps, { algorithm, seed });
             const elapsedMs = performance.now() - start;
             const slices = autoPaint.autoPaintToSliceHeights(result, LAYER_HEIGHT, FIRST_LAYER_HEIGHT);
             const palette = slices.virtualSwatches.map((swatch) => autoPaint.rgbToLab(autoPaint.hexToRgb(swatch.hex)));
@@ -111,7 +111,7 @@ for (const scenario of autoPaintGoldenScenarios().filter(
                 const slice = Math.min(heights.length - 1, heights.findIndex((value) => value >= height));
                 return { weight: target.weight, value: autoPaint.deltaELab(target.lab, palette[Math.max(0, slice)]) };
             });
-            const compressed = autoPaint.generateAutoLayers(scenario.filaments, scenario.imageSwatches, LAYER_HEIGHT, FIRST_LAYER_HEIGHT, COMPRESSED_MAX_HEIGHT, scenario.enhancedColorMatch, scenario.allowRepeatedSwaps, { algorithm, seed }, 'uniform', scenario.imageDimensions);
+            const compressed = autoPaint.generateAutoLayers(scenario.filaments, scenario.imageSwatches, LAYER_HEIGHT, FIRST_LAYER_HEIGHT, COMPRESSED_MAX_HEIGHT, scenario.enhancedColorMatch, scenario.allowRepeatedSwaps, { algorithm, seed });
             const used = new Set(errors76.map((_, targetIndex) => palette.reduce((best, entry, index) => autoPaint.deltaELab(targets[targetIndex].lab, entry) < autoPaint.deltaELab(targets[targetIndex].lab, palette[best]) ? index : best, 0)));
             output.push({ scenario: scenario.name, algorithm, seed, colorError: { cie76: weightedSummary(errors76), ciede2000: weightedSummary(errors2000), coverageAt2_3: coverage(2.3), coverageAt5: coverage(5) }, realizedError: weightedSummary(realized), structure: { totalHeight: result.totalHeight, layerCount: slices.colorSliceHeights.length, sequenceLength: result.filamentOrder.length, wastedLayerFraction: slices.colorSliceHeights.length ? (slices.colorSliceHeights.length - used.size) / slices.colorSliceHeights.length : 0, compressedMaxHeight: COMPRESSED_MAX_HEIGHT, compressionRatio: compressed.compressionRatio }, cost: { wallTimeMs: elapsedMs, iterations: result.optimizerMetadata?.iterations ?? 0 } });
         }

@@ -104,6 +104,8 @@ Flat Paint and **Smooth Meshing** are mutually exclusive. Turning one on turns t
 
 Use **Auto (smart selection)** unless you have a reason to compare algorithms.
 
+**Region priority** changes which source colors the optimizer values most: **Center-weighted** gives more importance to colors that occur near the middle of the image, while **Edge-weighted** favors colors nearer its outer edges. It does not crop or change the image itself.
+
 ## Transition Zones And Confidence
 
 After Auto-paint computes a result, Kromacut can show:
