@@ -103,6 +103,11 @@ Flat Paint and **Smooth Meshing** are mutually exclusive. Turning one on turns t
 | Seed (optional) | Overrides the automatic stable seed for an intentional comparison. |
 
 Use **Auto (smart selection)** unless you have a reason to compare algorithms.
+Auto uses exact ordered-subset search through 6 filaments, beam search from 7 to 12,
+then variable-length simulated annealing for larger profiles. With Enhanced color
+matching, Kromacut can omit filaments that do not improve the printable stack. When
+Repeated swaps is enabled, it can also add up to four non-adjacent repeated filament
+occurrences when they improve the blend path.
 
 **Region priority** changes which source colors the optimizer values most: **Center-weighted** gives more importance to colors that occur near the middle of the image, while **Edge-weighted** favors colors nearer its outer edges. It does not crop or change the image itself.
 

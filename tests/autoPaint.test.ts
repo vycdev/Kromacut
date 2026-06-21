@@ -151,6 +151,46 @@ test('auto-paint slice data stays synchronized and uses print-layer heights', as
     );
 });
 
+test('enhanced repeated-swap search keeps the printable red-to-pink transition', async () => {
+    const { autoPaintToSliceHeights, generateAutoLayers, hexToRgb } =
+        await loadAutoPaintModule();
+    const layerHeight = 0.08;
+    const firstLayerHeight = 0.16;
+    const result = generateAutoLayers(
+        [
+            { id: 'red', color: '#ff0000', td: 1.2 },
+            { id: 'white', color: '#ffffff', td: 1.2 },
+        ],
+        [
+            { hex: '#ff0000', count: 20 },
+            { hex: '#ff8080', count: 80 },
+        ],
+        layerHeight,
+        firstLayerHeight,
+        undefined,
+        true,
+        true,
+        { algorithm: 'exhaustive', seed: 4 }
+    );
+    const slices = autoPaintToSliceHeights(result, layerHeight, firstLayerHeight);
+
+    assert.ok(
+        result.filamentOrder.includes('red') && result.filamentOrder.includes('white'),
+        'the optimized stack should include red under white'
+    );
+    assert.ok(
+        result.filamentOrder.every((id, index) => index === 0 || id !== result.filamentOrder[index - 1]),
+        'the optimizer must never emit adjacent duplicate swaps'
+    );
+    assert.ok(
+        slices.virtualSwatches.some((swatch) => {
+            const { r, g, b } = hexToRgb(swatch.hex);
+            return r > 180 && g > 40 && g < 220 && b > 40 && b < 220;
+        }),
+        'a thin white transition over red should produce a pink printable swatch'
+    );
+});
+
 test('auto-paint slice data never returns more than 500 layers', async () => {
     const { autoPaintToSliceHeights } = await loadAutoPaintModule();
     const tallResult = {

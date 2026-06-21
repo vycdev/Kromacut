@@ -128,7 +128,7 @@ export default function ThreeDControls({
     );
 
     useEffect(() => {
-        if (optimizerAlgorithm === 'exhaustive' && filaments.length > 8) {
+        if (optimizerAlgorithm === 'exhaustive' && filaments.length > 6) {
             setOptimizerAlgorithm('auto');
         }
     }, [filaments.length, optimizerAlgorithm]);

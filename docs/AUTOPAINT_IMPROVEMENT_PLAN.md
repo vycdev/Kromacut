@@ -298,31 +298,31 @@ duplicates, repeats allowed **only when** `allowRepeatedSwaps` is on (otherwise
 sequences are permutations of subsets). 500-layer guard enforced via scoring penalty +
 hard cap.
 
-- [ ] **4.1** `exhaustive` (≤6 filaments): all permutations of all non-empty subsets
+- [x] **4.1** `exhaustive` (≤6 filaments): all permutations of all non-empty subsets
       (1,956 evals at N=6 — legacy semantics restored) under the unified scorer. When
       repeats are on, extend with the bounded insertion expansion as a post-pass _of
       the same scorer_ (cheap and already consistent), or fold repeats into beam
       search (4.2) and route there. Update UI label/threshold honestly (≤6, not ≤8;
       keep the existing >threshold downgrade-to-auto behavior in one place — remove
       the duplicate guard, F10).
-- [ ] **4.2** **Beam search** (new internal algorithm, used by `auto` for 7-12
+- [x] **4.2** **Beam search** (new internal algorithm, used by `auto` for 7-12
       filaments): build sequences bottom-up; at each depth keep top-K (K≈100, tunable
       via harness) partial stacks scored with the unified scorer; candidate extensions
       = any non-duplicate filament occurrence + "stop" (subset selection falls out
       naturally). Deterministic, anytime, trivially reports progress (depth/maxDepth).
-- [ ] **4.3** **Variable-length SA** (replaces permutation SA; used by
+- [x] **4.3** **Variable-length SA** (replaces permutation SA; used by
       `simulated-annealing` and by `auto` for >12): moves = swap(i,j), relocate(i→j),
       insert(filament, pos) [only if repeats allowed or filament unused],
       remove(pos) [if length > 1], replace(pos, filament). Seeded move selection;
       geometric cooling as today.
-- [ ] **4.4** GA (`genetic` UI value): keep permutation GA over the full set initially
+- [x] **4.4** GA (`genetic` UI value): keep permutation GA over the full set initially
       but wrap with subset-aware repair, or route `genetic` to variable-length SA with
       a different default budget if GA quality on the harness is not competitive.
       Decide on harness data, not in advance.
-- [ ] **4.5** Delete `buildRepeatedSwapSequence`; `generateAutoLayers` passes
+- [x] **4.5** Delete `buildRepeatedSwapSequence`; `generateAutoLayers` passes
       `allowRepeatedSwaps` into optimizer options instead
       (`autoPaint.ts:1307-1316`).
-- [ ] **4.6 Tests**: printability invariants (foundation exists; no consecutive
+- [x] **4.6 Tests**: printability invariants (foundation exists; no consecutive
   duplicate filament ids; sequence length caps; result schema unchanged; slice snapping
   unchanged); per-seed determinism for each algorithm; harness non-regression per
   Phase 0.5; specific scenario tests:
@@ -331,6 +331,10 @@ hard cap.
   - Thin-white-over-red produces a pink intermediate when repeats are on (repeated-swap
     regression).
   - `allowRepeatedSwaps=false` → no filament appears twice.
+  Validated on the development machine with `npm run benchmark:autopaint` against
+  Phase 3 commit `bc1d155`: Auto-mode average realized ΔE improved from 30.23 to
+  29.96, every fixture held or improved, and the slowest 8-filament Auto run was
+  331 ms.
 
 Risk: medium-high (largest behavioral change; biggest quality upside). UI: **no new
 dropdown entries** — `auto/exhaustive/simulated-annealing/genetic` keep their persisted

@@ -171,3 +171,116 @@ test('the shared scorer evaluates the compressed stack when Max Height is set', 
     );
     assert.equal(result.score, scoreFilamentSequence(result.order, compressedContext));
 });
+
+test('exhaustive search evaluates ordered subsets and drops a strictly worse filament', async () => {
+    const { optimizeFilamentOrder } = await loadOptimizerModule();
+    const candidates = [
+        { id: 'black', color: '#000000', td: 0.8 },
+        { id: 'white', color: '#ffffff', td: 1.2 },
+        { id: 'near-white', color: '#fefefe', td: 1.2 },
+    ];
+    const target = {
+        imageColors: [{ L: 100, a: 0, b: 0, weight: 1 }],
+        layerHeight: 0.08,
+        firstLayerHeight: 0.16,
+    };
+
+    const result = optimizeFilamentOrder(candidates, target, {
+        algorithm: 'exhaustive',
+        cachingEnabled: false,
+    });
+
+    assert.equal(result.iterations, 15, 'three filaments have 15 ordered non-empty subsets');
+    assert.deepEqual(result.order.map((filament) => filament.id), ['white']);
+});
+
+test('repeats can close the RGB color path to reach the missing magenta blend', async () => {
+    const { optimizeFilamentOrder } = await loadOptimizerModule();
+    const primaries = [
+        { id: 'red', color: '#ff0000', td: 1.2 },
+        { id: 'green', color: '#00ff00', td: 1.2 },
+        { id: 'blue', color: '#0000ff', td: 1.2 },
+    ];
+    const spectrumTargets = {
+        imageColors: [
+            { L: 53, a: 80, b: 67, weight: 0.05 },
+            { L: 88, a: -86, b: 83, weight: 0.05 },
+            { L: 32, a: 79, b: -108, weight: 0.05 },
+            { L: 97, a: -22, b: 94, weight: 0.28 },
+            { L: 91, a: -48, b: -14, weight: 0.28 },
+            { L: 60, a: 98, b: -61, weight: 0.29 },
+        ],
+        layerHeight: 0.08,
+        firstLayerHeight: 0.16,
+    };
+
+    const result = optimizeFilamentOrder(primaries, spectrumTargets, {
+        algorithm: 'exhaustive',
+        allowRepeatedSwaps: true,
+        cachingEnabled: false,
+    });
+
+    const ids = result.order.map((filament) => filament.id);
+    assert.ok(
+        new Set(ids).size < ids.length,
+        'closing the RGB path should repeat one primary for the magenta transition'
+    );
+    assert.ok(
+        ids.every((id, index) => index === 0 || id !== ids[index - 1]),
+        'repeated stacks must not contain adjacent duplicate filaments'
+    );
+    assert.ok(ids.length <= primaries.length + 4);
+});
+
+test('variable-length optimizers preserve sequence safety invariants', async (t) => {
+    const { optimizeFilamentOrder } = await loadOptimizerModule();
+    const algorithms = ['exhaustive', 'simulated-annealing', 'genetic', 'auto'] as const;
+
+    for (const allowRepeatedSwaps of [false, true]) {
+        for (const algorithm of algorithms) {
+            await t.test(`${algorithm} / repeats=${allowRepeatedSwaps}`, () => {
+                const result = optimizeFilamentOrder(filaments, context, {
+                    algorithm,
+                    allowRepeatedSwaps,
+                    seed: 20260621,
+                    maxIterations: 40,
+                    cachingEnabled: false,
+                });
+                const ids = result.order.map((filament) => filament.id);
+
+                assert.ok(ids.length >= 1);
+                assert.ok(ids.length <= filaments.length + (allowRepeatedSwaps ? 4 : 0));
+                assert.ok(ids.every((id, index) => index === 0 || id !== ids[index - 1]));
+                if (!allowRepeatedSwaps) {
+                    assert.equal(new Set(ids).size, ids.length);
+                }
+            });
+        }
+    }
+});
+
+test('auto uses beam search for medium profiles and protects exhaustive search above six', async () => {
+    const { optimizeFilamentOrder } = await loadOptimizerModule();
+    const mediumProfile = [
+        ...filaments,
+        { id: 'green', color: '#42a85f', td: 1.6 },
+        { id: 'yellow', color: '#e7cd38', td: 1.7 },
+        { id: 'purple', color: '#7545a8', td: 1.9 },
+    ];
+
+    const auto = optimizeFilamentOrder(mediumProfile, context, {
+        algorithm: 'auto',
+        seed: 7,
+        cachingEnabled: false,
+    });
+    const guardedExhaustive = optimizeFilamentOrder(mediumProfile, context, {
+        algorithm: 'exhaustive',
+        seed: 7,
+        cachingEnabled: false,
+    });
+
+    assert.equal(auto.resolvedAlgorithm, 'beam');
+    assert.equal(guardedExhaustive.resolvedAlgorithm, 'beam');
+    assert.ok(auto.order.length <= mediumProfile.length);
+    assert.equal(new Set(auto.order.map((filament) => filament.id)).size, auto.order.length);
+});

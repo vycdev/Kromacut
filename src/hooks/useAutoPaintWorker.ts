@@ -206,11 +206,6 @@ export function useAutoPaintWorker(opts: UseAutoPaintWorkerOptions): UseAutoPain
         debounceTimerRef.current = setTimeout(() => {
             try {
                 const worker = getWorker();
-                const algorithm =
-                    optimizerAlgorithm === 'exhaustive' && stableFilaments.length > 8
-                        ? 'auto'
-                        : optimizerAlgorithm;
-
                 const request: AutoPaintWorkerRequest = {
                     id,
                     filaments: stableFilaments,
@@ -221,7 +216,7 @@ export function useAutoPaintWorker(opts: UseAutoPaintWorkerOptions): UseAutoPain
                     enhancedColorMatch,
                     allowRepeatedSwaps,
                     optimizerOptions: {
-                        algorithm,
+                        algorithm: optimizerAlgorithm,
                         ...(optimizerSeed !== undefined && { seed: optimizerSeed }),
                     },
                 };

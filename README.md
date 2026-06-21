@@ -142,10 +142,10 @@ When **Enhanced color matching** is enabled, Kromacut uses advanced optimization
 
 | Algorithm | When Used | Description |
 |---|---|---|
-| **Exhaustive search** | 1-4 filaments | Evaluates all possible orderings to guarantee the optimal solution. Fast for small sets. |
-| **Simulated Annealing** | 5-8 filaments | Physics-inspired probabilistic search that escapes local minima via controlled randomness. Balances quality and speed. |
-| **Genetic Algorithm** | 9+ filaments | Evolution-inspired population-based search with crossover and mutation. Best for large filament sets where exhaustive search is prohibitive (8! = 40,320 permutations). |
-| **Auto** | Default | Automatically selects the best algorithm based on filament count and search space size. |
+| **Exhaustive search** | Up to 6 filaments | Evaluates every ordered, non-empty subset to guarantee the best available stack. |
+| **Beam search** | Auto, 7-12 filaments | Keeps the strongest partial stacks as it grows them, letting Auto omit unhelpful filaments without an expensive full enumeration. |
+| **Variable-length annealing** | Auto, 13+ filaments; manual Simulated Annealing or Genetic | Searches swaps, moves, insertions, removals, and replacements. The Genetic setting currently uses this search with a larger budget. |
+| **Auto** | Default | Chooses exhaustive search, beam search, or variable-length annealing from the filament count. |
 
 The optimizer displays metadata after generation:
 - **Algorithm used** — Which method was selected
@@ -173,12 +173,12 @@ Region weighting is most useful when filament budget is limited and you want the
 | Option | Description |
 |---|---|
 | **Max Height** | Constrains the total model height (mm). When set below the auto-calculated ideal, zones are uniformly compressed. Leave blank or click `Auto` for the physics-derived default. |
-| **Enhanced color matching** | Optimizes filament ordering for best color reproduction rather than simple luminance sorting. Uses advanced algorithms (exhaustive, simulated annealing, genetic) automatically selected based on filament count. Scoring considers weighted DeltaE accuracy, height spread, layer count, and transition waste. |
-| **Allow repeated filament swaps** | (Requires Enhanced color matching) Allows a filament to appear more than once in the stack. This creates intermediate blended colors — for example, a thin white layer over red produces pink. The algorithm greedily inserts up to 4 extra swaps, each at the position that best improves the score. |
+| **Enhanced color matching** | Optimizes the printable filament sequence rather than simply sorting by luminance. It may omit filaments that do not improve the result and evaluates the actual preview color-to-height path. |
+| **Allow repeated filament swaps** | (Requires Enhanced color matching) Lets the optimizer use a filament more than once, up to four extra occurrences, when that creates a useful color transition. For example, a thin white layer over red can create pink. |
 | **Height dithering** | (Requires Enhanced color matching) Applies block-aware Floyd-Steinberg error diffusion to the quantized height map. Instead of sharp stair-steps between layer heights, dithering produces a stippled gradient that simulates intermediate heights, resulting in smoother tonal transitions in the print. Edge pixels between different heights are protected from dithering to avoid staircase artifacts. |
 | **Flat Paint (flat face-down print)** | Builds a uniform-thickness slab printed image-side down instead of a stepped relief. Each pixel column's layer order is reversed so the artwork sits against the build plate (already mirrored — don't mirror in the slicer) under a transparent carrier layer, and the back is filled with the foundation filament so every layer has the full footprint. The result has a smooth, glass-flat face — great for bookmarks and coasters. Requires a multi-material printer (AMS/toolchanger); export as 3MF, which contains one object per filament plus the clear carrier object. Flat Paint and Smooth Meshing toggle each other off because flat prints always use the full-footprint slab layout. |
 | **Dither line width** | (Requires Height dithering) Controls the minimum dot size for the dither pattern in mm. This should roughly match your printer's line/nozzle width so dither dots are actually printable. Default: `0.42 mm`. |
-| **Optimizer algorithm** | Choose which optimization algorithm to use: Auto (recommended), Exhaustive, Simulated Annealing, or Genetic. Auto selects the best algorithm based on search space size. |
+| **Optimizer algorithm** | Choose Auto (recommended), Exhaustive (up to 6 filaments), Simulated Annealing, or Genetic. Auto uses exhaustive search through 6 filaments, beam search through 12, then variable-length annealing. |
 | **Optimizer seed** | Leave blank for an automatic stable seed, or enter a number for a specific repeatable run. |
 | **Region weighting** | Prioritize specific image regions: Uniform (equal), Center (image middle), or Edge (outer image border). Helps focus quality budget on important areas. |
 
