@@ -204,6 +204,24 @@ When auto-paint is active and filaments are defined, the UI displays a **Transit
 - A **compressed** badge on zones that have been reduced below their ideal thickness due to a Max Height constraint.
 - Total model height and total number of physical layers.
 
+### Next-best-color suggestion
+
+After running auto-paint, a **Suggest next filament** button appears at the bottom of the panel. Click it to run a blend-aware analysis that finds the single filament addition that would most reduce the average color error (ΔE) across the image.
+
+The result card shows:
+
+| Field | Description |
+|---|---|
+| **Hex** | Suggested filament color. |
+| **Est. ΔE** | Estimated reduction in blend-aware average ΔE if this filament is added. A rough relative estimate — not a calibration confidence rating. |
+| **TD** | Recommended starting Transmission Distance, borrowed from the nearest existing filament by color distance. Adjust after printing a test patch. |
+| **Captures** | Percentage of image pixels whose blend-aware color error would improve with this filament. |
+| **Isolation** | How far this color sits from existing filaments in perceptual color space (0–1). Higher means it fills a more distinct gap; lower means it overlaps territory already covered by blending. |
+
+Click **Add to filaments** to insert the suggestion directly into the filament list (named `Kromacut-Suggestion-01`, `02`, etc.). You can then re-run auto-paint with the expanded set and repeat as many times as needed.
+
+**How it works (heuristic):** The algorithm estimates how well the current filament set covers the image's color range by checking each image color against each filament and Beer-Lambert blend curve. It identifies underserved colors (those with the largest estimated error) and generates candidates from those colors plus extrapolated positions — colors that, when optically blended with an existing filament, would be closer to the underserved target. The winner is the candidate whose addition most reduces weighted-average estimated error across all image pixels. This is an inventory-planning heuristic: the improvement numbers are relative estimates, not predictions of a specific auto-paint result.
+
 ### Quick start
 
 1. Load an image into Kromacut.

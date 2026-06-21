@@ -21,6 +21,13 @@ export function useFilaments(options: UseFilamentsOptions = {}) {
         ]);
     }, []);
 
+    const addFilamentWithProps = useCallback((props: Omit<Filament, 'id'>) => {
+        setFilaments((prev) => [
+            ...prev,
+            { id: Math.random().toString(36).substring(2, 9), ...props },
+        ]);
+    }, []);
+
     const removeFilament = useCallback((id: string) => {
         setFilaments((prev) => prev.filter((f) => f.id !== id));
     }, []);
@@ -33,6 +40,7 @@ export function useFilaments(options: UseFilamentsOptions = {}) {
         filaments,
         setFilaments,
         addFilament,
+        addFilamentWithProps,
         removeFilament,
         updateFilament,
     };
