@@ -139,3 +139,35 @@ test('default optimizer seeds are stable and cacheable', async () => {
     assert.equal(second.cacheHit, true);
     assert.deepEqual(withoutCacheState(second), withoutCacheState(first));
 });
+
+test('optimizer scores its selected order with the shared build-model scorer', async () => {
+    const { optimizeFilamentOrder, scoreFilamentSequence } = await loadOptimizerModule();
+    const result = optimizeFilamentOrder(filaments, context, {
+        algorithm: 'exhaustive',
+        seed: 99,
+        cachingEnabled: false,
+    });
+
+    assert.equal(result.score, scoreFilamentSequence(result.order, context));
+});
+
+test('the shared scorer evaluates the compressed stack when Max Height is set', async () => {
+    const { optimizeFilamentOrder, scoreFilamentSequence } = await loadOptimizerModule();
+    const compressedContext = { ...context, maxHeight: 0.24 };
+    const options = {
+        algorithm: 'exhaustive' as const,
+        seed: 99,
+        cachingEnabled: false,
+    };
+
+    const unconstrainedScore = scoreFilamentSequence(filaments, context);
+    const compressedScore = scoreFilamentSequence(filaments, compressedContext);
+    const result = optimizeFilamentOrder(filaments, compressedContext, options);
+
+    assert.notEqual(
+        compressedScore,
+        unconstrainedScore,
+        'compression must change the palette being scored'
+    );
+    assert.equal(result.score, scoreFilamentSequence(result.order, compressedContext));
+});

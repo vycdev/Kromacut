@@ -42,7 +42,7 @@ export interface Lab {
 }
 
 /** Lab color with a frequency weight (0-1, normalized) */
-interface WeightedLab extends Lab {
+export interface WeightedLab extends Lab {
     weight: number;
 }
 
@@ -332,12 +332,14 @@ export function calculateTransitionThickness(
  * @param sortedFilaments - Filaments sorted dark to light
  * @param layerHeight - Physical layer height
  * @param baseThickness - Minimum thickness for the first (darkest) layer
+ * @param transitionThicknessCache - Optional cache shared by optimizer evaluations
  * @returns Object with ideal height and zone breakdown
  */
 export function calculateIdealHeight(
     sortedFilaments: Array<{ id: string; color: string; td: number }>,
     layerHeight: number,
-    baseThickness: number = 0.6
+    baseThickness: number = 0.6,
+    transitionThicknessCache?: Map<string, number>
 ): { idealHeight: number; zones: TransitionZone[] } {
     if (sortedFilaments.length === 0) {
         return { idealHeight: baseThickness, zones: [] };
@@ -374,12 +376,26 @@ export function calculateIdealHeight(
         const filamentRgb = hexToRgb(filament.color);
 
         // Calculate how thick this zone needs to be
-        const transitionThickness = calculateTransitionThickness(
-            currentBackgroundColor,
-            filamentRgb,
+        const transitionKey = [
+            currentBackgroundColor.r,
+            currentBackgroundColor.g,
+            currentBackgroundColor.b,
+            filamentRgb.r,
+            filamentRgb.g,
+            filamentRgb.b,
             filament.td,
-            layerHeight
-        );
+            layerHeight,
+        ].join(':');
+        let transitionThickness = transitionThicknessCache?.get(transitionKey);
+        if (transitionThickness === undefined) {
+            transitionThickness = calculateTransitionThickness(
+                currentBackgroundColor,
+                filamentRgb,
+                filament.td,
+                layerHeight
+            );
+            transitionThicknessCache?.set(transitionKey, transitionThickness);
+        }
 
         zones.push({
             filamentId: filament.id,
@@ -597,12 +613,16 @@ function permutations<T>(arr: T[]): T[][] {
  * @param sequence - Ordered filament sequence (can include repeats)
  * @param layerHeight - Physical layer height
  * @param firstLayerHeight - First layer height
+ * @param maxHeight - Optional height constraint applied before sampling the palette
+ * @param transitionThicknessCache - Optional cache shared by optimizer evaluations
  * @returns Array of achievable { height, lab, rgb } at each layer step
  */
-function buildAchievableColorPalette(
+export function buildAchievableColorPalette(
     sequence: Array<{ id: string; color: string; td: number }>,
     layerHeight: number,
-    firstLayerHeight: number
+    firstLayerHeight: number,
+    maxHeight?: number,
+    transitionThicknessCache?: Map<string, number>
 ): Array<{ height: number; lab: Lab; rgb: RGB }> {
     if (sequence.length === 0) return [];
 
@@ -610,12 +630,15 @@ function buildAchievableColorPalette(
     const { zones } = calculateIdealHeight(
         sequence.map((f) => ({ id: f.id, color: f.color, td: f.td })),
         layerHeight,
-        Math.max(firstLayerHeight, layerHeight)
+        Math.max(firstLayerHeight, layerHeight),
+        transitionThicknessCache
     );
 
     if (zones.length === 0) return [];
 
-    const totalHeight = zones[zones.length - 1].endHeight;
+    const activeZones =
+        maxHeight === undefined ? zones : compressZones(zones, maxHeight).compressedZones;
+    const totalHeight = activeZones[activeZones.length - 1].endHeight;
     const palette: Array<{ height: number; lab: Lab; rgb: RGB }> = [];
 
     let currentZ = 0;
@@ -628,31 +651,32 @@ function buildAchievableColorPalette(
 
         // Find active zone
         let activeZoneIndex = 0;
-        for (let zi = 0; zi < zones.length; zi++) {
-            if (currentZ >= zones[zi].startHeight && currentZ < zones[zi].endHeight) {
+        for (let zi = 0; zi < activeZones.length; zi++) {
+            if (currentZ >= activeZones[zi].startHeight && currentZ < activeZones[zi].endHeight) {
                 activeZoneIndex = zi;
                 break;
             }
-            if (currentZ >= zones[zi].startHeight) {
+            if (currentZ >= activeZones[zi].startHeight) {
                 activeZoneIndex = zi;
             }
         }
 
         if (activeZoneIndex !== prevZoneIndex) {
-            thicknessInCurrentZone = currentZ - zones[activeZoneIndex].startHeight + thickness;
+            thicknessInCurrentZone =
+                currentZ - activeZones[activeZoneIndex].startHeight + thickness;
             prevZoneIndex = activeZoneIndex;
         } else {
             thicknessInCurrentZone += thickness;
         }
 
-        const zone = zones[activeZoneIndex];
+        const zone = activeZones[activeZoneIndex];
         const filamentColor = hexToRgb(zone.filamentColor);
 
         let blendedColor: RGB;
         if (activeZoneIndex === 0) {
             blendedColor = filamentColor;
         } else {
-            const bgColor = hexToRgb(zones[activeZoneIndex - 1].filamentColor);
+            const bgColor = hexToRgb(activeZones[activeZoneIndex - 1].filamentColor);
             blendedColor = blendColors(
                 bgColor,
                 filamentColor,
@@ -670,54 +694,18 @@ function buildAchievableColorPalette(
         currentZ += thickness;
         layerIndex++;
 
-        if (layerIndex > 500) break;
+        if (layerIndex >= 500) break;
     }
 
     return palette;
 }
 
 /**
- * Deduplicate a palette by collapsing consecutive entries whose colors
- * are within a DeltaE threshold. Each cluster is represented by its
- * midpoint height, giving the best possible height spread.
- */
-function deduplicatePalette(
-    palette: Array<{ height: number; lab: Lab; rgb: RGB }>,
-    threshold: number = 3.0
-): Array<{ height: number; lab: Lab; rgb: RGB }> {
-    if (palette.length === 0) return [];
-
-    const result: Array<{ height: number; lab: Lab; rgb: RGB }> = [];
-    let clusterStart = 0;
-
-    for (let i = 1; i <= palette.length; i++) {
-        const prev = palette[i - 1];
-        const curr = i < palette.length ? palette[i] : null;
-
-        const shouldBreak =
-            !curr ||
-            Math.sqrt(
-                (curr.lab.L - prev.lab.L) ** 2 +
-                    (curr.lab.a - prev.lab.a) ** 2 +
-                    (curr.lab.b - prev.lab.b) ** 2
-            ) >= threshold;
-
-        if (shouldBreak) {
-            // Use the midpoint entry of this cluster
-            const midIdx = Math.floor((clusterStart + (i - 1)) / 2);
-            result.push(palette[midIdx]);
-            clusterStart = i;
-        }
-    }
-
-    return result;
-}
-
-/**
  * Score a filament sequence against weighted image target colors.
  *
  * The score combines:
- * 1. Weighted color accuracy — for each target, min DeltaE × weight.
+ * 1. Preview-realized color accuracy — project each target onto the printable
+ *    Lab path, then evaluate the discrete layer that the preview will render.
  *    Dominant image colors contribute more to the score, so the optimizer
  *    prioritizes filament orderings that nail the most common colors.
  * 2. Height spread — penalizes when distinct image colors collapse to
@@ -730,29 +718,30 @@ function deduplicatePalette(
  *    any target color. These are "wasted" intermediate layers that exist
  *    only as transitions and contribute no useful color to the image.
  */
-function scoreSequenceAgainstImage(
+export function scoreSequenceAgainstImage(
     palette: Array<{ height: number; lab: Lab; rgb: RGB }>,
     imageTargets: WeightedLab[]
 ): number {
     if (palette.length === 0) return Infinity;
 
-    // Deduplicate: collapse consecutive near-identical colors
-    const reduced = deduplicatePalette(palette, 3.0);
-    if (reduced.length === 0) return Infinity;
+    // Mirror enhanced auto-paint mapping: project each image color onto the
+    // palette's Lab polyline, then use the printable layer at that height.
+    const paletteEntries = palette;
+    if (paletteEntries.length === 0) return Infinity;
 
-    // 1. Weighted color accuracy: sum of (min DeltaE × weight) per target
+    // 1. Weighted preview-realized DeltaE per target
     let weightedDeltaE = 0;
     const bestMatchHeights: number[] = [];
 
-    // Also track which reduced palette entries are "useful" (matched by a target)
+    // Also track which printable palette entries are useful to a target.
     const usedPaletteEntries = new Set<number>();
 
     for (const target of imageTargets) {
         let minDE = Infinity;
-        let bestHeight = reduced[0].height;
+        let bestHeight = paletteEntries[0].height;
         let bestIdx = 0;
-        for (let ri = 0; ri < reduced.length; ri++) {
-            const entry = reduced[ri];
+        for (let ri = 0; ri < paletteEntries.length; ri++) {
+            const entry = paletteEntries[ri];
             const de = Math.sqrt(
                 (entry.lab.L - target.L) ** 2 +
                     (entry.lab.a - target.a) ** 2 +
@@ -765,23 +754,67 @@ function scoreSequenceAgainstImage(
                 if (de < 0.5) break;
             }
         }
-        weightedDeltaE += minDE * target.weight;
+
+        for (let ri = 0; ri < paletteEntries.length - 1; ri++) {
+            const start = paletteEntries[ri];
+            const end = paletteEntries[ri + 1];
+            const dL = end.lab.L - start.lab.L;
+            const da = end.lab.a - start.lab.a;
+            const db = end.lab.b - start.lab.b;
+            const lengthSquared = dL * dL + da * da + db * db;
+            if (lengthSquared < 0.01) continue;
+
+            const t = Math.max(
+                0,
+                Math.min(
+                    1,
+                    ((target.L - start.lab.L) * dL +
+                        (target.a - start.lab.a) * da +
+                        (target.b - start.lab.b) * db) /
+                        lengthSquared
+                )
+            );
+            const projectedL = start.lab.L + t * dL;
+            const projectedA = start.lab.a + t * da;
+            const projectedB = start.lab.b + t * db;
+            const projectedDistance = Math.sqrt(
+                (target.L - projectedL) ** 2 +
+                    (target.a - projectedA) ** 2 +
+                    (target.b - projectedB) ** 2
+            );
+            if (projectedDistance < minDE) {
+                minDE = projectedDistance;
+                bestHeight = start.height + t * (end.height - start.height);
+            }
+        }
+
+        const mappedIdx = paletteEntries.findIndex((entry) => entry.height >= bestHeight);
+        bestIdx = mappedIdx >= 0 ? mappedIdx : paletteEntries.length - 1;
+        const mappedColor = paletteEntries[bestIdx].lab;
+        const mappedDeltaE = Math.sqrt(
+            (mappedColor.L - target.L) ** 2 +
+                (mappedColor.a - target.a) ** 2 +
+                (mappedColor.b - target.b) ** 2
+        );
+
+        weightedDeltaE += mappedDeltaE * target.weight;
         bestMatchHeights.push(bestHeight);
-        // Mark this palette entry as useful if it's a decent match
-        if (minDE < 15) usedPaletteEntries.add(bestIdx);
+        // Mark this palette entry as useful if its printable color is a decent match.
+        if (mappedDeltaE < 15) usedPaletteEntries.add(bestIdx);
     }
 
-    // Scale up so the magnitude is comparable to pre-weighting scores
-    weightedDeltaE *= imageTargets.length;
+    const totalTargetWeight = imageTargets.reduce((sum, target) => sum + target.weight, 0);
+    weightedDeltaE = totalTargetWeight > 0 ? weightedDeltaE / totalTargetWeight : Infinity;
 
     // 2. Height spread penalty: penalize when distinct image colors
     //    collapse to the same height (leading to flat surfaces)
-    if (bestMatchHeights.length > 1 && reduced.length > 1) {
-        const totalModelHeight = reduced[reduced.length - 1].height - reduced[0].height;
+    if (bestMatchHeights.length > 1 && paletteEntries.length > 1) {
+        const totalModelHeight =
+            paletteEntries[paletteEntries.length - 1].height - paletteEntries[0].height;
         if (totalModelHeight > 0) {
             const uniqueHeights = new Set(bestMatchHeights.map((h) => Math.round(h * 100)));
             const spreadRatio = uniqueHeights.size / imageTargets.length;
-            const spreadPenalty = (1 - spreadRatio) * imageTargets.length * 5;
+            const spreadPenalty = (1 - spreadRatio);
             weightedDeltaE += spreadPenalty;
         }
     }
@@ -789,16 +822,15 @@ function scoreSequenceAgainstImage(
     // 3. Total layer count penalty: raw palette size reflects actual model height.
     //    A sequence with expensive transitions (dissimilar hues) produces many
     //    layers; smooth transitions (similar hues) produce few.
-    //    penalty = 0.5 per raw layer — small per layer but adds up significantly
-    //    for wasteful sequences (e.g., 40 layers vs 15 layers = +12.5 penalty)
-    weightedDeltaE += palette.length * 0.5;
+    //    This is deliberately small so color accuracy remains the deciding factor.
+    weightedDeltaE += palette.length * 0.005;
 
     // 4. Transition waste penalty: palette entries not matched by any target.
-    //    If a reduced palette entry is not the best match for any image target,
+    //    If a printable palette entry is not the best match for any image target,
     //    the transition height that produced it is wasted model space.
-    if (reduced.length > 1) {
-        const wastedEntries = reduced.length - usedPaletteEntries.size;
-        weightedDeltaE += wastedEntries * 1.5;
+    if (paletteEntries.length > 1) {
+        const wastedEntries = paletteEntries.length - usedPaletteEntries.size;
+        weightedDeltaE += wastedEntries * 0.015;
     }
 
     return weightedDeltaE;
@@ -824,7 +856,8 @@ function findBestFilamentOrder(
     imageSwatches: Array<{ hex: string; count?: number }>,
     layerHeight: number,
     firstLayerHeight: number,
-    optimizerOptions?: Partial<OptimizerOptions>
+    optimizerOptions?: Partial<OptimizerOptions>,
+    maxHeight?: number
 ): { sortedFilaments: Filament[]; result?: OptimizerResult } {
     if (filaments.length <= 1) {
         return { sortedFilaments: [...filaments] };
@@ -837,7 +870,8 @@ function findBestFilamentOrder(
             imageSwatches,
             layerHeight,
             firstLayerHeight,
-            optimizerOptions
+            optimizerOptions,
+            maxHeight
         );
     }
 
@@ -847,7 +881,8 @@ function findBestFilamentOrder(
             filaments,
             imageSwatches,
             layerHeight,
-            firstLayerHeight
+            firstLayerHeight,
+            maxHeight
         ),
     };
 }
@@ -860,7 +895,8 @@ function findBestFilamentOrderWithOptimizer(
     imageSwatches: Array<{ hex: string; count?: number }>,
     layerHeight: number,
     firstLayerHeight: number,
-    optimizerOptions: Partial<OptimizerOptions>
+    optimizerOptions: Partial<OptimizerOptions>,
+    maxHeight?: number
 ): { sortedFilaments: Filament[]; result: OptimizerResult } {
     // Spatial weighting has already been folded into swatch counts by the caller.
     const imageTargets = clusterImageColors(imageSwatches, 32, 5.0);
@@ -870,6 +906,7 @@ function findBestFilamentOrderWithOptimizer(
         imageColors: imageTargets,
         layerHeight,
         firstLayerHeight,
+        maxHeight,
     };
 
     // Apply frontlit TD scale
@@ -896,7 +933,8 @@ function findBestFilamentOrderLegacy(
     filaments: Filament[],
     imageSwatches: Array<{ hex: string; count?: number }>,
     layerHeight: number,
-    firstLayerHeight: number
+    firstLayerHeight: number,
+    maxHeight?: number
 ): Filament[] {
     if (filaments.length <= 1) return [...filaments];
 
@@ -920,7 +958,12 @@ function findBestFilamentOrderLegacy(
         for (const subset of subsets) {
             const perms = permutations(subset);
             for (const perm of perms) {
-                const palette = buildAchievableColorPalette(perm, layerHeight, firstLayerHeight);
+                const palette = buildAchievableColorPalette(
+                    perm,
+                    layerHeight,
+                    firstLayerHeight,
+                    maxHeight
+                );
                 const score = scoreSequenceAgainstImage(palette, imageTargets);
                 if (score < bestScore) {
                     bestScore = score;
@@ -944,7 +987,12 @@ function findBestFilamentOrderLegacy(
         const remaining = scaledFilaments.filter((sf) => sf.id !== startFilament.id);
         const sequence = [startFilament];
 
-        let palette = buildAchievableColorPalette(sequence, layerHeight, firstLayerHeight);
+        let palette = buildAchievableColorPalette(
+            sequence,
+            layerHeight,
+            firstLayerHeight,
+            maxHeight
+        );
         let currentScore = scoreSequenceAgainstImage(palette, imageTargets);
         const pool = [...remaining];
 
@@ -957,7 +1005,8 @@ function findBestFilamentOrderLegacy(
                 const candidatePalette = buildAchievableColorPalette(
                     candidate,
                     layerHeight,
-                    firstLayerHeight
+                    firstLayerHeight,
+                    maxHeight
                 );
                 const candidateScore = scoreSequenceAgainstImage(candidatePalette, imageTargets);
                 if (candidateScore < bestScore) {
@@ -970,7 +1019,12 @@ function findBestFilamentOrderLegacy(
             if (bestIdx < 0 || currentScore - bestScore < 0.5) break;
 
             sequence.push(pool.splice(bestIdx, 1)[0]);
-            palette = buildAchievableColorPalette(sequence, layerHeight, firstLayerHeight);
+            palette = buildAchievableColorPalette(
+                sequence,
+                layerHeight,
+                firstLayerHeight,
+                maxHeight
+            );
             currentScore = bestScore;
         }
 
@@ -1011,7 +1065,8 @@ function buildRepeatedSwapSequence(
     allFilaments: Filament[],
     imageSwatches: Array<{ hex: string; count?: number }>,
     layerHeight: number,
-    firstLayerHeight: number
+    firstLayerHeight: number,
+    maxHeight?: number
 ): Filament[] {
     if (baseFilaments.length === 0) return [];
 
@@ -1028,7 +1083,8 @@ function buildRepeatedSwapSequence(
     let currentPalette = buildAchievableColorPalette(
         currentSequence,
         layerHeight,
-        firstLayerHeight
+        firstLayerHeight,
+        maxHeight
     );
     let currentScore = scoreSequenceAgainstImage(currentPalette, imageTargets);
 
@@ -1041,7 +1097,8 @@ function buildRepeatedSwapSequence(
     // Maximum number of extra swaps to try (avoid runaway sequences)
     const MAX_EXTRA_SWAPS = Math.min(4, allFilaments.length);
     // Minimum improvement threshold — stop if gains are diminishing
-    const MIN_IMPROVEMENT = 2.0;
+    // The scorer is normalized by target weight, so this is a fractional delta.
+    const MIN_IMPROVEMENT = 0.001;
 
     for (let iter = 0; iter < MAX_EXTRA_SWAPS; iter++) {
         let bestCandidate: (typeof candidates)[0] | null = null;
@@ -1069,7 +1126,8 @@ function buildRepeatedSwapSequence(
                 const trialPalette = buildAchievableColorPalette(
                     trial,
                     layerHeight,
-                    firstLayerHeight
+                    firstLayerHeight,
+                    maxHeight
                 );
                 const trialScore = scoreSequenceAgainstImage(trialPalette, imageTargets);
 
@@ -1093,7 +1151,8 @@ function buildRepeatedSwapSequence(
         currentPalette = buildAchievableColorPalette(
             currentSequence,
             layerHeight,
-            firstLayerHeight
+            firstLayerHeight,
+            maxHeight
         );
         currentScore = bestScore;
     }
@@ -1186,7 +1245,8 @@ export function generateAutoLayers(
             imageSwatches,
             layerHeight,
             firstLayerHeight,
-            optimizerOptions
+            optimizerOptions,
+            maxHeight
         );
 
         sortedFilaments = orderingResult.sortedFilaments;
@@ -1199,7 +1259,8 @@ export function generateAutoLayers(
                 filaments,
                 imageSwatches,
                 layerHeight,
-                firstLayerHeight
+                firstLayerHeight,
+                maxHeight
             );
         }
     } else {

@@ -10,7 +10,11 @@
  */
 
 import type { Filament } from '../types';
-import { rgbToLab, deltaELab, hexToRgb, blendColors, type RGB, type Lab } from './autoPaint';
+import {
+    buildAchievableColorPalette,
+    scoreSequenceAgainstImage,
+    type WeightedLab,
+} from './autoPaint';
 
 // ============================================================================
 // Type Definitions
@@ -38,9 +42,10 @@ export interface OptimizerResult {
 }
 
 export interface ScoringContext {
-    imageColors: Array<Lab & { weight: number }>; // Weighted Lab colors from image
+    imageColors: WeightedLab[];
     layerHeight: number;
     firstLayerHeight: number;
+    maxHeight?: number;
 }
 
 // ============================================================================
@@ -145,6 +150,7 @@ function canonicalOptimizerInput(
         })),
         layerHeight: context.layerHeight,
         firstLayerHeight: context.firstLayerHeight,
+        maxHeight: context.maxHeight ?? null,
         algorithm,
         seed: seed ?? null,
         tuning: tuningFingerprint(options),
@@ -163,91 +169,40 @@ function stableHash32(value: string): number {
 // Scoring Functions
 // ============================================================================
 
-/**
- * Calculate quality score for a filament ordering.
- * Lower score = better color reproduction.
- *
- * Score is weighted deltaE between image colors and achievable blended colors.
- */
-function scoreFilamentOrder(filaments: Filament[], context: ScoringContext): number {
-    if (filaments.length === 0) return Infinity;
+export function createSequenceScorer(context: ScoringContext): (filaments: Filament[]) => number {
+    const paletteCache = new Map<string, ReturnType<typeof buildAchievableColorPalette>>();
+    const transitionThicknessCache = new Map<string, number>();
 
-    let totalError = 0;
-    let totalWeight = 0;
-
-    // For each image color, find the best achievable match using this filament stack
-    for (const targetColor of context.imageColors) {
-        const achievableColor = findBestAchievableColor(targetColor, filaments);
-        const error = deltaELab(targetColor, achievableColor);
-
-        // Apply region weight if provided
-        totalError += error * targetColor.weight;
-        totalWeight += targetColor.weight;
-    }
-
-    return totalWeight > 0 ? totalError / totalWeight : Infinity;
-}
-
-/**
- * Find the best color achievable by stacking filaments to a certain height.
- * Uses Beer-Lambert simulation to predict the blended color at various heights.
- */
-function findBestAchievableColor(targetLab: Lab, filaments: Filament[]): Lab {
-    if (filaments.length === 0) return { L: 0, a: 0, b: 0 };
-    if (filaments.length === 1) {
-        return rgbToLab(hexToRgb(filaments[0].color));
-    }
-
-    // Sample heights from base to full stack
-    const maxHeight = filaments.reduce((sum, f) => sum + f.td * 3, 0); // ~3x TD per filament
-    const steps = 20;
-    let bestLab = rgbToLab(hexToRgb(filaments[0].color));
-    let bestDelta = deltaELab(targetLab, bestLab);
-
-    for (let i = 0; i <= steps; i++) {
-        const height = (i / steps) * maxHeight;
-        const blendedColor = simulateStackAtHeight(filaments, height);
-        const blendedLab = rgbToLab(blendedColor);
-        const delta = deltaELab(targetLab, blendedLab);
-
-        if (delta < bestDelta) {
-            bestDelta = delta;
-            bestLab = blendedLab;
+    return (filaments) => {
+        if (filaments.length === 0) return Infinity;
+        const sequenceKey = filaments.map((filament) => `${filament.id}:${filament.color}:${filament.td}`).join('|');
+        let palette = paletteCache.get(sequenceKey);
+        if (!palette) {
+            palette = buildAchievableColorPalette(
+                filaments,
+                context.layerHeight,
+                context.firstLayerHeight,
+                context.maxHeight,
+                transitionThicknessCache
+            );
+            paletteCache.set(sequenceKey, palette);
         }
-    }
-
-    return bestLab;
+        return scoreSequenceAgainstImage(palette, context.imageColors);
+    };
 }
 
-/**
- * Simulate the blended color of stacked filaments at a given height.
- */
-function simulateStackAtHeight(filaments: Filament[], targetHeight: number): RGB {
-    let currentHeight = 0;
-    let blendedColor = hexToRgb(filaments[0].color);
-
-    for (let i = 1; i < filaments.length && currentHeight < targetHeight; i++) {
-        const prevFilament = filaments[i - 1];
-        const currentFilament = filaments[i];
-        const transitionHeight = Math.min(prevFilament.td * 3, targetHeight - currentHeight);
-
-        if (transitionHeight <= 0) break;
-
-        const bgColor = blendedColor;
-        const fgColor = hexToRgb(currentFilament.color);
-        blendedColor = blendColors(bgColor, fgColor, currentFilament.td, transitionHeight);
-
-        currentHeight += transitionHeight;
-    }
-
-    return blendedColor;
+export function scoreFilamentSequence(filaments: Filament[], context: ScoringContext): number {
+    return createSequenceScorer(context)(filaments);
 }
 
 // ============================================================================
 // Exhaustive Search (Optimal but slow for >8 filaments)
 // ============================================================================
 
-function optimizeExhaustive(filaments: Filament[], context: ScoringContext): OptimizerResult {
+function optimizeExhaustive(
+    filaments: Filament[],
+    scoreSequence: (filaments: Filament[]) => number
+): OptimizerResult {
     if (filaments.length === 0) {
         return {
             order: [],
@@ -260,21 +215,21 @@ function optimizeExhaustive(filaments: Filament[], context: ScoringContext): Opt
     if (filaments.length === 1) {
         return {
             order: [filaments[0]],
-            score: scoreFilamentOrder(filaments, context),
+            score: scoreSequence(filaments),
             iterations: 1,
             converged: true,
         };
     }
 
     let bestOrder = filaments;
-    let bestScore = scoreFilamentOrder(filaments, context);
+    let bestScore = scoreSequence(filaments);
     let iterations = 0;
 
     // Generate all permutations
     const permute = (arr: Filament[], start = 0): void => {
         if (start === arr.length - 1) {
             iterations++;
-            const score = scoreFilamentOrder(arr, context);
+            const score = scoreSequence(arr);
             if (score < bestScore) {
                 bestScore = score;
                 bestOrder = [...arr];
@@ -311,21 +266,21 @@ function optimizeExhaustive(filaments: Filament[], context: ScoringContext): Opt
  */
 function optimizeSimulatedAnnealing(
     filaments: Filament[],
-    context: ScoringContext,
+    scoreSequence: (filaments: Filament[]) => number,
     options: OptimizerOptions
 ): OptimizerResult {
     if (filaments.length <= 1) {
-        return optimizeExhaustive(filaments, context);
+        return optimizeExhaustive(filaments, scoreSequence);
     }
 
     const rng = new SeededRandom(options.seed);
     const maxIterations = options.maxIterations ?? Math.max(1000, filaments.length * 100);
-    const initialTemp = options.temperature ?? 100.0;
+    const initialTemp = options.temperature ?? 10.0;
     const coolingRate = options.coolingRate ?? 0.995;
     const minTemp = 0.01;
 
     let currentOrder = rng.shuffle(filaments);
-    let currentScore = scoreFilamentOrder(currentOrder, context);
+    let currentScore = scoreSequence(currentOrder);
     let bestOrder = [...currentOrder];
     let bestScore = currentScore;
     let temperature = initialTemp;
@@ -337,10 +292,11 @@ function optimizeSimulatedAnnealing(
         // Generate neighbor by swapping two random filaments
         const newOrder = [...currentOrder];
         const i = rng.nextInt(0, newOrder.length);
-        const j = rng.nextInt(0, newOrder.length);
+        let j = rng.nextInt(0, newOrder.length - 1);
+        if (j >= i) j++;
         [newOrder[i], newOrder[j]] = [newOrder[j], newOrder[i]];
 
-        const newScore = scoreFilamentOrder(newOrder, context);
+        const newScore = scoreSequence(newOrder);
         const deltaE = newScore - currentScore;
 
         // Accept if better, or with probability exp(-ΔE/T) if worse
@@ -382,11 +338,11 @@ function optimizeSimulatedAnnealing(
  */
 function optimizeGenetic(
     filaments: Filament[],
-    context: ScoringContext,
+    scoreSequence: (filaments: Filament[]) => number,
     options: OptimizerOptions
 ): OptimizerResult {
     if (filaments.length <= 1) {
-        return optimizeExhaustive(filaments, context);
+        return optimizeExhaustive(filaments, scoreSequence);
     }
 
     const rng = new SeededRandom(options.seed);
@@ -399,7 +355,7 @@ function optimizeGenetic(
     let population: Array<{ order: Filament[]; score: number }> = [];
     for (let i = 0; i < populationSize; i++) {
         const order = rng.shuffle(filaments);
-        const score = scoreFilamentOrder(order, context);
+        const score = scoreSequence(order);
         population.push({ order, score });
     }
 
@@ -444,7 +400,7 @@ function optimizeGenetic(
                 [child[i], child[j]] = [child[j], child[i]];
             }
 
-            const score = scoreFilamentOrder(child, context);
+            const score = scoreSequence(child);
             nextGeneration.push({ order: child, score });
         }
 
@@ -554,16 +510,17 @@ export function optimizeFilamentOrder(
     }
 
     let result: OptimizerResult;
+    const scoreSequence = createSequenceScorer(context);
 
     switch (algorithm) {
         case 'exhaustive':
-            result = optimizeExhaustive(filaments, context);
+            result = optimizeExhaustive(filaments, scoreSequence);
             break;
         case 'simulated-annealing':
-            result = optimizeSimulatedAnnealing(filaments, context, opts);
+            result = optimizeSimulatedAnnealing(filaments, scoreSequence, opts);
             break;
         case 'genetic':
-            result = optimizeGenetic(filaments, context, opts);
+            result = optimizeGenetic(filaments, scoreSequence, opts);
             break;
         default:
             throw new Error(`Unknown algorithm: ${algorithm}`);

@@ -259,13 +259,13 @@ Goal: the optimizer optimizes the same model the pipeline builds. Fixes F2; part
 F8 (scoring side of the pure-background issue can be folded in here or deferred to
 Phase 6b).
 
-- [ ] **3.1** Move/share the palette builder: expose `buildAchievableColorPalette` +
+- [x] **3.1** Move/share the palette builder: expose `buildAchievableColorPalette` +
       `scoreSequenceAgainstImage` (or a thin `scoreSequence(sequence, context)`
       wrapper) for use by `optimizer.ts`. `ScoringContext` carries the weighted Lab
       targets as today.
-- [ ] **3.2** Replace `scoreFilamentOrder`/`findBestAchievableColor`/
+- [x] **3.2** Replace `scoreFilamentOrder`/`findBestAchievableColor`/
       `simulateStackAtHeight` with the unified scorer in exhaustive, SA, and GA.
-- [ ] **3.3 Performance work so per-eval cost stays acceptable**:
+- [x] **3.3 Performance work so per-eval cost stays acceptable**:
   - Memoize `calculateTransitionThickness(bgColorHex, filamentId)` per optimizer run —
     pair space ≤ N², eliminates the dominant inner loop.
   - Memoize palette per unique sequence string (SA revisits neighbors).
@@ -274,12 +274,16 @@ Phase 6b).
     the structural penalty constants to match (calibrate against Phase 0 harness so
     rankings on fixtures are preserved or improved — this is a tuning task, use the
     harness).
-- [ ] **3.4** SA neighbor: redraw `j` until `j ≠ i` (F10).
-- [ ] **3.5 Tests**: property test — the score the optimizer reports for its chosen
+- [x] **3.4** SA neighbor: redraw `j` until `j ≠ i` (F10).
+- [x] **3.5 Tests**: property test — the score the optimizer reports for its chosen
       order equals `scoreSequence` of that order under the build model (was untrue
       before). Re-baseline Phase 0 golden snapshots; harness must satisfy the Phase 0.5
       acceptance rule. Budget: ≤2 s for 8 filaments (exhaustive falls back per
       existing UI guard).
+      Validated on the development machine with `npm run benchmark:autopaint` against
+      Phase 2 commit `966c13a`: Auto-mode average realized ΔE improved from 34.75 to
+      30.23, every fixture held or improved, and the slowest 8-filament Auto run was
+      42 ms.
 
 Risk: medium — orders will change for users (expected: improvement, verified by
 harness). Determinism preserved (seeded). Schema unchanged.

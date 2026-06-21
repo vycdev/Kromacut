@@ -11,6 +11,8 @@ All notable changes to Kromacut are documented in this file.
 
 ### Changed
 
+- **Auto-paint optimizer objective** - Enhanced color matching now evaluates the same zone-compressed, layer-snapped color-to-height path used by the printable preview. All optimizer algorithms share that scorer, including Max Height constraints, so selected filament orders better match the finished model. Repeated optical calculations are memoized during searches.
+
 ### Fixed
 
 - **Auto-paint optimizer cache and default seed** - Cache entries now include all target-color weights, every target cluster, and optimizer tuning values. Blank seeds now derive a stable value from the active inputs, making identical runs repeatable and cacheable instead of randomly changing.
