@@ -210,7 +210,7 @@ export function scoreFilamentSequence(filaments: Filament[], context: ScoringCon
 // Variable-length sequence helpers
 // ============================================================================
 
-const MAX_EXHAUSTIVE_FILAMENTS = 6;
+const MAX_AUTO_EXHAUSTIVE_FILAMENTS = 6;
 const AUTO_BEAM_MAX_FILAMENTS = 12;
 const MAX_EXTRA_REPEATS = 4;
 const DEFAULT_BEAM_WIDTH = 100;
@@ -325,7 +325,7 @@ function expandWithRepeatedFilaments(
 }
 
 // ============================================================================
-// Exhaustive Search (all ordered non-empty subsets, up to six filaments)
+// Exhaustive Search (all ordered non-empty subsets)
 // ============================================================================
 
 function optimizeExhaustive(
@@ -656,13 +656,9 @@ function resolveAlgorithm(
     filamentCount: number
 ): ResolvedOptimizerAlgorithm {
     if (requested === 'auto') {
-        if (filamentCount <= MAX_EXHAUSTIVE_FILAMENTS) return 'exhaustive';
+        if (filamentCount <= MAX_AUTO_EXHAUSTIVE_FILAMENTS) return 'exhaustive';
         if (filamentCount <= AUTO_BEAM_MAX_FILAMENTS) return 'beam';
         return 'simulated-annealing';
-    }
-
-    if (requested === 'exhaustive' && filamentCount > MAX_EXHAUSTIVE_FILAMENTS) {
-        return filamentCount <= AUTO_BEAM_MAX_FILAMENTS ? 'beam' : 'simulated-annealing';
     }
 
     return requested;

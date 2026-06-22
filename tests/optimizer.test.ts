@@ -307,7 +307,7 @@ test('variable-length optimizers preserve sequence safety invariants', async (t)
     }
 });
 
-test('auto uses beam search for medium profiles and protects exhaustive search above six', async () => {
+test('auto uses beam search for medium profiles while explicit exhaustive remains exact', async () => {
     const { optimizeFilamentOrder } = await loadOptimizerModule();
     const mediumProfile = [
         ...filaments,
@@ -321,14 +321,19 @@ test('auto uses beam search for medium profiles and protects exhaustive search a
         seed: 7,
         cachingEnabled: false,
     });
-    const guardedExhaustive = optimizeFilamentOrder(mediumProfile, context, {
+    const exhaustive = optimizeFilamentOrder(mediumProfile, context, {
         algorithm: 'exhaustive',
         seed: 7,
         cachingEnabled: false,
     });
 
     assert.equal(auto.resolvedAlgorithm, 'beam');
-    assert.equal(guardedExhaustive.resolvedAlgorithm, 'beam');
+    assert.equal(exhaustive.resolvedAlgorithm, 'exhaustive');
+    assert.equal(
+        exhaustive.iterations,
+        13_699,
+        'seven filaments have 13,699 ordered non-empty subsets'
+    );
     assert.ok(auto.order.length <= mediumProfile.length);
     assert.equal(new Set(auto.order.map((filament) => filament.id)).size, auto.order.length);
 });

@@ -127,12 +127,6 @@ export default function ThreeDControls({
         persisted?.regionWeightingMode ?? 'uniform'
     );
 
-    useEffect(() => {
-        if (optimizerAlgorithm === 'exhaustive' && filaments.length > 6) {
-            setOptimizerAlgorithm('auto');
-        }
-    }, [filaments.length, optimizerAlgorithm]);
-
     const handleEnhancedColorMatchChange = useCallback((v: boolean) => {
         setEnhancedColorMatch(v);
         if (!v) {

@@ -683,12 +683,8 @@ export default function AutoPaintTab({
                                             <SelectItem value="auto" className="text-xs">
                                                 Auto (smart selection)
                                             </SelectItem>
-                                            <SelectItem
-                                                value="exhaustive"
-                                                className="text-xs"
-                                                disabled={filaments.length > 6}
-                                            >
-                                                Exhaustive (≤6 filaments)
+                                            <SelectItem value="exhaustive" className="text-xs">
+                                                Exhaustive (recommended ≤6)
                                             </SelectItem>
                                             <SelectItem
                                                 value="simulated-annealing"
