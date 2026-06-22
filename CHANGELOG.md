@@ -6,6 +6,7 @@ All notable changes to Kromacut are documented in this file.
 
 ### Added
 
+- **Reddit community links** - Added r/kromacut links to the app header and README, and use branded Discord, Reddit, and GitHub icons in the header toolbar.
 - **Auto-paint regression baseline** - Added focused layer-invariant coverage, per-algorithm seeded determinism checks, and 24 seeded stack snapshots across the 2-, 4-, and 8-filament profiles, both image fixtures, Enhanced matching states, and repeated-swap states.
 - **Auto-paint benchmark harness** - Added an on-demand JSON benchmark that measures palette and preview-realized color error, coverage, stack cost, compression impact, runtime, and optimizer iterations across the saved fixture profiles.
 - **Auto-paint optimization progress** - Enhanced matching now reports an approximate completion percentage while its background search is running.

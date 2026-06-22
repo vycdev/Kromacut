@@ -7,12 +7,10 @@ import {
     CheckCircle2,
     Download,
     Image,
-    Github,
     Heart,
     Loader2,
     Moon,
     Sun,
-    MessageCircle,
     RefreshCw,
     Settings,
     X,
@@ -41,6 +39,9 @@ import {
     subscribeToUpdateCheckOnStartup,
 } from '@/lib/updatePreferences';
 import logo from '../assets/logo.png';
+import discordIcon from '../assets/discord.svg';
+import githubIcon from '../assets/github.svg';
+import redditIcon from '../assets/reddit.svg';
 
 interface Props {
     onLoadTest: () => void;
@@ -200,6 +201,24 @@ export const Header: React.FC<Props> = ({ onLoadTest, docsOpen, onBackToApp, onT
                 <Button
                     size="sm"
                     asChild
+                    className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-semibold transition-all duration-200 shadow-md hover:shadow-lg hover:scale-105 active:scale-95 gap-1.5"
+                >
+                    <a
+                        href="https://www.reddit.com/r/kromacut/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        aria-label="r/kromacut on Reddit"
+                        title="r/kromacut on Reddit"
+                    >
+                        <span className="flex size-4 shrink-0 items-center justify-center">
+                            <img src={redditIcon} alt="" className="block max-h-full max-w-full brightness-0 invert" />
+                        </span>
+                        <span className="max-sm:hidden">Reddit</span>
+                    </a>
+                </Button>
+                <Button
+                    size="sm"
+                    asChild
                     className="bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white font-semibold transition-all duration-200 shadow-md hover:shadow-lg hover:scale-105 active:scale-95 gap-1.5"
                 >
                     <a
@@ -209,7 +228,9 @@ export const Header: React.FC<Props> = ({ onLoadTest, docsOpen, onBackToApp, onT
                         aria-label="Discord"
                         title="Discord"
                     >
-                        <MessageCircle className="w-4 h-4" />
+                        <span className="flex size-4 shrink-0 items-center justify-center">
+                            <img src={discordIcon} alt="" className="block max-h-full max-w-full brightness-0 invert" />
+                        </span>
                         <span className="max-sm:hidden">Discord</span>
                     </a>
                 </Button>
@@ -225,7 +246,9 @@ export const Header: React.FC<Props> = ({ onLoadTest, docsOpen, onBackToApp, onT
                         aria-label="GitHub"
                         title="GitHub"
                     >
-                        <Github className="w-4 h-4" />
+                        <span className="flex size-4 shrink-0 items-center justify-center">
+                            <img src={githubIcon} alt="" className="block max-h-full max-w-full brightness-0 invert" />
+                        </span>
                         <span className="max-sm:hidden">GitHub</span>
                     </a>
                 </Button>
@@ -268,7 +291,10 @@ export const Header: React.FC<Props> = ({ onLoadTest, docsOpen, onBackToApp, onT
                         onClick={(event) => event.stopPropagation()}
                     >
                         <div className="mb-5 flex items-center justify-between gap-4">
-                            <h2 id={settingsTitleId} className="text-lg font-semibold text-foreground">
+                            <h2
+                                id={settingsTitleId}
+                                className="text-lg font-semibold text-foreground"
+                            >
                                 Settings
                             </h2>
                             <Button
@@ -384,7 +410,8 @@ export const Header: React.FC<Props> = ({ onLoadTest, docsOpen, onBackToApp, onT
                                                 <Download className="mt-0.5 h-4 w-4 flex-shrink-0 text-primary" />
                                                 <div className="min-w-0 flex-1">
                                                     <div className="text-sm font-medium text-foreground">
-                                                        Version {availableUpdate.version} is available
+                                                        Version {availableUpdate.version} is
+                                                        available
                                                     </div>
                                                     {availableUpdate.release_notes && (
                                                         <div className="mt-1 line-clamp-2 text-xs text-muted-foreground">
