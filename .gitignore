@@ -27,7 +27,6 @@ test-results/
 
 .todo
 .claude
-docs/AUTOPAINT_IMPROVEMENT_PLAN.md
 
 # Tauri / Rust build artifacts
 src-tauri/target/
