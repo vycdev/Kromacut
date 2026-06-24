@@ -7,6 +7,9 @@ import { autoPaintGoldenScenarios } from '../autoPaintGoldenFixtures.ts';
 type AutoPaintModule = typeof import('../../src/lib/autoPaint.ts');
 type Algorithm = 'auto' | 'exhaustive' | 'simulated-annealing' | 'genetic';
 type Lab = { L: number; a: number; b: number };
+type WeightedLab = Lab & { weight: number };
+type Sample = { value: number; weight: number };
+type AutoPaintResult = ReturnType<AutoPaintModule['generateAutoLayers']>;
 
 const LAYER_HEIGHT = 0.08;
 const FIRST_LAYER_HEIGHT = 0.16;
@@ -23,37 +26,23 @@ async function loadAutoPaintModule(): Promise<AutoPaintModule> {
     finally { await server.close(); }
 }
 
-function ciede2000(left: Lab, right: Lab) {
-    const c1 = Math.hypot(left.a, left.b);
-    const c2 = Math.hypot(right.a, right.b);
-    const averageC = (c1 + c2) / 2;
-    const g = 0.5 * (1 - Math.sqrt(averageC ** 7 / (averageC ** 7 + 25 ** 7)));
-    const a1 = (1 + g) * left.a;
-    const a2 = (1 + g) * right.a;
-    const c1p = Math.hypot(a1, left.b);
-    const c2p = Math.hypot(a2, right.b);
-    const h = (a: number, b: number) => (Math.atan2(b, a) * 180 / Math.PI + 360) % 360;
-    const h1 = h(a1, left.b), h2 = h(a2, right.b);
-    const deltaL = right.L - left.L, deltaC = c2p - c1p;
-    const deltaHAngle = c1p * c2p === 0 ? 0 : Math.abs(h2 - h1) <= 180 ? h2 - h1 : h2 <= h1 ? h2 - h1 + 360 : h2 - h1 - 360;
-    const deltaH = 2 * Math.sqrt(c1p * c2p) * Math.sin((deltaHAngle / 2) * Math.PI / 180);
-    const meanL = (left.L + right.L) / 2, meanC = (c1p + c2p) / 2;
-    const meanH = c1p * c2p === 0 ? h1 + h2 : Math.abs(h1 - h2) <= 180 ? (h1 + h2) / 2 : h1 + h2 < 360 ? (h1 + h2 + 360) / 2 : (h1 + h2 - 360) / 2;
-    const t = 1 - 0.17 * Math.cos((meanH - 30) * Math.PI / 180) + 0.24 * Math.cos(2 * meanH * Math.PI / 180) + 0.32 * Math.cos((3 * meanH + 6) * Math.PI / 180) - 0.2 * Math.cos((4 * meanH - 63) * Math.PI / 180);
-    const sl = 1 + 0.015 * (meanL - 50) ** 2 / Math.sqrt(20 + (meanL - 50) ** 2);
-    const sc = 1 + 0.045 * meanC;
-    const sh = 1 + 0.015 * meanC * t;
-    const rt = -2 * Math.sqrt(meanC ** 7 / (meanC ** 7 + 25 ** 7)) * Math.sin((60 * Math.exp(-(((meanH - 275) / 25) ** 2))) * Math.PI / 180);
-    return Math.sqrt((deltaL / sl) ** 2 + (deltaC / sc) ** 2 + (deltaH / sh) ** 2 + rt * (deltaC / sc) * (deltaH / sh));
-}
-
-function weightedSummary(samples: Array<{ value: number; weight: number }>) {
+function weightedSummary(samples: Sample[]) {
     const totalWeight = samples.reduce((sum, sample) => sum + sample.weight, 0);
-    const weightedMean = samples.reduce((sum, sample) => sum + sample.value * sample.weight, 0) / totalWeight;
+    const weightedMean = totalWeight > 0
+        ? samples.reduce((sum, sample) => sum + sample.value * sample.weight, 0) / totalWeight
+        : 0;
     const ordered = [...samples].sort((a, b) => a.value - b.value);
     let cumulative = 0;
     const p95 = ordered.find((sample) => (cumulative += sample.weight) >= totalWeight * 0.95)?.value ?? 0;
-    return { weightedMean, p95, totalWeight };
+    return { weightedMean, p95 };
+}
+
+function coverage(samples: Sample[], limit: number) {
+    const totalWeight = samples.reduce((sum, sample) => sum + sample.weight, 0);
+    if (totalWeight <= 0) return 0;
+    return samples
+        .filter((sample) => sample.value <= limit)
+        .reduce((sum, sample) => sum + sample.weight, 0) / totalWeight;
 }
 
 function cumulativeHeights(sliceHeights: number[], colorOrder: number[]) {
@@ -64,25 +53,36 @@ function cumulativeHeights(sliceHeights: number[], colorOrder: number[]) {
     });
 }
 
-function projectHeight(target: Lab, nodes: Array<{ lab: Lab; min: number; max: number }>, cumulative: number[]) {
-    let bestDistance = Infinity, height = cumulative[0] ?? 0;
-    for (const node of nodes) {
-        const distance = Math.hypot(target.L - node.lab.L, target.a - node.lab.a, target.b - node.lab.b);
-        if (distance < bestDistance) { bestDistance = distance; height = (node.min + node.max) / 2; }
-    }
-    for (let index = 0; index < nodes.length - 1; index++) {
-        const from = nodes[index], to = nodes[index + 1];
-        const dL = to.lab.L - from.lab.L, da = to.lab.a - from.lab.a, db = to.lab.b - from.lab.b;
-        const lengthSq = dL * dL + da * da + db * db;
-        if (lengthSq < 0.01) continue;
-        const t = Math.max(0, Math.min(1, ((target.L - from.lab.L) * dL + (target.a - from.lab.a) * da + (target.b - from.lab.b) * db) / lengthSq));
-        const distance = Math.hypot(target.L - (from.lab.L + t * dL), target.a - (from.lab.a + t * da), target.b - (from.lab.b + t * db));
-        if (distance < bestDistance) { bestDistance = distance; height = from.max + t * (to.min - from.max); }
-    }
-    return Math.max(cumulative[0] ?? 0, Math.min(cumulative.at(-1) ?? 0, height));
+const autoPaint = await loadAutoPaintModule();
+
+// Build the printed palette exactly as the preview renders it: the per-layer
+// virtual blend colors stacked at their cumulative print heights.
+function realizedPalette(result: AutoPaintResult) {
+    const slices = autoPaint.autoPaintToSliceHeights(result, LAYER_HEIGHT, FIRST_LAYER_HEIGHT);
+    const heights = cumulativeHeights(slices.colorSliceHeights, slices.colorOrder);
+    return slices.virtualSwatches.map((swatch, index) => {
+        const rgb = autoPaint.hexToRgb(swatch.hex);
+        return { height: heights[index], lab: autoPaint.rgbToLab(rgb), rgb };
+    });
 }
 
-const autoPaint = await loadAutoPaintModule();
+// Realized error of the printed stack, measured through the SAME canonical
+// mapper the optimizer scores with (no separately-implemented projection).
+function realizedError(result: AutoPaintResult, targets: WeightedLab[]) {
+    const palette = realizedPalette(result);
+    if (palette.length === 0) return { weightedMean: 0, p95: 0, coverageAt3: 0, coverageAt6: 0 };
+    const mapped = autoPaint.mapTargetsToPrintablePalette(palette, targets);
+    const samples: Sample[] = mapped.map((entry) => ({
+        value: autoPaint.deltaE2000Lab(entry.mappedLab, entry.target),
+        weight: entry.target.weight,
+    }));
+    return {
+        ...weightedSummary(samples),
+        coverageAt3: coverage(samples, 3),
+        coverageAt6: coverage(samples, 6),
+    };
+}
+
 const output: unknown[] = [];
 
 for (const scenario of autoPaintGoldenScenarios().filter(
@@ -92,28 +92,50 @@ for (const scenario of autoPaintGoldenScenarios().filter(
     const algorithms: Algorithm[] = profileSize <= 6
         ? ['auto', 'exhaustive', 'simulated-annealing', 'genetic']
         : ['auto', 'simulated-annealing', 'genetic'];
+    // Measure against the raw image colors (ground truth), not the optimizer's
+    // clustered targets, so the benchmark is an independent yardstick.
+    const targets: WeightedLab[] = scenario.imageSwatches.map((swatch) => {
+        const lab = autoPaint.rgbToLab(autoPaint.hexToRgb(swatch.hex));
+        return { L: lab.L, a: lab.a, b: lab.b, weight: swatch.count ?? 1 };
+    });
+    // Theoretical floor: best match of each target to any palette color.
+    const paletteFloor = (result: AutoPaintResult): Sample[] => {
+        const palette = realizedPalette(result);
+        return targets.map((target) => ({
+            value: palette.length
+                ? Math.min(...palette.map((entry) => autoPaint.deltaE2000Lab(target, entry.lab)))
+                : 0,
+            weight: target.weight,
+        }));
+    };
     for (const algorithm of algorithms) {
         const seeds = algorithm === 'simulated-annealing' || algorithm === 'genetic' ? SEEDS : [SEEDS[0]];
         for (const seed of seeds) {
             const start = performance.now();
             const result = autoPaint.generateAutoLayers(scenario.filaments, scenario.imageSwatches, LAYER_HEIGHT, FIRST_LAYER_HEIGHT, undefined, scenario.enhancedColorMatch, scenario.allowRepeatedSwaps, { algorithm, seed });
             const elapsedMs = performance.now() - start;
-            const slices = autoPaint.autoPaintToSliceHeights(result, LAYER_HEIGHT, FIRST_LAYER_HEIGHT);
-            const palette = slices.virtualSwatches.map((swatch) => autoPaint.rgbToLab(autoPaint.hexToRgb(swatch.hex)));
-            const targets = scenario.imageSwatches.map((swatch) => ({ lab: autoPaint.rgbToLab(autoPaint.hexToRgb(swatch.hex)), weight: swatch.count }));
-            const errors76 = targets.map((target) => ({ weight: target.weight, value: Math.min(...palette.map((entry) => autoPaint.deltaELab(target.lab, entry))) }));
-            const errors2000 = targets.map((target) => ({ weight: target.weight, value: Math.min(...palette.map((entry) => ciede2000(target.lab, entry))) }));
-            const coverage = (limit: number) => errors76.filter((sample) => sample.value <= limit).reduce((sum, sample) => sum + sample.weight, 0) / errors76.reduce((sum, sample) => sum + sample.weight, 0);
-            const heights = cumulativeHeights(slices.colorSliceHeights, slices.colorOrder);
-            const nodes = palette.map((lab, index) => ({ lab, min: heights[index], max: heights[index] }));
-            const realized = targets.map((target) => {
-                const height = projectHeight(target.lab, nodes, heights);
-                const slice = Math.min(heights.length - 1, heights.findIndex((value) => value >= height));
-                return { weight: target.weight, value: autoPaint.deltaELab(target.lab, palette[Math.max(0, slice)]) };
-            });
             const compressed = autoPaint.generateAutoLayers(scenario.filaments, scenario.imageSwatches, LAYER_HEIGHT, FIRST_LAYER_HEIGHT, COMPRESSED_MAX_HEIGHT, scenario.enhancedColorMatch, scenario.allowRepeatedSwaps, { algorithm, seed });
-            const used = new Set(errors76.map((_, targetIndex) => palette.reduce((best, entry, index) => autoPaint.deltaELab(targets[targetIndex].lab, entry) < autoPaint.deltaELab(targets[targetIndex].lab, palette[best]) ? index : best, 0)));
-            output.push({ scenario: scenario.name, algorithm, seed, colorError: { cie76: weightedSummary(errors76), ciede2000: weightedSummary(errors2000), coverageAt2_3: coverage(2.3), coverageAt5: coverage(5) }, realizedError: weightedSummary(realized), structure: { totalHeight: result.totalHeight, layerCount: slices.colorSliceHeights.length, sequenceLength: result.filamentOrder.length, wastedLayerFraction: slices.colorSliceHeights.length ? (slices.colorSliceHeights.length - used.size) / slices.colorSliceHeights.length : 0, compressedMaxHeight: COMPRESSED_MAX_HEIGHT, compressionRatio: compressed.compressionRatio }, cost: { wallTimeMs: elapsedMs, iterations: result.optimizerMetadata?.iterations ?? 0 } });
+            const slices = autoPaint.autoPaintToSliceHeights(result, LAYER_HEIGHT, FIRST_LAYER_HEIGHT);
+            const compressedSlices = autoPaint.autoPaintToSliceHeights(compressed, LAYER_HEIGHT, FIRST_LAYER_HEIGHT);
+            output.push({
+                scenario: scenario.name,
+                algorithm,
+                seed,
+                paletteFloorCiede2000: weightedSummary(paletteFloor(result)),
+                realized: {
+                    uncompressed: realizedError(result, targets),
+                    compressed: realizedError(compressed, targets),
+                },
+                structure: {
+                    totalHeight: result.totalHeight,
+                    layerCount: slices.colorSliceHeights.length,
+                    sequenceLength: result.filamentOrder.length,
+                    compressedMaxHeight: COMPRESSED_MAX_HEIGHT,
+                    compressedLayerCount: compressedSlices.colorSliceHeights.length,
+                    compressionRatio: compressed.compressionRatio,
+                },
+                cost: { wallTimeMs: elapsedMs, iterations: result.optimizerMetadata?.iterations ?? 0 },
+            });
         }
     }
 }

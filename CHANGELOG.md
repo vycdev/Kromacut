@@ -8,7 +8,8 @@ All notable changes to Kromacut are documented in this file.
 
 - **Reddit community links** - Added r/kromacut links to the app header and README, and use branded Discord, Reddit, and GitHub icons in the header toolbar.
 - **Auto-paint regression baseline** - Added focused layer-invariant coverage, per-algorithm seeded determinism checks, and 24 seeded stack snapshots across the 2-, 4-, and 8-filament profiles, both image fixtures, Enhanced matching states, and repeated-swap states.
-- **Auto-paint benchmark harness** - Added an on-demand JSON benchmark that measures palette and preview-realized color error, coverage, stack cost, compression impact, runtime, and optimizer iterations across the saved fixture profiles.
+- **Auto-paint benchmark harness** - Added an on-demand JSON benchmark that measures realized print error (CIEDE2000 mean, p95, and coverage) for both the uncompressed and the Max Height-compressed stack, plus the achievable palette floor, stack cost, compression impact, runtime, and optimizer iterations across the saved fixture profiles. It measures the printed result through the same canonical color-to-height mapper the optimizer scores with, instead of a separately-implemented projection.
+- **Auto-paint quality budgets** - Added realized-ΔE00 budget tests (weighted mean, p95 tail, and ΔE00≤6 coverage) for the printable, max-height-capped stack on the representative fixture profiles, guarding against optimizer-objective regressions even when intentional ordering changes update the goldens.
 - **Auto-paint optimization progress** - Enhanced matching now reports an approximate completion percentage while its background search is running.
 
 ### Changed
@@ -20,6 +21,7 @@ All notable changes to Kromacut are documented in this file.
 - **Auto-paint transition compositing** - Each filament transition now starts from the preceding transition's actual blended end color, including after Max Height compression, instead of assuming a pure previous-filament color.
 - **Auto-paint optical blending** - Beer-Lambert color mixing now happens in linear-light sRGB before returning display colors, replacing gamma-space interpolation with a more physically coherent light model.
 - **Filament calibration model** - Calibration now fits both working and RGB-channel TD values using Auto-paint's linear-light optical model. Recalibrate profiles created with earlier releases before using them for new prints.
+- **Auto-paint optimizer metric** - The optimizer now scores realized print error in CIEDE2000 (ΔE2000) instead of CIE76, and adds a weighted p95 tail term so a few rare but conspicuous colors are not sacrificed to lower the average. Nearest-color and Lab-polyline projection stay in Euclidean CIE76, where they are geometrically valid and fast. Selected filament orders change for some Enhanced color-match profiles.
 
 ### Fixed
 

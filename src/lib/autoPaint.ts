@@ -314,10 +314,27 @@ export function deltaE2000Lab(lab1: Lab, lab2: Lab): number {
 
 const OPTIMIZER_DISTANCE_METRIC: ColorDistanceMetric = 'cie76';
 
+/**
+ * Geometric color distance used for nearest-match and polyline projection.
+ * Deliberately a Euclidean Lab metric (CIE76): projecting a target onto the
+ * palette's Lab polyline assumes a Euclidean space, so a non-Euclidean metric
+ * (CIEDE2000) would be geometrically inconsistent here — and this runs in the
+ * hot per-segment loop, where CIE76 keeps the search fast.
+ */
 function optimizerColorDistance(left: Lab, right: Lab): number {
     return OPTIMIZER_DISTANCE_METRIC === 'ciede2000'
         ? deltaE2000Lab(left, right)
         : deltaELab(left, right);
+}
+
+/**
+ * Perceptual realized-error metric for the optimizer objective and benchmark
+ * reporting. CIEDE2000 tracks visible print error far better than CIE76, and it
+ * is only evaluated once per image target per sequence (after projection), so
+ * its higher cost stays negligible against the search.
+ */
+function realizedColorError(left: Lab, right: Lab): number {
+    return deltaE2000Lab(left, right);
 }
 
 /**
@@ -978,60 +995,46 @@ export function buildAchievableColorPalette(
     }));
 }
 
+export interface MappedTarget {
+    target: WeightedLab;
+    /** Printable palette index whose color the preview renders for this target. */
+    paletteIndex: number;
+    /** Lab color of that printable palette entry. */
+    mappedLab: Lab;
+    /** Continuous projected height before snapping to a printable layer. */
+    projectedHeight: number;
+}
+
 /**
- * Score a filament sequence against weighted image target colors.
- *
- * The score combines:
- * 1. Preview-realized color accuracy — project each target onto the printable
- *    Lab path, then evaluate the discrete layer that the preview will render.
- *    Dominant image colors contribute more to the score, so the optimizer
- *    prioritizes filament orderings that nail the most common colors.
- * 2. Height spread — penalizes when distinct image colors collapse to
- *    the same height (leading to flat surfaces).
- * 3. Total layer count — penalizes the raw number of layers in the palette.
- *    This punishes sequences with expensive transitions between dissimilar
- *    colors (e.g., yellow→purple takes many layers to transition, vs
- *    yellow→orange which is quick). More layers = taller model.
- * 4. Transition waste — penalizes palette layers that don't closely match
- *    any target color. These are "wasted" intermediate layers that exist
- *    only as transitions and contribute no useful color to the image.
+ * Map each weighted image target onto the printable palette the way the preview
+ * does: find the closest point on the palette's Lab polyline (Euclidean
+ * projection), then snap to the printable layer at that height. Shared by the
+ * optimizer objective and the benchmark so the two cannot drift.
  */
-export function scoreSequenceAgainstImage(
+export function mapTargetsToPrintablePalette(
     palette: Array<{ height: number; lab: Lab; rgb: RGB }>,
     imageTargets: WeightedLab[]
-): number {
-    if (palette.length === 0) return Infinity;
+): MappedTarget[] {
+    if (palette.length === 0) return [];
 
-    // Mirror enhanced auto-paint mapping: project each image color onto the
-    // palette's Lab polyline, then use the printable layer at that height.
-    const paletteEntries = palette;
-    if (paletteEntries.length === 0) return Infinity;
+    return imageTargets.map((target) => {
+        let minDistance = Infinity;
+        let bestHeight = palette[0].height;
 
-    // 1. Weighted preview-realized DeltaE per target
-    let weightedDeltaE = 0;
-    const bestMatchHeights: number[] = [];
-
-    // Also track which printable palette entries are useful to a target.
-    const usedPaletteEntries = new Set<number>();
-
-    for (const target of imageTargets) {
-        let minDE = Infinity;
-        let bestHeight = paletteEntries[0].height;
-        let bestIdx = 0;
-        for (let ri = 0; ri < paletteEntries.length; ri++) {
-            const entry = paletteEntries[ri];
-            const de = optimizerColorDistance(entry.lab, target);
-            if (de < minDE) {
-                minDE = de;
-                bestHeight = entry.height;
-                bestIdx = ri;
+        // Nearest printable color seeds the projection threshold.
+        for (let ri = 0; ri < palette.length; ri++) {
+            const de = optimizerColorDistance(palette[ri].lab, target);
+            if (de < minDistance) {
+                minDistance = de;
+                bestHeight = palette[ri].height;
                 if (de < 0.5) break;
             }
         }
 
-        for (let ri = 0; ri < paletteEntries.length - 1; ri++) {
-            const start = paletteEntries[ri];
-            const end = paletteEntries[ri + 1];
+        // Refine against the closest point on each polyline segment.
+        for (let ri = 0; ri < palette.length - 1; ri++) {
+            const start = palette[ri];
+            const end = palette[ri + 1];
             const dL = end.lab.L - start.lab.L;
             const da = end.lab.a - start.lab.a;
             const db = end.lab.b - start.lab.b;
@@ -1048,44 +1051,119 @@ export function scoreSequenceAgainstImage(
                         lengthSquared
                 )
             );
-            const projectedL = start.lab.L + t * dL;
-            const projectedA = start.lab.a + t * da;
-            const projectedB = start.lab.b + t * db;
             const projectedDistance = optimizerColorDistance(target, {
-                L: projectedL,
-                a: projectedA,
-                b: projectedB,
+                L: start.lab.L + t * dL,
+                a: start.lab.a + t * da,
+                b: start.lab.b + t * db,
             });
-            if (projectedDistance < minDE) {
-                minDE = projectedDistance;
+            if (projectedDistance < minDistance) {
+                minDistance = projectedDistance;
                 bestHeight = start.height + t * (end.height - start.height);
             }
         }
 
-        const mappedIdx = paletteEntries.findIndex((entry) => entry.height >= bestHeight);
-        bestIdx = mappedIdx >= 0 ? mappedIdx : paletteEntries.length - 1;
-        const mappedColor = paletteEntries[bestIdx].lab;
-        const mappedDeltaE = optimizerColorDistance(mappedColor, target);
+        const mappedIdx = palette.findIndex((entry) => entry.height >= bestHeight);
+        const paletteIndex = mappedIdx >= 0 ? mappedIdx : palette.length - 1;
 
-        weightedDeltaE += mappedDeltaE * target.weight;
-        bestMatchHeights.push(bestHeight);
+        return {
+            target,
+            paletteIndex,
+            mappedLab: palette[paletteIndex].lab,
+            projectedHeight: bestHeight,
+        };
+    });
+}
+
+/**
+ * Weighted percentile over realized-error samples: the smallest sample value
+ * whose cumulative weight reaches `quantile` of the total weight.
+ */
+export function weightedErrorPercentile(
+    samples: Array<{ value: number; weight: number }>,
+    quantile: number
+): number {
+    if (samples.length === 0) return 0;
+    const totalWeight = samples.reduce((sum, sample) => sum + sample.weight, 0);
+    if (totalWeight <= 0) return 0;
+
+    const ordered = [...samples].sort((left, right) => left.value - right.value);
+    const threshold = totalWeight * quantile;
+    let cumulative = 0;
+    for (const sample of ordered) {
+        cumulative += sample.weight;
+        if (cumulative >= threshold) return sample.value;
+    }
+    return ordered[ordered.length - 1].value;
+}
+
+/** Weight applied to the weighted-p95 realized-error tail in the objective. */
+const REALIZED_ERROR_TAIL_WEIGHT = 0.5;
+/** Percentile used for the realized-error tail term. */
+const REALIZED_ERROR_TAIL_PERCENTILE = 0.95;
+/** A printable palette entry counts as "used" if a target lands within this ΔE00. */
+const USEFUL_PALETTE_MATCH_DE = 8;
+
+/**
+ * Score a filament sequence against weighted image target colors.
+ *
+ * The score combines:
+ * 1. Preview-realized color accuracy — project each target onto the printable
+ *    Lab path, snap to the layer the preview renders, and measure the visible
+ *    error in CIEDE2000. The objective uses the weighted mean plus a weighted
+ *    p95 tail, so a few rare but conspicuous colors cannot be abandoned to
+ *    lower the average. Dominant image colors carry more weight.
+ * 2. Height spread — penalizes when distinct image colors collapse to
+ *    the same height (leading to flat surfaces).
+ * 3. Total layer count — penalizes the raw number of layers in the palette.
+ *    This punishes sequences with expensive transitions between dissimilar
+ *    colors (e.g., yellow→purple takes many layers to transition, vs
+ *    yellow→orange which is quick). More layers = taller model.
+ * 4. Transition waste — penalizes palette layers that don't closely match
+ *    any target color. These are "wasted" intermediate layers that exist
+ *    only as transitions and contribute no useful color to the image.
+ */
+export function scoreSequenceAgainstImage(
+    palette: Array<{ height: number; lab: Lab; rgb: RGB }>,
+    imageTargets: WeightedLab[]
+): number {
+    if (palette.length === 0) return Infinity;
+    if (imageTargets.length === 0) return Infinity;
+
+    const mapped = mapTargetsToPrintablePalette(palette, imageTargets);
+
+    // 1. Weighted realized color error (CIEDE2000), with a p95 tail term so a
+    //    few rare conspicuous colors cannot be sacrificed to lower the mean.
+    let weightedErrorSum = 0;
+    let totalWeight = 0;
+    const errorSamples: Array<{ value: number; weight: number }> = [];
+    const bestMatchHeights: number[] = [];
+    const usedPaletteEntries = new Set<number>();
+
+    for (const entry of mapped) {
+        const realizedDeltaE = realizedColorError(entry.mappedLab, entry.target);
+        const weight = entry.target.weight;
+        weightedErrorSum += realizedDeltaE * weight;
+        totalWeight += weight;
+        errorSamples.push({ value: realizedDeltaE, weight });
+        bestMatchHeights.push(entry.projectedHeight);
         // Mark this palette entry as useful if its printable color is a decent match.
-        if (mappedDeltaE < 15) usedPaletteEntries.add(bestIdx);
+        if (realizedDeltaE < USEFUL_PALETTE_MATCH_DE) usedPaletteEntries.add(entry.paletteIndex);
     }
 
-    const totalTargetWeight = imageTargets.reduce((sum, target) => sum + target.weight, 0);
-    weightedDeltaE = totalTargetWeight > 0 ? weightedDeltaE / totalTargetWeight : Infinity;
+    if (totalWeight <= 0) return Infinity;
+
+    const weightedMean = weightedErrorSum / totalWeight;
+    const weightedTail = weightedErrorPercentile(errorSamples, REALIZED_ERROR_TAIL_PERCENTILE);
+    let score = weightedMean + REALIZED_ERROR_TAIL_WEIGHT * weightedTail;
 
     // 2. Height spread penalty: penalize when distinct image colors
-    //    collapse to the same height (leading to flat surfaces)
-    if (bestMatchHeights.length > 1 && paletteEntries.length > 1) {
-        const totalModelHeight =
-            paletteEntries[paletteEntries.length - 1].height - paletteEntries[0].height;
+    //    collapse to the same height (leading to flat surfaces).
+    if (bestMatchHeights.length > 1 && palette.length > 1) {
+        const totalModelHeight = palette[palette.length - 1].height - palette[0].height;
         if (totalModelHeight > 0) {
             const uniqueHeights = new Set(bestMatchHeights.map((h) => Math.round(h * 100)));
             const spreadRatio = uniqueHeights.size / imageTargets.length;
-            const spreadPenalty = (1 - spreadRatio);
-            weightedDeltaE += spreadPenalty;
+            score += 1 - spreadRatio;
         }
     }
 
@@ -1093,17 +1171,17 @@ export function scoreSequenceAgainstImage(
     //    A sequence with expensive transitions (dissimilar hues) produces many
     //    layers; smooth transitions (similar hues) produce few.
     //    This is deliberately small so color accuracy remains the deciding factor.
-    weightedDeltaE += palette.length * 0.005;
+    score += palette.length * 0.005;
 
     // 4. Transition waste penalty: palette entries not matched by any target.
     //    If a printable palette entry is not the best match for any image target,
     //    the transition height that produced it is wasted model space.
-    if (paletteEntries.length > 1) {
-        const wastedEntries = paletteEntries.length - usedPaletteEntries.size;
-        weightedDeltaE += wastedEntries * 0.015;
+    if (palette.length > 1) {
+        const wastedEntries = palette.length - usedPaletteEntries.size;
+        score += wastedEntries * 0.015;
     }
 
-    return weightedDeltaE;
+    return score;
 }
 
 /**
