@@ -19,6 +19,7 @@ All notable changes to Kromacut are documented in this file.
 - **Calibrated Auto-paint model** - Calibrated filaments now use their measured red, green, and blue TD values when simulating blends and calculating transition-zone thickness, so generated stack heights and swap plans reflect the measured optical model.
 - **Auto-paint transition compositing** - Each filament transition now starts from the preceding transition's actual blended end color, including after Max Height compression, instead of assuming a pure previous-filament color.
 - **Auto-paint optical blending** - Beer-Lambert color mixing now happens in linear-light sRGB before returning display colors, replacing gamma-space interpolation with a more physically coherent light model.
+- **Filament calibration model** - Calibration now fits both working and RGB-channel TD values using Auto-paint's linear-light optical model. Recalibrate profiles created with earlier releases before using them for new prints.
 
 ### Fixed
 

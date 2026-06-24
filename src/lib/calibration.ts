@@ -1,4 +1,5 @@
 import { estimateTDFromColor } from './colorUtils';
+import { blendSrgbChannel, srgbChannelToLinear } from './colorSpace';
 
 /**
  * Filament Calibration System
@@ -9,7 +10,7 @@ import { estimateTDFromColor } from './colorUtils';
  * Calibration process:
  * 1. User prints test patches at different layer counts (e.g., 2, 4, 6, 8, 10 layers)
  * 2. User photographs patches on backlit surface and samples RGB values
- * 3. Algorithm fits Beer-Lambert curve to derive TD for each color channel
+ * 3. Algorithm fits a linear-light Beer-Lambert curve to derive TD for each color channel
  * 4. Confidence score computed based on fit quality and measurement consistency
  */
 
@@ -25,7 +26,7 @@ export type CalibrationRgb = [number, number, number];
 export interface CalibrationMeasurement {
     layers: number; // Number of layers printed
     rgb: CalibrationRgb; // Measured RGB value (0-255)
-    transmission: CalibrationRgb; // Normalized transmission (0-1)
+    transmission: CalibrationRgb; // Normalized linear-light transmission (0-1)
 }
 
 /**
@@ -133,10 +134,25 @@ function predictWorkingBlendRgb(
 ): CalibrationRgb {
     const transmission = Math.pow(10, -thickness / td);
     return [
-        Math.round(filamentRgb[0] + (whiteReference[0] - filamentRgb[0]) * transmission),
-        Math.round(filamentRgb[1] + (whiteReference[1] - filamentRgb[1]) * transmission),
-        Math.round(filamentRgb[2] + (whiteReference[2] - filamentRgb[2]) * transmission),
+        Math.round(blendSrgbChannel(whiteReference[0], filamentRgb[0], transmission)),
+        Math.round(blendSrgbChannel(whiteReference[1], filamentRgb[1], transmission)),
+        Math.round(blendSrgbChannel(whiteReference[2], filamentRgb[2], transmission)),
     ];
+}
+
+function transmissionFromMeasuredBlend(
+    measured: number,
+    filament: number,
+    background: number
+): number | undefined {
+    const filamentLinear = srgbChannelToLinear(filament);
+    const backgroundLinear = srgbChannelToLinear(background);
+    const contrast = backgroundLinear - filamentLinear;
+
+    if (Math.abs(contrast) < 1e-6) return undefined;
+
+    const transmission = (srgbChannelToLinear(measured) - filamentLinear) / contrast;
+    return transmission > 0 && transmission < 1 ? transmission : undefined;
 }
 
 function evaluateWorkingTdFit(
@@ -300,8 +316,17 @@ export function calculateTDFromMeasurements(
     const tdChannels: [number, number, number] = [0, 0, 0];
     const confidences: [number, number, number] = [0, 0, 0];
 
+    const filamentRgb = hexToRgb(filamentColor) ?? [128, 128, 128];
+    const reference = sanitizeWhiteReference(whiteReference);
+
     for (let channel = 0; channel < 3; channel++) {
-        const { td, confidence } = fitTDForChannel(sorted, channel, layerHeight);
+        const { td, confidence } = fitTDForChannel(
+            sorted,
+            channel,
+            layerHeight,
+            filamentRgb,
+            reference
+        );
         tdChannels[channel] = td;
         confidences[channel] = confidence;
     }
@@ -327,14 +352,20 @@ export function calculateTDFromMeasurements(
 function fitTDForChannel(
     measurements: CalibrationMeasurement[],
     channel: number,
-    layerHeight: number
+    layerHeight: number,
+    filamentRgb: CalibrationRgb,
+    whiteReference: CalibrationRgb
 ): { td: number; confidence: number } {
     // Compute TD from each measurement
     const tdEstimates: Array<{ td: number; thickness: number; transmission: number }> = [];
 
     for (const measurement of measurements) {
-        const transmission = measurement.transmission[channel];
-        if (transmission <= 0 || transmission >= 1) continue; // Skip invalid measurements
+        const transmission = transmissionFromMeasuredBlend(
+            measurement.rgb[channel],
+            filamentRgb[channel],
+            whiteReference[channel]
+        );
+        if (transmission === undefined) continue; // Skip invalid or zero-contrast measurements
 
         const thickness = measurement.layers * layerHeight;
         const td = -thickness / Math.log10(transmission);
@@ -355,8 +386,9 @@ function fitTDForChannel(
     let totalWeight = 0;
 
     for (const { td, transmission } of tdEstimates) {
-        // Weight function: peaks at T=0.5, drops off at extremes
-        const weight = 1 - Math.abs(transmission - 0.5) * 2; // 0 at T=0 or T=1, 1 at T=0.5
+        // Weight function: peaks at T=0.5, but preserve a small contribution
+        // from valid measurements near either endpoint.
+        const weight = Math.max(0.05, 1 - Math.abs(transmission - 0.5) * 2);
         weightedSum += td * weight;
         totalWeight += weight;
     }
@@ -377,7 +409,7 @@ function fitTDForChannel(
 }
 
 /**
- * Convert measured RGB values to normalized transmission values.
+ * Convert measured RGB values to normalized linear-light transmission values.
  * Uses a measured white reference so camera and backlight tint are normalized out.
  */
 export function rgbToTransmission(
@@ -386,9 +418,9 @@ export function rgbToTransmission(
 ): CalibrationRgb {
     const reference = sanitizeWhiteReference(whiteReference);
     return [
-        Math.max(0, Math.min(1, rgb[0] / reference[0])),
-        Math.max(0, Math.min(1, rgb[1] / reference[1])),
-        Math.max(0, Math.min(1, rgb[2] / reference[2])),
+        Math.max(0, Math.min(1, srgbChannelToLinear(rgb[0]) / srgbChannelToLinear(reference[0]))),
+        Math.max(0, Math.min(1, srgbChannelToLinear(rgb[1]) / srgbChannelToLinear(reference[1]))),
+        Math.max(0, Math.min(1, srgbChannelToLinear(rgb[2]) / srgbChannelToLinear(reference[2]))),
     ];
 }
 
@@ -418,11 +450,12 @@ export function predictTransmission(
 
     const reference = sanitizeWhiteReference(whiteReference);
 
-    // Tint the measured white-reference backlight by filament color
+    // Simulate the same linear-light blend Auto-paint uses: the filament is
+    // the foreground and the measured backlight is the background.
     return [
-        Math.round(transmission[0] * (rgb[0] / 255) * reference[0]),
-        Math.round(transmission[1] * (rgb[1] / 255) * reference[1]),
-        Math.round(transmission[2] * (rgb[2] / 255) * reference[2]),
+        Math.round(blendSrgbChannel(reference[0], rgb[0], transmission[0])),
+        Math.round(blendSrgbChannel(reference[1], rgb[1], transmission[1])),
+        Math.round(blendSrgbChannel(reference[2], rgb[2], transmission[2])),
     ];
 }
 
