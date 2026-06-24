@@ -99,7 +99,7 @@ test('printable auto-paint stacks meet realized ΔE00 quality budgets', async (t
                 COMPRESSED_MAX_HEIGHT,
                 scenario.enhancedColorMatch,
                 scenario.allowRepeatedSwaps,
-                { algorithm: 'auto', seed: scenario.seed }
+                { algorithm: 'balanced', seed: scenario.seed }
             );
             const { mean, p95, coverage6 } = realizedQuality(autoPaint, result, scenario.imageSwatches);
 

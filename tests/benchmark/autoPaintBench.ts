@@ -5,7 +5,7 @@ import { createServer } from 'vite';
 import { autoPaintGoldenScenarios } from '../autoPaintGoldenFixtures.ts';
 
 type AutoPaintModule = typeof import('../../src/lib/autoPaint.ts');
-type Algorithm = 'auto' | 'exhaustive' | 'simulated-annealing' | 'genetic';
+type Algorithm = 'fast' | 'balanced' | 'thorough';
 type Lab = { L: number; a: number; b: number };
 type WeightedLab = Lab & { weight: number };
 type Sample = { value: number; weight: number };
@@ -88,10 +88,7 @@ const output: unknown[] = [];
 for (const scenario of autoPaintGoldenScenarios().filter(
     (scenario) => scenario.enhancedColorMatch && scenario.allowRepeatedSwaps
 )) {
-    const profileSize = scenario.filaments.length;
-    const algorithms: Algorithm[] = profileSize <= 6
-        ? ['auto', 'exhaustive', 'simulated-annealing', 'genetic']
-        : ['auto', 'simulated-annealing', 'genetic'];
+    const algorithms: Algorithm[] = ['fast', 'balanced', 'thorough'];
     // Measure against the raw image colors (ground truth), not the optimizer's
     // clustered targets, so the benchmark is an independent yardstick.
     const targets: WeightedLab[] = scenario.imageSwatches.map((swatch) => {
@@ -109,7 +106,7 @@ for (const scenario of autoPaintGoldenScenarios().filter(
         }));
     };
     for (const algorithm of algorithms) {
-        const seeds = algorithm === 'simulated-annealing' || algorithm === 'genetic' ? SEEDS : [SEEDS[0]];
+        const seeds = algorithm === 'balanced' ? SEEDS : [SEEDS[0]];
         for (const seed of seeds) {
             const start = performance.now();
             const result = autoPaint.generateAutoLayers(scenario.filaments, scenario.imageSwatches, LAYER_HEIGHT, FIRST_LAYER_HEIGHT, undefined, scenario.enhancedColorMatch, scenario.allowRepeatedSwaps, { algorithm, seed });

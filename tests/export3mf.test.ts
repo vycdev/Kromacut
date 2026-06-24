@@ -22,7 +22,7 @@ import { inspectMeshIntegrity, type MeshIntegrityReport } from './meshDiagnostic
 type Export3mfModule = typeof import('../src/lib/export3mf.ts');
 type Export3MFOptions = Parameters<Export3mfModule['exportObjectTo3MFBlob']>[1];
 type MeshGenerator = typeof generateSmoothMesh;
-type OptimizerAlgorithm = 'exhaustive' | 'simulated-annealing' | 'genetic' | 'auto';
+type OptimizerAlgorithm = 'fast' | 'balanced' | 'thorough';
 
 interface AutoPaintSliceData {
     colorSliceHeights: number[];
@@ -785,7 +785,7 @@ async function buildAutoPaintLogoRegressionStack(
         true,
         true,
         {
-            algorithm: 'auto',
+            algorithm: 'balanced',
             seed,
         }
     );

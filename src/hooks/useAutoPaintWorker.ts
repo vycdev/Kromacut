@@ -28,7 +28,7 @@ export interface UseAutoPaintWorkerOptions {
     autoPaintMaxHeight?: number;
     enhancedColorMatch: boolean;
     allowRepeatedSwaps: boolean;
-    optimizerAlgorithm: 'exhaustive' | 'simulated-annealing' | 'genetic' | 'auto';
+    optimizerAlgorithm: 'fast' | 'balanced' | 'thorough';
     optimizerSeed?: number;
     regionWeightingMode: 'uniform' | 'center' | 'edge';
 }

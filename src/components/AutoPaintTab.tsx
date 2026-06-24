@@ -101,8 +101,8 @@ interface AutoPaintTabProps {
     setFlatPaint: (v: boolean) => void;
 
     // Optimizer options
-    optimizerAlgorithm: 'exhaustive' | 'simulated-annealing' | 'genetic' | 'auto';
-    setOptimizerAlgorithm: (v: 'exhaustive' | 'simulated-annealing' | 'genetic' | 'auto') => void;
+    optimizerAlgorithm: 'fast' | 'balanced' | 'thorough';
+    setOptimizerAlgorithm: (v: 'fast' | 'balanced' | 'thorough') => void;
     optimizerSeed: number | undefined;
     setOptimizerSeed: (v: number | undefined) => void;
     regionWeightingMode: 'uniform' | 'center' | 'edge';
@@ -680,20 +680,14 @@ export default function AutoPaintTab({
                                             <SelectValue />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value="auto" className="text-xs">
-                                                Auto (smart selection)
+                                            <SelectItem value="fast" className="text-xs">
+                                                Fast
                                             </SelectItem>
-                                            <SelectItem value="exhaustive" className="text-xs">
-                                                Exhaustive (recommended ≤6)
+                                            <SelectItem value="balanced" className="text-xs">
+                                                Balanced (recommended)
                                             </SelectItem>
-                                            <SelectItem
-                                                value="simulated-annealing"
-                                                className="text-xs"
-                                            >
-                                                Simulated Annealing
-                                            </SelectItem>
-                                            <SelectItem value="genetic" className="text-xs">
-                                                Genetic Algorithm
+                                            <SelectItem value="thorough" className="text-xs">
+                                                Thorough (slower)
                                             </SelectItem>
                                         </SelectContent>
                                     </Select>

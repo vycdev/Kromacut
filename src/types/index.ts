@@ -48,8 +48,8 @@ export interface ThreeDControlsStateShape {
     ditherLineWidth?: number;
     /** Flat Paint: build a flat, face-down slab (auto-paint only) */
     flatPaint?: boolean;
-    // Optimizer options
-    optimizerAlgorithm?: 'exhaustive' | 'simulated-annealing' | 'genetic' | 'auto';
+    // Optimizer options (effort tier; legacy values migrate on load)
+    optimizerAlgorithm?: 'fast' | 'balanced' | 'thorough';
     optimizerSeed?: number;
     regionWeightingMode?: 'uniform' | 'center' | 'edge';
     // Auto-paint computed state (only used when paintMode is 'autopaint')

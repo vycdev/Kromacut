@@ -107,7 +107,7 @@ test('seeded auto-paint stack goldens stay deliberate', async (t: TestContext) =
                 undefined,
                 scenario.enhancedColorMatch,
                 scenario.allowRepeatedSwaps,
-                { algorithm: 'auto', seed: scenario.seed }
+                { algorithm: 'balanced', seed: scenario.seed }
             );
 
             assertApproximateGolden(snapshot(result), expected[scenario.name]);

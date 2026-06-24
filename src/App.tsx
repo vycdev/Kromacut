@@ -27,6 +27,7 @@ import { useAppHandlers, type ExportProgressStep } from './hooks/useAppHandlers'
 import { useProcessingState } from './hooks/useProcessingState';
 import { useBuildWarning } from './hooks/useBuildWarning';
 import { clampProgress } from './lib/progress';
+import { normalizeOptimizerTier } from './lib/optimizer';
 import ResizableSplitter from './components/ResizableSplitter';
 import { ControlsPanel } from './components/ControlsPanel';
 import { usePaletteManager } from './hooks/usePaletteManager';
@@ -100,7 +101,7 @@ const loadAutoPaintPersisted = (): AutoPaintPersisted | null => {
         return {
             filaments: parsed.filaments,
             paintMode,
-            optimizerAlgorithm: parsed.optimizerAlgorithm,
+            optimizerAlgorithm: normalizeOptimizerTier(parsed.optimizerAlgorithm),
             optimizerSeed: parsed.optimizerSeed,
             regionWeightingMode: parsed.regionWeightingMode,
             enhancedColorMatch: parsed.enhancedColorMatch ?? false,

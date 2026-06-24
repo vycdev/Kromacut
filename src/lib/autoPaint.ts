@@ -93,7 +93,7 @@ export interface AutoPaintResult {
     };
     // Optimizer metadata (for advanced optimizer only)
     optimizerMetadata?: {
-        algorithm: string; // 'exhaustive' | 'simulated-annealing' | 'genetic'
+        algorithm: string; // resolved: 'exhaustive' | 'beam' | 'simulated-annealing' | 'balanced-hybrid'
         score: number; // Quality score achieved
         iterations: number; // Iterations performed
         converged: boolean; // Whether algorithm converged
@@ -1418,7 +1418,7 @@ export function generateAutoLayers(
     // Add optimizer metadata if available
     if (optimizerResult) {
         result.optimizerMetadata = {
-            algorithm: optimizerResult.resolvedAlgorithm || optimizerOptions?.algorithm || 'auto',
+            algorithm: optimizerResult.resolvedAlgorithm || optimizerOptions?.algorithm || 'balanced',
             score: optimizerResult.score,
             iterations: optimizerResult.iterations,
             converged: optimizerResult.converged,

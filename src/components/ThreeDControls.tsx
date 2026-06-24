@@ -117,8 +117,8 @@ export default function ThreeDControls({
     const [flatPaint, setFlatPaint] = useState(initialFlatPaint);
 
     // --- Optimizer Options ---
-    const [optimizerAlgorithm, setOptimizerAlgorithm] = useState<'exhaustive' | 'simulated-annealing' | 'genetic' | 'auto'>(
-        persisted?.optimizerAlgorithm ?? 'auto'
+    const [optimizerAlgorithm, setOptimizerAlgorithm] = useState<'fast' | 'balanced' | 'thorough'>(
+        persisted?.optimizerAlgorithm ?? 'balanced'
     );
     const [optimizerSeed, setOptimizerSeed] = useState<number | undefined>(
         persisted?.optimizerSeed

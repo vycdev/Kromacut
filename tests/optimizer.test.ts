@@ -49,7 +49,7 @@ async function loadViteModule<T>(modulePath: string): Promise<T> {
 
 test('each optimizer produces the same result for the same seed', async (t) => {
     const { optimizeFilamentOrder } = await loadOptimizerModule();
-    const algorithms = ['exhaustive', 'simulated-annealing', 'genetic', 'auto'] as const;
+    const algorithms = ['exhaustive', 'simulated-annealing', 'fast', 'balanced', 'thorough'] as const;
 
     for (const algorithm of algorithms) {
         await t.test(algorithm, () => {
@@ -71,7 +71,7 @@ test('each optimizer produces the same result for the same seed', async (t) => {
 
 test('optimizer progress is monotonic and completes for every algorithm', async (t) => {
     const { optimizeFilamentOrder } = await loadOptimizerModule();
-    const algorithms = ['exhaustive', 'simulated-annealing', 'genetic', 'auto'] as const;
+    const algorithms = ['exhaustive', 'simulated-annealing', 'fast', 'balanced', 'thorough'] as const;
 
     for (const algorithm of algorithms) {
         await t.test(algorithm, () => {
@@ -175,9 +175,8 @@ test('default optimizer seeds are stable and cacheable', async () => {
     clearOptimizerCache();
 
     const options = {
-        algorithm: 'genetic' as const,
+        algorithm: 'simulated-annealing' as const,
         maxIterations: 20,
-        populationSize: 16,
         cachingEnabled: true,
     };
     const first = optimizeFilamentOrder(filaments, context, options);
@@ -282,7 +281,7 @@ test('repeats can close the RGB color path to reach the missing magenta blend', 
 
 test('variable-length optimizers preserve sequence safety invariants', async (t) => {
     const { optimizeFilamentOrder } = await loadOptimizerModule();
-    const algorithms = ['exhaustive', 'simulated-annealing', 'genetic', 'auto'] as const;
+    const algorithms = ['exhaustive', 'simulated-annealing', 'fast', 'balanced', 'thorough'] as const;
 
     for (const allowRepeatedSwaps of [false, true]) {
         for (const algorithm of algorithms) {
@@ -307,7 +306,7 @@ test('variable-length optimizers preserve sequence safety invariants', async (t)
     }
 });
 
-test('auto uses beam search for medium profiles while explicit exhaustive remains exact', async () => {
+test('fast uses beam search for medium profiles while explicit exhaustive remains exact', async () => {
     const { optimizeFilamentOrder } = await loadOptimizerModule();
     const mediumProfile = [
         ...filaments,
@@ -316,8 +315,8 @@ test('auto uses beam search for medium profiles while explicit exhaustive remain
         { id: 'purple', color: '#7545a8', td: 1.9 },
     ];
 
-    const auto = optimizeFilamentOrder(mediumProfile, context, {
-        algorithm: 'auto',
+    const fast = optimizeFilamentOrder(mediumProfile, context, {
+        algorithm: 'fast',
         seed: 7,
         cachingEnabled: false,
     });
@@ -327,13 +326,44 @@ test('auto uses beam search for medium profiles while explicit exhaustive remain
         cachingEnabled: false,
     });
 
-    assert.equal(auto.resolvedAlgorithm, 'beam');
+    assert.equal(fast.resolvedAlgorithm, 'beam');
     assert.equal(exhaustive.resolvedAlgorithm, 'exhaustive');
     assert.equal(
         exhaustive.iterations,
         13_699,
         'seven filaments have 13,699 ordered non-empty subsets'
     );
-    assert.ok(auto.order.length <= mediumProfile.length);
-    assert.equal(new Set(auto.order.map((filament) => filament.id)).size, auto.order.length);
+    assert.ok(fast.order.length <= mediumProfile.length);
+    assert.equal(new Set(fast.order.map((filament) => filament.id)).size, fast.order.length);
+});
+
+test('balanced hybrid is deterministic, valid, and never worse than fast on a medium profile', async () => {
+    const { optimizeFilamentOrder } = await loadOptimizerModule();
+    const mediumProfile = [
+        ...filaments,
+        { id: 'green', color: '#42a85f', td: 1.6 },
+        { id: 'yellow', color: '#e7cd38', td: 1.7 },
+        { id: 'purple', color: '#7545a8', td: 1.9 },
+    ];
+
+    const options = { algorithm: 'balanced' as const, seed: 7, cachingEnabled: false };
+    const first = optimizeFilamentOrder(mediumProfile, context, options);
+    const second = optimizeFilamentOrder(mediumProfile, context, options);
+    const fast = optimizeFilamentOrder(mediumProfile, context, {
+        algorithm: 'fast',
+        seed: 7,
+        cachingEnabled: false,
+    });
+
+    assert.equal(first.resolvedAlgorithm, 'balanced-hybrid');
+    assert.deepEqual(second, first, 'same seed must reproduce the same hybrid result');
+
+    const ids = first.order.map((filament) => filament.id);
+    assert.ok(ids.every((id, index) => index === 0 || id !== ids[index - 1]), 'no adjacent duplicates');
+    assert.equal(new Set(ids).size, ids.length, 'no repeats without allowRepeatedSwaps');
+
+    assert.ok(
+        first.score <= fast.score + 1e-9,
+        `balanced (${first.score}) must not be worse than fast (${fast.score})`
+    );
 });
