@@ -16,7 +16,12 @@ import { useProfileManager } from '../hooks/useProfileManager';
 import { useColorSlicing } from '../hooks/useColorSlicing';
 import { useSwapPlan } from '../hooks/useSwapPlan';
 import { useAutoPaintWorker } from '../hooks/useAutoPaintWorker';
-import type { Swatch, ThreeDControlsStateShape } from '../types';
+import type {
+    AutoPaintRepeatLimit,
+    AutoPaintTransitionOpacity,
+    Swatch,
+    ThreeDControlsStateShape,
+} from '../types';
 import PrintSettingsCard from './PrintSettingsCard';
 import PrintInstructions from './PrintInstructions';
 import AutoPaintTab from './AutoPaintTab';
@@ -111,13 +116,20 @@ export default function ThreeDControls({
     const [paintMode, setPaintMode] = useState<'manual' | 'autopaint'>(initialPaintMode);
     const [autoPaintMaxHeight, setAutoPaintMaxHeight] = useState<number | undefined>(undefined);
     const [enhancedColorMatch, setEnhancedColorMatch] = useState(persisted?.enhancedColorMatch ?? false);
-    const [allowRepeatedSwaps, setAllowRepeatedSwaps] = useState(persisted?.allowRepeatedSwaps ?? false);
+    const [maxRepeatedSwaps, setMaxRepeatedSwaps] = useState<AutoPaintRepeatLimit>(
+        persisted?.maxRepeatedSwaps ?? (persisted?.allowRepeatedSwaps ? 4 : 0)
+    );
+    const [transitionOpacity, setTransitionOpacity] = useState<AutoPaintTransitionOpacity>(
+        persisted?.transitionOpacity ?? 0.9
+    );
     const [heightDithering, setHeightDithering] = useState(persisted?.heightDithering ?? false);
     const [ditherLineWidth, setDitherLineWidth] = useState(persisted?.ditherLineWidth ?? 0.42);
     const [flatPaint, setFlatPaint] = useState(initialFlatPaint);
 
     // --- Optimizer Options ---
-    const [optimizerAlgorithm, setOptimizerAlgorithm] = useState<'fast' | 'balanced' | 'thorough'>(
+    const [optimizerAlgorithm, setOptimizerAlgorithm] = useState<
+        'fast' | 'balanced' | 'thorough' | 'deep' | 'exact'
+    >(
         persisted?.optimizerAlgorithm ?? 'balanced'
     );
     const [optimizerSeed, setOptimizerSeed] = useState<number | undefined>(
@@ -130,7 +142,6 @@ export default function ThreeDControls({
     const handleEnhancedColorMatchChange = useCallback((v: boolean) => {
         setEnhancedColorMatch(v);
         if (!v) {
-            setAllowRepeatedSwaps(false);
             setHeightDithering(false);
         }
     }, []);
@@ -155,7 +166,8 @@ export default function ThreeDControls({
             paintMode,
             filaments,
             enhancedColorMatch,
-            allowRepeatedSwaps,
+            maxRepeatedSwaps,
+            transitionOpacity,
             heightDithering,
             ditherLineWidth,
             flatPaint,
@@ -165,7 +177,7 @@ export default function ThreeDControls({
             smoothMeshing,
         });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [paintMode, filaments, enhancedColorMatch, allowRepeatedSwaps, heightDithering, ditherLineWidth, flatPaint, optimizerAlgorithm, optimizerSeed, regionWeightingMode, smoothMeshing]);
+    }, [paintMode, filaments, enhancedColorMatch, maxRepeatedSwaps, transitionOpacity, heightDithering, ditherLineWidth, flatPaint, optimizerAlgorithm, optimizerSeed, regionWeightingMode, smoothMeshing]);
 
     useEffect(() => {
         savePrintSettingsToStorage({ layerHeight, slicerFirstLayerHeight, pixelSize, smoothMeshing });
@@ -213,11 +225,13 @@ export default function ThreeDControls({
         slicerFirstLayerHeight,
         autoPaintMaxHeight,
         enhancedColorMatch,
-        allowRepeatedSwaps,
+        maxRepeatedSwaps,
+        transitionOpacity,
         optimizerAlgorithm,
         optimizerSeed,
         regionWeightingMode,
     });
+    const autoPaintProgressPercent = Math.round(Math.max(0, Math.min(1, autoPaintProgress)) * 100);
 
     const autoPaintSliceData = useMemo(() => {
         if (!autoPaintResult) return undefined;
@@ -310,7 +324,8 @@ export default function ThreeDControls({
                 filaments,
                 paintMode,
                 enhancedColorMatch,
-                allowRepeatedSwaps,
+                maxRepeatedSwaps,
+                transitionOpacity,
                 heightDithering,
                 ditherLineWidth,
                 flatPaint,
@@ -352,7 +367,8 @@ export default function ThreeDControls({
         filaments,
         paintMode,
         enhancedColorMatch,
-        allowRepeatedSwaps,
+        maxRepeatedSwaps,
+        transitionOpacity,
         heightDithering,
         ditherLineWidth,
         flatPaint,
@@ -378,7 +394,7 @@ export default function ThreeDControls({
                     {isAutoPaintComputing ? (
                         <>
                             <Loader2 className="w-4 h-4 animate-spin" />
-                            <span>Computing...</span>
+                            <span>Computing... {autoPaintProgressPercent}%</span>
                         </>
                     ) : (
                         <>
@@ -462,8 +478,10 @@ export default function ThreeDControls({
                     imageSwatches={filtered}
                     enhancedColorMatch={enhancedColorMatch}
                     setEnhancedColorMatch={handleEnhancedColorMatchChange}
-                    allowRepeatedSwaps={allowRepeatedSwaps}
-                    setAllowRepeatedSwaps={setAllowRepeatedSwaps}
+                    maxRepeatedSwaps={maxRepeatedSwaps}
+                    setMaxRepeatedSwaps={setMaxRepeatedSwaps}
+                    transitionOpacity={transitionOpacity}
+                    setTransitionOpacity={setTransitionOpacity}
                     heightDithering={heightDithering}
                     setHeightDithering={setHeightDithering}
                     ditherLineWidth={ditherLineWidth}

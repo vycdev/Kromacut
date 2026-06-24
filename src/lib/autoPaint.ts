@@ -93,7 +93,7 @@ export interface AutoPaintResult {
     };
     // Optimizer metadata (for advanced optimizer only)
     optimizerMetadata?: {
-        algorithm: string; // resolved: 'exhaustive' | 'beam' | 'simulated-annealing' | 'balanced-hybrid'
+        algorithm: string; // concrete tier path, such as 'beam', 'deep-hybrid', or 'exact-base'
         score: number; // Quality score achieved
         iterations: number; // Iterations performed
         converged: boolean; // Whether algorithm converged
@@ -370,6 +370,24 @@ export function getOpacity(
  */
 const DELTA_E_THRESHOLD = 2.3; // "Just noticeable difference"
 
+/** Legacy compact transition endpoint: 80% opacity. The UI explicitly defaults to Detailed (90%). */
+export const DEFAULT_TRANSITION_OPACITY = 0.8;
+
+function normalizeTransitionOpacity(targetOpacity: number | undefined): number {
+    if (!Number.isFinite(targetOpacity)) return DEFAULT_TRANSITION_OPACITY;
+    return Math.max(0.5, Math.min(0.99, targetOpacity!));
+}
+
+function transitionThicknessMultiplier(targetOpacity: number): number {
+    // Keep the old compact 0.7×TD endpoint byte-for-byte stable. The detailed
+    // and maximum presets deliberately align with the familiar 1×TD and
+    // 1.3×TD (about 95%) optical landmarks.
+    if (Math.abs(targetOpacity - 0.8) < 1e-9) return 0.7;
+    if (Math.abs(targetOpacity - 0.9) < 1e-9) return 1;
+    if (Math.abs(targetOpacity - 0.95) < 1e-9) return 1.3;
+    return -Math.log10(1 - targetOpacity);
+}
+
 /**
  * Frontlit prints behave optically like a much shorter effective TD.
  * Scale user-entered TD values down for internal simulation.
@@ -421,7 +439,8 @@ export function calculateTransitionThickness(
     backgroundColor: RGB,
     filamentColor: RGB,
     filamentTD: number | CalibrationRgb,
-    layerHeight: number
+    layerHeight: number,
+    targetOpacity: number = DEFAULT_TRANSITION_OPACITY
 ): number {
     // Early exit if colors are already close
     if (deltaE(backgroundColor, filamentColor) < DELTA_E_THRESHOLD) {
@@ -436,14 +455,15 @@ export function calculateTransitionThickness(
         return layerHeight;
     }
 
-    // The cap determines the absolute maximum transition thickness.
-    // At 0.7×TD, opacity ≈ 80%. At 1×TD, opacity ≈ 90%.
-    // For transitions between adjacent colors in a sorted stack,
-    // DeltaE convergence typically fires well before this cap.
-    // We use 0.7×TD — if the color hasn't converged by ~80% opacity,
-    // additional thickness gives diminishing visual returns.
-    const OPACITY_CAP = 0.7;
-    const maxThickness = Math.max(layerHeight, Math.max(...channelTds) * OPACITY_CAP);
+    // The requested opacity determines the absolute maximum transition
+    // thickness. Perceptual convergence can still complete the transition
+    // earlier when the blended result is already close to the target color.
+    const resolvedOpacity = normalizeTransitionOpacity(targetOpacity);
+    const opacityThicknessMultiplier = transitionThicknessMultiplier(resolvedOpacity);
+    const maxThickness = Math.max(
+        layerHeight,
+        Math.max(...channelTds) * opacityThicknessMultiplier
+    );
 
     // Simulate adding layers until color converges or we hit the cap
     while (thickness < maxThickness) {
@@ -455,8 +475,9 @@ export function calculateTransitionThickness(
             break;
         }
 
-        // Also stop if opacity is already very high — diminishing returns
-        if (getOpacity(filamentTD, thickness) > 0.85) {
+        // Stop at the selected opacity endpoint when perceptual convergence
+        // has not already completed the transition.
+        if (getOpacity(filamentTD, thickness) >= resolvedOpacity) {
             break;
         }
     }
@@ -481,7 +502,8 @@ export function calculateIdealHeight(
     sortedFilaments: AutoPaintFilament[],
     layerHeight: number,
     baseThickness: number = 0.6,
-    transitionThicknessCache?: Map<string, number>
+    transitionThicknessCache?: Map<string, number>,
+    transitionOpacity: number = DEFAULT_TRANSITION_OPACITY
 ): { idealHeight: number; zones: TransitionZone[] } {
     if (sortedFilaments.length === 0) {
         return { idealHeight: baseThickness, zones: [] };
@@ -533,6 +555,7 @@ export function calculateIdealHeight(
                     : transitionTd
             ),
             layerHeight,
+            transitionOpacity,
         ].join(':');
         let transitionThickness = transitionThicknessCache?.get(transitionKey);
         if (transitionThickness === undefined) {
@@ -540,7 +563,8 @@ export function calculateIdealHeight(
                 currentBackgroundColor,
                 filamentRgb,
                 transitionTd,
-                layerHeight
+                layerHeight,
+                transitionOpacity
             );
             transitionThicknessCache?.set(transitionKey, transitionThickness);
         }
@@ -964,6 +988,7 @@ export function buildAchievableColorPalette(
     layerHeight: number,
     firstLayerHeight: number,
     maxHeight?: number,
+    transitionOpacity: number = DEFAULT_TRANSITION_OPACITY,
     transitionThicknessCache?: Map<string, number>
 ): Array<{ height: number; lab: Lab; rgb: RGB }> {
     if (sequence.length === 0) return [];
@@ -973,7 +998,8 @@ export function buildAchievableColorPalette(
         sequence,
         layerHeight,
         Math.max(firstLayerHeight, layerHeight),
-        transitionThicknessCache
+        transitionThicknessCache,
+        transitionOpacity
     );
 
     if (zones.length === 0) return [];
@@ -1100,6 +1126,10 @@ export function weightedErrorPercentile(
 const REALIZED_ERROR_TAIL_WEIGHT = 0.5;
 /** Percentile used for the realized-error tail term. */
 const REALIZED_ERROR_TAIL_PERCENTILE = 0.95;
+/** Detail coverage: targets within this realized error are treated as retained. */
+const DETAIL_COVERAGE_DE = 6;
+/** Prefer stacks that retain more weighted source-color detail. */
+const DETAIL_COVERAGE_PENALTY = 8;
 /** A printable palette entry counts as "used" if a target lands within this ΔE00. */
 const USEFUL_PALETTE_MATCH_DE = 8;
 
@@ -1138,6 +1168,7 @@ export function scoreSequenceAgainstImage(
     const errorSamples: Array<{ value: number; weight: number }> = [];
     const bestMatchHeights: number[] = [];
     const usedPaletteEntries = new Set<number>();
+    let detailCoveredWeight = 0;
 
     for (const entry of mapped) {
         const realizedDeltaE = realizedColorError(entry.mappedLab, entry.target);
@@ -1146,6 +1177,7 @@ export function scoreSequenceAgainstImage(
         totalWeight += weight;
         errorSamples.push({ value: realizedDeltaE, weight });
         bestMatchHeights.push(entry.projectedHeight);
+        if (realizedDeltaE <= DETAIL_COVERAGE_DE) detailCoveredWeight += weight;
         // Mark this palette entry as useful if its printable color is a decent match.
         if (realizedDeltaE < USEFUL_PALETTE_MATCH_DE) usedPaletteEntries.add(entry.paletteIndex);
     }
@@ -1155,6 +1187,7 @@ export function scoreSequenceAgainstImage(
     const weightedMean = weightedErrorSum / totalWeight;
     const weightedTail = weightedErrorPercentile(errorSamples, REALIZED_ERROR_TAIL_PERCENTILE);
     let score = weightedMean + REALIZED_ERROR_TAIL_WEIGHT * weightedTail;
+    score += (1 - detailCoveredWeight / totalWeight) * DETAIL_COVERAGE_PENALTY;
 
     // 2. Height spread penalty: penalize when distinct image colors
     //    collapse to the same height (leading to flat surfaces).
@@ -1220,6 +1253,26 @@ function findBestFilamentOrder(
 /**
  * Advanced optimizer path using the shared variable-length sequence search.
  */
+/**
+ * Convert the already-processed 2D palette into weighted optimizer targets
+ * without applying another palette-reduction pass.
+ */
+export function buildOptimizerImageTargets(
+    imageSwatches: Array<{ hex: string; count?: number }>
+): WeightedLab[] {
+    const totalWeight = imageSwatches.reduce(
+        (total, swatch) => total + Math.max(0, swatch.count ?? 1),
+        0
+    );
+
+    return imageSwatches
+        .map((swatch) => ({
+            ...rgbToLab(hexToRgb(swatch.hex)),
+            weight: Math.max(0, swatch.count ?? 1) / Math.max(1, totalWeight),
+        }))
+        .filter((target) => target.weight > 0);
+}
+
 function findBestFilamentOrderWithOptimizer(
     filaments: Filament[],
     imageSwatches: Array<{ hex: string; count?: number }>,
@@ -1229,8 +1282,7 @@ function findBestFilamentOrderWithOptimizer(
     maxHeight?: number,
     allowRepeatedSwaps: boolean = false
 ): { sortedFilaments: Filament[]; result: OptimizerResult } {
-    // Spatial weighting has already been folded into swatch counts by the caller.
-    const imageTargets = clusterImageColors(imageSwatches, 32, 5.0);
+    const imageTargets = buildOptimizerImageTargets(imageSwatches);
 
     // Build scoring context
     const context: ScoringContext = {
@@ -1238,6 +1290,7 @@ function findBestFilamentOrderWithOptimizer(
         layerHeight,
         firstLayerHeight,
         maxHeight,
+        transitionOpacity: optimizerOptions.transitionOpacity,
     };
 
     // Apply frontlit TD scale
@@ -1362,7 +1415,9 @@ export function generateAutoLayers(
     const { idealHeight, zones } = calculateIdealHeight(
         scaledFilaments,
         layerHeight,
-        Math.max(firstLayerHeight, layerHeight)
+        Math.max(firstLayerHeight, layerHeight),
+        undefined,
+        optimizerOptions?.transitionOpacity
     );
 
     // --- STEP 4: APPLY COMPRESSION ON THE PRINTABLE HEIGHT GRID ---

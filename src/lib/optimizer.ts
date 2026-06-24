@@ -22,7 +22,7 @@ import {
 // ============================================================================
 
 /** User-facing optimizer effort tiers (persisted and shown in the UI). */
-export type OptimizerTier = 'fast' | 'balanced' | 'thorough';
+export type OptimizerTier = 'fast' | 'balanced' | 'thorough' | 'deep' | 'exact';
 
 /**
  * Values the optimizer accepts: the user-facing tiers plus explicit concrete
@@ -40,13 +40,16 @@ export function normalizeOptimizerTier(value: string | undefined | null): Optimi
         case 'fast':
         case 'balanced':
         case 'thorough':
+        case 'deep':
+        case 'exact':
             return value;
-        case 'exhaustive': // explicit exact search → closest tier is Thorough
+        case 'exhaustive': // explicit exact search → Exact base order
+            return 'exact';
         case 'genetic': // legacy "max effort" option
-            return 'thorough';
+            return 'deep';
         case 'beam':
-            return 'fast';
-        // 'auto', 'simulated-annealing', anything unknown → the smart default
+            return 'balanced';
+        // 'auto', 'simulated-annealing', anything unknown → the recommended default
         default:
             return 'balanced';
     }
@@ -54,7 +57,12 @@ export function normalizeOptimizerTier(value: string | undefined | null): Optimi
 
 export interface OptimizerOptions {
     algorithm: OptimizerAlgorithm;
+    /** Legacy compatibility flag; new callers should set maxExtraRepeats. */
     allowRepeatedSwaps?: boolean;
+    /** Maximum extra non-adjacent filament occurrences (0–12). */
+    maxExtraRepeats?: number;
+    /** Transition opacity target used by the shared printable-palette scorer. */
+    transitionOpacity?: number;
     seed?: number; // For deterministic results
     maxIterations?: number; // Algorithm-specific iteration limit
     temperature?: number; // Initial temperature for SA
@@ -81,6 +89,7 @@ export interface ScoringContext {
     layerHeight: number;
     firstLayerHeight: number;
     maxHeight?: number;
+    transitionOpacity?: number;
 }
 
 // ============================================================================
@@ -156,6 +165,8 @@ const globalCache = new OptimizerCache();
 function tuningFingerprint(options: OptimizerOptions) {
     return {
         allowRepeatedSwaps: options.allowRepeatedSwaps ?? false,
+        maxExtraRepeats: options.maxExtraRepeats ?? null,
+        transitionOpacity: options.transitionOpacity ?? null,
         maxIterations: options.maxIterations ?? null,
         temperature: options.temperature ?? null,
         coolingRate: options.coolingRate ?? null,
@@ -189,6 +200,7 @@ function canonicalOptimizerInput(
         layerHeight: context.layerHeight,
         firstLayerHeight: context.firstLayerHeight,
         maxHeight: context.maxHeight ?? null,
+        transitionOpacity: context.transitionOpacity ?? null,
         algorithm,
         seed: seed ?? null,
         tuning: tuningFingerprint(options),
@@ -225,6 +237,7 @@ export function createSequenceScorer(context: ScoringContext): (filaments: Filam
                 context.layerHeight,
                 context.firstLayerHeight,
                 context.maxHeight,
+                context.transitionOpacity,
                 transitionThicknessCache
             );
             paletteCache.set(sequenceKey, palette);
@@ -241,28 +254,51 @@ export function scoreFilamentSequence(filaments: Filament[], context: ScoringCon
 // Variable-length sequence helpers
 // ============================================================================
 
-const MAX_AUTO_EXHAUSTIVE_FILAMENTS = 6;
-const AUTO_BEAM_MAX_FILAMENTS = 12;
-const MAX_EXTRA_REPEATS = 4;
-const DEFAULT_BEAM_WIDTH = 100;
+const MAX_EXTRA_REPEATS = 12;
+const LEGACY_EXTRA_REPEATS = 4;
+const FAST_BEAM_WIDTH = 25;
+const BALANCED_BEAM_WIDTH = 100;
+const THOROUGH_BEAM_WIDTH = 100;
+const DEEP_BEAM_WIDTH = 250;
 
 type SequenceScorer = (filaments: Filament[]) => number;
 type ResolvedOptimizerAlgorithm =
     | 'exhaustive'
     | 'beam'
     | 'simulated-annealing'
-    | 'balanced-hybrid';
+    | 'narrow-beam'
+    | 'thorough-hybrid'
+    | 'deep-hybrid'
+    | 'exact-base';
 
 const SA_MIN_TEMPERATURE = 0.01;
 const SA_INITIAL_TEMPERATURE = 10.0;
 const SA_DEFAULT_COOLING_RATE = 0.995;
-// The balanced/thorough multi-start refines around good seeds, so it anneals at
-// a lower temperature scaled to the CIEDE2000 objective (scores ~5–30), where
+// The hybrid tiers refine around good seeds at a temperature scaled to the
+// CIEDE2000 objective (scores ~5–30), where
 // the legacy SA temperature of 10 would just wander away from the seed.
 const SA_HYBRID_TEMPERATURE = 2.0;
-// Thorough seeds the hybrid with the exact no-repeat optimum when the ordered
-// subset space is small enough to enumerate quickly (≈7 filaments → 13,699).
-const THOROUGH_EXACT_SUBSET_LIMIT = 20000;
+
+interface HybridSearchPlan {
+    beamWidth: number;
+    restarts: number;
+    minimumIterationsPerRestart: number;
+    iterationsPerFilament: number;
+}
+
+const THOROUGH_PLAN: HybridSearchPlan = {
+    beamWidth: THOROUGH_BEAM_WIDTH,
+    restarts: 12,
+    minimumIterationsPerRestart: 1_500,
+    iterationsPerFilament: 250,
+};
+
+const DEEP_PLAN: HybridSearchPlan = {
+    beamWidth: DEEP_BEAM_WIDTH,
+    restarts: 32,
+    minimumIterationsPerRestart: 4_000,
+    iterationsPerFilament: 500,
+};
 
 interface ScoredSequence {
     order: Filament[];
@@ -289,8 +325,15 @@ function isValidSequence(sequence: Filament[], allowRepeatedSwaps: boolean): boo
     );
 }
 
-function maxSequenceLength(filaments: Filament[], allowRepeatedSwaps: boolean): number {
-    return filaments.length + (allowRepeatedSwaps ? MAX_EXTRA_REPEATS : 0);
+function resolveMaxExtraRepeats(options: OptimizerOptions): number {
+    if (Number.isFinite(options.maxExtraRepeats)) {
+        return Math.max(0, Math.min(MAX_EXTRA_REPEATS, Math.floor(options.maxExtraRepeats!)));
+    }
+    return options.allowRepeatedSwaps ? LEGACY_EXTRA_REPEATS : 0;
+}
+
+function maxSequenceLength(filaments: Filament[], maxExtraRepeats: number): number {
+    return filaments.length + maxExtraRepeats;
 }
 
 function isBetterCandidate(
@@ -311,6 +354,22 @@ function reportProgress(
     options.onProgress?.(Math.min(iteration, total), Math.max(total, 1), bestScore);
 }
 
+function withProgressSpan(
+    options: OptimizerOptions,
+    start: number,
+    end: number
+): OptimizerOptions {
+    if (!options.onProgress) return { ...options, onProgress: undefined };
+
+    return {
+        ...options,
+        onProgress: (iteration, total, bestScore) => {
+            const phaseProgress = total > 0 ? Math.min(1, Math.max(0, iteration / total)) : 1;
+            options.onProgress?.(start + (end - start) * phaseProgress, 1, bestScore);
+        },
+    };
+}
+
 function orderedSubsetCount(filamentCount: number): number {
     let total = 0;
     let permutations = 1;
@@ -321,9 +380,14 @@ function orderedSubsetCount(filamentCount: number): number {
     return total;
 }
 
-function repeatedInsertionUpperBound(filamentCount: number): number {
+/** Number of no-repeat base sequences an Exact search would evaluate. */
+export function getExactBaseOrderCount(filamentCount: number): number {
+    return filamentCount > 0 ? orderedSubsetCount(filamentCount) : 0;
+}
+
+function repeatedInsertionUpperBound(filamentCount: number, maxExtraRepeats: number): number {
     let total = 0;
-    for (let extra = 0; extra < MAX_EXTRA_REPEATS; extra++) {
+    for (let extra = 0; extra < maxExtraRepeats; extra++) {
         total += filamentCount * (filamentCount + extra + 1);
     }
     return total;
@@ -332,9 +396,10 @@ function repeatedInsertionUpperBound(filamentCount: number): number {
 function expandWithRepeatedFilaments(
     initial: ScoredSequence,
     filaments: Filament[],
-    scoreSequence: SequenceScorer
+    scoreSequence: SequenceScorer,
+    maxExtraRepeats: number
 ): { best: ScoredSequence; iterations: number } {
-    const maxLength = maxSequenceLength(filaments, true);
+    const maxLength = maxSequenceLength(filaments, maxExtraRepeats);
     let best = initial;
     let iterations = 0;
 
@@ -384,10 +449,11 @@ function optimizeExhaustive(
         };
     }
 
-    const allowRepeatedSwaps = options.allowRepeatedSwaps ?? false;
+    const maxExtraRepeats = resolveMaxExtraRepeats(options);
+    const allowRepeatedSwaps = maxExtraRepeats > 0;
     const totalIterations =
         orderedSubsetCount(filaments.length) +
-        (allowRepeatedSwaps ? repeatedInsertionUpperBound(filaments.length) : 0);
+        (allowRepeatedSwaps ? repeatedInsertionUpperBound(filaments.length, maxExtraRepeats) : 0);
     let best: ScoredSequence | null = null;
     let iterations = 0;
     reportProgress(options, 0, totalIterations, Infinity);
@@ -420,7 +486,12 @@ function optimizeExhaustive(
         };
     }
 
-    const expanded = expandWithRepeatedFilaments(baseBest, filaments, scoreSequence);
+    const expanded = expandWithRepeatedFilaments(
+        baseBest,
+        filaments,
+        scoreSequence,
+        maxExtraRepeats
+    );
     return {
         order: expanded.best.order,
         score: expanded.best.score,
@@ -442,9 +513,10 @@ function optimizeBeamSearch(
         return optimizeExhaustive(filaments, scoreSequence, options);
     }
 
-    const allowRepeatedSwaps = options.allowRepeatedSwaps ?? false;
-    const maximumLength = maxSequenceLength(filaments, allowRepeatedSwaps);
-    const beamWidth = options.beamWidth ?? DEFAULT_BEAM_WIDTH;
+    const maxExtraRepeats = resolveMaxExtraRepeats(options);
+    const allowRepeatedSwaps = maxExtraRepeats > 0;
+    const maximumLength = maxSequenceLength(filaments, maxExtraRepeats);
+    const beamWidth = options.beamWidth ?? BALANCED_BEAM_WIDTH;
     const totalIterations =
         filaments.length + (maximumLength - 1) * beamWidth * filaments.length;
     let iterations = 0;
@@ -520,11 +592,11 @@ function optimizeBeamSearch(
  */
 function randomInitialSequence(
     filaments: Filament[],
-    allowRepeatedSwaps: boolean,
+    maxExtraRepeats: number,
     rng: SeededRandom
 ): Filament[] {
     const shuffled = rng.shuffle(filaments);
-    const maximumLength = maxSequenceLength(filaments, allowRepeatedSwaps);
+    const maximumLength = maxSequenceLength(filaments, maxExtraRepeats);
     const initialLength = rng.nextInt(1, Math.min(filaments.length, maximumLength) + 1);
     return shuffled.slice(0, initialLength);
 }
@@ -539,10 +611,11 @@ function sequenceEquals(left: Filament[], right: Filament[]): boolean {
 function buildVariableLengthNeighbor(
     sequence: Filament[],
     filaments: Filament[],
-    allowRepeatedSwaps: boolean,
+    maxExtraRepeats: number,
     rng: SeededRandom
 ): Filament[] {
-    const maximumLength = maxSequenceLength(filaments, allowRepeatedSwaps);
+    const allowRepeatedSwaps = maxExtraRepeats > 0;
+    const maximumLength = maxSequenceLength(filaments, maxExtraRepeats);
     const availableMoves: Array<'swap' | 'relocate' | 'insert' | 'remove' | 'replace'> = [];
 
     if (sequence.length > 1) {
@@ -610,7 +683,7 @@ function runAnneal(
     initialOrder: Filament[],
     filaments: Filament[],
     scoreSequence: SequenceScorer,
-    allowRepeatedSwaps: boolean,
+    maxExtraRepeats: number,
     rng: SeededRandom,
     maxIterations: number,
     initialTemperature: number,
@@ -629,7 +702,7 @@ function runAnneal(
         const newOrder = buildVariableLengthNeighbor(
             currentOrder,
             filaments,
-            allowRepeatedSwaps,
+            maxExtraRepeats,
             rng
         );
         if (sequenceEquals(newOrder, currentOrder)) {
@@ -669,13 +742,13 @@ function optimizeSimulatedAnnealing(
         return optimizeExhaustive(filaments, scoreSequence, options);
     }
 
-    const allowRepeatedSwaps = options.allowRepeatedSwaps ?? false;
+    const maxExtraRepeats = resolveMaxExtraRepeats(options);
     const rng = new SeededRandom(options.seed);
     const maxIterations = options.maxIterations ?? Math.max(1000, filaments.length * 100);
     const initialTemp = options.temperature ?? SA_INITIAL_TEMPERATURE;
     const coolingRate = options.coolingRate ?? SA_DEFAULT_COOLING_RATE;
 
-    const initialOrder = randomInitialSequence(filaments, allowRepeatedSwaps, rng);
+    const initialOrder = randomInitialSequence(filaments, maxExtraRepeats, rng);
     reportProgress(options, 0, maxIterations, scoreSequence(initialOrder));
 
     let reported = 0;
@@ -683,7 +756,7 @@ function optimizeSimulatedAnnealing(
         initialOrder,
         filaments,
         scoreSequence,
-        allowRepeatedSwaps,
+        maxExtraRepeats,
         rng,
         maxIterations,
         initialTemp,
@@ -703,29 +776,26 @@ function optimizeSimulatedAnnealing(
 }
 
 /**
- * Balanced / Thorough hybrid: take beam search's deterministic best as a seed,
- * then run several deterministic annealing restarts (the first refines the beam
- * seed, the rest explore seeded-random starts) and keep the global best.
- *
- * The budget is a fixed iteration count, not a wall-clock deadline, so results
- * stay reproducible across machines (goldens, caching, A/B seeds depend on it).
+ * Refine a deterministic beam result with seeded multi-start annealing. A
+ * supplied baseline is retained throughout, so a deeper tier can never return
+ * a worse result than the tier it extends.
  */
-function optimizeBalanced(
+function optimizeHybrid(
     filaments: Filament[],
     scoreSequence: SequenceScorer,
     options: OptimizerOptions,
-    thorough: boolean
+    plan: HybridSearchPlan,
+    baseline?: OptimizerResult
 ): OptimizerResult {
     if (filaments.length <= 1) {
         return optimizeExhaustive(filaments, scoreSequence, options);
     }
 
-    const allowRepeatedSwaps = options.allowRepeatedSwaps ?? false;
+    const maxExtraRepeats = resolveMaxExtraRepeats(options);
     const rng = new SeededRandom(options.seed);
-    const restarts = thorough ? 12 : 5;
     const iterationsPerRestart =
         options.maxIterations ??
-        Math.max(thorough ? 1500 : 600, filaments.length * (thorough ? 250 : 120));
+        Math.max(plan.minimumIterationsPerRestart, filaments.length * plan.iterationsPerFilament);
     const initialTemp = options.temperature ?? SA_HYBRID_TEMPERATURE;
     // Cool from the initial temperature to the floor across one restart so each
     // restart spends its whole budget refining instead of freezing early.
@@ -733,38 +803,37 @@ function optimizeBalanced(
         options.coolingRate ??
         Math.pow(SA_MIN_TEMPERATURE / initialTemp, 1 / Math.max(1, iterationsPerRestart));
 
-    // 1. Seeds. Beam is always cheap and strong. Thorough additionally enumerates
-    //    the exact no-repeat optimum when the subset space is small enough, then
-    //    lets the hybrid explore repeats around it — so Thorough ≥ exact ≥ beam.
-    const beam = optimizeBeamSearch(filaments, scoreSequence, { ...options, onProgress: undefined });
+    // Beam provides a strong deterministic seed before the broader local search.
+    const beam = optimizeBeamSearch(filaments, scoreSequence, {
+        ...options,
+        beamWidth: options.beamWidth ?? plan.beamWidth,
+        onProgress: undefined,
+    });
     let best: ScoredSequence = { order: beam.order, score: beam.score };
     let iterations = beam.iterations;
 
-    if (thorough && orderedSubsetCount(filaments.length) <= THOROUGH_EXACT_SUBSET_LIMIT) {
-        const exact = optimizeExhaustive(filaments, scoreSequence, { ...options, onProgress: undefined });
-        iterations += exact.iterations;
-        if (isBetterCandidate({ order: exact.order, score: exact.score }, best)) {
-            best = { order: exact.order, score: exact.score };
-        }
+    if (baseline && isBetterCandidate({ order: baseline.order, score: baseline.score }, best)) {
+        best = { order: baseline.order, score: baseline.score };
     }
+    iterations += baseline?.iterations ?? 0;
 
-    const total = iterations + restarts * iterationsPerRestart;
+    const total = iterations + plan.restarts * iterationsPerRestart;
     let reported = iterations;
     reportProgress(options, reported, total, best.score);
 
-    // 2. Multi-start annealing: restart 0 refines the best seed; the rest explore
-    //    seeded-random starts. Keep the global best across all restarts.
-    for (let restart = 0; restart < restarts; restart++) {
+    // Restart 0 refines the strongest retained candidate; the rest explore
+    // seeded-random starts. Keep the global best across all restarts.
+    for (let restart = 0; restart < plan.restarts; restart++) {
         const initialOrder =
             restart === 0
                 ? best.order
-                : randomInitialSequence(filaments, allowRepeatedSwaps, rng);
+                : randomInitialSequence(filaments, maxExtraRepeats, rng);
 
         const outcome = runAnneal(
             initialOrder,
             filaments,
             scoreSequence,
-            allowRepeatedSwaps,
+            maxExtraRepeats,
             rng,
             iterationsPerRestart,
             initialTemp,
@@ -789,30 +858,84 @@ function optimizeBalanced(
     };
 }
 
+/** Deep is Thorough plus a wider, much larger hybrid pass. */
+function optimizeDeep(
+    filaments: Filament[],
+    scoreSequence: SequenceScorer,
+    options: OptimizerOptions
+): OptimizerResult {
+    const thorough = optimizeHybrid(
+        filaments,
+        scoreSequence,
+        withProgressSpan(options, 0, 0.2),
+        THOROUGH_PLAN
+    );
+    return optimizeHybrid(
+        filaments,
+        scoreSequence,
+        withProgressSpan(options, 0.2, 1),
+        DEEP_PLAN,
+        thorough
+    );
+}
+
+/**
+ * Exact base-order search. Repeated swaps remain a separate larger space, so
+ * when they are enabled retain Deep's repeat-aware result alongside exact base
+ * enumeration and its greedy repeat refinement.
+ */
+function optimizeExactBase(
+    filaments: Filament[],
+    scoreSequence: SequenceScorer,
+    options: OptimizerOptions
+): OptimizerResult {
+    if (resolveMaxExtraRepeats(options) === 0) {
+        return optimizeExhaustive(filaments, scoreSequence, options);
+    }
+
+    const deep = optimizeDeep(filaments, scoreSequence, withProgressSpan(options, 0, 0.4));
+    const exact = optimizeExhaustive(
+        filaments,
+        scoreSequence,
+        withProgressSpan(options, 0.4, 1)
+    );
+    const exactCandidate = { order: exact.order, score: exact.score };
+    const deepCandidate = { order: deep.order, score: deep.score };
+    const best = isBetterCandidate(deepCandidate, exactCandidate) ? deepCandidate : exactCandidate;
+
+    return {
+        order: best.order,
+        score: best.score,
+        iterations: deep.iterations + exact.iterations,
+        converged: true,
+    };
+}
+
 function resolveAlgorithm(
     requested: OptimizerAlgorithm,
     filamentCount: number
 ): ResolvedOptimizerAlgorithm {
+    if (filamentCount <= 1) return 'exhaustive';
+
     switch (requested) {
         // Explicit concrete searches pass through unchanged.
         case 'exhaustive':
         case 'beam':
         case 'simulated-annealing':
             return requested;
-        // Fast: exact when cheap, else the deterministic beam baseline.
+        // Fast uses a deliberately narrow beam for rapid previews.
         case 'fast':
-            if (filamentCount <= MAX_AUTO_EXHAUSTIVE_FILAMENTS) return 'exhaustive';
-            if (filamentCount <= AUTO_BEAM_MAX_FILAMENTS) return 'beam';
-            return 'simulated-annealing';
-        // Balanced (default): exact for tiny profiles, beam-seeded multi-start otherwise.
+            return 'narrow-beam';
+        // Balanced is the full deterministic beam baseline.
         case 'balanced':
-            if (filamentCount <= MAX_AUTO_EXHAUSTIVE_FILAMENTS) return 'exhaustive';
-            return 'balanced-hybrid';
-        // Thorough: exact for tiny profiles, otherwise an exact-seeded larger
-        // hybrid (the hybrid itself enumerates when feasible — see optimizeBalanced).
+            return 'beam';
+        // Thorough and Deep are progressively broader deterministic hybrids.
         case 'thorough':
-            if (filamentCount <= MAX_AUTO_EXHAUSTIVE_FILAMENTS) return 'exhaustive';
-            return 'balanced-hybrid';
+            return 'thorough-hybrid';
+        case 'deep':
+            return 'deep-hybrid';
+        case 'exact':
+            return 'exact-base';
     }
 }
 
@@ -840,12 +963,11 @@ export function optimizeFilamentOrder(
     };
 
     const resolved = resolveAlgorithm(opts.algorithm, filaments.length);
-    const thorough = opts.algorithm === 'thorough';
 
-    // Key on the requested tier, not the resolved concrete: 'balanced' and
-    // 'thorough' both resolve to 'balanced-hybrid' but run different budgets and
-    // must not share a cache entry or default seed.
-    const defaultSeedInput = canonicalOptimizerInput(filaments, context, opts.algorithm, opts);
+    // Tiers share the same automatic seed so higher effort builds directly on
+    // comparable deterministic search paths. The cache key still includes the
+    // requested tier because their budgets and outputs can differ.
+    const defaultSeedInput = canonicalOptimizerInput(filaments, context, 'tier-comparison', opts);
     const seed = opts.seed ?? stableHash32(defaultSeedInput);
     opts.seed = seed;
     const cacheKey = canonicalOptimizerInput(filaments, context, opts.algorithm, opts, seed);
@@ -871,8 +993,20 @@ export function optimizeFilamentOrder(
         case 'simulated-annealing':
             result = optimizeSimulatedAnnealing(filaments, scoreSequence, opts);
             break;
-        case 'balanced-hybrid':
-            result = optimizeBalanced(filaments, scoreSequence, opts, thorough);
+        case 'narrow-beam':
+            result = optimizeBeamSearch(filaments, scoreSequence, {
+                ...opts,
+                beamWidth: opts.beamWidth ?? FAST_BEAM_WIDTH,
+            });
+            break;
+        case 'thorough-hybrid':
+            result = optimizeHybrid(filaments, scoreSequence, opts, THOROUGH_PLAN);
+            break;
+        case 'deep-hybrid':
+            result = optimizeDeep(filaments, scoreSequence, opts);
+            break;
+        case 'exact-base':
+            result = optimizeExactBase(filaments, scoreSequence, opts);
             break;
     }
 
