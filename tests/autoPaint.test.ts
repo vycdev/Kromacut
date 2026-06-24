@@ -259,6 +259,88 @@ test('ideal-height zones include a foundation and remain contiguous when compres
     assert.deepEqual(noCompression.compressedZones, zones);
 });
 
+test('transition planning carries the actual prior end color into the next zone', async () => {
+    const { blendColors, calculateIdealHeight, calculateTransitionThickness, hexToRgb } =
+        await loadAutoPaintModule();
+    const layerHeight = 0.04;
+    const foundation = hexToRgb('#ff0000');
+    const middle = hexToRgb('#ff8800');
+    const final = hexToRgb('#ff0000');
+    const middleThickness = calculateTransitionThickness(foundation, middle, 0.2, layerHeight);
+    const actualMiddleEnd = blendColors(foundation, middle, 0.2, middleThickness);
+    const chainedFinalThickness = calculateTransitionThickness(
+        actualMiddleEnd,
+        final,
+        0.3,
+        layerHeight
+    );
+    const pureMiddleFinalThickness = calculateTransitionThickness(
+        middle,
+        final,
+        0.3,
+        layerHeight
+    );
+    const { zones } = calculateIdealHeight(
+        [
+            { id: 'foundation', color: '#ff0000', td: 0.1 },
+            { id: 'middle', color: '#ff8800', td: 0.2 },
+            { id: 'final', color: '#ff0000', td: 0.3 },
+        ],
+        layerHeight,
+        layerHeight
+    );
+
+    assertAlmostEqual(zones[2].idealThickness, chainedFinalThickness);
+    assert.notEqual(
+        chainedFinalThickness,
+        pureMiddleFinalThickness,
+        'the fixture must distinguish chained and pure-filament backgrounds'
+    );
+});
+
+test('preview slices blend each zone over the actual prior end color', async () => {
+    const { autoPaintToSliceHeights, blendColors, hexToRgb, rgbToHex } =
+        await loadAutoPaintModule();
+    const first = hexToRgb('#ff0000');
+    const middle = hexToRgb('#ff8800');
+    const final = hexToRgb('#ff0000');
+    const middleEnd = blendColors(first, middle, 0.2, 0.1);
+    const expectedFinal = rgbToHex(blendColors(middleEnd, final, 0.3, 0.1));
+    const pureMiddleFinal = rgbToHex(blendColors(middle, final, 0.3, 0.1));
+    const result = {
+        layers: [
+            { filamentId: 'first', filamentColor: '#ff0000', startHeight: 0, endHeight: 0.1 },
+            { filamentId: 'middle', filamentColor: '#ff8800', startHeight: 0.1, endHeight: 0.2 },
+            { filamentId: 'final', filamentColor: '#ff0000', startHeight: 0.2, endHeight: 0.3 },
+        ],
+        totalHeight: 0.3,
+        idealHeight: 0.3,
+        autoHeight: 0.3,
+        compressionRatio: 1,
+        filamentOrder: ['first', 'middle', 'final'],
+        transitionZones: [
+            {
+                filamentId: 'first', filamentColor: '#ff0000', filamentTd: 0.1,
+                startHeight: 0, endHeight: 0.1, idealThickness: 0.1, actualThickness: 0.1,
+            },
+            {
+                filamentId: 'middle', filamentColor: '#ff8800', filamentTd: 0.2,
+                startHeight: 0.1, endHeight: 0.2, idealThickness: 0.1, actualThickness: 0.1,
+            },
+            {
+                filamentId: 'final', filamentColor: '#ff0000', filamentTd: 0.3,
+                startHeight: 0.2, endHeight: 0.3, idealThickness: 0.1, actualThickness: 0.1,
+            },
+        ],
+        confidence: 1,
+        confidenceFactors: { calibrationQuality: 1, filamentCoverage: 1, compressionImpact: 1 },
+    };
+
+    const slices = autoPaintToSliceHeights(result, 0.1, 0.1);
+    assert.equal(slices.virtualSwatches.at(-1)?.hex, expectedFinal);
+    assert.notEqual(expectedFinal, pureMiddleFinal, 'the fixture must expose chained blending');
+});
+
 test('auto-paint slice data stays synchronized and uses print-layer heights', async () => {
     const { autoPaintToSliceHeights, generateAutoLayers } = await loadAutoPaintModule();
     const layerHeight = 0.1;

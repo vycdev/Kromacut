@@ -356,7 +356,6 @@ const DELTA_E_THRESHOLD = 2.3; // "Just noticeable difference"
  */
 const FRONTLIT_TD_SCALE = 0.1;
 const USE_CALIBRATED_CHANNEL_TD = true;
-const USE_COMPRESSION_AWARE_BACKGROUNDS = false;
 
 type AutoPaintFilament = Pick<Filament, 'id' | 'color' | 'td' | 'calibration'>;
 
@@ -537,8 +536,14 @@ export function calculateIdealHeight(
             actualThickness: transitionThickness,
         });
 
-        // Update for next iteration
-        currentBackgroundColor = filamentRgb;
+        // The next filament is deposited over this transition's actual end
+        // color, not an idealized pure-filament shortcut.
+        currentBackgroundColor = blendColors(
+            currentBackgroundColor,
+            filamentRgb,
+            transitionTd,
+            transitionThickness
+        );
         currentHeight += transitionThickness;
     }
 
@@ -793,12 +798,7 @@ function buildZoneBackgrounds(zones: TransitionZone[]): RGB[] {
     for (let index = 0; index < zones.length; index++) {
         const zone = zones[index];
         const filamentColor = hexToRgb(zone.filamentColor);
-        const backgroundColor =
-            index === 0
-                ? filamentColor
-                : USE_COMPRESSION_AWARE_BACKGROUNDS
-                  ? previousEndColor
-                  : hexToRgb(zones[index - 1].filamentColor);
+        const backgroundColor = index === 0 ? filamentColor : previousEndColor;
         backgrounds.push(backgroundColor);
 
         previousEndColor =
