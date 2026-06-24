@@ -1,6 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
 import ThreeDControls from './components/ThreeDControls';
-import type { ThreeDControlsStateShape } from './types';
+import {
+    AUTO_PAINT_REPEAT_LIMITS,
+    AUTO_PAINT_TRANSITION_OPACITIES,
+    type AutoPaintRepeatLimit,
+    type AutoPaintTransitionOpacity,
+    type ThreeDControlsStateShape,
+} from './types';
 import ThreeDView from './components/ThreeDView';
 import logo from './assets/logo.png';
 import tdTestImg from './assets/tdTest.png';
@@ -79,10 +85,25 @@ type AutoPaintPersisted = Pick<
     | 'regionWeightingMode'
     | 'enhancedColorMatch'
     | 'allowRepeatedSwaps'
+    | 'maxRepeatedSwaps'
+    | 'transitionOpacity'
     | 'heightDithering'
     | 'ditherLineWidth'
     | 'flatPaint'
 >;
+
+function isOneOf<T extends readonly number[]>(value: unknown, values: T): value is T[number] {
+    return typeof value === 'number' && values.includes(value as T[number]);
+}
+
+function normalizeRepeatLimit(value: unknown, legacyEnabled: unknown): AutoPaintRepeatLimit {
+    if (isOneOf(value, AUTO_PAINT_REPEAT_LIMITS)) return value;
+    return legacyEnabled === true ? 4 : 0;
+}
+
+function normalizeTransitionOpacity(value: unknown): AutoPaintTransitionOpacity {
+    return isOneOf(value, AUTO_PAINT_TRANSITION_OPACITIES) ? value : 0.9;
+}
 
 const loadAutoPaintPersisted = (): AutoPaintPersisted | null => {
     try {
@@ -105,7 +126,11 @@ const loadAutoPaintPersisted = (): AutoPaintPersisted | null => {
             optimizerSeed: parsed.optimizerSeed,
             regionWeightingMode: parsed.regionWeightingMode,
             enhancedColorMatch: parsed.enhancedColorMatch ?? false,
-            allowRepeatedSwaps: parsed.allowRepeatedSwaps ?? false,
+            maxRepeatedSwaps: normalizeRepeatLimit(
+                parsed.maxRepeatedSwaps,
+                parsed.allowRepeatedSwaps
+            ),
+            transitionOpacity: normalizeTransitionOpacity(parsed.transitionOpacity),
             heightDithering: parsed.heightDithering ?? false,
             ditherLineWidth: parsed.ditherLineWidth,
             flatPaint: parsed.flatPaint ?? false,
@@ -243,7 +268,9 @@ function App(): React.ReactElement | null {
                 regionWeightingMode:
                     autopaintHydrated.regionWeightingMode ?? prev.regionWeightingMode,
                 enhancedColorMatch: autopaintHydrated.enhancedColorMatch ?? prev.enhancedColorMatch,
-                allowRepeatedSwaps: autopaintHydrated.allowRepeatedSwaps ?? prev.allowRepeatedSwaps,
+                maxRepeatedSwaps:
+                    autopaintHydrated.maxRepeatedSwaps ?? prev.maxRepeatedSwaps,
+                transitionOpacity: autopaintHydrated.transitionOpacity ?? prev.transitionOpacity,
                 heightDithering: autopaintHydrated.heightDithering ?? prev.heightDithering,
                 ditherLineWidth: autopaintHydrated.ditherLineWidth ?? prev.ditherLineWidth,
                 flatPaint: autopaintHydrated.flatPaint ?? prev.flatPaint,
@@ -262,7 +289,8 @@ function App(): React.ReactElement | null {
             optimizerSeed: threeDState.optimizerSeed,
             regionWeightingMode: threeDState.regionWeightingMode,
             enhancedColorMatch: threeDState.enhancedColorMatch,
-            allowRepeatedSwaps: threeDState.allowRepeatedSwaps,
+            maxRepeatedSwaps: threeDState.maxRepeatedSwaps,
+            transitionOpacity: threeDState.transitionOpacity,
             heightDithering: threeDState.heightDithering,
             ditherLineWidth: threeDState.ditherLineWidth,
             flatPaint: threeDState.flatPaint,
@@ -274,7 +302,8 @@ function App(): React.ReactElement | null {
         threeDState.optimizerSeed,
         threeDState.regionWeightingMode,
         threeDState.enhancedColorMatch,
-        threeDState.allowRepeatedSwaps,
+        threeDState.maxRepeatedSwaps,
+        threeDState.transitionOpacity,
         threeDState.heightDithering,
         threeDState.ditherLineWidth,
         threeDState.flatPaint,

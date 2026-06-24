@@ -5,7 +5,7 @@ import { createServer } from 'vite';
 import { autoPaintGoldenScenarios } from '../autoPaintGoldenFixtures.ts';
 
 type AutoPaintModule = typeof import('../../src/lib/autoPaint.ts');
-type Algorithm = 'fast' | 'balanced' | 'thorough';
+type Algorithm = 'fast' | 'balanced' | 'thorough' | 'deep' | 'exact';
 type Lab = { L: number; a: number; b: number };
 type WeightedLab = Lab & { weight: number };
 type Sample = { value: number; weight: number };
@@ -88,7 +88,7 @@ const output: unknown[] = [];
 for (const scenario of autoPaintGoldenScenarios().filter(
     (scenario) => scenario.enhancedColorMatch && scenario.allowRepeatedSwaps
 )) {
-    const algorithms: Algorithm[] = ['fast', 'balanced', 'thorough'];
+    const algorithms: Algorithm[] = ['fast', 'balanced', 'thorough', 'deep', 'exact'];
     // Measure against the raw image colors (ground truth), not the optimizer's
     // clustered targets, so the benchmark is an independent yardstick.
     const targets: WeightedLab[] = scenario.imageSwatches.map((swatch) => {

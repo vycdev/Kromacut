@@ -8,7 +8,7 @@ Open-source HueForge-style tool for converting images into stacked, color-layere
 
 Kromacut is a browser-first app that converts images into multi-color lithophane 3D prints. It offers two powerful workflows:
 
-**Auto-paint mode** — Define your actual filaments (color + Transmission Distance), and Kromacut automatically computes optimal layer stacks using physically accurate Beer-Lambert optical blending. Features include a calibration wizard, advanced optimizer (simulated annealing/genetic algorithms), and region weighting for spatial priority.
+**Auto-paint mode** — Define your actual filaments (color + Transmission Distance), and Kromacut automatically computes optimal layer stacks using physically accurate Beer-Lambert optical blending. Features include a calibration wizard, five deterministic optimizer effort tiers, and region weighting for spatial priority.
 
 **Manual mode** — Reduce images to a small palette, manually tweak per-color layer heights and ordering, and fine-tune every aspect of the stack with complete control.
 
@@ -45,7 +45,7 @@ Another minimal test you can try yourself in the app header: the Transmission Di
 - Plain-text 3D print instructions that describe layer heights and exact layers where filament swaps are required.
 - Copy-to-clipboard button for the print instructions (produces a clean, copyable plain-text plan).
 - **Filament calibration wizard** — Accurately determine Transmission Distance (TD) values through measured samples with confidence scoring.
-- **Advanced optimizer** — Simulated annealing and genetic algorithms find optimal filament ordering for complex multi-color prints.
+- **Advanced optimizer** — Five deterministic effort tiers search for optimal filament ordering, from quick previews to exact base-order enumeration.
 - **Region weighting** — Prioritize accuracy in specific image areas (center, edges) during auto-paint optimization.
 
 ## Notable implementation details
@@ -66,7 +66,7 @@ Another minimal test you can try yourself in the app header: the Transmission Di
 3. Click **Add Filament** and configure your filaments:
    - Use the **calibration wizard** (calibrate icon) to measure accurate TD values, or
    - Enter TD values manually.
-4. Enable **Enhanced color matching** for optimal results (auto-selects best algorithm).
+4. Enable **Enhanced color matching** for optimal results; start with the **Balanced** optimizer tier.
 5. (Optional) Set **Region weighting** to Center or Edge to prioritize important areas.
 6. Use the **layer-by-layer preview slider** to verify transitions.
 7. Export via **Download STL** or **Download 3MF** and follow the print plan.
@@ -113,7 +113,7 @@ Auto-paint is an automated layer-generation mode that replaces the manual palett
 
 - **Filaments**: Each filament has a hex color and a **Transmission Distance (TD)** value (in mm). TD describes how translucent the filament is — at a thickness equal to TD, only ~10% of light passes through. Dark/opaque filaments have low TD (e.g. 0.5 mm); light/translucent filaments have high TD (e.g. 6+ mm). When you add a filament without specifying a TD, Kromacut estimates one from the color's luminance and saturation.
 - **Beer-Lambert optical blending**: The algorithm simulates how light transmits through stacked filament layers using the Beer-Lambert law: `transmission = 10^(-thickness / TD)`. It blends in linear-light sRGB before converting back for display and color matching, which better models the color you see from thin semi-transparent layers.
-- **Transition zones**: Each filament in the stack needs enough vertical space to visually transition from the color below it to its own pure color. The algorithm simulates adding layers one at a time until the blended color converges (DeltaE < 2.3 — the "just noticeable difference" threshold) or opacity exceeds 85%. The result is a set of transition zones, each with a start height, end height, and the filament used.
+- **Transition zones**: Each filament in the stack needs enough vertical space to visually transition from the color below it to its own pure color. The algorithm simulates adding layers one at a time until the blended color converges (DeltaE < 2.3 — the "just noticeable difference" threshold) or reaches the selected opacity endpoint. **Compact** uses 80% opacity, **Detailed** uses 90% (one TD), and **Maximum** uses 95% (the same endpoint as the foundation layer). Higher endpoints retain more printable intermediate colors but create taller stacks.
 - **Luminance-to-height mapping**: Once the transition zones are computed, each pixel's brightness is mapped to a target height in the model. Dark pixels get the minimum height (base layer only), bright pixels get the full height (all layers), and mid-tones fall proportionally in between. This produces the characteristic lithophane-style relief where image brightness = model thickness.
 
 ### How it works (step by step)
@@ -138,14 +138,20 @@ Calibrated filaments display a confidence badge next to their TD value. Higher c
 
 ### Advanced Optimizer
 
-When **Enhanced color matching** is enabled, Kromacut uses advanced optimization algorithms to find the best filament order:
+When **Enhanced color matching** is enabled, choose an effort tier for the filament-order search:
 
-| Algorithm | When Used | Description |
+| Tier | Search | Best use |
 |---|---|---|
-| **Exhaustive search** | Up to 6 filaments | Evaluates every ordered, non-empty subset to guarantee the best available stack. |
-| **Beam search** | Auto, 7-12 filaments | Keeps the strongest partial stacks as it grows them, letting Auto omit unhelpful filaments without an expensive full enumeration. |
-| **Variable-length annealing** | Auto, 13+ filaments; manual Simulated Annealing or Genetic | Searches swaps, moves, insertions, removals, and replacements. The Genetic setting currently uses this search with a larger budget. |
-| **Auto** | Default | Chooses exhaustive search, beam search, or variable-length annealing from the filament count. |
+| **Fast** | Narrow deterministic beam search. | A quick preview while tuning settings. |
+| **Balanced** | Full deterministic beam search. | Recommended default for most prints. |
+| **Thorough** | Full beam plus deeper multi-start refinement. | A stronger search without a long wait. |
+| **Deep** | Wider beam plus substantially more deterministic refinement. | Difficult images when Thorough does not improve the stack. |
+| **Exact base order** | Enumerates every no-repeat base order. | A guaranteed best base order; the candidate count grows very quickly with each filament. |
+
+Each higher tier retains the best result from the tier below for the same seed. Exact
+base order checks 109,600 sequences at eight filaments and 986,409 at nine, so use it
+deliberately on larger profiles. With extra repeated swaps enabled, its base order is exact
+but repeated occurrences are still refined heuristically.
 
 The optimizer displays metadata after generation:
 - **Algorithm used** — Which method was selected
@@ -174,13 +180,16 @@ Region weighting is most useful when filament budget is limited and you want the
 |---|---|
 | **Max Height** | Constrains the total model height (mm). When set below the auto-calculated ideal, zones are uniformly compressed. Leave blank or click `Auto` for the physics-derived default. |
 | **Enhanced color matching** | Optimizes the printable filament sequence rather than simply sorting by luminance. It may omit filaments that do not improve the result and evaluates the actual preview color-to-height path. |
-| **Allow repeated filament swaps** | (Requires Enhanced color matching) Lets the optimizer use a filament more than once, up to four extra occurrences, when that creates a useful color transition. For example, a thin white layer over red can create pink. |
+| **Extra repeated swaps** | (Requires Enhanced color matching) Lets the optimizer use a filament more than once. Choose Off, 2, 4, 6, 8, or 12 additional occurrences; more repeats may create useful blend paths but substantially expand the search. |
 | **Height dithering** | (Requires Enhanced color matching) Applies block-aware Floyd-Steinberg error diffusion to the quantized height map. Instead of sharp stair-steps between layer heights, dithering produces a stippled gradient that simulates intermediate heights, resulting in smoother tonal transitions in the print. Edge pixels between different heights are protected from dithering to avoid staircase artifacts. |
 | **Flat Paint (flat face-down print)** | Builds a uniform-thickness slab printed image-side down instead of a stepped relief. Each pixel column's layer order is reversed so the artwork sits against the build plate (already mirrored — don't mirror in the slicer) under a transparent carrier layer, and the back is filled with the foundation filament so every layer has the full footprint. The result has a smooth, glass-flat face — great for bookmarks and coasters. Requires a multi-material printer (AMS/toolchanger); export as 3MF, which contains one object per filament plus the clear carrier object. Flat Paint and Smooth Meshing toggle each other off because flat prints always use the full-footprint slab layout. |
 | **Dither line width** | (Requires Height dithering) Controls the minimum dot size for the dither pattern in mm. This should roughly match your printer's line/nozzle width so dither dots are actually printable. Default: `0.42 mm`. |
-| **Optimizer algorithm** | Choose Auto (recommended), Exhaustive (up to 6 filaments), Simulated Annealing, or Genetic. Auto uses exhaustive search through 6 filaments, beam search through 12, then variable-length annealing. |
+| **Optimizer algorithm** | Choose Fast for a preview, Balanced for the recommended full beam, Thorough or Deep for more search effort, or Exact base order when you want every no-repeat base stack checked. |
+| **Transition detail** | Chooses where a color transition stops: Compact at 80% opacity, Detailed at 90%, or Maximum at 95%. Higher detail preserves a longer physical color ramp, increasing model height, swaps, and runtime. |
 | **Optimizer seed** | Leave blank for an automatic stable seed, or enter a number for a specific repeatable run. |
 | **Region weighting** | Prioritize specific image regions: Uniform (equal), Center (image middle), or Edge (outer image border). Helps focus quality budget on important areas. |
+
+Enhanced matching uses every color in the palette currently produced by 2D mode; it does not silently reduce that palette again. For detail-critical work, first prepare the image in 2D with K-means (for example, weight 128) and the Auto palette set to the number of colors you want to preserve. More 2D colors improve the target representation but make the optimizer proportionally slower.
 
 ### Filament profiles
 
@@ -228,7 +237,7 @@ Click **Add to filaments** to insert the suggestion directly into the filament l
 2. Switch to the **Auto-paint** tab (inside the 3D controls panel).
 3. Click **Add Filament** and configure each filament's color and TD to match your real filament stock.
    - **Tip:** Use the calibration wizard (calibrate icon on each row) to measure accurate TD values.
-4. (Optional) Enable **Enhanced color matching** for better results with complex images. The optimizer will automatically select the best algorithm (exhaustive, simulated annealing, or genetic) based on your filament count.
+4. (Optional) Enable **Enhanced color matching** for better results with complex images. Start with the **Balanced** optimizer tier, then use Thorough, Deep, or Exact base order when you want to spend more search effort.
 5. (Optional) Set **Region weighting** to Center or Edge to prioritize accuracy in visually important areas.
 6. The 3D preview updates automatically. Adjust **Max Height** if the model is too tall.
 7. Use the **layer-by-layer preview slider** at the bottom of the 3D view to verify color transitions.
@@ -253,7 +262,7 @@ Transmission Distance (TD) is the concept HueForge uses to produce perceptual in
 - **Automatic Beer-Lambert blending** — Kromacut simulates light transmission through stacked filament layers using physically accurate optical models.
 - **Filament-based workflow** — Define your actual filaments (color + TD values) and let the algorithm compute optimal layer stacks automatically.
 - **Calibration wizard** — Measure accurate TD values from physical test prints for each filament.
-- **Advanced optimizer** — Simulated annealing and genetic algorithms find the best filament ordering for complex images.
+- **Advanced optimizer** — Deterministic effort tiers search for the best filament ordering for complex images, from quick beam previews to exact base-order enumeration.
 - **Transition zones** — Automatically calculated vertical zones where each filament blends from the color below to its own pure color.
 
 See the [Auto-paint section](#auto-paint) above for full details.

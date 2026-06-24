@@ -75,10 +75,13 @@ Enable **Enhanced color matching** when filament order matters and you want Krom
 
 Optional controls appear with enhanced matching:
 
-- **Allow repeated filament swaps** lets the same filament appear more than once.
+- **Extra repeated swaps** chooses whether a filament may reappear, and lets you allow 2, 4, 6, 8, or 12 extra occurrences. More repeats can create useful blend paths but expand the search space.
+- **Transition detail** chooses the opacity endpoint for each physical color transition: Compact stops at 80% opacity, Detailed at 90%, and Maximum at 95%. Higher settings create taller stacks with more printable intermediate colors.
 - **Height dithering** uses printable height dots to smooth tonal transitions.
 - **Line width** should roughly match the printer line or nozzle width used for dither dots.
 - **Optimizer Settings** let you choose **Algorithm**, **Region priority**, and an optional **Seed**.
+
+Enhanced matching scores the palette that is already visible in 2D mode; it does not reduce that palette again. For detailed work, prepare the image in 2D first (for example, K-means with a weight of 128 and an Auto palette of 64 or 128 colors), then switch to Auto-paint. This keeps the 2D palette decision explicit, but more source colors make every optimizer tier slower.
 
 While Kromacut is optimizing a filament order, the panel shows an approximate completion percentage. Starting a new calculation cancels the older one, so the percentage always belongs to the current settings.
 
@@ -102,16 +105,23 @@ Flat Paint and **Smooth Meshing** are mutually exclusive. Turning one on turns t
 
 | Setting         | Meaning                                                      |
 | --------------- | ------------------------------------------------------------ |
-| Algorithm       | Auto, Exhaustive, Simulated Annealing, or Genetic Algorithm. |
+| Algorithm       | Fast, Balanced, Thorough, Deep, or Exact base order.        |
 | Region priority | Uniform, Center-weighted, or Edge-weighted matching.         |
 | Seed (optional) | Overrides the automatic stable seed for an intentional comparison. |
 
-Use **Auto (smart selection)** unless you have a reason to compare algorithms.
-Auto uses exact ordered-subset search through 6 filaments, beam search from 7 to 12,
-then variable-length simulated annealing for larger profiles. With Enhanced color
-matching, Kromacut can omit filaments that do not improve the printable stack. When
-Repeated swaps is enabled, it can also add up to four non-adjacent repeated filament
-occurrences when they improve the blend path.
+Start with **Balanced**. It uses a full deterministic beam search and is the best
+general-purpose choice. **Fast** uses a narrower beam for a quicker preview.
+**Thorough** adds deeper multi-start refinement, while **Deep** widens the beam and
+spends substantially more time exploring alternatives. Each higher tier keeps the
+best result from the tier below for the same seed.
+
+**Exact base order** checks every possible no-repeat filament order. It checks 109,600
+orders at eight filaments and 986,409 at nine, so larger profiles can take a long time.
+The search stays in the background worker and you can start another search to cancel it.
+When **Extra repeated swaps** is above Off, Exact still proves the base order but treats
+repeated occurrences as a separate refined search. Enhanced matching can omit filaments that do
+not improve the printable stack and add the selected number of non-adjacent repeated occurrences
+when they improve the blend path.
 
 **Region priority** changes which source colors the optimizer values most: **Center-weighted** gives more importance to colors that occur near the middle of the image, while **Edge-weighted** favors colors nearer its outer edges. It does not crop or change the image itself.
 

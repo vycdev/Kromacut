@@ -7,7 +7,7 @@
  */
 
 import { generateAutoLayers } from '../lib/autoPaint';
-import type { Filament } from '../types';
+import type { AutoPaintRepeatLimit, Filament } from '../types';
 import type { OptimizerOptions } from '../lib/optimizer';
 import type { AutoPaintResult } from '../lib/autoPaint';
 
@@ -21,7 +21,7 @@ export interface AutoPaintWorkerRequest {
     firstLayerHeight: number;
     maxHeight?: number;
     enhancedColorMatch?: boolean;
-    allowRepeatedSwaps?: boolean;
+    maxRepeatedSwaps?: AutoPaintRepeatLimit;
     optimizerOptions?: Partial<WorkerOptimizerOptions>;
 }
 
@@ -74,7 +74,7 @@ self.onmessage = (e: MessageEvent<AutoPaintWorkerRequest>) => {
             req.firstLayerHeight,
             req.maxHeight,
             req.enhancedColorMatch,
-            req.allowRepeatedSwaps,
+            (req.maxRepeatedSwaps ?? 0) > 0,
             {
                 ...req.optimizerOptions,
                 onProgress: reportProgress,

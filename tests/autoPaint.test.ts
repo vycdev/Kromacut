@@ -49,19 +49,52 @@ test('CIEDE2000 distance matches the published reference pair', async () => {
     assert.ok(Math.abs(distance - 2.0425) < 0.0001);
 });
 
-test('transition thickness stays printable and respects its TD cap', async () => {
+test('enhanced matching keeps every color from the processed 2D palette', async () => {
+    const { buildOptimizerImageTargets } = await loadAutoPaintModule();
+    const targets = buildOptimizerImageTargets([
+        { hex: '#ff0000', count: 6 },
+        { hex: '#00ff00', count: 3 },
+        { hex: '#0000ff', count: 1 },
+    ]);
+
+    assert.equal(targets.length, 3, 'the optimizer must not perform a second color reduction');
+    assertAlmostEqual(targets.reduce((sum, target) => sum + target.weight, 0), 1);
+    assertAlmostEqual(targets[0].weight, 0.6);
+    assertAlmostEqual(targets[1].weight, 0.3);
+    assertAlmostEqual(targets[2].weight, 0.1);
+});
+
+test('transition thickness follows the selected Beer-Lambert opacity endpoint', async () => {
     const { calculateTransitionThickness, hexToRgb } = await loadAutoPaintModule();
     const layerHeight = 0.1;
     const td = 1;
-    const thickness = calculateTransitionThickness(
+    const compact = calculateTransitionThickness(
         hexToRgb('#000000'),
         hexToRgb('#ffffff'),
         td,
-        layerHeight
+        layerHeight,
+        0.8
+    );
+    const detailed = calculateTransitionThickness(
+        hexToRgb('#000000'),
+        hexToRgb('#ffffff'),
+        td,
+        layerHeight,
+        0.9
+    );
+    const maximum = calculateTransitionThickness(
+        hexToRgb('#000000'),
+        hexToRgb('#ffffff'),
+        td,
+        layerHeight,
+        0.95
     );
 
-    assert.ok(thickness >= layerHeight, 'a transition must contain at least one layer');
-    assert.ok(thickness <= td * 0.7 + EPSILON, 'a transition must not exceed the TD cap');
+    assert.ok(compact >= layerHeight, 'a transition must contain at least one layer');
+    assert.ok(compact <= 0.7 * td + EPSILON);
+    assert.ok(detailed <= td + EPSILON);
+    assert.ok(maximum <= 1.3 * td + EPSILON);
+    assert.ok(compact <= detailed && detailed <= maximum, 'detail modes must not shorten the ramp');
 
     const nearIdenticalThickness = calculateTransitionThickness(
         hexToRgb('#112233'),
@@ -98,7 +131,7 @@ test('calibrated channel TDs determine transition thickness', async () => {
     );
     assert.ok(
         calibratedThickness <= 2 * 0.7 + EPSILON,
-        'the calibrated transition must respect the slowest-channel TD cap'
+        'the calibrated transition must respect the default slowest-channel TD cap'
     );
 });
 

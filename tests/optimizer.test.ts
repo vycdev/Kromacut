@@ -49,7 +49,15 @@ async function loadViteModule<T>(modulePath: string): Promise<T> {
 
 test('each optimizer produces the same result for the same seed', async (t) => {
     const { optimizeFilamentOrder } = await loadOptimizerModule();
-    const algorithms = ['exhaustive', 'simulated-annealing', 'fast', 'balanced', 'thorough'] as const;
+    const algorithms = [
+        'exhaustive',
+        'simulated-annealing',
+        'fast',
+        'balanced',
+        'thorough',
+        'deep',
+        'exact',
+    ] as const;
 
     for (const algorithm of algorithms) {
         await t.test(algorithm, () => {
@@ -71,7 +79,15 @@ test('each optimizer produces the same result for the same seed', async (t) => {
 
 test('optimizer progress is monotonic and completes for every algorithm', async (t) => {
     const { optimizeFilamentOrder } = await loadOptimizerModule();
-    const algorithms = ['exhaustive', 'simulated-annealing', 'fast', 'balanced', 'thorough'] as const;
+    const algorithms = [
+        'exhaustive',
+        'simulated-annealing',
+        'fast',
+        'balanced',
+        'thorough',
+        'deep',
+        'exact',
+    ] as const;
 
     for (const algorithm of algorithms) {
         await t.test(algorithm, () => {
@@ -92,6 +108,25 @@ test('optimizer progress is monotonic and completes for every algorithm', async 
             );
         });
     }
+
+    const exactRepeatSamples: number[] = [];
+    optimizeFilamentOrder(filaments, context, {
+        algorithm: 'exact',
+        allowRepeatedSwaps: true,
+        seed: 42,
+        maxIterations: 20,
+        cachingEnabled: false,
+        onProgress: (iteration, total) =>
+            exactRepeatSamples.push(total > 0 ? iteration / total : 0),
+    });
+    assert.ok(exactRepeatSamples.length > 2, 'exact repeat refinement must report intermediate progress');
+    assert.equal(exactRepeatSamples.at(-1), 1);
+    assert.ok(
+        exactRepeatSamples.every(
+            (sample, index) => index === 0 || sample >= exactRepeatSamples[index - 1]
+        ),
+        'exact repeat refinement progress must never move backwards'
+    );
 });
 
 function withoutCacheState<T extends { cacheHit?: boolean }>(result: T): Omit<T, 'cacheHit'> {
@@ -281,7 +316,15 @@ test('repeats can close the RGB color path to reach the missing magenta blend', 
 
 test('variable-length optimizers preserve sequence safety invariants', async (t) => {
     const { optimizeFilamentOrder } = await loadOptimizerModule();
-    const algorithms = ['exhaustive', 'simulated-annealing', 'fast', 'balanced', 'thorough'] as const;
+    const algorithms = [
+        'exhaustive',
+        'simulated-annealing',
+        'fast',
+        'balanced',
+        'thorough',
+        'deep',
+        'exact',
+    ] as const;
 
     for (const allowRepeatedSwaps of [false, true]) {
         for (const algorithm of algorithms) {
@@ -306,7 +349,27 @@ test('variable-length optimizers preserve sequence safety invariants', async (t)
     }
 });
 
-test('fast uses beam search for medium profiles while explicit exhaustive remains exact', async () => {
+test('maxExtraRepeats supports the full user-facing repeat-limit range', async () => {
+    const { optimizeFilamentOrder } = await loadOptimizerModule();
+
+    for (const maxExtraRepeats of [0, 2, 4, 6, 8, 12]) {
+        const result = optimizeFilamentOrder(filaments, context, {
+            algorithm: 'balanced',
+            maxExtraRepeats,
+            seed: 20260624,
+            cachingEnabled: false,
+        });
+        const ids = result.order.map((filament) => filament.id);
+
+        assert.ok(ids.length <= filaments.length + maxExtraRepeats);
+        assert.ok(ids.every((id, index) => index === 0 || id !== ids[index - 1]));
+        if (maxExtraRepeats === 0) {
+            assert.equal(new Set(ids).size, ids.length, 'Off must prohibit all repeated filaments');
+        }
+    }
+});
+
+test('fast uses a narrow beam while explicit exhaustive remains exact', async () => {
     const { optimizeFilamentOrder } = await loadOptimizerModule();
     const mediumProfile = [
         ...filaments,
@@ -326,7 +389,7 @@ test('fast uses beam search for medium profiles while explicit exhaustive remain
         cachingEnabled: false,
     });
 
-    assert.equal(fast.resolvedAlgorithm, 'beam');
+    assert.equal(fast.resolvedAlgorithm, 'narrow-beam');
     assert.equal(exhaustive.resolvedAlgorithm, 'exhaustive');
     assert.equal(
         exhaustive.iterations,
@@ -337,8 +400,12 @@ test('fast uses beam search for medium profiles while explicit exhaustive remain
     assert.equal(new Set(fast.order.map((filament) => filament.id)).size, fast.order.length);
 });
 
-test('balanced hybrid is deterministic, valid, and never worse than fast on a medium profile', async () => {
-    const { optimizeFilamentOrder } = await loadOptimizerModule();
+test('effort tiers are deterministic and preserve the previous tier best result', async () => {
+    const {
+        getExactBaseOrderCount,
+        normalizeOptimizerTier,
+        optimizeFilamentOrder,
+    } = await loadOptimizerModule();
     const mediumProfile = [
         ...filaments,
         { id: 'green', color: '#42a85f', td: 1.6 },
@@ -346,24 +413,62 @@ test('balanced hybrid is deterministic, valid, and never worse than fast on a me
         { id: 'purple', color: '#7545a8', td: 1.9 },
     ];
 
-    const options = { algorithm: 'balanced' as const, seed: 7, cachingEnabled: false };
-    const first = optimizeFilamentOrder(mediumProfile, context, options);
-    const second = optimizeFilamentOrder(mediumProfile, context, options);
+    const options = { seed: 7, cachingEnabled: false, maxIterations: 30 };
     const fast = optimizeFilamentOrder(mediumProfile, context, {
+        ...options,
         algorithm: 'fast',
-        seed: 7,
-        cachingEnabled: false,
+    });
+    const balanced = optimizeFilamentOrder(mediumProfile, context, {
+        ...options,
+        algorithm: 'balanced',
+    });
+    const thorough = optimizeFilamentOrder(mediumProfile, context, {
+        ...options,
+        algorithm: 'thorough',
+    });
+    const deep = optimizeFilamentOrder(mediumProfile, context, {
+        ...options,
+        algorithm: 'deep',
+    });
+    const exact = optimizeFilamentOrder(mediumProfile, context, {
+        ...options,
+        algorithm: 'exact',
+    });
+    const deepAgain = optimizeFilamentOrder(mediumProfile, context, {
+        ...options,
+        algorithm: 'deep',
     });
 
-    assert.equal(first.resolvedAlgorithm, 'balanced-hybrid');
-    assert.deepEqual(second, first, 'same seed must reproduce the same hybrid result');
+    assert.equal(fast.resolvedAlgorithm, 'narrow-beam');
+    assert.equal(balanced.resolvedAlgorithm, 'beam');
+    assert.equal(thorough.resolvedAlgorithm, 'thorough-hybrid');
+    assert.equal(deep.resolvedAlgorithm, 'deep-hybrid');
+    assert.equal(exact.resolvedAlgorithm, 'exact-base');
+    assert.deepEqual(deepAgain, deep, 'same seed must reproduce the Deep tier');
 
-    const ids = first.order.map((filament) => filament.id);
+    const ids = deep.order.map((filament) => filament.id);
     assert.ok(ids.every((id, index) => index === 0 || id !== ids[index - 1]), 'no adjacent duplicates');
     assert.equal(new Set(ids).size, ids.length, 'no repeats without allowRepeatedSwaps');
 
     assert.ok(
-        first.score <= fast.score + 1e-9,
-        `balanced (${first.score}) must not be worse than fast (${fast.score})`
+        balanced.score <= fast.score + 1e-9,
+        `balanced (${balanced.score}) must not be worse than fast (${fast.score})`
     );
+    assert.ok(
+        thorough.score <= balanced.score + 1e-9,
+        `thorough (${thorough.score}) must not be worse than balanced (${balanced.score})`
+    );
+    assert.ok(
+        deep.score <= thorough.score + 1e-9,
+        `deep (${deep.score}) must not be worse than thorough (${thorough.score})`
+    );
+    assert.ok(
+        exact.score <= deep.score + 1e-9,
+        `exact (${exact.score}) must not be worse than deep (${deep.score})`
+    );
+
+    assert.equal(getExactBaseOrderCount(8), 109_600);
+    assert.equal(getExactBaseOrderCount(9), 986_409);
+    assert.equal(normalizeOptimizerTier('exhaustive'), 'exact');
+    assert.equal(normalizeOptimizerTier('genetic'), 'deep');
 });

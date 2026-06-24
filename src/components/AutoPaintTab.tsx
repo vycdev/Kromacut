@@ -27,12 +27,82 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { TabsContent } from '@/components/ui/tabs';
 import type { AutoPaintResult, TransitionZone } from '../lib/autoPaint';
 import type { AutoPaintProfile } from '../lib/profileManager';
-import type { Filament, Swatch } from '../types';
+import type { AutoPaintRepeatLimit, AutoPaintTransitionOpacity, Filament, Swatch } from '../types';
 import type { CalibrationResult } from '../lib/calibration';
+import { getExactBaseOrderCount } from '../lib/optimizer';
 import FilamentRow from './FilamentRow';
 import { FilamentCalibrationWizard } from './FilamentCalibrationWizard';
 import { getConfidenceLabel, getConfidenceColor } from '../lib/calibration';
 import { useNextBestColorWorker } from '../hooks/useNextBestColorWorker';
+
+type OptimizerTierValue = 'fast' | 'balanced' | 'thorough' | 'deep' | 'exact';
+
+interface OptimizerTierMeta {
+    value: OptimizerTierValue;
+    label: string;
+    blurb: string;
+    /** Relative output quality, 1–5, for the inline meter. */
+    quality: number;
+    /** Relative speed, 1–5, for the inline meter (5 = fastest). */
+    speed: number;
+}
+
+const OPTIMIZER_TIERS: readonly OptimizerTierMeta[] = [
+    {
+        value: 'fast',
+        label: 'Fast',
+        blurb: 'Narrow beam search for a quick preview.',
+        quality: 2,
+        speed: 5,
+    },
+    {
+        value: 'balanced',
+        label: 'Balanced',
+        blurb: 'Full deterministic beam search; the recommended default.',
+        quality: 3,
+        speed: 4,
+    },
+    {
+        value: 'thorough',
+        label: 'Thorough',
+        blurb: 'Full beam plus deeper multi-start refinement.',
+        quality: 4,
+        speed: 3,
+    },
+    {
+        value: 'deep',
+        label: 'Deep',
+        blurb: 'Wide beam plus a much broader deterministic search.',
+        quality: 5,
+        speed: 2,
+    },
+    {
+        value: 'exact',
+        label: 'Exact base order',
+        blurb: 'Enumerates every no-repeat base order.',
+        quality: 5,
+        speed: 1,
+    },
+];
+
+/** Small 5-segment bar used to convey relative speed / quality of a tier. */
+function TierMeter({ label, value }: { label: string; value: number }): React.ReactElement {
+    return (
+        <span className="flex items-center gap-1">
+            <span className="text-muted-foreground">{label}</span>
+            <span className="flex gap-0.5">
+                {Array.from({ length: 5 }, (_, i) => (
+                    <span
+                        key={i}
+                        className={`h-2 w-1 rounded-sm ${
+                            i < value ? 'bg-primary' : 'bg-muted-foreground/25'
+                        }`}
+                    />
+                ))}
+            </span>
+        </span>
+    );
+}
 
 interface AutoPaintSliceData {
     virtualSwatches: Swatch[];
@@ -89,8 +159,10 @@ interface AutoPaintTabProps {
     // Enhanced matching options
     enhancedColorMatch: boolean;
     setEnhancedColorMatch: (v: boolean) => void;
-    allowRepeatedSwaps: boolean;
-    setAllowRepeatedSwaps: (v: boolean) => void;
+    maxRepeatedSwaps: AutoPaintRepeatLimit;
+    setMaxRepeatedSwaps: (v: AutoPaintRepeatLimit) => void;
+    transitionOpacity: AutoPaintTransitionOpacity;
+    setTransitionOpacity: (v: AutoPaintTransitionOpacity) => void;
     heightDithering: boolean;
     setHeightDithering: (v: boolean) => void;
     ditherLineWidth: number;
@@ -101,8 +173,8 @@ interface AutoPaintTabProps {
     setFlatPaint: (v: boolean) => void;
 
     // Optimizer options
-    optimizerAlgorithm: 'fast' | 'balanced' | 'thorough';
-    setOptimizerAlgorithm: (v: 'fast' | 'balanced' | 'thorough') => void;
+    optimizerAlgorithm: 'fast' | 'balanced' | 'thorough' | 'deep' | 'exact';
+    setOptimizerAlgorithm: (v: 'fast' | 'balanced' | 'thorough' | 'deep' | 'exact') => void;
     optimizerSeed: number | undefined;
     setOptimizerSeed: (v: number | undefined) => void;
     regionWeightingMode: 'uniform' | 'center' | 'edge';
@@ -147,8 +219,10 @@ export default function AutoPaintTab({
     imageSwatches,
     enhancedColorMatch,
     setEnhancedColorMatch,
-    allowRepeatedSwaps,
-    setAllowRepeatedSwaps,
+    maxRepeatedSwaps,
+    setMaxRepeatedSwaps,
+    transitionOpacity,
+    setTransitionOpacity,
     heightDithering,
     setHeightDithering,
     ditherLineWidth,
@@ -180,6 +254,17 @@ export default function AutoPaintTab({
     const [localOptimizerSeed, setLocalOptimizerSeed] = React.useState(
         optimizerSeed?.toString() ?? ''
     );
+    const exactBaseOrderCount = getExactBaseOrderCount(filaments.length);
+    const activeTier =
+        OPTIMIZER_TIERS.find((tier) => tier.value === optimizerAlgorithm) ?? OPTIMIZER_TIERS[1];
+    const optimizerTierDescription =
+        optimizerAlgorithm === 'exact'
+            ? `Checks all ${exactBaseOrderCount.toLocaleString()} no-repeat base orders.${
+                  filaments.length > 8
+                      ? ' Large profiles can take a long time; start another search to cancel.'
+                      : ''
+              }`
+            : activeTier.blurb;
 
     // Calibration wizard state
     const [calibratingFilamentId, setCalibratingFilamentId] = React.useState<string | null>(null);
@@ -513,12 +598,24 @@ export default function AutoPaintTab({
                                 </div>
                             )}
                             {isComputing && (
-                                <div className="flex items-center gap-1.5 text-[10px] text-primary">
-                                    <Loader2 className="w-3 h-3 animate-spin" />
-                                    <span>
-                                        Optimizing filament order...
-                                        {progress > 0 ? ` ${Math.round(progress * 100)}%` : ''}
-                                    </span>
+                                <div className="space-y-1">
+                                    <div className="flex items-center justify-between text-[10px] text-primary">
+                                        <span className="flex items-center gap-1.5">
+                                            <Loader2 className="w-3 h-3 animate-spin" />
+                                            Optimizing filament order…
+                                        </span>
+                                        <span className="tabular-nums">
+                                            {Math.round(progress * 100)}%
+                                        </span>
+                                    </div>
+                                    <div className="h-1 w-full overflow-hidden rounded-full bg-muted">
+                                        <div
+                                            className="h-full rounded-full bg-primary transition-[width] duration-200 ease-out"
+                                            style={{
+                                                width: `${Math.max(2, Math.min(100, Math.round(progress * 100)))}%`,
+                                            }}
+                                        />
+                                    </div>
                                 </div>
                             )}
                             {error && !isComputing && (
@@ -545,82 +642,117 @@ export default function AutoPaintTab({
                                     onCheckedChange={setEnhancedColorMatch}
                                 />
                             </div>
-                            <div
-                                className={`flex items-center justify-between transition-opacity ${enhancedColorMatch ? 'opacity-100' : 'opacity-40 pointer-events-none'}`}
-                            >
-                                <Label
-                                    htmlFor="allow-repeated-swaps"
-                                    className="text-xs font-medium text-foreground cursor-pointer"
+                            <div className="space-y-3 border-l border-border/50 pl-3 ml-1">
+                                <div
+                                    className={`flex items-center gap-2 transition-opacity ${enhancedColorMatch ? 'opacity-100' : 'opacity-40 pointer-events-none'}`}
                                 >
-                                    Allow repeated filament swaps
-                                </Label>
-                                <Switch
-                                    id="allow-repeated-swaps"
-                                    data-testid="autopaint-allow-repeated-swaps"
-                                    checked={allowRepeatedSwaps}
-                                    onCheckedChange={setAllowRepeatedSwaps}
-                                    disabled={!enhancedColorMatch}
-                                />
-                            </div>
-                            <div
-                                className={`flex items-center justify-between transition-opacity ${enhancedColorMatch ? 'opacity-100' : 'opacity-40 pointer-events-none'}`}
-                            >
-                                <Label
-                                    htmlFor="height-dithering"
-                                    className="text-xs font-medium text-foreground cursor-pointer"
-                                >
-                                    Height dithering
-                                </Label>
-                                <Switch
-                                    id="height-dithering"
-                                    data-testid="autopaint-height-dithering"
-                                    checked={heightDithering}
-                                    onCheckedChange={setHeightDithering}
-                                    disabled={!enhancedColorMatch}
-                                />
-                            </div>
-                            {heightDithering && enhancedColorMatch && (
-                                <div className="flex items-center gap-2 pl-0.5">
-                                    <label className="text-[11px] text-muted-foreground whitespace-nowrap">
-                                        Line width
-                                    </label>
-                                    <NumberInput
-                                        min={0.1}
-                                        max={2}
-                                        step={0.01}
-                                        value={localDitherLineWidth}
-                                        onChange={(e) => {
-                                            setLocalDitherLineWidth(e.target.value);
-                                        }}
-                                        onBlur={() => {
-                                            let val = parseFloat(localDitherLineWidth);
-                                            if (isNaN(val)) {
-                                                setLocalDitherLineWidth(ditherLineWidth.toString());
-                                                return;
-                                            }
-                                            val = Math.max(0.1, Math.min(2, val));
-                                            setDitherLineWidth(val);
-                                            setLocalDitherLineWidth(val.toString());
-                                        }}
-                                        onKeyDown={(e) => {
-                                            if (e.key === 'Enter') {
-                                                e.currentTarget.blur();
-                                            }
-                                        }}
-                                        className="w-20 h-7 text-xs"
-                                    />
-                                    <span className="text-[10px] text-muted-foreground">mm</span>
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => setDitherLineWidth(0.42)}
-                                        className="h-7 px-1.5 text-[10px] text-muted-foreground hover:text-foreground ml-auto"
-                                        title="Reset to default (0.42mm)"
+                                    <Label
+                                        htmlFor="repeated-swaps"
+                                        className="text-xs font-medium text-foreground whitespace-nowrap"
                                     >
-                                        Reset
-                                    </Button>
+                                        Extra repeated swaps
+                                    </Label>
+                                    <Select
+                                        value={maxRepeatedSwaps.toString()}
+                                        onValueChange={(value) =>
+                                            setMaxRepeatedSwaps(
+                                                Number(value) as AutoPaintRepeatLimit
+                                            )
+                                        }
+                                        disabled={!enhancedColorMatch}
+                                    >
+                                        <SelectTrigger
+                                            id="repeated-swaps"
+                                            className="h-7 text-xs flex-1"
+                                        >
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="0" className="text-xs">
+                                                Off
+                                            </SelectItem>
+                                            <SelectItem value="2" className="text-xs">
+                                                2 extra swaps
+                                            </SelectItem>
+                                            <SelectItem value="4" className="text-xs">
+                                                4 extra swaps
+                                            </SelectItem>
+                                            <SelectItem value="6" className="text-xs">
+                                                6 extra swaps
+                                            </SelectItem>
+                                            <SelectItem value="8" className="text-xs">
+                                                8 extra swaps
+                                            </SelectItem>
+                                            <SelectItem value="12" className="text-xs">
+                                                12 extra swaps
+                                            </SelectItem>
+                                        </SelectContent>
+                                    </Select>
                                 </div>
-                            )}
+                                <div
+                                    className={`flex items-center justify-between transition-opacity ${enhancedColorMatch ? 'opacity-100' : 'opacity-40 pointer-events-none'}`}
+                                >
+                                    <Label
+                                        htmlFor="height-dithering"
+                                        className="text-xs font-medium text-foreground cursor-pointer"
+                                    >
+                                        Height dithering
+                                    </Label>
+                                    <Switch
+                                        id="height-dithering"
+                                        data-testid="autopaint-height-dithering"
+                                        checked={heightDithering}
+                                        onCheckedChange={setHeightDithering}
+                                        disabled={!enhancedColorMatch}
+                                    />
+                                </div>
+                                {heightDithering && enhancedColorMatch && (
+                                    <div className="flex items-center gap-2 pl-0.5">
+                                        <label className="text-[11px] text-muted-foreground whitespace-nowrap">
+                                            Line width
+                                        </label>
+                                        <NumberInput
+                                            min={0.1}
+                                            max={2}
+                                            step={0.01}
+                                            value={localDitherLineWidth}
+                                            onChange={(e) => {
+                                                setLocalDitherLineWidth(e.target.value);
+                                            }}
+                                            onBlur={() => {
+                                                let val = parseFloat(localDitherLineWidth);
+                                                if (isNaN(val)) {
+                                                    setLocalDitherLineWidth(
+                                                        ditherLineWidth.toString()
+                                                    );
+                                                    return;
+                                                }
+                                                val = Math.max(0.1, Math.min(2, val));
+                                                setDitherLineWidth(val);
+                                                setLocalDitherLineWidth(val.toString());
+                                            }}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter') {
+                                                    e.currentTarget.blur();
+                                                }
+                                            }}
+                                            className="w-20 h-7 text-xs"
+                                        />
+                                        <span className="text-[10px] text-muted-foreground">
+                                            mm
+                                        </span>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => setDitherLineWidth(0.42)}
+                                            className="h-7 px-1.5 text-[10px] text-muted-foreground hover:text-foreground ml-auto"
+                                            title="Reset to default (0.42mm)"
+                                        >
+                                            Reset
+                                        </Button>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     )}
 
@@ -664,7 +796,7 @@ export default function AutoPaintTab({
                                 <div className="flex items-center gap-2">
                                     <Label
                                         htmlFor="optimizer-algorithm"
-                                        className="text-xs text-muted-foreground whitespace-nowrap"
+                                        className="w-28 shrink-0 text-xs text-muted-foreground whitespace-nowrap"
                                     >
                                         Algorithm
                                     </Label>
@@ -680,22 +812,40 @@ export default function AutoPaintTab({
                                             <SelectValue />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value="fast" className="text-xs">
-                                                Fast
-                                            </SelectItem>
-                                            <SelectItem value="balanced" className="text-xs">
-                                                Balanced (recommended)
-                                            </SelectItem>
-                                            <SelectItem value="thorough" className="text-xs">
-                                                Thorough (slower)
-                                            </SelectItem>
+                                            {OPTIMIZER_TIERS.map((tier) => (
+                                                <SelectItem
+                                                    key={tier.value}
+                                                    value={tier.value}
+                                                    className="text-xs"
+                                                >
+                                                    {tier.label}
+                                                </SelectItem>
+                                            ))}
                                         </SelectContent>
                                     </Select>
+                                </div>
+                                <div className="pl-[120px] space-y-1.5">
+                                    <div className="flex items-center gap-3 text-[10px]">
+                                        <TierMeter label="Quality" value={activeTier.quality} />
+                                        <TierMeter label="Speed" value={activeTier.speed} />
+                                    </div>
+                                    <p className="text-[10px] text-muted-foreground">
+                                        {optimizerTierDescription}
+                                        {optimizerAlgorithm === 'exact' && maxRepeatedSwaps > 0 && (
+                                            <span>
+                                                {' '}
+                                                The base order is exact; up to {
+                                                    maxRepeatedSwaps
+                                                }{' '}
+                                                repeated swaps are refined heuristically.
+                                            </span>
+                                        )}
+                                    </p>
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <Label
                                         htmlFor="region-weighting"
-                                        className="text-xs text-muted-foreground whitespace-nowrap"
+                                        className="w-28 shrink-0 text-xs text-muted-foreground whitespace-nowrap"
                                     >
                                         Region priority
                                     </Label>
@@ -725,8 +875,47 @@ export default function AutoPaintTab({
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <Label
+                                        htmlFor="transition-opacity"
+                                        className="w-28 shrink-0 text-xs text-muted-foreground whitespace-nowrap"
+                                    >
+                                        Transition detail
+                                    </Label>
+                                    <Select
+                                        value={transitionOpacity.toString()}
+                                        onValueChange={(value) =>
+                                            setTransitionOpacity(
+                                                Number(value) as AutoPaintTransitionOpacity
+                                            )
+                                        }
+                                        disabled={!enhancedColorMatch}
+                                    >
+                                        <SelectTrigger
+                                            id="transition-opacity"
+                                            className="h-7 text-xs flex-1"
+                                        >
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="0.8" className="text-xs">
+                                                Compact (80% opacity)
+                                            </SelectItem>
+                                            <SelectItem value="0.9" className="text-xs">
+                                                Detailed (90% opacity)
+                                            </SelectItem>
+                                            <SelectItem value="0.95" className="text-xs">
+                                                Maximum (95% opacity)
+                                            </SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <p className="text-[10px] text-muted-foreground pl-[120px]">
+                                    Higher opacity retains a longer physical color ramp, improving
+                                    color resolution at the cost of height, swaps, and runtime.
+                                </p>
+                                <div className="flex items-center gap-2">
+                                    <Label
                                         htmlFor="optimizer-seed"
-                                        className="text-xs text-muted-foreground whitespace-nowrap"
+                                        className="w-28 shrink-0 text-xs text-muted-foreground whitespace-nowrap"
                                     >
                                         Seed (optional)
                                     </Label>
@@ -996,14 +1185,18 @@ export default function AutoPaintTab({
                                 ) : (
                                     <Sparkles className="w-3 h-3 mr-1.5" />
                                 )}
-                                {isNextBestComputing ? 'Finding suggestion...' : 'Suggest next filament'}
+                                {isNextBestComputing
+                                    ? 'Finding suggestion...'
+                                    : 'Suggest next filament'}
                             </Button>
                             {nextBestResult?.candidate && (
                                 <div className="p-2.5 rounded-md border border-border/50 bg-muted/30 space-y-1.5">
                                     <div className="flex items-center gap-2">
                                         <span
                                             className="w-5 h-5 rounded border border-border/50 flex-shrink-0"
-                                            style={{ backgroundColor: nextBestResult.candidate.hex }}
+                                            style={{
+                                                backgroundColor: nextBestResult.candidate.hex,
+                                            }}
                                         />
                                         <span className="text-xs font-mono font-semibold flex-1">
                                             {nextBestResult.candidate.hex.toUpperCase()}
@@ -1014,7 +1207,9 @@ export default function AutoPaintTab({
                                         >
                                             Est. ΔE{' '}
                                             <span className="text-sm font-bold text-green-600 dark:text-green-400">
-                                                +{nextBestResult.candidate.improvementPct.toFixed(1)}%
+                                                +
+                                                {nextBestResult.candidate.improvementPct.toFixed(1)}
+                                                %
                                             </span>
                                         </span>
                                     </div>
@@ -1049,7 +1244,10 @@ export default function AutoPaintTab({
                                         className="w-full h-7 text-xs mt-0.5"
                                         onClick={() => {
                                             suggestionCountRef.current += 1;
-                                            const nn = String(suggestionCountRef.current).padStart(2, '0');
+                                            const nn = String(suggestionCountRef.current).padStart(
+                                                2,
+                                                '0'
+                                            );
                                             addFilamentWithProps({
                                                 color: nextBestResult.candidate!.hex,
                                                 td: nextBestResult.candidate!.td,

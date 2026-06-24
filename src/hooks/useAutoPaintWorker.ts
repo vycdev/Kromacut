@@ -12,7 +12,12 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { AutoPaintResult } from '../lib/autoPaint';
-import type { Filament, Swatch } from '../types';
+import type {
+    AutoPaintRepeatLimit,
+    AutoPaintTransitionOpacity,
+    Filament,
+    Swatch,
+} from '../types';
 import type {
     AutoPaintWorkerProgress,
     AutoPaintWorkerRequest,
@@ -27,8 +32,9 @@ export interface UseAutoPaintWorkerOptions {
     slicerFirstLayerHeight: number;
     autoPaintMaxHeight?: number;
     enhancedColorMatch: boolean;
-    allowRepeatedSwaps: boolean;
-    optimizerAlgorithm: 'fast' | 'balanced' | 'thorough';
+    maxRepeatedSwaps: AutoPaintRepeatLimit;
+    transitionOpacity: AutoPaintTransitionOpacity;
+    optimizerAlgorithm: 'fast' | 'balanced' | 'thorough' | 'deep' | 'exact';
     optimizerSeed?: number;
     regionWeightingMode: 'uniform' | 'center' | 'edge';
 }
@@ -69,7 +75,8 @@ export function useAutoPaintWorker(opts: UseAutoPaintWorkerOptions): UseAutoPain
         slicerFirstLayerHeight,
         autoPaintMaxHeight,
         enhancedColorMatch,
-        allowRepeatedSwaps,
+        maxRepeatedSwaps,
+        transitionOpacity,
         optimizerAlgorithm,
         optimizerSeed,
         regionWeightingMode,
@@ -238,9 +245,11 @@ export function useAutoPaintWorker(opts: UseAutoPaintWorkerOptions): UseAutoPain
                     firstLayerHeight: slicerFirstLayerHeight,
                     maxHeight: autoPaintMaxHeight,
                     enhancedColorMatch,
-                    allowRepeatedSwaps,
+                    maxRepeatedSwaps,
                     optimizerOptions: {
                         algorithm: optimizerAlgorithm,
+                        maxExtraRepeats: maxRepeatedSwaps,
+                        transitionOpacity,
                         ...(optimizerSeed !== undefined && { seed: optimizerSeed }),
                     },
                 };
@@ -271,7 +280,8 @@ export function useAutoPaintWorker(opts: UseAutoPaintWorkerOptions): UseAutoPain
         slicerFirstLayerHeight,
         autoPaintMaxHeight,
         enhancedColorMatch,
-        allowRepeatedSwaps,
+        maxRepeatedSwaps,
+        transitionOpacity,
         optimizerAlgorithm,
         optimizerSeed,
         regionWeightingMode,
