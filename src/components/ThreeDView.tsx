@@ -40,7 +40,7 @@ interface ThreeDViewProps {
     autoPaintTotalHeight?: number; // Total model height when auto-paint is enabled
     autoPaintFilamentOrder?: string[]; // Filament IDs in order (for cache invalidation)
     enhancedColorMatch?: boolean; // Use color-distance mapping instead of luminance
-    heightDithering?: boolean; // Floyd-Steinberg error diffusion on height map
+    heightDithering?: boolean; // Stucki error diffusion on height map
     ditherLineWidth?: number; // Minimum dot size in mm for dithering
     smoothMeshing?: boolean; // Smooth connected boundaries using welded grid topology
     isOrtho?: boolean;
@@ -1004,7 +1004,7 @@ export default function ThreeDView({
                         // --- Pass 2: Quantize heights (with optional dithering) ---
                         // The continuous height map has sub-layer precision, but
                         // the 3D model must use discrete layer heights.  When
-                        // heightDithering is ON, block-aware Floyd-Steinberg error
+                        // heightDithering is ON, block-aware Stucki error
                         // diffusion produces dots sized to the printer's line width
                         // so the dither pattern is actually printable.  Edges
                         // between different quantized heights are protected from
@@ -1058,7 +1058,7 @@ export default function ThreeDView({
                                 }
                             }
 
-                            // --- Step 2c: Block-aware Floyd-Steinberg ---
+                            // --- Step 2c: Block-aware Stucki error diffusion ---
                             // The block size ensures dither dots are at least as
                             // wide as the printer's line width (in pixels).
                             const blockSize = Math.max(1, Math.round(ditherLineWidth / pixelSize));
@@ -1086,7 +1086,25 @@ export default function ThreeDView({
                                 if (blockCnt[bi] > 0) blockAvg[bi] /= blockCnt[bi];
                             }
 
-                            // Dither at block level
+                            // Dither at block level using the Stucki kernel: a
+                            // wider, error-conserving diffusion than Floyd-
+                            // Steinberg for smoother tone and finer detail.
+                            // Offsets are scan-relative (dx along the serpentine
+                            // direction, dy downward); weights are pre-divided by 42.
+                            const STUCKI_KERNEL: ReadonlyArray<readonly [number, number, number]> = [
+                                [1, 0, 8 / 42],
+                                [2, 0, 4 / 42],
+                                [-2, 1, 2 / 42],
+                                [-1, 1, 4 / 42],
+                                [0, 1, 8 / 42],
+                                [1, 1, 4 / 42],
+                                [2, 1, 2 / 42],
+                                [-2, 2, 1 / 42],
+                                [-1, 2, 2 / 42],
+                                [0, 2, 4 / 42],
+                                [1, 2, 2 / 42],
+                                [2, 2, 1 / 42],
+                            ];
                             const errBuf = new Float64Array(bW * bH);
                             const blockSnapped = new Float32Array(bW * bH);
 
@@ -1125,18 +1143,13 @@ export default function ThreeDView({
 
                                     if (!blockHasEdge[bi]) {
                                         const err = blockAvg[bi] + errBuf[bi] - snapped;
-                                        const xFwd = ltr ? bx + 1 : bx - 1;
-                                        const xDiagFwd = ltr ? bx + 1 : bx - 1;
-                                        const xDiagBack = ltr ? bx - 1 : bx + 1;
-
-                                        if (xFwd >= 0 && xFwd < bW)
-                                            errBuf[by * bW + xFwd] += err * (7 / 16);
-                                        if (by + 1 < bH) {
-                                            if (xDiagBack >= 0 && xDiagBack < bW)
-                                                errBuf[(by + 1) * bW + xDiagBack] += err * (3 / 16);
-                                            errBuf[(by + 1) * bW + bx] += err * (5 / 16);
-                                            if (xDiagFwd >= 0 && xDiagFwd < bW)
-                                                errBuf[(by + 1) * bW + xDiagFwd] += err * (1 / 16);
+                                        const dir = ltr ? 1 : -1;
+                                        for (let k = 0; k < STUCKI_KERNEL.length; k++) {
+                                            const [dx, dy, weight] = STUCKI_KERNEL[k];
+                                            const tx = bx + dir * dx;
+                                            const ty = by + dy;
+                                            if (tx < 0 || tx >= bW || ty >= bH) continue;
+                                            errBuf[ty * bW + tx] += err * weight;
                                         }
                                     }
                                 }
