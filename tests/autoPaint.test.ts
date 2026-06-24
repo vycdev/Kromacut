@@ -150,6 +150,23 @@ test('calibrated per-channel TDs tint blends without changing scalar TD behavior
     );
 });
 
+test('Beer-Lambert blends operate in linear light before returning sRGB', async () => {
+    const { blendColors } = await loadAutoPaintModule();
+    const halfTransmissionThickness = Math.log10(2);
+    const blended = blendColors(
+        { r: 0, g: 0, b: 0 },
+        { r: 255, g: 255, b: 255 },
+        1,
+        halfTransmissionThickness
+    );
+    const expectedSrgb = 255 * (1.055 * Math.pow(0.5, 1 / 2.4) - 0.055);
+
+    assertAlmostEqual(blended.r, expectedSrgb);
+    assertAlmostEqual(blended.g, expectedSrgb);
+    assertAlmostEqual(blended.b, expectedSrgb);
+    assert.ok(blended.r > 180, 'a 50% linear-light blend must not be gamma-space mid-gray');
+});
+
 test('calibrated channel TDs flow through generated auto-paint preview slices', async () => {
     const { autoPaintToSliceHeights, generateAutoLayers, hexToRgb } =
         await loadAutoPaintModule();
@@ -262,29 +279,29 @@ test('ideal-height zones include a foundation and remain contiguous when compres
 test('transition planning carries the actual prior end color into the next zone', async () => {
     const { blendColors, calculateIdealHeight, calculateTransitionThickness, hexToRgb } =
         await loadAutoPaintModule();
-    const layerHeight = 0.04;
-    const foundation = hexToRgb('#ff0000');
-    const middle = hexToRgb('#ff8800');
-    const final = hexToRgb('#ff0000');
-    const middleThickness = calculateTransitionThickness(foundation, middle, 0.2, layerHeight);
-    const actualMiddleEnd = blendColors(foundation, middle, 0.2, middleThickness);
+    const layerHeight = 0.02;
+    const foundation = hexToRgb('#ffffff');
+    const middle = hexToRgb('#000000');
+    const final = hexToRgb('#666666');
+    const middleThickness = calculateTransitionThickness(foundation, middle, 0.1, layerHeight);
+    const actualMiddleEnd = blendColors(foundation, middle, 0.1, middleThickness);
     const chainedFinalThickness = calculateTransitionThickness(
         actualMiddleEnd,
         final,
-        0.3,
+        0.15,
         layerHeight
     );
     const pureMiddleFinalThickness = calculateTransitionThickness(
         middle,
         final,
-        0.3,
+        0.15,
         layerHeight
     );
     const { zones } = calculateIdealHeight(
         [
-            { id: 'foundation', color: '#ff0000', td: 0.1 },
-            { id: 'middle', color: '#ff8800', td: 0.2 },
-            { id: 'final', color: '#ff0000', td: 0.3 },
+            { id: 'foundation', color: '#ffffff', td: 0.1 },
+            { id: 'middle', color: '#000000', td: 0.1 },
+            { id: 'final', color: '#666666', td: 0.15 },
         ],
         layerHeight,
         layerHeight

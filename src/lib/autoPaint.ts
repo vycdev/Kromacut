@@ -127,6 +127,22 @@ export function rgbToHex(rgb: RGB): string {
     return `#${toHex(rgb.r)}${toHex(rgb.g)}${toHex(rgb.b)}`;
 }
 
+function srgbChannelToLinear(channel: number): number {
+    const normalized = Math.max(0, Math.min(255, channel)) / 255;
+    return normalized <= 0.04045
+        ? normalized / 12.92
+        : Math.pow((normalized + 0.055) / 1.055, 2.4);
+}
+
+function linearChannelToSrgb(channel: number): number {
+    const clamped = Math.max(0, Math.min(1, channel));
+    const normalized =
+        clamped <= 0.0031308
+            ? clamped * 12.92
+            : 1.055 * Math.pow(clamped, 1 / 2.4) - 0.055;
+    return normalized * 255;
+}
+
 /**
  * Convert RGB (0-255) to Lab color space for perceptual color difference
  */
@@ -215,6 +231,8 @@ export function getLuminance(color: RGB): number {
  *
  * The transmission follows: T = 0.1^(thickness/TD)
  * At thickness == TD, transmission is 10% (filament definition of TD).
+ * Blending takes place in linear-light sRGB, then converts back to display
+ * sRGB for color matching and preview output.
  *
  * @param backgroundColor - The color of the existing stack
  * @param filamentColor - The color of the filament being added
@@ -242,7 +260,11 @@ export function blendColors(
         // Beer-Lambert law: transmission = 10^(-thickness/TD).
         // At thickness == TD, transmission = 10^(-1) = 0.1 (10%).
         const transmission = Math.pow(0.1, layerThickness / td);
-        return filament * (1 - transmission) + background * transmission;
+        const backgroundLinear = srgbChannelToLinear(background);
+        const filamentLinear = srgbChannelToLinear(filament);
+        return linearChannelToSrgb(
+            filamentLinear * (1 - transmission) + backgroundLinear * transmission
+        );
     };
 
     return {

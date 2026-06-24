@@ -18,6 +18,7 @@ All notable changes to Kromacut are documented in this file.
 - **Auto-paint sequence search** - Enhanced matching can now omit filaments that do not improve the printable stack and can natively add up to four non-adjacent repeated swaps when they create useful blends. Auto uses exact subset search through six filaments, deterministic beam search through twelve, and variable-length annealing beyond that.
 - **Calibrated Auto-paint model** - Calibrated filaments now use their measured red, green, and blue TD values when simulating blends and calculating transition-zone thickness, so generated stack heights and swap plans reflect the measured optical model.
 - **Auto-paint transition compositing** - Each filament transition now starts from the preceding transition's actual blended end color, including after Max Height compression, instead of assuming a pure previous-filament color.
+- **Auto-paint optical blending** - Beer-Lambert color mixing now happens in linear-light sRGB before returning display colors, replacing gamma-space interpolation with a more physically coherent light model.
 
 ### Fixed
 
