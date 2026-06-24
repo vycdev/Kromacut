@@ -76,6 +76,64 @@ test('transition thickness stays printable and respects its TD cap', async () =>
     );
 });
 
+test('calibrated channel TDs determine transition thickness', async () => {
+    const { calculateTransitionThickness, hexToRgb } = await loadAutoPaintModule();
+    const layerHeight = 0.1;
+    const scalarThickness = calculateTransitionThickness(
+        hexToRgb('#000000'),
+        hexToRgb('#ffffff'),
+        1,
+        layerHeight
+    );
+    const calibratedThickness = calculateTransitionThickness(
+        hexToRgb('#000000'),
+        hexToRgb('#ffffff'),
+        [0.5, 1, 2],
+        layerHeight
+    );
+
+    assert.ok(
+        calibratedThickness > scalarThickness,
+        'the slowest calibrated channel must be allowed more transition thickness'
+    );
+    assert.ok(
+        calibratedThickness <= 2 * 0.7 + EPSILON,
+        'the calibrated transition must respect the slowest-channel TD cap'
+    );
+});
+
+test('transition-thickness cache distinguishes calibrated channel TDs', async () => {
+    const { calculateIdealHeight } = await loadAutoPaintModule();
+    const cache = new Map<string, number>();
+    const baseStack = [
+        { id: 'black', color: '#000000', td: 0.2 },
+        { id: 'white', color: '#ffffff', td: 1 },
+    ];
+    const calibratedStack = [
+        baseStack[0],
+        {
+            ...baseStack[1],
+            calibration: {
+                color: '#ffffff',
+                measurements: [],
+                td: [0.5, 1, 2] as [number, number, number],
+                tdSingleValue: 1,
+                confidence: 1,
+                calibrationDate: '2026-01-01T00:00:00.000Z',
+            },
+        },
+    ];
+
+    const scalar = calculateIdealHeight(baseStack, 0.1, 0.2, cache);
+    const calibrated = calculateIdealHeight(calibratedStack, 0.1, 0.2, cache);
+
+    assert.ok(
+        calibrated.zones[1].idealThickness > scalar.zones[1].idealThickness,
+        'a calibrated transition must not reuse a scalar-TD cache entry'
+    );
+    assert.equal(cache.size, 2, 'scalar and calibrated transition calculations need distinct keys');
+});
+
 test('calibrated per-channel TDs tint blends without changing scalar TD behavior', async () => {
     const { blendColors } = await loadAutoPaintModule();
     const background = { r: 0, g: 0, b: 0 };
@@ -129,10 +187,14 @@ test('calibrated channel TDs flow through generated auto-paint preview slices', 
     const scalarSlices = autoPaintToSliceHeights(scalarResult, 0.1, 0.2);
     const calibratedSlices = autoPaintToSliceHeights(calibratedResult, 0.1, 0.2);
 
-    assert.deepEqual(
-        calibratedSlices.colorSliceHeights,
-        scalarSlices.colorSliceHeights,
-        'zone thickness remains governed by the scalar working TD'
+    assert.ok(
+        calibratedResult.transitionZones[1].idealThickness >
+            scalarResult.transitionZones[1].idealThickness,
+        'calibrated channel TDs must change the planned transition thickness'
+    );
+    assert.ok(
+        calibratedSlices.colorSliceHeights.length > scalarSlices.colorSliceHeights.length,
+        'the preview must contain the additional calibrated transition layers'
     );
     const whiteLayer = calibratedSlices.filamentSwatches.findIndex((swatch) => swatch.hex === '#ffffff');
     assert.ok(whiteLayer >= 0, 'the calibrated filament should contribute preview layers');

@@ -82,7 +82,7 @@ Optional controls appear with enhanced matching:
 
 While Kromacut is optimizing a filament order, the panel shows an approximate completion percentage. Starting a new calculation cancels the older one, so the percentage always belongs to the current settings.
 
-When a filament has been calibrated, Auto-paint also uses its measured red, green, and blue TD values to preview color transitions. The normal working TD still controls layer-zone thickness, so calibration makes the color model more faithful without changing your print-height settings.
+When a filament has been calibrated, Auto-paint uses its measured red, green, and blue TD values for both transition colors and transition thickness. Calibration can therefore change the generated stack height and swap plan as well as the preview color, making the print model more faithful to the measured filament.
 
 ## Flat Paint
 

@@ -320,14 +320,23 @@ function optimizerColorDistance(left: Lab, right: Lab): number {
 /**
  * Calculate the opacity (how opaque) a filament layer is at a given thickness.
  *
- * @param filamentTD - Transmission Distance (mm)
+ * @param filamentTD - Scalar TD, or calibrated R, G, B TDs (mm)
  * @param thickness - Layer thickness (mm)
- * @returns Opacity value (0-1)
+ * @returns Opacity value (0-1); calibrated TDs return the least-opaque channel
  */
-export function getOpacity(filamentTD: number, thickness: number): number {
-    if (filamentTD <= 0 || thickness <= 0) return 0;
-    const transmission = Math.pow(0.1, thickness / filamentTD);
-    return 1 - transmission;
+export function getOpacity(
+    filamentTD: number | CalibrationRgb,
+    thickness: number
+): number {
+    if (thickness <= 0) return 0;
+
+    const channelTds: CalibrationRgb =
+        typeof filamentTD === 'number' ? [filamentTD, filamentTD, filamentTD] : filamentTD;
+    if (channelTds.some((td) => !Number.isFinite(td) || td <= 0)) return 0;
+
+    return Math.min(
+        ...channelTds.map((td) => 1 - Math.pow(0.1, thickness / td))
+    );
 }
 
 // =============================================================================
@@ -385,14 +394,14 @@ function scaleFilamentForFrontlight(filament: Filament): Filament {
  *
  * @param backgroundColor - Starting background color
  * @param filamentColor - Target filament color
- * @param filamentTD - Transmission distance of the filament
+ * @param filamentTD - Scalar TD or calibrated R, G, B TDs of the filament
  * @param layerHeight - Physical layer height increment
  * @returns Thickness needed for complete transition
  */
 export function calculateTransitionThickness(
     backgroundColor: RGB,
     filamentColor: RGB,
-    filamentTD: number,
+    filamentTD: number | CalibrationRgb,
     layerHeight: number
 ): number {
     // Early exit if colors are already close
@@ -402,6 +411,11 @@ export function calculateTransitionThickness(
 
     let thickness = 0;
     let currentColor = backgroundColor;
+    const channelTds: CalibrationRgb =
+        typeof filamentTD === 'number' ? [filamentTD, filamentTD, filamentTD] : filamentTD;
+    if (channelTds.some((td) => !Number.isFinite(td) || td <= 0)) {
+        return layerHeight;
+    }
 
     // The cap determines the absolute maximum transition thickness.
     // At 0.7×TD, opacity ≈ 80%. At 1×TD, opacity ≈ 90%.
@@ -410,7 +424,7 @@ export function calculateTransitionThickness(
     // We use 0.7×TD — if the color hasn't converged by ~80% opacity,
     // additional thickness gives diminishing visual returns.
     const OPACITY_CAP = 0.7;
-    const maxThickness = Math.max(layerHeight, filamentTD * OPACITY_CAP);
+    const maxThickness = Math.max(layerHeight, Math.max(...channelTds) * OPACITY_CAP);
 
     // Simulate adding layers until color converges or we hit the cap
     while (thickness < maxThickness) {
@@ -484,6 +498,7 @@ export function calculateIdealHeight(
     for (let i = 1; i < sortedFilaments.length; i++) {
         const filament = sortedFilaments[i];
         const filamentRgb = hexToRgb(filament.color);
+        const transitionTd = calibratedTdChannels(filament) ?? filament.td;
 
         // Calculate how thick this zone needs to be
         const transitionKey = [
@@ -493,7 +508,11 @@ export function calculateIdealHeight(
             filamentRgb.r,
             filamentRgb.g,
             filamentRgb.b,
-            filament.td,
+            ...(
+                typeof transitionTd === 'number'
+                    ? [transitionTd]
+                    : transitionTd
+            ),
             layerHeight,
         ].join(':');
         let transitionThickness = transitionThicknessCache?.get(transitionKey);
@@ -501,7 +520,7 @@ export function calculateIdealHeight(
             transitionThickness = calculateTransitionThickness(
                 currentBackgroundColor,
                 filamentRgb,
-                filament.td,
+                transitionTd,
                 layerHeight
             );
             transitionThicknessCache?.set(transitionKey, transitionThickness);
