@@ -60,12 +60,26 @@ export interface AutoPaintLayer {
     endHeight: number; // mm from Z=0
 }
 
+/** One physically printable auto-paint layer, including its simulated visible color. */
+interface PrintableAutoPaintLayer extends AutoPaintLayer {
+    thickness: number;
+    zoneIndex: number;
+    virtualColor: RGB;
+}
+
+interface PrintableAutoPaintStack {
+    layers: PrintableAutoPaintLayer[];
+    zones: TransitionZone[];
+    totalHeight: number;
+    truncated: boolean;
+}
+
 /** Result from the auto-paint generator */
 export interface AutoPaintResult {
     layers: AutoPaintLayer[];
-    totalHeight: number;
-    idealHeight: number; // What height would be ideal without compression
-    autoHeight: number; // The default height when user hasn't set a max
+    totalHeight: number; // Actual height of the discrete printable stack
+    idealHeight: number; // Continuous optical height before compression
+    autoHeight: number; // Default discrete printable height when no cap is set
     compressionRatio: number; // 1.0 = no compression, 0.5 = 50% compressed
     filamentOrder: string[]; // Filament IDs in order (dark to light)
     transitionZones: TransitionZone[]; // Detailed zone info
@@ -554,6 +568,203 @@ export function compressZones(
     return { compressedZones, compressionRatio };
 }
 
+const PRINTABLE_HEIGHT_EPSILON = 1e-8;
+const MAX_PRINTABLE_AUTO_PAINT_LAYERS = 500;
+
+function printableFirstLayerHeight(layerHeight: number, firstLayerHeight: number): number {
+    return Math.max(layerHeight, firstLayerHeight);
+}
+
+function roundPrintableHeight(height: number): number {
+    return Number(height.toFixed(8));
+}
+
+/**
+ * Return the smallest valid slicer height that fully covers `height`.
+ *
+ * Auto-paint zones are continuous, but the generated model can only contain a
+ * thick first layer followed by whole normal-height layers. Keeping this rule
+ * here prevents the optimizer, preview, and export paths from disagreeing
+ * about the physical stack height.
+ */
+export function ceilAutoPaintHeightToPrintableStack(
+    height: number,
+    layerHeight: number,
+    firstLayerHeight: number
+): number {
+    if (!Number.isFinite(height) || height <= 0 || layerHeight <= 0) return 0;
+
+    const first = printableFirstLayerHeight(layerHeight, firstLayerHeight);
+    if (height <= first + PRINTABLE_HEIGHT_EPSILON) return roundPrintableHeight(first);
+
+    const regularLayers = Math.ceil(
+        (height - first - PRINTABLE_HEIGHT_EPSILON) / layerHeight
+    );
+    return roundPrintableHeight(first + Math.max(0, regularLayers) * layerHeight);
+}
+
+/**
+ * Return the tallest valid slicer height that does not exceed `maxHeight`.
+ *
+ * A requested cap between printable layer boundaries is intentionally rounded
+ * down. A partial final layer would violate the configured print settings and
+ * rounding it up would violate the user's cap.
+ */
+export function floorAutoPaintHeightToPrintableStack(
+    maxHeight: number,
+    layerHeight: number,
+    firstLayerHeight: number
+): number {
+    if (!Number.isFinite(maxHeight) || maxHeight <= 0 || layerHeight <= 0) return 0;
+
+    const first = printableFirstLayerHeight(layerHeight, firstLayerHeight);
+    // A cap smaller than the required first layer cannot produce a valid stack.
+    // Return zero rather than silently exceeding the caller's maximum.
+    if (maxHeight < first - PRINTABLE_HEIGHT_EPSILON) return 0;
+
+    const regularLayers = Math.floor(
+        (maxHeight - first + PRINTABLE_HEIGHT_EPSILON) / layerHeight
+    );
+    return roundPrintableHeight(first + Math.max(0, regularLayers) * layerHeight);
+}
+
+function findTransitionZoneAtHeight(zones: TransitionZone[], height: number): number {
+    let activeZoneIndex = 0;
+
+    for (let index = 0; index < zones.length; index++) {
+        const zone = zones[index];
+        if (
+            height + PRINTABLE_HEIGHT_EPSILON >= zone.startHeight &&
+            height < zone.endHeight - PRINTABLE_HEIGHT_EPSILON
+        ) {
+            return index;
+        }
+        if (height + PRINTABLE_HEIGHT_EPSILON >= zone.startHeight) {
+            activeZoneIndex = index;
+        }
+    }
+
+    return activeZoneIndex;
+}
+
+/**
+ * Convert continuous transition zones into the exact printable stack used by
+ * preview, meshing, and export. Zone changes occur at whole layer boundaries;
+ * every layer has either the first-layer height or the configured layer height.
+ */
+function buildPrintableAutoPaintStack(
+    zones: TransitionZone[],
+    layerHeight: number,
+    firstLayerHeight: number
+): PrintableAutoPaintStack {
+    if (zones.length === 0 || layerHeight <= 0) {
+        return { layers: [], zones: [], totalHeight: 0, truncated: false };
+    }
+
+    const continuousTotalHeight = zones[zones.length - 1].endHeight;
+    const printableTotalHeight = ceilAutoPaintHeightToPrintableStack(
+        continuousTotalHeight,
+        layerHeight,
+        firstLayerHeight
+    );
+    if (printableTotalHeight <= 0) {
+        return { layers: [], zones: [], totalHeight: 0, truncated: false };
+    }
+
+    const uncoloredLayers: Array<{
+        thickness: number;
+        startHeight: number;
+        endHeight: number;
+        sourceZoneIndex: number;
+    }> = [];
+    let currentHeight = 0;
+    let layerIndex = 0;
+
+    while (
+        currentHeight < printableTotalHeight - PRINTABLE_HEIGHT_EPSILON &&
+        layerIndex < MAX_PRINTABLE_AUTO_PAINT_LAYERS
+    ) {
+        const thickness =
+            layerIndex === 0
+                ? printableFirstLayerHeight(layerHeight, firstLayerHeight)
+                : layerHeight;
+        const sourceZoneIndex = findTransitionZoneAtHeight(zones, currentHeight);
+        const endHeight = roundPrintableHeight(currentHeight + thickness);
+
+        uncoloredLayers.push({
+            thickness: roundPrintableHeight(thickness),
+            startHeight: roundPrintableHeight(currentHeight),
+            endHeight,
+            sourceZoneIndex,
+        });
+        currentHeight = endHeight;
+        layerIndex++;
+    }
+
+    const truncated = currentHeight < printableTotalHeight - PRINTABLE_HEIGHT_EPSILON;
+    const actualZoneIndices: number[] = [];
+    for (const layer of uncoloredLayers) {
+        if (actualZoneIndices.at(-1) !== layer.sourceZoneIndex) {
+            actualZoneIndices.push(layer.sourceZoneIndex);
+        }
+    }
+
+    const sourceToActualZone = new Map<number, number>();
+    const printableZones = actualZoneIndices.map((sourceZoneIndex, actualZoneIndex) => {
+        sourceToActualZone.set(sourceZoneIndex, actualZoneIndex);
+        const source = zones[sourceZoneIndex];
+        const zoneLayers = uncoloredLayers.filter(
+            (layer) => layer.sourceZoneIndex === sourceZoneIndex
+        );
+        const startHeight = zoneLayers[0].startHeight;
+        const endHeight = zoneLayers[zoneLayers.length - 1].endHeight;
+
+        return {
+            ...source,
+            startHeight,
+            endHeight,
+            actualThickness: roundPrintableHeight(endHeight - startHeight),
+        };
+    });
+
+    const zoneBackgrounds = buildZoneBackgrounds(printableZones);
+    const thicknessByZone = new Array(printableZones.length).fill(0);
+    const layers = uncoloredLayers.map((layer) => {
+        const zoneIndex = sourceToActualZone.get(layer.sourceZoneIndex)!;
+        const zone = printableZones[zoneIndex];
+        const thicknessInZone = roundPrintableHeight(
+            (thicknessByZone[zoneIndex] += layer.thickness)
+        );
+        const filamentColor = hexToRgb(zone.filamentColor);
+        const virtualColor =
+            zoneIndex === 0
+                ? filamentColor
+                : blendColors(
+                      zoneBackgrounds[zoneIndex],
+                      filamentColor,
+                      zone.filamentTdChannels ?? zone.filamentTd,
+                      thicknessInZone
+                  );
+
+        return {
+            filamentId: zone.filamentId,
+            filamentColor: zone.filamentColor,
+            startHeight: layer.startHeight,
+            endHeight: layer.endHeight,
+            thickness: layer.thickness,
+            zoneIndex,
+            virtualColor,
+        };
+    });
+
+    return {
+        layers,
+        zones: printableZones,
+        totalHeight: layers.at(-1)?.endHeight ?? 0,
+        truncated,
+    };
+}
+
 function buildZoneBackgrounds(zones: TransitionZone[]): RGB[] {
     if (zones.length === 0) return [];
 
@@ -728,68 +939,21 @@ export function buildAchievableColorPalette(
 
     if (zones.length === 0) return [];
 
+    const printableMaxHeight =
+        maxHeight === undefined
+            ? undefined
+            : floorAutoPaintHeightToPrintableStack(maxHeight, layerHeight, firstLayerHeight);
     const activeZones =
-        maxHeight === undefined ? zones : compressZones(zones, maxHeight).compressedZones;
-    const totalHeight = activeZones[activeZones.length - 1].endHeight;
-    const palette: Array<{ height: number; lab: Lab; rgb: RGB }> = [];
-    const zoneBackgrounds = buildZoneBackgrounds(activeZones);
+        printableMaxHeight === undefined
+            ? zones
+            : compressZones(zones, printableMaxHeight).compressedZones;
+    const stack = buildPrintableAutoPaintStack(activeZones, layerHeight, firstLayerHeight);
 
-    let currentZ = 0;
-    let layerIndex = 0;
-    let prevZoneIndex = 0;
-    let thicknessInCurrentZone = 0;
-
-    while (currentZ < totalHeight + layerHeight * 0.5) {
-        const thickness = layerIndex === 0 ? Math.max(firstLayerHeight, layerHeight) : layerHeight;
-
-        // Find active zone
-        let activeZoneIndex = 0;
-        for (let zi = 0; zi < activeZones.length; zi++) {
-            if (currentZ >= activeZones[zi].startHeight && currentZ < activeZones[zi].endHeight) {
-                activeZoneIndex = zi;
-                break;
-            }
-            if (currentZ >= activeZones[zi].startHeight) {
-                activeZoneIndex = zi;
-            }
-        }
-
-        if (activeZoneIndex !== prevZoneIndex) {
-            thicknessInCurrentZone =
-                currentZ - activeZones[activeZoneIndex].startHeight + thickness;
-            prevZoneIndex = activeZoneIndex;
-        } else {
-            thicknessInCurrentZone += thickness;
-        }
-
-        const zone = activeZones[activeZoneIndex];
-        const filamentColor = hexToRgb(zone.filamentColor);
-
-        let blendedColor: RGB;
-        if (activeZoneIndex === 0) {
-            blendedColor = filamentColor;
-        } else {
-            blendedColor = blendColors(
-                zoneBackgrounds[activeZoneIndex],
-                filamentColor,
-                zone.filamentTdChannels ?? zone.filamentTd,
-                thicknessInCurrentZone
-            );
-        }
-
-        palette.push({
-            height: currentZ + thickness,
-            lab: rgbToLab(blendedColor),
-            rgb: blendedColor,
-        });
-
-        currentZ += thickness;
-        layerIndex++;
-
-        if (layerIndex >= 500) break;
-    }
-
-    return palette;
+    return stack.layers.map((layer) => ({
+        height: layer.endHeight,
+        lab: rgbToLab(layer.virtualColor),
+        rgb: layer.virtualColor,
+    }));
 }
 
 /**
@@ -1091,8 +1255,6 @@ export function generateAutoLayers(
         });
     }
 
-    const filamentOrder = sortedFilaments.map((f) => f.id);
-
     // Apply frontlit TD scale for internal simulation
     const scaledFilaments = sortedFilaments.map(scaleFilamentForFrontlight);
 
@@ -1103,43 +1265,53 @@ export function generateAutoLayers(
         Math.max(firstLayerHeight, layerHeight)
     );
 
-    // --- STEP 4: APPLY COMPRESSION IF NEEDED ---
-    // autoHeight = idealHeight — the physics-derived value from the
-    // DeltaE convergence simulation. This is the height the algorithm
-    // determines is needed for accurate color reproduction.
-    // No hardcoded cap — each transition zone is already bounded by
-    // opacity thresholds (85%) and DeltaE convergence (< 2.3).
-    const autoHeight = idealHeight;
-    const targetMaxHeight = maxHeight ?? autoHeight;
+    // --- STEP 4: APPLY COMPRESSION ON THE PRINTABLE HEIGHT GRID ---
+    // Keep the continuous optical ideal for diagnostics, but expose and build
+    // a layer-aligned auto height so every consumer sees a real print stack.
+    const autoHeight = ceilAutoPaintHeightToPrintableStack(
+        idealHeight,
+        layerHeight,
+        firstLayerHeight
+    );
+    const targetMaxHeight =
+        maxHeight === undefined
+            ? autoHeight
+            : floorAutoPaintHeightToPrintableStack(maxHeight, layerHeight, firstLayerHeight);
     const { compressedZones, compressionRatio } = compressZones(zones, targetMaxHeight);
 
-    // --- STEP 5: GENERATE LAYER SEGMENTS FROM ZONES ---
-    const layers: AutoPaintLayer[] = compressedZones.map((zone) => ({
+    // --- STEP 5: BUILD THE ACTUAL PRINTABLE STACK ---
+    const printableStack = buildPrintableAutoPaintStack(
+        compressedZones,
+        layerHeight,
+        firstLayerHeight
+    );
+    const layers: AutoPaintLayer[] = printableStack.zones.map((zone) => ({
         filamentId: zone.filamentId,
         filamentColor: zone.filamentColor,
         startHeight: zone.startHeight,
         endHeight: zone.endHeight,
     }));
-
-    const totalHeight =
-        compressedZones.length > 0 ? compressedZones[compressedZones.length - 1].endHeight : 0;
+    const filamentOrder = printableStack.zones.map((zone) => zone.filamentId);
+    const printedFilaments = filamentOrder
+        .map((id) => filaments.find((filament) => filament.id === id))
+        .filter((filament): filament is Filament => filament !== undefined);
 
     // --- STEP 6: CALCULATE CONFIDENCE METRICS ---
     const confidence = calculateAutoConfidence(
         filaments,
         imageSwatches,
-        sortedFilaments,
+        printedFilaments,
         compressionRatio
     );
 
     const result: AutoPaintResult = {
         layers,
-        totalHeight,
+        totalHeight: printableStack.totalHeight,
         idealHeight,
         autoHeight,
         compressionRatio,
         filamentOrder,
-        transitionZones: compressedZones,
+        transitionZones: printableStack.zones,
         ...confidence,
     };
 
@@ -1214,81 +1386,26 @@ export function autoPaintToSliceHeights(
         };
     }
 
-    const virtualSwatches: Array<{ hex: string; a: number }> = [];
-    const filamentSwatches: Array<{ hex: string; a: number }> = [];
-    const colorSliceHeights: number[] = [];
-    const colorOrder: number[] = [];
-
-    const zones = result.transitionZones;
-    const zoneBackgrounds = buildZoneBackgrounds(zones);
-
-    // Generate layers at each layerHeight increment from 0 to totalHeight.
-    // For each layer, simulate the Beer-Lambert blended color at that Z.
-    let currentZ = 0;
-    let layerIndex = 0;
-    let prevZoneIndex = 0;
-    let thicknessInCurrentZone = 0;
-
-    while (currentZ < result.totalHeight) {
-        const thickness = layerIndex === 0 ? Math.max(firstLayerHeight, layerHeight) : layerHeight;
-
-        // Find which zone is active at this Z height
-        let activeZoneIndex = 0;
-        for (let zi = 0; zi < zones.length; zi++) {
-            if (currentZ >= zones[zi].startHeight && currentZ < zones[zi].endHeight) {
-                activeZoneIndex = zi;
-                break;
-            }
-            if (currentZ >= zones[zi].startHeight) {
-                activeZoneIndex = zi;
-            }
-        }
-
-        // Track cumulative thickness within this zone for blending
-        if (activeZoneIndex !== prevZoneIndex) {
-            thicknessInCurrentZone = currentZ - zones[activeZoneIndex].startHeight + thickness;
-            prevZoneIndex = activeZoneIndex;
-        } else {
-            thicknessInCurrentZone += thickness;
-        }
-
-        const zone = zones[activeZoneIndex];
-        const filamentColor = hexToRgb(zone.filamentColor);
-
-        // Simulate the blended color at this layer:
-        // Foundation zone → pure filament color (opaque base)
-        // Subsequent zones → blend filament onto the previous zone's color
-        let blendedColor: RGB;
-        if (activeZoneIndex === 0) {
-            blendedColor = filamentColor;
-        } else {
-            blendedColor = blendColors(
-                zoneBackgrounds[activeZoneIndex],
-                filamentColor,
-                zone.filamentTdChannels ?? zone.filamentTd,
-                thicknessInCurrentZone
-            );
-        }
-
-        virtualSwatches.push({ hex: rgbToHex(blendedColor), a: 255 });
-        filamentSwatches.push({ hex: zone.filamentColor, a: 255 });
-        colorSliceHeights.push(Number(thickness.toFixed(8)));
-        colorOrder.push(layerIndex);
-
-        currentZ += thickness;
-        layerIndex++;
-
-        if (layerIndex >= 500) {
-            console.warn('autoPaintToSliceHeights: too many layers, stopping at 500');
-            break;
-        }
+    const stack = buildPrintableAutoPaintStack(
+        result.transitionZones,
+        layerHeight,
+        firstLayerHeight
+    );
+    if (stack.truncated) {
+        console.warn('autoPaintToSliceHeights: too many layers, stopping at 500');
     }
 
     return {
-        colorSliceHeights,
-        colorOrder,
-        virtualSwatches,
-        filamentSwatches,
+        colorSliceHeights: stack.layers.map((layer) => layer.thickness),
+        colorOrder: stack.layers.map((_, index) => index),
+        virtualSwatches: stack.layers.map((layer) => ({
+            hex: rgbToHex(layer.virtualColor),
+            a: 255,
+        })),
+        filamentSwatches: stack.layers.map((layer) => ({
+            hex: layer.filamentColor,
+            a: 255,
+        })),
     };
 }
 

@@ -67,7 +67,7 @@ Auto-paint profiles store reusable filament sets.
 
 ## Max Height
 
-**Max Height** limits the total model height in Auto-paint. Leave it on **Auto** for the physics-derived height. Set a smaller value when the model is too tall, but watch for compressed transition zones.
+**Max Height** limits the total printed model height in Auto-paint. Leave it on **Auto** for the physics-derived, layer-aligned height. If a value falls between valid first-layer and layer-height steps, Kromacut uses the next lower printable height so the generated model never exceeds your cap. Set a smaller value when the model is too tall, but watch for compressed transition zones.
 
 ## Enhanced Color Matching
 

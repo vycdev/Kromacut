@@ -233,6 +233,70 @@ test('auto-paint slice data stays synchronized and uses print-layer heights', as
     );
 });
 
+test('auto-paint caps and optimizer palettes use the same discrete printable stack', async () => {
+    const {
+        autoPaintToSliceHeights,
+        buildAchievableColorPalette,
+        floorAutoPaintHeightToPrintableStack,
+        generateAutoLayers,
+        rgbToHex,
+    } = await loadAutoPaintModule();
+    const layerHeight = 0.1;
+    const firstLayerHeight = 0.2;
+    const maxHeight = 0.35;
+    const filaments = [
+        { id: 'black', color: '#000000', td: 1 },
+        { id: 'white', color: '#ffffff', td: 1.5 },
+    ];
+    const swatches = [
+        { hex: '#000000', count: 10 },
+        { hex: '#ffffff', count: 10 },
+    ];
+
+    const result = generateAutoLayers(
+        filaments,
+        swatches,
+        layerHeight,
+        firstLayerHeight,
+        maxHeight,
+        false
+    );
+    const slices = autoPaintToSliceHeights(result, layerHeight, firstLayerHeight);
+    const printedHeight = slices.colorSliceHeights.reduce(
+        (total, height, index) => total + (index === 0 ? Math.max(height, firstLayerHeight) : height),
+        0
+    );
+
+    assertAlmostEqual(result.totalHeight, 0.3, 'cap should snap down to a valid stack height');
+    assertAlmostEqual(printedHeight, result.totalHeight, 'reported and printable heights must agree');
+    assert.ok(printedHeight <= maxHeight + EPSILON, 'the printed stack must not exceed Max Height');
+    assert.equal(
+        floorAutoPaintHeightToPrintableStack(0.15, layerHeight, firstLayerHeight),
+        0,
+        'an impossible cap must not be rounded up past the requested maximum'
+    );
+
+    const palette = buildAchievableColorPalette(
+        filaments.map((filament) => ({ ...filament, td: filament.td * 0.1 })),
+        layerHeight,
+        firstLayerHeight,
+        maxHeight
+    );
+    assert.deepEqual(
+        palette.map((entry) => entry.height),
+        slices.colorSliceHeights.reduce<number[]>((heights, thickness) => {
+            heights.push(Number(((heights.at(-1) ?? 0) + thickness).toFixed(8)));
+            return heights;
+        }, []),
+        'the optimizer palette must sample the same layer tops as the preview'
+    );
+    assert.deepEqual(
+        palette.map((entry) => rgbToHex(entry.rgb)),
+        slices.virtualSwatches.map((swatch) => swatch.hex),
+        'the optimizer palette must use the preview-visible layer colors'
+    );
+});
+
 test('enhanced repeated-swap search keeps the printable red-to-pink transition', async () => {
     const { autoPaintToSliceHeights, generateAutoLayers, hexToRgb } =
         await loadAutoPaintModule();
