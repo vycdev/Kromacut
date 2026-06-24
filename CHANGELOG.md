@@ -13,6 +13,7 @@ All notable changes to Kromacut are documented in this file.
 
 ### Changed
 
+- **Calibration image sampler** - The sampler now shows a circular brush over the exact image area it averages, plus a marker for the last captured sample, making it easier to avoid patch edges and glare.
 - **Auto-paint optimizer objective** - Enhanced color matching now evaluates the same zone-compressed, layer-snapped color-to-height path used by the printable preview. All optimizer algorithms share that scorer, including Max Height constraints, so selected filament orders better match the finished model. Repeated optical calculations are memoized during searches.
 - **Auto-paint sequence search** - Enhanced matching can now omit filaments that do not improve the printable stack and can natively add up to four non-adjacent repeated swaps when they create useful blends. Auto uses exact subset search through six filaments, deterministic beam search through twelve, and variable-length annealing beyond that.
 - **Calibrated Auto-paint previews** - Calibrated filaments now use their measured red, green, and blue TD values when simulating blends, while the scalar working TD continues to control layer-zone thickness.

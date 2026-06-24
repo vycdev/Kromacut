@@ -49,7 +49,7 @@ Use the wand button to auto-estimate TD from color, or use the calibration butto
 Click the calibration button on a filament row to open **Calibrate Filament TD**. The wizard has three parts:
 
 1. **Step 1: Print Test Patches** lists the filament, layer height, 100% infill, patch size, and layer counts. Use **Download Test Patches STL** if you want Kromacut to generate the patch model.
-2. **Step 2: Measure RGB Values** lets you enter measurements manually or upload a photo with **Image Sampler**. Use **Fill White Reference** on the empty backlight first, then use **Fill Measurement RGB** for each printed patch.
+2. **Step 2: Measure RGB Values** lets you enter measurements manually or upload a photo with **Image Sampler**. Use **Fill White Reference** on the empty backlight first, then use **Fill Measurement RGB** for each printed patch. The visible circular brush averages the pixels inside it, so place it over a uniform patch area and away from edges or glare.
 3. **Calibration Complete** shows the fitted TD value, RGB channel estimates, white reference, and confidence. Click **Save Calibration** to apply it to the filament.
 
 Use at least three saved measurements before calculating TD. More measurements usually improve confidence if the lighting and sampling setup stays consistent.

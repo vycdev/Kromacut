@@ -42,6 +42,12 @@ type WizardStep = 'intro' | 'print' | 'measure' | 'results';
 type SamplerTarget = 'white-reference' | 'measurement';
 
 type RgbInputState = { r: string; g: string; b: string };
+type SamplerPoint = { x: number; y: number };
+
+// The brush stays a consistent size on screen, then scales to the source image
+// so the outlined area is the exact area being averaged.
+const SAMPLER_BRUSH_RADIUS_PX = 16;
+const SAMPLER_BRUSH_DIAMETER_PX = SAMPLER_BRUSH_RADIUS_PX * 2;
 
 const buildRgbInputState = (rgb?: CalibrationRgb): RgbInputState => ({
     r: String(rgb?.[0] ?? DEFAULT_WHITE_REFERENCE[0]),
@@ -67,12 +73,13 @@ function sampleAverageRgb(
     ctx: CanvasRenderingContext2D,
     centerX: number,
     centerY: number,
-    radius = 2
+    radius: number
 ): CalibrationRgb {
-    const startX = Math.max(0, centerX - radius);
-    const startY = Math.max(0, centerY - radius);
-    const endX = Math.min(ctx.canvas.width - 1, centerX + radius);
-    const endY = Math.min(ctx.canvas.height - 1, centerY + radius);
+    const roundedRadius = Math.max(1, Math.round(radius));
+    const startX = Math.max(0, centerX - roundedRadius);
+    const startY = Math.max(0, centerY - roundedRadius);
+    const endX = Math.min(ctx.canvas.width - 1, centerX + roundedRadius);
+    const endY = Math.min(ctx.canvas.height - 1, centerY + roundedRadius);
     const width = endX - startX + 1;
     const height = endY - startY + 1;
     const imageData = ctx.getImageData(startX, startY, width, height).data;
@@ -82,13 +89,22 @@ function sampleAverageRgb(
     let totalB = 0;
     let samples = 0;
 
-    for (let i = 0; i < imageData.length; i += 4) {
-        const alpha = imageData[i + 3] / 255;
-        if (alpha <= 0) continue;
-        totalR += imageData[i] * alpha;
-        totalG += imageData[i + 1] * alpha;
-        totalB += imageData[i + 2] * alpha;
-        samples += alpha;
+    for (let y = startY; y <= endY; y++) {
+        for (let x = startX; x <= endX; x++) {
+            const distanceX = x - centerX;
+            const distanceY = y - centerY;
+            if (distanceX * distanceX + distanceY * distanceY > roundedRadius * roundedRadius) {
+                continue;
+            }
+
+            const pixelIndex = ((y - startY) * width + (x - startX)) * 4;
+            const alpha = imageData[pixelIndex + 3] / 255;
+            if (alpha <= 0) continue;
+            totalR += imageData[pixelIndex] * alpha;
+            totalG += imageData[pixelIndex + 1] * alpha;
+            totalB += imageData[pixelIndex + 2] * alpha;
+            samples += alpha;
+        }
     }
 
     if (samples <= 0) return [0, 0, 0];
@@ -132,6 +148,8 @@ export function FilamentCalibrationWizard({
     const [samplerTarget, setSamplerTarget] = useState<SamplerTarget>('measurement');
     const [pickerImageSrc, setPickerImageSrc] = useState<string | null>(null);
     const [pickerStatus, setPickerStatus] = useState<string | null>(null);
+    const [samplerPoint, setSamplerPoint] = useState<SamplerPoint | null>(null);
+    const [lastSamplePoint, setLastSamplePoint] = useState<SamplerPoint | null>(null);
     const [currentLayers, setCurrentLayers] = useState<string>('');
     const [currentRGB, setCurrentRGB] = useState({ r: '', g: '', b: '' });
     const [result, setResult] = useState<CalibrationResult | null>(null);
@@ -156,8 +174,10 @@ export function FilamentCalibrationWizard({
             const reader = new FileReader();
             reader.onload = () => {
                 setPickerImageSrc(typeof reader.result === 'string' ? reader.result : null);
+                setSamplerPoint(null);
+                setLastSamplePoint(null);
                 setPickerStatus(
-                    'Image loaded. Click anywhere on it to sample RGB into the selected target.'
+                    'Image loaded. Move the circular brush over a uniform area, then click to sample it.'
                 );
             };
             reader.readAsDataURL(file);
@@ -180,32 +200,50 @@ export function FilamentCalibrationWizard({
         ctx.drawImage(image, 0, 0);
     }, []);
 
+    const getSamplerCoordinates = useCallback((event: React.MouseEvent<HTMLImageElement>) => {
+        const image = pickerImageRef.current;
+        const canvas = pickerCanvasRef.current;
+        if (!image || !canvas) return null;
+
+        const rect = image.getBoundingClientRect();
+        if (rect.width <= 0 || rect.height <= 0) return null;
+
+        const normalizedX = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
+        const normalizedY = Math.max(0, Math.min(1, (event.clientY - rect.top) / rect.height));
+
+        return {
+            imageX: Math.min(canvas.width - 1, Math.floor(normalizedX * canvas.width)),
+            imageY: Math.min(canvas.height - 1, Math.floor(normalizedY * canvas.height)),
+            displayPoint: { x: normalizedX * 100, y: normalizedY * 100 },
+            imageRadius: Math.max(1, (SAMPLER_BRUSH_RADIUS_PX / rect.width) * canvas.width),
+        };
+    }, []);
+
+    const handleSamplerMove = useCallback(
+        (event: React.MouseEvent<HTMLImageElement>) => {
+            const coordinates = getSamplerCoordinates(event);
+            if (coordinates) setSamplerPoint(coordinates.displayPoint);
+        },
+        [getSamplerCoordinates]
+    );
+
     const handleSamplerClick = useCallback(
         (event: React.MouseEvent<HTMLImageElement>) => {
-            const image = pickerImageRef.current;
             const canvas = pickerCanvasRef.current;
-            if (!image || !canvas) return;
+            const coordinates = getSamplerCoordinates(event);
+            if (!canvas || !coordinates) return;
 
             const ctx = canvas.getContext('2d');
             if (!ctx) return;
 
-            const rect = image.getBoundingClientRect();
-            const x = Math.max(
-                0,
-                Math.min(
-                    canvas.width - 1,
-                    Math.floor(((event.clientX - rect.left) / rect.width) * canvas.width)
-                )
+            const rgb = sampleAverageRgb(
+                ctx,
+                coordinates.imageX,
+                coordinates.imageY,
+                coordinates.imageRadius
             );
-            const y = Math.max(
-                0,
-                Math.min(
-                    canvas.height - 1,
-                    Math.floor(((event.clientY - rect.top) / rect.height) * canvas.height)
-                )
-            );
-
-            const rgb = sampleAverageRgb(ctx, x, y, 2);
+            setSamplerPoint(coordinates.displayPoint);
+            setLastSamplePoint(coordinates.displayPoint);
 
             if (samplerTarget === 'white-reference') {
                 setWhiteReferenceInput(rgbToInputState(rgb));
@@ -219,7 +257,7 @@ export function FilamentCalibrationWizard({
                 }.`
             );
         },
-        [samplerTarget]
+        [getSamplerCoordinates, samplerTarget]
     );
 
     const handleAddMeasurement = useCallback(() => {
@@ -296,6 +334,8 @@ export function FilamentCalibrationWizard({
             setSamplerTarget('measurement');
             setPickerImageSrc(null);
             setPickerStatus(null);
+            setSamplerPoint(null);
+            setLastSamplePoint(null);
             setResult(null);
             setErrorMessage(null);
         }
@@ -312,6 +352,8 @@ export function FilamentCalibrationWizard({
             setSamplerTarget('measurement');
             setPickerImageSrc(null);
             setPickerStatus(null);
+            setSamplerPoint(null);
+            setLastSamplePoint(null);
             setCurrentLayers('');
             setCurrentRGB({ r: '', g: '', b: '' });
             setResult(null);
@@ -459,7 +501,7 @@ export function FilamentCalibrationWizard({
                                     <Label className="text-sm">Image Sampler</Label>
                                     <p className="text-xs leading-relaxed text-muted-foreground">
                                         Upload a photo or screenshot, choose where clicks should go,
-                                        then click the image to capture an averaged RGB sample.
+                                        then use the circular brush to capture an averaged RGB sample.
                                     </p>
                                 </div>
                                 <input
@@ -539,22 +581,52 @@ export function FilamentCalibrationWizard({
                             {pickerImageSrc ? (
                                 <div className="space-y-3">
                                     <div className="relative overflow-hidden rounded-xl border border-border/60 bg-background shadow-sm">
-                                        <img
-                                            ref={pickerImageRef}
-                                            src={pickerImageSrc}
-                                            alt="Uploaded calibration sample"
-                                            className="max-h-[28rem] w-full cursor-crosshair select-none object-contain"
-                                            onLoad={handlePickerImageLoad}
-                                            onClick={handleSamplerClick}
-                                            draggable={false}
-                                        />
+                                        <div className="relative mx-auto w-fit max-w-full">
+                                            <img
+                                                ref={pickerImageRef}
+                                                src={pickerImageSrc}
+                                                alt="Uploaded calibration sample"
+                                                className="block max-h-[28rem] max-w-full cursor-crosshair select-none object-contain"
+                                                onLoad={handlePickerImageLoad}
+                                                onMouseMove={handleSamplerMove}
+                                                onMouseLeave={() => setSamplerPoint(null)}
+                                                onClick={handleSamplerClick}
+                                                draggable={false}
+                                            />
+                                            {lastSamplePoint && (
+                                                <div
+                                                    aria-hidden="true"
+                                                    className="pointer-events-none absolute z-10 rounded-full border-2 border-dashed border-foreground/80 bg-background/10 shadow-sm"
+                                                    style={{
+                                                        width: `${SAMPLER_BRUSH_DIAMETER_PX}px`,
+                                                        height: `${SAMPLER_BRUSH_DIAMETER_PX}px`,
+                                                        left: `${lastSamplePoint.x}%`,
+                                                        top: `${lastSamplePoint.y}%`,
+                                                        transform: 'translate(-50%, -50%)',
+                                                    }}
+                                                />
+                                            )}
+                                            {samplerPoint && (
+                                                <div
+                                                    aria-hidden="true"
+                                                    className="pointer-events-none absolute z-20 rounded-full border-2 border-primary bg-primary/15 shadow-[0_0_0_1px_hsl(var(--background))]"
+                                                    style={{
+                                                        width: `${SAMPLER_BRUSH_DIAMETER_PX}px`,
+                                                        height: `${SAMPLER_BRUSH_DIAMETER_PX}px`,
+                                                        left: `${samplerPoint.x}%`,
+                                                        top: `${samplerPoint.y}%`,
+                                                        transform: 'translate(-50%, -50%)',
+                                                    }}
+                                                />
+                                            )}
+                                        </div>
                                         <div className="pointer-events-none absolute left-3 top-3 rounded-full border border-primary/25 bg-background/90 px-3 py-1 text-[11px] font-medium text-foreground shadow-sm backdrop-blur">
-                                            Click to sample into {activeSamplerLabel}
+                                            Circular brush averages into {activeSamplerLabel}
                                         </div>
                                     </div>
                                     <div className="rounded-lg border border-primary/15 bg-primary/5 px-3 py-2 text-xs text-muted-foreground">
                                         {pickerStatus ??
-                                            'Click the image to capture a sample into the selected target.'}
+                                            'Move the circular brush over a uniform area, then click to capture it.'}
                                     </div>
                                 </div>
                             ) : (
