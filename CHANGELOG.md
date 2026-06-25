@@ -6,36 +6,24 @@ All notable changes to Kromacut are documented in this file.
 
 ### Added
 
-- **Preserve color separation (Auto-paint)** - New opt-in toggle (Enhanced color matching) that assigns every distinct image color to a distinct printable color, so perceptibly different colors are never collapsed onto one flat surface — gradients keep their variation. It trades a small amount of per-color accuracy for that separation and is fully reachable whenever the stack exposes at least as many distinct printable colors as the image has (raise the height if not). The optimizer scores and the 3D preview build through the same shared mapper, so they stay consistent.
+- **Preserve color separation (Auto-paint)** - Enhanced color matching can keep each distinct 2D image color mapped to a distinct printable color when the stack exposes enough printable colors, preserving gradients that would otherwise collapse onto a flat surface.
+- **Auto-paint optimization progress** - Enhanced matching now reports approximate search progress while the background optimizer runs.
+- **Auto-paint test and benchmark coverage** - Added deterministic stack goldens, layer-invariant regression coverage, realized CIEDE2000 quality-budget tests, and an on-demand benchmark for fixture profiles using the same printable-stack mapper as the optimizer.
 - **Reddit community links** - Added r/kromacut links to the app header and README, and use branded Discord, Reddit, and GitHub icons in the header toolbar.
-- **Auto-paint regression baseline** - Added focused layer-invariant coverage, per-algorithm seeded determinism checks, and 24 seeded stack snapshots across the 2-, 4-, and 8-filament profiles, both image fixtures, Enhanced matching states, and repeated-swap states.
-- **Auto-paint benchmark harness** - Added an on-demand JSON benchmark that measures realized print error (CIEDE2000 mean, p95, and coverage) for both the uncompressed and the Max Height-compressed stack, plus the achievable palette floor, stack cost, compression impact, runtime, and optimizer iterations across the saved fixture profiles. It measures the printed result through the same canonical color-to-height mapper the optimizer scores with, instead of a separately-implemented projection.
-- **Auto-paint quality budgets** - Added realized-ΔE00 budget tests (weighted mean, p95 tail, and ΔE00≤6 coverage) for the printable, max-height-capped stack on the representative fixture profiles, guarding against optimizer-objective regressions even when intentional ordering changes update the goldens.
-- **Auto-paint optimization progress** - Enhanced matching now reports an approximate completion percentage while its background search is running.
 
 ### Changed
 
 - **Calibration image sampler** - The sampler now shows a circular brush over the exact image area it averages, plus a marker for the last captured sample, making it easier to avoid patch edges and glare.
-- **Auto-paint optimizer objective** - Enhanced color matching now evaluates the same zone-compressed, layer-snapped color-to-height path used by the printable preview. All optimizer algorithms share that scorer, including Max Height constraints, so selected filament orders better match the finished model. Repeated optical calculations are memoized during searches.
-- **Auto-paint detail controls** - Enhanced matching now scores every color from the already-processed 2D palette instead of applying a hidden second color reduction. Repeated swaps are now a selector with Off, 2, 4, 6, 8, and 12 extra occurrences; transition detail similarly exposes 80%, 90%, and 95% Beer-Lambert opacity endpoints so quality, stack height, and runtime are an intentional trade-off. Existing repeated-swap settings migrate to four extra occurrences.
-- **Height dithering kernel** - Height dithering now diffuses quantization error with the Stucki kernel (12 neighbors, error-conserving) instead of Floyd-Steinberg, spreading error over a wider area for smoother tonal gradients and finer apparent detail. Block-aware dot sizing and edge protection are unchanged.
-- **Calibrated Auto-paint model** - Calibrated filaments now use their measured red, green, and blue TD values when simulating blends and calculating transition-zone thickness, so generated stack heights and swap plans reflect the measured optical model.
-- **Auto-paint transition compositing** - Each filament transition now starts from the preceding transition's actual blended end color, including after Max Height compression, instead of assuming a pure previous-filament color.
-- **Auto-paint optical blending** - Beer-Lambert color mixing now happens in linear-light sRGB before returning display colors, replacing gamma-space interpolation with a more physically coherent light model.
-- **Filament calibration model** - Calibration now fits both working and RGB-channel TD values using Auto-paint's linear-light optical model. Recalibrate profiles created with earlier releases before using them for new prints.
-- **Auto-paint optimizer metric** - The optimizer now scores realized print error in CIEDE2000 (ΔE2000) instead of CIE76, and adds a weighted p95 tail term so a few rare but conspicuous colors are not sacrificed to lower the average. Nearest-color and Lab-polyline projection stay in Euclidean CIE76, where they are geometrically valid and fast. Selected filament orders change for some Enhanced color-match profiles.
-- **Auto-paint optimizer tiers** - Enhanced matching now offers five reproducible effort tiers: **Fast** (narrow beam preview), **Balanced** (the full-beam default), **Thorough** (deeper hybrid refinement), **Deep** (a wider, much larger hybrid search), and **Exact base order** (all no-repeat orders). Each higher tier preserves the best result from the preceding tier for the same seed. Exact remains available for every profile and reports its candidate count; with repeated swaps it remains exact for the base order while refining repeats separately. Saved values migrate automatically: legacy Exhaustive becomes Exact, Genetic becomes Deep, and Auto or Simulated Annealing becomes Balanced.
+- **Auto-paint enhanced matching** - Optimizer scoring now follows the same layer-snapped, Max Height-compressed printable stack used by preview and export, scores realized print error in CIEDE2000 with a weighted p95 tail term, and uses complete target-color/cache inputs so repeated runs are deterministic.
+- **Auto-paint optimizer controls** - Replaced the older optimizer choices with deterministic effort tiers (Fast, Balanced, Thorough, Deep, and Exact base order), selector-based repeated swaps, transition-detail endpoints, and explicit stable seed handling. Legacy saved values migrate to the nearest current tier.
+- **Auto-paint optical model** - Beer-Lambert blending now runs in linear-light sRGB, and calibrated filaments use measured RGB-channel TDs for blend simulation and transition-zone thickness. Recalibrate profiles created with earlier releases before using them for new prints.
+- **Height dithering kernel** - Height dithering now uses an error-conserving Stucki kernel instead of Floyd-Steinberg, spreading quantization error over a wider area while keeping the existing block-aware dot sizing and edge protection.
 
 ### Fixed
 
 - **Auto-paint Max Height** - Auto-paint now plans, scores, previews, and exports the same layer-aligned stack. Height caps round down to a valid printable layer boundary, so a generated model no longer exceeds the requested maximum by adding a final whole layer.
-
-- **Auto-paint optimizer cache and default seed** - Cache entries now include all target-color weights, every target cluster, and optimizer tuning values. Blank seeds now derive a stable value from the active inputs, making identical runs repeatable and cacheable instead of randomly changing.
-
 - **Auto-paint region priority** - Center and Edge priority now use the actual locations of each image color. Center prioritizes colors near the image middle; Edge prioritizes colors near the outer border. The optimizer no longer allocates a full-image weight map or guesses location from color brightness.
-
-- **Auto-paint layer cap** - Corrected the slice-data safety limit so exceptionally tall auto-paint stacks stop at 500 layers rather than returning 501.
-
+- **Auto-paint edge cases** - Blank seeds now resolve to stable cacheable values, optimizer cache keys include all target clusters and tuning inputs, and exceptionally tall stacks stop at the intended 500-layer slice-data limit.
 - **Desktop 3MF export reliability** - 3MF model XML now streams into the archive in bounded chunks, avoiding desktop WebView `FileReader` `NotReadableError` failures and `RangeError: Invalid string length` on large exports.
 
 ## v3.1.0 - 2026-06-18
