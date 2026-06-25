@@ -49,6 +49,8 @@ export interface ThreeDControlsStateShape {
     paintMode: 'manual' | 'autopaint';
     // Enhanced color matching options
     enhancedColorMatch?: boolean;
+    /** Assign each image color to a distinct printable color (no collapse). */
+    preserveSeparation?: boolean;
     /** Legacy persisted value. Migrate to maxRepeatedSwaps when loading. */
     allowRepeatedSwaps?: boolean;
     /** Maximum extra non-adjacent filament occurrences the optimizer may add. */

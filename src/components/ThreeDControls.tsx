@@ -116,6 +116,7 @@ export default function ThreeDControls({
     const [paintMode, setPaintMode] = useState<'manual' | 'autopaint'>(initialPaintMode);
     const [autoPaintMaxHeight, setAutoPaintMaxHeight] = useState<number | undefined>(undefined);
     const [enhancedColorMatch, setEnhancedColorMatch] = useState(persisted?.enhancedColorMatch ?? false);
+    const [preserveSeparation, setPreserveSeparation] = useState(persisted?.preserveSeparation ?? false);
     const [maxRepeatedSwaps, setMaxRepeatedSwaps] = useState<AutoPaintRepeatLimit>(
         persisted?.maxRepeatedSwaps ?? (persisted?.allowRepeatedSwaps ? 4 : 0)
     );
@@ -166,6 +167,7 @@ export default function ThreeDControls({
             paintMode,
             filaments,
             enhancedColorMatch,
+            preserveSeparation,
             maxRepeatedSwaps,
             transitionOpacity,
             heightDithering,
@@ -177,7 +179,7 @@ export default function ThreeDControls({
             smoothMeshing,
         });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [paintMode, filaments, enhancedColorMatch, maxRepeatedSwaps, transitionOpacity, heightDithering, ditherLineWidth, flatPaint, optimizerAlgorithm, optimizerSeed, regionWeightingMode, smoothMeshing]);
+    }, [paintMode, filaments, enhancedColorMatch, preserveSeparation, maxRepeatedSwaps, transitionOpacity, heightDithering, ditherLineWidth, flatPaint, optimizerAlgorithm, optimizerSeed, regionWeightingMode, smoothMeshing]);
 
     useEffect(() => {
         savePrintSettingsToStorage({ layerHeight, slicerFirstLayerHeight, pixelSize, smoothMeshing });
@@ -225,6 +227,7 @@ export default function ThreeDControls({
         slicerFirstLayerHeight,
         autoPaintMaxHeight,
         enhancedColorMatch,
+        preserveSeparation,
         maxRepeatedSwaps,
         transitionOpacity,
         optimizerAlgorithm,
@@ -324,6 +327,7 @@ export default function ThreeDControls({
                 filaments,
                 paintMode,
                 enhancedColorMatch,
+                preserveSeparation,
                 maxRepeatedSwaps,
                 transitionOpacity,
                 heightDithering,
@@ -367,6 +371,7 @@ export default function ThreeDControls({
         filaments,
         paintMode,
         enhancedColorMatch,
+        preserveSeparation,
         maxRepeatedSwaps,
         transitionOpacity,
         heightDithering,
@@ -478,6 +483,8 @@ export default function ThreeDControls({
                     imageSwatches={filtered}
                     enhancedColorMatch={enhancedColorMatch}
                     setEnhancedColorMatch={handleEnhancedColorMatchChange}
+                    preserveSeparation={preserveSeparation}
+                    setPreserveSeparation={setPreserveSeparation}
                     maxRepeatedSwaps={maxRepeatedSwaps}
                     setMaxRepeatedSwaps={setMaxRepeatedSwaps}
                     transitionOpacity={transitionOpacity}

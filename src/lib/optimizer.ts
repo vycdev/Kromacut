@@ -63,6 +63,8 @@ export interface OptimizerOptions {
     maxExtraRepeats?: number;
     /** Transition opacity target used by the shared printable-palette scorer. */
     transitionOpacity?: number;
+    /** Assign each image color to a distinct printable color (no collapse). */
+    preserveSeparation?: boolean;
     seed?: number; // For deterministic results
     maxIterations?: number; // Algorithm-specific iteration limit
     temperature?: number; // Initial temperature for SA
@@ -90,6 +92,7 @@ export interface ScoringContext {
     firstLayerHeight: number;
     maxHeight?: number;
     transitionOpacity?: number;
+    preserveSeparation?: boolean;
 }
 
 // ============================================================================
@@ -167,6 +170,7 @@ function tuningFingerprint(options: OptimizerOptions) {
         allowRepeatedSwaps: options.allowRepeatedSwaps ?? false,
         maxExtraRepeats: options.maxExtraRepeats ?? null,
         transitionOpacity: options.transitionOpacity ?? null,
+        preserveSeparation: options.preserveSeparation ?? false,
         maxIterations: options.maxIterations ?? null,
         temperature: options.temperature ?? null,
         coolingRate: options.coolingRate ?? null,
@@ -242,7 +246,9 @@ export function createSequenceScorer(context: ScoringContext): (filaments: Filam
             );
             paletteCache.set(sequenceKey, palette);
         }
-        return scoreSequenceAgainstImage(palette, context.imageColors);
+        return scoreSequenceAgainstImage(palette, context.imageColors, {
+            preserveSeparation: context.preserveSeparation,
+        });
     };
 }
 
@@ -981,7 +987,12 @@ export function optimizeFilamentOrder(
     }
 
     let result: OptimizerResult;
-    const scoreSequence = createSequenceScorer(context);
+    // The scoring mode lives in OptimizerOptions; mirror it into the context the
+    // scorer reads so callers only need to set it in one place.
+    const scoreSequence = createSequenceScorer({
+        ...context,
+        preserveSeparation: opts.preserveSeparation ?? context.preserveSeparation,
+    });
 
     switch (resolved) {
         case 'exhaustive':

@@ -13,6 +13,7 @@ import {
 import { LAYER_ACTIVATION_EPSILON } from '../lib/layerActivation';
 import { normalizeHexColor as normalizeHexColorValue } from '../lib/colorUtils';
 import { buildFlatPaintLayout, heightMapToFlatPaintLayerCounts } from '../lib/flatPaint';
+import { mapTargetsToPrintablePalette, type WeightedLab } from '../lib/autoPaint';
 import {
     clampProgress,
     layeredBuildScanProgress,
@@ -40,6 +41,7 @@ interface ThreeDViewProps {
     autoPaintTotalHeight?: number; // Total model height when auto-paint is enabled
     autoPaintFilamentOrder?: string[]; // Filament IDs in order (for cache invalidation)
     enhancedColorMatch?: boolean; // Use color-distance mapping instead of luminance
+    preserveSeparation?: boolean; // Assign each image color to a distinct printable color
     heightDithering?: boolean; // Stucki error diffusion on height map
     ditherLineWidth?: number; // Minimum dot size in mm for dithering
     smoothMeshing?: boolean; // Smooth connected boundaries using welded grid topology
@@ -338,6 +340,7 @@ export default function ThreeDView({
     autoPaintTotalHeight,
     autoPaintFilamentOrder,
     enhancedColorMatch = false,
+    preserveSeparation = false,
     heightDithering = false,
     ditherLineWidth = 0.42,
     smoothMeshing = false,
@@ -616,6 +619,7 @@ export default function ThreeDView({
             autoPaintTotalHeight,
             autoPaintFilamentOrder, // Include filament order to detect optimizer changes
             enhancedColorMatch,
+            preserveSeparation,
             heightDithering,
             ditherLineWidth,
             smoothMeshing,
@@ -886,16 +890,29 @@ export default function ThreeDView({
                             });
                         }
 
-                        // Pre-scan image luminance range for flat-zone sub-detail
+                        // Pre-scan image luminance range for flat-zone sub-detail,
+                        // and (in separation mode) the distinct image colors.
                         let imgMinLum = 1,
                             imgMaxLum = 0;
+                        const sepColors = preserveSeparation
+                            ? new Map<number, { lab: { L: number; a: number; b: number }; weight: number }>()
+                            : null;
                         for (let py = minY; py < minY + boxH; py++) {
                             for (let px = minX; px < minX + boxW; px++) {
                                 const idx = (py * fullW + px) * 4;
                                 if (data[idx + 3] === 0) continue;
-                                const lum = getLuminance(data[idx], data[idx + 1], data[idx + 2]);
+                                const pr0 = data[idx],
+                                    pg0 = data[idx + 1],
+                                    pb0 = data[idx + 2];
+                                const lum = getLuminance(pr0, pg0, pb0);
                                 if (lum < imgMinLum) imgMinLum = lum;
                                 if (lum > imgMaxLum) imgMaxLum = lum;
+                                if (sepColors) {
+                                    const key = ((pr0 & 0xff) << 16) | ((pg0 & 0xff) << 8) | (pb0 & 0xff);
+                                    const existing = sepColors.get(key);
+                                    if (existing) existing.weight++;
+                                    else sepColors.set(key, { lab: toLab(pr0, pg0, pb0), weight: 1 });
+                                }
                             }
                         }
                         if (imgMaxLum <= imgMinLum) imgMaxLum = imgMinLum + 0.001;
@@ -904,11 +921,38 @@ export default function ThreeDView({
                         const maxModelH = cumulativeHeights[cumulativeHeights.length - 1] || 1;
                         const minModelH = cumulativeHeights[0] || 0;
 
+                        // Separation mode: assign each distinct image color to a
+                        // DISTINCT printable color through the shared mapper, so no
+                        // two image colors collapse onto the same surface color.
+                        const separationHeights = new Map<number, number>();
+                        if (sepColors && sepColors.size > 0) {
+                            const sepPalette = swatchEntries.map((entry, si) => {
+                                const [r, g, b] = hexToRGB(swatches[si].hex);
+                                return { height: entry.height, lab: entry.lab, rgb: { r, g, b } };
+                            });
+                            const keys = [...sepColors.keys()];
+                            const sepTargets: WeightedLab[] = keys.map((key) => {
+                                const c = sepColors.get(key)!;
+                                return { L: c.lab.L, a: c.lab.a, b: c.lab.b, weight: c.weight };
+                            });
+                            const mapped = mapTargetsToPrintablePalette(sepPalette, sepTargets, {
+                                preserveSeparation: true,
+                            });
+                            mapped.forEach((m, i) => {
+                                separationHeights.set(
+                                    keys[i],
+                                    Math.max(minModelH, Math.min(maxModelH, m.projectedHeight))
+                                );
+                            });
+                        }
+
                         // --- Pass 1: Compute continuous (un-snapped) heights ---
                         // We deliberately do NOT snap to the layer grid here.
                         // The RGB cache is still valid because it stores the ideal
                         // continuous height; dithering happens spatially in Pass 2.
-                        const colorHeightCache = new Map<number, number>();
+                        // Separation assignments seed the cache so each color's
+                        // pixels all land on its assigned printable height.
+                        const colorHeightCache = new Map<number, number>(separationHeights);
 
                         for (let py = minY; py < minY + boxH; py++) {
                             for (let px = minX; px < minX + boxW; px++) {
@@ -1882,6 +1926,7 @@ export default function ThreeDView({
         autoPaintTotalHeight,
         autoPaintFilamentOrder,
         enhancedColorMatch,
+        preserveSeparation,
         heightDithering,
         ditherLineWidth,
         smoothMeshing,

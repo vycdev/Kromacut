@@ -84,6 +84,7 @@ type AutoPaintPersisted = Pick<
     | 'optimizerSeed'
     | 'regionWeightingMode'
     | 'enhancedColorMatch'
+    | 'preserveSeparation'
     | 'allowRepeatedSwaps'
     | 'maxRepeatedSwaps'
     | 'transitionOpacity'
@@ -126,6 +127,7 @@ const loadAutoPaintPersisted = (): AutoPaintPersisted | null => {
             optimizerSeed: parsed.optimizerSeed,
             regionWeightingMode: parsed.regionWeightingMode,
             enhancedColorMatch: parsed.enhancedColorMatch ?? false,
+            preserveSeparation: parsed.preserveSeparation ?? false,
             maxRepeatedSwaps: normalizeRepeatLimit(
                 parsed.maxRepeatedSwaps,
                 parsed.allowRepeatedSwaps
@@ -268,6 +270,8 @@ function App(): React.ReactElement | null {
                 regionWeightingMode:
                     autopaintHydrated.regionWeightingMode ?? prev.regionWeightingMode,
                 enhancedColorMatch: autopaintHydrated.enhancedColorMatch ?? prev.enhancedColorMatch,
+                preserveSeparation:
+                    autopaintHydrated.preserveSeparation ?? prev.preserveSeparation,
                 maxRepeatedSwaps:
                     autopaintHydrated.maxRepeatedSwaps ?? prev.maxRepeatedSwaps,
                 transitionOpacity: autopaintHydrated.transitionOpacity ?? prev.transitionOpacity,
@@ -289,6 +293,7 @@ function App(): React.ReactElement | null {
             optimizerSeed: threeDState.optimizerSeed,
             regionWeightingMode: threeDState.regionWeightingMode,
             enhancedColorMatch: threeDState.enhancedColorMatch,
+            preserveSeparation: threeDState.preserveSeparation,
             maxRepeatedSwaps: threeDState.maxRepeatedSwaps,
             transitionOpacity: threeDState.transitionOpacity,
             heightDithering: threeDState.heightDithering,
@@ -302,6 +307,7 @@ function App(): React.ReactElement | null {
         threeDState.optimizerSeed,
         threeDState.regionWeightingMode,
         threeDState.enhancedColorMatch,
+        threeDState.preserveSeparation,
         threeDState.maxRepeatedSwaps,
         threeDState.transitionOpacity,
         threeDState.heightDithering,
@@ -714,6 +720,7 @@ function App(): React.ReactElement | null {
                                                 builtModelState.autoPaintResult?.filamentOrder
                                             }
                                             enhancedColorMatch={builtModelState.enhancedColorMatch}
+                                            preserveSeparation={builtModelState.preserveSeparation}
                                             heightDithering={builtModelState.heightDithering}
                                             ditherLineWidth={builtModelState.ditherLineWidth}
                                             smoothMeshing={builtModelState.smoothMeshing}

@@ -32,6 +32,7 @@ export interface UseAutoPaintWorkerOptions {
     slicerFirstLayerHeight: number;
     autoPaintMaxHeight?: number;
     enhancedColorMatch: boolean;
+    preserveSeparation: boolean;
     maxRepeatedSwaps: AutoPaintRepeatLimit;
     transitionOpacity: AutoPaintTransitionOpacity;
     optimizerAlgorithm: 'fast' | 'balanced' | 'thorough' | 'deep' | 'exact';
@@ -75,6 +76,7 @@ export function useAutoPaintWorker(opts: UseAutoPaintWorkerOptions): UseAutoPain
         slicerFirstLayerHeight,
         autoPaintMaxHeight,
         enhancedColorMatch,
+        preserveSeparation,
         maxRepeatedSwaps,
         transitionOpacity,
         optimizerAlgorithm,
@@ -250,6 +252,7 @@ export function useAutoPaintWorker(opts: UseAutoPaintWorkerOptions): UseAutoPain
                         algorithm: optimizerAlgorithm,
                         maxExtraRepeats: maxRepeatedSwaps,
                         transitionOpacity,
+                        preserveSeparation,
                         ...(optimizerSeed !== undefined && { seed: optimizerSeed }),
                     },
                 };
@@ -280,6 +283,7 @@ export function useAutoPaintWorker(opts: UseAutoPaintWorkerOptions): UseAutoPain
         slicerFirstLayerHeight,
         autoPaintMaxHeight,
         enhancedColorMatch,
+        preserveSeparation,
         maxRepeatedSwaps,
         transitionOpacity,
         optimizerAlgorithm,

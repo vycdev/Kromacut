@@ -6,6 +6,7 @@ All notable changes to Kromacut are documented in this file.
 
 ### Added
 
+- **Preserve color separation (Auto-paint)** - New opt-in toggle (Enhanced color matching) that assigns every distinct image color to a distinct printable color, so perceptibly different colors are never collapsed onto one flat surface — gradients keep their variation. It trades a small amount of per-color accuracy for that separation and is fully reachable whenever the stack exposes at least as many distinct printable colors as the image has (raise the height if not). The optimizer scores and the 3D preview build through the same shared mapper, so they stay consistent.
 - **Reddit community links** - Added r/kromacut links to the app header and README, and use branded Discord, Reddit, and GitHub icons in the header toolbar.
 - **Auto-paint regression baseline** - Added focused layer-invariant coverage, per-algorithm seeded determinism checks, and 24 seeded stack snapshots across the 2-, 4-, and 8-filament profiles, both image fixtures, Enhanced matching states, and repeated-swap states.
 - **Auto-paint benchmark harness** - Added an on-demand JSON benchmark that measures realized print error (CIEDE2000 mean, p95, and coverage) for both the uncompressed and the Max Height-compressed stack, plus the achievable palette floor, stack cost, compression impact, runtime, and optimizer iterations across the saved fixture profiles. It measures the printed result through the same canonical color-to-height mapper the optimizer scores with, instead of a separately-implemented projection.

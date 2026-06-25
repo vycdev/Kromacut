@@ -159,6 +159,8 @@ interface AutoPaintTabProps {
     // Enhanced matching options
     enhancedColorMatch: boolean;
     setEnhancedColorMatch: (v: boolean) => void;
+    preserveSeparation: boolean;
+    setPreserveSeparation: (v: boolean) => void;
     maxRepeatedSwaps: AutoPaintRepeatLimit;
     setMaxRepeatedSwaps: (v: AutoPaintRepeatLimit) => void;
     transitionOpacity: AutoPaintTransitionOpacity;
@@ -219,6 +221,8 @@ export default function AutoPaintTab({
     imageSwatches,
     enhancedColorMatch,
     setEnhancedColorMatch,
+    preserveSeparation,
+    setPreserveSeparation,
     maxRepeatedSwaps,
     setMaxRepeatedSwaps,
     transitionOpacity,
@@ -689,6 +693,30 @@ export default function AutoPaintTab({
                                         </SelectContent>
                                     </Select>
                                 </div>
+                                <div
+                                    className={`flex items-center justify-between transition-opacity ${enhancedColorMatch ? 'opacity-100' : 'opacity-40 pointer-events-none'}`}
+                                >
+                                    <Label
+                                        htmlFor="preserve-separation"
+                                        className="text-xs font-medium text-foreground cursor-pointer"
+                                    >
+                                        Preserve color separation
+                                    </Label>
+                                    <Switch
+                                        id="preserve-separation"
+                                        data-testid="autopaint-preserve-separation"
+                                        checked={preserveSeparation}
+                                        onCheckedChange={setPreserveSeparation}
+                                        disabled={!enhancedColorMatch}
+                                    />
+                                </div>
+                                {preserveSeparation && enhancedColorMatch && (
+                                    <p className="text-[10px] text-muted-foreground pl-0.5">
+                                        Maps every image color to a distinct printable color so
+                                        gradients keep their variation, at a small cost to per-color
+                                        accuracy.
+                                    </p>
+                                )}
                                 <div
                                     className={`flex items-center justify-between transition-opacity ${enhancedColorMatch ? 'opacity-100' : 'opacity-40 pointer-events-none'}`}
                                 >

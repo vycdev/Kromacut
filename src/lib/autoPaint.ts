@@ -1041,11 +1041,76 @@ export interface MappedTarget {
  * transition sliver — a color no pixel is ever assigned — and optimize that
  * fiction. Mirroring the collapse keeps the objective and the build consistent.
  */
-export function mapTargetsToPrintablePalette(
+/** Minimum ΔE between two printable colors for them to count as "distinct". */
+const SEPARATION_MIN_DE = 2;
+
+/**
+ * Injective ("preserve color separation") mapping: assign each weighted image
+ * color to a DISTINCT printable color so perceptibly different image colors are
+ * never collapsed onto the same surface color. Dominant colors (higher weight)
+ * pick first, so large regions get the closest match and smaller ones absorb
+ * the shift needed to stay distinct. When there are more image colors than the
+ * curve exposes distinct printable colors, the surplus falls back to nearest
+ * (and may collide) — the only case that cannot be fully separated.
+ */
+function mapTargetsWithSeparation(
     palette: Array<{ height: number; lab: Lab; rgb: RGB }>,
     imageTargets: WeightedLab[]
 ): MappedTarget[] {
+    // Distinct printable colors, keeping a representative entry for each.
+    const distinct: Array<{ lab: Lab; height: number; paletteIndex: number }> = [];
+    for (let i = 0; i < palette.length; i++) {
+        const entry = palette[i];
+        if (distinct.every((k) => optimizerColorDistance(k.lab, entry.lab) >= SEPARATION_MIN_DE)) {
+            distinct.push({ lab: entry.lab, height: entry.height, paletteIndex: i });
+        }
+    }
+
+    const result = new Array<MappedTarget>(imageTargets.length);
+    const used = new Set<number>();
+    // Assign dominant colors first.
+    const order = imageTargets.map((_, i) => i).sort((a, b) => imageTargets[b].weight - imageTargets[a].weight);
+    for (const i of order) {
+        const target = imageTargets[i];
+        let bestJ = -1;
+        let bestDistance = Infinity;
+        let fallbackJ = 0;
+        let fallbackDistance = Infinity;
+        for (let j = 0; j < distinct.length; j++) {
+            const de = optimizerColorDistance(distinct[j].lab, target);
+            if (de < fallbackDistance) {
+                fallbackDistance = de;
+                fallbackJ = j;
+            }
+            if (!used.has(j) && de < bestDistance) {
+                bestDistance = de;
+                bestJ = j;
+            }
+        }
+        const j = bestJ >= 0 ? bestJ : fallbackJ; // surplus colors reuse nearest
+        if (bestJ >= 0) used.add(j);
+        result[i] = {
+            target,
+            paletteIndex: distinct[j].paletteIndex,
+            mappedLab: distinct[j].lab,
+            projectedHeight: distinct[j].height,
+        };
+    }
+    return result;
+}
+
+export function mapTargetsToPrintablePalette(
+    palette: Array<{ height: number; lab: Lab; rgb: RGB }>,
+    imageTargets: WeightedLab[],
+    options: { preserveSeparation?: boolean } = {}
+): MappedTarget[] {
     if (palette.length === 0) return [];
+
+    // Separation mode: assign each distinct image color to a DISTINCT printable
+    // color so perceptibly different colors never collapse to one flat surface.
+    if (options.preserveSeparation) {
+        return mapTargetsWithSeparation(palette, imageTargets);
+    }
 
     // Collapse consecutive near-identical layers into flat-zone nodes (ΔE<0.5),
     // matching ThreeDView. Each node keeps its height range and an averaged Lab.
@@ -1217,12 +1282,13 @@ const USEFUL_PALETTE_MATCH_DE = 8;
  */
 export function scoreSequenceAgainstImage(
     palette: Array<{ height: number; lab: Lab; rgb: RGB }>,
-    imageTargets: WeightedLab[]
+    imageTargets: WeightedLab[],
+    options: { preserveSeparation?: boolean } = {}
 ): number {
     if (palette.length === 0) return Infinity;
     if (imageTargets.length === 0) return Infinity;
 
-    const mapped = mapTargetsToPrintablePalette(palette, imageTargets);
+    const mapped = mapTargetsToPrintablePalette(palette, imageTargets, options);
 
     // 1. Weighted realized color error (CIEDE2000), with a p95 tail term so a
     //    few rare conspicuous colors cannot be sacrificed to lower the mean.
