@@ -29,7 +29,6 @@ import type { AutoPaintResult, TransitionZone } from '../lib/autoPaint';
 import type { AutoPaintProfile } from '../lib/profileManager';
 import type { AutoPaintRepeatLimit, AutoPaintTransitionOpacity, Filament, Swatch } from '../types';
 import type { CalibrationResult } from '../lib/calibration';
-import { getExactBaseOrderCount } from '../lib/optimizer';
 import FilamentRow from './FilamentRow';
 import { FilamentCalibrationWizard } from './FilamentCalibrationWizard';
 import { getConfidenceLabel, getConfidenceColor } from '../lib/calibration';
@@ -40,69 +39,30 @@ type OptimizerTierValue = 'fast' | 'balanced' | 'thorough' | 'deep' | 'exact';
 interface OptimizerTierMeta {
     value: OptimizerTierValue;
     label: string;
-    blurb: string;
-    /** Relative output quality, 1–5, for the inline meter. */
-    quality: number;
-    /** Relative speed, 1–5, for the inline meter (5 = fastest). */
-    speed: number;
 }
 
 const OPTIMIZER_TIERS: readonly OptimizerTierMeta[] = [
     {
         value: 'fast',
         label: 'Fast',
-        blurb: 'Narrow beam search for a quick preview.',
-        quality: 2,
-        speed: 5,
     },
     {
         value: 'balanced',
         label: 'Balanced',
-        blurb: 'Full deterministic beam search; the recommended default.',
-        quality: 3,
-        speed: 4,
     },
     {
         value: 'thorough',
         label: 'Thorough',
-        blurb: 'Full beam plus deeper multi-start refinement.',
-        quality: 4,
-        speed: 3,
     },
     {
         value: 'deep',
         label: 'Deep',
-        blurb: 'Wide beam plus a much broader deterministic search.',
-        quality: 5,
-        speed: 2,
     },
     {
         value: 'exact',
         label: 'Exact base order',
-        blurb: 'Enumerates every no-repeat base order.',
-        quality: 5,
-        speed: 1,
     },
 ];
-
-/** Small 5-segment bar used to convey relative speed / quality of a tier. */
-function TierMeter({ label, value }: { label: string; value: number }): React.ReactElement {
-    return (
-        <span className="flex items-center gap-1">
-            <span className="text-muted-foreground">{label}</span>
-            <span className="flex gap-0.5">
-                {Array.from({ length: 5 }, (_, i) => (
-                    <span
-                        key={i}
-                        className={`h-2 w-1 rounded-sm ${
-                            i < value ? 'bg-primary' : 'bg-muted-foreground/25'
-                        }`}
-                    />
-                ))}
-            </span>
-        </span>
-    );
-}
 
 interface AutoPaintSliceData {
     virtualSwatches: Swatch[];
@@ -258,17 +218,6 @@ export default function AutoPaintTab({
     const [localOptimizerSeed, setLocalOptimizerSeed] = React.useState(
         optimizerSeed?.toString() ?? ''
     );
-    const exactBaseOrderCount = getExactBaseOrderCount(filaments.length);
-    const activeTier =
-        OPTIMIZER_TIERS.find((tier) => tier.value === optimizerAlgorithm) ?? OPTIMIZER_TIERS[1];
-    const optimizerTierDescription =
-        optimizerAlgorithm === 'exact'
-            ? `Checks all ${exactBaseOrderCount.toLocaleString()} no-repeat base orders.${
-                  filaments.length > 8
-                      ? ' Large profiles can take a long time; start another search to cancel.'
-                      : ''
-              }`
-            : activeTier.blurb;
 
     // Calibration wizard state
     const [calibratingFilamentId, setCalibratingFilamentId] = React.useState<string | null>(null);
@@ -312,9 +261,6 @@ export default function AutoPaintTab({
             <Card className="p-4 border border-border/50">
                 <div className="space-y-1">
                     <h3 className="text-sm font-semibold text-foreground">Auto-paint</h3>
-                    <p className="text-xs text-muted-foreground">
-                        Define filament colors and transmission distances for automatic painting
-                    </p>
                 </div>
                 <div className="h-px bg-border/50 my-4" />
 
@@ -710,13 +656,6 @@ export default function AutoPaintTab({
                                         disabled={!enhancedColorMatch}
                                     />
                                 </div>
-                                {preserveSeparation && enhancedColorMatch && (
-                                    <p className="text-[10px] text-muted-foreground pl-0.5">
-                                        Maps every image color to a distinct printable color so
-                                        gradients keep their variation, at a small cost to per-color
-                                        accuracy.
-                                    </p>
-                                )}
                                 <div
                                     className={`flex items-center justify-between transition-opacity ${enhancedColorMatch ? 'opacity-100' : 'opacity-40 pointer-events-none'}`}
                                 >
@@ -811,15 +750,9 @@ export default function AutoPaintTab({
                             className={`space-y-3 pt-2 transition-opacity ${enhancedColorMatch ? 'opacity-100' : 'opacity-40 pointer-events-none'}`}
                         >
                             <div className="h-px bg-border/50" />
-                            <div className="space-y-1">
-                                <Label className="text-xs font-semibold text-foreground">
-                                    Optimizer Settings
-                                </Label>
-                                <p className="text-[10px] text-muted-foreground">
-                                    Advanced filament ordering optimization (requires enhanced color
-                                    matching)
-                                </p>
-                            </div>
+                            <Label className="text-xs font-semibold text-foreground">
+                                Optimizer Settings
+                            </Label>
                             <div className="space-y-2">
                                 <div className="flex items-center gap-2">
                                     <Label
@@ -851,24 +784,6 @@ export default function AutoPaintTab({
                                             ))}
                                         </SelectContent>
                                     </Select>
-                                </div>
-                                <div className="pl-[120px] space-y-1.5">
-                                    <div className="flex items-center gap-3 text-[10px]">
-                                        <TierMeter label="Quality" value={activeTier.quality} />
-                                        <TierMeter label="Speed" value={activeTier.speed} />
-                                    </div>
-                                    <p className="text-[10px] text-muted-foreground">
-                                        {optimizerTierDescription}
-                                        {optimizerAlgorithm === 'exact' && maxRepeatedSwaps > 0 && (
-                                            <span>
-                                                {' '}
-                                                The base order is exact; up to {
-                                                    maxRepeatedSwaps
-                                                }{' '}
-                                                repeated swaps are refined heuristically.
-                                            </span>
-                                        )}
-                                    </p>
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <Label
@@ -936,10 +851,6 @@ export default function AutoPaintTab({
                                         </SelectContent>
                                     </Select>
                                 </div>
-                                <p className="text-[10px] text-muted-foreground pl-[120px]">
-                                    Higher opacity retains a longer physical color ramp, improving
-                                    color resolution at the cost of height, swaps, and runtime.
-                                </p>
                                 <div className="flex items-center gap-2">
                                     <Label
                                         htmlFor="optimizer-seed"
