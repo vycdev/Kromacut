@@ -45,6 +45,7 @@ Auto-paint settings are preserved across sessions, including:
 - Filaments.
 - Paint mode.
 - Enhanced color matching.
+- Preserve color separation.
 - Repeated swaps.
 - Height dithering and line width.
 - Flat Paint.

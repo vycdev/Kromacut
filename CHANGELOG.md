@@ -6,7 +6,7 @@ All notable changes to Kromacut are documented in this file.
 
 ### Added
 
-- **Preserve color separation (Auto-paint)** - Enhanced color matching can keep each distinct 2D image color mapped to a distinct printable color when the stack exposes enough printable colors, preserving gradients that would otherwise collapse onto a flat surface.
+- **Preserve color separation (Auto-paint)** - Enhanced color matching can keep each distinct 2D image color mapped to a distinct printable color when the stack exposes enough printable colors, preserving gradients that would otherwise collapse onto a flat surface. It is mutually exclusive with Height dithering because both modes change the same printable height map.
 - **Auto-paint optimization progress** - Enhanced matching now reports approximate search progress while the background optimizer runs.
 - **Auto-paint test and benchmark coverage** - Added deterministic stack goldens, layer-invariant regression coverage, realized CIEDE2000 quality-budget tests, and an on-demand benchmark for fixture profiles using the same printable-stack mapper as the optimizer.
 - **Reddit community links** - Added r/kromacut links to the app header and README, and use branded Discord, Reddit, and GitHub icons in the header toolbar.

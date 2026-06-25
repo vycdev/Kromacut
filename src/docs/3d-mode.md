@@ -76,10 +76,13 @@ Enable **Enhanced color matching** when filament order matters and you want Krom
 Optional controls appear with enhanced matching:
 
 - **Extra repeated swaps** chooses whether a filament may reappear, and lets you allow 2, 4, 6, 8, or 12 extra occurrences. More repeats can create useful blend paths but expand the search space.
+- **Preserve color separation** keeps distinct 2D image colors assigned to distinct printable colors when the stack has enough printable colors.
 - **Transition detail** chooses the opacity endpoint for each physical color transition: Compact stops at 80% opacity, Detailed at 90%, and Maximum at 95%. Higher settings create taller stacks with more printable intermediate colors.
 - **Height dithering** uses printable height dots to smooth tonal transitions.
 - **Line width** should roughly match the printer line or nozzle width used for dither dots.
 - **Optimizer Settings** let you choose **Algorithm**, **Region priority**, and an optional **Seed**.
+
+Preserve color separation and **Height dithering** are mutually exclusive. Turning one on turns the other off because both modes change how source colors map onto printable layer heights.
 
 Enhanced matching scores the palette that is already visible in 2D mode; it does not reduce that palette again. For detailed work, prepare the image in 2D first (for example, K-means with a weight of 128 and an Auto palette of 64 or 128 colors), then switch to Auto-paint. This keeps the 2D palette decision explicit, but more source colors make every optimizer tier slower.
 

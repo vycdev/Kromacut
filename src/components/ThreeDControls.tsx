@@ -116,14 +116,17 @@ export default function ThreeDControls({
     const [paintMode, setPaintMode] = useState<'manual' | 'autopaint'>(initialPaintMode);
     const [autoPaintMaxHeight, setAutoPaintMaxHeight] = useState<number | undefined>(undefined);
     const [enhancedColorMatch, setEnhancedColorMatch] = useState(persisted?.enhancedColorMatch ?? false);
-    const [preserveSeparation, setPreserveSeparation] = useState(persisted?.preserveSeparation ?? false);
+    const initialPreserveSeparation = persisted?.preserveSeparation ?? false;
+    const [preserveSeparation, setPreserveSeparation] = useState(initialPreserveSeparation);
     const [maxRepeatedSwaps, setMaxRepeatedSwaps] = useState<AutoPaintRepeatLimit>(
         persisted?.maxRepeatedSwaps ?? (persisted?.allowRepeatedSwaps ? 4 : 0)
     );
     const [transitionOpacity, setTransitionOpacity] = useState<AutoPaintTransitionOpacity>(
         persisted?.transitionOpacity ?? 0.9
     );
-    const [heightDithering, setHeightDithering] = useState(persisted?.heightDithering ?? false);
+    const [heightDithering, setHeightDithering] = useState(
+        initialPreserveSeparation ? false : (persisted?.heightDithering ?? false)
+    );
     const [ditherLineWidth, setDitherLineWidth] = useState(persisted?.ditherLineWidth ?? 0.42);
     const [flatPaint, setFlatPaint] = useState(initialFlatPaint);
 
@@ -143,7 +146,22 @@ export default function ThreeDControls({
     const handleEnhancedColorMatchChange = useCallback((v: boolean) => {
         setEnhancedColorMatch(v);
         if (!v) {
+            setPreserveSeparation(false);
             setHeightDithering(false);
+        }
+    }, []);
+
+    const handlePreserveSeparationChange = useCallback((enabled: boolean) => {
+        setPreserveSeparation(enabled);
+        if (enabled) {
+            setHeightDithering(false);
+        }
+    }, []);
+
+    const handleHeightDitheringChange = useCallback((enabled: boolean) => {
+        setHeightDithering(enabled);
+        if (enabled) {
+            setPreserveSeparation(false);
         }
     }, []);
 
@@ -484,13 +502,13 @@ export default function ThreeDControls({
                     enhancedColorMatch={enhancedColorMatch}
                     setEnhancedColorMatch={handleEnhancedColorMatchChange}
                     preserveSeparation={preserveSeparation}
-                    setPreserveSeparation={setPreserveSeparation}
+                    setPreserveSeparation={handlePreserveSeparationChange}
                     maxRepeatedSwaps={maxRepeatedSwaps}
                     setMaxRepeatedSwaps={setMaxRepeatedSwaps}
                     transitionOpacity={transitionOpacity}
                     setTransitionOpacity={setTransitionOpacity}
                     heightDithering={heightDithering}
-                    setHeightDithering={setHeightDithering}
+                    setHeightDithering={handleHeightDitheringChange}
                     ditherLineWidth={ditherLineWidth}
                     setDitherLineWidth={setDitherLineWidth}
                     flatPaint={flatPaint}
