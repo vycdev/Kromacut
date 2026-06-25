@@ -1032,10 +1032,14 @@ export interface MappedTarget {
 }
 
 /**
- * Map each weighted image target onto the printable palette the way the preview
- * does: find the closest point on the palette's Lab polyline (Euclidean
- * projection), then snap to the printable layer at that height. Shared by the
- * optimizer objective and the benchmark so the two cannot drift.
+ * Map each weighted image target onto the printable palette exactly the way the
+ * 3D preview does, so the optimizer scores the colors the model actually shows.
+ *
+ * The preview collapses consecutive same-color layers into flat-zone nodes and
+ * projects each pixel onto that node/transition polyline. Scoring against the
+ * raw per-layer polyline instead let the optimizer land a target on a one-layer
+ * transition sliver — a color no pixel is ever assigned — and optimize that
+ * fiction. Mirroring the collapse keeps the objective and the build consistent.
  */
 export function mapTargetsToPrintablePalette(
     palette: Array<{ height: number; lab: Lab; rgb: RGB }>,
@@ -1043,59 +1047,118 @@ export function mapTargetsToPrintablePalette(
 ): MappedTarget[] {
     if (palette.length === 0) return [];
 
+    // Collapse consecutive near-identical layers into flat-zone nodes (ΔE<0.5),
+    // matching ThreeDView. Each node keeps its height range and an averaged Lab.
+    const COLLAPSE_DE_SQ = 0.25; // 0.5^2
+    const nodes: Array<{ lab: Lab; minHeight: number; maxHeight: number; paletteIndex: number }> =
+        [];
+    let runStart = 0;
+    for (let i = 1; i <= palette.length; i++) {
+        let split = i === palette.length;
+        if (!split) {
+            const ref = palette[runStart].lab;
+            const cur = palette[i].lab;
+            const deSq = (cur.L - ref.L) ** 2 + (cur.a - ref.a) ** 2 + (cur.b - ref.b) ** 2;
+            split = deSq >= COLLAPSE_DE_SQ;
+        }
+        if (split) {
+            let sL = 0;
+            let sa = 0;
+            let sb = 0;
+            for (let j = runStart; j < i; j++) {
+                sL += palette[j].lab.L;
+                sa += palette[j].lab.a;
+                sb += palette[j].lab.b;
+            }
+            const n = i - runStart;
+            nodes.push({
+                lab: { L: sL / n, a: sa / n, b: sb / n },
+                minHeight: palette[runStart].height,
+                maxHeight: palette[i - 1].height,
+                paletteIndex: runStart,
+            });
+            runStart = i;
+        }
+    }
+
+    // Transition segments connect the end of one flat zone to the start of the
+    // next, tracing the blend path through the printable layers between them.
+    const segments = nodes.slice(0, -1).map((A, ni) => {
+        const B = nodes[ni + 1];
+        return {
+            aL: A.lab.L,
+            aa: A.lab.a,
+            ab: A.lab.b,
+            dL: B.lab.L - A.lab.L,
+            da: B.lab.a - A.lab.a,
+            db: B.lab.b - A.lab.b,
+            hStart: A.maxHeight,
+            hEnd: B.minHeight,
+        };
+    });
+
     return imageTargets.map((target) => {
         let minDistance = Infinity;
-        let bestHeight = palette[0].height;
+        let nodeMatch = 0;
+        let onSegment = false;
+        let segmentHeight = nodes[0].minHeight;
 
-        // Nearest printable color seeds the projection threshold.
-        for (let ri = 0; ri < palette.length; ri++) {
-            const de = optimizerColorDistance(palette[ri].lab, target);
+        // Nearest flat-zone node by color.
+        for (let ni = 0; ni < nodes.length; ni++) {
+            const de = optimizerColorDistance(nodes[ni].lab, target);
             if (de < minDistance) {
                 minDistance = de;
-                bestHeight = palette[ri].height;
-                if (de < 0.5) break;
+                nodeMatch = ni;
+                onSegment = false;
             }
         }
 
-        // Refine against the closest point on each polyline segment.
-        for (let ri = 0; ri < palette.length - 1; ri++) {
-            const start = palette[ri];
-            const end = palette[ri + 1];
-            const dL = end.lab.L - start.lab.L;
-            const da = end.lab.a - start.lab.a;
-            const db = end.lab.b - start.lab.b;
-            const lengthSquared = dL * dL + da * da + db * db;
+        // Refine against the closest point on each transition segment.
+        for (const seg of segments) {
+            const lengthSquared = seg.dL * seg.dL + seg.da * seg.da + seg.db * seg.db;
             if (lengthSquared < 0.01) continue;
-
             const t = Math.max(
                 0,
                 Math.min(
                     1,
-                    ((target.L - start.lab.L) * dL +
-                        (target.a - start.lab.a) * da +
-                        (target.b - start.lab.b) * db) /
+                    ((target.L - seg.aL) * seg.dL +
+                        (target.a - seg.aa) * seg.da +
+                        (target.b - seg.ab) * seg.db) /
                         lengthSquared
                 )
             );
             const projectedDistance = optimizerColorDistance(target, {
-                L: start.lab.L + t * dL,
-                a: start.lab.a + t * da,
-                b: start.lab.b + t * db,
+                L: seg.aL + t * seg.dL,
+                a: seg.aa + t * seg.da,
+                b: seg.ab + t * seg.db,
             });
             if (projectedDistance < minDistance) {
                 minDistance = projectedDistance;
-                bestHeight = start.height + t * (end.height - start.height);
+                onSegment = true;
+                segmentHeight = seg.hStart + t * (seg.hEnd - seg.hStart);
             }
         }
 
-        const mappedIdx = palette.findIndex((entry) => entry.height >= bestHeight);
-        const paletteIndex = mappedIdx >= 0 ? mappedIdx : palette.length - 1;
+        if (!onSegment) {
+            // Flat-zone match: the printed surface is this filament's solid
+            // color across the whole zone (sub-position within it is relief).
+            const node = nodes[nodeMatch];
+            return {
+                target,
+                paletteIndex: node.paletteIndex,
+                mappedLab: node.lab,
+                projectedHeight: (node.minHeight + node.maxHeight) / 2,
+            };
+        }
 
+        // Transition match: the printed color is the layer at that height.
+        const mappedIdx = palette.findIndex((entry) => entry.height >= segmentHeight);
+        const paletteIndex = mappedIdx >= 0 ? mappedIdx : palette.length - 1;
         return {
             target,
             paletteIndex,
             mappedLab: palette[paletteIndex].lab,
-            projectedHeight: bestHeight,
+            projectedHeight: segmentHeight,
         };
     });
 }
