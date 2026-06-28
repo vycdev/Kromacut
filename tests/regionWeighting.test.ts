@@ -6,9 +6,9 @@ import { createServer } from 'vite';
 
 import {
     centerWeightAt,
+    createCenterWeight,
+    createEdgeWeight,
     edgeWeightAt,
-    generateCenterWeightedMapSimple,
-    generateEdgeWeightedMapSimple,
 } from '../src/lib/regionWeighting.ts';
 
 type AutoPaintModule = typeof import('../src/lib/autoPaint.ts');
@@ -38,21 +38,20 @@ async function loadViteModule<T>(modulePath: string): Promise<T> {
     }
 }
 
-test('scalar region weights match the existing center and edge maps', () => {
+test('precomputed weight factories match the scalar helpers exactly', () => {
     for (const [width, height] of [
         [1, 1],
         [4, 4],
         [5, 3],
         [16, 9],
     ]) {
-        const center = generateCenterWeightedMapSimple(width, height);
-        const edge = generateEdgeWeightedMapSimple(width, height);
+        const center = createCenterWeight(width, height);
+        const edge = createEdgeWeight(width, height);
 
         for (let y = 0; y < height; y++) {
             for (let x = 0; x < width; x++) {
-                const index = y * width + x;
-                assert.ok(Math.abs(center[index] - centerWeightAt(x, y, width, height)) < 1e-6);
-                assert.ok(Math.abs(edge[index] - edgeWeightAt(x, y, width, height)) < 1e-6);
+                assert.ok(Math.abs(center(x, y) - centerWeightAt(x, y, width, height)) < 1e-12);
+                assert.ok(Math.abs(edge(x, y) - edgeWeightAt(x, y, width, height)) < 1e-12);
             }
         }
     }

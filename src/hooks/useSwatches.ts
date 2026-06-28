@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { rgbToHsl } from '../lib/color';
-import { centerWeightAt, edgeWeightAt } from '../lib/regionWeighting';
+import { createCenterWeight, createEdgeWeight } from '../lib/regionWeighting';
 
 // Manages swatch computation with cancellation & immediate override
 export interface SwatchEntry {
@@ -61,6 +61,10 @@ export function useSwatches(imageSrc: string | null) {
                 const w = img.naturalWidth;
                 const h = img.naturalHeight;
                 setImageDimensions({ width: w, height: h, opaqueWidth: w, opaqueHeight: h });
+                // Precompute the size-dependent weighting terms once so the
+                // per-pixel scan below stays a couple of multiplies per call.
+                const centerWeightFor = createCenterWeight(w, h);
+                const edgeWeightFor = createEdgeWeight(w, h);
                 const TILE = 1024;
                 const map = new Map<
                     number,
@@ -107,8 +111,8 @@ export function useSwatches(imageSrc: string | null) {
                             const g = data[i + 1];
                             const b = data[i + 2];
                             const key = ((r << 24) | (g << 16) | (b << 8) | a) >>> 0;
-                            const centerWeight = centerWeightAt(px, py, w, h);
-                            const edgeWeight = edgeWeightAt(px, py, w, h);
+                            const centerWeight = centerWeightFor(px, py);
+                            const edgeWeight = edgeWeightFor(px, py);
                             const existing = map.get(key);
                             if (existing) {
                                 existing.count++;

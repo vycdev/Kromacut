@@ -519,7 +519,13 @@ export function calculateIdealHeight(
     //   0.05 = 10^(-thickness/TD)  →  thickness = TD × log10(20) ≈ TD × 1.3
     // Dark filaments have low TD (e.g. 0.5mm) → foundation ≈ 0.65mm
     const firstFilament = sortedFilaments[0];
-    const opacityThickness = firstFilament.td * 1.3; // 95% opaque
+    // Use the least-opaque (largest) calibrated channel TD when available so
+    // every channel reaches ~95% opacity; fall back to the scalar working TD.
+    const firstFilamentChannels = calibratedTdChannels(firstFilament);
+    const foundationTd = firstFilamentChannels
+        ? Math.max(...firstFilamentChannels)
+        : firstFilament.td;
+    const opacityThickness = foundationTd * 1.3; // 95% opaque
     // Ensure at least the base thickness (avoid unnecessary extra layers)
     const foundationThickness = Math.max(baseThickness, opacityThickness);
 
