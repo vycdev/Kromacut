@@ -19,14 +19,18 @@ import { blendSrgbChannel, srgbChannelToLinear } from './colorSpace';
 // ============================================================================
 
 /**
- * Single measurement point: layer count and measured transmission
+ * Single measurement point: layer count and measured RGB.
+ *
+ * Transmission is intentionally NOT stored. It is a derived quantity, and the
+ * TD fit recomputes it from `rgb` using the same linear-light blend model
+ * Auto-paint uses (see transmissionFromMeasuredBlend), so there is no second,
+ * divergent definition to keep in sync.
  */
 export type CalibrationRgb = [number, number, number];
 
 export interface CalibrationMeasurement {
     layers: number; // Number of layers printed
     rgb: CalibrationRgb; // Measured RGB value (0-255)
-    transmission: CalibrationRgb; // Normalized linear-light transmission (0-1)
 }
 
 /**
@@ -95,16 +99,6 @@ export function validateWhiteReference(whiteReference: CalibrationRgb): {
         };
     }
     return { valid: true };
-}
-
-export function normalizeCalibrationMeasurements(
-    measurements: CalibrationMeasurement[],
-    whiteReference: CalibrationRgb = DEFAULT_WHITE_REFERENCE
-): CalibrationMeasurement[] {
-    return measurements.map((measurement) => ({
-        ...measurement,
-        transmission: rgbToTransmission(measurement.rgb, whiteReference),
-    }));
 }
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
@@ -309,8 +303,7 @@ export function calculateTDFromMeasurements(
     }
 
     // Sort measurements by layer count
-    const normalizedMeasurements = normalizeCalibrationMeasurements(measurements, whiteReference);
-    const sorted = normalizedMeasurements.sort((a, b) => a.layers - b.layers);
+    const sorted = [...measurements].sort((a, b) => a.layers - b.layers);
 
     // Compute TD for each channel independently
     const tdChannels: [number, number, number] = [0, 0, 0];
@@ -406,22 +399,6 @@ function fitTDForChannel(
     const confidence = Math.max(0.5, 1.0 - coefficientOfVariation * 2.5);
 
     return { td: tdFitted, confidence };
-}
-
-/**
- * Convert measured RGB values to normalized linear-light transmission values.
- * Uses a measured white reference so camera and backlight tint are normalized out.
- */
-export function rgbToTransmission(
-    rgb: CalibrationRgb,
-    whiteReference: CalibrationRgb = DEFAULT_WHITE_REFERENCE
-): CalibrationRgb {
-    const reference = sanitizeWhiteReference(whiteReference);
-    return [
-        Math.max(0, Math.min(1, srgbChannelToLinear(rgb[0]) / srgbChannelToLinear(reference[0]))),
-        Math.max(0, Math.min(1, srgbChannelToLinear(rgb[1]) / srgbChannelToLinear(reference[1]))),
-        Math.max(0, Math.min(1, srgbChannelToLinear(rgb[2]) / srgbChannelToLinear(reference[2]))),
-    ];
 }
 
 /**
@@ -529,8 +506,7 @@ export function getConfidenceColor(confidence: number): string {
  * Validate a calibration measurement
  */
 export function validateMeasurement(
-    measurement: CalibrationMeasurement,
-    whiteReference: CalibrationRgb = DEFAULT_WHITE_REFERENCE
+    measurement: CalibrationMeasurement
 ): { valid: boolean; error?: string } {
     if (measurement.layers < 1 || measurement.layers > 50) {
         return { valid: false, error: 'Layer count must be between 1 and 50' };
@@ -539,11 +515,6 @@ export function validateMeasurement(
     const [r, g, b] = measurement.rgb;
     if (r < 0 || r > 255 || g < 0 || g > 255 || b < 0 || b > 255) {
         return { valid: false, error: 'RGB values must be between 0 and 255' };
-    }
-
-    const [tR, tG, tB] = rgbToTransmission(measurement.rgb, whiteReference);
-    if (tR < 0 || tR > 1 || tG < 0 || tG > 1 || tB < 0 || tB > 1) {
-        return { valid: false, error: 'Transmission values must be between 0 and 1' };
     }
 
     return { valid: true };
@@ -579,7 +550,7 @@ export function canCalculateTD(
 
     // Validate each measurement
     for (const measurement of measurements) {
-        const validation = validateMeasurement(measurement, whiteReference);
+        const validation = validateMeasurement(measurement);
         if (!validation.valid) {
             return { ready: false, reason: validation.error };
         }
@@ -665,12 +636,16 @@ export function importCalibration(json: string): CalibrationResult {
 
     const whiteReference = (parsed.whiteReference as CalibrationRgb | undefined) ?? undefined;
 
+    // Keep only the fields we model; this also drops the legacy `transmission`
+    // key that older exports stored alongside each measurement.
+    const measurements = (parsed.measurements as CalibrationMeasurement[]).map(({ layers, rgb }) => ({
+        layers,
+        rgb,
+    }));
+
     return {
         ...(parsed as CalibrationResult),
         whiteReference,
-        measurements: normalizeCalibrationMeasurements(
-            parsed.measurements as CalibrationMeasurement[],
-            whiteReference ?? DEFAULT_WHITE_REFERENCE
-        ),
+        measurements,
     };
 }

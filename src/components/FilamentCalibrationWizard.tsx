@@ -24,8 +24,6 @@ import { cn } from '@/lib/utils';
 import {
     calculateTDFromMeasurements,
     DEFAULT_WHITE_REFERENCE,
-    normalizeCalibrationMeasurements,
-    rgbToTransmission,
     getCalibrationInstructions,
     getRecommendedLayerCounts,
     canCalculateTD,
@@ -267,18 +265,16 @@ export function FilamentCalibrationWizard({
         const b = Math.max(0, Math.min(255, Number.parseInt(currentRGB.b, 10) || 0));
 
         const rgb: CalibrationRgb = [r, g, b];
-        const transmission = rgbToTransmission(rgb, whiteReference);
 
         const newMeasurement: CalibrationMeasurement = {
             layers,
             rgb,
-            transmission,
         };
 
         setMeasurements((prev) => [...prev, newMeasurement]);
         setCurrentLayers('');
         setCurrentRGB({ r: '', g: '', b: '' });
-    }, [currentLayers, currentRGB, whiteReference]);
+    }, [currentLayers, currentRGB]);
 
     const handleRemoveMeasurement = useCallback((index: number) => {
         setMeasurements((prev) => prev.filter((_, i) => i !== index));
@@ -292,10 +288,6 @@ export function FilamentCalibrationWizard({
         }
 
         try {
-            const normalizedMeasurements = normalizeCalibrationMeasurements(
-                measurements,
-                whiteReference
-            );
             const { td, tdSingleValue, confidence } = calculateTDFromMeasurements(
                 measurements,
                 calibrationLayerHeight,
@@ -305,7 +297,7 @@ export function FilamentCalibrationWizard({
 
             const calibrationResult: CalibrationResult = {
                 color: filamentColor,
-                measurements: normalizedMeasurements,
+                measurements,
                 whiteReference,
                 td,
                 tdSingleValue,
