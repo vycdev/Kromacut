@@ -192,8 +192,9 @@ test('cache keys include all weighted clusters and optimizer tuning', async () =
                       td: [1.2, 1.8, 2.4] as [number, number, number],
                       tdSingleValue: filament.td,
                       jnd: 2,
+                      baseColor: '#000000',
                       confidence: 1,
-                      basis: 'black-frontlit' as const,
+                      basis: 'frontlit' as const,
                       calibrationDate: '2026-01-01T00:00:00.000Z',
                   },
               }

@@ -1,4 +1,5 @@
 import type { Filament } from '../types';
+import { sanitizeFrontlitCalibration } from './calibration';
 
 export interface AutoPaintProfile {
     id: string;
@@ -14,16 +15,66 @@ export const CURRENT_PROFILE_VERSION = 1;
 const PROFILES_STORAGE_KEY = 'kromacut.autopaint.profiles';
 const LAST_PROFILE_KEY = 'kromacut.autopaint.lastProfileId';
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return !!value && typeof value === 'object';
+}
+
+export function sanitizeProfileFilament(value: unknown): Filament | null {
+    if (!isRecord(value)) return null;
+    if (
+        typeof value.id !== 'string' ||
+        typeof value.color !== 'string' ||
+        typeof value.td !== 'number' ||
+        !Number.isFinite(value.td)
+    ) {
+        return null;
+    }
+
+    const filament: Filament = {
+        id: value.id,
+        color: value.color,
+        td: value.td,
+    };
+    if (typeof value.name === 'string') filament.name = value.name;
+    if (typeof value.brand === 'string') filament.brand = value.brand;
+
+    const calibration = sanitizeFrontlitCalibration(value.calibration);
+    if (calibration) filament.calibration = calibration;
+    return filament;
+}
+
+function sanitizeProfile(value: unknown): AutoPaintProfile | null {
+    if (!isRecord(value)) return null;
+    if (
+        typeof value.id !== 'string' ||
+        typeof value.name !== 'string' ||
+        !Array.isArray(value.filaments)
+    ) {
+        return null;
+    }
+
+    const now = Date.now();
+    return {
+        id: value.id,
+        name: value.name,
+        version: typeof value.version === 'number' ? value.version : CURRENT_PROFILE_VERSION,
+        filaments: value.filaments
+            .map((filament) => sanitizeProfileFilament(filament))
+            .filter((filament): filament is Filament => filament !== null),
+        createdAt: typeof value.createdAt === 'number' ? value.createdAt : now,
+        updatedAt: typeof value.updatedAt === 'number' ? value.updatedAt : now,
+    };
+}
+
 export function loadProfiles(): AutoPaintProfile[] {
     try {
         const raw = localStorage.getItem(PROFILES_STORAGE_KEY);
         if (!raw) return [];
         const parsed = JSON.parse(raw) as AutoPaintProfile[];
         if (!Array.isArray(parsed)) return [];
-        return parsed.filter(
-            (p) =>
-                typeof p.id === 'string' && typeof p.name === 'string' && Array.isArray(p.filaments)
-        );
+        return parsed
+            .map((profile) => sanitizeProfile(profile))
+            .filter((profile): profile is AutoPaintProfile => profile !== null);
     } catch {
         return [];
     }
@@ -162,10 +213,9 @@ export function importProfiles(
         // Validate required fields
         if (!raw || typeof raw.name !== 'string' || !Array.isArray(raw.filaments)) continue;
 
-        const validFilaments = raw.filaments.filter(
-            (f) =>
-                typeof f.id === 'string' && typeof f.color === 'string' && typeof f.td === 'number'
-        );
+        const validFilaments = raw.filaments
+            .map((filament) => sanitizeProfileFilament(filament))
+            .filter((filament): filament is Filament => filament !== null);
 
         const now = Date.now();
         const profile: AutoPaintProfile = {

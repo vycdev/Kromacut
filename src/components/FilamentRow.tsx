@@ -1,23 +1,30 @@
 import React, { useEffect, useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Trash2, Wand2, BadgeCheck } from 'lucide-react';
+import { Trash2, Wand2, BadgeCheck, FlaskConical } from 'lucide-react';
 import { HexColorPicker } from 'react-colorful';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import type { Filament } from '../types';
 import { estimateTDFromColor } from '../lib/colorUtils';
-import { computeProfileConfidence, getConfidenceLabel, getConfidenceColor } from '../lib/calibration';
+import {
+    computeProfileConfidence,
+    getConfidenceLabel,
+    getConfidenceColor,
+    sanitizeFrontlitCalibration,
+} from '../lib/calibration';
 
 interface FilamentRowProps {
     filament: Filament;
     onUpdate: (id: string, updates: Partial<Omit<Filament, 'id'>>) => void;
     onRemove: (id: string) => void;
+    onCalibrate?: (id: string) => void;
 }
 
 const FilamentRow = React.memo(function FilamentRow({
     filament,
     onUpdate,
     onRemove,
+    onCalibrate,
 }: FilamentRowProps) {
     // Local state for the input value to allow free typing
     const [localTd, setLocalTd] = useState<string>(filament.td.toString());
@@ -29,9 +36,10 @@ const FilamentRow = React.memo(function FilamentRow({
     );
 
     // Calculate confidence for this filament
+    const sanitizedCalibration = sanitizeFrontlitCalibration(filament.calibration);
     const calibrationMatchesTd =
-        !!filament.calibration && Math.abs(filament.td - filament.calibration.tdSingleValue) < 0.05;
-    const activeCalibration = calibrationMatchesTd ? filament.calibration : undefined;
+        !!sanitizedCalibration && Math.abs(filament.td - sanitizedCalibration.tdSingleValue) < 0.05;
+    const activeCalibration = calibrationMatchesTd ? sanitizedCalibration : undefined;
 
     const confidence = computeProfileConfidence({
         calibration: activeCalibration,
@@ -174,6 +182,18 @@ const FilamentRow = React.memo(function FilamentRow({
             >
                 <Wand2 className="w-4 h-4" />
             </Button>
+
+            {onCalibrate && (
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => onCalibrate(filament.id)}
+                    className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/10 cursor-pointer"
+                    title="Calibrate filament"
+                >
+                    <FlaskConical className="w-4 h-4" />
+                </Button>
+            )}
 
             {/* Calibration Badge */}
             {isCalibrated && (

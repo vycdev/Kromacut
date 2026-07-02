@@ -81,12 +81,16 @@ interface TileGeometry {
 }
 
 /**
- * Thickness of the black base in mm. The slicer applies its own first-layer
- * height when printing, so this is just `baseLayers` worth of regular layers —
- * enough to be opaque black under the wedge, no thicker.
+ * Thickness of the base in mm. The first printed layer uses the slicer's first
+ * layer height, then the remaining base layers use the regular layer height.
+ * This keeps the base top and every wedge/rail top on the slicer's Z grid.
  */
-function baseHeight(options: CalibrationPrintOptions): number {
-    return options.baseLayers * options.layerHeight;
+export function calibrationBaseHeight(
+    options: Pick<CalibrationPrintOptions, 'baseLayers' | 'layerHeight' | 'firstLayerHeight'>
+): number {
+    if (!Number.isFinite(options.baseLayers) || options.baseLayers <= 0) return 0;
+    const firstLayer = Math.max(options.layerHeight, options.firstLayerHeight);
+    return firstLayer + Math.max(0, options.baseLayers - 1) * options.layerHeight;
 }
 
 /** Width of the opaque reference rail along the wedge edge (mm). */
@@ -105,7 +109,7 @@ const REFERENCE_MARGIN_LAYERS = 4;
 function buildTileGeometry(options: CalibrationPrintOptions, originX = 0): TileGeometry {
     const { layerHeight, maxLayers, patchSize, gap } = options;
     const railLayers = maxLayers + REFERENCE_MARGIN_LAYERS;
-    const baseH = baseHeight(options);
+    const baseH = calibrationBaseHeight(options);
     const pad = gap;
     const columnWidth = patchSize + gap;
     const wedgeSpan = maxLayers * columnWidth - gap; // first patch left to last patch right

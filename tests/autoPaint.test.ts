@@ -153,8 +153,9 @@ test('transition-thickness cache distinguishes calibrated channel TDs', async ()
                 td: [0.5, 1, 2] as [number, number, number],
                 tdSingleValue: 1,
                 jnd: 2,
+                baseColor: '#000000',
                 confidence: 1,
-                basis: 'black-frontlit' as const,
+                basis: 'frontlit' as const,
                 calibrationDate: '2026-01-01T00:00:00.000Z',
             },
         },
@@ -184,6 +185,40 @@ test('calibrated per-channel TDs tint blends without changing scalar TD behavior
         calibrated.r > calibrated.g && calibrated.g > calibrated.b,
         'shorter channel TDs must become opaque sooner'
     );
+});
+
+test('legacy photo calibrations are ignored and use the frontlit fallback scale', async () => {
+    const { generateAutoLayers } = await loadAutoPaintModule();
+    const filaments = [
+        { id: 'black', color: '#000000', td: 1 },
+        { id: 'white', color: '#ffffff', td: 16 },
+    ];
+    const legacyFilaments = [
+        filaments[0],
+        {
+            ...filaments[1],
+            calibration: {
+                measurements: [{ color: '#ffffff', rgb: [245, 245, 245], thickness: 0.4 }],
+                whiteReference: [255, 255, 255],
+                td: [8, 16, 32],
+                tdSingleValue: 16,
+                confidence: 1,
+                calibrationDate: '2025-01-01T00:00:00.000Z',
+            },
+        },
+    ] as unknown as Parameters<typeof generateAutoLayers>[0];
+    const swatches = [
+        { hex: '#000000', count: 1 },
+        { hex: '#ffffff', count: 1 },
+    ];
+
+    const baseline = generateAutoLayers(filaments, swatches, 0.1, 0.2, undefined, false);
+    const legacy = generateAutoLayers(legacyFilaments, swatches, 0.1, 0.2, undefined, false);
+
+    assert.deepEqual(legacy.layers, baseline.layers);
+    assert.deepEqual(legacy.transitionZones, baseline.transitionZones);
+    assert.equal(legacy.totalHeight, baseline.totalHeight);
+    assert.equal(legacy.confidenceFactors.calibrationQuality, baseline.confidenceFactors.calibrationQuality);
 });
 
 test('Beer-Lambert blends operate in linear light before returning sRGB', async () => {
@@ -221,8 +256,9 @@ test('calibrated channel TDs flow through generated auto-paint preview slices', 
                 td: [8, 16, 32] as [number, number, number],
                 tdSingleValue: 16,
                 jnd: 2,
+                baseColor: '#000000',
                 confidence: 1,
-                basis: 'black-frontlit' as const,
+                basis: 'frontlit' as const,
                 calibrationDate: '2026-01-01T00:00:00.000Z',
             },
         },

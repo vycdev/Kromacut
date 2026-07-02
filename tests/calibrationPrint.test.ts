@@ -53,6 +53,22 @@ test('generateCalibrationStl writes one box per base/wedge/reference patch', asy
     assert.equal(buffer.byteLength, 84 + triangleCount * 50);
 });
 
+test('calibration base and patch tops align to the first-layer-aware slicer grid', async () => {
+    const { calibrationBaseHeight } = await loadGenerator();
+    const baseH = calibrationBaseHeight(baseOptions);
+    const firstLayerTop = Math.max(baseOptions.layerHeight, baseOptions.firstLayerHeight);
+
+    assert.equal(baseH, 0.52);
+    for (let layers = 0; layers <= baseOptions.maxLayers; layers++) {
+        const top = baseH + layers * baseOptions.layerHeight;
+        const gridSteps = (top - firstLayerTop) / baseOptions.layerHeight;
+        assert.ok(
+            Math.abs(gridSteps - Math.round(gridSteps)) < 1e-9,
+            `top ${top} must land on the slicer grid`
+        );
+    }
+});
+
 test('generateCalibration3mf builds slots in profile order and colors the parts', async () => {
     const { generateCalibration3mf } = await loadGenerator();
     // Profile order matches the user's machine: white in slot 1, black in slot 2.

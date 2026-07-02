@@ -8,7 +8,7 @@
  * to a frontlit TD and saved to the filament profile.
  */
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     AlertDialog,
     AlertDialogContent,
@@ -41,6 +41,7 @@ import {
 import {
     generateCalibrationStl,
     generateCalibration3mf,
+    calibrationBaseHeight,
     DEFAULT_CALIBRATION_PRINT_OPTIONS,
     type CalibrationPrintOptions,
     type CalibrationTile,
@@ -94,6 +95,10 @@ function downloadBlob(blob: Blob, filename: string) {
     URL.revokeObjectURL(url);
 }
 
+function formatMm(value: number): string {
+    return `${value.toFixed(2)} mm`;
+}
+
 export function FilamentCalibrationDialog({
     open,
     onClose,
@@ -103,10 +108,16 @@ export function FilamentCalibrationDialog({
     firstLayerHeight,
     onApply,
 }: FilamentCalibrationDialogProps) {
+    const initialSelection = useCallback(() => {
+        const id =
+            initialFilamentId && filaments.some((filament) => filament.id === initialFilamentId)
+                ? initialFilamentId
+                : null;
+        return new Set(id ? [id] : []);
+    }, [filaments, initialFilamentId]);
+
     const [step, setStep] = useState<Step>('select');
-    const [selectedIds, setSelectedIds] = useState<Set<string>>(
-        () => new Set(initialFilamentId ? [initialFilamentId] : [])
-    );
+    const [selectedIds, setSelectedIds] = useState<Set<string>>(() => initialSelection());
     const [maxLayers, setMaxLayers] = useState(DEFAULT_CALIBRATION_PRINT_OPTIONS.maxLayers);
     const [calibrationLayerHeight, setCalibrationLayerHeight] = useState(layerHeight);
     // Free-typing drafts for the numeric inputs; clamped to the committed value on blur.
@@ -118,6 +129,7 @@ export function FilamentCalibrationDialog({
     const [reads, setReads] = useState<Record<string, string>>({});
     // filament id -> chosen base filament id (defaults to the darkest filament).
     const [baseChoices, setBaseChoices] = useState<Record<string, string>>({});
+    const wasOpenRef = useRef(open);
 
     const darkestFilamentId = useMemo(() => {
         if (filaments.length === 0) return undefined;
@@ -126,6 +138,11 @@ export function FilamentCalibrationDialog({
         ).id;
     }, [filaments]);
 
+    const filamentById = useMemo(
+        () => new Map(filaments.map((filament) => [filament.id, filament])),
+        [filaments]
+    );
+
     const resolveBaseId = useCallback(
         (filamentId: string): string => baseChoices[filamentId] ?? darkestFilamentId ?? filamentId,
         [baseChoices, darkestFilamentId]
@@ -133,10 +150,18 @@ export function FilamentCalibrationDialog({
 
     const resolveBaseColor = useCallback(
         (filamentId: string): string => {
-            const base = filaments.find((f) => f.id === resolveBaseId(filamentId));
+            const base = filamentById.get(resolveBaseId(filamentId));
             return base?.color ?? '#000000';
         },
-        [filaments, resolveBaseId]
+        [filamentById, resolveBaseId]
+    );
+
+    const resolveBaseLabel = useCallback(
+        (filamentId: string): string => {
+            const base = filamentById.get(resolveBaseId(filamentId));
+            return base ? filamentLabel(base) : 'Base';
+        },
+        [filamentById, resolveBaseId]
     );
 
     const setBaseChoice = useCallback((filamentId: string, baseId: string) => {
@@ -176,10 +201,12 @@ export function FilamentCalibrationDialog({
         }),
         [calibrationLayerHeight, firstLayerHeight, maxLayers]
     );
+    const firstLayerPrintHeight = Math.max(calibrationLayerHeight, firstLayerHeight);
+    const swapZ = calibrationBaseHeight(printOptions);
 
     const reset = useCallback(() => {
         setStep('select');
-        setSelectedIds(new Set(initialFilamentId ? [initialFilamentId] : []));
+        setSelectedIds(initialSelection());
         setMaxLayers(DEFAULT_CALIBRATION_PRINT_OPTIONS.maxLayers);
         setMaxLayersDraft(String(DEFAULT_CALIBRATION_PRINT_OPTIONS.maxLayers));
         setCalibrationLayerHeight(layerHeight);
@@ -187,7 +214,12 @@ export function FilamentCalibrationDialog({
         setFormat('stl');
         setReads({});
         setBaseChoices({});
-    }, [initialFilamentId, layerHeight]);
+    }, [initialSelection, layerHeight]);
+
+    useEffect(() => {
+        if (open && !wasOpenRef.current) reset();
+        wasOpenRef.current = open;
+    }, [open, reset]);
 
     const handleClose = useCallback(() => {
         onClose();
@@ -520,10 +552,39 @@ export function FilamentCalibrationDialog({
                         </div>
                         <p className="text-[11px] text-muted-foreground">
                             {format === 'stl'
-                                ? 'Single solid. Print it once per filament: base, then swap to the color above the base.'
+                                ? 'Single solid. Print one copy per selected filament using the matching base and swap line below.'
                                 : 'Colors + bases baked in for AMS / multi-material — all selected filaments in one print.'}
                         </p>
                     </div>
+
+                    {format === 'stl' && (
+                        <div className="space-y-2 rounded-md border border-border/60 bg-background/70 p-3 text-[12px]">
+                            <p className="text-muted-foreground">
+                                Slice at layer height {formatMm(calibrationLayerHeight)} and first
+                                layer {formatMm(firstLayerPrintHeight)}.
+                            </p>
+                            <div className="max-h-32 space-y-1 overflow-y-auto pr-1">
+                                {selectedFilaments.map((filament) => (
+                                    <div
+                                        key={filament.id}
+                                        className="flex items-start gap-2 text-foreground"
+                                    >
+                                        <span
+                                            className="mt-0.5 h-3 w-3 flex-none rounded-sm border border-border/70"
+                                            style={{ backgroundColor: filament.color }}
+                                        />
+                                        <span className="min-w-0">
+                                            <span className="font-medium">
+                                                {filamentLabel(filament)}
+                                            </span>
+                                            : base = {resolveBaseLabel(filament.id)}, swap after
+                                            layer {printOptions.baseLayers} / Z {formatMm(swapZ)}.
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
 
                     <Button onClick={handleDownload} className="w-full gap-2">
                         <Download className="h-4 w-4" />

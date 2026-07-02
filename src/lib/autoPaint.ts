@@ -15,7 +15,11 @@ import {
     type OptimizerResult,
     type ScoringContext,
 } from './optimizer';
-import { computeProfileConfidence, type CalibrationRgb } from './calibration';
+import {
+    computeProfileConfidence,
+    sanitizeFrontlitCalibration,
+    type CalibrationRgb,
+} from './calibration';
 import { blendSrgbChannel } from './colorSpace';
 
 export { LAYER_ACTIVATION_EPSILON } from './layerActivation';
@@ -401,7 +405,7 @@ type AutoPaintFilament = Pick<Filament, 'id' | 'color' | 'td' | 'calibration'>;
 
 function calibratedTdChannels(filament: AutoPaintFilament): CalibrationRgb | undefined {
     if (!USE_CALIBRATED_CHANNEL_TD) return undefined;
-    const channels = filament.calibration?.td;
+    const channels = sanitizeFrontlitCalibration(filament.calibration)?.td;
     if (!channels || channels.some((td) => !Number.isFinite(td) || td <= 0)) {
         return undefined;
     }
@@ -412,10 +416,10 @@ function scaleFilamentForFrontlight(filament: Filament): Filament {
     // Calibrated filaments already carry measured frontlit TDs (scalar + per
     // channel), so they pass through unchanged. Only uncalibrated filaments get
     // the generic frontlit approximation.
-    if (filament.calibration) {
+    if (sanitizeFrontlitCalibration(filament.calibration)) {
         return filament;
     }
-    return { ...filament, td: filament.td * FRONTLIT_TD_SCALE };
+    return { ...filament, td: filament.td * FRONTLIT_TD_SCALE, calibration: undefined };
 }
 
 /**

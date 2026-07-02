@@ -469,6 +469,7 @@ export default function AutoPaintTab({
                                     filament={f}
                                     onUpdate={updateFilament}
                                     onRemove={removeFilament}
+                                    onCalibrate={handleOpenCalibration}
                                 />
                             ))}
                         </div>

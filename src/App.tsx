@@ -43,6 +43,7 @@ import { defaultDocSlug } from './docs';
 import { loadCameraMode, saveCameraMode } from './lib/cameraPrefs';
 import { buildDocsPath, parseDocsLocation } from './lib/docs/navigation';
 import { applyHomeSeo } from './lib/seo';
+import { sanitizeProfileFilament } from './lib/profileManager';
 import {
     AlertDialog,
     AlertDialogContent,
@@ -112,6 +113,13 @@ const loadAutoPaintPersisted = (): AutoPaintPersisted | null => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const parsed = JSON.parse(raw) as any;
         if (!parsed || !Array.isArray(parsed.filaments)) return null;
+        const filaments = parsed.filaments
+            .map((filament: unknown) => sanitizeProfileFilament(filament))
+            .filter(
+                (filament: ReturnType<typeof sanitizeProfileFilament>): filament is NonNullable<
+                    ReturnType<typeof sanitizeProfileFilament>
+                > => filament !== null
+            );
         // Migrate legacy `autoPaintEnabled` boolean → `paintMode`
         const paintMode: 'manual' | 'autopaint' =
             parsed.paintMode === 'autopaint' || parsed.paintMode === 'manual'
@@ -120,7 +128,7 @@ const loadAutoPaintPersisted = (): AutoPaintPersisted | null => {
                   ? 'autopaint'
                   : 'manual';
         return {
-            filaments: parsed.filaments,
+            filaments,
             paintMode,
             optimizerAlgorithm: normalizeOptimizerTier(parsed.optimizerAlgorithm),
             optimizerSeed: parsed.optimizerSeed,

@@ -37,11 +37,11 @@ export interface FrontlitCalibration {
     /** JND used for the opacity solve. */
     jnd: number;
     /** Base color the wedge was calibrated over (hex). */
-    baseColor?: string;
+    baseColor: string;
     /** 0-1 quality score. */
     confidence: number;
-    /** Calibration basis, fixed for now. */
-    basis: 'black-frontlit';
+    /** Calibration method. `baseColor` records the actual base used. */
+    basis: 'frontlit';
     /** ISO timestamp. */
     calibrationDate: string;
     notes?: string;
@@ -94,6 +94,67 @@ function hexToRgb(hex: string): CalibrationRgb | null {
     return result
         ? [parseInt(result[1], 16), parseInt(result[2], 16), parseInt(result[3], 16)]
         : null;
+}
+
+const isFinitePositive = (value: unknown): value is number =>
+    typeof value === 'number' && Number.isFinite(value) && value > 0;
+
+function sanitizeCalibrationRgb(value: unknown): CalibrationRgb | undefined {
+    if (!Array.isArray(value) || value.length !== 3) return undefined;
+    const [r, g, b] = value;
+    if (!isFinitePositive(r) || !isFinitePositive(g) || !isFinitePositive(b)) return undefined;
+    return [r, g, b];
+}
+
+/**
+ * Accept only the camera-free frontlit calibration shape. Older backlit photo
+ * calibrations are intentionally stripped on load rather than migrated.
+ */
+export function sanitizeFrontlitCalibration(value: unknown): FrontlitCalibration | undefined {
+    if (!value || typeof value !== 'object') return undefined;
+    const candidate = value as Record<string, unknown>;
+    if (candidate.basis !== 'frontlit') return undefined;
+    if (
+        typeof candidate.opacityLayers !== 'number' ||
+        !Number.isFinite(candidate.opacityLayers) ||
+        candidate.opacityLayers < 1
+    ) {
+        return undefined;
+    }
+    if (!isFinitePositive(candidate.layerHeight)) return undefined;
+    if (!isFinitePositive(candidate.firstLayerHeight)) return undefined;
+    if (!isFinitePositive(candidate.tdSingleValue)) return undefined;
+    if (!isFinitePositive(candidate.jnd)) return undefined;
+    if (typeof candidate.baseColor !== 'string' || !hexToRgb(candidate.baseColor)) {
+        return undefined;
+    }
+    if (typeof candidate.confidence !== 'number' || !Number.isFinite(candidate.confidence)) {
+        return undefined;
+    }
+    if (
+        typeof candidate.calibrationDate !== 'string' ||
+        !Number.isFinite(new Date(candidate.calibrationDate).getTime())
+    ) {
+        return undefined;
+    }
+
+    const td = sanitizeCalibrationRgb(candidate.td);
+    if (!td) return undefined;
+
+    const sanitized: FrontlitCalibration = {
+        opacityLayers: candidate.opacityLayers,
+        layerHeight: candidate.layerHeight,
+        firstLayerHeight: candidate.firstLayerHeight,
+        td,
+        tdSingleValue: candidate.tdSingleValue,
+        jnd: candidate.jnd,
+        baseColor: candidate.baseColor,
+        confidence: clamp(candidate.confidence, 0, 1),
+        basis: 'frontlit',
+        calibrationDate: candidate.calibrationDate,
+    };
+    if (typeof candidate.notes === 'string') sanitized.notes = candidate.notes;
+    return sanitized;
 }
 
 // ============================================================================
@@ -221,7 +282,7 @@ export function computeFrontlitCalibration(
             jnd,
             baseColor,
             confidence,
-            basis: 'black-frontlit',
+            basis: 'frontlit',
             calibrationDate: new Date().toISOString(),
             notes: input.notes,
         },
@@ -259,17 +320,17 @@ export function predictFrontlitColor(
  * decay, or a TD-plausibility heuristic when uncalibrated.
  */
 export function computeProfileConfidence(profile: {
-    calibration?: FrontlitCalibration;
+    calibration?: unknown;
     transmissionDistance: number;
 }): number {
-    if (!profile.calibration) {
+    const cal = sanitizeFrontlitCalibration(profile.calibration);
+    if (!cal) {
         const td = profile.transmissionDistance;
         if (td >= 1.0 && td <= 5.0) return 0.5;
         if (td >= 0.5 && td <= 10.0) return 0.3;
         return 0.1;
     }
 
-    const cal = profile.calibration;
     let confidence = cal.confidence;
 
     const ageMs = Date.now() - new Date(cal.calibrationDate).getTime();

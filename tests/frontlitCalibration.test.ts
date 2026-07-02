@@ -192,8 +192,45 @@ test('a lighter base lets a near-black filament calibrate (round-trip over white
     assert.ok(result.ok, 'dark filament calibrates over a white base');
     if (!result.ok) return;
     assert.equal(result.calibration.baseColor, '#ffffff');
+    assert.equal(result.calibration.basis, 'frontlit');
     const relErr = Math.abs(result.calibration.tdSingleValue - tdTrue) / tdTrue;
     assert.ok(relErr < 0.2, `recovered ${result.calibration.tdSingleValue} vs ${tdTrue}`);
+});
+
+test('sanitizeFrontlitCalibration accepts only the new frontlit calibration shape', async () => {
+    const { computeFrontlitCalibration, sanitizeFrontlitCalibration } = await loadCalibration();
+    const result = computeFrontlitCalibration({
+        filamentColor: '#ffffff',
+        opacityLayers: 6,
+        layerHeight: 0.08,
+        firstLayerHeight: 0.2,
+    });
+    assert.ok(result.ok);
+    if (!result.ok) return;
+
+    const sanitized = sanitizeFrontlitCalibration(result.calibration);
+    assert.ok(sanitized);
+    assert.equal(sanitized.basis, 'frontlit');
+    assert.deepEqual(sanitized.td, result.calibration.td);
+    assert.equal(sanitized.tdSingleValue, result.calibration.tdSingleValue);
+    assert.equal(
+        sanitizeFrontlitCalibration({
+            measurements: [],
+            whiteReference: [255, 255, 255],
+            td: [2, 3, 4],
+            tdSingleValue: 3,
+            confidence: 0.9,
+            calibrationDate: '2025-01-01T00:00:00.000Z',
+        }),
+        undefined
+    );
+    assert.equal(
+        sanitizeFrontlitCalibration({
+            ...result.calibration,
+            basis: 'black-frontlit',
+        }),
+        undefined
+    );
 });
 
 test('computeFrontlitCalibration rejects invalid reads and uncalibratable colors', async () => {
