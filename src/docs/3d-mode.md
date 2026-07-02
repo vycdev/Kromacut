@@ -46,12 +46,12 @@ Use the wand button to auto-estimate TD from color, or calibrate to measure TD f
 
 ## Calibrating Filament TD
 
-Calibration is camera-free: you print a small wedge and read back a single number. Click the calibration button on a filament row, or **Calibrate Filaments** below the filament list, to open the dialog. It has four steps:
+Calibration is camera-free: you print a small wedge and read back one or more opacity numbers. Click the calibration button on a filament row, or **Calibrate Filaments** below the filament list, to open the dialog. It has four steps:
 
 1. **Select** the filaments you want to calibrate.
-2. **Base layers** — choose the base filament each one prints over. It defaults to your darkest filament (matching how frontlit prints are viewed), and the base comes from your real profile filaments, so no extra "phantom" filament is added to the print. A dark filament has too little contrast with a dark base, so switch its base to a lighter one (e.g. white) here.
-3. **Print** the calibration wedge. Set your layer height and the wedge length (max layers), then download an **STL** (any printer) or a multi-material **3MF** (colors and bases baked in, for AMS/multi-material). For STL, use the shown layer height and first-layer height, print one copy per selected filament, load the listed base filament, then swap after the shown layer/Z height to the filament being calibrated. Each filament prints as a row of patches from 1 layer up, with an opaque reference rail running along the edge beside the patches. A foot marks the 1-layer end.
-4. **Enter Results** by reporting, for each filament, the **first patch that looks identical to the reference rail** beside it — that is its opacity layer. Kromacut converts that number into a frontlit TD (with per-channel values), shows a predicted-vs-reference swatch, the TD, and a confidence rating. Click **Save Calibration** to apply it.
+2. **Base layers** - choose **Quick** for one base read, or **Accurate** for two or three base reads per filament. Kromacut auto-picks useful bases from your real profile filaments, and you can override them with the base swatches.
+3. **Print** the calibration wedge. Set your layer height and the wedge length (max layers), then download an **STL** (any printer) or a multi-material **3MF** (colors and bases baked in, for AMS/multi-material). For STL, use the shown layer height and first-layer height, print one copy for each filament/base read, load the listed base filament, then swap after the shown layer/Z height to the filament being calibrated. Each print has patches from 1 layer up, with an opaque reference rail running along the edge beside the patches. A foot marks the 1-layer end.
+4. **Enter Results** by reporting, for each filament/base row, the **first patch that looks identical to the reference rail** beside it. Kromacut uses one read for quick scalar calibration, or combines multi-base reads to measure per-channel TDs and, when the session has enough data, fit the shared JND. The optional merge field records where adjacent steps stop looking different; it is stored as model-checking evidence and does not block saving.
 
 Because the reference rail is the filament's own fully-opaque color, you are only judging whether a patch matches the rail right next to it — a comparison that stays reliable across lighting and screens. The measured TD is a material property, so it transfers to your real prints regardless of which base you calibrated against.
 
@@ -107,10 +107,10 @@ Flat Paint and **Smooth Meshing** are mutually exclusive. Turning one on turns t
 
 ## Optimizer Settings
 
-| Setting         | Meaning                                                      |
-| --------------- | ------------------------------------------------------------ |
-| Algorithm       | Fast, Balanced, Thorough, Deep, or Exact base order.        |
-| Region priority | Uniform, Center-weighted, or Edge-weighted matching.         |
+| Setting         | Meaning                                                            |
+| --------------- | ------------------------------------------------------------------ |
+| Algorithm       | Fast, Balanced, Thorough, Deep, or Exact base order.               |
+| Region priority | Uniform, Center-weighted, or Edge-weighted matching.               |
 | Seed (optional) | Overrides the automatic stable seed for an intentional comparison. |
 
 Start with **Balanced**. It uses a full deterministic beam search and is the best

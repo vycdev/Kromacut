@@ -23,6 +23,13 @@ import { deltaE2000 } from './colorDifference';
 
 export type CalibrationRgb = [number, number, number];
 
+export interface FrontlitCalibrationRead {
+    baseColor: string;
+    opacityLayers: number;
+    /** Optional adjacent-step merge point, stored as model-form evidence. */
+    mergeLayers?: number;
+}
+
 export interface FrontlitCalibration {
     /** Layer count at which the wedge first matched the opaque reference. */
     opacityLayers: number;
@@ -44,6 +51,12 @@ export interface FrontlitCalibration {
     basis: 'frontlit';
     /** ISO timestamp. */
     calibrationDate: string;
+    /** All opacity reads used by a multi-base fit. Absent means Phase-1 single read. */
+    reads?: FrontlitCalibrationRead[];
+    /** Whether RGB TD ratios came from the color heuristic or a multi-base fit. */
+    channelSource?: 'heuristic' | 'measured';
+    /** Whether the JND was the default constant or fitted across the session. */
+    jndSource?: 'default' | 'session-fit';
     notes?: string;
 }
 
@@ -53,15 +66,31 @@ export type FrontlitCalibrationResult =
 
 export interface FrontlitCalibrationInput {
     filamentColor: string;
-    opacityLayers: number;
+    opacityLayers?: number;
     layerHeight: number;
     firstLayerHeight: number;
     /** Base color the wedge prints over (hex). Defaults to black. */
     baseColor?: string;
+    /** Multi-base reads for the same filament. The first read is the compatibility anchor. */
+    reads?: FrontlitCalibrationRead[];
     /** Highest layer count printed on the wedge; used to flag clipped reads. */
     maxLayers?: number;
     jnd?: number;
+    jndSource?: 'default' | 'session-fit';
     notes?: string;
+}
+
+export interface FrontlitCalibrationSessionInput {
+    filaments: FrontlitCalibrationInput[];
+    /** Highest layer count printed on the wedge; used for JND fit bounds and confidence. */
+    maxLayers?: number;
+}
+
+export interface FrontlitCalibrationSessionResult {
+    jnd: number;
+    jndSource: 'default' | 'session-fit';
+    results: FrontlitCalibrationResult[];
+    residual: number;
 }
 
 // ============================================================================
@@ -83,6 +112,9 @@ export const OPACITY_JND = 2.0;
 
 const FRONTLIT_TD_MIN = 0.05;
 const FRONTLIT_TD_MAX = 12.0;
+const JND_FIT_MIN = 1.0;
+const JND_FIT_MAX = 3.0;
+const DEFAULT_PREDICT_MAX_LAYERS = 240;
 
 const CONFIDENCE_THRESHOLD_EXCELLENT = 0.9;
 const CONFIDENCE_THRESHOLD_GOOD = 0.7;
@@ -99,11 +131,42 @@ function hexToRgb(hex: string): CalibrationRgb | null {
 const isFinitePositive = (value: unknown): value is number =>
     typeof value === 'number' && Number.isFinite(value) && value > 0;
 
+type ReadResidualMode = 'interval' | 'center';
+
 function sanitizeCalibrationRgb(value: unknown): CalibrationRgb | undefined {
     if (!Array.isArray(value) || value.length !== 3) return undefined;
     const [r, g, b] = value;
     if (!isFinitePositive(r) || !isFinitePositive(g) || !isFinitePositive(b)) return undefined;
     return [r, g, b];
+}
+
+function sanitizeCalibrationRead(value: unknown): FrontlitCalibrationRead | undefined {
+    if (!value || typeof value !== 'object') return undefined;
+    const candidate = value as Record<string, unknown>;
+    if (
+        typeof candidate.baseColor !== 'string' ||
+        !hexToRgb(candidate.baseColor) ||
+        typeof candidate.opacityLayers !== 'number' ||
+        !Number.isFinite(candidate.opacityLayers) ||
+        candidate.opacityLayers < 1
+    ) {
+        return undefined;
+    }
+    const read: FrontlitCalibrationRead = {
+        baseColor: candidate.baseColor,
+        opacityLayers: candidate.opacityLayers,
+    };
+    if (candidate.mergeLayers !== undefined) {
+        if (
+            typeof candidate.mergeLayers !== 'number' ||
+            !Number.isFinite(candidate.mergeLayers) ||
+            candidate.mergeLayers < 1
+        ) {
+            return undefined;
+        }
+        read.mergeLayers = candidate.mergeLayers;
+    }
+    return read;
 }
 
 /**
@@ -153,6 +216,23 @@ export function sanitizeFrontlitCalibration(value: unknown): FrontlitCalibration
         basis: 'frontlit',
         calibrationDate: candidate.calibrationDate,
     };
+    if (candidate.reads !== undefined) {
+        if (!Array.isArray(candidate.reads)) return undefined;
+        const reads = candidate.reads.map(sanitizeCalibrationRead);
+        if (reads.some((read) => !read)) return undefined;
+        sanitized.reads = reads as FrontlitCalibrationRead[];
+        if (sanitized.reads.length === 0) return undefined;
+    }
+    if (candidate.channelSource === 'heuristic' || candidate.channelSource === 'measured') {
+        sanitized.channelSource = candidate.channelSource;
+    } else if (candidate.channelSource !== undefined) {
+        return undefined;
+    }
+    if (candidate.jndSource === 'default' || candidate.jndSource === 'session-fit') {
+        sanitized.jndSource = candidate.jndSource;
+    } else if (candidate.jndSource !== undefined) {
+        return undefined;
+    }
     if (typeof candidate.notes === 'string') sanitized.notes = candidate.notes;
     return sanitized;
 }
@@ -171,6 +251,219 @@ function blendOverBase(
         blendSrgbChannel(base[1], filamentRgb[1], transmission),
         blendSrgbChannel(base[2], filamentRgb[2], transmission),
     ];
+}
+
+function blendOverBaseWithTds(
+    filamentRgb: CalibrationRgb,
+    td: CalibrationRgb,
+    thickness: number,
+    base: CalibrationRgb
+): CalibrationRgb {
+    return [0, 1, 2].map((channel) => {
+        const transmission = Math.pow(10, -thickness / td[channel]);
+        return blendSrgbChannel(base[channel], filamentRgb[channel], transmission);
+    }) as CalibrationRgb;
+}
+
+function opacityLayerThreshold(
+    filamentRgb: CalibrationRgb,
+    td: CalibrationRgb,
+    layerHeight: number,
+    jnd: number,
+    base: CalibrationRgb,
+    maxLayers = DEFAULT_PREDICT_MAX_LAYERS
+): number | undefined {
+    const deltaAt = (thickness: number) =>
+        deltaE2000(blendOverBaseWithTds(filamentRgb, td, thickness, base), filamentRgb);
+
+    if (deltaAt(0) < jnd) return undefined;
+
+    let hi = Math.max(layerHeight, maxLayers * layerHeight);
+    let guard = 0;
+    while (deltaAt(hi) > jnd && guard < 8) {
+        hi *= 1.8;
+        guard++;
+    }
+    if (deltaAt(hi) > jnd) return maxLayers + 1;
+
+    let lo = 0;
+    for (let i = 0; i < 36; i++) {
+        const mid = (lo + hi) / 2;
+        if (deltaAt(mid) > jnd) lo = mid;
+        else hi = mid;
+    }
+    return hi / layerHeight;
+}
+
+function quantizedReadResidual(predictedThreshold: number, observedLayers: number): number {
+    const lowerExclusive = Math.max(0, observedLayers - 1);
+    if (predictedThreshold > lowerExclusive && predictedThreshold <= observedLayers) return 0;
+    if (predictedThreshold <= lowerExclusive) return lowerExclusive - predictedThreshold;
+    return predictedThreshold - observedLayers;
+}
+
+function predictedReadResidual(
+    filamentRgb: CalibrationRgb,
+    td: CalibrationRgb,
+    read: FrontlitCalibrationRead,
+    layerHeight: number,
+    jnd: number,
+    maxLayers?: number,
+    mode: ReadResidualMode = 'interval'
+): number {
+    const base = hexToRgb(read.baseColor);
+    if (!base) return 50;
+    const predicted = opacityLayerThreshold(
+        filamentRgb,
+        td,
+        layerHeight,
+        jnd,
+        base,
+        Math.max(maxLayers ?? 0, read.opacityLayers + 24, DEFAULT_PREDICT_MAX_LAYERS)
+    );
+    if (predicted === undefined) return 50;
+    if (mode === 'center') return predicted - (read.opacityLayers - 0.5);
+    return quantizedReadResidual(predicted, read.opacityLayers);
+}
+
+function scalarTdFromRead(
+    filamentColor: string,
+    read: FrontlitCalibrationRead,
+    layerHeight: number,
+    jnd: number
+): number | undefined {
+    const tStar = solveOpacityTransmission(filamentColor, jnd, read.baseColor);
+    if (tStar === undefined || tStar <= 0 || tStar >= 1) return undefined;
+    return clamp(
+        -(read.opacityLayers * layerHeight) / Math.log10(tStar),
+        FRONTLIT_TD_MIN,
+        FRONTLIT_TD_MAX
+    );
+}
+
+interface ChannelFit {
+    td: CalibrationRgb;
+    residual: number;
+    dataResidual: number;
+    rmsLayers: number;
+    prior: CalibrationRgb;
+    tdSingleValue: number;
+}
+
+function fitChannelTdsForReads(
+    filamentColor: string,
+    reads: FrontlitCalibrationRead[],
+    layerHeight: number,
+    jnd: number,
+    maxLayers?: number,
+    residualMode: ReadResidualMode = 'interval'
+): ChannelFit | undefined {
+    const filamentRgb = hexToRgb(filamentColor);
+    if (!filamentRgb || reads.length === 0) return undefined;
+
+    const anchorScalar = scalarTdFromRead(filamentColor, reads[0], layerHeight, jnd);
+    if (!anchorScalar) return undefined;
+    const prior = deriveChannelTds(filamentColor, anchorScalar);
+    if (reads.length === 1) {
+        const dataResidual =
+            predictedReadResidual(
+                filamentRgb,
+                prior,
+                reads[0],
+                layerHeight,
+                jnd,
+                maxLayers,
+                residualMode
+            ) ** 2;
+        return {
+            td: prior,
+            residual: dataResidual,
+            dataResidual,
+            rmsLayers: Math.sqrt(dataResidual),
+            prior,
+            tdSingleValue: anchorScalar,
+        };
+    }
+
+    const regularizationWeight = reads.length <= 2 ? 0.08 : 0.035;
+    const score = (td: CalibrationRgb) => {
+        let dataResidual = 0;
+        for (const read of reads) {
+            const r = predictedReadResidual(
+                filamentRgb,
+                td,
+                read,
+                layerHeight,
+                jnd,
+                maxLayers,
+                residualMode
+            );
+            dataResidual += r * r;
+        }
+        const reg =
+            regularizationWeight *
+            td.reduce((sum, value, index) => {
+                const ratio = Math.log2(value / prior[index]);
+                return sum + ratio * ratio;
+            }, 0);
+        return { total: dataResidual + reg, dataResidual };
+    };
+
+    let bestTd = prior;
+    let best = score(bestTd);
+    const coarseOffsets = [-1.2, -0.6, 0, 0.6, 1.2];
+    for (const r of coarseOffsets) {
+        for (const g of coarseOffsets) {
+            for (const b of coarseOffsets) {
+                const candidate: CalibrationRgb = [
+                    clamp(prior[0] * Math.exp(r), FRONTLIT_TD_MIN, FRONTLIT_TD_MAX),
+                    clamp(prior[1] * Math.exp(g), FRONTLIT_TD_MIN, FRONTLIT_TD_MAX),
+                    clamp(prior[2] * Math.exp(b), FRONTLIT_TD_MIN, FRONTLIT_TD_MAX),
+                ];
+                const candidateScore = score(candidate);
+                if (candidateScore.total < best.total) {
+                    bestTd = candidate;
+                    best = candidateScore;
+                }
+            }
+        }
+    }
+
+    for (let step = 0.45; step >= 0.035; step *= 0.55) {
+        let improved = true;
+        let passes = 0;
+        while (improved && passes < 6) {
+            improved = false;
+            passes++;
+            for (const r of [-step, 0, step]) {
+                for (const g of [-step, 0, step]) {
+                    for (const b of [-step, 0, step]) {
+                        if (r === 0 && g === 0 && b === 0) continue;
+                        const candidate: CalibrationRgb = [
+                            clamp(bestTd[0] * Math.exp(r), FRONTLIT_TD_MIN, FRONTLIT_TD_MAX),
+                            clamp(bestTd[1] * Math.exp(g), FRONTLIT_TD_MIN, FRONTLIT_TD_MAX),
+                            clamp(bestTd[2] * Math.exp(b), FRONTLIT_TD_MIN, FRONTLIT_TD_MAX),
+                        ];
+                        const candidateScore = score(candidate);
+                        if (candidateScore.total + 1e-9 < best.total) {
+                            bestTd = candidate;
+                            best = candidateScore;
+                            improved = true;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    return {
+        td: bestTd,
+        residual: best.total,
+        dataResidual: best.dataResidual,
+        rmsLayers: Math.sqrt(best.dataResidual / reads.length),
+        prior,
+        tdSingleValue: Math.max(...bestTd),
+    };
 }
 
 /**
@@ -208,6 +501,28 @@ export function solveOpacityTransmission(
 }
 
 /**
+ * Predict the first wedge patch that should match the reference rail for a set
+ * of per-channel TDs. Returns maxLayers + 1 when it would not converge within
+ * the printed wedge.
+ */
+export function predictOpacityLayersForTds(
+    filamentColor: string,
+    td: CalibrationRgb,
+    layerHeight: number,
+    jnd = OPACITY_JND,
+    baseColor: string = FRONTLIT_BASE_HEX,
+    maxLayers = DEFAULT_PREDICT_MAX_LAYERS
+): number | undefined {
+    const filamentRgb = hexToRgb(filamentColor);
+    const base = hexToRgb(baseColor);
+    if (!filamentRgb || !base) return undefined;
+    const threshold = opacityLayerThreshold(filamentRgb, td, layerHeight, jnd, base, maxLayers);
+    if (threshold === undefined) return undefined;
+    if (threshold > maxLayers) return maxLayers + 1;
+    return Math.max(1, Math.ceil(threshold - 1e-9));
+}
+
+/**
  * Derive per-channel TDs from the single measured TD, modulated by the filament
  * color. Uses a `1 + value*5.8` shape per channel (the per-channel form of the
  * estimateTDFromColor luminance heuristic): a brighter channel is more
@@ -236,6 +551,62 @@ function frontlitConfidence(opacityLayers: number, tdSingle: number, maxLayers?:
     return clamp(confidence, 0.1, 1);
 }
 
+function multiReadConfidence(
+    reads: FrontlitCalibrationRead[],
+    fit: ChannelFit,
+    maxLayers?: number
+): number {
+    let confidence = reads.length > 1 ? 0.96 : 0.9;
+    for (const read of reads) {
+        if (read.opacityLayers <= 1) confidence -= 0.12;
+        if (maxLayers !== undefined && read.opacityLayers >= maxLayers) confidence -= 0.12;
+    }
+    if (fit.td.some((td) => td <= FRONTLIT_TD_MIN * 1.5 || td >= FRONTLIT_TD_MAX * 0.9)) {
+        confidence -= 0.16;
+    }
+    if (reads.length > 1) {
+        confidence -= clamp(fit.rmsLayers * 0.16, 0, 0.35);
+    }
+    return clamp(confidence, 0.1, 1);
+}
+
+function normalizeInputReads(
+    input: FrontlitCalibrationInput
+): { ok: true; reads: FrontlitCalibrationRead[] } | { ok: false; error: string } {
+    const rawReads =
+        input.reads && input.reads.length > 0
+            ? input.reads
+            : input.opacityLayers !== undefined
+              ? [
+                    {
+                        baseColor: input.baseColor ?? FRONTLIT_BASE_HEX,
+                        opacityLayers: input.opacityLayers,
+                    },
+                ]
+              : [];
+
+    if (rawReads.length === 0) {
+        return { ok: false, error: 'Enter at least one opacity read.' };
+    }
+
+    const reads: FrontlitCalibrationRead[] = [];
+    for (const raw of rawReads) {
+        const read = sanitizeCalibrationRead(raw);
+        if (!read) {
+            return {
+                ok: false,
+                error: 'Each opacity read needs a valid base color and layer count.',
+            };
+        }
+        reads.push(read);
+    }
+    return { ok: true, reads };
+}
+
+function appendCalibrationNote(existing: string | undefined, note: string): string {
+    return existing ? `${existing} ${note}` : note;
+}
+
 /**
  * Convert a single opacity-layer read into a frontlit calibration.
  *
@@ -247,9 +618,14 @@ function frontlitConfidence(opacityLayers: number, tdSingle: number, maxLayers?:
 export function computeFrontlitCalibration(
     input: FrontlitCalibrationInput
 ): FrontlitCalibrationResult {
-    const { filamentColor, opacityLayers, layerHeight, firstLayerHeight } = input;
+    const { filamentColor, layerHeight, firstLayerHeight } = input;
     const jnd = input.jnd ?? OPACITY_JND;
-    const baseColor = input.baseColor ?? FRONTLIT_BASE_HEX;
+    const normalized = normalizeInputReads(input);
+    if (!normalized.ok) return normalized;
+    const { reads } = normalized;
+    const anchorRead = reads[0];
+    const opacityLayers = anchorRead.opacityLayers;
+    const baseColor = anchorRead.baseColor;
 
     if (!Number.isFinite(opacityLayers) || opacityLayers < 1) {
         return { ok: false, error: 'Opacity layer count must be at least 1.' };
@@ -257,19 +633,38 @@ export function computeFrontlitCalibration(
     if (!Number.isFinite(layerHeight) || layerHeight <= 0) {
         return { ok: false, error: 'Layer height must be a positive number.' };
     }
-
-    const tStar = solveOpacityTransmission(filamentColor, jnd, baseColor);
-    if (tStar === undefined || tStar <= 0 || tStar >= 1) {
-        return {
-            ok: false,
-            error: 'Too little contrast with the base to calibrate. Pick a lighter base (e.g. white) for this filament.',
-        };
+    if (!Number.isFinite(firstLayerHeight) || firstLayerHeight <= 0) {
+        return { ok: false, error: 'First-layer height must be a positive number.' };
     }
 
-    const dOpaque = opacityLayers * layerHeight;
-    const tdSingleValue = clamp(-dOpaque / Math.log10(tStar), FRONTLIT_TD_MIN, FRONTLIT_TD_MAX);
-    const td = deriveChannelTds(filamentColor, tdSingleValue);
-    const confidence = frontlitConfidence(opacityLayers, tdSingleValue, input.maxLayers);
+    for (const read of reads) {
+        const tStar = solveOpacityTransmission(filamentColor, jnd, read.baseColor);
+        if (tStar === undefined || tStar <= 0 || tStar >= 1) {
+            return {
+                ok: false,
+                error: 'Too little contrast with one selected base to calibrate. Pick a base with stronger contrast for this filament.',
+            };
+        }
+    }
+
+    const fit = fitChannelTdsForReads(filamentColor, reads, layerHeight, jnd, input.maxLayers);
+    if (!fit) {
+        return { ok: false, error: 'Could not fit a calibration from these reads.' };
+    }
+    const channelSource = reads.length > 1 ? 'measured' : 'heuristic';
+    const td = fit.td;
+    const tdSingleValue = fit.tdSingleValue;
+    const confidence =
+        reads.length > 1
+            ? multiReadConfidence(reads, fit, input.maxLayers)
+            : frontlitConfidence(opacityLayers, tdSingleValue, input.maxLayers);
+    let notes = input.notes;
+    if (reads.length > 1 && fit.rmsLayers > 0.75) {
+        notes = appendCalibrationNote(
+            notes,
+            `Multi-base reads disagree by about ${fit.rmsLayers.toFixed(1)} layers under the best fit.`
+        );
+    }
 
     return {
         ok: true,
@@ -284,9 +679,109 @@ export function computeFrontlitCalibration(
             confidence,
             basis: 'frontlit',
             calibrationDate: new Date().toISOString(),
-            notes: input.notes,
+            reads:
+                reads.length > 1 || reads.some((read) => read.mergeLayers !== undefined)
+                    ? reads
+                    : undefined,
+            channelSource,
+            jndSource: input.jndSource ?? 'default',
+            notes,
         },
     };
+}
+
+function calibrationFitResidualForJnd(input: FrontlitCalibrationInput, jnd: number): number {
+    const normalized = normalizeInputReads(input);
+    if (!normalized.ok || normalized.reads.length < 2) return 0;
+    const fit = fitChannelTdsForReads(
+        input.filamentColor,
+        normalized.reads,
+        input.layerHeight,
+        jnd,
+        input.maxLayers,
+        'center'
+    );
+    return fit ? fit.dataResidual : 1_000;
+}
+
+function fitSessionJnd(
+    inputs: FrontlitCalibrationInput[],
+    maxLayers?: number
+): { jnd: number; residual: number } | undefined {
+    const eligible = inputs.filter((input) => {
+        const normalized = normalizeInputReads({
+            ...input,
+            maxLayers: input.maxLayers ?? maxLayers,
+        });
+        return normalized.ok && normalized.reads.length >= 2;
+    });
+    if (eligible.length < 2) return undefined;
+
+    const evaluate = (jnd: number) =>
+        eligible.reduce(
+            (sum, input) =>
+                sum +
+                calibrationFitResidualForJnd(
+                    { ...input, maxLayers: input.maxLayers ?? maxLayers },
+                    jnd
+                ),
+            0
+        );
+
+    let bestJnd = OPACITY_JND;
+    let bestResidual = evaluate(OPACITY_JND);
+    for (let jnd = JND_FIT_MIN; jnd <= JND_FIT_MAX + 1e-9; jnd += 0.2) {
+        const rounded = Number(jnd.toFixed(2));
+        const residual = evaluate(rounded);
+        if (residual < bestResidual) {
+            bestJnd = rounded;
+            bestResidual = residual;
+        }
+    }
+    const fineStart = Math.max(JND_FIT_MIN, bestJnd - 0.16);
+    const fineEnd = Math.min(JND_FIT_MAX, bestJnd + 0.16);
+    for (let jnd = fineStart; jnd <= fineEnd + 1e-9; jnd += 0.04) {
+        const rounded = Number(jnd.toFixed(2));
+        const residual = evaluate(rounded);
+        if (residual < bestResidual) {
+            bestJnd = rounded;
+            bestResidual = residual;
+        }
+    }
+
+    const defaultResidual = evaluate(OPACITY_JND);
+    const improvement = defaultResidual - bestResidual;
+    if (improvement < Math.max(0.1, eligible.length * 0.04)) return undefined;
+    if (bestJnd <= JND_FIT_MIN + 1e-9 || bestJnd >= JND_FIT_MAX - 1e-9) return undefined;
+    return { jnd: bestJnd, residual: bestResidual };
+}
+
+export function computeFrontlitCalibrationSession(
+    input: FrontlitCalibrationSessionInput
+): FrontlitCalibrationSessionResult {
+    const jndFit = fitSessionJnd(input.filaments, input.maxLayers);
+    const jnd = jndFit?.jnd ?? OPACITY_JND;
+    const jndSource = jndFit ? 'session-fit' : 'default';
+    const results = input.filaments.map((filament) =>
+        computeFrontlitCalibration({
+            ...filament,
+            maxLayers: filament.maxLayers ?? input.maxLayers,
+            jnd,
+            jndSource,
+        })
+    );
+    const residual =
+        jndFit?.residual ??
+        input.filaments.reduce(
+            (sum, filament) =>
+                sum +
+                calibrationFitResidualForJnd(
+                    { ...filament, maxLayers: filament.maxLayers ?? input.maxLayers },
+                    jnd
+                ),
+            0
+        );
+    return { jnd, jndSource, results, residual };
 }
 
 /**

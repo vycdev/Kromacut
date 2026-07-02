@@ -22,21 +22,30 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
 import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
-import { X, Download, Check, Minus, ArrowLeft, ArrowRight, FlaskConical } from 'lucide-react';
+    X,
+    Download,
+    Check,
+    Minus,
+    ArrowLeft,
+    ArrowRight,
+    FlaskConical,
+    AlertTriangle,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Filament } from '../types';
 import {
     computeFrontlitCalibration,
+    computeFrontlitCalibrationSession,
+    deriveChannelTds,
     predictFrontlitColor,
+    predictOpacityLayersForTds,
+    sanitizeFrontlitCalibration,
+    solveOpacityTransmission,
     getConfidenceLabel,
     getConfidenceColor,
+    OPACITY_JND,
     type FrontlitCalibration,
+    type FrontlitCalibrationRead,
 } from '@/lib/calibration';
 import {
     generateCalibrationStl,
@@ -49,6 +58,7 @@ import {
 
 type Step = 'select' | 'base' | 'print' | 'measure';
 type PrintFormat = 'stl' | '3mf';
+type CalibrationMode = 'quick' | 'accurate';
 
 export interface CalibrationApplyUpdate {
     id: string;
@@ -68,6 +78,7 @@ interface FilamentCalibrationDialogProps {
 
 const MIN_MAX_LAYERS = 4;
 const MAX_MAX_LAYERS = 40;
+const MAX_BASES_PER_FILAMENT = 3;
 
 function filamentLabel(filament: Filament): string {
     return filament.name || filament.brand || `Filament ${filament.color}`;
@@ -84,6 +95,43 @@ function luminance(hex: string): number {
 
 function rgbCss(rgb: [number, number, number]): string {
     return `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
+}
+
+function hexToRgbTuple(hex: string): [number, number, number] {
+    const h = hex.replace(/^#/, '');
+    return [
+        parseInt(h.slice(0, 2), 16) || 0,
+        parseInt(h.slice(2, 4), 16) || 0,
+        parseInt(h.slice(4, 6), 16) || 0,
+    ];
+}
+
+function readKey(filamentId: string, baseId: string): string {
+    return `${filamentId}::${baseId}`;
+}
+
+function parseLayerInput(value: string | undefined): number | null {
+    const parsed = Number.parseInt(value ?? '', 10);
+    return Number.isFinite(parsed) && parsed >= 1 ? parsed : null;
+}
+
+function governingChannel(
+    filamentColor: string,
+    baseColor: string,
+    td: [number, number, number]
+): number {
+    const filament = hexToRgbTuple(filamentColor);
+    const base = hexToRgbTuple(baseColor);
+    let best = 0;
+    let bestScore = -Infinity;
+    for (let channel = 0; channel < 3; channel++) {
+        const score = Math.abs(filament[channel] - base[channel]) * td[channel];
+        if (score > bestScore) {
+            best = channel;
+            bestScore = score;
+        }
+    }
+    return best;
 }
 
 function downloadBlob(blob: Blob, filename: string) {
@@ -126,9 +174,12 @@ export function FilamentCalibrationDialog({
     );
     const [layerHeightDraft, setLayerHeightDraft] = useState(() => String(layerHeight));
     const [format, setFormat] = useState<PrintFormat>('stl');
+    const [mode, setMode] = useState<CalibrationMode>('quick');
     const [reads, setReads] = useState<Record<string, string>>({});
-    // filament id -> chosen base filament id (defaults to the darkest filament).
-    const [baseChoices, setBaseChoices] = useState<Record<string, string>>({});
+    const [mergeReads, setMergeReads] = useState<Record<string, string>>({});
+    const [isSaving, setIsSaving] = useState(false);
+    // filament id -> chosen base filament ids (defaults are auto-picked).
+    const [baseChoices, setBaseChoices] = useState<Record<string, string[]>>({});
     const wasOpenRef = useRef(open);
 
     const darkestFilamentId = useMemo(() => {
@@ -138,35 +189,130 @@ export function FilamentCalibrationDialog({
         ).id;
     }, [filaments]);
 
+    const lightestFilamentId = useMemo(() => {
+        if (filaments.length === 0) return undefined;
+        return filaments.reduce((lightest, f) =>
+            luminance(f.color) > luminance(lightest.color) ? f : lightest
+        ).id;
+    }, [filaments]);
+
     const filamentById = useMemo(
         () => new Map(filaments.map((filament) => [filament.id, filament])),
         [filaments]
     );
 
-    const resolveBaseId = useCallback(
-        (filamentId: string): string => baseChoices[filamentId] ?? darkestFilamentId ?? filamentId,
-        [baseChoices, darkestFilamentId]
-    );
-
-    const resolveBaseColor = useCallback(
-        (filamentId: string): string => {
-            const base = filamentById.get(resolveBaseId(filamentId));
-            return base?.color ?? '#000000';
-        },
-        [filamentById, resolveBaseId]
-    );
-
-    const resolveBaseLabel = useCallback(
-        (filamentId: string): string => {
-            const base = filamentById.get(resolveBaseId(filamentId));
-            return base ? filamentLabel(base) : 'Base';
-        },
-        [filamentById, resolveBaseId]
-    );
-
-    const setBaseChoice = useCallback((filamentId: string, baseId: string) => {
-        setBaseChoices((prev) => ({ ...prev, [filamentId]: baseId }));
+    const estimateChannelTds = useCallback((filament: Filament): [number, number, number] => {
+        const calibration = sanitizeFrontlitCalibration(filament.calibration);
+        if (calibration) return calibration.td;
+        return deriveChannelTds(filament.color, Math.max(0.05, filament.td * 0.1));
     }, []);
+
+    const recommendedBaseIds = useCallback(
+        (filament: Filament): string[] => {
+            const targetCount = mode === 'accurate' ? 2 : 1;
+            const td = estimateChannelTds(filament);
+            const candidates = filaments
+                .map((base) => {
+                    if (!solveOpacityTransmission(filament.color, OPACITY_JND, base.color)) {
+                        return null;
+                    }
+                    const predicted = predictOpacityLayersForTds(
+                        filament.color,
+                        td,
+                        calibrationLayerHeight,
+                        OPACITY_JND,
+                        base.color,
+                        maxLayers
+                    );
+                    if (predicted === undefined) return null;
+                    const useful = predicted > 1 && predicted <= maxLayers;
+                    return {
+                        base,
+                        predicted,
+                        useful,
+                        channel: governingChannel(filament.color, base.color, td),
+                    };
+                })
+                .filter(
+                    (candidate): candidate is NonNullable<typeof candidate> => candidate !== null
+                );
+
+            const useful = candidates.filter((candidate) => candidate.useful);
+            const pool = useful.length > 0 ? useful : candidates;
+            if (pool.length === 0) {
+                return [lightestFilamentId ?? darkestFilamentId ?? filament.id];
+            }
+
+            const selected: typeof pool = [];
+            const anchor =
+                pool.find((candidate) => candidate.base.id === darkestFilamentId) ??
+                [...pool].sort((a, b) => luminance(a.base.color) - luminance(b.base.color))[0];
+            selected.push(anchor);
+
+            while (selected.length < targetCount && selected.length < pool.length) {
+                const covered = new Set(selected.map((candidate) => candidate.channel));
+                const next = pool
+                    .filter(
+                        (candidate) => !selected.some((item) => item.base.id === candidate.base.id)
+                    )
+                    .sort((a, b) => {
+                        const aDiversity = covered.has(a.channel) ? 0 : 1;
+                        const bDiversity = covered.has(b.channel) ? 0 : 1;
+                        const aMidness =
+                            1 - Math.abs(a.predicted - maxLayers / 2) / Math.max(1, maxLayers / 2);
+                        const bMidness =
+                            1 - Math.abs(b.predicted - maxLayers / 2) / Math.max(1, maxLayers / 2);
+                        return bDiversity * 10 + bMidness - (aDiversity * 10 + aMidness);
+                    })[0];
+                if (!next) break;
+                selected.push(next);
+            }
+
+            return selected.map((candidate) => candidate.base.id);
+        },
+        [
+            calibrationLayerHeight,
+            darkestFilamentId,
+            estimateChannelTds,
+            filaments,
+            lightestFilamentId,
+            maxLayers,
+            mode,
+        ]
+    );
+
+    const resolveBaseIds = useCallback(
+        (filamentId: string): string[] => {
+            const filament = filamentById.get(filamentId);
+            if (!filament) return [];
+            const explicit = baseChoices[filamentId]?.filter((id) => filamentById.has(id));
+            if (explicit && explicit.length > 0) return explicit;
+            return recommendedBaseIds(filament).filter((id) => filamentById.has(id));
+        },
+        [baseChoices, filamentById, recommendedBaseIds]
+    );
+
+    const toggleBaseChoice = useCallback(
+        (filamentId: string, baseId: string) => {
+            const current = resolveBaseIds(filamentId);
+            if (mode === 'quick') {
+                setBaseChoices((prev) => ({ ...prev, [filamentId]: [baseId] }));
+                return;
+            }
+
+            let next: string[];
+            if (current.includes(baseId)) {
+                next = current.length > 1 ? current.filter((id) => id !== baseId) : current;
+            } else {
+                next =
+                    current.length >= MAX_BASES_PER_FILAMENT
+                        ? [...current.slice(1), baseId]
+                        : [...current, baseId];
+            }
+            setBaseChoices((prev) => ({ ...prev, [filamentId]: next }));
+        },
+        [mode, resolveBaseIds]
+    );
 
     const commitLayerHeight = useCallback(() => {
         const parsed = Number(layerHeightDraft);
@@ -192,6 +338,22 @@ export function FilamentCalibrationDialog({
         [filaments, selectedIds]
     );
 
+    const calibrationTargets = useMemo(() => {
+        return selectedFilaments.flatMap((filament) =>
+            resolveBaseIds(filament.id)
+                .map((baseId) => {
+                    const base = filamentById.get(baseId);
+                    if (!base) return null;
+                    return {
+                        key: readKey(filament.id, base.id),
+                        filament,
+                        base,
+                    };
+                })
+                .filter((target): target is NonNullable<typeof target> => target !== null)
+        );
+    }, [filamentById, resolveBaseIds, selectedFilaments]);
+
     const printOptions = useMemo<CalibrationPrintOptions>(
         () => ({
             ...DEFAULT_CALIBRATION_PRINT_OPTIONS,
@@ -212,7 +374,10 @@ export function FilamentCalibrationDialog({
         setCalibrationLayerHeight(layerHeight);
         setLayerHeightDraft(String(layerHeight));
         setFormat('stl');
+        setMode('quick');
         setReads({});
+        setMergeReads({});
+        setIsSaving(false);
         setBaseChoices({});
     }, [initialSelection, layerHeight]);
 
@@ -242,12 +407,12 @@ export function FilamentCalibrationDialog({
     }, [filaments]);
 
     const handleDownload = useCallback(async () => {
-        const tiles: CalibrationTile[] = selectedFilaments.map((f) => ({
-            filamentId: f.id,
-            color: f.color,
-            baseFilamentId: resolveBaseId(f.id),
-            baseColor: resolveBaseColor(f.id),
-            name: filamentLabel(f),
+        const tiles: CalibrationTile[] = calibrationTargets.map(({ filament, base }) => ({
+            filamentId: filament.id,
+            color: filament.color,
+            baseFilamentId: base.id,
+            baseColor: base.color,
+            name: `${filamentLabel(filament)} over ${filamentLabel(base)}`,
         }));
         if (tiles.length === 0) return;
 
@@ -264,58 +429,116 @@ export function FilamentCalibrationDialog({
                 name: filamentLabel(f),
             }));
             const blob = await generateCalibration3mf(tiles, printOptions, profileFilaments);
-            downloadBlob(blob, `kromacut-calibration-${tiles.length}filaments.3mf`);
+            downloadBlob(blob, `kromacut-calibration-${tiles.length}reads.3mf`);
         }
-    }, [selectedFilaments, filaments, format, printOptions, maxLayers, resolveBaseId, resolveBaseColor]);
+    }, [calibrationTargets, filaments, format, printOptions, maxLayers]);
 
-    const setRead = useCallback((id: string, value: string) => {
-        setReads((prev) => ({ ...prev, [id]: value }));
+    const setRead = useCallback((key: string, value: string) => {
+        setReads((prev) => ({ ...prev, [key]: value }));
+    }, []);
+
+    const setMergeRead = useCallback((key: string, value: string) => {
+        setMergeReads((prev) => ({ ...prev, [key]: value }));
     }, []);
 
     // Per-filament calibration computed live from the entered reads.
     const computed = useMemo(() => {
-        return selectedFilaments.map((filament) => {
-            const raw = reads[filament.id];
-            const opacityLayers = Number.parseInt(raw ?? '', 10);
-            if (!Number.isFinite(opacityLayers) || opacityLayers < 1) {
-                return { filament, result: null, opacityLayers: null };
+        const entries = selectedFilaments.map((filament) => {
+            const targets = calibrationTargets.filter(
+                (target) => target.filament.id === filament.id
+            );
+            const readValues: FrontlitCalibrationRead[] = [];
+            let complete = targets.length > 0;
+            for (const target of targets) {
+                const opacityLayers = parseLayerInput(reads[target.key]);
+                if (opacityLayers === null) {
+                    complete = false;
+                    continue;
+                }
+                readValues.push({
+                    baseColor: target.base.color,
+                    opacityLayers,
+                });
             }
-            const result = computeFrontlitCalibration({
-                filamentColor: filament.color,
-                opacityLayers,
-                layerHeight: calibrationLayerHeight,
-                firstLayerHeight,
-                baseColor: resolveBaseColor(filament.id),
-                maxLayers,
-            });
-            return { filament, result, opacityLayers };
+            const input = complete
+                ? {
+                      filamentColor: filament.color,
+                      opacityLayers: readValues[0]?.opacityLayers,
+                      layerHeight: calibrationLayerHeight,
+                      firstLayerHeight,
+                      baseColor: readValues[0]?.baseColor,
+                      reads: readValues,
+                      maxLayers,
+                  }
+                : null;
+            return {
+                filament,
+                targets,
+                input,
+                result: input ? computeFrontlitCalibration(input) : null,
+                jndSource: null as 'default' | 'session-fit' | null,
+            };
         });
+        return entries;
     }, [
         selectedFilaments,
+        calibrationTargets,
         reads,
         calibrationLayerHeight,
         firstLayerHeight,
         maxLayers,
-        resolveBaseColor,
     ]);
 
     const allReadsValid =
         computed.length > 0 && computed.every((c) => c.result !== null && c.result.ok);
 
     const handleSave = useCallback(() => {
-        const updates: CalibrationApplyUpdate[] = [];
-        for (const entry of computed) {
-            if (entry.result && entry.result.ok) {
-                updates.push({
-                    id: entry.filament.id,
-                    td: entry.result.calibration.tdSingleValue,
-                    calibration: entry.result.calibration,
-                });
-            }
-        }
-        if (updates.length > 0) onApply(updates);
-        handleClose();
-    }, [computed, onApply, handleClose]);
+        if (isSaving) return;
+        setIsSaving(true);
+        const saveEntries = computed.filter((entry) => entry.input && entry.result?.ok);
+        window.requestAnimationFrame(() => {
+            window.setTimeout(() => {
+                try {
+                    const session = computeFrontlitCalibrationSession({
+                        filaments: saveEntries.map((entry) => {
+                            const readsWithMerge: FrontlitCalibrationRead[] = entry.targets.map(
+                                (target) => {
+                                    const opacityLayers = parseLayerInput(reads[target.key])!;
+                                    const mergeLayers = parseLayerInput(mergeReads[target.key]);
+                                    return {
+                                        baseColor: target.base.color,
+                                        opacityLayers,
+                                        mergeLayers: mergeLayers ?? undefined,
+                                    };
+                                }
+                            );
+                            return {
+                                ...entry.input!,
+                                reads: readsWithMerge,
+                                opacityLayers: readsWithMerge[0]?.opacityLayers,
+                                baseColor: readsWithMerge[0]?.baseColor,
+                            };
+                        }),
+                        maxLayers,
+                    });
+                    const updates: CalibrationApplyUpdate[] = [];
+                    session.results.forEach((result, index) => {
+                        if (!result.ok) return;
+                        const entry = saveEntries[index];
+                        updates.push({
+                            id: entry.filament.id,
+                            td: result.calibration.tdSingleValue,
+                            calibration: result.calibration,
+                        });
+                    });
+                    if (updates.length > 0) onApply(updates);
+                    handleClose();
+                } finally {
+                    setIsSaving(false);
+                }
+            });
+        });
+    }, [computed, reads, mergeReads, maxLayers, onApply, handleClose, isSaving]);
 
     const renderSelect = () => (
         <>
@@ -421,48 +644,85 @@ export function FilamentCalibrationDialog({
             </AlertDialogHeader>
             <div className="space-y-4">
                 <p className="text-sm text-muted-foreground">
-                    Each filament is calibrated over a base, defaulting to your darkest filament. A
-                    dark filament needs a lighter base (e.g. white) to read against — change its base
-                    here.
+                    Quick mode uses one base per filament. Accurate mode repeats the same read over
+                    multiple bases so Kromacut can measure RGB TDs directly.
                 </p>
+                <div className="grid grid-cols-2 gap-2">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                            setMode('quick');
+                            setBaseChoices({});
+                        }}
+                        className={cn(mode === 'quick' && 'border-primary/60 bg-primary/5')}
+                    >
+                        Quick
+                    </Button>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                            setMode('accurate');
+                            setBaseChoices({});
+                        }}
+                        className={cn(mode === 'accurate' && 'border-primary/60 bg-primary/5')}
+                    >
+                        Accurate
+                    </Button>
+                </div>
                 <div className="max-h-[24rem] space-y-2 overflow-y-auto pr-1">
                     {selectedFilaments.map((filament) => {
-                        const baseId = baseChoices[filament.id] ?? darkestFilamentId ?? '';
+                        const baseIds = resolveBaseIds(filament.id);
                         return (
-                            <Card key={filament.id} className="flex items-center gap-3 p-3">
-                                <span
-                                    className="h-7 w-7 flex-none rounded-lg border border-border/70 shadow-inner"
-                                    style={{ backgroundColor: filament.color }}
-                                />
-                                <div className="min-w-0 flex-1">
-                                    <div className="truncate text-sm font-medium text-foreground">
-                                        {filamentLabel(filament)}
+                            <Card key={filament.id} className="space-y-3 p-3">
+                                <div className="flex items-center gap-3">
+                                    <span
+                                        className="h-7 w-7 flex-none rounded-lg border border-border/70 shadow-inner"
+                                        style={{ backgroundColor: filament.color }}
+                                    />
+                                    <div className="min-w-0 flex-1">
+                                        <div className="truncate text-sm font-medium text-foreground">
+                                            {filamentLabel(filament)}
+                                        </div>
+                                        <div className="text-[11px] text-muted-foreground">
+                                            {mode === 'accurate'
+                                                ? `${baseIds.length} base reads selected`
+                                                : '1 base read selected'}
+                                        </div>
                                     </div>
-                                    <div className="text-[11px] text-muted-foreground">over base</div>
                                 </div>
-                                <Select
-                                    value={baseId}
-                                    onValueChange={(v) => setBaseChoice(filament.id, v)}
-                                >
-                                    <SelectTrigger className="h-9 w-48">
-                                        <SelectValue placeholder="Base filament" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {filaments.map((bf) => (
-                                            <SelectItem key={bf.id} value={bf.id}>
-                                                <span className="flex items-center gap-2">
-                                                    <span
-                                                        className="h-4 w-4 flex-none rounded border border-border/70"
-                                                        style={{ backgroundColor: bf.color }}
-                                                    />
-                                                    <span className="truncate">
-                                                        {filamentLabel(bf)}
-                                                    </span>
+                                <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
+                                    {filaments.map((base) => {
+                                        const selected = baseIds.includes(base.id);
+                                        return (
+                                            <button
+                                                key={base.id}
+                                                type="button"
+                                                onClick={() =>
+                                                    toggleBaseChoice(filament.id, base.id)
+                                                }
+                                                className={cn(
+                                                    'flex min-w-0 items-center gap-2 rounded-md border px-2 py-1.5 text-left text-xs transition-colors',
+                                                    selected
+                                                        ? 'border-primary/60 bg-primary/5 text-foreground'
+                                                        : 'border-border/60 bg-background hover:border-border'
+                                                )}
+                                            >
+                                                <span
+                                                    className="h-4 w-4 flex-none rounded border border-border/70"
+                                                    style={{ backgroundColor: base.color }}
+                                                />
+                                                <span className="min-w-0 flex-1 truncate">
+                                                    {filamentLabel(base)}
                                                 </span>
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                                {selected && (
+                                                    <Check className="h-3.5 w-3.5 flex-none" />
+                                                )}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
                             </Card>
                         );
                     })}
@@ -552,8 +812,8 @@ export function FilamentCalibrationDialog({
                         </div>
                         <p className="text-[11px] text-muted-foreground">
                             {format === 'stl'
-                                ? 'Single solid. Print one copy per selected filament using the matching base and swap line below.'
-                                : 'Colors + bases baked in for AMS / multi-material — all selected filaments in one print.'}
+                                ? 'Single solid. Print one copy for each filament/base read using the matching swap line below.'
+                                : 'Colors + bases baked in for AMS / multi-material - all selected reads in one print.'}
                         </p>
                     </div>
 
@@ -564,9 +824,9 @@ export function FilamentCalibrationDialog({
                                 layer {formatMm(firstLayerPrintHeight)}.
                             </p>
                             <div className="max-h-32 space-y-1 overflow-y-auto pr-1">
-                                {selectedFilaments.map((filament) => (
+                                {calibrationTargets.map(({ key, filament, base }) => (
                                     <div
-                                        key={filament.id}
+                                        key={key}
                                         className="flex items-start gap-2 text-foreground"
                                     >
                                         <span
@@ -576,9 +836,9 @@ export function FilamentCalibrationDialog({
                                         <span className="min-w-0">
                                             <span className="font-medium">
                                                 {filamentLabel(filament)}
-                                            </span>
-                                            : base = {resolveBaseLabel(filament.id)}, swap after
-                                            layer {printOptions.baseLayers} / Z {formatMm(swapZ)}.
+                                            </span>{' '}
+                                            over {filamentLabel(base)}: swap after layer{' '}
+                                            {printOptions.baseLayers} / Z {formatMm(swapZ)}.
                                         </span>
                                     </div>
                                 ))}
@@ -601,8 +861,9 @@ export function FilamentCalibrationDialog({
                             opaque reference rail running along the back edge.
                         </li>
                         <li>
-                            Find the <span className="font-medium text-foreground">first patch</span>{' '}
-                            that looks identical to the rail beside it — that&apos;s its opacity layer.
+                            Find the{' '}
+                            <span className="font-medium text-foreground">first patch</span> that
+                            looks identical to the rail beside it — that&apos;s its opacity layer.
                         </li>
                     </ul>
                 </Card>
@@ -627,22 +888,12 @@ export function FilamentCalibrationDialog({
             </AlertDialogHeader>
             <div className="space-y-3">
                 <p className="text-sm text-muted-foreground">
-                    For each filament, enter the first patch number that matched its reference rail.
+                    Enter the first patch number that matched the rail for each filament/base print.
                 </p>
                 <div className="max-h-[26rem] space-y-2.5 overflow-y-auto pr-1">
-                    {computed.map(({ filament, result, opacityLayers }) => {
+                    {computed.map(({ filament, targets, result, jndSource }) => {
                         const calibration = result && result.ok ? result.calibration : null;
                         const errorText = result && !result.ok ? result.error : null;
-                        const predicted =
-                            calibration && opacityLayers
-                                ? predictFrontlitColor(
-                                      filament.color,
-                                      opacityLayers,
-                                      calibrationLayerHeight,
-                                      calibration.td,
-                                      resolveBaseColor(filament.id)
-                                  )
-                                : null;
                         return (
                             <Card key={filament.id} className="p-3">
                                 <div className="flex items-center gap-3">
@@ -658,40 +909,127 @@ export function FilamentCalibrationDialog({
                                             {filament.color}
                                         </div>
                                     </div>
-                                    <div className="flex items-center gap-1.5">
-                                        <Input
-                                            type="number"
-                                            min={1}
-                                            max={maxLayers}
-                                            value={reads[filament.id] ?? ''}
-                                            onChange={(e) => setRead(filament.id, e.target.value)}
-                                            placeholder="layer"
-                                            className="h-8 w-20 text-sm"
-                                        />
-                                        <span className="text-[11px] text-muted-foreground">
-                                            / {maxLayers}
-                                        </span>
+                                    <div className="text-right text-[11px] text-muted-foreground">
+                                        {targets.length} read{targets.length === 1 ? '' : 's'}
                                     </div>
+                                </div>
+
+                                <div className="mt-3 space-y-2">
+                                    <div className="hidden grid-cols-[1fr_auto_auto] gap-2 px-2 text-[10px] font-medium uppercase tracking-wide text-muted-foreground sm:grid">
+                                        <span>Base</span>
+                                        <span className="w-[6.5rem]">Match</span>
+                                        <span className="w-[6.5rem]">Merge</span>
+                                    </div>
+                                    {targets.map((target) => {
+                                        const opacityLayers = parseLayerInput(reads[target.key]);
+                                        const mergeLayers = parseLayerInput(mergeReads[target.key]);
+                                        const mergeAfterMatch =
+                                            mergeLayers !== null &&
+                                            opacityLayers !== null &&
+                                            mergeLayers > opacityLayers;
+                                        const predicted =
+                                            calibration && opacityLayers
+                                                ? predictFrontlitColor(
+                                                      filament.color,
+                                                      opacityLayers,
+                                                      calibrationLayerHeight,
+                                                      calibration.td,
+                                                      target.base.color
+                                                  )
+                                                : null;
+                                        return (
+                                            <div
+                                                key={target.key}
+                                                className="grid gap-2 rounded-md border border-border/50 bg-background/70 p-2 sm:grid-cols-[1fr_auto_auto]"
+                                            >
+                                                <div className="flex min-w-0 items-center gap-2">
+                                                    <span
+                                                        className="h-5 w-5 flex-none rounded border border-border/70"
+                                                        style={{
+                                                            backgroundColor: target.base.color,
+                                                        }}
+                                                        title="Base"
+                                                    />
+                                                    <span className="min-w-0 truncate text-xs">
+                                                        over {filamentLabel(target.base)}
+                                                    </span>
+                                                </div>
+                                                <div className="flex items-center gap-1.5">
+                                                    <Input
+                                                        type="number"
+                                                        min={1}
+                                                        max={maxLayers}
+                                                        value={reads[target.key] ?? ''}
+                                                        onChange={(e) =>
+                                                            setRead(target.key, e.target.value)
+                                                        }
+                                                        placeholder="match"
+                                                        title="First patch that matches the reference rail"
+                                                        className="h-8 w-20 text-sm"
+                                                    />
+                                                    <span className="text-[11px] text-muted-foreground">
+                                                        / {maxLayers}
+                                                    </span>
+                                                </div>
+                                                <div className="flex items-center gap-1.5">
+                                                    <Input
+                                                        type="number"
+                                                        min={1}
+                                                        max={maxLayers}
+                                                        value={mergeReads[target.key] ?? ''}
+                                                        onChange={(e) =>
+                                                            setMergeRead(target.key, e.target.value)
+                                                        }
+                                                        placeholder="merge"
+                                                        title="Optional: last patch that still looks different from the patch before it"
+                                                        className={cn(
+                                                            'h-8 w-20 text-sm',
+                                                            mergeAfterMatch &&
+                                                                'border-amber-500/70 bg-amber-500/10'
+                                                        )}
+                                                    />
+                                                    {mergeAfterMatch && (
+                                                        <span
+                                                            title="Merge read is usually before or equal to the rail-match read"
+                                                            aria-label="Merge read is later than match read"
+                                                        >
+                                                            <AlertTriangle className="h-3.5 w-3.5 flex-none text-amber-600" />
+                                                        </span>
+                                                    )}
+                                                    {predicted && (
+                                                        <span
+                                                            className="h-6 w-6 rounded border border-border/70"
+                                                            style={{
+                                                                backgroundColor: rgbCss(predicted),
+                                                            }}
+                                                            title="Predicted at this read"
+                                                        />
+                                                    )}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
 
                                 {calibration && (
                                     <div className="mt-2.5 flex items-center justify-between gap-3 rounded-lg border border-border/50 bg-muted/20 px-3 py-2">
                                         <div className="flex items-center gap-2">
                                             <span className="text-[11px] text-muted-foreground">
-                                                Match
+                                                Fit
                                             </span>
                                             <span
                                                 className="h-6 w-6 rounded border border-border/70"
                                                 style={{ backgroundColor: filament.color }}
                                                 title="Reference (opaque)"
                                             />
-                                            {predicted && (
-                                                <span
-                                                    className="h-6 w-6 rounded border border-border/70"
-                                                    style={{ backgroundColor: rgbCss(predicted) }}
-                                                    title="Predicted at this layer"
-                                                />
-                                            )}
+                                            <span className="text-[11px] text-muted-foreground">
+                                                {calibration.channelSource === 'measured'
+                                                    ? 'measured RGB TDs'
+                                                    : 'heuristic RGB TDs'}
+                                                {jndSource === 'session-fit'
+                                                    ? ' / session JND'
+                                                    : ''}
+                                            </span>
                                         </div>
                                         <div className="text-right text-xs">
                                             <div className="font-semibold">
@@ -724,9 +1062,9 @@ export function FilamentCalibrationDialog({
                     <ArrowLeft className="mr-1 h-4 w-4" />
                     Back
                 </Button>
-                <Button onClick={handleSave} disabled={!allReadsValid}>
+                <Button onClick={handleSave} disabled={!allReadsValid || isSaving}>
                     <Check className="mr-1 h-4 w-4" />
-                    Save Calibration
+                    {isSaving ? 'Fitting...' : 'Save Calibration'}
                 </Button>
             </AlertDialogFooter>
         </>

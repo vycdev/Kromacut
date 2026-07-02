@@ -33,7 +33,9 @@ async function loadViteModule<T>(modulePath: string): Promise<T> {
 const loadCalibration = () =>
     (calibrationModule ??= loadViteModule<CalibrationModule>('/src/lib/calibration.ts'));
 const loadColorDifference = () =>
-    (colorDifferenceModule ??= loadViteModule<ColorDifferenceModule>('/src/lib/colorDifference.ts'));
+    (colorDifferenceModule ??= loadViteModule<ColorDifferenceModule>(
+        '/src/lib/colorDifference.ts'
+    ));
 const loadColorSpace = () =>
     (colorSpaceModule ??= loadViteModule<ColorSpaceModule>('/src/lib/colorSpace.ts'));
 
@@ -67,6 +69,31 @@ async function simulateOpacityRead(
             blendSrgbChannel(base[0], rgb[0], t),
             blendSrgbChannel(base[1], rgb[1], t),
             blendSrgbChannel(base[2], rgb[2], t),
+        ];
+        if (deltaE2000(blended, rgb) <= jnd) return layers;
+    }
+    return maxLayers;
+}
+
+async function simulateOpacityReadWithTds(
+    filamentColor: string,
+    tdTrue: [number, number, number],
+    layerHeight: number,
+    jnd: number,
+    maxLayers = 200,
+    baseColor = '#000000'
+): Promise<number> {
+    const { blendSrgbChannel } = await loadColorSpace();
+    const { deltaE2000 } = await loadColorDifference();
+    const rgb = hexToRgb(filamentColor);
+    const base = hexToRgb(baseColor);
+
+    for (let layers = 1; layers <= maxLayers; layers++) {
+        const thickness = layers * layerHeight;
+        const blended: [number, number, number] = [
+            blendSrgbChannel(base[0], rgb[0], Math.pow(10, -thickness / tdTrue[0])),
+            blendSrgbChannel(base[1], rgb[1], Math.pow(10, -thickness / tdTrue[1])),
+            blendSrgbChannel(base[2], rgb[2], Math.pow(10, -thickness / tdTrue[2])),
         ];
         if (deltaE2000(blended, rgb) <= jnd) return layers;
     }
@@ -197,6 +224,154 @@ test('a lighter base lets a near-black filament calibrate (round-trip over white
     assert.ok(relErr < 0.2, `recovered ${result.calibration.tdSingleValue} vs ${tdTrue}`);
 });
 
+test('multi-base calibration fits measured per-channel TDs and stores reads', async () => {
+    const { computeFrontlitCalibration, OPACITY_JND, predictOpacityLayersForTds } =
+        await loadCalibration();
+    const layerHeight = 0.04;
+    const color = '#ffd43b';
+    const trueTd: [number, number, number] = [0.42, 0.55, 0.18];
+    const bases = ['#000000', '#2030ff', '#7a0030'];
+    const reads = await Promise.all(
+        bases.map(async (baseColor) => ({
+            baseColor,
+            opacityLayers: await simulateOpacityReadWithTds(
+                color,
+                trueTd,
+                layerHeight,
+                OPACITY_JND,
+                120,
+                baseColor
+            ),
+        }))
+    );
+
+    const result = computeFrontlitCalibration({
+        filamentColor: color,
+        layerHeight,
+        firstLayerHeight: 0.2,
+        reads,
+        maxLayers: 120,
+    });
+
+    assert.ok(result.ok, 'multi-base calibration should fit');
+    if (!result.ok) return;
+    assert.equal(result.calibration.channelSource, 'measured');
+    assert.equal(result.calibration.reads?.length, reads.length);
+    assert.equal(result.calibration.baseColor, reads[0].baseColor);
+
+    for (const read of reads) {
+        const predicted = predictOpacityLayersForTds(
+            color,
+            result.calibration.td,
+            layerHeight,
+            OPACITY_JND,
+            read.baseColor,
+            120
+        );
+        assert.ok(predicted !== undefined);
+        assert.ok(
+            Math.abs(predicted! - read.opacityLayers) <= 1,
+            `base ${read.baseColor}: predicted ${predicted}, observed ${read.opacityLayers}`
+        );
+    }
+});
+
+test('session JND fit recovers an identifiable synthetic multi-filament session', async () => {
+    const { computeFrontlitCalibrationSession } = await loadCalibration();
+    const layerHeight = 0.035;
+    const trueJnd = 1.1;
+    const cases: Array<{
+        color: string;
+        td: [number, number, number];
+        bases: string[];
+    }> = [
+        { color: '#ffd43b', td: [0.42, 0.55, 0.18], bases: ['#000000', '#2030ff', '#7a0030'] },
+        { color: '#2f7cff', td: [0.18, 0.32, 0.62], bases: ['#000000', '#ffea00', '#7a2000'] },
+        { color: '#f5f5f5', td: [0.46, 0.48, 0.5], bases: ['#000000', '#003060', '#602000'] },
+    ];
+
+    const filaments = await Promise.all(
+        cases.map(async ({ color, td, bases }) => ({
+            filamentColor: color,
+            layerHeight,
+            firstLayerHeight: 0.2,
+            maxLayers: 140,
+            reads: await Promise.all(
+                bases.map(async (baseColor) => ({
+                    baseColor,
+                    opacityLayers: await simulateOpacityReadWithTds(
+                        color,
+                        td,
+                        layerHeight,
+                        trueJnd,
+                        140,
+                        baseColor
+                    ),
+                }))
+            ),
+        }))
+    );
+
+    const session = computeFrontlitCalibrationSession({ filaments, maxLayers: 140 });
+    assert.equal(session.jndSource, 'session-fit');
+    assert.ok(Math.abs(session.jnd - trueJnd) <= 0.25, `fit JND ${session.jnd}`);
+    assert.ok(session.results.every((result) => result.ok));
+});
+
+test('session JND fit falls back when the synthetic JND is outside the accepted band', async () => {
+    const { computeFrontlitCalibrationSession, OPACITY_JND } = await loadCalibration();
+    // These reads come from a synthetic session generated with a JND above the
+    // accepted [1, 3] band. Do not record a session-fit JND for that case.
+    const session = computeFrontlitCalibrationSession({
+        filaments: [
+            {
+                filamentColor: '#ffd43b',
+                layerHeight: 0.035,
+                firstLayerHeight: 0.2,
+                maxLayers: 140,
+                reads: [
+                    { baseColor: '#000000', opacityLayers: 8 },
+                    { baseColor: '#2030ff', opacityLayers: 8 },
+                ],
+            },
+            {
+                filamentColor: '#2f7cff',
+                layerHeight: 0.035,
+                firstLayerHeight: 0.2,
+                maxLayers: 140,
+                reads: [
+                    { baseColor: '#000000', opacityLayers: 6 },
+                    { baseColor: '#ffea00', opacityLayers: 8 },
+                ],
+            },
+        ],
+        maxLayers: 140,
+    });
+    assert.equal(session.jndSource, 'default');
+    assert.equal(session.jnd, OPACITY_JND);
+});
+
+test('session JND fit falls back to the default for too little multi-base data', async () => {
+    const { computeFrontlitCalibrationSession, OPACITY_JND } = await loadCalibration();
+    const session = computeFrontlitCalibrationSession({
+        filaments: [
+            {
+                filamentColor: '#ffd43b',
+                layerHeight: 0.04,
+                firstLayerHeight: 0.2,
+                reads: [
+                    { baseColor: '#000000', opacityLayers: 8 },
+                    { baseColor: '#2030ff', opacityLayers: 5 },
+                ],
+            },
+        ],
+        maxLayers: 40,
+    });
+
+    assert.equal(session.jndSource, 'default');
+    assert.equal(session.jnd, OPACITY_JND);
+});
+
 test('sanitizeFrontlitCalibration accepts only the new frontlit calibration shape', async () => {
     const { computeFrontlitCalibration, sanitizeFrontlitCalibration } = await loadCalibration();
     const result = computeFrontlitCalibration({
@@ -211,6 +386,7 @@ test('sanitizeFrontlitCalibration accepts only the new frontlit calibration shap
     const sanitized = sanitizeFrontlitCalibration(result.calibration);
     assert.ok(sanitized);
     assert.equal(sanitized.basis, 'frontlit');
+    assert.equal(sanitized.channelSource, 'heuristic');
     assert.deepEqual(sanitized.td, result.calibration.td);
     assert.equal(sanitized.tdSingleValue, result.calibration.tdSingleValue);
     assert.equal(
@@ -228,6 +404,13 @@ test('sanitizeFrontlitCalibration accepts only the new frontlit calibration shap
         sanitizeFrontlitCalibration({
             ...result.calibration,
             basis: 'black-frontlit',
+        }),
+        undefined
+    );
+    assert.equal(
+        sanitizeFrontlitCalibration({
+            ...result.calibration,
+            reads: [{ baseColor: '#000000', opacityLayers: 5, mergeLayers: 0 }],
         }),
         undefined
     );
