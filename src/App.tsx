@@ -9,7 +9,6 @@ import {
 } from './types';
 import ThreeDView from './components/ThreeDView';
 import logo from './assets/logo.png';
-import tdTestImg from './assets/tdTest.png';
 import CanvasPreview from './components/CanvasPreview';
 import type { CanvasPreviewHandle } from './components/CanvasPreview';
 import { SwatchesPanel } from './components/SwatchesPanel';
@@ -478,15 +477,6 @@ function App(): React.ReactElement | null {
                 docsOpen={docsOpen}
                 onBackToApp={backToApp}
                 onToggleDocs={toggleDocs}
-                onLoadTest={() => {
-                    invalidate();
-                    setImage(tdTestImg, true);
-                    setMode('2d');
-                    if (parseDocsLocation(window.location)) {
-                        window.history.pushState(null, '', '/');
-                    }
-                    setDocsOpen(false);
-                }}
             />
             {docsOpen && (
                 <div className="flex flex-1 min-h-0 w-full">

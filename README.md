@@ -26,7 +26,7 @@ A quick look at what Kromacut produces from a source image to a printable model:
 | Sliced by Colors | Real Print |
 | <img src="content/fuji3dsliced.png" alt="Fuji Sliced" width="600" /> | <img src="content/printed.jpg" alt="Printed Result" width="600" /> |
 
-Another minimal test you can try yourself in the app header: the Transmission Distance (TD) test image.
+Another minimal test you can try yourself: the included Transmission Distance (TD) test image (`src/assets/tdTest.png`).
 
 | TD Test |
 |---|
@@ -280,12 +280,12 @@ See the [Auto-paint section](#auto-paint) above for full details.
 ### TD test image (for manual mode experimentation)
 
 - This repository includes a small test image `tdTest.png` (found in `src/assets/tdTest.png`).
-- The app header includes a `Load TD Test` button that will load that image into the preview so you can quickly experiment with manual layer ordering and per-color slice heights.
+- Load it into the preview with the toolbar upload button or drag-and-drop so you can quickly experiment with manual layer ordering and per-color slice heights.
 - This is primarily useful for testing manual mode workflows or understanding how layer heights affect perceived color.
 
 Quick manual workflow experiment:
 
-1. Click `Load TD Test` in the app header.
+1. Load `tdTest.png` (upload button or drag-and-drop).
 2. Reduce colors to your desired number.
 3. Switch to Manual mode (3D Controls → Manual tab).
 4. Adjust per-color slice heights and ordering.

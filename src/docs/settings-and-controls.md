@@ -11,12 +11,11 @@ This page collects controls that affect the whole app or are easy to miss.
 
 ## Header Controls
 
-| Control      | What it does                                              |
-| ------------ | --------------------------------------------------------- |
-| Load TD Test | Loads the bundled TD test image into the current project. |
-| Docs         | Opens this documentation page.                            |
-| Discord      | Opens the community link.                                 |
-| GitHub       | Opens the project page.                                   |
+| Control | What it does                   |
+| ------- | ------------------------------ |
+| Docs    | Opens this documentation page. |
+| Discord | Opens the community link.      |
+| GitHub  | Opens the project page.        |
 | Support me   | Opens the support link.                                   |
 | Settings     | Opens the settings dialog, including theme and desktop update controls. |
 

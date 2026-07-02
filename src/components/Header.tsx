@@ -6,7 +6,6 @@ import {
     BookOpen,
     CheckCircle2,
     Download,
-    Image,
     Heart,
     Loader2,
     Moon,
@@ -44,7 +43,6 @@ import githubIcon from '../assets/github.svg';
 import redditIcon from '../assets/reddit.svg';
 
 interface Props {
-    onLoadTest: () => void;
     docsOpen: boolean;
     onBackToApp: () => void;
     onToggleDocs: () => void;
@@ -53,7 +51,7 @@ interface Props {
 const appVersion = __APP_VERSION__;
 type UpdateCheckStatus = 'idle' | 'checking' | 'available' | 'current' | 'error';
 
-export const Header: React.FC<Props> = ({ onLoadTest, docsOpen, onBackToApp, onToggleDocs }) => {
+export const Header: React.FC<Props> = ({ docsOpen, onBackToApp, onToggleDocs }) => {
     const [themeMode, setThemeMode] = React.useState<ThemeMode>(() => getStoredThemeMode());
     const [settingsOpen, setSettingsOpen] = React.useState(false);
     const [checkOnStartup, setCheckOnStartup] = React.useState(() => getUpdateCheckOnStartup());
@@ -188,15 +186,6 @@ export const Header: React.FC<Props> = ({ onLoadTest, docsOpen, onBackToApp, onT
                         <BookOpen className="w-4 h-4" />
                     )}
                     <span className="max-sm:hidden">{docsOpen ? 'Back to app' : 'Docs'}</span>
-                </Button>
-                <Button
-                    size="sm"
-                    onClick={onLoadTest}
-                    title="Load TD Test"
-                    className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold transition-all duration-200 shadow-md hover:shadow-lg hover:scale-105 active:scale-95 gap-1.5"
-                >
-                    <Image className="w-4 h-4" />
-                    <span className="max-sm:hidden">Load TD Test</span>
                 </Button>
                 <Button
                     size="sm"

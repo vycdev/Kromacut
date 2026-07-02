@@ -11,7 +11,7 @@ This guide walks through a typical project from image loading to export.
 
 ## Load Or Import An Image
 
-Use the upload button in the preview toolbar, drag an image into the 2D preview, or click **Load TD Test** in the header for a built-in practice image.
+Use the upload button in the preview toolbar or drag an image into the 2D preview.
 
 After loading, use the mouse wheel to zoom and drag the preview to pan. If the image has transparency, the checkerboard button can make transparent areas easier to see.
 

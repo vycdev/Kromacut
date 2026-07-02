@@ -7,15 +7,11 @@ description: Import, crop, pan, zoom, and manage the source image.
 
 # Loading Images
 
-Kromacut starts with one image. You can use your own image or the built-in TD test image.
+Kromacut starts with one image. You can use your own image or the app logo it loads by default.
 
 ## Choose A Source
 
 Use any normal image file Kromacut can open in the web app or standalone desktop build. The preview toolbar includes a file upload button, and the preview area accepts drag and drop while you are in **2D** mode.
-
-The header also includes **Load TD Test**. It loads a small bundled image for experimenting with Transmission Distance and layer ordering.
-
-![TD test image](td-test.png 'Bundled TD test image')
 
 ## Preview Controls
 

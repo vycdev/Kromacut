@@ -36,7 +36,7 @@ Manual mode starts from the image colors shown in the **Image colors** panel. Au
 
 The workspace has three main areas:
 
-- The header contains **Load TD Test**, theme controls, and community links.
+- The header contains docs, theme controls, and community links.
 - The left panel contains the current mode controls.
     - In **2D**, it shows adjustments, dedither, quantization, custom palettes, and detected image colors.
     - In **3D**, it shows print settings, Manual controls, Auto-paint controls, and print instructions.
