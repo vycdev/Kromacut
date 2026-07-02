@@ -389,8 +389,10 @@ function transitionThicknessMultiplier(targetOpacity: number): number {
 }
 
 /**
- * Frontlit prints behave optically like a much shorter effective TD.
- * Scale user-entered TD values down for internal simulation.
+ * Fallback for UNCALIBRATED filaments only: frontlit prints behave optically like
+ * a much shorter effective TD, so a generic user-entered TD is scaled down for
+ * internal simulation. Calibrated filaments carry measured frontlit TDs and skip
+ * this — the frontlit calibration flow exists to replace this approximation.
  */
 const FRONTLIT_TD_SCALE = 0.1;
 const USE_CALIBRATED_CHANNEL_TD = true;
@@ -407,21 +409,13 @@ function calibratedTdChannels(filament: AutoPaintFilament): CalibrationRgb | und
 }
 
 function scaleFilamentForFrontlight(filament: Filament): Filament {
-    const scaledTd = filament.td * FRONTLIT_TD_SCALE;
-    if (!filament.calibration) {
-        return { ...filament, td: scaledTd };
+    // Calibrated filaments already carry measured frontlit TDs (scalar + per
+    // channel), so they pass through unchanged. Only uncalibrated filaments get
+    // the generic frontlit approximation.
+    if (filament.calibration) {
+        return filament;
     }
-
-    const calibration = filament.calibration;
-    return {
-        ...filament,
-        td: scaledTd,
-        calibration: {
-            ...calibration,
-            td: calibration.td.map((td) => td * FRONTLIT_TD_SCALE) as CalibrationRgb,
-            tdSingleValue: calibration.tdSingleValue * FRONTLIT_TD_SCALE,
-        },
-    };
+    return { ...filament, td: filament.td * FRONTLIT_TD_SCALE };
 }
 
 /**

@@ -42,17 +42,18 @@ Auto-paint uses real filament colors and **Transmission Distance (TD)** values. 
 - Filament color.
 - TD value.
 
-Use the wand button to auto-estimate TD from color, or use the calibration button to measure TD from printed test patches.
+Use the wand button to auto-estimate TD from color, or calibrate to measure TD from a printed wedge.
 
 ## Calibrating Filament TD
 
-Click the calibration button on a filament row to open **Calibrate Filament TD**. The wizard has three parts:
+Calibration is camera-free: you print a small wedge and read back a single number. Click the calibration button on a filament row, or **Calibrate Filaments** below the filament list, to open the dialog. It has four steps:
 
-1. **Step 1: Print Test Patches** lists the filament, layer height, 100% infill, patch size, and layer counts. Use **Download Test Patches STL** if you want Kromacut to generate the patch model.
-2. **Step 2: Measure RGB Values** lets you enter measurements manually or upload a photo with **Image Sampler**. Use **Fill White Reference** on the empty backlight first, then use **Fill Measurement RGB** for each printed patch. The visible circular brush averages the pixels inside it, so place it over a uniform patch area and away from edges or glare.
-3. **Calibration Complete** shows the fitted TD value, RGB channel estimates, white reference, and confidence. Click **Save Calibration** to apply it to the filament.
+1. **Select** the filaments you want to calibrate.
+2. **Base layers** — choose the base filament each one prints over. It defaults to your darkest filament (matching how frontlit prints are viewed), and the base comes from your real profile filaments, so no extra "phantom" filament is added to the print. A dark filament has too little contrast with a dark base, so switch its base to a lighter one (e.g. white) here.
+3. **Print** the calibration wedge. Set your layer height and the wedge length (max layers), then download an **STL** (any printer — print it once per filament, base then your color above the base) or a multi-material **3MF** (colors and bases baked in, for AMS/multi-material). Each filament prints as a row of patches from 1 layer up, with an opaque reference rail running along the edge beside the patches. A foot marks the 1-layer end.
+4. **Enter Results** by reporting, for each filament, the **first patch that looks identical to the reference rail** beside it — that is its opacity layer. Kromacut converts that number into a frontlit TD (with per-channel values), shows a predicted-vs-reference swatch, the TD, and a confidence rating. Click **Save Calibration** to apply it.
 
-Use at least three saved measurements before calculating TD. More measurements usually improve confidence if the lighting and sampling setup stays consistent.
+Because the reference rail is the filament's own fully-opaque color, you are only judging whether a patch matches the rail right next to it — a comparison that stays reliable across lighting and screens. The measured TD is a material property, so it transfers to your real prints regardless of which base you calibrated against.
 
 ## Filament Profiles
 

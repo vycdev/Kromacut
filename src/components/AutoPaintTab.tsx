@@ -13,6 +13,7 @@ import {
     Pencil,
     BadgeCheck,
     Loader2,
+    FlaskConical,
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -28,9 +29,8 @@ import { TabsContent } from '@/components/ui/tabs';
 import type { AutoPaintResult, TransitionZone } from '../lib/autoPaint';
 import type { AutoPaintProfile } from '../lib/profileManager';
 import type { AutoPaintRepeatLimit, AutoPaintTransitionOpacity, Filament, Swatch } from '../types';
-import type { CalibrationResult } from '../lib/calibration';
 import FilamentRow from './FilamentRow';
-import { FilamentCalibrationWizard } from './FilamentCalibrationWizard';
+import { FilamentCalibrationDialog, type CalibrationApplyUpdate } from './FilamentCalibrationDialog';
 import { getConfidenceLabel, getConfidenceColor } from '../lib/calibration';
 import { useNextBestColorWorker } from '../hooks/useNextBestColorWorker';
 
@@ -111,6 +111,7 @@ interface AutoPaintTabProps {
     error?: string;
     calibrationLayerHeight: number;
     setCalibrationLayerHeight: (v: number) => void;
+    firstLayerHeight: number;
 
     // Image colors
     filteredCount: number;
@@ -177,6 +178,7 @@ export default function AutoPaintTab({
     progress = 0,
     error,
     calibrationLayerHeight,
+    firstLayerHeight,
     filteredCount,
     imageSwatches,
     enhancedColorMatch,
@@ -219,33 +221,31 @@ export default function AutoPaintTab({
         optimizerSeed?.toString() ?? ''
     );
 
-    // Calibration wizard state
+    // Calibration dialog state
     const [calibratingFilamentId, setCalibratingFilamentId] = React.useState<string | null>(null);
-    const [calibrationWizardOpen, setCalibrationWizardOpen] = React.useState(false);
+    const [calibrationDialogOpen, setCalibrationDialogOpen] = React.useState(false);
 
-    const calibratingFilament = filaments.find((f) => f.id === calibratingFilamentId);
-
-    const handleOpenCalibrationWizard = React.useCallback((id: string) => {
-        setCalibratingFilamentId(id);
-        setCalibrationWizardOpen(true);
+    const handleOpenCalibration = React.useCallback((id?: string) => {
+        setCalibratingFilamentId(id ?? null);
+        setCalibrationDialogOpen(true);
     }, []);
 
-    const handleCloseCalibrationWizard = React.useCallback(() => {
-        setCalibrationWizardOpen(false);
+    const handleCloseCalibration = React.useCallback(() => {
+        setCalibrationDialogOpen(false);
         // Clear the ID after a short delay to avoid visible state change
         setTimeout(() => setCalibratingFilamentId(null), 300);
     }, []);
 
-    const handleCalibrationComplete = React.useCallback(
-        (result: CalibrationResult) => {
-            if (calibratingFilamentId) {
-                updateFilament(calibratingFilamentId, {
-                    td: result.tdSingleValue,
-                    calibration: result,
+    const handleApplyCalibration = React.useCallback(
+        (updates: CalibrationApplyUpdate[]) => {
+            for (const update of updates) {
+                updateFilament(update.id, {
+                    td: update.td,
+                    calibration: update.calibration,
                 });
             }
         },
-        [calibratingFilamentId, updateFilament]
+        [updateFilament]
     );
 
     React.useEffect(() => {
@@ -469,7 +469,6 @@ export default function AutoPaintTab({
                                     filament={f}
                                     onUpdate={updateFilament}
                                     onRemove={removeFilament}
-                                    onCalibrate={handleOpenCalibrationWizard}
                                 />
                             ))}
                         </div>
@@ -483,6 +482,18 @@ export default function AutoPaintTab({
                         <Plus className="w-3.5 h-3.5" />
                         Add Filament
                     </Button>
+
+                    {filaments.length > 0 && (
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleOpenCalibration()}
+                            className="w-full gap-1.5 h-8 cursor-pointer"
+                        >
+                            <FlaskConical className="w-3.5 h-3.5" />
+                            Calibrate Filaments
+                        </Button>
+                    )}
 
                     {/* Max Height Constraint */}
                     {filaments.length > 0 && (
@@ -1215,22 +1226,16 @@ export default function AutoPaintTab({
                 </div>
             </Card>
 
-            {/* Calibration Wizard */}
-            {calibratingFilament && (
-                <FilamentCalibrationWizard
-                    key={calibratingFilament.id}
-                    open={calibrationWizardOpen}
-                    onClose={handleCloseCalibrationWizard}
-                    onComplete={handleCalibrationComplete}
-                    filamentColor={calibratingFilament.color}
-                    filamentName={
-                        calibratingFilament.name || calibratingFilament.brand || 'Filament'
-                    }
-                    layerHeight={calibrationLayerHeight}
-                    existingMeasurements={calibratingFilament.calibration?.measurements}
-                    existingWhiteReference={calibratingFilament.calibration?.whiteReference}
-                />
-            )}
+            {/* Calibration Dialog */}
+            <FilamentCalibrationDialog
+                open={calibrationDialogOpen}
+                onClose={handleCloseCalibration}
+                filaments={filaments}
+                initialFilamentId={calibratingFilamentId}
+                layerHeight={calibrationLayerHeight}
+                firstLayerHeight={firstLayerHeight}
+                onApply={handleApplyCalibration}
+            />
         </TabsContent>
     );
 }

@@ -1,5 +1,5 @@
 import type { AutoPaintResult } from '../lib/autoPaint';
-import type { CalibrationResult } from '../lib/calibration';
+import type { FrontlitCalibration } from '../lib/calibration';
 
 export const AUTO_PAINT_REPEAT_LIMITS = [0, 2, 4, 6, 8, 12] as const;
 export type AutoPaintRepeatLimit = (typeof AUTO_PAINT_REPEAT_LIMITS)[number];
@@ -31,7 +31,7 @@ export interface Filament {
     id: string;
     color: string;
     td: number;
-    calibration?: CalibrationResult;
+    calibration?: FrontlitCalibration;
     name?: string;
     brand?: string;
 }

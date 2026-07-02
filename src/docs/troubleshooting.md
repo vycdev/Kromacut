@@ -45,7 +45,7 @@ Common causes:
 - The optimizer needs **Enhanced color matching** enabled.
 - The important subject is in the center or edges but **Region priority** is set to **Uniform**.
 
-Use the calibration wizard and check **Result Confidence** for clues.
+Calibrate your filaments and check **Result Confidence** for clues.
 
 ## The 3D Build Is Slow
 

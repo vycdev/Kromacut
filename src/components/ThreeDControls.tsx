@@ -497,6 +497,7 @@ export default function ThreeDControls({
                     error={autoPaintError}
                     calibrationLayerHeight={calibrationLayerHeight}
                     setCalibrationLayerHeight={setCalibrationLayerHeight}
+                    firstLayerHeight={slicerFirstLayerHeight}
                     filteredCount={filtered.length}
                     imageSwatches={filtered}
                     enhancedColorMatch={enhancedColorMatch}

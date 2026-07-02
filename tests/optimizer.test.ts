@@ -186,11 +186,14 @@ test('cache keys include all weighted clusters and optimizer tuning', async () =
             ? {
                   ...filament,
                   calibration: {
-                      color: filament.color,
-                      measurements: [],
+                      opacityLayers: 6,
+                      layerHeight: 0.1,
+                      firstLayerHeight: 0.2,
                       td: [1.2, 1.8, 2.4] as [number, number, number],
                       tdSingleValue: filament.td,
+                      jnd: 2,
                       confidence: 1,
+                      basis: 'black-frontlit' as const,
                       calibrationDate: '2026-01-01T00:00:00.000Z',
                   },
               }
