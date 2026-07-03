@@ -115,9 +115,12 @@ function loadFilamentProfileFixture(
 ): FilamentProfileFixture {
     const raw = JSON.parse(
         readFileSync(resolve(filamentProfilesRoot, fileName), 'utf8')
-    ) as Partial<FilamentProfileFixture>;
+    ) as Partial<FilamentProfileFixture> & { version?: number };
     const name = raw.name;
     const filaments = raw.filaments;
+    // .kapp fixtures are schema-v1 exports: uncalibrated tds are on the legacy
+    // backlit scale and convert to hiding distances (×0.1) like live imports.
+    const legacyTdScale = (raw.version ?? 1) < 2 ? 0.1 : 1;
 
     if (typeof name !== 'string') {
         assert.fail(`${fileName} should include a profile name`);
@@ -141,7 +144,7 @@ function loadFilamentProfileFixture(
             return {
                 id: filament.id,
                 color: normalizeFixtureHex(filament.color, `${fileName} filament ${index}`),
-                td: filament.td,
+                td: filament.td * legacyTdScale,
             };
         }),
     };

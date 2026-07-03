@@ -36,24 +36,24 @@ The first color is the starting color. Later colors become swap steps. For best 
 
 ## Auto-paint
 
-Auto-paint uses real filament colors and **Transmission Distance (TD)** values. Add each filament you plan to use, then set:
+Auto-paint uses real filament colors and **Hiding Distance (HD)** values — the depth of material, in millimetres, at which a filament visually hides what's beneath it. Add each filament you plan to use, then set:
 
 - Filament name.
 - Filament color.
-- TD value.
+- HD value.
 
-Use the wand button to auto-estimate TD from color, or calibrate to measure TD from a printed wedge.
+Use the wand button to auto-estimate the hiding distance from color, calibrate to measure it from a printed wedge, or use the convert button to enter a conventional Transmission Distance (the lithophane/backlit TD from a spool sheet or TD test print) — a conventional TD is roughly 10× the hiding distance, and Kromacut converts it for you.
 
-## Calibrating Filament TD
+## Calibrating Filament Hiding Distance
 
 Calibration is camera-free: you print a small wedge and read back one or more opacity numbers. Click the calibration button on a filament row, or **Calibrate Filaments** below the filament list, to open the dialog. It has four steps:
 
 1. **Select** the filaments you want to calibrate.
 2. **Base layers** - choose **Quick** for one base read, or **Accurate** for two or three base reads per filament. Kromacut auto-picks useful bases from your real profile filaments, and you can override them with the base swatches.
 3. **Print** the calibration wedge. Set your layer height and the wedge length (max layers), then download an **STL** (any printer) or a multi-material **3MF** (colors and bases baked in, for AMS/multi-material). For STL, use the shown layer height and first-layer height, print one copy for each filament/base read, load the listed base filament, then swap after the shown layer/Z height to the filament being calibrated. Each print has patches from 1 layer up, with an opaque reference rail running along the edge beside the patches. A foot marks the 1-layer end.
-4. **Enter Results** by reporting, for each filament/base row, the **first patch that looks identical to the reference rail** beside it. Kromacut uses one read for quick scalar calibration, or combines multi-base reads to measure per-channel TDs and, when the session has enough data, fit the shared JND. The optional merge field records where adjacent steps stop looking different; it is stored as model-checking evidence and does not block saving.
+4. **Enter Results** by reporting, for each filament/base row, the **first patch that looks identical to the reference rail** beside it. Kromacut uses one read for quick scalar calibration, or combines multi-base reads to measure per-channel hiding distances and, when the session has enough data, fit the shared JND. The optional merge field records where adjacent steps stop looking different; it is stored as model-checking evidence and does not block saving.
 
-Because the reference rail is the filament's own fully-opaque color, you are only judging whether a patch matches the rail right next to it — a comparison that stays reliable across lighting and screens. The measured TD is a material property, so it transfers to your real prints regardless of which base you calibrated against.
+Because the reference rail is the filament's own fully-opaque color, you are only judging whether a patch matches the rail right next to it — a comparison that stays reliable across lighting and screens. The measured hiding distance is a material property, so it transfers to your real prints regardless of which base you calibrated against.
 
 ## Filament Profiles
 
@@ -89,7 +89,7 @@ Enhanced matching scores the palette that is already visible in 2D mode; it does
 
 While Kromacut is optimizing a filament order, the panel shows an approximate completion percentage. Starting a new calculation cancels the older one, so the percentage always belongs to the current settings.
 
-When a filament has been calibrated, Auto-paint uses its measured red, green, and blue TD values for both transition colors and transition thickness. Calibration can therefore change the generated stack height and swap plan as well as the preview color, making the print model more faithful to the measured filament.
+When a filament has been calibrated, Auto-paint uses its measured red, green, and blue hiding distances for both transition colors and transition thickness. Uncalibrated filaments use per-channel values estimated from their color around the scalar HD. Calibration can therefore change the generated stack height and swap plan as well as the preview color, making the print model more faithful to the measured filament.
 
 ## Flat Paint
 

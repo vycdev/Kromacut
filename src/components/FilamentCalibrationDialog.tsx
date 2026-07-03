@@ -34,12 +34,11 @@ import {
 import { cn } from '@/lib/utils';
 import type { Filament } from '../types';
 import {
+    channelHds,
     computeFrontlitCalibration,
     computeFrontlitCalibrationSession,
-    deriveChannelTds,
     predictFrontlitColor,
     predictOpacityLayersForTds,
-    sanitizeFrontlitCalibration,
     solveOpacityTransmission,
     getConfidenceLabel,
     getConfidenceColor,
@@ -201,11 +200,11 @@ export function FilamentCalibrationDialog({
         [filaments]
     );
 
-    const estimateChannelTds = useCallback((filament: Filament): [number, number, number] => {
-        const calibration = sanitizeFrontlitCalibration(filament.calibration);
-        if (calibration) return calibration.td;
-        return deriveChannelTds(filament.color, Math.max(0.05, filament.td * 0.1));
-    }, []);
+    const estimateChannelTds = useCallback(
+        // `td` already stores the frontlit hiding distance (schema v2).
+        (filament: Filament): [number, number, number] => channelHds(filament),
+        []
+    );
 
     const recommendedBaseIds = useCallback(
         (filament: Filament): string[] => {
@@ -616,7 +615,7 @@ export function FilamentCalibrationDialog({
                                         {filamentLabel(filament)}
                                     </span>
                                     <span className="block text-xs text-muted-foreground">
-                                        TD {filament.td.toFixed(2)}mm
+                                        HD {filament.td.toFixed(2)} mm
                                         {isCalibrated ? ' · calibrated' : ''}
                                     </span>
                                 </span>
@@ -645,7 +644,7 @@ export function FilamentCalibrationDialog({
             <div className="space-y-4">
                 <p className="text-sm text-muted-foreground">
                     Quick mode uses one base per filament. Accurate mode repeats the same read over
-                    multiple bases so Kromacut can measure RGB TDs directly.
+                    multiple bases so Kromacut can measure RGB hiding distances directly.
                 </p>
                 <div className="grid grid-cols-2 gap-2">
                     <Button
@@ -890,6 +889,16 @@ export function FilamentCalibrationDialog({
                 <p className="text-sm text-muted-foreground">
                     Enter the first patch number that matched the rail for each filament/base print.
                 </p>
+                <div className="grid gap-1 rounded-md border border-border/50 bg-muted/20 px-3 py-2 text-[11px] text-muted-foreground sm:grid-cols-2">
+                    <div>
+                        <span className="font-semibold text-foreground">Match:</span> first patch
+                        that matches the rail.
+                    </div>
+                    <div>
+                        <span className="font-semibold text-foreground">Merge:</span> optional last
+                        patch still different from the previous patch.
+                    </div>
+                </div>
                 <div className="max-h-[26rem] space-y-2.5 overflow-y-auto pr-1">
                     {computed.map(({ filament, targets, result, jndSource }) => {
                         const calibration = result && result.ok ? result.calibration : null;
@@ -917,8 +926,8 @@ export function FilamentCalibrationDialog({
                                 <div className="mt-3 space-y-2">
                                     <div className="hidden grid-cols-[1fr_auto_auto] gap-2 px-2 text-[10px] font-medium uppercase tracking-wide text-muted-foreground sm:grid">
                                         <span>Base</span>
-                                        <span className="w-[6.5rem]">Match</span>
-                                        <span className="w-[6.5rem]">Merge</span>
+                                        <span className="w-[6.5rem]">Match rail</span>
+                                        <span className="w-[6.5rem]">Merge steps</span>
                                     </div>
                                     {targets.map((target) => {
                                         const opacityLayers = parseLayerInput(reads[target.key]);
@@ -1024,8 +1033,8 @@ export function FilamentCalibrationDialog({
                                             />
                                             <span className="text-[11px] text-muted-foreground">
                                                 {calibration.channelSource === 'measured'
-                                                    ? 'measured RGB TDs'
-                                                    : 'heuristic RGB TDs'}
+                                                    ? 'measured RGB HDs'
+                                                    : 'heuristic RGB HDs'}
                                                 {jndSource === 'session-fit'
                                                     ? ' / session JND'
                                                     : ''}
@@ -1033,7 +1042,7 @@ export function FilamentCalibrationDialog({
                                         </div>
                                         <div className="text-right text-xs">
                                             <div className="font-semibold">
-                                                TD {calibration.tdSingleValue.toFixed(2)}mm
+                                                HD {calibration.tdSingleValue.toFixed(2)} mm
                                             </div>
                                             <div
                                                 className={cn(

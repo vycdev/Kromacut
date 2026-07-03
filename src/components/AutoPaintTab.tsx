@@ -1165,8 +1165,8 @@ export default function AutoPaintTab({
                                         </span>
                                     </div>
                                     <div className="grid grid-cols-3 gap-1.5 text-[10px] text-muted-foreground">
-                                        <span title="Recommended starting transmittance-distance value, borrowed from the nearest existing filament by color distance (ΔE).">
-                                            TD:{' '}
+                                        <span title="Recommended starting hiding distance (mm), borrowed from the nearest existing filament by color distance (ΔE).">
+                                            HD:{' '}
                                             <span className="font-semibold text-foreground">
                                                 {nextBestResult.candidate.td.toFixed(2)}
                                             </span>

@@ -8,7 +8,7 @@ Open-source HueForge-style tool for converting images into stacked, color-layere
 
 Kromacut is a browser-first app that converts images into multi-color lithophane 3D prints. It offers two powerful workflows:
 
-**Auto-paint mode** — Define your actual filaments (color + Transmission Distance), and Kromacut automatically computes optimal layer stacks using physically accurate Beer-Lambert optical blending. Features include a calibration wizard, five deterministic optimizer effort tiers, and region weighting for spatial priority.
+**Auto-paint mode** — Define your actual filaments (color + hiding distance), and Kromacut automatically computes optimal layer stacks using physically accurate Beer-Lambert optical blending. Features include a calibration wizard, five deterministic optimizer effort tiers, and region weighting for spatial priority.
 
 **Manual mode** — Reduce images to a small palette, manually tweak per-color layer heights and ordering, and fine-tune every aspect of the stack with complete control.
 
@@ -44,7 +44,7 @@ Another minimal test you can try yourself: the included Transmission Distance (T
 - 3D model export to binary STL or 3MF (Preview) suitable for multi-material slicers.
 - Plain-text 3D print instructions that describe layer heights and exact layers where filament swaps are required.
 - Copy-to-clipboard button for the print instructions (produces a clean, copyable plain-text plan).
-- **Filament calibration wizard** — Accurately determine Transmission Distance (TD) values through measured samples with confidence scoring.
+- **Filament calibration** — Accurately measure frontlit hiding distances from a camera-free printed wedge, with per-channel values and confidence scoring.
 - **Advanced optimizer** — Five deterministic effort tiers search for optimal filament ordering, from quick previews to exact base-order enumeration.
 - **Region weighting** — Prioritize accuracy in specific image areas (center, edges) during auto-paint optimization.
 

@@ -16,8 +16,8 @@ import {
     type ScoringContext,
 } from './optimizer';
 import {
+    channelHds,
     computeProfileConfidence,
-    sanitizeFrontlitCalibration,
     type CalibrationRgb,
 } from './calibration';
 import { blendSrgbChannel } from './colorSpace';
@@ -392,35 +392,12 @@ function transitionThicknessMultiplier(targetOpacity: number): number {
     return -Math.log10(1 - targetOpacity);
 }
 
-/**
- * Fallback for UNCALIBRATED filaments only: frontlit prints behave optically like
- * a much shorter effective TD, so a generic user-entered TD is scaled down for
- * internal simulation. Calibrated filaments carry measured frontlit TDs and skip
- * this — the frontlit calibration flow exists to replace this approximation.
- */
-const FRONTLIT_TD_SCALE = 0.1;
-const USE_CALIBRATED_CHANNEL_TD = true;
+// `filament.td` stores the frontlit hiding distance directly (profile schema v2)
+// for calibrated and uncalibrated filaments alike, so no runtime scaling is
+// needed. Per-channel values come from `channelHds`: measured when calibrated,
+// derived from the swatch color otherwise.
 
 type AutoPaintFilament = Pick<Filament, 'id' | 'color' | 'td' | 'calibration'>;
-
-function calibratedTdChannels(filament: AutoPaintFilament): CalibrationRgb | undefined {
-    if (!USE_CALIBRATED_CHANNEL_TD) return undefined;
-    const channels = sanitizeFrontlitCalibration(filament.calibration)?.td;
-    if (!channels || channels.some((td) => !Number.isFinite(td) || td <= 0)) {
-        return undefined;
-    }
-    return channels;
-}
-
-function scaleFilamentForFrontlight(filament: Filament): Filament {
-    // Calibrated filaments already carry measured frontlit TDs (scalar + per
-    // channel), so they pass through unchanged. Only uncalibrated filaments get
-    // the generic frontlit approximation.
-    if (sanitizeFrontlitCalibration(filament.calibration)) {
-        return filament;
-    }
-    return { ...filament, td: filament.td * FRONTLIT_TD_SCALE, calibration: undefined };
-}
 
 /**
  * Simulate adding filament layers until the blended color matches the
@@ -517,12 +494,9 @@ export function calculateIdealHeight(
     //   0.05 = 10^(-thickness/TD)  →  thickness = TD × log10(20) ≈ TD × 1.3
     // Dark filaments have low TD (e.g. 0.5mm) → foundation ≈ 0.65mm
     const firstFilament = sortedFilaments[0];
-    // Use the least-opaque (largest) calibrated channel TD when available so
-    // every channel reaches ~95% opacity; fall back to the scalar working TD.
-    const firstFilamentChannels = calibratedTdChannels(firstFilament);
-    const foundationTd = firstFilamentChannels
-        ? Math.max(...firstFilamentChannels)
-        : firstFilament.td;
+    // Use the least-opaque (largest) channel hiding distance so every channel
+    // reaches ~95% opacity.
+    const foundationTd = Math.max(...channelHds(firstFilament));
     const opacityThickness = foundationTd * 1.3; // 95% opaque
     // Ensure at least the base thickness (avoid unnecessary extra layers)
     const foundationThickness = Math.max(baseThickness, opacityThickness);
@@ -531,7 +505,7 @@ export function calculateIdealHeight(
         filamentId: firstFilament.id,
         filamentColor: firstFilament.color,
         filamentTd: firstFilament.td,
-        filamentTdChannels: calibratedTdChannels(firstFilament),
+        filamentTdChannels: channelHds(firstFilament),
         startHeight: 0,
         endHeight: foundationThickness,
         idealThickness: foundationThickness,
@@ -543,7 +517,7 @@ export function calculateIdealHeight(
     for (let i = 1; i < sortedFilaments.length; i++) {
         const filament = sortedFilaments[i];
         const filamentRgb = hexToRgb(filament.color);
-        const transitionTd = calibratedTdChannels(filament) ?? filament.td;
+        const transitionTd = channelHds(filament);
 
         // Calculate how thick this zone needs to be
         const transitionKey = [
@@ -553,11 +527,7 @@ export function calculateIdealHeight(
             filamentRgb.r,
             filamentRgb.g,
             filamentRgb.b,
-            ...(
-                typeof transitionTd === 'number'
-                    ? [transitionTd]
-                    : transitionTd
-            ),
+            ...transitionTd,
             layerHeight,
             transitionOpacity,
         ].join(':');
@@ -577,7 +547,7 @@ export function calculateIdealHeight(
             filamentId: filament.id,
             filamentColor: filament.color,
             filamentTd: filament.td,
-            filamentTdChannels: calibratedTdChannels(filament),
+            filamentTdChannels: channelHds(filament),
             startHeight: currentHeight,
             endHeight: currentHeight + transitionThickness,
             idealThickness: transitionThickness,
@@ -1426,16 +1396,12 @@ function findBestFilamentOrderWithOptimizer(
         transitionOpacity: optimizerOptions.transitionOpacity,
     };
 
-    // Apply frontlit TD scale
-    const scaledFilaments = filaments.map(scaleFilamentForFrontlight);
-
-    // Run optimizer
-    const result = optimizeFilamentOrder(scaledFilaments, context, {
+    // Run optimizer (tds are hiding distances; no scaling needed)
+    const result = optimizeFilamentOrder(filaments, context, {
         ...optimizerOptions,
         allowRepeatedSwaps,
     });
 
-    // Map back to original filaments (unscaled TDs)
     const sortedFilaments = result.order.map((sf) =>
         filaments.find((f) => f.id === sf.id)
     ).filter((f): f is Filament => f !== undefined);
@@ -1541,12 +1507,9 @@ export function generateAutoLayers(
         });
     }
 
-    // Apply frontlit TD scale for internal simulation
-    const scaledFilaments = sortedFilaments.map(scaleFilamentForFrontlight);
-
     // --- STEP 3: CALCULATE IDEAL HEIGHT WITH TRANSITION ZONES ---
     const { idealHeight, zones } = calculateIdealHeight(
-        scaledFilaments,
+        sortedFilaments,
         layerHeight,
         Math.max(firstLayerHeight, layerHeight),
         undefined,
@@ -1629,8 +1592,8 @@ export function calculateRecommendedHeight(
 ): number {
     if (filaments.length === 0) return 2.0;
 
-    // Sum of TDs gives a rough estimate of total transition space needed
-    const totalTD = filaments.reduce((sum, f) => sum + f.td * FRONTLIT_TD_SCALE, 0);
+    // Sum of hiding distances gives a rough estimate of transition space needed
+    const totalTD = filaments.reduce((sum, f) => sum + f.td, 0);
 
     // Typically need about 0.8x to 1.2x the sum of TDs
     const estimated = totalTD * 0.9;

@@ -14,8 +14,8 @@
  * form with a principled, color-aware constant instead of a hand-picked number.
  */
 
-import { blendSrgbChannel } from './colorSpace';
-import { deltaE2000 } from './colorDifference';
+import { blendSrgbChannel } from './colorSpace.ts';
+import { deltaE2000 } from './colorDifference.ts';
 
 // ============================================================================
 // Types
@@ -109,6 +109,16 @@ export const FRONTLIT_BASE_HEX = '#000000';
  * frontlit prints.
  */
 export const OPACITY_JND = 2.0;
+
+/**
+ * Conversion factor between conventional (backlit/lithophane) Transmission
+ * Distance values and the frontlit hiding distance the app stores and
+ * simulates with. Used only when converting user-entered conventional TD
+ * values and when migrating pre-v2 persisted profiles; the runtime pipeline
+ * consumes hiding distances directly. Empirically validated: measured hiding
+ * distances of a physical 8-filament set landed at ≈ backlit TD × 0.1.
+ */
+export const FRONTLIT_TD_SCALE = 0.1;
 
 const FRONTLIT_TD_MIN = 0.05;
 const FRONTLIT_TD_MAX = 12.0;
@@ -525,7 +535,7 @@ export function predictOpacityLayersForTds(
 /**
  * Derive per-channel TDs from the single measured TD, modulated by the filament
  * color. Uses a `1 + value*5.8` shape per channel (the per-channel form of the
- * estimateTDFromColor luminance heuristic): a brighter channel is more
+ * estimateHidingDistanceFromColor luminance heuristic): a brighter channel is more
  * transmissive (larger TD). The brightest channel — which governs the opacity
  * the eye reads — is anchored to `tdSingle`, so darker (more absorptive) channels
  * scale down from there.
@@ -536,6 +546,23 @@ export function deriveChannelTds(filamentColor: string, tdSingle: number): Calib
     const anchor = Math.max(raw[0], raw[1], raw[2]);
     const k = tdSingle / anchor;
     return raw.map((value) => clamp(k * value, FRONTLIT_TD_MIN, FRONTLIT_TD_MAX)) as CalibrationRgb;
+}
+
+/**
+ * Per-channel hiding distances for a filament: the measured triple when a valid
+ * frontlit calibration exists, otherwise derived from the swatch color around
+ * the scalar hiding distance. Every blend consumer should go through this so
+ * calibrated and uncalibrated filaments share one channel model.
+ */
+export function channelHds(filament: {
+    color: string;
+    td: number;
+    calibration?: unknown;
+}): CalibrationRgb {
+    return (
+        sanitizeFrontlitCalibration(filament.calibration)?.td ??
+        deriveChannelTds(filament.color, filament.td)
+    );
 }
 
 function frontlitConfidence(opacityLayers: number, tdSingle: number, maxLayers?: number): number {
@@ -820,9 +847,10 @@ export function computeProfileConfidence(profile: {
 }): number {
     const cal = sanitizeFrontlitCalibration(profile.calibration);
     if (!cal) {
+        // Plausibility bands for an uncalibrated hiding distance (mm, frontlit).
         const td = profile.transmissionDistance;
-        if (td >= 1.0 && td <= 5.0) return 0.5;
-        if (td >= 0.5 && td <= 10.0) return 0.3;
+        if (td >= 0.1 && td <= 0.5) return 0.5;
+        if (td >= 0.05 && td <= 1.0) return 0.3;
         return 0.1;
     }
 

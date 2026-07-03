@@ -67,10 +67,11 @@ test('identifies the most impactful missing color', () => {
 });
 
 test('blend-aware: far candidate wins when its segment covers the common color territory', () => {
-    // With only BLACK and an achromatic image, near-white creates a segment
-    // (#eeeeee↔BLACK) that spans the full L-axis, passing through #888888's Lab
-    // position — so adding it captures those pixels via blending.  Blend-aware
-    // scoring correctly prefers the longer segment even at count=1.
+    // With only BLACK and an achromatic image, a lighter-grey candidate creates
+    // a segment toward BLACK that passes through #888888's Lab position — so
+    // adding it captures the common mid-grey pixels via blending while also
+    // reaching toward the rare near-white. Under linear-light blending the
+    // extrapolated light grey wins over picking #888888 directly.
     const r = nextBestColor(
         [BLACK],
         [
@@ -79,7 +80,9 @@ test('blend-aware: far candidate wins when its segment covers the common color t
         ]
     );
     assert.ok(r.candidate !== null);
-    assert.equal(r.candidate.hex, '#888888');
+    assert.equal(r.candidate.hex, '#c9c9c9');
+    // The winner's blend segment must capture the common mid-grey pixels.
+    assert.ok(r.candidate.pixelsCaptured >= 1000);
 });
 
 test('pixel count weighting: common color beats rare one when blend segments diverge', () => {
@@ -313,4 +316,44 @@ test('baselineAvgDeltaE is 0 when all swatches exactly match filaments', () => {
     // Single swatch that exactly matches the filament — ΔE ≈ 0.
     const r = nextBestColor([RED], [{ hex: '#ff0000', count: 50 }]);
     assert.ok(r.baselineAvgDeltaE < 1, `expected near 0, got ${r.baselineAvgDeltaE}`);
+});
+
+// ---------------------------------------------------------------------------
+// Hiding-distance semantics + linear-light blending
+// ---------------------------------------------------------------------------
+
+test('blendRgb composites in linear light like blendSrgbChannel', async () => {
+    const { blendRgb } = await import('../src/lib/nextBestColor.ts');
+    // 50% transmission of white background through a black layer: the
+    // linear-light midpoint re-encodes to ~188 sRGB, not the gamma midpoint 128.
+    const halfTransmissionThickness = Math.log10(2); // t = 10^(-th/td) = 0.5 at td=1
+    const blended = blendRgb(
+        { r: 255, g: 255, b: 255 },
+        { r: 0, g: 0, b: 0 },
+        1,
+        halfTransmissionThickness
+    );
+    assert.ok(Math.abs(blended.r - 188) < 1.5, `expected ~188, got ${blended.r}`);
+    assert.ok(Math.abs(blended.g - blended.r) < 1e-9 && Math.abs(blended.b - blended.r) < 1e-9);
+});
+
+test('recommended hiding distance is borrowed on the stored (frontlit) scale', () => {
+    // Calibrated-profile-like HD values (~0.3–0.6 mm). The suggestion must come
+    // back on the same scale so the added filament simulates correctly.
+    const filaments: Filament[] = [
+        { id: 'black', color: '#000000', td: 0.05 },
+        { id: 'white', color: '#ffffff', td: 0.51 },
+        { id: 'red', color: '#d83400', td: 0.56 },
+    ];
+    const r = nextBestColor(filaments, [
+        { hex: '#000000', count: 100 },
+        { hex: '#00b8c4', count: 400 },
+    ]);
+    assert.ok(r.candidate !== null, 'expected a candidate');
+    const tds = filaments.map((f) => f.td);
+    assert.ok(
+        tds.includes(r.candidate!.td),
+        `candidate td ${r.candidate!.td} must be borrowed from an existing filament`
+    );
+    assert.ok(r.candidate!.td <= 2, 'td must be on the hiding-distance scale');
 });

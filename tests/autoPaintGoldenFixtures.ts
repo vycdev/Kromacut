@@ -2,6 +2,10 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 import {
+    CURRENT_PROFILE_VERSION,
+    migrateLegacyFilamentTd,
+} from '../src/lib/profileManager.ts';
+import {
     colorSwatchesFromJpegBlocks,
     logoFixturePath,
     largeIssueFixturePath,
@@ -34,19 +38,27 @@ const SWATCH_CAP = 2 ** 14;
 
 function readProfile(fileName: string, expectedFilamentCount: number): FilamentProfileFixture {
     const profilePath = resolve(testAssetsRoot, 'filament-profiles', fileName);
-    const parsed = JSON.parse(readFileSync(profilePath, 'utf8')) as Partial<FilamentProfileFixture>;
+    const parsed = JSON.parse(readFileSync(profilePath, 'utf8')) as Partial<FilamentProfileFixture> & {
+        version?: number;
+    };
 
     if (!parsed.name || !parsed.filaments || parsed.filaments.length !== expectedFilamentCount) {
         throw new Error(`Unexpected auto-paint profile fixture: ${fileName}`);
     }
 
+    // Fixture .kapp files are authentic schema-v1 exports; run them through the
+    // real td migration so scenarios use hiding distances like live profiles.
+    const version = typeof parsed.version === 'number' ? parsed.version : 1;
     return {
         name: parsed.name,
-        filaments: parsed.filaments.map((filament) => ({
-            id: filament.id,
-            color: filament.color,
-            td: filament.td,
-        })),
+        filaments: parsed.filaments.map((filament) => {
+            const shaped = {
+                id: filament.id,
+                color: filament.color,
+                td: filament.td,
+            };
+            return version < CURRENT_PROFILE_VERSION ? migrateLegacyFilamentTd(shaped) : shaped;
+        }),
     };
 }
 

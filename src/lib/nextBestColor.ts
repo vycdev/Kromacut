@@ -103,11 +103,34 @@ export function hexToLab(hex: string): Lab {
 
 export { labToHex };
 
-// Beer-Lambert layer blend: matches autoPaint's blendColors (operates in sRGB [0-255]).
-function blendRgb(bg: RGB, fg: RGB, td: number, thickness: number): RGB {
+// sRGB [0-255] channel <-> linear light, matching colorSpace.ts semantics.
+function srgbChannelToLinear(channel: number): number {
+    const s = Math.max(0, Math.min(255, channel)) / 255;
+    return s <= SRGB_LINEARISE_THRESHOLD
+        ? s / SRGB_LINEARISE_SCALE
+        : Math.pow((s + SRGB_LINEARISE_OFFSET) / SRGB_LINEARISE_DENOM, SRGB_LINEARISE_GAMMA);
+}
+
+function linearChannelToSrgb(channel: number): number {
+    const c = Math.max(0, Math.min(1, channel));
+    const normalized =
+        c <= SRGB_LINEAR_THRESHOLD
+            ? c * SRGB_LINEARISE_SCALE
+            : SRGB_LINEARISE_DENOM * Math.pow(c, 1 / SRGB_LINEARISE_GAMMA) - SRGB_LINEARISE_OFFSET;
+    return normalized * 255;
+}
+
+// Beer-Lambert layer blend in linear light: matches autoPaint's blendColors /
+// colorSpace.blendSrgbChannel (composite the transmissive foreground over the
+// background in linear light, then re-encode to sRGB).
+export function blendRgb(bg: RGB, fg: RGB, td: number, thickness: number): RGB {
     if (td <= 0 || thickness <= 0) return bg;
     const t = Math.pow(0.1, thickness / td);
-    return { r: fg.r + (bg.r - fg.r) * t, g: fg.g + (bg.g - fg.g) * t, b: fg.b + (bg.b - fg.b) * t };
+    const blendChannel = (bgC: number, fgC: number) =>
+        linearChannelToSrgb(
+            srgbChannelToLinear(fgC) * (1 - t) + srgbChannelToLinear(bgC) * t
+        );
+    return { r: blendChannel(bg.r, fg.r), g: blendChannel(bg.g, fg.g), b: blendChannel(bg.b, fg.b) };
 }
 
 const BLEND_CURVE_STEPS = 16;
@@ -154,7 +177,7 @@ const EXTRAP_BLEND_RATIOS = [0.3, 0.5, 0.7];
 
 export interface ColorCandidate {
     hex: string;
-    /** Recommended starting TD, derived from the nearest existing filament by ΔE. */
+    /** Recommended starting hiding distance (mm), borrowed from the nearest existing filament by ΔE. */
     td: number;
     /**
      * % reduction in blend-aware weighted-average ΔE vs current filament set.
@@ -376,7 +399,8 @@ export function nextBestColor(
         if (newReachable < effectiveReachable[i]) pixelsCaptured += counts[i];
     }
 
-    // TD: borrow from nearest existing filament by ΔE.
+    // Hiding distance: borrow from the nearest existing filament by ΔE. `td` is
+    // already the frontlit hiding distance (schema v2), so no scale conversion.
     let nearestFilamentIdx = 0;
     let nearestDE = Infinity;
     for (let fi = 0; fi < filamentLabs.length; fi++) {
@@ -394,7 +418,7 @@ export function nextBestColor(
         `${pool.length} candidates (${scores.length} scored)`
     );
     console.log(`  Baseline avg ΔE:  ${baselineAvgDeltaE.toFixed(2)}  (blend-aware)`);
-    console.log(`  Suggestion:       ${winner.hex.toUpperCase()}  TD ${recommendedTd.toFixed(2)}`);
+    console.log(`  Suggestion:       ${winner.hex.toUpperCase()}  HD ${recommendedTd.toFixed(2)}`);
     console.log(
         `  Accuracy gain:    +${improvementPct.toFixed(1)}%  ` +
         `(${pixelsCaptured.toLocaleString()} px / ` +

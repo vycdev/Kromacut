@@ -61,7 +61,7 @@ Use custom palettes when you want the reduced image to match a known filament se
 
 ## Filament Profile Files
 
-Auto-paint filament profiles use `.kfil`. Older `.kapp` profile files can still be imported. Profile files contain filament colors, names, TD values, and calibration data when available.
+Auto-paint filament profiles use `.kfil`. Older `.kapp` profile files can still be imported. Profile files contain filament colors, names, hiding distance values, and calibration data when available. Profiles saved by older versions stored uncalibrated values on the conventional TD scale; they are converted automatically (×0.1) when loaded or imported.
 
 Use profile import and export to move calibrated filaments between browsers or share them with another Kromacut user.
 

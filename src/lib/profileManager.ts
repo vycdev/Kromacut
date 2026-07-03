@@ -1,5 +1,5 @@
 import type { Filament } from '../types';
-import { sanitizeFrontlitCalibration } from './calibration';
+import { FRONTLIT_TD_SCALE, sanitizeFrontlitCalibration } from './calibration.ts';
 
 export interface AutoPaintProfile {
     id: string;
@@ -10,7 +10,19 @@ export interface AutoPaintProfile {
     updatedAt: number;
 }
 
-export const CURRENT_PROFILE_VERSION = 1;
+/**
+ * Profile schema versions:
+ * - v1: uncalibrated `td` stored on the conventional backlit TD scale (~1–6 mm)
+ *   and scaled ×0.1 at simulation time.
+ * - v2: `td` always stores the frontlit hiding distance (mm) directly, for
+ *   calibrated and uncalibrated filaments alike.
+ */
+export const CURRENT_PROFILE_VERSION = 2;
+
+/** Schema version that introduced hiding-distance td storage. The td migration
+ *  applies to profiles below this version only — never re-gate it on
+ *  CURRENT_PROFILE_VERSION, or a future bump would re-scale v2 profiles. */
+const TD_MIGRATION_VERSION = 2;
 
 const PROFILES_STORAGE_KEY = 'kromacut.autopaint.profiles';
 const LAST_PROFILE_KEY = 'kromacut.autopaint.lastProfileId';
@@ -43,6 +55,29 @@ export function sanitizeProfileFilament(value: unknown): Filament | null {
     return filament;
 }
 
+/**
+ * Convert a schema-v1 filament to v2 semantics: uncalibrated tds move from the
+ * conventional backlit TD scale to the frontlit hiding distance (×0.1);
+ * calibrated filaments re-sync to their measured scalar. Must run exactly once
+ * per filament, gated by the stored schema version.
+ */
+export function migrateLegacyFilamentTd(filament: Filament): Filament {
+    const calibration = sanitizeFrontlitCalibration(filament.calibration);
+    if (calibration) {
+        return { ...filament, td: calibration.tdSingleValue };
+    }
+    // Round away binary-float noise from the ×0.1 (e.g. 1.1 → 0.11000000000000001);
+    // 4 decimals is far below the optical resolution of any read.
+    return { ...filament, td: Math.round(filament.td * FRONTLIT_TD_SCALE * 1e4) / 1e4 };
+}
+
+function sanitizeProfileFilaments(value: unknown[], version: number): Filament[] {
+    const filaments = value
+        .map((filament) => sanitizeProfileFilament(filament))
+        .filter((filament): filament is Filament => filament !== null);
+    return version < TD_MIGRATION_VERSION ? filaments.map(migrateLegacyFilamentTd) : filaments;
+}
+
 function sanitizeProfile(value: unknown): AutoPaintProfile | null {
     if (!isRecord(value)) return null;
     if (
@@ -53,14 +88,13 @@ function sanitizeProfile(value: unknown): AutoPaintProfile | null {
         return null;
     }
 
+    const version = typeof value.version === 'number' ? value.version : 1;
     const now = Date.now();
     return {
         id: value.id,
         name: value.name,
-        version: typeof value.version === 'number' ? value.version : CURRENT_PROFILE_VERSION,
-        filaments: value.filaments
-            .map((filament) => sanitizeProfileFilament(filament))
-            .filter((filament): filament is Filament => filament !== null),
+        version: CURRENT_PROFILE_VERSION,
+        filaments: sanitizeProfileFilaments(value.filaments, version),
         createdAt: typeof value.createdAt === 'number' ? value.createdAt : now,
         updatedAt: typeof value.updatedAt === 'number' ? value.updatedAt : now,
     };
@@ -213,15 +247,14 @@ export function importProfiles(
         // Validate required fields
         if (!raw || typeof raw.name !== 'string' || !Array.isArray(raw.filaments)) continue;
 
-        const validFilaments = raw.filaments
-            .map((filament) => sanitizeProfileFilament(filament))
-            .filter((filament): filament is Filament => filament !== null);
+        const rawVersion = typeof raw.version === 'number' ? raw.version : 1;
+        const validFilaments = sanitizeProfileFilaments(raw.filaments, rawVersion);
 
         const now = Date.now();
         const profile: AutoPaintProfile = {
             id: raw.id && typeof raw.id === 'string' ? raw.id : crypto.randomUUID(),
             name: raw.name,
-            version: typeof raw.version === 'number' ? raw.version : CURRENT_PROFILE_VERSION,
+            version: CURRENT_PROFILE_VERSION,
             filaments: validFilaments,
             createdAt: typeof raw.createdAt === 'number' ? raw.createdAt : now,
             updatedAt: now,

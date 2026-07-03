@@ -187,7 +187,7 @@ test('calibrated per-channel TDs tint blends without changing scalar TD behavior
     );
 });
 
-test('legacy photo calibrations are ignored and use the frontlit fallback scale', async () => {
+test('legacy photo calibrations are ignored and blend like uncalibrated filaments', async () => {
     const { generateAutoLayers } = await loadAutoPaintModule();
     const filaments = [
         { id: 'black', color: '#000000', td: 1 },
@@ -512,8 +512,10 @@ test('auto-paint caps and optimizer palettes use the same discrete printable sta
         'an impossible cap must not be rounded up past the requested maximum'
     );
 
+    // tds are hiding distances consumed as-is; the optimizer and the preview
+    // now share the exact same filament inputs with no internal scaling.
     const palette = buildAchievableColorPalette(
-        filaments.map((filament) => ({ ...filament, td: filament.td * 0.1 })),
+        filaments,
         layerHeight,
         firstLayerHeight,
         maxHeight
@@ -611,4 +613,52 @@ test('auto-paint slice data never returns more than 500 layers', async () => {
     const slices = autoPaintToSliceHeights(tallResult, 0.1, 0.2);
     assert.ok(slices.colorSliceHeights.length <= 500);
     assert.equal(slices.colorSliceHeights.length, 500);
+});
+
+test('calibrated profiles produce identical output across the hiding-distance migration', async () => {
+    // Baseline captured immediately before the schema-v2 (hiding distance)
+    // migration with the same inputs: the calibrated path must be unaffected
+    // by removing the runtime frontlit scaling.
+    const { generateAutoLayers } = await loadAutoPaintModule();
+    const { readFileSync } = await import('node:fs');
+    const profile = JSON.parse(
+        readFileSync(
+            resolve(process.cwd(), 'tests/assets/filament-profiles/8_Colors_Calibrated_New.kfil'),
+            'utf8'
+        )
+    ) as { filaments: Array<{ id: string; color: string; td: number }> };
+    const baseline = JSON.parse(
+        readFileSync(resolve(process.cwd(), 'tests/assets/autopaint-calibrated-baseline.json'), 'utf8')
+    );
+    const swatches = [
+        { hex: '#000000', count: 120 },
+        { hex: '#ffffff', count: 80 },
+        { hex: '#d83400', count: 60 },
+        { hex: '#00b8c4', count: 50 },
+        { hex: '#6300c5', count: 40 },
+        { hex: '#f7d000', count: 30 },
+    ];
+    const normalize = (result: {
+        totalHeight: number;
+        idealHeight: number;
+        filamentOrder: string[];
+        layers: unknown[];
+    }) =>
+        JSON.parse(
+            JSON.stringify({
+                totalHeight: result.totalHeight,
+                idealHeight: result.idealHeight,
+                filamentOrder: result.filamentOrder,
+                layers: result.layers,
+            })
+        );
+
+    const standard = generateAutoLayers(profile.filaments, swatches, 0.08, 0.16, undefined, false);
+    assert.deepEqual(normalize(standard), baseline.standard);
+
+    const enhanced = generateAutoLayers(profile.filaments, swatches, 0.08, 0.16, undefined, true, false, {
+        algorithm: 'fast',
+        seed: 42,
+    });
+    assert.deepEqual(normalize(enhanced), baseline.enhancedFast);
 });

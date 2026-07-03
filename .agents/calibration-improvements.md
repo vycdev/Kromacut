@@ -201,18 +201,14 @@ The user has OK'd breaking changes with **no migration notice**. So:
 
 ---
 
-## Phase 2 — color accuracy (combos), still later
+## Phase 2 — color accuracy (combos)
 
-Single-filament frontlit TD fixes "too many / too few layers" and most of the
-color drift, because the preview uses the same TD. Fine-grained accuracy of
-*stacked color blends* is a second pass: print a matrix of 2–3 color combinations,
-**pruned to only printable combos using the Phase-1 TDs** (no longer assuming a
-high TD ⇒ far fewer cells), and correct the blend predictor.
-
-Open question for Phase 2: keep it camera-free. On-screen color matching reintro-
-duces the monitor problem, so prefer ordinal/threshold-style reads here too (e.g.
-"at which layer does color A stop showing through color B") rather than absolute
-color matching. To be designed after Phase 1 lands.
+Designed in [calibration-phase2-color.md](calibration-phase2-color.md): the Phase-1
+opacity read repeated over 2–3 different colored bases per filament measures the
+per-channel TDs directly (replacing the `1 + c*5.8` heuristic ratios), and the
+cross-base consistency of those reads pins the JND as one global fitted constant.
+Camera-free, same tile geometry, same "match the rail" judgment; pruned to
+printable combos using the Phase-1 TDs as originally intended.
 
 ---
 

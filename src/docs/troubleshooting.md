@@ -39,7 +39,7 @@ Use **Dedither** after reducing colors. If the image still has too many isolated
 
 Common causes:
 
-- Filament TD values are estimates instead of calibrated values.
+- Filament hiding distances are estimates instead of calibrated values.
 - The filament set does not cover the image colors well.
 - **Max Height** is compressing transition zones too much.
 - The optimizer needs **Enhanced color matching** enabled.

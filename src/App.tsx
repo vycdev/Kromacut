@@ -43,7 +43,7 @@ import { defaultDocSlug } from './docs';
 import { loadCameraMode, saveCameraMode } from './lib/cameraPrefs';
 import { buildDocsPath, parseDocsLocation } from './lib/docs/navigation';
 import { applyHomeSeo } from './lib/seo';
-import { sanitizeProfileFilament } from './lib/profileManager';
+import { migrateLegacyFilamentTd, sanitizeProfileFilament } from './lib/profileManager';
 import {
     AlertDialog,
     AlertDialogContent,
@@ -93,6 +93,11 @@ type AutoPaintPersisted = Pick<
     | 'flatPaint'
 >;
 
+// Schema v2: filament `td` values store frontlit hiding distances. State
+// persisted without this marker predates the change and carries uncalibrated
+// tds on the conventional backlit scale, which must be migrated once on load.
+const AUTOPAINT_SCHEMA_VERSION = 2;
+
 function isOneOf<T extends readonly number[]>(value: unknown, values: T): value is T[number] {
     return typeof value === 'number' && values.includes(value as T[number]);
 }
@@ -113,13 +118,19 @@ const loadAutoPaintPersisted = (): AutoPaintPersisted | null => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const parsed = JSON.parse(raw) as any;
         if (!parsed || !Array.isArray(parsed.filaments)) return null;
-        const filaments = parsed.filaments
+        const sanitized = parsed.filaments
             .map((filament: unknown) => sanitizeProfileFilament(filament))
             .filter(
                 (filament: ReturnType<typeof sanitizeProfileFilament>): filament is NonNullable<
                     ReturnType<typeof sanitizeProfileFilament>
                 > => filament !== null
             );
+        const persistedSchema =
+            typeof parsed.schemaVersion === 'number' ? parsed.schemaVersion : 1;
+        const filaments =
+            persistedSchema >= AUTOPAINT_SCHEMA_VERSION
+                ? sanitized
+                : sanitized.map(migrateLegacyFilamentTd);
         // Migrate legacy `autoPaintEnabled` boolean → `paintMode`
         const paintMode: 'manual' | 'autopaint' =
             parsed.paintMode === 'autopaint' || parsed.paintMode === 'manual'
@@ -151,7 +162,10 @@ const loadAutoPaintPersisted = (): AutoPaintPersisted | null => {
 
 const saveAutoPaintPersisted = (value: AutoPaintPersisted) => {
     try {
-        localStorage.setItem(AUTOPAINT_STORAGE_KEY, JSON.stringify(value));
+        localStorage.setItem(
+            AUTOPAINT_STORAGE_KEY,
+            JSON.stringify({ schemaVersion: AUTOPAINT_SCHEMA_VERSION, ...value })
+        );
     } catch {
         // ignore storage errors
     }

@@ -28,9 +28,9 @@ Kromacut has two printing workflows in 3D mode.
 | Workflow   | Use it when                                            | What you control                                                                  |
 | ---------- | ------------------------------------------------------ | --------------------------------------------------------------------------------- |
 | Manual     | You want direct control over each image color.         | Color order, per-color slice heights, print settings, and swaps.                  |
-| Auto-paint | You want Kromacut to plan the physical filament stack. | Filament colors, Transmission Distance values, max height, and optimizer options. |
+| Auto-paint | You want Kromacut to plan the physical filament stack. | Filament colors, hiding distance values, max height, and optimizer options. |
 
-Manual mode starts from the image colors shown in the **Image colors** panel. Auto-paint starts from your real filaments and their **TD** values, then generates printable layers for the image.
+Manual mode starts from the image colors shown in the **Image colors** panel. Auto-paint starts from your real filaments and their **hiding distance (HD)** values, then generates printable layers for the image.
 
 ## What You See In The App
 
@@ -46,7 +46,7 @@ The workspace has three main areas:
 
 ## Good First Project
 
-Start with a high-contrast image that has a clear subject and limited background detail. Reduce it to 4 to 16 colors, then use Manual mode if you already know your layer order or Auto-paint if you have calibrated filament TD values.
+Start with a high-contrast image that has a clear subject and limited background detail. Reduce it to 4 to 16 colors, then use Manual mode if you already know your layer order or Auto-paint if you have calibrated filament hiding distances.
 
 ---
 
