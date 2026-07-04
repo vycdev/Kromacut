@@ -55,6 +55,8 @@ Calibration is camera-free: you print a small wedge and read back one or more op
 
 Because the reference rail is the filament's own fully-opaque color, you are only judging whether a patch matches the rail right next to it — a comparison that stays reliable across lighting and screens. The measured hiding distance is a material property, so it transfers to your real prints regardless of which base you calibrated against.
 
+Each filament stores a single calibration. Calibrating a filament again **replaces** its previous value rather than averaging into it, and only the reads you enter in the current run are saved — so to combine several bases into one measurement, select them together in a single **Accurate** run instead of calibrating the same filament twice. Calibrating a different filament only updates that filament and leaves your other calibrations untouched.
+
 ## Filament Profiles
 
 Auto-paint profiles store reusable filament sets.
