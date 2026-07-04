@@ -5,13 +5,11 @@ import { Button } from '@/components/ui/button';
 import {
     Plus,
     Trash2,
-    Sparkles,
     Save,
     Download,
     Upload,
     FilePlus,
     Pencil,
-    BadgeCheck,
     Loader2,
     FlaskConical,
 } from 'lucide-react';
@@ -931,7 +929,6 @@ export default function AutoPaintTab({
                             <div className="h-px bg-border/50 my-4" />
                             <div className="space-y-2">
                                 <div className="flex items-center gap-2">
-                                    <Sparkles className="w-4 h-4 text-amber-500" />
                                     <span className="text-xs font-semibold text-foreground">
                                         Transition Zones
                                     </span>
@@ -1043,18 +1040,23 @@ export default function AutoPaintTab({
                     {autoPaintResult && (
                         <div className="mt-4 p-3 rounded-md border border-border/50 bg-muted/30 space-y-2">
                             <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                    <BadgeCheck
-                                        className={`w-4 h-4 ${getConfidenceColor(autoPaintResult.confidence)}`}
-                                    />
-                                    <span className="text-xs font-semibold">Result Confidence</span>
-                                </div>
+                                <span className="text-xs font-semibold">Result Confidence</span>
                                 <span
                                     className={`text-sm font-bold ${getConfidenceColor(autoPaintResult.confidence)}`}
                                 >
                                     {getConfidenceLabel(autoPaintResult.confidence)} (
                                     {(autoPaintResult.confidence * 100).toFixed(0)}%)
                                 </span>
+                            </div>
+                            <div className={getConfidenceColor(autoPaintResult.confidence)}>
+                                <div className="h-1 rounded-full bg-muted overflow-hidden">
+                                    <div
+                                        className="h-full rounded-full bg-current"
+                                        style={{
+                                            width: `${Math.max(4, Math.min(100, Math.round(autoPaintResult.confidence * 100)))}%`,
+                                        }}
+                                    />
+                                </div>
                             </div>
                             <div className="grid grid-cols-3 gap-2 text-[10px]">
                                 <ConfidenceStat
@@ -1072,7 +1074,7 @@ export default function AutoPaintTab({
                             </div>
                             {autoPaintResult.confidence < 0.7 && (
                                 <p className="text-[10px] text-amber-600 dark:text-amber-400">
-                                    💡 Tip: Calibrate your filaments for better accuracy
+                                    Tip: calibrate your filaments for better accuracy.
                                 </p>
                             )}
                             {/* Optimizer Metadata */}
@@ -1080,20 +1082,17 @@ export default function AutoPaintTab({
                                 <div className="space-y-1.5 pt-2">
                                     <div className="h-px bg-border/50" />
                                     <div className="flex items-center gap-1.5">
-                                        <Sparkles className="w-3.5 h-3.5 text-blue-500" />
                                         <span className="text-xs font-semibold text-foreground">
                                             Optimizer Performance
                                         </span>
-                                        <span className="ml-auto flex items-center gap-3 text-[10px] text-muted-foreground">
+                                        <span className="ml-auto flex items-center gap-1.5 text-[9px] text-muted-foreground">
                                             {autoPaintResult.optimizerMetadata.cacheHit && (
-                                                <span className="inline-flex items-center gap-1">
-                                                    <span className="inline-block w-2 h-2 rounded-full bg-green-500" />
+                                                <span className="px-1.5 py-0.5 rounded border border-border/60 bg-background/50">
                                                     Cache hit
                                                 </span>
                                             )}
                                             {autoPaintResult.optimizerMetadata.converged && (
-                                                <span className="inline-flex items-center gap-1">
-                                                    <span className="inline-block w-2 h-2 rounded-full bg-blue-500" />
+                                                <span className="px-1.5 py-0.5 rounded border border-border/60 bg-background/50">
                                                     Converged
                                                 </span>
                                             )}
@@ -1143,10 +1142,8 @@ export default function AutoPaintTab({
                                 disabled={isNextBestComputing}
                                 onClick={() => requestNextBestSuggestion(filaments, imageSwatches)}
                             >
-                                {isNextBestComputing ? (
+                                {isNextBestComputing && (
                                     <Loader2 className="w-3 h-3 mr-1.5 animate-spin" />
-                                ) : (
-                                    <Sparkles className="w-3 h-3 mr-1.5" />
                                 )}
                                 {isNextBestComputing
                                     ? 'Finding suggestion...'
