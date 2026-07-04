@@ -9,7 +9,12 @@
  * to the darkest filament; dark filaments use a lighter base for contrast).
  *
  * Two output formats:
- *  - STL: one tile, single solid. The base/wedge split is by height, so a single
+ *  - STL: one tile per file, emitted as multiple independently watertight
+ *    shells (base slab, orientation foot, each patch, the rail) that touch or
+ *    overlap. Slicers union coincident/overlapping closed shells on import, so
+ *    the tile prints as one part; this multi-shell contract is deliberate (a
+ *    true CSG fusion of the rounded prisms is not worth the complexity and the
+ *    output is print-validated). The base/wedge split is by height, so a single
  *    filament change (base -> color, above the base) prints it on any machine.
  *  - 3MF: one or more tiles, each as a base object + a color object, with parts
  *    assigned to real profile-filament slots (no invented base), for AMS printers.

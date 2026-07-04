@@ -488,18 +488,26 @@ export function FilamentCalibrationDialog({
     const latestSessionKeyRef = useRef(sessionKey);
     latestSessionKeyRef.current = sessionKey;
 
+    // The JND search needs at least two multi-base filaments with complete
+    // reads; anything less always resolves to the default JND.
+    const sessionFitEligible = useMemo(() => {
+        if (readInputs.length === 0) return false;
+        if (readInputs.some((entry) => entry.input === null)) return false;
+        const multiBase = readInputs.filter(
+            (entry) => (entry.input?.reads?.length ?? 0) >= 2
+        );
+        return multiBase.length >= 2;
+    }, [readInputs]);
+
     useEffect(() => {
-        const ready = readInputs
-            .map((entry) => entry.input)
-            .filter((input): input is NonNullable<typeof input> => input !== null);
-        // The JND search needs at least two multi-base filaments; anything less
-        // always resolves to the default JND, so skip the expensive fit.
-        const multiBase = ready.filter((input) => (input.reads?.length ?? 0) >= 2);
-        if (readInputs.some((entry) => entry.input === null) || multiBase.length < 2) {
+        if (!sessionFitEligible) {
             setSessionJndFit(null);
             return;
         }
         if (sessionJndFit?.key === sessionKey) return;
+        const ready = readInputs
+            .map((entry) => entry.input)
+            .filter((input): input is NonNullable<typeof input> => input !== null);
 
         const key = sessionKey;
         const timer = window.setTimeout(() => {
@@ -527,9 +535,12 @@ export function FilamentCalibrationDialog({
             });
         }, 800);
         return () => window.clearTimeout(timer);
-    }, [readInputs, sessionKey, sessionJndFit, maxLayers]);
+    }, [readInputs, sessionFitEligible, sessionKey, sessionJndFit, maxLayers]);
 
     const activeJndFit = sessionJndFit?.key === sessionKey ? sessionJndFit : null;
+    // True while an eligible session fit hasn't landed yet (debounce + search).
+    // Save is blocked during this window so saved values always match preview.
+    const sessionFitPending = sessionFitEligible && activeJndFit === null;
 
     // Per-filament calibration computed live from the entered reads, using the
     // fitted session JND once it is available.
@@ -553,7 +564,7 @@ export function FilamentCalibrationDialog({
         computed.length > 0 && computed.every((c) => c.result !== null && c.result.ok);
 
     const handleSave = useCallback(() => {
-        if (isSaving) return;
+        if (isSaving || sessionFitPending) return;
         setIsSaving(true);
         const saveEntries = computed.filter((entry) => entry.input && entry.result?.ok);
         window.requestAnimationFrame(() => {
@@ -578,21 +589,17 @@ export function FilamentCalibrationDialog({
                             baseColor: readsWithMerge[0]?.baseColor,
                         };
                     });
-                    // Reuse the previewed session fit so saved values match the
-                    // preview exactly; fall back to a fresh session when no fit
-                    // is cached (e.g. quick mode).
-                    const results = activeJndFit
-                        ? saveInputs.map((input) =>
-                              computeFrontlitCalibration({
-                                  ...input,
-                                  jnd: activeJndFit.jnd,
-                                  jndSource: activeJndFit.jndSource,
-                              })
-                          )
-                        : computeFrontlitCalibrationSession({
-                              filaments: saveInputs,
-                              maxLayers,
-                          }).results;
+                    // Compute exactly what the preview showed: the cached session
+                    // JND when one exists, otherwise the default JND (the only
+                    // no-cache case left is a non-eligible session, e.g. quick
+                    // mode — Save is disabled while an eligible fit is pending).
+                    const results = saveInputs.map((input) =>
+                        computeFrontlitCalibration({
+                            ...input,
+                            jnd: activeJndFit?.jnd,
+                            jndSource: activeJndFit?.jndSource,
+                        })
+                    );
                     const updates: CalibrationApplyUpdate[] = [];
                     results.forEach((result, index) => {
                         if (!result.ok) return;
@@ -610,7 +617,16 @@ export function FilamentCalibrationDialog({
                 }
             });
         });
-    }, [computed, activeJndFit, reads, mergeReads, maxLayers, onApply, handleClose, isSaving]);
+    }, [
+        computed,
+        activeJndFit,
+        sessionFitPending,
+        reads,
+        mergeReads,
+        onApply,
+        handleClose,
+        isSaving,
+    ]);
 
     const renderSelect = () => (
         <>
@@ -884,7 +900,7 @@ export function FilamentCalibrationDialog({
                         </div>
                         <p className="text-[11px] text-muted-foreground">
                             {format === 'stl'
-                                ? 'Single solid. Print one copy for each filament/base read using the matching swap line below.'
+                                ? 'One printable tile. Print one copy for each filament/base read using the matching swap line below.'
                                 : 'Colors + bases baked in for AMS / multi-material - all selected reads in one print.'}
                         </p>
                     </div>
@@ -1149,9 +1165,12 @@ export function FilamentCalibrationDialog({
                     <ArrowLeft className="mr-1 h-4 w-4" />
                     Back
                 </Button>
-                <Button onClick={handleSave} disabled={!allReadsValid || isSaving}>
+                <Button
+                    onClick={handleSave}
+                    disabled={!allReadsValid || isSaving || sessionFitPending}
+                >
                     <Check className="mr-1 h-4 w-4" />
-                    {isSaving ? 'Fitting...' : 'Save Calibration'}
+                    {isSaving || sessionFitPending ? 'Fitting...' : 'Save Calibration'}
                 </Button>
             </AlertDialogFooter>
         </>

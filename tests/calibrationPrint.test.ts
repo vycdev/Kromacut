@@ -38,7 +38,9 @@ const baseOptions = {
     gap: 1.5,
 };
 
-test('generateCalibrationStl writes one box per base/wedge/reference patch', async () => {
+// Contract: the STL is a set of independently watertight shells (one per box)
+// that touch/overlap; slicers union them into one printable part on import.
+test('generateCalibrationStl writes one closed shell per base/wedge/reference patch', async () => {
     const { generateCalibrationStl } = await loadGenerator();
     const blob = generateCalibrationStl(baseOptions);
     const buffer = await blob.arrayBuffer();
