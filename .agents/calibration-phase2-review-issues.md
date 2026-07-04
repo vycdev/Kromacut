@@ -14,8 +14,12 @@
 > 2. ~~Band-edge JND acceptance~~ — `fitSessionJnd` rejects solutions at
 >    `JND_FIT_MIN`/`JND_FIT_MAX` and falls back to the default JND; covered by a
 >    regression test with an out-of-band synthetic session.
-> 3. Cosmetic dead "session JND" badge branch in the live measure view — accepted
->    as-is (the badge still applies to saved calibrations).
+> 3. ~~Cosmetic dead "session JND" badge branch in the live measure view~~ —
+>    later upgraded by a codex PR review (preview and save could disagree when
+>    the session fit fired) and fixed properly: the session JND is now fitted
+>    once in a debounced background pass after the reads settle, the live
+>    preview consumes it (badge reachable again), and Save reuses the cached
+>    fit so saved values always equal previewed values.
 >
 > Verified after the fixes: 228 tests, tsc, eslint green.
 

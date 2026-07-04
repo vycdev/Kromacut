@@ -64,8 +64,8 @@ Another minimal test you can try yourself: the included Transmission Distance (T
 1. Upload or drag an image into the preview area.
 2. Switch to the **Auto-paint** tab in the 3D controls panel.
 3. Click **Add Filament** and configure your filaments:
-   - Use the **calibration wizard** (calibrate icon) to measure accurate TD values, or
-   - Enter TD values manually.
+   - Use **Calibrate Filaments** to measure accurate hiding distances from a small printed wedge, or
+   - Enter hiding distances manually (the convert button accepts conventional backlit TD values).
 4. Enable **Enhanced color matching** for optimal results; start with the **Balanced** optimizer tier.
 5. (Optional) Set **Region weighting** to Center or Edge to prioritize important areas.
 6. Use the **layer-by-layer preview slider** to verify transitions.
@@ -107,34 +107,34 @@ This is especially useful for complex multi-color prints where you need to under
 
 ## Auto-paint
 
-Auto-paint is an automated layer-generation mode that replaces the manual palette/swatch workflow. Instead of reducing an image to a fixed number of colors and manually tuning per-color slice heights, you define a set of **filaments** (each with a color and a Transmission Distance) and let the algorithm compute the optimal layer stack automatically.
+Auto-paint is an automated layer-generation mode that replaces the manual palette/swatch workflow. Instead of reducing an image to a fixed number of colors and manually tuning per-color slice heights, you define a set of **filaments** (each with a color and a hiding distance) and let the algorithm compute the optimal layer stack automatically.
 
 ### Core concepts
 
-- **Filaments**: Each filament has a hex color and a **Transmission Distance (TD)** value (in mm). TD describes how translucent the filament is — at a thickness equal to TD, only ~10% of light passes through. Dark/opaque filaments have low TD (e.g. 0.5 mm); light/translucent filaments have high TD (e.g. 6+ mm). When you add a filament without specifying a TD, Kromacut estimates one from the color's luminance and saturation.
-- **Beer-Lambert optical blending**: The algorithm simulates how light transmits through stacked filament layers using the Beer-Lambert law: `transmission = 10^(-thickness / TD)`. It blends in linear-light sRGB before converting back for display and color matching, which better models the color you see from thin semi-transparent layers.
-- **Transition zones**: Each filament in the stack needs enough vertical space to visually transition from the color below it to its own pure color. The algorithm simulates adding layers one at a time until the blended color converges (DeltaE < 2.3 — the "just noticeable difference" threshold) or reaches the selected opacity endpoint. **Compact** uses 80% opacity, **Detailed** uses 90% (one TD), and **Maximum** uses 95% (the same endpoint as the foundation layer). Higher endpoints retain more printable intermediate colors but create taller stacks.
+- **Filaments**: Each filament has a hex color and a **Hiding Distance (HD)** value (in mm) — the depth of material at which the filament visually hides what's beneath it when viewed front-lit, the way finished prints are actually seen. Dark/opaque filaments hide quickly (e.g. 0.05–0.1 mm); light/translucent filaments need more depth (e.g. 0.5–0.7 mm). When you add a filament without specifying an HD, Kromacut estimates one from the color's luminance and saturation. If you have a conventional (backlit/lithophane) Transmission Distance from a spool sheet or TD test print, the convert button on the filament row turns it into a hiding distance (a conventional TD is roughly 10× the HD).
+- **Beer-Lambert optical blending**: The algorithm simulates how light transmits through stacked filament layers using the Beer-Lambert law: `transmission = 10^(-thickness / HD)`. It blends in linear-light sRGB before converting back for display and color matching, which better models the color you see from thin semi-transparent layers.
+- **Transition zones**: Each filament in the stack needs enough vertical space to visually transition from the color below it to its own pure color. The algorithm simulates adding layers one at a time until the blended color converges (DeltaE < 2.3 — the "just noticeable difference" threshold) or reaches the selected opacity endpoint. **Compact** uses 80% opacity, **Detailed** uses 90% (one HD), and **Maximum** uses 95% (the same endpoint as the foundation layer). Higher endpoints retain more printable intermediate colors but create taller stacks.
 - **Luminance-to-height mapping**: Once the transition zones are computed, each pixel's brightness is mapped to a target height in the model. Dark pixels get the minimum height (base layer only), bright pixels get the full height (all layers), and mid-tones fall proportionally in between. This produces the characteristic lithophane-style relief where image brightness = model thickness.
 
 ### How it works (step by step)
 
-1. **Define filaments** — Add your filament colors and Transmission Distances in the Auto-paint tab. Use the color picker and TD input for each filament row.
+1. **Define filaments** — Add your filament colors and hiding distances in the Auto-paint tab. Use the color picker and HD input for each filament row (or convert a conventional TD value).
 2. **Filament ordering** — By default filaments are sorted by luminance (darkest on the bottom, lightest on top). With **Enhanced color matching** enabled, the algorithm evaluates orderings to find the one that best reproduces the image's color palette.
-3. **Transition zone calculation** — For each consecutive pair of filaments, the algorithm simulates Beer-Lambert blending layer-by-layer until the color converges. The first (darkest) filament gets a foundation zone thick enough to be ~95% opaque (`TD × 1.3`).
+3. **Transition zone calculation** — For each consecutive pair of filaments, the algorithm simulates Beer-Lambert blending layer-by-layer until the color converges. The first (darkest) filament gets a foundation zone thick enough to be ~95% opaque (`HD × 1.3`).
 4. **Height compression** — If the ideal height exceeds a user-set **Max Height**, all zones are uniformly compressed. The UI shows which zones are compressed and by how much.
 5. **Virtual swatch generation** — The transition zones are sampled at each layer-height increment to produce a sequence of blended colors (virtual swatches). These drive the 3D preview and the height map, where each pixel maps to the layer whose blended color best matches.
 
 ### Filament Calibration
 
-Each filament row in the Auto-paint tab includes a **calibration wizard** to help you determine accurate Transmission Distance values:
+Kromacut measures hiding distances with a camera-free printed wedge — no light meter, no photos, no color picking:
 
-1. **Click the calibrate icon** next to any filament to open the calibration wizard.
-2. **Print test samples** — The wizard guides you through printing 3-5 samples of different thicknesses (e.g., 0.3mm, 0.6mm, 1.0mm, 1.5mm, 2.0mm).
-3. **Measure luminance** — Use a light meter or camera to measure how much light passes through each sample, or visually compare against reference colors.
-4. **Automatic TD calculation** — The wizard performs exponential regression on your measurements to compute the optimal TD value with a confidence score (High/Medium/Low/Very Low).
+1. **Click Calibrate Filaments** below the filament list and select the filaments to calibrate.
+2. **Pick bases** — Quick mode uses one base read per filament; Accurate mode repeats the read over two or three bases so Kromacut can measure per-channel (RGB) hiding distances directly.
+3. **Print the wedge** — Download an STL (any printer, one filament swap) or a multi-material 3MF (AMS-ready). Each filament prints as a row of patches from 1 layer up beside a fully opaque reference rail.
+4. **Read back one number** — For each print, report the first patch that looks identical to the reference rail. Kromacut converts the reads into measured hiding distances with a confidence score.
 5. **Save profile** — Keep calibrated filaments in a reusable profile for future projects.
 
-Calibrated filaments display a confidence badge next to their TD value. Higher confidence = more accurate optical simulation = better print results. Auto-paint uses calibrated red, green, and blue TD values for both preview blending and transition-zone thickness, so calibration can change the generated stack height and swap plan.
+Calibrated filaments display a confidence badge next to their HD value. Higher confidence = more accurate optical simulation = better print results. Auto-paint uses calibrated red, green, and blue hiding distances for both preview blending and transition-zone thickness, so calibration can change the generated stack height and swap plan.
 
 ### Advanced Optimizer
 
@@ -224,7 +224,7 @@ The result card shows:
 |---|---|
 | **Hex** | Suggested filament color. |
 | **Est. ΔE** | Estimated reduction in blend-aware average ΔE if this filament is added. A rough relative estimate — not a calibration confidence rating. |
-| **TD** | Recommended starting Transmission Distance, borrowed from the nearest existing filament by color distance. Adjust after printing a test patch. |
+| **HD** | Recommended starting hiding distance, borrowed from the nearest existing filament by color distance. Adjust after printing a test patch. |
 | **Captures** | Percentage of image pixels whose blend-aware color error would improve with this filament. |
 | **Isolation** | How far this color sits from existing filaments in perceptual color space (0–1). Higher means it fills a more distinct gap; lower means it overlaps territory already covered by blending. |
 
@@ -236,8 +236,8 @@ Click **Add to filaments** to insert the suggestion directly into the filament l
 
 1. Load an image into Kromacut.
 2. Switch to the **Auto-paint** tab (inside the 3D controls panel).
-3. Click **Add Filament** and configure each filament's color and TD to match your real filament stock.
-   - **Tip:** Use the calibration wizard (calibrate icon on each row) to measure accurate TD values.
+3. Click **Add Filament** and configure each filament's color and hiding distance to match your real filament stock.
+   - **Tip:** Use **Calibrate Filaments** to measure accurate hiding distances from a printed wedge.
 4. (Optional) Enable **Enhanced color matching** for better results with complex images. Start with the **Balanced** optimizer tier, then use Thorough, Deep, or Exact base order when you want to spend more search effort.
 5. (Optional) Set **Region weighting** to Center or Edge to prioritize accuracy in visually important areas.
 6. The 3D preview updates automatically. Adjust **Max Height** if the model is too tall.
@@ -252,17 +252,19 @@ Kromacut now supports exporting directly to `.3mf` format. This file format pres
 
 <img src="content/3mf_export.png" alt="3MF Export" width="600" />
 
-## Transmission Distance (TD) — what it is and how to use it here
+## Hiding Distance (HD) and Transmission Distance (TD)
 
-Transmission Distance (TD) is the concept HueForge uses to produce perceptual intermediate shades by stacking translucent filament layers: instead of relying purely on opaque color pigments, TD models how light transmits through thin layers of filament and how stacking different colors (and varying thickness) produces new perceived colors. For a full conceptual description see the HueForge blog: https://shop.thehueforge.com/blogs/news/what-is-hueforge
+Stacking thin translucent filament layers produces perceptual intermediate shades — the idea HueForge popularized with Transmission Distance: https://shop.thehueforge.com/blogs/news/what-is-hueforge
+
+Kromacut models the same physics but stores a **Hiding Distance (HD)**: the depth at which a filament visually hides what's beneath it under front lighting, which is how finished prints are viewed. A conventional TD (measured with a backlit lithophane-style test print) is roughly **10× the hiding distance**; the convert button on each filament row accepts a conventional TD and converts it for you.
 
 ### Two workflow modes in Kromacut:
 
-**1. Auto-paint mode (Automatic TD processing)** — The recommended approach for TD-based prints:
+**1. Auto-paint mode (Automatic optical blending)** — The recommended approach for layered-color prints:
 
 - **Automatic Beer-Lambert blending** — Kromacut simulates light transmission through stacked filament layers using physically accurate optical models.
-- **Filament-based workflow** — Define your actual filaments (color + TD values) and let the algorithm compute optimal layer stacks automatically.
-- **Calibration wizard** — Measure accurate TD values from physical test prints for each filament.
+- **Filament-based workflow** — Define your actual filaments (color + hiding distances) and let the algorithm compute optimal layer stacks automatically.
+- **Camera-free calibration** — Print a small wedge and read back the layer count where it turns opaque; Kromacut fits measured per-channel hiding distances from the reads.
 - **Advanced optimizer** — Deterministic effort tiers search for the best filament ordering for complex images, from quick beam previews to exact base-order enumeration.
 - **Transition zones** — Automatically calculated vertical zones where each filament blends from the color below to its own pure color.
 
@@ -275,7 +277,7 @@ See the [Auto-paint section](#auto-paint) above for full details.
 - Small adjustments to `base slice height`, per-color slice heights, and `layerHeight` change the produced layer numbers and perceived blends.
 - Iterate with actual filament on small test prints — translucency and perceived mix depend heavily on filament brand, color, and print settings.
 
-**Recommendation:** Use Auto-paint mode for TD-based prints. It handles the complex Beer-Lambert physics and optimization automatically, producing better results than manual approximation.
+**Recommendation:** Use Auto-paint mode for layered-color prints. It handles the complex Beer-Lambert physics and optimization automatically, producing better results than manual approximation.
 
 ### TD test image (for manual mode experimentation)
 

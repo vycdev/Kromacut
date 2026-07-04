@@ -430,9 +430,10 @@ export function FilamentCalibrationDialog({
         setMergeReads((prev) => ({ ...prev, [key]: value }));
     }, []);
 
-    // Per-filament calibration computed live from the entered reads.
-    const computed = useMemo(() => {
-        const entries = selectedFilaments.map((filament) => {
+    // Complete read inputs per filament (merge reads excluded — they never
+    // affect the fit, only the saved record).
+    const readInputs = useMemo(() => {
+        return selectedFilaments.map((filament) => {
             const targets = calibrationTargets.filter(
                 (target) => target.filament.id === filament.id
             );
@@ -460,15 +461,8 @@ export function FilamentCalibrationDialog({
                       maxLayers,
                   }
                 : null;
-            return {
-                filament,
-                targets,
-                input,
-                result: input ? computeFrontlitCalibration(input) : null,
-                jndSource: null as 'default' | 'session-fit' | null,
-            };
+            return { filament, targets, input };
         });
-        return entries;
     }, [
         selectedFilaments,
         calibrationTargets,
@@ -477,6 +471,83 @@ export function FilamentCalibrationDialog({
         firstLayerHeight,
         maxLayers,
     ]);
+
+    // Session JND fit, computed once in the background when the entered reads
+    // settle. Preview and Save both consume this cached result so the values
+    // shown are exactly the values saved.
+    const sessionKey = useMemo(
+        () => JSON.stringify(readInputs.map((entry) => entry.input)),
+        [readInputs]
+    );
+    const [sessionJndFit, setSessionJndFit] = useState<{
+        key: string;
+        jnd: number;
+        jndSource: 'default' | 'session-fit';
+    } | null>(null);
+    const [isFittingJnd, setIsFittingJnd] = useState(false);
+    const latestSessionKeyRef = useRef(sessionKey);
+    latestSessionKeyRef.current = sessionKey;
+
+    useEffect(() => {
+        const ready = readInputs
+            .map((entry) => entry.input)
+            .filter((input): input is NonNullable<typeof input> => input !== null);
+        // The JND search needs at least two multi-base filaments; anything less
+        // always resolves to the default JND, so skip the expensive fit.
+        const multiBase = ready.filter((input) => (input.reads?.length ?? 0) >= 2);
+        if (readInputs.some((entry) => entry.input === null) || multiBase.length < 2) {
+            setSessionJndFit(null);
+            return;
+        }
+        if (sessionJndFit?.key === sessionKey) return;
+
+        const key = sessionKey;
+        const timer = window.setTimeout(() => {
+            if (latestSessionKeyRef.current !== key) return;
+            setIsFittingJnd(true);
+            // Defer past a paint so the "fitting" state renders before the
+            // multi-second search blocks the main thread.
+            window.requestAnimationFrame(() => {
+                window.setTimeout(() => {
+                    try {
+                        if (latestSessionKeyRef.current !== key) return;
+                        const session = computeFrontlitCalibrationSession({
+                            filaments: ready,
+                            maxLayers,
+                        });
+                        setSessionJndFit({
+                            key,
+                            jnd: session.jnd,
+                            jndSource: session.jndSource,
+                        });
+                    } finally {
+                        setIsFittingJnd(false);
+                    }
+                });
+            });
+        }, 800);
+        return () => window.clearTimeout(timer);
+    }, [readInputs, sessionKey, sessionJndFit, maxLayers]);
+
+    const activeJndFit = sessionJndFit?.key === sessionKey ? sessionJndFit : null;
+
+    // Per-filament calibration computed live from the entered reads, using the
+    // fitted session JND once it is available.
+    const computed = useMemo(() => {
+        return readInputs.map(({ filament, targets, input }) => ({
+            filament,
+            targets,
+            input,
+            result: input
+                ? computeFrontlitCalibration({
+                      ...input,
+                      jnd: activeJndFit?.jnd,
+                      jndSource: activeJndFit?.jndSource,
+                  })
+                : null,
+            jndSource: activeJndFit?.jndSource ?? null,
+        }));
+    }, [readInputs, activeJndFit]);
 
     const allReadsValid =
         computed.length > 0 && computed.every((c) => c.result !== null && c.result.ok);
@@ -488,30 +559,42 @@ export function FilamentCalibrationDialog({
         window.requestAnimationFrame(() => {
             window.setTimeout(() => {
                 try {
-                    const session = computeFrontlitCalibrationSession({
-                        filaments: saveEntries.map((entry) => {
-                            const readsWithMerge: FrontlitCalibrationRead[] = entry.targets.map(
-                                (target) => {
-                                    const opacityLayers = parseLayerInput(reads[target.key])!;
-                                    const mergeLayers = parseLayerInput(mergeReads[target.key]);
-                                    return {
-                                        baseColor: target.base.color,
-                                        opacityLayers,
-                                        mergeLayers: mergeLayers ?? undefined,
-                                    };
-                                }
-                            );
-                            return {
-                                ...entry.input!,
-                                reads: readsWithMerge,
-                                opacityLayers: readsWithMerge[0]?.opacityLayers,
-                                baseColor: readsWithMerge[0]?.baseColor,
-                            };
-                        }),
-                        maxLayers,
+                    const saveInputs = saveEntries.map((entry) => {
+                        const readsWithMerge: FrontlitCalibrationRead[] = entry.targets.map(
+                            (target) => {
+                                const opacityLayers = parseLayerInput(reads[target.key])!;
+                                const mergeLayers = parseLayerInput(mergeReads[target.key]);
+                                return {
+                                    baseColor: target.base.color,
+                                    opacityLayers,
+                                    mergeLayers: mergeLayers ?? undefined,
+                                };
+                            }
+                        );
+                        return {
+                            ...entry.input!,
+                            reads: readsWithMerge,
+                            opacityLayers: readsWithMerge[0]?.opacityLayers,
+                            baseColor: readsWithMerge[0]?.baseColor,
+                        };
                     });
+                    // Reuse the previewed session fit so saved values match the
+                    // preview exactly; fall back to a fresh session when no fit
+                    // is cached (e.g. quick mode).
+                    const results = activeJndFit
+                        ? saveInputs.map((input) =>
+                              computeFrontlitCalibration({
+                                  ...input,
+                                  jnd: activeJndFit.jnd,
+                                  jndSource: activeJndFit.jndSource,
+                              })
+                          )
+                        : computeFrontlitCalibrationSession({
+                              filaments: saveInputs,
+                              maxLayers,
+                          }).results;
                     const updates: CalibrationApplyUpdate[] = [];
-                    session.results.forEach((result, index) => {
+                    results.forEach((result, index) => {
                         if (!result.ok) return;
                         const entry = saveEntries[index];
                         updates.push({
@@ -527,7 +610,7 @@ export function FilamentCalibrationDialog({
                 }
             });
         });
-    }, [computed, reads, mergeReads, maxLayers, onApply, handleClose, isSaving]);
+    }, [computed, activeJndFit, reads, mergeReads, maxLayers, onApply, handleClose, isSaving]);
 
     const renderSelect = () => (
         <>
@@ -878,6 +961,11 @@ export function FilamentCalibrationDialog({
             <div className="space-y-3">
                 <p className="text-sm text-muted-foreground">
                     Enter the first patch number that matched the rail for each filament/base print.
+                    {isFittingJnd && (
+                        <span className="ml-1.5 text-[11px] text-primary">
+                            Fitting session JND…
+                        </span>
+                    )}
                 </p>
                 <div className="grid gap-1 rounded-md border border-border/50 bg-muted/20 px-3 py-2 text-[11px] text-muted-foreground sm:grid-cols-2">
                     <div>
