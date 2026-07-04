@@ -399,6 +399,8 @@ export default function AutoPaintTab({
                             </PopoverContent>
                         </Popover>
 
+                        <div className="w-px h-5 bg-border/70 flex-shrink-0" />
+
                         {/* Import */}
                         <input
                             ref={importInputRef}
@@ -430,18 +432,19 @@ export default function AutoPaintTab({
                             <Download className="w-4 h-4" />
                         </Button>
 
-                        {/* Delete */}
-                        {activeProfileId && (
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 cursor-pointer flex-shrink-0"
-                                title="Delete selected profile"
-                                onClick={() => handleDeleteProfile(activeProfileId)}
-                            >
-                                <Trash2 className="w-4 h-4" />
-                            </Button>
-                        )}
+                        <div className="w-px h-5 bg-border/70 flex-shrink-0" />
+
+                        {/* Delete — always rendered so the strip width stays stable */}
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 cursor-pointer flex-shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
+                            title="Delete selected profile"
+                            disabled={!activeProfileId}
+                            onClick={() => activeProfileId && handleDeleteProfile(activeProfileId)}
+                        >
+                            <Trash2 className="w-4 h-4" />
+                        </Button>
                     </div>
 
                     {/* Import feedback */}
@@ -469,27 +472,29 @@ export default function AutoPaintTab({
                             ))}
                         </div>
                     )}
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={addFilament}
-                        className="w-full text-xs gap-1.5 h-8 border-dashed border-border hover:border-primary/50 hover:bg-primary/5 text-muted-foreground hover:text-primary cursor-pointer"
-                    >
-                        <Plus className="w-3.5 h-3.5" />
-                        Add Filament
-                    </Button>
-
-                    {filaments.length > 0 && (
+                    <div className={filaments.length > 0 ? 'grid grid-cols-2 gap-2' : ''}>
                         <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => handleOpenCalibration()}
-                            className="w-full gap-1.5 h-8 cursor-pointer"
+                            onClick={addFilament}
+                            className="w-full text-xs gap-1.5 h-8 border-dashed border-border hover:border-primary/50 hover:bg-primary/5 text-muted-foreground hover:text-primary cursor-pointer"
                         >
-                            <FlaskConical className="w-3.5 h-3.5" />
-                            Calibrate Filaments
+                            <Plus className="w-3.5 h-3.5" />
+                            Add Filament
                         </Button>
-                    )}
+
+                        {filaments.length > 0 && (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleOpenCalibration()}
+                                className="w-full text-xs gap-1.5 h-8 cursor-pointer"
+                            >
+                                <FlaskConical className="w-3.5 h-3.5" />
+                                Calibrate Filaments
+                            </Button>
+                        )}
+                    </div>
 
                     {/* Max Height Constraint */}
                     {filaments.length > 0 && (

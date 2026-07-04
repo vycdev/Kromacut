@@ -135,8 +135,13 @@ const FilamentRow = React.memo(function FilamentRow({
         }
     };
 
+    // Secondary actions stay hidden until the row is hovered or focused; an
+    // open popover keeps its trigger visible via the radix data-state attribute.
+    const revealOnHover =
+        'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 data-[state=open]:opacity-100 transition-opacity';
+
     return (
-        <div className="flex items-center gap-2 p-2 rounded-md border border-border/40 bg-card hover:border-border/80 transition-colors">
+        <div className="group flex items-center gap-2 p-2 rounded-md border border-border/40 bg-card hover:border-border/80 transition-colors">
             {/* Color Picker Popover */}
             <Popover>
                 <PopoverTrigger asChild>
@@ -201,7 +206,7 @@ const FilamentRow = React.memo(function FilamentRow({
                     <Button
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/10 cursor-pointer"
+                        className={`h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/10 cursor-pointer ${revealOnHover}`}
                         title="Convert from TD (lithophane/backlit value)"
                     >
                         <ArrowRightLeft className="w-4 h-4" />
@@ -245,20 +250,27 @@ const FilamentRow = React.memo(function FilamentRow({
                     setLocalTd(estimated.toString());
                     onUpdate(filament.id, { td: estimated, calibration: undefined });
                 }}
-                className="h-8 w-8 text-muted-foreground hover:text-amber-600 hover:bg-amber-600/10 cursor-pointer"
+                className={`h-8 w-8 text-muted-foreground hover:text-amber-600 hover:bg-amber-600/10 cursor-pointer ${revealOnHover}`}
                 title="Auto-estimate hiding distance from color"
             >
                 <Wand2 className="w-4 h-4" />
             </Button>
 
-            {/* Calibration Badge */}
-            {isCalibrated && (
+            {/* Calibration status — fixed-width slot so rows stay aligned */}
+            {isCalibrated ? (
                 <div
-                    className={`flex h-8 items-center gap-1 px-2 rounded-md bg-muted/50 ${confidenceColorClass}`}
+                    className={`flex h-8 w-[4.75rem] flex-shrink-0 items-center justify-center gap-1 rounded-md bg-muted/50 ${confidenceColorClass}`}
                     title={`Calibrated · Confidence: ${confidenceLabel} (${(confidence * 100).toFixed(0)}%)\nMeasured HD per-channel: ${channelText}`}
                 >
-                    <BadgeCheck className="w-3 h-3" />
-                    <span className="text-[10px] font-medium">{confidenceLabel}</span>
+                    <BadgeCheck className="w-3 h-3 flex-shrink-0" />
+                    <span className="text-[10px] font-medium truncate">{confidenceLabel}</span>
+                </div>
+            ) : (
+                <div
+                    className="flex h-8 w-[4.75rem] flex-shrink-0 items-center justify-center rounded-md border border-dashed border-border/60 text-muted-foreground/70"
+                    title={`Not calibrated — hiding distance is estimated or entered manually.\nEstimated HD per-channel: ${channelText}`}
+                >
+                    <span className="text-[10px] font-medium">Estimate</span>
                 </div>
             )}
 
