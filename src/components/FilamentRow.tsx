@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Trash2, Wand2, BadgeCheck, FlaskConical, ArrowRightLeft } from 'lucide-react';
+import { Trash2, Wand2, BadgeCheck, ArrowRightLeft } from 'lucide-react';
 import { HexColorPicker } from 'react-colorful';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import type { Filament } from '../types';
@@ -22,14 +22,12 @@ interface FilamentRowProps {
     filament: Filament;
     onUpdate: (id: string, updates: Partial<Omit<Filament, 'id'>>) => void;
     onRemove: (id: string) => void;
-    onCalibrate?: (id: string) => void;
 }
 
 const FilamentRow = React.memo(function FilamentRow({
     filament,
     onUpdate,
     onRemove,
-    onCalibrate,
 }: FilamentRowProps) {
     // Local state for the input value to allow free typing
     const [localTd, setLocalTd] = useState<string>(filament.td.toString());
@@ -252,18 +250,6 @@ const FilamentRow = React.memo(function FilamentRow({
             >
                 <Wand2 className="w-4 h-4" />
             </Button>
-
-            {onCalibrate && (
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => onCalibrate(filament.id)}
-                    className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/10 cursor-pointer"
-                    title="Calibrate filament"
-                >
-                    <FlaskConical className="w-4 h-4" />
-                </Button>
-            )}
 
             {/* Calibration Badge */}
             {isCalibrated && (

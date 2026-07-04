@@ -222,18 +222,14 @@ export default function AutoPaintTab({
     );
 
     // Calibration dialog state
-    const [calibratingFilamentId, setCalibratingFilamentId] = React.useState<string | null>(null);
     const [calibrationDialogOpen, setCalibrationDialogOpen] = React.useState(false);
 
-    const handleOpenCalibration = React.useCallback((id?: string) => {
-        setCalibratingFilamentId(id ?? null);
+    const handleOpenCalibration = React.useCallback(() => {
         setCalibrationDialogOpen(true);
     }, []);
 
     const handleCloseCalibration = React.useCallback(() => {
         setCalibrationDialogOpen(false);
-        // Clear the ID after a short delay to avoid visible state change
-        setTimeout(() => setCalibratingFilamentId(null), 300);
     }, []);
 
     const handleApplyCalibration = React.useCallback(
@@ -469,7 +465,6 @@ export default function AutoPaintTab({
                                     filament={f}
                                     onUpdate={updateFilament}
                                     onRemove={removeFilament}
-                                    onCalibrate={handleOpenCalibration}
                                 />
                             ))}
                         </div>
@@ -1232,7 +1227,6 @@ export default function AutoPaintTab({
                 open={calibrationDialogOpen}
                 onClose={handleCloseCalibration}
                 filaments={filaments}
-                initialFilamentId={calibratingFilamentId}
                 layerHeight={calibrationLayerHeight}
                 firstLayerHeight={firstLayerHeight}
                 onApply={handleApplyCalibration}

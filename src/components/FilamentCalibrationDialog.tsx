@@ -69,7 +69,6 @@ interface FilamentCalibrationDialogProps {
     open: boolean;
     onClose: () => void;
     filaments: Filament[];
-    initialFilamentId?: string | null;
     layerHeight: number;
     firstLayerHeight: number;
     onApply: (updates: CalibrationApplyUpdate[]) => void;
@@ -150,21 +149,12 @@ export function FilamentCalibrationDialog({
     open,
     onClose,
     filaments,
-    initialFilamentId,
     layerHeight,
     firstLayerHeight,
     onApply,
 }: FilamentCalibrationDialogProps) {
-    const initialSelection = useCallback(() => {
-        const id =
-            initialFilamentId && filaments.some((filament) => filament.id === initialFilamentId)
-                ? initialFilamentId
-                : null;
-        return new Set(id ? [id] : []);
-    }, [filaments, initialFilamentId]);
-
     const [step, setStep] = useState<Step>('select');
-    const [selectedIds, setSelectedIds] = useState<Set<string>>(() => initialSelection());
+    const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
     const [maxLayers, setMaxLayers] = useState(DEFAULT_CALIBRATION_PRINT_OPTIONS.maxLayers);
     const [calibrationLayerHeight, setCalibrationLayerHeight] = useState(layerHeight);
     // Free-typing drafts for the numeric inputs; clamped to the committed value on blur.
@@ -367,7 +357,7 @@ export function FilamentCalibrationDialog({
 
     const reset = useCallback(() => {
         setStep('select');
-        setSelectedIds(initialSelection());
+        setSelectedIds(new Set());
         setMaxLayers(DEFAULT_CALIBRATION_PRINT_OPTIONS.maxLayers);
         setMaxLayersDraft(String(DEFAULT_CALIBRATION_PRINT_OPTIONS.maxLayers));
         setCalibrationLayerHeight(layerHeight);
@@ -378,7 +368,7 @@ export function FilamentCalibrationDialog({
         setMergeReads({});
         setIsSaving(false);
         setBaseChoices({});
-    }, [initialSelection, layerHeight]);
+    }, [layerHeight]);
 
     useEffect(() => {
         if (open && !wasOpenRef.current) reset();

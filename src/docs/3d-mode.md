@@ -46,7 +46,7 @@ Use the wand button to auto-estimate the hiding distance from color, calibrate t
 
 ## Calibrating Filament Hiding Distance
 
-Calibration is camera-free: you print a small wedge and read back one or more opacity numbers. Click the calibration button on a filament row, or **Calibrate Filaments** below the filament list, to open the dialog. It has four steps:
+Calibration is camera-free: you print a small wedge and read back one or more opacity numbers. Click **Calibrate Filaments** below the filament list to open the dialog. It has four steps:
 
 1. **Select** the filaments you want to calibrate.
 2. **Base layers** - choose **Quick** for one base read, or **Accurate** for two or three base reads per filament. Kromacut auto-picks useful bases from your real profile filaments, and you can override them with the base swatches.
