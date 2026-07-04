@@ -34,6 +34,25 @@ import { FilamentCalibrationDialog, type CalibrationApplyUpdate } from './Filame
 import { getConfidenceLabel, getConfidenceColor } from '../lib/calibration';
 import { useNextBestColorWorker } from '../hooks/useNextBestColorWorker';
 
+/** Percentage stat tile with a slim progress bar, colored by confidence band. */
+function ConfidenceStat({ label, value }: { label: string; value: number }) {
+    const pct = Math.round(value * 100);
+    return (
+        <div className="text-center p-2 rounded bg-background">
+            <div className="text-muted-foreground mb-1">{label}</div>
+            <div className={`font-semibold ${getConfidenceColor(value)}`}>
+                {pct}%
+                <div className="mt-1 h-1 rounded-full bg-muted overflow-hidden">
+                    <div
+                        className="h-full rounded-full bg-current"
+                        style={{ width: `${Math.max(4, Math.min(100, pct))}%` }}
+                    />
+                </div>
+            </div>
+        </div>
+    );
+}
+
 type OptimizerTierValue = 'fast' | 'balanced' | 'thorough' | 'deep' | 'exact';
 
 interface OptimizerTierMeta {
@@ -931,7 +950,31 @@ export default function AutoPaintTab({
                                         )}
                                     </div>
                                 </div>
-                                <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+
+                                {/* Proportional stack bar: left = build plate, right = top */}
+                                <div className="space-y-1">
+                                    <div className="flex h-4 w-full overflow-hidden rounded-md border border-border/60">
+                                        {autoPaintResult.transitionZones.map(
+                                            (zone: TransitionZone, idx: number) => (
+                                                <div
+                                                    key={`bar-${idx}`}
+                                                    className="h-full"
+                                                    style={{
+                                                        width: `${(zone.actualThickness / autoPaintResult.totalHeight) * 100}%`,
+                                                        backgroundColor: zone.filamentColor,
+                                                    }}
+                                                    title={`${zone.filamentColor} · ${zone.startHeight.toFixed(2)}–${zone.endHeight.toFixed(2)} mm · Δ${zone.actualThickness.toFixed(2)} mm`}
+                                                />
+                                            )
+                                        )}
+                                    </div>
+                                    <div className="flex justify-between text-[9px] text-muted-foreground/70">
+                                        <span>0 mm (plate)</span>
+                                        <span>{autoPaintResult.totalHeight.toFixed(2)} mm (top)</span>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-1 max-h-48 overflow-y-auto pr-1">
                                     {autoPaintResult.transitionZones.map(
                                         (zone: TransitionZone, idx: number) => {
                                             const isCompressed =
@@ -941,46 +984,38 @@ export default function AutoPaintTab({
                                             return (
                                                 <div
                                                     key={`zone-${idx}`}
-                                                    className={`flex items-center gap-2 p-2 rounded-md border ${
+                                                    className={`flex items-center gap-2 px-2 py-1 rounded-md border ${
                                                         isCompressed
                                                             ? 'bg-amber-500/5 border-amber-500/30'
                                                             : 'bg-muted/30 border-border/30'
                                                     }`}
+                                                    title={
+                                                        isCompressed
+                                                            ? `Compressed to fit Max Height — ideal thickness ${zone.idealThickness.toFixed(2)} mm`
+                                                            : undefined
+                                                    }
                                                 >
                                                     <span
-                                                        className="w-5 h-5 rounded-full border border-border flex-shrink-0 shadow-sm"
+                                                        className="w-3.5 h-3.5 rounded-full border border-border flex-shrink-0 shadow-sm"
                                                         style={{
                                                             backgroundColor: zone.filamentColor,
                                                         }}
                                                     />
-                                                    <div className="flex-1 min-w-0">
-                                                        <div className="flex items-center gap-1.5">
-                                                            <span className="text-[10px] font-mono text-foreground">
-                                                                {zone.filamentColor}
-                                                            </span>
-                                                            {isCompressed && (
-                                                                <span className="text-[9px] px-1 py-0.5 rounded bg-amber-500/20 text-amber-600 font-medium">
-                                                                    compressed
-                                                                </span>
-                                                            )}
-                                                        </div>
-                                                        <div className="text-[9px] text-muted-foreground">
-                                                            {zone.startHeight.toFixed(2)}mm →{' '}
-                                                            {zone.endHeight.toFixed(2)}mm
-                                                            <span className="ml-1 text-primary font-medium">
-                                                                (Δ
-                                                                {zone.actualThickness.toFixed(2)}
-                                                                mm)
-                                                            </span>
-                                                            {isCompressed && (
-                                                                <span className="ml-1 text-amber-600/70">
-                                                                    ideal:{' '}
-                                                                    {zone.idealThickness.toFixed(2)}
-                                                                    mm
-                                                                </span>
-                                                            )}
-                                                        </div>
-                                                    </div>
+                                                    <span className="text-[10px] font-mono text-foreground">
+                                                        {zone.filamentColor}
+                                                    </span>
+                                                    {isCompressed && (
+                                                        <span className="text-[9px] px-1 py-0.5 rounded bg-amber-500/20 text-amber-600 font-medium">
+                                                            compressed
+                                                        </span>
+                                                    )}
+                                                    <span className="ml-auto text-[10px] text-muted-foreground tabular-nums">
+                                                        {zone.startHeight.toFixed(2)} →{' '}
+                                                        {zone.endHeight.toFixed(2)} mm
+                                                    </span>
+                                                    <span className="text-[10px] text-primary font-medium tabular-nums w-14 text-right">
+                                                        Δ{zone.actualThickness.toFixed(2)}
+                                                    </span>
                                                 </div>
                                             );
                                         }
@@ -1022,41 +1057,18 @@ export default function AutoPaintTab({
                                 </span>
                             </div>
                             <div className="grid grid-cols-3 gap-2 text-[10px]">
-                                <div className="text-center p-2 rounded bg-background">
-                                    <div className="text-muted-foreground mb-1">Calibration</div>
-                                    <div
-                                        className={`font-semibold ${getConfidenceColor(autoPaintResult.confidenceFactors.calibrationQuality)}`}
-                                    >
-                                        {(
-                                            autoPaintResult.confidenceFactors.calibrationQuality *
-                                            100
-                                        ).toFixed(0)}
-                                        %
-                                    </div>
-                                </div>
-                                <div className="text-center p-2 rounded bg-background">
-                                    <div className="text-muted-foreground mb-1">Coverage</div>
-                                    <div
-                                        className={`font-semibold ${getConfidenceColor(autoPaintResult.confidenceFactors.filamentCoverage)}`}
-                                    >
-                                        {(
-                                            autoPaintResult.confidenceFactors.filamentCoverage * 100
-                                        ).toFixed(0)}
-                                        %
-                                    </div>
-                                </div>
-                                <div className="text-center p-2 rounded bg-background">
-                                    <div className="text-muted-foreground mb-1">Compression</div>
-                                    <div
-                                        className={`font-semibold ${getConfidenceColor(autoPaintResult.confidenceFactors.compressionImpact)}`}
-                                    >
-                                        {(
-                                            autoPaintResult.confidenceFactors.compressionImpact *
-                                            100
-                                        ).toFixed(0)}
-                                        %
-                                    </div>
-                                </div>
+                                <ConfidenceStat
+                                    label="Calibration"
+                                    value={autoPaintResult.confidenceFactors.calibrationQuality}
+                                />
+                                <ConfidenceStat
+                                    label="Coverage"
+                                    value={autoPaintResult.confidenceFactors.filamentCoverage}
+                                />
+                                <ConfidenceStat
+                                    label="Compression"
+                                    value={autoPaintResult.confidenceFactors.compressionImpact}
+                                />
                             </div>
                             {autoPaintResult.confidence < 0.7 && (
                                 <p className="text-[10px] text-amber-600 dark:text-amber-400">
@@ -1071,6 +1083,20 @@ export default function AutoPaintTab({
                                         <Sparkles className="w-3.5 h-3.5 text-blue-500" />
                                         <span className="text-xs font-semibold text-foreground">
                                             Optimizer Performance
+                                        </span>
+                                        <span className="ml-auto flex items-center gap-3 text-[10px] text-muted-foreground">
+                                            {autoPaintResult.optimizerMetadata.cacheHit && (
+                                                <span className="inline-flex items-center gap-1">
+                                                    <span className="inline-block w-2 h-2 rounded-full bg-green-500" />
+                                                    Cache hit
+                                                </span>
+                                            )}
+                                            {autoPaintResult.optimizerMetadata.converged && (
+                                                <span className="inline-flex items-center gap-1">
+                                                    <span className="inline-block w-2 h-2 rounded-full bg-blue-500" />
+                                                    Converged
+                                                </span>
+                                            )}
                                         </span>
                                     </div>
                                     <div className="grid grid-cols-3 gap-2 text-[10px]">
@@ -1101,20 +1127,6 @@ export default function AutoPaintTab({
                                                 {autoPaintResult.optimizerMetadata.iterations.toLocaleString()}
                                             </div>
                                         </div>
-                                    </div>
-                                    <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
-                                        {autoPaintResult.optimizerMetadata.cacheHit && (
-                                            <span className="inline-flex items-center gap-1">
-                                                <span className="inline-block w-2 h-2 rounded-full bg-green-500" />
-                                                Cache hit
-                                            </span>
-                                        )}
-                                        {autoPaintResult.optimizerMetadata.converged && (
-                                            <span className="inline-flex items-center gap-1">
-                                                <span className="inline-block w-2 h-2 rounded-full bg-blue-500" />
-                                                Converged
-                                            </span>
-                                        )}
                                     </div>
                                 </div>
                             )}
