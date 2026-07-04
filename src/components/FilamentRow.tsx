@@ -135,13 +135,8 @@ const FilamentRow = React.memo(function FilamentRow({
         }
     };
 
-    // Secondary actions stay hidden until the row is hovered or focused; an
-    // open popover keeps its trigger visible via the radix data-state attribute.
-    const revealOnHover =
-        'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 data-[state=open]:opacity-100 transition-opacity';
-
     return (
-        <div className="group flex items-center gap-2 p-2 rounded-md border border-border/40 bg-card hover:border-border/80 transition-colors">
+        <div className="flex items-center gap-2 p-2 rounded-md border border-border/40 bg-card hover:border-border/80 transition-colors">
             {/* Color Picker Popover */}
             <Popover>
                 <PopoverTrigger asChild>
@@ -206,7 +201,7 @@ const FilamentRow = React.memo(function FilamentRow({
                     <Button
                         variant="ghost"
                         size="icon"
-                        className={`h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/10 cursor-pointer ${revealOnHover}`}
+                        className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/10 cursor-pointer"
                         title="Convert from TD (lithophane/backlit value)"
                     >
                         <ArrowRightLeft className="w-4 h-4" />
@@ -250,7 +245,7 @@ const FilamentRow = React.memo(function FilamentRow({
                     setLocalTd(estimated.toString());
                     onUpdate(filament.id, { td: estimated, calibration: undefined });
                 }}
-                className={`h-8 w-8 text-muted-foreground hover:text-amber-600 hover:bg-amber-600/10 cursor-pointer ${revealOnHover}`}
+                className="h-8 w-8 text-muted-foreground hover:text-amber-600 hover:bg-amber-600/10 cursor-pointer"
                 title="Auto-estimate hiding distance from color"
             >
                 <Wand2 className="w-4 h-4" />
