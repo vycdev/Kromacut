@@ -51,7 +51,16 @@ export function sanitizeProfileFilament(value: unknown): Filament | null {
     if (typeof value.brand === 'string') filament.brand = value.brand;
 
     const calibration = sanitizeFrontlitCalibration(value.calibration);
-    if (calibration) filament.calibration = calibration;
+    if (calibration) {
+        // Backfill the calibrated color for records saved before the field
+        // existed: on load the current color IS the color it was calibrated for
+        // (no edit has happened yet), so this activates color-mismatch
+        // protection for legacy calibrations without discarding them.
+        filament.calibration =
+            calibration.filamentColor === undefined
+                ? { ...calibration, filamentColor: filament.color }
+                : calibration;
+    }
     return filament;
 }
 

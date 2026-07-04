@@ -7,11 +7,11 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import type { Filament } from '../types';
 import { estimateHidingDistanceFromColor } from '../lib/colorUtils';
 import {
+    activeFrontlitCalibration,
     channelHds,
     computeProfileConfidence,
     getConfidenceLabel,
     getConfidenceColor,
-    sanitizeFrontlitCalibration,
     FRONTLIT_TD_SCALE,
 } from '../lib/calibration';
 
@@ -38,11 +38,11 @@ const FilamentRow = React.memo(function FilamentRow({
         filament.name ?? `Filament ${filament.color}`
     );
 
-    // Calculate confidence for this filament
-    const sanitizedCalibration = sanitizeFrontlitCalibration(filament.calibration);
-    const calibrationMatchesTd =
-        !!sanitizedCalibration && Math.abs(filament.td - sanitizedCalibration.tdSingleValue) < 0.05;
-    const activeCalibration = calibrationMatchesTd ? sanitizedCalibration : undefined;
+    // Calculate confidence for this filament. A calibration only counts while
+    // the swatch still matches the color it was measured for; editing the color
+    // deactivates it (and channelHds falls back to color-derived HDs), so the
+    // badge and the optical model stay consistent.
+    const activeCalibration = activeFrontlitCalibration(filament);
 
     const confidence = computeProfileConfidence({
         calibration: activeCalibration,

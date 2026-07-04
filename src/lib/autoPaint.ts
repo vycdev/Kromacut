@@ -16,6 +16,7 @@ import {
     type ScoringContext,
 } from './optimizer';
 import {
+    activeFrontlitCalibration,
     channelHds,
     computeProfileConfidence,
     type CalibrationRgb,
@@ -1698,7 +1699,9 @@ function calculateAutoConfidence(
     if (filaments.length > 0) {
         const confidences = filaments.map((f) =>
             computeProfileConfidence({
-                calibration: f.calibration,
+                // Only count a calibration whose swatch still matches its color;
+                // a color-edited filament falls back to the uncalibrated baseline.
+                calibration: activeFrontlitCalibration(f),
                 transmissionDistance: f.td,
             })
         );

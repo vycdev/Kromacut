@@ -290,3 +290,37 @@ test('stored v1 profiles migrate tds once on load', async () => {
         if (!existingStorage) Reflect.deleteProperty(globalThis, 'localStorage');
     }
 });
+
+test('loading a calibrated filament backfills the calibrated swatch color', async () => {
+    const { sanitizeProfileFilament } = await loadProfileManager();
+    const frontlitCalibration = {
+        opacityLayers: 7,
+        layerHeight: 0.08,
+        firstLayerHeight: 0.16,
+        td: [0.49, 0.51, 0.5],
+        tdSingleValue: 0.51,
+        jnd: 2,
+        baseColor: '#000000',
+        confidence: 0.9,
+        basis: 'frontlit',
+        calibrationDate: '2026-07-02T00:00:00.000Z',
+    };
+    // Legacy record (no filamentColor) → backfilled with the current color.
+    const legacy = sanitizeProfileFilament({
+        id: 'f',
+        color: '#ffffff',
+        td: 0.51,
+        calibration: frontlitCalibration,
+    });
+    assert.ok(legacy?.calibration);
+    assert.equal(legacy!.calibration!.filamentColor, '#ffffff');
+
+    // Existing filamentColor is preserved, not overwritten by the current color.
+    const stamped = sanitizeProfileFilament({
+        id: 'g',
+        color: '#111111',
+        td: 0.51,
+        calibration: { ...frontlitCalibration, filamentColor: '#ffffff' },
+    });
+    assert.equal(stamped!.calibration!.filamentColor, '#ffffff');
+});

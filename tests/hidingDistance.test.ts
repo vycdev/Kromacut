@@ -93,6 +93,72 @@ test('channelHds ignores invalid calibration shapes and falls back to derivation
     assert.deepEqual(channelHds(filament), deriveChannelTds('#ff0000', 0.4));
 });
 
+test('editing the swatch color deactivates a calibration', async () => {
+    const { channelHds, activeFrontlitCalibration, deriveChannelTds } = await loadCalibration();
+    const calibration = {
+        opacityLayers: 5,
+        layerHeight: 0.08,
+        firstLayerHeight: 0.16,
+        td: [0.068, 0.354, 0.373] as [number, number, number],
+        tdSingleValue: 0.373,
+        jnd: 2,
+        baseColor: '#000000',
+        confidence: 0.8,
+        basis: 'frontlit' as const,
+        calibrationDate: '2026-07-02T00:00:00.000Z',
+        filamentColor: '#00b8c4',
+    };
+    // Same color → calibration active, measured channels used.
+    const matched: Filament = { id: 'f', color: '#00b8c4', td: 0.373, calibration };
+    assert.ok(activeFrontlitCalibration(matched));
+    assert.deepEqual(channelHds(matched), [0.068, 0.354, 0.373]);
+
+    // Color edited → calibration deactivated, falls back to color-derived HDs.
+    const edited: Filament = { ...matched, color: '#ff0000' };
+    assert.equal(activeFrontlitCalibration(edited), undefined);
+    assert.deepEqual(channelHds(edited), deriveChannelTds('#ff0000', 0.373));
+
+    // Reverting the color reactivates the stored calibration (non-destructive).
+    const reverted: Filament = { ...edited, color: '#00b8c4' };
+    assert.ok(activeFrontlitCalibration(reverted));
+    assert.deepEqual(channelHds(reverted), [0.068, 0.354, 0.373]);
+});
+
+test('a calibration without a stored color still applies (legacy compatibility)', async () => {
+    const { activeFrontlitCalibration } = await loadCalibration();
+    const filament = {
+        id: 'legacy',
+        color: '#00b8c4',
+        td: 0.373,
+        calibration: {
+            opacityLayers: 5,
+            layerHeight: 0.08,
+            firstLayerHeight: 0.16,
+            td: [0.068, 0.354, 0.373],
+            tdSingleValue: 0.373,
+            jnd: 2,
+            baseColor: '#000000',
+            confidence: 0.8,
+            basis: 'frontlit',
+            calibrationDate: '2026-07-02T00:00:00.000Z',
+        },
+    } as unknown as Filament;
+    assert.ok(activeFrontlitCalibration(filament));
+});
+
+test('computeFrontlitCalibration stamps the calibrated swatch color', async () => {
+    const { computeFrontlitCalibration } = await loadCalibration();
+    const result = computeFrontlitCalibration({
+        filamentColor: '#ffd400',
+        opacityLayers: 6,
+        layerHeight: 0.08,
+        firstLayerHeight: 0.16,
+    });
+    assert.ok(result.ok);
+    if (!result.ok) return;
+    assert.equal(result.calibration.filamentColor, '#ffd400');
+});
+
 test('migrateLegacyFilamentTd scales uncalibrated tds and re-syncs calibrated ones', async () => {
     const { migrateLegacyFilamentTd } = await loadProfileManager();
     const { FRONTLIT_TD_SCALE } = await loadCalibration();

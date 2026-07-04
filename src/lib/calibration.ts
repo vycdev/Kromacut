@@ -57,6 +57,14 @@ export interface FrontlitCalibration {
     channelSource?: 'heuristic' | 'measured';
     /** Whether the JND was the default constant or fitted across the session. */
     jndSource?: 'default' | 'session-fit';
+    /**
+     * Swatch color (hex) the wedge was calibrated for. A calibration only
+     * applies while the filament still has this color — editing the swatch
+     * deactivates it (see activeFrontlitCalibration) instead of silently
+     * blending with measurements from a different material. Absent on records
+     * saved before the field existed; those are backfilled on load.
+     */
+    filamentColor?: string;
     notes?: string;
 }
 
@@ -243,8 +251,38 @@ export function sanitizeFrontlitCalibration(value: unknown): FrontlitCalibration
     } else if (candidate.jndSource !== undefined) {
         return undefined;
     }
+    if (candidate.filamentColor !== undefined) {
+        if (typeof candidate.filamentColor !== 'string' || !hexToRgb(candidate.filamentColor)) {
+            return undefined;
+        }
+        sanitized.filamentColor = candidate.filamentColor;
+    }
     if (typeof candidate.notes === 'string') sanitized.notes = candidate.notes;
     return sanitized;
+}
+
+/**
+ * The calibration that currently applies to a filament: a valid frontlit
+ * record whose calibrated swatch color still matches the filament's color.
+ * Editing the swatch deactivates the calibration (measurements belong to the
+ * previous material) and reverting the color reactivates it. Records without
+ * a stored color (pre-field) are treated as matching.
+ */
+export function activeFrontlitCalibration(filament: {
+    color: string;
+    calibration?: unknown;
+}): FrontlitCalibration | undefined {
+    const calibration = sanitizeFrontlitCalibration(filament.calibration);
+    if (!calibration) return undefined;
+    if (calibration.filamentColor === undefined) return calibration;
+    const calibrated = hexToRgb(calibration.filamentColor);
+    const current = hexToRgb(filament.color);
+    if (!calibrated || !current) return undefined;
+    return calibrated[0] === current[0] &&
+        calibrated[1] === current[1] &&
+        calibrated[2] === current[2]
+        ? calibration
+        : undefined;
 }
 
 // ============================================================================
@@ -560,7 +598,7 @@ export function channelHds(filament: {
     calibration?: unknown;
 }): CalibrationRgb {
     return (
-        sanitizeFrontlitCalibration(filament.calibration)?.td ??
+        activeFrontlitCalibration(filament)?.td ??
         deriveChannelTds(filament.color, filament.td)
     );
 }
@@ -712,6 +750,7 @@ export function computeFrontlitCalibration(
                     : undefined,
             channelSource,
             jndSource: input.jndSource ?? 'default',
+            filamentColor,
             notes,
         },
     };
