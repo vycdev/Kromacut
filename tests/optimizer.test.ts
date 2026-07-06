@@ -209,6 +209,66 @@ test('cache keys include all weighted clusters and optimizer tuning', async () =
     assert.equal(getOptimizerCacheStats().size, 4);
 });
 
+test('cache keys distinguish active and inactive calibrated swatch colors', async () => {
+    const { clearOptimizerCache, optimizeFilamentOrder } = await loadOptimizerModule();
+    clearOptimizerCache();
+
+    const calibration = {
+        opacityLayers: 5,
+        layerHeight: 0.1,
+        firstLayerHeight: 0.2,
+        td: [2, 2, 2] as [number, number, number],
+        tdSingleValue: 0.5,
+        jnd: 2,
+        baseColor: '#000000',
+        confidence: 1,
+        basis: 'frontlit' as const,
+        calibrationDate: '2026-07-02T00:00:00.000Z',
+    };
+    const activeFilaments = [
+        {
+            id: 'white',
+            color: '#ffffff',
+            td: 0.5,
+            calibration: { ...calibration, filamentColor: '#ffffff' },
+        },
+        { id: 'black', color: '#000000', td: 0.2 },
+    ];
+    const inactiveFilaments = [
+        {
+            id: 'white',
+            color: '#ffffff',
+            td: 0.5,
+            calibration: { ...calibration, filamentColor: '#000000' },
+        },
+        { id: 'black', color: '#000000', td: 0.2 },
+    ];
+    const grayContext = {
+        imageColors: [{ L: 73, a: 0, b: 0, weight: 1 }],
+        layerHeight: 0.1,
+        firstLayerHeight: 0.2,
+    };
+    const options = {
+        algorithm: 'balanced' as const,
+        seed: 1234,
+        cachingEnabled: true,
+    };
+
+    const active = optimizeFilamentOrder(activeFilaments, grayContext, options);
+    const inactive = optimizeFilamentOrder(inactiveFilaments, grayContext, options);
+    const inactiveUncached = optimizeFilamentOrder(inactiveFilaments, grayContext, {
+        ...options,
+        cachingEnabled: false,
+    });
+    const inactiveCached = optimizeFilamentOrder(inactiveFilaments, grayContext, options);
+
+    assert.equal(active.cacheHit, undefined);
+    assert.equal(inactive.cacheHit, undefined, 'inactive calibration state must miss cache');
+    assert.equal(inactiveCached.cacheHit, true);
+    assert.equal(inactive.score, inactiveUncached.score);
+    assert.notEqual(active.score, inactive.score);
+});
+
 test('default optimizer seeds are stable and cacheable', async () => {
     const { clearOptimizerCache, optimizeFilamentOrder } = await loadOptimizerModule();
     clearOptimizerCache();

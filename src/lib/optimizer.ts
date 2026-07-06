@@ -16,6 +16,7 @@ import {
     scoreSequenceAgainstImage,
     type WeightedLab,
 } from './autoPaint';
+import { activeFrontlitCalibration, channelHds } from './calibration';
 
 // ============================================================================
 // Type Definitions
@@ -181,6 +182,29 @@ function tuningFingerprint(options: OptimizerOptions) {
     };
 }
 
+function filamentOpticalFingerprint(filament: Filament) {
+    const activeCalibration = activeFrontlitCalibration(filament);
+    return {
+        id: filament.id,
+        color: filament.color,
+        td: filament.td,
+        channelHds: channelHds(filament),
+        activeCalibrationColor:
+            activeCalibration?.filamentColor ?? (activeCalibration ? '__legacy__' : null),
+    };
+}
+
+function filamentOpticalKey(filament: Filament): string {
+    const fingerprint = filamentOpticalFingerprint(filament);
+    return [
+        fingerprint.id,
+        fingerprint.color,
+        fingerprint.td,
+        ...fingerprint.channelHds,
+        fingerprint.activeCalibrationColor ?? '',
+    ].join(':');
+}
+
 function canonicalOptimizerInput(
     filaments: Filament[],
     context: ScoringContext,
@@ -189,12 +213,7 @@ function canonicalOptimizerInput(
     seed?: number
 ): string {
     return JSON.stringify({
-        filaments: filaments.map((filament) => ({
-            id: filament.id,
-            color: filament.color,
-            td: filament.td,
-            calibrationTd: filament.calibration?.td ?? null,
-        })),
+        filaments: filaments.map(filamentOpticalFingerprint),
         clusters: context.imageColors.map((color) => ({
             L: color.L,
             a: color.a,
@@ -230,9 +249,7 @@ export function createSequenceScorer(context: ScoringContext): (filaments: Filam
     return (filaments) => {
         if (filaments.length === 0) return Infinity;
         const sequenceKey = filaments
-            .map((filament) =>
-                [filament.id, filament.color, filament.td, ...(filament.calibration?.td ?? [])].join(':')
-            )
+            .map(filamentOpticalKey)
             .join('|');
         let palette = paletteCache.get(sequenceKey);
         if (!palette) {

@@ -34,6 +34,7 @@ import {
 import { cn } from '@/lib/utils';
 import type { Filament } from '../types';
 import {
+    activeFrontlitCalibration,
     channelHds,
     computeFrontlitCalibration,
     computeFrontlitCalibrationSession,
@@ -672,7 +673,7 @@ export function FilamentCalibrationDialog({
                 <div className="max-h-[22rem] space-y-2 overflow-y-auto pr-1">
                     {filaments.map((filament) => {
                         const selected = selectedIds.has(filament.id);
-                        const isCalibrated = !!filament.calibration;
+                        const isCalibrated = !!activeFrontlitCalibration(filament);
                         return (
                             <button
                                 key={filament.id}

@@ -26,7 +26,7 @@ All notable changes to Kromacut are documented in this file.
 - **Auto-paint Max Height** - Auto-paint now plans, scores, previews, and exports the same layer-aligned stack. Height caps round down to a valid printable layer boundary, so a generated model no longer exceeds the requested maximum by adding a final whole layer.
 - **Auto-paint region priority** - Center and Edge priority now use the actual locations of each image color. Center prioritizes colors near the image middle; Edge prioritizes colors near the outer border. The optimizer no longer allocates a full-image weight map or guesses location from color brightness.
 - **Auto-paint calibration confidence** - Color edits that deactivate a calibration now re-anchor the filament's estimated hiding distance to the new color without deleting the stored calibration, and result confidence now scores the filament sequence actually printed after variable-length optimization omits unused filaments.
-- **Auto-paint edge cases** - Blank seeds now resolve to stable cacheable values, optimizer cache keys include all target clusters and tuning inputs, and exceptionally tall stacks stop at the intended 500-layer slice-data limit.
+- **Auto-paint edge cases** - Blank seeds now resolve to stable cacheable values, optimizer cache keys include all target clusters, tuning inputs, and active calibration state, and exceptionally tall stacks stop at the intended 500-layer slice-data limit.
 - **Desktop 3MF export reliability** - 3MF model XML now streams into the archive in bounded chunks, avoiding desktop WebView `FileReader` `NotReadableError` failures and `RangeError: Invalid string length` on large exports.
 
 ## v3.1.0 - 2026-06-18
