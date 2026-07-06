@@ -33,5 +33,5 @@ src-tauri/target/
 src-tauri/gen/
 src-tauri/WixTools/
 
-# Full-size camera originals in print findings (compressed copies are committed)
-.agents/print-findings/**/DSC*.JPG
+# Agent workspace files
+.agents/
