@@ -6,6 +6,7 @@ import { HexColorPicker } from 'react-colorful';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import type { Filament } from '../types';
 import { estimateHidingDistanceFromColor } from '../lib/colorUtils';
+import { colorEditUpdateForFilament } from '../lib/filamentUpdates';
 import {
     activeFrontlitCalibration,
     channelHds,
@@ -87,11 +88,11 @@ const FilamentRow = React.memo(function FilamentRow({
     useEffect(() => {
         const timer = setTimeout(() => {
             if (localColor !== filament.color) {
-                onUpdate(filament.id, { color: localColor });
+                onUpdate(filament.id, colorEditUpdateForFilament(filament, localColor));
             }
         }, 200);
         return () => clearTimeout(timer);
-    }, [localColor, filament.id, filament.color, onUpdate]);
+    }, [localColor, filament, onUpdate]);
 
     const handleNameBlur = () => {
         const trimmed = localName.trim();

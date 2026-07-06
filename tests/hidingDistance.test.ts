@@ -7,10 +7,12 @@ import type { Filament } from '../src/types/index.ts';
 
 type ColorUtilsModule = typeof import('../src/lib/colorUtils.ts');
 type CalibrationModule = typeof import('../src/lib/calibration.ts');
+type FilamentUpdatesModule = typeof import('../src/lib/filamentUpdates.ts');
 type ProfileManagerModule = typeof import('../src/lib/profileManager.ts');
 
 let colorUtilsModule: Promise<ColorUtilsModule> | null = null;
 let calibrationModule: Promise<CalibrationModule> | null = null;
+let filamentUpdatesModule: Promise<FilamentUpdatesModule> | null = null;
 let profileManagerModule: Promise<ProfileManagerModule> | null = null;
 
 async function loadViteModule<T>(modulePath: string): Promise<T> {
@@ -35,6 +37,8 @@ const loadColorUtils = () =>
     (colorUtilsModule ??= loadViteModule<ColorUtilsModule>('/src/lib/colorUtils.ts'));
 const loadCalibration = () =>
     (calibrationModule ??= loadViteModule<CalibrationModule>('/src/lib/calibration.ts'));
+const loadFilamentUpdates = () =>
+    (filamentUpdatesModule ??= loadViteModule<FilamentUpdatesModule>('/src/lib/filamentUpdates.ts'));
 const loadProfileManager = () =>
     (profileManagerModule ??= loadViteModule<ProfileManagerModule>('/src/lib/profileManager.ts'));
 
@@ -122,6 +126,41 @@ test('editing the swatch color deactivates a calibration', async () => {
     const reverted: Filament = { ...edited, color: '#00b8c4' };
     assert.ok(activeFrontlitCalibration(reverted));
     assert.deepEqual(channelHds(reverted), [0.068, 0.354, 0.373]);
+});
+
+test('color edits preserve calibration but re-anchor inactive scalar HDs', async () => {
+    const { estimateHidingDistanceFromColor } = await loadColorUtils();
+    const { colorEditUpdateForFilament } = await loadFilamentUpdates();
+    const calibration = {
+        opacityLayers: 7,
+        layerHeight: 0.08,
+        firstLayerHeight: 0.16,
+        td: [0.49, 0.51, 0.5] as [number, number, number],
+        tdSingleValue: 0.51,
+        jnd: 2,
+        baseColor: '#000000',
+        confidence: 0.9,
+        basis: 'frontlit' as const,
+        calibrationDate: '2026-07-02T00:00:00.000Z',
+        filamentColor: '#ffffff',
+    };
+    const filament: Filament = {
+        id: 'white',
+        color: '#ffffff',
+        td: 0.51,
+        calibration,
+    };
+
+    const edited = colorEditUpdateForFilament(filament, '#000000');
+    assert.equal(edited.color, '#000000');
+    assert.equal(edited.td, estimateHidingDistanceFromColor('#000000'));
+    assert.equal('calibration' in edited, false, 'the stored calibration should remain reversible');
+
+    const reverted = colorEditUpdateForFilament(
+        { ...filament, color: '#000000', td: edited.td as number },
+        '#ffffff'
+    );
+    assert.equal(reverted.td, calibration.tdSingleValue);
 });
 
 test('a calibration without a stored color still applies (legacy compatibility)', async () => {

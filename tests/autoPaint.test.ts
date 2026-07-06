@@ -575,6 +575,44 @@ test('enhanced repeated-swap search keeps the printable red-to-pink transition',
     );
 });
 
+test('auto-paint confidence scores only the printed optimized sequence', async () => {
+    const { generateAutoLayers } = await loadAutoPaintModule();
+    const calibratedWhite = {
+        id: 'white',
+        color: '#ffffff',
+        td: 0.51,
+        calibration: {
+            opacityLayers: 7,
+            layerHeight: 0.08,
+            firstLayerHeight: 0.16,
+            td: [0.49, 0.51, 0.5] as [number, number, number],
+            tdSingleValue: 0.51,
+            jnd: 2,
+            baseColor: '#000000',
+            confidence: 1,
+            basis: 'frontlit' as const,
+            calibrationDate: new Date().toISOString(),
+            filamentColor: '#ffffff',
+        },
+    };
+    const unusedNearWhite = { id: 'near-white', color: '#fefefe', td: 0.5 };
+
+    const result = generateAutoLayers(
+        [calibratedWhite, unusedNearWhite],
+        [{ hex: '#ffffff', count: 100 }],
+        0.08,
+        0.16,
+        undefined,
+        true,
+        false,
+        { algorithm: 'exhaustive', seed: 9 }
+    );
+
+    assert.deepEqual(result.filamentOrder, ['white']);
+    assert.equal(result.confidenceFactors.calibrationQuality, 1);
+    assert.equal(result.confidenceFactors.filamentCoverage, 0.5);
+});
+
 test('auto-paint slice data never returns more than 500 layers', async () => {
     const { autoPaintToSliceHeights } = await loadAutoPaintModule();
     const tallResult = {

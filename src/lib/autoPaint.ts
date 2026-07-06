@@ -1549,12 +1549,7 @@ export function generateAutoLayers(
         .filter((filament): filament is Filament => filament !== undefined);
 
     // --- STEP 6: CALCULATE CONFIDENCE METRICS ---
-    const confidence = calculateAutoConfidence(
-        filaments,
-        imageSwatches,
-        printedFilaments,
-        compressionRatio
-    );
+    const confidence = calculateAutoConfidence(imageSwatches, printedFilaments, compressionRatio);
 
     const result: AutoPaintResult = {
         layers,
@@ -1673,16 +1668,14 @@ export function autoPaintToSliceHeights(
  * 2. Filament Coverage: How well the filament colors cover the image palette
  * 3. Compression Impact: How much the result was compressed from ideal
  *
- * @param filaments - Input filaments with their TDs
  * @param imageSwatches - Image color palette
- * @param sortedFilaments - Filaments in their optimal order
+ * @param printedFilaments - Filaments in the actual generated stack
  * @param compressionRatio - How much compression was applied (1.0 = none)
  * @returns Confidence score and detailed factors
  */
 function calculateAutoConfidence(
-    filaments: Filament[],
     imageSwatches: Array<{ hex: string; count?: number }>,
-    sortedFilaments: Filament[],
+    printedFilaments: Filament[],
     compressionRatio: number
 ): {
     confidence: number;
@@ -1696,8 +1689,8 @@ function calculateAutoConfidence(
     // Average confidence of all filament calibrations using actual calibration data
     let calibrationQuality = 0.5; // Default baseline for uncalibrated filaments
     
-    if (filaments.length > 0) {
-        const confidences = filaments.map((f) =>
+    if (printedFilaments.length > 0) {
+        const confidences = printedFilaments.map((f) =>
             computeProfileConfidence({
                 // Only count a calibration whose swatch still matches its color;
                 // a color-edited filament falls back to the uncalibrated baseline.
@@ -1714,8 +1707,8 @@ function calculateAutoConfidence(
     // Secondary: filament count caps the maximum achievable coverage.
     let filamentCoverage = 0.5; // Baseline
 
-    if (filaments.length > 0 && imageSwatches.length > 0) {
-        const filamentColors = sortedFilaments.map((f) => rgbToLab(hexToRgb(f.color)));
+    if (printedFilaments.length > 0 && imageSwatches.length > 0) {
+        const filamentColors = printedFilaments.map((f) => rgbToLab(hexToRgb(f.color)));
 
         // For each image color, find nearest filament color (weighted by pixel count)
         let totalDeltaE = 0;
@@ -1744,7 +1737,7 @@ function calculateAutoConfidence(
 
         // Cap by filament count — even perfect color matches are limited by
         // how many distinct layers can be stacked
-        const filamentCount = filaments.length;
+        const filamentCount = printedFilaments.length;
         let countCap = 1.0;
         if (filamentCount === 1) countCap = 0.5;
         else if (filamentCount === 2) countCap = 0.7;
