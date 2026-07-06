@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { createServer } from 'vite';
 
@@ -372,6 +373,43 @@ test('v2 profile imports are not re-scaled (double-import idempotence)', async (
     const stored = second.profiles.find((p) => p.id === 'profile-v2');
     assert.ok(stored);
     assert.equal(stored!.filaments[0].td, 0.4);
+});
+
+test('calibrated frontlit fixture imports without rescaling measured hiding distances', async () => {
+    const { importProfiles, parseProfileFile, CURRENT_PROFILE_VERSION } = await loadProfileManager();
+    const raw = readFileSync(
+        resolve(
+            process.cwd(),
+            'tests/assets/filament-profiles/8_Colors_Calibrated_Frontlit.kfil'
+        ),
+        'utf8'
+    );
+    const parsed = parseProfileFile(raw);
+
+    assert.ok(parsed);
+    assert.equal(parsed.length, 1);
+
+    const source = parsed[0];
+    assert.equal(source.name, '8 Colors Calibrated Frontlit');
+    assert.equal(source.version, CURRENT_PROFILE_VERSION);
+    assert.equal(source.filaments.length, 8);
+
+    const sourceTds = source.filaments.map((filament) => filament.td);
+    const result = importProfiles([], parsed);
+
+    assert.equal(result.imported.length, 1);
+    assert.equal(result.imported[0].version, CURRENT_PROFILE_VERSION);
+    assert.deepEqual(
+        result.imported[0].filaments.map((filament) => filament.td),
+        sourceTds
+    );
+
+    for (const filament of result.imported[0].filaments) {
+        assert.ok(filament.calibration);
+        assert.equal(filament.calibration.basis, 'frontlit');
+        assert.equal(filament.calibration.tdSingleValue, filament.td);
+        assert.equal(filament.calibration.filamentColor, filament.color);
+    }
 });
 
 test('stored v1 profiles migrate tds once on load', async () => {
