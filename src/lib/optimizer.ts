@@ -330,6 +330,13 @@ function sequenceKey(sequence: Filament[]): string {
     return sequence.map((filament) => filament.id).join('|');
 }
 
+function compareSequenceKeys(left: Filament[], right: Filament[]): number {
+    const leftKey = sequenceKey(left);
+    const rightKey = sequenceKey(right);
+    if (leftKey === rightKey) return 0;
+    return leftKey < rightKey ? -1 : 1;
+}
+
 function hasConsecutiveDuplicates(sequence: Filament[]): boolean {
     return sequence.some((filament, index) => index > 0 && filament.id === sequence[index - 1].id);
 }
@@ -360,7 +367,7 @@ function maxSequenceLength(filaments: Filament[], maxExtraRepeats: number): numb
 function isBetterCandidate(candidate: ScoredSequence, current: ScoredSequence | null): boolean {
     if (!current) return true;
     if (candidate.score !== current.score) return candidate.score < current.score;
-    return sequenceKey(candidate.order) < sequenceKey(current.order);
+    return compareSequenceKeys(candidate.order, current.order) < 0;
 }
 
 function reportProgress(
@@ -545,7 +552,7 @@ function optimizeBeamSearch(
     });
     beam.sort((left, right) =>
         left.score === right.score
-            ? sequenceKey(left.order).localeCompare(sequenceKey(right.order))
+            ? compareSequenceKeys(left.order, right.order)
             : left.score - right.score
     );
     beam = beam.slice(0, beamWidth);
@@ -578,7 +585,7 @@ function optimizeBeamSearch(
         beam = [...candidates.values()]
             .sort((left, right) =>
                 left.score === right.score
-                    ? sequenceKey(left.order).localeCompare(sequenceKey(right.order))
+                    ? compareSequenceKeys(left.order, right.order)
                     : left.score - right.score
             )
             .slice(0, beamWidth);

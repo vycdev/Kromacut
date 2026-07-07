@@ -1,10 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-import {
-    CURRENT_PROFILE_VERSION,
-    migrateLegacyFilamentTd,
-} from '../src/lib/profileManager.ts';
+import { CURRENT_PROFILE_VERSION, migrateLegacyFilamentTd } from '../src/lib/profileManager.ts';
 import {
     colorSwatchesFromJpegBlocks,
     logoFixturePath,
@@ -18,7 +15,6 @@ export interface AutoPaintGoldenScenario {
     name: string;
     filaments: Array<{ id: string; color: string; td: number }>;
     imageSwatches: Array<{ hex: string; count: number }>;
-    imageDimensions: { width: number; height: number };
     enhancedColorMatch: boolean;
     allowRepeatedSwaps: boolean;
     seed: number;
@@ -38,7 +34,9 @@ const SWATCH_CAP = 2 ** 14;
 
 function readProfile(fileName: string, expectedFilamentCount: number): FilamentProfileFixture {
     const profilePath = resolve(testAssetsRoot, 'filament-profiles', fileName);
-    const parsed = JSON.parse(readFileSync(profilePath, 'utf8')) as Partial<FilamentProfileFixture> & {
+    const parsed = JSON.parse(
+        readFileSync(profilePath, 'utf8')
+    ) as Partial<FilamentProfileFixture> & {
         version?: number;
     };
 
@@ -63,9 +61,7 @@ function readProfile(fileName: string, expectedFilamentCount: number): FilamentP
 }
 
 function rgbToHex(r: number, g: number, b: number) {
-    return `#${[r, g, b]
-        .map((value) => value.toString(16).padStart(2, '0'))
-        .join('')}`;
+    return `#${[r, g, b].map((value) => value.toString(16).padStart(2, '0')).join('')}`;
 }
 
 function pngSwatches(image: PngImage): Array<{ hex: string; count: number }> {
@@ -84,7 +80,12 @@ function pngSwatches(image: PngImage): Array<{ hex: string; count: number }> {
         .map(([hex, count]) => ({ hex, count }));
 }
 
-function scenarioSeed(profileIndex: number, fixtureIndex: number, enhanced: boolean, repeats: boolean) {
+function scenarioSeed(
+    profileIndex: number,
+    fixtureIndex: number,
+    enhanced: boolean,
+    repeats: boolean
+) {
     return (
         0x4b524f4d +
         profileIndex * 1009 +
@@ -100,12 +101,10 @@ export function autoPaintGoldenScenarios(): AutoPaintGoldenScenario[] {
         {
             name: 'logo-png',
             imageSwatches: pngSwatches(png),
-            imageDimensions: { width: png.width, height: png.height },
         },
         {
             name: 'large-jpeg',
             imageSwatches: colorSwatchesFromJpegBlocks(largeIssueFixturePath),
-            imageDimensions: { width: 3888, height: 2916 },
         },
     ];
 
@@ -118,7 +117,6 @@ export function autoPaintGoldenScenarios(): AutoPaintGoldenScenario[] {
                     name: `${profile.name} / ${fixture.name} / enhanced=${enhancedColorMatch} / repeats=${allowRepeatedSwaps}`,
                     filaments: profile.filaments,
                     imageSwatches: fixture.imageSwatches,
-                    imageDimensions: fixture.imageDimensions,
                     enhancedColorMatch,
                     allowRepeatedSwaps,
                     seed: scenarioSeed(
