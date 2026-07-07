@@ -5,8 +5,16 @@ import { channelHds, deriveChannelTds, type CalibrationRgb } from './calibration
 // Minimal color math — inlined to avoid pulling in autoPaint's optimizer dep.
 // ---------------------------------------------------------------------------
 
-interface RGB { r: number; g: number; b: number }
-interface Lab { L: number; a: number; b: number }
+interface RGB {
+    r: number;
+    g: number;
+    b: number;
+}
+interface Lab {
+    L: number;
+    a: number;
+    b: number;
+}
 
 function hexToRgb(hex: string): RGB {
     const h = hex.replace(/^#/, '');
@@ -19,31 +27,43 @@ function hexToRgb(hex: string): RGB {
 
 // IEC 61966-2-1 sRGB linearisation thresholds and coefficients.
 const SRGB_LINEARISE_THRESHOLD = 0.04045;
-const SRGB_LINEARISE_SCALE     = 12.92;
-const SRGB_LINEARISE_OFFSET    = 0.055;
-const SRGB_LINEARISE_DENOM     = 1.055;
-const SRGB_LINEARISE_GAMMA     = 2.4;
+const SRGB_LINEARISE_SCALE = 12.92;
+const SRGB_LINEARISE_OFFSET = 0.055;
+const SRGB_LINEARISE_DENOM = 1.055;
+const SRGB_LINEARISE_GAMMA = 2.4;
 
 // IEC 61966-2-1 sRGB → CIE XYZ (D65) matrix row coefficients.
-const M_RX = 0.4124564, M_GX = 0.3575761, M_BX = 0.1804375;
-const M_RY = 0.2126729, M_GY = 0.7151522, M_BY = 0.0721750;
-const M_RZ = 0.0193339, M_GZ = 0.1191920, M_BZ = 0.9503041;
+const M_RX = 0.4124564,
+    M_GX = 0.3575761,
+    M_BX = 0.1804375;
+const M_RY = 0.2126729,
+    M_GY = 0.7151522,
+    M_BY = 0.072175;
+const M_RZ = 0.0193339,
+    M_GZ = 0.119192,
+    M_BZ = 0.9503041;
 
 // CIE XYZ (D65) → sRGB inverse matrix row coefficients.
-const M_INV_XR =  3.2404542, M_INV_YR = -1.5371385, M_INV_ZR = -0.4985314;
-const M_INV_XG = -0.9692660, M_INV_YG =  1.8760108, M_INV_ZG =  0.0415560;
-const M_INV_XB =  0.0556434, M_INV_YB = -0.2040259, M_INV_ZB =  1.0572252;
+const M_INV_XR = 3.2404542,
+    M_INV_YR = -1.5371385,
+    M_INV_ZR = -0.4985314;
+const M_INV_XG = -0.969266,
+    M_INV_YG = 1.8760108,
+    M_INV_ZG = 0.041556;
+const M_INV_XB = 0.0556434,
+    M_INV_YB = -0.2040259,
+    M_INV_ZB = 1.0572252;
 
 // CIE standard illuminant D65 tristimulus values (normalises XYZ to [0,1]).
 const D65_X = 0.95047;
-const D65_Y = 1.00000;
+const D65_Y = 1.0;
 const D65_Z = 1.08883;
 
 // CIE L*a*b* cube-root approximation thresholds and coefficients (CIE 1976).
-const LAB_EPSILON     = 0.008856; // (6/29)³
-const LAB_KAPPA       = 7.787;    // (29/6)² / 3  — slope of the linear segment
-const LAB_DELTA_16    = 16 / 116; // y-intercept of the linear segment
-const LAB_INV_CBRT    = 6 / 29;   // cbrt(LAB_EPSILON) — Lab→XYZ cube-root threshold
+const LAB_EPSILON = 0.008856; // (6/29)³
+const LAB_KAPPA = 7.787; // (29/6)² / 3  — slope of the linear segment
+const LAB_DELTA_16 = 16 / 116; // y-intercept of the linear segment
+const LAB_INV_CBRT = 6 / 29; // cbrt(LAB_EPSILON) — Lab→XYZ cube-root threshold
 
 // Threshold for linear RGB values in the sRGB de-linearisation step.
 // Derived from SRGB_LINEARISE_THRESHOLD / SRGB_LINEARISE_SCALE ≈ 0.0031308.
@@ -56,13 +76,15 @@ function rgbToLab(rgb: RGB): Lab {
             ? s / SRGB_LINEARISE_SCALE
             : Math.pow((s + SRGB_LINEARISE_OFFSET) / SRGB_LINEARISE_DENOM, SRGB_LINEARISE_GAMMA);
     };
-    const r = linearise(rgb.r), g = linearise(rgb.g), b = linearise(rgb.b);
+    const r = linearise(rgb.r),
+        g = linearise(rgb.g),
+        b = linearise(rgb.b);
 
     const fx = (r * M_RX + g * M_GX + b * M_BX) / D65_X;
     const fy = (r * M_RY + g * M_GY + b * M_BY) / D65_Y;
     const fz = (r * M_RZ + g * M_GZ + b * M_BZ) / D65_Z;
 
-    const f = (t: number) => t > LAB_EPSILON ? Math.cbrt(t) : LAB_KAPPA * t + LAB_DELTA_16;
+    const f = (t: number) => (t > LAB_EPSILON ? Math.cbrt(t) : LAB_KAPPA * t + LAB_DELTA_16);
     return { L: 116 * f(fy) - 16, a: 500 * (f(fx) - f(fy)), b: 200 * (f(fy) - f(fz)) };
 }
 
@@ -71,7 +93,7 @@ function labToHex(lab: Lab): string {
     const fy = (lab.L + 16) / 116;
     const fx = lab.a / 500 + fy;
     const fz = fy - lab.b / 200;
-    const invF = (f: number) => f > LAB_INV_CBRT ? f * f * f : (f - LAB_DELTA_16) / LAB_KAPPA;
+    const invF = (f: number) => (f > LAB_INV_CBRT ? f * f * f : (f - LAB_DELTA_16) / LAB_KAPPA);
     const X = D65_X * invF(fx);
     const Y = D65_Y * invF(fy);
     const Z = D65_Z * invF(fz);
@@ -125,15 +147,10 @@ function linearChannelToSrgb(channel: number): number {
 // colorSpace.blendSrgbChannel (composite the transmissive foreground over the
 // background in linear light, then re-encode to sRGB). Accepts a scalar HD or
 // the per-channel R, G, B hiding distances auto-paint blends with.
-export function blendRgb(
-    bg: RGB,
-    fg: RGB,
-    td: number | CalibrationRgb,
-    thickness: number
-): RGB {
+export function blendRgb(bg: RGB, fg: RGB, td: number | CalibrationRgb, thickness: number): RGB {
     if (thickness <= 0) return bg;
     const channelTd: CalibrationRgb = typeof td === 'number' ? [td, td, td] : td;
-    if (channelTd.some((v) => !Number.isFinite(v) || v <= 0)) return bg;
+    if (channelTd.some((v) => !Number.isFinite(v) || v <= 0)) return fg;
     const blendChannel = (bgC: number, fgC: number, tdC: number) => {
         const t = Math.pow(0.1, thickness / tdC);
         return linearChannelToSrgb(
@@ -283,7 +300,7 @@ export function nextBestColor(
     // blend-line midpoints (which land within ~0.5 ΔE of their segment) don't
     // show up as a meaningful gap.
     const COVERAGE_FLOOR = 1.0;
-    const effectiveReachable = currentReachable.map(e => e >= COVERAGE_FLOOR ? e : 0);
+    const effectiveReachable = currentReachable.map((e) => (e >= COVERAGE_FLOOR ? e : 0));
 
     const baselineTotal = effectiveReachable.reduce((s, e, i) => s + e * counts[i], 0);
     const baselineAvgDeltaE = totalPixels > 0 ? baselineTotal / totalPixels : 0;
@@ -307,10 +324,13 @@ export function nextBestColor(
 
     // These thresholds are still on raw error, used only for scoring weights (not filtering).
     const sortedReachable = [...effectiveReachable].sort((a, b) => a - b);
-    const p90Threshold = sortedReachable[Math.floor(sortedReachable.length * 0.90)];
-    const maxReachable  = sortedReachable[sortedReachable.length - 1];
+    const p90Threshold = sortedReachable[Math.floor(sortedReachable.length * 0.9)];
+    const maxReachable = sortedReachable[sortedReachable.length - 1];
 
-    interface LabCandidate { lab: Lab; hex: string }
+    interface LabCandidate {
+        lab: Lab;
+        hex: string;
+    }
     const seen = new Set<string>();
     const pool: LabCandidate[] = [];
 
@@ -347,7 +367,14 @@ export function nextBestColor(
     // -------------------------------------------------------------------------
     // Score every candidate.
     // -------------------------------------------------------------------------
-    interface CandidateScore { lab: Lab; hex: string; weightedGain: number; rawGain: number; nearestFilamentDE: number; estimatedTd: number }
+    interface CandidateScore {
+        lab: Lab;
+        hex: string;
+        weightedGain: number;
+        rawGain: number;
+        nearestFilamentDE: number;
+        estimatedTd: number;
+    }
     const scores: CandidateScore[] = [];
 
     for (const { lab, hex } of pool) {
@@ -355,7 +382,10 @@ export function nextBestColor(
         let estimatedTd = filaments[0].td;
         for (let fi = 0; fi < filamentLabs.length; fi++) {
             const de = deltaELab(lab, filamentLabs[fi]);
-            if (de < nearestFilamentDE) { nearestFilamentDE = de; estimatedTd = filamentTds[fi]; }
+            if (de < nearestFilamentDE) {
+                nearestFilamentDE = de;
+                estimatedTd = filamentTds[fi];
+            }
         }
         const candidateRgb = hexToRgb(hex);
         // The candidate is a hypothetical uncalibrated filament, so model it the
@@ -380,11 +410,14 @@ export function nextBestColor(
             }
             const improvement = effectiveReachable[i] - newReachable;
             if (improvement > 0) {
-                const w = effectiveReachable[i] >= maxReachable ? 3.0
-                        : effectiveReachable[i] >= p90Threshold ? 2.0
-                        : 1.0;
+                const w =
+                    effectiveReachable[i] >= maxReachable
+                        ? 3.0
+                        : effectiveReachable[i] >= p90Threshold
+                          ? 2.0
+                          : 1.0;
                 weightedGain += improvement * counts[i] * w;
-                rawGain      += improvement * counts[i];
+                rawGain += improvement * counts[i];
             }
         }
 
@@ -398,7 +431,10 @@ export function nextBestColor(
     const maxIsolation = Math.max(...scores.map((s) => s.nearestFilamentDE));
 
     // Rank by weighted gain; report improvement from unweighted gain so improvementPct ∈ [0,100].
-    const winner = scores.reduce((best, s) => s.weightedGain > best.weightedGain ? s : best, scores[0]);
+    const winner = scores.reduce(
+        (best, s) => (s.weightedGain > best.weightedGain ? s : best),
+        scores[0]
+    );
 
     // -------------------------------------------------------------------------
     // Build the result for the winning candidate.
@@ -429,7 +465,10 @@ export function nextBestColor(
     let nearestDE = Infinity;
     for (let fi = 0; fi < filamentLabs.length; fi++) {
         const de = deltaELab(winner.lab, filamentLabs[fi]);
-        if (de < nearestDE) { nearestDE = de; nearestFilamentIdx = fi; }
+        if (de < nearestDE) {
+            nearestDE = de;
+            nearestFilamentIdx = fi;
+        }
     }
     const recommendedTd = filaments[nearestFilamentIdx].td;
 
@@ -438,20 +477,20 @@ export function nextBestColor(
 
     console.group(
         `[NextBestColor] ${filaments.length} filament${filaments.length !== 1 ? 's' : ''} → ` +
-        `${imageSwatches.length} image colors | ${totalPixels.toLocaleString()} px | ` +
-        `${pool.length} candidates (${scores.length} scored)`
+            `${imageSwatches.length} image colors | ${totalPixels.toLocaleString()} px | ` +
+            `${pool.length} candidates (${scores.length} scored)`
     );
     console.log(`  Baseline avg ΔE:  ${baselineAvgDeltaE.toFixed(2)}  (blend-aware)`);
     console.log(`  Suggestion:       ${winner.hex.toUpperCase()}  HD ${recommendedTd.toFixed(2)}`);
     console.log(
         `  Accuracy gain:    +${improvementPct.toFixed(1)}%  ` +
-        `(${pixelsCaptured.toLocaleString()} px / ` +
-        `${((pixelsCaptured / totalPixels) * 100).toFixed(1)}% of image improve)`
+            `(${pixelsCaptured.toLocaleString()} px / ` +
+            `${((pixelsCaptured / totalPixels) * 100).toFixed(1)}% of image improve)`
     );
     console.log(
         `  Isolation:        ${isolationScore.toFixed(3)}  ` +
-        `(nearest filament ΔE ${winner.nearestFilamentDE.toFixed(1)} / ` +
-        `max ${maxIsolation.toFixed(1)})`
+            `(nearest filament ΔE ${winner.nearestFilamentDE.toFixed(1)} / ` +
+            `max ${maxIsolation.toFixed(1)})`
     );
     console.groupEnd();
 

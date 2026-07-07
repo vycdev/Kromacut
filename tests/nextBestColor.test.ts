@@ -1,8 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { nextBestColor} from '../src/lib/nextBestColor.ts';
+import { nextBestColor } from '../src/lib/nextBestColor.ts';
 import type { Filament } from '../src/types/index.ts';
-
 
 function filament(id: string, color: string, td: number): Filament {
     return { id, color, td };
@@ -10,8 +9,8 @@ function filament(id: string, color: string, td: number): Filament {
 
 const BLACK = filament('black', '#000000', 1.0);
 const WHITE = filament('white', '#ffffff', 2.0);
-const RED   = filament('red',   '#ff0000', 1.5);
-const BLUE  = filament('blue',  '#0000ff', 2.5);
+const RED = filament('red', '#ff0000', 1.5);
+const BLUE = filament('blue', '#0000ff', 2.5);
 
 // ---------------------------------------------------------------------------
 // Edge cases
@@ -33,7 +32,6 @@ test('returns null candidate when all swatches are already covered', () => {
     const r = nextBestColor([BLACK], [{ hex: '#000000', count: 100 }]);
     assert.equal(r.candidate, null);
 });
-
 
 test('returns null candidate when image palette exactly matches the filament set', () => {
     // Every image swatch is one of the existing filaments — nothing to add.
@@ -76,7 +74,7 @@ test('blend-aware: far candidate wins when its segment covers the common color t
         [BLACK],
         [
             { hex: '#888888', count: 1000 }, // common mid-grey
-            { hex: '#eeeeee', count: 1 },    // rare near-white
+            { hex: '#eeeeee', count: 1 }, // rare near-white
         ]
     );
     assert.ok(r.candidate !== null);
@@ -93,12 +91,12 @@ test('pixel count weighting: common color beats rare one when blend segments div
     const r = nextBestColor(
         [BLACK, WHITE],
         [
-            { hex: '#606060', count: 1 },    // grey — on L-axis blend, covered
-            { hex: '#808080', count: 1 },    // grey — covered
-            { hex: '#a0a0a0', count: 1 },    // grey — covered
-            { hex: '#c0c0c0', count: 1 },    // grey — covered
+            { hex: '#606060', count: 1 }, // grey — on L-axis blend, covered
+            { hex: '#808080', count: 1 }, // grey — covered
+            { hex: '#a0a0a0', count: 1 }, // grey — covered
+            { hex: '#c0c0c0', count: 1 }, // grey — covered
             { hex: '#ff6666', count: 1000 }, // desaturated red — common
-            { hex: '#00ffff', count: 1 },    // cyan — opposite hue, rare
+            { hex: '#00ffff', count: 1 }, // cyan — opposite hue, rare
         ]
     );
     assert.ok(r.candidate !== null);
@@ -120,12 +118,12 @@ test('p100 weighting tips ranking: rare maximally-underserved color beats common
     const r = nextBestColor(
         [BLACK, WHITE],
         [
-            { hex: '#606060', count: 1 },   // grey — covered by L-axis blend
-            { hex: '#808080', count: 1 },   // grey — covered
-            { hex: '#a0a0a0', count: 1 },   // grey — covered
-            { hex: '#c0c0c0', count: 1 },   // grey — covered
-            { hex: '#ff8888', count: 5 },   // desaturated red — moderate distance
-            { hex: '#0000ff', count: 1 },   // blue — maximum distance (p100)
+            { hex: '#606060', count: 1 }, // grey — covered by L-axis blend
+            { hex: '#808080', count: 1 }, // grey — covered
+            { hex: '#a0a0a0', count: 1 }, // grey — covered
+            { hex: '#c0c0c0', count: 1 }, // grey — covered
+            { hex: '#ff8888', count: 5 }, // desaturated red — moderate distance
+            { hex: '#0000ff', count: 1 }, // blue — maximum distance (p100)
         ]
     );
     assert.ok(r.candidate !== null);
@@ -147,8 +145,10 @@ test('improvementPct stays ≤ 100 when p100 weighting selects the winner', () =
         ]
     );
     assert.ok(r.candidate !== null);
-    assert.ok(r.candidate.improvementPct <= 100,
-        `expected ≤ 100, got ${r.candidate.improvementPct}`);
+    assert.ok(
+        r.candidate.improvementPct <= 100,
+        `expected ≤ 100, got ${r.candidate.improvementPct}`
+    );
 });
 
 // ---------------------------------------------------------------------------
@@ -165,7 +165,10 @@ test('improvementPct is > 0 and ≤ 100', () => {
     );
     assert.ok(r.candidate !== null);
     assert.ok(r.candidate.improvementPct > 0, `expected > 0, got ${r.candidate.improvementPct}`);
-    assert.ok(r.candidate.improvementPct <= 100, `expected ≤ 100, got ${r.candidate.improvementPct}`);
+    assert.ok(
+        r.candidate.improvementPct <= 100,
+        `expected ≤ 100, got ${r.candidate.improvementPct}`
+    );
 });
 
 // ---------------------------------------------------------------------------
@@ -181,8 +184,10 @@ test('isolationScore is in [0, 1]', () => {
         ]
     );
     assert.ok(r.candidate !== null);
-    assert.ok(r.candidate.isolationScore >= 0 && r.candidate.isolationScore <= 1,
-        `expected 0–1, got ${r.candidate.isolationScore}`);
+    assert.ok(
+        r.candidate.isolationScore >= 0 && r.candidate.isolationScore <= 1,
+        `expected 0–1, got ${r.candidate.isolationScore}`
+    );
 });
 
 test('single viable candidate always gets isolationScore 1.0', () => {
@@ -190,8 +195,8 @@ test('single viable candidate always gets isolationScore 1.0', () => {
     const r = nextBestColor(
         [BLACK],
         [
-            { hex: '#000000', count: 10 },  // covered — skipped
-            { hex: '#ffffff', count: 90 },  // sole viable candidate
+            { hex: '#000000', count: 10 }, // covered — skipped
+            { hex: '#ffffff', count: 90 }, // sole viable candidate
         ]
     );
     assert.ok(r.candidate !== null);
@@ -209,9 +214,9 @@ test('blend-aware: both candidates produce a candidate with valid isolation scor
     const r = nextBestColor(
         [BLACK],
         [
-            { hex: '#000000', count: 1   },  // covered
-            { hex: '#444444', count: 500 },  // common, moderate isolation
-            { hex: '#ffffff', count: 1   },  // rare, maximum isolation
+            { hex: '#000000', count: 1 }, // covered
+            { hex: '#444444', count: 500 }, // common, moderate isolation
+            { hex: '#ffffff', count: 1 }, // rare, maximum isolation
         ]
     );
     assert.ok(r.candidate !== null);
@@ -354,6 +359,15 @@ test('blendRgb applies per-channel hiding distances independently', async () => 
         `expected r (HD 0.2) to hide faster than g (HD 1): got r=${asymmetric.r}, g=${asymmetric.g}`
     );
     assert.ok(Math.abs(asymmetric.g - asymmetric.b) < 1e-9);
+});
+
+test('blendRgb treats zero or invalid hiding distances as immediately opaque', async () => {
+    const { blendRgb } = await import('../src/lib/nextBestColor.ts');
+    const background = { r: 255, g: 255, b: 255 };
+    const filament = { r: 20, g: 80, b: 140 };
+
+    assert.deepEqual(blendRgb(background, filament, 0, 0.2), filament);
+    assert.deepEqual(blendRgb(background, filament, [0.2, 0, 0.2], 0.2), filament);
 });
 
 test('measured calibration channels change the blend-aware baseline', () => {

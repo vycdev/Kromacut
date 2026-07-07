@@ -376,12 +376,10 @@ test('v2 profile imports are not re-scaled (double-import idempotence)', async (
 });
 
 test('calibrated frontlit fixture imports without rescaling measured hiding distances', async () => {
-    const { importProfiles, parseProfileFile, CURRENT_PROFILE_VERSION } = await loadProfileManager();
+    const { importProfiles, parseProfileFile, CURRENT_PROFILE_VERSION } =
+        await loadProfileManager();
     const raw = readFileSync(
-        resolve(
-            process.cwd(),
-            'tests/assets/filament-profiles/8_Colors_Calibrated_Frontlit.kfil'
-        ),
+        resolve(process.cwd(), 'tests/assets/filament-profiles/8_Colors_Calibrated_Frontlit.kfil'),
         'utf8'
     );
     const parsed = parseProfileFile(raw);
@@ -499,4 +497,11 @@ test('loading a calibrated filament backfills the calibrated swatch color', asyn
         calibration: { ...frontlitCalibration, filamentColor: '#ffffff' },
     });
     assert.equal(stamped!.calibration!.filamentColor, '#ffffff');
+});
+
+test('loading a filament rejects non-positive hiding distances', async () => {
+    const { sanitizeProfileFilament } = await loadProfileManager();
+
+    assert.equal(sanitizeProfileFilament({ id: 'zero', color: '#ffffff', td: 0 }), null);
+    assert.equal(sanitizeProfileFilament({ id: 'negative', color: '#ffffff', td: -0.1 }), null);
 });

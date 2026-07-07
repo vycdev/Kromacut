@@ -69,6 +69,16 @@ test('center and edge weights favor opposite image regions', () => {
     assert.ok(edgeCorner > edgeCenter, 'edge mode should favor the border');
 });
 
+test('center weight strength of one remains finite', () => {
+    const center = createCenterWeight(4, 4, 1);
+    const values = Array.from({ length: 16 }, (_, index) =>
+        center(index % 4, Math.floor(index / 4))
+    );
+
+    assert.ok(values.every((value) => Number.isFinite(value)));
+    assert.ok(values.every((value) => value >= 0 && value <= 1));
+});
+
 test('spatial color totals prioritize a center disc or an edge border as selected', async () => {
     const { clusterImageColors, deltaELab, hexToRgb, rgbToLab } = await loadAutoPaintModule();
     const width = 25;

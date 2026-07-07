@@ -39,9 +39,7 @@ const goldens = Object.fromEntries(
             undefined,
             scenario.enhancedColorMatch,
             scenario.allowRepeatedSwaps,
-            { algorithm: 'balanced', seed: scenario.seed },
-            'uniform',
-            scenario.imageDimensions
+            { algorithm: 'balanced', seed: scenario.seed }
         );
 
         return [

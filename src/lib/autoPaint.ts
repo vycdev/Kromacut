@@ -270,7 +270,7 @@ export function deltaE2000Lab(lab1: Lab, lab2: Lab): number {
     const a2 = (1 + g) * lab2.a;
     const adjustedChroma1 = Math.hypot(a1, lab1.b);
     const adjustedChroma2 = Math.hypot(a2, lab2.b);
-    const hue = (a: number, b: number) => (Math.atan2(b, a) * 180 / Math.PI + 360) % 360;
+    const hue = (a: number, b: number) => ((Math.atan2(b, a) * 180) / Math.PI + 360) % 360;
     const hue1 = hue(a1, lab1.b);
     const hue2 = hue(a2, lab2.b);
     const deltaL = lab2.L - lab1.L;
@@ -284,7 +284,9 @@ export function deltaE2000Lab(lab1: Lab, lab2: Lab): number {
                 ? hue2 - hue1 + 360
                 : hue2 - hue1 - 360;
     const deltaHue =
-        2 * Math.sqrt(adjustedChroma1 * adjustedChroma2) * Math.sin((hueDifference / 2) * Math.PI / 180);
+        2 *
+        Math.sqrt(adjustedChroma1 * adjustedChroma2) *
+        Math.sin(((hueDifference / 2) * Math.PI) / 180);
     const meanL = (lab1.L + lab2.L) / 2;
     const meanChroma = (adjustedChroma1 + adjustedChroma2) / 2;
     const meanHue =
@@ -297,17 +299,17 @@ export function deltaE2000Lab(lab1: Lab, lab2: Lab): number {
                 : (hue1 + hue2 - 360) / 2;
     const hueWeight =
         1 -
-        0.17 * Math.cos((meanHue - 30) * Math.PI / 180) +
-        0.24 * Math.cos(2 * meanHue * Math.PI / 180) +
-        0.32 * Math.cos((3 * meanHue + 6) * Math.PI / 180) -
-        0.2 * Math.cos((4 * meanHue - 63) * Math.PI / 180);
-    const lightnessScale = 1 + 0.015 * (meanL - 50) ** 2 / Math.sqrt(20 + (meanL - 50) ** 2);
+        0.17 * Math.cos(((meanHue - 30) * Math.PI) / 180) +
+        0.24 * Math.cos((2 * meanHue * Math.PI) / 180) +
+        0.32 * Math.cos(((3 * meanHue + 6) * Math.PI) / 180) -
+        0.2 * Math.cos(((4 * meanHue - 63) * Math.PI) / 180);
+    const lightnessScale = 1 + (0.015 * (meanL - 50) ** 2) / Math.sqrt(20 + (meanL - 50) ** 2);
     const chromaScale = 1 + 0.045 * meanChroma;
     const hueScale = 1 + 0.015 * meanChroma * hueWeight;
     const rotation =
         -2 *
         Math.sqrt(meanChroma ** 7 / (meanChroma ** 7 + 25 ** 7)) *
-        Math.sin((60 * Math.exp(-(((meanHue - 275) / 25) ** 2))) * Math.PI / 180);
+        Math.sin((60 * Math.exp(-(((meanHue - 275) / 25) ** 2)) * Math.PI) / 180);
 
     return Math.sqrt(
         (deltaL / lightnessScale) ** 2 +
@@ -349,19 +351,14 @@ function realizedColorError(left: Lab, right: Lab): number {
  * @param thickness - Layer thickness (mm)
  * @returns Opacity value (0-1); calibrated TDs return the least-opaque channel
  */
-export function getOpacity(
-    filamentTD: number | CalibrationRgb,
-    thickness: number
-): number {
+export function getOpacity(filamentTD: number | CalibrationRgb, thickness: number): number {
     if (thickness <= 0) return 0;
 
     const channelTds: CalibrationRgb =
         typeof filamentTD === 'number' ? [filamentTD, filamentTD, filamentTD] : filamentTD;
     if (channelTds.some((td) => !Number.isFinite(td) || td <= 0)) return 0;
 
-    return Math.min(
-        ...channelTds.map((td) => 1 - Math.pow(0.1, thickness / td))
-    );
+    return Math.min(...channelTds.map((td) => 1 - Math.pow(0.1, thickness / td)));
 }
 
 // =============================================================================
@@ -495,9 +492,10 @@ export function calculateIdealHeight(
     //   0.05 = 10^(-thickness/TD)  →  thickness = TD × log10(20) ≈ TD × 1.3
     // Dark filaments have low TD (e.g. 0.5mm) → foundation ≈ 0.65mm
     const firstFilament = sortedFilaments[0];
+    const foundationTdChannels = channelHds(firstFilament);
     // Use the least-opaque (largest) channel hiding distance so every channel
     // reaches ~95% opacity.
-    const foundationTd = Math.max(...channelHds(firstFilament));
+    const foundationTd = Math.max(...foundationTdChannels);
     const opacityThickness = foundationTd * 1.3; // 95% opaque
     // Ensure at least the base thickness (avoid unnecessary extra layers)
     const foundationThickness = Math.max(baseThickness, opacityThickness);
@@ -506,7 +504,7 @@ export function calculateIdealHeight(
         filamentId: firstFilament.id,
         filamentColor: firstFilament.color,
         filamentTd: firstFilament.td,
-        filamentTdChannels: channelHds(firstFilament),
+        filamentTdChannels: foundationTdChannels,
         startHeight: 0,
         endHeight: foundationThickness,
         idealThickness: foundationThickness,
@@ -548,7 +546,7 @@ export function calculateIdealHeight(
             filamentId: filament.id,
             filamentColor: filament.color,
             filamentTd: filament.td,
-            filamentTdChannels: channelHds(filament),
+            filamentTdChannels: transitionTd,
             startHeight: currentHeight,
             endHeight: currentHeight + transitionThickness,
             idealThickness: transitionThickness,
@@ -640,9 +638,7 @@ export function ceilAutoPaintHeightToPrintableStack(
     const first = printableFirstLayerHeight(layerHeight, firstLayerHeight);
     if (height <= first + PRINTABLE_HEIGHT_EPSILON) return roundPrintableHeight(first);
 
-    const regularLayers = Math.ceil(
-        (height - first - PRINTABLE_HEIGHT_EPSILON) / layerHeight
-    );
+    const regularLayers = Math.ceil((height - first - PRINTABLE_HEIGHT_EPSILON) / layerHeight);
     return roundPrintableHeight(first + Math.max(0, regularLayers) * layerHeight);
 }
 
@@ -665,9 +661,7 @@ export function floorAutoPaintHeightToPrintableStack(
     // Return zero rather than silently exceeding the caller's maximum.
     if (maxHeight < first - PRINTABLE_HEIGHT_EPSILON) return 0;
 
-    const regularLayers = Math.floor(
-        (maxHeight - first + PRINTABLE_HEIGHT_EPSILON) / layerHeight
-    );
+    const regularLayers = Math.floor((maxHeight - first + PRINTABLE_HEIGHT_EPSILON) / layerHeight);
     return roundPrintableHeight(first + Math.max(0, regularLayers) * layerHeight);
 }
 
@@ -1044,7 +1038,9 @@ function mapTargetsWithSeparation(
     const result = new Array<MappedTarget>(imageTargets.length);
     const used = new Set<number>();
     // Assign dominant colors first.
-    const order = imageTargets.map((_, i) => i).sort((a, b) => imageTargets[b].weight - imageTargets[a].weight);
+    const order = imageTargets
+        .map((_, i) => i)
+        .sort((a, b) => imageTargets[b].weight - imageTargets[a].weight);
     for (const i of order) {
         const target = imageTargets[i];
         let bestJ = -1;
@@ -1403,9 +1399,9 @@ function findBestFilamentOrderWithOptimizer(
         allowRepeatedSwaps,
     });
 
-    const sortedFilaments = result.order.map((sf) =>
-        filaments.find((f) => f.id === sf.id)
-    ).filter((f): f is Filament => f !== undefined);
+    const sortedFilaments = result.order
+        .map((sf) => filaments.find((f) => f.id === sf.id))
+        .filter((f): f is Filament => f !== undefined);
 
     return { sortedFilaments, result };
 }
@@ -1498,7 +1494,6 @@ export function generateAutoLayers(
 
         sortedFilaments = orderingResult.sortedFilaments;
         optimizerResult = orderingResult.result;
-
     } else {
         // Standard: sort by luminance (dark to light)
         sortedFilaments = [...filaments].sort((a, b) => {
@@ -1565,7 +1560,8 @@ export function generateAutoLayers(
     // Add optimizer metadata if available
     if (optimizerResult) {
         result.optimizerMetadata = {
-            algorithm: optimizerResult.resolvedAlgorithm || optimizerOptions?.algorithm || 'balanced',
+            algorithm:
+                optimizerResult.resolvedAlgorithm || optimizerOptions?.algorithm || 'balanced',
             score: optimizerResult.score,
             iterations: optimizerResult.iterations,
             converged: optimizerResult.converged,
@@ -1688,7 +1684,7 @@ function calculateAutoConfidence(
     // 1. CALIBRATION QUALITY
     // Average confidence of all filament calibrations using actual calibration data
     let calibrationQuality = 0.5; // Default baseline for uncalibrated filaments
-    
+
     if (printedFilaments.length > 0) {
         const confidences = printedFilaments.map((f) =>
             computeProfileConfidence({

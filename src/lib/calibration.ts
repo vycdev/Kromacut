@@ -597,10 +597,7 @@ export function channelHds(filament: {
     td: number;
     calibration?: unknown;
 }): CalibrationRgb {
-    return (
-        activeFrontlitCalibration(filament)?.td ??
-        deriveChannelTds(filament.color, filament.td)
-    );
+    return activeFrontlitCalibration(filament)?.td ?? deriveChannelTds(filament.color, filament.td);
 }
 
 function frontlitConfidence(opacityLayers: number, tdSingle: number, maxLayers?: number): number {
@@ -783,19 +780,27 @@ function fitSessionJnd(
     });
     if (eligible.length < 2) return undefined;
 
-    const evaluate = (jnd: number) =>
-        eligible.reduce(
+    const residualCache = new Map<number, number>();
+    const evaluate = (jnd: number) => {
+        const key = Number(jnd.toFixed(6));
+        const cached = residualCache.get(key);
+        if (cached !== undefined) return cached;
+        const residual = eligible.reduce(
             (sum, input) =>
                 sum +
                 calibrationFitResidualForJnd(
                     { ...input, maxLayers: input.maxLayers ?? maxLayers },
-                    jnd
+                    key
                 ),
             0
         );
+        residualCache.set(key, residual);
+        return residual;
+    };
 
     let bestJnd = OPACITY_JND;
     let bestResidual = evaluate(OPACITY_JND);
+    const defaultResidual = bestResidual;
     for (let jnd = JND_FIT_MIN; jnd <= JND_FIT_MAX + 1e-9; jnd += 0.2) {
         const rounded = Number(jnd.toFixed(2));
         const residual = evaluate(rounded);
@@ -815,7 +820,6 @@ function fitSessionJnd(
         }
     }
 
-    const defaultResidual = evaluate(OPACITY_JND);
     const improvement = defaultResidual - bestResidual;
     if (improvement < Math.max(0.1, eligible.length * 0.04)) return undefined;
     if (bestJnd <= JND_FIT_MIN + 1e-9 || bestJnd >= JND_FIT_MAX - 1e-9) return undefined;

@@ -21,6 +21,7 @@ export interface RegionWeightOptions {
 }
 
 const DEFAULT_CENTER_WEIGHT_STRENGTH = 0.5;
+const MAX_CENTER_WEIGHT_STRENGTH = 0.999;
 
 /** A spatial weight lookup bound to a fixed image size. */
 export type SpatialWeight = (x: number, y: number) => number;
@@ -30,6 +31,11 @@ function nearestCenterDistance(width: number, height: number): number {
     const nearestY = Math.abs(Math.floor(height / 2) - height / 2);
     const maxDistance = Math.hypot(width / 2, height / 2);
     return maxDistance > 0 ? Math.hypot(nearestX, nearestY) / maxDistance : 0;
+}
+
+function normalizeCenterStrength(strength: number): number {
+    if (!Number.isFinite(strength)) return DEFAULT_CENTER_WEIGHT_STRENGTH;
+    return Math.min(MAX_CENTER_WEIGHT_STRENGTH, Math.max(0, strength));
 }
 
 /**
@@ -43,10 +49,11 @@ export function createCenterWeight(
     height: number,
     strength: number = DEFAULT_CENTER_WEIGHT_STRENGTH
 ): SpatialWeight {
+    const resolvedStrength = normalizeCenterStrength(strength);
     const centerX = width / 2;
     const centerY = height / 2;
     const maxDistance = Math.hypot(centerX, centerY);
-    const denominator = 2 * (1 - strength);
+    const denominator = 2 * (1 - resolvedStrength);
     const min = Math.exp(-1 / denominator);
     const max = Math.exp(-(nearestCenterDistance(width, height) ** 2 / denominator));
     const range = max - min;
@@ -149,6 +156,7 @@ function generateCenterWeightedMap(
     weights: Float32Array,
     strength: number
 ): void {
+    const resolvedStrength = normalizeCenterStrength(strength);
     const centerX = width / 2;
     const centerY = height / 2;
     const maxDist = Math.sqrt(centerX * centerX + centerY * centerY);
@@ -162,7 +170,9 @@ function generateCenterWeightedMap(
 
             // Gaussian fall-off: weight = 1 at center, decreases with distance
             // strength controls how quickly weight falls off
-            const weight = Math.exp(-((normalizedDist * normalizedDist) / (2 * (1 - strength))));
+            const weight = Math.exp(
+                -((normalizedDist * normalizedDist) / (2 * (1 - resolvedStrength)))
+            );
 
             weights[y * width + x] = weight;
         }

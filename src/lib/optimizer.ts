@@ -248,9 +248,7 @@ export function createSequenceScorer(context: ScoringContext): (filaments: Filam
 
     return (filaments) => {
         if (filaments.length === 0) return Infinity;
-        const sequenceKey = filaments
-            .map(filamentOpticalKey)
-            .join('|');
+        const sequenceKey = filaments.map(filamentOpticalKey).join('|');
         let palette = paletteCache.get(sequenceKey);
         if (!palette) {
             palette = buildAchievableColorPalette(
@@ -359,10 +357,7 @@ function maxSequenceLength(filaments: Filament[], maxExtraRepeats: number): numb
     return filaments.length + maxExtraRepeats;
 }
 
-function isBetterCandidate(
-    candidate: ScoredSequence,
-    current: ScoredSequence | null
-): boolean {
+function isBetterCandidate(candidate: ScoredSequence, current: ScoredSequence | null): boolean {
     if (!current) return true;
     if (candidate.score !== current.score) return candidate.score < current.score;
     return sequenceKey(candidate.order) < sequenceKey(current.order);
@@ -377,11 +372,7 @@ function reportProgress(
     options.onProgress?.(Math.min(iteration, total), Math.max(total, 1), bestScore);
 }
 
-function withProgressSpan(
-    options: OptimizerOptions,
-    start: number,
-    end: number
-): OptimizerOptions {
+function withProgressSpan(options: OptimizerOptions, start: number, end: number): OptimizerOptions {
     if (!options.onProgress) return { ...options, onProgress: undefined };
 
     return {
@@ -540,8 +531,7 @@ function optimizeBeamSearch(
     const allowRepeatedSwaps = maxExtraRepeats > 0;
     const maximumLength = maxSequenceLength(filaments, maxExtraRepeats);
     const beamWidth = options.beamWidth ?? BALANCED_BEAM_WIDTH;
-    const totalIterations =
-        filaments.length + (maximumLength - 1) * beamWidth * filaments.length;
+    const totalIterations = filaments.length + (maximumLength - 1) * beamWidth * filaments.length;
     let iterations = 0;
     let best: ScoredSequence | null = null;
     reportProgress(options, 0, totalIterations, Infinity);
@@ -689,7 +679,10 @@ function buildVariableLengthNeighbor(
             candidate[position] = eligible[rng.nextInt(0, eligible.length)];
         }
 
-        if (isValidSequence(candidate, allowRepeatedSwaps) && !sequenceEquals(candidate, sequence)) {
+        if (
+            isValidSequence(candidate, allowRepeatedSwaps) &&
+            !sequenceEquals(candidate, sequence)
+        ) {
             return candidate;
         }
     }
@@ -722,12 +715,7 @@ function runAnneal(
     while (iterations < maxIterations && temperature > SA_MIN_TEMPERATURE) {
         iterations++;
 
-        const newOrder = buildVariableLengthNeighbor(
-            currentOrder,
-            filaments,
-            maxExtraRepeats,
-            rng
-        );
+        const newOrder = buildVariableLengthNeighbor(currentOrder, filaments, maxExtraRepeats, rng);
         if (sequenceEquals(newOrder, currentOrder)) {
             temperature *= coolingRate;
             onStep?.(best.score);
@@ -848,9 +836,7 @@ function optimizeHybrid(
     // seeded-random starts. Keep the global best across all restarts.
     for (let restart = 0; restart < plan.restarts; restart++) {
         const initialOrder =
-            restart === 0
-                ? best.order
-                : randomInitialSequence(filaments, maxExtraRepeats, rng);
+            restart === 0 ? best.order : randomInitialSequence(filaments, maxExtraRepeats, rng);
 
         const outcome = runAnneal(
             initialOrder,
@@ -917,11 +903,7 @@ function optimizeExactBase(
     }
 
     const deep = optimizeDeep(filaments, scoreSequence, withProgressSpan(options, 0, 0.4));
-    const exact = optimizeExhaustive(
-        filaments,
-        scoreSequence,
-        withProgressSpan(options, 0.4, 1)
-    );
+    const exact = optimizeExhaustive(filaments, scoreSequence, withProgressSpan(options, 0.4, 1));
     const exactCandidate = { order: exact.order, score: exact.score };
     const deepCandidate = { order: deep.order, score: deep.score };
     const best = isBetterCandidate(deepCandidate, exactCandidate) ? deepCandidate : exactCandidate;
@@ -986,14 +968,24 @@ export function optimizeFilamentOrder(
     };
 
     const resolved = resolveAlgorithm(opts.algorithm, filaments.length);
+    const scoringContext: ScoringContext = {
+        ...context,
+        preserveSeparation: opts.preserveSeparation ?? context.preserveSeparation ?? false,
+    };
+    opts.preserveSeparation = scoringContext.preserveSeparation;
 
     // Tiers share the same automatic seed so higher effort builds directly on
     // comparable deterministic search paths. The cache key still includes the
     // requested tier because their budgets and outputs can differ.
-    const defaultSeedInput = canonicalOptimizerInput(filaments, context, 'tier-comparison', opts);
+    const defaultSeedInput = canonicalOptimizerInput(
+        filaments,
+        scoringContext,
+        'tier-comparison',
+        opts
+    );
     const seed = opts.seed ?? stableHash32(defaultSeedInput);
     opts.seed = seed;
-    const cacheKey = canonicalOptimizerInput(filaments, context, opts.algorithm, opts, seed);
+    const cacheKey = canonicalOptimizerInput(filaments, scoringContext, opts.algorithm, opts, seed);
 
     if (opts.cachingEnabled) {
         const cached = globalCache.get(cacheKey);
@@ -1004,12 +996,7 @@ export function optimizeFilamentOrder(
     }
 
     let result: OptimizerResult;
-    // The scoring mode lives in OptimizerOptions; mirror it into the context the
-    // scorer reads so callers only need to set it in one place.
-    const scoreSequence = createSequenceScorer({
-        ...context,
-        preserveSeparation: opts.preserveSeparation ?? context.preserveSeparation,
-    });
+    const scoreSequence = createSequenceScorer(scoringContext);
 
     switch (resolved) {
         case 'exhaustive':

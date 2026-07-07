@@ -28,8 +28,12 @@ import type { AutoPaintResult, TransitionZone } from '../lib/autoPaint';
 import type { AutoPaintProfile } from '../lib/profileManager';
 import type { AutoPaintRepeatLimit, AutoPaintTransitionOpacity, Filament, Swatch } from '../types';
 import FilamentRow from './FilamentRow';
-import { FilamentCalibrationDialog, type CalibrationApplyUpdate } from './FilamentCalibrationDialog';
+import {
+    FilamentCalibrationDialog,
+    type CalibrationApplyUpdate,
+} from './FilamentCalibrationDialog';
 import { getConfidenceLabel, getConfidenceColor } from '../lib/calibration';
+import { getExactBaseOrderCount } from '../lib/optimizer';
 import { useNextBestColorWorker } from '../hooks/useNextBestColorWorker';
 
 /** Percentage stat tile with a slim progress bar, colored by confidence band. */
@@ -80,6 +84,12 @@ const OPTIMIZER_TIERS: readonly OptimizerTierMeta[] = [
         label: 'Exact base order',
     },
 ];
+
+function formatBaseOrderCount(count: number): string {
+    if (count >= 1_000_000_000) return `${(count / 1_000_000_000).toFixed(1)}B`;
+    if (count >= 1_000_000) return `${(count / 1_000_000).toFixed(1)}M`;
+    return count.toLocaleString();
+}
 
 interface AutoPaintSliceData {
     virtualSwatches: Swatch[];
@@ -237,6 +247,11 @@ export default function AutoPaintTab({
     const [localOptimizerSeed, setLocalOptimizerSeed] = React.useState(
         optimizerSeed?.toString() ?? ''
     );
+    const exactBaseOrderCount = React.useMemo(
+        () => getExactBaseOrderCount(filaments.length),
+        [filaments.length]
+    );
+    const exactBaseOrderIsLarge = exactBaseOrderCount >= 1_000_000 || filaments.length >= 9;
 
     // Calibration dialog state
     const [calibrationDialogOpen, setCalibrationDialogOpen] = React.useState(false);
@@ -814,6 +829,19 @@ export default function AutoPaintTab({
                                         </SelectContent>
                                     </Select>
                                 </div>
+                                {optimizerAlgorithm === 'exact' && (
+                                    <div
+                                        className={`rounded-md border px-2 py-1.5 text-[10px] sm:ml-[7.5rem] ${
+                                            exactBaseOrderIsLarge
+                                                ? 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300'
+                                                : 'border-border/50 bg-muted/30 text-muted-foreground'
+                                        }`}
+                                    >
+                                        Exact base order will score about{' '}
+                                        {formatBaseOrderCount(exactBaseOrderCount)} base orders
+                                        before repeat refinement.
+                                    </div>
+                                )}
                                 <div className="flex items-center gap-2">
                                     <Label
                                         htmlFor="region-weighting"
@@ -967,7 +995,9 @@ export default function AutoPaintTab({
                                     </div>
                                     <div className="flex justify-between text-[9px] text-muted-foreground/70">
                                         <span>0 mm (plate)</span>
-                                        <span>{autoPaintResult.totalHeight.toFixed(2)} mm (top)</span>
+                                        <span>
+                                            {autoPaintResult.totalHeight.toFixed(2)} mm (top)
+                                        </span>
                                     </div>
                                 </div>
 

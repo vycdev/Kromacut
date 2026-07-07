@@ -42,7 +42,8 @@ export function sanitizeProfileFilament(value: unknown): Filament | null {
         typeof value.id !== 'string' ||
         typeof value.color !== 'string' ||
         typeof value.td !== 'number' ||
-        !Number.isFinite(value.td)
+        !Number.isFinite(value.td) ||
+        value.td <= 0
     ) {
         return null;
     }

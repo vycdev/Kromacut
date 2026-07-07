@@ -119,7 +119,10 @@ test('optimizer progress is monotonic and completes for every algorithm', async 
         onProgress: (iteration, total) =>
             exactRepeatSamples.push(total > 0 ? iteration / total : 0),
     });
-    assert.ok(exactRepeatSamples.length > 2, 'exact repeat refinement must report intermediate progress');
+    assert.ok(
+        exactRepeatSamples.length > 2,
+        'exact repeat refinement must report intermediate progress'
+    );
     assert.equal(exactRepeatSamples.at(-1), 1);
     assert.ok(
         exactRepeatSamples.every(
@@ -207,6 +210,18 @@ test('cache keys include all weighted clusters and optimizer tuning', async () =
         'changed per-channel calibration TDs must miss cache'
     );
     assert.equal(getOptimizerCacheStats().size, 4);
+
+    const contextPreserveSeparation = optimizeFilamentOrder(
+        filaments,
+        { ...manyClusters, preserveSeparation: true },
+        options
+    );
+    assert.equal(
+        contextPreserveSeparation.cacheHit,
+        undefined,
+        'context preserve-separation mode must miss cache'
+    );
+    assert.equal(getOptimizerCacheStats().size, 5);
 });
 
 test('cache keys distinguish active and inactive calibrated swatch colors', async () => {
@@ -337,7 +352,10 @@ test('exhaustive search evaluates ordered subsets and drops a strictly worse fil
     });
 
     assert.equal(result.iterations, 15, 'three filaments have 15 ordered non-empty subsets');
-    assert.deepEqual(result.order.map((filament) => filament.id), ['white']);
+    assert.deepEqual(
+        result.order.map((filament) => filament.id),
+        ['white']
+    );
 });
 
 test('repeats can close the RGB color path to reach the missing magenta blend', async () => {
@@ -465,11 +483,8 @@ test('fast uses a narrow beam while explicit exhaustive remains exact', async ()
 });
 
 test('effort tiers are deterministic and preserve the previous tier best result', async () => {
-    const {
-        getExactBaseOrderCount,
-        normalizeOptimizerTier,
-        optimizeFilamentOrder,
-    } = await loadOptimizerModule();
+    const { getExactBaseOrderCount, normalizeOptimizerTier, optimizeFilamentOrder } =
+        await loadOptimizerModule();
     const mediumProfile = [
         ...filaments,
         { id: 'green', color: '#42a85f', td: 1.6 },
@@ -511,7 +526,10 @@ test('effort tiers are deterministic and preserve the previous tier best result'
     assert.deepEqual(deepAgain, deep, 'same seed must reproduce the Deep tier');
 
     const ids = deep.order.map((filament) => filament.id);
-    assert.ok(ids.every((id, index) => index === 0 || id !== ids[index - 1]), 'no adjacent duplicates');
+    assert.ok(
+        ids.every((id, index) => index === 0 || id !== ids[index - 1]),
+        'no adjacent duplicates'
+    );
     assert.equal(new Set(ids).size, ids.length, 'no repeats without allowRepeatedSwaps');
 
     assert.ok(

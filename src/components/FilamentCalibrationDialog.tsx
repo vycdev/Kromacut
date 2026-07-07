@@ -75,6 +75,20 @@ interface FilamentCalibrationDialogProps {
     onApply: (updates: CalibrationApplyUpdate[]) => void;
 }
 
+interface CalibrationTarget {
+    key: string;
+    filament: Filament;
+    base: Filament;
+}
+
+interface CalibrationPrintPlan {
+    targets: CalibrationTarget[];
+    printOptions: CalibrationPrintOptions;
+    layerHeight: number;
+    firstLayerHeight: number;
+    maxLayers: number;
+}
+
 const MIN_MAX_LAYERS = 4;
 const MAX_MAX_LAYERS = 40;
 const MAX_BASES_PER_FILAMENT = 3;
@@ -170,6 +184,7 @@ export function FilamentCalibrationDialog({
     const [isSaving, setIsSaving] = useState(false);
     // filament id -> chosen base filament ids (defaults are auto-picked).
     const [baseChoices, setBaseChoices] = useState<Record<string, string[]>>({});
+    const [printedPlan, setPrintedPlan] = useState<CalibrationPrintPlan | null>(null);
     const wasOpenRef = useRef(open);
 
     const darkestFilamentId = useMemo(() => {
@@ -328,7 +343,7 @@ export function FilamentCalibrationDialog({
         [filaments, selectedIds]
     );
 
-    const calibrationTargets = useMemo(() => {
+    const calibrationTargets = useMemo<CalibrationTarget[]>(() => {
         return selectedFilaments.flatMap((filament) =>
             resolveBaseIds(filament.id)
                 .map((baseId) => {
@@ -353,6 +368,17 @@ export function FilamentCalibrationDialog({
         }),
         [calibrationLayerHeight, firstLayerHeight, maxLayers]
     );
+    const currentPrintPlan = useMemo<CalibrationPrintPlan>(
+        () => ({
+            targets: calibrationTargets,
+            printOptions,
+            layerHeight: calibrationLayerHeight,
+            firstLayerHeight,
+            maxLayers,
+        }),
+        [calibrationTargets, printOptions, calibrationLayerHeight, firstLayerHeight, maxLayers]
+    );
+    const activeMeasurePlan = printedPlan ?? currentPrintPlan;
     const firstLayerPrintHeight = Math.max(calibrationLayerHeight, firstLayerHeight);
     const swapZ = calibrationBaseHeight(printOptions);
 
@@ -369,6 +395,7 @@ export function FilamentCalibrationDialog({
         setMergeReads({});
         setIsSaving(false);
         setBaseChoices({});
+        setPrintedPlan(null);
     }, [layerHeight]);
 
     useEffect(() => {
@@ -397,7 +424,8 @@ export function FilamentCalibrationDialog({
     }, [filaments]);
 
     const handleDownload = useCallback(async () => {
-        const tiles: CalibrationTile[] = calibrationTargets.map(({ filament, base }) => ({
+        const plan = currentPrintPlan;
+        const tiles: CalibrationTile[] = plan.targets.map(({ filament, base }) => ({
             filamentId: filament.id,
             color: filament.color,
             baseFilamentId: base.id,
@@ -409,8 +437,8 @@ export function FilamentCalibrationDialog({
         if (format === 'stl') {
             // The wedge geometry is identical for every filament, so one STL is
             // printed once per filament (swapping the color above the base).
-            const blob = generateCalibrationStl(printOptions);
-            downloadBlob(blob, `kromacut-calibration-${maxLayers}layers.stl`);
+            const blob = generateCalibrationStl(plan.printOptions);
+            downloadBlob(blob, `kromacut-calibration-${plan.maxLayers}layers.stl`);
         } else {
             // Slots follow the full profile order so they map to the user's machine.
             const profileFilaments = filaments.map((f) => ({
@@ -418,10 +446,15 @@ export function FilamentCalibrationDialog({
                 color: f.color,
                 name: filamentLabel(f),
             }));
-            const blob = await generateCalibration3mf(tiles, printOptions, profileFilaments);
+            const blob = await generateCalibration3mf(tiles, plan.printOptions, profileFilaments);
             downloadBlob(blob, `kromacut-calibration-${tiles.length}reads.3mf`);
         }
-    }, [calibrationTargets, filaments, format, printOptions, maxLayers]);
+        setPrintedPlan(plan);
+    }, [currentPrintPlan, filaments, format]);
+
+    const handleEnterMeasure = useCallback(() => {
+        setStep('measure');
+    }, []);
 
     const setRead = useCallback((key: string, value: string) => {
         setReads((prev) => ({ ...prev, [key]: value }));
@@ -434,10 +467,20 @@ export function FilamentCalibrationDialog({
     // Complete read inputs per filament (merge reads excluded — they never
     // affect the fit, only the saved record).
     const readInputs = useMemo(() => {
-        return selectedFilaments.map((filament) => {
-            const targets = calibrationTargets.filter(
-                (target) => target.filament.id === filament.id
-            );
+        const grouped = new Map<string, { filament: Filament; targets: CalibrationTarget[] }>();
+        for (const target of activeMeasurePlan.targets) {
+            const entry = grouped.get(target.filament.id);
+            if (entry) {
+                entry.targets.push(target);
+            } else {
+                grouped.set(target.filament.id, {
+                    filament: target.filament,
+                    targets: [target],
+                });
+            }
+        }
+
+        return [...grouped.values()].map(({ filament, targets }) => {
             const readValues: FrontlitCalibrationRead[] = [];
             let complete = targets.length > 0;
             for (const target of targets) {
@@ -455,23 +498,16 @@ export function FilamentCalibrationDialog({
                 ? {
                       filamentColor: filament.color,
                       opacityLayers: readValues[0]?.opacityLayers,
-                      layerHeight: calibrationLayerHeight,
-                      firstLayerHeight,
+                      layerHeight: activeMeasurePlan.layerHeight,
+                      firstLayerHeight: activeMeasurePlan.firstLayerHeight,
                       baseColor: readValues[0]?.baseColor,
                       reads: readValues,
-                      maxLayers,
+                      maxLayers: activeMeasurePlan.maxLayers,
                   }
                 : null;
             return { filament, targets, input };
         });
-    }, [
-        selectedFilaments,
-        calibrationTargets,
-        reads,
-        calibrationLayerHeight,
-        firstLayerHeight,
-        maxLayers,
-    ]);
+    }, [activeMeasurePlan, reads]);
 
     // Session JND fit, computed once in the background when the entered reads
     // settle. Preview and Save both consume this cached result so the values
@@ -494,9 +530,7 @@ export function FilamentCalibrationDialog({
     const sessionFitEligible = useMemo(() => {
         if (readInputs.length === 0) return false;
         if (readInputs.some((entry) => entry.input === null)) return false;
-        const multiBase = readInputs.filter(
-            (entry) => (entry.input?.reads?.length ?? 0) >= 2
-        );
+        const multiBase = readInputs.filter((entry) => (entry.input?.reads?.length ?? 0) >= 2);
         return multiBase.length >= 2;
     }, [readInputs]);
 
@@ -522,7 +556,7 @@ export function FilamentCalibrationDialog({
                         if (latestSessionKeyRef.current !== key) return;
                         const session = computeFrontlitCalibrationSession({
                             filaments: ready,
-                            maxLayers,
+                            maxLayers: activeMeasurePlan.maxLayers,
                         });
                         setSessionJndFit({
                             key,
@@ -536,7 +570,7 @@ export function FilamentCalibrationDialog({
             });
         }, 800);
         return () => window.clearTimeout(timer);
-    }, [readInputs, sessionFitEligible, sessionKey, sessionJndFit, maxLayers]);
+    }, [readInputs, sessionFitEligible, sessionKey, sessionJndFit, activeMeasurePlan.maxLayers]);
 
     const activeJndFit = sessionJndFit?.key === sessionKey ? sessionJndFit : null;
     // True while an eligible session fit hasn't landed yet (debounce + search).
@@ -962,7 +996,7 @@ export function FilamentCalibrationDialog({
                     <ArrowLeft className="mr-1 h-4 w-4" />
                     Back
                 </Button>
-                <Button onClick={() => setStep('measure')}>
+                <Button onClick={handleEnterMeasure}>
                     Next: Enter Results
                     <ArrowRight className="ml-1 h-4 w-4" />
                 </Button>
@@ -1036,7 +1070,7 @@ export function FilamentCalibrationDialog({
                                                 ? predictFrontlitColor(
                                                       filament.color,
                                                       opacityLayers,
-                                                      calibrationLayerHeight,
+                                                      activeMeasurePlan.layerHeight,
                                                       calibration.td,
                                                       target.base.color
                                                   )
@@ -1062,7 +1096,7 @@ export function FilamentCalibrationDialog({
                                                     <Input
                                                         type="number"
                                                         min={1}
-                                                        max={maxLayers}
+                                                        max={activeMeasurePlan.maxLayers}
                                                         value={reads[target.key] ?? ''}
                                                         onChange={(e) =>
                                                             setRead(target.key, e.target.value)
@@ -1072,14 +1106,14 @@ export function FilamentCalibrationDialog({
                                                         className="h-8 w-20 text-sm"
                                                     />
                                                     <span className="text-[11px] text-muted-foreground">
-                                                        / {maxLayers}
+                                                        / {activeMeasurePlan.maxLayers}
                                                     </span>
                                                 </div>
                                                 <div className="flex items-center gap-1.5">
                                                     <Input
                                                         type="number"
                                                         min={1}
-                                                        max={maxLayers}
+                                                        max={activeMeasurePlan.maxLayers}
                                                         value={mergeReads[target.key] ?? ''}
                                                         onChange={(e) =>
                                                             setMergeRead(target.key, e.target.value)
