@@ -337,6 +337,65 @@ test('blendRgb composites in linear light like blendSrgbChannel', async () => {
     assert.ok(Math.abs(blended.g - blended.r) < 1e-9 && Math.abs(blended.b - blended.r) < 1e-9);
 });
 
+test('blendRgb applies per-channel hiding distances independently', async () => {
+    const { blendRgb } = await import('../src/lib/nextBestColor.ts');
+    const white = { r: 255, g: 255, b: 255 };
+    const black = { r: 0, g: 0, b: 0 };
+    const thickness = Math.log10(2);
+    // A uniform triple must match the scalar path exactly.
+    const scalar = blendRgb(white, black, 1, thickness);
+    const uniform = blendRgb(white, black, [1, 1, 1], thickness);
+    assert.deepEqual(uniform, scalar);
+    // Asymmetric HDs: the channel with the smaller HD hides the background
+    // faster, so it must come out darker than the more transmissive channel.
+    const asymmetric = blendRgb(white, black, [0.2, 1, 1], thickness);
+    assert.ok(
+        asymmetric.r < asymmetric.g - 10,
+        `expected r (HD 0.2) to hide faster than g (HD 1): got r=${asymmetric.r}, g=${asymmetric.g}`
+    );
+    assert.ok(Math.abs(asymmetric.g - asymmetric.b) < 1e-9);
+});
+
+test('measured calibration channels change the blend-aware baseline', () => {
+    // A calibrated teal whose measured channels ([0.35, 0.12, 0.12]) invert the
+    // color-derived heuristic (~[0.068, 0.354, 0.373]): red hides slowest, not
+    // fastest. The swatch #32b8c4 sits exactly on the measured teal-over-white
+    // blend curve, so the calibrated model reaches it (error → 0 under the
+    // coverage floor) while the derived model reports a real residual.
+    const measured: [number, number, number] = [0.35, 0.12, 0.12];
+    const calibratedTeal: Filament = {
+        id: 'teal',
+        color: '#00b8c4',
+        td: 0.35,
+        calibration: {
+            opacityLayers: 5,
+            layerHeight: 0.08,
+            firstLayerHeight: 0.16,
+            td: measured,
+            tdSingleValue: 0.35,
+            jnd: 2,
+            baseColor: '#000000',
+            confidence: 0.8,
+            basis: 'frontlit',
+            calibrationDate: '2026-07-02T00:00:00.000Z',
+        },
+    };
+    const uncalibratedTeal = filament('teal', '#00b8c4', 0.35);
+    const white = filament('white', '#ffffff', 0.51);
+    const swatches = [
+        { hex: '#00b8c4', count: 100 }, // covered — on the teal filament
+        { hex: '#ffffff', count: 100 }, // covered — on the white filament
+        { hex: '#32b8c4', count: 100 }, // on the measured teal-over-white curve
+    ];
+    const calibrated = nextBestColor([calibratedTeal, white], swatches);
+    const derived = nextBestColor([uncalibratedTeal, white], swatches);
+    assert.ok(
+        calibrated.baselineAvgDeltaE < derived.baselineAvgDeltaE,
+        `measured channel HDs must feed the blend curves: ` +
+            `calibrated ${calibrated.baselineAvgDeltaE} vs derived ${derived.baselineAvgDeltaE}`
+    );
+});
+
 test('recommended hiding distance is borrowed on the stored (frontlit) scale', () => {
     // Calibrated-profile-like HD values (~0.3–0.6 mm). The suggestion must come
     // back on the same scale so the added filament simulates correctly.

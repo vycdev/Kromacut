@@ -1,4 +1,5 @@
 import type { Filament } from '../types/index.ts';
+import { channelHds, deriveChannelTds, type CalibrationRgb } from './calibration.ts';
 
 // ---------------------------------------------------------------------------
 // Minimal color math — inlined to avoid pulling in autoPaint's optimizer dep.
@@ -122,26 +123,41 @@ function linearChannelToSrgb(channel: number): number {
 
 // Beer-Lambert layer blend in linear light: matches autoPaint's blendColors /
 // colorSpace.blendSrgbChannel (composite the transmissive foreground over the
-// background in linear light, then re-encode to sRGB).
-export function blendRgb(bg: RGB, fg: RGB, td: number, thickness: number): RGB {
-    if (td <= 0 || thickness <= 0) return bg;
-    const t = Math.pow(0.1, thickness / td);
-    const blendChannel = (bgC: number, fgC: number) =>
-        linearChannelToSrgb(
+// background in linear light, then re-encode to sRGB). Accepts a scalar HD or
+// the per-channel R, G, B hiding distances auto-paint blends with.
+export function blendRgb(
+    bg: RGB,
+    fg: RGB,
+    td: number | CalibrationRgb,
+    thickness: number
+): RGB {
+    if (thickness <= 0) return bg;
+    const channelTd: CalibrationRgb = typeof td === 'number' ? [td, td, td] : td;
+    if (channelTd.some((v) => !Number.isFinite(v) || v <= 0)) return bg;
+    const blendChannel = (bgC: number, fgC: number, tdC: number) => {
+        const t = Math.pow(0.1, thickness / tdC);
+        return linearChannelToSrgb(
             srgbChannelToLinear(fgC) * (1 - t) + srgbChannelToLinear(bgC) * t
         );
-    return { r: blendChannel(bg.r, fg.r), g: blendChannel(bg.g, fg.g), b: blendChannel(bg.b, fg.b) };
+    };
+    return {
+        r: blendChannel(bg.r, fg.r, channelTd[0]),
+        g: blendChannel(bg.g, fg.g, channelTd[1]),
+        b: blendChannel(bg.b, fg.b, channelTd[2]),
+    };
 }
 
 const BLEND_CURVE_STEPS = 16;
 
 /**
- * Pre-compute the Lab values along a Beer-Lambert blend curve (bg→fg over 3×fgTd).
- * Call once per filament pair, then use minCurveDE for each swatch — avoids repeating
- * the expensive rgbToLab conversion M times for the same blend curve.
+ * Pre-compute the Lab values along a Beer-Lambert blend curve (bg→fg over 3× the
+ * most transmissive channel HD). Call once per filament pair, then use minCurveDE
+ * for each swatch — avoids repeating the expensive rgbToLab conversion M times
+ * for the same blend curve.
  */
-function buildBlendCurve(bgRgb: RGB, fgRgb: RGB, fgTd: number): Lab[] {
-    const maxT = 3 * Math.max(fgTd, 0.01);
+function buildBlendCurve(bgRgb: RGB, fgRgb: RGB, fgTd: number | CalibrationRgb): Lab[] {
+    const maxChannelTd = typeof fgTd === 'number' ? fgTd : Math.max(...fgTd);
+    const maxT = 3 * Math.max(maxChannelTd, 0.01);
     const labs: Lab[] = [rgbToLab(bgRgb)];
     for (let i = 1; i <= BLEND_CURVE_STEPS; i++) {
         labs.push(rgbToLab(blendRgb(bgRgb, fgRgb, fgTd, (i / BLEND_CURVE_STEPS) * maxT)));
@@ -226,6 +242,9 @@ export function nextBestColor(
     const filamentRgbs: RGB[] = filaments.map((f) => hexToRgb(f.color));
     const filamentLabs: Lab[] = filamentRgbs.map((rgb) => rgbToLab(rgb));
     const filamentTds: number[] = filaments.map((f) => f.td);
+    // Per-channel hiding distances — measured when calibrated, color-derived
+    // otherwise — so blend curves match what auto-paint actually renders.
+    const filamentHds: CalibrationRgb[] = filaments.map((f) => channelHds(f));
     const swatchLabs: Lab[] = imageSwatches.map((s) => rgbToLab(hexToRgb(s.hex)));
     const counts: number[] = imageSwatches.map((s) => s.count ?? 1);
 
@@ -241,8 +260,8 @@ export function nextBestColor(
     const pairCurves: Lab[][] = [];
     for (let fi = 0; fi < filamentRgbs.length; fi++) {
         for (let fj = fi + 1; fj < filamentRgbs.length; fj++) {
-            pairCurves.push(buildBlendCurve(filamentRgbs[fi], filamentRgbs[fj], filamentTds[fj]));
-            pairCurves.push(buildBlendCurve(filamentRgbs[fj], filamentRgbs[fi], filamentTds[fi]));
+            pairCurves.push(buildBlendCurve(filamentRgbs[fi], filamentRgbs[fj], filamentHds[fj]));
+            pairCurves.push(buildBlendCurve(filamentRgbs[fj], filamentRgbs[fi], filamentHds[fi]));
         }
     }
 
@@ -339,12 +358,16 @@ export function nextBestColor(
             if (de < nearestFilamentDE) { nearestFilamentDE = de; estimatedTd = filamentTds[fi]; }
         }
         const candidateRgb = hexToRgb(hex);
+        // The candidate is a hypothetical uncalibrated filament, so model it the
+        // way auto-paint would once added: channel HDs derived from its color
+        // around the borrowed scalar HD.
+        const candidateHds = deriveChannelTds(hex, estimatedTd);
 
         // Pre-compute candidate↔filament blend curves once, then check all swatches against them.
         const candCurves: Lab[][] = [];
         for (let fi = 0; fi < filamentRgbs.length; fi++) {
-            candCurves.push(buildBlendCurve(filamentRgbs[fi], candidateRgb, estimatedTd));
-            candCurves.push(buildBlendCurve(candidateRgb, filamentRgbs[fi], filamentTds[fi]));
+            candCurves.push(buildBlendCurve(filamentRgbs[fi], candidateRgb, candidateHds));
+            candCurves.push(buildBlendCurve(candidateRgb, filamentRgbs[fi], filamentHds[fi]));
         }
 
         let weightedGain = 0;
@@ -383,10 +406,11 @@ export function nextBestColor(
 
     // Pixel capture: swatches whose blend-aware reachable error improves with the winner.
     const winnerRgb = hexToRgb(winner.hex);
+    const winnerHds = deriveChannelTds(winner.hex, winner.estimatedTd);
     const winnerCurves: Lab[][] = [];
     for (let fi = 0; fi < filamentRgbs.length; fi++) {
-        winnerCurves.push(buildBlendCurve(filamentRgbs[fi], winnerRgb, winner.estimatedTd));
-        winnerCurves.push(buildBlendCurve(winnerRgb, filamentRgbs[fi], filamentTds[fi]));
+        winnerCurves.push(buildBlendCurve(filamentRgbs[fi], winnerRgb, winnerHds));
+        winnerCurves.push(buildBlendCurve(winnerRgb, filamentRgbs[fi], filamentHds[fi]));
     }
     let pixelsCaptured = 0;
     for (let i = 0; i < swatchLabs.length; i++) {
