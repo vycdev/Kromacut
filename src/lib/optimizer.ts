@@ -1,33 +1,81 @@
 /**
  * Advanced Filament Order Optimizer
  *
- * Implements sophisticated optimization algorithms to find the best filament ordering
- * for multi-material lithophanes. Supports:
- * - Simulated Annealing: Probabilistic global optimization with temperature scheduling
- * - Genetic Algorithm: Population-based evolutionary optimization
- * - Region Weighting: Prioritize important image areas (faces, focal points)
+ * Finds the best printable filament sequence for multi-material lithophanes.
+ * Supports:
+ * - Exhaustive ordered-subset search for small profiles
+ * - Beam search for medium profiles
+ * - Variable-length simulated annealing for large profiles
  * - Deterministic Seeding: Reproducible results for A/B testing
  * - Result Caching: Skip redundant computations
  */
 
 import type { Filament } from '../types';
-import { rgbToLab, deltaELab, hexToRgb, blendColors, type RGB, type Lab } from './autoPaint';
+import {
+    buildAchievableColorPalette,
+    scoreSequenceAgainstImage,
+    type WeightedLab,
+} from './autoPaint';
+import { activeFrontlitCalibration, channelHds } from './calibration';
 
 // ============================================================================
 // Type Definitions
 // ============================================================================
 
+/** User-facing optimizer effort tiers (persisted and shown in the UI). */
+export type OptimizerTier = 'fast' | 'balanced' | 'thorough' | 'deep' | 'exact';
+
+/**
+ * Values the optimizer accepts: the user-facing tiers plus explicit concrete
+ * searches (used by tests, benchmarks, and advanced callers). The UI only ever
+ * stores a tier.
+ */
+export type OptimizerAlgorithm = OptimizerTier | 'exhaustive' | 'beam' | 'simulated-annealing';
+
+/**
+ * Map any persisted or legacy optimizer-algorithm value to a current UI tier.
+ * Earlier releases stored 'auto' | 'exhaustive' | 'simulated-annealing' | 'genetic'.
+ */
+export function normalizeOptimizerTier(value: string | undefined | null): OptimizerTier {
+    switch (value) {
+        case 'fast':
+        case 'balanced':
+        case 'thorough':
+        case 'deep':
+        case 'exact':
+            return value;
+        case 'exhaustive': // explicit exact search → Exact base order
+            return 'exact';
+        case 'genetic': // legacy "max effort" option
+            return 'deep';
+        case 'beam':
+            return 'balanced';
+        // 'auto', 'simulated-annealing', anything unknown → the recommended default
+        default:
+            return 'balanced';
+    }
+}
+
 export interface OptimizerOptions {
-    algorithm: 'exhaustive' | 'simulated-annealing' | 'genetic' | 'auto';
+    algorithm: OptimizerAlgorithm;
+    /** Legacy compatibility flag; new callers should set maxExtraRepeats. */
+    allowRepeatedSwaps?: boolean;
+    /** Maximum extra non-adjacent filament occurrences (0–12). */
+    maxExtraRepeats?: number;
+    /** Transition opacity target used by the shared printable-palette scorer. */
+    transitionOpacity?: number;
+    /** Assign each image color to a distinct printable color (no collapse). */
+    preserveSeparation?: boolean;
     seed?: number; // For deterministic results
     maxIterations?: number; // Algorithm-specific iteration limit
     temperature?: number; // Initial temperature for SA
     coolingRate?: number; // Temperature decay for SA
-    populationSize?: number; // Population size for GA
-    mutationRate?: number; // Mutation probability for GA
-    eliteCount?: number; // Number of elite individuals to preserve in GA
-    regionWeights?: Float32Array; // Per-pixel importance weights (0-1)
+    populationSize?: number; // Retained for persisted optimizer compatibility
+    mutationRate?: number; // Retained for persisted optimizer compatibility
+    eliteCount?: number; // Retained for persisted optimizer compatibility
+    beamWidth?: number; // Number of partial stacks kept by beam search
     cachingEnabled?: boolean; // Enable result caching
+    onProgress?: (iteration: number, total: number, bestScore: number) => void;
 }
 
 export interface OptimizerResult {
@@ -40,10 +88,12 @@ export interface OptimizerResult {
 }
 
 export interface ScoringContext {
-    imageColors: Array<Lab & { weight: number }>; // Weighted Lab colors from image
+    imageColors: WeightedLab[];
     layerHeight: number;
     firstLayerHeight: number;
-    regionWeights?: Float32Array; // Per-pixel importance
+    maxHeight?: number;
+    transitionOpacity?: number;
+    preserveSeparation?: boolean;
 }
 
 // ============================================================================
@@ -91,48 +141,11 @@ class OptimizerCache {
     private cache = new Map<string, OptimizerResult>();
     private maxSize = 100;
 
-    private getCacheKey(
-        filaments: Filament[],
-        context: ScoringContext,
-        algorithm?: string,
-        seed?: number
-    ): string {
-        // Create stable key from filaments and context
-        const filamentKey = filaments
-            .map((f) => `${f.color}:${f.td.toFixed(2)}`)
-            .sort()
-            .join('|');
-
-        const imageKey = context.imageColors
-            .slice(0, 20) // Sample first 20 colors for hash
-            .map((c) => `${c.L.toFixed(1)},${c.a.toFixed(1)},${c.b.toFixed(1)}`)
-            .join('|');
-
-        const algoKey = algorithm ?? 'auto';
-        const seedKey = seed ?? 0;
-
-        return `${filamentKey}__${imageKey}__${context.layerHeight}__${context.firstLayerHeight}__${algoKey}__${seedKey}`;
-    }
-
-    get(
-        filaments: Filament[],
-        context: ScoringContext,
-        algorithm?: string,
-        seed?: number
-    ): OptimizerResult | null {
-        const key = this.getCacheKey(filaments, context, algorithm, seed);
+    get(key: string): OptimizerResult | null {
         return this.cache.get(key) || null;
     }
 
-    set(
-        filaments: Filament[],
-        context: ScoringContext,
-        result: OptimizerResult,
-        algorithm?: string,
-        seed?: number
-    ): void {
-        const key = this.getCacheKey(filaments, context, algorithm, seed);
-
+    set(key: string, result: OptimizerResult): void {
         // Evict oldest if at capacity
         if (this.cache.size >= this.maxSize) {
             const firstKey = this.cache.keys().next().value;
@@ -153,95 +166,301 @@ class OptimizerCache {
 
 const globalCache = new OptimizerCache();
 
+function tuningFingerprint(options: OptimizerOptions) {
+    return {
+        allowRepeatedSwaps: options.allowRepeatedSwaps ?? false,
+        maxExtraRepeats: options.maxExtraRepeats ?? null,
+        transitionOpacity: options.transitionOpacity ?? null,
+        preserveSeparation: options.preserveSeparation ?? false,
+        maxIterations: options.maxIterations ?? null,
+        temperature: options.temperature ?? null,
+        coolingRate: options.coolingRate ?? null,
+        populationSize: options.populationSize ?? null,
+        mutationRate: options.mutationRate ?? null,
+        eliteCount: options.eliteCount ?? null,
+        beamWidth: options.beamWidth ?? null,
+    };
+}
+
+function filamentOpticalFingerprint(filament: Filament) {
+    const activeCalibration = activeFrontlitCalibration(filament);
+    return {
+        id: filament.id,
+        color: filament.color,
+        td: filament.td,
+        channelHds: channelHds(filament),
+        activeCalibrationColor:
+            activeCalibration?.filamentColor ?? (activeCalibration ? '__legacy__' : null),
+    };
+}
+
+function filamentOpticalKey(filament: Filament): string {
+    const fingerprint = filamentOpticalFingerprint(filament);
+    return [
+        fingerprint.id,
+        fingerprint.color,
+        fingerprint.td,
+        ...fingerprint.channelHds,
+        fingerprint.activeCalibrationColor ?? '',
+    ].join(':');
+}
+
+function canonicalOptimizerInput(
+    filaments: Filament[],
+    context: ScoringContext,
+    algorithm: string,
+    options: OptimizerOptions,
+    seed?: number
+): string {
+    return JSON.stringify({
+        filaments: filaments.map(filamentOpticalFingerprint),
+        clusters: context.imageColors.map((color) => ({
+            L: color.L,
+            a: color.a,
+            b: color.b,
+            weight: color.weight,
+        })),
+        layerHeight: context.layerHeight,
+        firstLayerHeight: context.firstLayerHeight,
+        maxHeight: context.maxHeight ?? null,
+        transitionOpacity: context.transitionOpacity ?? null,
+        algorithm,
+        seed: seed ?? null,
+        tuning: tuningFingerprint(options),
+    });
+}
+
+function stableHash32(value: string): number {
+    let hash = 0x811c9dc5;
+    for (let index = 0; index < value.length; index++) {
+        hash = Math.imul(hash ^ value.charCodeAt(index), 0x01000193);
+    }
+    return hash >>> 0;
+}
+
 // ============================================================================
 // Scoring Functions
 // ============================================================================
 
-/**
- * Calculate quality score for a filament ordering.
- * Lower score = better color reproduction.
- *
- * Score is weighted deltaE between image colors and achievable blended colors.
- */
-function scoreFilamentOrder(filaments: Filament[], context: ScoringContext): number {
-    if (filaments.length === 0) return Infinity;
+export function createSequenceScorer(context: ScoringContext): (filaments: Filament[]) => number {
+    const paletteCache = new Map<string, ReturnType<typeof buildAchievableColorPalette>>();
+    const transitionThicknessCache = new Map<string, number>();
 
-    let totalError = 0;
-    let totalWeight = 0;
-
-    // For each image color, find the best achievable match using this filament stack
-    for (const targetColor of context.imageColors) {
-        const achievableColor = findBestAchievableColor(targetColor, filaments);
-        const error = deltaELab(targetColor, achievableColor);
-
-        // Apply region weight if provided
-        totalError += error * targetColor.weight;
-        totalWeight += targetColor.weight;
-    }
-
-    return totalWeight > 0 ? totalError / totalWeight : Infinity;
-}
-
-/**
- * Find the best color achievable by stacking filaments to a certain height.
- * Uses Beer-Lambert simulation to predict the blended color at various heights.
- */
-function findBestAchievableColor(targetLab: Lab, filaments: Filament[]): Lab {
-    if (filaments.length === 0) return { L: 0, a: 0, b: 0 };
-    if (filaments.length === 1) {
-        return rgbToLab(hexToRgb(filaments[0].color));
-    }
-
-    // Sample heights from base to full stack
-    const maxHeight = filaments.reduce((sum, f) => sum + f.td * 3, 0); // ~3x TD per filament
-    const steps = 20;
-    let bestLab = rgbToLab(hexToRgb(filaments[0].color));
-    let bestDelta = deltaELab(targetLab, bestLab);
-
-    for (let i = 0; i <= steps; i++) {
-        const height = (i / steps) * maxHeight;
-        const blendedColor = simulateStackAtHeight(filaments, height);
-        const blendedLab = rgbToLab(blendedColor);
-        const delta = deltaELab(targetLab, blendedLab);
-
-        if (delta < bestDelta) {
-            bestDelta = delta;
-            bestLab = blendedLab;
+    return (filaments) => {
+        if (filaments.length === 0) return Infinity;
+        const sequenceKey = filaments.map(filamentOpticalKey).join('|');
+        let palette = paletteCache.get(sequenceKey);
+        if (!palette) {
+            palette = buildAchievableColorPalette(
+                filaments,
+                context.layerHeight,
+                context.firstLayerHeight,
+                context.maxHeight,
+                context.transitionOpacity,
+                transitionThicknessCache
+            );
+            paletteCache.set(sequenceKey, palette);
         }
-    }
-
-    return bestLab;
+        return scoreSequenceAgainstImage(palette, context.imageColors, {
+            preserveSeparation: context.preserveSeparation,
+        });
+    };
 }
 
-/**
- * Simulate the blended color of stacked filaments at a given height.
- */
-function simulateStackAtHeight(filaments: Filament[], targetHeight: number): RGB {
-    let currentHeight = 0;
-    let blendedColor = hexToRgb(filaments[0].color);
-
-    for (let i = 1; i < filaments.length && currentHeight < targetHeight; i++) {
-        const prevFilament = filaments[i - 1];
-        const currentFilament = filaments[i];
-        const transitionHeight = Math.min(prevFilament.td * 3, targetHeight - currentHeight);
-
-        if (transitionHeight <= 0) break;
-
-        const bgColor = blendedColor;
-        const fgColor = hexToRgb(currentFilament.color);
-        blendedColor = blendColors(bgColor, fgColor, currentFilament.td, transitionHeight);
-
-        currentHeight += transitionHeight;
-    }
-
-    return blendedColor;
+export function scoreFilamentSequence(filaments: Filament[], context: ScoringContext): number {
+    return createSequenceScorer(context)(filaments);
 }
 
 // ============================================================================
-// Exhaustive Search (Optimal but slow for >8 filaments)
+// Variable-length sequence helpers
 // ============================================================================
 
-function optimizeExhaustive(filaments: Filament[], context: ScoringContext): OptimizerResult {
+const MAX_EXTRA_REPEATS = 12;
+const LEGACY_EXTRA_REPEATS = 4;
+const FAST_BEAM_WIDTH = 25;
+const BALANCED_BEAM_WIDTH = 100;
+const THOROUGH_BEAM_WIDTH = 100;
+const DEEP_BEAM_WIDTH = 250;
+
+type SequenceScorer = (filaments: Filament[]) => number;
+type ResolvedOptimizerAlgorithm =
+    | 'exhaustive'
+    | 'beam'
+    | 'simulated-annealing'
+    | 'narrow-beam'
+    | 'thorough-hybrid'
+    | 'deep-hybrid'
+    | 'exact-base';
+
+const SA_MIN_TEMPERATURE = 0.01;
+const SA_INITIAL_TEMPERATURE = 10.0;
+const SA_DEFAULT_COOLING_RATE = 0.995;
+// The hybrid tiers refine around good seeds at a temperature scaled to the
+// CIEDE2000 objective (scores ~5–30), where
+// the legacy SA temperature of 10 would just wander away from the seed.
+const SA_HYBRID_TEMPERATURE = 2.0;
+
+interface HybridSearchPlan {
+    beamWidth: number;
+    restarts: number;
+    minimumIterationsPerRestart: number;
+    iterationsPerFilament: number;
+}
+
+const THOROUGH_PLAN: HybridSearchPlan = {
+    beamWidth: THOROUGH_BEAM_WIDTH,
+    restarts: 12,
+    minimumIterationsPerRestart: 1_500,
+    iterationsPerFilament: 250,
+};
+
+const DEEP_PLAN: HybridSearchPlan = {
+    beamWidth: DEEP_BEAM_WIDTH,
+    restarts: 32,
+    minimumIterationsPerRestart: 4_000,
+    iterationsPerFilament: 500,
+};
+
+interface ScoredSequence {
+    order: Filament[];
+    score: number;
+}
+
+function sequenceKey(sequence: Filament[]): string {
+    return sequence.map((filament) => filament.id).join('|');
+}
+
+function compareSequenceKeys(left: Filament[], right: Filament[]): number {
+    const leftKey = sequenceKey(left);
+    const rightKey = sequenceKey(right);
+    if (leftKey === rightKey) return 0;
+    return leftKey < rightKey ? -1 : 1;
+}
+
+function hasConsecutiveDuplicates(sequence: Filament[]): boolean {
+    return sequence.some((filament, index) => index > 0 && filament.id === sequence[index - 1].id);
+}
+
+function hasDuplicateIds(sequence: Filament[]): boolean {
+    return new Set(sequence.map((filament) => filament.id)).size !== sequence.length;
+}
+
+function isValidSequence(sequence: Filament[], allowRepeatedSwaps: boolean): boolean {
+    return (
+        sequence.length > 0 &&
+        !hasConsecutiveDuplicates(sequence) &&
+        (allowRepeatedSwaps || !hasDuplicateIds(sequence))
+    );
+}
+
+function resolveMaxExtraRepeats(options: OptimizerOptions): number {
+    if (Number.isFinite(options.maxExtraRepeats)) {
+        return Math.max(0, Math.min(MAX_EXTRA_REPEATS, Math.floor(options.maxExtraRepeats!)));
+    }
+    return options.allowRepeatedSwaps ? LEGACY_EXTRA_REPEATS : 0;
+}
+
+function maxSequenceLength(filaments: Filament[], maxExtraRepeats: number): number {
+    return filaments.length + maxExtraRepeats;
+}
+
+function isBetterCandidate(candidate: ScoredSequence, current: ScoredSequence | null): boolean {
+    if (!current) return true;
+    if (candidate.score !== current.score) return candidate.score < current.score;
+    return compareSequenceKeys(candidate.order, current.order) < 0;
+}
+
+function reportProgress(
+    options: OptimizerOptions,
+    iteration: number,
+    total: number,
+    bestScore: number
+) {
+    options.onProgress?.(Math.min(iteration, total), Math.max(total, 1), bestScore);
+}
+
+function withProgressSpan(options: OptimizerOptions, start: number, end: number): OptimizerOptions {
+    if (!options.onProgress) return { ...options, onProgress: undefined };
+
+    return {
+        ...options,
+        onProgress: (iteration, total, bestScore) => {
+            const phaseProgress = total > 0 ? Math.min(1, Math.max(0, iteration / total)) : 1;
+            options.onProgress?.(start + (end - start) * phaseProgress, 1, bestScore);
+        },
+    };
+}
+
+function orderedSubsetCount(filamentCount: number): number {
+    let total = 0;
+    let permutations = 1;
+    for (let length = 1; length <= filamentCount; length++) {
+        permutations *= filamentCount - length + 1;
+        total += permutations;
+    }
+    return total;
+}
+
+/** Number of no-repeat base sequences an Exact search would evaluate. */
+export function getExactBaseOrderCount(filamentCount: number): number {
+    return filamentCount > 0 ? orderedSubsetCount(filamentCount) : 0;
+}
+
+function repeatedInsertionUpperBound(filamentCount: number, maxExtraRepeats: number): number {
+    let total = 0;
+    for (let extra = 0; extra < maxExtraRepeats; extra++) {
+        total += filamentCount * (filamentCount + extra + 1);
+    }
+    return total;
+}
+
+function expandWithRepeatedFilaments(
+    initial: ScoredSequence,
+    filaments: Filament[],
+    scoreSequence: SequenceScorer,
+    maxExtraRepeats: number
+): { best: ScoredSequence; iterations: number } {
+    const maxLength = maxSequenceLength(filaments, maxExtraRepeats);
+    let best = initial;
+    let iterations = 0;
+
+    while (best.order.length < maxLength) {
+        let next: ScoredSequence | null = null;
+
+        for (const filament of filaments) {
+            for (let position = 0; position <= best.order.length; position++) {
+                const candidateOrder = [
+                    ...best.order.slice(0, position),
+                    filament,
+                    ...best.order.slice(position),
+                ];
+                if (!isValidSequence(candidateOrder, true)) continue;
+
+                const candidate = {
+                    order: candidateOrder,
+                    score: scoreSequence(candidateOrder),
+                };
+                iterations++;
+                if (isBetterCandidate(candidate, next)) next = candidate;
+            }
+        }
+
+        if (!next || next.score >= best.score) break;
+        best = next;
+    }
+
+    return { best, iterations };
+}
+
+// ============================================================================
+// Exhaustive Search (all ordered non-empty subsets)
+// ============================================================================
+
+function optimizeExhaustive(
+    filaments: Filament[],
+    scoreSequence: SequenceScorer,
+    options: OptimizerOptions
+): OptimizerResult {
     if (filaments.length === 0) {
         return {
             order: [],
@@ -251,43 +470,131 @@ function optimizeExhaustive(filaments: Filament[], context: ScoringContext): Opt
         };
     }
 
-    if (filaments.length === 1) {
+    const maxExtraRepeats = resolveMaxExtraRepeats(options);
+    const allowRepeatedSwaps = maxExtraRepeats > 0;
+    const totalIterations =
+        orderedSubsetCount(filaments.length) +
+        (allowRepeatedSwaps ? repeatedInsertionUpperBound(filaments.length, maxExtraRepeats) : 0);
+    let best: ScoredSequence | null = null;
+    let iterations = 0;
+    reportProgress(options, 0, totalIterations, Infinity);
+
+    const visit = (sequence: Filament[], remaining: Filament[]): void => {
+        if (sequence.length > 0) {
+            const candidate = { order: sequence, score: scoreSequence(sequence) };
+            iterations++;
+            if (isBetterCandidate(candidate, best)) best = candidate;
+            reportProgress(options, iterations, totalIterations, best?.score ?? Infinity);
+        }
+
+        for (let index = 0; index < remaining.length; index++) {
+            visit(
+                [...sequence, remaining[index]],
+                [...remaining.slice(0, index), ...remaining.slice(index + 1)]
+            );
+        }
+    };
+
+    visit([], filaments);
+    const baseBest = best ?? { order: [filaments[0]], score: scoreSequence([filaments[0]]) };
+
+    if (!allowRepeatedSwaps) {
         return {
-            order: [filaments[0]],
-            score: scoreFilamentOrder(filaments, context),
-            iterations: 1,
+            order: baseBest.order,
+            score: baseBest.score,
+            iterations,
             converged: true,
         };
     }
 
-    let bestOrder = filaments;
-    let bestScore = scoreFilamentOrder(filaments, context);
-    let iterations = 0;
-
-    // Generate all permutations
-    const permute = (arr: Filament[], start = 0): void => {
-        if (start === arr.length - 1) {
-            iterations++;
-            const score = scoreFilamentOrder(arr, context);
-            if (score < bestScore) {
-                bestScore = score;
-                bestOrder = [...arr];
-            }
-            return;
-        }
-
-        for (let i = start; i < arr.length; i++) {
-            [arr[start], arr[i]] = [arr[i], arr[start]];
-            permute(arr, start + 1);
-            [arr[start], arr[i]] = [arr[i], arr[start]];
-        }
-    };
-
-    permute([...filaments]);
-
+    const expanded = expandWithRepeatedFilaments(
+        baseBest,
+        filaments,
+        scoreSequence,
+        maxExtraRepeats
+    );
     return {
-        order: bestOrder,
-        score: bestScore,
+        order: expanded.best.order,
+        score: expanded.best.score,
+        iterations: iterations + expanded.iterations,
+        converged: true,
+    };
+}
+
+// ============================================================================
+// Beam Search (deterministic variable-length search for medium profiles)
+// ============================================================================
+
+function optimizeBeamSearch(
+    filaments: Filament[],
+    scoreSequence: SequenceScorer,
+    options: OptimizerOptions
+): OptimizerResult {
+    if (filaments.length <= 1) {
+        return optimizeExhaustive(filaments, scoreSequence, options);
+    }
+
+    const maxExtraRepeats = resolveMaxExtraRepeats(options);
+    const allowRepeatedSwaps = maxExtraRepeats > 0;
+    const maximumLength = maxSequenceLength(filaments, maxExtraRepeats);
+    const beamWidth = options.beamWidth ?? BALANCED_BEAM_WIDTH;
+    const totalIterations = filaments.length + (maximumLength - 1) * beamWidth * filaments.length;
+    let iterations = 0;
+    let best: ScoredSequence | null = null;
+    reportProgress(options, 0, totalIterations, Infinity);
+
+    let beam = filaments.map((filament) => {
+        const candidate = { order: [filament], score: scoreSequence([filament]) };
+        iterations++;
+        if (isBetterCandidate(candidate, best)) best = candidate;
+        reportProgress(options, iterations, totalIterations, best?.score ?? Infinity);
+        return candidate;
+    });
+    beam.sort((left, right) =>
+        left.score === right.score
+            ? compareSequenceKeys(left.order, right.order)
+            : left.score - right.score
+    );
+    beam = beam.slice(0, beamWidth);
+
+    for (let depth = 1; depth < maximumLength && beam.length > 0; depth++) {
+        const candidates = new Map<string, ScoredSequence>();
+
+        for (const state of beam) {
+            for (const filament of filaments) {
+                if (state.order.at(-1)?.id === filament.id) continue;
+                if (
+                    !allowRepeatedSwaps &&
+                    state.order.some((existing) => existing.id === filament.id)
+                ) {
+                    continue;
+                }
+
+                const order = [...state.order, filament];
+                const key = sequenceKey(order);
+                if (candidates.has(key)) continue;
+
+                const candidate = { order, score: scoreSequence(order) };
+                candidates.set(key, candidate);
+                iterations++;
+                if (isBetterCandidate(candidate, best)) best = candidate;
+                reportProgress(options, iterations, totalIterations, best?.score ?? Infinity);
+            }
+        }
+
+        beam = [...candidates.values()]
+            .sort((left, right) =>
+                left.score === right.score
+                    ? compareSequenceKeys(left.order, right.order)
+                    : left.score - right.score
+            )
+            .slice(0, beamWidth);
+    }
+
+    const bestSequence = best ?? { order: [filaments[0]], score: scoreSequence([filaments[0]]) };
+    return {
+        order: bestSequence.order,
+        score: bestSequence.score,
         iterations,
         converged: true,
     };
@@ -303,38 +610,126 @@ function optimizeExhaustive(filaments: Filament[], context: ScoringContext): Opt
  * SA is a probabilistic technique that can escape local minima by accepting
  * worse solutions with probability exp(-ΔE/T), where T decreases over time.
  */
-function optimizeSimulatedAnnealing(
+function randomInitialSequence(
     filaments: Filament[],
-    context: ScoringContext,
-    options: OptimizerOptions
-): OptimizerResult {
-    if (filaments.length <= 1) {
-        return optimizeExhaustive(filaments, context);
+    maxExtraRepeats: number,
+    rng: SeededRandom
+): Filament[] {
+    const shuffled = rng.shuffle(filaments);
+    const maximumLength = maxSequenceLength(filaments, maxExtraRepeats);
+    const initialLength = rng.nextInt(1, Math.min(filaments.length, maximumLength) + 1);
+    return shuffled.slice(0, initialLength);
+}
+
+function sequenceEquals(left: Filament[], right: Filament[]): boolean {
+    return (
+        left.length === right.length &&
+        left.every((filament, index) => filament.id === right[index].id)
+    );
+}
+
+function buildVariableLengthNeighbor(
+    sequence: Filament[],
+    filaments: Filament[],
+    maxExtraRepeats: number,
+    rng: SeededRandom
+): Filament[] {
+    const allowRepeatedSwaps = maxExtraRepeats > 0;
+    const maximumLength = maxSequenceLength(filaments, maxExtraRepeats);
+    const availableMoves: Array<'swap' | 'relocate' | 'insert' | 'remove' | 'replace'> = [];
+
+    if (sequence.length > 1) {
+        availableMoves.push('swap', 'relocate', 'remove');
+    }
+    if (sequence.length < maximumLength) availableMoves.push('insert');
+    availableMoves.push('replace');
+
+    for (let attempt = 0; attempt < 12; attempt++) {
+        const move = availableMoves[rng.nextInt(0, availableMoves.length)];
+        const candidate = [...sequence];
+
+        if (move === 'swap' && candidate.length > 1) {
+            const first = rng.nextInt(0, candidate.length);
+            let second = rng.nextInt(0, candidate.length - 1);
+            if (second >= first) second++;
+            [candidate[first], candidate[second]] = [candidate[second], candidate[first]];
+        } else if (move === 'relocate' && candidate.length > 1) {
+            const from = rng.nextInt(0, candidate.length);
+            const [moved] = candidate.splice(from, 1);
+            candidate.splice(rng.nextInt(0, candidate.length + 1), 0, moved);
+        } else if (move === 'insert' && candidate.length < maximumLength) {
+            const eligible = allowRepeatedSwaps
+                ? filaments
+                : filaments.filter(
+                      (filament) => !candidate.some((existing) => existing.id === filament.id)
+                  );
+            if (eligible.length === 0) continue;
+            candidate.splice(
+                rng.nextInt(0, candidate.length + 1),
+                0,
+                eligible[rng.nextInt(0, eligible.length)]
+            );
+        } else if (move === 'remove' && candidate.length > 1) {
+            candidate.splice(rng.nextInt(0, candidate.length), 1);
+        } else if (move === 'replace') {
+            const position = rng.nextInt(0, candidate.length);
+            const eligible = filaments.filter((filament) => {
+                if (filament.id === candidate[position].id) return false;
+                return (
+                    allowRepeatedSwaps ||
+                    !candidate.some(
+                        (existing, index) => index !== position && existing.id === filament.id
+                    )
+                );
+            });
+            if (eligible.length === 0) continue;
+            candidate[position] = eligible[rng.nextInt(0, eligible.length)];
+        }
+
+        if (
+            isValidSequence(candidate, allowRepeatedSwaps) &&
+            !sequenceEquals(candidate, sequence)
+        ) {
+            return candidate;
+        }
     }
 
-    const rng = new SeededRandom(options.seed);
-    const maxIterations = options.maxIterations ?? Math.max(1000, filaments.length * 100);
-    const initialTemp = options.temperature ?? 100.0;
-    const coolingRate = options.coolingRate ?? 0.995;
-    const minTemp = 0.01;
+    return sequence;
+}
 
-    let currentOrder = rng.shuffle(filaments);
-    let currentScore = scoreFilamentOrder(currentOrder, context);
-    let bestOrder = [...currentOrder];
-    let bestScore = currentScore;
-    let temperature = initialTemp;
+/**
+ * Core simulated-annealing loop from a given start. Deterministic for a fixed
+ * seeded `rng`. `onStep` fires once per iteration with the running best score so
+ * callers can drive progress. Reused by the balanced multi-start search.
+ */
+function runAnneal(
+    initialOrder: Filament[],
+    filaments: Filament[],
+    scoreSequence: SequenceScorer,
+    maxExtraRepeats: number,
+    rng: SeededRandom,
+    maxIterations: number,
+    initialTemperature: number,
+    coolingRate: number,
+    onStep?: (bestScore: number) => void
+): { best: ScoredSequence; iterations: number } {
+    let currentOrder = initialOrder;
+    let currentScore = scoreSequence(currentOrder);
+    let best: ScoredSequence = { order: [...currentOrder], score: currentScore };
+    let temperature = initialTemperature;
     let iterations = 0;
 
-    while (iterations < maxIterations && temperature > minTemp) {
+    while (iterations < maxIterations && temperature > SA_MIN_TEMPERATURE) {
         iterations++;
 
-        // Generate neighbor by swapping two random filaments
-        const newOrder = [...currentOrder];
-        const i = rng.nextInt(0, newOrder.length);
-        const j = rng.nextInt(0, newOrder.length);
-        [newOrder[i], newOrder[j]] = [newOrder[j], newOrder[i]];
+        const newOrder = buildVariableLengthNeighbor(currentOrder, filaments, maxExtraRepeats, rng);
+        if (sequenceEquals(newOrder, currentOrder)) {
+            temperature *= coolingRate;
+            onStep?.(best.score);
+            continue;
+        }
 
-        const newScore = scoreFilamentOrder(newOrder, context);
+        const newScore = scoreSequence(newOrder);
         const deltaE = newScore - currentScore;
 
         // Accept if better, or with probability exp(-ΔE/T) if worse
@@ -344,160 +739,216 @@ function optimizeSimulatedAnnealing(
             currentOrder = newOrder;
             currentScore = newScore;
 
-            if (currentScore < bestScore) {
-                bestScore = currentScore;
-                bestOrder = [...currentOrder];
+            if (currentScore < best.score) {
+                best = { order: [...currentOrder], score: currentScore };
             }
         }
 
         temperature *= coolingRate;
+        onStep?.(best.score);
     }
 
-    // Convergence check: did we stabilize?
-    const converged = temperature <= minTemp || iterations >= maxIterations;
-
-    return {
-        order: bestOrder,
-        score: bestScore,
-        iterations,
-        converged,
-    };
+    return { best, iterations };
 }
 
-// ============================================================================
-// Genetic Algorithm (Great for large search spaces)
-// ============================================================================
-
-/**
- * Genetic Algorithm optimizer with elitism and tournament selection.
- *
- * Maintains a population of candidate solutions, evolves them through
- * selection, crossover, and mutation.
- */
-function optimizeGenetic(
+function optimizeSimulatedAnnealing(
     filaments: Filament[],
-    context: ScoringContext,
+    scoreSequence: SequenceScorer,
     options: OptimizerOptions
 ): OptimizerResult {
     if (filaments.length <= 1) {
-        return optimizeExhaustive(filaments, context);
+        return optimizeExhaustive(filaments, scoreSequence, options);
     }
 
+    const maxExtraRepeats = resolveMaxExtraRepeats(options);
     const rng = new SeededRandom(options.seed);
-    const populationSize = options.populationSize ?? Math.max(50, filaments.length * 10);
-    const maxGenerations = options.maxIterations ?? 100;
-    const mutationRate = options.mutationRate ?? 0.1;
-    const eliteCount = options.eliteCount ?? Math.max(2, Math.floor(populationSize * 0.1));
+    const maxIterations = options.maxIterations ?? Math.max(1000, filaments.length * 100);
+    const initialTemp = options.temperature ?? SA_INITIAL_TEMPERATURE;
+    const coolingRate = options.coolingRate ?? SA_DEFAULT_COOLING_RATE;
 
-    // Initialize population with random orderings
-    let population: Array<{ order: Filament[]; score: number }> = [];
-    for (let i = 0; i < populationSize; i++) {
-        const order = rng.shuffle(filaments);
-        const score = scoreFilamentOrder(order, context);
-        population.push({ order, score });
-    }
+    const initialOrder = randomInitialSequence(filaments, maxExtraRepeats, rng);
+    reportProgress(options, 0, maxIterations, scoreSequence(initialOrder));
 
-    let bestEver = { ...population[0] };
-    let generations = 0;
-    let stagnantGenerations = 0;
-    const maxStagnant = 20;
-
-    while (generations < maxGenerations && stagnantGenerations < maxStagnant) {
-        generations++;
-
-        // Sort by score (lower is better)
-        population.sort((a, b) => a.score - b.score);
-
-        // Check for improvement
-        if (population[0].score < bestEver.score) {
-            bestEver = { order: [...population[0].order], score: population[0].score };
-            stagnantGenerations = 0;
-        } else {
-            stagnantGenerations++;
+    let reported = 0;
+    const { best, iterations } = runAnneal(
+        initialOrder,
+        filaments,
+        scoreSequence,
+        maxExtraRepeats,
+        rng,
+        maxIterations,
+        initialTemp,
+        coolingRate,
+        (bestScore) => {
+            reported++;
+            reportProgress(options, reported, maxIterations, bestScore);
         }
-
-        // Elitism: preserve best individuals
-        const nextGeneration = population.slice(0, eliteCount).map((ind) => ({
-            order: [...ind.order],
-            score: ind.score,
-        }));
-
-        // Generate offspring
-        while (nextGeneration.length < populationSize) {
-            // Tournament selection: pick 3 random, choose best
-            const parent1 = tournamentSelect(population, 3, rng);
-            const parent2 = tournamentSelect(population, 3, rng);
-
-            // Order crossover (OX)
-            const child = orderCrossover(parent1.order, parent2.order, rng);
-
-            // Mutation: swap two positions with probability
-            if (rng.next() < mutationRate) {
-                const i = rng.nextInt(0, child.length);
-                const j = rng.nextInt(0, child.length);
-                [child[i], child[j]] = [child[j], child[i]];
-            }
-
-            const score = scoreFilamentOrder(child, context);
-            nextGeneration.push({ order: child, score });
-        }
-
-        population = nextGeneration;
-    }
+    );
 
     return {
-        order: bestEver.order,
-        score: bestEver.score,
-        iterations: generations,
-        converged: stagnantGenerations >= maxStagnant,
+        order: best.order,
+        score: best.score,
+        iterations,
+        converged: true,
     };
 }
 
 /**
- * Tournament selection: pick k random individuals, return best one
+ * Refine a deterministic beam result with seeded multi-start annealing. A
+ * supplied baseline is retained throughout, so a deeper tier can never return
+ * a worse result than the tier it extends.
  */
-function tournamentSelect(
-    population: Array<{ order: Filament[]; score: number }>,
-    tournamentSize: number,
-    rng: SeededRandom
-): { order: Filament[]; score: number } {
-    let best = population[rng.nextInt(0, population.length)];
-
-    for (let i = 1; i < tournamentSize; i++) {
-        const candidate = population[rng.nextInt(0, population.length)];
-        if (candidate.score < best.score) {
-            best = candidate;
-        }
+function optimizeHybrid(
+    filaments: Filament[],
+    scoreSequence: SequenceScorer,
+    options: OptimizerOptions,
+    plan: HybridSearchPlan,
+    baseline?: OptimizerResult
+): OptimizerResult {
+    if (filaments.length <= 1) {
+        return optimizeExhaustive(filaments, scoreSequence, options);
     }
 
-    return { order: [...best.order], score: best.score };
+    const maxExtraRepeats = resolveMaxExtraRepeats(options);
+    const rng = new SeededRandom(options.seed);
+    const iterationsPerRestart =
+        options.maxIterations ??
+        Math.max(plan.minimumIterationsPerRestart, filaments.length * plan.iterationsPerFilament);
+    const initialTemp = options.temperature ?? SA_HYBRID_TEMPERATURE;
+    // Cool from the initial temperature to the floor across one restart so each
+    // restart spends its whole budget refining instead of freezing early.
+    const coolingRate =
+        options.coolingRate ??
+        Math.pow(SA_MIN_TEMPERATURE / initialTemp, 1 / Math.max(1, iterationsPerRestart));
+
+    // Beam provides a strong deterministic seed before the broader local search.
+    const beam = optimizeBeamSearch(filaments, scoreSequence, {
+        ...options,
+        beamWidth: options.beamWidth ?? plan.beamWidth,
+        onProgress: undefined,
+    });
+    let best: ScoredSequence = { order: beam.order, score: beam.score };
+    let iterations = beam.iterations;
+
+    if (baseline && isBetterCandidate({ order: baseline.order, score: baseline.score }, best)) {
+        best = { order: baseline.order, score: baseline.score };
+    }
+    iterations += baseline?.iterations ?? 0;
+
+    const total = iterations + plan.restarts * iterationsPerRestart;
+    let reported = iterations;
+    reportProgress(options, reported, total, best.score);
+
+    // Restart 0 refines the strongest retained candidate; the rest explore
+    // seeded-random starts. Keep the global best across all restarts.
+    for (let restart = 0; restart < plan.restarts; restart++) {
+        const initialOrder =
+            restart === 0 ? best.order : randomInitialSequence(filaments, maxExtraRepeats, rng);
+
+        const outcome = runAnneal(
+            initialOrder,
+            filaments,
+            scoreSequence,
+            maxExtraRepeats,
+            rng,
+            iterationsPerRestart,
+            initialTemp,
+            coolingRate,
+            (bestScore) => {
+                reported++;
+                reportProgress(options, reported, total, Math.min(bestScore, best.score));
+            }
+        );
+
+        iterations += outcome.iterations;
+        if (isBetterCandidate(outcome.best, best)) best = outcome.best;
+    }
+
+    reportProgress(options, total, total, best.score);
+
+    return {
+        order: best.order,
+        score: best.score,
+        iterations,
+        converged: true,
+    };
+}
+
+/** Deep is Thorough plus a wider, much larger hybrid pass. */
+function optimizeDeep(
+    filaments: Filament[],
+    scoreSequence: SequenceScorer,
+    options: OptimizerOptions
+): OptimizerResult {
+    const thorough = optimizeHybrid(
+        filaments,
+        scoreSequence,
+        withProgressSpan(options, 0, 0.2),
+        THOROUGH_PLAN
+    );
+    return optimizeHybrid(
+        filaments,
+        scoreSequence,
+        withProgressSpan(options, 0.2, 1),
+        DEEP_PLAN,
+        thorough
+    );
 }
 
 /**
- * Order crossover (OX): preserves relative order from both parents
+ * Exact base-order search. Repeated swaps remain a separate larger space, so
+ * when they are enabled retain Deep's repeat-aware result alongside exact base
+ * enumeration and its greedy repeat refinement.
  */
-function orderCrossover(parent1: Filament[], parent2: Filament[], rng: SeededRandom): Filament[] {
-    const length = parent1.length;
-    const start = rng.nextInt(0, length);
-    const end = rng.nextInt(start + 1, length + 1);
-
-    // Copy segment from parent1
-    const child: (Filament | null)[] = new Array(length).fill(null);
-    for (let i = start; i < end; i++) {
-        child[i] = parent1[i];
+function optimizeExactBase(
+    filaments: Filament[],
+    scoreSequence: SequenceScorer,
+    options: OptimizerOptions
+): OptimizerResult {
+    if (resolveMaxExtraRepeats(options) === 0) {
+        return optimizeExhaustive(filaments, scoreSequence, options);
     }
 
-    // Fill remaining from parent2, preserving order
-    const remaining = parent2.filter((f) => !child.includes(f));
-    let remainingIdx = 0;
+    const deep = optimizeDeep(filaments, scoreSequence, withProgressSpan(options, 0, 0.4));
+    const exact = optimizeExhaustive(filaments, scoreSequence, withProgressSpan(options, 0.4, 1));
+    const exactCandidate = { order: exact.order, score: exact.score };
+    const deepCandidate = { order: deep.order, score: deep.score };
+    const best = isBetterCandidate(deepCandidate, exactCandidate) ? deepCandidate : exactCandidate;
 
-    for (let i = 0; i < length; i++) {
-        if (child[i] === null) {
-            child[i] = remaining[remainingIdx++];
-        }
+    return {
+        order: best.order,
+        score: best.score,
+        iterations: deep.iterations + exact.iterations,
+        converged: true,
+    };
+}
+
+function resolveAlgorithm(
+    requested: OptimizerAlgorithm,
+    filamentCount: number
+): ResolvedOptimizerAlgorithm {
+    if (filamentCount <= 1) return 'exhaustive';
+
+    switch (requested) {
+        // Explicit concrete searches pass through unchanged.
+        case 'exhaustive':
+        case 'beam':
+        case 'simulated-annealing':
+            return requested;
+        // Fast uses a deliberately narrow beam for rapid previews.
+        case 'fast':
+            return 'narrow-beam';
+        // Balanced is the full deterministic beam baseline.
+        case 'balanced':
+            return 'beam';
+        // Thorough and Deep are progressively broader deterministic hybrids.
+        case 'thorough':
+            return 'thorough-hybrid';
+        case 'deep':
+            return 'deep-hybrid';
+        case 'exact':
+            return 'exact-base';
     }
-
-    return child as Filament[];
 }
 
 // ============================================================================
@@ -517,58 +968,76 @@ export function optimizeFilamentOrder(
     context: ScoringContext,
     options: Partial<OptimizerOptions> = {}
 ): OptimizerResult {
-    // Determine if user provided explicit seed (for caching purposes)
-    const hasExplicitSeed = options.seed !== undefined;
-
     const opts: OptimizerOptions = {
-        algorithm: 'auto',
-        seed: Date.now(),
+        algorithm: 'balanced',
         cachingEnabled: true,
         ...options,
     };
 
-    // Auto-select algorithm based on problem size (before cache check)
-    let algorithm = opts.algorithm;
-    if (algorithm === 'auto') {
-        if (filaments.length <= 6) {
-            algorithm = 'exhaustive';
-        } else if (filaments.length <= 10) {
-            algorithm = 'simulated-annealing';
-        } else {
-            algorithm = 'genetic';
-        }
-    }
+    const resolved = resolveAlgorithm(opts.algorithm, filaments.length);
+    const scoringContext: ScoringContext = {
+        ...context,
+        preserveSeparation: opts.preserveSeparation ?? context.preserveSeparation ?? false,
+    };
+    opts.preserveSeparation = scoringContext.preserveSeparation;
 
-    // Only check cache if user provided explicit seed (random seeds should not be cached)
-    if (opts.cachingEnabled && hasExplicitSeed) {
-        const cached = globalCache.get(filaments, context, algorithm, opts.seed);
+    // Tiers share the same automatic seed so higher effort builds directly on
+    // comparable deterministic search paths. The cache key still includes the
+    // requested tier because their budgets and outputs can differ.
+    const defaultSeedInput = canonicalOptimizerInput(
+        filaments,
+        scoringContext,
+        'tier-comparison',
+        opts
+    );
+    const seed = opts.seed ?? stableHash32(defaultSeedInput);
+    opts.seed = seed;
+    const cacheKey = canonicalOptimizerInput(filaments, scoringContext, opts.algorithm, opts, seed);
+
+    if (opts.cachingEnabled) {
+        const cached = globalCache.get(cacheKey);
         if (cached) {
+            reportProgress(opts, 1, 1, cached.score);
             return { ...cached, cacheHit: true };
         }
     }
 
     let result: OptimizerResult;
+    const scoreSequence = createSequenceScorer(scoringContext);
 
-    switch (algorithm) {
+    switch (resolved) {
         case 'exhaustive':
-            result = optimizeExhaustive(filaments, context);
+            result = optimizeExhaustive(filaments, scoreSequence, opts);
+            break;
+        case 'beam':
+            result = optimizeBeamSearch(filaments, scoreSequence, opts);
             break;
         case 'simulated-annealing':
-            result = optimizeSimulatedAnnealing(filaments, context, opts);
+            result = optimizeSimulatedAnnealing(filaments, scoreSequence, opts);
             break;
-        case 'genetic':
-            result = optimizeGenetic(filaments, context, opts);
+        case 'narrow-beam':
+            result = optimizeBeamSearch(filaments, scoreSequence, {
+                ...opts,
+                beamWidth: opts.beamWidth ?? FAST_BEAM_WIDTH,
+            });
             break;
-        default:
-            throw new Error(`Unknown algorithm: ${algorithm}`);
+        case 'thorough-hybrid':
+            result = optimizeHybrid(filaments, scoreSequence, opts, THOROUGH_PLAN);
+            break;
+        case 'deep-hybrid':
+            result = optimizeDeep(filaments, scoreSequence, opts);
+            break;
+        case 'exact-base':
+            result = optimizeExactBase(filaments, scoreSequence, opts);
+            break;
     }
 
     // Tag the result with the resolved algorithm
-    result.resolvedAlgorithm = algorithm;
+    result.resolvedAlgorithm = resolved;
+    reportProgress(opts, result.iterations, result.iterations, result.score);
 
-    // Only cache if user provided explicit seed (don't cache random results)
-    if (opts.cachingEnabled && hasExplicitSeed) {
-        globalCache.set(filaments, context, result, algorithm, opts.seed);
+    if (opts.cachingEnabled) {
+        globalCache.set(cacheKey, result);
     }
 
     return result;

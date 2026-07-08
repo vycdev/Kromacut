@@ -22,7 +22,7 @@ import { inspectMeshIntegrity, type MeshIntegrityReport } from './meshDiagnostic
 type Export3mfModule = typeof import('../src/lib/export3mf.ts');
 type Export3MFOptions = Parameters<Export3mfModule['exportObjectTo3MFBlob']>[1];
 type MeshGenerator = typeof generateSmoothMesh;
-type OptimizerAlgorithm = 'exhaustive' | 'simulated-annealing' | 'genetic' | 'auto';
+type OptimizerAlgorithm = 'fast' | 'balanced' | 'thorough';
 
 interface AutoPaintSliceData {
     colorSliceHeights: number[];
@@ -40,9 +40,7 @@ interface AutoPaintModule {
         maxHeight?: number,
         enhancedColorMatch?: boolean,
         allowRepeatedSwaps?: boolean,
-        optimizerOptions?: { algorithm: OptimizerAlgorithm; seed?: number },
-        regionWeightingMode?: 'uniform' | 'center' | 'edge',
-        imageDimensions?: { width: number; height: number } | null
+        optimizerOptions?: { algorithm: OptimizerAlgorithm; seed?: number }
     ): unknown;
     autoPaintToSliceHeights(
         result: unknown,
@@ -117,9 +115,12 @@ function loadFilamentProfileFixture(
 ): FilamentProfileFixture {
     const raw = JSON.parse(
         readFileSync(resolve(filamentProfilesRoot, fileName), 'utf8')
-    ) as Partial<FilamentProfileFixture>;
+    ) as Partial<FilamentProfileFixture> & { version?: number };
     const name = raw.name;
     const filaments = raw.filaments;
+    // .kapp fixtures are schema-v1 exports: uncalibrated tds are on the legacy
+    // backlit scale and convert to hiding distances (×0.1) like live imports.
+    const legacyTdScale = (raw.version ?? 1) < 2 ? 0.1 : 1;
 
     if (typeof name !== 'string') {
         assert.fail(`${fileName} should include a profile name`);
@@ -143,7 +144,7 @@ function loadFilamentProfileFixture(
             return {
                 id: filament.id,
                 color: normalizeFixtureHex(filament.color, `${fileName} filament ${index}`),
-                td: filament.td,
+                td: filament.td * legacyTdScale,
             };
         }),
     };
@@ -787,11 +788,9 @@ async function buildAutoPaintLogoRegressionStack(
         true,
         true,
         {
-            algorithm: 'auto',
+            algorithm: 'balanced',
             seed,
-        },
-        'uniform',
-        { width: image.width, height: image.height }
+        }
     );
     const sliceData = autoPaintToSliceHeights(autoPaintResult, layerHeight, firstLayerHeight);
     const cumulativeHeights = buildCumulativeHeights(
@@ -1408,6 +1407,38 @@ test('3MF export keeps generated meshes as separate layer objects', async () => 
         objects.map((object) => object.name),
         ['Layer 1 (#FF0000)', 'Layer 2 (#00FF00)']
     );
+});
+
+test('3MF export streams generated model XML without FileReader', async () => {
+    const { exportObjectTo3MFBlob } = await loadExport3mfModule();
+    const previousFileReader = globalThis.FileReader;
+
+    class RejectingFileReader {
+        error = new DOMException('Generated blobs must not be re-read', 'NotReadableError');
+        onerror: ((event: { target: RejectingFileReader }) => void) | null = null;
+
+        readAsArrayBuffer() {
+            this.onerror?.({ target: this });
+        }
+    }
+
+    globalThis.FileReader = RejectingFileReader as unknown as typeof FileReader;
+    try {
+        const root = new THREE.Group();
+        root.add(createLayerMesh(createSharedCubeGeometry(), 0xff0000));
+
+        const blob = await exportObjectTo3MFBlob(root);
+        assert.ok(blob.size > 0);
+    } finally {
+        globalThis.FileReader = previousFileReader;
+    }
+});
+
+test('3MF export keeps generated model XML chunked for large models', () => {
+    const source = readFileSync(resolve(process.cwd(), 'src/lib/export3mf.ts'), 'utf8');
+
+    assert.doesNotMatch(source, /xmlParts\.join\(/);
+    assert.match(source, /encodeXmlChunks\(xmlParts\.splice\(0\)\)/);
 });
 
 test('exports include preview-hidden layers with their original filament colors', async () => {

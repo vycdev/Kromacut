@@ -39,13 +39,13 @@ Use **Dedither** after reducing colors. If the image still has too many isolated
 
 Common causes:
 
-- Filament TD values are estimates instead of calibrated values.
+- Filament hiding distances are estimates instead of calibrated values.
 - The filament set does not cover the image colors well.
 - **Max Height** is compressing transition zones too much.
 - The optimizer needs **Enhanced color matching** enabled.
 - The important subject is in the center or edges but **Region priority** is set to **Uniform**.
 
-Use the calibration wizard and check **Result Confidence** for clues.
+Calibrate your filaments and check **Result Confidence** for clues.
 
 ## The 3D Build Is Slow
 

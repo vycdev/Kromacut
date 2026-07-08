@@ -32,3 +32,6 @@ test-results/
 src-tauri/target/
 src-tauri/gen/
 src-tauri/WixTools/
+
+# Agent workspace files
+.agents/

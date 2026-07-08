@@ -1,7 +1,22 @@
 import type { AutoPaintResult } from '../lib/autoPaint';
-import type { CalibrationResult } from '../lib/calibration';
+import type { FrontlitCalibration } from '../lib/calibration';
 
-export type Swatch = { hex: string; a: number };
+export const AUTO_PAINT_REPEAT_LIMITS = [0, 2, 4, 6, 8, 12] as const;
+export type AutoPaintRepeatLimit = (typeof AUTO_PAINT_REPEAT_LIMITS)[number];
+
+export const AUTO_PAINT_TRANSITION_OPACITIES = [0.8, 0.9, 0.95] as const;
+export type AutoPaintTransitionOpacity = (typeof AUTO_PAINT_TRANSITION_OPACITIES)[number];
+
+export type Swatch = {
+    hex: string;
+    a: number;
+    /** Raw pixel count, kept for display and non-spatial consumers. */
+    count?: number;
+    /** Sum of center-priority weights for this color's source pixels. */
+    centerWeight?: number;
+    /** Sum of edge-priority weights for this color's source pixels. */
+    edgeWeight?: number;
+};
 
 export interface CustomPalette {
     id: string;
@@ -16,7 +31,7 @@ export interface Filament {
     id: string;
     color: string;
     td: number;
-    calibration?: CalibrationResult;
+    calibration?: FrontlitCalibration;
     name?: string;
     brand?: string;
 }
@@ -34,13 +49,20 @@ export interface ThreeDControlsStateShape {
     paintMode: 'manual' | 'autopaint';
     // Enhanced color matching options
     enhancedColorMatch?: boolean;
+    /** Assign each image color to a distinct printable color (no collapse). */
+    preserveSeparation?: boolean;
+    /** Legacy persisted value. Migrate to maxRepeatedSwaps when loading. */
     allowRepeatedSwaps?: boolean;
+    /** Maximum extra non-adjacent filament occurrences the optimizer may add. */
+    maxRepeatedSwaps?: AutoPaintRepeatLimit;
+    /** Target transition opacity used to create the printable color ramp. */
+    transitionOpacity?: AutoPaintTransitionOpacity;
     heightDithering?: boolean;
     ditherLineWidth?: number;
     /** Flat Paint: build a flat, face-down slab (auto-paint only) */
     flatPaint?: boolean;
-    // Optimizer options
-    optimizerAlgorithm?: 'exhaustive' | 'simulated-annealing' | 'genetic' | 'auto';
+    // Optimizer options (effort tier; legacy values migrate on load)
+    optimizerAlgorithm?: 'fast' | 'balanced' | 'thorough' | 'deep' | 'exact';
     optimizerSeed?: number;
     regionWeightingMode?: 'uniform' | 'center' | 'edge';
     // Auto-paint computed state (only used when paintMode is 'autopaint')

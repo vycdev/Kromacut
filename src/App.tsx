@@ -1,9 +1,14 @@
 import React, { useEffect, useRef, useState } from 'react';
 import ThreeDControls from './components/ThreeDControls';
-import type { ThreeDControlsStateShape } from './types';
+import {
+    AUTO_PAINT_REPEAT_LIMITS,
+    AUTO_PAINT_TRANSITION_OPACITIES,
+    type AutoPaintRepeatLimit,
+    type AutoPaintTransitionOpacity,
+    type ThreeDControlsStateShape,
+} from './types';
 import ThreeDView from './components/ThreeDView';
 import logo from './assets/logo.png';
-import tdTestImg from './assets/tdTest.png';
 import CanvasPreview from './components/CanvasPreview';
 import type { CanvasPreviewHandle } from './components/CanvasPreview';
 import { SwatchesPanel } from './components/SwatchesPanel';
@@ -27,6 +32,7 @@ import { useAppHandlers, type ExportProgressStep } from './hooks/useAppHandlers'
 import { useProcessingState } from './hooks/useProcessingState';
 import { useBuildWarning } from './hooks/useBuildWarning';
 import { clampProgress } from './lib/progress';
+import { normalizeOptimizerTier } from './lib/optimizer';
 import ResizableSplitter from './components/ResizableSplitter';
 import { ControlsPanel } from './components/ControlsPanel';
 import { usePaletteManager } from './hooks/usePaletteManager';
@@ -37,6 +43,7 @@ import { defaultDocSlug } from './docs';
 import { loadCameraMode, saveCameraMode } from './lib/cameraPrefs';
 import { buildDocsPath, parseDocsLocation } from './lib/docs/navigation';
 import { applyHomeSeo } from './lib/seo';
+import { migrateLegacyFilamentTd, sanitizeProfileFilament } from './lib/profileManager';
 import {
     AlertDialog,
     AlertDialogContent,
@@ -77,11 +84,32 @@ type AutoPaintPersisted = Pick<
     | 'optimizerSeed'
     | 'regionWeightingMode'
     | 'enhancedColorMatch'
+    | 'preserveSeparation'
     | 'allowRepeatedSwaps'
+    | 'maxRepeatedSwaps'
+    | 'transitionOpacity'
     | 'heightDithering'
     | 'ditherLineWidth'
     | 'flatPaint'
 >;
+
+// Schema v2: filament `td` values store frontlit hiding distances. State
+// persisted without this marker predates the change and carries uncalibrated
+// tds on the conventional backlit scale, which must be migrated once on load.
+const AUTOPAINT_SCHEMA_VERSION = 2;
+
+function isOneOf<T extends readonly number[]>(value: unknown, values: T): value is T[number] {
+    return typeof value === 'number' && values.includes(value as T[number]);
+}
+
+function normalizeRepeatLimit(value: unknown, legacyEnabled: unknown): AutoPaintRepeatLimit {
+    if (isOneOf(value, AUTO_PAINT_REPEAT_LIMITS)) return value;
+    return legacyEnabled === true ? 4 : 0;
+}
+
+function normalizeTransitionOpacity(value: unknown): AutoPaintTransitionOpacity {
+    return isOneOf(value, AUTO_PAINT_TRANSITION_OPACITIES) ? value : 0.9;
+}
 
 const loadAutoPaintPersisted = (): AutoPaintPersisted | null => {
     try {
@@ -90,6 +118,19 @@ const loadAutoPaintPersisted = (): AutoPaintPersisted | null => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const parsed = JSON.parse(raw) as any;
         if (!parsed || !Array.isArray(parsed.filaments)) return null;
+        const sanitized = parsed.filaments
+            .map((filament: unknown) => sanitizeProfileFilament(filament))
+            .filter(
+                (filament: ReturnType<typeof sanitizeProfileFilament>): filament is NonNullable<
+                    ReturnType<typeof sanitizeProfileFilament>
+                > => filament !== null
+            );
+        const persistedSchema =
+            typeof parsed.schemaVersion === 'number' ? parsed.schemaVersion : 1;
+        const filaments =
+            persistedSchema >= AUTOPAINT_SCHEMA_VERSION
+                ? sanitized
+                : sanitized.map(migrateLegacyFilamentTd);
         // Migrate legacy `autoPaintEnabled` boolean → `paintMode`
         const paintMode: 'manual' | 'autopaint' =
             parsed.paintMode === 'autopaint' || parsed.paintMode === 'manual'
@@ -98,13 +139,18 @@ const loadAutoPaintPersisted = (): AutoPaintPersisted | null => {
                   ? 'autopaint'
                   : 'manual';
         return {
-            filaments: parsed.filaments,
+            filaments,
             paintMode,
-            optimizerAlgorithm: parsed.optimizerAlgorithm,
+            optimizerAlgorithm: normalizeOptimizerTier(parsed.optimizerAlgorithm),
             optimizerSeed: parsed.optimizerSeed,
             regionWeightingMode: parsed.regionWeightingMode,
             enhancedColorMatch: parsed.enhancedColorMatch ?? false,
-            allowRepeatedSwaps: parsed.allowRepeatedSwaps ?? false,
+            preserveSeparation: parsed.preserveSeparation ?? false,
+            maxRepeatedSwaps: normalizeRepeatLimit(
+                parsed.maxRepeatedSwaps,
+                parsed.allowRepeatedSwaps
+            ),
+            transitionOpacity: normalizeTransitionOpacity(parsed.transitionOpacity),
             heightDithering: parsed.heightDithering ?? false,
             ditherLineWidth: parsed.ditherLineWidth,
             flatPaint: parsed.flatPaint ?? false,
@@ -116,7 +162,10 @@ const loadAutoPaintPersisted = (): AutoPaintPersisted | null => {
 
 const saveAutoPaintPersisted = (value: AutoPaintPersisted) => {
     try {
-        localStorage.setItem(AUTOPAINT_STORAGE_KEY, JSON.stringify(value));
+        localStorage.setItem(
+            AUTOPAINT_STORAGE_KEY,
+            JSON.stringify({ schemaVersion: AUTOPAINT_SCHEMA_VERSION, ...value })
+        );
     } catch {
         // ignore storage errors
     }
@@ -242,7 +291,11 @@ function App(): React.ReactElement | null {
                 regionWeightingMode:
                     autopaintHydrated.regionWeightingMode ?? prev.regionWeightingMode,
                 enhancedColorMatch: autopaintHydrated.enhancedColorMatch ?? prev.enhancedColorMatch,
-                allowRepeatedSwaps: autopaintHydrated.allowRepeatedSwaps ?? prev.allowRepeatedSwaps,
+                preserveSeparation:
+                    autopaintHydrated.preserveSeparation ?? prev.preserveSeparation,
+                maxRepeatedSwaps:
+                    autopaintHydrated.maxRepeatedSwaps ?? prev.maxRepeatedSwaps,
+                transitionOpacity: autopaintHydrated.transitionOpacity ?? prev.transitionOpacity,
                 heightDithering: autopaintHydrated.heightDithering ?? prev.heightDithering,
                 ditherLineWidth: autopaintHydrated.ditherLineWidth ?? prev.ditherLineWidth,
                 flatPaint: autopaintHydrated.flatPaint ?? prev.flatPaint,
@@ -261,7 +314,9 @@ function App(): React.ReactElement | null {
             optimizerSeed: threeDState.optimizerSeed,
             regionWeightingMode: threeDState.regionWeightingMode,
             enhancedColorMatch: threeDState.enhancedColorMatch,
-            allowRepeatedSwaps: threeDState.allowRepeatedSwaps,
+            preserveSeparation: threeDState.preserveSeparation,
+            maxRepeatedSwaps: threeDState.maxRepeatedSwaps,
+            transitionOpacity: threeDState.transitionOpacity,
             heightDithering: threeDState.heightDithering,
             ditherLineWidth: threeDState.ditherLineWidth,
             flatPaint: threeDState.flatPaint,
@@ -273,7 +328,9 @@ function App(): React.ReactElement | null {
         threeDState.optimizerSeed,
         threeDState.regionWeightingMode,
         threeDState.enhancedColorMatch,
-        threeDState.allowRepeatedSwaps,
+        threeDState.preserveSeparation,
+        threeDState.maxRepeatedSwaps,
+        threeDState.transitionOpacity,
         threeDState.heightDithering,
         threeDState.ditherLineWidth,
         threeDState.flatPaint,
@@ -442,15 +499,6 @@ function App(): React.ReactElement | null {
                 docsOpen={docsOpen}
                 onBackToApp={backToApp}
                 onToggleDocs={toggleDocs}
-                onLoadTest={() => {
-                    invalidate();
-                    setImage(tdTestImg, true);
-                    setMode('2d');
-                    if (parseDocsLocation(window.location)) {
-                        window.history.pushState(null, '', '/');
-                    }
-                    setDocsOpen(false);
-                }}
             />
             {docsOpen && (
                 <div className="flex flex-1 min-h-0 w-full">
@@ -684,6 +732,7 @@ function App(): React.ReactElement | null {
                                                 builtModelState.autoPaintResult?.filamentOrder
                                             }
                                             enhancedColorMatch={builtModelState.enhancedColorMatch}
+                                            preserveSeparation={builtModelState.preserveSeparation}
                                             heightDithering={builtModelState.heightDithering}
                                             ditherLineWidth={builtModelState.ditherLineWidth}
                                             smoothMeshing={builtModelState.smoothMeshing}

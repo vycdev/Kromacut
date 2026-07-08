@@ -23,6 +23,54 @@ type ExportGeometrySource = {
     itemSize?: number;
 };
 
+function utf8ByteLength(value: string): number {
+    let length = 0;
+    for (let index = 0; index < value.length; index++) {
+        const code = value.charCodeAt(index);
+        if (code < 0x80) {
+            length += 1;
+        } else if (code < 0x800) {
+            length += 2;
+        } else if (
+            code >= 0xd800 &&
+            code <= 0xdbff &&
+            index + 1 < value.length &&
+            value.charCodeAt(index + 1) >= 0xdc00 &&
+            value.charCodeAt(index + 1) <= 0xdfff
+        ) {
+            length += 4;
+            index++;
+        } else {
+            // This also matches TextEncoder's replacement behavior for an
+            // unpaired UTF-16 surrogate.
+            length += 3;
+        }
+    }
+    return length;
+}
+
+/**
+ * Encodes XML chunks straight into one JSZip-supported byte buffer. This
+ * avoids both Blob/FileReader reads in desktop WebViews and Array.join's
+ * string-size limit without making temporary copies of every XML chunk.
+ */
+function encodeXmlChunks(chunks: string[]): Uint8Array {
+    const byteLength = chunks.reduce((total, chunk) => total + utf8ByteLength(chunk), 0);
+    const output = new Uint8Array(byteLength);
+    const encoder = new TextEncoder();
+    let offset = 0;
+
+    for (const chunk of chunks) {
+        const { read, written } = encoder.encodeInto(chunk, output.subarray(offset));
+        if (read !== chunk.length) {
+            throw new Error('Could not encode complete 3MF model XML');
+        }
+        offset += written;
+    }
+
+    return output;
+}
+
 /**
  * Meshes tagged with the same `userData.kromacutExportGroup` key are merged
  * into a single 3MF object (used by Flat Paint to export one object per
@@ -634,9 +682,11 @@ export async function exportObjectTo3MFBlob(
 
     flushXmlChunk();
 
-    const finalBlob = new Blob(xmlParts, { type: 'text/xml' });
-
-    zip.folder('3D')?.file('3dmodel.model', finalBlob);
+    // JSZip accepts Uint8Array directly. Encoding into it chunk-by-chunk
+    // avoids both the Tauri WebView FileReader failure for Blobs and
+    // Array.join's string-size limit for large models.
+    const modelXmlBytes = encodeXmlChunks(xmlParts.splice(0));
+    zip.folder('3D')?.file('3dmodel.model', modelXmlBytes, { binary: true });
 
     // Generate Metadata/model_settings.config
     // This is required for Bambu Studio / Orca Slicer / Creality Print to correctly identify

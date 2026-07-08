@@ -5,14 +5,13 @@ import { Button } from '@/components/ui/button';
 import {
     Plus,
     Trash2,
-    Sparkles,
     Save,
     Download,
     Upload,
     FilePlus,
     Pencil,
-    BadgeCheck,
     Loader2,
+    FlaskConical,
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -27,12 +26,70 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { TabsContent } from '@/components/ui/tabs';
 import type { AutoPaintResult, TransitionZone } from '../lib/autoPaint';
 import type { AutoPaintProfile } from '../lib/profileManager';
-import type { Filament, Swatch } from '../types';
-import type { CalibrationResult } from '../lib/calibration';
+import type { AutoPaintRepeatLimit, AutoPaintTransitionOpacity, Filament, Swatch } from '../types';
 import FilamentRow from './FilamentRow';
-import { FilamentCalibrationWizard } from './FilamentCalibrationWizard';
+import {
+    FilamentCalibrationDialog,
+    type CalibrationApplyUpdate,
+} from './FilamentCalibrationDialog';
 import { getConfidenceLabel, getConfidenceColor } from '../lib/calibration';
+import { getExactBaseOrderCount } from '../lib/optimizer';
 import { useNextBestColorWorker } from '../hooks/useNextBestColorWorker';
+
+/** Percentage stat tile with a slim progress bar, colored by confidence band. */
+function ConfidenceStat({ label, value }: { label: string; value: number }) {
+    const pct = Math.round(value * 100);
+    return (
+        <div className="text-center p-2 rounded bg-background">
+            <div className="text-muted-foreground mb-1">{label}</div>
+            <div className={`font-semibold ${getConfidenceColor(value)}`}>
+                {pct}%
+                <div className="mt-1 h-1 rounded-full bg-muted overflow-hidden">
+                    <div
+                        className="h-full rounded-full bg-current"
+                        style={{ width: `${Math.max(4, Math.min(100, pct))}%` }}
+                    />
+                </div>
+            </div>
+        </div>
+    );
+}
+
+type OptimizerTierValue = 'fast' | 'balanced' | 'thorough' | 'deep' | 'exact';
+
+interface OptimizerTierMeta {
+    value: OptimizerTierValue;
+    label: string;
+}
+
+const OPTIMIZER_TIERS: readonly OptimizerTierMeta[] = [
+    {
+        value: 'fast',
+        label: 'Fast',
+    },
+    {
+        value: 'balanced',
+        label: 'Balanced',
+    },
+    {
+        value: 'thorough',
+        label: 'Thorough',
+    },
+    {
+        value: 'deep',
+        label: 'Deep',
+    },
+    {
+        value: 'exact',
+        label: 'Exact base order',
+    },
+];
+
+function formatBaseOrderCount(count: number): string {
+    if (count >= 1_000_000_000) return `${(count / 1_000_000_000).toFixed(1)}B`;
+    if (count >= 1_000_000) return `${(count / 1_000_000).toFixed(1)}M`;
+    return count.toLocaleString();
+}
 
 interface AutoPaintSliceData {
     virtualSwatches: Swatch[];
@@ -77,9 +134,11 @@ interface AutoPaintTabProps {
     autoPaintResult?: AutoPaintResult;
     autoPaintSliceData?: AutoPaintSliceData;
     isComputing?: boolean;
+    progress?: number;
     error?: string;
     calibrationLayerHeight: number;
     setCalibrationLayerHeight: (v: number) => void;
+    firstLayerHeight: number;
 
     // Image colors
     filteredCount: number;
@@ -88,8 +147,12 @@ interface AutoPaintTabProps {
     // Enhanced matching options
     enhancedColorMatch: boolean;
     setEnhancedColorMatch: (v: boolean) => void;
-    allowRepeatedSwaps: boolean;
-    setAllowRepeatedSwaps: (v: boolean) => void;
+    preserveSeparation: boolean;
+    setPreserveSeparation: (v: boolean) => void;
+    maxRepeatedSwaps: AutoPaintRepeatLimit;
+    setMaxRepeatedSwaps: (v: AutoPaintRepeatLimit) => void;
+    transitionOpacity: AutoPaintTransitionOpacity;
+    setTransitionOpacity: (v: AutoPaintTransitionOpacity) => void;
     heightDithering: boolean;
     setHeightDithering: (v: boolean) => void;
     ditherLineWidth: number;
@@ -100,8 +163,8 @@ interface AutoPaintTabProps {
     setFlatPaint: (v: boolean) => void;
 
     // Optimizer options
-    optimizerAlgorithm: 'exhaustive' | 'simulated-annealing' | 'genetic' | 'auto';
-    setOptimizerAlgorithm: (v: 'exhaustive' | 'simulated-annealing' | 'genetic' | 'auto') => void;
+    optimizerAlgorithm: 'fast' | 'balanced' | 'thorough' | 'deep' | 'exact';
+    setOptimizerAlgorithm: (v: 'fast' | 'balanced' | 'thorough' | 'deep' | 'exact') => void;
     optimizerSeed: number | undefined;
     setOptimizerSeed: (v: number | undefined) => void;
     regionWeightingMode: 'uniform' | 'center' | 'edge';
@@ -139,14 +202,20 @@ export default function AutoPaintTab({
     autoPaintResult,
     autoPaintSliceData,
     isComputing = false,
+    progress = 0,
     error,
     calibrationLayerHeight,
+    firstLayerHeight,
     filteredCount,
     imageSwatches,
     enhancedColorMatch,
     setEnhancedColorMatch,
-    allowRepeatedSwaps,
-    setAllowRepeatedSwaps,
+    preserveSeparation,
+    setPreserveSeparation,
+    maxRepeatedSwaps,
+    setMaxRepeatedSwaps,
+    transitionOpacity,
+    setTransitionOpacity,
     heightDithering,
     setHeightDithering,
     ditherLineWidth,
@@ -178,34 +247,33 @@ export default function AutoPaintTab({
     const [localOptimizerSeed, setLocalOptimizerSeed] = React.useState(
         optimizerSeed?.toString() ?? ''
     );
+    const exactBaseOrderCount = React.useMemo(
+        () => getExactBaseOrderCount(filaments.length),
+        [filaments.length]
+    );
+    const exactBaseOrderIsLarge = exactBaseOrderCount >= 1_000_000 || filaments.length >= 9;
 
-    // Calibration wizard state
-    const [calibratingFilamentId, setCalibratingFilamentId] = React.useState<string | null>(null);
-    const [calibrationWizardOpen, setCalibrationWizardOpen] = React.useState(false);
+    // Calibration dialog state
+    const [calibrationDialogOpen, setCalibrationDialogOpen] = React.useState(false);
 
-    const calibratingFilament = filaments.find((f) => f.id === calibratingFilamentId);
-
-    const handleOpenCalibrationWizard = React.useCallback((id: string) => {
-        setCalibratingFilamentId(id);
-        setCalibrationWizardOpen(true);
+    const handleOpenCalibration = React.useCallback(() => {
+        setCalibrationDialogOpen(true);
     }, []);
 
-    const handleCloseCalibrationWizard = React.useCallback(() => {
-        setCalibrationWizardOpen(false);
-        // Clear the ID after a short delay to avoid visible state change
-        setTimeout(() => setCalibratingFilamentId(null), 300);
+    const handleCloseCalibration = React.useCallback(() => {
+        setCalibrationDialogOpen(false);
     }, []);
 
-    const handleCalibrationComplete = React.useCallback(
-        (result: CalibrationResult) => {
-            if (calibratingFilamentId) {
-                updateFilament(calibratingFilamentId, {
-                    td: result.tdSingleValue,
-                    calibration: result,
+    const handleApplyCalibration = React.useCallback(
+        (updates: CalibrationApplyUpdate[]) => {
+            for (const update of updates) {
+                updateFilament(update.id, {
+                    td: update.td,
+                    calibration: update.calibration,
                 });
             }
         },
-        [calibratingFilamentId, updateFilament]
+        [updateFilament]
     );
 
     React.useEffect(() => {
@@ -221,9 +289,6 @@ export default function AutoPaintTab({
             <Card className="p-4 border border-border/50">
                 <div className="space-y-1">
                     <h3 className="text-sm font-semibold text-foreground">Auto-paint</h3>
-                    <p className="text-xs text-muted-foreground">
-                        Define filament colors and transmission distances for automatic painting
-                    </p>
                 </div>
                 <div className="h-px bg-border/50 my-4" />
 
@@ -366,6 +431,8 @@ export default function AutoPaintTab({
                             </PopoverContent>
                         </Popover>
 
+                        <div className="w-px h-5 bg-border/70 flex-shrink-0" />
+
                         {/* Import */}
                         <input
                             ref={importInputRef}
@@ -397,18 +464,19 @@ export default function AutoPaintTab({
                             <Download className="w-4 h-4" />
                         </Button>
 
-                        {/* Delete */}
-                        {activeProfileId && (
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 cursor-pointer flex-shrink-0"
-                                title="Delete selected profile"
-                                onClick={() => handleDeleteProfile(activeProfileId)}
-                            >
-                                <Trash2 className="w-4 h-4" />
-                            </Button>
-                        )}
+                        <div className="w-px h-5 bg-border/70 flex-shrink-0" />
+
+                        {/* Delete — always rendered so the strip width stays stable */}
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 cursor-pointer flex-shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
+                            title="Delete selected profile"
+                            disabled={!activeProfileId}
+                            onClick={() => activeProfileId && handleDeleteProfile(activeProfileId)}
+                        >
+                            <Trash2 className="w-4 h-4" />
+                        </Button>
                     </div>
 
                     {/* Import feedback */}
@@ -432,20 +500,33 @@ export default function AutoPaintTab({
                                     filament={f}
                                     onUpdate={updateFilament}
                                     onRemove={removeFilament}
-                                    onCalibrate={handleOpenCalibrationWizard}
                                 />
                             ))}
                         </div>
                     )}
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={addFilament}
-                        className="w-full text-xs gap-1.5 h-8 border-dashed border-border hover:border-primary/50 hover:bg-primary/5 text-muted-foreground hover:text-primary cursor-pointer"
-                    >
-                        <Plus className="w-3.5 h-3.5" />
-                        Add Filament
-                    </Button>
+                    <div className={filaments.length > 0 ? 'grid grid-cols-2 gap-2' : ''}>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={addFilament}
+                            className="w-full text-xs gap-1.5 h-8 border-dashed border-border hover:border-primary/50 hover:bg-primary/5 text-muted-foreground hover:text-primary cursor-pointer"
+                        >
+                            <Plus className="w-3.5 h-3.5" />
+                            Add Filament
+                        </Button>
+
+                        {filaments.length > 0 && (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleOpenCalibration()}
+                                className="w-full text-xs gap-1.5 h-8 cursor-pointer"
+                            >
+                                <FlaskConical className="w-3.5 h-3.5" />
+                                Calibrate Filaments
+                            </Button>
+                        )}
+                    </div>
 
                     {/* Max Height Constraint */}
                     {filaments.length > 0 && (
@@ -511,9 +592,24 @@ export default function AutoPaintTab({
                                 </div>
                             )}
                             {isComputing && (
-                                <div className="flex items-center gap-1.5 text-[10px] text-primary">
-                                    <Loader2 className="w-3 h-3 animate-spin" />
-                                    <span>Optimizing filament order...</span>
+                                <div className="space-y-1">
+                                    <div className="flex items-center justify-between text-[10px] text-primary">
+                                        <span className="flex items-center gap-1.5">
+                                            <Loader2 className="w-3 h-3 animate-spin" />
+                                            Optimizing filament order…
+                                        </span>
+                                        <span className="tabular-nums">
+                                            {Math.round(progress * 100)}%
+                                        </span>
+                                    </div>
+                                    <div className="h-1 w-full overflow-hidden rounded-full bg-muted">
+                                        <div
+                                            className="h-full rounded-full bg-primary transition-[width] duration-200 ease-out"
+                                            style={{
+                                                width: `${Math.max(2, Math.min(100, Math.round(progress * 100)))}%`,
+                                            }}
+                                        />
+                                    </div>
                                 </div>
                             )}
                             {error && !isComputing && (
@@ -540,82 +636,134 @@ export default function AutoPaintTab({
                                     onCheckedChange={setEnhancedColorMatch}
                                 />
                             </div>
-                            <div
-                                className={`flex items-center justify-between transition-opacity ${enhancedColorMatch ? 'opacity-100' : 'opacity-40 pointer-events-none'}`}
-                            >
-                                <Label
-                                    htmlFor="allow-repeated-swaps"
-                                    className="text-xs font-medium text-foreground cursor-pointer"
+                            <div className="space-y-3 border-l border-border/50 pl-3 ml-1">
+                                <div
+                                    className={`flex items-center gap-2 transition-opacity ${enhancedColorMatch ? 'opacity-100' : 'opacity-40 pointer-events-none'}`}
                                 >
-                                    Allow repeated filament swaps
-                                </Label>
-                                <Switch
-                                    id="allow-repeated-swaps"
-                                    data-testid="autopaint-allow-repeated-swaps"
-                                    checked={allowRepeatedSwaps}
-                                    onCheckedChange={setAllowRepeatedSwaps}
-                                    disabled={!enhancedColorMatch}
-                                />
-                            </div>
-                            <div
-                                className={`flex items-center justify-between transition-opacity ${enhancedColorMatch ? 'opacity-100' : 'opacity-40 pointer-events-none'}`}
-                            >
-                                <Label
-                                    htmlFor="height-dithering"
-                                    className="text-xs font-medium text-foreground cursor-pointer"
-                                >
-                                    Height dithering
-                                </Label>
-                                <Switch
-                                    id="height-dithering"
-                                    data-testid="autopaint-height-dithering"
-                                    checked={heightDithering}
-                                    onCheckedChange={setHeightDithering}
-                                    disabled={!enhancedColorMatch}
-                                />
-                            </div>
-                            {heightDithering && enhancedColorMatch && (
-                                <div className="flex items-center gap-2 pl-0.5">
-                                    <label className="text-[11px] text-muted-foreground whitespace-nowrap">
-                                        Line width
-                                    </label>
-                                    <NumberInput
-                                        min={0.1}
-                                        max={2}
-                                        step={0.01}
-                                        value={localDitherLineWidth}
-                                        onChange={(e) => {
-                                            setLocalDitherLineWidth(e.target.value);
-                                        }}
-                                        onBlur={() => {
-                                            let val = parseFloat(localDitherLineWidth);
-                                            if (isNaN(val)) {
-                                                setLocalDitherLineWidth(ditherLineWidth.toString());
-                                                return;
-                                            }
-                                            val = Math.max(0.1, Math.min(2, val));
-                                            setDitherLineWidth(val);
-                                            setLocalDitherLineWidth(val.toString());
-                                        }}
-                                        onKeyDown={(e) => {
-                                            if (e.key === 'Enter') {
-                                                e.currentTarget.blur();
-                                            }
-                                        }}
-                                        className="w-20 h-7 text-xs"
-                                    />
-                                    <span className="text-[10px] text-muted-foreground">mm</span>
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => setDitherLineWidth(0.42)}
-                                        className="h-7 px-1.5 text-[10px] text-muted-foreground hover:text-foreground ml-auto"
-                                        title="Reset to default (0.42mm)"
+                                    <Label
+                                        htmlFor="repeated-swaps"
+                                        className="text-xs font-medium text-foreground whitespace-nowrap"
                                     >
-                                        Reset
-                                    </Button>
+                                        Extra repeated swaps
+                                    </Label>
+                                    <Select
+                                        value={maxRepeatedSwaps.toString()}
+                                        onValueChange={(value) =>
+                                            setMaxRepeatedSwaps(
+                                                Number(value) as AutoPaintRepeatLimit
+                                            )
+                                        }
+                                        disabled={!enhancedColorMatch}
+                                    >
+                                        <SelectTrigger
+                                            id="repeated-swaps"
+                                            className="h-7 text-xs flex-1"
+                                        >
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="0" className="text-xs">
+                                                Off
+                                            </SelectItem>
+                                            <SelectItem value="2" className="text-xs">
+                                                2 extra swaps
+                                            </SelectItem>
+                                            <SelectItem value="4" className="text-xs">
+                                                4 extra swaps
+                                            </SelectItem>
+                                            <SelectItem value="6" className="text-xs">
+                                                6 extra swaps
+                                            </SelectItem>
+                                            <SelectItem value="8" className="text-xs">
+                                                8 extra swaps
+                                            </SelectItem>
+                                            <SelectItem value="12" className="text-xs">
+                                                12 extra swaps
+                                            </SelectItem>
+                                        </SelectContent>
+                                    </Select>
                                 </div>
-                            )}
+                                <div
+                                    className={`flex items-center justify-between transition-opacity ${enhancedColorMatch ? 'opacity-100' : 'opacity-40 pointer-events-none'}`}
+                                >
+                                    <Label
+                                        htmlFor="preserve-separation"
+                                        className="text-xs font-medium text-foreground cursor-pointer"
+                                    >
+                                        Preserve color separation
+                                    </Label>
+                                    <Switch
+                                        id="preserve-separation"
+                                        data-testid="autopaint-preserve-separation"
+                                        checked={preserveSeparation}
+                                        onCheckedChange={setPreserveSeparation}
+                                        disabled={!enhancedColorMatch}
+                                    />
+                                </div>
+                                <div
+                                    className={`flex items-center justify-between transition-opacity ${enhancedColorMatch ? 'opacity-100' : 'opacity-40 pointer-events-none'}`}
+                                >
+                                    <Label
+                                        htmlFor="height-dithering"
+                                        className="text-xs font-medium text-foreground cursor-pointer"
+                                    >
+                                        Height dithering
+                                    </Label>
+                                    <Switch
+                                        id="height-dithering"
+                                        data-testid="autopaint-height-dithering"
+                                        checked={heightDithering}
+                                        onCheckedChange={setHeightDithering}
+                                        disabled={!enhancedColorMatch}
+                                    />
+                                </div>
+                                {heightDithering && enhancedColorMatch && (
+                                    <div className="flex items-center gap-2 pl-0.5">
+                                        <label className="text-[11px] text-muted-foreground whitespace-nowrap">
+                                            Line width
+                                        </label>
+                                        <NumberInput
+                                            min={0.1}
+                                            max={2}
+                                            step={0.01}
+                                            value={localDitherLineWidth}
+                                            onChange={(e) => {
+                                                setLocalDitherLineWidth(e.target.value);
+                                            }}
+                                            onBlur={() => {
+                                                let val = parseFloat(localDitherLineWidth);
+                                                if (isNaN(val)) {
+                                                    setLocalDitherLineWidth(
+                                                        ditherLineWidth.toString()
+                                                    );
+                                                    return;
+                                                }
+                                                val = Math.max(0.1, Math.min(2, val));
+                                                setDitherLineWidth(val);
+                                                setLocalDitherLineWidth(val.toString());
+                                            }}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter') {
+                                                    e.currentTarget.blur();
+                                                }
+                                            }}
+                                            className="w-20 h-7 text-xs"
+                                        />
+                                        <span className="text-[10px] text-muted-foreground">
+                                            mm
+                                        </span>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => setDitherLineWidth(0.42)}
+                                            className="h-7 px-1.5 text-[10px] text-muted-foreground hover:text-foreground ml-auto"
+                                            title="Reset to default (0.42mm)"
+                                        >
+                                            Reset
+                                        </Button>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     )}
 
@@ -646,20 +794,14 @@ export default function AutoPaintTab({
                             className={`space-y-3 pt-2 transition-opacity ${enhancedColorMatch ? 'opacity-100' : 'opacity-40 pointer-events-none'}`}
                         >
                             <div className="h-px bg-border/50" />
-                            <div className="space-y-1">
-                                <Label className="text-xs font-semibold text-foreground">
-                                    Optimizer Settings
-                                </Label>
-                                <p className="text-[10px] text-muted-foreground">
-                                    Advanced filament ordering optimization (requires enhanced color
-                                    matching)
-                                </p>
-                            </div>
+                            <Label className="text-xs font-semibold text-foreground">
+                                Optimizer Settings
+                            </Label>
                             <div className="space-y-2">
                                 <div className="flex items-center gap-2">
                                     <Label
                                         htmlFor="optimizer-algorithm"
-                                        className="text-xs text-muted-foreground whitespace-nowrap"
+                                        className="w-28 shrink-0 text-xs text-muted-foreground whitespace-nowrap"
                                     >
                                         Algorithm
                                     </Label>
@@ -675,32 +817,35 @@ export default function AutoPaintTab({
                                             <SelectValue />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value="auto" className="text-xs">
-                                                Auto (smart selection)
-                                            </SelectItem>
-                                            <SelectItem
-                                                value="exhaustive"
-                                                className="text-xs"
-                                                disabled={filaments.length > 8}
-                                            >
-                                                Exhaustive (≤8 filaments)
-                                            </SelectItem>
-                                            <SelectItem
-                                                value="simulated-annealing"
-                                                className="text-xs"
-                                            >
-                                                Simulated Annealing
-                                            </SelectItem>
-                                            <SelectItem value="genetic" className="text-xs">
-                                                Genetic Algorithm
-                                            </SelectItem>
+                                            {OPTIMIZER_TIERS.map((tier) => (
+                                                <SelectItem
+                                                    key={tier.value}
+                                                    value={tier.value}
+                                                    className="text-xs"
+                                                >
+                                                    {tier.label}
+                                                </SelectItem>
+                                            ))}
                                         </SelectContent>
                                     </Select>
                                 </div>
+                                {optimizerAlgorithm === 'exact' && (
+                                    <div
+                                        className={`rounded-md border px-2 py-1.5 text-[10px] sm:ml-[7.5rem] ${
+                                            exactBaseOrderIsLarge
+                                                ? 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300'
+                                                : 'border-border/50 bg-muted/30 text-muted-foreground'
+                                        }`}
+                                    >
+                                        Exact base order will score about{' '}
+                                        {formatBaseOrderCount(exactBaseOrderCount)} base orders
+                                        before repeat refinement.
+                                    </div>
+                                )}
                                 <div className="flex items-center gap-2">
                                     <Label
                                         htmlFor="region-weighting"
-                                        className="text-xs text-muted-foreground whitespace-nowrap"
+                                        className="w-28 shrink-0 text-xs text-muted-foreground whitespace-nowrap"
                                     >
                                         Region priority
                                     </Label>
@@ -730,15 +875,50 @@ export default function AutoPaintTab({
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <Label
+                                        htmlFor="transition-opacity"
+                                        className="w-28 shrink-0 text-xs text-muted-foreground whitespace-nowrap"
+                                    >
+                                        Transition detail
+                                    </Label>
+                                    <Select
+                                        value={transitionOpacity.toString()}
+                                        onValueChange={(value) =>
+                                            setTransitionOpacity(
+                                                Number(value) as AutoPaintTransitionOpacity
+                                            )
+                                        }
+                                        disabled={!enhancedColorMatch}
+                                    >
+                                        <SelectTrigger
+                                            id="transition-opacity"
+                                            className="h-7 text-xs flex-1"
+                                        >
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="0.8" className="text-xs">
+                                                Compact (80% opacity)
+                                            </SelectItem>
+                                            <SelectItem value="0.9" className="text-xs">
+                                                Detailed (90% opacity)
+                                            </SelectItem>
+                                            <SelectItem value="0.95" className="text-xs">
+                                                Maximum (95% opacity)
+                                            </SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <Label
                                         htmlFor="optimizer-seed"
-                                        className="text-xs text-muted-foreground whitespace-nowrap"
+                                        className="w-28 shrink-0 text-xs text-muted-foreground whitespace-nowrap"
                                     >
                                         Seed (optional)
                                     </Label>
                                     <Input
                                         id="optimizer-seed"
                                         type="text"
-                                        placeholder="Random"
+                                        placeholder="Automatic"
                                         value={localOptimizerSeed}
                                         onChange={(e) => setLocalOptimizerSeed(e.target.value)}
                                         onBlur={() => {
@@ -777,7 +957,6 @@ export default function AutoPaintTab({
                             <div className="h-px bg-border/50 my-4" />
                             <div className="space-y-2">
                                 <div className="flex items-center gap-2">
-                                    <Sparkles className="w-4 h-4 text-amber-500" />
                                     <span className="text-xs font-semibold text-foreground">
                                         Transition Zones
                                     </span>
@@ -796,7 +975,33 @@ export default function AutoPaintTab({
                                         )}
                                     </div>
                                 </div>
-                                <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+
+                                {/* Proportional stack bar: left = build plate, right = top */}
+                                <div className="space-y-1">
+                                    <div className="flex h-4 w-full overflow-hidden rounded-md border border-border/60">
+                                        {autoPaintResult.transitionZones.map(
+                                            (zone: TransitionZone, idx: number) => (
+                                                <div
+                                                    key={`bar-${idx}`}
+                                                    className="h-full"
+                                                    style={{
+                                                        width: `${(zone.actualThickness / autoPaintResult.totalHeight) * 100}%`,
+                                                        backgroundColor: zone.filamentColor,
+                                                    }}
+                                                    title={`${zone.filamentColor} · ${zone.startHeight.toFixed(2)}–${zone.endHeight.toFixed(2)} mm · Δ${zone.actualThickness.toFixed(2)} mm`}
+                                                />
+                                            )
+                                        )}
+                                    </div>
+                                    <div className="flex justify-between text-[9px] text-muted-foreground/70">
+                                        <span>0 mm (plate)</span>
+                                        <span>
+                                            {autoPaintResult.totalHeight.toFixed(2)} mm (top)
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-1 max-h-48 overflow-y-auto pr-1">
                                     {autoPaintResult.transitionZones.map(
                                         (zone: TransitionZone, idx: number) => {
                                             const isCompressed =
@@ -806,46 +1011,38 @@ export default function AutoPaintTab({
                                             return (
                                                 <div
                                                     key={`zone-${idx}`}
-                                                    className={`flex items-center gap-2 p-2 rounded-md border ${
+                                                    className={`flex items-center gap-2 px-2 py-1 rounded-md border ${
                                                         isCompressed
                                                             ? 'bg-amber-500/5 border-amber-500/30'
                                                             : 'bg-muted/30 border-border/30'
                                                     }`}
+                                                    title={
+                                                        isCompressed
+                                                            ? `Compressed to fit Max Height — ideal thickness ${zone.idealThickness.toFixed(2)} mm`
+                                                            : undefined
+                                                    }
                                                 >
                                                     <span
-                                                        className="w-5 h-5 rounded-full border border-border flex-shrink-0 shadow-sm"
+                                                        className="w-3.5 h-3.5 rounded-full border border-border flex-shrink-0 shadow-sm"
                                                         style={{
                                                             backgroundColor: zone.filamentColor,
                                                         }}
                                                     />
-                                                    <div className="flex-1 min-w-0">
-                                                        <div className="flex items-center gap-1.5">
-                                                            <span className="text-[10px] font-mono text-foreground">
-                                                                {zone.filamentColor}
-                                                            </span>
-                                                            {isCompressed && (
-                                                                <span className="text-[9px] px-1 py-0.5 rounded bg-amber-500/20 text-amber-600 font-medium">
-                                                                    compressed
-                                                                </span>
-                                                            )}
-                                                        </div>
-                                                        <div className="text-[9px] text-muted-foreground">
-                                                            {zone.startHeight.toFixed(2)}mm →{' '}
-                                                            {zone.endHeight.toFixed(2)}mm
-                                                            <span className="ml-1 text-primary font-medium">
-                                                                (Δ
-                                                                {zone.actualThickness.toFixed(2)}
-                                                                mm)
-                                                            </span>
-                                                            {isCompressed && (
-                                                                <span className="ml-1 text-amber-600/70">
-                                                                    ideal:{' '}
-                                                                    {zone.idealThickness.toFixed(2)}
-                                                                    mm
-                                                                </span>
-                                                            )}
-                                                        </div>
-                                                    </div>
+                                                    <span className="text-[10px] font-mono text-foreground">
+                                                        {zone.filamentColor}
+                                                    </span>
+                                                    {isCompressed && (
+                                                        <span className="text-[9px] px-1 py-0.5 rounded bg-amber-500/20 text-amber-600 font-medium">
+                                                            compressed
+                                                        </span>
+                                                    )}
+                                                    <span className="ml-auto text-[10px] text-muted-foreground tabular-nums">
+                                                        {zone.startHeight.toFixed(2)} →{' '}
+                                                        {zone.endHeight.toFixed(2)} mm
+                                                    </span>
+                                                    <span className="text-[10px] text-primary font-medium tabular-nums w-14 text-right">
+                                                        Δ{zone.actualThickness.toFixed(2)}
+                                                    </span>
                                                 </div>
                                             );
                                         }
@@ -873,12 +1070,7 @@ export default function AutoPaintTab({
                     {autoPaintResult && (
                         <div className="mt-4 p-3 rounded-md border border-border/50 bg-muted/30 space-y-2">
                             <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                    <BadgeCheck
-                                        className={`w-4 h-4 ${getConfidenceColor(autoPaintResult.confidence)}`}
-                                    />
-                                    <span className="text-xs font-semibold">Result Confidence</span>
-                                </div>
+                                <span className="text-xs font-semibold">Result Confidence</span>
                                 <span
                                     className={`text-sm font-bold ${getConfidenceColor(autoPaintResult.confidence)}`}
                                 >
@@ -886,46 +1078,33 @@ export default function AutoPaintTab({
                                     {(autoPaintResult.confidence * 100).toFixed(0)}%)
                                 </span>
                             </div>
+                            <div className={getConfidenceColor(autoPaintResult.confidence)}>
+                                <div className="h-1 rounded-full bg-muted overflow-hidden">
+                                    <div
+                                        className="h-full rounded-full bg-current"
+                                        style={{
+                                            width: `${Math.max(4, Math.min(100, Math.round(autoPaintResult.confidence * 100)))}%`,
+                                        }}
+                                    />
+                                </div>
+                            </div>
                             <div className="grid grid-cols-3 gap-2 text-[10px]">
-                                <div className="text-center p-2 rounded bg-background">
-                                    <div className="text-muted-foreground mb-1">Calibration</div>
-                                    <div
-                                        className={`font-semibold ${getConfidenceColor(autoPaintResult.confidenceFactors.calibrationQuality)}`}
-                                    >
-                                        {(
-                                            autoPaintResult.confidenceFactors.calibrationQuality *
-                                            100
-                                        ).toFixed(0)}
-                                        %
-                                    </div>
-                                </div>
-                                <div className="text-center p-2 rounded bg-background">
-                                    <div className="text-muted-foreground mb-1">Coverage</div>
-                                    <div
-                                        className={`font-semibold ${getConfidenceColor(autoPaintResult.confidenceFactors.filamentCoverage)}`}
-                                    >
-                                        {(
-                                            autoPaintResult.confidenceFactors.filamentCoverage * 100
-                                        ).toFixed(0)}
-                                        %
-                                    </div>
-                                </div>
-                                <div className="text-center p-2 rounded bg-background">
-                                    <div className="text-muted-foreground mb-1">Compression</div>
-                                    <div
-                                        className={`font-semibold ${getConfidenceColor(autoPaintResult.confidenceFactors.compressionImpact)}`}
-                                    >
-                                        {(
-                                            autoPaintResult.confidenceFactors.compressionImpact *
-                                            100
-                                        ).toFixed(0)}
-                                        %
-                                    </div>
-                                </div>
+                                <ConfidenceStat
+                                    label="Calibration"
+                                    value={autoPaintResult.confidenceFactors.calibrationQuality}
+                                />
+                                <ConfidenceStat
+                                    label="Coverage"
+                                    value={autoPaintResult.confidenceFactors.filamentCoverage}
+                                />
+                                <ConfidenceStat
+                                    label="Compression"
+                                    value={autoPaintResult.confidenceFactors.compressionImpact}
+                                />
                             </div>
                             {autoPaintResult.confidence < 0.7 && (
                                 <p className="text-[10px] text-amber-600 dark:text-amber-400">
-                                    💡 Tip: Calibrate your filaments for better accuracy
+                                    Tip: calibrate your filaments for better accuracy.
                                 </p>
                             )}
                             {/* Optimizer Metadata */}
@@ -933,9 +1112,20 @@ export default function AutoPaintTab({
                                 <div className="space-y-1.5 pt-2">
                                     <div className="h-px bg-border/50" />
                                     <div className="flex items-center gap-1.5">
-                                        <Sparkles className="w-3.5 h-3.5 text-blue-500" />
                                         <span className="text-xs font-semibold text-foreground">
                                             Optimizer Performance
+                                        </span>
+                                        <span className="ml-auto flex items-center gap-1.5 text-[9px] text-muted-foreground">
+                                            {autoPaintResult.optimizerMetadata.cacheHit && (
+                                                <span className="px-1.5 py-0.5 rounded border border-border/60 bg-background/50">
+                                                    Cache hit
+                                                </span>
+                                            )}
+                                            {autoPaintResult.optimizerMetadata.converged && (
+                                                <span className="px-1.5 py-0.5 rounded border border-border/60 bg-background/50">
+                                                    Converged
+                                                </span>
+                                            )}
                                         </span>
                                     </div>
                                     <div className="grid grid-cols-3 gap-2 text-[10px]">
@@ -967,20 +1157,6 @@ export default function AutoPaintTab({
                                             </div>
                                         </div>
                                     </div>
-                                    <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
-                                        {autoPaintResult.optimizerMetadata.cacheHit && (
-                                            <span className="inline-flex items-center gap-1">
-                                                <span className="inline-block w-2 h-2 rounded-full bg-green-500" />
-                                                Cache hit
-                                            </span>
-                                        )}
-                                        {autoPaintResult.optimizerMetadata.converged && (
-                                            <span className="inline-flex items-center gap-1">
-                                                <span className="inline-block w-2 h-2 rounded-full bg-blue-500" />
-                                                Converged
-                                            </span>
-                                        )}
-                                    </div>
                                 </div>
                             )}
                         </div>
@@ -996,19 +1172,21 @@ export default function AutoPaintTab({
                                 disabled={isNextBestComputing}
                                 onClick={() => requestNextBestSuggestion(filaments, imageSwatches)}
                             >
-                                {isNextBestComputing ? (
+                                {isNextBestComputing && (
                                     <Loader2 className="w-3 h-3 mr-1.5 animate-spin" />
-                                ) : (
-                                    <Sparkles className="w-3 h-3 mr-1.5" />
                                 )}
-                                {isNextBestComputing ? 'Finding suggestion...' : 'Suggest next filament'}
+                                {isNextBestComputing
+                                    ? 'Finding suggestion...'
+                                    : 'Suggest next filament'}
                             </Button>
                             {nextBestResult?.candidate && (
                                 <div className="p-2.5 rounded-md border border-border/50 bg-muted/30 space-y-1.5">
                                     <div className="flex items-center gap-2">
                                         <span
                                             className="w-5 h-5 rounded border border-border/50 flex-shrink-0"
-                                            style={{ backgroundColor: nextBestResult.candidate.hex }}
+                                            style={{
+                                                backgroundColor: nextBestResult.candidate.hex,
+                                            }}
                                         />
                                         <span className="text-xs font-mono font-semibold flex-1">
                                             {nextBestResult.candidate.hex.toUpperCase()}
@@ -1019,13 +1197,15 @@ export default function AutoPaintTab({
                                         >
                                             Est. ΔE{' '}
                                             <span className="text-sm font-bold text-green-600 dark:text-green-400">
-                                                +{nextBestResult.candidate.improvementPct.toFixed(1)}%
+                                                +
+                                                {nextBestResult.candidate.improvementPct.toFixed(1)}
+                                                %
                                             </span>
                                         </span>
                                     </div>
                                     <div className="grid grid-cols-3 gap-1.5 text-[10px] text-muted-foreground">
-                                        <span title="Recommended starting transmittance-distance value, borrowed from the nearest existing filament by color distance (ΔE).">
-                                            TD:{' '}
+                                        <span title="Recommended starting hiding distance (mm), borrowed from the nearest existing filament by color distance (ΔE).">
+                                            HD:{' '}
                                             <span className="font-semibold text-foreground">
                                                 {nextBestResult.candidate.td.toFixed(2)}
                                             </span>
@@ -1054,7 +1234,10 @@ export default function AutoPaintTab({
                                         className="w-full h-7 text-xs mt-0.5"
                                         onClick={() => {
                                             suggestionCountRef.current += 1;
-                                            const nn = String(suggestionCountRef.current).padStart(2, '0');
+                                            const nn = String(suggestionCountRef.current).padStart(
+                                                2,
+                                                '0'
+                                            );
                                             addFilamentWithProps({
                                                 color: nextBestResult.candidate!.hex,
                                                 td: nextBestResult.candidate!.td,
@@ -1083,22 +1266,15 @@ export default function AutoPaintTab({
                 </div>
             </Card>
 
-            {/* Calibration Wizard */}
-            {calibratingFilament && (
-                <FilamentCalibrationWizard
-                    key={calibratingFilament.id}
-                    open={calibrationWizardOpen}
-                    onClose={handleCloseCalibrationWizard}
-                    onComplete={handleCalibrationComplete}
-                    filamentColor={calibratingFilament.color}
-                    filamentName={
-                        calibratingFilament.name || calibratingFilament.brand || 'Filament'
-                    }
-                    layerHeight={calibrationLayerHeight}
-                    existingMeasurements={calibratingFilament.calibration?.measurements}
-                    existingWhiteReference={calibratingFilament.calibration?.whiteReference}
-                />
-            )}
+            {/* Calibration Dialog */}
+            <FilamentCalibrationDialog
+                open={calibrationDialogOpen}
+                onClose={handleCloseCalibration}
+                filaments={filaments}
+                layerHeight={calibrationLayerHeight}
+                firstLayerHeight={firstLayerHeight}
+                onApply={handleApplyCalibration}
+            />
         </TabsContent>
     );
 }

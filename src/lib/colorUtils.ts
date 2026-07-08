@@ -2,6 +2,8 @@
  * Shared color utility functions.
  */
 
+import { FRONTLIT_TD_SCALE } from './calibration.ts';
+
 /**
  * Normalize a hex color to canonical `#RRGGBB` uppercase form.
  * Accepts values with or without the leading '#'; anything that is not a
@@ -26,17 +28,19 @@ export function hexLuminance(hex: string): number {
 }
 
 /**
- * Estimate Transmission Distance (TD) from a hex color.
+ * Estimate the frontlit hiding distance (mm) from a hex color.
  *
- * TD is related to how much light passes through the filament:
- * - Darker / more opaque colors usually have lower TD
- * - Lighter / more translucent colors usually have higher TD
- * - Saturation and hue can shift TD slightly around the luminance baseline
+ * Hiding distance is the depth of material at which a filament visually hides
+ * what's beneath it:
+ * - Darker / more opaque colors hide sooner (smaller value)
+ * - Lighter / more translucent colors need more depth (larger value)
+ * - Saturation and hue shift the estimate slightly around the luminance baseline
  *
- * This heuristic is intentionally conservative and should be replaced by
+ * The heuristic shape is the historical backlit-TD estimate rescaled by
+ * FRONTLIT_TD_SCALE; it is intentionally conservative and should be replaced by
  * measured calibration data whenever possible.
  */
-export function estimateTDFromColor(hex: string): number {
+export function estimateHidingDistanceFromColor(hex: string): number {
     const h = hex.replace(/^#/, '');
     const r = parseInt(h.slice(0, 2), 16) / 255;
     const g = parseInt(h.slice(2, 4), 16) / 255;
@@ -100,9 +104,10 @@ export function estimateTDFromColor(hex: string): number {
         estimatedTD = 0.8 + luminance * 2.7; // Range: ~0.8-1.2mm
     }
 
-    // Clamp to realistic range for PLA filaments
+    // Clamp to realistic range for PLA filaments (still on the legacy TD scale)
     estimatedTD = Math.max(0.6, Math.min(8.5, estimatedTD));
 
-    // Round to 1 decimal place
-    return Math.round(estimatedTD * 10) / 10;
+    // Convert the legacy backlit-TD shape to a frontlit hiding distance and
+    // round to 2 decimals (values live in roughly 0.06–0.85 mm).
+    return Math.round(estimatedTD * FRONTLIT_TD_SCALE * 100) / 100;
 }

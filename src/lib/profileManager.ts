@@ -1,4 +1,5 @@
 import type { Filament } from '../types';
+import { FRONTLIT_TD_SCALE, sanitizeFrontlitCalibration } from './calibration.ts';
 import { normalizeHexColor } from './colorUtils.ts';
 
 export interface AutoPaintProfile {
@@ -10,10 +11,109 @@ export interface AutoPaintProfile {
     updatedAt: number;
 }
 
-export const CURRENT_PROFILE_VERSION = 1;
+/**
+ * Profile schema versions:
+ * - v1: uncalibrated `td` stored on the conventional backlit TD scale (~1–6 mm)
+ *   and scaled ×0.1 at simulation time.
+ * - v2: `td` always stores the frontlit hiding distance (mm) directly, for
+ *   calibrated and uncalibrated filaments alike.
+ */
+export const CURRENT_PROFILE_VERSION = 2;
+
+/** Schema version that introduced hiding-distance td storage. The td migration
+ *  applies to profiles below this version only — never re-gate it on
+ *  CURRENT_PROFILE_VERSION, or a future bump would re-scale v2 profiles. */
+const TD_MIGRATION_VERSION = 2;
 
 const PROFILES_STORAGE_KEY = 'kromacut.autopaint.profiles';
 const LAST_PROFILE_KEY = 'kromacut.autopaint.lastProfileId';
+
+function conventionalTdToFrontlit(td: number): number {
+    return Math.round(td * FRONTLIT_TD_SCALE * 1e4) / 1e4;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return !!value && typeof value === 'object';
+}
+
+export function sanitizeProfileFilament(value: unknown): Filament | null {
+    if (!isRecord(value)) return null;
+    if (
+        typeof value.id !== 'string' ||
+        typeof value.color !== 'string' ||
+        typeof value.td !== 'number' ||
+        !Number.isFinite(value.td) ||
+        value.td <= 0
+    ) {
+        return null;
+    }
+
+    const filament: Filament = {
+        id: value.id,
+        color: value.color,
+        td: value.td,
+    };
+    if (typeof value.name === 'string') filament.name = value.name;
+    if (typeof value.brand === 'string') filament.brand = value.brand;
+
+    const calibration = sanitizeFrontlitCalibration(value.calibration);
+    if (calibration) {
+        // Backfill the calibrated color for records saved before the field
+        // existed: on load the current color IS the color it was calibrated for
+        // (no edit has happened yet), so this activates color-mismatch
+        // protection for legacy calibrations without discarding them.
+        filament.calibration =
+            calibration.filamentColor === undefined
+                ? { ...calibration, filamentColor: filament.color }
+                : calibration;
+    }
+    return filament;
+}
+
+/**
+ * Convert a schema-v1 filament to v2 semantics: uncalibrated tds move from the
+ * conventional backlit TD scale to the frontlit hiding distance (×0.1);
+ * calibrated filaments re-sync to their measured scalar. Must run exactly once
+ * per filament, gated by the stored schema version.
+ */
+export function migrateLegacyFilamentTd(filament: Filament): Filament {
+    const calibration = sanitizeFrontlitCalibration(filament.calibration);
+    if (calibration) {
+        return { ...filament, td: calibration.tdSingleValue };
+    }
+    // Round away binary-float noise from the ×0.1 (e.g. 1.1 → 0.11000000000000001);
+    // 4 decimals is far below the optical resolution of any read.
+    return { ...filament, td: conventionalTdToFrontlit(filament.td) };
+}
+
+function sanitizeProfileFilaments(value: unknown[], version: number): Filament[] {
+    const filaments = value
+        .map((filament) => sanitizeProfileFilament(filament))
+        .filter((filament): filament is Filament => filament !== null);
+    return version < TD_MIGRATION_VERSION ? filaments.map(migrateLegacyFilamentTd) : filaments;
+}
+
+function sanitizeProfile(value: unknown): AutoPaintProfile | null {
+    if (!isRecord(value)) return null;
+    if (
+        typeof value.id !== 'string' ||
+        typeof value.name !== 'string' ||
+        !Array.isArray(value.filaments)
+    ) {
+        return null;
+    }
+
+    const version = typeof value.version === 'number' ? value.version : 1;
+    const now = Date.now();
+    return {
+        id: value.id,
+        name: value.name,
+        version: CURRENT_PROFILE_VERSION,
+        filaments: sanitizeProfileFilaments(value.filaments, version),
+        createdAt: typeof value.createdAt === 'number' ? value.createdAt : now,
+        updatedAt: typeof value.updatedAt === 'number' ? value.updatedAt : now,
+    };
+}
 
 export function loadProfiles(): AutoPaintProfile[] {
     try {
@@ -21,10 +121,9 @@ export function loadProfiles(): AutoPaintProfile[] {
         if (!raw) return [];
         const parsed = JSON.parse(raw) as AutoPaintProfile[];
         if (!Array.isArray(parsed)) return [];
-        return parsed.filter(
-            (p) =>
-                typeof p.id === 'string' && typeof p.name === 'string' && Array.isArray(p.filaments)
-        );
+        return parsed
+            .map((profile) => sanitizeProfile(profile))
+            .filter((profile): profile is AutoPaintProfile => profile !== null);
     } catch {
         return [];
     }
@@ -163,16 +262,14 @@ export function importProfiles(
         // Validate required fields
         if (!raw || typeof raw.name !== 'string' || !Array.isArray(raw.filaments)) continue;
 
-        const validFilaments = raw.filaments.filter(
-            (f) =>
-                typeof f.id === 'string' && typeof f.color === 'string' && typeof f.td === 'number'
-        );
+        const rawVersion = typeof raw.version === 'number' ? raw.version : 1;
+        const validFilaments = sanitizeProfileFilaments(raw.filaments, rawVersion);
 
         const now = Date.now();
         const profile: AutoPaintProfile = {
             id: raw.id && typeof raw.id === 'string' ? raw.id : crypto.randomUUID(),
             name: raw.name,
-            version: typeof raw.version === 'number' ? raw.version : CURRENT_PROFILE_VERSION,
+            version: CURRENT_PROFILE_VERSION,
             filaments: validFilaments,
             createdAt: typeof raw.createdAt === 'number' ? raw.createdAt : now,
             updatedAt: now,
@@ -307,7 +404,10 @@ function parseCSV(content: string, delimiter: ',' | '\t'): string[][] {
  * Returns null if the input has no header, no valid data rows, or cannot be
  * parsed.
  */
-export function parseHueForgeCSV(csv: string, profileName = 'HueForge Import'): AutoPaintProfile[] | null {
+export function parseHueForgeCSV(
+    csv: string,
+    profileName = 'HueForge Import'
+): AutoPaintProfile[] | null {
     const firstNewline = csv.indexOf('\n');
     const headerLine = firstNewline >= 0 ? csv.slice(0, firstNewline) : csv;
     const delimiter = detectDelimiter(headerLine);
@@ -318,7 +418,7 @@ export function parseHueForgeCSV(csv: string, profileName = 'HueForge Import'): 
 
     const col = (row: string[], name: string) => {
         const i = headers.indexOf(name);
-        return i >= 0 ? row[i]?.trim() ?? '' : '';
+        return i >= 0 ? (row[i]?.trim() ?? '') : '';
     };
 
     const filaments: import('../types').Filament[] = [];
@@ -326,8 +426,15 @@ export function parseHueForgeCSV(csv: string, profileName = 'HueForge Import'): 
         const colorRaw = col(row, 'Color');
         const color = normalizeHexColor(colorRaw, '');
         const tdRaw = col(row, 'TD');
-        const td = parseFloat(tdRaw);
-        if (!color || isNaN(td) || td < 0.5 || td > 10.0) continue;
+        const conventionalTd = parseFloat(tdRaw);
+        if (
+            !color ||
+            !Number.isFinite(conventionalTd) ||
+            conventionalTd < 0.5 ||
+            conventionalTd > 10.0
+        ) {
+            continue;
+        }
 
         const rawId = col(row, 'Uuid').replace(/[{}]/g, '');
         const id = rawId || crypto.randomUUID();
@@ -335,7 +442,7 @@ export function parseHueForgeCSV(csv: string, profileName = 'HueForge Import'): 
         const brand = col(row, 'Brand') || undefined;
         const name = brand && colorName ? `${brand}-${colorName}-${color}` : colorName || undefined;
 
-        filaments.push({ id, color, td, name, brand });
+        filaments.push({ id, color, td: conventionalTdToFrontlit(conventionalTd), name, brand });
     }
 
     if (filaments.length === 0) return null;

@@ -11,7 +11,7 @@ This guide walks through a typical project from image loading to export.
 
 ## Load Or Import An Image
 
-Use the upload button in the preview toolbar, drag an image into the 2D preview, or click **Load TD Test** in the header for a built-in practice image.
+Use the upload button in the preview toolbar or drag an image into the 2D preview.
 
 After loading, use the mouse wheel to zoom and drag the preview to pan. If the image has transparency, the checkerboard button can make transparent areas easier to see.
 
@@ -55,17 +55,17 @@ Click **3D**. Set the print basics first:
 
 Use **Manual** when you want direct control over the reduced image colors. Manual mode uses the swatches from **Image colors**: drag colors into the print order you want, then use each row slider to decide how much height that color contributes. This is a good first choice when you already know the layer order you want or you are matching a small, simple palette.
 
-Use **Auto-paint** when you want Kromacut to plan the physical filament stack for you. Auto-paint starts from your real filaments instead of the reduced image swatches, then uses each filament's color and **Transmission Distance (TD)** to estimate how stacked layers will look.
+Use **Auto-paint** when you want Kromacut to plan the physical filament stack for you. Auto-paint starts from your real filaments instead of the reduced image swatches, then uses each filament's color and **Hiding Distance (HD)** — the depth at which it hides what's beneath — to estimate how stacked layers will look.
 
 For a first Auto-paint run:
 
 1. Add the filaments you actually plan to print with.
 2. Set each filament color as accurately as you can.
-3. Set each filament's **TD**. The wand estimate is fine for experimenting, but calibrated TD values usually give better results.
+3. Set each filament's **HD**. The wand estimate is fine for experimenting, and you can convert a conventional TD value (≈10× the HD); calibrated hiding distances usually give the best results.
 4. Leave **Max Height** on **Auto** at first.
 5. Enable **Enhanced color matching** if the first result misses important colors or you want the optimizer to search for a better filament order.
 
-After Auto-paint computes a stack, check the transition zones and confidence details before exporting. Low confidence usually means the filament set is missing a useful color, the TD values need calibration, or the max height is too restrictive.
+After Auto-paint computes a stack, check the transition zones and confidence details before exporting. Low confidence usually means the filament set is missing a useful color, the hiding distances need calibration, or the max height is too restrictive.
 
 ## Generate And Export
 

@@ -12,31 +12,52 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { AutoPaintResult } from '../lib/autoPaint';
-import type { Filament } from '../types';
-import type { AutoPaintWorkerRequest, AutoPaintWorkerResponse } from '../workers/autoPaint.worker';
+import type {
+    AutoPaintRepeatLimit,
+    AutoPaintTransitionOpacity,
+    Filament,
+    Swatch,
+} from '../types';
+import type {
+    AutoPaintWorkerProgress,
+    AutoPaintWorkerRequest,
+    AutoPaintWorkerResponse,
+} from '../workers/autoPaint.worker';
 
 export interface UseAutoPaintWorkerOptions {
     paintMode: 'manual' | 'autopaint';
     filaments: Filament[];
-    filtered: Array<{ hex: string; a: number } & Record<string, unknown>>;
+    filtered: Swatch[];
     layerHeight: number;
     slicerFirstLayerHeight: number;
     autoPaintMaxHeight?: number;
     enhancedColorMatch: boolean;
-    allowRepeatedSwaps: boolean;
-    optimizerAlgorithm: 'exhaustive' | 'simulated-annealing' | 'genetic' | 'auto';
+    preserveSeparation: boolean;
+    maxRepeatedSwaps: AutoPaintRepeatLimit;
+    transitionOpacity: AutoPaintTransitionOpacity;
+    optimizerAlgorithm: 'fast' | 'balanced' | 'thorough' | 'deep' | 'exact';
     optimizerSeed?: number;
     regionWeightingMode: 'uniform' | 'center' | 'edge';
-    imageDimensions?: { width: number; height: number } | null;
 }
 
 export interface UseAutoPaintWorkerResult {
     autoPaintResult: AutoPaintResult | undefined;
     isComputing: boolean;
+    progress: number;
     error?: string;
 }
 
 let nextRequestId = 1;
+
+export function isCurrentAutoPaintWorkerResponse(responseId: number, activeRequestId: number): boolean {
+    return responseId === activeRequestId;
+}
+
+function isAutoPaintWorkerProgress(
+    response: AutoPaintWorkerResponse
+): response is AutoPaintWorkerProgress {
+    return 'type' in response && response.type === 'progress';
+}
 
 function useStableValueByKey<T>(value: T, key: string): T {
     const stableRef = useRef<{ key: string; value: T } | null>(null);
@@ -55,15 +76,17 @@ export function useAutoPaintWorker(opts: UseAutoPaintWorkerOptions): UseAutoPain
         slicerFirstLayerHeight,
         autoPaintMaxHeight,
         enhancedColorMatch,
-        allowRepeatedSwaps,
+        preserveSeparation,
+        maxRepeatedSwaps,
+        transitionOpacity,
         optimizerAlgorithm,
         optimizerSeed,
         regionWeightingMode,
-        imageDimensions,
     } = opts;
 
     const [autoPaintResult, setAutoPaintResult] = useState<AutoPaintResult | undefined>(undefined);
     const [isComputing, setIsComputing] = useState(false);
+    const [progress, setProgress] = useState(0);
     const [error, setError] = useState<string | undefined>(undefined);
 
     const workerRef = useRef<Worker | null>(null);
@@ -88,6 +111,7 @@ export function useAutoPaintWorker(opts: UseAutoPaintWorkerOptions): UseAutoPain
 
             activeRequestIdRef.current = 0;
             setIsComputing(false);
+            setProgress(nextError ? 0 : 1);
             setError(nextError);
 
             if (nextError) {
@@ -107,17 +131,39 @@ export function useAutoPaintWorker(opts: UseAutoPaintWorkerOptions): UseAutoPain
             .join(';');
     }, [filaments]);
 
+    const selectedImageSwatches = useMemo(() => {
+        const rawSwatches = filtered.map((swatch) => ({
+            hex: swatch.hex,
+            rawCount: swatch.count ?? 1,
+            weightedCount:
+                regionWeightingMode === 'center'
+                    ? swatch.centerWeight
+                    : regionWeightingMode === 'edge'
+                      ? swatch.edgeWeight
+                      : undefined,
+        }));
+        const totalWeight = rawSwatches.reduce(
+            (total, swatch) => total + (swatch.weightedCount ?? 0),
+            0
+        );
+
+        return rawSwatches.map((swatch) => ({
+            hex: swatch.hex,
+            count:
+                regionWeightingMode !== 'uniform' && totalWeight > 0
+                    ? swatch.weightedCount ?? 0
+                    : swatch.rawCount,
+        }));
+    }, [filtered, regionWeightingMode]);
+
     const filteredKey = useMemo(() => {
-        return filtered.map((s) => `${s.hex}:${(s.count as number | undefined) ?? 0}`).join(';');
-    }, [filtered]);
+        return selectedImageSwatches.map((s) => `${s.hex}:${s.count}`).join(';');
+    }, [selectedImageSwatches]);
 
     // Keep stable references when only array identity changes but content does not.
     const stableFilaments = useStableValueByKey(filaments, filamentsKey);
     const stableImageSwatches = useStableValueByKey(
-        filtered.map((s) => ({
-            hex: s.hex,
-            count: s.count as number | undefined,
-        })),
+        selectedImageSwatches,
         filteredKey
     );
 
@@ -130,7 +176,12 @@ export function useAutoPaintWorker(opts: UseAutoPaintWorkerOptions): UseAutoPain
 
             workerRef.current.onmessage = (e: MessageEvent<AutoPaintWorkerResponse>) => {
                 const resp = e.data;
-                if (resp.id !== activeRequestIdRef.current) return;
+                if (!isCurrentAutoPaintWorkerResponse(resp.id, activeRequestIdRef.current)) return;
+
+                if (isAutoPaintWorkerProgress(resp)) {
+                    setProgress((current) => Math.max(current, resp.progress));
+                    return;
+                }
 
                 if (resp.error) {
                     finishRequest(resp.id, resp.error);
@@ -170,6 +221,7 @@ export function useAutoPaintWorker(opts: UseAutoPaintWorkerOptions): UseAutoPain
             cancelWorker();
             setAutoPaintResult(undefined);
             setIsComputing(false);
+            setProgress(0);
             setError(undefined);
             return;
         }
@@ -181,16 +233,12 @@ export function useAutoPaintWorker(opts: UseAutoPaintWorkerOptions): UseAutoPain
         activeRequestIdRef.current = id;
         setAutoPaintResult(undefined);
         setIsComputing(true);
+        setProgress(0);
         setError(undefined);
 
         debounceTimerRef.current = setTimeout(() => {
             try {
                 const worker = getWorker();
-                const algorithm =
-                    optimizerAlgorithm === 'exhaustive' && stableFilaments.length > 8
-                        ? 'auto'
-                        : optimizerAlgorithm;
-
                 const request: AutoPaintWorkerRequest = {
                     id,
                     filaments: stableFilaments,
@@ -199,13 +247,14 @@ export function useAutoPaintWorker(opts: UseAutoPaintWorkerOptions): UseAutoPain
                     firstLayerHeight: slicerFirstLayerHeight,
                     maxHeight: autoPaintMaxHeight,
                     enhancedColorMatch,
-                    allowRepeatedSwaps,
+                    maxRepeatedSwaps,
                     optimizerOptions: {
-                        algorithm,
+                        algorithm: optimizerAlgorithm,
+                        maxExtraRepeats: maxRepeatedSwaps,
+                        transitionOpacity,
+                        preserveSeparation,
                         ...(optimizerSeed !== undefined && { seed: optimizerSeed }),
                     },
-                    regionWeightingMode,
-                    imageDimensions: imageDimensions ?? undefined,
                 };
 
                 worker.postMessage(request);
@@ -234,11 +283,12 @@ export function useAutoPaintWorker(opts: UseAutoPaintWorkerOptions): UseAutoPain
         slicerFirstLayerHeight,
         autoPaintMaxHeight,
         enhancedColorMatch,
-        allowRepeatedSwaps,
+        preserveSeparation,
+        maxRepeatedSwaps,
+        transitionOpacity,
         optimizerAlgorithm,
         optimizerSeed,
         regionWeightingMode,
-        imageDimensions,
         getWorker,
         stableFilaments,
         stableImageSwatches,
@@ -247,5 +297,5 @@ export function useAutoPaintWorker(opts: UseAutoPaintWorkerOptions): UseAutoPain
         finishRequest,
     ]);
 
-    return { autoPaintResult, isComputing, error };
+    return { autoPaintResult, isComputing, progress, error };
 }

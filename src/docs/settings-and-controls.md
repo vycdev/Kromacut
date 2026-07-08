@@ -11,14 +11,13 @@ This page collects controls that affect the whole app or are easy to miss.
 
 ## Header Controls
 
-| Control      | What it does                                              |
-| ------------ | --------------------------------------------------------- |
-| Load TD Test | Loads the bundled TD test image into the current project. |
-| Docs         | Opens this documentation page.                            |
-| Discord      | Opens the community link.                                 |
-| GitHub       | Opens the project page.                                   |
-| Support me   | Opens the support link.                                   |
-| Settings     | Opens the settings dialog, including theme and desktop update controls. |
+| Control    | What it does                                                            |
+| ---------- | ----------------------------------------------------------------------- |
+| Docs       | Opens this documentation page.                                          |
+| Discord    | Opens the community link.                                               |
+| GitHub     | Opens the project page.                                                 |
+| Support me | Opens the support link.                                                 |
+| Settings   | Opens the settings dialog, including theme and desktop update controls. |
 
 The theme selector offers **System**, **Dark**, and **Light**. **System** follows the operating system or browser color-scheme preference and updates when that preference changes. The theme choice is saved for later sessions.
 
@@ -45,6 +44,7 @@ Auto-paint settings are preserved across sessions, including:
 - Filaments.
 - Paint mode.
 - Enhanced color matching.
+- Preserve color separation.
 - Repeated swaps.
 - Height dithering and line width.
 - Flat Paint.
@@ -61,18 +61,18 @@ Use custom palettes when you want the reduced image to match a known filament se
 
 ## Filament Profile Files
 
-Auto-paint filament profiles are named sets of filaments that can be saved, loaded, imported, and exported. They store filament colors, names, TD values, and any calibration data you have measured.
+Auto-paint filament profiles are named sets of filaments that can be saved, loaded, imported, and exported. They use `.kfil` and store filament colors, names, hiding distance values, and calibration data when available. Older `.kapp` profile files can still be imported. Profiles saved by older versions stored uncalibrated values on the conventional TD scale; they are converted automatically (×0.1) when loaded or imported.
 
 Use the **upload icon** in the Auto-paint profile toolbar to import a file. Use the **download icon** to export the current filament set. Exported files default to `.kfil`.
 
 ### Supported import formats
 
-| Format | Extension | Notes |
-| ------ | --------- | ----- |
-| Kromacut profile | `.kfil` | Native format. Supports single profiles and arrays of profiles in one file. |
-| Legacy Kromacut profile | `.kapp` | Older native format, still fully supported on import. |
-| Raw JSON | `.json` | Accepted if the file contains a profile object or an array of profile objects. |
-| HueForge spool CSV/TSV | `.csv`, `.tsv` | See below. |
+| Format                  | Extension      | Notes                                                                          |
+| ----------------------- | -------------- | ------------------------------------------------------------------------------ |
+| Kromacut profile        | `.kfil`        | Native format. Supports single profiles and arrays of profiles in one file.    |
+| Legacy Kromacut profile | `.kapp`        | Older native format, still fully supported on import.                          |
+| Raw JSON                | `.json`        | Accepted if the file contains a profile object or an array of profile objects. |
+| HueForge spool CSV/TSV  | `.csv`, `.tsv` | See below.                                                                     |
 
 ### Duplicate handling
 
@@ -80,13 +80,13 @@ When importing, Kromacut checks each incoming profile against what you already h
 
 - **Same ID** — overwrites the existing profile with the incoming one.
 - **Same filaments, different ID** — skipped as a duplicate.
-- **Same name, different content** — imported with a numeric suffix added to the name (e.g. `My Spools 2`).
+- **Same name, different content** — imported with a numeric suffix added to the name (e.g. `My Spools (2)`).
 
 A short summary of how many profiles were imported, overwritten, skipped, or renamed is shown after each import.
 
 ### Importing from HueForge
 
-HueForge spool library exports (`.csv` or `.tsv`) can be imported directly. Use **Export Spools** in HueForge to save a CSV, then click the upload icon in the Auto-paint filament profile toolbar and select the file. The delimiter (comma or tab) is detected automatically from the header row. Each spool becomes a filament entry named `<Brand>-<Color Name>-<Hex>`, for example `Inland Basic-Light Brown-#bf9c81`. HueForge UUIDs are preserved as filament IDs so re-importing the same library does not create duplicates.
+HueForge spool library exports (`.csv` or `.tsv`) can be imported directly. Use **Export Spools** in HueForge to save a CSV, then click the upload icon in the Auto-paint filament profile toolbar and select the file. The delimiter (comma or tab) is detected automatically from the header row. Each spool becomes a filament entry named `<Brand>-<Color Name>-<Hex>`, for example `Inland Basic-Light Brown-#BF9C81`. HueForge UUIDs are preserved as filament IDs so re-importing the same library does not create duplicates. HueForge TD values are treated as conventional backlit/lithophane TD inputs and converted to frontlit hiding distances during import.
 
 ## Desktop Update Notices
 
