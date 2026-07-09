@@ -1,4 +1,4 @@
-import { Card } from '@/components/ui/card';
+import { CollapsibleCard, DirtyDot } from '@/components/CollapsibleCard';
 import type { SwapEntry } from '../hooks/useSwapPlan';
 
 interface PrintInstructionsProps {
@@ -24,14 +24,16 @@ export default function PrintInstructions({
     flatPaint = false,
 }: PrintInstructionsProps) {
     return (
-        <Card className="p-4 border border-border/50 mt-6">
-            <div className="flex justify-between items-start mb-4">
-                <div>
-                    <h4 className="font-semibold text-foreground">Print Instructions</h4>
-                    <p className="text-xs text-muted-foreground mt-1">
-                        Generated swap plan for your printer
-                    </p>
-                </div>
+        <CollapsibleCard
+            id="print-instructions"
+            title="Print Instructions"
+            subtitle="Generated swap plan for your printer"
+            headingLevel={4}
+            className="mt-6"
+            collapsedSummary={
+                tooManyColors ? <DirtyDot title="Too many colors for a swap plan" /> : undefined
+            }
+            actions={
                 <button
                     type="button"
                     onClick={onCopy}
@@ -46,10 +48,8 @@ export default function PrintInstructions({
                 >
                     {copied ? '✓ Copied!' : 'Copy'}
                 </button>
-            </div>
-
-            <div className="h-px bg-border/50 mb-4" />
-
+            }
+        >
             <div className="space-y-4 text-sm">
                 {/* Recommended Settings */}
                 <div className="p-3 rounded-lg bg-primary/5 border border-primary/20">
@@ -200,6 +200,6 @@ export default function PrintInstructions({
                     </span>
                 </div>
             </div>
-        </Card>
+        </CollapsibleCard>
     );
 }

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { NumberInput } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card } from '@/components/ui/card';
+import { CollapsibleCard, DirtyDot } from '@/components/CollapsibleCard';
 import { Check, Loader, RotateCcw } from 'lucide-react';
 import {
     Select,
@@ -86,31 +86,36 @@ export const ControlsPanel: React.FC<Props> = ({
         selectedPalette === 'auto';
 
     return (
-        <Card className="p-4 border border-border/50 space-y-4">
-            <div>
-                <div className="flex items-start justify-between gap-2">
-                    <div className="space-y-1">
-                        <h3 className="text-sm font-semibold text-foreground">
-                            Quantization Settings
-                        </h3>
-                        <p className="text-xs text-muted-foreground">
-                            Configure palette and reduce colors
-                        </p>
-                    </div>
-                    {onReset && (
-                        <button
-                            type="button"
-                            onClick={onReset}
-                            disabled={allDefault}
-                            title="Reset quantization settings to default"
-                            aria-label="Reset quantization settings"
-                            className="h-7 w-7 flex-shrink-0 flex items-center justify-center rounded-md text-muted-foreground hover:text-amber-600 hover:bg-amber-600/15 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-muted-foreground select-none cursor-pointer"
-                        >
-                            <RotateCcw className="w-4 h-4" />
-                        </button>
-                    )}
-                </div>
-                <div className="h-px bg-border/50 my-4" />
+        <CollapsibleCard
+            id="quantization"
+            title="Quantization Settings"
+            subtitle="Configure palette and reduce colors"
+                collapsedSummary={
+                    applying ? (
+                        <Loader
+                            className="w-4 h-4 animate-spin text-muted-foreground"
+                            aria-label="Applying quantization"
+                        />
+                    ) : !allDefault ? (
+                        <DirtyDot title="Quantization settings modified" />
+                    ) : undefined
+                }
+            actions={
+                onReset && (
+                    <button
+                        type="button"
+                        onClick={onReset}
+                        disabled={allDefault}
+                        title="Reset quantization settings to default"
+                        aria-label="Reset quantization settings"
+                        className="h-7 w-7 flex-shrink-0 flex items-center justify-center rounded-md text-muted-foreground hover:text-amber-600 hover:bg-amber-600/15 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-muted-foreground select-none cursor-pointer"
+                    >
+                        <RotateCcw className="w-4 h-4" />
+                    </button>
+                )
+            }
+        >
+            <div className="space-y-4">
                 <div className="space-y-4">
                     <div className="space-y-2">
                         <Label htmlFor="palette-select" className="font-medium">
@@ -282,21 +287,21 @@ export const ControlsPanel: React.FC<Props> = ({
                         </Select>
                     </div>
                 </div>
+                <Button
+                    onClick={onApply}
+                    data-testid="quantize-apply"
+                    disabled={disabled || applying}
+                    className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold disabled:bg-green-600/50 disabled:cursor-not-allowed transition-all duration-200 shadow-md hover:shadow-lg active:scale-95 gap-1.5"
+                >
+                    {applying ? (
+                        <Loader className="w-4 h-4 animate-spin" />
+                    ) : (
+                        <Check className="w-4 h-4" />
+                    )}
+                    <span>{applying ? 'Applying...' : 'Apply'}</span>
+                </Button>
             </div>
-            <Button
-                onClick={onApply}
-                data-testid="quantize-apply"
-                disabled={disabled || applying}
-                className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold disabled:bg-green-600/50 disabled:cursor-not-allowed transition-all duration-200 shadow-md hover:shadow-lg active:scale-95 gap-1.5"
-            >
-                {applying ? (
-                    <Loader className="w-4 h-4 animate-spin" />
-                ) : (
-                    <Check className="w-4 h-4" />
-                )}
-                <span>{applying ? 'Applying...' : 'Apply'}</span>
-            </Button>
-        </Card>
+        </CollapsibleCard>
     );
 };
 

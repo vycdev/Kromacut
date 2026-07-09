@@ -1,5 +1,5 @@
 import React from 'react';
-import { Card } from '@/components/ui/card';
+import { CollapsibleCard, DirtyDot } from '@/components/CollapsibleCard';
 import { NumberInput, Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import {
@@ -286,12 +286,24 @@ export default function AutoPaintTab({
 
     return (
         <TabsContent value="autopaint" forceMount className="data-[state=inactive]:hidden">
-            <Card className="p-4 border border-border/50">
-                <div className="space-y-1">
-                    <h3 className="text-sm font-semibold text-foreground">Auto-paint</h3>
-                </div>
-                <div className="h-px bg-border/50 my-4" />
-
+            <CollapsibleCard
+                id="autopaint"
+                title="Auto-paint"
+                collapsedSummary={
+                    <>
+                        {isComputing && (
+                            <Loader2
+                                className="w-4 h-4 animate-spin text-muted-foreground"
+                                aria-label="Computing auto-paint layers"
+                            />
+                        )}
+                        {error && !isComputing && <DirtyDot title={`Auto-paint error: ${error}`} />}
+                        {activeProfileId && isDirty && (
+                            <DirtyDot title="Filament profile has unsaved changes" />
+                        )}
+                    </>
+                }
+            >
                 {/* Profiles Section */}
                 <div className="space-y-2 mb-4">
                     <div className="flex items-center gap-2">
@@ -1264,7 +1276,7 @@ export default function AutoPaintTab({
                         </div>
                     )}
                 </div>
-            </Card>
+            </CollapsibleCard>
 
             {/* Calibration Dialog */}
             <FilamentCalibrationDialog

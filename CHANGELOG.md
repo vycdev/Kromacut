@@ -11,6 +11,7 @@ All notable changes to Kromacut are documented in this file.
 - **Auto-paint optimization progress** - Enhanced matching now reports approximate search progress while the background optimizer runs.
 - **Auto-paint test and benchmark coverage** - Added deterministic stack goldens, layer-invariant regression coverage, realized CIEDE2000 quality-budget tests, and an on-demand benchmark for fixture profiles using the same printable-stack mapper as the optimizer.
 - **Filament profile import fixture** - Added a schema-v2 frontlit-calibrated 8-color `.kfil` fixture with import coverage to guard against accidental hiding-distance rescaling.
+- **Collapsible control groups** - Every settings card in 2D and 3D mode (Adjustments, Resize Image, Dedither, Quantization Settings, Image colors, 3D Print Settings, Auto-paint, Color Slice Heights, and Print Instructions) can now be collapsed from its header to save sidebar space. Collapsed groups are remembered across sessions, and important indicators stay visible while collapsed: color counts, busy spinners, modified-settings dots, unsaved-profile markers, and quick actions like reset and copy.
 - **Reddit community links** - Added r/kromacut links to the app header and README, and use branded Discord, Reddit, and GitHub icons in the header toolbar.
 
 ### Changed

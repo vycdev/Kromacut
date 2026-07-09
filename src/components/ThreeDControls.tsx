@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Card } from '@/components/ui/card';
+import { CollapsibleCard, DirtyDot } from '@/components/CollapsibleCard';
 import ThreeDColorRow from './ThreeDColorRow';
 import { Sortable, SortableContent, SortableOverlay } from '@/components/ui/sortable';
 import { Button } from '@/components/ui/button';
@@ -60,7 +60,14 @@ export default function ThreeDControls({
     persisted,
 }: ThreeDControlsProps) {
     // --- Filaments ---
-    const { filaments, setFilaments, addFilament, addFilamentWithProps, removeFilament, updateFilament } = useFilaments({
+    const {
+        filaments,
+        setFilaments,
+        addFilament,
+        addFilamentWithProps,
+        removeFilament,
+        updateFilament,
+    } = useFilaments({
         initial: persisted?.filaments?.length ? persisted.filaments : undefined,
     });
 
@@ -115,7 +122,9 @@ export default function ThreeDControls({
     );
     const [paintMode, setPaintMode] = useState<'manual' | 'autopaint'>(initialPaintMode);
     const [autoPaintMaxHeight, setAutoPaintMaxHeight] = useState<number | undefined>(undefined);
-    const [enhancedColorMatch, setEnhancedColorMatch] = useState(persisted?.enhancedColorMatch ?? false);
+    const [enhancedColorMatch, setEnhancedColorMatch] = useState(
+        persisted?.enhancedColorMatch ?? false
+    );
     const initialPreserveSeparation = persisted?.preserveSeparation ?? false;
     const [preserveSeparation, setPreserveSeparation] = useState(initialPreserveSeparation);
     const [maxRepeatedSwaps, setMaxRepeatedSwaps] = useState<AutoPaintRepeatLimit>(
@@ -133,9 +142,7 @@ export default function ThreeDControls({
     // --- Optimizer Options ---
     const [optimizerAlgorithm, setOptimizerAlgorithm] = useState<
         'fast' | 'balanced' | 'thorough' | 'deep' | 'exact'
-    >(
-        persisted?.optimizerAlgorithm ?? 'balanced'
-    );
+    >(persisted?.optimizerAlgorithm ?? 'balanced');
     const [optimizerSeed, setOptimizerSeed] = useState<number | undefined>(
         persisted?.optimizerSeed
     );
@@ -196,11 +203,30 @@ export default function ThreeDControls({
             regionWeightingMode,
             smoothMeshing,
         });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [paintMode, filaments, enhancedColorMatch, preserveSeparation, maxRepeatedSwaps, transitionOpacity, heightDithering, ditherLineWidth, flatPaint, optimizerAlgorithm, optimizerSeed, regionWeightingMode, smoothMeshing]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [
+        paintMode,
+        filaments,
+        enhancedColorMatch,
+        preserveSeparation,
+        maxRepeatedSwaps,
+        transitionOpacity,
+        heightDithering,
+        ditherLineWidth,
+        flatPaint,
+        optimizerAlgorithm,
+        optimizerSeed,
+        regionWeightingMode,
+        smoothMeshing,
+    ]);
 
     useEffect(() => {
-        savePrintSettingsToStorage({ layerHeight, slicerFirstLayerHeight, pixelSize, smoothMeshing });
+        savePrintSettingsToStorage({
+            layerHeight,
+            slicerFirstLayerHeight,
+            pixelSize,
+            smoothMeshing,
+        });
     }, [layerHeight, slicerFirstLayerHeight, pixelSize, smoothMeshing]);
 
     // --- Color Slicing ---
@@ -313,7 +339,7 @@ export default function ThreeDControls({
     const instructionFlatPaint = builtState ? builtFlatPaint : flatPaintActive;
     const instructionColorCount =
         instructionPaintMode === 'autopaint'
-            ? instructionAutoPaintResult?.layers.length ?? 0
+            ? (instructionAutoPaintResult?.layers.length ?? 0)
             : instructionColorOrder.length;
     const isInstructionOverLimit = instructionColorCount > 64;
 
@@ -524,17 +550,18 @@ export default function ThreeDControls({
 
                 {/* Manual Tab */}
                 <TabsContent value="manual" forceMount className="data-[state=inactive]:hidden">
-                    <Card className="p-4 border border-border/50">
-                        <div className="flex justify-between items-center mb-4">
-                            <div>
-                                <h4 className="font-semibold text-foreground">
-                                    Color Slice Heights
-                                </h4>
-                                <p className="text-xs text-muted-foreground mt-1">
-                                    Drag to reorder, adjust sliders to customize
-                                </p>
-                            </div>
-                            <div className="flex items-center gap-2">
+                    <CollapsibleCard
+                        id="color-slice-heights"
+                        title="Color Slice Heights"
+                        subtitle="Drag to reorder, adjust sliders to customize"
+                        headingLevel={4}
+                        collapsedSummary={
+                            !isResetState ? (
+                                <DirtyDot title="Color heights or order modified" />
+                            ) : undefined
+                        }
+                        actions={
+                            <>
                                 <button
                                     type="button"
                                     onClick={handleResetHeights}
@@ -548,22 +575,25 @@ export default function ThreeDControls({
                                 <span className="px-2 py-1 rounded-full bg-primary/10 text-primary text-xs font-semibold">
                                     {filtered.length} colors
                                 </span>
-                            </div>
-                        </div>
-                        <div className="h-px bg-border/50 mb-4" />
+                            </>
+                        }
+                    >
                         <Sortable
                             value={displayOrder.map(String)}
                             onValueChange={handleColorOrderChange}
-                            orientation="vertical">
+                            orientation="vertical"
+                        >
                             <SortableContent asChild>
                                 <div className="space-y-2">
                                     {displayOrder.length > 64 ? (
                                         <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-md text-sm text-destructive-foreground">
-                                            <p className="font-semibold mb-2">Too many colors ({displayOrder.length})</p>
+                                            <p className="font-semibold mb-2">
+                                                Too many colors ({displayOrder.length})
+                                            </p>
                                             <p>
-                                                The image has more than 64 unique colors. Please reduce
-                                                the image to fewer colors in 2D mode using the quantization
-                                                tools before switching to 3D mode.
+                                                The image has more than 64 unique colors. Please
+                                                reduce the image to fewer colors in 2D mode using
+                                                the quantization tools before switching to 3D mode.
                                             </p>
                                         </div>
                                     ) : (
@@ -593,7 +623,7 @@ export default function ThreeDControls({
                                 <div className="rounded-lg bg-primary/10 h-11" />
                             </SortableOverlay>
                         </Sortable>
-                    </Card>
+                    </CollapsibleCard>
                 </TabsContent>
             </Tabs>
 
