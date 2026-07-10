@@ -1,7 +1,7 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import type { PreviewRenderMode } from '@/types';
+import type { PreviewColorMode, PreviewRenderMode } from '@/types';
 import {
     RotateCcw,
     RotateCw,
@@ -19,6 +19,8 @@ import {
     Camera,
     Check,
     Eye,
+    Blend,
+    Layers,
 } from 'lucide-react';
 
 export interface PreviewActionsProps {
@@ -47,6 +49,10 @@ export interface PreviewActionsProps {
     onToggleCamera?: () => void;
     previewRenderMode?: PreviewRenderMode;
     onPreviewRenderModeChange?: (mode: PreviewRenderMode) => void;
+    /** The currently built model is an auto-paint result (has physical filament colors to show) */
+    autoPaintEnabled?: boolean;
+    previewColorMode?: PreviewColorMode;
+    onPreviewColorModeChange?: (mode: PreviewColorMode) => void;
 }
 
 export const PreviewActions: React.FC<PreviewActionsProps> = ({
@@ -74,6 +80,9 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
     onToggleCamera,
     previewRenderMode = 'shaded',
     onPreviewRenderModeChange,
+    autoPaintEnabled = false,
+    previewColorMode = 'simulated',
+    onPreviewColorModeChange,
 }) => {
     const [previewModeMenuOpen, setPreviewModeMenuOpen] = React.useState(false);
     const PreviewModeIcon =
@@ -150,6 +159,35 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
                         </div>
                     </PopoverContent>
                 </Popover>
+            )}
+            {mode === '3d' && autoPaintEnabled && onPreviewColorModeChange && (
+                <Button
+                    size="icon"
+                    title={
+                        previewColorMode === 'physical'
+                            ? 'Showing physical filament colors — switch to simulated colors'
+                            : 'Showing simulated colors — switch to physical filament colors'
+                    }
+                    aria-label={
+                        previewColorMode === 'physical'
+                            ? 'Switch preview to simulated colors'
+                            : 'Switch preview to physical filament colors'
+                    }
+                    aria-pressed={previewColorMode === 'physical'}
+                    data-testid="preview-color-mode-toggle"
+                    onClick={() =>
+                        onPreviewColorModeChange(
+                            previewColorMode === 'physical' ? 'simulated' : 'physical'
+                        )
+                    }
+                    className="bg-primary hover:bg-primary/80 text-primary-foreground"
+                >
+                    {previewColorMode === 'physical' ? (
+                        <Layers className="w-4 h-4" />
+                    ) : (
+                        <Blend className="w-4 h-4" />
+                    )}
+                </Button>
             )}
             {mode === '3d' && onToggleCamera && (
                 <Button

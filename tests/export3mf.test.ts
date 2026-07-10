@@ -1487,6 +1487,51 @@ test('3MF export keeps generated model XML chunked for large models', () => {
     assert.match(source, /encodeXmlChunks\(xmlParts\.splice\(0\)\)/);
 });
 
+test('3MF export never reads the preview-only color-mode userData tags', () => {
+    // The simulated/physical preview color toggle (ThreeDView) tags meshes with
+    // kromacutPreview*Hex keys read only by src/lib/previewColorMode.ts. Export
+    // must keep sourcing colors from kromacutFilamentHex/layerFilamentColors and
+    // the mesh's live material color, never these preview-only tags, so toggling
+    // the preview can never change exported geometry or colors.
+    const source = readFileSync(resolve(process.cwd(), 'src/lib/export3mf.ts'), 'utf8');
+
+    assert.doesNotMatch(source, /kromacutPreview/);
+});
+
+test('exported filament colors are unaffected by the preview color-mode toggle', async () => {
+    // Mirrors how App.tsx exports auto-paint models: a plain (non-grouped) mesh
+    // plus the per-layer `layerFilamentColors` option, which is how these meshes
+    // actually get their exported color (not from mesh.material.color).
+    const { applyPreviewColorMode } = await import('../src/lib/previewColorMode.ts');
+
+    const root = new THREE.Group();
+    const mesh = createLayerMesh(createSharedCubeGeometry(), 0x3050c0);
+    mesh.userData.kromacutPreviewVirtualHex = '#3050c0';
+    mesh.userData.kromacutPreviewFilamentHex = '#ff8800';
+    root.add(mesh);
+
+    const { exportObjectTo3MFBlob } = await loadExport3mfModule();
+    const exportOptions = { layerFilamentColors: ['#112233'] };
+
+    const simulatedBlob = await exportObjectTo3MFBlob(root, exportOptions);
+
+    applyPreviewColorMode(root, 'physical');
+    assert.equal((mesh.material as THREE.MeshBasicMaterial).color.getHexString(), 'ff8800');
+    const physicalBlob = await exportObjectTo3MFBlob(root, exportOptions);
+
+    const readModel = async (blob: Blob) =>
+        (await JSZip.loadAsync(await blob.arrayBuffer())).file('3D/3dmodel.model')?.async('string');
+    const simulatedModel = await readModel(simulatedBlob);
+    const physicalModel = await readModel(physicalBlob);
+
+    // Both exports use layerFilamentColors regardless of the preview toggle or
+    // the mesh's live (simulated vs. physical) material color.
+    assert.ok(simulatedModel?.includes('112233'));
+    assert.ok(physicalModel?.includes('112233'));
+    assert.ok(!simulatedModel?.includes('3050C0'));
+    assert.ok(!physicalModel?.includes('FF8800'));
+});
+
 test('exports include preview-hidden layers with their original filament colors', async () => {
     const root = new THREE.Group();
     const first = createLayerMesh(createSharedCubeGeometry(), 0xff0000);

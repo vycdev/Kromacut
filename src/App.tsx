@@ -5,6 +5,7 @@ import {
     AUTO_PAINT_TRANSITION_OPACITIES,
     type AutoPaintRepeatLimit,
     type AutoPaintTransitionOpacity,
+    type PreviewColorMode,
     type PreviewRenderMode,
     type ThreeDControlsStateShape,
 } from './types';
@@ -42,7 +43,12 @@ import ProgressOverlay from './components/ProgressOverlay';
 import DocsPage from './components/docs/DocsPage';
 import { defaultDocSlug } from './docs';
 import { loadCameraMode, saveCameraMode } from './lib/cameraPrefs';
-import { loadPreviewRenderMode, savePreviewRenderMode } from './lib/previewPrefs';
+import {
+    loadPreviewColorMode,
+    loadPreviewRenderMode,
+    savePreviewColorMode,
+    savePreviewRenderMode,
+} from './lib/previewPrefs';
 import { buildDocsPath, parseDocsLocation } from './lib/docs/navigation';
 import { applyHomeSeo } from './lib/seo';
 import { migrateLegacyFilamentTd, sanitizeProfileFilament } from './lib/profileManager';
@@ -256,6 +262,9 @@ function App(): React.ReactElement | null {
     const [isOrtho, setIsOrtho] = useState(loadCameraMode);
     const [previewRenderMode, setPreviewRenderMode] = useState<PreviewRenderMode>(
         loadPreviewRenderMode
+    );
+    const [previewColorMode, setPreviewColorMode] = useState<PreviewColorMode>(
+        loadPreviewColorMode
     );
     const [exportingSTL, setExportingSTL] = useState(false);
     const [exportProgress, setExportProgress] = useState(0); // 0..1
@@ -744,6 +753,7 @@ function App(): React.ReactElement | null {
                                             isOrtho={isOrtho}
                                             flatPaint={builtFlatPaint}
                                             previewRenderMode={previewRenderMode}
+                                            previewColorMode={previewColorMode}
                                         />
                                         {exportingSTL && (
                                             <ProgressOverlay
@@ -793,6 +803,12 @@ function App(): React.ReactElement | null {
                                     onPreviewRenderModeChange={(next) => {
                                         setPreviewRenderMode(next);
                                         savePreviewRenderMode(next);
+                                    }}
+                                    autoPaintEnabled={builtModelAutoPaint}
+                                    previewColorMode={previewColorMode}
+                                    onPreviewColorModeChange={(next) => {
+                                        setPreviewColorMode(next);
+                                        savePreviewColorMode(next);
                                     }}
                                     onToggleCamera={() =>
                                         setIsOrtho((v) => {

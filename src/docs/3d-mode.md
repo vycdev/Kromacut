@@ -146,6 +146,7 @@ Low confidence usually means you should calibrate filaments, add a missing filam
 The toolbar in the top-right corner of the 3D preview contains controls for the active view:
 
 - **Preview view** — choose **Shaded**, **Transparent**, or **Wireframe** to inspect the generated model's surfaces, layers, and edges. Wireframe uses thin, layer-colored feature edges. The selection is remembered and changes only the on-screen preview; it never changes print settings or STL/3MF exports.
+- **Preview colors** (Auto-paint only) — toggle between the estimated blended appearance (what the print should look like after color transmission) and the real physical filament color stacked at each layer. Useful for checking which filament goes where before printing. Only shown when the built model is an Auto-paint result; the selection is remembered and never changes STL/3MF exports.
 - **Camera toggle** — switches between perspective and orthographic projection. Perspective gives a natural depth effect; orthographic removes foreshortening and is useful for checking layer alignment. The button icon reflects the current mode, and the camera position is preserved when toggling.
 - **Undo / Redo** — steps through changes to the 3D settings.
 - **Download** — exports the current model as a .stl or a .3mf.

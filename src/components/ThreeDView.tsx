@@ -23,12 +23,13 @@ import {
     applyPreviewRenderMode,
     createPreviewMaterialBaselines,
 } from '../lib/previewRenderMode';
+import { applyPreviewColorMode } from '../lib/previewColorMode';
 import {
     clearPreviewWireframeOverlay,
     rebuildPreviewWireframeOverlay as buildPreviewWireframeOverlay,
     syncPreviewWireframeOverlayVisibility as syncPreviewWireframeVisibility,
 } from '../lib/previewWireframe';
-import type { PreviewRenderMode } from '../types';
+import type { PreviewColorMode, PreviewRenderMode } from '../types';
 import { Layers } from 'lucide-react';
 import ProgressOverlay from './ProgressOverlay';
 
@@ -58,6 +59,8 @@ interface ThreeDViewProps {
     isOrtho?: boolean;
     flatPaint?: boolean; // Build a flat face-down slab (Flat Paint style, auto-paint only)
     previewRenderMode?: PreviewRenderMode;
+    /** Auto-paint 3D preview color source: simulated blend vs. physical filament colors. */
+    previewColorMode?: PreviewColorMode;
 }
 
 // Convert hex color to RGB tuple
@@ -358,6 +361,7 @@ export default function ThreeDView({
     isOrtho = false,
     flatPaint = false,
     previewRenderMode = 'shaded',
+    previewColorMode = 'simulated',
 }: ThreeDViewProps) {
     const mountRef = useRef<HTMLDivElement | null>(null);
     const [isBuilding, setIsBuilding] = useState(false);
@@ -387,10 +391,12 @@ export default function ThreeDView({
         switchCamera,
     } = useThreeScene(mountRef, setIsBuilding);
     const previewRenderModeRef = useRef(previewRenderMode);
+    const previewColorModeRef = useRef(previewColorMode);
     const previewMaterialBaselinesRef = useRef(createPreviewMaterialBaselines());
     const wireframeOverlayRef = useRef<THREE.Group | null>(null);
     const wireframeBuildGenerationRef = useRef(0);
     previewRenderModeRef.current = previewRenderMode;
+    previewColorModeRef.current = previewColorMode;
 
     const clearWireframeOverlay = useCallback(() => {
         wireframeBuildGenerationRef.current += 1;
@@ -481,6 +487,22 @@ export default function ThreeDView({
         rebuildWireframeOverlay,
         requestRender,
     ]);
+
+    // Swaps built mesh colors between simulated and physical filament colors
+    // without a rebuild. The wireframe overlay bakes colors from the model's
+    // materials at build time, so it needs a refresh to pick up the new colors
+    // whenever it is currently showing.
+    useEffect(() => {
+        const modelGroup = modelGroupRef.current;
+        if (!modelGroup) return;
+
+        applyPreviewColorMode(modelGroup, previewColorMode);
+        requestRender();
+
+        if (previewRenderModeRef.current === 'wireframe') {
+            void rebuildWireframeOverlay().then(() => requestRender());
+        }
+    }, [modelGroupRef, previewColorMode, rebuildWireframeOverlay, requestRender]);
 
     useEffect(() => {
         switchCamera(isOrtho);
@@ -1568,6 +1590,9 @@ export default function ThreeDView({
                             mesh.userData.kromacutFilamentHex = part.filamentHex;
                             mesh.userData.kromacutMaterialKey = part.exportGroup;
                             mesh.userData.kromacutPartName = part.partName;
+                            // Preview-only color-mode toggle (never read by export).
+                            mesh.userData.kromacutPreviewVirtualHex = part.previewHex;
+                            mesh.userData.kromacutPreviewFilamentHex = part.filamentHex;
                             modelGroup.add(mesh);
                             pushPartDetail(partIdx, 'Part mesh complete', 1);
 
@@ -1598,6 +1623,7 @@ export default function ThreeDView({
                             const swatchIdx = colorOrder[i];
                             if (!swatches[swatchIdx]) continue;
                             const colorHex = swatches[swatchIdx].hex;
+                            const filamentColorHex = filamentSwatches?.[swatchIdx]?.hex ?? colorHex;
                             const thickness =
                                 i === 0
                                     ? Math.max(
@@ -1684,6 +1710,9 @@ export default function ThreeDView({
                             // Store layer Z range for preview slider
                             mesh.userData.baseZ = baseZ;
                             mesh.userData.topZ = topZ;
+                            // Preview-only color-mode toggle (never read by export).
+                            mesh.userData.kromacutPreviewVirtualHex = colorHex;
+                            mesh.userData.kromacutPreviewFilamentHex = filamentColorHex;
                             builtLayerMeshes[i] = mesh;
                             pushLayerDetail(buildLayerIndex, 'Layer mesh complete', 1);
 
@@ -1877,6 +1906,11 @@ export default function ThreeDView({
                 }
 
                 if (token !== buildTokenRef.current) return;
+
+                // Freshly built meshes always start with simulated colors; apply
+                // the current color mode before the wireframe overlay (below)
+                // captures colors from the model's materials.
+                applyPreviewColorMode(modelGroup, previewColorModeRef.current);
 
                 const activePreviewRenderMode = previewRenderModeRef.current;
                 if (activePreviewRenderMode === 'wireframe') {

@@ -10,6 +10,13 @@ export type AutoPaintTransitionOpacity = (typeof AUTO_PAINT_TRANSITION_OPACITIES
 /** Visual inspection style for the 3D preview. Never changes the printable model. */
 export type PreviewRenderMode = 'shaded' | 'transparent' | 'wireframe';
 
+/**
+ * Auto-paint 3D preview color source: the estimated blended appearance, or the
+ * real physical filament colors stacked at each layer. Preview-only — never
+ * changes STL/3MF export content.
+ */
+export type PreviewColorMode = 'simulated' | 'physical';
+
 export type Swatch = {
     hex: string;
     a: number;

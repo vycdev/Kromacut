@@ -22,9 +22,13 @@ if (!('localStorage' in globalThis)) {
 const mockLocalStorage = (globalThis as { localStorage: Storage }).localStorage;
 
 const {
+    PREVIEW_COLOR_MODE_STORAGE_KEY,
     PREVIEW_RENDER_MODE_STORAGE_KEY,
+    isPreviewColorMode,
     isPreviewRenderMode,
+    loadPreviewColorMode,
     loadPreviewRenderMode,
+    savePreviewColorMode,
     savePreviewRenderMode,
 } = await import('../src/lib/previewPrefs.ts');
 
@@ -48,4 +52,26 @@ test('invalid preview render modes fall back to shaded', () => {
     assert.equal(loadPreviewRenderMode(), 'shaded');
     assert.equal(isPreviewRenderMode('wireframe'), true);
     assert.equal(isPreviewRenderMode('overlay'), false);
+});
+
+test('preview color mode defaults to simulated', () => {
+    mockLocalStorage.clear();
+    assert.equal(loadPreviewColorMode(), 'simulated');
+});
+
+for (const mode of ['simulated', 'physical'] as const) {
+    test(`preview color mode persists ${mode}`, () => {
+        mockLocalStorage.clear();
+        savePreviewColorMode(mode);
+        assert.equal(mockLocalStorage.getItem(PREVIEW_COLOR_MODE_STORAGE_KEY), mode);
+        assert.equal(loadPreviewColorMode(), mode);
+    });
+}
+
+test('invalid preview color modes fall back to simulated', () => {
+    mockLocalStorage.clear();
+    mockLocalStorage.setItem(PREVIEW_COLOR_MODE_STORAGE_KEY, 'blended');
+    assert.equal(loadPreviewColorMode(), 'simulated');
+    assert.equal(isPreviewColorMode('physical'), true);
+    assert.equal(isPreviewColorMode('blended'), false);
 });
