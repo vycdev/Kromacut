@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 
@@ -17,6 +17,11 @@ export function useThreeScene(
 
     const requestRenderRef = useRef<(() => void) | null>(null);
     const switchCameraRef = useRef<((isOrtho: boolean) => void) | null>(null);
+    const requestRender = useCallback(() => requestRenderRef.current?.(), []);
+    const switchCamera = useCallback(
+        (isOrtho: boolean) => switchCameraRef.current?.(isOrtho),
+        []
+    );
 
     useEffect(() => {
         const el = mountRef.current;
@@ -205,8 +210,8 @@ export function useThreeScene(
         controlsRef,
         modelGroupRef,
         materialRef,
-        requestRender: () => requestRenderRef.current?.(),
-        switchCamera: (isOrtho: boolean) => switchCameraRef.current?.(isOrtho),
+        requestRender,
+        switchCamera,
     } as const;
 }
 

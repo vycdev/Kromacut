@@ -12,6 +12,7 @@ All notable changes to Kromacut are documented in this file.
 - **Auto-paint test and benchmark coverage** - Added deterministic stack goldens, layer-invariant regression coverage, realized CIEDE2000 quality-budget tests, and an on-demand benchmark for fixture profiles using the same printable-stack mapper as the optimizer.
 - **Filament profile import fixture** - Added a schema-v2 frontlit-calibrated 8-color `.kfil` fixture with import coverage to guard against accidental hiding-distance rescaling.
 - **Collapsible control groups** - Every settings card in 2D and 3D mode (Adjustments, Resize Image, Dedither, Quantization Settings, Image colors, 3D Print Settings, Auto-paint, Color Slice Heights, and Print Instructions) can now be collapsed from its header to save sidebar space. Collapsed groups are remembered across sessions, and important indicators stay visible while collapsed: color counts, busy spinners, modified-settings dots, unsaved-profile markers, and quick actions like reset and copy.
+- **3D inspection view modes** - The 3D preview toolbar now offers Shaded, Transparent, and Wireframe modes for inspecting surfaces, layers, and mesh edges. Wireframe uses thin, layer-colored feature edges, and the selected view is remembered without changing print settings or STL/3MF export content.
 - **Reddit community links** - Added r/kromacut links to the app header and README, and use branded Discord, Reddit, and GitHub icons in the header toolbar.
 
 ### Changed
@@ -63,7 +64,7 @@ All notable changes to Kromacut are documented in this file.
 - **Project license** - Kromacut is now licensed under `AGPL-3.0-only` instead of MIT so redistributed or hosted modified versions must stay open under the same copyleft terms
 - **Web metadata** - Improved the page title, search description, canonical URL, social preview tags, and web app manifest metadata for hosted Kromacut pages
 - **Filament profile extension** - Auto-paint filament profile exports now use `.kfil` by default while continuing to import legacy `.kapp` files
-- **Smooth meshing performance** - Smooth mesh generation now uses one fast welded-grid algorithm with deterministic boundary-chain smoothing in a bounded sub-pixel envelope and fan-triangulated caps instead of contour tracing and cap cleanup, avoiding hangs and browser memory blowups on complex image layers
+- **Smooth meshing performance** - Smooth mesh generation now uses one fast welded-grid algorithm with deterministic boundary-chain smoothing in a bounded sub-pixel envelope and boundary-preserving caps validated at slicer precision, avoiding inverted preview faces, open exports, hangs, and browser memory blowups on complex image layers
 
 ### Fixed
 

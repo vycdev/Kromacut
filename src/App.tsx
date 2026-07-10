@@ -5,6 +5,7 @@ import {
     AUTO_PAINT_TRANSITION_OPACITIES,
     type AutoPaintRepeatLimit,
     type AutoPaintTransitionOpacity,
+    type PreviewRenderMode,
     type ThreeDControlsStateShape,
 } from './types';
 import ThreeDView from './components/ThreeDView';
@@ -41,6 +42,7 @@ import ProgressOverlay from './components/ProgressOverlay';
 import DocsPage from './components/docs/DocsPage';
 import { defaultDocSlug } from './docs';
 import { loadCameraMode, saveCameraMode } from './lib/cameraPrefs';
+import { loadPreviewRenderMode, savePreviewRenderMode } from './lib/previewPrefs';
 import { buildDocsPath, parseDocsLocation } from './lib/docs/navigation';
 import { applyHomeSeo } from './lib/seo';
 import { migrateLegacyFilamentTd, sanitizeProfileFilament } from './lib/profileManager';
@@ -252,6 +254,9 @@ function App(): React.ReactElement | null {
     const [mode, setMode] = useState<'2d' | '3d'>('2d');
     const [docsOpen, setDocsOpen] = useState(() => parseDocsLocation(window.location) !== null);
     const [isOrtho, setIsOrtho] = useState(loadCameraMode);
+    const [previewRenderMode, setPreviewRenderMode] = useState<PreviewRenderMode>(
+        loadPreviewRenderMode
+    );
     const [exportingSTL, setExportingSTL] = useState(false);
     const [exportProgress, setExportProgress] = useState(0); // 0..1
     const [exportStep, setExportStep] = useState<ExportProgressStep>({
@@ -738,6 +743,7 @@ function App(): React.ReactElement | null {
                                             smoothMeshing={builtModelState.smoothMeshing}
                                             isOrtho={isOrtho}
                                             flatPaint={builtFlatPaint}
+                                            previewRenderMode={previewRenderMode}
                                         />
                                         {exportingSTL && (
                                             <ProgressOverlay
@@ -783,6 +789,11 @@ function App(): React.ReactElement | null {
                                     onExport3MF={onExport3MF}
                                     flatPaintModel={builtFlatPaint}
                                     isOrtho={isOrtho}
+                                    previewRenderMode={previewRenderMode}
+                                    onPreviewRenderModeChange={(next) => {
+                                        setPreviewRenderMode(next);
+                                        savePreviewRenderMode(next);
+                                    }}
                                     onToggleCamera={() =>
                                         setIsOrtho((v) => {
                                             const next = !v;

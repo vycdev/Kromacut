@@ -68,12 +68,55 @@ function reportForMessage(report: MeshIntegrityReport) {
     );
 }
 
+function inspectCapWinding(mesh: MeshData) {
+    let minZ = Infinity;
+    let maxZ = -Infinity;
+    for (let offset = 2; offset < mesh.positions.length; offset += 3) {
+        minZ = Math.min(minZ, mesh.positions[offset]);
+        maxZ = Math.max(maxZ, mesh.positions[offset]);
+    }
+
+    let reversedTopCount = 0;
+    let reversedBottomCount = 0;
+    for (let offset = 0; offset + 2 < mesh.indices.length; offset += 3) {
+        const a = mesh.indices[offset] * 3;
+        const b = mesh.indices[offset + 1] * 3;
+        const c = mesh.indices[offset + 2] * 3;
+        const za = mesh.positions[a + 2];
+        const zb = mesh.positions[b + 2];
+        const zc = mesh.positions[c + 2];
+        const area2 =
+            (mesh.positions[b] - mesh.positions[a]) *
+                (mesh.positions[c + 1] - mesh.positions[a + 1]) -
+            (mesh.positions[b + 1] - mesh.positions[a + 1]) *
+                (mesh.positions[c] - mesh.positions[a]);
+        const isTop =
+            Math.abs(za - maxZ) <= 1e-7 &&
+            Math.abs(zb - maxZ) <= 1e-7 &&
+            Math.abs(zc - maxZ) <= 1e-7;
+        const isBottom =
+            Math.abs(za - minZ) <= 1e-7 &&
+            Math.abs(zb - minZ) <= 1e-7 &&
+            Math.abs(zc - minZ) <= 1e-7;
+
+        if (isTop && area2 < -1e-10) reversedTopCount++;
+        if (isBottom && area2 > 1e-10) reversedBottomCount++;
+    }
+
+    return { reversedTopCount, reversedBottomCount };
+}
+
 function assertHealthyMesh(label: string, mesh: MeshData) {
     const report = inspectMeshIntegrity(mesh);
+    const capWinding = inspectCapWinding(mesh);
 
     assert.ok(report.vertexCount > 0, `${label} should contain vertices`);
     assert.ok(report.triangleCount > 0, `${label} should contain triangles`);
     assert.equal(report.isValid, true, `${label} integrity failed:\n${reportForMessage(report)}`);
+    assert.deepEqual(capWinding, {
+        reversedTopCount: 0,
+        reversedBottomCount: 0,
+    });
 
     return report;
 }
@@ -473,6 +516,53 @@ test('smooth caps stay inside the bounded smoothing envelope', async () => {
         'smooth boundaries should be able to fill source-pixel stair notches'
     );
     assert.equal(countCapCentroidsOutsideExpandedMask(mesh, mask, 0.4, 0.5), 0);
+});
+
+test('smooth caps avoid reversed center-fan triangles after boundary movement', async () => {
+    const mask = maskFromRows(['#...', '##.#', '#.#.', '.#..', '#...', '#...', '#...', '#...']);
+    const mesh = await generateSmoothMesh(
+        mask.activePixels,
+        mask.width,
+        mask.height,
+        0.2,
+        0,
+        1,
+        1,
+        noYieldOptions
+    );
+
+    assertHealthyMesh('smooth moved-boundary cap mesh', mesh);
+});
+
+test('smooth caps avoid export-degenerate final ears after boundary movement', async () => {
+    const mask = maskFromRows([
+        '...#..',
+        '..#.#.',
+        '.#.#.#',
+        '.#.#..',
+        '..#.#.',
+        '.###..',
+        '#...#.',
+        '#..#..',
+        '####..',
+    ]);
+    const mesh = await generateSmoothMesh(
+        mask.activePixels,
+        mask.width,
+        mask.height,
+        0.2,
+        0,
+        0.4,
+        1,
+        noYieldOptions
+    );
+
+    assertHealthyMesh('smooth rounded-boundary cap mesh', mesh);
+    assert.deepEqual(inspectRoundedExportTopology(mesh), {
+        boundaryEdgeCount: 0,
+        overusedEdgeCount: 0,
+        skippedTriangleCount: 0,
+    });
 });
 
 test('smooth metrics stay on the smooth algorithm without mesher substitution state', async () => {

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { PointerEvent } from 'react';
 import * as THREE from 'three';
 import * as SliderPrimitive from '@radix-ui/react-slider';
@@ -19,6 +19,16 @@ import {
     layeredBuildScanProgress,
     progressInSpan,
 } from '../lib/progress';
+import {
+    applyPreviewRenderMode,
+    createPreviewMaterialBaselines,
+} from '../lib/previewRenderMode';
+import {
+    clearPreviewWireframeOverlay,
+    rebuildPreviewWireframeOverlay as buildPreviewWireframeOverlay,
+    syncPreviewWireframeOverlayVisibility as syncPreviewWireframeVisibility,
+} from '../lib/previewWireframe';
+import type { PreviewRenderMode } from '../types';
 import { Layers } from 'lucide-react';
 import ProgressOverlay from './ProgressOverlay';
 
@@ -47,6 +57,7 @@ interface ThreeDViewProps {
     smoothMeshing?: boolean; // Smooth connected boundaries using welded grid topology
     isOrtho?: boolean;
     flatPaint?: boolean; // Build a flat face-down slab (Flat Paint style, auto-paint only)
+    previewRenderMode?: PreviewRenderMode;
 }
 
 // Convert hex color to RGB tuple
@@ -346,6 +357,7 @@ export default function ThreeDView({
     smoothMeshing = false,
     isOrtho = false,
     flatPaint = false,
+    previewRenderMode = 'shaded',
 }: ThreeDViewProps) {
     const mountRef = useRef<HTMLDivElement | null>(null);
     const [isBuilding, setIsBuilding] = useState(false);
@@ -365,10 +377,111 @@ export default function ThreeDView({
         xPercent: number;
     } | null>(null);
     const previewTrackRef = useRef<HTMLDivElement | null>(null);
-    const { cameraRef, controlsRef, modelGroupRef, materialRef, requestRender, switchCamera } = useThreeScene(
-        mountRef,
-        setIsBuilding
-    );
+    const {
+        sceneRef,
+        cameraRef,
+        controlsRef,
+        modelGroupRef,
+        materialRef,
+        requestRender,
+        switchCamera,
+    } = useThreeScene(mountRef, setIsBuilding);
+    const previewRenderModeRef = useRef(previewRenderMode);
+    const previewMaterialBaselinesRef = useRef(createPreviewMaterialBaselines());
+    const wireframeOverlayRef = useRef<THREE.Group | null>(null);
+    const wireframeBuildGenerationRef = useRef(0);
+    previewRenderModeRef.current = previewRenderMode;
+
+    const clearWireframeOverlay = useCallback(() => {
+        wireframeBuildGenerationRef.current += 1;
+        const overlay = wireframeOverlayRef.current;
+        if (overlay) clearPreviewWireframeOverlay(overlay);
+    }, []);
+
+    const ensureWireframeOverlay = useCallback(() => {
+        const existing = wireframeOverlayRef.current;
+        if (existing) return existing;
+
+        const scene = sceneRef.current;
+        if (!scene) return null;
+
+        const overlay = new THREE.Group();
+        overlay.name = 'KromacutPreviewWireframe';
+        scene.add(overlay);
+        wireframeOverlayRef.current = overlay;
+        return overlay;
+    }, [sceneRef]);
+
+    const syncWireframeOverlayVisibility = useCallback(() => {
+        const overlay = wireframeOverlayRef.current;
+        if (!overlay) return;
+
+        syncPreviewWireframeVisibility(overlay);
+    }, []);
+
+    const rebuildWireframeOverlay = useCallback(async () => {
+        const modelGroup = modelGroupRef.current;
+        const overlay = ensureWireframeOverlay();
+        if (!modelGroup || !overlay) return 'cancelled';
+
+        const generation = wireframeBuildGenerationRef.current + 1;
+        wireframeBuildGenerationRef.current = generation;
+
+        return buildPreviewWireframeOverlay(modelGroup, overlay, {
+            isCurrent: () =>
+                wireframeBuildGenerationRef.current === generation &&
+                previewRenderModeRef.current === 'wireframe',
+            onYield: () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())),
+            onLayerBuilt: () => {
+                syncPreviewWireframeVisibility(overlay);
+                requestRender();
+            },
+        });
+    }, [ensureWireframeOverlay, modelGroupRef, requestRender]);
+
+    useEffect(() => {
+        return () => {
+            wireframeBuildGenerationRef.current += 1;
+            const overlay = wireframeOverlayRef.current;
+            if (!overlay) return;
+
+            clearPreviewWireframeOverlay(overlay);
+            overlay.parent?.remove(overlay);
+            wireframeOverlayRef.current = null;
+        };
+    }, []);
+
+    useEffect(() => {
+        const modelGroup = modelGroupRef.current;
+        if (!modelGroup) return;
+
+        if (previewRenderMode !== 'wireframe') {
+            clearWireframeOverlay();
+            applyPreviewRenderMode(modelGroup, previewRenderMode, previewMaterialBaselinesRef.current);
+            requestRender();
+            return;
+        }
+
+        applyPreviewRenderMode(modelGroup, 'wireframe', previewMaterialBaselinesRef.current);
+        requestRender();
+
+        let active = true;
+        void rebuildWireframeOverlay().then(() => {
+            if (active) requestRender();
+        });
+
+        return () => {
+            active = false;
+            clearWireframeOverlay();
+        };
+    }, [
+        clearWireframeOverlay,
+        modelGroupRef,
+        previewRenderMode,
+        rebuildWireframeOverlay,
+        requestRender,
+    ]);
+
     useEffect(() => {
         switchCamera(isOrtho);
     }, [isOrtho, switchCamera]);
@@ -419,8 +532,15 @@ export default function ThreeDView({
             }
         });
 
+        syncWireframeOverlayVisibility();
         requestRender();
-    }, [previewHeight, previewMinHeight, modelGroupRef, requestRender]);
+    }, [
+        previewHeight,
+        previewMinHeight,
+        modelGroupRef,
+        requestRender,
+        syncWireframeOverlayVisibility,
+    ]);
 
     const snapPreviewHeight = (value: number): number => {
         const bounded = Math.max(0, Math.min(maxModelHeight, value));
@@ -551,6 +671,7 @@ export default function ThreeDView({
                 window.clearTimeout(debounceTimerRef.current);
                 debounceTimerRef.current = null;
             }
+            clearWireframeOverlay();
             modelGroup.clear();
             clearLastMeshRef();
             setIsBuilding(false);
@@ -569,6 +690,7 @@ export default function ThreeDView({
                 window.clearTimeout(debounceTimerRef.current);
                 debounceTimerRef.current = null;
             }
+            clearWireframeOverlay();
             modelGroup.clear();
             clearLastMeshRef();
             setIsBuilding(false);
@@ -592,6 +714,7 @@ export default function ThreeDView({
                 window.clearTimeout(debounceTimerRef.current);
                 debounceTimerRef.current = null;
             }
+            clearWireframeOverlay();
             modelGroup.clear();
             clearLastMeshRef();
             setIsBuilding(false);
@@ -694,6 +817,7 @@ export default function ThreeDView({
                 const { data } = ctx.getImageData(0, 0, fullW, fullH);
 
                 // Clear current model
+                clearWireframeOverlay();
                 modelGroup.clear();
                 clearLastMeshRef();
 
@@ -1754,6 +1878,35 @@ export default function ThreeDView({
 
                 if (token !== buildTokenRef.current) return;
 
+                const activePreviewRenderMode = previewRenderModeRef.current;
+                if (activePreviewRenderMode === 'wireframe') {
+                    applyPreviewRenderMode(
+                        modelGroup,
+                        'wireframe',
+                        previewMaterialBaselinesRef.current
+                    );
+                    requestRender();
+                    await rebuildWireframeOverlay();
+                    if (token !== buildTokenRef.current) return;
+
+                    const latestPreviewRenderMode = previewRenderModeRef.current;
+                    if (latestPreviewRenderMode !== 'wireframe') {
+                        clearWireframeOverlay();
+                        applyPreviewRenderMode(
+                            modelGroup,
+                            latestPreviewRenderMode,
+                            previewMaterialBaselinesRef.current
+                        );
+                    }
+                } else {
+                    clearWireframeOverlay();
+                    applyPreviewRenderMode(
+                        modelGroup,
+                        activePreviewRenderMode,
+                        previewMaterialBaselinesRef.current
+                    );
+                }
+
                 try {
                     (
                         window as unknown as { __KROMACUT_LAST_MESH?: THREE.Object3D }
@@ -1936,6 +2089,8 @@ export default function ThreeDView({
         materialRef,
         modelGroupRef,
         requestRender,
+        clearWireframeOverlay,
+        rebuildWireframeOverlay,
     ]);
 
     const currentBuildOverlayStep =

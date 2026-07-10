@@ -21,6 +21,7 @@ import { inspectMeshIntegrity, type MeshIntegrityReport } from './meshDiagnostic
 
 type Export3mfModule = typeof import('../src/lib/export3mf.ts');
 type Export3MFOptions = Parameters<Export3mfModule['exportObjectTo3MFBlob']>[1];
+type PreviewRenderModeModule = typeof import('../src/lib/previewRenderMode.ts');
 type MeshGenerator = typeof generateSmoothMesh;
 type OptimizerAlgorithm = 'fast' | 'balanced' | 'thorough';
 
@@ -101,6 +102,7 @@ interface FilamentProfileFixture {
 }
 
 let export3mfModule: Promise<Export3mfModule> | null = null;
+let previewRenderModeModule: Promise<PreviewRenderModeModule> | null = null;
 let autoPaintModule: Promise<AutoPaintModule> | null = null;
 const filamentProfilesRoot = resolve(testAssetsRoot, 'filament-profiles');
 
@@ -235,6 +237,14 @@ async function loadExport3mfModule(): Promise<Export3mfModule> {
     export3mfModule ??= loadViteModule<Export3mfModule>('/src/lib/export3mf.ts');
 
     return export3mfModule;
+}
+
+async function loadPreviewRenderModeModule(): Promise<PreviewRenderModeModule> {
+    previewRenderModeModule ??= loadViteModule<PreviewRenderModeModule>(
+        '/src/lib/previewRenderMode.ts'
+    );
+
+    return previewRenderModeModule;
 }
 
 async function loadAutoPaintModule(): Promise<AutoPaintModule> {
@@ -1407,6 +1417,42 @@ test('3MF export keeps generated meshes as separate layer objects', async () => 
         objects.map((object) => object.name),
         ['Layer 1 (#FF0000)', 'Layer 2 (#00FF00)']
     );
+});
+
+test('preview inspection modes leave STL and 3MF export data unchanged', async () => {
+    const { applyPreviewRenderMode, createPreviewMaterialBaselines } =
+        await loadPreviewRenderModeModule();
+    const root = new THREE.Group();
+    root.add(createLayerMesh(createSharedCubeGeometry(), 0x2266aa));
+    const carrier = createLayerMesh(createSharedCubeGeometry(), 0xeeddcc);
+    carrier.position.z = 1;
+    root.add(carrier);
+
+    const snapshot = async () => {
+        const archive = await exportArchiveXml(root);
+        const meshObjects = parseMeshObjects(archive.modelXml);
+        const stl = await parseSingleBinaryStlMesh(await exportObjectToStlBlob(root));
+        return {
+            materialColors: parseBaseMaterialColors(archive.modelXml),
+            objectCount: meshObjects.length,
+            objectTriangleCounts: meshObjects.map((object) => object.triangleCount),
+            stlTriangleCount: stl.triangleCount,
+        };
+    };
+
+    const expected = await snapshot();
+    const baselines = createPreviewMaterialBaselines();
+
+    const previewModes = [
+        { label: 'transparent', mode: 'transparent' },
+        { label: 'wireframe overlay', mode: 'wireframe' },
+        { label: 'shaded', mode: 'shaded' },
+    ] as const;
+
+    for (const { label, mode } of previewModes) {
+        applyPreviewRenderMode(root, mode, baselines);
+        assert.deepEqual(await snapshot(), expected, `${label} must remain preview-only`);
+    }
 });
 
 test('3MF export streams generated model XML without FileReader', async () => {

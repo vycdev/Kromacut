@@ -1,6 +1,7 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import type { PreviewRenderMode } from '@/types';
 import {
     RotateCcw,
     RotateCw,
@@ -16,6 +17,8 @@ import {
     FileType,
     Box,
     Camera,
+    Check,
+    Eye,
 } from 'lucide-react';
 
 export interface PreviewActionsProps {
@@ -42,6 +45,8 @@ export interface PreviewActionsProps {
     flatPaintModel?: boolean;
     isOrtho?: boolean;
     onToggleCamera?: () => void;
+    previewRenderMode?: PreviewRenderMode;
+    onPreviewRenderModeChange?: (mode: PreviewRenderMode) => void;
 }
 
 export const PreviewActions: React.FC<PreviewActionsProps> = ({
@@ -67,9 +72,85 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
     flatPaintModel = false,
     isOrtho = false,
     onToggleCamera,
+    previewRenderMode = 'shaded',
+    onPreviewRenderModeChange,
 }) => {
+    const [previewModeMenuOpen, setPreviewModeMenuOpen] = React.useState(false);
+    const PreviewModeIcon =
+        previewRenderMode === 'wireframe'
+            ? Grid3x3
+            : previewRenderMode === 'transparent'
+              ? Eye
+              : Box;
+    const previewRenderModeLabel =
+        previewRenderMode === 'wireframe'
+            ? 'Wireframe'
+            : previewRenderMode === 'transparent'
+              ? 'Transparent'
+              : 'Shaded';
+    const previewModeOptions: Array<{
+        value: PreviewRenderMode;
+        label: string;
+        icon: React.ReactNode;
+    }> = [
+        { value: 'shaded', label: 'Shaded', icon: <Box className="w-4 h-4" /> },
+        { value: 'transparent', label: 'Transparent', icon: <Eye className="w-4 h-4" /> },
+        { value: 'wireframe', label: 'Wireframe', icon: <Grid3x3 className="w-4 h-4" /> },
+    ];
+
     return (
         <div className="absolute top-4 right-4 flex flex-wrap gap-2 z-[60]">
+            {mode === '3d' && onPreviewRenderModeChange && (
+                <Popover open={previewModeMenuOpen} onOpenChange={setPreviewModeMenuOpen}>
+                    <PopoverTrigger asChild>
+                        <Button
+                            size="icon"
+                            title={`3D preview view: ${previewRenderModeLabel}`}
+                            aria-label={`Choose 3D preview view (currently ${previewRenderModeLabel})`}
+                            data-testid="preview-render-mode-trigger"
+                            className="bg-primary hover:bg-primary/80 text-primary-foreground"
+                        >
+                            <PreviewModeIcon className="w-4 h-4" />
+                        </Button>
+                    </PopoverTrigger>
+                    <PopoverContent align="start" className="w-44 p-1.5">
+                        <div role="radiogroup" aria-label="3D preview view" className="grid gap-1">
+                            {previewModeOptions.map(({ value, label, icon }) => {
+                                const selected = previewRenderMode === value;
+                                return (
+                                    <label
+                                        key={value}
+                                        onClick={() => {
+                                            if (selected) setPreviewModeMenuOpen(false);
+                                        }}
+                                        className={`flex h-9 cursor-pointer items-center gap-2 rounded-sm px-2 text-sm transition-colors focus-within:ring-1 focus-within:ring-ring ${
+                                            selected
+                                                ? 'bg-primary/10 text-primary'
+                                                : 'text-foreground hover:bg-accent'
+                                        }`}
+                                    >
+                                        <input
+                                            type="radio"
+                                            name="preview-render-mode"
+                                            value={value}
+                                            checked={selected}
+                                            onChange={() => {
+                                                onPreviewRenderModeChange(value);
+                                                setPreviewModeMenuOpen(false);
+                                            }}
+                                            className="sr-only"
+                                            data-testid={`preview-render-mode-${value}`}
+                                        />
+                                        {icon}
+                                        <span className="flex-1">{label}</span>
+                                        {selected && <Check className="w-4 h-4" aria-hidden />}
+                                    </label>
+                                );
+                            })}
+                        </div>
+                    </PopoverContent>
+                </Popover>
+            )}
             {mode === '3d' && onToggleCamera && (
                 <Button
                     size="icon"
