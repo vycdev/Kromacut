@@ -17,6 +17,13 @@ export type PreviewRenderMode = 'shaded' | 'transparent' | 'wireframe';
  */
 export type PreviewColorMode = 'simulated' | 'physical';
 
+/**
+ * 2D touch-up tool active in the preview toolbar. Every tool edits the
+ * unadjusted source image and commits through the shared image history, so
+ * undo/redo treats each stroke, fill, or text stamp as one edit.
+ */
+export type TouchUpTool = 'brush' | 'eraser' | 'fill' | 'text' | 'picker';
+
 export type Swatch = {
     hex: string;
     a: number;

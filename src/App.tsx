@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import ThreeDControls from './components/ThreeDControls';
 import {
     AUTO_PAINT_REPEAT_LIMITS,
@@ -8,6 +8,7 @@ import {
     type PreviewColorMode,
     type PreviewRenderMode,
     type ThreeDControlsStateShape,
+    type TouchUpTool,
 } from './types';
 import ThreeDView from './components/ThreeDView';
 import logo from './assets/logo.png';
@@ -213,6 +214,11 @@ function App(): React.ReactElement | null {
     const [showCheckerboard, setShowCheckerboard] = useState<boolean>(false);
     const [isCropMode, setIsCropMode] = useState(false);
     const [hasValidCropSelection, setHasValidCropSelection] = useState(false);
+    // 2D touch-up tools are session-only; image changes still use shared history.
+    const [touchUpTool, setTouchUpTool] = useState<TouchUpTool | null>(null);
+    const [touchUpColor, setTouchUpColor] = useState('#000000');
+    const [touchUpBrushSize, setTouchUpBrushSize] = useState(4);
+    const [touchUpTextSize, setTouchUpTextSize] = useState(24);
     const {
         isQuantizing,
         setIsQuantizing,
@@ -405,6 +411,7 @@ function App(): React.ReactElement | null {
             alert('Please upload an image file');
             return;
         }
+        setTouchUpTool(null);
         const url = URL.createObjectURL(file);
         invalidate();
         setImage(url, true);
@@ -413,6 +420,7 @@ function App(): React.ReactElement | null {
     // removed unused handlers (inline handlers used instead)
 
     const clear = () => {
+        setTouchUpTool(null);
         clearCurrent();
         if (inputRef.current) inputRef.current.value = '';
     };
@@ -477,6 +485,19 @@ function App(): React.ReactElement | null {
     // resize observer handled by CanvasPreview; keep for layout redraw hook
     // Layout splitter state
     const layoutRef = useRef<HTMLDivElement | null>(null);
+
+    const touchUpPaletteColors = useMemo(
+        () =>
+            Array.from(
+                new Set(swatches.filter((swatch) => swatch.a !== 0).map((swatch) => swatch.hex))
+            ),
+        [swatches]
+    );
+
+    const handleTouchUpToolChange = (nextTool: TouchUpTool | null) => {
+        if (!imageSrc) return;
+        setTouchUpTool(nextTool);
+    };
 
     const dropzone = useDropzone({ enabled: mode === '2d', onFile: handleFiles });
     const { onExportImage, onExportStl, onExport3MF, onSwatchApply, onSwatchDelete } =
@@ -547,17 +568,20 @@ function App(): React.ReactElement | null {
                                                 defs={SLIDER_DEFS}
                                                 initial={ADJUSTMENT_DEFAULTS}
                                                 onCommit={(vals) => {
+                                                    setTouchUpTool(null);
                                                     setAdjustments(vals);
                                                     // schedule a redraw
                                                     requestAnimationFrame(() =>
                                                         canvasPreviewRef.current?.redraw()
                                                     );
                                                 }}
-                                                onBake={async () => {
+                                                onBake={async (vals) => {
                                                     if (!canvasPreviewRef.current) return;
                                                     try {
                                                         const blob =
-                                                            await canvasPreviewRef.current.exportAdjustedImageBlob?.();
+                                                            await canvasPreviewRef.current.exportAdjustedImageBlob?.(
+                                                                vals
+                                                            );
                                                         if (!blob) return;
                                                         const url = URL.createObjectURL(blob);
                                                         invalidate();
@@ -703,6 +727,21 @@ function App(): React.ReactElement | null {
                                             showCheckerboard={showCheckerboard}
                                             adjustments={adjustments}
                                             onCropSelectionChange={setHasValidCropSelection}
+                                            touchUpTool={touchUpTool}
+                                            touchUpColor={touchUpColor}
+                                            touchUpBrushSize={touchUpBrushSize}
+                                            touchUpTextSize={touchUpTextSize}
+                                            onTouchUpCommit={(blob) => {
+                                                const url = URL.createObjectURL(blob);
+                                                invalidate();
+                                                setImage(url, true);
+                                                return url;
+                                            }}
+                                            onTouchUpPickColor={(hex) => {
+                                                setTouchUpColor(hex);
+                                                setTouchUpTool('brush');
+                                            }}
+                                            onTouchUpExit={() => setTouchUpTool(null)}
                                         />
                                         {processingActive && (
                                             <ProgressOverlay
@@ -779,7 +818,11 @@ function App(): React.ReactElement | null {
                                     exportProgress={exportProgress}
                                     onUndo={undo}
                                     onRedo={redo}
-                                    onEnterCrop={() => imageSrc && setIsCropMode(true)}
+                                    onEnterCrop={() => {
+                                        if (!imageSrc) return;
+                                        setTouchUpTool(null);
+                                        setIsCropMode(true);
+                                    }}
                                     onSaveCrop={async () => {
                                         if (!canvasPreviewRef.current) return;
                                         const blob =
@@ -810,6 +853,15 @@ function App(): React.ReactElement | null {
                                         setPreviewColorMode(next);
                                         savePreviewColorMode(next);
                                     }}
+                                    touchUpTool={touchUpTool}
+                                    onTouchUpToolChange={handleTouchUpToolChange}
+                                    touchUpColor={touchUpColor}
+                                    onTouchUpColorChange={setTouchUpColor}
+                                    touchUpBrushSize={touchUpBrushSize}
+                                    onTouchUpBrushSizeChange={setTouchUpBrushSize}
+                                    touchUpTextSize={touchUpTextSize}
+                                    onTouchUpTextSizeChange={setTouchUpTextSize}
+                                    paletteColors={touchUpPaletteColors}
                                     onToggleCamera={() =>
                                         setIsOrtho((v) => {
                                             const next = !v;
