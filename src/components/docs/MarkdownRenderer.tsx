@@ -57,7 +57,7 @@ function renderInlineNodes(
                     alt={node.alt}
                     title={node.title}
                     loading="lazy"
-                    className="my-4 max-h-80 rounded-md border border-border object-contain"
+                    className="my-4 w-full h-auto rounded-md border border-border"
                 />
             );
         }

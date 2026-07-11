@@ -35,11 +35,13 @@ import {
     syncPreviewWireframeOverlayVisibility as syncPreviewWireframeVisibility,
 } from '../lib/previewWireframe';
 import type {
+    MultiHeadRangeAssignment,
     PreviewColorMode,
     PreviewRenderMode,
     PrintableFeaturePixelSnapshot,
 } from '../types';
 import type { FinalPrintableStackSnapshot } from '../types/appearance';
+import type { WindowResult } from '../lib/multiHeadAnalysis';
 import { Layers } from 'lucide-react';
 import ProgressOverlay from './ProgressOverlay';
 
@@ -69,6 +71,20 @@ interface ThreeDViewProps {
     ditherLineWidth?: number; // Effective extrusion width; also sets minimum dither-dot size
     printableFeaturePixels?: PrintableFeaturePixelSnapshot; // exact filtered pixels used for Auto-paint
     smoothMeshing?: boolean; // Smooth connected boundaries using welded grid topology
+    // Multi-head props. `perColorLayerColors` drives the rebuild signature so a new
+    // multi-head result forces a geometry rebuild. The per-pixel colour mixing and
+    // per-nozzle mesh tagging that consume the rest of these are NOT yet ported onto
+    // this build path (see the pre-rebase ThreeDView `resolveNozzleIndex` + the
+    // `else` branch of the layered build); until then the 3D preview shows the flat
+    // auto-paint colours and export3mf falls back to colour-order extruders.
+    // TODO(multi-head): port per-pixel colour + nozzle tagging into the layered build.
+    perColorLayerColors?: Map<string, string[]>;
+    colorLayerFilaments?: Map<string, number[]>;
+    nozzleAssignments?: number[][];
+    windowRunFilaments?: string[][];
+    multiHeadWindows?: WindowResult[];
+    nonWindowedRanges?: MultiHeadRangeAssignment[];
+    filamentIds?: string[];
     isOrtho?: boolean;
     flatPaint?: boolean; // Build a uniform Flat Paint slab (auto-paint only)
     flatPaintFaceUp?: boolean; // Expose the artwork on top without a transparent carrier
@@ -380,6 +396,7 @@ export default function ThreeDView({
     ditherLineWidth = 0.42,
     printableFeaturePixels,
     smoothMeshing = false,
+    perColorLayerColors,
     isOrtho = false,
     flatPaint = false,
     flatPaintFaceUp = false,
@@ -809,6 +826,10 @@ export default function ThreeDView({
             smoothMeshing,
             flatPaint,
             flatPaintFaceUp,
+            // A new multi-head result changes the per-colour layer map — force a rebuild.
+            perColorLayerColors: perColorLayerColors
+                ? `${perColorLayerColors.size}:${[...perColorLayerColors.values()][0]?.join('') ?? ''}`
+                : null,
         });
         if (paramsKey === lastParamsKeyRef.current) {
             onBuildStarted?.();
