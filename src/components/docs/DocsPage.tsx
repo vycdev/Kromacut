@@ -39,6 +39,7 @@ const DOC_NAV_GROUPS = [
             'dedithering-cleanup',
             '3d-mode',
             'calibration-theory',
+            'multi-head-printing',
             'generating-exporting-output',
         ],
     },

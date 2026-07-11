@@ -169,6 +169,14 @@ interface AutoPaintTabProps {
     setOptimizerSeed: (v: number | undefined) => void;
     regionWeightingMode: 'uniform' | 'center' | 'edge';
     setRegionWeightingMode: (v: 'uniform' | 'center' | 'edge') => void;
+
+    // Multi-head mode
+    multiHeadMode: boolean;
+    setMultiHeadMode: (v: boolean) => void;
+    multiHeadCount: number;
+    setMultiHeadCount: (v: number) => void;
+    multiHeadSearchDepth: 'fast' | 'balanced' | 'thorough';
+    setMultiHeadSearchDepth: (v: 'fast' | 'balanced' | 'thorough') => void;
 }
 
 export default function AutoPaintTab({
@@ -228,6 +236,12 @@ export default function AutoPaintTab({
     setOptimizerSeed,
     regionWeightingMode,
     setRegionWeightingMode,
+    multiHeadMode,
+    setMultiHeadMode,
+    multiHeadCount,
+    setMultiHeadCount,
+    multiHeadSearchDepth,
+    setMultiHeadSearchDepth,
 }: AutoPaintTabProps) {
     const {
         result: nextBestResult,
@@ -960,6 +974,76 @@ export default function AutoPaintTab({
                                     />
                                 </div>
                             </div>
+                        </div>
+                    )}
+
+                    {/* Multi-head mode */}
+                    {filaments.length > 0 && (
+                        <div className="space-y-3 pt-2">
+                            <div className="h-px bg-border/50" />
+                            <div className="flex items-center justify-between">
+                                <div className="space-y-0.5">
+                                    <Label
+                                        htmlFor="multi-head-mode"
+                                        className="text-xs font-semibold text-foreground cursor-pointer"
+                                    >
+                                        Multi-head mode
+                                    </Label>
+                                    <p className="text-[10px] text-muted-foreground">
+                                        Optimize layer order per-pixel across N heads ({filaments.length > 0 ? `${Math.min(filaments.length, 5)}^${Math.min(filaments.length, 5)} = ${Math.pow(Math.min(filaments.length, 5), Math.min(filaments.length, 5)).toLocaleString()} color combinations` : 'load filaments to see'})
+                                    </p>
+                                </div>
+                                <Switch
+                                    id="multi-head-mode"
+                                    data-testid="autopaint-multi-head-mode"
+                                    checked={multiHeadMode}
+                                    onCheckedChange={setMultiHeadMode}
+                                />
+                            </div>
+                            {multiHeadMode && (
+                                <div className="space-y-2 pl-0.5">
+                                    <div className="flex items-center gap-2">
+                                        <Label htmlFor="multi-head-count" className="text-xs text-muted-foreground whitespace-nowrap">
+                                            Head count
+                                        </Label>
+                                        <NumberInput
+                                            id="multi-head-count"
+                                            className="h-7 text-xs flex-1"
+                                            value={multiHeadCount}
+                                            min={2}
+                                            step={1}
+                                            onChange={(e) => {
+                                                const v = parseInt(e.target.value, 10);
+                                                if (v >= 2) setMultiHeadCount(v);
+                                            }}
+                                        />
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <Label htmlFor="multi-head-search-depth" className="text-xs text-muted-foreground whitespace-nowrap">
+                                            Search depth
+                                        </Label>
+                                        <Select
+                                            value={multiHeadSearchDepth}
+                                            onValueChange={(v) => setMultiHeadSearchDepth(v as 'fast' | 'balanced' | 'thorough')}
+                                        >
+                                            <SelectTrigger id="multi-head-search-depth" className="h-7 text-xs flex-1">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="fast" className="text-xs">
+                                                    Fast (coarse sampling)
+                                                </SelectItem>
+                                                <SelectItem value="balanced" className="text-xs">
+                                                    Balanced
+                                                </SelectItem>
+                                                <SelectItem value="thorough" className="text-xs">
+                                                    Thorough (all pixel groups)
+                                                </SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     )}
 

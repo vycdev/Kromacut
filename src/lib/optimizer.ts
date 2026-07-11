@@ -15,8 +15,8 @@ import {
     buildAchievableColorPalette,
     scoreSequenceAgainstImage,
     type WeightedLab,
-} from './autoPaint';
-import { activeFrontlitCalibration, channelHds } from './calibration';
+} from './autoPaint.ts';
+import { activeFrontlitCalibration, channelHds } from './calibration.ts';
 
 // ============================================================================
 // Type Definitions
