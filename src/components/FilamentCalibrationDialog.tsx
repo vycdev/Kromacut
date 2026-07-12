@@ -30,8 +30,10 @@ import {
     ArrowRight,
     FlaskConical,
     AlertTriangle,
+    BookOpen,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { openDocsAt } from '@/lib/docs/navigation';
 import type { Filament } from '../types';
 import {
     activeFrontlitCalibration,
@@ -676,6 +678,17 @@ export function FilamentCalibrationDialog({
                     Pick the filaments to calibrate. You&apos;ll print a small wedge for each over a
                     base layer, then read back a single number — no camera, no color picking.
                 </p>
+                <button
+                    type="button"
+                    onClick={() => {
+                        handleClose();
+                        openDocsAt('calibration-theory');
+                    }}
+                    className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
+                >
+                    <BookOpen className="h-4 w-4" />
+                    How calibration works
+                </button>
                 {filaments.length > 0 && (
                     <button
                         type="button"

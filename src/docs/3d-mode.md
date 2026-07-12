@@ -57,6 +57,8 @@ Because the reference rail is the filament's own fully-opaque color, you are onl
 
 Each filament stores a single calibration. Calibrating a filament again **replaces** its previous value rather than averaging into it, and only the reads you enter in the current run are saved — so to combine several bases into one measurement, select them together in a single **Accurate** run instead of calibrating the same filament twice. Calibrating a different filament only updates that filament and leaves your other calibrations untouched.
 
+For the optics behind the wedge — why one read is enough and what the math does with it — see [Calibration theory](calibration-theory).
+
 ## Filament Profiles
 
 Auto-paint profiles store reusable filament sets.
@@ -159,4 +161,4 @@ Hover over color segments to see the start layer or swap layer. The preview rang
 
 In Flat Paint mode the bar shows a plain track because printed layers contain several filaments at once — there is no single swap sequence. Orbit underneath the model to inspect the artwork face.
 
-Next: [Generating and exporting output](generating-exporting-output).
+Next: [Calibration theory](calibration-theory).
