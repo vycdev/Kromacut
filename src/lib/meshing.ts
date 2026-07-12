@@ -256,7 +256,9 @@ function triangulateBoundaryPreservingVertices(
         const segmentX = b.x - a.x;
         const segmentY = b.y - a.y;
         const segmentLengthSquared = segmentX * segmentX + segmentY * segmentY;
-        const collinearEpsilon = Math.max(areaEpsilon * 16, Number.EPSILON);
+        // roundedPoints are exact integer coordinate units, so genuinely
+        // collinear chains have area exactly 0 and integer projections.
+        const collinearEpsilon = 0.5;
 
         const collect = (step: 1 | -1) => {
             const chain = [start];
@@ -743,12 +745,19 @@ async function generateGridMesh(
                 Math.fround(mappedY * pixelSize)
             );
         });
+        // Cap points in integer 3MF coordinate units — the exact grid the
+        // exporter serializes and welds on. Degeneracy checks on these
+        // integers agree with the exporter bit-for-bit, so every cap face the
+        // mesher accepts survives export. (Checking quantized-back floats
+        // against an epsilon lets through faces whose integer area is exactly
+        // zero; the exporter then drops them, leaving holes that slicers
+        // report as non-manifold edges.)
         const roundedFacePoints = options.smoothBoundary
             ? facePoints.map(
                   (point) =>
                       new Vector2(
-                          Math.round(point.x * THREE_MF_COORD_SCALE) / THREE_MF_COORD_SCALE,
-                          Math.round(point.y * THREE_MF_COORD_SCALE) / THREE_MF_COORD_SCALE
+                          Math.round(point.x * THREE_MF_COORD_SCALE),
+                          Math.round(point.y * THREE_MF_COORD_SCALE)
                       )
               )
             : facePoints;

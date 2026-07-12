@@ -34,6 +34,7 @@ All notable changes to Kromacut are documented in this file.
 - **Auto-paint edge cases** - Blank seeds now resolve to stable cacheable values, optimizer cache keys include all target clusters, tuning inputs, preserve-separation mode, and active calibration state, beam-search ties use locale-independent ordering, exact base-order search discloses its estimated base-order count before running, zero-HD blend helpers agree on the opaque-filament limit, and exceptionally tall stacks stop at the intended 500-layer slice-data limit.
 - **Filament profile validation** - Imported `.kfil`/`.kapp` profile filaments now reject zero or negative hiding distances instead of letting invalid raw HD values reach the UI.
 - **Desktop 3MF export reliability** - 3MF model XML now streams into the archive in bounded chunks, avoiding desktop WebView `FileReader` `NotReadableError` failures and `RangeError: Invalid string length` on large exports.
+- **Smooth meshing 3MF integrity** - Smoothed cap faces are now validated in the 3MF exporter's exact integer coordinate units instead of epsilon-compared floats, so faces that would collapse at serialized precision get re-triangulated during meshing rather than silently dropped at export. This removes the pinhole open/non-manifold edges slicers flagged on large smooth-meshed 3MF exports (STL exports were never affected).
 
 ## v3.1.0 - 2026-06-18
 
