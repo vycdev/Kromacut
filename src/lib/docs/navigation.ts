@@ -30,6 +30,16 @@ export function buildDocsPath(docSlug: string, headingSlug?: string): string {
     return `${DOCS_PATH_PREFIX}/${encodedDoc}${encodedHeading}`;
 }
 
+/**
+ * Open the in-app docs at a specific page from anywhere in the app. Pushes the
+ * docs URL and fires a popstate so the App shell and DocsPage (both of which
+ * already listen for it) switch to docs and select the page.
+ */
+export function openDocsAt(docSlug: string, headingSlug?: string): void {
+    window.history.pushState(null, '', buildDocsPath(docSlug, headingSlug));
+    window.dispatchEvent(new PopStateEvent('popstate'));
+}
+
 export function parseDocsPath(pathname: string, hash = ''): DocLinkTarget | null {
     const normalizedPath = pathname.replace(/\/+$/, '') || '/';
     if (normalizedPath !== DOCS_PATH_PREFIX && !normalizedPath.startsWith(`${DOCS_PATH_PREFIX}/`)) {
