@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="460" viewBox="0 0 960 460">
+<defs><marker id="arr6" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#71717a"/></marker></defs>
+<rect x="0" y="0" width="960" height="460" fill="#18181b" stroke="none" rx="0" />
+<text x="480" y="42" font-size="17" fill="#e4e4e7" text-anchor="middle" font-weight="bold" font-family="Inter,ui-sans-serif,sans-serif">Hiding Distance — Thin Layers Only Partly Hide the Base</text>
+<text x="480" y="62" font-size="10" fill="#71717a" text-anchor="middle" font-family="Inter,ui-sans-serif,sans-serif">Frontlit viewing: light passes through the filament, reflects off what is beneath, and passes back out.</text>
+<text x="480" y="78" font-size="10" fill="#71717a" text-anchor="middle" font-family="Inter,ui-sans-serif,sans-serif">Transmission T = 10^(−thickness / HD) — every added layer multiplies the show-through.</text>
+
+<text x="165" y="86" font-size="9" fill="#71717a" text-anchor="middle" font-family="Inter,ui-sans-serif,sans-serif">what you see</text>
+
+<!-- Stack 1: 1 layer -->
+<circle cx="165" cy="114" r="22" fill="#733f11" stroke="#3f3f46" stroke-width="1"/>
+<line x1="165" y1="277" x2="165" y2="142" stroke="#71717a" stroke-width="1.2" marker-end="url(#arr6)"/>
+<rect x="100" y="300" width="130" height="28" fill="#09090b" stroke="#3f3f46" stroke-width="1"/>
+<rect x="100" y="283" width="130" height="17" fill="#e67e22" stroke="#18181b" stroke-width="1"/>
+<text x="165" y="350" font-size="10" fill="#71717a" text-anchor="middle" font-family="Inter,ui-sans-serif,sans-serif">1 layer · T ≈ 50%</text>
+
+<!-- Stack 2: 2 layers -->
+<circle cx="335" cy="114" r="22" fill="#ac5e19" stroke="#3f3f46" stroke-width="1"/>
+<line x1="335" y1="260" x2="335" y2="142" stroke="#71717a" stroke-width="1.2" marker-end="url(#arr6)"/>
+<rect x="270" y="300" width="130" height="28" fill="#09090b" stroke="#3f3f46" stroke-width="1"/>
+<rect x="270" y="283" width="130" height="17" fill="#e67e22" stroke="#18181b" stroke-width="1"/>
+<rect x="270" y="266" width="130" height="17" fill="#e67e22" stroke="#18181b" stroke-width="1"/>
+<text x="335" y="350" font-size="10" fill="#71717a" text-anchor="middle" font-family="Inter,ui-sans-serif,sans-serif">2 layers · T ≈ 25%</text>
+
+<!-- Stack 3: 4 layers -->
+<circle cx="505" cy="114" r="22" fill="#d87620" stroke="#3f3f46" stroke-width="1"/>
+<line x1="505" y1="226" x2="505" y2="142" stroke="#71717a" stroke-width="1.2" marker-end="url(#arr6)"/>
+<rect x="440" y="300" width="130" height="28" fill="#09090b" stroke="#3f3f46" stroke-width="1"/>
+<rect x="440" y="283" width="130" height="17" fill="#e67e22" stroke="#18181b" stroke-width="1"/>
+<rect x="440" y="266" width="130" height="17" fill="#e67e22" stroke="#18181b" stroke-width="1"/>
+<rect x="440" y="249" width="130" height="17" fill="#e67e22" stroke="#18181b" stroke-width="1"/>
+<rect x="440" y="232" width="130" height="17" fill="#e67e22" stroke="#18181b" stroke-width="1"/>
+<text x="505" y="350" font-size="10" fill="#71717a" text-anchor="middle" font-family="Inter,ui-sans-serif,sans-serif">4 layers · T ≈ 6%</text>
+
+<!-- Stack 4: 8 layers -->
+<circle cx="675" cy="114" r="22" fill="#e57e22" stroke="#3f3f46" stroke-width="1"/>
+<line x1="675" y1="158" x2="675" y2="142" stroke="#71717a" stroke-width="1.2" marker-end="url(#arr6)"/>
+<rect x="610" y="300" width="130" height="28" fill="#09090b" stroke="#3f3f46" stroke-width="1"/>
+<rect x="610" y="283" width="130" height="17" fill="#e67e22" stroke="#18181b" stroke-width="1"/>
+<rect x="610" y="266" width="130" height="17" fill="#e67e22" stroke="#18181b" stroke-width="1"/>
+<rect x="610" y="249" width="130" height="17" fill="#e67e22" stroke="#18181b" stroke-width="1"/>
+<rect x="610" y="232" width="130" height="17" fill="#e67e22" stroke="#18181b" stroke-width="1"/>
+<rect x="610" y="215" width="130" height="17" fill="#e67e22" stroke="#18181b" stroke-width="1"/>
+<rect x="610" y="198" width="130" height="17" fill="#e67e22" stroke="#18181b" stroke-width="1"/>
+<rect x="610" y="181" width="130" height="17" fill="#e67e22" stroke="#18181b" stroke-width="1"/>
+<rect x="610" y="164" width="130" height="17" fill="#e67e22" stroke="#18181b" stroke-width="1"/>
+<text x="675" y="350" font-size="10" fill="#71717a" text-anchor="middle" font-family="Inter,ui-sans-serif,sans-serif">8 layers · T &lt; 1%</text>
+
+<text x="94" y="318" font-size="9" fill="#71717a" text-anchor="end" font-family="Inter,ui-sans-serif,sans-serif">black base</text>
+
+<!-- Right panel: opaque reference + formula -->
+<circle cx="850" cy="114" r="22" fill="#e67e22" stroke="#3f3f46" stroke-width="1"/>
+<text x="850" y="152" font-size="10" fill="#71717a" text-anchor="middle" font-family="Inter,ui-sans-serif,sans-serif">opaque filament color</text>
+<text x="850" y="166" font-size="10" fill="#71717a" text-anchor="middle" font-family="Inter,ui-sans-serif,sans-serif">(the wedge's reference rail)</text>
+<text x="850" y="215" font-size="13" fill="#e4e4e7" text-anchor="middle" font-weight="bold" font-family="Inter,ui-sans-serif,sans-serif">T = 10^(−thickness / HD)</text>
+<text x="850" y="240" font-size="10" fill="#71717a" text-anchor="middle" font-family="Inter,ui-sans-serif,sans-serif">HD (hiding distance): the depth at</text>
+<text x="850" y="254" font-size="10" fill="#71717a" text-anchor="middle" font-family="Inter,ui-sans-serif,sans-serif">which a filament visually hides</text>
+<text x="850" y="268" font-size="10" fill="#71717a" text-anchor="middle" font-family="Inter,ui-sans-serif,sans-serif">what's beneath it.</text>
+<text x="850" y="296" font-size="10" fill="#71717a" text-anchor="middle" font-family="Inter,ui-sans-serif,sans-serif">Conventional backlit TD ≈ 10 × HD.</text>
+
+<text x="480" y="452" font-size="10" fill="#71717a" text-anchor="middle" font-family="Inter,ui-sans-serif,sans-serif">Kromacut · frontlit calibration</text>
+</svg>
