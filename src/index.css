@@ -451,3 +451,204 @@ input[type='number'] {
 .side.w {
     left: -4px;
 }
+
+/* ---------------------------------------------------------------------------
+ * feat35 print-unlock effect: a quick FDM "print build" flourish that plays
+ * when the hidden code (see src/hooks/useSecretCode.ts) reveals multi-image
+ * mode. A filament object prints layer-by-layer while a nozzle sweeps, then
+ * the whole thing fades out. See src/components/PrintUnlockEffect.tsx.
+ * ------------------------------------------------------------------------- */
+.feat35-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    background: rgba(0, 0, 0, 0.55);
+    animation: feat35-fade 2.6s ease-in-out both;
+}
+
+.feat35-stage {
+    position: relative;
+    width: 260px;
+    height: 260px;
+}
+
+.feat35-object {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 200px;
+    height: 160px;
+    transform: translate(-50%, -50%);
+    border-radius: 4px;
+    border: 1px solid rgba(255, 190, 130, 0.6);
+    box-shadow: 0 0 26px rgba(255, 120, 0, 0.55);
+    /* Repeating light bands read as FDM layer lines over a filament gradient. */
+    background:
+        repeating-linear-gradient(
+            0deg,
+            rgba(255, 255, 255, 0.16) 0 2px,
+            transparent 2px 6px
+        ),
+        linear-gradient(180deg, #ff9a4d, #ff6a00);
+    /* Reveal rises at a constant rate so it stays locked to the nozzle's climb
+     * (feat35-head, also linear); an eased curve here finishes the fill visually
+     * early and leaves the nozzle lagging behind. */
+    animation:
+        feat35-build 2.6s linear both,
+        feat35-pop 2.6s ease-out both;
+}
+
+.feat35-nozzle {
+    position: absolute;
+    left: calc(50% - 13px);
+    top: 50%;
+    width: 26px;
+    height: 30px;
+    background: linear-gradient(180deg, #c9ced6, #6b7280);
+    clip-path: polygon(15% 0, 85% 0, 85% 55%, 60% 100%, 40% 100%, 15% 55%);
+    animation: feat35-head 2.6s linear both;
+}
+
+.feat35-tip {
+    position: absolute;
+    bottom: -3px;
+    left: 50%;
+    width: 6px;
+    height: 6px;
+    transform: translateX(-50%);
+    border-radius: 50%;
+    background: #ffd9a3;
+    box-shadow: 0 0 12px 3px rgba(255, 140, 0, 0.9);
+}
+
+.feat35-caption {
+    position: absolute;
+    left: 50%;
+    bottom: -6px;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    white-space: nowrap;
+    font-family: 'Oxanium', sans-serif;
+    animation: feat35-caption 2.6s ease-out both;
+}
+
+.feat35-caption-main {
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    font-size: 0.95rem;
+    color: #ffcaa0;
+    text-shadow: 0 0 12px rgba(255, 120, 0, 0.7);
+}
+
+.feat35-caption-sub {
+    font-weight: 600;
+    letter-spacing: 0.26em;
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    color: rgba(255, 202, 160, 0.7);
+}
+
+@keyframes feat35-fade {
+    0% {
+        opacity: 0;
+    }
+    10% {
+        opacity: 1;
+    }
+    82% {
+        opacity: 1;
+    }
+    100% {
+        opacity: 0;
+    }
+}
+
+/* Reveal bottom-up by shrinking the top inset from 100% to 0. */
+@keyframes feat35-build {
+    0% {
+        clip-path: inset(100% 0 0 0);
+    }
+    70% {
+        clip-path: inset(0 0 0 0);
+    }
+    100% {
+        clip-path: inset(0 0 0 0);
+    }
+}
+
+@keyframes feat35-pop {
+    0%,
+    70% {
+        transform: translate(-50%, -50%) scale(1);
+    }
+    80% {
+        transform: translate(-50%, -50%) scale(1.05);
+    }
+    100% {
+        transform: translate(-50%, -50%) scale(1);
+    }
+}
+
+/* Nozzle sweeps side to side while climbing with the growing top surface. */
+@keyframes feat35-head {
+    0% {
+        transform: translate(-95px, 70px);
+        opacity: 1;
+    }
+    10% {
+        transform: translate(95px, 47px);
+    }
+    20% {
+        transform: translate(-95px, 24px);
+    }
+    30% {
+        transform: translate(95px, 1px);
+    }
+    40% {
+        transform: translate(-95px, -22px);
+    }
+    50% {
+        transform: translate(95px, -45px);
+    }
+    60% {
+        transform: translate(-95px, -68px);
+    }
+    70% {
+        transform: translate(95px, -90px);
+        opacity: 1;
+    }
+    85%,
+    100% {
+        transform: translate(95px, -90px);
+        opacity: 0;
+    }
+}
+
+@keyframes feat35-caption {
+    0%,
+    62% {
+        opacity: 0;
+        transform: translate(-50%, 8px);
+    }
+    80% {
+        opacity: 1;
+        transform: translate(-50%, 0);
+    }
+    100% {
+        opacity: 1;
+        transform: translate(-50%, 0);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .feat35-overlay {
+        animation: none;
+    }
+}
