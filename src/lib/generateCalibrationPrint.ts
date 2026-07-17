@@ -24,6 +24,10 @@
 
 import JSZip from 'jszip';
 import { normalizeHexColor } from './colorUtils';
+import {
+    CALIBRATION_CORNER_RADIUS_MM,
+    CALIBRATION_CORNER_SEGMENTS,
+} from './calibrationGeometry';
 import { MINIMAL_PROJECT_SETTINGS, KROMACUT_CONFIG } from './slicerDefaults';
 
 export interface CalibrationTile {
@@ -67,7 +71,6 @@ export const DEFAULT_CALIBRATION_PRINT_OPTIONS: CalibrationPrintOptions = {
     gap: 0.8,
 };
 
-/** Which of the four vertical corners are rounded. Omitted corners default to rounded. */
 type CornerRounding = { bl?: boolean; br?: boolean; tr?: boolean; tl?: boolean };
 
 interface Box {
@@ -137,7 +140,7 @@ function buildTileGeometry(options: CalibrationPrintOptions, originX = 0): TileG
         z0: 0,
         // Reach to the middle of the first inter-patch gap.
         w: pad + patchSize + gap / 2,
-        d: tabDepth + CORNER_RADIUS + 0.5, // overlap past the base's rounded corner
+        d: tabDepth + CALIBRATION_CORNER_RADIUS_MM + 0.5, // overlap past the base's rounded corner
         h: baseH,
         round: { tr: false, tl: false }, // square the base-side corners
     });
@@ -202,8 +205,8 @@ function writeTriangle(
     return offset + 50;
 }
 
-const CORNER_RADIUS = 1.2; // mm — rounding applied to the vertical edges of every box.
-const CORNER_SEGMENTS = 5;
+const CORNER_RADIUS = CALIBRATION_CORNER_RADIUS_MM;
+const CORNER_SEGMENTS = CALIBRATION_CORNER_SEGMENTS;
 
 /** CCW (viewed from +Z) outline of a rounded rectangle; sharp corners emit a single point. */
 function roundedRectOutline(

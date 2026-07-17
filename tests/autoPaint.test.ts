@@ -434,7 +434,11 @@ test('preview slices blend each zone over the actual prior end color', async () 
 });
 
 test('auto-paint slice data stays synchronized and uses print-layer heights', async () => {
-    const { autoPaintToSliceHeights, generateAutoLayers } = await loadAutoPaintModule();
+    const {
+        autoPaintToSliceHeights,
+        freezeFinalPrintableStackSnapshot,
+        generateAutoLayers,
+    } = await loadAutoPaintModule();
     const layerHeight = 0.1;
     const firstLayerHeight = 0.2;
     const result = generateAutoLayers(
@@ -467,6 +471,49 @@ test('auto-paint slice data stays synchronized and uses print-layer heights', as
         slices.colorOrder.map((_, index) => index),
         'slice ordering should be sequential'
     );
+    assert.equal(result.finalStack.layers.length, slices.colorSliceHeights.length);
+    assert.deepEqual(
+        result.finalStack.layers.map((layer) => layer.thickness),
+        slices.colorSliceHeights
+    );
+    assert.deepEqual(
+        result.finalStack.layers.map((layer) => layer.predictedColor.hex),
+        slices.virtualSwatches.map((swatch) => swatch.hex)
+    );
+    assert.ok(Object.isFrozen(result.finalStack));
+    assert.ok(Object.isFrozen(result.finalStack.layers));
+    assert.ok(
+        result.finalStack.targetMappings.every(
+            (mapping) =>
+                mapping.paletteIndex >= 0 && mapping.paletteIndex < result.finalStack.palette.length
+        )
+    );
+
+    const repeated = generateAutoLayers(
+        [
+            { id: 'black', color: '#000000', td: 1 },
+            { id: 'white', color: '#ffffff', td: 1.5 },
+        ],
+        [
+            { hex: '#000000', count: 10 },
+            { hex: '#ffffff', count: 10 },
+        ],
+        layerHeight,
+        firstLayerHeight,
+        undefined,
+        false
+    );
+    assert.equal(repeated.finalStack.fingerprint, result.finalStack.fingerprint);
+    assert.equal(
+        new Set(result.finalStack.layers.map((layer) => layer.canonicalStackKey)).size,
+        result.finalStack.layers.length
+    );
+
+    const workerClone = structuredClone(result.finalStack);
+    assert.equal(Object.isFrozen(workerClone), false);
+    freezeFinalPrintableStackSnapshot(workerClone);
+    assert.ok(Object.isFrozen(workerClone));
+    assert.ok(Object.isFrozen(workerClone.layers));
 });
 
 test('auto-paint caps and optimizer palettes use the same discrete printable stack', async () => {

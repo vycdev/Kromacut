@@ -1,5 +1,18 @@
 import type { AutoPaintResult } from '../lib/autoPaint';
 import type { FrontlitCalibration } from '../lib/calibration';
+import type { TargetSampleContext } from './appearance';
+
+export type {
+    AppearanceGeometryClass,
+    CanonicalSrgbColor,
+    FinalPrintableStackSnapshot,
+    FinalStackLayerSnapshot,
+    FinalStackPaletteEntrySnapshot,
+    FinalStackSwapSnapshot,
+    FinalStackTargetMappingSnapshot,
+    FinalStackZoneSnapshot,
+    TargetSampleContext,
+} from './appearance';
 
 export const AUTO_PAINT_REPEAT_LIMITS = [0, 2, 4, 6, 8, 12] as const;
 export type AutoPaintRepeatLimit = (typeof AUTO_PAINT_REPEAT_LIMITS)[number];
@@ -33,6 +46,8 @@ export type Swatch = {
     centerWeight?: number;
     /** Sum of edge-priority weights for this color's source pixels. */
     edgeWeight?: number;
+    /** Optional spatial transfer context for appearance-proof evidence. */
+    sampleContext?: TargetSampleContext;
 };
 
 export interface CustomPalette {

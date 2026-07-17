@@ -6,7 +6,7 @@
  * responsive while the algorithm runs.
  */
 
-import { generateAutoLayers } from '../lib/autoPaint';
+import { generateAutoLayers, type AutoPaintImageSwatch } from '../lib/autoPaint';
 import type { AutoPaintRepeatLimit, Filament } from '../types';
 import type { OptimizerOptions } from '../lib/optimizer';
 import type { AutoPaintResult } from '../lib/autoPaint';
@@ -16,7 +16,7 @@ type WorkerOptimizerOptions = Omit<OptimizerOptions, 'onProgress'>;
 export interface AutoPaintWorkerRequest {
     id: number;
     filaments: Filament[];
-    imageSwatches: Array<{ hex: string; count?: number }>;
+    imageSwatches: AutoPaintImageSwatch[];
     layerHeight: number;
     firstLayerHeight: number;
     maxHeight?: number;

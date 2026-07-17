@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="520" viewBox="0 0 960 520">
+<style>.proof-targets rect,.proof-patches rect,.foundation-reference{rx:5px;ry:5px}</style>
+<rect x="0" y="0" width="960" height="520" fill="#18181b"/>
+<text x="480" y="38" font-size="17" fill="#e4e4e7" text-anchor="middle" font-weight="bold" font-family="Inter,ui-sans-serif,sans-serif">Palette Proof Layout</text>
+<text x="480" y="58" font-size="10" fill="#a1a1aa" text-anchor="middle" font-family="Inter,ui-sans-serif,sans-serif">Screen targets select the columns; each printed column contains up to five reachable stack prefixes.</text>
+
+<text x="240" y="92" font-size="11" fill="#e4e4e7" text-anchor="middle" font-weight="bold" font-family="Inter,ui-sans-serif,sans-serif">Patch map</text>
+<text x="240" y="108" font-size="9" fill="#a1a1aa" text-anchor="middle" font-family="Inter,ui-sans-serif,sans-serif">T = target shown in Kromacut, A-E = physical candidates</text>
+
+<text x="61" y="137" font-size="9" fill="#a1a1aa" text-anchor="middle" font-family="Inter,ui-sans-serif,sans-serif">T</text>
+<g class="proof-targets">
+<rect x="78" y="120" width="38" height="28" fill="#2cb9d1" stroke="#71717a"/>
+<rect x="121" y="120" width="38" height="28" fill="#f08cb8" stroke="#71717a"/>
+<rect x="164" y="120" width="38" height="28" fill="#f1cc3e" stroke="#71717a"/>
+<rect x="207" y="120" width="38" height="28" fill="#7652c7" stroke="#71717a"/>
+<rect x="250" y="120" width="38" height="28" fill="#e86432" stroke="#71717a"/>
+<rect x="293" y="120" width="38" height="28" fill="#43b96b" stroke="#71717a"/>
+<rect x="336" y="120" width="38" height="28" fill="#d7dbe0" stroke="#71717a"/>
+<rect x="379" y="120" width="38" height="28" fill="#344356" stroke="#71717a"/>
+</g>
+<g font-size="8" fill="#e4e4e7" text-anchor="middle" font-family="Inter,ui-sans-serif,sans-serif">
+<text x="97" y="116">1</text><text x="140" y="116">2</text><text x="183" y="116">3</text><text x="226" y="116">4</text>
+<text x="269" y="116">5</text><text x="312" y="116">6</text><text x="355" y="116">7</text><text x="398" y="116">8</text>
+</g>
+
+<path d="M82 158 H415 Q425 158 425 168 V371 Q425 381 415 381 H80 Q70 381 70 371 V170 H82 Z" fill="#27272a" stroke="#71717a" stroke-width="1.5"/>
+<path d="M82 158 V170 H70" fill="none" stroke="#f5a623" stroke-width="2"/>
+<text x="60" y="183" font-size="9" fill="#a1a1aa" text-anchor="middle" font-family="Inter,ui-sans-serif,sans-serif">A</text>
+<text x="60" y="226" font-size="9" fill="#a1a1aa" text-anchor="middle" font-family="Inter,ui-sans-serif,sans-serif">B</text>
+<text x="60" y="269" font-size="9" fill="#a1a1aa" text-anchor="middle" font-family="Inter,ui-sans-serif,sans-serif">C</text>
+<text x="60" y="312" font-size="9" fill="#a1a1aa" text-anchor="middle" font-family="Inter,ui-sans-serif,sans-serif">D</text>
+<text x="60" y="355" font-size="9" fill="#a1a1aa" text-anchor="middle" font-family="Inter,ui-sans-serif,sans-serif">E</text>
+
+<g class="proof-patches" stroke="#18181b" stroke-width="1">
+<rect x="78" y="164" width="38" height="38" fill="#2164a8"/><rect x="121" y="164" width="38" height="38" fill="#c56d9c"/><rect x="164" y="164" width="38" height="38" fill="#ad9b35"/><rect x="207" y="164" width="38" height="38" fill="#4d3294"/><rect x="250" y="164" width="38" height="38" fill="#bd4728"/><rect x="293" y="164" width="38" height="38" fill="#268a4d"/><rect x="336" y="164" width="38" height="38" fill="#9ca3ab"/><rect x="379" y="164" width="38" height="38" fill="#202a37"/>
+<rect x="78" y="207" width="38" height="38" fill="#2681b8"/><rect x="121" y="207" width="38" height="38" fill="#d37baa"/><rect x="164" y="207" width="38" height="38" fill="#c5ac37"/><rect x="207" y="207" width="38" height="38" fill="#5d3daa"/><rect x="250" y="207" width="38" height="38" fill="#ce522b"/><rect x="293" y="207" width="38" height="38" fill="#2e9d56"/><rect x="336" y="207" width="38" height="38" fill="#b6bbc1"/><rect x="379" y="207" width="38" height="38" fill="#263242"/>
+<rect x="78" y="250" width="38" height="38" fill="#2a9ac7"/><rect x="121" y="250" width="38" height="38" fill="#df84b2"/><rect x="164" y="250" width="38" height="38" fill="#dbc03a"/><rect x="207" y="250" width="38" height="38" fill="#6847b8"/><rect x="250" y="250" width="38" height="38" fill="#dc5a2f"/><rect x="293" y="250" width="38" height="38" fill="#37aa5e"/><rect x="336" y="250" width="38" height="38" fill="#cbd0d5"/><rect x="379" y="250" width="38" height="38" fill="#2c3a4c"/>
+<rect x="78" y="293" width="38" height="38" fill="#2aafd0"/><rect x="121" y="293" width="38" height="38" fill="#e78ab9"/><rect x="164" y="293" width="38" height="38" fill="#e8ca3c"/><rect x="207" y="293" width="38" height="38" fill="#7250c1"/><rect x="250" y="293" width="38" height="38" fill="#e26031"/><rect x="293" y="293" width="38" height="38" fill="#3db364"/><rect x="336" y="293" width="38" height="38" fill="#d9dde1"/><rect x="379" y="293" width="38" height="38" fill="#314052"/>
+<rect x="78" y="336" width="38" height="38" fill="#30bbd3"/><rect x="121" y="336" width="38" height="38" fill="#ef91bd"/><rect x="164" y="336" width="38" height="38" fill="#f2d043"/><rect x="207" y="336" width="38" height="38" fill="#7b58ca"/><rect x="250" y="336" width="38" height="38" fill="#ea6937"/><rect x="293" y="336" width="38" height="38" fill="#46bd6d"/><rect x="336" y="336" width="38" height="38" fill="#e4e7ea"/><rect x="379" y="336" width="38" height="38" fill="#38485c"/>
+</g>
+<rect class="foundation-reference" x="78" y="164" width="38" height="38" fill="none" stroke="#f5a623" stroke-width="2" stroke-dasharray="4 3"/>
+<text x="97" y="187" font-size="10" fill="#f5a623" text-anchor="middle" font-weight="bold" font-family="Inter,ui-sans-serif,sans-serif">F</text>
+<text x="247" y="405" font-size="9" fill="#a1a1aa" text-anchor="middle" font-family="Inter,ui-sans-serif,sans-serif">75 mm at the default 8-column layout</text>
+<text x="74" y="153" font-size="8" fill="#f5a623" text-anchor="start" font-family="Inter,ui-sans-serif,sans-serif">2 mm orientation notch</text>
+
+<text x="700" y="92" font-size="11" fill="#e4e4e7" text-anchor="middle" font-weight="bold" font-family="Inter,ui-sans-serif,sans-serif">Cross-section</text>
+<text x="700" y="108" font-size="9" fill="#a1a1aa" text-anchor="middle" font-family="Inter,ui-sans-serif,sans-serif">Every candidate stops at one reachable prefix</text>
+<rect x="520" y="342" width="360" height="26" fill="#2164a8" stroke="#71717a"/>
+<rect x="540" y="310" width="56" height="32" fill="#c56d9c" stroke="#18181b"/>
+<rect x="608" y="274" width="56" height="68" fill="#f2d043" stroke="#18181b"/>
+<rect x="676" y="238" width="56" height="104" fill="#7250c1" stroke="#18181b"/>
+<rect x="744" y="202" width="56" height="140" fill="#ea6937" stroke="#18181b"/>
+<rect x="812" y="166" width="48" height="176" fill="#46bd6d" stroke="#18181b"/>
+<g stroke="#e4e4e7" stroke-width="0.8" stroke-dasharray="4 3">
+<line x1="510" y1="310" x2="872" y2="310"/><line x1="510" y1="274" x2="872" y2="274"/><line x1="510" y1="238" x2="872" y2="238"/><line x1="510" y1="202" x2="872" y2="202"/><line x1="510" y1="166" x2="872" y2="166"/>
+</g>
+<g font-size="8" fill="#a1a1aa" text-anchor="end" font-family="Inter,ui-sans-serif,sans-serif">
+<text x="504" y="313">prefix 2</text><text x="504" y="277">prefix 3</text><text x="504" y="241">prefix 4</text><text x="504" y="205">prefix 5</text><text x="504" y="169">prefix 6</text>
+</g>
+<text x="700" y="385" font-size="9" fill="#a1a1aa" text-anchor="middle" font-family="Inter,ui-sans-serif,sans-serif">continuous first-layer foundation; 1 mm trenches remain connected below</text>
+<text x="700" y="418" font-size="9" fill="#e4e4e7" text-anchor="middle" font-family="Inter,ui-sans-serif,sans-serif">One physical filament is assigned to each horizontal layer.</text>
+<text x="700" y="435" font-size="9" fill="#e4e4e7" text-anchor="middle" font-family="Inter,ui-sans-serif,sans-serif">No arbitrary color combinations are fabricated.</text>
+
+<text x="480" y="493" font-size="10" fill="#71717a" text-anchor="middle" font-family="Inter,ui-sans-serif,sans-serif">Kromacut - camera-free appearance proof</text>
+</svg>

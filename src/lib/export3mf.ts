@@ -10,6 +10,10 @@ export interface Export3MFOptions {
     layerFilamentColors?: string[]; // Optional per-layer filament colors (hex) for export
     onProgress?: (progress: number) => void;
     onZipProgress?: (progress: { percent: number; currentFile?: string | null }) => void;
+    metadataFiles?: readonly {
+        name: string;
+        content: string;
+    }[];
 }
 
 type TriangleIndexChunk = {
@@ -732,6 +736,13 @@ export async function exportObjectTo3MFBlob(
         'project_settings.config',
         JSON.stringify(projectSettings, null, 4)
     );
+
+    for (const file of options?.metadataFiles ?? []) {
+        if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(file.name)) {
+            throw new Error(`Invalid 3MF metadata filename: ${file.name}`);
+        }
+        zip.folder('Metadata')?.file(file.name, file.content);
+    }
 
     reportProgress(exportZipProgress(0));
 

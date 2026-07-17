@@ -67,6 +67,16 @@ function useStableValueByKey<T>(value: T, key: string): T {
     return stableRef.current.value;
 }
 
+function freezeWorkerValue<T>(value: T): T {
+    if (!value || typeof value !== 'object' || Object.isFrozen(value)) return value;
+
+    for (const child of Object.values(value)) {
+        freezeWorkerValue(child);
+    }
+
+    return Object.freeze(value);
+}
+
 export function useAutoPaintWorker(opts: UseAutoPaintWorkerOptions): UseAutoPaintWorkerResult {
     const {
         paintMode,
@@ -118,7 +128,14 @@ export function useAutoPaintWorker(opts: UseAutoPaintWorkerOptions): UseAutoPain
                 console.error('[autoPaintWorker] error:', nextError);
                 setAutoPaintResult(undefined);
             } else {
-                setAutoPaintResult(result);
+                setAutoPaintResult(
+                    result
+                        ? {
+                              ...result,
+                              finalStack: freezeWorkerValue(result.finalStack),
+                          }
+                        : undefined
+                );
             }
         },
         []
@@ -135,6 +152,7 @@ export function useAutoPaintWorker(opts: UseAutoPaintWorkerOptions): UseAutoPain
         const rawSwatches = filtered.map((swatch) => ({
             hex: swatch.hex,
             rawCount: swatch.count ?? 1,
+            sampleContext: swatch.sampleContext,
             weightedCount:
                 regionWeightingMode === 'center'
                     ? swatch.centerWeight
@@ -149,6 +167,7 @@ export function useAutoPaintWorker(opts: UseAutoPaintWorkerOptions): UseAutoPain
 
         return rawSwatches.map((swatch) => ({
             hex: swatch.hex,
+            sampleContext: swatch.sampleContext,
             count:
                 regionWeightingMode !== 'uniform' && totalWeight > 0
                     ? swatch.weightedCount ?? 0
@@ -157,7 +176,9 @@ export function useAutoPaintWorker(opts: UseAutoPaintWorkerOptions): UseAutoPain
     }, [filtered, regionWeightingMode]);
 
     const filteredKey = useMemo(() => {
-        return selectedImageSwatches.map((s) => `${s.hex}:${s.count}`).join(';');
+        return selectedImageSwatches
+            .map((s) => `${s.hex}:${s.count}:${JSON.stringify(s.sampleContext ?? null)}`)
+            .join(';');
     }, [selectedImageSwatches]);
 
     // Keep stable references when only array identity changes but content does not.

@@ -1285,6 +1285,7 @@ export default function AutoPaintTab({
                 filaments={filaments}
                 layerHeight={calibrationLayerHeight}
                 firstLayerHeight={firstLayerHeight}
+                paletteProofSnapshot={autoPaintResult?.finalStack}
                 onApply={handleApplyCalibration}
             />
         </TabsContent>
