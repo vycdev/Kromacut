@@ -514,6 +514,16 @@ export default function ThreeDControls({
                     handleDeleteProfile={profileManager.handleDeleteProfile}
                     handleExportProfile={profileManager.handleExportProfile}
                     handleImportFile={profileManager.handleImportFile}
+                    handleRegisterPaletteProof={profileManager.handleRegisterPaletteProof}
+                    handleSetPaletteTargetResponse={
+                        profileManager.handleSetPaletteTargetResponse
+                    }
+                    handleCompletePaletteProofEvaluation={
+                        profileManager.handleCompletePaletteProofEvaluation
+                    }
+                    handleReopenPaletteProofEvaluation={
+                        profileManager.handleReopenPaletteProofEvaluation
+                    }
                     autoPaintMaxHeight={autoPaintMaxHeight}
                     setAutoPaintMaxHeight={setAutoPaintMaxHeight}
                     autoPaintResult={autoPaintResult}

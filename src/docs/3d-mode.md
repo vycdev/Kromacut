@@ -153,7 +153,9 @@ Choose **Download 3MF** to generate the default 75 x 48 mm coupon. It uses 8 mm 
 
 The 3MF contains one part per physical layer with the final Auto-paint filament assignments. It also embeds `palette-proof.json` and `palette-proof-instructions.txt` under its `Metadata` folder so the printed coupon stays tied to the exact stack snapshot and patch IDs that generated it. Keep the model face-up at 100% scale, use the layer heights shown in the instructions, confirm filament assignments in the slicer, and compare the printed candidates under your normal viewing light.
 
-The current proof records the artifact and provides the stable comparison map; it does not yet change the appearance model automatically.
+Saving the 3MF also records the proof in the active named filament profile. Open the **Results** view after printing and, for each target column, select the closest patch, select multiple patches when they are tied, or choose **None** when every candidate misses. Progress is saved immediately, survives app restarts, and can be completed and reopened for correction. Saved proofs remain available from the profile even when the original image is no longer loaded.
+
+These judgments are stored as camera-free appearance evidence with the exact proof, physical prefixes, process settings, and display-color contract that produced them. Completing a proof does not yet change the preview, HD calibration, or Auto-paint result automatically.
 
 ## Preview Controls
 

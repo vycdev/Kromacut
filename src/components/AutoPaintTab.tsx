@@ -25,8 +25,19 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { TabsContent } from '@/components/ui/tabs';
 import type { AutoPaintResult, TransitionZone } from '../lib/autoPaint';
+import type {
+    PaletteProofRecord,
+    PaletteTargetResponse,
+} from '../lib/appearanceProfile';
+import type { PaletteProofSpec } from '../lib/paletteProof';
 import type { AutoPaintProfile } from '../lib/profileManager';
-import type { AutoPaintRepeatLimit, AutoPaintTransitionOpacity, Filament, Swatch } from '../types';
+import type {
+    AutoPaintRepeatLimit,
+    AutoPaintTransitionOpacity,
+    Filament,
+    FinalPrintableStackSnapshot,
+    Swatch,
+} from '../types';
 import FilamentRow from './FilamentRow';
 import {
     FilamentCalibrationDialog,
@@ -127,6 +138,17 @@ interface AutoPaintTabProps {
     handleDeleteProfile: (id: string) => void;
     handleExportProfile: () => void;
     handleImportFile: (e: React.ChangeEvent<HTMLInputElement>) => void;
+    handleRegisterPaletteProof: (
+        snapshot: FinalPrintableStackSnapshot,
+        proof: PaletteProofSpec
+    ) => PaletteProofRecord;
+    handleSetPaletteTargetResponse: (
+        proofId: string,
+        column: number,
+        response: PaletteTargetResponse | null
+    ) => void;
+    handleCompletePaletteProofEvaluation: (proofId: string) => void;
+    handleReopenPaletteProofEvaluation: (proofId: string) => void;
 
     // Auto-paint state
     autoPaintMaxHeight: number | undefined;
@@ -197,6 +219,10 @@ export default function AutoPaintTab({
     handleDeleteProfile,
     handleExportProfile,
     handleImportFile,
+    handleRegisterPaletteProof,
+    handleSetPaletteTargetResponse,
+    handleCompletePaletteProofEvaluation,
+    handleReopenPaletteProofEvaluation,
     autoPaintMaxHeight,
     setAutoPaintMaxHeight,
     autoPaintResult,
@@ -229,6 +255,10 @@ export default function AutoPaintTab({
     regionWeightingMode,
     setRegionWeightingMode,
 }: AutoPaintTabProps) {
+    const activeProfile = React.useMemo(
+        () => profiles.find((profile) => profile.id === activeProfileId),
+        [activeProfileId, profiles]
+    );
     const {
         result: nextBestResult,
         isComputing: isNextBestComputing,
@@ -1286,6 +1316,12 @@ export default function AutoPaintTab({
                 layerHeight={calibrationLayerHeight}
                 firstLayerHeight={firstLayerHeight}
                 paletteProofSnapshot={autoPaintResult?.finalStack}
+                paletteProofProfile={activeProfile}
+                paletteProofProfileDirty={isDirty}
+                onRegisterPaletteProof={handleRegisterPaletteProof}
+                onSetPaletteTargetResponse={handleSetPaletteTargetResponse}
+                onCompletePaletteProofEvaluation={handleCompletePaletteProofEvaluation}
+                onReopenPaletteProofEvaluation={handleReopenPaletteProofEvaluation}
                 onApply={handleApplyCalibration}
             />
         </TabsContent>

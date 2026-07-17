@@ -37,6 +37,12 @@ import {
 import { cn } from '@/lib/utils';
 import { openDocsAt } from '@/lib/docs/navigation';
 import type { Filament, FinalPrintableStackSnapshot } from '../types';
+import type {
+    PaletteProofRecord,
+    PaletteTargetResponse,
+} from '../lib/appearanceProfile';
+import type { PaletteProofSpec } from '../lib/paletteProof';
+import type { AutoPaintProfile } from '../lib/profileManager';
 import PaletteProofPanel from './PaletteProofPanel';
 import {
     activeFrontlitCalibration,
@@ -79,6 +85,19 @@ interface FilamentCalibrationDialogProps {
     layerHeight: number;
     firstLayerHeight: number;
     paletteProofSnapshot?: FinalPrintableStackSnapshot;
+    paletteProofProfile?: AutoPaintProfile;
+    paletteProofProfileDirty?: boolean;
+    onRegisterPaletteProof?: (
+        snapshot: FinalPrintableStackSnapshot,
+        proof: PaletteProofSpec
+    ) => PaletteProofRecord;
+    onSetPaletteTargetResponse?: (
+        proofId: string,
+        column: number,
+        response: PaletteTargetResponse | null
+    ) => void;
+    onCompletePaletteProofEvaluation?: (proofId: string) => void;
+    onReopenPaletteProofEvaluation?: (proofId: string) => void;
     onApply: (updates: CalibrationApplyUpdate[]) => void;
 }
 
@@ -174,6 +193,12 @@ export function FilamentCalibrationDialog({
     layerHeight,
     firstLayerHeight,
     paletteProofSnapshot,
+    paletteProofProfile,
+    paletteProofProfileDirty,
+    onRegisterPaletteProof,
+    onSetPaletteTargetResponse,
+    onCompletePaletteProofEvaluation,
+    onReopenPaletteProofEvaluation,
     onApply,
 }: FilamentCalibrationDialogProps) {
     const [calibrationSurface, setCalibrationSurface] =
@@ -1241,17 +1266,17 @@ export function FilamentCalibrationDialog({
                     Palette Proof
                 </AlertDialogTitle>
             </AlertDialogHeader>
-            {paletteProofSnapshot ? (
-                <PaletteProofPanel
-                    snapshot={paletteProofSnapshot}
-                    embedded
-                    showTitle={false}
-                />
-            ) : (
-                <div className="rounded-md border border-border/60 bg-muted/20 p-4 text-sm text-muted-foreground">
-                    Generate an Auto-paint result to create a job-specific Palette Proof.
-                </div>
-            )}
+            <PaletteProofPanel
+                snapshot={paletteProofSnapshot}
+                profile={paletteProofProfile}
+                profileDirty={paletteProofProfileDirty}
+                embedded
+                showTitle={false}
+                onRegisterProof={onRegisterPaletteProof}
+                onSetTargetResponse={onSetPaletteTargetResponse}
+                onCompleteEvaluation={onCompletePaletteProofEvaluation}
+                onReopenEvaluation={onReopenPaletteProofEvaluation}
+            />
             <AlertDialogFooter>
                 <Button variant="outline" onClick={handleClose}>
                     Close

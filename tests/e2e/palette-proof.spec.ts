@@ -7,7 +7,9 @@ import JSZip from 'jszip';
 const repoRoot = path.resolve(fileURLToPath(new URL('../../', import.meta.url)));
 const assetRoot = path.join(repoRoot, 'tests', 'assets');
 
-test('Palette Proof map stays usable and downloads its frozen 3MF', async ({ page }, testInfo) => {
+test('Palette Proof stays usable, persists results, and downloads its frozen 3MF', async ({
+    page,
+}, testInfo) => {
     testInfo.setTimeout(3 * 60 * 1000);
     await page.addInitScript(() => localStorage.clear());
     await page.goto('/');
@@ -45,6 +47,31 @@ test('Palette Proof map stays usable and downloads its frozen 3MF', async ({ pag
     expect(zip.file('Metadata/palette-proof.json')).not.toBeNull();
     expect(zip.file('Metadata/palette-proof-instructions.txt')).not.toBeNull();
 
+    await dialog.getByRole('tab', { name: /Results/ }).click();
+    await expect(dialog.getByText('0/8 targets answered')).toBeVisible();
+    await dialog.getByRole('button', { name: 'A1', exact: true }).click();
+    await dialog.getByRole('button', { name: 'B1', exact: true }).click();
+    for (let column = 2; column <= 8; column++) {
+        await dialog
+            .getByTestId(`palette-proof-result-column-${column}`)
+            .getByRole('button', { name: 'None', exact: true })
+            .click();
+    }
+    await expect(dialog.getByText('8/8 targets answered')).toBeVisible();
+    await dialog.getByRole('button', { name: 'Complete results', exact: true }).click();
+    await expect(dialog.getByText('Complete', { exact: true })).toBeVisible();
+    await expect(dialog.getByRole('button', { name: 'Edit results', exact: true })).toBeVisible();
+
+    const storedAppearance = await page.evaluate(() => {
+        const profiles = JSON.parse(localStorage.getItem('kromacut.autopaint.profiles') ?? '[]');
+        return profiles[0]?.appearance;
+    });
+    expect(storedAppearance.schemaVersion).toBe(1);
+    expect(storedAppearance.proofs).toHaveLength(1);
+    expect(storedAppearance.targetJudgments).toHaveLength(8);
+    expect(storedAppearance.targetJudgments[0].closestCellIds).toEqual(['A1', 'B1']);
+    expect(storedAppearance.viewingSessions[0].status).toBe('complete');
+
     await page.setViewportSize({ width: 390, height: 844 });
     await panel.scrollIntoViewIfNeeded();
     const bounds = await panel.boundingBox();
@@ -57,8 +84,15 @@ test('Palette Proof map stays usable and downloads its frozen 3MF', async ({ pag
     expect(downloadBounds!.x + downloadBounds!.width).toBeLessThanOrEqual(
         bounds!.x + bounds!.width
     );
+    const dialogZIndex = await dialog.evaluate((element) =>
+        Number.parseInt(getComputedStyle(element).zIndex, 10)
+    );
+    const previewToolbarZIndex = await page
+        .getByTestId('preview-render-mode-trigger')
+        .evaluate((element) => Number.parseInt(getComputedStyle(element.parentElement!).zIndex, 10));
+    expect(dialogZIndex).toBeGreaterThan(previewToolbarZIndex);
     expect(
         await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)
     ).toBe(true);
-    await page.screenshot({ path: testInfo.outputPath('palette-proof-mobile.png') });
+    await page.screenshot({ path: testInfo.outputPath('palette-proof-results-mobile.png') });
 });

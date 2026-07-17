@@ -1,4 +1,8 @@
 import type { Filament } from '../types';
+import {
+    sanitizeAppearanceProfile,
+    type AppearanceProfileV1,
+} from './appearanceProfile.ts';
 import { FRONTLIT_TD_SCALE, sanitizeFrontlitCalibration } from './calibration.ts';
 import { normalizeHexColor } from './colorUtils.ts';
 
@@ -7,6 +11,7 @@ export interface AutoPaintProfile {
     name: string;
     version: number;
     filaments: Filament[];
+    appearance?: AppearanceProfileV1;
     createdAt: number;
     updatedAt: number;
 }
@@ -17,8 +22,9 @@ export interface AutoPaintProfile {
  *   and scaled ×0.1 at simulation time.
  * - v2: `td` always stores the frontlit hiding distance (mm) directly, for
  *   calibrated and uncalibrated filaments alike.
+ * - v3: optional, versioned appearance proof records and raw judgments.
  */
-export const CURRENT_PROFILE_VERSION = 2;
+export const CURRENT_PROFILE_VERSION = 3;
 
 /** Schema version that introduced hiding-distance td storage. The td migration
  *  applies to profiles below this version only — never re-gate it on
@@ -105,7 +111,7 @@ function sanitizeProfile(value: unknown): AutoPaintProfile | null {
 
     const version = typeof value.version === 'number' ? value.version : 1;
     const now = Date.now();
-    return {
+    const profile: AutoPaintProfile = {
         id: value.id,
         name: value.name,
         version: CURRENT_PROFILE_VERSION,
@@ -113,6 +119,9 @@ function sanitizeProfile(value: unknown): AutoPaintProfile | null {
         createdAt: typeof value.createdAt === 'number' ? value.createdAt : now,
         updatedAt: typeof value.updatedAt === 'number' ? value.updatedAt : now,
     };
+    const appearance = sanitizeAppearanceProfile(value.appearance);
+    if (appearance) profile.appearance = appearance;
+    return profile;
 }
 
 export function loadProfiles(): AutoPaintProfile[] {
@@ -149,11 +158,12 @@ export function saveLastProfileId(id: string | null) {
     }
 }
 
-export function saveProfilesToStorage(profiles: AutoPaintProfile[]) {
+export function saveProfilesToStorage(profiles: AutoPaintProfile[]): boolean {
     try {
         localStorage.setItem(PROFILES_STORAGE_KEY, JSON.stringify(profiles));
+        return true;
     } catch {
-        // ignore storage errors
+        return false;
     }
 }
 
@@ -223,6 +233,13 @@ function filamentsEqual(a: Filament[], b: Filament[]): boolean {
     );
 }
 
+function appearanceEqual(
+    a: AppearanceProfileV1 | undefined,
+    b: AppearanceProfileV1 | undefined
+): boolean {
+    return JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+}
+
 /** Derive a unique name by appending a numeric suffix if the name already exists. */
 function deduplicateName(name: string, existing: AutoPaintProfile[]): string {
     const names = new Set(existing.map((p) => p.name));
@@ -274,6 +291,8 @@ export function importProfiles(
             createdAt: typeof raw.createdAt === 'number' ? raw.createdAt : now,
             updatedAt: now,
         };
+        const appearance = sanitizeAppearanceProfile(raw.appearance);
+        if (appearance) profile.appearance = appearance;
 
         // 1. ID match → overwrite
         const idMatch = result.profiles.findIndex((p) => p.id === profile.id);
@@ -285,8 +304,10 @@ export function importProfiles(
         }
 
         // 2. Content match (same filaments) → skip
-        const contentMatch = result.profiles.find((p) =>
-            filamentsEqual(p.filaments, validFilaments)
+        const contentMatch = result.profiles.find(
+            (p) =>
+                filamentsEqual(p.filaments, validFilaments) &&
+                appearanceEqual(p.appearance, appearance)
         );
         if (contentMatch) {
             result.skipped.push(`${profile.name} (matches "${contentMatch.name}")`);
