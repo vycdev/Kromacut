@@ -188,7 +188,8 @@ test('appearance import sanitation preserves valid records and drops tampered co
         sanitizeAppearanceProfile,
         upsertPaletteProofRecord,
     } = await loadAppearanceProfile();
-    const { buildPaletteProofSpec } = await loadPaletteProof();
+    const { buildPaletteProofSpec, calculatePaletteProofFootprint } =
+        await loadPaletteProof();
     const snapshot = buildPaletteProofSnapshot(6, 3);
     const proof = buildPaletteProofSpec(snapshot, { targetCount: 3 });
     const record = buildPaletteProofRecord(
@@ -200,6 +201,22 @@ test('appearance import sanitation preserves valid records and drops tampered co
     const appearance = upsertPaletteProofRecord(createEmptyAppearanceProfile(), record);
 
     assert.deepEqual(sanitizeAppearanceProfile(structuredClone(appearance)), appearance);
+
+    const legacyLandscape = structuredClone(appearance);
+    const legacyLayout = legacyLandscape.proofs[0].proof.layout;
+    delete legacyLayout.matrixOrientation;
+    Object.assign(
+        legacyLayout,
+        calculatePaletteProofFootprint(
+            legacyLayout.columnCount,
+            legacyLayout.rowCount,
+            'target-columns'
+        )
+    );
+    const sanitizedLegacy = sanitizeAppearanceProfile(legacyLandscape);
+    assert.ok(sanitizedLegacy);
+    assert.equal(sanitizedLegacy!.proofs.length, 1);
+    assert.equal(sanitizedLegacy!.proofs[0].proof.layout.matrixOrientation, undefined);
 
     const tampered = structuredClone(appearance);
     tampered.proofs[0].proof.columns[0].targetColor.hex = '#ffffff';

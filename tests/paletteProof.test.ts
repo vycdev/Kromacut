@@ -33,9 +33,13 @@ async function loadViteModule<T>(modulePath: string): Promise<T> {
     }
 }
 
-test('default target-column footprint is 75 x 48 mm', async () => {
+test('default target-row footprint is 48 x 75 mm while legacy proofs stay landscape', async () => {
     const { calculatePaletteProofFootprint } = await loadPaletteProofModule();
-    assert.deepEqual(calculatePaletteProofFootprint(8, 5), { widthMm: 75, heightMm: 48 });
+    assert.deepEqual(calculatePaletteProofFootprint(8, 5), { widthMm: 48, heightMm: 75 });
+    assert.deepEqual(calculatePaletteProofFootprint(8, 5, 'target-columns'), {
+        widthMm: 75,
+        heightMm: 48,
+    });
     assert.deepEqual(calculatePaletteProofFootprint(0, 5), { widthMm: 0, heightMm: 0 });
 });
 
@@ -48,8 +52,8 @@ test('requested target and candidate counts resize the proof matrix', async () =
 
     assert.equal(spec.layout.columnCount, 3);
     assert.equal(spec.layout.rowCount, 2);
-    assert.equal(spec.layout.widthMm, 30);
-    assert.equal(spec.layout.heightMm, 21);
+    assert.equal(spec.layout.widthMm, 21);
+    assert.equal(spec.layout.heightMm, 30);
     assert.equal(spec.cells.length, 6);
 });
 
@@ -201,8 +205,9 @@ test('proof spec keeps targets on screen and validates only physical stack prefi
 
     assert.equal(spec.layout.columnCount, 8);
     assert.equal(spec.layout.rowCount, 5);
-    assert.equal(spec.layout.widthMm, 75);
-    assert.equal(spec.layout.heightMm, 48);
+    assert.equal(spec.layout.widthMm, 48);
+    assert.equal(spec.layout.heightMm, 75);
+    assert.equal(spec.layout.matrixOrientation, 'target-rows');
     assert.equal(spec.layout.cornerRadiusMm, 1.2);
     assert.equal(spec.layout.reinforcementLayers, 2);
     assert.equal(spec.layout.reinforcementClearanceMm, 0.15);

@@ -103,6 +103,7 @@ export interface PaletteProofSpec {
     comparisonEnabled: boolean;
     layout: {
         kind: 'target-column-matrix';
+        matrixOrientation?: 'target-columns' | 'target-rows';
         patchSizeMm: 8;
         gapMm: 1;
         marginMm: 2;
@@ -140,19 +141,23 @@ function targetDistance(
 }
 
 export function calculatePaletteProofFootprint(
-    columnCount: number,
-    rowCount: number
+    targetCount: number,
+    candidateCount: number,
+    matrixOrientation: 'target-columns' | 'target-rows' = 'target-rows'
 ): { widthMm: number; heightMm: number } {
-    if (columnCount <= 0 || rowCount <= 0) return { widthMm: 0, heightMm: 0 };
+    if (targetCount <= 0 || candidateCount <= 0) return { widthMm: 0, heightMm: 0 };
+
+    const horizontalCount = matrixOrientation === 'target-rows' ? candidateCount : targetCount;
+    const verticalCount = matrixOrientation === 'target-rows' ? targetCount : candidateCount;
 
     return {
         widthMm:
-            columnCount * PALETTE_PROOF_PATCH_SIZE_MM +
-            (columnCount - 1) * PALETTE_PROOF_GAP_MM +
+            horizontalCount * PALETTE_PROOF_PATCH_SIZE_MM +
+            (horizontalCount - 1) * PALETTE_PROOF_GAP_MM +
             2 * PALETTE_PROOF_MARGIN_MM,
         heightMm:
-            rowCount * PALETTE_PROOF_PATCH_SIZE_MM +
-            (rowCount - 1) * PALETTE_PROOF_GAP_MM +
+            verticalCount * PALETTE_PROOF_PATCH_SIZE_MM +
+            (verticalCount - 1) * PALETTE_PROOF_GAP_MM +
             2 * PALETTE_PROOF_MARGIN_MM,
     };
 }
@@ -453,7 +458,7 @@ export function buildPaletteProofSpec(
         )
     );
     const columnCount = targets.length;
-    const footprint = calculatePaletteProofFootprint(columnCount, rowCount);
+    const footprint = calculatePaletteProofFootprint(columnCount, rowCount, 'target-rows');
     const cells: PaletteProofCell[] = [];
     const columns: PaletteProofColumn[] = [];
     const physicalPatches: PaletteProofPhysicalPatch[] = [];
@@ -528,6 +533,7 @@ export function buildPaletteProofSpec(
         comparisonEnabled: prefixes.length >= 2 && columns.length > 0,
         layout: {
             kind: 'target-column-matrix' as const,
+            matrixOrientation: 'target-rows' as const,
             patchSizeMm: PALETTE_PROOF_PATCH_SIZE_MM as 8,
             gapMm: PALETTE_PROOF_GAP_MM as 1,
             marginMm: PALETTE_PROOF_MARGIN_MM as 2,
@@ -570,7 +576,8 @@ export function validatePaletteProofSpec(
     const patches = new Map(spec.physicalPatches.map((patch) => [patch.id, patch]));
     const expectedFootprint = calculatePaletteProofFootprint(
         spec.layout.columnCount,
-        spec.layout.rowCount
+        spec.layout.rowCount,
+        spec.layout.matrixOrientation ?? 'target-columns'
     );
 
     if (spec.snapshotFingerprint !== snapshot.fingerprint) {
@@ -593,6 +600,13 @@ export function validatePaletteProofSpec(
     }
     if (spec.layout.cornerRadiusMm !== PALETTE_PROOF_CORNER_RADIUS_MM) {
         errors.push('layout corner radius is inconsistent');
+    }
+    if (
+        spec.layout.matrixOrientation !== undefined &&
+        spec.layout.matrixOrientation !== 'target-columns' &&
+        spec.layout.matrixOrientation !== 'target-rows'
+    ) {
+        errors.push('layout matrix orientation is inconsistent');
     }
     const reinforcementLayers = spec.layout.reinforcementLayers ?? 0;
     const reinforcementClearanceMm = spec.layout.reinforcementClearanceMm ?? 0;

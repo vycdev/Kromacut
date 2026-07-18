@@ -139,8 +139,14 @@ export function paletteProofCellBounds(
     const pitch = spec.layout.patchSizeMm + spec.layout.gapMm;
     const left = -spec.layout.widthMm / 2 + spec.layout.marginMm;
     const bottom = -spec.layout.heightMm / 2 + spec.layout.marginMm;
-    const x0 = left + column * pitch;
-    const y0 = bottom + (spec.layout.rowCount - 1 - row) * pitch;
+    const targetRows = spec.layout.matrixOrientation === 'target-rows';
+    const x0 = left + (targetRows ? row : column) * pitch;
+    const y0 =
+        bottom +
+        (targetRows
+            ? spec.layout.columnCount - 1 - column
+            : spec.layout.rowCount - 1 - row) *
+            pitch;
     return {
         x0,
         y0,

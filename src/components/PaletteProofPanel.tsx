@@ -173,9 +173,8 @@ export default function PaletteProofPanel({
         () => new Map(evaluation?.judgments.map((judgment) => [judgment.column, judgment]) ?? []),
         [evaluation?.judgments]
     );
-    const cellsByCoordinate = useMemo(
-        () =>
-            new Map(selectedSpec?.cells.map((cell) => [`${cell.row}:${cell.column}`, cell]) ?? []),
+    const cellsById = useMemo(
+        () => new Map(selectedSpec?.cells.map((cell) => [cell.id, cell]) ?? []),
         [selectedSpec]
     );
     const prefixesByKey = useMemo(() => {
@@ -280,7 +279,7 @@ export default function PaletteProofPanel({
 
     const handleStartNextProof = () => {
         if (
-            !isSelectedCurrent ||
+            selectedRecord?.snapshotFingerprint !== snapshot?.fingerprint ||
             !evaluation?.complete ||
             !allCompletedHistory?.hasUnseenEvidence
         ) {
@@ -318,7 +317,6 @@ export default function PaletteProofPanel({
         );
     }
 
-    const gridMinimumWidth = Math.max(300, 24 + selectedSpec.layout.columnCount * 34);
     const currentRecord = currentSpec ? savedById.get(currentSpec.id) : undefined;
     const selectorOptions = [
         ...(currentSpec && !currentRecord
@@ -518,79 +516,154 @@ export default function PaletteProofPanel({
                 </TabsList>
 
                 <TabsContent value="proof" className="mt-3 space-y-2">
-                    <div className="overflow-x-auto pb-1">
-                        <div
-                            className="grid gap-1"
-                            style={{
-                                gridTemplateColumns: `20px repeat(${selectedSpec.layout.columnCount}, minmax(28px, 1fr))`,
-                                minWidth: `${gridMinimumWidth}px`,
-                            }}
-                        >
-                            <div className="flex h-7 items-center justify-center text-[9px] text-muted-foreground">
-                                T
-                            </div>
-                            {selectedSpec.columns.map((column) => (
-                                <div
-                                    key={`target-${column.id}`}
-                                    className="flex h-7 items-center justify-center rounded border border-border/70 text-[9px] font-semibold tabular-nums"
-                                    style={{
-                                        backgroundColor: column.targetColor.hex,
-                                        color: swatchTextColor(column.targetColor.rgb),
-                                    }}
-                                    title={`Target ${column.column + 1}: ${column.targetColor.hex.toUpperCase()}`}
-                                    aria-label={`Target ${column.column + 1}: ${column.targetColor.hex}`}
-                                >
-                                    {column.column + 1}
+                    {selectedSpec.layout.matrixOrientation === 'target-rows' ? (
+                    <div className="divide-y divide-border/70 border-y border-border/70">
+                        {selectedSpec.columns.map((column) => (
+                            <div
+                                key={column.id}
+                                className="grid gap-2 py-2 sm:grid-cols-[5.5rem_1fr]"
+                                data-testid={`palette-proof-map-target-${column.column + 1}`}
+                            >
+                                <div className="flex items-center gap-2 sm:items-start">
+                                    <div
+                                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded border border-border text-[10px] font-semibold"
+                                        style={{
+                                            backgroundColor: column.targetColor.hex,
+                                            color: swatchTextColor(column.targetColor.rgb),
+                                        }}
+                                        title={`Target ${column.column + 1}: ${column.targetColor.hex.toUpperCase()}`}
+                                        aria-label={`Target ${column.column + 1}`}
+                                    >
+                                        {column.column + 1}
+                                    </div>
+                                    <div className="min-w-0">
+                                        <p className="text-[10px] font-medium">
+                                            Target {column.column + 1}
+                                        </p>
+                                        <p className="truncate text-[9px] uppercase text-muted-foreground">
+                                            {column.targetColor.hex}
+                                        </p>
+                                    </div>
                                 </div>
-                            ))}
-
-                            {Array.from({ length: selectedSpec.layout.rowCount }, (_, row) => [
-                                <div
-                                    key={`row-${row}`}
-                                    className="flex h-7 items-center justify-center text-[9px] font-medium text-muted-foreground"
-                                >
-                                    {String.fromCharCode(65 + row)}
-                                </div>,
-                                ...selectedSpec.columns.map((column) => {
-                                    const cell = cellsByCoordinate.get(`${row}:${column.column}`);
-                                    const color = cell
-                                        ? prefixesByKey.get(cell.canonicalStackKey)
-                                        : undefined;
-                                    const isFoundation =
-                                        cell?.physicalPatchId === 'foundation-reference';
-                                    return (
-                                        <div
-                                            key={`cell-${row}-${column.column}`}
-                                            className={cn(
-                                                'flex h-7 items-center justify-center rounded border text-[9px] font-semibold tabular-nums',
-                                                isFoundation
-                                                    ? 'border-dashed border-foreground/60'
-                                                    : 'border-border/70'
-                                            )}
-                                            style={{
-                                                backgroundColor: color?.hex ?? '#000000',
-                                                color: color
-                                                    ? swatchTextColor(color.rgb)
-                                                    : '#ffffff',
-                                            }}
-                                            title={
-                                                cell
-                                                    ? `${cell.id}: prefix ${cell.prefixIndex + 1}, ${
-                                                          cell.candidateRole
-                                                      }${
-                                                          isFoundation ? ' (foundation margin)' : ''
-                                                      }`
-                                                    : undefined
-                                            }
-                                            aria-label={cell?.id}
-                                        >
-                                            {isFoundation ? 'F' : cell?.id}
-                                        </div>
-                                    );
-                                }),
-                            ])}
-                        </div>
+                                <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-5">
+                                    {column.cellIds.map((cellId) => {
+                                        const cell = cellsById.get(cellId);
+                                        const color = cell
+                                            ? prefixesByKey.get(cell.canonicalStackKey)
+                                            : undefined;
+                                        const isFoundation =
+                                            cell?.physicalPatchId === 'foundation-reference';
+                                        return (
+                                            <div
+                                                key={cellId}
+                                                className={cn(
+                                                    'flex h-10 items-center justify-center rounded border text-[10px] font-semibold tabular-nums',
+                                                    isFoundation
+                                                        ? 'border-dashed border-foreground/60'
+                                                        : 'border-border/70'
+                                                )}
+                                                style={{
+                                                    backgroundColor: color?.hex ?? '#000000',
+                                                    color: color
+                                                        ? swatchTextColor(color.rgb)
+                                                        : '#ffffff',
+                                                }}
+                                                title={
+                                                    cell
+                                                        ? `${cell.id}: prefix ${cell.prefixIndex + 1}, ${
+                                                              cell.candidateRole
+                                                          }${
+                                                              isFoundation
+                                                                  ? ' (foundation margin)'
+                                                                  : ''
+                                                          }`
+                                                        : undefined
+                                                }
+                                                aria-label={cell?.id}
+                                            >
+                                                {isFoundation ? `${cellId} F` : cellId}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        ))}
                     </div>
+                    ) : (
+                        <div className="overflow-x-auto pb-1">
+                            <div
+                                className="grid gap-1"
+                                style={{
+                                    gridTemplateColumns: `20px repeat(${selectedSpec.layout.columnCount}, minmax(28px, 1fr))`,
+                                    minWidth: `${Math.max(
+                                        300,
+                                        24 + selectedSpec.layout.columnCount * 34
+                                    )}px`,
+                                }}
+                            >
+                                <div className="flex h-7 items-center justify-center text-[9px] text-muted-foreground">
+                                    T
+                                </div>
+                                {selectedSpec.columns.map((column) => (
+                                    <div
+                                        key={`legacy-target-${column.id}`}
+                                        className="flex h-7 items-center justify-center rounded border border-border/70 text-[9px] font-semibold tabular-nums"
+                                        style={{
+                                            backgroundColor: column.targetColor.hex,
+                                            color: swatchTextColor(column.targetColor.rgb),
+                                        }}
+                                        aria-label={`Target ${column.column + 1}`}
+                                    >
+                                        {column.column + 1}
+                                    </div>
+                                ))}
+                                {Array.from(
+                                    { length: selectedSpec.layout.rowCount },
+                                    (_, row) => [
+                                        <div
+                                            key={`legacy-row-${row}`}
+                                            className="flex h-7 items-center justify-center text-[9px] font-medium text-muted-foreground"
+                                        >
+                                            {String.fromCharCode(65 + row)}
+                                        </div>,
+                                        ...selectedSpec.columns.map((column) => {
+                                            const cellId = `${String.fromCharCode(65 + row)}${
+                                                column.column + 1
+                                            }`;
+                                            const cell = cellsById.get(cellId);
+                                            const color = cell
+                                                ? prefixesByKey.get(cell.canonicalStackKey)
+                                                : undefined;
+                                            const isFoundation =
+                                                cell?.physicalPatchId ===
+                                                'foundation-reference';
+                                            return (
+                                                <div
+                                                    key={`legacy-cell-${cellId}`}
+                                                    className={cn(
+                                                        'flex h-7 items-center justify-center rounded border text-[9px] font-semibold tabular-nums',
+                                                        isFoundation
+                                                            ? 'border-dashed border-foreground/60'
+                                                            : 'border-border/70'
+                                                    )}
+                                                    style={{
+                                                        backgroundColor:
+                                                            color?.hex ?? '#000000',
+                                                        color: color
+                                                            ? swatchTextColor(color.rgb)
+                                                            : '#ffffff',
+                                                    }}
+                                                    aria-label={cellId}
+                                                >
+                                                    {isFoundation ? 'F' : cellId}
+                                                </div>
+                                            );
+                                        }),
+                                    ]
+                                )}
+                            </div>
+                        </div>
+                    )}
                     <div className="flex min-h-4 items-center text-[9px] text-muted-foreground">
                         <span>F = shared foundation reference</span>
                         {saved && (
@@ -668,9 +741,7 @@ export default function PaletteProofPanel({
                                             </div>
                                             <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-6">
                                                 {column.cellIds.map((cellId) => {
-                                                    const cell = selectedRecord.proof.cells.find(
-                                                        (candidate) => candidate.id === cellId
-                                                    );
+                                                    const cell = cellsById.get(cellId);
                                                     const color = cell
                                                         ? prefixesByKey.get(cell.canonicalStackKey)
                                                         : undefined;
@@ -765,7 +836,8 @@ export default function PaletteProofPanel({
                                             <Pencil className="mr-1.5 h-3.5 w-3.5" />
                                             Edit results
                                         </Button>
-                                        {isSelectedCurrent && (
+                                        {selectedRecord.snapshotFingerprint ===
+                                            snapshot?.fingerprint && (
                                             <Button
                                                 size="sm"
                                                 className="h-8 text-xs"

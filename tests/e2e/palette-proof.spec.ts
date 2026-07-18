@@ -53,13 +53,17 @@ test('Palette Proof stays usable, persists results, and downloads its frozen 3MF
     await page.getByRole('option', { name: '3', exact: true }).click();
     await dialog.getByRole('combobox', { name: 'Palette Proof candidate count' }).click();
     await page.getByRole('option', { name: '2', exact: true }).click();
-    await expect(panel.getByText('30 x 21 mm / 3 targets / 2 candidates')).toBeVisible();
+    await expect(panel.getByText('21 x 30 mm / 3 targets / 2 candidates')).toBeVisible();
 
     await dialog.getByRole('combobox', { name: 'Palette Proof target count' }).click();
     await page.getByRole('option', { name: '8', exact: true }).click();
     await dialog.getByRole('combobox', { name: 'Palette Proof candidate count' }).click();
     await page.getByRole('option', { name: '5', exact: true }).click();
-    await expect(panel.getByText('75 x 48 mm / 8 targets / 5 candidates')).toBeVisible();
+    await expect(panel.getByText('48 x 75 mm / 8 targets / 5 candidates')).toBeVisible();
+    const firstProofRow = panel.getByTestId('palette-proof-map-target-1');
+    await expect(firstProofRow.getByLabel('A1', { exact: true })).toBeVisible();
+    await expect(firstProofRow.getByLabel('B1', { exact: true })).toBeVisible();
+    await expect(firstProofRow.getByLabel('A2', { exact: true })).toHaveCount(0);
     await panel.scrollIntoViewIfNeeded();
     await page.screenshot({ path: testInfo.outputPath('palette-proof-desktop.png') });
 

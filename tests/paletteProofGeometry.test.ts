@@ -94,6 +94,12 @@ test('proof geometry has one notched foundation and closed physical-layer shells
     const topLeftCell = geometry.paletteProofCellBounds(spec, 0, 0);
     assert.equal(topLeftCell.x0, bounds.min.x + spec.layout.notchSizeMm);
     assert.equal(topLeftCell.y1, bounds.max.y - spec.layout.notchSizeMm);
+    const nextCandidate = geometry.paletteProofCellBounds(spec, 1, 0);
+    const nextTarget = geometry.paletteProofCellBounds(spec, 0, 1);
+    assert.equal(nextCandidate.y0, topLeftCell.y0, 'B1 must be directly right of A1');
+    assert.ok(nextCandidate.x0 > topLeftCell.x0, 'B1 must be directly right of A1');
+    assert.equal(nextTarget.x0, topLeftCell.x0, 'A2 must be directly below A1');
+    assert.ok(nextTarget.y0 < topLeftCell.y0, 'A2 must be directly below A1');
     const positions = foundation.geometry.getAttribute('position');
     const hasRemovedTopLeftCorner = Array.from({ length: positions.count }).every(
         (_, index) =>

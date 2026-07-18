@@ -253,6 +253,13 @@ function sanitizePaletteProofSpec(value: unknown): PaletteProofSpec | null {
     const columnCount = integer(value.layout.columnCount, 0, PALETTE_PROOF_MAX_TARGETS);
     const widthMm = finiteNumber(value.layout.widthMm, 0, 1_000);
     const heightMm = finiteNumber(value.layout.heightMm, 0, 1_000);
+    const matrixOrientation =
+        value.layout.matrixOrientation === undefined
+            ? undefined
+            : value.layout.matrixOrientation === 'target-columns' ||
+                value.layout.matrixOrientation === 'target-rows'
+              ? value.layout.matrixOrientation
+              : null;
     const hasReinforcementLayers = value.layout.reinforcementLayers !== undefined;
     const hasReinforcementClearance = value.layout.reinforcementClearanceMm !== undefined;
     const reinforcementLayers = hasReinforcementLayers
@@ -268,6 +275,7 @@ function sanitizePaletteProofSpec(value: unknown): PaletteProofSpec | null {
         columnCount === null ||
         widthMm === null ||
         heightMm === null ||
+        matrixOrientation === null ||
         value.layout.kind !== 'target-column-matrix' ||
         value.layout.patchSizeMm !== PALETTE_PROOF_PATCH_SIZE_MM ||
         value.layout.gapMm !== PALETTE_PROOF_GAP_MM ||
@@ -406,6 +414,7 @@ function sanitizePaletteProofSpec(value: unknown): PaletteProofSpec | null {
         comparisonEnabled: value.comparisonEnabled,
         layout: {
             kind: 'target-column-matrix',
+            ...(matrixOrientation === undefined ? {} : { matrixOrientation }),
             patchSizeMm: PALETTE_PROOF_PATCH_SIZE_MM,
             gapMm: PALETTE_PROOF_GAP_MM,
             marginMm: PALETTE_PROOF_MARGIN_MM,
@@ -433,17 +442,20 @@ function sanitizePaletteProofSpec(value: unknown): PaletteProofSpec | null {
     const cellIds = new Set(spec.cells.map((cell) => cell.id));
     const patchIds = new Set(spec.physicalPatches.map((patch) => patch.id));
     const patchesById = new Map(spec.physicalPatches.map((patch) => [patch.id, patch]));
+    const targetRows = matrixOrientation === 'target-rows';
+    const horizontalCount = targetRows ? rowCount : columnCount;
+    const verticalCount = targetRows ? columnCount : rowCount;
     const expectedWidth =
-        columnCount === 0
+        horizontalCount === 0
             ? 0
-            : columnCount * PALETTE_PROOF_PATCH_SIZE_MM +
-              (columnCount - 1) * PALETTE_PROOF_GAP_MM +
+            : horizontalCount * PALETTE_PROOF_PATCH_SIZE_MM +
+              (horizontalCount - 1) * PALETTE_PROOF_GAP_MM +
               2 * PALETTE_PROOF_MARGIN_MM;
     const expectedHeight =
-        rowCount === 0
+        verticalCount === 0
             ? 0
-            : rowCount * PALETTE_PROOF_PATCH_SIZE_MM +
-              (rowCount - 1) * PALETTE_PROOF_GAP_MM +
+            : verticalCount * PALETTE_PROOF_PATCH_SIZE_MM +
+              (verticalCount - 1) * PALETTE_PROOF_GAP_MM +
               2 * PALETTE_PROOF_MARGIN_MM;
     const maximumSelectedPrefixIndex = spec.cells.reduce(
         (maximum, cell) => Math.max(maximum, cell.prefixIndex),
