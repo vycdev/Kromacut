@@ -15,6 +15,7 @@ export interface PaletteProofCellBounds {
 export interface PaletteProofGeometryResult {
     object: THREE.Group;
     usedLayerCount: number;
+    reinforcementLayerCount: number;
     activeCellIdsByLayer: readonly (readonly string[])[];
 }
 
@@ -29,31 +30,38 @@ function appendPolygonPrism(
     target: IndexedMeshData,
     inputContour: readonly Point2[],
     z0: number,
-    z1: number
+    z1: number,
+    inputHoles: readonly (readonly Point2[])[] = []
 ): void {
     if (inputContour.length < 3 || z1 <= z0) return;
 
-    const vectors = inputContour.map(([x, y]) => new THREE.Vector2(x, y));
-    const contour = THREE.ShapeUtils.isClockWise(vectors)
+    const outerVectors = inputContour.map(([x, y]) => new THREE.Vector2(x, y));
+    const contour = THREE.ShapeUtils.isClockWise(outerVectors)
         ? [...inputContour].reverse()
         : [...inputContour];
+    const holes = inputHoles.map((inputHole) => {
+        const vectors = inputHole.map(([x, y]) => new THREE.Vector2(x, y));
+        return THREE.ShapeUtils.isClockWise(vectors) ? [...inputHole] : [...inputHole].reverse();
+    });
+    const rings = [contour, ...holes];
+    const flattened = rings.flat();
     const triangles = THREE.ShapeUtils.triangulateShape(
         contour.map(([x, y]) => new THREE.Vector2(x, y)),
-        []
+        holes.map((hole) => hole.map(([x, y]) => new THREE.Vector2(x, y)))
     );
     const vertexOffset = target.positions.length / 3;
 
-    for (const [x, y] of contour) target.positions.push(x, y, z0);
-    for (const [x, y] of contour) target.positions.push(x, y, z1);
+    for (const [x, y] of flattened) target.positions.push(x, y, z0);
+    for (const [x, y] of flattened) target.positions.push(x, y, z1);
 
-    const topOffset = vertexOffset + contour.length;
+    const topOffset = vertexOffset + flattened.length;
     for (const triangle of triangles) {
         const a = triangle[0];
         let b = triangle[1];
         let c = triangle[2];
-        const [ax, ay] = contour[a];
-        const [bx, by] = contour[b];
-        const [cx, cy] = contour[c];
+        const [ax, ay] = flattened[a];
+        const [bx, by] = flattened[b];
+        const [cx, cy] = flattened[c];
         if ((bx - ax) * (cy - ay) - (by - ay) * (cx - ax) < 0) {
             [b, c] = [c, b];
         }
@@ -62,13 +70,17 @@ function appendPolygonPrism(
         target.indices.push(vertexOffset + a, vertexOffset + c, vertexOffset + b);
     }
 
-    for (let index = 0; index < contour.length; index++) {
-        const next = (index + 1) % contour.length;
-        const bottomA = vertexOffset + index;
-        const bottomB = vertexOffset + next;
-        const topA = topOffset + index;
-        const topB = topOffset + next;
-        target.indices.push(bottomA, bottomB, topB, bottomA, topB, topA);
+    let ringOffset = 0;
+    for (const ring of rings) {
+        for (let index = 0; index < ring.length; index++) {
+            const next = (index + 1) % ring.length;
+            const bottomA = vertexOffset + ringOffset + index;
+            const bottomB = vertexOffset + ringOffset + next;
+            const topA = topOffset + ringOffset + index;
+            const topB = topOffset + ringOffset + next;
+            target.indices.push(bottomA, bottomB, topB, bottomA, topB, topA);
+        }
+        ringOffset += ring.length;
     }
 }
 
@@ -165,6 +177,28 @@ function foundationContour(spec: PaletteProofSpec): Point2[] {
     return contour;
 }
 
+function reinforcementHoles(spec: PaletteProofSpec): Point2[][] {
+    const clearance = spec.layout.reinforcementClearanceMm ?? 0;
+    const holes: Point2[][] = [];
+    for (let row = 0; row < spec.layout.rowCount; row++) {
+        for (let column = 0; column < spec.layout.columnCount; column++) {
+            const bounds = paletteProofCellBounds(spec, row, column);
+            holes.push(
+                roundedRectOutline(
+                    bounds.x0 - clearance,
+                    bounds.y0 - clearance,
+                    bounds.x1 + clearance,
+                    bounds.y1 + clearance,
+                    spec.layout.cornerRadiusMm + clearance,
+                    CALIBRATION_CORNER_SEGMENTS,
+                    { bl: true, br: true, tr: true, tl: true }
+                )
+            );
+        }
+    }
+    return holes;
+}
+
 function createLayerMesh(
     snapshot: FinalPrintableStackSnapshot,
     layerIndex: number,
@@ -206,6 +240,7 @@ export function buildPaletteProofGeometry(
     object.userData.paletteProofId = spec.id;
     object.userData.paletteProofSnapshotFingerprint = snapshot.fingerprint;
     const activeCellIdsByLayer: string[][] = [];
+    const reinforcementLayerCount = spec.layout.reinforcementLayers ?? 0;
 
     for (let layerIndex = 0; layerIndex <= maxPrefixIndex; layerIndex++) {
         const layer = snapshot.layers[layerIndex];
@@ -218,6 +253,15 @@ export function buildPaletteProofGeometry(
         if (layerIndex === 0) {
             appendPolygonPrism(data, foundationContour(spec), layer.startHeight, layer.endHeight);
         } else {
+            if (layerIndex <= reinforcementLayerCount) {
+                appendPolygonPrism(
+                    data,
+                    foundationContour(spec),
+                    layer.startHeight,
+                    layer.endHeight,
+                    reinforcementHoles(spec)
+                );
+            }
             for (const cell of activeCells) {
                 appendRoundedBox(
                     data,
@@ -239,6 +283,7 @@ export function buildPaletteProofGeometry(
     return {
         object,
         usedLayerCount: maxPrefixIndex + 1,
+        reinforcementLayerCount,
         activeCellIdsByLayer,
     };
 }

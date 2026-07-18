@@ -27,6 +27,8 @@ const PALETTE_PROOF_NOTCH_SIZE_MM = 2;
 const PALETTE_PROOF_CORNER_RADIUS_MM = 1.2;
 const PALETTE_PROOF_MAX_CANDIDATES = 5;
 const PALETTE_PROOF_MAX_TARGETS = 10;
+const PALETTE_PROOF_MAX_REINFORCEMENT_LAYERS = 2;
+const PALETTE_PROOF_REINFORCEMENT_CLEARANCE_MM = 0.15;
 const UNKNOWN_PROCESS_FIELDS = [
     'slicerName',
     'slicerVersion',
@@ -217,8 +219,11 @@ function sanitizeSampleContext(value: unknown): TargetSampleContext | null {
 
 const CANDIDATE_ROLES: PaletteProofCandidateRole[] = [
     'incumbent',
+    'previous-best',
     'lower-neighbor',
     'upper-neighbor',
+    'unseen-neighbor',
+    'unseen-alternative',
     'base-alternative',
     'spread',
     'uncertain',
@@ -248,6 +253,14 @@ function sanitizePaletteProofSpec(value: unknown): PaletteProofSpec | null {
     const columnCount = integer(value.layout.columnCount, 0, PALETTE_PROOF_MAX_TARGETS);
     const widthMm = finiteNumber(value.layout.widthMm, 0, 1_000);
     const heightMm = finiteNumber(value.layout.heightMm, 0, 1_000);
+    const hasReinforcementLayers = value.layout.reinforcementLayers !== undefined;
+    const hasReinforcementClearance = value.layout.reinforcementClearanceMm !== undefined;
+    const reinforcementLayers = hasReinforcementLayers
+        ? integer(value.layout.reinforcementLayers, 0, PALETTE_PROOF_MAX_REINFORCEMENT_LAYERS)
+        : undefined;
+    const reinforcementClearanceMm = hasReinforcementClearance
+        ? finiteNumber(value.layout.reinforcementClearanceMm, 0, PALETTE_PROOF_GAP_MM / 2)
+        : undefined;
     if (
         !id ||
         !snapshotFingerprint ||
@@ -261,12 +274,24 @@ function sanitizePaletteProofSpec(value: unknown): PaletteProofSpec | null {
         value.layout.marginMm !== PALETTE_PROOF_MARGIN_MM ||
         value.layout.notchSizeMm !== PALETTE_PROOF_NOTCH_SIZE_MM ||
         value.layout.cornerRadiusMm !== PALETTE_PROOF_CORNER_RADIUS_MM ||
+        hasReinforcementLayers !== hasReinforcementClearance ||
+        (hasReinforcementLayers &&
+            (reinforcementLayers == null ||
+                reinforcementClearanceMm == null ||
+                (reinforcementLayers === 0 && reinforcementClearanceMm !== 0) ||
+                (reinforcementLayers > 0 &&
+                    reinforcementClearanceMm !==
+                        PALETTE_PROOF_REINFORCEMENT_CLEARANCE_MM))) ||
         value.layout.orientationMarker !== 'top-left-notch' ||
         value.columns.length !== columnCount ||
         value.targetPalette.length !== columnCount
     ) {
         return null;
     }
+    const sanitizedReinforcementLayers =
+        typeof reinforcementLayers === 'number' ? reinforcementLayers : undefined;
+    const sanitizedReinforcementClearance =
+        typeof reinforcementClearanceMm === 'number' ? reinforcementClearanceMm : undefined;
 
     const foundationPrefixKey =
         value.layout.foundationPrefixKey === null
@@ -390,6 +415,12 @@ function sanitizePaletteProofSpec(value: unknown): PaletteProofSpec | null {
             columnCount,
             widthMm,
             heightMm,
+            ...(sanitizedReinforcementLayers === undefined
+                ? {}
+                : {
+                      reinforcementLayers: sanitizedReinforcementLayers,
+                      reinforcementClearanceMm: sanitizedReinforcementClearance,
+                  }),
             foundationPrefixKey,
             orientationMarker: 'top-left-notch',
         },
@@ -414,6 +445,10 @@ function sanitizePaletteProofSpec(value: unknown): PaletteProofSpec | null {
             : rowCount * PALETTE_PROOF_PATCH_SIZE_MM +
               (rowCount - 1) * PALETTE_PROOF_GAP_MM +
               2 * PALETTE_PROOF_MARGIN_MM;
+    const maximumSelectedPrefixIndex = spec.cells.reduce(
+        (maximum, cell) => Math.max(maximum, cell.prefixIndex),
+        0
+    );
     if (
         cellIds.size !== spec.cells.length ||
         patchIds.size !== spec.physicalPatches.length ||
@@ -421,6 +456,8 @@ function sanitizePaletteProofSpec(value: unknown): PaletteProofSpec | null {
         widthMm !== expectedWidth ||
         heightMm !== expectedHeight ||
         spec.comparisonEnabled !== (rowCount >= 2 && columnCount > 0) ||
+        (sanitizedReinforcementLayers !== undefined &&
+            sanitizedReinforcementLayers > maximumSelectedPrefixIndex) ||
         spec.columns.some(
             (column, index) =>
                 column.column !== index ||

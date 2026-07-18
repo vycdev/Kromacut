@@ -57,6 +57,7 @@ export function buildPaletteProofPrintInstructions(
         `Layer height: ${snapshot.settings.layerHeight.toFixed(3)} mm`,
         `First layer height: ${snapshot.settings.firstLayerHeight.toFixed(3)} mm`,
         `Printed layers: ${usedLayers.length}`,
+        `Reinforcement grid: ${spec.layout.reinforcementLayers ?? 0} layer(s) above the first layer`,
         '',
         'Slicer setup:',
         '- Keep the coupon face-up and at 100% scale.',
@@ -64,6 +65,7 @@ export function buildPaletteProofPrintInstructions(
         '- Confirm every 3MF layer part is assigned to the matching physical filament.',
         '- The missing corner is the top-left marker in the Kromacut patch map.',
         '- The target color row is screen-only and is not printed.',
+        '- Reinforcement occupies only margins and trenches; sample squares keep their exact stacks.',
         '',
         'Physical sequence:',
     ];

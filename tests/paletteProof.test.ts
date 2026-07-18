@@ -117,6 +117,49 @@ test('candidate selection honors bounded proof row counts', async () => {
     );
 });
 
+test('next-proof selection keeps one anchor and spends rows on untested prefixes', async () => {
+    const { buildPaletteProofSpec } = await loadPaletteProofModule();
+    const snapshot = buildPaletteProofSnapshot(8, 1);
+    const first = buildPaletteProofSpec(snapshot, { targetCount: 1, candidateCount: 5 });
+    const targetId = first.columns[0].targetMappingId;
+    const testedStackKeys = new Set(first.cells.map((cell) => cell.canonicalStackKey));
+    const anchorStackKey = first.cells[0].canonicalStackKey;
+    const next = buildPaletteProofSpec(snapshot, {
+        targetCount: 1,
+        candidateCount: 5,
+        selectionHistory: {
+            targetPriorityById: new Map([[targetId, 1]]),
+            candidateHistoryByTargetId: new Map([
+                [targetId, { testedStackKeys, anchorStackKey }],
+            ]),
+        },
+    });
+
+    assert.notEqual(next.id, first.id);
+    assert.equal(next.cells[0].candidateRole, 'previous-best');
+    assert.equal(next.cells[0].canonicalStackKey, anchorStackKey);
+    assert.ok(next.cells.some((cell) => !testedStackKeys.has(cell.canonicalStackKey)));
+});
+
+test('next-proof target selection rotates to targets not covered by the first proof', async () => {
+    const { buildPaletteProofSpec } = await loadPaletteProofModule();
+    const snapshot = buildPaletteProofSnapshot(8, 12);
+    const first = buildPaletteProofSpec(snapshot, { targetCount: 4 });
+    const firstTargetIds = new Set(first.columns.map((column) => column.targetMappingId));
+    const targetPriorityById = new Map(
+        snapshot.targetMappings.map((target) => [target.id, firstTargetIds.has(target.id) ? 1 : 0])
+    );
+    const next = buildPaletteProofSpec(snapshot, {
+        targetCount: 4,
+        selectionHistory: {
+            targetPriorityById,
+            candidateHistoryByTargetId: new Map(),
+        },
+    });
+
+    assert.ok(next.columns.some((column) => !firstTargetIds.has(column.targetMappingId)));
+});
+
 test('evidence roles use only versioned prefixes with finite scores', async () => {
     const { enumerateFinalStackPrefixes, selectPrefixCandidates } = await loadPaletteProofModule();
     const snapshot = buildPaletteProofSnapshot(6);
@@ -161,6 +204,8 @@ test('proof spec keeps targets on screen and validates only physical stack prefi
     assert.equal(spec.layout.widthMm, 75);
     assert.equal(spec.layout.heightMm, 48);
     assert.equal(spec.layout.cornerRadiusMm, 1.2);
+    assert.equal(spec.layout.reinforcementLayers, 2);
+    assert.equal(spec.layout.reinforcementClearanceMm, 0.15);
     assert.equal(spec.targetPalette.length, 8);
     assert.equal(spec.cells.length, 40);
     assert.deepEqual(validatePaletteProofSpec(snapshot, spec), []);

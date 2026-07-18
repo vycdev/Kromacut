@@ -123,6 +123,20 @@ test('Palette Proof stays usable, persists results, and downloads its frozen 3MF
     expect(storedAppearance.targetJudgments[0].closestCellIds).toEqual(['A1', 'B1']);
     expect(storedAppearance.viewingSessions[0].status).toBe('complete');
 
+    const completedProofId = await panel.getAttribute('data-proof-id');
+    const nextProofButton = dialog.getByRole('button', { name: 'Next proof', exact: true });
+    await expect(nextProofButton).toBeEnabled();
+    await page.screenshot({ path: testInfo.outputPath('palette-proof-completed.png') });
+    await nextProofButton.click();
+    await expect(dialog.getByRole('tab', { name: 'Proof map' })).toHaveAttribute(
+        'data-state',
+        'active'
+    );
+    await expect
+        .poll(() => panel.getAttribute('data-proof-id'))
+        .not.toBe(completedProofId);
+    await expect(dialog.getByTestId('download-palette-proof')).toBeVisible();
+
     await page.setViewportSize({ width: 390, height: 844 });
     await panel.scrollIntoViewIfNeeded();
     const bounds = await panel.boundingBox();

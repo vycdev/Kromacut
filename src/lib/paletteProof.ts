@@ -17,11 +17,16 @@ export const PALETTE_PROOF_DEFAULT_TARGETS = 8;
 export const PALETTE_PROOF_MAX_TARGETS = 10;
 export const PALETTE_PROOF_MIN_CANDIDATES = 2;
 export const PALETTE_PROOF_MAX_CANDIDATES = 5;
+export const PALETTE_PROOF_REINFORCEMENT_LAYERS = 2;
+export const PALETTE_PROOF_REINFORCEMENT_CLEARANCE_MM = 0.15;
 
 export type PaletteProofCandidateRole =
     | 'incumbent'
+    | 'previous-best'
     | 'lower-neighbor'
     | 'upper-neighbor'
+    | 'unseen-neighbor'
+    | 'unseen-alternative'
     | 'base-alternative'
     | 'spread'
     | 'uncertain'
@@ -47,6 +52,16 @@ export interface PaletteProofEvidenceScores {
     version: string;
     uncertaintyByStackKey: Readonly<Record<string, number>>;
     discriminatorByStackKey: Readonly<Record<string, number>>;
+}
+
+export interface PaletteProofCandidateHistory {
+    testedStackKeys: ReadonlySet<string>;
+    anchorStackKey?: string;
+}
+
+export interface PaletteProofSelectionHistory {
+    targetPriorityById: ReadonlyMap<string, number>;
+    candidateHistoryByTargetId: ReadonlyMap<string, PaletteProofCandidateHistory>;
 }
 
 export interface PaletteProofCell {
@@ -97,6 +112,8 @@ export interface PaletteProofSpec {
         columnCount: number;
         widthMm: number;
         heightMm: number;
+        reinforcementLayers?: number;
+        reinforcementClearanceMm?: number;
         foundationPrefixKey: string | null;
         orientationMarker: 'top-left-notch';
     };
@@ -176,7 +193,8 @@ export function enumerateFinalStackPrefixes(
 
 export function selectPaletteProofTargets(
     snapshot: FinalPrintableStackSnapshot,
-    requestedCount: number = PALETTE_PROOF_DEFAULT_TARGETS
+    requestedCount: number = PALETTE_PROOF_DEFAULT_TARGETS,
+    targetPriorityById?: ReadonlyMap<string, number>
 ): FinalStackTargetMappingSnapshot[] {
     const limit = Math.min(
         PALETTE_PROOF_MAX_TARGETS,
@@ -187,6 +205,8 @@ export function selectPaletteProofTargets(
 
     const remaining = [...snapshot.targetMappings].sort(
         (left, right) =>
+            (targetPriorityById?.get(left.id) ?? 0) -
+                (targetPriorityById?.get(right.id) ?? 0) ||
             compareNumberDescending(left.usageWeight, right.usageWeight) ||
             left.id.localeCompare(right.id)
     );
@@ -194,11 +214,17 @@ export function selectPaletteProofTargets(
     const selected = remaining.splice(0, coverageCount);
 
     while (selected.length < limit && remaining.length > 0) {
-        let bestIndex = 0;
+        const bestPriority = Math.min(
+            ...remaining.map((target) => targetPriorityById?.get(target.id) ?? 0)
+        );
+        let bestIndex = remaining.findIndex(
+            (target) => (targetPriorityById?.get(target.id) ?? 0) === bestPriority
+        );
         let bestDistance = -Infinity;
 
         for (let index = 0; index < remaining.length; index++) {
             const candidate = remaining[index];
+            if ((targetPriorityById?.get(candidate.id) ?? 0) !== bestPriority) continue;
             const minimumDistance = Math.min(
                 ...selected.map((chosen) =>
                     deltaE2000Lab(asLab(candidate.targetLab), asLab(chosen.targetLab))
@@ -296,7 +322,8 @@ export function selectPrefixCandidates(
     target: FinalStackTargetMappingSnapshot,
     prefixes: PaletteProofPrefix[],
     evidence?: PaletteProofEvidenceScores,
-    requestedCount: number = PALETTE_PROOF_MAX_CANDIDATES
+    requestedCount: number = PALETTE_PROOF_MAX_CANDIDATES,
+    history?: PaletteProofCandidateHistory
 ): PaletteProofCandidate[] {
     if (prefixes.length === 0) return [];
     if (target.paletteIndex < 0 || target.paletteIndex >= prefixes.length) {
@@ -333,6 +360,45 @@ export function selectPrefixCandidates(
         selected.push({ prefix, role, replacesRole });
     };
 
+    if (history && history.testedStackKeys.size > 0) {
+        const anchor =
+            prefixes.find((prefix) => prefix.canonicalStackKey === history.anchorStackKey) ??
+            prefixes[target.paletteIndex];
+        add(anchor, 'previous-best');
+
+        const unseen = prefixes.filter(
+            (prefix) => !history.testedStackKeys.has(prefix.canonicalStackKey)
+        );
+        const adjacentUnseen = [
+            [...unseen]
+                .filter((prefix) => prefix.index < anchor.index)
+                .sort((left, right) => right.index - left.index)[0],
+            [...unseen]
+                .filter((prefix) => prefix.index > anchor.index)
+                .sort((left, right) => left.index - right.index)[0],
+        ]
+            .filter((prefix): prefix is PaletteProofPrefix => Boolean(prefix))
+            .sort(
+                (left, right) =>
+                    targetDistance(target, left) - targetDistance(target, right) ||
+                    left.index - right.index
+            );
+        for (const prefix of adjacentUnseen) add(prefix, 'unseen-neighbor');
+
+        while (selected.length < desiredCount) {
+            const prefix = closestUnusedPrefix(target, unseen, used);
+            if (!prefix) break;
+            add(prefix, 'unseen-alternative');
+        }
+        while (selected.length < desiredCount) {
+            const prefix = closestUnusedPrefix(target, prefixes, used);
+            if (!prefix) break;
+            add(prefix, 'fallback');
+        }
+
+        return selected;
+    }
+
     add(prefixes[target.paletteIndex], 'incumbent');
     if (target.paletteIndex > 0) add(prefixes[target.paletteIndex - 1], 'lower-neighbor');
     else missingNeighbors.push('lower-neighbor');
@@ -368,12 +434,14 @@ export function buildPaletteProofSpec(
         targetCount?: number;
         candidateCount?: number;
         evidence?: PaletteProofEvidenceScores;
+        selectionHistory?: PaletteProofSelectionHistory;
     } = {}
 ): PaletteProofSpec {
     const prefixes = enumerateFinalStackPrefixes(snapshot);
     const targets = selectPaletteProofTargets(
         snapshot,
-        options.targetCount ?? PALETTE_PROOF_DEFAULT_TARGETS
+        options.targetCount ?? PALETTE_PROOF_DEFAULT_TARGETS,
+        options.selectionHistory?.targetPriorityById
     );
     const minimumCandidateCount = prefixes.length >= 2 ? PALETTE_PROOF_MIN_CANDIDATES : 1;
     const rowCount = Math.min(
@@ -393,7 +461,13 @@ export function buildPaletteProofSpec(
 
     for (let column = 0; column < targets.length; column++) {
         const target = targets[column];
-        const candidates = selectPrefixCandidates(target, prefixes, options.evidence, rowCount);
+        const candidates = selectPrefixCandidates(
+            target,
+            prefixes,
+            options.evidence,
+            rowCount,
+            options.selectionHistory?.candidateHistoryByTargetId.get(target.id)
+        );
         const cellIds: string[] = [];
 
         for (let row = 0; row < candidates.length; row++) {
@@ -462,6 +536,14 @@ export function buildPaletteProofSpec(
             rowCount,
             columnCount,
             ...footprint,
+            reinforcementLayers: Math.min(
+                PALETTE_PROOF_REINFORCEMENT_LAYERS,
+                cells.reduce((maximum, cell) => Math.max(maximum, cell.prefixIndex), 0)
+            ),
+            reinforcementClearanceMm:
+                cells.some((cell) => cell.prefixIndex > 0)
+                    ? PALETTE_PROOF_REINFORCEMENT_CLEARANCE_MM
+                    : 0,
             foundationPrefixKey: prefixes[0]?.canonicalStackKey ?? null,
             orientationMarker: 'top-left-notch' as const,
         },
@@ -511,6 +593,28 @@ export function validatePaletteProofSpec(
     }
     if (spec.layout.cornerRadiusMm !== PALETTE_PROOF_CORNER_RADIUS_MM) {
         errors.push('layout corner radius is inconsistent');
+    }
+    const reinforcementLayers = spec.layout.reinforcementLayers ?? 0;
+    const reinforcementClearanceMm = spec.layout.reinforcementClearanceMm ?? 0;
+    const maximumSelectedPrefixIndex = spec.cells.reduce(
+        (maximum, cell) => Math.max(maximum, cell.prefixIndex),
+        0
+    );
+    if (
+        !Number.isInteger(reinforcementLayers) ||
+        reinforcementLayers < 0 ||
+        reinforcementLayers > PALETTE_PROOF_REINFORCEMENT_LAYERS ||
+        reinforcementLayers > Math.max(0, snapshot.layers.length - 1) ||
+        reinforcementLayers > maximumSelectedPrefixIndex
+    ) {
+        errors.push('layout reinforcement layer count is inconsistent');
+    }
+    if (
+        (reinforcementLayers === 0 && reinforcementClearanceMm !== 0) ||
+        (reinforcementLayers > 0 &&
+            reinforcementClearanceMm !== PALETTE_PROOF_REINFORCEMENT_CLEARANCE_MM)
+    ) {
+        errors.push('layout reinforcement clearance is inconsistent');
     }
     if (spec.layout.foundationPrefixKey !== (snapshot.palette[0]?.canonicalStackKey ?? null)) {
         errors.push('foundation is not the first physical prefix');

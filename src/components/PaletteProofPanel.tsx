@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Check, Download, Loader2, Pencil, Trash2 } from 'lucide-react';
+import { ArrowRight, Check, Download, Loader2, Pencil, Trash2 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -26,6 +26,7 @@ import {
     type PaletteProofSpec,
 } from '../lib/paletteProof';
 import { exportPaletteProof3MF } from '../lib/paletteProofExport';
+import { buildPaletteProofHistory } from '../lib/paletteProofHistory';
 import type { AutoPaintProfile } from '../lib/profileManager';
 import type { FinalPrintableStackSnapshot } from '../types/appearance';
 
@@ -80,6 +81,7 @@ export default function PaletteProofPanel({
     const [requestedCandidateCount, setRequestedCandidateCount] = useState(
         PALETTE_PROOF_MAX_CANDIDATES
     );
+    const [historyProofIds, setHistoryProofIds] = useState<readonly string[]>([]);
     const maximumTargetCount = Math.min(
         PALETTE_PROOF_MAX_TARGETS,
         snapshot?.targetMappings.length ?? 0
@@ -95,11 +97,26 @@ export default function PaletteProofPanel({
         minimumCandidateCount,
         Math.min(requestedCandidateCount, maximumCandidateCount)
     );
+    const selectedHistory = useMemo(
+        () => (snapshot ? buildPaletteProofHistory(profile?.appearance, snapshot, historyProofIds) : null),
+        [historyProofIds, profile?.appearance, snapshot]
+    );
+    const allCompletedHistory = useMemo(
+        () => (snapshot ? buildPaletteProofHistory(profile?.appearance, snapshot) : null),
+        [profile?.appearance, snapshot]
+    );
     const currentProofState = useMemo(() => {
         if (!snapshot) return { spec: null, error: null };
         try {
             return {
-                spec: buildPaletteProofSpec(snapshot, { targetCount, candidateCount }),
+                spec: buildPaletteProofSpec(snapshot, {
+                    targetCount,
+                    candidateCount,
+                    selectionHistory:
+                        historyProofIds.length > 0
+                            ? selectedHistory?.selectionHistory
+                            : undefined,
+                }),
                 error: null,
             };
         } catch (error) {
@@ -108,7 +125,7 @@ export default function PaletteProofPanel({
                 error: error instanceof Error ? error.message : 'Could not build Palette Proof',
             };
         }
-    }, [candidateCount, snapshot, targetCount]);
+    }, [candidateCount, historyProofIds.length, selectedHistory, snapshot, targetCount]);
     const savedProofs = useMemo(
         () =>
             [...(profile?.appearance?.proofs ?? [])].sort((left, right) =>
@@ -128,6 +145,10 @@ export default function PaletteProofPanel({
     const [actionError, setActionError] = useState<string | null>(null);
     const [saved, setSaved] = useState(false);
     const [pendingDeleteProofId, setPendingDeleteProofId] = useState<string | null>(null);
+
+    useEffect(() => {
+        setHistoryProofIds([]);
+    }, [snapshot?.fingerprint]);
 
     useEffect(() => {
         if (currentSpec) {
@@ -257,6 +278,19 @@ export default function PaletteProofPanel({
         }
     };
 
+    const handleStartNextProof = () => {
+        if (
+            !isSelectedCurrent ||
+            !evaluation?.complete ||
+            !allCompletedHistory?.hasUnseenEvidence
+        ) {
+            return;
+        }
+        setActionError(null);
+        setHistoryProofIds([...allCompletedHistory.proofIds]);
+        setView('proof');
+    };
+
     if (currentProofState.error) {
         return (
             <div
@@ -312,6 +346,7 @@ export default function PaletteProofPanel({
     return (
         <section
             data-testid="palette-proof-panel"
+            data-proof-id={selectedSpec.id}
             className={cn('space-y-3', !embedded && 'mt-4 border-t border-border/50 pt-3')}
         >
             <div className="flex flex-wrap items-start gap-2">
@@ -710,24 +745,46 @@ export default function PaletteProofPanel({
 
                             <div className="flex flex-wrap items-center gap-2">
                                 <p className="text-[9px] text-muted-foreground">
-                                    Select every printed patch tied for closest. Results are
-                                    evidence only; preview colors remain unchanged.
+                                    Pick the visibly closest patch even if it is imperfect. Select
+                                    ties together; use None only when every candidate is clearly a
+                                    poor match.
                                 </p>
                                 {evaluation?.complete ? (
-                                    <Button
-                                        size="sm"
-                                        variant="outline"
-                                        className="ml-auto h-8 text-xs"
-                                        disabled={!canTrack || !onReopenEvaluation}
-                                        onClick={() =>
-                                            runProfileAction(() =>
-                                                onReopenEvaluation?.(selectedRecord.id)
-                                            )
-                                        }
-                                    >
-                                        <Pencil className="mr-1.5 h-3.5 w-3.5" />
-                                        Edit results
-                                    </Button>
+                                    <div className="ml-auto flex items-center gap-2">
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            className="h-8 text-xs"
+                                            disabled={!canTrack || !onReopenEvaluation}
+                                            onClick={() =>
+                                                runProfileAction(() =>
+                                                    onReopenEvaluation?.(selectedRecord.id)
+                                                )
+                                            }
+                                        >
+                                            <Pencil className="mr-1.5 h-3.5 w-3.5" />
+                                            Edit results
+                                        </Button>
+                                        {isSelectedCurrent && (
+                                            <Button
+                                                size="sm"
+                                                className="h-8 text-xs"
+                                                disabled={
+                                                    !canTrack ||
+                                                    !allCompletedHistory?.hasUnseenEvidence
+                                                }
+                                                onClick={handleStartNextProof}
+                                                title={
+                                                    allCompletedHistory?.hasUnseenEvidence
+                                                        ? 'Build another proof with untested evidence'
+                                                        : 'All available targets and prefixes are covered'
+                                                }
+                                            >
+                                                Next proof
+                                                <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
+                                            </Button>
+                                        )}
+                                    </div>
                                 ) : (
                                     <Button
                                         size="sm"

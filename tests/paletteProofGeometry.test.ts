@@ -82,6 +82,7 @@ test('proof geometry has one notched foundation and closed physical-layer shells
     const maxPrefixIndex = Math.max(...spec.cells.map((cell) => cell.prefixIndex));
 
     assert.equal(result.usedLayerCount, maxPrefixIndex + 1);
+    assert.equal(result.reinforcementLayerCount, 2);
     assert.equal(result.object.children.length, result.usedLayerCount);
     for (const child of result.object.children) assertClosedPositiveMesh(child as THREE.Mesh);
 
@@ -109,6 +110,10 @@ test('proof geometry has one notched foundation and closed physical-layer shells
     );
 
     const firstRaisedLayer = result.object.children[1] as THREE.Mesh;
+    const reinforcedBounds = firstRaisedLayer.geometry.boundingBox;
+    assert.ok(reinforcedBounds);
+    assert.equal(reinforcedBounds.max.x - reinforcedBounds.min.x, spec.layout.widthMm);
+    assert.equal(reinforcedBounds.max.y - reinforcedBounds.min.y, spec.layout.heightMm);
     const firstRaisedPositions = firstRaisedLayer.geometry.getAttribute('position');
     const firstRaisedCell = spec.cells.find((cell) => cell.prefixIndex >= 1);
     assert.ok(firstRaisedCell);
@@ -129,6 +134,36 @@ test('proof geometry has one notched foundation and closed physical-layer shells
     assert.ok(
         firstRaisedPositions.count > result.activeCellIdsByLayer[1].length * 8,
         'rounded patches should expose segmented corner vertices'
+    );
+
+    const foundationCell = spec.cells.find((cell) => cell.prefixIndex === 0);
+    assert.ok(foundationCell);
+    const foundationCellBounds = geometry.paletteProofCellBounds(
+        spec,
+        foundationCell.row,
+        foundationCell.column
+    );
+    const raycaster = new THREE.Raycaster(
+        new THREE.Vector3(
+            (foundationCellBounds.x0 + foundationCellBounds.x1) / 2,
+            (foundationCellBounds.y0 + foundationCellBounds.y1) / 2,
+            snapshot.layers[1].endHeight + 1
+        ),
+        new THREE.Vector3(0, 0, -1)
+    );
+    assert.equal(
+        raycaster.intersectObject(firstRaisedLayer).length,
+        0,
+        'reinforcement must leave foundation-reference samples at their exact prefix'
+    );
+
+    const layerAfterReinforcement = result.object.children[3] as THREE.Mesh;
+    assert.ok(layerAfterReinforcement.geometry.boundingBox);
+    assert.ok(
+        layerAfterReinforcement.geometry.boundingBox.max.x -
+            layerAfterReinforcement.geometry.boundingBox.min.x <
+            spec.layout.widthMm,
+        'reinforcement should stop after two added grid layers'
     );
 
     for (let layerIndex = 1; layerIndex < result.usedLayerCount; layerIndex++) {
@@ -162,6 +197,7 @@ test('proof 3MF embeds its immutable map and frozen print instructions', async (
     assert.equal(manifest.proof.id, spec.id);
     assert.equal(manifest.finalStack.fingerprint, snapshot.fingerprint);
     assert.match(instructions, /missing corner is the top-left marker/i);
+    assert.match(instructions, /Reinforcement grid: 2 layer\(s\)/);
     assert.match(instructions, /Physical sequence:/);
 
     const maxPrefixIndex = Math.max(...spec.cells.map((cell) => cell.prefixIndex));

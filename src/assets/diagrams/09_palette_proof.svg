@@ -44,8 +44,11 @@
 <text x="74" y="153" font-size="8" fill="#f5a623" text-anchor="start" font-family="Inter,ui-sans-serif,sans-serif">2 mm orientation notch</text>
 
 <text x="700" y="92" font-size="11" fill="#e4e4e7" text-anchor="middle" font-weight="bold" font-family="Inter,ui-sans-serif,sans-serif">Cross-section</text>
-<text x="700" y="108" font-size="9" fill="#a1a1aa" text-anchor="middle" font-family="Inter,ui-sans-serif,sans-serif">Every candidate stops at one reachable prefix</text>
+<text x="700" y="108" font-size="9" fill="#a1a1aa" text-anchor="middle" font-family="Inter,ui-sans-serif,sans-serif">Candidates stay exact while the gaps reinforce the carrier</text>
 <rect x="520" y="342" width="360" height="26" fill="#2164a8" stroke="#71717a"/>
+<g fill="#3f3f46" stroke="#71717a">
+<rect x="596" y="274" width="12" height="68"/><rect x="664" y="274" width="12" height="68"/><rect x="732" y="274" width="12" height="68"/><rect x="800" y="274" width="12" height="68"/>
+</g>
 <rect x="540" y="310" width="56" height="32" fill="#c56d9c" stroke="#18181b"/>
 <rect x="608" y="274" width="56" height="68" fill="#f2d043" stroke="#18181b"/>
 <rect x="676" y="238" width="56" height="104" fill="#7250c1" stroke="#18181b"/>
@@ -57,7 +60,7 @@
 <g font-size="8" fill="#a1a1aa" text-anchor="end" font-family="Inter,ui-sans-serif,sans-serif">
 <text x="504" y="313">prefix 2</text><text x="504" y="277">prefix 3</text><text x="504" y="241">prefix 4</text><text x="504" y="205">prefix 5</text><text x="504" y="169">prefix 6</text>
 </g>
-<text x="700" y="385" font-size="9" fill="#a1a1aa" text-anchor="middle" font-family="Inter,ui-sans-serif,sans-serif">continuous first-layer foundation; 1 mm trenches remain connected below</text>
+<text x="700" y="385" font-size="9" fill="#a1a1aa" text-anchor="middle" font-family="Inter,ui-sans-serif,sans-serif">continuous first layer + two-layer grid in margins and trenches</text>
 <text x="700" y="418" font-size="9" fill="#e4e4e7" text-anchor="middle" font-family="Inter,ui-sans-serif,sans-serif">One physical filament is assigned to each horizontal layer.</text>
 <text x="700" y="435" font-size="9" fill="#e4e4e7" text-anchor="middle" font-family="Inter,ui-sans-serif,sans-serif">No arbitrary color combinations are fabricated.</text>
 
