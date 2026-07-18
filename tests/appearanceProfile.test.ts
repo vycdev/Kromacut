@@ -55,18 +55,19 @@ test('proof records freeze only reachable prefixes and the active process finger
     const { buildPaletteProofSpec } = await loadPaletteProof();
     const snapshot = buildPaletteProofSnapshot(7, 8);
     const proof = buildPaletteProofSpec(snapshot);
-    const record = buildPaletteProofRecord(
-        filaments,
-        snapshot,
-        proof,
-        '2026-07-17T20:00:00.000Z'
-    );
+    const record = buildPaletteProofRecord(filaments, snapshot, proof, '2026-07-17T20:00:00.000Z');
 
     assert.equal(record.id, proof.id);
     assert.equal(record.snapshotFingerprint, snapshot.fingerprint);
-    assert.equal(record.process.filamentProfileFingerprint, fingerprintAppearanceFilaments(filaments));
+    assert.equal(
+        record.process.filamentProfileFingerprint,
+        fingerprintAppearanceFilaments(filaments)
+    );
     assert.equal(record.process.layerHeight, snapshot.settings.layerHeight);
-    assert.equal(record.prefixes.length, new Set(proof.cells.map((cell) => cell.canonicalStackKey)).size);
+    assert.equal(
+        record.prefixes.length,
+        new Set(proof.cells.map((cell) => cell.canonicalStackKey)).size
+    );
     assert.equal(
         record.stack.length,
         Math.max(...record.prefixes.map((prefix) => prefix.prefixIndex)) + 1
@@ -82,23 +83,20 @@ test('tall proof records keep one shared stack instead of duplicating every pref
     const top = original.palette[499];
     const snapshot = {
         ...original,
-        targetMappings: [{
-            ...original.targetMappings[0],
-            paletteIndex: top.index,
-            paletteEntryId: top.id,
-            canonicalStackKey: top.canonicalStackKey,
-            projectedHeight: top.height,
-            predictedColor: top.predictedColor,
-            predictedLab: top.predictedLab,
-        }],
+        targetMappings: [
+            {
+                ...original.targetMappings[0],
+                paletteIndex: top.index,
+                paletteEntryId: top.id,
+                canonicalStackKey: top.canonicalStackKey,
+                projectedHeight: top.height,
+                predictedColor: top.predictedColor,
+                predictedLab: top.predictedLab,
+            },
+        ],
     };
     const proof = buildPaletteProofSpec(snapshot, { targetCount: 1 });
-    const record = buildPaletteProofRecord(
-        filaments,
-        snapshot,
-        proof,
-        '2026-07-17T20:00:00.000Z'
-    );
+    const record = buildPaletteProofRecord(filaments, snapshot, proof, '2026-07-17T20:00:00.000Z');
 
     assert.equal(record.stack.length, 500);
     assert.ok(record.prefixes.every((prefix) => !('stack' in prefix)));
@@ -119,12 +117,7 @@ test('target-column judgments preserve equal choices, none, and completion state
     const { buildPaletteProofSpec } = await loadPaletteProof();
     const snapshot = buildPaletteProofSnapshot(6, 3);
     const proof = buildPaletteProofSpec(snapshot, { targetCount: 3 });
-    const record = buildPaletteProofRecord(
-        filaments,
-        snapshot,
-        proof,
-        '2026-07-17T20:00:00.000Z'
-    );
+    const record = buildPaletteProofRecord(filaments, snapshot, proof, '2026-07-17T20:00:00.000Z');
     let appearance = upsertPaletteProofRecord(createEmptyAppearanceProfile(), record);
 
     appearance = setPaletteTargetResponse(
@@ -155,24 +148,15 @@ test('target-column judgments preserve equal choices, none, and completion state
     assert.deepEqual(draft.judgments[0].closestCellIds, proof.columns[0].cellIds.slice(0, 2));
     assert.equal(draft.judgments[1].response, 'none');
 
-    appearance = completePaletteProofEvaluation(
-        appearance,
-        proof.id,
-        '2026-07-17T20:04:00.000Z'
-    );
+    appearance = completePaletteProofEvaluation(appearance, proof.id, '2026-07-17T20:04:00.000Z');
     assert.equal(getPaletteProofEvaluationState(appearance, proof.id).complete, true);
     assert.throws(
-        () =>
-            setPaletteTargetResponse(appearance, proof.id, 0, { response: 'none' }),
+        () => setPaletteTargetResponse(appearance, proof.id, 0, { response: 'none' }),
         /Reopen/
     );
     assert.throws(() => deleteIncompletePaletteProof(appearance, proof.id), /cannot be deleted/);
 
-    appearance = reopenPaletteProofEvaluation(
-        appearance,
-        proof.id,
-        '2026-07-17T20:05:00.000Z'
-    );
+    appearance = reopenPaletteProofEvaluation(appearance, proof.id, '2026-07-17T20:05:00.000Z');
     assert.equal(getPaletteProofEvaluationState(appearance, proof.id).complete, false);
 
     appearance = deleteIncompletePaletteProof(appearance, proof.id);
@@ -188,33 +172,31 @@ test('appearance import sanitation preserves valid records and drops tampered co
         sanitizeAppearanceProfile,
         upsertPaletteProofRecord,
     } = await loadAppearanceProfile();
-    const { buildPaletteProofSpec, calculatePaletteProofFootprint } =
-        await loadPaletteProof();
+    const { buildPaletteProofSpec, calculatePaletteProofFootprint } = await loadPaletteProof();
     const snapshot = buildPaletteProofSnapshot(6, 3);
     const proof = buildPaletteProofSpec(snapshot, { targetCount: 3 });
-    const record = buildPaletteProofRecord(
-        filaments,
-        snapshot,
-        proof,
-        '2026-07-17T20:00:00.000Z'
-    );
+    const record = buildPaletteProofRecord(filaments, snapshot, proof, '2026-07-17T20:00:00.000Z');
     const appearance = upsertPaletteProofRecord(createEmptyAppearanceProfile(), record);
 
     assert.deepEqual(sanitizeAppearanceProfile(structuredClone(appearance)), appearance);
 
-    const touchingProof = buildPaletteProofSpec(snapshot, { targetCount: 3, gapMm: 0 });
-    const touchingAppearance = upsertPaletteProofRecord(
-        createEmptyAppearanceProfile(),
-        buildPaletteProofRecord(
-            filaments,
-            snapshot,
-            touchingProof,
-            '2026-07-17T20:00:00.000Z'
+    const storedGapAppearance = structuredClone(appearance);
+    const storedGapLayout = storedGapAppearance.proofs[0].proof.layout;
+    storedGapLayout.gapMm = 1;
+    storedGapLayout.reinforcementLayers = 2;
+    storedGapLayout.reinforcementClearanceMm = 0.15;
+    Object.assign(
+        storedGapLayout,
+        calculatePaletteProofFootprint(
+            storedGapLayout.columnCount,
+            storedGapLayout.rowCount,
+            'target-rows',
+            1
         )
     );
     assert.deepEqual(
-        sanitizeAppearanceProfile(structuredClone(touchingAppearance)),
-        touchingAppearance
+        sanitizeAppearanceProfile(structuredClone(storedGapAppearance)),
+        storedGapAppearance
     );
 
     const legacyLandscape = structuredClone(appearance);
@@ -241,11 +223,8 @@ test('appearance import sanitation preserves valid records and drops tampered co
 });
 
 test('profile v3 export and import preserve appearance evidence', async () => {
-    const {
-        buildPaletteProofRecord,
-        createEmptyAppearanceProfile,
-        upsertPaletteProofRecord,
-    } = await loadAppearanceProfile();
+    const { buildPaletteProofRecord, createEmptyAppearanceProfile, upsertPaletteProofRecord } =
+        await loadAppearanceProfile();
     const { buildPaletteProofSpec } = await loadPaletteProof();
     const { CURRENT_PROFILE_VERSION, exportProfileBlob, importProfiles, parseProfileFile } =
         await loadProfileManager();
@@ -253,12 +232,7 @@ test('profile v3 export and import preserve appearance evidence', async () => {
     const proof = buildPaletteProofSpec(snapshot, { targetCount: 3 });
     const appearance = upsertPaletteProofRecord(
         createEmptyAppearanceProfile(),
-        buildPaletteProofRecord(
-            filaments,
-            snapshot,
-            proof,
-            '2026-07-17T20:00:00.000Z'
-        )
+        buildPaletteProofRecord(filaments, snapshot, proof, '2026-07-17T20:00:00.000Z')
     );
     const profile = {
         id: 'appearance-profile',

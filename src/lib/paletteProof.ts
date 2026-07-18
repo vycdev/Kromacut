@@ -9,8 +9,7 @@ import { deltaE2000Lab, type Lab } from './autoPaint';
 import { fingerprintJson } from './fingerprint';
 
 export const PALETTE_PROOF_PATCH_SIZE_MM = 8;
-export const PALETTE_PROOF_GAP_MM = 1;
-export const PALETTE_PROOF_TOUCHING_GAP_MM = 0;
+export const PALETTE_PROOF_GAP_MM = 0;
 export const PALETTE_PROOF_MARGIN_MM = 2;
 export const PALETTE_PROOF_NOTCH_SIZE_MM = 2;
 export const PALETTE_PROOF_CORNER_RADIUS_MM = CALIBRATION_CORNER_RADIUS_MM;
@@ -214,8 +213,7 @@ export function selectPaletteProofTargets(
 
     const remaining = [...snapshot.targetMappings].sort(
         (left, right) =>
-            (targetPriorityById?.get(left.id) ?? 0) -
-                (targetPriorityById?.get(right.id) ?? 0) ||
+            (targetPriorityById?.get(left.id) ?? 0) - (targetPriorityById?.get(right.id) ?? 0) ||
             compareNumberDescending(left.usageWeight, right.usageWeight) ||
             left.id.localeCompare(right.id)
     );
@@ -442,7 +440,6 @@ export function buildPaletteProofSpec(
     options: {
         targetCount?: number;
         candidateCount?: number;
-        gapMm?: PaletteProofGapMm;
         evidence?: PaletteProofEvidenceScores;
         selectionHistory?: PaletteProofSelectionHistory;
     } = {}
@@ -463,16 +460,8 @@ export function buildPaletteProofSpec(
         )
     );
     const columnCount = targets.length;
-    const gapMm: PaletteProofGapMm =
-        options.gapMm === PALETTE_PROOF_TOUCHING_GAP_MM
-            ? PALETTE_PROOF_TOUCHING_GAP_MM
-            : PALETTE_PROOF_GAP_MM;
-    const footprint = calculatePaletteProofFootprint(
-        columnCount,
-        rowCount,
-        'target-rows',
-        gapMm
-    );
+    const gapMm: PaletteProofGapMm = PALETTE_PROOF_GAP_MM;
+    const footprint = calculatePaletteProofFootprint(columnCount, rowCount, 'target-rows', gapMm);
     const cells: PaletteProofCell[] = [];
     const columns: PaletteProofColumn[] = [];
     const physicalPatches: PaletteProofPhysicalPatch[] = [];
@@ -487,12 +476,9 @@ export function buildPaletteProofSpec(
             rowCount,
             options.selectionHistory?.candidateHistoryByTargetId.get(target.id)
         );
-        const candidates =
-            gapMm === PALETTE_PROOF_TOUCHING_GAP_MM
-                ? [...selectedCandidates].sort(
-                      (left, right) => left.prefix.index - right.prefix.index
-                  )
-                : selectedCandidates;
+        const candidates = [...selectedCandidates].sort(
+            (left, right) => left.prefix.index - right.prefix.index
+        );
         const cellIds: string[] = [];
 
         for (let row = 0; row < candidates.length; row++) {
@@ -562,21 +548,8 @@ export function buildPaletteProofSpec(
             rowCount,
             columnCount,
             ...footprint,
-            reinforcementLayers:
-                gapMm === PALETTE_PROOF_TOUCHING_GAP_MM
-                    ? 0
-                    : Math.min(
-                          PALETTE_PROOF_REINFORCEMENT_LAYERS,
-                          cells.reduce(
-                              (maximum, cell) => Math.max(maximum, cell.prefixIndex),
-                              0
-                          )
-                      ),
-            reinforcementClearanceMm:
-                gapMm !== PALETTE_PROOF_TOUCHING_GAP_MM &&
-                cells.some((cell) => cell.prefixIndex > 0)
-                    ? PALETTE_PROOF_REINFORCEMENT_CLEARANCE_MM
-                    : 0,
+            reinforcementLayers: 0,
+            reinforcementClearanceMm: 0,
             foundationPrefixKey: prefixes[0]?.canonicalStackKey ?? null,
             orientationMarker: 'top-left-notch' as const,
         },
@@ -629,10 +602,7 @@ export function validatePaletteProofSpec(
     if (spec.layout.cornerRadiusMm !== PALETTE_PROOF_CORNER_RADIUS_MM) {
         errors.push('layout corner radius is inconsistent');
     }
-    if (
-        spec.layout.gapMm !== PALETTE_PROOF_TOUCHING_GAP_MM &&
-        spec.layout.gapMm !== PALETTE_PROOF_GAP_MM
-    ) {
+    if (spec.layout.gapMm !== 0 && spec.layout.gapMm !== 1) {
         errors.push('layout gap is inconsistent');
     }
     if (

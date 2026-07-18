@@ -115,7 +115,7 @@ function countIndexedComponents(mesh: THREE.Mesh): number {
 test('touching proof layers union adjacent candidates into connected regions', async () => {
     const { proof, geometry } = await loadModules();
     const snapshot = buildPaletteProofSnapshot(8, 8);
-    const spec = proof.buildPaletteProofSpec(snapshot, { gapMm: 0 });
+    const spec = proof.buildPaletteProofSpec(snapshot);
     const result = geometry.buildPaletteProofGeometry(snapshot, spec);
 
     assert.equal(spec.layout.widthMm, 44);
@@ -143,7 +143,7 @@ test('proof geometry has one notched foundation and closed physical-layer shells
     const maxPrefixIndex = Math.max(...spec.cells.map((cell) => cell.prefixIndex));
 
     assert.equal(result.usedLayerCount, maxPrefixIndex + 1);
-    assert.equal(result.reinforcementLayerCount, 2);
+    assert.equal(result.reinforcementLayerCount, 0);
     assert.equal(result.object.children.length, result.usedLayerCount);
     for (const child of result.object.children) assertClosedPositiveMesh(child as THREE.Mesh);
 
@@ -177,31 +177,10 @@ test('proof geometry has one notched foundation and closed physical-layer shells
     );
 
     const firstRaisedLayer = result.object.children[1] as THREE.Mesh;
-    const reinforcedBounds = firstRaisedLayer.geometry.boundingBox;
-    assert.ok(reinforcedBounds);
-    assert.equal(reinforcedBounds.max.x - reinforcedBounds.min.x, spec.layout.widthMm);
-    assert.equal(reinforcedBounds.max.y - reinforcedBounds.min.y, spec.layout.heightMm);
-    const firstRaisedPositions = firstRaisedLayer.geometry.getAttribute('position');
-    const firstRaisedCell = spec.cells.find((cell) => cell.prefixIndex >= 1);
-    assert.ok(firstRaisedCell);
-    const firstRaisedBounds = geometry.paletteProofCellBounds(
-        spec,
-        firstRaisedCell.row,
-        firstRaisedCell.column
-    );
-    assert.equal(
-        Array.from({ length: firstRaisedPositions.count }).some(
-            (_, index) =>
-                firstRaisedPositions.getX(index) === firstRaisedBounds.x0 &&
-                firstRaisedPositions.getY(index) === firstRaisedBounds.y0
-        ),
-        false,
-        'candidate patch corners should be rounded'
-    );
-    assert.ok(
-        firstRaisedPositions.count > result.activeCellIdsByLayer[1].length * 8,
-        'rounded patches should expose segmented corner vertices'
-    );
+    const firstRaisedBounds = firstRaisedLayer.geometry.boundingBox;
+    assert.ok(firstRaisedBounds);
+    assert.ok(firstRaisedBounds.max.x - firstRaisedBounds.min.x < spec.layout.widthMm);
+    assert.ok(firstRaisedBounds.max.y - firstRaisedBounds.min.y < spec.layout.heightMm);
 
     const foundationCell = spec.cells.find((cell) => cell.prefixIndex === 0);
     assert.ok(foundationCell);
@@ -221,24 +200,13 @@ test('proof geometry has one notched foundation and closed physical-layer shells
     assert.equal(
         raycaster.intersectObject(firstRaisedLayer).length,
         0,
-        'reinforcement must leave foundation-reference samples at their exact prefix'
-    );
-
-    const layerAfterReinforcement = result.object.children[3] as THREE.Mesh;
-    assert.ok(layerAfterReinforcement.geometry.boundingBox);
-    assert.ok(
-        layerAfterReinforcement.geometry.boundingBox.max.x -
-            layerAfterReinforcement.geometry.boundingBox.min.x <
-            spec.layout.widthMm,
-        'reinforcement should stop after two added grid layers'
+        'foundation-reference samples must remain at their exact prefix'
     );
 
     for (let layerIndex = 1; layerIndex < result.usedLayerCount; layerIndex++) {
         assert.deepEqual(
             result.activeCellIdsByLayer[layerIndex],
-            spec.cells
-                .filter((cell) => cell.prefixIndex >= layerIndex)
-                .map((cell) => cell.id)
+            spec.cells.filter((cell) => cell.prefixIndex >= layerIndex).map((cell) => cell.id)
         );
     }
 
@@ -253,9 +221,7 @@ test('proof 3MF embeds its immutable map and frozen print instructions', async (
     const zip = await JSZip.loadAsync(await blob.arrayBuffer());
     const model = await zip.file('3D/3dmodel.model')?.async('string');
     const manifestText = await zip.file('Metadata/palette-proof.json')?.async('string');
-    const instructions = await zip
-        .file('Metadata/palette-proof-instructions.txt')
-        ?.async('string');
+    const instructions = await zip.file('Metadata/palette-proof-instructions.txt')?.async('string');
 
     assert.ok(model);
     assert.ok(manifestText);
@@ -264,7 +230,8 @@ test('proof 3MF embeds its immutable map and frozen print instructions', async (
     assert.equal(manifest.proof.id, spec.id);
     assert.equal(manifest.finalStack.fingerprint, snapshot.fingerprint);
     assert.match(instructions, /missing corner is the top-left marker/i);
-    assert.match(instructions, /Reinforcement grid: 2 layer\(s\)/);
+    assert.match(instructions, /Sample spacing: touching \(no gaps\)/);
+    assert.doesNotMatch(instructions, /Reinforcement grid/);
     assert.match(instructions, /Physical sequence:/);
 
     const maxPrefixIndex = Math.max(...spec.cells.map((cell) => cell.prefixIndex));

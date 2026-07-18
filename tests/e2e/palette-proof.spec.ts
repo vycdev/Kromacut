@@ -53,15 +53,12 @@ test('Palette Proof stays usable, persists results, and downloads its frozen 3MF
     await page.getByRole('option', { name: '3', exact: true }).click();
     await dialog.getByRole('combobox', { name: 'Palette Proof candidate count' }).click();
     await page.getByRole('option', { name: '2', exact: true }).click();
-    await expect(panel.getByText('21 x 30 mm / 3 targets / 2 candidates')).toBeVisible();
+    await expect(panel.getByText('20 x 28 mm / 3 targets / 2 candidates')).toBeVisible();
 
     await dialog.getByRole('combobox', { name: 'Palette Proof target count' }).click();
     await page.getByRole('option', { name: '8', exact: true }).click();
     await dialog.getByRole('combobox', { name: 'Palette Proof candidate count' }).click();
     await page.getByRole('option', { name: '5', exact: true }).click();
-    await expect(panel.getByText('48 x 75 mm / 8 targets / 5 candidates')).toBeVisible();
-    await dialog.getByRole('combobox', { name: 'Palette Proof spacing' }).click();
-    await page.getByRole('option', { name: 'Touching', exact: true }).click();
     await expect(panel.getByText('44 x 68 mm / 8 targets / 5 candidates')).toBeVisible();
     const firstProofRow = panel.getByTestId('palette-proof-map-target-1');
     await expect(firstProofRow.getByLabel('A1', { exact: true })).toBeVisible();
@@ -102,9 +99,21 @@ test('Palette Proof stays usable, persists results, and downloads its frozen 3MF
     await page.getByTestId('download-palette-proof').click();
     await replacementDownloadPromise;
 
+    const savedProofId = await panel.getAttribute('data-proof-id');
+    expect(savedProofId).not.toBeNull();
+    await dialog.getByRole('combobox', { name: 'Palette Proof target count' }).click();
+    await page.getByRole('option', { name: '7', exact: true }).click();
+    await expect(panel.getByText('44 x 60 mm / 7 targets / 5 candidates')).toBeVisible();
+    await dialog.getByRole('combobox', { name: 'Palette Proof record' }).click();
+    await page
+        .getByRole('option', { name: new RegExp(`8 targets / ${savedProofId!.slice(-8)}$`) })
+        .click();
+
     await dialog.getByRole('tab', { name: /Results/ }).click();
     await expect(dialog.getByText('0/8 targets answered')).toBeVisible();
     await dialog.getByRole('button', { name: 'B1', exact: true }).click();
+    await expect(panel).toHaveAttribute('data-proof-id', savedProofId!);
+    await expect(dialog.getByText('1/8 targets answered')).toBeVisible();
     await dialog.getByRole('button', { name: 'C1', exact: true }).click();
     for (let column = 2; column <= 8; column++) {
         await dialog
@@ -139,9 +148,7 @@ test('Palette Proof stays usable, persists results, and downloads its frozen 3MF
         'data-state',
         'active'
     );
-    await expect
-        .poll(() => panel.getAttribute('data-proof-id'))
-        .not.toBe(completedProofId);
+    await expect.poll(() => panel.getAttribute('data-proof-id')).not.toBe(completedProofId);
     await expect(dialog.getByTestId('download-palette-proof')).toBeVisible();
 
     await page.setViewportSize({ width: 390, height: 844 });

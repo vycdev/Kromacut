@@ -1,9 +1,6 @@
 import type { FinalPrintableStackSnapshot } from '../types/appearance';
 import { exportObjectTo3MFBlob } from './export3mf';
-import {
-    buildPaletteProofGeometry,
-    disposePaletteProofGeometry,
-} from './paletteProofGeometry';
+import { buildPaletteProofGeometry, disposePaletteProofGeometry } from './paletteProofGeometry';
 import type { PaletteProofSpec } from './paletteProof';
 import { validatePaletteProofSpec } from './paletteProof';
 
@@ -18,10 +15,7 @@ export interface PaletteProofManifest {
     finalStack: FinalPrintableStackSnapshot;
 }
 
-function assertValidProof(
-    snapshot: FinalPrintableStackSnapshot,
-    spec: PaletteProofSpec
-): void {
+function assertValidProof(snapshot: FinalPrintableStackSnapshot, spec: PaletteProofSpec): void {
     const errors = validatePaletteProofSpec(snapshot, spec);
     if (errors.length > 0) {
         throw new Error(`Invalid Palette Proof specification: ${errors.join('; ')}`);
@@ -53,16 +47,11 @@ export function buildPaletteProofPrintInstructions(
         `Proof ID: ${spec.id}`,
         `Final stack: ${snapshot.fingerprint}`,
         `Coupon size: ${spec.layout.widthMm.toFixed(1)} x ${spec.layout.heightMm.toFixed(1)} mm`,
-        `Sample spacing: ${
-            spec.layout.gapMm === 0
-                ? 'touching'
-                : `${spec.layout.gapMm.toFixed(1)} mm gaps`
-        }`,
+        'Sample spacing: touching (no gaps)',
         `Corner radius: ${spec.layout.cornerRadiusMm.toFixed(1)} mm`,
         `Layer height: ${snapshot.settings.layerHeight.toFixed(3)} mm`,
         `First layer height: ${snapshot.settings.firstLayerHeight.toFixed(3)} mm`,
         `Printed layers: ${usedLayers.length}`,
-        `Reinforcement grid: ${spec.layout.reinforcementLayers ?? 0} layer(s) above the first layer`,
         '',
         'Slicer setup:',
         '- Keep the coupon face-up and at 100% scale.',
@@ -70,7 +59,7 @@ export function buildPaletteProofPrintInstructions(
         '- Confirm every 3MF layer part is assigned to the matching physical filament.',
         '- The missing corner is the top-left marker in the Kromacut patch map.',
         '- The target color row is screen-only and is not printed.',
-        '- Reinforcement occupies only margins and trenches; sample squares keep their exact stacks.',
+        '- Touching active cells are joined per layer; every sample keeps its exact stack height.',
         '',
         'Physical sequence:',
     ];

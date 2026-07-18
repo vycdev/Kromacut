@@ -33,13 +33,9 @@ async function loadViteModule<T>(modulePath: string): Promise<T> {
     }
 }
 
-test('default target-row footprint is 48 x 75 mm while legacy proofs stay landscape', async () => {
+test('default target-row footprint is a touching 44 x 68 mm matrix', async () => {
     const { calculatePaletteProofFootprint } = await loadPaletteProofModule();
-    assert.deepEqual(calculatePaletteProofFootprint(8, 5), { widthMm: 48, heightMm: 75 });
-    assert.deepEqual(calculatePaletteProofFootprint(8, 5, 'target-columns'), {
-        widthMm: 75,
-        heightMm: 48,
-    });
+    assert.deepEqual(calculatePaletteProofFootprint(8, 5), { widthMm: 44, heightMm: 68 });
     assert.deepEqual(calculatePaletteProofFootprint(8, 5, 'target-rows', 0), {
         widthMm: 44,
         heightMm: 68,
@@ -56,18 +52,16 @@ test('requested target and candidate counts resize the proof matrix', async () =
 
     assert.equal(spec.layout.columnCount, 3);
     assert.equal(spec.layout.rowCount, 2);
-    assert.equal(spec.layout.widthMm, 21);
-    assert.equal(spec.layout.heightMm, 30);
+    assert.equal(spec.layout.widthMm, 20);
+    assert.equal(spec.layout.heightMm, 28);
     assert.equal(spec.cells.length, 6);
 });
 
-test('touching proofs pack sorted candidates into a smaller physical matrix', async () => {
+test('new proofs pack sorted touching candidates', async () => {
     const { buildPaletteProofSpec, validatePaletteProofSpec } = await loadPaletteProofModule();
     const snapshot = buildPaletteProofSnapshot(8, 8);
-    const regular = buildPaletteProofSpec(snapshot);
-    const touching = buildPaletteProofSpec(snapshot, { gapMm: 0 });
+    const touching = buildPaletteProofSpec(snapshot);
 
-    assert.notEqual(touching.id, regular.id);
     assert.equal(touching.layout.gapMm, 0);
     assert.equal(touching.layout.widthMm, 44);
     assert.equal(touching.layout.heightMm, 68);
@@ -77,7 +71,10 @@ test('touching proofs pack sorted candidates into a smaller physical matrix', as
         const prefixIndices = column.cellIds.map(
             (cellId) => touching.cells.find((cell) => cell.id === cellId)!.prefixIndex
         );
-        assert.deepEqual(prefixIndices, [...prefixIndices].sort((left, right) => left - right));
+        assert.deepEqual(
+            prefixIndices,
+            [...prefixIndices].sort((left, right) => left - right)
+        );
     }
     assert.deepEqual(validatePaletteProofSpec(snapshot, touching), []);
 });
@@ -158,9 +155,7 @@ test('next-proof selection keeps one anchor and spends rows on untested prefixes
         candidateCount: 5,
         selectionHistory: {
             targetPriorityById: new Map([[targetId, 1]]),
-            candidateHistoryByTargetId: new Map([
-                [targetId, { testedStackKeys, anchorStackKey }],
-            ]),
+            candidateHistoryByTargetId: new Map([[targetId, { testedStackKeys, anchorStackKey }]]),
         },
     });
 
@@ -230,12 +225,12 @@ test('proof spec keeps targets on screen and validates only physical stack prefi
 
     assert.equal(spec.layout.columnCount, 8);
     assert.equal(spec.layout.rowCount, 5);
-    assert.equal(spec.layout.widthMm, 48);
-    assert.equal(spec.layout.heightMm, 75);
+    assert.equal(spec.layout.widthMm, 44);
+    assert.equal(spec.layout.heightMm, 68);
     assert.equal(spec.layout.matrixOrientation, 'target-rows');
     assert.equal(spec.layout.cornerRadiusMm, 1.2);
-    assert.equal(spec.layout.reinforcementLayers, 2);
-    assert.equal(spec.layout.reinforcementClearanceMm, 0.15);
+    assert.equal(spec.layout.reinforcementLayers, 0);
+    assert.equal(spec.layout.reinforcementClearanceMm, 0);
     assert.equal(spec.targetPalette.length, 8);
     assert.equal(spec.cells.length, 40);
     assert.deepEqual(validatePaletteProofSpec(snapshot, spec), []);

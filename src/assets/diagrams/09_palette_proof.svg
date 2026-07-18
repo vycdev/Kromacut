@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="960" height="520" viewBox="0 0 960 520">
-<style>.proof-targets rect,.proof-patches rect,.foundation-reference{rx:5px;ry:5px}</style>
+<style>.proof-targets rect,.foundation-reference{rx:5px;ry:5px}.proof-patches rect{rx:0;ry:0}</style>
 <rect x="0" y="0" width="960" height="520" fill="#18181b"/>
 <text x="480" y="38" font-size="17" fill="#e4e4e7" text-anchor="middle" font-weight="bold" font-family="Inter,ui-sans-serif,sans-serif">Palette Proof Layout</text>
 <text x="480" y="58" font-size="10" fill="#a1a1aa" text-anchor="middle" font-family="Inter,ui-sans-serif,sans-serif">Each target is one printed row; its A-E candidates run left to right in both app views.</text>
@@ -8,62 +8,59 @@
 <text x="240" y="108" font-size="9" fill="#a1a1aa" text-anchor="middle" font-family="Inter,ui-sans-serif,sans-serif">T = target shown in Kromacut, A-E = physical candidates</text>
 
 <g font-size="9" fill="#a1a1aa" text-anchor="middle" font-family="Inter,ui-sans-serif,sans-serif">
-<text x="157" y="119">A</text><text x="195" y="119">B</text><text x="233" y="119">C</text><text x="271" y="119">D</text><text x="309" y="119">E</text>
+<text x="157" y="119">A</text><text x="191" y="119">B</text><text x="225" y="119">C</text><text x="259" y="119">D</text><text x="293" y="119">E</text>
 </g>
-<path d="M144 124 H328 Q338 124 338 134 V434 Q338 444 328 444 H142 Q132 444 132 434 V136 H144 Z" fill="#27272a" stroke="#71717a" stroke-width="1.5"/>
+<path d="M144 124 H309 Q319 124 319 134 V403 Q319 413 309 413 H142 Q132 413 132 403 V136 H144 Z" fill="#27272a" stroke="#71717a" stroke-width="1.5"/>
 <path d="M144 124 V136 H132" fill="none" stroke="#f5a623" stroke-width="2"/>
 <g class="proof-targets" stroke="#71717a">
-<rect x="96" y="131" width="28" height="28" fill="#2cb9d1"/><rect x="96" y="169" width="28" height="28" fill="#f08cb8"/>
-<rect x="96" y="207" width="28" height="28" fill="#f1cc3e"/><rect x="96" y="245" width="28" height="28" fill="#7652c7"/>
-<rect x="96" y="283" width="28" height="28" fill="#e86432"/><rect x="96" y="321" width="28" height="28" fill="#43b96b"/>
-<rect x="96" y="359" width="28" height="28" fill="#d7dbe0"/><rect x="96" y="397" width="28" height="28" fill="#344356"/>
+<rect x="96" y="131" width="28" height="28" fill="#2cb9d1"/><rect x="96" y="165" width="28" height="28" fill="#f08cb8"/>
+<rect x="96" y="199" width="28" height="28" fill="#f1cc3e"/><rect x="96" y="233" width="28" height="28" fill="#7652c7"/>
+<rect x="96" y="267" width="28" height="28" fill="#e86432"/><rect x="96" y="301" width="28" height="28" fill="#43b96b"/>
+<rect x="96" y="335" width="28" height="28" fill="#d7dbe0"/><rect x="96" y="369" width="28" height="28" fill="#344356"/>
 </g>
 <g font-size="8" fill="#e4e4e7" text-anchor="middle" font-family="Inter,ui-sans-serif,sans-serif">
-<text x="110" y="149">1</text><text x="110" y="187">2</text><text x="110" y="225">3</text><text x="110" y="263">4</text>
-<text x="110" y="301">5</text><text x="110" y="339">6</text><text x="110" y="377" fill="#18181b">7</text><text x="110" y="415">8</text>
+<text x="110" y="149">1</text><text x="110" y="183">2</text><text x="110" y="217">3</text><text x="110" y="251">4</text>
+<text x="110" y="285">5</text><text x="110" y="319">6</text><text x="110" y="353" fill="#18181b">7</text><text x="110" y="387">8</text>
 </g>
 <g class="proof-patches" stroke="#18181b" stroke-width="1">
-<rect x="140" y="131" width="34" height="34" fill="#2164a8"/><rect x="178" y="131" width="34" height="34" fill="#2681b8"/><rect x="216" y="131" width="34" height="34" fill="#2a9ac7"/><rect x="254" y="131" width="34" height="34" fill="#2aafd0"/><rect x="292" y="131" width="34" height="34" fill="#30bbd3"/>
-<rect x="140" y="169" width="34" height="34" fill="#c56d9c"/><rect x="178" y="169" width="34" height="34" fill="#d37baa"/><rect x="216" y="169" width="34" height="34" fill="#df84b2"/><rect x="254" y="169" width="34" height="34" fill="#e78ab9"/><rect x="292" y="169" width="34" height="34" fill="#ef91bd"/>
-<rect x="140" y="207" width="34" height="34" fill="#ad9b35"/><rect x="178" y="207" width="34" height="34" fill="#c5ac37"/><rect x="216" y="207" width="34" height="34" fill="#dbc03a"/><rect x="254" y="207" width="34" height="34" fill="#e8ca3c"/><rect x="292" y="207" width="34" height="34" fill="#f2d043"/>
-<rect x="140" y="245" width="34" height="34" fill="#4d3294"/><rect x="178" y="245" width="34" height="34" fill="#5d3daa"/><rect x="216" y="245" width="34" height="34" fill="#6847b8"/><rect x="254" y="245" width="34" height="34" fill="#7250c1"/><rect x="292" y="245" width="34" height="34" fill="#7b58ca"/>
-<rect x="140" y="283" width="34" height="34" fill="#bd4728"/><rect x="178" y="283" width="34" height="34" fill="#ce522b"/><rect x="216" y="283" width="34" height="34" fill="#dc5a2f"/><rect x="254" y="283" width="34" height="34" fill="#e26031"/><rect x="292" y="283" width="34" height="34" fill="#ea6937"/>
-<rect x="140" y="321" width="34" height="34" fill="#268a4d"/><rect x="178" y="321" width="34" height="34" fill="#2e9d56"/><rect x="216" y="321" width="34" height="34" fill="#37aa5e"/><rect x="254" y="321" width="34" height="34" fill="#3db364"/><rect x="292" y="321" width="34" height="34" fill="#46bd6d"/>
-<rect x="140" y="359" width="34" height="34" fill="#9ca3ab"/><rect x="178" y="359" width="34" height="34" fill="#b6bbc1"/><rect x="216" y="359" width="34" height="34" fill="#cbd0d5"/><rect x="254" y="359" width="34" height="34" fill="#d9dde1"/><rect x="292" y="359" width="34" height="34" fill="#e4e7ea"/>
-<rect x="140" y="397" width="34" height="34" fill="#202a37"/><rect x="178" y="397" width="34" height="34" fill="#263242"/><rect x="216" y="397" width="34" height="34" fill="#2c3a4c"/><rect x="254" y="397" width="34" height="34" fill="#314052"/><rect x="292" y="397" width="34" height="34" fill="#38485c"/>
+<rect x="140" y="131" width="34" height="34" fill="#2164a8"/><rect x="174" y="131" width="34" height="34" fill="#2681b8"/><rect x="208" y="131" width="34" height="34" fill="#2a9ac7"/><rect x="242" y="131" width="34" height="34" fill="#2aafd0"/><rect x="276" y="131" width="34" height="34" fill="#30bbd3"/>
+<rect x="140" y="165" width="34" height="34" fill="#c56d9c"/><rect x="174" y="165" width="34" height="34" fill="#d37baa"/><rect x="208" y="165" width="34" height="34" fill="#df84b2"/><rect x="242" y="165" width="34" height="34" fill="#e78ab9"/><rect x="276" y="165" width="34" height="34" fill="#ef91bd"/>
+<rect x="140" y="199" width="34" height="34" fill="#ad9b35"/><rect x="174" y="199" width="34" height="34" fill="#c5ac37"/><rect x="208" y="199" width="34" height="34" fill="#dbc03a"/><rect x="242" y="199" width="34" height="34" fill="#e8ca3c"/><rect x="276" y="199" width="34" height="34" fill="#f2d043"/>
+<rect x="140" y="233" width="34" height="34" fill="#4d3294"/><rect x="174" y="233" width="34" height="34" fill="#5d3daa"/><rect x="208" y="233" width="34" height="34" fill="#6847b8"/><rect x="242" y="233" width="34" height="34" fill="#7250c1"/><rect x="276" y="233" width="34" height="34" fill="#7b58ca"/>
+<rect x="140" y="267" width="34" height="34" fill="#bd4728"/><rect x="174" y="267" width="34" height="34" fill="#ce522b"/><rect x="208" y="267" width="34" height="34" fill="#dc5a2f"/><rect x="242" y="267" width="34" height="34" fill="#e26031"/><rect x="276" y="267" width="34" height="34" fill="#ea6937"/>
+<rect x="140" y="301" width="34" height="34" fill="#268a4d"/><rect x="174" y="301" width="34" height="34" fill="#2e9d56"/><rect x="208" y="301" width="34" height="34" fill="#37aa5e"/><rect x="242" y="301" width="34" height="34" fill="#3db364"/><rect x="276" y="301" width="34" height="34" fill="#46bd6d"/>
+<rect x="140" y="335" width="34" height="34" fill="#9ca3ab"/><rect x="174" y="335" width="34" height="34" fill="#b6bbc1"/><rect x="208" y="335" width="34" height="34" fill="#cbd0d5"/><rect x="242" y="335" width="34" height="34" fill="#d9dde1"/><rect x="276" y="335" width="34" height="34" fill="#e4e7ea"/>
+<rect x="140" y="369" width="34" height="34" fill="#202a37"/><rect x="174" y="369" width="34" height="34" fill="#263242"/><rect x="208" y="369" width="34" height="34" fill="#2c3a4c"/><rect x="242" y="369" width="34" height="34" fill="#314052"/><rect x="276" y="369" width="34" height="34" fill="#38485c"/>
 </g>
 <g font-size="7" fill="#f4f4f5" text-anchor="middle" font-family="Inter,ui-sans-serif,sans-serif">
-<text x="157" y="151">A1 F</text><text x="195" y="151">B1</text><text x="233" y="151">C1</text><text x="271" y="151">D1</text><text x="309" y="151">E1</text>
-<text x="157" y="189">A2</text><text x="195" y="189">B2</text><text x="233" y="189">C2</text><text x="271" y="189">D2</text><text x="309" y="189">E2</text>
-<text x="157" y="227">A3</text><text x="195" y="227">B3</text><text x="233" y="227">C3</text><text x="271" y="227">D3</text><text x="309" y="227">E3</text>
-<text x="157" y="265">A4</text><text x="195" y="265">B4</text><text x="233" y="265">C4</text><text x="271" y="265">D4</text><text x="309" y="265">E4</text>
-<text x="157" y="303">A5</text><text x="195" y="303">B5</text><text x="233" y="303">C5</text><text x="271" y="303">D5</text><text x="309" y="303">E5</text>
-<text x="157" y="341">A6</text><text x="195" y="341">B6</text><text x="233" y="341">C6</text><text x="271" y="341">D6</text><text x="309" y="341">E6</text>
-<text x="157" y="379" fill="#18181b">A7</text><text x="195" y="379" fill="#18181b">B7</text><text x="233" y="379" fill="#18181b">C7</text><text x="271" y="379" fill="#18181b">D7</text><text x="309" y="379" fill="#18181b">E7</text>
-<text x="157" y="417">A8</text><text x="195" y="417">B8</text><text x="233" y="417">C8</text><text x="271" y="417">D8</text><text x="309" y="417">E8</text>
+<text x="157" y="151">A1 F</text><text x="191" y="151">B1</text><text x="225" y="151">C1</text><text x="259" y="151">D1</text><text x="293" y="151">E1</text>
+<text x="157" y="185">A2</text><text x="191" y="185">B2</text><text x="225" y="185">C2</text><text x="259" y="185">D2</text><text x="293" y="185">E2</text>
+<text x="157" y="219">A3</text><text x="191" y="219">B3</text><text x="225" y="219">C3</text><text x="259" y="219">D3</text><text x="293" y="219">E3</text>
+<text x="157" y="253">A4</text><text x="191" y="253">B4</text><text x="225" y="253">C4</text><text x="259" y="253">D4</text><text x="293" y="253">E4</text>
+<text x="157" y="287">A5</text><text x="191" y="287">B5</text><text x="225" y="287">C5</text><text x="259" y="287">D5</text><text x="293" y="287">E5</text>
+<text x="157" y="321">A6</text><text x="191" y="321">B6</text><text x="225" y="321">C6</text><text x="259" y="321">D6</text><text x="293" y="321">E6</text>
+<text x="157" y="355" fill="#18181b">A7</text><text x="191" y="355" fill="#18181b">B7</text><text x="225" y="355" fill="#18181b">C7</text><text x="259" y="355" fill="#18181b">D7</text><text x="293" y="355" fill="#18181b">E7</text>
+<text x="157" y="389">A8</text><text x="191" y="389">B8</text><text x="225" y="389">C8</text><text x="259" y="389">D8</text><text x="293" y="389">E8</text>
 </g>
 <rect class="foundation-reference" x="140" y="131" width="34" height="34" fill="none" stroke="#f5a623" stroke-width="2" stroke-dasharray="4 3"/>
-<text x="235" y="462" font-size="9" fill="#a1a1aa" text-anchor="middle" font-family="Inter,ui-sans-serif,sans-serif">48 mm wide x 75 mm high at the default layout</text>
+<text x="225" y="431" font-size="9" fill="#a1a1aa" text-anchor="middle" font-family="Inter,ui-sans-serif,sans-serif">44 mm wide x 68 mm high at the default layout</text>
 <text x="136" y="119" font-size="8" fill="#f5a623" text-anchor="start" font-family="Inter,ui-sans-serif,sans-serif">notch</text>
 
 <text x="700" y="92" font-size="11" fill="#e4e4e7" text-anchor="middle" font-weight="bold" font-family="Inter,ui-sans-serif,sans-serif">Cross-section</text>
-<text x="700" y="108" font-size="9" fill="#a1a1aa" text-anchor="middle" font-family="Inter,ui-sans-serif,sans-serif">Candidates stay exact while the gaps reinforce the carrier</text>
+<text x="700" y="108" font-size="9" fill="#a1a1aa" text-anchor="middle" font-family="Inter,ui-sans-serif,sans-serif">Candidates stay exact while touching neighbors share layer regions</text>
 <rect x="520" y="342" width="360" height="26" fill="#2164a8" stroke="#71717a"/>
-<g fill="#3f3f46" stroke="#71717a">
-<rect x="596" y="274" width="12" height="68"/><rect x="664" y="274" width="12" height="68"/><rect x="732" y="274" width="12" height="68"/><rect x="800" y="274" width="12" height="68"/>
-</g>
-<rect x="540" y="310" width="56" height="32" fill="#c56d9c" stroke="#18181b"/>
-<rect x="608" y="274" width="56" height="68" fill="#f2d043" stroke="#18181b"/>
-<rect x="676" y="238" width="56" height="104" fill="#7250c1" stroke="#18181b"/>
-<rect x="744" y="202" width="56" height="140" fill="#ea6937" stroke="#18181b"/>
-<rect x="812" y="166" width="48" height="176" fill="#46bd6d" stroke="#18181b"/>
+<rect x="540" y="310" width="64" height="32" fill="#c56d9c" stroke="#18181b"/>
+<rect x="604" y="274" width="64" height="68" fill="#f2d043" stroke="#18181b"/>
+<rect x="668" y="238" width="64" height="104" fill="#7250c1" stroke="#18181b"/>
+<rect x="732" y="202" width="64" height="140" fill="#ea6937" stroke="#18181b"/>
+<rect x="796" y="166" width="64" height="176" fill="#46bd6d" stroke="#18181b"/>
 <g stroke="#e4e4e7" stroke-width="0.8" stroke-dasharray="4 3">
 <line x1="510" y1="310" x2="872" y2="310"/><line x1="510" y1="274" x2="872" y2="274"/><line x1="510" y1="238" x2="872" y2="238"/><line x1="510" y1="202" x2="872" y2="202"/><line x1="510" y1="166" x2="872" y2="166"/>
 </g>
 <g font-size="8" fill="#a1a1aa" text-anchor="end" font-family="Inter,ui-sans-serif,sans-serif">
 <text x="504" y="313">prefix 2</text><text x="504" y="277">prefix 3</text><text x="504" y="241">prefix 4</text><text x="504" y="205">prefix 5</text><text x="504" y="169">prefix 6</text>
 </g>
-<text x="700" y="385" font-size="9" fill="#a1a1aa" text-anchor="middle" font-family="Inter,ui-sans-serif,sans-serif">continuous first layer + two-layer grid in margins and trenches</text>
+<text x="700" y="385" font-size="9" fill="#a1a1aa" text-anchor="middle" font-family="Inter,ui-sans-serif,sans-serif">continuous first layer; touching active cells union on each later layer</text>
 <text x="700" y="418" font-size="9" fill="#e4e4e7" text-anchor="middle" font-family="Inter,ui-sans-serif,sans-serif">One physical filament is assigned to each horizontal layer.</text>
 <text x="700" y="435" font-size="9" fill="#e4e4e7" text-anchor="middle" font-family="Inter,ui-sans-serif,sans-serif">No arbitrary color combinations are fabricated.</text>
 
