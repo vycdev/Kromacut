@@ -36,6 +36,13 @@ test('Palette Proof stays usable, persists results, and downloads its frozen 3MF
     expect(closeBounds).not.toBeNull();
     expect(surfaceTabsBounds).not.toBeNull();
     expect(surfaceTabsBounds!.x + surfaceTabsBounds!.width).toBeLessThanOrEqual(closeBounds!.x);
+    expect(
+        Math.abs(
+            surfaceTabsBounds!.y +
+                surfaceTabsBounds!.height / 2 -
+                (closeBounds!.y + closeBounds!.height / 2)
+        )
+    ).toBeLessThanOrEqual(1);
     await dialog.getByRole('tab', { name: 'Palette Proof' }).click();
     const panel = dialog.getByTestId('palette-proof-panel');
     await expect(panel).toBeVisible();

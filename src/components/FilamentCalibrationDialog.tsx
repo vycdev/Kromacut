@@ -1297,7 +1297,7 @@ export function FilamentCalibrationDialog({
                     variant="ghost"
                     size="icon"
                     onClick={handleClose}
-                    className="absolute right-3 top-3 h-7 w-7 text-muted-foreground hover:text-foreground"
+                    className="absolute right-3 top-7 h-7 w-7 text-muted-foreground hover:text-foreground"
                     aria-label="Close calibration dialog"
                 >
                     <X className="h-4 w-4" />
