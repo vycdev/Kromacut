@@ -25,10 +25,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { TabsContent } from '@/components/ui/tabs';
 import type { AutoPaintResult, TransitionZone } from '../lib/autoPaint';
-import type {
-    PaletteProofRecord,
-    PaletteTargetResponse,
-} from '../lib/appearanceProfile';
+import type { PaletteProofRecord, PaletteTargetResponse } from '../lib/appearanceProfile';
 import type { PaletteProofSpec } from '../lib/paletteProof';
 import type { AutoPaintProfile } from '../lib/profileManager';
 import type {
@@ -210,7 +207,7 @@ interface AutoPaintTabProps {
     ) => void;
     handleCompletePaletteProofEvaluation: (proofId: string) => void;
     handleReopenPaletteProofEvaluation: (proofId: string) => void;
-    handleDeleteIncompletePaletteProof: (proofId: string) => void;
+    handleDeletePaletteProof: (proofId: string) => void;
 
     // Auto-paint state
     autoPaintMaxHeight: number | undefined;
@@ -285,7 +282,7 @@ export default function AutoPaintTab({
     handleSetPaletteTargetResponse,
     handleCompletePaletteProofEvaluation,
     handleReopenPaletteProofEvaluation,
-    handleDeleteIncompletePaletteProof,
+    handleDeletePaletteProof,
     autoPaintMaxHeight,
     setAutoPaintMaxHeight,
     autoPaintResult,
@@ -1392,7 +1389,7 @@ export default function AutoPaintTab({
                 onSetPaletteTargetResponse={handleSetPaletteTargetResponse}
                 onCompletePaletteProofEvaluation={handleCompletePaletteProofEvaluation}
                 onReopenPaletteProofEvaluation={handleReopenPaletteProofEvaluation}
-                onDeleteIncompletePaletteProof={handleDeleteIncompletePaletteProof}
+                onDeletePaletteProof={handleDeletePaletteProof}
                 onApply={handleApplyCalibration}
             />
         </TabsContent>

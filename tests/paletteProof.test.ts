@@ -184,6 +184,29 @@ test('next-proof target selection rotates to targets not covered by the first pr
     assert.ok(next.columns.some((column) => !firstTargetIds.has(column.targetMappingId)));
 });
 
+test('continuation keeps the requested target set and order', async () => {
+    const { buildPaletteProofSpec } = await loadPaletteProofModule();
+    const snapshot = buildPaletteProofSnapshot(8, 12);
+    const targetMappingIds = [
+        snapshot.targetMappings[7].id,
+        snapshot.targetMappings[2].id,
+        snapshot.targetMappings[10].id,
+    ];
+    const continuation = buildPaletteProofSpec(snapshot, {
+        candidateCount: 5,
+        targetMappingIds,
+        selectionHistory: {
+            targetPriorityById: new Map(),
+            candidateHistoryByTargetId: new Map(),
+        },
+    });
+
+    assert.deepEqual(
+        continuation.columns.map((column) => column.targetMappingId),
+        targetMappingIds
+    );
+});
+
 test('evidence roles use only versioned prefixes with finite scores', async () => {
     const { enumerateFinalStackPrefixes, selectPrefixCandidates } = await loadPaletteProofModule();
     const snapshot = buildPaletteProofSnapshot(6);

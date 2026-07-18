@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowRight, Check, Download, Loader2, Pencil, Trash2 } from 'lucide-react';
+import { Check, Download, Loader2, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -48,10 +48,22 @@ interface PaletteProofPanelProps {
     ) => void;
     onCompleteEvaluation?: (proofId: string) => void;
     onReopenEvaluation?: (proofId: string) => void;
-    onDeleteIncompleteProof?: (proofId: string) => void;
+    onDeleteProof?: (proofId: string) => void;
 }
 
 type PanelView = 'proof' | 'results';
+type ProofGeneration =
+    | { mode: 'initial' }
+    | {
+          mode: 'continue';
+          sourceProofId: string;
+          targetMappingIds: readonly string[];
+      }
+    | {
+          mode: 'new-targets';
+          sourceProofId: string;
+          deprioritizedTargetIds: readonly string[];
+      };
 
 function swatchTextColor(rgb: readonly [number, number, number]): string {
     const luminance = (0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2]) / 255;
@@ -76,13 +88,13 @@ export default function PaletteProofPanel({
     onSetTargetResponse,
     onCompleteEvaluation,
     onReopenEvaluation,
-    onDeleteIncompleteProof,
+    onDeleteProof,
 }: PaletteProofPanelProps) {
     const [requestedTargetCount, setRequestedTargetCount] = useState(PALETTE_PROOF_DEFAULT_TARGETS);
     const [requestedCandidateCount, setRequestedCandidateCount] = useState(
         PALETTE_PROOF_MAX_CANDIDATES
     );
-    const [historyProofIds, setHistoryProofIds] = useState<readonly string[]>([]);
+    const [proofGeneration, setProofGeneration] = useState<ProofGeneration>({ mode: 'initial' });
     const maximumTargetCount = Math.min(
         PALETTE_PROOF_MAX_TARGETS,
         snapshot?.targetMappings.length ?? 0
@@ -106,18 +118,6 @@ export default function PaletteProofPanel({
         [profile, profileDirty]
     );
     const compatibleAppearance = profileDirty ? undefined : profile?.appearance;
-    const selectedHistory = useMemo(
-        () =>
-            snapshot
-                ? buildPaletteProofHistory(
-                      compatibleAppearance,
-                      snapshot,
-                      historyProofIds,
-                      filamentProfileFingerprint
-                  )
-                : null,
-        [compatibleAppearance, filamentProfileFingerprint, historyProofIds, snapshot]
-    );
     const allCompletedHistory = useMemo(
         () =>
             snapshot
@@ -130,6 +130,21 @@ export default function PaletteProofPanel({
                 : null,
         [compatibleAppearance, filamentProfileFingerprint, snapshot]
     );
+    const generationHistory = useMemo(
+        () =>
+            snapshot && proofGeneration.mode !== 'initial'
+                ? buildPaletteProofHistory(
+                      compatibleAppearance,
+                      snapshot,
+                      undefined,
+                      filamentProfileFingerprint,
+                      proofGeneration.mode === 'new-targets'
+                          ? new Set(proofGeneration.deprioritizedTargetIds)
+                          : undefined
+                  )
+                : null,
+        [compatibleAppearance, filamentProfileFingerprint, proofGeneration, snapshot]
+    );
     const currentProofState = useMemo(() => {
         if (!snapshot) return { spec: null, error: null };
         try {
@@ -138,7 +153,13 @@ export default function PaletteProofPanel({
                     targetCount,
                     candidateCount,
                     selectionHistory:
-                        historyProofIds.length > 0 ? selectedHistory?.selectionHistory : undefined,
+                        proofGeneration.mode === 'initial'
+                            ? undefined
+                            : generationHistory?.selectionHistory,
+                    targetMappingIds:
+                        proofGeneration.mode === 'continue'
+                            ? proofGeneration.targetMappingIds
+                            : undefined,
                 }),
                 error: null,
             };
@@ -148,7 +169,7 @@ export default function PaletteProofPanel({
                 error: error instanceof Error ? error.message : 'Could not build Palette Proof',
             };
         }
-    }, [candidateCount, historyProofIds.length, selectedHistory, snapshot, targetCount]);
+    }, [candidateCount, generationHistory, proofGeneration, snapshot, targetCount]);
     const savedProofs = useMemo(
         () =>
             [...(profile?.appearance?.proofs ?? [])].sort((left, right) =>
@@ -170,7 +191,7 @@ export default function PaletteProofPanel({
     const [pendingDeleteProofId, setPendingDeleteProofId] = useState<string | null>(null);
 
     useEffect(() => {
-        setHistoryProofIds([]);
+        setProofGeneration({ mode: 'initial' });
     }, [snapshot?.fingerprint]);
 
     useEffect(() => {
@@ -288,30 +309,47 @@ export default function PaletteProofPanel({
         );
     };
 
-    const handleDeleteIncompleteProof = () => {
-        if (!selectedRecord || evaluation?.complete || !onDeleteIncompleteProof) return;
+    const handleDeleteProof = () => {
+        if (!selectedRecord || !onDeleteProof) return;
         setActionError(null);
         try {
-            onDeleteIncompleteProof(selectedRecord.id);
+            onDeleteProof(selectedRecord.id);
             setPendingDeleteProofId(null);
+            setProofGeneration({ mode: 'initial' });
             setView('proof');
         } catch (error) {
             setActionError(error instanceof Error ? error.message : 'Could not delete proof');
         }
     };
 
-    const handleStartNextProof = () => {
-        if (
-            selectedRecord?.snapshotFingerprint !== snapshot?.fingerprint ||
-            !evaluation?.complete ||
-            !allCompletedHistory?.hasUnseenEvidence
-        ) {
-            return;
-        }
+    const prepareNextProof = (generation: ProofGeneration) => {
+        if (!selectedRecord || !evaluation?.complete) return;
         setActionError(null);
+        setRequestedTargetCount(selectedRecord.proof.layout.columnCount);
+        setRequestedCandidateCount(selectedRecord.proof.layout.rowCount);
         setSelectedProofId('');
-        setHistoryProofIds([...allCompletedHistory.proofIds]);
+        setProofGeneration(generation);
         setView('proof');
+    };
+
+    const handleContinueTargets = () => {
+        if (!selectedRecord) return;
+        prepareNextProof({
+            mode: 'continue',
+            sourceProofId: selectedRecord.id,
+            targetMappingIds: selectedRecord.proof.columns.map((column) => column.targetMappingId),
+        });
+    };
+
+    const handleNewTargets = () => {
+        if (!selectedRecord) return;
+        prepareNextProof({
+            mode: 'new-targets',
+            sourceProofId: selectedRecord.id,
+            deprioritizedTargetIds: selectedRecord.proof.columns.map(
+                (column) => column.targetMappingId
+            ),
+        });
     };
 
     if (currentProofState.error) {
@@ -364,6 +402,40 @@ export default function PaletteProofPanel({
                   { length: Math.max(0, maximumCandidateCount - PALETTE_PROOF_MIN_CANDIDATES + 1) },
                   (_, index) => index + PALETTE_PROOF_MIN_CANDIDATES
               );
+    const selectedTargetIds = new Set(
+        selectedRecord?.proof.columns.map((column) => column.targetMappingId) ?? []
+    );
+    const targetHasUnseenCandidates = (targetId: string) =>
+        (allCompletedHistory?.selectionHistory.candidateHistoryByTargetId.get(targetId)
+            ?.testedStackKeys.size ?? 0) < (snapshot?.palette.length ?? 0);
+    const selectedTargetsExistInCurrentResult = Boolean(
+        snapshot &&
+            [...selectedTargetIds].every((targetId) =>
+                snapshot.targetMappings.some((target) => target.id === targetId)
+            )
+    );
+    const selectedProofMatchesCurrentProcess = Boolean(
+        selectedRecord &&
+            snapshot &&
+            filamentProfileFingerprint &&
+            selectedRecord.process.filamentProfileFingerprint === filamentProfileFingerprint &&
+            selectedRecord.process.layerHeight === snapshot.settings.layerHeight &&
+            selectedRecord.process.firstLayerHeight === snapshot.settings.firstLayerHeight &&
+            selectedRecord.process.transitionOpacity === snapshot.settings.transitionOpacity
+    );
+    const canContinueTargets = Boolean(
+        selectedProofMatchesCurrentProcess &&
+        selectedTargetsExistInCurrentResult &&
+        evaluation?.complete &&
+        [...selectedTargetIds].some(targetHasUnseenCandidates)
+    );
+    const canStartNewTargets = Boolean(
+        selectedProofMatchesCurrentProcess &&
+        evaluation?.complete &&
+        snapshot?.targetMappings.some(
+            (target) => !selectedTargetIds.has(target.id) && targetHasUnseenCandidates(target.id)
+        )
+    );
 
     return (
         <section
@@ -392,7 +464,7 @@ export default function PaletteProofPanel({
                     title={
                         selectedSnapshot
                             ? 'Download Palette Proof 3MF'
-                            : 'Rebuild this proof\'s source Auto-paint result to download it again'
+                            : "Rebuild this proof's source Auto-paint result to download it again"
                     }
                     aria-label="Download Palette Proof 3MF"
                 >
@@ -405,15 +477,15 @@ export default function PaletteProofPanel({
                         {isExporting ? 'Building...' : 'Download 3MF'}
                     </span>
                 </Button>
-                {selectedRecord && !evaluation?.complete && (
+                {selectedRecord && (
                     <Button
                         size="icon"
                         variant="outline"
                         className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive"
-                        disabled={!canTrack || !onDeleteIncompleteProof}
+                        disabled={!canTrack || !onDeleteProof}
                         onClick={() => setPendingDeleteProofId(selectedRecord.id)}
-                        title="Delete incomplete Palette Proof"
-                        aria-label="Delete incomplete Palette Proof"
+                        title="Delete Palette Proof"
+                        aria-label="Delete Palette Proof"
                     >
                         <Trash2 className="h-3.5 w-3.5" />
                     </Button>
@@ -426,7 +498,8 @@ export default function PaletteProofPanel({
                     role="alert"
                 >
                     <p className="min-w-0 flex-1 text-[10px] text-foreground">
-                        Delete this incomplete proof and its draft results?
+                        Delete this {evaluation?.complete ? 'completed' : 'incomplete'} proof and
+                        all of its results? This removes it from appearance calibration.
                     </p>
                     <Button
                         size="sm"
@@ -440,7 +513,7 @@ export default function PaletteProofPanel({
                         size="sm"
                         variant="destructive"
                         className="h-7 px-2 text-xs"
-                        onClick={handleDeleteIncompleteProof}
+                        onClick={handleDeleteProof}
                     >
                         Delete proof
                     </Button>
@@ -480,6 +553,7 @@ export default function PaletteProofPanel({
                                 setSelectedProofId('');
                                 setRequestedTargetCount(Number(value));
                             }}
+                            disabled={proofGeneration.mode === 'continue'}
                         >
                             <SelectTrigger
                                 className="mt-1 h-8 text-xs text-foreground"
@@ -548,118 +622,36 @@ export default function PaletteProofPanel({
                 </TabsList>
 
                 <TabsContent value="proof" className="mt-3 space-y-2">
-                    {selectedSpec.layout.matrixOrientation === 'target-rows' ? (
-                        <div className="divide-y divide-border/70 border-y border-border/70">
-                            {selectedSpec.columns.map((column) => (
-                                <div
-                                    key={column.id}
-                                    className="grid gap-2 py-2 sm:grid-cols-[5.5rem_1fr]"
-                                    data-testid={`palette-proof-map-target-${column.column + 1}`}
-                                >
-                                    <div className="flex items-center gap-2 sm:items-start">
-                                        <div
-                                            className="flex h-8 w-8 shrink-0 items-center justify-center rounded border border-border text-[10px] font-semibold"
-                                            style={{
-                                                backgroundColor: column.targetColor.hex,
-                                                color: swatchTextColor(column.targetColor.rgb),
-                                            }}
-                                            title={`Target ${column.column + 1}: ${column.targetColor.hex.toUpperCase()}`}
-                                            aria-label={`Target ${column.column + 1}`}
-                                        >
-                                            {column.column + 1}
-                                        </div>
-                                        <div className="min-w-0">
-                                            <p className="text-[10px] font-medium">
-                                                Target {column.column + 1}
-                                            </p>
-                                            <p className="truncate text-[9px] uppercase text-muted-foreground">
-                                                {column.targetColor.hex}
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-5">
-                                        {column.cellIds.map((cellId) => {
-                                            const cell = cellsById.get(cellId);
-                                            const color = cell
-                                                ? prefixesByKey.get(cell.canonicalStackKey)
-                                                : undefined;
-                                            const isFoundation =
-                                                cell?.physicalPatchId === 'foundation-reference';
-                                            return (
-                                                <div
-                                                    key={cellId}
-                                                    className={cn(
-                                                        'flex h-10 items-center justify-center rounded border text-[10px] font-semibold tabular-nums',
-                                                        isFoundation
-                                                            ? 'border-dashed border-foreground/60'
-                                                            : 'border-border/70'
-                                                    )}
-                                                    style={{
-                                                        backgroundColor: color?.hex ?? '#000000',
-                                                        color: color
-                                                            ? swatchTextColor(color.rgb)
-                                                            : '#ffffff',
-                                                    }}
-                                                    title={
-                                                        cell
-                                                            ? `${cell.id}: prefix ${cell.prefixIndex + 1}, ${
-                                                                  cell.candidateRole
-                                                              }${
-                                                                  isFoundation
-                                                                      ? ' (foundation margin)'
-                                                                      : ''
-                                                              }`
-                                                            : undefined
-                                                    }
-                                                    aria-label={cell?.id}
-                                                >
-                                                    {isFoundation ? `${cellId} F` : cellId}
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    ) : (
-                        <div className="overflow-x-auto pb-1">
+                    <div className="divide-y divide-border/70 border-y border-border/70">
+                        {selectedSpec.columns.map((column) => (
                             <div
-                                className="grid gap-1"
-                                style={{
-                                    gridTemplateColumns: `20px repeat(${selectedSpec.layout.columnCount}, minmax(28px, 1fr))`,
-                                    minWidth: `${Math.max(
-                                        300,
-                                        24 + selectedSpec.layout.columnCount * 34
-                                    )}px`,
-                                }}
+                                key={column.id}
+                                className="grid gap-2 py-2 sm:grid-cols-[5.5rem_1fr]"
+                                data-testid={`palette-proof-map-target-${column.column + 1}`}
                             >
-                                <div className="flex h-7 items-center justify-center text-[9px] text-muted-foreground">
-                                    T
-                                </div>
-                                {selectedSpec.columns.map((column) => (
+                                <div className="flex items-center gap-2 sm:items-start">
                                     <div
-                                        key={`legacy-target-${column.id}`}
-                                        className="flex h-7 items-center justify-center rounded border border-border/70 text-[9px] font-semibold tabular-nums"
+                                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded border border-border text-[10px] font-semibold"
                                         style={{
                                             backgroundColor: column.targetColor.hex,
                                             color: swatchTextColor(column.targetColor.rgb),
                                         }}
+                                        title={`Target ${column.column + 1}: ${column.targetColor.hex.toUpperCase()}`}
                                         aria-label={`Target ${column.column + 1}`}
                                     >
                                         {column.column + 1}
                                     </div>
-                                ))}
-                                {Array.from({ length: selectedSpec.layout.rowCount }, (_, row) => [
-                                    <div
-                                        key={`legacy-row-${row}`}
-                                        className="flex h-7 items-center justify-center text-[9px] font-medium text-muted-foreground"
-                                    >
-                                        {String.fromCharCode(65 + row)}
-                                    </div>,
-                                    ...selectedSpec.columns.map((column) => {
-                                        const cellId = `${String.fromCharCode(65 + row)}${
-                                            column.column + 1
-                                        }`;
+                                    <div className="min-w-0">
+                                        <p className="text-[10px] font-medium">
+                                            Target {column.column + 1}
+                                        </p>
+                                        <p className="truncate text-[9px] uppercase text-muted-foreground">
+                                            {column.targetColor.hex}
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-5">
+                                    {column.cellIds.map((cellId) => {
                                         const cell = cellsById.get(cellId);
                                         const color = cell
                                             ? prefixesByKey.get(cell.canonicalStackKey)
@@ -668,9 +660,9 @@ export default function PaletteProofPanel({
                                             cell?.physicalPatchId === 'foundation-reference';
                                         return (
                                             <div
-                                                key={`legacy-cell-${cellId}`}
+                                                key={cellId}
                                                 className={cn(
-                                                    'flex h-7 items-center justify-center rounded border text-[9px] font-semibold tabular-nums',
+                                                    'flex h-10 items-center justify-center rounded border text-[10px] font-semibold tabular-nums',
                                                     isFoundation
                                                         ? 'border-dashed border-foreground/60'
                                                         : 'border-border/70'
@@ -681,16 +673,27 @@ export default function PaletteProofPanel({
                                                         ? swatchTextColor(color.rgb)
                                                         : '#ffffff',
                                                 }}
-                                                aria-label={cellId}
+                                                title={
+                                                    cell
+                                                        ? `${cell.id}: prefix ${cell.prefixIndex + 1}, ${
+                                                              cell.candidateRole
+                                                          }${
+                                                              isFoundation
+                                                                  ? ' (foundation margin)'
+                                                                  : ''
+                                                          }`
+                                                        : undefined
+                                                }
+                                                aria-label={cell?.id}
                                             >
-                                                {isFoundation ? 'F' : cellId}
+                                                {isFoundation ? `${cellId} F` : cellId}
                                             </div>
                                         );
-                                    }),
-                                ])}
+                                    })}
+                                </div>
                             </div>
-                        </div>
-                    )}
+                        ))}
+                    </div>
                     <div className="flex min-h-4 items-center text-[9px] text-muted-foreground">
                         <span>F = shared foundation reference</span>
                         {saved && (
@@ -848,7 +851,7 @@ export default function PaletteProofPanel({
                                     poor match.
                                 </p>
                                 {evaluation?.complete ? (
-                                    <div className="ml-auto flex items-center gap-2">
+                                    <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
                                         <Button
                                             size="sm"
                                             variant="outline"
@@ -863,25 +866,38 @@ export default function PaletteProofPanel({
                                             <Pencil className="mr-1.5 h-3.5 w-3.5" />
                                             Edit results
                                         </Button>
-                                        {selectedRecord.snapshotFingerprint ===
-                                            snapshot?.fingerprint && (
-                                            <Button
-                                                size="sm"
-                                                className="h-8 text-xs"
-                                                disabled={
-                                                    !canTrack ||
-                                                    !allCompletedHistory?.hasUnseenEvidence
-                                                }
-                                                onClick={handleStartNextProof}
-                                                title={
-                                                    allCompletedHistory?.hasUnseenEvidence
-                                                        ? 'Build another proof with untested evidence'
-                                                        : 'All available targets and prefixes are covered'
-                                                }
-                                            >
-                                                Next proof
-                                                <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
-                                            </Button>
+                                        {selectedProofMatchesCurrentProcess && (
+                                            <>
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    className="h-8 text-xs"
+                                                    disabled={!canTrack || !canContinueTargets}
+                                                    onClick={handleContinueTargets}
+                                                    title={
+                                                        canContinueTargets
+                                                            ? 'Keep these targets and test untried stack candidates'
+                                                            : 'Every stack candidate has been tested for these targets'
+                                                    }
+                                                >
+                                                    <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
+                                                    Continue targets
+                                                </Button>
+                                                <Button
+                                                    size="sm"
+                                                    className="h-8 text-xs"
+                                                    disabled={!canTrack || !canStartNewTargets}
+                                                    onClick={handleNewTargets}
+                                                    title={
+                                                        canStartNewTargets
+                                                            ? 'Prioritize image targets outside this proof'
+                                                            : 'No untested image targets remain outside this proof'
+                                                    }
+                                                >
+                                                    <Plus className="mr-1.5 h-3.5 w-3.5" />
+                                                    New targets
+                                                </Button>
+                                            </>
                                         )}
                                     </div>
                                 ) : (

@@ -109,7 +109,7 @@ test('target-column judgments preserve equal choices, none, and completion state
         buildPaletteProofRecord,
         completePaletteProofEvaluation,
         createEmptyAppearanceProfile,
-        deleteIncompletePaletteProof,
+        deletePaletteProof,
         getPaletteProofEvaluationState,
         reopenPaletteProofEvaluation,
         setPaletteTargetResponse,
@@ -155,12 +155,42 @@ test('target-column judgments preserve equal choices, none, and completion state
         () => setPaletteTargetResponse(appearance, proof.id, 0, { response: 'none' }),
         /Reopen/
     );
-    assert.throws(() => deleteIncompletePaletteProof(appearance, proof.id), /cannot be deleted/);
-
     appearance = reopenPaletteProofEvaluation(appearance, proof.id, '2026-07-17T20:05:00.000Z');
     assert.equal(getPaletteProofEvaluationState(appearance, proof.id).complete, false);
 
-    appearance = deleteIncompletePaletteProof(appearance, proof.id);
+    appearance = deletePaletteProof(appearance, proof.id);
+    assert.equal(appearance.proofs.length, 0);
+    assert.equal(appearance.viewingSessions.length, 0);
+    assert.equal(appearance.targetJudgments.length, 0);
+});
+
+test('completed proofs and their evidence can be deleted', async () => {
+    const {
+        buildPaletteProofRecord,
+        completePaletteProofEvaluation,
+        createEmptyAppearanceProfile,
+        deletePaletteProof,
+        setPaletteTargetResponse,
+        upsertPaletteProofRecord,
+    } = await loadAppearanceProfile();
+    const { buildPaletteProofSpec } = await loadPaletteProof();
+    const snapshot = buildPaletteProofSnapshot(6, 1);
+    const proof = buildPaletteProofSpec(snapshot, { targetCount: 1 });
+    let appearance = upsertPaletteProofRecord(
+        createEmptyAppearanceProfile(),
+        buildPaletteProofRecord(filaments, snapshot, proof, '2026-07-17T20:00:00.000Z')
+    );
+    appearance = setPaletteTargetResponse(
+        appearance,
+        proof.id,
+        0,
+        { response: 'none' },
+        '2026-07-17T20:01:00.000Z'
+    );
+    appearance = completePaletteProofEvaluation(appearance, proof.id, '2026-07-17T20:02:00.000Z');
+
+    appearance = deletePaletteProof(appearance, proof.id);
+
     assert.equal(appearance.proofs.length, 0);
     assert.equal(appearance.viewingSessions.length, 0);
     assert.equal(appearance.targetJudgments.length, 0);

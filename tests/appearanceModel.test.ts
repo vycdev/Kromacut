@@ -252,18 +252,13 @@ test('appearance evidence does not transfer across a changed print process', asy
     assert.equal(model.comparedStackKeys.length, 0);
 });
 
-test('a none answer prioritizes an unresolved target with untested prefixes', async () => {
+test('proof history counts target visits and rejects evidence from another filament profile', async () => {
     const { profile, proof, history } = await modules;
     const snapshot = buildPaletteProofSnapshot(8, 1);
     const spec = proof.buildPaletteProofSpec(snapshot, { targetCount: 1, candidateCount: 2 });
     let appearance = profile.upsertPaletteProofRecord(
         profile.createEmptyAppearanceProfile(),
-        profile.buildPaletteProofRecord(
-            filaments,
-            snapshot,
-            spec,
-            '2026-07-18T12:00:00.000Z'
-        )
+        profile.buildPaletteProofRecord(filaments, snapshot, spec, '2026-07-18T12:00:00.000Z')
     );
     appearance = profile.setPaletteTargetResponse(
         appearance,
@@ -278,14 +273,11 @@ test('a none answer prioritizes an unresolved target with untested prefixes', as
         '2026-07-18T12:02:00.000Z'
     );
 
-    const result = history.buildPaletteProofHistory(
-        appearance,
-        { ...snapshot, fingerprint: 'reoptimized-stack' }
-    );
-    assert.equal(
-        result.selectionHistory.targetPriorityById.get(snapshot.targetMappings[0].id),
-        -1
-    );
+    const result = history.buildPaletteProofHistory(appearance, {
+        ...snapshot,
+        fingerprint: 'reoptimized-stack',
+    });
+    assert.equal(result.selectionHistory.targetPriorityById.get(snapshot.targetMappings[0].id), 1);
     assert.equal(result.hasUnseenEvidence, true);
     const rejected = history.buildPaletteProofHistory(
         appearance,
@@ -296,5 +288,72 @@ test('a none answer prioritizes an unresolved target with untested prefixes', as
     assert.equal(
         rejected.selectionHistory.targetPriorityById.get(snapshot.targetMappings[0].id),
         0
+    );
+});
+
+test('new-target history does not repeat the immediately previous target set', async () => {
+    const { profile, proof, history } = await modules;
+    const snapshot = buildPaletteProofSnapshot(8, 12);
+    let appearance = profile.createEmptyAppearanceProfile();
+
+    const completeWithNone = (
+        spec: ReturnType<typeof proof.buildPaletteProofSpec>,
+        hour: number
+    ) => {
+        const baseTime = `2026-07-18T${String(hour).padStart(2, '0')}:00:00.000Z`;
+        appearance = profile.upsertPaletteProofRecord(
+            appearance,
+            profile.buildPaletteProofRecord(filaments, snapshot, spec, baseTime)
+        );
+        for (const column of spec.columns) {
+            appearance = profile.setPaletteTargetResponse(
+                appearance,
+                spec.id,
+                column.column,
+                { response: 'none' },
+                baseTime
+            );
+        }
+        appearance = profile.completePaletteProofEvaluation(appearance, spec.id, baseTime);
+    };
+
+    const first = proof.buildPaletteProofSpec(snapshot, { targetCount: 4, candidateCount: 2 });
+    completeWithNone(first, 13);
+    const firstIds = new Set(first.columns.map((column) => column.targetMappingId));
+    const secondHistory = history.buildPaletteProofHistory(
+        appearance,
+        snapshot,
+        undefined,
+        undefined,
+        firstIds
+    );
+    const second = proof.buildPaletteProofSpec(snapshot, {
+        targetCount: 4,
+        candidateCount: 2,
+        selectionHistory: secondHistory.selectionHistory,
+    });
+    completeWithNone(second, 14);
+    const secondIds = new Set(second.columns.map((column) => column.targetMappingId));
+    const thirdHistory = history.buildPaletteProofHistory(
+        appearance,
+        snapshot,
+        undefined,
+        undefined,
+        secondIds
+    );
+    const third = proof.buildPaletteProofSpec(snapshot, {
+        targetCount: 4,
+        candidateCount: 2,
+        selectionHistory: thirdHistory.selectionHistory,
+    });
+    const thirdIds = new Set(third.columns.map((column) => column.targetMappingId));
+
+    assert.equal(
+        [...firstIds].some((targetId) => secondIds.has(targetId)),
+        false
+    );
+    assert.equal(
+        [...secondIds].some((targetId) => thirdIds.has(targetId)),
+        false
     );
 });

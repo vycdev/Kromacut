@@ -611,19 +611,12 @@ export function upsertPaletteProofRecord(
     };
 }
 
-export function deleteIncompletePaletteProof(
+export function deletePaletteProof(
     appearance: AppearanceProfileV1,
     proofId: string
 ): AppearanceProfileV1 {
     if (!appearance.proofs.some((proof) => proof.id === proofId)) {
         throw new Error('Palette Proof is not saved in the active profile');
-    }
-    if (
-        appearance.viewingSessions.some(
-            (session) => session.proofId === proofId && session.status === 'complete'
-        )
-    ) {
-        throw new Error('Completed Palette Proofs cannot be deleted');
     }
 
     return {

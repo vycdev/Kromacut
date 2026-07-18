@@ -26,7 +26,7 @@ test('Palette Proof stays usable, persists results, and downloads its frozen 3MF
     await expect(page.getByText(/1 imported|1 overwritten/)).toBeVisible({ timeout: 30_000 });
     await expect(page.getByTestId('build-3d-model')).toBeEnabled({ timeout: 90_000 });
 
-    await page.getByRole('button', { name: 'Calibrate Filaments' }).click();
+    await page.getByRole('button', { name: 'Calibrate', exact: true }).click();
     const dialog = page.getByRole('alertdialog');
     await expect(dialog).toBeVisible();
     const closeBounds = await dialog
@@ -77,15 +77,15 @@ test('Palette Proof stays usable, persists results, and downloads its frozen 3MF
     expect(zip.file('Metadata/palette-proof.json')).not.toBeNull();
     expect(zip.file('Metadata/palette-proof-instructions.txt')).not.toBeNull();
 
-    await dialog.getByRole('button', { name: 'Delete incomplete Palette Proof' }).click();
+    await dialog.getByRole('button', { name: 'Delete Palette Proof' }).click();
     await expect(
-        dialog.getByText('Delete this incomplete proof and its draft results?')
+        dialog.getByText(
+            'Delete this incomplete proof and all of its results? This removes it from appearance calibration.'
+        )
     ).toBeVisible();
     await page.screenshot({ path: testInfo.outputPath('palette-proof-delete-confirm.png') });
     await dialog.getByRole('button', { name: 'Delete proof', exact: true }).click();
-    await expect(
-        dialog.getByRole('button', { name: 'Delete incomplete Palette Proof' })
-    ).toHaveCount(0);
+    await expect(dialog.getByRole('button', { name: 'Delete Palette Proof' })).toHaveCount(0);
     expect(
         await page.evaluate(() => {
             const profiles = JSON.parse(
@@ -131,9 +131,7 @@ test('Palette Proof stays usable, persists results, and downloads its frozen 3MF
     await dialog.getByRole('button', { name: 'Complete results', exact: true }).click();
     await expect(dialog.getByText('Complete', { exact: true })).toBeVisible();
     await expect(dialog.getByRole('button', { name: 'Edit results', exact: true })).toBeVisible();
-    await expect(
-        dialog.getByRole('button', { name: 'Delete incomplete Palette Proof' })
-    ).toHaveCount(0);
+    await expect(dialog.getByRole('button', { name: 'Delete Palette Proof' })).toBeVisible();
 
     const storedAppearance = await page.evaluate(() => {
         const profiles = JSON.parse(localStorage.getItem('kromacut.autopaint.profiles') ?? '[]');
@@ -146,10 +144,14 @@ test('Palette Proof stays usable, persists results, and downloads its frozen 3MF
     expect(storedAppearance.viewingSessions[0].status).toBe('complete');
 
     const completedProofId = await panel.getAttribute('data-proof-id');
-    const nextProofButton = dialog.getByRole('button', { name: 'Next proof', exact: true });
-    await expect(nextProofButton).toBeEnabled();
+    const continueTargetsButton = dialog.getByRole('button', {
+        name: 'Continue targets',
+        exact: true,
+    });
+    await expect(continueTargetsButton).toBeEnabled();
+    await expect(dialog.getByRole('button', { name: 'New targets', exact: true })).toBeEnabled();
     await page.screenshot({ path: testInfo.outputPath('palette-proof-completed.png') });
-    await nextProofButton.click();
+    await continueTargetsButton.click();
     await expect(dialog.getByRole('tab', { name: 'Proof map' })).toHaveAttribute(
         'data-state',
         'active'

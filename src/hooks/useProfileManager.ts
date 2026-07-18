@@ -4,7 +4,7 @@ import type { FinalPrintableStackSnapshot } from '../types/appearance';
 import {
     buildPaletteProofRecord,
     completePaletteProofEvaluation,
-    deleteIncompletePaletteProof,
+    deletePaletteProof,
     reopenPaletteProofEvaluation,
     setPaletteTargetResponse,
     upsertPaletteProofRecord,
@@ -165,15 +165,14 @@ export function useProfileManager({ filaments, setFilaments }: UseProfileManager
     }, [filaments, profiles, activeProfileId]);
 
     const handleRegisterPaletteProof = useCallback(
-        (
-            snapshot: FinalPrintableStackSnapshot,
-            proof: PaletteProofSpec
-        ): PaletteProofRecord => {
+        (snapshot: FinalPrintableStackSnapshot, proof: PaletteProofSpec): PaletteProofRecord => {
             if (!activeProfileId || !activeProfile) {
                 throw new Error('Save a named filament profile before tracking a Palette Proof');
             }
             if (isDirty) {
-                throw new Error('Save or overwrite the edited filament profile before tracking a Palette Proof');
+                throw new Error(
+                    'Save or overwrite the edited filament profile before tracking a Palette Proof'
+                );
             }
             const record = buildPaletteProofRecord(activeProfile.filaments, snapshot, proof);
             const updated = profiles.map((profile) =>
@@ -265,7 +264,7 @@ export function useProfileManager({ filaments, setFilaments }: UseProfileManager
         [activeProfile, activeProfileId, isDirty, profiles]
     );
 
-    const handleDeleteIncompletePaletteProof = useCallback(
+    const handleDeletePaletteProof = useCallback(
         (proofId: string) => {
             if (!activeProfileId || !activeProfile?.appearance) {
                 throw new Error('Load the filament profile that owns this Palette Proof');
@@ -273,7 +272,7 @@ export function useProfileManager({ filaments, setFilaments }: UseProfileManager
             if (isDirty) {
                 throw new Error('Save or revert filament edits before deleting this proof');
             }
-            const appearance = deleteIncompletePaletteProof(activeProfile.appearance, proofId);
+            const appearance = deletePaletteProof(activeProfile.appearance, proofId);
             const updated = profiles.map((profile) =>
                 profile.id === activeProfileId
                     ? { ...profile, appearance, updatedAt: Date.now() }
@@ -371,6 +370,6 @@ export function useProfileManager({ filaments, setFilaments }: UseProfileManager
         handleSetPaletteTargetResponse,
         handleCompletePaletteProofEvaluation,
         handleReopenPaletteProofEvaluation,
-        handleDeleteIncompletePaletteProof,
+        handleDeletePaletteProof,
     };
 }

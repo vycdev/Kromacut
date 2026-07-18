@@ -4,10 +4,7 @@ import {
     type AppearanceProfileV1,
     type PaletteProofRecord,
 } from './appearanceProfile';
-import type {
-    PaletteProofCandidateHistory,
-    PaletteProofSelectionHistory,
-} from './paletteProof';
+import type { PaletteProofCandidateHistory, PaletteProofSelectionHistory } from './paletteProof';
 
 export interface PaletteProofHistorySummary {
     proofIds: readonly string[];
@@ -50,7 +47,8 @@ export function buildPaletteProofHistory(
     appearance: AppearanceProfileV1 | undefined,
     snapshot: FinalPrintableStackSnapshot,
     proofIds?: readonly string[],
-    filamentProfileFingerprint?: string
+    filamentProfileFingerprint?: string,
+    deprioritizedTargetIds?: ReadonlySet<string>
 ): PaletteProofHistorySummary {
     const records = completedRecords(
         appearance,
@@ -58,10 +56,9 @@ export function buildPaletteProofHistory(
         proofIds ? new Set(proofIds) : undefined,
         filamentProfileFingerprint
     );
-    const priorTargetIds = new Set<string>();
+    const targetVisitCountById = new Map<string, number>();
     const testedByTarget = new Map<string, Set<string>>();
     const anchorByTarget = new Map<string, string>();
-    const unresolvedTargetIds = new Set<string>();
 
     for (const record of records) {
         const evaluation = getPaletteProofEvaluationState(appearance, record.id);
@@ -71,7 +68,10 @@ export function buildPaletteProofHistory(
         const cellsById = new Map(record.proof.cells.map((cell) => [cell.id, cell]));
 
         for (const column of record.proof.columns) {
-            priorTargetIds.add(column.targetMappingId);
+            targetVisitCountById.set(
+                column.targetMappingId,
+                (targetVisitCountById.get(column.targetMappingId) ?? 0) + 1
+            );
             const tested = testedByTarget.get(column.targetMappingId) ?? new Set<string>();
             for (const cellId of column.cellIds) {
                 const cell = cellsById.get(cellId);
@@ -80,12 +80,7 @@ export function buildPaletteProofHistory(
             testedByTarget.set(column.targetMappingId, tested);
 
             const judgment = judgmentsByColumn.get(column.column);
-            if (judgment?.response === 'none') {
-                unresolvedTargetIds.add(column.targetMappingId);
-                continue;
-            }
             if (judgment?.response !== 'closest') continue;
-            unresolvedTargetIds.delete(column.targetMappingId);
             const anchorCellId = column.cellIds.find((cellId) =>
                 judgment.closestCellIds.includes(cellId)
             );
@@ -98,16 +93,14 @@ export function buildPaletteProofHistory(
 
     const targetPriorityById = new Map<string, number>();
     const candidateHistoryByTargetId = new Map<string, PaletteProofCandidateHistory>();
+    const maximumVisitCount = Math.max(0, ...targetVisitCountById.values());
     for (const target of snapshot.targetMappings) {
         const testedStackKeys = testedByTarget.get(target.id);
-        const priority = !priorTargetIds.has(target.id)
-            ? 0
-            : unresolvedTargetIds.has(target.id) &&
-                (testedStackKeys?.size ?? 0) < snapshot.palette.length
-              ? -1
-            : (testedStackKeys?.size ?? 0) < snapshot.palette.length
-              ? 1
-              : 2;
+        const hasUnseenCandidates = (testedStackKeys?.size ?? 0) < snapshot.palette.length;
+        const visitCount = targetVisitCountById.get(target.id) ?? 0;
+        const priority = !hasUnseenCandidates
+            ? Number.POSITIVE_INFINITY
+            : visitCount + (deprioritizedTargetIds?.has(target.id) ? maximumVisitCount + 1 : 0);
         targetPriorityById.set(target.id, priority);
         if (testedStackKeys && testedStackKeys.size > 0) {
             candidateHistoryByTargetId.set(target.id, {
@@ -122,6 +115,8 @@ export function buildPaletteProofHistory(
         selectionHistory: { targetPriorityById, candidateHistoryByTargetId },
         hasUnseenEvidence:
             snapshot.palette.length >= 2 &&
-            [...targetPriorityById.values()].some((priority) => priority < 2),
+            snapshot.targetMappings.some(
+                (target) => (testedByTarget.get(target.id)?.size ?? 0) < snapshot.palette.length
+            ),
     };
 }

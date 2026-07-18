@@ -442,14 +442,29 @@ export function buildPaletteProofSpec(
         candidateCount?: number;
         evidence?: PaletteProofEvidenceScores;
         selectionHistory?: PaletteProofSelectionHistory;
+        targetMappingIds?: readonly string[];
     } = {}
 ): PaletteProofSpec {
     const prefixes = enumerateFinalStackPrefixes(snapshot);
-    const targets = selectPaletteProofTargets(
-        snapshot,
-        options.targetCount ?? PALETTE_PROOF_DEFAULT_TARGETS,
-        options.selectionHistory?.targetPriorityById
-    );
+    const targets = options.targetMappingIds
+        ? options.targetMappingIds.map((targetId) => {
+              const target = snapshot.targetMappings.find((candidate) => candidate.id === targetId);
+              if (!target) {
+                  throw new Error(`Palette Proof target ${targetId} is not in the current result`);
+              }
+              return target;
+          })
+        : selectPaletteProofTargets(
+              snapshot,
+              options.targetCount ?? PALETTE_PROOF_DEFAULT_TARGETS,
+              options.selectionHistory?.targetPriorityById
+          );
+    if (targets.length > PALETTE_PROOF_MAX_TARGETS) {
+        throw new Error(`Palette Proof supports at most ${PALETTE_PROOF_MAX_TARGETS} targets`);
+    }
+    if (new Set(targets.map((target) => target.id)).size !== targets.length) {
+        throw new Error('Palette Proof targets must be unique');
+    }
     const minimumCandidateCount = prefixes.length >= 2 ? PALETTE_PROOF_MIN_CANDIDATES : 1;
     const rowCount = Math.min(
         PALETTE_PROOF_MAX_CANDIDATES,
