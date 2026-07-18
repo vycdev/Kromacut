@@ -40,6 +40,10 @@ test('default target-row footprint is 48 x 75 mm while legacy proofs stay landsc
         widthMm: 75,
         heightMm: 48,
     });
+    assert.deepEqual(calculatePaletteProofFootprint(8, 5, 'target-rows', 0), {
+        widthMm: 44,
+        heightMm: 68,
+    });
     assert.deepEqual(calculatePaletteProofFootprint(0, 5), { widthMm: 0, heightMm: 0 });
 });
 
@@ -55,6 +59,27 @@ test('requested target and candidate counts resize the proof matrix', async () =
     assert.equal(spec.layout.widthMm, 21);
     assert.equal(spec.layout.heightMm, 30);
     assert.equal(spec.cells.length, 6);
+});
+
+test('touching proofs pack sorted candidates into a smaller physical matrix', async () => {
+    const { buildPaletteProofSpec, validatePaletteProofSpec } = await loadPaletteProofModule();
+    const snapshot = buildPaletteProofSnapshot(8, 8);
+    const regular = buildPaletteProofSpec(snapshot);
+    const touching = buildPaletteProofSpec(snapshot, { gapMm: 0 });
+
+    assert.notEqual(touching.id, regular.id);
+    assert.equal(touching.layout.gapMm, 0);
+    assert.equal(touching.layout.widthMm, 44);
+    assert.equal(touching.layout.heightMm, 68);
+    assert.equal(touching.layout.reinforcementLayers, 0);
+    assert.equal(touching.layout.reinforcementClearanceMm, 0);
+    for (const column of touching.columns) {
+        const prefixIndices = column.cellIds.map(
+            (cellId) => touching.cells.find((cell) => cell.id === cellId)!.prefixIndex
+        );
+        assert.deepEqual(prefixIndices, [...prefixIndices].sort((left, right) => left - right));
+    }
+    assert.deepEqual(validatePaletteProofSpec(snapshot, touching), []);
 });
 
 test('final stack exposes exactly one non-empty prefix per physical layer', async () => {

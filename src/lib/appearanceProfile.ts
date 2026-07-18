@@ -22,6 +22,7 @@ const MAX_TEXT_LENGTH = 256;
 // them versioned here instead of resolving imports while sanitizing profile data.
 const PALETTE_PROOF_PATCH_SIZE_MM = 8;
 const PALETTE_PROOF_GAP_MM = 1;
+const PALETTE_PROOF_TOUCHING_GAP_MM = 0;
 const PALETTE_PROOF_MARGIN_MM = 2;
 const PALETTE_PROOF_NOTCH_SIZE_MM = 2;
 const PALETTE_PROOF_CORNER_RADIUS_MM = 1.2;
@@ -253,6 +254,11 @@ function sanitizePaletteProofSpec(value: unknown): PaletteProofSpec | null {
     const columnCount = integer(value.layout.columnCount, 0, PALETTE_PROOF_MAX_TARGETS);
     const widthMm = finiteNumber(value.layout.widthMm, 0, 1_000);
     const heightMm = finiteNumber(value.layout.heightMm, 0, 1_000);
+    const gapMm =
+        value.layout.gapMm === PALETTE_PROOF_TOUCHING_GAP_MM ||
+        value.layout.gapMm === PALETTE_PROOF_GAP_MM
+            ? value.layout.gapMm
+            : null;
     const matrixOrientation =
         value.layout.matrixOrientation === undefined
             ? undefined
@@ -275,10 +281,10 @@ function sanitizePaletteProofSpec(value: unknown): PaletteProofSpec | null {
         columnCount === null ||
         widthMm === null ||
         heightMm === null ||
+        gapMm === null ||
         matrixOrientation === null ||
         value.layout.kind !== 'target-column-matrix' ||
         value.layout.patchSizeMm !== PALETTE_PROOF_PATCH_SIZE_MM ||
-        value.layout.gapMm !== PALETTE_PROOF_GAP_MM ||
         value.layout.marginMm !== PALETTE_PROOF_MARGIN_MM ||
         value.layout.notchSizeMm !== PALETTE_PROOF_NOTCH_SIZE_MM ||
         value.layout.cornerRadiusMm !== PALETTE_PROOF_CORNER_RADIUS_MM ||
@@ -416,7 +422,7 @@ function sanitizePaletteProofSpec(value: unknown): PaletteProofSpec | null {
             kind: 'target-column-matrix',
             ...(matrixOrientation === undefined ? {} : { matrixOrientation }),
             patchSizeMm: PALETTE_PROOF_PATCH_SIZE_MM,
-            gapMm: PALETTE_PROOF_GAP_MM,
+            gapMm,
             marginMm: PALETTE_PROOF_MARGIN_MM,
             notchSizeMm: PALETTE_PROOF_NOTCH_SIZE_MM,
             cornerRadiusMm: PALETTE_PROOF_CORNER_RADIUS_MM,
@@ -449,13 +455,13 @@ function sanitizePaletteProofSpec(value: unknown): PaletteProofSpec | null {
         horizontalCount === 0
             ? 0
             : horizontalCount * PALETTE_PROOF_PATCH_SIZE_MM +
-              (horizontalCount - 1) * PALETTE_PROOF_GAP_MM +
+              (horizontalCount - 1) * gapMm +
               2 * PALETTE_PROOF_MARGIN_MM;
     const expectedHeight =
         verticalCount === 0
             ? 0
             : verticalCount * PALETTE_PROOF_PATCH_SIZE_MM +
-              (verticalCount - 1) * PALETTE_PROOF_GAP_MM +
+              (verticalCount - 1) * gapMm +
               2 * PALETTE_PROOF_MARGIN_MM;
     const maximumSelectedPrefixIndex = spec.cells.reduce(
         (maximum, cell) => Math.max(maximum, cell.prefixIndex),

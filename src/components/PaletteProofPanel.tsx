@@ -20,9 +20,12 @@ import {
 import {
     buildPaletteProofSpec,
     PALETTE_PROOF_DEFAULT_TARGETS,
+    PALETTE_PROOF_GAP_MM,
     PALETTE_PROOF_MAX_CANDIDATES,
     PALETTE_PROOF_MAX_TARGETS,
     PALETTE_PROOF_MIN_CANDIDATES,
+    PALETTE_PROOF_TOUCHING_GAP_MM,
+    type PaletteProofGapMm,
     type PaletteProofSpec,
 } from '../lib/paletteProof';
 import { exportPaletteProof3MF } from '../lib/paletteProofExport';
@@ -81,6 +84,9 @@ export default function PaletteProofPanel({
     const [requestedCandidateCount, setRequestedCandidateCount] = useState(
         PALETTE_PROOF_MAX_CANDIDATES
     );
+    const [requestedGapMm, setRequestedGapMm] = useState<PaletteProofGapMm>(
+        PALETTE_PROOF_GAP_MM
+    );
     const [historyProofIds, setHistoryProofIds] = useState<readonly string[]>([]);
     const maximumTargetCount = Math.min(
         PALETTE_PROOF_MAX_TARGETS,
@@ -98,7 +104,10 @@ export default function PaletteProofPanel({
         Math.min(requestedCandidateCount, maximumCandidateCount)
     );
     const selectedHistory = useMemo(
-        () => (snapshot ? buildPaletteProofHistory(profile?.appearance, snapshot, historyProofIds) : null),
+        () =>
+            snapshot
+                ? buildPaletteProofHistory(profile?.appearance, snapshot, historyProofIds)
+                : null,
         [historyProofIds, profile?.appearance, snapshot]
     );
     const allCompletedHistory = useMemo(
@@ -112,6 +121,7 @@ export default function PaletteProofPanel({
                 spec: buildPaletteProofSpec(snapshot, {
                     targetCount,
                     candidateCount,
+                    gapMm: requestedGapMm,
                     selectionHistory:
                         historyProofIds.length > 0
                             ? selectedHistory?.selectionHistory
@@ -125,7 +135,14 @@ export default function PaletteProofPanel({
                 error: error instanceof Error ? error.message : 'Could not build Palette Proof',
             };
         }
-    }, [candidateCount, historyProofIds.length, selectedHistory, snapshot, targetCount]);
+    }, [
+        candidateCount,
+        historyProofIds.length,
+        requestedGapMm,
+        selectedHistory,
+        snapshot,
+        targetCount,
+    ]);
     const savedProofs = useMemo(
         () =>
             [...(profile?.appearance?.proofs ?? [])].sort((left, right) =>
@@ -445,7 +462,10 @@ export default function PaletteProofPanel({
             )}
 
             {currentSpec && isSelectedCurrent && targetCountOptions.length > 0 && (
-                <div className="grid grid-cols-2 gap-2" data-testid="palette-proof-size-controls">
+                <div
+                    className="grid grid-cols-2 gap-2 sm:grid-cols-3"
+                    data-testid="palette-proof-size-controls"
+                >
                     <label className="space-y-1 text-[10px] font-medium text-muted-foreground">
                         Targets
                         <Select
@@ -494,6 +514,36 @@ export default function PaletteProofPanel({
                                         {count}
                                     </SelectItem>
                                 ))}
+                            </SelectContent>
+                        </Select>
+                    </label>
+                    <label className="space-y-1 text-[10px] font-medium text-muted-foreground">
+                        Spacing
+                        <Select
+                            value={String(requestedGapMm)}
+                            onValueChange={(value) =>
+                                setRequestedGapMm(Number(value) as PaletteProofGapMm)
+                            }
+                        >
+                            <SelectTrigger
+                                className="mt-1 h-8 text-xs text-foreground"
+                                aria-label="Palette Proof spacing"
+                            >
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem
+                                    value={String(PALETTE_PROOF_GAP_MM)}
+                                    className="text-xs"
+                                >
+                                    1 mm gaps
+                                </SelectItem>
+                                <SelectItem
+                                    value={String(PALETTE_PROOF_TOUCHING_GAP_MM)}
+                                    className="text-xs"
+                                >
+                                    Touching
+                                </SelectItem>
                             </SelectContent>
                         </Select>
                     </label>

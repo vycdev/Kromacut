@@ -53,6 +53,11 @@ export function buildPaletteProofPrintInstructions(
         `Proof ID: ${spec.id}`,
         `Final stack: ${snapshot.fingerprint}`,
         `Coupon size: ${spec.layout.widthMm.toFixed(1)} x ${spec.layout.heightMm.toFixed(1)} mm`,
+        `Sample spacing: ${
+            spec.layout.gapMm === 0
+                ? 'touching'
+                : `${spec.layout.gapMm.toFixed(1)} mm gaps`
+        }`,
         `Corner radius: ${spec.layout.cornerRadiusMm.toFixed(1)} mm`,
         `Layer height: ${snapshot.settings.layerHeight.toFixed(3)} mm`,
         `First layer height: ${snapshot.settings.firstLayerHeight.toFixed(3)} mm`,

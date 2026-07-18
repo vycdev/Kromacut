@@ -60,6 +60,9 @@ test('Palette Proof stays usable, persists results, and downloads its frozen 3MF
     await dialog.getByRole('combobox', { name: 'Palette Proof candidate count' }).click();
     await page.getByRole('option', { name: '5', exact: true }).click();
     await expect(panel.getByText('48 x 75 mm / 8 targets / 5 candidates')).toBeVisible();
+    await dialog.getByRole('combobox', { name: 'Palette Proof spacing' }).click();
+    await page.getByRole('option', { name: 'Touching', exact: true }).click();
+    await expect(panel.getByText('44 x 68 mm / 8 targets / 5 candidates')).toBeVisible();
     const firstProofRow = panel.getByTestId('palette-proof-map-target-1');
     await expect(firstProofRow.getByLabel('A1', { exact: true })).toBeVisible();
     await expect(firstProofRow.getByLabel('B1', { exact: true })).toBeVisible();
@@ -101,8 +104,8 @@ test('Palette Proof stays usable, persists results, and downloads its frozen 3MF
 
     await dialog.getByRole('tab', { name: /Results/ }).click();
     await expect(dialog.getByText('0/8 targets answered')).toBeVisible();
-    await dialog.getByRole('button', { name: 'A1', exact: true }).click();
     await dialog.getByRole('button', { name: 'B1', exact: true }).click();
+    await dialog.getByRole('button', { name: 'C1', exact: true }).click();
     for (let column = 2; column <= 8; column++) {
         await dialog
             .getByTestId(`palette-proof-result-column-${column}`)
@@ -124,7 +127,7 @@ test('Palette Proof stays usable, persists results, and downloads its frozen 3MF
     expect(storedAppearance.schemaVersion).toBe(1);
     expect(storedAppearance.proofs).toHaveLength(1);
     expect(storedAppearance.targetJudgments).toHaveLength(8);
-    expect(storedAppearance.targetJudgments[0].closestCellIds).toEqual(['A1', 'B1']);
+    expect(storedAppearance.targetJudgments[0].closestCellIds).toEqual(['B1', 'C1']);
     expect(storedAppearance.viewingSessions[0].status).toBe('complete');
 
     const completedProofId = await panel.getAttribute('data-proof-id');

@@ -202,6 +202,21 @@ test('appearance import sanitation preserves valid records and drops tampered co
 
     assert.deepEqual(sanitizeAppearanceProfile(structuredClone(appearance)), appearance);
 
+    const touchingProof = buildPaletteProofSpec(snapshot, { targetCount: 3, gapMm: 0 });
+    const touchingAppearance = upsertPaletteProofRecord(
+        createEmptyAppearanceProfile(),
+        buildPaletteProofRecord(
+            filaments,
+            snapshot,
+            touchingProof,
+            '2026-07-17T20:00:00.000Z'
+        )
+    );
+    assert.deepEqual(
+        sanitizeAppearanceProfile(structuredClone(touchingAppearance)),
+        touchingAppearance
+    );
+
     const legacyLandscape = structuredClone(appearance);
     const legacyLayout = legacyLandscape.proofs[0].proof.layout;
     delete legacyLayout.matrixOrientation;

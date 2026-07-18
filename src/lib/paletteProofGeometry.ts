@@ -112,6 +112,82 @@ function appendRoundedBox(
     );
 }
 
+function appendTouchingCellUnionPrism(
+    target: IndexedMeshData,
+    spec: PaletteProofSpec,
+    cells: readonly PaletteProofCell[],
+    z0: number,
+    z1: number
+): void {
+    if (cells.length === 0 || z1 <= z0) return;
+
+    type Point = readonly [number, number];
+    const boundaryEdges = new Map<string, readonly [Point, Point]>();
+    const vertexIndices = new Map<string, number>();
+    const vertexIndex = (x: number, y: number, z: number): number => {
+        const key = `${x.toFixed(9)}:${y.toFixed(9)}:${z.toFixed(9)}`;
+        const existing = vertexIndices.get(key);
+        if (existing !== undefined) return existing;
+        const index = target.positions.length / 3;
+        target.positions.push(x, y, z);
+        vertexIndices.set(key, index);
+        return index;
+    };
+    const edgeKey = (left: Point, right: Point): string => {
+        const leftKey = `${left[0].toFixed(9)}:${left[1].toFixed(9)}`;
+        const rightKey = `${right[0].toFixed(9)}:${right[1].toFixed(9)}`;
+        return leftKey < rightKey ? `${leftKey}|${rightKey}` : `${rightKey}|${leftKey}`;
+    };
+
+    for (const cell of cells) {
+        const bounds = paletteProofCellBounds(spec, cell.row, cell.column);
+        const bl: Point = [bounds.x0, bounds.y0];
+        const br: Point = [bounds.x1, bounds.y0];
+        const tr: Point = [bounds.x1, bounds.y1];
+        const tl: Point = [bounds.x0, bounds.y1];
+        const bottom = [
+            vertexIndex(bl[0], bl[1], z0),
+            vertexIndex(br[0], br[1], z0),
+            vertexIndex(tr[0], tr[1], z0),
+            vertexIndex(tl[0], tl[1], z0),
+        ];
+        const top = [
+            vertexIndex(bl[0], bl[1], z1),
+            vertexIndex(br[0], br[1], z1),
+            vertexIndex(tr[0], tr[1], z1),
+            vertexIndex(tl[0], tl[1], z1),
+        ];
+        target.indices.push(top[0], top[1], top[2], top[0], top[2], top[3]);
+        target.indices.push(bottom[0], bottom[2], bottom[1], bottom[0], bottom[3], bottom[2]);
+
+        for (const edge of [
+            [bl, br],
+            [br, tr],
+            [tr, tl],
+            [tl, bl],
+        ] as const) {
+            const key = edgeKey(edge[0], edge[1]);
+            if (boundaryEdges.has(key)) boundaryEdges.delete(key);
+            else boundaryEdges.set(key, edge);
+        }
+    }
+
+    for (const [start, end] of boundaryEdges.values()) {
+        const bottomStart = vertexIndex(start[0], start[1], z0);
+        const bottomEnd = vertexIndex(end[0], end[1], z0);
+        const topStart = vertexIndex(start[0], start[1], z1);
+        const topEnd = vertexIndex(end[0], end[1], z1);
+        target.indices.push(
+            bottomStart,
+            bottomEnd,
+            topEnd,
+            bottomStart,
+            topEnd,
+            topStart
+        );
+    }
+}
+
 function createBufferGeometry(data: IndexedMeshData): THREE.BufferGeometry {
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute('position', new THREE.Float32BufferAttribute(data.positions, 3));
@@ -268,14 +344,24 @@ export function buildPaletteProofGeometry(
                     reinforcementHoles(spec)
                 );
             }
-            for (const cell of activeCells) {
-                appendRoundedBox(
+            if (spec.layout.gapMm === 0) {
+                appendTouchingCellUnionPrism(
                     data,
-                    paletteProofCellBounds(spec, cell.row, cell.column),
+                    spec,
+                    activeCells,
                     layer.startHeight,
-                    layer.endHeight,
-                    spec.layout.cornerRadiusMm
+                    layer.endHeight
                 );
+            } else {
+                for (const cell of activeCells) {
+                    appendRoundedBox(
+                        data,
+                        paletteProofCellBounds(spec, cell.row, cell.column),
+                        layer.startHeight,
+                        layer.endHeight,
+                        spec.layout.cornerRadiusMm
+                    );
+                }
             }
         }
 

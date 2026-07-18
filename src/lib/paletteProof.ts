@@ -10,6 +10,7 @@ import { fingerprintJson } from './fingerprint';
 
 export const PALETTE_PROOF_PATCH_SIZE_MM = 8;
 export const PALETTE_PROOF_GAP_MM = 1;
+export const PALETTE_PROOF_TOUCHING_GAP_MM = 0;
 export const PALETTE_PROOF_MARGIN_MM = 2;
 export const PALETTE_PROOF_NOTCH_SIZE_MM = 2;
 export const PALETTE_PROOF_CORNER_RADIUS_MM = CALIBRATION_CORNER_RADIUS_MM;
@@ -19,6 +20,8 @@ export const PALETTE_PROOF_MIN_CANDIDATES = 2;
 export const PALETTE_PROOF_MAX_CANDIDATES = 5;
 export const PALETTE_PROOF_REINFORCEMENT_LAYERS = 2;
 export const PALETTE_PROOF_REINFORCEMENT_CLEARANCE_MM = 0.15;
+
+export type PaletteProofGapMm = 0 | 1;
 
 export type PaletteProofCandidateRole =
     | 'incumbent'
@@ -105,7 +108,7 @@ export interface PaletteProofSpec {
         kind: 'target-column-matrix';
         matrixOrientation?: 'target-columns' | 'target-rows';
         patchSizeMm: 8;
-        gapMm: 1;
+        gapMm: PaletteProofGapMm;
         marginMm: 2;
         notchSizeMm: 2;
         cornerRadiusMm: 1.2;
@@ -143,7 +146,8 @@ function targetDistance(
 export function calculatePaletteProofFootprint(
     targetCount: number,
     candidateCount: number,
-    matrixOrientation: 'target-columns' | 'target-rows' = 'target-rows'
+    matrixOrientation: 'target-columns' | 'target-rows' = 'target-rows',
+    gapMm: PaletteProofGapMm = PALETTE_PROOF_GAP_MM
 ): { widthMm: number; heightMm: number } {
     if (targetCount <= 0 || candidateCount <= 0) return { widthMm: 0, heightMm: 0 };
 
@@ -153,11 +157,11 @@ export function calculatePaletteProofFootprint(
     return {
         widthMm:
             horizontalCount * PALETTE_PROOF_PATCH_SIZE_MM +
-            (horizontalCount - 1) * PALETTE_PROOF_GAP_MM +
+            (horizontalCount - 1) * gapMm +
             2 * PALETTE_PROOF_MARGIN_MM,
         heightMm:
             verticalCount * PALETTE_PROOF_PATCH_SIZE_MM +
-            (verticalCount - 1) * PALETTE_PROOF_GAP_MM +
+            (verticalCount - 1) * gapMm +
             2 * PALETTE_PROOF_MARGIN_MM,
     };
 }
@@ -438,6 +442,7 @@ export function buildPaletteProofSpec(
     options: {
         targetCount?: number;
         candidateCount?: number;
+        gapMm?: PaletteProofGapMm;
         evidence?: PaletteProofEvidenceScores;
         selectionHistory?: PaletteProofSelectionHistory;
     } = {}
@@ -458,7 +463,16 @@ export function buildPaletteProofSpec(
         )
     );
     const columnCount = targets.length;
-    const footprint = calculatePaletteProofFootprint(columnCount, rowCount, 'target-rows');
+    const gapMm: PaletteProofGapMm =
+        options.gapMm === PALETTE_PROOF_TOUCHING_GAP_MM
+            ? PALETTE_PROOF_TOUCHING_GAP_MM
+            : PALETTE_PROOF_GAP_MM;
+    const footprint = calculatePaletteProofFootprint(
+        columnCount,
+        rowCount,
+        'target-rows',
+        gapMm
+    );
     const cells: PaletteProofCell[] = [];
     const columns: PaletteProofColumn[] = [];
     const physicalPatches: PaletteProofPhysicalPatch[] = [];
@@ -466,13 +480,19 @@ export function buildPaletteProofSpec(
 
     for (let column = 0; column < targets.length; column++) {
         const target = targets[column];
-        const candidates = selectPrefixCandidates(
+        const selectedCandidates = selectPrefixCandidates(
             target,
             prefixes,
             options.evidence,
             rowCount,
             options.selectionHistory?.candidateHistoryByTargetId.get(target.id)
         );
+        const candidates =
+            gapMm === PALETTE_PROOF_TOUCHING_GAP_MM
+                ? [...selectedCandidates].sort(
+                      (left, right) => left.prefix.index - right.prefix.index
+                  )
+                : selectedCandidates;
         const cellIds: string[] = [];
 
         for (let row = 0; row < candidates.length; row++) {
@@ -535,18 +555,25 @@ export function buildPaletteProofSpec(
             kind: 'target-column-matrix' as const,
             matrixOrientation: 'target-rows' as const,
             patchSizeMm: PALETTE_PROOF_PATCH_SIZE_MM as 8,
-            gapMm: PALETTE_PROOF_GAP_MM as 1,
+            gapMm,
             marginMm: PALETTE_PROOF_MARGIN_MM as 2,
             notchSizeMm: PALETTE_PROOF_NOTCH_SIZE_MM as 2,
             cornerRadiusMm: PALETTE_PROOF_CORNER_RADIUS_MM as 1.2,
             rowCount,
             columnCount,
             ...footprint,
-            reinforcementLayers: Math.min(
-                PALETTE_PROOF_REINFORCEMENT_LAYERS,
-                cells.reduce((maximum, cell) => Math.max(maximum, cell.prefixIndex), 0)
-            ),
+            reinforcementLayers:
+                gapMm === PALETTE_PROOF_TOUCHING_GAP_MM
+                    ? 0
+                    : Math.min(
+                          PALETTE_PROOF_REINFORCEMENT_LAYERS,
+                          cells.reduce(
+                              (maximum, cell) => Math.max(maximum, cell.prefixIndex),
+                              0
+                          )
+                      ),
             reinforcementClearanceMm:
+                gapMm !== PALETTE_PROOF_TOUCHING_GAP_MM &&
                 cells.some((cell) => cell.prefixIndex > 0)
                     ? PALETTE_PROOF_REINFORCEMENT_CLEARANCE_MM
                     : 0,
@@ -577,7 +604,8 @@ export function validatePaletteProofSpec(
     const expectedFootprint = calculatePaletteProofFootprint(
         spec.layout.columnCount,
         spec.layout.rowCount,
-        spec.layout.matrixOrientation ?? 'target-columns'
+        spec.layout.matrixOrientation ?? 'target-columns',
+        spec.layout.gapMm
     );
 
     if (spec.snapshotFingerprint !== snapshot.fingerprint) {
@@ -600,6 +628,12 @@ export function validatePaletteProofSpec(
     }
     if (spec.layout.cornerRadiusMm !== PALETTE_PROOF_CORNER_RADIUS_MM) {
         errors.push('layout corner radius is inconsistent');
+    }
+    if (
+        spec.layout.gapMm !== PALETTE_PROOF_TOUCHING_GAP_MM &&
+        spec.layout.gapMm !== PALETTE_PROOF_GAP_MM
+    ) {
+        errors.push('layout gap is inconsistent');
     }
     if (
         spec.layout.matrixOrientation !== undefined &&

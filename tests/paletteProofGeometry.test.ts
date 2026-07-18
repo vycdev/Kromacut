@@ -70,9 +70,70 @@ function assertClosedPositiveMesh(mesh: THREE.Mesh): void {
         signedVolume += a.dot(new THREE.Vector3().crossVectors(b, c)) / 6;
     }
 
-    assert.ok([...edges.values()].every((count) => count === 2), `${mesh.name} must be closed`);
+    const invalidEdges = [...edges.entries()].filter(([, count]) => count !== 2);
+    assert.equal(
+        invalidEdges.length,
+        0,
+        `${mesh.name} must be closed: ${JSON.stringify(invalidEdges.slice(0, 8))}`
+    );
     assert.ok(signedVolume > 0, `${mesh.name} must use outward winding`);
 }
+
+function countIndexedComponents(mesh: THREE.Mesh): number {
+    const index = mesh.geometry.getIndex();
+    assert.ok(index);
+    const vertices = new Map<number, number[]>();
+    const triangles = Array.from({ length: index.count / 3 }, (_, triangle) =>
+        [0, 1, 2].map((offset) => index.getX(triangle * 3 + offset))
+    );
+    for (let triangle = 0; triangle < triangles.length; triangle++) {
+        for (const vertex of triangles[triangle]) {
+            const linked = vertices.get(vertex) ?? [];
+            linked.push(triangle);
+            vertices.set(vertex, linked);
+        }
+    }
+
+    const unseen = new Set(triangles.map((_, index) => index));
+    let components = 0;
+    while (unseen.size > 0) {
+        components++;
+        const pending = [unseen.values().next().value as number];
+        while (pending.length > 0) {
+            const triangle = pending.pop()!;
+            if (!unseen.delete(triangle)) continue;
+            for (const vertex of triangles[triangle]) {
+                for (const neighbor of vertices.get(vertex) ?? []) {
+                    if (unseen.has(neighbor)) pending.push(neighbor);
+                }
+            }
+        }
+    }
+    return components;
+}
+
+test('touching proof layers union adjacent candidates into connected regions', async () => {
+    const { proof, geometry } = await loadModules();
+    const snapshot = buildPaletteProofSnapshot(8, 8);
+    const spec = proof.buildPaletteProofSpec(snapshot, { gapMm: 0 });
+    const result = geometry.buildPaletteProofGeometry(snapshot, spec);
+
+    assert.equal(spec.layout.widthMm, 44);
+    assert.equal(spec.layout.heightMm, 68);
+    const a1 = geometry.paletteProofCellBounds(spec, 0, 0);
+    const b1 = geometry.paletteProofCellBounds(spec, 1, 0);
+    const a2 = geometry.paletteProofCellBounds(spec, 0, 1);
+    assert.equal(a1.x1, b1.x0);
+    assert.equal(a2.y1, a1.y0);
+    for (const child of result.object.children) assertClosedPositiveMesh(child as THREE.Mesh);
+    assert.equal(
+        countIndexedComponents(result.object.children[1] as THREE.Mesh),
+        1,
+        'the second layer should contain one unioned candidate region'
+    );
+
+    geometry.disposePaletteProofGeometry(result.object);
+});
 
 test('proof geometry has one notched foundation and closed physical-layer shells', async () => {
     const { proof, geometry } = await loadModules();
