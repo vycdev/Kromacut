@@ -11,8 +11,8 @@ function prefersReducedMotion(): boolean {
 }
 
 /**
- * A quick, self-timing FDM "print build" flourish that plays when the hidden
- * feat35 code (see src/hooks/useSecretCode.ts) unlocks multi-image mode. It
+ * A quick, self-timing FDM "print build" flourish that plays when the
+ * experimental "Multi-plate mode" settings toggle is switched on. It
  * renders a full-screen, click-through overlay of a filament object printing
  * layer-by-layer with a sweeping nozzle, then calls `onDone` so the parent can
  * unmount it. Bows out immediately for anyone who prefers reduced motion.

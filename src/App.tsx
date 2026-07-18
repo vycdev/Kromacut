@@ -56,7 +56,10 @@ import { appPath, markLaunched } from './lib/routes';
 import { isTauri } from '@tauri-apps/api/core';
 import { migrateLegacyFilamentTd, sanitizeProfileFilament } from './lib/profileManager';
 import PrintUnlockEffect from './components/PrintUnlockEffect';
-import { useSecretCode } from './hooks/useSecretCode';
+import {
+    getMultiPlateEnabled,
+    subscribeToMultiPlateEnabled,
+} from './lib/experimentalFeatures';
 import {
     AlertDialog,
     AlertDialogContent,
@@ -188,20 +191,22 @@ function App(): React.ReactElement | null {
     const toolPath = appPath(isTauri());
     // Multi-plate mode (issue #35) is still a stub. Per the plan, the flow diverges
     // at *image upload*, not at app start — so until an image is uploaded the app
-    // must look and behave exactly like today. Typing "feat35" anywhere on the page
-    // (Chrome "thisisunsafe"-style — no box, no prompt) silently arms
-    // `multiPlateEnabled`; the future upload decider will read that flag inside the
-    // upload path to fork into multi-plate handling. Arming it plays a one-shot
-    // 3D-print flourish over the normal app as unlock feedback, then hands straight
-    // back to the untouched single-image UI. Nothing persists across a reload and
-    // there is no other trace of it.
-    const [multiPlateEnabled, setMultiPlateEnabled] = useState(false);
+    // must look and behave exactly like today. The experimental "Multi-plate mode"
+    // toggle in Settings arms the flag; the future upload decider will read it (via
+    // `getMultiPlateEnabled()`) inside the upload path to fork into multi-plate
+    // handling. The toggle persists (localStorage) like the other settings. Flipping
+    // it on plays a one-shot 3D-print flourish as feedback, then hands straight back
+    // to the untouched single-image UI; a persisted-on flag on a fresh load does not
+    // replay the flourish, so App only reacts to off→on transitions.
+    const multiPlateEnabledRef = useRef(getMultiPlateEnabled());
     const [printing, setPrinting] = useState(false);
 
-    useSecretCode('feat35', () => {
-        if (!multiPlateEnabled) setPrinting(true); // flourish only when arming, not disarming
-        setMultiPlateEnabled((on) => !on);
-    });
+    useEffect(() => {
+        return subscribeToMultiPlateEnabled((enabled) => {
+            if (enabled && !multiPlateEnabledRef.current) setPrinting(true); // flourish only on off→on
+            multiPlateEnabledRef.current = enabled;
+        });
+    }, []);
 
     const handleEffectDone = useCallback(() => setPrinting(false), []);
 

@@ -453,10 +453,11 @@ input[type='number'] {
 }
 
 /* ---------------------------------------------------------------------------
- * feat35 print-unlock effect: a quick FDM "print build" flourish that plays
- * when the hidden code (see src/hooks/useSecretCode.ts) reveals multi-image
- * mode. A filament object prints layer-by-layer while a nozzle sweeps, then
- * the whole thing fades out. See src/components/PrintUnlockEffect.tsx.
+ * Multi-plate unlock effect: a quick FDM "print build" flourish that plays
+ * when the experimental "Multi-plate mode" settings toggle is switched on.
+ * A filament object prints layer-by-layer while a nozzle sweeps, then the
+ * whole thing fades out. See src/components/PrintUnlockEffect.tsx.
+ * (The `feat35-*` class names are kept as stable style identifiers.)
  * ------------------------------------------------------------------------- */
 .feat35-overlay {
     position: fixed;
