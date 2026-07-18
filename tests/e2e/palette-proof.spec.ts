@@ -73,6 +73,28 @@ test('Palette Proof stays usable, persists results, and downloads its frozen 3MF
     expect(zip.file('Metadata/palette-proof.json')).not.toBeNull();
     expect(zip.file('Metadata/palette-proof-instructions.txt')).not.toBeNull();
 
+    await dialog.getByRole('button', { name: 'Delete incomplete Palette Proof' }).click();
+    await expect(
+        dialog.getByText('Delete this incomplete proof and its draft results?')
+    ).toBeVisible();
+    await page.screenshot({ path: testInfo.outputPath('palette-proof-delete-confirm.png') });
+    await dialog.getByRole('button', { name: 'Delete proof', exact: true }).click();
+    await expect(
+        dialog.getByRole('button', { name: 'Delete incomplete Palette Proof' })
+    ).toHaveCount(0);
+    expect(
+        await page.evaluate(() => {
+            const profiles = JSON.parse(
+                localStorage.getItem('kromacut.autopaint.profiles') ?? '[]'
+            );
+            return profiles[0]?.appearance?.proofs?.length;
+        })
+    ).toBe(0);
+
+    const replacementDownloadPromise = page.waitForEvent('download');
+    await page.getByTestId('download-palette-proof').click();
+    await replacementDownloadPromise;
+
     await dialog.getByRole('tab', { name: /Results/ }).click();
     await expect(dialog.getByText('0/8 targets answered')).toBeVisible();
     await dialog.getByRole('button', { name: 'A1', exact: true }).click();
@@ -87,6 +109,9 @@ test('Palette Proof stays usable, persists results, and downloads its frozen 3MF
     await dialog.getByRole('button', { name: 'Complete results', exact: true }).click();
     await expect(dialog.getByText('Complete', { exact: true })).toBeVisible();
     await expect(dialog.getByRole('button', { name: 'Edit results', exact: true })).toBeVisible();
+    await expect(
+        dialog.getByRole('button', { name: 'Delete incomplete Palette Proof' })
+    ).toHaveCount(0);
 
     const storedAppearance = await page.evaluate(() => {
         const profiles = JSON.parse(localStorage.getItem('kromacut.autopaint.profiles') ?? '[]');

@@ -149,6 +149,7 @@ interface AutoPaintTabProps {
     ) => void;
     handleCompletePaletteProofEvaluation: (proofId: string) => void;
     handleReopenPaletteProofEvaluation: (proofId: string) => void;
+    handleDeleteIncompletePaletteProof: (proofId: string) => void;
 
     // Auto-paint state
     autoPaintMaxHeight: number | undefined;
@@ -223,6 +224,7 @@ export default function AutoPaintTab({
     handleSetPaletteTargetResponse,
     handleCompletePaletteProofEvaluation,
     handleReopenPaletteProofEvaluation,
+    handleDeleteIncompletePaletteProof,
     autoPaintMaxHeight,
     setAutoPaintMaxHeight,
     autoPaintResult,
@@ -1322,6 +1324,7 @@ export default function AutoPaintTab({
                 onSetPaletteTargetResponse={handleSetPaletteTargetResponse}
                 onCompletePaletteProofEvaluation={handleCompletePaletteProofEvaluation}
                 onReopenPaletteProofEvaluation={handleReopenPaletteProofEvaluation}
+                onDeleteIncompletePaletteProof={handleDeleteIncompletePaletteProof}
                 onApply={handleApplyCalibration}
             />
         </TabsContent>

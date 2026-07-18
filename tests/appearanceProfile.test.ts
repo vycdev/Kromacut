@@ -110,6 +110,7 @@ test('target-column judgments preserve equal choices, none, and completion state
         buildPaletteProofRecord,
         completePaletteProofEvaluation,
         createEmptyAppearanceProfile,
+        deleteIncompletePaletteProof,
         getPaletteProofEvaluationState,
         reopenPaletteProofEvaluation,
         setPaletteTargetResponse,
@@ -165,6 +166,7 @@ test('target-column judgments preserve equal choices, none, and completion state
             setPaletteTargetResponse(appearance, proof.id, 0, { response: 'none' }),
         /Reopen/
     );
+    assert.throws(() => deleteIncompletePaletteProof(appearance, proof.id), /cannot be deleted/);
 
     appearance = reopenPaletteProofEvaluation(
         appearance,
@@ -172,6 +174,11 @@ test('target-column judgments preserve equal choices, none, and completion state
         '2026-07-17T20:05:00.000Z'
     );
     assert.equal(getPaletteProofEvaluationState(appearance, proof.id).complete, false);
+
+    appearance = deleteIncompletePaletteProof(appearance, proof.id);
+    assert.equal(appearance.proofs.length, 0);
+    assert.equal(appearance.viewingSessions.length, 0);
+    assert.equal(appearance.targetJudgments.length, 0);
 });
 
 test('appearance import sanitation preserves valid records and drops tampered colors', async () => {

@@ -4,6 +4,7 @@ import type { FinalPrintableStackSnapshot } from '../types/appearance';
 import {
     buildPaletteProofRecord,
     completePaletteProofEvaluation,
+    deleteIncompletePaletteProof,
     reopenPaletteProofEvaluation,
     setPaletteTargetResponse,
     upsertPaletteProofRecord,
@@ -264,6 +265,28 @@ export function useProfileManager({ filaments, setFilaments }: UseProfileManager
         [activeProfile, activeProfileId, isDirty, profiles]
     );
 
+    const handleDeleteIncompletePaletteProof = useCallback(
+        (proofId: string) => {
+            if (!activeProfileId || !activeProfile?.appearance) {
+                throw new Error('Load the filament profile that owns this Palette Proof');
+            }
+            if (isDirty) {
+                throw new Error('Save or revert filament edits before deleting this proof');
+            }
+            const appearance = deleteIncompletePaletteProof(activeProfile.appearance, proofId);
+            const updated = profiles.map((profile) =>
+                profile.id === activeProfileId
+                    ? { ...profile, appearance, updatedAt: Date.now() }
+                    : profile
+            );
+            if (!saveProfilesToStorage(updated)) {
+                throw new Error('Could not persist Palette Proof deletion');
+            }
+            setProfiles(updated);
+        },
+        [activeProfile, activeProfileId, isDirty, profiles]
+    );
+
     const handleImportFile = useCallback(
         (e: React.ChangeEvent<HTMLInputElement>) => {
             const file = e.target.files?.[0];
@@ -348,5 +371,6 @@ export function useProfileManager({ filaments, setFilaments }: UseProfileManager
         handleSetPaletteTargetResponse,
         handleCompletePaletteProofEvaluation,
         handleReopenPaletteProofEvaluation,
+        handleDeleteIncompletePaletteProof,
     };
 }

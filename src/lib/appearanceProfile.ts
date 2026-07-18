@@ -554,6 +554,33 @@ export function upsertPaletteProofRecord(
     };
 }
 
+export function deleteIncompletePaletteProof(
+    appearance: AppearanceProfileV1,
+    proofId: string
+): AppearanceProfileV1 {
+    if (!appearance.proofs.some((proof) => proof.id === proofId)) {
+        throw new Error('Palette Proof is not saved in the active profile');
+    }
+    if (
+        appearance.viewingSessions.some(
+            (session) => session.proofId === proofId && session.status === 'complete'
+        )
+    ) {
+        throw new Error('Completed Palette Proofs cannot be deleted');
+    }
+
+    return {
+        ...appearance,
+        proofs: appearance.proofs.filter((proof) => proof.id !== proofId),
+        viewingSessions: appearance.viewingSessions.filter(
+            (session) => session.proofId !== proofId
+        ),
+        targetJudgments: appearance.targetJudgments.filter(
+            (judgment) => judgment.proofId !== proofId
+        ),
+    };
+}
+
 function createSessionId(proofId: string, timestamp: string): string {
     const random = globalThis.crypto?.randomUUID?.();
     return random ?? fingerprintJson('viewing-session-v1', { proofId, timestamp });

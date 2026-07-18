@@ -95,6 +95,7 @@ interface FilamentCalibrationDialogProps {
     ) => void;
     onCompletePaletteProofEvaluation?: (proofId: string) => void;
     onReopenPaletteProofEvaluation?: (proofId: string) => void;
+    onDeleteIncompletePaletteProof?: (proofId: string) => void;
     onApply: (updates: CalibrationApplyUpdate[]) => void;
 }
 
@@ -196,6 +197,7 @@ export function FilamentCalibrationDialog({
     onSetPaletteTargetResponse,
     onCompletePaletteProofEvaluation,
     onReopenPaletteProofEvaluation,
+    onDeleteIncompletePaletteProof,
     onApply,
 }: FilamentCalibrationDialogProps) {
     const [calibrationSurface, setCalibrationSurface] =
@@ -1273,6 +1275,7 @@ export function FilamentCalibrationDialog({
                 onSetTargetResponse={onSetPaletteTargetResponse}
                 onCompleteEvaluation={onCompletePaletteProofEvaluation}
                 onReopenEvaluation={onReopenPaletteProofEvaluation}
+                onDeleteIncompleteProof={onDeleteIncompletePaletteProof}
             />
             <AlertDialogFooter>
                 <Button variant="outline" onClick={handleClose}>

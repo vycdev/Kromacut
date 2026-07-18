@@ -524,6 +524,9 @@ export default function ThreeDControls({
                     handleReopenPaletteProofEvaluation={
                         profileManager.handleReopenPaletteProofEvaluation
                     }
+                    handleDeleteIncompletePaletteProof={
+                        profileManager.handleDeleteIncompletePaletteProof
+                    }
                     autoPaintMaxHeight={autoPaintMaxHeight}
                     setAutoPaintMaxHeight={setAutoPaintMaxHeight}
                     autoPaintResult={autoPaintResult}

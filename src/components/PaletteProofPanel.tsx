@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Check, Download, Loader2, Pencil } from 'lucide-react';
+import { Check, Download, Loader2, Pencil, Trash2 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -46,6 +46,7 @@ interface PaletteProofPanelProps {
     ) => void;
     onCompleteEvaluation?: (proofId: string) => void;
     onReopenEvaluation?: (proofId: string) => void;
+    onDeleteIncompleteProof?: (proofId: string) => void;
 }
 
 type PanelView = 'proof' | 'results';
@@ -73,6 +74,7 @@ export default function PaletteProofPanel({
     onSetTargetResponse,
     onCompleteEvaluation,
     onReopenEvaluation,
+    onDeleteIncompleteProof,
 }: PaletteProofPanelProps) {
     const [requestedTargetCount, setRequestedTargetCount] = useState(PALETTE_PROOF_DEFAULT_TARGETS);
     const [requestedCandidateCount, setRequestedCandidateCount] = useState(
@@ -125,6 +127,7 @@ export default function PaletteProofPanel({
     const [exportError, setExportError] = useState<string | null>(null);
     const [actionError, setActionError] = useState<string | null>(null);
     const [saved, setSaved] = useState(false);
+    const [pendingDeleteProofId, setPendingDeleteProofId] = useState<string | null>(null);
 
     useEffect(() => {
         if (currentSpec) {
@@ -242,6 +245,18 @@ export default function PaletteProofPanel({
         );
     };
 
+    const handleDeleteIncompleteProof = () => {
+        if (!selectedRecord || evaluation?.complete || !onDeleteIncompleteProof) return;
+        setActionError(null);
+        try {
+            onDeleteIncompleteProof(selectedRecord.id);
+            setPendingDeleteProofId(null);
+            setView('proof');
+        } catch (error) {
+            setActionError(error instanceof Error ? error.message : 'Could not delete proof');
+        }
+    };
+
     if (currentProofState.error) {
         return (
             <div
@@ -331,7 +346,47 @@ export default function PaletteProofPanel({
                         </span>
                     </Button>
                 )}
+                {selectedRecord && !evaluation?.complete && (
+                    <Button
+                        size="icon"
+                        variant="outline"
+                        className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive"
+                        disabled={!canTrack || !onDeleteIncompleteProof}
+                        onClick={() => setPendingDeleteProofId(selectedRecord.id)}
+                        title="Delete incomplete Palette Proof"
+                        aria-label="Delete incomplete Palette Proof"
+                    >
+                        <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                )}
             </div>
+
+            {selectedRecord && pendingDeleteProofId === selectedRecord.id && (
+                <div
+                    className="flex flex-wrap items-center gap-2 rounded-md border border-destructive/50 bg-destructive/5 p-2"
+                    role="alert"
+                >
+                    <p className="min-w-0 flex-1 text-[10px] text-foreground">
+                        Delete this incomplete proof and its draft results?
+                    </p>
+                    <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 px-2 text-xs"
+                        onClick={() => setPendingDeleteProofId(null)}
+                    >
+                        Cancel
+                    </Button>
+                    <Button
+                        size="sm"
+                        variant="destructive"
+                        className="h-7 px-2 text-xs"
+                        onClick={handleDeleteIncompleteProof}
+                    >
+                        Delete proof
+                    </Button>
+                </div>
+            )}
 
             {selectorOptions.length > 1 && (
                 <Select
@@ -340,6 +395,7 @@ export default function PaletteProofPanel({
                         setSelectedProofId(proofId);
                         setView('proof');
                         setActionError(null);
+                        setPendingDeleteProofId(null);
                     }}
                 >
                     <SelectTrigger className="h-8 text-xs" aria-label="Palette Proof record">
