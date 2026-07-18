@@ -66,6 +66,67 @@ function ConfidenceStat({ label, value }: { label: string; value: number }) {
     );
 }
 
+function AppearanceModelStat({ result }: { result: AutoPaintResult }) {
+    const model = result.finalStack.appearanceModel;
+    const comparedStackKeys = new Set(model.comparedStackKeys);
+    const comparedCoverage = result.finalStack.targetMappings
+        .filter((mapping) => comparedStackKeys.has(mapping.canonicalStackKey))
+        .reduce((sum, mapping) => sum + mapping.usageWeight, 0);
+    const evidenceNeeds = [
+        model.observationCount < 8 ? `${8 - model.observationCount} more closest choices` : null,
+        model.distinctStackCount < 8
+            ? `${8 - model.distinctStackCount} more distinct stacks`
+            : null,
+    ].filter((need): need is string => need !== null);
+    const gateDetail =
+        model.gateReason === 'insufficient-evidence'
+            ? evidenceNeeds.join(' · ')
+            : model.gateReason === 'insufficient-heldout'
+              ? 'Complete another proof for validation'
+              : model.gateReason === 'no-training-improvement'
+                ? 'Base model already ranks these choices'
+                : model.gateReason === 'heldout-below-threshold'
+                  ? 'Held-out agreement is below 70%'
+                  : model.gateReason === 'heldout-no-improvement'
+                    ? 'Held-out gain is below 10 points'
+                    : null;
+
+    return (
+        <div className="rounded border border-border/50 bg-background/40 px-2 py-1.5 text-[10px]">
+            <div className="flex items-center justify-between gap-2">
+                <span className="font-semibold">Appearance model</span>
+                <span
+                    className={
+                        model.applied
+                            ? getConfidenceColor(model.confidence)
+                            : 'text-muted-foreground'
+                    }
+                >
+                    {model.applied
+                        ? `Fitted estimate (${(model.confidence * 100).toFixed(0)}%)`
+                        : model.observationCount > 0 || model.noneCount > 0
+                          ? 'Evidence gathered, fit gated'
+                          : 'Estimated only'}
+                </span>
+            </div>
+            <div className="mt-0.5 text-muted-foreground">
+                {model.distinctStackCount} compared stacks {' · '}
+                {model.observationCount} choices {' · '}
+                {model.noneCount} no matches
+                {model.applied && (
+                    <>
+                        {' · '}
+                        {(comparedCoverage * 100).toFixed(0)}% current palette coverage
+                    </>
+                )}
+            </div>
+            {gateDetail && (model.observationCount > 0 || model.noneCount > 0) && (
+                <div className="mt-0.5 text-muted-foreground">{gateDetail}</div>
+            )}
+        </div>
+    );
+}
+
 type OptimizerTierValue = 'fast' | 'balanced' | 'thorough' | 'deep' | 'exact';
 
 interface OptimizerTierMeta {
@@ -548,7 +609,13 @@ export default function AutoPaintTab({
                             ))}
                         </div>
                     )}
-                    <div className={filaments.length > 0 ? 'grid grid-cols-2 gap-2' : ''}>
+                    <div
+                        className={
+                            filaments.length > 0
+                                ? 'grid grid-cols-[repeat(auto-fit,minmax(7.5rem,1fr))] gap-2'
+                                : ''
+                        }
+                    >
                         <Button
                             variant="outline"
                             size="sm"
@@ -567,7 +634,7 @@ export default function AutoPaintTab({
                                 className="w-full text-xs gap-1.5 h-8 cursor-pointer"
                             >
                                 <FlaskConical className="w-3.5 h-3.5" />
-                                Calibrate Filaments
+                                Calibrate
                             </Button>
                         )}
                     </div>
@@ -1113,6 +1180,7 @@ export default function AutoPaintTab({
                     {/* Overall Confidence Indicator */}
                     {autoPaintResult && (
                         <div className="mt-4 p-3 rounded-md border border-border/50 bg-muted/30 space-y-2">
+                            <AppearanceModelStat result={autoPaintResult} />
                             <div className="flex items-center justify-between">
                                 <span className="text-xs font-semibold">Result Confidence</span>
                                 <span

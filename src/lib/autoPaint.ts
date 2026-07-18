@@ -10,6 +10,7 @@
 
 import type { Filament } from '../types';
 import type {
+    AppearanceRankModelV1,
     CanonicalSrgbColor,
     FinalPrintableStackSnapshot,
     FinalStackLayerSnapshot,
@@ -19,6 +20,11 @@ import type {
     FinalStackZoneSnapshot,
     TargetSampleContext,
 } from '../types/appearance';
+import {
+    appearanceLabToRgb,
+    applyAppearanceRankModel,
+    createIdentityAppearanceRankModel,
+} from './appearanceModel';
 import {
     optimizeFilamentOrder,
     type OptimizerOptions,
@@ -866,8 +872,11 @@ function buildFinalPrintableStackSnapshot(
         transitionOpacity?: number;
         compressionRatio: number;
         preserveSeparation?: boolean;
+        appearanceModel?: AppearanceRankModelV1;
     }
 ): FinalPrintableStackSnapshot {
+    const appearanceModel = settings.appearanceModel ?? createIdentityAppearanceRankModel();
+    const comparedStackKeys = new Set(appearanceModel.comparedStackKeys);
     const zoneSnapshots: FinalStackZoneSnapshot[] = stack.zones.map((zone, index) => ({
         id: `zone-${index + 1}`,
         index,
@@ -906,7 +915,17 @@ function buildFinalPrintableStackSnapshot(
             filamentColor,
             thickness: layer.thickness,
         });
-        const predictedLab = rgbToLab(layer.virtualColor);
+        const canonicalStackKey = fingerprintJson('stack-v1', prefixTokens);
+        const basePredictedLab = rgbToLab(layer.virtualColor);
+        const predictedLab = applyAppearanceRankModel(basePredictedLab, appearanceModel);
+        const predictedRgb = appearanceModel.applied
+            ? appearanceLabToRgb(predictedLab)
+            : [layer.virtualColor.r, layer.virtualColor.g, layer.virtualColor.b];
+        const appearanceStatus = comparedStackKeys.has(canonicalStackKey)
+            ? ('compared' as const)
+            : appearanceModel.applied
+              ? ('fitted' as const)
+              : ('estimated' as const);
 
         return {
             id: `layer-${index + 1}`,
@@ -917,9 +936,16 @@ function buildFinalPrintableStackSnapshot(
             endHeight: layer.endHeight,
             thickness: layer.thickness,
             zoneIndex: layer.zoneIndex,
-            canonicalStackKey: fingerprintJson('stack-v1', prefixTokens),
-            predictedColor: canonicalSrgbColor(layer.virtualColor),
+            canonicalStackKey,
+            basePredictedColor: canonicalSrgbColor(layer.virtualColor),
+            basePredictedLab: labTuple(basePredictedLab),
+            predictedColor: canonicalSrgbColor({
+                r: predictedRgb[0],
+                g: predictedRgb[1],
+                b: predictedRgb[2],
+            }),
             predictedLab: labTuple(predictedLab),
+            appearanceStatus,
         };
     });
     const palette: FinalStackPaletteEntrySnapshot[] = layerSnapshots.map((layer) => ({
@@ -928,8 +954,11 @@ function buildFinalPrintableStackSnapshot(
         layerId: layer.id,
         height: layer.endHeight,
         canonicalStackKey: layer.canonicalStackKey,
+        basePredictedColor: layer.basePredictedColor,
+        basePredictedLab: layer.basePredictedLab,
         predictedColor: layer.predictedColor,
         predictedLab: layer.predictedLab,
+        appearanceStatus: layer.appearanceStatus,
     }));
     const swapSequence: FinalStackSwapSnapshot[] = zoneSnapshots.map((zone) => {
         const zoneLayers = layerSnapshots.filter((layer) => layer.zoneIndex === zone.index);
@@ -1010,6 +1039,7 @@ function buildFinalPrintableStackSnapshot(
         schemaVersion: 1 as const,
         modelFingerprint,
         modelVersion,
+        appearanceModel,
         settings: {
             layerHeight: settings.layerHeight,
             firstLayerHeight: printableFirstLayerHeight(
@@ -1193,7 +1223,8 @@ export function buildAchievableColorPalette(
     firstLayerHeight: number,
     maxHeight?: number,
     transitionOpacity: number = DEFAULT_TRANSITION_OPACITY,
-    transitionThicknessCache?: Map<string, number>
+    transitionThicknessCache?: Map<string, number>,
+    appearanceModel: AppearanceRankModelV1 = createIdentityAppearanceRankModel()
 ): Array<{ height: number; lab: Lab; rgb: RGB }> {
     if (sequence.length === 0) return [];
 
@@ -1218,11 +1249,16 @@ export function buildAchievableColorPalette(
             : compressZones(zones, printableMaxHeight).compressedZones;
     const stack = buildPrintableAutoPaintStack(activeZones, layerHeight, firstLayerHeight);
 
-    return stack.layers.map((layer) => ({
-        height: layer.endHeight,
-        lab: rgbToLab(layer.virtualColor),
-        rgb: layer.virtualColor,
-    }));
+    return stack.layers.map((layer) => {
+        const baseLab = rgbToLab(layer.virtualColor);
+        const lab = applyAppearanceRankModel(baseLab, appearanceModel);
+        const rgb = appearanceModel.applied ? appearanceLabToRgb(lab) : null;
+        return {
+            height: layer.endHeight,
+            lab,
+            rgb: rgb ? { r: rgb[0], g: rgb[1], b: rgb[2] } : layer.virtualColor,
+        };
+    });
 }
 
 export interface MappedTarget {
@@ -1568,7 +1604,8 @@ function findBestFilamentOrder(
     firstLayerHeight: number,
     optimizerOptions?: Partial<OptimizerOptions>,
     maxHeight?: number,
-    allowRepeatedSwaps: boolean = false
+    allowRepeatedSwaps: boolean = false,
+    appearanceModel?: AppearanceRankModelV1
 ): { sortedFilaments: Filament[]; result?: OptimizerResult } {
     if (filaments.length <= 1) {
         return { sortedFilaments: [...filaments] };
@@ -1581,7 +1618,8 @@ function findBestFilamentOrder(
         firstLayerHeight,
         optimizerOptions ?? {},
         maxHeight,
-        allowRepeatedSwaps
+        allowRepeatedSwaps,
+        appearanceModel
     );
 }
 
@@ -1613,7 +1651,8 @@ function findBestFilamentOrderWithOptimizer(
     firstLayerHeight: number,
     optimizerOptions: Partial<OptimizerOptions>,
     maxHeight?: number,
-    allowRepeatedSwaps: boolean = false
+    allowRepeatedSwaps: boolean = false,
+    appearanceModel?: AppearanceRankModelV1
 ): { sortedFilaments: Filament[]; result: OptimizerResult } {
     const imageTargets = buildOptimizerImageTargets(imageSwatches);
 
@@ -1624,6 +1663,7 @@ function findBestFilamentOrderWithOptimizer(
         firstLayerHeight,
         maxHeight,
         transitionOpacity: optimizerOptions.transitionOpacity,
+        appearanceModel,
     };
 
     // Run optimizer (tds are hiding distances; no scaling needed)
@@ -1670,7 +1710,8 @@ export function generateAutoLayers(
     maxHeight?: number,
     enhancedColorMatch?: boolean,
     allowRepeatedSwaps?: boolean,
-    optimizerOptions?: Partial<OptimizerOptions>
+    optimizerOptions?: Partial<OptimizerOptions>,
+    appearanceModel: AppearanceRankModelV1 = createIdentityAppearanceRankModel()
 ): AutoPaintResult {
     // --- STEP 1: VALIDATION ---
     if (filaments.length === 0) {
@@ -1685,6 +1726,7 @@ export function generateAutoLayers(
                 transitionOpacity: optimizerOptions?.transitionOpacity,
                 compressionRatio: 1,
                 preserveSeparation: optimizerOptions?.preserveSeparation,
+                appearanceModel,
             }
         );
         return {
@@ -1717,6 +1759,7 @@ export function generateAutoLayers(
                 transitionOpacity: optimizerOptions?.transitionOpacity,
                 compressionRatio: 1,
                 preserveSeparation: optimizerOptions?.preserveSeparation,
+                appearanceModel,
             }
         );
         return {
@@ -1750,7 +1793,8 @@ export function generateAutoLayers(
             firstLayerHeight,
             optimizerOptions,
             maxHeight,
-            allowRepeatedSwaps
+            allowRepeatedSwaps,
+            appearanceModel
         );
 
         sortedFilaments = orderingResult.sortedFilaments;
@@ -1814,6 +1858,7 @@ export function generateAutoLayers(
         transitionOpacity: optimizerOptions?.transitionOpacity,
         compressionRatio,
         preserveSeparation: optimizerOptions?.preserveSeparation,
+        appearanceModel,
     });
 
     const result: AutoPaintResult = {

@@ -6,7 +6,34 @@ export interface CanonicalSrgbColor {
     hex: string;
 }
 
+export interface AppearanceRankModelV1 {
+    schemaVersion: 1;
+    modelVersion: 'lab-rank-global-v1';
+    fingerprint: string;
+    contextFingerprint: string;
+    applied: boolean;
+    gateReason:
+        | 'applied'
+        | 'insufficient-evidence'
+        | 'insufficient-heldout'
+        | 'no-training-improvement'
+        | 'heldout-below-threshold'
+        | 'heldout-no-improvement';
+    deltaL: number;
+    logChromaScale: number;
+    confidence: number;
+    observationCount: number;
+    noneCount: number;
+    distinctStackCount: number;
+    heldOutCount: number;
+    baselineAgreement: number;
+    fittedAgreement: number;
+    sourceProofIds: readonly string[];
+    comparedStackKeys: readonly string[];
+}
+
 export type AppearanceGeometryClass = 'flat-interior' | 'edge-limited' | 'mixed' | 'unknown';
+export type AppearanceSupportStatus = 'compared' | 'fitted' | 'estimated';
 
 export interface TargetSampleContext {
     geometryClass: AppearanceGeometryClass;
@@ -25,8 +52,11 @@ export interface FinalStackLayerSnapshot {
     thickness: number;
     zoneIndex: number;
     canonicalStackKey: string;
+    basePredictedColor: CanonicalSrgbColor;
+    basePredictedLab: readonly [number, number, number];
     predictedColor: CanonicalSrgbColor;
     predictedLab: readonly [number, number, number];
+    appearanceStatus: AppearanceSupportStatus;
 }
 
 export interface FinalStackZoneSnapshot {
@@ -59,8 +89,11 @@ export interface FinalStackPaletteEntrySnapshot {
     layerId: string;
     height: number;
     canonicalStackKey: string;
+    basePredictedColor: CanonicalSrgbColor;
+    basePredictedLab: readonly [number, number, number];
     predictedColor: CanonicalSrgbColor;
     predictedLab: readonly [number, number, number];
+    appearanceStatus: AppearanceSupportStatus;
 }
 
 export interface FinalStackTargetMappingSnapshot {
@@ -83,6 +116,7 @@ export interface FinalPrintableStackSnapshot {
     fingerprint: string;
     modelFingerprint: string;
     modelVersion: 'rgb-beer-lambert-v1';
+    appearanceModel: AppearanceRankModelV1;
     settings: {
         layerHeight: number;
         firstLayerHeight: number;

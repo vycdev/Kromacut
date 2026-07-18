@@ -747,3 +747,61 @@ test('calibrated profiles produce identical output across the hiding-distance mi
     });
     assert.deepEqual(normalize(enhanced), baseline.enhancedFast);
 });
+
+test('a fitted appearance model changes preview colors without changing physical layers', async () => {
+    const { autoPaintToSliceHeights, generateAutoLayers } = await loadAutoPaintModule();
+    const filaments = [
+        { id: 'black', color: '#101010', td: 0.2 },
+        { id: 'red', color: '#d3422e', td: 0.35 },
+        { id: 'white', color: '#f4f4f4', td: 0.5 },
+    ];
+    const swatches = [
+        { hex: '#331a18', count: 20 },
+        { hex: '#b35a4c', count: 40 },
+        { hex: '#eeeeee', count: 10 },
+    ];
+    const baseline = generateAutoLayers(filaments, swatches, 0.08, 0.16);
+    const appearanceModel = {
+        ...baseline.finalStack.appearanceModel,
+        fingerprint: 'fitted-preview-test',
+        applied: true,
+        gateReason: 'applied' as const,
+        deltaL: 4,
+        confidence: 0.8,
+        observationCount: 20,
+        distinctStackCount: 10,
+        heldOutCount: 4,
+        baselineAgreement: 0.5,
+        fittedAgreement: 0.8,
+    };
+    const corrected = generateAutoLayers(
+        filaments,
+        swatches,
+        0.08,
+        0.16,
+        undefined,
+        false,
+        false,
+        undefined,
+        appearanceModel
+    );
+
+    assert.deepEqual(corrected.layers, baseline.layers);
+    assert.deepEqual(
+        corrected.finalStack.layers.map((layer) => layer.filamentColor),
+        baseline.finalStack.layers.map((layer) => layer.filamentColor)
+    );
+    assert.deepEqual(
+        corrected.finalStack.layers.map((layer) => layer.basePredictedColor),
+        baseline.finalStack.layers.map((layer) => layer.basePredictedColor)
+    );
+    assert.notDeepEqual(
+        corrected.finalStack.layers.map((layer) => layer.predictedColor),
+        baseline.finalStack.layers.map((layer) => layer.predictedColor)
+    );
+    assert.ok(corrected.finalStack.layers.every((layer) => layer.appearanceStatus === 'fitted'));
+    assert.notDeepEqual(
+        autoPaintToSliceHeights(corrected, 0.08, 0.16).virtualSwatches,
+        autoPaintToSliceHeights(baseline, 0.08, 0.16).virtualSwatches
+    );
+});

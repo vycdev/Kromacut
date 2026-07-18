@@ -222,6 +222,43 @@ test('cache keys include all weighted clusters and optimizer tuning', async () =
         'context preserve-separation mode must miss cache'
     );
     assert.equal(getOptimizerCacheStats().size, 5);
+
+    const appearanceModel = {
+        schemaVersion: 1 as const,
+        modelVersion: 'lab-rank-global-v1' as const,
+        fingerprint: 'appearance-fit-a',
+        contextFingerprint: 'appearance-context',
+        applied: true,
+        gateReason: 'applied' as const,
+        deltaL: 2,
+        logChromaScale: 0,
+        confidence: 0.8,
+        observationCount: 20,
+        noneCount: 0,
+        distinctStackCount: 10,
+        heldOutCount: 4,
+        baselineAgreement: 0.5,
+        fittedAgreement: 0.8,
+        sourceProofIds: ['proof-a'],
+        comparedStackKeys: [],
+    };
+    const changedAppearance = optimizeFilamentOrder(
+        filaments,
+        { ...manyClusters, appearanceModel },
+        options
+    );
+    const cachedAppearance = optimizeFilamentOrder(
+        filaments,
+        { ...manyClusters, appearanceModel },
+        options
+    );
+    assert.equal(
+        changedAppearance.cacheHit,
+        undefined,
+        'a changed appearance model must miss cache'
+    );
+    assert.equal(cachedAppearance.cacheHit, true);
+    assert.equal(getOptimizerCacheStats().size, 6);
 });
 
 test('cache keys distinguish active and inactive calibrated swatch colors', async () => {

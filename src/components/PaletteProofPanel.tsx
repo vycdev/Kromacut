@@ -13,6 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 import { saveBlobToFile } from '../hooks/saveBlobToFile';
 import {
+    fingerprintAppearanceFilaments,
     getPaletteProofEvaluationState,
     type PaletteProofRecord,
     type PaletteTargetResponse,
@@ -97,16 +98,37 @@ export default function PaletteProofPanel({
         minimumCandidateCount,
         Math.min(requestedCandidateCount, maximumCandidateCount)
     );
+    const filamentProfileFingerprint = useMemo(
+        () =>
+            profile && !profileDirty
+                ? fingerprintAppearanceFilaments(profile.filaments)
+                : undefined,
+        [profile, profileDirty]
+    );
+    const compatibleAppearance = profileDirty ? undefined : profile?.appearance;
     const selectedHistory = useMemo(
         () =>
             snapshot
-                ? buildPaletteProofHistory(profile?.appearance, snapshot, historyProofIds)
+                ? buildPaletteProofHistory(
+                      compatibleAppearance,
+                      snapshot,
+                      historyProofIds,
+                      filamentProfileFingerprint
+                  )
                 : null,
-        [historyProofIds, profile?.appearance, snapshot]
+        [compatibleAppearance, filamentProfileFingerprint, historyProofIds, snapshot]
     );
     const allCompletedHistory = useMemo(
-        () => (snapshot ? buildPaletteProofHistory(profile?.appearance, snapshot) : null),
-        [profile?.appearance, snapshot]
+        () =>
+            snapshot
+                ? buildPaletteProofHistory(
+                      compatibleAppearance,
+                      snapshot,
+                      undefined,
+                      filamentProfileFingerprint
+                  )
+                : null,
+        [compatibleAppearance, filamentProfileFingerprint, snapshot]
     );
     const currentProofState = useMemo(() => {
         if (!snapshot) return { spec: null, error: null };

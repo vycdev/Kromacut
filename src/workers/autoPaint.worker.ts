@@ -6,10 +6,19 @@
  * responsive while the algorithm runs.
  */
 
-import { generateAutoLayers, type AutoPaintImageSwatch } from '../lib/autoPaint';
+import {
+    DEFAULT_TRANSITION_OPACITY,
+    generateAutoLayers,
+    type AutoPaintImageSwatch,
+} from '../lib/autoPaint';
 import type { AutoPaintRepeatLimit, Filament } from '../types';
 import type { OptimizerOptions } from '../lib/optimizer';
 import type { AutoPaintResult } from '../lib/autoPaint';
+import { fitAppearanceRankModel } from '../lib/appearanceModel';
+import {
+    fingerprintAppearanceFilaments,
+    type AppearanceProfileV1,
+} from '../lib/appearanceProfile';
 
 type WorkerOptimizerOptions = Omit<OptimizerOptions, 'onProgress'>;
 
@@ -23,6 +32,7 @@ export interface AutoPaintWorkerRequest {
     enhancedColorMatch?: boolean;
     maxRepeatedSwaps?: AutoPaintRepeatLimit;
     optimizerOptions?: Partial<WorkerOptimizerOptions>;
+    appearance?: AppearanceProfileV1;
 }
 
 export interface AutoPaintWorkerResult {
@@ -67,6 +77,13 @@ self.onmessage = (e: MessageEvent<AutoPaintWorkerRequest>) => {
     };
 
     try {
+        const appearanceModel = fitAppearanceRankModel(req.appearance, {
+            filamentProfileFingerprint: fingerprintAppearanceFilaments(req.filaments),
+            layerHeight: req.layerHeight,
+            firstLayerHeight: Math.max(req.layerHeight, req.firstLayerHeight),
+            transitionOpacity:
+                req.optimizerOptions?.transitionOpacity ?? DEFAULT_TRANSITION_OPACITY,
+        });
         const result = generateAutoLayers(
             req.filaments,
             req.imageSwatches,
@@ -78,7 +95,8 @@ self.onmessage = (e: MessageEvent<AutoPaintWorkerRequest>) => {
             {
                 ...req.optimizerOptions,
                 onProgress: reportProgress,
-            }
+            },
+            appearanceModel
         );
 
         reportProgress(1, 1, result.optimizerMetadata?.score ?? Infinity);

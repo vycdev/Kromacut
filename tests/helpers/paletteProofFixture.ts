@@ -31,8 +31,11 @@ export function buildPaletteProofSnapshot(
             thickness: index === 0 ? 0.16 : 0.08,
             zoneIndex: index,
             canonicalStackKey: `stack-v1-${index + 1}`,
+            basePredictedColor: predictedColor,
+            basePredictedLab: [15 + index * 12, -25 + index * 7, 30 - index * 5] as const,
             predictedColor,
             predictedLab: [15 + index * 12, -25 + index * 7, 30 - index * 5] as const,
+            appearanceStatus: 'estimated' as const,
         };
     });
     const palette: FinalStackPaletteEntrySnapshot[] = layers.map((layer) => ({
@@ -41,8 +44,11 @@ export function buildPaletteProofSnapshot(
         layerId: layer.id,
         height: layer.endHeight,
         canonicalStackKey: layer.canonicalStackKey,
+        basePredictedColor: layer.basePredictedColor,
+        basePredictedLab: layer.basePredictedLab,
         predictedColor: layer.predictedColor,
         predictedLab: layer.predictedLab,
+        appearanceStatus: layer.appearanceStatus,
     }));
     const weightTotal = (targetCount * (targetCount + 1)) / 2;
     const targetMappings: FinalStackTargetMappingSnapshot[] = Array.from(
@@ -77,6 +83,25 @@ export function buildPaletteProofSnapshot(
         fingerprint: `final-stack-${layerCount}-${targetCount}`,
         modelFingerprint: 'appearance-model-test',
         modelVersion: 'rgb-beer-lambert-v1',
+        appearanceModel: {
+            schemaVersion: 1,
+            modelVersion: 'lab-rank-global-v1',
+            fingerprint: 'appearance-rank-model-test',
+            contextFingerprint: 'appearance-context-test',
+            applied: false,
+            gateReason: 'insufficient-evidence',
+            deltaL: 0,
+            logChromaScale: 0,
+            confidence: 0,
+            observationCount: 0,
+            noneCount: 0,
+            distinctStackCount: 0,
+            heldOutCount: 0,
+            baselineAgreement: 0,
+            fittedAgreement: 0,
+            sourceProofIds: [],
+            comparedStackKeys: [],
+        },
         settings: {
             layerHeight: 0.08,
             firstLayerHeight: 0.16,

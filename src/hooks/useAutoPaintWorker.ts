@@ -23,6 +23,7 @@ import type {
     AutoPaintWorkerRequest,
     AutoPaintWorkerResponse,
 } from '../workers/autoPaint.worker';
+import type { AppearanceProfileV1 } from '../lib/appearanceProfile';
 
 export interface UseAutoPaintWorkerOptions {
     paintMode: 'manual' | 'autopaint';
@@ -38,6 +39,7 @@ export interface UseAutoPaintWorkerOptions {
     optimizerAlgorithm: 'fast' | 'balanced' | 'thorough' | 'deep' | 'exact';
     optimizerSeed?: number;
     regionWeightingMode: 'uniform' | 'center' | 'edge';
+    appearance?: AppearanceProfileV1;
 }
 
 export interface UseAutoPaintWorkerResult {
@@ -92,6 +94,7 @@ export function useAutoPaintWorker(opts: UseAutoPaintWorkerOptions): UseAutoPain
         optimizerAlgorithm,
         optimizerSeed,
         regionWeightingMode,
+        appearance,
     } = opts;
 
     const [autoPaintResult, setAutoPaintResult] = useState<AutoPaintResult | undefined>(undefined);
@@ -187,6 +190,8 @@ export function useAutoPaintWorker(opts: UseAutoPaintWorkerOptions): UseAutoPain
         selectedImageSwatches,
         filteredKey
     );
+    const appearanceKey = useMemo(() => JSON.stringify(appearance ?? null), [appearance]);
+    const stableAppearance = useStableValueByKey(appearance, appearanceKey);
 
     const getWorker = useCallback(() => {
         if (!workerRef.current) {
@@ -276,6 +281,7 @@ export function useAutoPaintWorker(opts: UseAutoPaintWorkerOptions): UseAutoPain
                         preserveSeparation,
                         ...(optimizerSeed !== undefined && { seed: optimizerSeed }),
                     },
+                    appearance: stableAppearance,
                 };
 
                 worker.postMessage(request);
@@ -310,9 +316,11 @@ export function useAutoPaintWorker(opts: UseAutoPaintWorkerOptions): UseAutoPain
         optimizerAlgorithm,
         optimizerSeed,
         regionWeightingMode,
+        appearanceKey,
         getWorker,
         stableFilaments,
         stableImageSwatches,
+        stableAppearance,
         clearTimers,
         cancelWorker,
         finishRequest,

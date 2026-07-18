@@ -67,6 +67,7 @@ export interface AppearanceProcessSnapshot {
 export interface StoredPaletteProofPrefix {
     canonicalStackKey: string;
     prefixIndex: number;
+    basePredictedColor?: CanonicalSrgbColor;
     predictedColor: CanonicalSrgbColor;
 }
 
@@ -552,6 +553,7 @@ export function buildPaletteProofRecord(
         prefixes.push({
             canonicalStackKey: cell.canonicalStackKey,
             prefixIndex: cell.prefixIndex,
+            basePredictedColor: paletteEntry.basePredictedColor,
             predictedColor: paletteEntry.predictedColor,
         });
     }
@@ -813,8 +815,20 @@ function sanitizeStoredPrefix(value: unknown): StoredPaletteProofPrefix | null {
     const canonicalStackKey = boundedString(value.canonicalStackKey, 128);
     const prefixIndex = integer(value.prefixIndex, 0, MAX_STACK_LAYERS - 1);
     const predictedColor = sanitizeCanonicalColor(value.predictedColor);
-    return canonicalStackKey && prefixIndex !== null && predictedColor
-        ? { canonicalStackKey, prefixIndex, predictedColor }
+    const basePredictedColor =
+        value.basePredictedColor === undefined
+            ? undefined
+            : sanitizeCanonicalColor(value.basePredictedColor);
+    return canonicalStackKey &&
+        prefixIndex !== null &&
+        predictedColor &&
+        (value.basePredictedColor === undefined || basePredictedColor)
+        ? {
+              canonicalStackKey,
+              prefixIndex,
+              ...(basePredictedColor ? { basePredictedColor } : {}),
+              predictedColor,
+          }
         : null;
 }
 

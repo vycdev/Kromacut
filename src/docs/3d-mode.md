@@ -138,7 +138,7 @@ when they improve the blend path.
 After Auto-paint computes a result, Kromacut can show:
 
 - **Transition Zones**, with height ranges and compressed-zone badges.
-- **Result Confidence**, including Calibration, Coverage, and Compression scores.
+- **Result Confidence**, including Calibration, Coverage, and Compression scores. The appearance row separately reports whether simulated colors are still estimated or use a proof-fitted correction, how many physical stacks were compared, and why a tentative fit was rejected.
 - **Optimizer Performance**, including Algorithm, Quality Score, Iterations, Cache hit, and Converged.
 
 Low confidence usually means you should calibrate filaments, add a missing filament color, or loosen a restrictive max height.
@@ -155,7 +155,11 @@ The 3MF contains one part per physical layer with the final Auto-paint filament 
 
 Saving the 3MF also records the proof in the active named filament profile. Open the **Results** view after printing and, for each target row, select the visibly closest patch even when it is imperfect, select multiple patches when they are tied, or choose **None** only when every candidate is clearly a poor match. Progress is saved immediately, survives app restarts, and can be completed and reopened for correction. After completion, choose **Next proof** to retain one previous best as an anchor and test untried prefixes; targets not covered by the previous proof are prioritized when available. Kromacut disables this action when the current stack has no untested evidence left. Use the trash button to delete an incomplete saved proof and all of its draft results; completed proofs are retained as calibration evidence. Saved proofs remain available from the profile even when the original image is no longer loaded.
 
-These judgments are stored as camera-free appearance evidence with the exact proof, physical prefixes, process settings, and display-color contract that produced them. Completing a proof does not yet change the preview, HD calibration, or Auto-paint result automatically.
+These judgments are stored as camera-free appearance evidence with the exact proof, physical prefixes, original simulated colors, process settings, and display-color contract that produced them. Compare every proof used by one profile under the same frontlit viewing and display conditions.
+
+Auto-paint derives a small lightness/chroma ranking correction from completed proofs in its worker. It keeps whole proof artifacts separate for training and validation and only applies the correction after at least eight distinct stacks are represented, held-out agreement reaches 70%, and the correction improves that held-out proof by at least 10 percentage points. If those gates fail, the preview keeps using the original optical estimate and explains why in **Result Confidence**. A **None** answer never invents a correction direction; it prioritizes that unresolved target and untested prefixes in the next proof.
+
+When a fit is accepted, Auto-paint reruns with the fitted ranking model, including filament-order optimization and simulated preview mapping. This does not alter hiding-distance calibration, physical filament colors, swap instructions, or exported geometry. Raw judgments remain the persisted source of truth; fitted parameters are regenerated deterministically so a future model can reuse the same physical evidence.
 
 ## Preview Controls
 

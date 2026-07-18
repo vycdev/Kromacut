@@ -11,6 +11,7 @@
  */
 
 import type { Filament } from '../types';
+import type { AppearanceRankModelV1 } from '../types/appearance';
 import {
     buildAchievableColorPalette,
     scoreSequenceAgainstImage,
@@ -94,6 +95,7 @@ export interface ScoringContext {
     maxHeight?: number;
     transitionOpacity?: number;
     preserveSeparation?: boolean;
+    appearanceModel?: AppearanceRankModelV1;
 }
 
 // ============================================================================
@@ -224,6 +226,7 @@ function canonicalOptimizerInput(
         firstLayerHeight: context.firstLayerHeight,
         maxHeight: context.maxHeight ?? null,
         transitionOpacity: context.transitionOpacity ?? null,
+        appearanceModelFingerprint: context.appearanceModel?.fingerprint ?? null,
         algorithm,
         seed: seed ?? null,
         tuning: tuningFingerprint(options),
@@ -257,7 +260,8 @@ export function createSequenceScorer(context: ScoringContext): (filaments: Filam
                 context.firstLayerHeight,
                 context.maxHeight,
                 context.transitionOpacity,
-                transitionThicknessCache
+                transitionThicknessCache,
+                context.appearanceModel
             );
             paletteCache.set(sequenceKey, palette);
         }

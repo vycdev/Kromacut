@@ -73,6 +73,7 @@ test('proof records freeze only reachable prefixes and the active process finger
         Math.max(...record.prefixes.map((prefix) => prefix.prefixIndex)) + 1
     );
     assert.ok(record.prefixes.every((prefix) => prefix.prefixIndex < record.stack.length));
+    assert.ok(record.prefixes.every((prefix) => prefix.basePredictedColor));
     assert.ok(record.process.unknownFields.includes('slicerToolpathFingerprint'));
 });
 

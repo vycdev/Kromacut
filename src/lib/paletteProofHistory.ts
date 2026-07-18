@@ -17,13 +17,26 @@ export interface PaletteProofHistorySummary {
 
 function completedRecords(
     appearance: AppearanceProfileV1 | undefined,
-    snapshotFingerprint: string,
-    allowedProofIds?: ReadonlySet<string>
+    snapshot: FinalPrintableStackSnapshot,
+    allowedProofIds?: ReadonlySet<string>,
+    filamentProfileFingerprint?: string
 ): PaletteProofRecord[] {
     if (!appearance) return [];
     return appearance.proofs
         .filter((record) => {
-            if (record.snapshotFingerprint !== snapshotFingerprint) return false;
+            if (
+                filamentProfileFingerprint &&
+                record.process.filamentProfileFingerprint !== filamentProfileFingerprint
+            ) {
+                return false;
+            }
+            const compatibleProcess =
+                record.process.layerHeight === snapshot.settings.layerHeight &&
+                record.process.firstLayerHeight === snapshot.settings.firstLayerHeight &&
+                record.process.transitionOpacity === snapshot.settings.transitionOpacity;
+            if (record.snapshotFingerprint !== snapshot.fingerprint && !compatibleProcess) {
+                return false;
+            }
             if (allowedProofIds && !allowedProofIds.has(record.id)) return false;
             return getPaletteProofEvaluationState(appearance, record.id).complete;
         })
@@ -36,16 +49,19 @@ function completedRecords(
 export function buildPaletteProofHistory(
     appearance: AppearanceProfileV1 | undefined,
     snapshot: FinalPrintableStackSnapshot,
-    proofIds?: readonly string[]
+    proofIds?: readonly string[],
+    filamentProfileFingerprint?: string
 ): PaletteProofHistorySummary {
     const records = completedRecords(
         appearance,
-        snapshot.fingerprint,
-        proofIds ? new Set(proofIds) : undefined
+        snapshot,
+        proofIds ? new Set(proofIds) : undefined,
+        filamentProfileFingerprint
     );
     const priorTargetIds = new Set<string>();
     const testedByTarget = new Map<string, Set<string>>();
     const anchorByTarget = new Map<string, string>();
+    const unresolvedTargetIds = new Set<string>();
 
     for (const record of records) {
         const evaluation = getPaletteProofEvaluationState(appearance, record.id);
@@ -64,7 +80,12 @@ export function buildPaletteProofHistory(
             testedByTarget.set(column.targetMappingId, tested);
 
             const judgment = judgmentsByColumn.get(column.column);
+            if (judgment?.response === 'none') {
+                unresolvedTargetIds.add(column.targetMappingId);
+                continue;
+            }
             if (judgment?.response !== 'closest') continue;
+            unresolvedTargetIds.delete(column.targetMappingId);
             const anchorCellId = column.cellIds.find((cellId) =>
                 judgment.closestCellIds.includes(cellId)
             );
@@ -81,6 +102,9 @@ export function buildPaletteProofHistory(
         const testedStackKeys = testedByTarget.get(target.id);
         const priority = !priorTargetIds.has(target.id)
             ? 0
+            : unresolvedTargetIds.has(target.id) &&
+                (testedStackKeys?.size ?? 0) < snapshot.palette.length
+              ? -1
             : (testedStackKeys?.size ?? 0) < snapshot.palette.length
               ? 1
               : 2;

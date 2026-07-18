@@ -277,6 +277,10 @@ export default function ThreeDControls({
         optimizerAlgorithm,
         optimizerSeed,
         regionWeightingMode,
+        appearance:
+            profileManager.activeProfile && !profileManager.isDirty
+                ? profileManager.activeProfile.appearance
+                : undefined,
     });
     const autoPaintProgressPercent = Math.round(Math.max(0, Math.min(1, autoPaintProgress)) * 100);
 
