@@ -108,6 +108,12 @@ test('Palette Proof stays usable, persists results, and downloads its frozen 3MF
     await page
         .getByRole('option', { name: new RegExp(`8 targets / ${savedProofId!.slice(-8)}$`) })
         .click();
+    const savedProofDownload = dialog.getByTestId('download-palette-proof');
+    await expect(savedProofDownload).toBeEnabled();
+    const savedProofDownloadPromise = page.waitForEvent('download');
+    await savedProofDownload.click();
+    const savedProofFile = await savedProofDownloadPromise;
+    expect(savedProofFile.suggestedFilename()).toContain(savedProofId!.slice(-8));
 
     await dialog.getByRole('tab', { name: /Results/ }).click();
     await expect(dialog.getByText('0/8 targets answered')).toBeVisible();

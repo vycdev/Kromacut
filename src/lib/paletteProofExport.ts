@@ -41,17 +41,25 @@ export function buildPaletteProofPrintInstructions(
     assertValidProof(snapshot, spec);
     const maxPrefixIndex = Math.max(...spec.cells.map((cell) => cell.prefixIndex));
     const usedLayers = snapshot.layers.slice(0, maxPrefixIndex + 1);
+    const reinforcementLayers = spec.layout.reinforcementLayers ?? 0;
     const lines = [
         'Kromacut Palette Proof Print Instructions',
         '------------------------------------------',
         `Proof ID: ${spec.id}`,
         `Final stack: ${snapshot.fingerprint}`,
         `Coupon size: ${spec.layout.widthMm.toFixed(1)} x ${spec.layout.heightMm.toFixed(1)} mm`,
-        'Sample spacing: touching (no gaps)',
+        `Sample spacing: ${
+            spec.layout.gapMm === 0
+                ? 'touching (no gaps)'
+                : `${spec.layout.gapMm.toFixed(1)} mm gaps`
+        }`,
         `Corner radius: ${spec.layout.cornerRadiusMm.toFixed(1)} mm`,
         `Layer height: ${snapshot.settings.layerHeight.toFixed(3)} mm`,
         `First layer height: ${snapshot.settings.firstLayerHeight.toFixed(3)} mm`,
         `Printed layers: ${usedLayers.length}`,
+        ...(reinforcementLayers > 0
+            ? [`Reinforcement grid: ${reinforcementLayers} layer(s) above the first layer`]
+            : []),
         '',
         'Slicer setup:',
         '- Keep the coupon face-up and at 100% scale.',
@@ -59,7 +67,13 @@ export function buildPaletteProofPrintInstructions(
         '- Confirm every 3MF layer part is assigned to the matching physical filament.',
         '- The missing corner is the top-left marker in the Kromacut patch map.',
         '- The target color row is screen-only and is not printed.',
-        '- Touching active cells are joined per layer; every sample keeps its exact stack height.',
+        ...(reinforcementLayers > 0
+            ? [
+                  '- Reinforcement occupies only margins and trenches; sample squares keep their exact stacks.',
+              ]
+            : [
+                  '- Touching active cells are joined per layer; every sample keeps its exact stack height.',
+              ]),
         '',
         'Physical sequence:',
     ];

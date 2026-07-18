@@ -163,7 +163,8 @@ export default function PaletteProofPanel({
     const selectedRecord = savedById.get(selectedProofId);
     const selectedSpec =
         selectedRecord?.proof ?? (currentSpec?.id === selectedProofId ? currentSpec : null);
-    const selectedSnapshot = currentSpec?.id === selectedProofId ? snapshot : undefined;
+    const selectedSnapshot =
+        selectedSpec?.snapshotFingerprint === snapshot?.fingerprint ? snapshot : undefined;
     const isSelectedCurrent = currentSpec?.id === selectedProofId;
     const canTrack = Boolean(profile && !profileDirty);
     const evaluation = selectedRecord
@@ -195,23 +196,23 @@ export default function PaletteProofPanel({
     }, [selectedRecord, selectedSnapshot]);
 
     const handleDownload = async () => {
-        if (!currentSpec?.comparisonEnabled || !snapshot || isExporting) return;
+        if (!selectedSpec?.comparisonEnabled || !selectedSnapshot || isExporting) return;
         setIsExporting(true);
         setExportError(null);
         setActionError(null);
         setSaved(false);
 
         try {
-            const blob = await exportPaletteProof3MF(snapshot, currentSpec);
+            const blob = await exportPaletteProof3MF(selectedSnapshot, selectedSpec);
             const result = await saveBlobToFile(blob, {
-                defaultFileName: `kromacut-palette-proof-${currentSpec.id.slice(-8)}.3mf`,
+                defaultFileName: `kromacut-palette-proof-${selectedSpec.id.slice(-8)}.3mf`,
                 extension: '3mf',
                 filterName: 'Palette Proof 3MF',
             });
             setSaved(result !== null);
-            if (result !== null && onRegisterProof) {
+            if (result !== null && !selectedRecord && onRegisterProof) {
                 try {
-                    onRegisterProof(snapshot, currentSpec);
+                    onRegisterProof(selectedSnapshot, selectedSpec);
                 } catch (error) {
                     setActionError(
                         `3MF saved, but results cannot be tracked: ${
@@ -359,27 +360,29 @@ export default function PaletteProofPanel({
                         candidates
                     </p>
                 </div>
-                {currentSpec && isSelectedCurrent && (
-                    <Button
-                        size="sm"
-                        variant="outline"
-                        className="ml-auto h-8 shrink-0 px-2.5 text-xs max-[480px]:ml-0 max-[480px]:w-8 max-[480px]:px-0"
-                        disabled={!currentSpec.comparisonEnabled || isExporting}
-                        onClick={handleDownload}
-                        data-testid="download-palette-proof"
-                        title="Download Palette Proof 3MF"
-                        aria-label="Download Palette Proof 3MF"
-                    >
-                        {isExporting ? (
-                            <Loader2 className="h-3.5 w-3.5 animate-spin min-[481px]:mr-1.5" />
-                        ) : (
-                            <Download className="h-3.5 w-3.5 min-[481px]:mr-1.5" />
-                        )}
-                        <span className="max-[480px]:sr-only">
-                            {isExporting ? 'Building...' : 'Download 3MF'}
-                        </span>
-                    </Button>
-                )}
+                <Button
+                    size="sm"
+                    variant="outline"
+                    className="ml-auto h-8 shrink-0 px-2.5 text-xs max-[480px]:ml-0 max-[480px]:w-8 max-[480px]:px-0"
+                    disabled={!selectedSpec.comparisonEnabled || !selectedSnapshot || isExporting}
+                    onClick={handleDownload}
+                    data-testid="download-palette-proof"
+                    title={
+                        selectedSnapshot
+                            ? 'Download Palette Proof 3MF'
+                            : 'Rebuild this proof\'s source Auto-paint result to download it again'
+                    }
+                    aria-label="Download Palette Proof 3MF"
+                >
+                    {isExporting ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin min-[481px]:mr-1.5" />
+                    ) : (
+                        <Download className="h-3.5 w-3.5 min-[481px]:mr-1.5" />
+                    )}
+                    <span className="max-[480px]:sr-only">
+                        {isExporting ? 'Building...' : 'Download 3MF'}
+                    </span>
+                </Button>
                 {selectedRecord && !evaluation?.complete && (
                     <Button
                         size="icon"
