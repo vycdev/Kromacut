@@ -29,11 +29,30 @@ test('Palette Proof stays usable, persists results, and downloads its frozen 3MF
     await page.getByRole('button', { name: 'Calibrate Filaments' }).click();
     const dialog = page.getByRole('alertdialog');
     await expect(dialog).toBeVisible();
+    const closeBounds = await dialog
+        .getByRole('button', { name: 'Close calibration dialog' })
+        .boundingBox();
+    const surfaceTabsBounds = await dialog.getByTestId('calibration-surface-tabs').boundingBox();
+    expect(closeBounds).not.toBeNull();
+    expect(surfaceTabsBounds).not.toBeNull();
+    expect(surfaceTabsBounds!.x + surfaceTabsBounds!.width).toBeLessThanOrEqual(closeBounds!.x);
     await dialog.getByRole('tab', { name: 'Palette Proof' }).click();
     const panel = dialog.getByTestId('palette-proof-panel');
     await expect(panel).toBeVisible();
     await expect(page.getByLabel('Target 1', { exact: false })).toBeVisible();
     await expect(page.getByLabel('A1', { exact: true })).toBeVisible();
+
+    await dialog.getByRole('combobox', { name: 'Palette Proof target count' }).click();
+    await page.getByRole('option', { name: '3', exact: true }).click();
+    await dialog.getByRole('combobox', { name: 'Palette Proof candidate count' }).click();
+    await page.getByRole('option', { name: '2', exact: true }).click();
+    await expect(panel.getByText('30 x 21 mm / 3 targets / 2 candidates')).toBeVisible();
+
+    await dialog.getByRole('combobox', { name: 'Palette Proof target count' }).click();
+    await page.getByRole('option', { name: '8', exact: true }).click();
+    await dialog.getByRole('combobox', { name: 'Palette Proof candidate count' }).click();
+    await page.getByRole('option', { name: '5', exact: true }).click();
+    await expect(panel.getByText('75 x 48 mm / 8 targets / 5 candidates')).toBeVisible();
     await panel.scrollIntoViewIfNeeded();
     await page.screenshot({ path: testInfo.outputPath('palette-proof-desktop.png') });
 
@@ -89,7 +108,9 @@ test('Palette Proof stays usable, persists results, and downloads its frozen 3MF
     );
     const previewToolbarZIndex = await page
         .getByTestId('preview-render-mode-trigger')
-        .evaluate((element) => Number.parseInt(getComputedStyle(element.parentElement!).zIndex, 10));
+        .evaluate((element) =>
+            Number.parseInt(getComputedStyle(element.parentElement!).zIndex, 10)
+        );
     expect(dialogZIndex).toBeGreaterThan(previewToolbarZIndex);
     expect(
         await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)

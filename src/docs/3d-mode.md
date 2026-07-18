@@ -145,11 +145,11 @@ Low confidence usually means you should calibrate filaments, add a missing filam
 
 ## Palette Proof
 
-After Auto-paint produces at least two printable stack prefixes, open **Calibrate Filaments** and select the **Palette Proof** tab. Its top `T` row shows important image targets on screen. Rows `A` through `E` show up to five reachable physical stack prefixes for each target. A dashed `F` cell points to the shared foundation margin instead of creating a duplicate first-layer patch.
+After Auto-paint produces at least two printable stack prefixes, open **Calibrate Filaments** and select the **Palette Proof** tab. Choose how many image **Targets** and physical stack **Candidates** to compare. Its top `T` row shows the selected important image targets on screen. Rows `A` through `E` show the selected number of reachable physical stack prefixes for each target. A dashed `F` cell points to the shared foundation margin instead of creating a duplicate first-layer patch.
 
 ![The Palette Proof target row and candidate matrix, plus a cross-section of candidates stopping at different reachable stack prefixes over one continuous foundation.](09_palette_proof.svg)
 
-Choose **Download 3MF** to generate the default 75 x 48 mm coupon. It uses 8 mm patches, 1 mm trenches, 2 mm margins, 1.2 mm rounded corners, and a 2 mm missing top-left corner for orientation. The first physical layer is one continuous foundation; later layers cover only candidates that continue to that prefix, so the coupon remains one connected print.
+Choose **Download 3MF** to generate the coupon. The default 8-target, 5-candidate layout is 75 x 48 mm; reducing either count makes a smaller proof. It uses 8 mm patches, 1 mm trenches, 2 mm margins, 1.2 mm rounded corners, and a 2 mm missing top-left corner for orientation. The first physical layer is one continuous foundation; later layers cover only candidates that continue to that prefix, so the coupon remains one connected print.
 
 The 3MF contains one part per physical layer with the final Auto-paint filament assignments. It also embeds `palette-proof.json` and `palette-proof-instructions.txt` under its `Metadata` folder so the printed coupon stays tied to the exact stack snapshot and patch IDs that generated it. Keep the model face-up at 100% scale, use the layer heights shown in the instructions, confirm filament assignments in the slicer, and compare the printed candidates under your normal viewing light.
 

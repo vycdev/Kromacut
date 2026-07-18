@@ -37,10 +37,7 @@ import {
 import { cn } from '@/lib/utils';
 import { openDocsAt } from '@/lib/docs/navigation';
 import type { Filament, FinalPrintableStackSnapshot } from '../types';
-import type {
-    PaletteProofRecord,
-    PaletteTargetResponse,
-} from '../lib/appearanceProfile';
+import type { PaletteProofRecord, PaletteTargetResponse } from '../lib/appearanceProfile';
 import type { PaletteProofSpec } from '../lib/paletteProof';
 import type { AutoPaintProfile } from '../lib/profileManager';
 import PaletteProofPanel from './PaletteProofPanel';
@@ -1306,13 +1303,17 @@ export function FilamentCalibrationDialog({
                     <X className="h-4 w-4" />
                 </Button>
                 <Tabs
+                    className="pr-10"
                     value={calibrationSurface}
                     onValueChange={(value) => {
                         setCalibrationSurface(value as CalibrationSurface);
                         setStep('select');
                     }}
                 >
-                    <TabsList className="grid w-full grid-cols-2">
+                    <TabsList
+                        className="grid w-full grid-cols-2"
+                        data-testid="calibration-surface-tabs"
+                    >
                         <TabsTrigger value="hiding-distance" className="gap-1.5">
                             <FlaskConical className="h-4 w-4" />
                             Hiding Distance

@@ -17,7 +17,14 @@ import {
     type PaletteProofRecord,
     type PaletteTargetResponse,
 } from '../lib/appearanceProfile';
-import { buildPaletteProofSpec, type PaletteProofSpec } from '../lib/paletteProof';
+import {
+    buildPaletteProofSpec,
+    PALETTE_PROOF_DEFAULT_TARGETS,
+    PALETTE_PROOF_MAX_CANDIDATES,
+    PALETTE_PROOF_MAX_TARGETS,
+    PALETTE_PROOF_MIN_CANDIDATES,
+    type PaletteProofSpec,
+} from '../lib/paletteProof';
 import { exportPaletteProof3MF } from '../lib/paletteProofExport';
 import type { AutoPaintProfile } from '../lib/profileManager';
 import type { FinalPrintableStackSnapshot } from '../types/appearance';
@@ -67,17 +74,39 @@ export default function PaletteProofPanel({
     onCompleteEvaluation,
     onReopenEvaluation,
 }: PaletteProofPanelProps) {
+    const [requestedTargetCount, setRequestedTargetCount] = useState(PALETTE_PROOF_DEFAULT_TARGETS);
+    const [requestedCandidateCount, setRequestedCandidateCount] = useState(
+        PALETTE_PROOF_MAX_CANDIDATES
+    );
+    const maximumTargetCount = Math.min(
+        PALETTE_PROOF_MAX_TARGETS,
+        snapshot?.targetMappings.length ?? 0
+    );
+    const maximumCandidateCount = Math.min(
+        PALETTE_PROOF_MAX_CANDIDATES,
+        snapshot?.palette.length ?? 0
+    );
+    const targetCount = Math.min(requestedTargetCount, maximumTargetCount);
+    const minimumCandidateCount =
+        maximumCandidateCount >= 2 ? PALETTE_PROOF_MIN_CANDIDATES : maximumCandidateCount;
+    const candidateCount = Math.max(
+        minimumCandidateCount,
+        Math.min(requestedCandidateCount, maximumCandidateCount)
+    );
     const currentProofState = useMemo(() => {
         if (!snapshot) return { spec: null, error: null };
         try {
-            return { spec: buildPaletteProofSpec(snapshot), error: null };
+            return {
+                spec: buildPaletteProofSpec(snapshot, { targetCount, candidateCount }),
+                error: null,
+            };
         } catch (error) {
             return {
                 spec: null,
                 error: error instanceof Error ? error.message : 'Could not build Palette Proof',
             };
         }
-    }, [snapshot]);
+    }, [candidateCount, snapshot, targetCount]);
     const savedProofs = useMemo(
         () =>
             [...(profile?.appearance?.proofs ?? [])].sort((left, right) =>
@@ -108,8 +137,8 @@ export default function PaletteProofPanel({
     }, [currentSpec, savedById, savedProofs]);
 
     const selectedRecord = savedById.get(selectedProofId);
-    const selectedSpec = selectedRecord?.proof ??
-        (currentSpec?.id === selectedProofId ? currentSpec : null);
+    const selectedSpec =
+        selectedRecord?.proof ?? (currentSpec?.id === selectedProofId ? currentSpec : null);
     const selectedSnapshot = currentSpec?.id === selectedProofId ? snapshot : undefined;
     const isSelectedCurrent = currentSpec?.id === selectedProofId;
     const canTrack = Boolean(profile && !profileDirty);
@@ -122,9 +151,7 @@ export default function PaletteProofPanel({
     );
     const cellsByCoordinate = useMemo(
         () =>
-            new Map(
-                selectedSpec?.cells.map((cell) => [`${cell.row}:${cell.column}`, cell]) ?? []
-            ),
+            new Map(selectedSpec?.cells.map((cell) => [`${cell.row}:${cell.column}`, cell]) ?? []),
         [selectedSpec]
     );
     const prefixesByKey = useMemo(() => {
@@ -198,9 +225,7 @@ export default function PaletteProofPanel({
             onSetTargetResponse(
                 selectedRecord.id,
                 column,
-                closestCellIds.length > 0
-                    ? { response: 'closest', closestCellIds }
-                    : null
+                closestCellIds.length > 0 ? { response: 'closest', closestCellIds } : null
             )
         );
     };
@@ -260,6 +285,14 @@ export default function PaletteProofPanel({
             label: proofLabel(record, record.id === currentSpec?.id),
         })),
     ];
+    const targetCountOptions = Array.from({ length: maximumTargetCount }, (_, index) => index + 1);
+    const candidateCountOptions =
+        maximumCandidateCount === 1
+            ? [1]
+            : Array.from(
+                  { length: Math.max(0, maximumCandidateCount - PALETTE_PROOF_MIN_CANDIDATES + 1) },
+                  (_, index) => index + PALETTE_PROOF_MIN_CANDIDATES
+              );
 
     return (
         <section
@@ -277,7 +310,7 @@ export default function PaletteProofPanel({
                         candidates
                     </p>
                 </div>
-                {currentSpec && (
+                {currentSpec && isSelectedCurrent && (
                     <Button
                         size="sm"
                         variant="outline"
@@ -320,6 +353,62 @@ export default function PaletteProofPanel({
                         ))}
                     </SelectContent>
                 </Select>
+            )}
+
+            {currentSpec && isSelectedCurrent && targetCountOptions.length > 0 && (
+                <div className="grid grid-cols-2 gap-2" data-testid="palette-proof-size-controls">
+                    <label className="space-y-1 text-[10px] font-medium text-muted-foreground">
+                        Targets
+                        <Select
+                            value={String(targetCount)}
+                            onValueChange={(value) => setRequestedTargetCount(Number(value))}
+                        >
+                            <SelectTrigger
+                                className="mt-1 h-8 text-xs text-foreground"
+                                aria-label="Palette Proof target count"
+                            >
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {targetCountOptions.map((count) => (
+                                    <SelectItem
+                                        key={count}
+                                        value={String(count)}
+                                        className="text-xs"
+                                    >
+                                        {count}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </label>
+                    <label className="space-y-1 text-[10px] font-medium text-muted-foreground">
+                        Candidates
+                        <Select
+                            value={String(candidateCount)}
+                            onValueChange={(value) => setRequestedCandidateCount(Number(value))}
+                            disabled={candidateCountOptions.length <= 1}
+                        >
+                            <SelectTrigger
+                                className="mt-1 h-8 text-xs text-foreground"
+                                aria-label="Palette Proof candidate count"
+                            >
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {candidateCountOptions.map((count) => (
+                                    <SelectItem
+                                        key={count}
+                                        value={String(count)}
+                                        className="text-xs"
+                                    >
+                                        {count}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </label>
+                </div>
             )}
 
             <Tabs value={view} onValueChange={(value) => setView(value as PanelView)}>
@@ -398,9 +487,7 @@ export default function PaletteProofPanel({
                                                     ? `${cell.id}: prefix ${cell.prefixIndex + 1}, ${
                                                           cell.candidateRole
                                                       }${
-                                                          isFoundation
-                                                              ? ' (foundation margin)'
-                                                              : ''
+                                                          isFoundation ? ' (foundation margin)' : ''
                                                       }`
                                                     : undefined
                                             }
@@ -447,8 +534,8 @@ export default function PaletteProofPanel({
                         <>
                             <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
                                 <span className="tabular-nums">
-                                    {evaluation?.answeredColumns ?? 0}/{evaluation?.totalColumns ?? 0}{' '}
-                                    targets answered
+                                    {evaluation?.answeredColumns ?? 0}/
+                                    {evaluation?.totalColumns ?? 0} targets answered
                                 </span>
                                 {evaluation?.complete && (
                                     <span className="ml-auto inline-flex items-center gap-1 text-green-600 dark:text-green-400">
@@ -494,9 +581,7 @@ export default function PaletteProofPanel({
                                                         (candidate) => candidate.id === cellId
                                                     );
                                                     const color = cell
-                                                        ? prefixesByKey.get(
-                                                              cell.canonicalStackKey
-                                                          )
+                                                        ? prefixesByKey.get(cell.canonicalStackKey)
                                                         : undefined;
                                                     const selected =
                                                         judgment?.response === 'closest' &&
@@ -550,9 +635,7 @@ export default function PaletteProofPanel({
                                                 <button
                                                     type="button"
                                                     disabled={!canTrack || evaluation?.complete}
-                                                    onClick={() =>
-                                                        handleNoneToggle(column.column)
-                                                    }
+                                                    onClick={() => handleNoneToggle(column.column)}
                                                     className={cn(
                                                         'h-10 rounded border px-1 text-[9px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60',
                                                         judgment?.response === 'none'
@@ -571,8 +654,8 @@ export default function PaletteProofPanel({
 
                             <div className="flex flex-wrap items-center gap-2">
                                 <p className="text-[9px] text-muted-foreground">
-                                    Select every printed patch tied for closest. Results are evidence
-                                    only; preview colors remain unchanged.
+                                    Select every printed patch tied for closest. Results are
+                                    evidence only; preview colors remain unchanged.
                                 </p>
                                 {evaluation?.complete ? (
                                     <Button

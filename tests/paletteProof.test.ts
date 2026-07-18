@@ -39,6 +39,20 @@ test('default target-column footprint is 75 x 48 mm', async () => {
     assert.deepEqual(calculatePaletteProofFootprint(0, 5), { widthMm: 0, heightMm: 0 });
 });
 
+test('requested target and candidate counts resize the proof matrix', async () => {
+    const { buildPaletteProofSpec } = await loadPaletteProofModule();
+    const spec = buildPaletteProofSpec(buildPaletteProofSnapshot(6, 8), {
+        targetCount: 3,
+        candidateCount: 2,
+    });
+
+    assert.equal(spec.layout.columnCount, 3);
+    assert.equal(spec.layout.rowCount, 2);
+    assert.equal(spec.layout.widthMm, 30);
+    assert.equal(spec.layout.heightMm, 21);
+    assert.equal(spec.cells.length, 6);
+});
+
 test('final stack exposes exactly one non-empty prefix per physical layer', async () => {
     const { enumerateFinalStackPrefixes } = await loadPaletteProofModule();
     const snapshot = buildPaletteProofSnapshot(7);
@@ -81,6 +95,25 @@ test('candidate selection keeps unique neighbors and deterministic boundary fall
             (candidate) =>
                 candidate.role === 'fallback' && candidate.replacesRole === 'lower-neighbor'
         )
+    );
+});
+
+test('candidate selection honors bounded proof row counts', async () => {
+    const { enumerateFinalStackPrefixes, selectPrefixCandidates } = await loadPaletteProofModule();
+    const snapshot = buildPaletteProofSnapshot(6);
+    const prefixes = enumerateFinalStackPrefixes(snapshot);
+
+    assert.equal(
+        selectPrefixCandidates(snapshot.targetMappings[2], prefixes, undefined, 2).length,
+        2
+    );
+    assert.equal(
+        selectPrefixCandidates(snapshot.targetMappings[2], prefixes, undefined, 99).length,
+        5
+    );
+    assert.equal(
+        selectPrefixCandidates(snapshot.targetMappings[2], prefixes, undefined, 1).length,
+        2
     );
 });
 

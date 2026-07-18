@@ -15,6 +15,7 @@ export const PALETTE_PROOF_NOTCH_SIZE_MM = 2;
 export const PALETTE_PROOF_CORNER_RADIUS_MM = CALIBRATION_CORNER_RADIUS_MM;
 export const PALETTE_PROOF_DEFAULT_TARGETS = 8;
 export const PALETTE_PROOF_MAX_TARGETS = 10;
+export const PALETTE_PROOF_MIN_CANDIDATES = 2;
 export const PALETTE_PROOF_MAX_CANDIDATES = 5;
 
 export type PaletteProofCandidateRole =
@@ -294,7 +295,8 @@ function spreadUnusedPrefix(
 export function selectPrefixCandidates(
     target: FinalStackTargetMappingSnapshot,
     prefixes: PaletteProofPrefix[],
-    evidence?: PaletteProofEvidenceScores
+    evidence?: PaletteProofEvidenceScores,
+    requestedCount: number = PALETTE_PROOF_MAX_CANDIDATES
 ): PaletteProofCandidate[] {
     if (prefixes.length === 0) return [];
     if (target.paletteIndex < 0 || target.paletteIndex >= prefixes.length) {
@@ -310,7 +312,12 @@ export function selectPrefixCandidates(
         )
     );
 
-    const desiredCount = Math.min(PALETTE_PROOF_MAX_CANDIDATES, prefixes.length);
+    const minimumCount = prefixes.length >= 2 ? PALETTE_PROOF_MIN_CANDIDATES : 1;
+    const desiredCount = Math.min(
+        PALETTE_PROOF_MAX_CANDIDATES,
+        prefixes.length,
+        Math.max(minimumCount, Math.floor(requestedCount))
+    );
     const selected: PaletteProofCandidate[] = [];
     const used = new Set<string>();
     const missingNeighbors: Array<'lower-neighbor' | 'upper-neighbor'> = [];
@@ -359,6 +366,7 @@ export function buildPaletteProofSpec(
     snapshot: FinalPrintableStackSnapshot,
     options: {
         targetCount?: number;
+        candidateCount?: number;
         evidence?: PaletteProofEvidenceScores;
     } = {}
 ): PaletteProofSpec {
@@ -367,7 +375,15 @@ export function buildPaletteProofSpec(
         snapshot,
         options.targetCount ?? PALETTE_PROOF_DEFAULT_TARGETS
     );
-    const rowCount = Math.min(PALETTE_PROOF_MAX_CANDIDATES, prefixes.length);
+    const minimumCandidateCount = prefixes.length >= 2 ? PALETTE_PROOF_MIN_CANDIDATES : 1;
+    const rowCount = Math.min(
+        PALETTE_PROOF_MAX_CANDIDATES,
+        prefixes.length,
+        Math.max(
+            minimumCandidateCount,
+            Math.floor(options.candidateCount ?? PALETTE_PROOF_MAX_CANDIDATES)
+        )
+    );
     const columnCount = targets.length;
     const footprint = calculatePaletteProofFootprint(columnCount, rowCount);
     const cells: PaletteProofCell[] = [];
@@ -377,7 +393,7 @@ export function buildPaletteProofSpec(
 
     for (let column = 0; column < targets.length; column++) {
         const target = targets[column];
-        const candidates = selectPrefixCandidates(target, prefixes, options.evidence);
+        const candidates = selectPrefixCandidates(target, prefixes, options.evidence, rowCount);
         const cellIds: string[] = [];
 
         for (let row = 0; row < candidates.length; row++) {
