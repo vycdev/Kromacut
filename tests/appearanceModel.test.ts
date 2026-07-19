@@ -126,7 +126,10 @@ function shiftedProofSnapshot(group: number): FinalPrintableStackSnapshot {
     };
 }
 
-async function buildSyntheticAppearance(response: 'closest' | 'none') {
+async function buildSyntheticAppearance(
+    response: 'closest' | 'none',
+    targetCounts: readonly number[] = [10, 10, 10]
+) {
     const {
         buildPaletteProofRecord,
         completePaletteProofEvaluation,
@@ -137,9 +140,12 @@ async function buildSyntheticAppearance(response: 'closest' | 'none') {
     const { buildPaletteProofSpec } = (await modules).proof;
     let appearance = createEmptyAppearanceProfile();
 
-    for (let group = 0; group < 3; group++) {
+    for (let group = 0; group < targetCounts.length; group++) {
         const snapshot = shiftedProofSnapshot(group);
-        const proof = buildPaletteProofSpec(snapshot, { targetCount: 10, candidateCount: 5 });
+        const proof = buildPaletteProofSpec(snapshot, {
+            targetCount: targetCounts[group],
+            candidateCount: 5,
+        });
         const timestamp = `2026-07-1${group + 1}T12:00:00.000Z`;
         appearance = upsertPaletteProofRecord(
             appearance,
@@ -213,8 +219,25 @@ test('appearance fit is deterministic and only applies after held-out improvemen
     assert.ok(first.deltaL > 0);
     assert.ok(first.fittedAgreement >= 0.7);
     assert.ok(first.fittedAgreement >= first.baselineAgreement + 0.1);
-    assert.ok(first.heldOutCount >= 2);
+    assert.equal(first.trainingObservationCount, 20);
+    assert.ok(first.trainingDistinctStackCount >= 8);
+    assert.equal(first.heldOutCount, 10);
+    assert.ok(first.heldOutDistinctStackCount >= 2);
     assert.deepEqual(second, first);
+});
+
+test('held-out split chooses the proof closest to the validation target', async () => {
+    const { model, profile } = await modules;
+    const appearance = await buildSyntheticAppearance('closest', [10, 2]);
+    const fitted = model.fitAppearanceRankModel(appearance, {
+        filamentProfileFingerprint: profile.fingerprintAppearanceFilaments(filaments),
+        layerHeight: 0.08,
+        firstLayerHeight: 0.16,
+        transitionOpacity: 0.9,
+    });
+
+    assert.equal(fitted.trainingObservationCount, 10);
+    assert.equal(fitted.heldOutCount, 2);
 });
 
 test('none answers add uncertainty but never direct the fitted correction', async () => {
@@ -233,8 +256,11 @@ test('none answers add uncertainty but never direct the fitted correction', asyn
     assert.equal(model.deltaL, 0);
     assert.equal(model.logChromaScale, 0);
     assert.equal(model.observationCount, 0);
+    assert.equal(model.trainingObservationCount, 0);
+    assert.equal(model.trainingDistinctStackCount, 0);
     assert.equal(model.noneCount, 30);
     assert.ok(model.comparedStackKeys.length >= 8);
+    assert.ok(model.distinctStackCount >= 8);
 });
 
 test('appearance evidence does not transfer across a changed print process', async () => {

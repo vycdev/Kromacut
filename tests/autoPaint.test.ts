@@ -769,8 +769,11 @@ test('a fitted appearance model changes preview colors without changing physical
         deltaL: 4,
         confidence: 0.8,
         observationCount: 20,
+        trainingObservationCount: 16,
+        trainingDistinctStackCount: 8,
         distinctStackCount: 10,
         heldOutCount: 4,
+        heldOutDistinctStackCount: 4,
         baselineAgreement: 0.5,
         fittedAgreement: 0.8,
     };

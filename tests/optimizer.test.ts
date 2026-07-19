@@ -225,7 +225,7 @@ test('cache keys include all weighted clusters and optimizer tuning', async () =
 
     const appearanceModel = {
         schemaVersion: 1 as const,
-        modelVersion: 'lab-rank-global-v1' as const,
+        modelVersion: 'lab-rank-global-v2' as const,
         fingerprint: 'appearance-fit-a',
         contextFingerprint: 'appearance-context',
         applied: true,
@@ -234,9 +234,12 @@ test('cache keys include all weighted clusters and optimizer tuning', async () =
         logChromaScale: 0,
         confidence: 0.8,
         observationCount: 20,
+        trainingObservationCount: 16,
+        trainingDistinctStackCount: 8,
         noneCount: 0,
         distinctStackCount: 10,
         heldOutCount: 4,
+        heldOutDistinctStackCount: 4,
         baselineAgreement: 0.5,
         fittedAgreement: 0.8,
         sourceProofIds: ['proof-a'],

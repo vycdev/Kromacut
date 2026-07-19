@@ -28,13 +28,13 @@ interface RankObservation {
     winnerCellIds: Set<string>;
 }
 
-const MODEL_VERSION = 'lab-rank-global-v1' as const;
+const MODEL_VERSION = 'lab-rank-global-v2' as const;
 const SOFTMAX_TEMPERATURE = 5;
 const TIE_LOGIT_PENALTY = 0.5;
 const LIGHTNESS_PRIOR_SIGMA = 2;
 const CHROMA_PRIOR_SIGMA = 0.05;
-const MIN_OBSERVATIONS = 8;
-const MIN_DISTINCT_STACKS = 8;
+const MIN_TRAINING_OBSERVATIONS = 8;
+const MIN_TRAINING_DISTINCT_STACKS = 8;
 const MIN_HELD_OUT = 2;
 const MIN_HELD_OUT_AGREEMENT = 0.7;
 const MIN_HELD_OUT_IMPROVEMENT = 0.1;
@@ -55,7 +55,7 @@ export function createIdentityAppearanceRankModel(
     return {
         schemaVersion: 1,
         modelVersion: MODEL_VERSION,
-        fingerprint: fingerprintJson('appearance-rank-model-v1', payload),
+        fingerprint: fingerprintJson('appearance-rank-model-v2', payload),
         contextFingerprint,
         applied: false,
         gateReason: 'insufficient-evidence',
@@ -63,9 +63,12 @@ export function createIdentityAppearanceRankModel(
         logChromaScale: 0,
         confidence: 0,
         observationCount: 0,
+        trainingObservationCount: 0,
+        trainingDistinctStackCount: 0,
         noneCount: 0,
         distinctStackCount: 0,
         heldOutCount: 0,
+        heldOutDistinctStackCount: 0,
         baselineAgreement: 0,
         fittedAgreement: 0,
         sourceProofIds: [],
@@ -131,9 +134,7 @@ function collectObservations(
                     return {
                         cellId,
                         stackKey: cell.canonicalStackKey,
-                        baseLab: colorLab(
-                            (prefix.basePredictedColor ?? prefix.predictedColor).rgb
-                        ),
+                        baseLab: colorLab((prefix.basePredictedColor ?? prefix.predictedColor).rgb),
                     };
                 })
                 .filter((candidate): candidate is RankCandidate => candidate !== null);
@@ -199,20 +200,14 @@ function observationLoss(
         )
         .filter((logit): logit is number => logit !== null);
     const selectedMean =
-        selectedLogits.reduce((sum, logit) => sum + logit, 0) /
-        Math.max(1, selectedLogits.length);
+        selectedLogits.reduce((sum, logit) => sum + logit, 0) / Math.max(1, selectedLogits.length);
     const tiePenalty =
         selectedLogits.length > 1
-            ? TIE_LOGIT_PENALTY *
-              selectedLogits.reduce(
-                  (sum, logit) => sum + (logit - selectedMean) ** 2,
-                  0
-              ) /
+            ? (TIE_LOGIT_PENALTY *
+                  selectedLogits.reduce((sum, logit) => sum + (logit - selectedMean) ** 2, 0)) /
               selectedLogits.length
             : 0;
-    return (
-        -Math.log(Math.max(1e-12, winnerMass / Math.max(1e-12, denominator))) + tiePenalty
-    );
+    return -Math.log(Math.max(1e-12, winnerMass / Math.max(1e-12, denominator))) + tiePenalty;
 }
 
 function objective(
@@ -275,20 +270,44 @@ function splitObservations(observations: readonly RankObservation[]): {
     proofIds.sort(
         (left, right) => stableHash32(left) - stableHash32(right) || left.localeCompare(right)
     );
-    const heldOutProofIds = new Set<string>();
+    const groups = proofIds.map((proofId) => ({
+        proofId,
+        observationCount: observations.filter((observation) => observation.proofId === proofId)
+            .length,
+    }));
     const desiredHeldOutCount = Math.max(MIN_HELD_OUT, Math.floor(observations.length * 0.2));
-    let heldOutCount = 0;
-    for (const proofId of proofIds.slice(0, -1)) {
-        heldOutProofIds.add(proofId);
-        heldOutCount += observations.filter(
-            (observation) => observation.proofId === proofId
-        ).length;
-        if (heldOutCount >= desiredHeldOutCount) break;
+    const subsetsByCount = new Map<number, string[]>([[0, []]]);
+    for (const group of groups) {
+        for (const [count, selectedProofIds] of [...subsetsByCount.entries()].reverse()) {
+            const nextCount = count + group.observationCount;
+            if (nextCount >= observations.length || subsetsByCount.has(nextCount)) continue;
+            subsetsByCount.set(nextCount, [...selectedProofIds, group.proofId]);
+        }
     }
+    const heldOutProofIds = new Set(
+        [...subsetsByCount.entries()]
+            .filter(([count]) => count > 0 && count < observations.length)
+            .sort(
+                ([leftCount, leftIds], [rightCount, rightIds]) =>
+                    Number(leftCount < MIN_HELD_OUT) - Number(rightCount < MIN_HELD_OUT) ||
+                    Math.abs(leftCount - desiredHeldOutCount) -
+                        Math.abs(rightCount - desiredHeldOutCount) ||
+                    leftCount - rightCount ||
+                    leftIds.join('\0').localeCompare(rightIds.join('\0'))
+            )[0]?.[1] ?? []
+    );
     return {
         training: observations.filter((observation) => !heldOutProofIds.has(observation.proofId)),
         heldOut: observations.filter((observation) => heldOutProofIds.has(observation.proofId)),
     };
+}
+
+function observationStackKeys(observations: readonly RankObservation[]): Set<string> {
+    return new Set(
+        observations.flatMap((observation) =>
+            observation.candidates.map((candidate) => candidate.stackKey)
+        )
+    );
 }
 
 export function fitAppearanceRankModel(
@@ -301,6 +320,8 @@ export function fitAppearanceRankModel(
         context
     );
     const { training, heldOut } = splitObservations(observations);
+    const trainingStackKeys = observationStackKeys(training);
+    const heldOutStackKeys = observationStackKeys(heldOut);
     let bestDeltaL = 0;
     let bestLogChromaScale = 0;
     let bestObjective = objective(training, 0, 0);
@@ -337,29 +358,30 @@ export function fitAppearanceRankModel(
 
     const baselineAgreement = agreement(heldOut, 0, 0);
     const fittedAgreement = agreement(heldOut, bestDeltaL, bestLogChromaScale);
-    const hasEvidence =
-        observations.length >= MIN_OBSERVATIONS &&
-        stackKeys.size >= MIN_DISTINCT_STACKS &&
-        heldOut.length >= MIN_HELD_OUT;
+    const hasTrainingEvidence =
+        training.length >= MIN_TRAINING_OBSERVATIONS &&
+        trainingStackKeys.size >= MIN_TRAINING_DISTINCT_STACKS;
+    const hasHeldOutEvidence = heldOut.length >= MIN_HELD_OUT;
     const improvesTraining = bestObjective < objective(training, 0, 0) - 1e-6;
     const heldOutImprovement = fittedAgreement - baselineAgreement;
     const applied =
-        hasEvidence &&
+        hasTrainingEvidence &&
+        hasHeldOutEvidence &&
         improvesTraining &&
         fittedAgreement >= MIN_HELD_OUT_AGREEMENT &&
         heldOutImprovement >= MIN_HELD_OUT_IMPROVEMENT;
-    const gateReason: AppearanceRankModelV1['gateReason'] = !hasEvidence
-        ? observations.length < MIN_OBSERVATIONS || stackKeys.size < MIN_DISTINCT_STACKS
-            ? 'insufficient-evidence'
-            : 'insufficient-heldout'
-        : !improvesTraining
-          ? 'no-training-improvement'
-          : fittedAgreement < MIN_HELD_OUT_AGREEMENT
-            ? 'heldout-below-threshold'
-            : heldOutImprovement < MIN_HELD_OUT_IMPROVEMENT
-              ? 'heldout-no-improvement'
-              : 'applied';
-    const evidenceStrength = Math.min(1, observations.length / 24);
+    const gateReason: AppearanceRankModelV1['gateReason'] = !hasTrainingEvidence
+        ? 'insufficient-evidence'
+        : !hasHeldOutEvidence
+          ? 'insufficient-heldout'
+          : !improvesTraining
+            ? 'no-training-improvement'
+            : fittedAgreement < MIN_HELD_OUT_AGREEMENT
+              ? 'heldout-below-threshold'
+              : heldOutImprovement < MIN_HELD_OUT_IMPROVEMENT
+                ? 'heldout-no-improvement'
+                : 'applied';
+    const evidenceStrength = Math.min(1, training.length / 24);
     const confidence = applied
         ? Math.max(
               0,
@@ -389,13 +411,15 @@ export function fitAppearanceRankModel(
             })),
             winnerCellIds: [...observation.winnerCellIds].sort(),
         })),
+        trainingObservationIds: training.map((observation) => observation.id),
+        heldOutObservationIds: heldOut.map((observation) => observation.id),
         noneJudgmentIds,
     };
 
     return {
         schemaVersion: 1,
         modelVersion: MODEL_VERSION,
-        fingerprint: fingerprintJson('appearance-rank-model-v1', fingerprintPayload),
+        fingerprint: fingerprintJson('appearance-rank-model-v2', fingerprintPayload),
         contextFingerprint,
         applied,
         gateReason,
@@ -403,9 +427,12 @@ export function fitAppearanceRankModel(
         logChromaScale: resolvedLogChromaScale,
         confidence,
         observationCount: observations.length,
+        trainingObservationCount: training.length,
+        trainingDistinctStackCount: trainingStackKeys.size,
         noneCount,
         distinctStackCount: stackKeys.size,
         heldOutCount: heldOut.length,
+        heldOutDistinctStackCount: heldOutStackKeys.size,
         baselineAgreement,
         fittedAgreement,
         sourceProofIds: proofIds,

@@ -70,14 +70,16 @@ function AppearanceModelStat({ result }: { result: AutoPaintResult }) {
         .filter((mapping) => comparedStackKeys.has(mapping.canonicalStackKey))
         .reduce((sum, mapping) => sum + mapping.usageWeight, 0);
     const evidenceNeeds = [
-        model.observationCount < 8 ? `${8 - model.observationCount} more closest choices` : null,
-        model.distinctStackCount < 8
-            ? `${8 - model.distinctStackCount} more distinct stacks`
+        model.trainingObservationCount < 8
+            ? `${8 - model.trainingObservationCount} more training choices`
+            : null,
+        model.trainingDistinctStackCount < 8
+            ? `${8 - model.trainingDistinctStackCount} more training stacks`
             : null,
     ].filter((need): need is string => need !== null);
     const gateDetail =
         model.gateReason === 'insufficient-evidence'
-            ? evidenceNeeds.join(' · ')
+            ? evidenceNeeds.join(' / ')
             : model.gateReason === 'insufficient-heldout'
               ? 'Complete another proof for validation'
               : model.gateReason === 'no-training-improvement'
@@ -107,16 +109,21 @@ function AppearanceModelStat({ result }: { result: AutoPaintResult }) {
                 </span>
             </div>
             <div className="mt-0.5 text-muted-foreground">
-                {model.distinctStackCount} compared stacks {' · '}
-                {model.observationCount} choices {' · '}
+                {model.sourceProofIds.length} completed proofs {' / '}
+                {model.distinctStackCount} physically compared stacks {' / '}
                 {model.noneCount} no matches
-                {model.applied && (
-                    <>
-                        {' · '}
-                        {(comparedCoverage * 100).toFixed(0)}% current palette coverage
-                    </>
-                )}
             </div>
+            <div className="mt-0.5 text-muted-foreground">
+                {model.trainingObservationCount} training choices {' / '}
+                {model.trainingDistinctStackCount} training stacks {' / '}
+                {model.heldOutCount} held-out choices {' / '}
+                {model.heldOutDistinctStackCount} held-out stacks
+            </div>
+            {model.applied && (
+                <div className="mt-0.5 text-muted-foreground">
+                    {(comparedCoverage * 100).toFixed(0)}% current palette coverage
+                </div>
+            )}
             {gateDetail && (model.observationCount > 0 || model.noneCount > 0) && (
                 <div className="mt-0.5 text-muted-foreground">{gateDetail}</div>
             )}
