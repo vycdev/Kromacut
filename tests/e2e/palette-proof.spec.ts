@@ -64,6 +64,9 @@ test('Palette Proof stays usable, persists results, and downloads its frozen 3MF
     await expect(firstProofRow.getByLabel('A1', { exact: true })).toBeVisible();
     await expect(firstProofRow.getByLabel('B1', { exact: true })).toBeVisible();
     await expect(firstProofRow.getByLabel('A2', { exact: true })).toHaveCount(0);
+    const firstProofTargetIds = await panel
+        .locator('[data-target-mapping-id]')
+        .evaluateAll((rows) => rows.map((row) => row.getAttribute('data-target-mapping-id')));
     await panel.scrollIntoViewIfNeeded();
     await page.screenshot({ path: testInfo.outputPath('palette-proof-desktop.png') });
 
@@ -132,6 +135,25 @@ test('Palette Proof stays usable, persists results, and downloads its frozen 3MF
     await expect(dialog.getByText('Complete', { exact: true })).toBeVisible();
     await expect(dialog.getByRole('button', { name: 'Edit results', exact: true })).toBeVisible();
     await expect(dialog.getByRole('button', { name: 'Delete Palette Proof' })).toBeVisible();
+
+    await dialog.getByRole('combobox', { name: 'Palette Proof record' }).click();
+    await page.getByRole('option', { name: /^Next proof \/ least-tested targets/ }).click();
+    await expect(dialog.getByRole('tab', { name: 'Proof map' })).toHaveAttribute(
+        'data-state',
+        'active'
+    );
+    await dialog.getByRole('combobox', { name: 'Palette Proof target count' }).click();
+    await page.getByRole('option', { name: '8', exact: true }).click();
+    const nextProofTargetIds = await panel
+        .locator('[data-target-mapping-id]')
+        .evaluateAll((rows) => rows.map((row) => row.getAttribute('data-target-mapping-id')));
+    expect(nextProofTargetIds).not.toEqual(firstProofTargetIds);
+
+    await dialog.getByRole('combobox', { name: 'Palette Proof record' }).click();
+    await page
+        .getByRole('option', { name: new RegExp(`8 targets / ${savedProofId!.slice(-8)}$`) })
+        .click();
+    await dialog.getByRole('tab', { name: /Results/ }).click();
 
     const storedAppearance = await page.evaluate(() => {
         const profiles = JSON.parse(localStorage.getItem('kromacut.autopaint.profiles') ?? '[]');

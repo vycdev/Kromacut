@@ -130,21 +130,25 @@ export default function PaletteProofPanel({
                 : null,
         [compatibleAppearance, filamentProfileFingerprint, snapshot]
     );
-    const generationHistory = useMemo(
-        () =>
-            snapshot && proofGeneration.mode !== 'initial'
-                ? buildPaletteProofHistory(
-                      compatibleAppearance,
-                      snapshot,
-                      undefined,
-                      filamentProfileFingerprint,
-                      proofGeneration.mode === 'new-targets'
-                          ? new Set(proofGeneration.deprioritizedTargetIds)
-                          : undefined
-                  )
-                : null,
-        [compatibleAppearance, filamentProfileFingerprint, proofGeneration, snapshot]
-    );
+    const generationHistory = useMemo(() => {
+        if (!snapshot) return null;
+        if (proofGeneration.mode === 'initial') return allCompletedHistory;
+        return buildPaletteProofHistory(
+            compatibleAppearance,
+            snapshot,
+            undefined,
+            filamentProfileFingerprint,
+            proofGeneration.mode === 'new-targets'
+                ? new Set(proofGeneration.deprioritizedTargetIds)
+                : undefined
+        );
+    }, [
+        allCompletedHistory,
+        compatibleAppearance,
+        filamentProfileFingerprint,
+        proofGeneration,
+        snapshot,
+    ]);
     const currentProofState = useMemo(() => {
         if (!snapshot) return { spec: null, error: null };
         try {
@@ -152,10 +156,7 @@ export default function PaletteProofPanel({
                 spec: buildPaletteProofSpec(snapshot, {
                     targetCount,
                     candidateCount,
-                    selectionHistory:
-                        proofGeneration.mode === 'initial'
-                            ? undefined
-                            : generationHistory?.selectionHistory,
+                    selectionHistory: generationHistory?.selectionHistory,
                     targetMappingIds:
                         proofGeneration.mode === 'continue'
                             ? proofGeneration.targetMappingIds
@@ -380,12 +381,19 @@ export default function PaletteProofPanel({
     }
 
     const currentRecord = currentSpec ? savedById.get(currentSpec.id) : undefined;
+    const currentJobLabel = currentSpec
+        ? proofGeneration.mode === 'continue'
+            ? `Continuation / not saved / ${currentSpec.id.slice(-8)}`
+            : allCompletedHistory && allCompletedHistory.proofIds.length > 0
+              ? `Next proof / least-tested targets / not saved / ${currentSpec.id.slice(-8)}`
+              : `Current job / not saved / ${currentSpec.id.slice(-8)}`
+        : '';
     const selectorOptions = [
         ...(currentSpec && !currentRecord
             ? [
                   {
                       id: currentSpec.id,
-                      label: `Current job / not saved / ${currentSpec.id.slice(-8)}`,
+                      label: currentJobLabel,
                   },
               ]
             : []),
@@ -410,18 +418,18 @@ export default function PaletteProofPanel({
             ?.testedStackKeys.size ?? 0) < (snapshot?.palette.length ?? 0);
     const selectedTargetsExistInCurrentResult = Boolean(
         snapshot &&
-            [...selectedTargetIds].every((targetId) =>
-                snapshot.targetMappings.some((target) => target.id === targetId)
-            )
+        [...selectedTargetIds].every((targetId) =>
+            snapshot.targetMappings.some((target) => target.id === targetId)
+        )
     );
     const selectedProofMatchesCurrentProcess = Boolean(
         selectedRecord &&
-            snapshot &&
-            filamentProfileFingerprint &&
-            selectedRecord.process.filamentProfileFingerprint === filamentProfileFingerprint &&
-            selectedRecord.process.layerHeight === snapshot.settings.layerHeight &&
-            selectedRecord.process.firstLayerHeight === snapshot.settings.firstLayerHeight &&
-            selectedRecord.process.transitionOpacity === snapshot.settings.transitionOpacity
+        snapshot &&
+        filamentProfileFingerprint &&
+        selectedRecord.process.filamentProfileFingerprint === filamentProfileFingerprint &&
+        selectedRecord.process.layerHeight === snapshot.settings.layerHeight &&
+        selectedRecord.process.firstLayerHeight === snapshot.settings.firstLayerHeight &&
+        selectedRecord.process.transitionOpacity === snapshot.settings.transitionOpacity
     );
     const canContinueTargets = Boolean(
         selectedProofMatchesCurrentProcess &&
@@ -628,6 +636,7 @@ export default function PaletteProofPanel({
                                 key={column.id}
                                 className="grid gap-2 py-2 sm:grid-cols-[5.5rem_1fr]"
                                 data-testid={`palette-proof-map-target-${column.column + 1}`}
+                                data-target-mapping-id={column.targetMappingId}
                             >
                                 <div className="flex items-center gap-2 sm:items-start">
                                     <div
