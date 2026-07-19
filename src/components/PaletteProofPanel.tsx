@@ -5,7 +5,9 @@ import { Button } from '@/components/ui/button';
 import {
     Select,
     SelectContent,
+    SelectGroup,
     SelectItem,
+    SelectLabel,
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
@@ -27,6 +29,7 @@ import {
     type PaletteProofSpec,
 } from '../lib/paletteProof';
 import { exportPaletteProof3MF } from '../lib/paletteProofExport';
+import { groupPaletteProofRecords, paletteProofTargetSetKey } from '../lib/paletteProofGroups';
 import { buildPaletteProofHistory } from '../lib/paletteProofHistory';
 import type { AutoPaintProfile } from '../lib/profileManager';
 import type { FinalPrintableStackSnapshot } from '../types/appearance';
@@ -70,12 +73,13 @@ function swatchTextColor(rgb: readonly [number, number, number]): string {
     return luminance > 0.55 ? '#111111' : '#ffffff';
 }
 
-function proofLabel(record: PaletteProofRecord, isCurrent: boolean): string {
-    const date = new Date(record.exportedAt).toLocaleDateString(undefined, {
+function proofTimestamp(record: PaletteProofRecord): string {
+    return new Date(record.exportedAt).toLocaleString(undefined, {
         month: 'short',
         day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
     });
-    return `${isCurrent ? 'Current job' : date} / ${record.proof.layout.columnCount} targets / ${record.id.slice(-8)}`;
 }
 
 export default function PaletteProofPanel({
@@ -182,6 +186,7 @@ export default function PaletteProofPanel({
         () => new Map(savedProofs.map((proof) => [proof.id, proof])),
         [savedProofs]
     );
+    const savedProofGroups = useMemo(() => groupPaletteProofRecords(savedProofs), [savedProofs]);
     const currentSpec = currentProofState.spec;
     const [selectedProofId, setSelectedProofId] = useState<string>('');
     const [view, setView] = useState<PanelView>('proof');
@@ -381,27 +386,54 @@ export default function PaletteProofPanel({
     }
 
     const currentRecord = currentSpec ? savedById.get(currentSpec.id) : undefined;
-    const currentJobLabel = currentSpec
-        ? proofGeneration.mode === 'continue'
-            ? `Continuation / not saved / ${currentSpec.id.slice(-8)}`
-            : allCompletedHistory && allCompletedHistory.proofIds.length > 0
-              ? `Next proof / least-tested targets / not saved / ${currentSpec.id.slice(-8)}`
-              : `Current job / not saved / ${currentSpec.id.slice(-8)}`
-        : '';
-    const selectorOptions = [
-        ...(currentSpec && !currentRecord
-            ? [
-                  {
-                      id: currentSpec.id,
-                      label: currentJobLabel,
-                  },
-              ]
-            : []),
-        ...savedProofs.map((record) => ({
-            id: record.id,
-            label: proofLabel(record, record.id === currentSpec?.id),
-        })),
-    ];
+    const currentTargetSetKey = currentSpec ? paletteProofTargetSetKey(currentSpec) : undefined;
+    const matchingCurrentGroup = currentTargetSetKey
+        ? savedProofGroups.find((group) => group.key === currentTargetSetKey)
+        : undefined;
+    const selectorGroups = savedProofGroups.map((group) => {
+        const records = [...group.records].reverse();
+        const items = records.map((record) => {
+            const chronologicalRound = group.records.findIndex((entry) => entry.id === record.id);
+            const evaluationState = getPaletteProofEvaluationState(profile?.appearance, record.id);
+            const roundLabel =
+                chronologicalRound === 0 ? 'Initial' : `Continuation ${chronologicalRound}`;
+            const status = evaluationState.complete
+                ? 'Complete'
+                : `${evaluationState.answeredColumns}/${evaluationState.totalColumns}`;
+            return {
+                id: record.id,
+                label: `Set ${group.number} / ${roundLabel} / ${proofTimestamp(record)} / ${status}`,
+            };
+        });
+        if (currentSpec && !currentRecord && matchingCurrentGroup?.key === group.key) {
+            items.unshift({
+                id: currentSpec.id,
+                label: `Set ${group.number} / Continuation ${group.records.length} / not saved`,
+            });
+        }
+        return {
+            key: group.key,
+            label: `Target set ${group.number} / ${items.length} ${items.length === 1 ? 'round' : 'rounds'}`,
+            items,
+        };
+    });
+    if (currentSpec && !currentRecord && !matchingCurrentGroup) {
+        const groupNumber = savedProofGroups.length + 1;
+        selectorGroups.unshift({
+            key: currentTargetSetKey ?? currentSpec.id,
+            label: `Target set ${groupNumber} / new`,
+            items: [
+                {
+                    id: currentSpec.id,
+                    label: `Set ${groupNumber} / ${savedProofGroups.length === 0 ? 'Initial' : 'New targets'} / not saved`,
+                },
+            ],
+        });
+    }
+    const selectorOptionCount = selectorGroups.reduce(
+        (count, group) => count + group.items.length,
+        0
+    );
     const targetCountOptions = Array.from({ length: maximumTargetCount }, (_, index) => index + 1);
     const candidateCountOptions =
         maximumCandidateCount === 1
@@ -528,7 +560,7 @@ export default function PaletteProofPanel({
                 </div>
             )}
 
-            {selectorOptions.length > 1 && (
+            {selectorOptionCount > 1 && (
                 <Select
                     value={selectedProofId}
                     onValueChange={(proofId) => {
@@ -542,10 +574,21 @@ export default function PaletteProofPanel({
                         <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                        {selectorOptions.map((option) => (
-                            <SelectItem key={option.id} value={option.id} className="text-xs">
-                                {option.label}
-                            </SelectItem>
+                        {selectorGroups.map((group) => (
+                            <SelectGroup key={group.key}>
+                                <SelectLabel className="px-2 py-1 text-[10px] font-medium text-muted-foreground">
+                                    {group.label}
+                                </SelectLabel>
+                                {group.items.map((option) => (
+                                    <SelectItem
+                                        key={option.id}
+                                        value={option.id}
+                                        className="text-xs"
+                                    >
+                                        {option.label}
+                                    </SelectItem>
+                                ))}
+                            </SelectGroup>
                         ))}
                     </SelectContent>
                 </Select>

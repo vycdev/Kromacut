@@ -108,9 +108,7 @@ test('Palette Proof stays usable, persists results, and downloads its frozen 3MF
     await page.getByRole('option', { name: '7', exact: true }).click();
     await expect(panel.getByText('44 x 60 mm / 7 targets / 5 candidates')).toBeVisible();
     await dialog.getByRole('combobox', { name: 'Palette Proof record' }).click();
-    await page
-        .getByRole('option', { name: new RegExp(`8 targets / ${savedProofId!.slice(-8)}$`) })
-        .click();
+    await page.getByRole('option', { name: /^Set 1 \/ Initial \// }).click();
     const savedProofDownload = dialog.getByTestId('download-palette-proof');
     await expect(savedProofDownload).toBeEnabled();
     const savedProofDownloadPromise = page.waitForEvent('download');
@@ -137,7 +135,10 @@ test('Palette Proof stays usable, persists results, and downloads its frozen 3MF
     await expect(dialog.getByRole('button', { name: 'Delete Palette Proof' })).toBeVisible();
 
     await dialog.getByRole('combobox', { name: 'Palette Proof record' }).click();
-    await page.getByRole('option', { name: /^Next proof \/ least-tested targets/ }).click();
+    await expect(page.getByText('Target set 1 / 1 round', { exact: true })).toBeVisible();
+    await expect(page.getByText('Target set 2 / new', { exact: true })).toBeVisible();
+    await page.screenshot({ path: testInfo.outputPath('palette-proof-grouped-selector.png') });
+    await page.getByRole('option', { name: /^Set 2 \/ New targets \/ not saved$/ }).click();
     await expect(dialog.getByRole('tab', { name: 'Proof map' })).toHaveAttribute(
         'data-state',
         'active'
@@ -150,9 +151,7 @@ test('Palette Proof stays usable, persists results, and downloads its frozen 3MF
     expect(nextProofTargetIds).not.toEqual(firstProofTargetIds);
 
     await dialog.getByRole('combobox', { name: 'Palette Proof record' }).click();
-    await page
-        .getByRole('option', { name: new RegExp(`8 targets / ${savedProofId!.slice(-8)}$`) })
-        .click();
+    await page.getByRole('option', { name: /^Set 1 \/ Initial \// }).click();
     await dialog.getByRole('tab', { name: /Results/ }).click();
 
     const storedAppearance = await page.evaluate(() => {
@@ -177,6 +176,9 @@ test('Palette Proof stays usable, persists results, and downloads its frozen 3MF
     await expect(dialog.getByRole('tab', { name: 'Proof map' })).toHaveAttribute(
         'data-state',
         'active'
+    );
+    await expect(dialog.getByRole('combobox', { name: 'Palette Proof record' })).toContainText(
+        'Set 1 / Continuation 1 / not saved'
     );
     await expect.poll(() => panel.getAttribute('data-proof-id')).not.toBe(completedProofId);
     await expect(dialog.getByTestId('download-palette-proof')).toBeVisible();
