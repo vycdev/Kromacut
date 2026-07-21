@@ -325,6 +325,28 @@ function updateDocHead(template, doc) {
     return html;
 }
 
+function updateAppHead(template) {
+    const title = 'Kromacut App - Image to 3D Print Tool';
+    const description =
+        'Create color-layered 3D prints from images with Kromacut. The browser tool runs locally and exports STL or 3MF models.';
+    const url = `${siteUrl}/app`;
+    let html = template.replace(/<title>.*?<\/title>/, `<title>${escapeHtml(title)}</title>`);
+
+    html = updateMeta(html, 'name', 'description', description);
+    html = updateMeta(html, 'name', 'robots', 'noindex,nofollow');
+    html = html.replace(
+        /<link\s+rel="canonical"\s+href="[^"]*"\s*\/?>/,
+        `<link rel="canonical" href="${url}" />`
+    );
+    html = updateMeta(html, 'property', 'og:title', title);
+    html = updateMeta(html, 'property', 'og:description', description);
+    html = updateMeta(html, 'property', 'og:url', url);
+    html = updateMeta(html, 'name', 'twitter:title', title);
+    html = updateMeta(html, 'name', 'twitter:description', description);
+
+    return html;
+}
+
 function renderStaticRoot(doc, docs, docsBySlug) {
     const nav = docs
         .map((entry) => `<li><a href="/docs/${entry.slug}">${escapeHtml(entry.title)}</a></li>`)
@@ -334,7 +356,8 @@ function renderStaticRoot(doc, docs, docsBySlug) {
     return `<div id="root">
             <main class="seo-doc-page">
                 <nav aria-label="Documentation">
-                    <a href="/">Kromacut app</a>
+                    <a href="/">Kromacut home</a>
+                    <a href="/app">Open Kromacut</a>
                     <ul>${nav}</ul>
                 </nav>
                 <article>
@@ -360,6 +383,12 @@ function writeDocPage(template, doc, docs, docsBySlug, slug = doc.slug) {
     if (slug) {
         writeFileSync(path.join(distDir, 'docs', `${slug}.html`), docPageHtml);
     }
+}
+
+function writeAppPage(template) {
+    const outputDir = path.join(distDir, 'app');
+    mkdirSync(outputDir, { recursive: true });
+    writeFileSync(path.join(outputDir, 'index.html'), updateAppHead(template));
 }
 
 function writeSitemap(docs) {
@@ -391,5 +420,6 @@ const overviewDoc = docsBySlug.get('overview') ?? docs[0];
 
 docs.forEach((doc) => writeDocPage(template, doc, docs, docsBySlug));
 if (overviewDoc) writeDocPage(template, overviewDoc, docs, docsBySlug, '');
+writeAppPage(template);
 writeSitemap(docs);
 writeRobots();

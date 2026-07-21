@@ -383,7 +383,7 @@ async function openApp(page: Page) {
         };
     });
 
-    await page.goto('/');
+    await page.goto('/app');
     await expect(page.getByTestId('image-file-input')).toBeAttached();
 }
 

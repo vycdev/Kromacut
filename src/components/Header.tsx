@@ -2,7 +2,6 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import {
     AlertCircle,
-    ArrowLeft,
     BookOpen,
     CheckCircle2,
     Download,
@@ -41,6 +40,8 @@ import logo from '../assets/logo.png';
 import discordIcon from '../assets/discord.svg';
 import githubIcon from '../assets/github.svg';
 import redditIcon from '../assets/reddit.svg';
+import { appPath } from '@/lib/routes';
+import { isTauri } from '@tauri-apps/api/core';
 
 interface Props {
     docsOpen: boolean;
@@ -165,28 +166,19 @@ export const Header: React.FC<Props> = ({ docsOpen, onBackToApp, onToggleDocs })
                         </span>
                     </button>
                 ) : (
-                    <>
+                    <a
+                        href={appPath(isTauri())}
+                        className="flex items-center gap-2 rounded-md p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                        aria-label="Open Kromacut app"
+                    >
                         <img src={logo} alt="Kromacut" className="h-7 w-auto" />
                         <span className="font-extrabold text-base text-foreground tracking-wide ml-1 select-none max-md:hidden">
                             Kromacut
                         </span>
-                    </>
+                    </a>
                 )}
             </div>
             <div className="flex gap-2.5 items-center">
-                <Button
-                    size="sm"
-                    onClick={onToggleDocs}
-                    title={docsOpen ? 'Back to app' : 'Open docs'}
-                    className="bg-foreground hover:bg-foreground/90 text-background font-semibold transition-all duration-200 shadow-md hover:shadow-lg hover:scale-105 active:scale-95 gap-1.5 border border-foreground/20"
-                >
-                    {docsOpen ? (
-                        <ArrowLeft className="w-4 h-4" />
-                    ) : (
-                        <BookOpen className="w-4 h-4" />
-                    )}
-                    <span className="max-sm:hidden">{docsOpen ? 'Back to app' : 'Docs'}</span>
-                </Button>
                 <Button
                     size="sm"
                     asChild
@@ -203,58 +195,6 @@ export const Header: React.FC<Props> = ({ docsOpen, onBackToApp, onToggleDocs })
                             <img src={redditIcon} alt="" className="block max-h-full max-w-full brightness-0 invert" />
                         </span>
                         <span className="max-sm:hidden">Reddit</span>
-                    </a>
-                </Button>
-                <Button
-                    size="sm"
-                    asChild
-                    className="bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white font-semibold transition-all duration-200 shadow-md hover:shadow-lg hover:scale-105 active:scale-95 gap-1.5"
-                >
-                    <a
-                        href="https://discord.gg/nU63sFMcnX"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        aria-label="Discord"
-                        title="Discord"
-                    >
-                        <span className="flex size-4 shrink-0 items-center justify-center">
-                            <img src={discordIcon} alt="" className="block max-h-full max-w-full brightness-0 invert" />
-                        </span>
-                        <span className="max-sm:hidden">Discord</span>
-                    </a>
-                </Button>
-                <Button
-                    size="sm"
-                    asChild
-                    className="bg-gradient-to-r from-purple-500 to-violet-600 hover:from-purple-600 hover:to-violet-700 text-white font-semibold transition-all duration-200 shadow-md hover:shadow-lg hover:scale-105 active:scale-95 gap-1.5"
-                >
-                    <a
-                        href="https://github.com/vycdev/Kromacut"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        aria-label="GitHub"
-                        title="GitHub"
-                    >
-                        <span className="flex size-4 shrink-0 items-center justify-center">
-                            <img src={githubIcon} alt="" className="block max-h-full max-w-full brightness-0 invert" />
-                        </span>
-                        <span className="max-sm:hidden">GitHub</span>
-                    </a>
-                </Button>
-                <Button
-                    size="sm"
-                    className="bg-gradient-to-r from-rose-500 to-orange-500 hover:from-rose-600 hover:to-orange-600 text-white font-semibold transition-all duration-200 shadow-md hover:shadow-lg hover:scale-105 active:scale-95 gap-1.5"
-                    asChild
-                >
-                    <a
-                        href="https://www.patreon.com/cw/vycdev"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        aria-label="Support me"
-                        title="Support me"
-                    >
-                        <Heart className="w-4 h-4 fill-current" />
-                        <span className="max-sm:hidden">Support me</span>
                     </a>
                 </Button>
                 <Button
@@ -344,6 +284,55 @@ export const Header: React.FC<Props> = ({ docsOpen, onBackToApp, onToggleDocs })
                                     <Sun className="w-4 h-4" />
                                     Light
                                 </button>
+                            </div>
+                        </section>
+
+                        <section className="mt-5 space-y-3 border-t border-border pt-5">
+                            <div>
+                                <div className="text-sm font-medium text-foreground">Resources & community</div>
+                                <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                                    Guides, releases, and places to share what you make.
+                                </p>
+                            </div>
+                            <div className="grid gap-2 sm:grid-cols-2">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setSettingsOpen(false);
+                                        onToggleDocs();
+                                    }}
+                                    className="flex items-start gap-3 rounded-md border border-border bg-background p-3 text-left transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                >
+                                    <BookOpen className="mt-0.5 h-4 w-4 flex-shrink-0 text-primary" />
+                                    <span><span className="block text-sm font-semibold">Docs</span><span className="mt-1 block text-xs leading-5 text-muted-foreground">Learn the workflow and print settings.</span></span>
+                                </button>
+                                <a
+                                    href="https://discord.gg/nU63sFMcnX"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    onClick={() => setSettingsOpen(false)}
+                                    className="flex items-start gap-3 rounded-md border border-border bg-background p-3 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                >
+                                    <img src={discordIcon} alt="" className="mt-0.5 h-4 w-4 brightness-0 invert" /><span><span className="block text-sm font-semibold">Discord</span><span className="mt-1 block text-xs leading-5 text-muted-foreground">Join the Kromacut community.</span></span>
+                                </a>
+                                <a
+                                    href="https://github.com/vycdev/Kromacut"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    onClick={() => setSettingsOpen(false)}
+                                    className="flex items-start gap-3 rounded-md border border-border bg-background p-3 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                >
+                                    <img src={githubIcon} alt="" className="mt-0.5 h-4 w-4 brightness-0 invert" /><span><span className="block text-sm font-semibold">GitHub</span><span className="mt-1 block text-xs leading-5 text-muted-foreground">View the source and report issues.</span></span>
+                                </a>
+                                <a
+                                    href="https://www.patreon.com/cw/vycdev"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    onClick={() => setSettingsOpen(false)}
+                                    className="flex items-start gap-3 rounded-md border border-border bg-background p-3 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                >
+                                    <Heart className="mt-0.5 h-4 w-4 flex-shrink-0 text-rose-400" /><span><span className="block text-sm font-semibold">Support Me</span><span className="mt-1 block text-xs leading-5 text-muted-foreground">Support continued open-source work.</span></span>
+                                </a>
                             </div>
                         </section>
 

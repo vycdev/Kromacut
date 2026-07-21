@@ -51,7 +51,9 @@ import {
     savePreviewRenderMode,
 } from './lib/previewPrefs';
 import { buildDocsPath, parseDocsLocation } from './lib/docs/navigation';
-import { applyHomeSeo } from './lib/seo';
+import { applyAppSeo } from './lib/seo';
+import { appPath, markLaunched } from './lib/routes';
+import { isTauri } from '@tauri-apps/api/core';
 import { migrateLegacyFilamentTd, sanitizeProfileFilament } from './lib/profileManager';
 import {
     AlertDialog,
@@ -181,6 +183,7 @@ const saveAutoPaintPersisted = (value: AutoPaintPersisted) => {
 };
 
 function App(): React.ReactElement | null {
+    const toolPath = appPath(isTauri());
     // dropzone state managed by hook below
     // `weight` is the algorithm parameter; `finalColors` is the postprocess target
     const [weight, setWeight] = useState<number>(128);
@@ -381,15 +384,19 @@ function App(): React.ReactElement | null {
     }, []);
 
     useEffect(() => {
+        markLaunched();
+    }, []);
+
+    useEffect(() => {
         if (!docsOpen) {
-            applyHomeSeo();
+            applyAppSeo();
         }
     }, [docsOpen]);
 
     const backToApp = () => {
         setDocsOpen(false);
         if (parseDocsLocation(window.location)) {
-            window.history.pushState(null, '', '/');
+            window.history.pushState(null, '', toolPath);
         }
     };
 
