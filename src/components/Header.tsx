@@ -4,6 +4,7 @@ import {
     AlertCircle,
     BookOpen,
     CheckCircle2,
+    ChevronRight,
     Download,
     Github,
     Heart,
@@ -40,7 +41,7 @@ import {
 } from '@/lib/updatePreferences';
 import logo from '../assets/logo.png';
 import redditIcon from '../assets/reddit.svg';
-import { appPath } from '@/lib/routes';
+import { landingPath } from '@/lib/routes';
 import { isTauri } from '@tauri-apps/api/core';
 
 interface Props {
@@ -200,9 +201,10 @@ export const Header: React.FC<Props> = ({ docsOpen, onBackToApp, onToggleDocs })
                     </button>
                 ) : (
                     <a
-                        href={appPath(isTauri())}
+                        href={landingPath(isTauri())}
                         className="flex items-center gap-2 rounded-md p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-                        aria-label="Open Kromacut app"
+                        aria-label="Kromacut home"
+                        title="Back to Kromacut home"
                     >
                         <img src={logo} alt="Kromacut" className="h-7 w-auto" />
                         <span className="font-extrabold text-base text-foreground tracking-wide ml-1 select-none max-md:hidden">
@@ -212,24 +214,6 @@ export const Header: React.FC<Props> = ({ docsOpen, onBackToApp, onToggleDocs })
                 )}
             </div>
             <div className="flex gap-2.5 items-center">
-                <Button
-                    size="sm"
-                    asChild
-                    className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-semibold transition-all duration-200 shadow-md hover:shadow-lg hover:scale-105 active:scale-95 gap-1.5"
-                >
-                    <a
-                        href="https://www.reddit.com/r/kromacut/"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        aria-label="r/kromacut on Reddit"
-                        title="r/kromacut on Reddit"
-                    >
-                        <span className="flex size-4 shrink-0 items-center justify-center">
-                            <img src={redditIcon} alt="" className="block max-h-full max-w-full brightness-0 invert" />
-                        </span>
-                        <span className="max-sm:hidden">Reddit</span>
-                    </a>
-                </Button>
                 <Button
                     ref={settingsButtonRef}
                     size="icon"
@@ -324,50 +308,90 @@ export const Header: React.FC<Props> = ({ docsOpen, onBackToApp, onToggleDocs })
 
                         <section className="mt-5 space-y-3 border-t border-border pt-5">
                             <div>
-                                <div className="text-sm font-medium text-foreground">Resources & community</div>
+                                <div className="text-sm font-medium text-foreground">
+                                    Resources & community
+                                </div>
                                 <p className="mt-1 text-xs leading-5 text-muted-foreground">
                                     Guides, releases, and places to share what you make.
                                 </p>
                             </div>
-                            <div className="grid gap-2 sm:grid-cols-2">
+                            <div className="space-y-2">
                                 <button
                                     type="button"
                                     onClick={() => {
                                         setSettingsOpen(false);
                                         onToggleDocs();
                                     }}
-                                    className="flex items-start gap-3 rounded-md border border-border bg-background p-3 text-left transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                    className="group flex w-full items-center gap-3 rounded-lg bg-muted/50 p-3 text-left transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                                 >
-                                    <BookOpen className="mt-0.5 h-4 w-4 flex-shrink-0 text-primary" />
-                                    <span><span className="block text-sm font-semibold">Docs</span><span className="mt-1 block text-xs leading-5 text-muted-foreground">Learn the workflow and print settings.</span></span>
+                                    <span className="flex size-9 flex-shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                                        <BookOpen className="h-4 w-4" />
+                                    </span>
+                                    <span className="min-w-0 flex-1">
+                                        <span className="block text-sm font-semibold text-foreground">
+                                            Docs
+                                        </span>
+                                        <span className="mt-0.5 block text-xs text-muted-foreground">
+                                            Learn the workflow and print settings.
+                                        </span>
+                                    </span>
+                                    <ChevronRight className="h-4 w-4 flex-shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
                                 </button>
-                                <a
-                                    href="https://discord.gg/nU63sFMcnX"
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    onClick={() => setSettingsOpen(false)}
-                                    className="flex items-start gap-3 rounded-md border border-border bg-background p-3 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                                >
-                                    <MessageCircle aria-hidden="true" className="mt-0.5 h-4 w-4 flex-shrink-0 text-indigo-500" /><span><span className="block text-sm font-semibold">Discord</span><span className="mt-1 block text-xs leading-5 text-muted-foreground">Join the Kromacut community.</span></span>
-                                </a>
-                                <a
-                                    href="https://github.com/vycdev/Kromacut"
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    onClick={() => setSettingsOpen(false)}
-                                    className="flex items-start gap-3 rounded-md border border-border bg-background p-3 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                                >
-                                    <Github aria-hidden="true" className="mt-0.5 h-4 w-4 flex-shrink-0 text-foreground" /><span><span className="block text-sm font-semibold">GitHub</span><span className="mt-1 block text-xs leading-5 text-muted-foreground">View the source and report issues.</span></span>
-                                </a>
-                                <a
-                                    href="https://www.patreon.com/cw/vycdev"
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    onClick={() => setSettingsOpen(false)}
-                                    className="flex items-start gap-3 rounded-md border border-border bg-background p-3 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                                >
-                                    <Heart className="mt-0.5 h-4 w-4 flex-shrink-0 text-rose-400" /><span><span className="block text-sm font-semibold">Support Me</span><span className="mt-1 block text-xs leading-5 text-muted-foreground">Support continued open-source work.</span></span>
-                                </a>
+
+                                <div className="grid grid-cols-2 gap-1 rounded-lg border border-border bg-muted/30 p-1 min-[520px]:grid-cols-4">
+                                    <a
+                                        href="https://discord.gg/nU63sFMcnX"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        onClick={() => setSettingsOpen(false)}
+                                        className="flex items-center justify-center gap-2 rounded-md px-2 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-background hover:text-foreground hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                    >
+                                        <MessageCircle
+                                            aria-hidden="true"
+                                            className="h-4 w-4 flex-shrink-0 text-indigo-500"
+                                        />
+                                        Discord
+                                    </a>
+                                    <a
+                                        href="https://www.reddit.com/r/kromacut/"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        onClick={() => setSettingsOpen(false)}
+                                        aria-label="r/kromacut on Reddit"
+                                        className="flex items-center justify-center gap-2 rounded-md px-2 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-background hover:text-foreground hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                    >
+                                        <img
+                                            src={redditIcon}
+                                            alt=""
+                                            className="h-4 w-4 flex-shrink-0 dark:invert"
+                                        />
+                                        Reddit
+                                    </a>
+                                    <a
+                                        href="https://github.com/vycdev/Kromacut"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        onClick={() => setSettingsOpen(false)}
+                                        className="flex items-center justify-center gap-2 rounded-md px-2 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-background hover:text-foreground hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                    >
+                                        <Github
+                                            aria-hidden="true"
+                                            className="h-4 w-4 flex-shrink-0 text-foreground"
+                                        />
+                                        GitHub
+                                    </a>
+                                    <a
+                                        href="https://www.patreon.com/cw/vycdev"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        onClick={() => setSettingsOpen(false)}
+                                        aria-label="Support Me on Patreon"
+                                        className="flex items-center justify-center gap-2 rounded-md px-2 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-background hover:text-foreground hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                    >
+                                        <Heart className="h-4 w-4 flex-shrink-0 text-rose-400" />
+                                        Patreon
+                                    </a>
+                                </div>
                             </div>
                         </section>
 

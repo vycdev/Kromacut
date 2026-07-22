@@ -8,6 +8,7 @@ import {
     docsPath,
     hasLandingBypass,
     isCrawlerUserAgent,
+    landingPath,
     selectRoute,
     shouldRedirectHomeToApp,
 } from '../src/lib/routes.ts';
@@ -29,6 +30,8 @@ test('route constants expose stable public paths', () => {
     assert.equal(DOCS_PATH, '/docs');
     assert.equal(appPath(false), '/app');
     assert.equal(appPath(true), '/');
+    assert.equal(landingPath(false), '/?landing=1');
+    assert.equal(landingPath(true), '/');
     assert.equal(docsPath(), '/docs');
     assert.equal(docsPath('/quick-start/'), '/docs/quick-start');
 });

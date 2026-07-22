@@ -8,6 +8,10 @@ test.describe('landing page smoke @smoke', () => {
         await expect(page.getByTestId('landing-page')).toBeVisible();
         await expect(page.getByRole('heading', { name: /Turn pixels into printable layers/i })).toBeVisible();
         await expect(page.getByTestId('landing-open-app')).toHaveAttribute('href', '/app');
+        const communityLinks = page.getByTestId('landing-community-links');
+        await expect(communityLinks).toBeVisible();
+        await expect(communityLinks.getByRole('link')).toHaveCount(4);
+        await expect(communityLinks.getByRole('link', { name: 'r/kromacut on Reddit' })).toHaveAttribute('href', 'https://www.reddit.com/r/kromacut/');
 
         await page.getByTestId('landing-open-app').click();
         await expect(page).toHaveURL(/\/app$/);
@@ -52,6 +56,36 @@ test.describe('landing page smoke @smoke', () => {
         await expect(page.getByTestId('landing-page')).toBeVisible();
     });
 
+    test('app logo returns launched users to the landing page', async ({ page }) => {
+        await page.addInitScript(() => {
+            localStorage.setItem('kromacut.has-launched.v1', 'v1');
+        });
+        await page.goto('/app');
+
+        const homeLink = page.getByRole('link', { name: 'Kromacut home' });
+        await expect(homeLink).toHaveAttribute('href', '/?landing=1');
+        await homeLink.click();
+
+        await expect(page).toHaveURL(/\/?\?landing=1$/);
+        await expect(page.getByTestId('landing-page')).toBeVisible();
+    });
+
+    test('landing hero fills 1080p and 1440p viewports', async ({ page }) => {
+        for (const viewport of [
+            { width: 1920, height: 1080 },
+            { width: 2560, height: 1440 },
+        ]) {
+            await page.setViewportSize(viewport);
+            await page.goto('/?landing=1');
+
+            const dimensions = await page.getByTestId('landing-hero').evaluate((hero) => ({
+                heroHeight: hero.getBoundingClientRect().height,
+                viewportHeight: window.innerHeight,
+            }));
+            expect(dimensions.heroHeight).toBeGreaterThanOrEqual(dimensions.viewportHeight);
+        }
+    });
+
     test('mobile landing navigation fits and remains keyboard accessible', async ({ page }) => {
         await page.setViewportSize({ width: 320, height: 720 });
         await page.addInitScript(() => localStorage.clear());
@@ -73,6 +107,7 @@ test.describe('landing page smoke @smoke', () => {
     test('settings resources are keyboard-modal and restore focus', async ({ page }) => {
         await page.goto('/app');
         const settingsButton = page.getByRole('button', { name: 'Open settings' });
+        await expect(page.getByRole('link', { name: 'r/kromacut on Reddit' })).toHaveCount(0);
         await settingsButton.click();
 
         const dialog = page.getByRole('dialog', { name: 'Settings' });
@@ -80,6 +115,7 @@ test.describe('landing page smoke @smoke', () => {
         await expect(page.getByRole('button', { name: 'Close settings' })).toBeFocused();
         await expect(dialog.getByRole('button', { name: /Docs/ })).toBeVisible();
         await expect(dialog.getByRole('link', { name: /Discord/ })).toBeVisible();
+        await expect(dialog.getByRole('link', { name: 'r/kromacut on Reddit' })).toBeVisible();
         await expect(dialog.getByRole('link', { name: /GitHub/ })).toBeVisible();
         await expect(dialog.getByRole('link', { name: /Support Me/ })).toBeVisible();
 

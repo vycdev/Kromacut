@@ -63,6 +63,10 @@ export function appPath(isTauri: boolean): string {
     return isTauri ? LANDING_PATH : APP_PATH;
 }
 
+export function landingPath(isTauri: boolean): string {
+    return isTauri ? LANDING_PATH : `${LANDING_PATH}?landing=1`;
+}
+
 export function docsPath(slug = ''): string {
     const normalizedSlug = slug.trim().replace(/^\/+|\/+$/g, '');
     return normalizedSlug ? `${DOCS_PATH}/${normalizedSlug}` : DOCS_PATH;
