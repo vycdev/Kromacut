@@ -5,6 +5,7 @@ import {
     BookOpen,
     CheckCircle2,
     Download,
+    Github,
     Heart,
     Loader2,
     Moon,
@@ -13,6 +14,7 @@ import {
     Settings,
     X,
     Monitor,
+    MessageCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Switch } from '@/components/ui/switch';
@@ -37,8 +39,6 @@ import {
     subscribeToUpdateCheckOnStartup,
 } from '@/lib/updatePreferences';
 import logo from '../assets/logo.png';
-import discordIcon from '../assets/discord.svg';
-import githubIcon from '../assets/github.svg';
 import redditIcon from '../assets/reddit.svg';
 import { appPath } from '@/lib/routes';
 import { isTauri } from '@tauri-apps/api/core';
@@ -62,18 +62,51 @@ export const Header: React.FC<Props> = ({ docsOpen, onBackToApp, onToggleDocs })
     const settingsTitleId = React.useId();
     const updateStartupSwitchId = React.useId();
     const isDesktopApp = isDesktopUpdateSupported();
+    const settingsButtonRef = React.useRef<HTMLButtonElement>(null);
+    const settingsDialogRef = React.useRef<HTMLDivElement>(null);
 
     React.useEffect(() => {
         if (!settingsOpen) return;
 
+        const previouslyFocused = document.activeElement as HTMLElement | null;
+        const settingsTrigger = settingsButtonRef.current;
+        const dialog = settingsDialogRef.current;
+        const getFocusable = () =>
+            Array.from(
+                dialog?.querySelectorAll<HTMLElement>(
+                    'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])'
+                ) ?? []
+            );
+        getFocusable()[0]?.focus();
+
         const handleKeyDown = (event: KeyboardEvent) => {
             if (event.key === 'Escape') {
                 setSettingsOpen(false);
+                return;
+            }
+            if (event.key !== 'Tab') return;
+
+            const focusable = getFocusable();
+            if (focusable.length === 0) {
+                event.preventDefault();
+                return;
+            }
+            const first = focusable[0];
+            const last = focusable[focusable.length - 1];
+            if (event.shiftKey && document.activeElement === first) {
+                event.preventDefault();
+                last.focus();
+            } else if (!event.shiftKey && document.activeElement === last) {
+                event.preventDefault();
+                first.focus();
             }
         };
 
         window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
+        return () => {
+            window.removeEventListener('keydown', handleKeyDown);
+            (previouslyFocused?.isConnected ? previouslyFocused : settingsTrigger)?.focus();
+        };
     }, [settingsOpen]);
 
     React.useEffect(() => {
@@ -198,6 +231,7 @@ export const Header: React.FC<Props> = ({ docsOpen, onBackToApp, onToggleDocs })
                     </a>
                 </Button>
                 <Button
+                    ref={settingsButtonRef}
                     size="icon"
                     onClick={() => setSettingsOpen(true)}
                     title="Open settings"
@@ -213,6 +247,7 @@ export const Header: React.FC<Props> = ({ docsOpen, onBackToApp, onToggleDocs })
                     onClick={() => setSettingsOpen(false)}
                 >
                     <div
+                        ref={settingsDialogRef}
                         role="dialog"
                         aria-modal="true"
                         aria-labelledby={settingsTitleId}
@@ -313,7 +348,7 @@ export const Header: React.FC<Props> = ({ docsOpen, onBackToApp, onToggleDocs })
                                     onClick={() => setSettingsOpen(false)}
                                     className="flex items-start gap-3 rounded-md border border-border bg-background p-3 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                                 >
-                                    <img src={discordIcon} alt="" className="mt-0.5 h-4 w-4 brightness-0 invert" /><span><span className="block text-sm font-semibold">Discord</span><span className="mt-1 block text-xs leading-5 text-muted-foreground">Join the Kromacut community.</span></span>
+                                    <MessageCircle aria-hidden="true" className="mt-0.5 h-4 w-4 flex-shrink-0 text-indigo-500" /><span><span className="block text-sm font-semibold">Discord</span><span className="mt-1 block text-xs leading-5 text-muted-foreground">Join the Kromacut community.</span></span>
                                 </a>
                                 <a
                                     href="https://github.com/vycdev/Kromacut"
@@ -322,7 +357,7 @@ export const Header: React.FC<Props> = ({ docsOpen, onBackToApp, onToggleDocs })
                                     onClick={() => setSettingsOpen(false)}
                                     className="flex items-start gap-3 rounded-md border border-border bg-background p-3 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                                 >
-                                    <img src={githubIcon} alt="" className="mt-0.5 h-4 w-4 brightness-0 invert" /><span><span className="block text-sm font-semibold">GitHub</span><span className="mt-1 block text-xs leading-5 text-muted-foreground">View the source and report issues.</span></span>
+                                    <Github aria-hidden="true" className="mt-0.5 h-4 w-4 flex-shrink-0 text-foreground" /><span><span className="block text-sm font-semibold">GitHub</span><span className="mt-1 block text-xs leading-5 text-muted-foreground">View the source and report issues.</span></span>
                                 </a>
                                 <a
                                     href="https://www.patreon.com/cw/vycdev"

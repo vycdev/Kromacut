@@ -62,3 +62,8 @@ export function shouldRedirectHomeToApp(
 export function appPath(isTauri: boolean): string {
     return isTauri ? LANDING_PATH : APP_PATH;
 }
+
+export function docsPath(slug = ''): string {
+    const normalizedSlug = slug.trim().replace(/^\/+|\/+$/g, '');
+    return normalizedSlug ? `${DOCS_PATH}/${normalizedSlug}` : DOCS_PATH;
+}

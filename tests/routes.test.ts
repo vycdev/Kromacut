@@ -5,6 +5,7 @@ import {
     DOCS_PATH,
     LANDING_PATH,
     appPath,
+    docsPath,
     hasLandingBypass,
     isCrawlerUserAgent,
     selectRoute,
@@ -28,6 +29,8 @@ test('route constants expose stable public paths', () => {
     assert.equal(DOCS_PATH, '/docs');
     assert.equal(appPath(false), '/app');
     assert.equal(appPath(true), '/');
+    assert.equal(docsPath(), '/docs');
+    assert.equal(docsPath('/quick-start/'), '/docs/quick-start');
 });
 
 test('returning users redirect only from the web home page', () => {

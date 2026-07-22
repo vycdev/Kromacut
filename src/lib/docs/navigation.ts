@@ -1,6 +1,5 @@
 import type { DocLinkTarget, DocRecord } from '@/types/docs';
-
-const DOCS_PATH_PREFIX = '/docs';
+import { DOCS_PATH as DOCS_PATH_PREFIX } from '@/lib/routes';
 
 function cleanDocSlug(value: string): string {
     return value
