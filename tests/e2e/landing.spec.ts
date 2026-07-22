@@ -107,6 +107,22 @@ test.describe('landing page smoke @smoke', () => {
         await expect(page.locator('#workflow')).toBeFocused();
     });
 
+    test('landing theme picker persists light mode', async ({ page }) => {
+        await page.goto('/');
+        await page.evaluate(() => localStorage.clear());
+        await page.reload();
+
+        const communityLinks = page.getByTestId('landing-community-links');
+        await communityLinks.getByRole('button', { name: 'Theme: dark' }).click();
+        await page.getByRole('button', { name: 'Light', exact: true }).click();
+
+        await expect(page.locator('html')).not.toHaveClass(/dark/);
+        await expect.poll(() => page.evaluate(() => localStorage.getItem('theme'))).toBe('light');
+        await page.reload();
+        await expect(communityLinks.getByRole('button', { name: 'Theme: light' })).toBeVisible();
+        await expect(page.locator('html')).not.toHaveClass(/dark/);
+    });
+
     test('settings resources are keyboard-modal and restore focus', async ({ page }) => {
         await page.goto('/app');
         const settingsButton = page.getByRole('button', { name: 'Open settings' });
@@ -136,5 +152,15 @@ test.describe('landing page smoke @smoke', () => {
         await expect(page.getByRole('heading', { name: 'Contents' })).toBeVisible();
         await expect(page.getByText('Overview', { exact: true }).first()).toBeVisible();
         await expect.poll(() => page.evaluate(() => localStorage.getItem('kromacut.has-launched.v1'))).toBeNull();
+    });
+
+    test('settings Docs action remains in documentation when Docs is already open', async ({ page }) => {
+        await page.goto('/docs/overview');
+        await page.getByRole('button', { name: 'Open settings' }).click();
+        await page.getByRole('dialog', { name: 'Settings' }).getByRole('button', { name: /Docs/ }).click();
+
+        await expect(page).toHaveURL(/\/docs\/overview$/);
+        await expect(page.getByRole('heading', { name: 'Contents' })).toBeVisible();
+        await expect(page.getByRole('button', { name: 'Back to app' })).toBeVisible();
     });
 });

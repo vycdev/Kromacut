@@ -47,13 +47,13 @@ import { isTauri } from '@tauri-apps/api/core';
 interface Props {
     docsOpen: boolean;
     onBackToApp: () => void;
-    onToggleDocs: () => void;
+    onOpenDocs: () => void;
 }
 
 const appVersion = __APP_VERSION__;
 type UpdateCheckStatus = 'idle' | 'checking' | 'available' | 'current' | 'error';
 
-export const Header: React.FC<Props> = ({ docsOpen, onBackToApp, onToggleDocs }) => {
+export const Header: React.FC<Props> = ({ docsOpen, onBackToApp, onOpenDocs }) => {
     const [themeMode, setThemeMode] = React.useState<ThemeMode>(() => getStoredThemeMode());
     const [settingsOpen, setSettingsOpen] = React.useState(false);
     const [checkOnStartup, setCheckOnStartup] = React.useState(() => getUpdateCheckOnStartup());
@@ -320,7 +320,7 @@ export const Header: React.FC<Props> = ({ docsOpen, onBackToApp, onToggleDocs })
                                     type="button"
                                     onClick={() => {
                                         setSettingsOpen(false);
-                                        onToggleDocs();
+                                        onOpenDocs();
                                     }}
                                     className="group flex w-full items-center gap-3 rounded-lg bg-muted/50 p-3 text-left transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                                 >

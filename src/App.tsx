@@ -402,12 +402,7 @@ function App(): React.ReactElement | null {
         }
     };
 
-    const toggleDocs = () => {
-        if (docsOpen) {
-            backToApp();
-            return;
-        }
-
+    const openDocs = () => {
         setDocsOpen(true);
         if (!parseDocsLocation(window.location)) {
             window.history.pushState(null, '', buildDocsPath(defaultDocSlug));
@@ -542,7 +537,7 @@ function App(): React.ReactElement | null {
             <Header
                 docsOpen={docsOpen}
                 onBackToApp={backToApp}
-                onToggleDocs={toggleDocs}
+                onOpenDocs={openDocs}
             />
             {docsOpen && (
                 <div className="flex flex-1 min-h-0 w-full">
