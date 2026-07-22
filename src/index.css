@@ -45,7 +45,7 @@
     --sidebar-accent-foreground: oklch(0.3791 0.1378 265.5222);
     --sidebar-border: oklch(0.9276 0.0058 264.5313);
     --sidebar-ring: oklch(0.6231 0.188 259.8145);
-    --font-sans: Oxanium, ui-serif, serif;
+    --font-sans: Oxanium, ui-sans-serif, system-ui, sans-serif;
     --font-serif: Source Serif 4, serif;
     --font-mono: Source Code Pro, ui-monospace, monospace;
     --radius: 0.75rem;
@@ -100,7 +100,7 @@
     --sidebar-accent-foreground: oklch(0.8823 0.0571 254.1284);
     --sidebar-border: oklch(0.2478 0 0);
     --sidebar-ring: oklch(0.6231 0.188 259.8145);
-    --font-sans: Oxanium, ui-serif, serif;
+    --font-sans: Oxanium, ui-sans-serif, system-ui, sans-serif;
     --font-serif: Source Serif 4, serif;
     --font-mono: Source Code Pro, ui-monospace, monospace;
     --radius: 0.75rem;
@@ -235,6 +235,7 @@ html,
 body,
 #root {
     height: 100vh;
+    height: 100dvh;
     width: 100%;
     min-height: 100%;
     min-width: 0;

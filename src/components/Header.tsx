@@ -2,10 +2,11 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import {
     AlertCircle,
-    ArrowLeft,
     BookOpen,
     CheckCircle2,
+    ChevronRight,
     Download,
+    Github,
     Heart,
     Loader2,
     Moon,
@@ -14,6 +15,7 @@ import {
     Settings,
     X,
     Monitor,
+    MessageCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Switch } from '@/components/ui/switch';
@@ -38,20 +40,20 @@ import {
     subscribeToUpdateCheckOnStartup,
 } from '@/lib/updatePreferences';
 import logo from '../assets/logo.png';
-import discordIcon from '../assets/discord.svg';
-import githubIcon from '../assets/github.svg';
 import redditIcon from '../assets/reddit.svg';
+import { landingPath } from '@/lib/routes';
+import { isTauri } from '@tauri-apps/api/core';
 
 interface Props {
     docsOpen: boolean;
     onBackToApp: () => void;
-    onToggleDocs: () => void;
+    onOpenDocs: () => void;
 }
 
 const appVersion = __APP_VERSION__;
 type UpdateCheckStatus = 'idle' | 'checking' | 'available' | 'current' | 'error';
 
-export const Header: React.FC<Props> = ({ docsOpen, onBackToApp, onToggleDocs }) => {
+export const Header: React.FC<Props> = ({ docsOpen, onBackToApp, onOpenDocs }) => {
     const [themeMode, setThemeMode] = React.useState<ThemeMode>(() => getStoredThemeMode());
     const [settingsOpen, setSettingsOpen] = React.useState(false);
     const [checkOnStartup, setCheckOnStartup] = React.useState(() => getUpdateCheckOnStartup());
@@ -61,18 +63,51 @@ export const Header: React.FC<Props> = ({ docsOpen, onBackToApp, onToggleDocs })
     const settingsTitleId = React.useId();
     const updateStartupSwitchId = React.useId();
     const isDesktopApp = isDesktopUpdateSupported();
+    const settingsButtonRef = React.useRef<HTMLButtonElement>(null);
+    const settingsDialogRef = React.useRef<HTMLDivElement>(null);
 
     React.useEffect(() => {
         if (!settingsOpen) return;
 
+        const previouslyFocused = document.activeElement as HTMLElement | null;
+        const settingsTrigger = settingsButtonRef.current;
+        const dialog = settingsDialogRef.current;
+        const getFocusable = () =>
+            Array.from(
+                dialog?.querySelectorAll<HTMLElement>(
+                    'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])'
+                ) ?? []
+            );
+        getFocusable()[0]?.focus();
+
         const handleKeyDown = (event: KeyboardEvent) => {
             if (event.key === 'Escape') {
                 setSettingsOpen(false);
+                return;
+            }
+            if (event.key !== 'Tab') return;
+
+            const focusable = getFocusable();
+            if (focusable.length === 0) {
+                event.preventDefault();
+                return;
+            }
+            const first = focusable[0];
+            const last = focusable[focusable.length - 1];
+            if (event.shiftKey && document.activeElement === first) {
+                event.preventDefault();
+                last.focus();
+            } else if (!event.shiftKey && document.activeElement === last) {
+                event.preventDefault();
+                first.focus();
             }
         };
 
         window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
+        return () => {
+            window.removeEventListener('keydown', handleKeyDown);
+            (previouslyFocused?.isConnected ? previouslyFocused : settingsTrigger)?.focus();
+        };
     }, [settingsOpen]);
 
     React.useEffect(() => {
@@ -165,99 +200,22 @@ export const Header: React.FC<Props> = ({ docsOpen, onBackToApp, onToggleDocs })
                         </span>
                     </button>
                 ) : (
-                    <>
+                    <a
+                        href={landingPath(isTauri())}
+                        className="flex items-center gap-2 rounded-md p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                        aria-label="Kromacut home"
+                        title="Back to Kromacut home"
+                    >
                         <img src={logo} alt="Kromacut" className="h-7 w-auto" />
                         <span className="font-extrabold text-base text-foreground tracking-wide ml-1 select-none max-md:hidden">
                             Kromacut
                         </span>
-                    </>
+                    </a>
                 )}
             </div>
             <div className="flex gap-2.5 items-center">
                 <Button
-                    size="sm"
-                    onClick={onToggleDocs}
-                    title={docsOpen ? 'Back to app' : 'Open docs'}
-                    className="bg-foreground hover:bg-foreground/90 text-background font-semibold transition-all duration-200 shadow-md hover:shadow-lg hover:scale-105 active:scale-95 gap-1.5 border border-foreground/20"
-                >
-                    {docsOpen ? (
-                        <ArrowLeft className="w-4 h-4" />
-                    ) : (
-                        <BookOpen className="w-4 h-4" />
-                    )}
-                    <span className="max-sm:hidden">{docsOpen ? 'Back to app' : 'Docs'}</span>
-                </Button>
-                <Button
-                    size="sm"
-                    asChild
-                    className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-semibold transition-all duration-200 shadow-md hover:shadow-lg hover:scale-105 active:scale-95 gap-1.5"
-                >
-                    <a
-                        href="https://www.reddit.com/r/kromacut/"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        aria-label="r/kromacut on Reddit"
-                        title="r/kromacut on Reddit"
-                    >
-                        <span className="flex size-4 shrink-0 items-center justify-center">
-                            <img src={redditIcon} alt="" className="block max-h-full max-w-full brightness-0 invert" />
-                        </span>
-                        <span className="max-sm:hidden">Reddit</span>
-                    </a>
-                </Button>
-                <Button
-                    size="sm"
-                    asChild
-                    className="bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white font-semibold transition-all duration-200 shadow-md hover:shadow-lg hover:scale-105 active:scale-95 gap-1.5"
-                >
-                    <a
-                        href="https://discord.gg/nU63sFMcnX"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        aria-label="Discord"
-                        title="Discord"
-                    >
-                        <span className="flex size-4 shrink-0 items-center justify-center">
-                            <img src={discordIcon} alt="" className="block max-h-full max-w-full brightness-0 invert" />
-                        </span>
-                        <span className="max-sm:hidden">Discord</span>
-                    </a>
-                </Button>
-                <Button
-                    size="sm"
-                    asChild
-                    className="bg-gradient-to-r from-purple-500 to-violet-600 hover:from-purple-600 hover:to-violet-700 text-white font-semibold transition-all duration-200 shadow-md hover:shadow-lg hover:scale-105 active:scale-95 gap-1.5"
-                >
-                    <a
-                        href="https://github.com/vycdev/Kromacut"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        aria-label="GitHub"
-                        title="GitHub"
-                    >
-                        <span className="flex size-4 shrink-0 items-center justify-center">
-                            <img src={githubIcon} alt="" className="block max-h-full max-w-full brightness-0 invert" />
-                        </span>
-                        <span className="max-sm:hidden">GitHub</span>
-                    </a>
-                </Button>
-                <Button
-                    size="sm"
-                    className="bg-gradient-to-r from-rose-500 to-orange-500 hover:from-rose-600 hover:to-orange-600 text-white font-semibold transition-all duration-200 shadow-md hover:shadow-lg hover:scale-105 active:scale-95 gap-1.5"
-                    asChild
-                >
-                    <a
-                        href="https://www.patreon.com/cw/vycdev"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        aria-label="Support me"
-                        title="Support me"
-                    >
-                        <Heart className="w-4 h-4 fill-current" />
-                        <span className="max-sm:hidden">Support me</span>
-                    </a>
-                </Button>
-                <Button
+                    ref={settingsButtonRef}
                     size="icon"
                     onClick={() => setSettingsOpen(true)}
                     title="Open settings"
@@ -273,6 +231,7 @@ export const Header: React.FC<Props> = ({ docsOpen, onBackToApp, onToggleDocs })
                     onClick={() => setSettingsOpen(false)}
                 >
                     <div
+                        ref={settingsDialogRef}
                         role="dialog"
                         aria-modal="true"
                         aria-labelledby={settingsTitleId}
@@ -344,6 +303,95 @@ export const Header: React.FC<Props> = ({ docsOpen, onBackToApp, onToggleDocs })
                                     <Sun className="w-4 h-4" />
                                     Light
                                 </button>
+                            </div>
+                        </section>
+
+                        <section className="mt-5 space-y-3 border-t border-border pt-5">
+                            <div>
+                                <div className="text-sm font-medium text-foreground">
+                                    Resources & community
+                                </div>
+                                <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                                    Guides, releases, and places to share what you make.
+                                </p>
+                            </div>
+                            <div className="space-y-2">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setSettingsOpen(false);
+                                        onOpenDocs();
+                                    }}
+                                    className="group flex w-full items-center gap-3 rounded-lg bg-muted/50 p-3 text-left transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                >
+                                    <span className="flex size-9 flex-shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                                        <BookOpen className="h-4 w-4" />
+                                    </span>
+                                    <span className="min-w-0 flex-1">
+                                        <span className="block text-sm font-semibold text-foreground">
+                                            Docs
+                                        </span>
+                                        <span className="mt-0.5 block text-xs text-muted-foreground">
+                                            Learn the workflow and print settings.
+                                        </span>
+                                    </span>
+                                    <ChevronRight className="h-4 w-4 flex-shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+                                </button>
+
+                                <div className="grid grid-cols-2 gap-1 rounded-lg border border-border bg-muted/30 p-1 min-[520px]:grid-cols-4">
+                                    <a
+                                        href="https://discord.gg/nU63sFMcnX"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        onClick={() => setSettingsOpen(false)}
+                                        className="flex items-center justify-center gap-2 rounded-md px-2 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-background hover:text-foreground hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                    >
+                                        <MessageCircle
+                                            aria-hidden="true"
+                                            className="h-4 w-4 flex-shrink-0 text-indigo-500"
+                                        />
+                                        Discord
+                                    </a>
+                                    <a
+                                        href="https://www.reddit.com/r/kromacut/"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        onClick={() => setSettingsOpen(false)}
+                                        aria-label="r/kromacut on Reddit"
+                                        className="flex items-center justify-center gap-2 rounded-md px-2 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-background hover:text-foreground hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                    >
+                                        <img
+                                            src={redditIcon}
+                                            alt=""
+                                            className="h-4 w-4 flex-shrink-0 dark:invert"
+                                        />
+                                        Reddit
+                                    </a>
+                                    <a
+                                        href="https://github.com/vycdev/Kromacut"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        onClick={() => setSettingsOpen(false)}
+                                        className="flex items-center justify-center gap-2 rounded-md px-2 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-background hover:text-foreground hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                    >
+                                        <Github
+                                            aria-hidden="true"
+                                            className="h-4 w-4 flex-shrink-0 text-foreground"
+                                        />
+                                        GitHub
+                                    </a>
+                                    <a
+                                        href="https://www.patreon.com/cw/vycdev"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        onClick={() => setSettingsOpen(false)}
+                                        aria-label="Support Me on Patreon"
+                                        className="flex items-center justify-center gap-2 rounded-md px-2 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-background hover:text-foreground hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                    >
+                                        <Heart className="h-4 w-4 flex-shrink-0 text-rose-400" />
+                                        Patreon
+                                    </a>
+                                </div>
                             </div>
                         </section>
 

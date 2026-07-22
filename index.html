@@ -59,6 +59,34 @@
         <meta name="twitter:image" content="https://kromacut.com/android-chrome-512x512.png" />
         <meta name="twitter:image:alt" content="Kromacut logo" />
         <title>Kromacut - Free Image-to-3D Color Layer Print Generator</title>
+        <script type="application/ld+json">
+            {
+                "@context": "https://schema.org",
+                "@graph": [
+                    {
+                        "@type": "WebSite",
+                        "@id": "https://kromacut.com/#website",
+                        "url": "https://kromacut.com/",
+                        "name": "Kromacut",
+                        "description": "Turn 2D images into stacked, color-layered 3D prints.",
+                        "potentialAction": {
+                            "@type": "CreateAction",
+                            "target": "https://kromacut.com/app"
+                        }
+                    },
+                    {
+                        "@type": "SoftwareApplication",
+                        "@id": "https://kromacut.com/#application",
+                        "name": "Kromacut",
+                        "applicationCategory": "DesignApplication",
+                        "operatingSystem": "Web, Windows, macOS, Linux",
+                        "url": "https://kromacut.com/",
+                        "description": "Browser-first image-to-3D color-layer print generator with STL and 3MF export.",
+                        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+                    }
+                ]
+            }
+        </script>
     </head>
     <body>
         <div id="root"></div>

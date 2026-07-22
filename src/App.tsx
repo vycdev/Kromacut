@@ -51,7 +51,9 @@ import {
     savePreviewRenderMode,
 } from './lib/previewPrefs';
 import { buildDocsPath, parseDocsLocation } from './lib/docs/navigation';
-import { applyHomeSeo } from './lib/seo';
+import { applyAppSeo } from './lib/seo';
+import { appPath, markLaunched } from './lib/routes';
+import { isTauri } from '@tauri-apps/api/core';
 import { migrateLegacyFilamentTd, sanitizeProfileFilament } from './lib/profileManager';
 import {
     AlertDialog,
@@ -181,6 +183,7 @@ const saveAutoPaintPersisted = (value: AutoPaintPersisted) => {
 };
 
 function App(): React.ReactElement | null {
+    const toolPath = appPath(isTauri());
     // dropzone state managed by hook below
     // `weight` is the algorithm parameter; `finalColors` is the postprocess target
     const [weight, setWeight] = useState<number>(128);
@@ -382,23 +385,24 @@ function App(): React.ReactElement | null {
 
     useEffect(() => {
         if (!docsOpen) {
-            applyHomeSeo();
+            markLaunched();
+        }
+    }, [docsOpen]);
+
+    useEffect(() => {
+        if (!docsOpen) {
+            applyAppSeo();
         }
     }, [docsOpen]);
 
     const backToApp = () => {
         setDocsOpen(false);
         if (parseDocsLocation(window.location)) {
-            window.history.pushState(null, '', '/');
+            window.history.pushState(null, '', toolPath);
         }
     };
 
-    const toggleDocs = () => {
-        if (docsOpen) {
-            backToApp();
-            return;
-        }
-
+    const openDocs = () => {
         setDocsOpen(true);
         if (!parseDocsLocation(window.location)) {
             window.history.pushState(null, '', buildDocsPath(defaultDocSlug));
@@ -533,7 +537,7 @@ function App(): React.ReactElement | null {
             <Header
                 docsOpen={docsOpen}
                 onBackToApp={backToApp}
-                onToggleDocs={toggleDocs}
+                onOpenDocs={openDocs}
             />
             {docsOpen && (
                 <div className="flex flex-1 min-h-0 w-full">

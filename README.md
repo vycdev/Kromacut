@@ -6,6 +6,8 @@
 
 Open-source HueForge-style tool for converting images into stacked, color-layered 3D prints.
 
+**Try Kromacut in your browser:** [landing page](https://kromacut.com/) · [open the app](https://kromacut.com/app) · [read the docs](https://kromacut.com/docs/overview) · [download desktop releases](https://github.com/vycdev/Kromacut/releases)
+
 Kromacut is a browser-first app that converts images into multi-color lithophane 3D prints. It offers two powerful workflows:
 
 **Auto-paint mode** — Define your actual filaments (color + hiding distance), and Kromacut automatically computes optimal layer stacks using physically accurate Beer-Lambert optical blending. Features include a calibration wizard, five deterministic optimizer effort tiers, and region weighting for spatial priority.
