@@ -110,6 +110,15 @@ function resolveDocImage(src) {
     if (clean.includes('kromacut-logo.png')) {
         return findBuiltAsset('logo-') ?? clean;
     }
+    const diagramPrefixes = {
+        '06_frontlit_hiding_distance.svg': '06_frontlit_hiding_distance-',
+        '07_calibration_wedge.svg': '07_calibration_wedge-',
+        '08_opacity_solve.svg': '08_opacity_solve-',
+    };
+    const diagramName = Object.keys(diagramPrefixes).find((name) => clean.includes(name));
+    if (diagramName) {
+        return findBuiltAsset(diagramPrefixes[diagramName]) ?? clean;
+    }
     return clean;
 }
 
@@ -136,12 +145,20 @@ function resolveDocHref(href, currentDocSlug, docsBySlug) {
 
 function renderInline(markdown, currentDocSlug, docsBySlug) {
     let html = escapeHtml(markdown);
+    const protectedHtml = [];
+    const protect = (value) => {
+        const token = `\u0000${protectedHtml.length}\u0000`;
+        protectedHtml.push(value);
+        return token;
+    };
+
+    html = html.replace(/`([^`]+)`/g, (_match, code) => protect(`<code>${code}</code>`));
 
     html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_match, alt, rawSrc) => {
         const [srcPart, titlePart] = rawSrc.trim().split(/\s+["']/);
         const title = titlePart ? titlePart.replace(/["']$/, '') : '';
         const titleAttr = title ? ` title="${escapeHtml(title)}"` : '';
-        return `<img src="${escapeHtml(resolveDocImage(srcPart))}" alt="${escapeHtml(alt)}"${titleAttr} loading="lazy">`;
+        return protect(`<img src="${escapeHtml(resolveDocImage(srcPart))}" alt="${escapeHtml(alt)}"${titleAttr} loading="lazy">`);
     });
 
     html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_match, label, href) => {
@@ -149,16 +166,15 @@ function renderInline(markdown, currentDocSlug, docsBySlug) {
         const externalAttrs = /^(https?:|mailto:)/i.test(resolved)
             ? ' target="_blank" rel="noopener noreferrer"'
             : '';
-        return `<a href="${escapeHtml(resolved)}"${externalAttrs}>${renderInline(label, currentDocSlug, docsBySlug)}</a>`;
+        return protect(`<a href="${escapeHtml(resolved)}"${externalAttrs}>${renderInline(label, currentDocSlug, docsBySlug)}</a>`);
     });
 
-    html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
     html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
     html = html.replace(/__([^_]+)__/g, '<strong>$1</strong>');
     html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
     html = html.replace(/_([^_]+)_/g, '<em>$1</em>');
 
-    return html;
+    return html.replace(/\u0000(\d+)\u0000/g, (_match, index) => protectedHtml[Number(index)]);
 }
 
 function isBlockStart(line) {
@@ -409,6 +425,62 @@ function writeRobots() {
     );
 }
 
+function verifyGeneratedOutput(docs) {
+    const requiredFiles = [
+        'index.html',
+        'app/index.html',
+        'docs/index.html',
+        'robots.txt',
+        'sitemap.xml',
+        'site.webmanifest',
+        'version.json',
+    ];
+    const assertGenerated = (condition, message) => {
+        if (!condition) throw new Error(`Generated output verification failed: ${message}`);
+    };
+
+    requiredFiles.forEach((file) => {
+        assertGenerated(existsSync(path.join(distDir, file)), `missing dist/${file}`);
+    });
+
+    const rootHtml = readFileSync(path.join(distDir, 'index.html'), 'utf8');
+    const appHtml = readFileSync(path.join(distDir, 'app', 'index.html'), 'utf8');
+    const sitemap = readFileSync(path.join(distDir, 'sitemap.xml'), 'utf8');
+    const robots = readFileSync(path.join(distDir, 'robots.txt'), 'utf8');
+    const manifest = JSON.parse(readFileSync(path.join(distDir, 'site.webmanifest'), 'utf8'));
+    const version = JSON.parse(readFileSync(path.join(distDir, 'version.json'), 'utf8'));
+
+    assertGenerated(rootHtml.includes('<link rel="canonical" href="https://kromacut.com/"'), 'root canonical URL is missing');
+    assertGenerated(/(?:src|href)="\/assets\//.test(rootHtml), 'root does not use root-relative built assets');
+    assertGenerated(appHtml.includes('<meta name="robots" content="noindex,nofollow"'), '/app noindex metadata is missing');
+    assertGenerated(appHtml.includes('<link rel="canonical" href="https://kromacut.com/app"'), '/app canonical URL is missing');
+    assertGenerated(sitemap.includes('<loc>https://kromacut.com/</loc>'), 'root is missing from sitemap');
+    assertGenerated(!sitemap.includes('https://kromacut.com/app'), '/app must not appear in sitemap');
+    assertGenerated(robots.includes('Sitemap: https://kromacut.com/sitemap.xml'), 'robots.txt sitemap reference is missing');
+    assertGenerated(manifest.start_url === '/app', 'manifest start_url must be /app');
+    assertGenerated(manifest.id === '/', 'manifest id must remain stable at /');
+    assertGenerated(typeof version.version === 'string' && version.version.length > 0, 'version.json is invalid');
+
+    docs.forEach((doc) => {
+        const relativePage = path.join('docs', doc.slug, 'index.html');
+        const pagePath = path.join(distDir, relativePage);
+        assertGenerated(existsSync(pagePath), `missing dist/${relativePage}`);
+        const html = readFileSync(pagePath, 'utf8');
+        assertGenerated(
+            html.includes(`<link rel="canonical" href="${siteUrl}/docs/${doc.slug}"`),
+            `canonical URL is missing for ${doc.slug}`
+        );
+
+        for (const match of html.matchAll(/<img\s+[^>]*src="([^"]+)"/g)) {
+            const src = match[1];
+            if (/^(https?:|data:)/i.test(src)) continue;
+            assertGenerated(!src.includes('<') && !src.includes('>'), `malformed image URL in ${doc.slug}: ${src}`);
+            assertGenerated(src.startsWith('/'), `image URL is not root-relative in ${doc.slug}: ${src}`);
+            assertGenerated(existsSync(path.join(distDir, src.slice(1))), `missing image used by ${doc.slug}: ${src}`);
+        }
+    });
+}
+
 if (!existsSync(distIndexPath)) {
     throw new Error('dist/index.html was not found. Run this script after vite build.');
 }
@@ -423,3 +495,4 @@ if (overviewDoc) writeDocPage(template, overviewDoc, docs, docsBySlug, '');
 writeAppPage(template);
 writeSitemap(docs);
 writeRobots();
+verifyGeneratedOutput(docs);

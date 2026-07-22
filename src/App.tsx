@@ -384,8 +384,10 @@ function App(): React.ReactElement | null {
     }, []);
 
     useEffect(() => {
-        markLaunched();
-    }, []);
+        if (!docsOpen) {
+            markLaunched();
+        }
+    }, [docsOpen]);
 
     useEffect(() => {
         if (!docsOpen) {

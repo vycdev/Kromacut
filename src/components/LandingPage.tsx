@@ -64,7 +64,7 @@ export default function LandingPage() {
         <main data-testid="landing-page" className="h-full overflow-x-hidden overflow-y-auto bg-background text-foreground">
             <a
                 href="#workflow"
-                className="sr-only z-50 rounded-md bg-primary px-4 py-2 text-primary-foreground focus:not-sr-only focus:fixed focus:left-4 focus:top-4"
+                className="sr-only z-50 rounded-md bg-blue-700 px-4 py-2 font-semibold text-white focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-blue-700"
             >
                 Skip to workflow
             </a>
@@ -82,9 +82,9 @@ export default function LandingPage() {
                         <span className="hidden font-sans text-lg font-extrabold tracking-[0.12em] min-[390px]:inline">KROMACUT</span>
                     </a>
                     <nav aria-label="Main navigation" className="hidden items-center gap-7 text-sm font-semibold text-muted-foreground md:flex">
-                        <a href="#workflow" className="transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">How it works</a>
-                        <a href={docsPath('overview')} className="transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">Docs</a>
-                        <a href={links.releases} target="_blank" rel="noopener noreferrer" className="transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">Releases</a>
+                        <a href="#workflow" className="inline-flex min-h-11 items-center rounded-md px-2 transition-colors motion-reduce:transition-none hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">How it works</a>
+                        <a href={docsPath('overview')} className="inline-flex min-h-11 items-center rounded-md px-2 transition-colors motion-reduce:transition-none hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">Docs</a>
+                        <a href={links.releases} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center rounded-md px-2 transition-colors motion-reduce:transition-none hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">Releases</a>
                     </nav>
                     <a
                         href={APP_PATH}
@@ -94,9 +94,9 @@ export default function LandingPage() {
                         Open Kromacut <ExternalArrow />
                     </a>
                     <nav aria-label="Mobile navigation" className="order-last flex w-full items-center justify-between border-t border-border/70 pt-3 text-xs font-semibold text-muted-foreground md:hidden">
-                        <a href="#workflow" className="rounded-sm hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">How it works</a>
-                        <a href={docsPath('overview')} className="rounded-sm hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">Docs</a>
-                        <a href={links.releases} target="_blank" rel="noopener noreferrer" className="rounded-sm hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">Releases</a>
+                        <a href="#workflow" className="inline-flex min-h-11 items-center rounded-md px-1 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">How it works</a>
+                        <a href={docsPath('overview')} className="inline-flex min-h-11 items-center rounded-md px-2 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">Docs</a>
+                        <a href={links.releases} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center rounded-md px-1 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">Releases</a>
                     </nav>
                 </header>
 
@@ -113,7 +113,7 @@ export default function LandingPage() {
                             Kromacut transforms 2D images into stacked, color-layered 3D prints. Prepare your palette, match real filament, preview the result, and export a model ready for your slicer.
                         </p>
                         <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:items-center">
-                            <a href={APP_PATH} className="group inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-primary px-5 py-3 font-bold text-primary-foreground shadow-xl shadow-primary/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-4 focus-visible:ring-offset-background motion-safe:transition-transform motion-safe:hover:-translate-y-0.5 motion-safe:active:translate-y-0">
+                            <a href={APP_PATH} className="group inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-blue-700 px-5 py-3 font-bold text-white shadow-xl shadow-blue-700/20 hover:bg-blue-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-4 focus-visible:ring-offset-background motion-safe:transition motion-safe:hover:-translate-y-0.5 motion-safe:active:translate-y-0 motion-reduce:transition-none">
                                 Start creating <ExternalArrow />
                             </a>
                             <a href={docsPath('quick-start')} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg border border-border bg-card/60 px-5 py-3 font-bold text-foreground transition-colors motion-reduce:transition-none hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-4 focus-visible:ring-offset-background">
@@ -153,7 +153,7 @@ export default function LandingPage() {
                 </section>
             </div>
 
-            <section id="workflow" tabIndex={-1} className="scroll-mt-8 border-y border-border/70 bg-card/30 focus:outline-none">
+            <section id="workflow" tabIndex={-1} className="scroll-mt-8 border-y border-border/70 bg-card/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
                 <div className="mx-auto max-w-7xl px-5 py-20 sm:px-8 lg:px-10 lg:py-28">
                     <div className="max-w-2xl">
                         <p className="text-xs font-bold uppercase tracking-[0.2em] text-blue-700 dark:text-blue-300">From image to object</p>
@@ -162,8 +162,8 @@ export default function LandingPage() {
                     </div>
                     <div className="mt-14 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
                         {workflow.map((step) => (
-                            <article key={step.number} className="group overflow-hidden rounded-xl border border-border bg-background/70 shadow-sm transition-transform motion-safe:hover:-translate-y-1">
-                                <div className="aspect-[4/3] overflow-hidden border-b border-border bg-muted"><img src={step.image} alt={step.alt} loading="lazy" className="h-full w-full object-cover transition-transform duration-500 motion-safe:group-hover:scale-105" /></div>
+                            <article key={step.number} className="group overflow-hidden rounded-xl border border-border bg-background/70 shadow-sm transition-transform motion-safe:hover:-translate-y-1 motion-reduce:transition-none">
+                                <div className="aspect-[4/3] overflow-hidden border-b border-border bg-muted"><img src={step.image} alt={step.alt} loading="lazy" className="h-full w-full object-cover transition-transform duration-500 motion-safe:group-hover:scale-105 motion-reduce:transition-none" /></div>
                                 <div className="p-5"><div className="font-mono text-xs font-bold text-blue-700 dark:text-blue-300">{step.number}</div><h3 className="mt-3 text-lg font-bold">{step.title}</h3><p className="mt-2 text-sm leading-6 text-muted-foreground">{step.description}</p></div>
                             </article>
                         ))}
@@ -191,18 +191,18 @@ export default function LandingPage() {
             <section className="border-t border-border/70 bg-muted/20">
                 <div className="mx-auto flex max-w-7xl flex-col items-start justify-between gap-8 px-5 py-14 sm:px-8 md:flex-row md:items-center lg:px-10">
                     <div><p className="text-2xl font-extrabold tracking-tight sm:text-3xl">Ready to make a flat image physical?</p><p className="mt-2 text-muted-foreground">Start with an image. Finish with a print.</p></div>
-                    <div className="flex flex-wrap gap-3"><a href={APP_PATH} className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-primary px-5 py-2.5 font-bold text-primary-foreground shadow-lg shadow-primary/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring motion-safe:transition-transform motion-safe:hover:-translate-y-0.5">Open Kromacut <ExternalArrow /></a><a href={links.releases} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-border bg-background px-5 py-2.5 font-bold transition-colors motion-reduce:transition-none hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><Download aria-hidden="true" className="h-4 w-4" /> Desktop releases</a></div>
+                    <div className="flex flex-wrap gap-3"><a href={APP_PATH} className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-blue-700 px-5 py-2.5 font-bold text-white shadow-lg shadow-blue-700/20 hover:bg-blue-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring motion-safe:transition motion-safe:hover:-translate-y-0.5 motion-reduce:transition-none">Open Kromacut <ExternalArrow /></a><a href={links.releases} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-border bg-background px-5 py-2.5 font-bold transition-colors motion-reduce:transition-none hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><Download aria-hidden="true" className="h-4 w-4" /> Desktop releases</a></div>
                 </div>
             </section>
 
             <footer className="mx-auto flex max-w-7xl flex-col gap-8 px-5 py-10 sm:px-8 md:flex-row md:items-end md:justify-between lg:px-10">
                 <div><a href={APP_PATH} className="inline-flex items-center gap-3 font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><img src={logo} alt="" className="h-8 w-auto" /> Kromacut</a><p className="mt-3 max-w-sm text-sm leading-6 text-muted-foreground">Open-source tools for turning images into color-layered 3D prints.</p></div>
                 <nav aria-label="Footer navigation" className="grid grid-cols-2 gap-x-10 gap-y-3 text-sm text-muted-foreground sm:flex sm:flex-wrap sm:justify-end sm:gap-x-6">
-                    <a href={docsPath('overview')} className="inline-flex items-center gap-2 transition-colors motion-reduce:transition-none hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><BookOpen aria-hidden="true" className="h-4 w-4" /> Docs</a>
-                    <a href={links.releases} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><Download aria-hidden="true" className="h-4 w-4" /> Releases</a>
-                    <a href={links.github} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><Github aria-hidden="true" className="h-4 w-4" /> GitHub</a>
-                    <a href={links.discord} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><MessageCircle aria-hidden="true" className="h-4 w-4" /> Discord</a>
-                    <a href={links.patreon} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><Heart aria-hidden="true" className="h-4 w-4" /> Support Kromacut</a>
+                    <a href={docsPath('overview')} className="inline-flex min-h-11 items-center gap-2 rounded-md px-1 transition-colors motion-reduce:transition-none hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><BookOpen aria-hidden="true" className="h-4 w-4" /> Docs</a>
+                    <a href={links.releases} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center gap-2 rounded-md px-1 transition-colors motion-reduce:transition-none hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><Download aria-hidden="true" className="h-4 w-4" /> Releases</a>
+                    <a href={links.github} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center gap-2 rounded-md px-1 transition-colors motion-reduce:transition-none hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><Github aria-hidden="true" className="h-4 w-4" /> GitHub</a>
+                    <a href={links.discord} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center gap-2 rounded-md px-1 transition-colors motion-reduce:transition-none hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><MessageCircle aria-hidden="true" className="h-4 w-4" /> Discord</a>
+                    <a href={links.patreon} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center gap-2 rounded-md px-1 transition-colors motion-reduce:transition-none hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><Heart aria-hidden="true" className="h-4 w-4" /> Support Kromacut</a>
                 </nav>
             </footer>
             <div className="sr-only"><ChevronDown aria-hidden="true" /><Play aria-hidden="true" /></div>

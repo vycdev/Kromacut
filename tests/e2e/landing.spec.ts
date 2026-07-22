@@ -36,9 +36,15 @@ test.describe('landing page smoke @smoke', () => {
         await expect(page.getByTestId('landing-page')).toBeVisible();
         await page.goto('/app');
         await expect(page.getByTestId('image-file-input')).toBeAttached();
-        await expect.poll(() => page.evaluate((keys) =>
-            keys.every((key) => localStorage.getItem(key) !== null),
-        Object.keys(persisted))).toBe(true);
+        await expect.poll(() => page.evaluate((values) => {
+            const stableEntries = Object.entries(values).filter(([key]) => key !== 'kromacut.autopaint.v1');
+            const autoPaint = JSON.parse(localStorage.getItem('kromacut.autopaint.v1') ?? '{}');
+            return stableEntries.every(([key, value]) => localStorage.getItem(key) === value)
+                && autoPaint.schemaVersion === 2
+                && Array.isArray(autoPaint.filaments)
+                && autoPaint.filaments.length === 0
+                && document.documentElement.classList.contains('dark');
+        }, persisted)).toBe(true);
 
         await page.goto('/');
         await expect(page).toHaveURL(/\/app$/);
@@ -85,9 +91,11 @@ test.describe('landing page smoke @smoke', () => {
     });
 
     test('docs direct loading keeps the docs shell', async ({ page }) => {
+        await page.addInitScript(() => localStorage.clear());
         await page.goto('/docs/overview');
         await expect(page.getByRole('main')).toBeVisible();
         await expect(page.getByRole('heading', { name: 'Contents' })).toBeVisible();
         await expect(page.getByText('Overview', { exact: true }).first()).toBeVisible();
+        await expect.poll(() => page.evaluate(() => localStorage.getItem('kromacut.has-launched.v1'))).toBeNull();
     });
 });
