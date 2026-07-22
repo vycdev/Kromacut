@@ -92,6 +92,9 @@ test.describe('landing page smoke @smoke', () => {
         await page.goto('/');
 
         await expect(page.getByRole('navigation', { name: 'Mobile navigation' })).toBeVisible();
+        const mobileCommunityLinks = page.getByTestId('landing-mobile-community-links');
+        await expect(mobileCommunityLinks).toBeVisible();
+        await expect(mobileCommunityLinks.getByRole('link')).toHaveCount(4);
         await expect(page.getByTestId('landing-open-app')).toBeVisible();
         expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);
         await expect.poll(() => page.getByTestId('landing-page').evaluate(

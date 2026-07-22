@@ -34,6 +34,7 @@ const workflow = [
         alt: 'A colorful 2D image ready to be imported into Kromacut',
         imagePosition: '95% 50%',
         imageScale: 1.65,
+        imageFit: 'cover',
     },
     {
         number: '02',
@@ -43,6 +44,7 @@ const workflow = [
         alt: 'A color-layered image preview showing separate printable colors',
         imagePosition: '50% 48%',
         imageScale: 1.08,
+        imageFit: 'cover',
     },
     {
         number: '03',
@@ -52,6 +54,7 @@ const workflow = [
         alt: 'Kromacut 3D preview of a stacked color-layer print',
         imagePosition: '95% 50%',
         imageScale: 1.65,
+        imageFit: 'cover',
     },
     {
         number: '04',
@@ -60,12 +63,40 @@ const workflow = [
         image: printed,
         alt: 'A finished colorful layered print made from a Kromacut workflow',
         imagePosition: '55% 50%',
-        imageScale: 1.05,
+        imageScale: 1,
+        imageFit: 'contain',
     },
 ];
 
 function ExternalArrow() {
     return <ArrowRight aria-hidden="true" className="h-4 w-4" />;
+}
+
+interface CommunityLinksProps {
+    className: string;
+    labelClassName?: string;
+    testId?: string;
+}
+
+function CommunityLinks({ className, labelClassName = 'sr-only', testId }: CommunityLinksProps) {
+    const linkClassName = 'inline-flex min-h-11 items-center justify-center gap-2 rounded-md px-3 text-sm font-semibold text-muted-foreground transition-colors hover:bg-muted/70 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
+
+    return (
+        <nav data-testid={testId} aria-label="Community links" className={className}>
+            <a href={links.github} target="_blank" rel="noopener noreferrer" aria-label="Kromacut on GitHub" title="GitHub" className={linkClassName}>
+                <Github aria-hidden="true" className="h-4 w-4" /><span className={labelClassName}>GitHub</span>
+            </a>
+            <a href={links.discord} target="_blank" rel="noopener noreferrer" aria-label="Join Kromacut on Discord" title="Discord" className={linkClassName}>
+                <MessageCircle aria-hidden="true" className="h-4 w-4 text-indigo-400" /><span className={labelClassName}>Discord</span>
+            </a>
+            <a href={links.reddit} target="_blank" rel="noopener noreferrer" aria-label="r/kromacut on Reddit" title="Reddit" className={linkClassName}>
+                <img src={redditIcon} alt="" className="h-4 w-4 dark:invert" /><span className={labelClassName}>Reddit</span>
+            </a>
+            <a href={links.patreon} target="_blank" rel="noopener noreferrer" aria-label="Support Kromacut on Patreon" title="Patreon" className={linkClassName}>
+                <Heart aria-hidden="true" className="h-4 w-4 text-rose-400" /><span className={labelClassName}>Support</span>
+            </a>
+        </nav>
+    );
 }
 
 export default function LandingPage() {
@@ -95,20 +126,7 @@ export default function LandingPage() {
                         <a href={docsPath('overview')} className="inline-flex min-h-11 items-center rounded-md px-2 transition-colors motion-reduce:transition-none hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">Docs</a>
                         <a href={links.releases} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center rounded-md px-2 transition-colors motion-reduce:transition-none hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">Releases</a>
                     </nav>
-                    <nav data-testid="landing-community-links" aria-label="Community links" className="hidden items-center gap-1 lg:flex">
-                        <a href={links.github} target="_blank" rel="noopener noreferrer" aria-label="Kromacut on GitHub" title="GitHub" className="inline-flex min-h-10 items-center gap-2 rounded-md px-2.5 text-sm font-semibold text-muted-foreground transition-colors hover:bg-muted/70 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                            <Github aria-hidden="true" className="h-4 w-4" /><span className="hidden xl:inline">GitHub</span>
-                        </a>
-                        <a href={links.discord} target="_blank" rel="noopener noreferrer" aria-label="Join Kromacut on Discord" title="Discord" className="inline-flex min-h-10 items-center gap-2 rounded-md px-2.5 text-sm font-semibold text-muted-foreground transition-colors hover:bg-muted/70 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                            <MessageCircle aria-hidden="true" className="h-4 w-4 text-indigo-400" /><span className="hidden xl:inline">Discord</span>
-                        </a>
-                        <a href={links.reddit} target="_blank" rel="noopener noreferrer" aria-label="r/kromacut on Reddit" title="Reddit" className="inline-flex min-h-10 items-center gap-2 rounded-md px-2.5 text-sm font-semibold text-muted-foreground transition-colors hover:bg-muted/70 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                            <img src={redditIcon} alt="" className="h-4 w-4 dark:invert" /><span className="hidden xl:inline">Reddit</span>
-                        </a>
-                        <a href={links.patreon} target="_blank" rel="noopener noreferrer" aria-label="Support Kromacut on Patreon" title="Patreon" className="inline-flex min-h-10 items-center gap-2 rounded-md px-2.5 text-sm font-semibold text-muted-foreground transition-colors hover:bg-muted/70 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                            <Heart aria-hidden="true" className="h-4 w-4 text-rose-400" /><span className="hidden xl:inline">Support</span>
-                        </a>
-                    </nav>
+                    <CommunityLinks testId="landing-community-links" className="hidden items-center gap-1 lg:flex" labelClassName="hidden xl:inline" />
                     <a
                         href={APP_PATH}
                         data-testid="landing-open-app"
@@ -116,11 +134,15 @@ export default function LandingPage() {
                     >
                         Open Kromacut <ExternalArrow />
                     </a>
-                    <nav aria-label="Mobile navigation" className="order-last flex w-full items-center justify-between border-t border-border/70 pt-3 text-xs font-semibold text-muted-foreground md:hidden">
-                        <a href="#workflow" className="inline-flex min-h-11 items-center rounded-md px-1 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">How it works</a>
-                        <a href={docsPath('overview')} className="inline-flex min-h-11 items-center rounded-md px-2 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">Docs</a>
-                        <a href={links.releases} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center rounded-md px-1 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">Releases</a>
-                    </nav>
+                    <div className="order-last w-full border-t border-border/70 pt-2 md:hidden">
+                        <nav aria-label="Mobile navigation" className="flex items-center justify-center gap-1 text-xs font-semibold text-muted-foreground">
+                            <a href="#workflow" className="inline-flex min-h-11 items-center rounded-md px-3 transition-colors hover:bg-muted/70 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">How it works</a>
+                            <a href={docsPath('overview')} className="inline-flex min-h-11 items-center rounded-md px-3 transition-colors hover:bg-muted/70 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">Docs</a>
+                            <a href={links.releases} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center rounded-md px-3 transition-colors hover:bg-muted/70 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">Releases</a>
+                        </nav>
+                        <CommunityLinks testId="landing-mobile-community-links" className="mt-1 flex items-center justify-center gap-1 border-t border-border/50 pt-1" />
+                    </div>
+                    <CommunityLinks testId="landing-tablet-community-links" className="order-last hidden w-full items-center justify-center gap-1 border-t border-border/70 pt-3 md:flex lg:hidden" />
                 </header>
 
                 <section className="mx-auto grid w-full max-w-7xl flex-1 items-center gap-14 px-5 pb-20 pt-12 sm:px-8 md:pb-28 md:pt-20 lg:grid-cols-[0.9fr_1.1fr] lg:gap-12 lg:px-10 lg:pt-24">
@@ -159,13 +181,6 @@ export default function LandingPage() {
                             </div>
                             <div className="relative aspect-[1.22] overflow-hidden rounded-xl bg-black/20">
                                 <img src={fuji3d} alt="Color-layered 3D print preview" className="h-full w-full object-cover object-[95%_center]" fetchPriority="high" />
-                                <div className="absolute bottom-4 left-4 right-4 flex flex-wrap gap-2">
-                                    {['#121a3a', '#3855c7', '#e14f91', '#f6ba4a'].map((color, index) => (
-                                        <span key={color} className="inline-flex items-center gap-2 rounded-md border border-white/15 bg-black/65 px-2.5 py-1.5 text-xs font-semibold text-white backdrop-blur" style={{ opacity: 1 - index * 0.04 }}>
-                                            <span className="h-3 w-3 rounded-sm" style={{ backgroundColor: color }} /> Layer {index + 1}
-                                        </span>
-                                    ))}
-                                </div>
                             </div>
                         </div>
                         <div className="absolute -bottom-5 -left-4 hidden items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 shadow-xl sm:flex">
@@ -186,7 +201,7 @@ export default function LandingPage() {
                     <div className="mt-14 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
                         {workflow.map((step) => (
                             <article key={step.number} className="group overflow-hidden rounded-xl border border-border bg-background/70 shadow-sm transition-transform motion-safe:hover:-translate-y-1 motion-reduce:transition-none">
-                                <div className="aspect-[4/3] overflow-hidden border-b border-border bg-muted"><img src={step.image} alt={step.alt} loading="lazy" className="h-full w-full object-cover" style={{ objectPosition: step.imagePosition, transform: `scale(${step.imageScale})` }} /></div>
+                                <div className="aspect-[4/3] overflow-hidden border-b border-border bg-muted"><img src={step.image} alt={step.alt} loading="lazy" className={`h-full w-full ${step.imageFit === 'contain' ? 'object-contain' : 'object-cover'}`} style={{ objectPosition: step.imagePosition, transform: `scale(${step.imageScale})` }} /></div>
                                 <div className="p-5"><div className="font-mono text-xs font-bold text-blue-700 dark:text-blue-300">{step.number}</div><h3 className="mt-3 text-lg font-bold">{step.title}</h3><p className="mt-2 text-sm leading-6 text-muted-foreground">{step.description}</p></div>
                             </article>
                         ))}
@@ -195,9 +210,9 @@ export default function LandingPage() {
             </section>
 
             <section className="mx-auto grid max-w-7xl items-center gap-12 px-5 py-20 sm:px-8 md:py-28 lg:grid-cols-[1.05fr_0.95fr] lg:px-10">
-                <div className="relative grid grid-cols-2 gap-3">
-                    <div className="mt-10 aspect-[4/3] overflow-hidden rounded-xl border border-border shadow-xl"><img src={fuji2d} alt="Original 2D artwork" loading="lazy" className="h-full w-full scale-[1.65] object-cover object-[95%_50%]" /></div>
-                    <div className="aspect-[4/3] overflow-hidden rounded-xl border border-primary/40 shadow-xl shadow-primary/10"><img src={printed} alt="Finished Kromacut print" loading="lazy" className="h-full w-full object-cover object-[58%_50%]" /></div>
+                <div className="relative grid grid-cols-2 items-center gap-3">
+                    <div className="aspect-[4/3] overflow-hidden rounded-xl border border-border shadow-xl"><img src={fuji2d} alt="Original 2D artwork" loading="lazy" className="h-full w-full object-cover object-[95%_50%]" style={{ transform: 'translateY(-2%) scale(1.55)' }} /></div>
+                    <div className="aspect-[4/3] overflow-hidden rounded-xl border border-primary/40 bg-muted shadow-xl shadow-primary/10"><img src={printed} alt="Finished Kromacut print" loading="lazy" className="h-full w-full object-contain object-center" /></div>
                     <div className="absolute left-1/2 top-1/2 hidden -translate-x-1/2 -translate-y-1/2 rounded-full border border-border bg-background p-3 text-primary shadow-lg sm:block"><ArrowRight aria-hidden="true" className="h-5 w-5" /></div>
                 </div>
                 <div className="max-w-xl">
