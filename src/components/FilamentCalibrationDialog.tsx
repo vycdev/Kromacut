@@ -485,11 +485,18 @@ export function FilamentCalibrationDialog({
         return [...grouped.values()].map(({ filament, targets }) => {
             const readValues: FrontlitCalibrationRead[] = [];
             let complete = targets.length > 0;
-            // Whether the user typed anything at all, parseable or not. Only an
-            // untouched filament may be discarded without saying so.
+            // Whether the user typed anything at all, parseable or not, in
+            // either rail. A merge step alone cannot be calibrated, but it still
+            // means the row was entered, and only an untouched filament may be
+            // discarded without saying so.
             let touched = false;
             for (const target of targets) {
-                if ((reads[target.key] ?? '').trim() !== '') touched = true;
+                if (
+                    (reads[target.key] ?? '').trim() !== '' ||
+                    (mergeReads[target.key] ?? '').trim() !== ''
+                ) {
+                    touched = true;
+                }
                 const opacityLayers = parseLayerInput(reads[target.key]);
                 if (opacityLayers === null) {
                     complete = false;
@@ -513,7 +520,7 @@ export function FilamentCalibrationDialog({
                 : null;
             return { filament, targets, input, filled: readValues.length, touched };
         });
-    }, [activeMeasurePlan, reads]);
+    }, [activeMeasurePlan, reads, mergeReads]);
 
     // Session JND fit, computed once in the background when the entered reads
     // settle. Preview and Save both consume this cached result so the values
@@ -1241,7 +1248,7 @@ export function FilamentCalibrationDialog({
                                 {status === 'partial' && (
                                     <p className="mt-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-[11px] text-amber-600 dark:text-amber-400">
                                         {filled === 0
-                                            ? 'Enter a patch number of 1 or higher to calibrate this filament.'
+                                            ? 'Enter a match rail patch number of 1 or higher to calibrate this filament. A merge step on its own is not enough.'
                                             : `Read ${filled} of ${targets.length} bases. Fill in the rest to calibrate this filament, or clear it to skip it and keep its current settings.`}
                                     </p>
                                 )}
