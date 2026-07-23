@@ -485,7 +485,18 @@ export function FilamentCalibrationDialog({
         return [...grouped.values()].map(({ filament, targets }) => {
             const readValues: FrontlitCalibrationRead[] = [];
             let complete = targets.length > 0;
+            // Whether the user typed anything at all, parseable or not, in
+            // either rail. A merge step alone cannot be calibrated, but it still
+            // means the row was entered, and only an untouched filament may be
+            // discarded without saying so.
+            let touched = false;
             for (const target of targets) {
+                if (
+                    (reads[target.key] ?? '').trim() !== '' ||
+                    (mergeReads[target.key] ?? '').trim() !== ''
+                ) {
+                    touched = true;
+                }
                 const opacityLayers = parseLayerInput(reads[target.key]);
                 if (opacityLayers === null) {
                     complete = false;
@@ -507,9 +518,9 @@ export function FilamentCalibrationDialog({
                       maxLayers: activeMeasurePlan.maxLayers,
                   }
                 : null;
-            return { filament, targets, input };
+            return { filament, targets, input, filled: readValues.length, touched };
         });
-    }, [activeMeasurePlan, reads]);
+    }, [activeMeasurePlan, reads, mergeReads]);
 
     // Session JND fit, computed once in the background when the entered reads
     // settle. Preview and Save both consume this cached result so the values
@@ -528,10 +539,9 @@ export function FilamentCalibrationDialog({
     latestSessionKeyRef.current = sessionKey;
 
     // The JND search needs at least two multi-base filaments with complete
-    // reads; anything less always resolves to the default JND.
+    // reads; anything less always resolves to the default JND. Filaments left
+    // blank are simply not part of the session — they never block the fit.
     const sessionFitEligible = useMemo(() => {
-        if (readInputs.length === 0) return false;
-        if (readInputs.some((entry) => entry.input === null)) return false;
         const multiBase = readInputs.filter((entry) => (entry.input?.reads?.length ?? 0) >= 2);
         return multiBase.length >= 2;
     }, [readInputs]);
@@ -582,23 +592,41 @@ export function FilamentCalibrationDialog({
     // Per-filament calibration computed live from the entered reads, using the
     // fitted session JND once it is available.
     const computed = useMemo(() => {
-        return readInputs.map(({ filament, targets, input }) => ({
-            filament,
-            targets,
-            input,
-            result: input
+        return readInputs.map(({ filament, targets, input, filled, touched }) => {
+            const result = input
                 ? computeFrontlitCalibration({
                       ...input,
                       jnd: activeJndFit?.jnd,
                       jndSource: activeJndFit?.jndSource,
                   })
-                : null,
-            jndSource: activeJndFit?.jndSource ?? null,
-        }));
+                : null;
+            // 'empty' filaments are dropped silently on save — the user never
+            // claimed a read for them. 'partial' covers anything they did type
+            // that still is not savable, which has to be called out rather than
+            // discarded quietly.
+            const status: 'ready' | 'failed' | 'partial' | 'empty' = result?.ok
+                ? 'ready'
+                : result
+                  ? 'failed'
+                  : touched
+                    ? 'partial'
+                    : 'empty';
+            return {
+                filament,
+                targets,
+                input,
+                result,
+                status,
+                filled,
+                jndSource: activeJndFit?.jndSource ?? null,
+            };
+        });
     }, [readInputs, activeJndFit]);
 
-    const allReadsValid =
-        computed.length > 0 && computed.every((c) => c.result !== null && c.result.ok);
+    // Partial entry is allowed: whatever is filled in gets calibrated and the
+    // rest is left untouched, so Save only needs one usable filament.
+    const readyCount = computed.filter((c) => c.status === 'ready').length;
+    const skippedCount = computed.length - readyCount;
 
     const handleSave = useCallback(() => {
         if (isSaving || sessionFitPending) return;
@@ -1025,12 +1053,20 @@ export function FilamentCalibrationDialog({
             <div className="space-y-3">
                 <p className="text-sm text-muted-foreground">
                     Enter the first patch number that matched the rail for each filament/base print.
+                    Fill in as many as you read — anything left blank is discarded on save and that
+                    filament keeps its current settings.
                     {isFittingJnd && (
                         <span className="ml-1.5 text-[11px] text-primary">
                             Fitting session JND…
                         </span>
                     )}
                 </p>
+                {readyCount > 0 && skippedCount > 0 && (
+                    <p className="rounded-md border border-border/50 bg-muted/20 px-3 py-2 text-[11px] text-muted-foreground">
+                        Saving will calibrate {readyCount} filament
+                        {readyCount === 1 ? '' : 's'} and leave {skippedCount} unchanged.
+                    </p>
+                )}
                 <div className="grid gap-1 rounded-md border border-border/50 bg-muted/20 px-3 py-2 text-[11px] text-muted-foreground sm:grid-cols-2">
                     <div>
                         <span className="font-semibold text-foreground">Match:</span> first patch
@@ -1042,7 +1078,7 @@ export function FilamentCalibrationDialog({
                     </div>
                 </div>
                 <div className="max-h-[26rem] space-y-2.5 overflow-y-auto pr-1">
-                    {computed.map(({ filament, targets, result, jndSource }) => {
+                    {computed.map(({ filament, targets, result, status, filled, jndSource }) => {
                         const calibration = result && result.ok ? result.calibration : null;
                         const errorText = result && !result.ok ? result.error : null;
                         return (
@@ -1062,6 +1098,11 @@ export function FilamentCalibrationDialog({
                                     </div>
                                     <div className="text-right text-[11px] text-muted-foreground">
                                         {targets.length} read{targets.length === 1 ? '' : 's'}
+                                        {status !== 'ready' && (
+                                            <div className="font-medium text-amber-600 dark:text-amber-400">
+                                                {status === 'empty' ? 'Not entered' : 'Won’t save'}
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
 
@@ -1203,6 +1244,14 @@ export function FilamentCalibrationDialog({
                                         {errorText}
                                     </p>
                                 )}
+
+                                {status === 'partial' && (
+                                    <p className="mt-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-[11px] text-amber-600 dark:text-amber-400">
+                                        {filled === 0
+                                            ? 'Enter a match rail patch number of 1 or higher to calibrate this filament. A merge step on its own is not enough.'
+                                            : `Read ${filled} of ${targets.length} bases. Fill in the rest to calibrate this filament, or clear it to skip it and keep its current settings.`}
+                                    </p>
+                                )}
                             </Card>
                         );
                     })}
@@ -1215,10 +1264,14 @@ export function FilamentCalibrationDialog({
                 </Button>
                 <Button
                     onClick={handleSave}
-                    disabled={!allReadsValid || isSaving || sessionFitPending}
+                    disabled={readyCount === 0 || isSaving || sessionFitPending}
                 >
                     <Check className="mr-1 h-4 w-4" />
-                    {isSaving || sessionFitPending ? 'Fitting...' : 'Save Calibration'}
+                    {isSaving || sessionFitPending
+                        ? 'Fitting...'
+                        : skippedCount > 0 && readyCount > 0
+                          ? `Save ${readyCount} of ${computed.length}`
+                          : 'Save Calibration'}
                 </Button>
             </AlertDialogFooter>
         </>
