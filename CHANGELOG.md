@@ -20,6 +20,7 @@ All notable changes to Kromacut are documented in this file.
 - **2D touch-up tools** - The 2D preview toolbar now includes five hard-edged pixel tools (Brush, Eraser, Fill, Text, and color picker) for direct image editing with palette-safe colors, an on-canvas text box you type into directly with live move, resize, and word wrap, one undo/redo step per edit, and live non-blocking drawing with adjustments staying non-destructive.
 - **Calibration theory docs** - New in-app documentation page explaining the science behind filament calibration: the frontlit Beer-Lambert optical model and hiding distance, why the wedge's reference-rail comparison is reliable without a camera, how a single patch read becomes a hiding distance through a just-noticeable-difference solve, per-channel measurement with multiple bases, the session JND fit, and what the confidence score reflects — illustrated with three new diagrams. The Calibrate Filaments dialog links straight to it.
 - **Reddit community links** - Added r/kromacut links to the app settings and README.
+- **Experimental multi-plate mode** - Added an experimental mode for multi-plate projects, where one image may be separated into multiple prints.
 
 ### Changed
 
