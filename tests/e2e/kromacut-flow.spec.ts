@@ -279,7 +279,8 @@ async function runFlow(
             });
 
             await setSwitch(page, 'autopaint-enhanced-color-match', true);
-            await setSwitch(page, 'autopaint-allow-repeated-swaps', true);
+            await page.getByRole('combobox', { name: 'Extra repeated swaps' }).click();
+            await page.getByRole('option', { name: '2 extra swaps', exact: true }).click();
             await setSwitch(page, 'autopaint-height-dithering', true);
 
             await waitForAutoPaintIdle(
@@ -383,7 +384,7 @@ async function openApp(page: Page) {
         };
     });
 
-    await page.goto('/');
+    await page.goto('/app');
     await expect(page.getByTestId('image-file-input')).toBeAttached();
 }
 
