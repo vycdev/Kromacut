@@ -39,6 +39,11 @@ import {
     saveUpdateCheckOnStartup,
     subscribeToUpdateCheckOnStartup,
 } from '@/lib/updatePreferences';
+import {
+    getMultiPlateEnabled,
+    saveMultiPlateEnabled,
+    subscribeToMultiPlateEnabled,
+} from '@/lib/experimentalFeatures';
 import logo from '../assets/logo.png';
 import redditIcon from '../assets/reddit.svg';
 import { landingPath } from '@/lib/routes';
@@ -57,11 +62,13 @@ export const Header: React.FC<Props> = ({ docsOpen, onBackToApp, onOpenDocs }) =
     const [themeMode, setThemeMode] = React.useState<ThemeMode>(() => getStoredThemeMode());
     const [settingsOpen, setSettingsOpen] = React.useState(false);
     const [checkOnStartup, setCheckOnStartup] = React.useState(() => getUpdateCheckOnStartup());
+    const [multiPlateEnabled, setMultiPlateEnabled] = React.useState(() => getMultiPlateEnabled());
     const [updateStatus, setUpdateStatus] = React.useState<UpdateCheckStatus>('idle');
     const [availableUpdate, setAvailableUpdate] = React.useState<VersionInfo | null>(null);
     const [updateError, setUpdateError] = React.useState('');
     const settingsTitleId = React.useId();
     const updateStartupSwitchId = React.useId();
+    const multiPlateSwitchId = React.useId();
     const isDesktopApp = isDesktopUpdateSupported();
     const settingsButtonRef = React.useRef<HTMLButtonElement>(null);
     const settingsDialogRef = React.useRef<HTMLDivElement>(null);
@@ -140,6 +147,10 @@ export const Header: React.FC<Props> = ({ docsOpen, onBackToApp, onOpenDocs }) =
     }, []);
 
     React.useEffect(() => {
+        return subscribeToMultiPlateEnabled(setMultiPlateEnabled);
+    }, []);
+
+    React.useEffect(() => {
         if (settingsOpen) return;
 
         setUpdateStatus('idle');
@@ -155,6 +166,14 @@ export const Header: React.FC<Props> = ({ docsOpen, onBackToApp, onOpenDocs }) =
     const setStartupUpdateChecks = (enabled: boolean) => {
         saveUpdateCheckOnStartup(enabled);
         setCheckOnStartup(enabled);
+    };
+
+    const setMultiPlate = (enabled: boolean) => {
+        saveMultiPlateEnabled(enabled);
+        setMultiPlateEnabled(enabled);
+        // Enabling plays a full-screen unlock flourish; close settings first so it
+        // plays over the app rather than on top of the open dialog.
+        if (enabled) setSettingsOpen(false);
     };
 
     const handleCheckForUpdates = async () => {
@@ -485,6 +504,32 @@ export const Header: React.FC<Props> = ({ docsOpen, onBackToApp, onOpenDocs }) =
                                 </div>
                             </section>
                         )}
+
+                        <section className="mt-5 space-y-3 border-t border-border pt-5">
+                            <div className="text-sm font-medium text-foreground">Experimental</div>
+                            <div className="rounded-md border border-border bg-background p-3">
+                                <div className="flex items-center justify-between gap-4">
+                                    <label
+                                        htmlFor={multiPlateSwitchId}
+                                        className="min-w-0 cursor-pointer"
+                                    >
+                                        <div className="text-sm font-medium text-foreground">
+                                            Multi-plate mode
+                                        </div>
+                                        <div className="mt-1 text-xs text-muted-foreground">
+                                            Unfinished multi-plate workflow. No effect yet; may
+                                            change or break.
+                                        </div>
+                                    </label>
+                                    <Switch
+                                        id={multiPlateSwitchId}
+                                        checked={multiPlateEnabled}
+                                        onCheckedChange={setMultiPlate}
+                                        aria-label="Enable experimental multi-plate mode"
+                                    />
+                                </div>
+                            </div>
+                        </section>
 
                         <div className="mt-5 flex items-center justify-between border-t border-border pt-4 text-xs text-muted-foreground">
                             <span>Kromacut</span>
