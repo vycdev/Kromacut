@@ -199,6 +199,30 @@ Overture Basic,#033877,Blue,3.5`;
     assert.equal(profile.filaments[0].td, 0.35);
 });
 
+test('parseHueForgeCSV strips a leading UTF-8 BOM before parsing the header', () => {
+    // A UTF-8 BOM (U+FEFF) is often prepended by spreadsheet tools (e.g.
+    // Excel) when saving CSV/TSV. Without stripping it, the first header
+    // cell reads as "\uFEFFColor" instead of "Color", so the Color column
+    // lookup fails for every row and no filaments are imported.
+    const csv = `\uFEFFColor,TD,Name
+#bf9c81,1.7,Light Brown`;
+    const profiles = parseHueForgeCSV(csv, 'My Spools');
+    assert.ok(profiles);
+    assert.equal(profiles.length, 1);
+    assert.equal(profiles[0].filaments.length, 1);
+    assert.equal(profiles[0].filaments[0].color, '#BF9C81');
+    assert.equal(profiles[0].filaments[0].td, 0.17);
+});
+
+test('parseHueForgeCSV strips a leading UTF-8 BOM from TSV input as well', () => {
+    const tsv = `\uFEFFBrand\tColor\tName\tTD
+Inland Basic\t#bf9c81\tLight Brown\t1.7`;
+    const [profile] = parseHueForgeCSV(tsv)!;
+    assert.equal(profile.filaments.length, 1);
+    assert.equal(profile.filaments[0].color, '#BF9C81');
+    assert.equal(profile.filaments[0].brand, 'Inland Basic');
+});
+
 test('auto-paint profiles can be renamed without changing filament data', async () => {
     const { renameProfile } = await loadProfileManager();
     const profiles: AutoPaintProfile[] = [

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ThreeDControls from './components/ThreeDControls';
 import {
     AUTO_PAINT_REPEAT_LIMITS,
@@ -51,8 +51,15 @@ import {
     savePreviewRenderMode,
 } from './lib/previewPrefs';
 import { buildDocsPath, parseDocsLocation } from './lib/docs/navigation';
-import { applyHomeSeo } from './lib/seo';
+import { applyAppSeo } from './lib/seo';
+import { appPath, markLaunched } from './lib/routes';
+import { isTauri } from '@tauri-apps/api/core';
 import { migrateLegacyFilamentTd, sanitizeProfileFilament } from './lib/profileManager';
+import PrintUnlockEffect from './components/PrintUnlockEffect';
+import {
+    getMultiPlateEnabled,
+    subscribeToMultiPlateEnabled,
+} from './lib/experimentalFeatures';
 import {
     AlertDialog,
     AlertDialogContent,
@@ -130,12 +137,12 @@ const loadAutoPaintPersisted = (): AutoPaintPersisted | null => {
         const sanitized = parsed.filaments
             .map((filament: unknown) => sanitizeProfileFilament(filament))
             .filter(
-                (filament: ReturnType<typeof sanitizeProfileFilament>): filament is NonNullable<
-                    ReturnType<typeof sanitizeProfileFilament>
-                > => filament !== null
+                (
+                    filament: ReturnType<typeof sanitizeProfileFilament>
+                ): filament is NonNullable<ReturnType<typeof sanitizeProfileFilament>> =>
+                    filament !== null
             );
-        const persistedSchema =
-            typeof parsed.schemaVersion === 'number' ? parsed.schemaVersion : 1;
+        const persistedSchema = typeof parsed.schemaVersion === 'number' ? parsed.schemaVersion : 1;
         const filaments =
             persistedSchema >= AUTOPAINT_SCHEMA_VERSION
                 ? sanitized
@@ -181,6 +188,28 @@ const saveAutoPaintPersisted = (value: AutoPaintPersisted) => {
 };
 
 function App(): React.ReactElement | null {
+    const toolPath = appPath(isTauri());
+    // Multi-plate mode (issue #35) is still a stub. Per the plan, the flow diverges
+    // at *image upload*, not at app start — so until an image is uploaded the app
+    // must look and behave exactly like today. The experimental "Multi-plate mode"
+    // toggle in Settings arms the flag; the future upload decider will read it (via
+    // `getMultiPlateEnabled()`) inside the upload path to fork into multi-plate
+    // handling. The toggle persists (localStorage) like the other settings. Flipping
+    // it on plays a one-shot 3D-print flourish as feedback, then hands straight back
+    // to the untouched single-image UI; a persisted-on flag on a fresh load does not
+    // replay the flourish, so App only reacts to off→on transitions.
+    const multiPlateEnabledRef = useRef(getMultiPlateEnabled());
+    const [printing, setPrinting] = useState(false);
+
+    useEffect(() => {
+        return subscribeToMultiPlateEnabled((enabled) => {
+            if (enabled && !multiPlateEnabledRef.current) setPrinting(true); // flourish only on off→on
+            multiPlateEnabledRef.current = enabled;
+        });
+    }, []);
+
+    const handleEffectDone = useCallback(() => setPrinting(false), []);
+
     // dropzone state managed by hook below
     // `weight` is the algorithm parameter; `finalColors` is the postprocess target
     const [weight, setWeight] = useState<number>(128);
@@ -266,12 +295,10 @@ function App(): React.ReactElement | null {
     const [mode, setMode] = useState<'2d' | '3d'>('2d');
     const [docsOpen, setDocsOpen] = useState(() => parseDocsLocation(window.location) !== null);
     const [isOrtho, setIsOrtho] = useState(loadCameraMode);
-    const [previewRenderMode, setPreviewRenderMode] = useState<PreviewRenderMode>(
-        loadPreviewRenderMode
-    );
-    const [previewColorMode, setPreviewColorMode] = useState<PreviewColorMode>(
-        loadPreviewColorMode
-    );
+    const [previewRenderMode, setPreviewRenderMode] =
+        useState<PreviewRenderMode>(loadPreviewRenderMode);
+    const [previewColorMode, setPreviewColorMode] =
+        useState<PreviewColorMode>(loadPreviewColorMode);
     const [exportingSTL, setExportingSTL] = useState(false);
     const [exportProgress, setExportProgress] = useState(0); // 0..1
     const [exportStep, setExportStep] = useState<ExportProgressStep>({
@@ -311,10 +338,8 @@ function App(): React.ReactElement | null {
                 regionWeightingMode:
                     autopaintHydrated.regionWeightingMode ?? prev.regionWeightingMode,
                 enhancedColorMatch: autopaintHydrated.enhancedColorMatch ?? prev.enhancedColorMatch,
-                preserveSeparation:
-                    autopaintHydrated.preserveSeparation ?? prev.preserveSeparation,
-                maxRepeatedSwaps:
-                    autopaintHydrated.maxRepeatedSwaps ?? prev.maxRepeatedSwaps,
+                preserveSeparation: autopaintHydrated.preserveSeparation ?? prev.preserveSeparation,
+                maxRepeatedSwaps: autopaintHydrated.maxRepeatedSwaps ?? prev.maxRepeatedSwaps,
                 transitionOpacity: autopaintHydrated.transitionOpacity ?? prev.transitionOpacity,
                 heightDithering: autopaintHydrated.heightDithering ?? prev.heightDithering,
                 ditherLineWidth: autopaintHydrated.ditherLineWidth ?? prev.ditherLineWidth,
@@ -382,23 +407,24 @@ function App(): React.ReactElement | null {
 
     useEffect(() => {
         if (!docsOpen) {
-            applyHomeSeo();
+            markLaunched();
+        }
+    }, [docsOpen]);
+
+    useEffect(() => {
+        if (!docsOpen) {
+            applyAppSeo();
         }
     }, [docsOpen]);
 
     const backToApp = () => {
         setDocsOpen(false);
         if (parseDocsLocation(window.location)) {
-            window.history.pushState(null, '', '/');
+            window.history.pushState(null, '', toolPath);
         }
     };
 
-    const toggleDocs = () => {
-        if (docsOpen) {
-            backToApp();
-            return;
-        }
-
+    const openDocs = () => {
         setDocsOpen(true);
         if (!parseDocsLocation(window.location)) {
             window.history.pushState(null, '', buildDocsPath(defaultDocSlug));
@@ -515,10 +541,9 @@ function App(): React.ReactElement | null {
                 exportObjectTo3MFBlob(obj, {
                     layerHeight: builtModelState.layerHeight,
                     firstLayerHeight: builtModelState.slicerFirstLayerHeight,
-                    layerFilamentColors:
-                        builtModelAutoPaint
-                            ? builtModelState.autoPaintFilamentSwatches?.map((s) => s.hex)
-                            : undefined,
+                    layerFilamentColors: builtModelAutoPaint
+                        ? builtModelState.autoPaintFilamentSwatches?.map((s) => s.hex)
+                        : undefined,
                     onProgress,
                     onZipProgress,
                 }),
@@ -529,21 +554,22 @@ function App(): React.ReactElement | null {
     const processingActive = mode === '2d' && (isQuantizing || isDedithering);
 
     return (
-        <div className="box-border text-inherit font-sans flex flex-col flex-1 min-w-0 max-w-full min-h-0 h-screen w-full">
-            <Header
-                docsOpen={docsOpen}
-                onBackToApp={backToApp}
-                onToggleDocs={toggleDocs}
-            />
-            {docsOpen && (
-                <div className="flex flex-1 min-h-0 w-full">
-                    <DocsPage />
-                </div>
-            )}
-            <div
-                className={`${docsOpen ? 'hidden' : 'flex'} flex-1 min-h-0 w-full`}
-                ref={layoutRef}
-            >
+        <>
+            <div className="box-border text-inherit font-sans flex flex-col flex-1 min-w-0 max-w-full min-h-0 h-screen w-full">
+                <Header
+                    docsOpen={docsOpen}
+                    onBackToApp={backToApp}
+                    onOpenDocs={openDocs}
+                />
+                {docsOpen && (
+                    <div className="flex flex-1 min-h-0 w-full">
+                        <DocsPage />
+                    </div>
+                )}
+                <div
+                    className={`${docsOpen ? 'hidden' : 'flex'} flex-1 min-h-0 w-full`}
+                    ref={layoutRef}
+                >
                     <ResizableSplitter defaultSize={30} minSize={20} maxSize={50}>
                         <aside className="w-full bg-card border-r border-border flex flex-col min-h-0">
                             <ModeTabs mode={mode} onChange={setMode} />
@@ -873,38 +899,42 @@ function App(): React.ReactElement | null {
                             </div>
                         </main>
                     </ResizableSplitter>
+                </div>
+
+                {/* Build warning dialog */}
+                <AlertDialog
+                    open={buildWarning !== null}
+                    onOpenChange={(open) => !open && cancelBuild()}
+                >
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>Performance Warning</AlertDialogTitle>
+                            <AlertDialogDescription asChild>
+                                <div className="space-y-2">
+                                    <p>Building the 3D model may be slow due to:</p>
+                                    <ul className="list-disc pl-5 space-y-1">
+                                        {buildWarning?.warnings.map((w, i) => (
+                                            <li key={i}>{w}</li>
+                                        ))}
+                                    </ul>
+                                    <p>Do you want to continue?</p>
+                                </div>
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={confirmBuild}>
+                                Build Anyway
+                            </AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
+
+                {/* Update checker for Tauri desktop app */}
+                <UpdateChecker />
             </div>
-
-            {/* Build warning dialog */}
-            <AlertDialog
-                open={buildWarning !== null}
-                onOpenChange={(open) => !open && cancelBuild()}
-            >
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Performance Warning</AlertDialogTitle>
-                        <AlertDialogDescription asChild>
-                            <div className="space-y-2">
-                                <p>Building the 3D model may be slow due to:</p>
-                                <ul className="list-disc pl-5 space-y-1">
-                                    {buildWarning?.warnings.map((w, i) => (
-                                        <li key={i}>{w}</li>
-                                    ))}
-                                </ul>
-                                <p>Do you want to continue?</p>
-                            </div>
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={confirmBuild}>Build Anyway</AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
-
-            {/* Update checker for Tauri desktop app */}
-            <UpdateChecker />
-        </div>
+            {printing && <PrintUnlockEffect onDone={handleEffectDone} />}
+        </>
     );
 }
 

@@ -422,6 +422,11 @@ function parseCSV(content: string, delimiter: ',' | '\t'): string[][] {
  * Quoted fields with embedded commas, newlines, and "" escaped quotes are
  * supported per RFC 4180. Rows missing Color or TD are skipped.
  *
+ * A leading UTF-8 byte-order mark (U+FEFF), often added by spreadsheet
+ * tools such as Excel when saving CSV/TSV, is stripped before parsing so it
+ * doesn't get glued onto the first header name (e.g. "\uFEFFColor"), which
+ * would otherwise make every row's Color column look missing.
+ *
  * Returns null if the input has no header, no valid data rows, or cannot be
  * parsed.
  */
@@ -429,6 +434,8 @@ export function parseHueForgeCSV(
     csv: string,
     profileName = 'HueForge Import'
 ): AutoPaintProfile[] | null {
+    if (csv.charCodeAt(0) === 0xfeff) csv = csv.slice(1);
+
     const firstNewline = csv.indexOf('\n');
     const headerLine = firstNewline >= 0 ? csv.slice(0, firstNewline) : csv;
     const delimiter = detectDelimiter(headerLine);
