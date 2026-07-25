@@ -167,11 +167,12 @@ function collectObservations(
 
 function transformLab(base: Lab, deltaL: number, logChromaScale: number): Lab {
     const chromaScale = Math.exp(logChromaScale);
-    return {
+    const transformed = {
         L: Math.max(0, Math.min(100, base.L + deltaL)),
         a: base.a * chromaScale,
         b: base.b * chromaScale,
     };
+    return rgbToLab(labToRgb(transformed));
 }
 
 function observationLoss(

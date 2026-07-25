@@ -198,6 +198,31 @@ test('Lab conversion round-trips representative sRGB colors', () => {
     );
 });
 
+test('appearance transforms score the same gamut-mapped color they render', async () => {
+    const {
+        appearanceLabToRgb,
+        applyAppearanceRankModel,
+        createIdentityAppearanceRankModel,
+    } = (await modules).model;
+    const base = rgbToLab([255, 0, 0]);
+    const model = {
+        ...createIdentityAppearanceRankModel(),
+        applied: true,
+        gateReason: 'applied' as const,
+        deltaL: 6,
+        logChromaScale: 0.1,
+    };
+
+    const corrected = applyAppearanceRankModel(base, model);
+    const rendered = appearanceLabToRgb(corrected);
+    const realized = rgbToLab(rendered);
+
+    assert.deepEqual(rendered, [255, 0, 0]);
+    assert.ok(Math.abs(corrected.L - realized.L) < 1e-12);
+    assert.ok(Math.abs(corrected.a - realized.a) < 1e-12);
+    assert.ok(Math.abs(corrected.b - realized.b) < 1e-12);
+});
+
 test('appearance fit is deterministic and only applies after held-out improvement', async () => {
     const { model, profile } = await modules;
     const { fitAppearanceRankModel } = model;
@@ -315,6 +340,52 @@ test('proof history counts target visits and rejects evidence from another filam
         rejected.selectionHistory.targetPriorityById.get(snapshot.targetMappings[0].id),
         0
     );
+});
+
+test('proof history ignores tested stacks that are absent from the current printable stack', async () => {
+    const { profile, proof, history } = await modules;
+    const snapshot = buildPaletteProofSnapshot(8, 1);
+    const spec = proof.buildPaletteProofSpec(snapshot, { targetCount: 1, candidateCount: 2 });
+    let appearance = profile.upsertPaletteProofRecord(
+        profile.createEmptyAppearanceProfile(),
+        profile.buildPaletteProofRecord(filaments, snapshot, spec, '2026-07-18T12:00:00.000Z')
+    );
+    appearance = profile.setPaletteTargetResponse(
+        appearance,
+        spec.id,
+        0,
+        { response: 'none' },
+        '2026-07-18T12:01:00.000Z'
+    );
+    appearance = profile.completePaletteProofEvaluation(
+        appearance,
+        spec.id,
+        '2026-07-18T12:02:00.000Z'
+    );
+
+    const palette = snapshot.palette.map((entry, index) => ({
+        ...entry,
+        canonicalStackKey: `current-stack-${index + 1}`,
+    }));
+    const currentSnapshot: FinalPrintableStackSnapshot = {
+        ...snapshot,
+        fingerprint: 'current-reoptimized-stack',
+        layers: snapshot.layers.map((layer, index) => ({
+            ...layer,
+            canonicalStackKey: palette[index].canonicalStackKey,
+        })),
+        palette,
+        targetMappings: snapshot.targetMappings.map((target) => ({
+            ...target,
+            canonicalStackKey: palette[target.paletteIndex].canonicalStackKey,
+        })),
+    };
+    const result = history.buildPaletteProofHistory(appearance, currentSnapshot);
+    const targetId = currentSnapshot.targetMappings[0].id;
+
+    assert.equal(result.selectionHistory.candidateHistoryByTargetId.has(targetId), false);
+    assert.equal(result.selectionHistory.targetPriorityById.get(targetId), 1);
+    assert.equal(result.hasUnseenEvidence, true);
 });
 
 test('new-target history does not repeat the immediately previous target set', async () => {

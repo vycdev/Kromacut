@@ -93,19 +93,30 @@ export function buildPaletteProofHistory(
 
     const targetPriorityById = new Map<string, number>();
     const candidateHistoryByTargetId = new Map<string, PaletteProofCandidateHistory>();
+    const currentStackKeys = new Set(snapshot.palette.map((entry) => entry.canonicalStackKey));
+    const currentTestedByTarget = new Map<string, Set<string>>();
     const maximumVisitCount = Math.max(0, ...targetVisitCountById.values());
     for (const target of snapshot.targetMappings) {
-        const testedStackKeys = testedByTarget.get(target.id);
-        const hasUnseenCandidates = (testedStackKeys?.size ?? 0) < snapshot.palette.length;
+        const testedStackKeys = new Set(
+            [...(testedByTarget.get(target.id) ?? [])].filter((stackKey) =>
+                currentStackKeys.has(stackKey)
+            )
+        );
+        currentTestedByTarget.set(target.id, testedStackKeys);
+        const hasUnseenCandidates = testedStackKeys.size < currentStackKeys.size;
         const visitCount = targetVisitCountById.get(target.id) ?? 0;
         const priority = !hasUnseenCandidates
             ? Number.POSITIVE_INFINITY
             : visitCount + (deprioritizedTargetIds?.has(target.id) ? maximumVisitCount + 1 : 0);
         targetPriorityById.set(target.id, priority);
-        if (testedStackKeys && testedStackKeys.size > 0) {
+        if (testedStackKeys.size > 0) {
+            const historicalAnchor = anchorByTarget.get(target.id);
             candidateHistoryByTargetId.set(target.id, {
                 testedStackKeys,
-                anchorStackKey: anchorByTarget.get(target.id) ?? target.canonicalStackKey,
+                anchorStackKey:
+                    historicalAnchor && currentStackKeys.has(historicalAnchor)
+                        ? historicalAnchor
+                        : target.canonicalStackKey,
             });
         }
     }
@@ -114,9 +125,10 @@ export function buildPaletteProofHistory(
         proofIds: records.map((record) => record.id),
         selectionHistory: { targetPriorityById, candidateHistoryByTargetId },
         hasUnseenEvidence:
-            snapshot.palette.length >= 2 &&
+            currentStackKeys.size >= 2 &&
             snapshot.targetMappings.some(
-                (target) => (testedByTarget.get(target.id)?.size ?? 0) < snapshot.palette.length
+                (target) =>
+                    (currentTestedByTarget.get(target.id)?.size ?? 0) < currentStackKeys.size
             ),
     };
 }

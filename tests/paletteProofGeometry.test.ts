@@ -219,13 +219,23 @@ test('proof 3MF embeds its immutable map and frozen print instructions', async (
     const spec = proof.buildPaletteProofSpec(snapshot);
     const blob = await exporter.exportPaletteProof3MF(snapshot, spec);
     const zip = await JSZip.loadAsync(await blob.arrayBuffer());
+    const contentTypes = await zip.file('[Content_Types].xml')?.async('string');
     const model = await zip.file('3D/3dmodel.model')?.async('string');
     const manifestText = await zip.file('Metadata/palette-proof.json')?.async('string');
     const instructions = await zip.file('Metadata/palette-proof-instructions.txt')?.async('string');
 
+    assert.ok(contentTypes);
     assert.ok(model);
     assert.ok(manifestText);
     assert.ok(instructions);
+    assert.match(
+        contentTypes,
+        /<Override PartName="\/Metadata\/palette-proof\.json" ContentType="application\/json"\/>/
+    );
+    assert.match(
+        contentTypes,
+        /<Override PartName="\/Metadata\/palette-proof-instructions\.txt" ContentType="text\/plain"\/>/
+    );
     const manifest = JSON.parse(manifestText);
     assert.equal(manifest.proof.id, spec.id);
     assert.equal(manifest.finalStack.fingerprint, snapshot.fingerprint);

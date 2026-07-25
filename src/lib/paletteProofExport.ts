@@ -140,10 +140,12 @@ export async function exportPaletteProof3MF(
                 {
                     name: 'palette-proof.json',
                     content: JSON.stringify(manifest, null, 2),
+                    contentType: 'application/json',
                 },
                 {
                     name: 'palette-proof-instructions.txt',
                     content: instructions,
+                    contentType: 'text/plain',
                 },
             ],
         });

@@ -13,6 +13,7 @@ export interface Export3MFOptions {
     metadataFiles?: readonly {
         name: string;
         content: string;
+        contentType: string;
     }[];
 }
 
@@ -115,14 +116,39 @@ export async function exportObjectTo3MFBlob(
     options?: Export3MFOptions
 ): Promise<Blob> {
     const zip = new JSZip();
+    const metadataFiles = options?.metadataFiles ?? [];
+    const metadataNames = new Set<string>();
+    for (const file of metadataFiles) {
+        if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(file.name)) {
+            throw new Error(`Invalid 3MF metadata filename: ${file.name}`);
+        }
+        if (
+            !/^[A-Za-z0-9][A-Za-z0-9.+-]{0,126}\/[A-Za-z0-9][A-Za-z0-9.+-]{0,126}$/.test(
+                file.contentType
+            )
+        ) {
+            throw new Error(`Invalid 3MF metadata content type: ${file.contentType}`);
+        }
+        if (metadataNames.has(file.name)) {
+            throw new Error(`Duplicate 3MF metadata filename: ${file.name}`);
+        }
+        metadataNames.add(file.name);
+    }
 
     // [Content_Types].xml
+    const metadataContentTypes = metadataFiles
+        .map(
+            (file) =>
+                ` <Override PartName="/Metadata/${file.name}" ContentType="${file.contentType}"/>`
+        )
+        .join('\n');
     const contentTypes = `<?xml version="1.0" encoding="UTF-8"?>
 <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
  <Default Extension="model" ContentType="application/vnd.ms-package.3dmanufacturing-3dmodel+xml"/>
  <Default Extension="png" ContentType="image/png"/>
  <Default Extension="config" ContentType="application/vnd.ms-package.3dmanufacturing-3dmodel+xml"/>
+${metadataContentTypes}${metadataContentTypes ? '\n' : ''}
 </Types>`;
     zip.file('[Content_Types].xml', contentTypes);
 
@@ -737,10 +763,7 @@ export async function exportObjectTo3MFBlob(
         JSON.stringify(projectSettings, null, 4)
     );
 
-    for (const file of options?.metadataFiles ?? []) {
-        if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(file.name)) {
-            throw new Error(`Invalid 3MF metadata filename: ${file.name}`);
-        }
+    for (const file of metadataFiles) {
         zip.folder('Metadata')?.file(file.name, file.content);
     }
 

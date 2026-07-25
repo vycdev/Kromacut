@@ -23,7 +23,10 @@ import type {
     AutoPaintWorkerRequest,
     AutoPaintWorkerResponse,
 } from '../workers/autoPaint.worker';
-import type { AppearanceProfileV1 } from '../lib/appearanceProfile';
+import {
+    fingerprintCompletedAppearanceEvidence,
+    type AppearanceProfileV1,
+} from '../lib/appearanceProfile.ts';
 
 export interface UseAutoPaintWorkerOptions {
     paintMode: 'manual' | 'autopaint';
@@ -190,7 +193,10 @@ export function useAutoPaintWorker(opts: UseAutoPaintWorkerOptions): UseAutoPain
         selectedImageSwatches,
         filteredKey
     );
-    const appearanceKey = useMemo(() => JSON.stringify(appearance ?? null), [appearance]);
+    const appearanceKey = useMemo(
+        () => fingerprintCompletedAppearanceEvidence(appearance),
+        [appearance]
+    );
     const stableAppearance = useStableValueByKey(appearance, appearanceKey);
 
     const getWorker = useCallback(() => {

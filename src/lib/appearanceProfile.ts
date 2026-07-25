@@ -527,6 +527,70 @@ export function createEmptyAppearanceProfile(): AppearanceProfileV1 {
     };
 }
 
+/**
+ * Fingerprints only the completed evidence consumed by appearance fitting.
+ * Draft result entry is persisted immediately without invalidating an active
+ * Auto-paint run; completing or reopening an evaluation changes this key.
+ */
+export function fingerprintCompletedAppearanceEvidence(
+    appearance: AppearanceProfileV1 | undefined
+): string {
+    if (!appearance) {
+        return fingerprintJson('completed-appearance-evidence-v1', {
+            proofs: [],
+            viewingSessions: [],
+            targetJudgments: [],
+        });
+    }
+
+    const completedSessions = appearance.proofs
+        .map((proof) =>
+            [...appearance.viewingSessions]
+                .filter((session) => session.proofId === proof.id)
+                .sort((left, right) => right.createdAt.localeCompare(left.createdAt))[0]
+        )
+        .filter(
+            (session): session is AppearanceViewingSession => session?.status === 'complete'
+        )
+        .sort((left, right) => left.id.localeCompare(right.id));
+    const completedSessionIds = new Set(completedSessions.map((session) => session.id));
+    const completedProofIds = new Set(completedSessions.map((session) => session.proofId));
+
+    const proofs = appearance.proofs
+        .filter((proof) => completedProofIds.has(proof.id))
+        .map((proof) => ({
+            id: proof.id,
+            proof: { cells: proof.proof.cells },
+            prefixes: proof.prefixes,
+            process: proof.process,
+        }))
+        .sort((left, right) => left.id.localeCompare(right.id));
+    const viewingSessions = completedSessions.map((session) => ({
+        id: session.id,
+        proofId: session.proofId,
+        status: session.status,
+        createdAt: session.createdAt,
+    }));
+    const targetJudgments = appearance.targetJudgments
+        .filter((judgment) => completedSessionIds.has(judgment.viewingSessionId))
+        .map((judgment) => ({
+            id: judgment.id,
+            proofId: judgment.proofId,
+            targetColor: judgment.targetColor,
+            candidateCellIds: judgment.candidateCellIds,
+            closestCellIds: judgment.closestCellIds,
+            response: judgment.response,
+            viewingSessionId: judgment.viewingSessionId,
+        }))
+        .sort((left, right) => left.id.localeCompare(right.id));
+
+    return fingerprintJson('completed-appearance-evidence-v1', {
+        proofs,
+        viewingSessions,
+        targetJudgments,
+    });
+}
+
 export function buildPaletteProofRecord(
     filaments: readonly Filament[],
     snapshot: FinalPrintableStackSnapshot,
