@@ -34,6 +34,7 @@ All notable changes to Kromacut are documented in this file.
 
 ### Fixed
 
+- **HueForge spool CSV/TSV imports** - BOM-prefixed HueForge spool files now import correctly when a UTF-8 byte-order mark precedes the first header.
 - **Settings documentation link** - Opening Docs from Settings now remains in the documentation when Docs is already active instead of unexpectedly returning to the app.
 - **Auto-paint Max Height** - Auto-paint now plans, scores, previews, and exports the same layer-aligned stack. Height caps round down to a valid printable layer boundary, so a generated model no longer exceeds the requested maximum by adding a final whole layer.
 - **Auto-paint region priority** - Center and Edge priority now use the actual locations of each image color. Center prioritizes colors near the image middle; Edge prioritizes colors near the outer border. The optimizer no longer allocates a full-image weight map or guesses location from color brightness.
