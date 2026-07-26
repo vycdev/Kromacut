@@ -122,6 +122,17 @@ test('Palette Proof stays usable, persists results, and downloads its frozen 3MF
     const zip = await JSZip.loadAsync(await readFile(downloadPath!));
     expect(zip.file('Metadata/palette-proof.json')).not.toBeNull();
     expect(zip.file('Metadata/palette-proof-instructions.txt')).not.toBeNull();
+    await expect(panel.getByTestId('palette-proof-size-controls')).toHaveCount(0);
+    await expect(panel.getByTestId('palette-proof-target-summary')).toHaveCount(0);
+    await expect(dialog.getByRole('combobox', { name: 'Palette Proof target count' })).toHaveCount(
+        0
+    );
+    await expect(
+        dialog.getByRole('combobox', { name: 'Palette Proof candidate count' })
+    ).toHaveCount(0);
+    await expect(panel.getByRole('button', { name: 'Choose from image', exact: true })).toHaveCount(
+        0
+    );
 
     await dialog.getByRole('button', { name: 'Delete Palette Proof' }).click();
     await expect(
@@ -140,6 +151,8 @@ test('Palette Proof stays usable, persists results, and downloads its frozen 3MF
             return profiles[0]?.appearance?.proofs?.length;
         })
     ).toBe(0);
+    await expect(panel.getByTestId('palette-proof-size-controls')).toBeVisible();
+    await expect(panel.getByTestId('palette-proof-target-summary')).toBeVisible();
 
     const replacementDownloadPromise = page.waitForEvent('download');
     await page.getByTestId('download-palette-proof').click();
@@ -147,11 +160,8 @@ test('Palette Proof stays usable, persists results, and downloads its frozen 3MF
 
     const savedProofId = await panel.getAttribute('data-proof-id');
     expect(savedProofId).not.toBeNull();
-    await dialog.getByRole('combobox', { name: 'Palette Proof target count' }).click();
-    await page.getByRole('option', { name: '7', exact: true }).click();
-    await expect(panel.getByText('44 x 60 mm / 7 targets / 5 candidates')).toBeVisible();
-    await dialog.getByRole('combobox', { name: 'Palette Proof record' }).click();
-    await page.getByRole('option', { name: /^Set 1 \/ Initial \// }).click();
+    await expect(panel.getByTestId('palette-proof-size-controls')).toHaveCount(0);
+    await expect(panel.getByTestId('palette-proof-target-summary')).toHaveCount(0);
     const savedProofDownload = dialog.getByTestId('download-palette-proof');
     await expect(savedProofDownload).toBeEnabled();
     const savedProofDownloadPromise = page.waitForEvent('download');
@@ -177,6 +187,18 @@ test('Palette Proof stays usable, persists results, and downloads its frozen 3MF
     await expect(dialog.getByRole('button', { name: 'Edit results', exact: true })).toBeVisible();
     await expect(dialog.getByRole('button', { name: 'Delete Palette Proof' })).toBeVisible();
 
+    const completedProofId = await panel.getAttribute('data-proof-id');
+    const newTargetsButton = dialog.getByRole('button', { name: 'New targets', exact: true });
+    await expect(newTargetsButton).toBeEnabled();
+    await page.screenshot({ path: testInfo.outputPath('palette-proof-completed.png') });
+    await newTargetsButton.click();
+    await expect(panel).toHaveAttribute('data-screen', 'target-selection');
+    await expect(panel.getByTestId('palette-proof-target-image')).toBeVisible();
+    await expect(
+        dialog.getByRole('combobox', { name: 'Palette Proof target count' })
+    ).toBeVisible();
+    await panel.getByRole('button', { name: 'Back to Palette Proof', exact: true }).click();
+
     await dialog.getByRole('combobox', { name: 'Palette Proof record' }).click();
     await expect(page.getByText('Target set 1 / 1 round', { exact: true })).toBeVisible();
     await expect(page.getByText('Target set 2 / new', { exact: true })).toBeVisible();
@@ -186,8 +208,8 @@ test('Palette Proof stays usable, persists results, and downloads its frozen 3MF
         'data-state',
         'active'
     );
-    await dialog.getByRole('combobox', { name: 'Palette Proof target count' }).click();
-    await page.getByRole('option', { name: '8', exact: true }).click();
+    await expect(panel.getByTestId('palette-proof-size-controls')).toBeVisible();
+    await expect(panel.getByTestId('palette-proof-target-summary')).toBeVisible();
     const nextProofTargetIds = await panel
         .locator('[data-target-mapping-id]')
         .evaluateAll((rows) => rows.map((row) => row.getAttribute('data-target-mapping-id')));
@@ -207,23 +229,7 @@ test('Palette Proof stays usable, persists results, and downloads its frozen 3MF
     expect(storedAppearance.targetJudgments[0].closestCellIds).toEqual(['B1', 'C1']);
     expect(storedAppearance.viewingSessions[0].status).toBe('complete');
 
-    const completedProofId = await panel.getAttribute('data-proof-id');
-    let continueTargetsButton = dialog.getByRole('button', {
-        name: 'Continue targets',
-        exact: true,
-    });
-    await expect(continueTargetsButton).toBeEnabled();
-    const newTargetsButton = dialog.getByRole('button', { name: 'New targets', exact: true });
-    await expect(newTargetsButton).toBeEnabled();
-    await page.screenshot({ path: testInfo.outputPath('palette-proof-completed.png') });
-    await newTargetsButton.click();
-    await expect(panel).toHaveAttribute('data-screen', 'target-selection');
-    await expect(panel.getByTestId('palette-proof-target-image')).toBeVisible();
-    await panel.getByRole('button', { name: 'Back to Palette Proof', exact: true }).click();
-    await dialog.getByRole('combobox', { name: 'Palette Proof record' }).click();
-    await page.getByRole('option', { name: /^Set 1 \/ Initial \// }).click();
-    await dialog.getByRole('tab', { name: /Results/ }).click();
-    continueTargetsButton = dialog.getByRole('button', {
+    const continueTargetsButton = dialog.getByRole('button', {
         name: 'Continue targets',
         exact: true,
     });

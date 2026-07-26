@@ -244,6 +244,7 @@ export default function PaletteProofPanel({
     const selectedSnapshot =
         selectedSpec?.snapshotFingerprint === snapshot?.fingerprint ? snapshot : undefined;
     const isSelectedCurrent = currentSpec?.id === selectedProofId;
+    const canEditCurrentProof = Boolean(currentSpec && isSelectedCurrent && !selectedRecord);
     const canTrack = Boolean(profile && !profileDirty);
     const evaluation = selectedRecord
         ? getPaletteProofEvaluationState(profile?.appearance, selectedRecord.id)
@@ -405,6 +406,7 @@ export default function PaletteProofPanel({
         isSelectingTargets &&
         snapshot &&
         imageSrc &&
+        !selectedRecord &&
         proofGeneration.mode !== 'continue' &&
         targetCountOptions.length > 0
     ) {
@@ -740,7 +742,7 @@ export default function PaletteProofPanel({
                 </Select>
             )}
 
-            {currentSpec && isSelectedCurrent && targetCountOptions.length > 0 && (
+            {canEditCurrentProof && targetCountOptions.length > 0 && (
                 <div className="grid grid-cols-2 gap-2" data-testid="palette-proof-size-controls">
                     <label className="space-y-1 text-[10px] font-medium text-muted-foreground">
                         Targets
@@ -807,7 +809,7 @@ export default function PaletteProofPanel({
                 </div>
             )}
 
-            {currentSpec && isSelectedCurrent && proofGeneration.mode !== 'continue' && (
+            {canEditCurrentProof && proofGeneration.mode !== 'continue' && (
                 <div
                     className="flex items-center gap-2 rounded-md border border-border/70 bg-muted/20 p-2"
                     data-testid="palette-proof-target-summary"
