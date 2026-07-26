@@ -29,6 +29,7 @@ test('Palette Proof stays usable, persists results, and downloads its frozen 3MF
     await page.getByRole('button', { name: 'Calibrate', exact: true }).click();
     const dialog = page.getByRole('alertdialog');
     await expect(dialog).toBeVisible();
+    const calibrationDialogBounds = await dialog.boundingBox();
     const closeBounds = await dialog
         .getByRole('button', { name: 'Close calibration dialog' })
         .boundingBox();
@@ -44,6 +45,10 @@ test('Palette Proof stays usable, persists results, and downloads its frozen 3MF
         )
     ).toBeLessThanOrEqual(1);
     await dialog.getByRole('tab', { name: 'Palette Proof' }).click();
+    expect(calibrationDialogBounds).not.toBeNull();
+    await expect
+        .poll(async () => (await dialog.boundingBox())?.width ?? 0)
+        .toBeGreaterThan(calibrationDialogBounds!.width + 300);
     const panel = dialog.getByTestId('palette-proof-panel');
     await expect(panel).toBeVisible();
     await expect(page.getByLabel('Target 1', { exact: false })).toBeVisible();
@@ -206,7 +211,7 @@ test('Palette Proof stays usable, persists results, and downloads its frozen 3MF
     const firstMatchQualitySelect = firstMatchQuality.getByRole('combobox', {
         name: 'Match quality for Target 1',
     });
-    await expect(firstMatchQualitySelect).toHaveText('Best');
+    await expect(firstMatchQualitySelect).toHaveText('Best available');
     await dialog.getByRole('button', { name: 'C1', exact: true }).click();
     await firstMatchQualitySelect.click();
     await page.getByRole('option', { name: 'Dead on', exact: true }).click();

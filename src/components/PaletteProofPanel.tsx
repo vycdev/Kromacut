@@ -104,25 +104,21 @@ function candidateRoleLabel(role: PaletteProofCandidateRole): string {
 const MATCH_QUALITY_OPTIONS: readonly {
     value: PaletteTargetMatchQuality;
     label: string;
-    compactLabel: string;
     title: string;
 }[] = [
     {
         value: 'best-available',
         label: 'Best available',
-        compactLabel: 'Best',
         title: 'Closest option, but not necessarily an accurate color match',
     },
     {
         value: 'close',
         label: 'Close',
-        compactLabel: 'Close',
         title: 'The selected patch is close enough to provide a soft color anchor',
     },
     {
         value: 'exact',
         label: 'Dead on',
-        compactLabel: 'Dead on',
         title: 'The selected patch accurately matches the target color',
     },
 ];
@@ -1191,7 +1187,12 @@ export default function PaletteProofPanel({
                                 )}
                             </div>
 
-                            <div className="divide-y divide-border/70 border-y border-border/70">
+                            <div className="hidden grid-cols-[5.5rem_minmax(0,1fr)_7.5rem] gap-2 border-t border-border/70 px-0 py-1.5 text-[9px] font-medium uppercase tracking-wide text-muted-foreground sm:grid">
+                                <span>Target</span>
+                                <span>Candidates</span>
+                                <span>Match quality</span>
+                            </div>
+                            <div className="divide-y divide-border/70 border-b border-border/70">
                                 {selectedRecord.proof.columns.map((column) => {
                                     const judgment = judgmentsByColumn.get(column.column);
                                     const selectedMatchQuality =
@@ -1205,7 +1206,7 @@ export default function PaletteProofPanel({
                                     return (
                                         <div
                                             key={column.id}
-                                            className="grid gap-2 py-2.5 sm:grid-cols-[7.75rem_1fr]"
+                                            className="grid grid-cols-[5.5rem_minmax(0,1fr)] gap-2 py-2.5 sm:grid-cols-[5.5rem_minmax(0,1fr)_7.5rem]"
                                             data-testid={`palette-proof-result-column-${column.column + 1}`}
                                         >
                                             <div className="flex min-w-0 items-start gap-2">
@@ -1228,55 +1229,6 @@ export default function PaletteProofPanel({
                                                     <p className="truncate text-[9px] uppercase text-muted-foreground">
                                                         {column.targetColor.hex}
                                                     </p>
-                                                    {selectedMatchQuality !== null && (
-                                                        <div
-                                                            className="mt-1"
-                                                            data-testid={`palette-proof-match-quality-${column.column + 1}`}
-                                                        >
-                                                            <Select
-                                                                value={selectedMatchQuality}
-                                                                disabled={
-                                                                    !canTrack ||
-                                                                    evaluation?.complete
-                                                                }
-                                                                onValueChange={(value) =>
-                                                                    handleMatchQualityChange(
-                                                                        column.column,
-                                                                        value as PaletteTargetMatchQuality
-                                                                    )
-                                                                }
-                                                            >
-                                                                <SelectTrigger
-                                                                    className="h-5 w-full rounded-sm border-border/70 px-1.5 py-0 text-[9px] shadow-none disabled:opacity-100 [&>svg]:h-3 [&>svg]:w-3"
-                                                                    aria-label={`Match quality for Target ${column.column + 1}`}
-                                                                    title={`Match: ${selectedMatchQualityOption.label}. ${selectedMatchQualityOption.title}`}
-                                                                >
-                                                                    <span className="truncate">
-                                                                        {
-                                                                            selectedMatchQualityOption.compactLabel
-                                                                        }
-                                                                    </span>
-                                                                </SelectTrigger>
-                                                                <SelectContent
-                                                                    align="start"
-                                                                    className="w-48"
-                                                                >
-                                                                    {MATCH_QUALITY_OPTIONS.map(
-                                                                        (option) => (
-                                                                            <SelectItem
-                                                                                key={option.value}
-                                                                                value={option.value}
-                                                                                className="text-xs"
-                                                                                title={option.title}
-                                                                            >
-                                                                                {option.label}
-                                                                            </SelectItem>
-                                                                        )
-                                                                    )}
-                                                                </SelectContent>
-                                                            </Select>
-                                                        </div>
-                                                    )}
                                                 </div>
                                             </div>
                                             <div className="min-w-0">
@@ -1362,6 +1314,58 @@ export default function PaletteProofPanel({
                                                         None
                                                     </button>
                                                 </div>
+                                            </div>
+                                            <div className="col-start-2 min-w-0 sm:col-start-3">
+                                                {selectedMatchQuality !== null ? (
+                                                    <div
+                                                        data-testid={`palette-proof-match-quality-${column.column + 1}`}
+                                                    >
+                                                        <Select
+                                                            value={selectedMatchQuality}
+                                                            disabled={
+                                                                !canTrack || evaluation?.complete
+                                                            }
+                                                            onValueChange={(value) =>
+                                                                handleMatchQualityChange(
+                                                                    column.column,
+                                                                    value as PaletteTargetMatchQuality
+                                                                )
+                                                            }
+                                                        >
+                                                            <SelectTrigger
+                                                                className="h-10 w-full px-2.5 py-0 text-[10px] font-medium shadow-none disabled:opacity-100"
+                                                                aria-label={`Match quality for Target ${column.column + 1}`}
+                                                                title={`Match: ${selectedMatchQualityOption.label}. ${selectedMatchQualityOption.title}`}
+                                                            >
+                                                                <SelectValue />
+                                                            </SelectTrigger>
+                                                            <SelectContent
+                                                                align="end"
+                                                                className="w-52"
+                                                            >
+                                                                {MATCH_QUALITY_OPTIONS.map(
+                                                                    (option) => (
+                                                                        <SelectItem
+                                                                            key={option.value}
+                                                                            value={option.value}
+                                                                            className="text-xs"
+                                                                            title={option.title}
+                                                                        >
+                                                                            {option.label}
+                                                                        </SelectItem>
+                                                                    )
+                                                                )}
+                                                            </SelectContent>
+                                                        </Select>
+                                                    </div>
+                                                ) : (
+                                                    <div
+                                                        className="flex h-10 items-center px-2.5 text-[10px] text-muted-foreground/60"
+                                                        aria-hidden="true"
+                                                    >
+                                                        —
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
                                     );
