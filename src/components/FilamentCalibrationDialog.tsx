@@ -1348,7 +1348,9 @@ export function FilamentCalibrationDialog({
                 if (!isOpen) handleClose();
             }}
         >
-            <AlertDialogContent className="fixed left-1/2 top-1/2 z-50 box-border flex max-h-[90vh] w-[calc(100vw-1rem)] max-w-[42rem] -translate-x-1/2 -translate-y-1/2 flex-col gap-4 overflow-y-auto rounded-lg border border-border bg-background p-6 shadow-lg">
+            <AlertDialogContent
+                className="fixed left-2 right-2 top-1/2 z-50 mx-auto box-border flex max-h-[90vh] w-auto max-w-[42rem] translate-x-0 -translate-y-1/2 flex-col gap-4 overflow-y-auto rounded-lg border border-border bg-background p-6 shadow-lg"
+            >
                 <AlertDialogDescription className="sr-only">
                     Filament calibration tools for hiding distance and job-specific Palette Proofs.
                 </AlertDialogDescription>

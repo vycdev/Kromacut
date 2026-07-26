@@ -261,13 +261,27 @@ test('Palette Proof stays usable, persists results, and downloads its frozen 3MF
     expect(storedAppearance.viewingSessions[0].status).toBe('complete');
 
     const continueTargetsButton = dialog.getByRole('button', {
-        name: 'Continue targets',
+        name: 'Continue 2 targets',
         exact: true,
     });
-    await expect(continueTargetsButton).toBeDisabled();
+    await expect(continueTargetsButton).toBeEnabled();
     await expect(continueTargetsButton).toHaveAttribute(
         'title',
-        'At least one target has no nearby untried challenger; start a new target set'
+        /Continue 2 of 5 targets; exhausted targets .* will be skipped/
+    );
+    await continueTargetsButton.click();
+    await expect(dialog.getByRole('tab', { name: 'Proof map' })).toHaveAttribute(
+        'data-state',
+        'active'
+    );
+    await expect(panel.getByTestId('palette-proof-continuation-guidance')).toContainText(
+        'Continuing 2 of 5 targets.'
+    );
+    await expect(panel.getByTestId('palette-proof-continuation-guidance')).toContainText(
+        'were skipped'
+    );
+    await expect(dialog.getByRole('combobox', { name: 'Palette Proof record' })).toContainText(
+        'Set 1 / Continuation 1 / not saved'
     );
     await expect(dialog.getByTestId('download-palette-proof')).toBeVisible();
 

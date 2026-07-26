@@ -263,6 +263,7 @@ test('profile v3 export and import preserve appearance evidence', async () => {
     const proof = buildPaletteProofSpec(snapshot, {
         targetCount: 3,
         targetColorMode: 'fitted',
+        targetSetMappingIds: snapshot.targetMappings.map((target) => target.id),
     });
     const appearance = upsertPaletteProofRecord(
         createEmptyAppearanceProfile(),
@@ -286,4 +287,8 @@ test('profile v3 export and import preserve appearance evidence', async () => {
     assert.equal(imported.imported[0].version, 3);
     assert.deepEqual(imported.imported[0].appearance, appearance);
     assert.equal(imported.imported[0].appearance?.proofs[0].proof.targetColorMode, 'fitted');
+    assert.deepEqual(
+        imported.imported[0].appearance?.proofs[0].proof.targetSetMappingIds,
+        snapshot.targetMappings.map((target) => target.id)
+    );
 });

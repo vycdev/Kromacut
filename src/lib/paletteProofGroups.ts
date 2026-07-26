@@ -3,6 +3,7 @@ interface PaletteProofGroupRecord {
     exportedAt: string;
     proof: {
         targetColorMode?: 'original' | 'fitted';
+        targetSetMappingIds?: readonly string[];
         columns: readonly { targetMappingId: string }[];
     };
 }
@@ -16,9 +17,10 @@ export interface PaletteProofTargetGroup<T extends PaletteProofGroupRecord> {
 export function paletteProofTargetSetKey(proof: PaletteProofGroupRecord['proof']): string {
     return JSON.stringify({
         mode: proof.targetColorMode ?? 'original',
-        targets: proof.columns
-            .map((column) => column.targetMappingId)
-            .sort((left, right) => left.localeCompare(right)),
+        targets: [
+            ...(proof.targetSetMappingIds ??
+                proof.columns.map((column) => column.targetMappingId)),
+        ].sort((left, right) => left.localeCompare(right)),
     });
 }
 

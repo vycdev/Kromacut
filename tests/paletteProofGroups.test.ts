@@ -10,13 +10,15 @@ function record(
     id: string,
     exportedAt: string,
     targetMappingIds: readonly string[],
-    targetColorMode?: 'original' | 'fitted'
+    targetColorMode?: 'original' | 'fitted',
+    targetSetMappingIds?: readonly string[]
 ) {
     return {
         id,
         exportedAt,
         proof: {
             ...(targetColorMode ? { targetColorMode } : {}),
+            ...(targetSetMappingIds ? { targetSetMappingIds } : {}),
             columns: targetMappingIds.map((targetMappingId) => ({ targetMappingId })),
         },
     };
@@ -36,6 +38,25 @@ test('original and fitted targets form separate proof groups', () => {
     ]);
 
     assert.equal(groups.length, 2);
+});
+
+test('a reduced continuation stays in its original target-set group', () => {
+    const groups = groupPaletteProofRecords([
+        record('initial', '2026-07-19T10:00:00Z', ['red', 'blue', 'green']),
+        record(
+            'continuation',
+            '2026-07-19T11:00:00Z',
+            ['red', 'green'],
+            undefined,
+            ['red', 'blue', 'green']
+        ),
+    ]);
+
+    assert.equal(groups.length, 1);
+    assert.deepEqual(
+        groups[0].records.map((entry) => entry.id),
+        ['initial', 'continuation']
+    );
 });
 
 test('proofs group by target set and retain chronological round order', () => {

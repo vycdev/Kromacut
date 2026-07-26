@@ -107,6 +107,7 @@ export interface PaletteProofSpec {
     id: string;
     snapshotFingerprint: string;
     targetColorMode?: PaletteProofTargetColorMode;
+    targetSetMappingIds?: readonly string[];
     comparisonEnabled: boolean;
     layout: {
         kind: 'target-column-matrix';
@@ -576,6 +577,7 @@ export function buildPaletteProofSpec(
         prioritizedTargetMappingIds?: readonly string[];
         targetColorMode?: PaletteProofTargetColorMode;
         candidateSelectionMode?: PaletteProofCandidateSelectionMode;
+        targetSetMappingIds?: readonly string[];
     } = {}
 ): PaletteProofSpec {
     if (options.targetMappingIds && options.prioritizedTargetMappingIds) {
@@ -609,6 +611,15 @@ export function buildPaletteProofSpec(
     }
     if (new Set(targets.map((target) => target.id)).size !== targets.length) {
         throw new Error('Palette Proof targets must be unique');
+    }
+    if (
+        options.targetSetMappingIds &&
+        (options.targetSetMappingIds.length === 0 ||
+            options.targetSetMappingIds.length > PALETTE_PROOF_MAX_TARGETS ||
+            new Set(options.targetSetMappingIds).size !== options.targetSetMappingIds.length ||
+            targets.some((target) => !options.targetSetMappingIds!.includes(target.id)))
+    ) {
+        throw new Error('Palette Proof target-set lineage must contain unique targets');
     }
     const minimumCandidateCount = prefixes.length >= 2 ? PALETTE_PROOF_MIN_CANDIDATES : 1;
     const requestedRowCount = Math.min(
@@ -707,6 +718,9 @@ export function buildPaletteProofSpec(
         schemaVersion: 1 as const,
         snapshotFingerprint: snapshot.fingerprint,
         ...(targetColorMode === 'fitted' ? { targetColorMode } : {}),
+        ...(options.targetSetMappingIds
+            ? { targetSetMappingIds: [...options.targetSetMappingIds] }
+            : {}),
         comparisonEnabled: rowCount >= 2 && columns.length > 0,
         layout: {
             kind: 'target-column-matrix' as const,
@@ -761,6 +775,18 @@ export function validatePaletteProofSpec(
         spec.targetColorMode !== 'fitted'
     ) {
         errors.push('target color mode is inconsistent');
+    }
+    if (
+        spec.targetSetMappingIds !== undefined &&
+        (spec.targetSetMappingIds.length === 0 ||
+            spec.targetSetMappingIds.length > PALETTE_PROOF_MAX_TARGETS ||
+            new Set(spec.targetSetMappingIds).size !== spec.targetSetMappingIds.length ||
+            spec.targetSetMappingIds.some((targetId) => !targetId) ||
+            spec.columns.some(
+                (column) => !spec.targetSetMappingIds!.includes(column.targetMappingId)
+            ))
+    ) {
+        errors.push('target-set lineage is inconsistent');
     }
     if (spec.layout.columnCount !== spec.columns.length) {
         errors.push('layout column count does not match columns');

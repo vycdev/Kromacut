@@ -257,6 +257,12 @@ function sanitizePaletteProofSpec(value: unknown): PaletteProofSpec | null {
             : value.targetColorMode === 'original' || value.targetColorMode === 'fitted'
               ? value.targetColorMode
               : null;
+    const targetSetMappingIds =
+        value.targetSetMappingIds === undefined
+            ? undefined
+            : Array.isArray(value.targetSetMappingIds)
+              ? value.targetSetMappingIds.map((targetId) => boundedString(targetId, 128))
+              : null;
     const rowCount = integer(value.layout.rowCount, 0, PALETTE_PROOF_MAX_CANDIDATES);
     const columnCount = integer(value.layout.columnCount, 0, PALETTE_PROOF_MAX_TARGETS);
     const widthMm = finiteNumber(value.layout.widthMm, 0, 1_000);
@@ -285,6 +291,12 @@ function sanitizePaletteProofSpec(value: unknown): PaletteProofSpec | null {
         !id ||
         !snapshotFingerprint ||
         targetColorMode === null ||
+        targetSetMappingIds === null ||
+        (targetSetMappingIds !== undefined &&
+            (targetSetMappingIds.length === 0 ||
+                targetSetMappingIds.length > PALETTE_PROOF_MAX_TARGETS ||
+                targetSetMappingIds.some((targetId) => !targetId) ||
+                new Set(targetSetMappingIds).size !== targetSetMappingIds.length)) ||
         rowCount === null ||
         columnCount === null ||
         widthMm === null ||
@@ -426,6 +438,9 @@ function sanitizePaletteProofSpec(value: unknown): PaletteProofSpec | null {
         id,
         snapshotFingerprint,
         ...(targetColorMode === undefined ? {} : { targetColorMode }),
+        ...(targetSetMappingIds === undefined
+            ? {}
+            : { targetSetMappingIds: targetSetMappingIds as string[] }),
         comparisonEnabled: value.comparisonEnabled,
         layout: {
             kind: 'target-column-matrix',
@@ -480,6 +495,10 @@ function sanitizePaletteProofSpec(value: unknown): PaletteProofSpec | null {
         cellIds.size !== spec.cells.length ||
         patchIds.size !== spec.physicalPatches.length ||
         spec.cells.length !== rowCount * columnCount ||
+        (spec.targetSetMappingIds !== undefined &&
+            spec.columns.some(
+                (column) => !spec.targetSetMappingIds!.includes(column.targetMappingId)
+            )) ||
         widthMm !== expectedWidth ||
         heightMm !== expectedHeight ||
         spec.comparisonEnabled !== (rowCount >= 2 && columnCount > 0) ||

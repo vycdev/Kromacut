@@ -270,7 +270,7 @@ test('continuation keeps the previous best, local challengers, and at most one e
 test('continuation shrinks instead of padding an exhausted local neighborhood', async () => {
     const { buildPaletteProofSpec, validatePaletteProofSpec } =
         await loadPaletteProofModule();
-    const original = buildPaletteProofSnapshot(8, 1);
+    const original = buildPaletteProofSnapshot(8, 2);
     const offsets = [-35, -25, -20, 0, 3, 25, 30, 40];
     const snapshot = {
         ...original,
@@ -295,6 +295,7 @@ test('continuation shrinks instead of padding an exhausted local neighborhood', 
     const anchorStackKey = snapshot.palette[3].canonicalStackKey;
     const continuation = buildPaletteProofSpec(snapshot, {
         targetMappingIds: [targetId],
+        targetSetMappingIds: snapshot.targetMappings.map((target) => target.id),
         candidateCount: 5,
         candidateSelectionMode: 'local-refinement',
         selectionHistory: {
@@ -312,6 +313,10 @@ test('continuation shrinks instead of padding an exhausted local neighborhood', 
     });
 
     assert.equal(continuation.layout.rowCount, 3);
+    assert.deepEqual(
+        continuation.targetSetMappingIds,
+        snapshot.targetMappings.map((target) => target.id)
+    );
     assert.deepEqual(
         continuation.cells.map((cell) => cell.candidateRole).sort(),
         ['previous-best', 'unseen-alternative', 'unseen-neighbor']

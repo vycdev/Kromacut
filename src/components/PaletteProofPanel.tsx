@@ -79,6 +79,8 @@ type ProofGeneration =
           mode: 'continue';
           sourceProofId: string;
           targetMappingIds: readonly string[];
+          targetSetMappingIds: readonly string[];
+          skippedTargetNumbers: readonly number[];
       }
     | {
           mode: 'new-targets';
@@ -209,6 +211,10 @@ export default function PaletteProofPanel({
                     targetColorMode,
                     candidateSelectionMode:
                         proofGeneration.mode === 'continue' ? 'local-refinement' : 'coverage',
+                    targetSetMappingIds:
+                        proofGeneration.mode === 'continue'
+                            ? proofGeneration.targetSetMappingIds
+                            : undefined,
                 }),
                 error: null,
             };
@@ -249,6 +255,8 @@ export default function PaletteProofPanel({
         currentSpec &&
         currentSpec.layout.rowCount < candidateCount
     );
+    const continuationSkippedTargetNumbers =
+        proofGeneration.mode === 'continue' ? proofGeneration.skippedTargetNumbers : [];
     const [selectedProofId, setSelectedProofId] = useState<string>('');
     const [view, setView] = useState<PanelView>('proof');
     const [isExporting, setIsExporting] = useState(false);
@@ -415,7 +423,11 @@ export default function PaletteProofPanel({
     const prepareNextProof = (generation: ProofGeneration) => {
         if (!selectedRecord || !evaluation?.complete) return;
         setActionError(null);
-        setRequestedTargetCount(selectedRecord.proof.layout.columnCount);
+        setRequestedTargetCount(
+            generation.mode === 'continue'
+                ? generation.targetMappingIds.length
+                : selectedRecord.proof.layout.columnCount
+        );
         setRequestedCandidateCount(selectedRecord.proof.layout.rowCount);
         setPrioritizedTargetIds([]);
         setSelectedProofId('');
@@ -426,11 +438,22 @@ export default function PaletteProofPanel({
 
     const handleContinueTargets = () => {
         if (!selectedRecord) return;
+        const sourceTargetIds = selectedRecord.proof.columns.map(
+            (column) => column.targetMappingId
+        );
+        const targetSetMappingIds = selectedRecord.proof.targetSetMappingIds ?? sourceTargetIds;
+        const targetMappingIds = sourceTargetIds.filter(targetHasLocalChallenger);
+        if (targetMappingIds.length === 0) return;
+        const continuedTargetIds = new Set(targetMappingIds);
         setIsSelectingTargets(false);
         prepareNextProof({
             mode: 'continue',
             sourceProofId: selectedRecord.id,
-            targetMappingIds: selectedRecord.proof.columns.map((column) => column.targetMappingId),
+            targetMappingIds,
+            targetSetMappingIds,
+            skippedTargetNumbers: targetSetMappingIds.flatMap((targetId, index) =>
+                continuedTargetIds.has(targetId) ? [] : [index + 1]
+            ),
         });
     };
 
@@ -459,7 +482,10 @@ export default function PaletteProofPanel({
             <section
                 data-testid="palette-proof-panel"
                 data-screen="target-selection"
-                className={cn('space-y-3', !embedded && 'mt-4 border-t border-border/50 pt-3')}
+                className={cn(
+                    'min-w-0 max-w-full space-y-3',
+                    !embedded && 'mt-4 border-t border-border/50 pt-3'
+                )}
             >
                 <div className="flex items-start gap-2">
                     <Button
@@ -690,6 +716,15 @@ export default function PaletteProofPanel({
             'local-refinement'
         ).some((candidate) => candidate.role === 'unseen-neighbor');
     };
+    const selectedTargetSetMappingIds =
+        selectedRecord?.proof.targetSetMappingIds ?? [...selectedTargetIds];
+    const continuableSelectedTargetIds = [...selectedTargetIds].filter(
+        targetHasLocalChallenger
+    );
+    const continuableSelectedTargetIdSet = new Set(continuableSelectedTargetIds);
+    const exhaustedTargetNumbers = selectedTargetSetMappingIds.flatMap((targetId, index) =>
+        continuableSelectedTargetIdSet.has(targetId) ? [] : [index + 1]
+    );
     const selectedTargetsExistInCurrentResult = Boolean(
         snapshot &&
         [...selectedTargetIds].every((targetId) =>
@@ -709,8 +744,7 @@ export default function PaletteProofPanel({
         selectedProofMatchesCurrentProcess &&
         selectedTargetsExistInCurrentResult &&
         evaluation?.complete &&
-        selectedTargetIds.size > 0 &&
-        [...selectedTargetIds].every(targetHasLocalChallenger)
+        continuableSelectedTargetIds.length > 0
     );
     const canStartNewTargets = Boolean(
         selectedProofMatchesCurrentProcess &&
@@ -725,7 +759,10 @@ export default function PaletteProofPanel({
             data-testid="palette-proof-panel"
             data-screen="proof"
             data-proof-id={selectedSpec.id}
-            className={cn('space-y-3', !embedded && 'mt-4 border-t border-border/50 pt-3')}
+            className={cn(
+                'min-w-0 max-w-full space-y-3',
+                !embedded && 'mt-4 border-t border-border/50 pt-3'
+            )}
         >
             <div className="flex flex-wrap items-start gap-2">
                 <div className="min-w-0 flex-1 max-[480px]:basis-full">
@@ -913,7 +950,8 @@ export default function PaletteProofPanel({
                 <div
                     className={cn(
                         'flex items-start gap-2 rounded-md border p-2 text-[10px]',
-                        continuationCandidateCountReduced
+                        continuationCandidateCountReduced ||
+                            continuationSkippedTargetNumbers.length > 0
                             ? 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300'
                             : 'border-border/70 bg-muted/20 text-muted-foreground'
                     )}
@@ -921,8 +959,10 @@ export default function PaletteProofPanel({
                 >
                     <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                     <p>
+                        {continuationSkippedTargetNumbers.length > 0 &&
+                            `Continuing ${currentSpec?.layout.columnCount ?? 0} of ${proofGeneration.mode === 'continue' ? proofGeneration.targetSetMappingIds.length : 0} targets. Exhausted target${continuationSkippedTargetNumbers.length === 1 ? '' : 's'} ${continuationSkippedTargetNumbers.join(', ')} ${continuationSkippedTargetNumbers.length === 1 ? 'was' : 'were'} skipped. `}
                         {continuationCandidateCountReduced
-                            ? `Nearby options are running out. This proof was reduced to ${currentSpec?.layout.rowCount ?? 0} candidates per target; unrelated filler cells were omitted.`
+                            ? `The proof was reduced to ${currentSpec?.layout.rowCount ?? 0} candidates per target; unrelated filler cells were omitted.`
                             : continuationHasExploratoryCandidate
                               ? 'This round keeps the previous best, nearby challengers, and at most one exploratory stack per target.'
                               : 'This round keeps the previous best and tests only nearby untried challengers.'}
@@ -1237,12 +1277,17 @@ export default function PaletteProofPanel({
                                                     onClick={handleContinueTargets}
                                                     title={
                                                         canContinueTargets
-                                                            ? 'Keep these targets and test nearby untried challengers'
-                                                            : 'At least one target has no nearby untried challenger; start a new target set'
+                                                            ? exhaustedTargetNumbers.length > 0
+                                                                ? `Continue ${continuableSelectedTargetIds.length} of ${selectedTargetSetMappingIds.length} targets; exhausted targets ${exhaustedTargetNumbers.join(', ')} will be skipped`
+                                                                : 'Keep these targets and test nearby untried challengers'
+                                                            : 'No selected target has a nearby untried challenger'
                                                     }
                                                 >
                                                     <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
-                                                    Continue targets
+                                                    {canContinueTargets &&
+                                                    exhaustedTargetNumbers.length > 0
+                                                        ? `Continue ${continuableSelectedTargetIds.length} target${continuableSelectedTargetIds.length === 1 ? '' : 's'}`
+                                                        : 'Continue targets'}
                                                 </Button>
                                                 <Button
                                                     size="sm"
