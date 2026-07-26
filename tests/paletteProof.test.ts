@@ -102,6 +102,66 @@ test('target selection is deterministic and retains the dominant target', async 
     assert.ok(first.some((target) => target.id === 'target-1'));
 });
 
+test('prioritized targets stay first while automatic selection fills the remaining slots', async () => {
+    const { buildPaletteProofSpec, selectPaletteProofTargets } =
+        await loadPaletteProofModule();
+    const snapshot = buildPaletteProofSnapshot(8, 12);
+    const prioritizedTargetMappingIds = ['target-11', 'target-6'];
+    const selected = selectPaletteProofTargets(
+        snapshot,
+        5,
+        undefined,
+        prioritizedTargetMappingIds
+    );
+
+    assert.deepEqual(
+        selected.slice(0, prioritizedTargetMappingIds.length).map((target) => target.id),
+        prioritizedTargetMappingIds
+    );
+    assert.equal(selected.length, 5);
+    assert.equal(new Set(selected.map((target) => target.id)).size, 5);
+
+    const spec = buildPaletteProofSpec(snapshot, {
+        targetCount: 5,
+        prioritizedTargetMappingIds,
+    });
+    assert.deepEqual(
+        spec.columns
+            .slice(0, prioritizedTargetMappingIds.length)
+            .map((column) => column.targetMappingId),
+        prioritizedTargetMappingIds
+    );
+});
+
+test('prioritized targets reject invalid or conflicting target sets', async () => {
+    const { buildPaletteProofSpec } = await loadPaletteProofModule();
+    const snapshot = buildPaletteProofSnapshot(8, 12);
+
+    assert.throws(
+        () =>
+            buildPaletteProofSpec(snapshot, {
+                targetCount: 1,
+                prioritizedTargetMappingIds: ['target-1', 'target-2'],
+            }),
+        /exceed the requested target count/
+    );
+    assert.throws(
+        () =>
+            buildPaletteProofSpec(snapshot, {
+                prioritizedTargetMappingIds: ['not-a-current-target'],
+            }),
+        /not in the current result/
+    );
+    assert.throws(
+        () =>
+            buildPaletteProofSpec(snapshot, {
+                targetMappingIds: ['target-1'],
+                prioritizedTargetMappingIds: ['target-2'],
+            }),
+        /cannot combine an exact target set/
+    );
+});
+
 test('candidate selection keeps unique neighbors and deterministic boundary fallbacks', async () => {
     const { enumerateFinalStackPrefixes, selectPrefixCandidates } = await loadPaletteProofModule();
     const snapshot = buildPaletteProofSnapshot(6);

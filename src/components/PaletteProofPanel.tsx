@@ -73,6 +73,12 @@ function swatchTextColor(rgb: readonly [number, number, number]): string {
     return luminance > 0.55 ? '#111111' : '#ffffff';
 }
 
+function formatUsagePercent(usageWeight: number): string {
+    const percent = usageWeight * 100;
+    if (percent === 0) return '0%';
+    return percent >= 10 ? `${Math.round(percent)}%` : `${percent.toFixed(1)}%`;
+}
+
 function proofTimestamp(record: PaletteProofRecord): string {
     return new Date(record.exportedAt).toLocaleString(undefined, {
         month: 'short',
@@ -98,6 +104,7 @@ export default function PaletteProofPanel({
     const [requestedCandidateCount, setRequestedCandidateCount] = useState(
         PALETTE_PROOF_MAX_CANDIDATES
     );
+    const [prioritizedTargetIds, setPrioritizedTargetIds] = useState<string[]>([]);
     const [proofGeneration, setProofGeneration] = useState<ProofGeneration>({ mode: 'initial' });
     const maximumTargetCount = Math.min(
         PALETTE_PROOF_MAX_TARGETS,
@@ -113,6 +120,14 @@ export default function PaletteProofPanel({
     const candidateCount = Math.max(
         minimumCandidateCount,
         Math.min(requestedCandidateCount, maximumCandidateCount)
+    );
+    const targetPickerTargets = useMemo(
+        () =>
+            [...(snapshot?.targetMappings ?? [])].sort(
+                (left, right) =>
+                    right.usageWeight - left.usageWeight || left.index - right.index
+            ),
+        [snapshot]
     );
     const filamentProfileFingerprint = useMemo(
         () =>
@@ -165,6 +180,10 @@ export default function PaletteProofPanel({
                         proofGeneration.mode === 'continue'
                             ? proofGeneration.targetMappingIds
                             : undefined,
+                    prioritizedTargetMappingIds:
+                        proofGeneration.mode !== 'continue' && prioritizedTargetIds.length > 0
+                            ? prioritizedTargetIds
+                            : undefined,
                 }),
                 error: null,
             };
@@ -174,7 +193,14 @@ export default function PaletteProofPanel({
                 error: error instanceof Error ? error.message : 'Could not build Palette Proof',
             };
         }
-    }, [candidateCount, generationHistory, proofGeneration, snapshot, targetCount]);
+    }, [
+        candidateCount,
+        generationHistory,
+        prioritizedTargetIds,
+        proofGeneration,
+        snapshot,
+        targetCount,
+    ]);
     const savedProofs = useMemo(
         () =>
             [...(profile?.appearance?.proofs ?? [])].sort((left, right) =>
@@ -198,6 +224,7 @@ export default function PaletteProofPanel({
 
     useEffect(() => {
         setProofGeneration({ mode: 'initial' });
+        setPrioritizedTargetIds([]);
     }, [snapshot?.fingerprint]);
 
     useEffect(() => {
@@ -243,6 +270,17 @@ export default function PaletteProofPanel({
             ])
         );
     }, [selectedRecord, selectedSnapshot]);
+
+    const handlePrioritizedTargetToggle = (targetId: string) => {
+        setSelectedProofId('');
+        setPrioritizedTargetIds((current) =>
+            current.includes(targetId)
+                ? current.filter((candidate) => candidate !== targetId)
+                : current.length < targetCount
+                  ? [...current, targetId]
+                  : current
+        );
+    };
 
     const handleDownload = async () => {
         if (!selectedSpec?.comparisonEnabled || !selectedSnapshot || isExporting) return;
@@ -333,6 +371,7 @@ export default function PaletteProofPanel({
         setActionError(null);
         setRequestedTargetCount(selectedRecord.proof.layout.columnCount);
         setRequestedCandidateCount(selectedRecord.proof.layout.rowCount);
+        setPrioritizedTargetIds([]);
         setSelectedProofId('');
         setProofGeneration(generation);
         setView('proof');
@@ -601,8 +640,12 @@ export default function PaletteProofPanel({
                         <Select
                             value={String(targetCount)}
                             onValueChange={(value) => {
+                                const nextTargetCount = Number(value);
                                 setSelectedProofId('');
-                                setRequestedTargetCount(Number(value));
+                                setRequestedTargetCount(nextTargetCount);
+                                setPrioritizedTargetIds((current) =>
+                                    current.slice(0, nextTargetCount)
+                                );
                             }}
                             disabled={proofGeneration.mode === 'continue'}
                         >
@@ -656,6 +699,81 @@ export default function PaletteProofPanel({
                     </label>
                 </div>
             )}
+
+            {currentSpec &&
+                isSelectedCurrent &&
+                proofGeneration.mode !== 'continue' &&
+                targetPickerTargets.length > 0 && (
+                    <div
+                        className="space-y-2 rounded-md border border-border/70 bg-muted/20 p-2.5"
+                        data-testid="palette-proof-target-picker"
+                    >
+                        <div className="flex items-start gap-2">
+                            <div className="min-w-0 flex-1">
+                                <p className="text-[10px] font-medium text-foreground">
+                                    Prioritize image colors
+                                </p>
+                                <p className="text-[9px] text-muted-foreground">
+                                    Pin colors you care about. Kromacut chooses the other{' '}
+                                    {Math.max(0, targetCount - prioritizedTargetIds.length)}{' '}
+                                    automatically.
+                                </p>
+                            </div>
+                            {prioritizedTargetIds.length > 0 && (
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-6 shrink-0 px-2 text-[9px]"
+                                    onClick={() => {
+                                        setSelectedProofId('');
+                                        setPrioritizedTargetIds([]);
+                                    }}
+                                >
+                                    Clear pins
+                                </Button>
+                            )}
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                            {targetPickerTargets.map((target) => {
+                                const isPrioritized = prioritizedTargetIds.includes(target.id);
+                                const usage = formatUsagePercent(target.usageWeight);
+                                return (
+                                    <button
+                                        key={target.id}
+                                        type="button"
+                                        className={cn(
+                                            'flex h-9 min-w-[3.25rem] items-center justify-center rounded border px-1.5 text-[9px] font-semibold shadow-sm transition-[box-shadow,opacity]',
+                                            isPrioritized
+                                                ? 'border-foreground ring-2 ring-ring ring-offset-1 ring-offset-background'
+                                                : 'border-border/80 hover:opacity-80',
+                                            !isPrioritized &&
+                                                prioritizedTargetIds.length >= targetCount &&
+                                                'cursor-not-allowed opacity-40'
+                                        )}
+                                        style={{
+                                            backgroundColor: target.targetColor.hex,
+                                            color: swatchTextColor(target.targetColor.rgb),
+                                        }}
+                                        onClick={() => handlePrioritizedTargetToggle(target.id)}
+                                        disabled={
+                                            !isPrioritized &&
+                                            prioritizedTargetIds.length >= targetCount
+                                        }
+                                        aria-label={`Prioritize ${target.targetColor.hex.toUpperCase()}, ${usage} of image`}
+                                        aria-pressed={isPrioritized}
+                                        title={`${target.targetColor.hex.toUpperCase()} · ${usage} of processed image`}
+                                        data-testid={`palette-proof-priority-target-${target.index + 1}`}
+                                        data-priority-target-id={target.id}
+                                    >
+                                        {isPrioritized && <Check className="mr-1 h-3 w-3" />}
+                                        {usage}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
 
             <Tabs value={view} onValueChange={(value) => setView(value as PanelView)}>
                 <TabsList className="grid h-8 w-full grid-cols-2">

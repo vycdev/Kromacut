@@ -202,23 +202,46 @@ export function enumerateFinalStackPrefixes(
 export function selectPaletteProofTargets(
     snapshot: FinalPrintableStackSnapshot,
     requestedCount: number = PALETTE_PROOF_DEFAULT_TARGETS,
-    targetPriorityById?: ReadonlyMap<string, number>
+    targetPriorityById?: ReadonlyMap<string, number>,
+    prioritizedTargetMappingIds: readonly string[] = []
 ): FinalStackTargetMappingSnapshot[] {
     const limit = Math.min(
         PALETTE_PROOF_MAX_TARGETS,
         Math.max(0, Math.floor(requestedCount)),
         snapshot.targetMappings.length
     );
+    if (new Set(prioritizedTargetMappingIds).size !== prioritizedTargetMappingIds.length) {
+        throw new Error('Prioritized Palette Proof targets must be unique');
+    }
+    if (prioritizedTargetMappingIds.length > limit) {
+        throw new Error('Prioritized Palette Proof targets exceed the requested target count');
+    }
+
+    const prioritizedTargets = prioritizedTargetMappingIds.map((targetId) => {
+        const target = snapshot.targetMappings.find((candidate) => candidate.id === targetId);
+        if (!target) {
+            throw new Error(
+                `Prioritized Palette Proof target ${targetId} is not in the current result`
+            );
+        }
+        return target;
+    });
     if (limit === 0) return [];
 
-    const remaining = [...snapshot.targetMappings].sort(
-        (left, right) =>
-            (targetPriorityById?.get(left.id) ?? 0) - (targetPriorityById?.get(right.id) ?? 0) ||
-            compareNumberDescending(left.usageWeight, right.usageWeight) ||
-            left.id.localeCompare(right.id)
-    );
-    const coverageCount = Math.min(Math.ceil(limit / 2), remaining.length);
-    const selected = remaining.splice(0, coverageCount);
+    const prioritizedIds = new Set(prioritizedTargetMappingIds);
+    const remaining = snapshot.targetMappings
+        .filter((target) => !prioritizedIds.has(target.id))
+        .sort(
+            (left, right) =>
+                (targetPriorityById?.get(left.id) ?? 0) -
+                    (targetPriorityById?.get(right.id) ?? 0) ||
+                compareNumberDescending(left.usageWeight, right.usageWeight) ||
+                left.id.localeCompare(right.id)
+        );
+    const selected = [...prioritizedTargets];
+    const automaticCount = limit - selected.length;
+    const coverageCount = Math.min(Math.ceil(automaticCount / 2), remaining.length);
+    selected.push(...remaining.splice(0, coverageCount));
 
     while (selected.length < limit && remaining.length > 0) {
         const bestPriority = Math.min(
@@ -443,8 +466,14 @@ export function buildPaletteProofSpec(
         evidence?: PaletteProofEvidenceScores;
         selectionHistory?: PaletteProofSelectionHistory;
         targetMappingIds?: readonly string[];
+        prioritizedTargetMappingIds?: readonly string[];
     } = {}
 ): PaletteProofSpec {
+    if (options.targetMappingIds && options.prioritizedTargetMappingIds) {
+        throw new Error(
+            'Palette Proof cannot combine an exact target set with prioritized targets'
+        );
+    }
     const prefixes = enumerateFinalStackPrefixes(snapshot);
     const targets = options.targetMappingIds
         ? options.targetMappingIds.map((targetId) => {
@@ -457,7 +486,8 @@ export function buildPaletteProofSpec(
         : selectPaletteProofTargets(
               snapshot,
               options.targetCount ?? PALETTE_PROOF_DEFAULT_TARGETS,
-              options.selectionHistory?.targetPriorityById
+              options.selectionHistory?.targetPriorityById,
+              options.prioritizedTargetMappingIds
           );
     if (targets.length > PALETTE_PROOF_MAX_TARGETS) {
         throw new Error(`Palette Proof supports at most ${PALETTE_PROOF_MAX_TARGETS} targets`);

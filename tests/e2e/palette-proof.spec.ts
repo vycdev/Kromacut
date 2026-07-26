@@ -12,7 +12,7 @@ test('Palette Proof stays usable, persists results, and downloads its frozen 3MF
 }, testInfo) => {
     testInfo.setTimeout(3 * 60 * 1000);
     await page.addInitScript(() => localStorage.clear());
-    await page.goto('/');
+    await page.goto('/app');
     await page
         .getByTestId('image-file-input')
         .setInputFiles(path.join(assetRoot, '1024x1024p.png'));
@@ -54,6 +54,24 @@ test('Palette Proof stays usable, persists results, and downloads its frozen 3MF
     await dialog.getByRole('combobox', { name: 'Palette Proof candidate count' }).click();
     await page.getByRole('option', { name: '2', exact: true }).click();
     await expect(panel.getByText('20 x 28 mm / 3 targets / 2 candidates')).toBeVisible();
+    const priorityTargets = panel.locator('[data-priority-target-id]');
+    const priorityTargetCount = await priorityTargets.count();
+    expect(priorityTargetCount).toBeGreaterThan(0);
+    const prioritizedTarget = priorityTargets.nth(priorityTargetCount - 1);
+    const prioritizedTargetId = await prioritizedTarget.getAttribute('data-priority-target-id');
+    expect(prioritizedTargetId).not.toBeNull();
+    await prioritizedTarget.click();
+    await expect(prioritizedTarget).toHaveAttribute('aria-pressed', 'true');
+    await expect(panel.getByText(/Kromacut chooses the other 2 automatically/)).toBeVisible();
+    await expect
+        .poll(() =>
+            panel
+                .locator('[data-target-mapping-id]')
+                .evaluateAll((rows) =>
+                    rows.map((row) => row.getAttribute('data-target-mapping-id'))
+                )
+        )
+        .toContain(prioritizedTargetId);
 
     await dialog.getByRole('combobox', { name: 'Palette Proof target count' }).click();
     await page.getByRole('option', { name: '8', exact: true }).click();
