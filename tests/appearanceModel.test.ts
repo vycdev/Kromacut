@@ -354,6 +354,40 @@ test('proof history counts target visits and rejects evidence from another filam
     );
 });
 
+test('proof history preserves tied previous-best stacks as the continuation anchor set', async () => {
+    const { profile, proof, history } = await modules;
+    const snapshot = buildPaletteProofSnapshot(8, 1);
+    const spec = proof.buildPaletteProofSpec(snapshot, { targetCount: 1, candidateCount: 3 });
+    const tiedCellIds = spec.columns[0].cellIds.slice(0, 2);
+    let appearance = profile.upsertPaletteProofRecord(
+        profile.createEmptyAppearanceProfile(),
+        profile.buildPaletteProofRecord(filaments, snapshot, spec, '2026-07-18T12:00:00.000Z')
+    );
+    appearance = profile.setPaletteTargetResponse(
+        appearance,
+        spec.id,
+        0,
+        { response: 'closest', closestCellIds: [...tiedCellIds] },
+        '2026-07-18T12:01:00.000Z'
+    );
+    appearance = profile.completePaletteProofEvaluation(
+        appearance,
+        spec.id,
+        '2026-07-18T12:02:00.000Z'
+    );
+
+    const result = history.buildPaletteProofHistory(appearance, snapshot);
+    const candidateHistory = result.selectionHistory.candidateHistoryByTargetId.get(
+        snapshot.targetMappings[0].id
+    );
+    const cellsById = new Map(spec.cells.map((cell) => [cell.id, cell]));
+
+    assert.deepEqual(
+        candidateHistory?.anchorStackKeys,
+        tiedCellIds.map((cellId) => cellsById.get(cellId)!.canonicalStackKey)
+    );
+});
+
 test('proof history ignores tested stacks that are absent from the current printable stack', async () => {
     const { profile, proof, history } = await modules;
     const snapshot = buildPaletteProofSnapshot(8, 1);

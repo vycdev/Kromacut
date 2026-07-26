@@ -66,7 +66,7 @@ export function buildPaletteProofHistory(
     );
     const targetVisitCountById = new Map<string, number>();
     const testedByTarget = new Map<string, Set<string>>();
-    const anchorByTarget = new Map<string, string>();
+    const anchorsByTarget = new Map<string, string[]>();
 
     for (const record of records) {
         const evaluation = getPaletteProofEvaluationState(appearance, record.id);
@@ -89,12 +89,12 @@ export function buildPaletteProofHistory(
 
             const judgment = judgmentsByColumn.get(column.column);
             if (judgment?.response !== 'closest') continue;
-            const anchorCellId = column.cellIds.find((cellId) =>
-                judgment.closestCellIds.includes(cellId)
-            );
-            const anchorCell = anchorCellId ? cellsById.get(anchorCellId) : undefined;
-            if (anchorCell) {
-                anchorByTarget.set(column.targetMappingId, anchorCell.canonicalStackKey);
+            const anchorStackKeys = column.cellIds
+                .filter((cellId) => judgment.closestCellIds.includes(cellId))
+                .map((cellId) => cellsById.get(cellId)?.canonicalStackKey)
+                .filter((stackKey): stackKey is string => Boolean(stackKey));
+            if (anchorStackKeys.length > 0) {
+                anchorsByTarget.set(column.targetMappingId, [...new Set(anchorStackKeys)]);
             }
         }
     }
@@ -118,13 +118,15 @@ export function buildPaletteProofHistory(
             : visitCount + (deprioritizedTargetIds?.has(target.id) ? maximumVisitCount + 1 : 0);
         targetPriorityById.set(target.id, priority);
         if (testedStackKeys.size > 0) {
-            const historicalAnchor = anchorByTarget.get(target.id);
+            const historicalAnchors = (anchorsByTarget.get(target.id) ?? []).filter((stackKey) =>
+                currentStackKeys.has(stackKey)
+            );
+            const fallbackAnchor = target.canonicalStackKey;
             candidateHistoryByTargetId.set(target.id, {
                 testedStackKeys,
-                anchorStackKey:
-                    historicalAnchor && currentStackKeys.has(historicalAnchor)
-                        ? historicalAnchor
-                        : target.canonicalStackKey,
+                anchorStackKey: historicalAnchors[0] ?? fallbackAnchor,
+                anchorStackKeys:
+                    historicalAnchors.length > 0 ? historicalAnchors : [fallbackAnchor],
             });
         }
     }

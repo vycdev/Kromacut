@@ -231,26 +231,137 @@ test('candidate selection honors bounded proof row counts', async () => {
     );
 });
 
-test('next-proof selection keeps one anchor and spends rows on untested prefixes', async () => {
-    const { buildPaletteProofSpec } = await loadPaletteProofModule();
+test('continuation keeps the previous best, local challengers, and at most one explorer', async () => {
+    const { enumerateFinalStackPrefixes, selectPrefixCandidates } =
+        await loadPaletteProofModule();
     const snapshot = buildPaletteProofSnapshot(8, 1);
-    const first = buildPaletteProofSpec(snapshot, { targetCount: 1, candidateCount: 5 });
-    const targetId = first.columns[0].targetMappingId;
-    const testedStackKeys = new Set(first.cells.map((cell) => cell.canonicalStackKey));
-    const anchorStackKey = first.cells[0].canonicalStackKey;
-    const next = buildPaletteProofSpec(snapshot, {
-        targetCount: 1,
+    const offsets = [-35, -25, -4, 0, 3, 8, 25, 40];
+    const prefixes = enumerateFinalStackPrefixes(snapshot).map((prefix, index) => ({
+        ...prefix,
+        predictedLab: [50 + offsets[index], 0, 0] as const,
+    }));
+    const anchor = prefixes[3];
+    const candidates = selectPrefixCandidates(
+        { ...snapshot.targetMappings[0], paletteIndex: 3, targetLab: [55, 0, 0] },
+        prefixes,
+        undefined,
+        5,
+        {
+            testedStackKeys: new Set([anchor.canonicalStackKey]),
+            anchorStackKey: anchor.canonicalStackKey,
+        },
+        'local-refinement'
+    );
+
+    assert.equal(candidates[0].role, 'previous-best');
+    assert.equal(candidates[0].prefix.canonicalStackKey, anchor.canonicalStackKey);
+    assert.deepEqual(
+        candidates
+            .filter((candidate) => candidate.role === 'unseen-neighbor')
+            .map((candidate) => candidate.prefix.index),
+        [4, 5, 2]
+    );
+    assert.equal(
+        candidates.filter((candidate) => candidate.role === 'unseen-alternative').length,
+        1
+    );
+});
+
+test('continuation shrinks instead of padding an exhausted local neighborhood', async () => {
+    const { buildPaletteProofSpec, validatePaletteProofSpec } =
+        await loadPaletteProofModule();
+    const original = buildPaletteProofSnapshot(8, 1);
+    const offsets = [-35, -25, -20, 0, 3, 25, 30, 40];
+    const snapshot = {
+        ...original,
+        layers: original.layers.map((layer, index) => ({
+            ...layer,
+            predictedLab: [50 + offsets[index], 0, 0] as const,
+        })),
+        palette: original.palette.map((prefix, index) => ({
+            ...prefix,
+            predictedLab: [50 + offsets[index], 0, 0] as const,
+        })),
+        targetMappings: original.targetMappings.map((target) => ({
+            ...target,
+            paletteIndex: 3,
+            canonicalStackKey: original.palette[3].canonicalStackKey,
+            paletteEntryId: original.palette[3].id,
+            predictedLab: [50, 0, 0] as const,
+            targetLab: [55, 0, 0] as const,
+        })),
+    };
+    const targetId = snapshot.targetMappings[0].id;
+    const anchorStackKey = snapshot.palette[3].canonicalStackKey;
+    const continuation = buildPaletteProofSpec(snapshot, {
+        targetMappingIds: [targetId],
         candidateCount: 5,
+        candidateSelectionMode: 'local-refinement',
         selectionHistory: {
             targetPriorityById: new Map([[targetId, 1]]),
-            candidateHistoryByTargetId: new Map([[targetId, { testedStackKeys, anchorStackKey }]]),
+            candidateHistoryByTargetId: new Map([
+                [
+                    targetId,
+                    {
+                        testedStackKeys: new Set([anchorStackKey]),
+                        anchorStackKey,
+                    },
+                ],
+            ]),
         },
     });
 
-    assert.notEqual(next.id, first.id);
-    assert.equal(next.cells[0].candidateRole, 'previous-best');
-    assert.equal(next.cells[0].canonicalStackKey, anchorStackKey);
-    assert.ok(next.cells.some((cell) => !testedStackKeys.has(cell.canonicalStackKey)));
+    assert.equal(continuation.layout.rowCount, 3);
+    assert.deepEqual(
+        continuation.cells.map((cell) => cell.candidateRole).sort(),
+        ['previous-best', 'unseen-alternative', 'unseen-neighbor']
+    );
+    assert.deepEqual(validatePaletteProofSpec(snapshot, continuation), []);
+
+    const exhausted = buildPaletteProofSpec(snapshot, {
+        targetMappingIds: [targetId],
+        candidateCount: 5,
+        candidateSelectionMode: 'local-refinement',
+        selectionHistory: {
+            targetPriorityById: new Map([[targetId, 1]]),
+            candidateHistoryByTargetId: new Map([
+                [
+                    targetId,
+                    {
+                        testedStackKeys: new Set([
+                            anchorStackKey,
+                            snapshot.palette[4].canonicalStackKey,
+                        ]),
+                        anchorStackKey,
+                    },
+                ],
+            ]),
+        },
+    });
+    assert.equal(exhausted.layout.rowCount, 1);
+    assert.equal(exhausted.comparisonEnabled, false);
+
+    const coverageProof = buildPaletteProofSpec(snapshot, {
+        targetMappingIds: [targetId],
+        candidateCount: 5,
+        selectionHistory: {
+            targetPriorityById: new Map([[targetId, 1]]),
+            candidateHistoryByTargetId: new Map([
+                [
+                    targetId,
+                    {
+                        testedStackKeys: new Set([
+                            anchorStackKey,
+                            snapshot.palette[4].canonicalStackKey,
+                        ]),
+                        anchorStackKey,
+                    },
+                ],
+            ]),
+        },
+    });
+    assert.equal(coverageProof.layout.rowCount, 5);
+    assert.equal(coverageProof.comparisonEnabled, true);
 });
 
 test('next-proof target selection rotates to targets not covered by the first proof', async () => {

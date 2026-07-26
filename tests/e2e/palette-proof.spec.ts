@@ -215,7 +215,6 @@ test('Palette Proof stays usable, persists results, and downloads its frozen 3MF
     await expect(dialog.getByRole('button', { name: 'Edit results', exact: true })).toBeVisible();
     await expect(dialog.getByRole('button', { name: 'Delete Palette Proof' })).toBeVisible();
 
-    const completedProofId = await panel.getAttribute('data-proof-id');
     const newTargetsButton = dialog.getByRole('button', { name: 'New targets', exact: true });
     await expect(newTargetsButton).toBeEnabled();
     await page.screenshot({ path: testInfo.outputPath('palette-proof-completed.png') });
@@ -265,16 +264,11 @@ test('Palette Proof stays usable, persists results, and downloads its frozen 3MF
         name: 'Continue targets',
         exact: true,
     });
-    await expect(continueTargetsButton).toBeEnabled();
-    await continueTargetsButton.click();
-    await expect(dialog.getByRole('tab', { name: 'Proof map' })).toHaveAttribute(
-        'data-state',
-        'active'
+    await expect(continueTargetsButton).toBeDisabled();
+    await expect(continueTargetsButton).toHaveAttribute(
+        'title',
+        'At least one target has no nearby untried challenger; start a new target set'
     );
-    await expect(dialog.getByRole('combobox', { name: 'Palette Proof record' })).toContainText(
-        'Set 1 / Continuation 1 / not saved'
-    );
-    await expect.poll(() => panel.getAttribute('data-proof-id')).not.toBe(completedProofId);
     await expect(dialog.getByTestId('download-palette-proof')).toBeVisible();
 
     await page.setViewportSize({ width: 390, height: 844 });

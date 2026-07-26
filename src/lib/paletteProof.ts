@@ -19,9 +19,11 @@ export const PALETTE_PROOF_MIN_CANDIDATES = 2;
 export const PALETTE_PROOF_MAX_CANDIDATES = 5;
 export const PALETTE_PROOF_REINFORCEMENT_LAYERS = 2;
 export const PALETTE_PROOF_REINFORCEMENT_CLEARANCE_MM = 0.15;
+export const PALETTE_PROOF_LOCAL_CHALLENGER_MAX_DELTA_E = 12;
 
 export type PaletteProofGapMm = 0 | 1;
 export type PaletteProofTargetColorMode = 'original' | 'fitted';
+export type PaletteProofCandidateSelectionMode = 'coverage' | 'local-refinement';
 
 export type PaletteProofCandidateRole =
     | 'incumbent'
@@ -60,6 +62,7 @@ export interface PaletteProofEvidenceScores {
 export interface PaletteProofCandidateHistory {
     testedStackKeys: ReadonlySet<string>;
     anchorStackKey?: string;
+    anchorStackKeys?: readonly string[];
 }
 
 export interface PaletteProofSelectionHistory {
@@ -142,6 +145,10 @@ function targetDistance(
     prefix: PaletteProofPrefix
 ): number {
     return deltaE2000Lab(asLab(target.targetLab), asLab(prefix.predictedLab));
+}
+
+function prefixDistance(left: PaletteProofPrefix, right: PaletteProofPrefix): number {
+    return deltaE2000Lab(asLab(left.predictedLab), asLab(right.predictedLab));
 }
 
 export function calculatePaletteProofFootprint(
@@ -390,7 +397,8 @@ export function selectPrefixCandidates(
     prefixes: PaletteProofPrefix[],
     evidence?: PaletteProofEvidenceScores,
     requestedCount: number = PALETTE_PROOF_MAX_CANDIDATES,
-    history?: PaletteProofCandidateHistory
+    history?: PaletteProofCandidateHistory,
+    selectionMode: PaletteProofCandidateSelectionMode = 'coverage'
 ): PaletteProofCandidate[] {
     if (prefixes.length === 0) return [];
     if (target.paletteIndex < 0 || target.paletteIndex >= prefixes.length) {
@@ -426,6 +434,68 @@ export function selectPrefixCandidates(
         used.add(prefix.canonicalStackKey);
         selected.push({ prefix, role, replacesRole });
     };
+
+    if (
+        selectionMode === 'local-refinement' &&
+        history &&
+        history.testedStackKeys.size > 0
+    ) {
+        const historicalAnchorKeys = [
+            ...(history.anchorStackKeys ?? []),
+            ...(history.anchorStackKey ? [history.anchorStackKey] : []),
+        ];
+        const historicalAnchors = prefixes.filter((prefix) =>
+            historicalAnchorKeys.includes(prefix.canonicalStackKey)
+        );
+        const anchorCandidates =
+            historicalAnchors.length > 0 ? historicalAnchors : [prefixes[target.paletteIndex]];
+        const anchor = [...anchorCandidates].sort(
+            (left, right) =>
+                targetDistance(target, left) - targetDistance(target, right) ||
+                left.index - right.index
+        )[0];
+        add(anchor, 'previous-best');
+
+        const unseen = prefixes.filter(
+            (prefix) => !history.testedStackKeys.has(prefix.canonicalStackKey)
+        );
+        const distanceFromPreviousBest = (prefix: PaletteProofPrefix) =>
+            Math.min(
+                ...anchorCandidates.map((anchorCandidate) =>
+                    prefixDistance(prefix, anchorCandidate)
+                )
+            );
+        const localUnseen = unseen
+            .filter(
+                (prefix) =>
+                    distanceFromPreviousBest(prefix) <=
+                    PALETTE_PROOF_LOCAL_CHALLENGER_MAX_DELTA_E
+            )
+            .sort(
+                (left, right) =>
+                    targetDistance(target, left) - targetDistance(target, right) ||
+                    distanceFromPreviousBest(left) - distanceFromPreviousBest(right) ||
+                    left.index - right.index
+            );
+        for (const prefix of localUnseen) {
+            add(prefix, 'unseen-neighbor');
+        }
+
+        if (localUnseen.length > 0 && selected.length < desiredCount) {
+            const localKeys = new Set(
+                localUnseen.map((prefix) => prefix.canonicalStackKey)
+            );
+            const distantUnseen = unseen.filter(
+                (prefix) => !localKeys.has(prefix.canonicalStackKey)
+            );
+            add(
+                closestUnusedPrefix(target, distantUnseen, used),
+                'unseen-alternative'
+            );
+        }
+
+        return selected;
+    }
 
     if (history && history.testedStackKeys.size > 0) {
         const anchor =
@@ -505,6 +575,7 @@ export function buildPaletteProofSpec(
         targetMappingIds?: readonly string[];
         prioritizedTargetMappingIds?: readonly string[];
         targetColorMode?: PaletteProofTargetColorMode;
+        candidateSelectionMode?: PaletteProofCandidateSelectionMode;
     } = {}
 ): PaletteProofSpec {
     if (options.targetMappingIds && options.prioritizedTargetMappingIds) {
@@ -540,7 +611,7 @@ export function buildPaletteProofSpec(
         throw new Error('Palette Proof targets must be unique');
     }
     const minimumCandidateCount = prefixes.length >= 2 ? PALETTE_PROOF_MIN_CANDIDATES : 1;
-    const rowCount = Math.min(
+    const requestedRowCount = Math.min(
         PALETTE_PROOF_MAX_CANDIDATES,
         prefixes.length,
         Math.max(
@@ -549,6 +620,23 @@ export function buildPaletteProofSpec(
         )
     );
     const columnCount = targets.length;
+    const selectedCandidatesByTarget = targets.map((target) =>
+        selectPrefixCandidates(
+            target,
+            prefixes,
+            options.evidence,
+            requestedRowCount,
+            options.selectionHistory?.candidateHistoryByTargetId.get(target.id),
+            options.candidateSelectionMode
+        )
+    );
+    const rowCount =
+        selectedCandidatesByTarget.length > 0
+            ? Math.min(
+                  requestedRowCount,
+                  ...selectedCandidatesByTarget.map((candidates) => candidates.length)
+              )
+            : requestedRowCount;
     const gapMm: PaletteProofGapMm = PALETTE_PROOF_GAP_MM;
     const footprint = calculatePaletteProofFootprint(columnCount, rowCount, 'target-rows', gapMm);
     const cells: PaletteProofCell[] = [];
@@ -558,16 +646,9 @@ export function buildPaletteProofSpec(
 
     for (let column = 0; column < targets.length; column++) {
         const target = targets[column];
-        const selectedCandidates = selectPrefixCandidates(
-            target,
-            prefixes,
-            options.evidence,
-            rowCount,
-            options.selectionHistory?.candidateHistoryByTargetId.get(target.id)
-        );
-        const candidates = [...selectedCandidates].sort(
-            (left, right) => left.prefix.index - right.prefix.index
-        );
+        const candidates = selectedCandidatesByTarget[column]
+            .slice(0, rowCount)
+            .sort((left, right) => left.prefix.index - right.prefix.index);
         const cellIds: string[] = [];
 
         for (let row = 0; row < candidates.length; row++) {
@@ -626,7 +707,7 @@ export function buildPaletteProofSpec(
         schemaVersion: 1 as const,
         snapshotFingerprint: snapshot.fingerprint,
         ...(targetColorMode === 'fitted' ? { targetColorMode } : {}),
-        comparisonEnabled: prefixes.length >= 2 && columns.length > 0,
+        comparisonEnabled: rowCount >= 2 && columns.length > 0,
         layout: {
             kind: 'target-column-matrix' as const,
             matrixOrientation: 'target-rows' as const,

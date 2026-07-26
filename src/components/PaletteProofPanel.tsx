@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
+    AlertTriangle,
     ArrowLeft,
     Check,
     Download,
@@ -33,11 +34,14 @@ import {
 } from '../lib/appearanceProfile';
 import {
     buildPaletteProofSpec,
+    enumerateFinalStackPrefixes,
     PALETTE_PROOF_DEFAULT_TARGETS,
     PALETTE_PROOF_MAX_CANDIDATES,
     PALETTE_PROOF_MAX_TARGETS,
     PALETTE_PROOF_MIN_CANDIDATES,
     paletteProofTargetMappingsForMode,
+    selectPrefixCandidates,
+    type PaletteProofCandidateRole,
     type PaletteProofSpec,
     type PaletteProofTargetColorMode,
 } from '../lib/paletteProof';
@@ -85,6 +89,13 @@ type ProofGeneration =
 function swatchTextColor(rgb: readonly [number, number, number]): string {
     const luminance = (0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2]) / 255;
     return luminance > 0.55 ? '#111111' : '#ffffff';
+}
+
+function candidateRoleLabel(role: PaletteProofCandidateRole): string {
+    if (role === 'previous-best') return 'previous best';
+    if (role === 'unseen-neighbor') return 'local challenger';
+    if (role === 'unseen-alternative') return 'exploratory';
+    return role.replaceAll('-', ' ');
 }
 
 function proofTimestamp(record: PaletteProofRecord): string {
@@ -196,6 +207,8 @@ export default function PaletteProofPanel({
                             ? prioritizedTargetIds
                             : undefined,
                     targetColorMode,
+                    candidateSelectionMode:
+                        proofGeneration.mode === 'continue' ? 'local-refinement' : 'coverage',
                 }),
                 error: null,
             };
@@ -227,6 +240,15 @@ export default function PaletteProofPanel({
     );
     const savedProofGroups = useMemo(() => groupPaletteProofRecords(savedProofs), [savedProofs]);
     const currentSpec = currentProofState.spec;
+    const continuationHasExploratoryCandidate = Boolean(
+        proofGeneration.mode === 'continue' &&
+        currentSpec?.cells.some((cell) => cell.candidateRole === 'unseen-alternative')
+    );
+    const continuationCandidateCountReduced = Boolean(
+        proofGeneration.mode === 'continue' &&
+        currentSpec &&
+        currentSpec.layout.rowCount < candidateCount
+    );
     const [selectedProofId, setSelectedProofId] = useState<string>('');
     const [view, setView] = useState<PanelView>('proof');
     const [isExporting, setIsExporting] = useState(false);
@@ -653,6 +675,21 @@ export default function PaletteProofPanel({
     const targetHasUnseenCandidates = (targetId: string) =>
         (allCompletedHistory?.selectionHistory.candidateHistoryByTargetId.get(targetId)
             ?.testedStackKeys.size ?? 0) < (snapshot?.palette.length ?? 0);
+    const currentPrefixes = snapshot ? enumerateFinalStackPrefixes(snapshot) : [];
+    const targetHasLocalChallenger = (targetId: string) => {
+        const target = targetMappingsForMode.find((candidate) => candidate.id === targetId);
+        const history =
+            allCompletedHistory?.selectionHistory.candidateHistoryByTargetId.get(targetId);
+        if (!target || !history) return false;
+        return selectPrefixCandidates(
+            target,
+            currentPrefixes,
+            undefined,
+            candidateCount,
+            history,
+            'local-refinement'
+        ).some((candidate) => candidate.role === 'unseen-neighbor');
+    };
     const selectedTargetsExistInCurrentResult = Boolean(
         snapshot &&
         [...selectedTargetIds].every((targetId) =>
@@ -672,7 +709,8 @@ export default function PaletteProofPanel({
         selectedProofMatchesCurrentProcess &&
         selectedTargetsExistInCurrentResult &&
         evaluation?.complete &&
-        [...selectedTargetIds].some(targetHasUnseenCandidates)
+        selectedTargetIds.size > 0 &&
+        [...selectedTargetIds].every(targetHasLocalChallenger)
     );
     const canStartNewTargets = Boolean(
         selectedProofMatchesCurrentProcess &&
@@ -871,6 +909,27 @@ export default function PaletteProofPanel({
                 </div>
             )}
 
+            {canEditCurrentProof && proofGeneration.mode === 'continue' && (
+                <div
+                    className={cn(
+                        'flex items-start gap-2 rounded-md border p-2 text-[10px]',
+                        continuationCandidateCountReduced
+                            ? 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300'
+                            : 'border-border/70 bg-muted/20 text-muted-foreground'
+                    )}
+                    data-testid="palette-proof-continuation-guidance"
+                >
+                    <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                    <p>
+                        {continuationCandidateCountReduced
+                            ? `Nearby options are running out. This proof was reduced to ${currentSpec?.layout.rowCount ?? 0} candidates per target; unrelated filler cells were omitted.`
+                            : continuationHasExploratoryCandidate
+                              ? 'This round keeps the previous best, nearby challengers, and at most one exploratory stack per target.'
+                              : 'This round keeps the previous best and tests only nearby untried challengers.'}
+                    </p>
+                </div>
+            )}
+
             {canEditCurrentProof && proofGeneration.mode !== 'continue' && (
                 <div
                     className="flex items-center gap-2 rounded-md border border-border/70 bg-muted/20 p-2"
@@ -976,7 +1035,9 @@ export default function PaletteProofPanel({
                                                 title={
                                                     cell
                                                         ? `${cell.id}: prefix ${cell.prefixIndex + 1}, ${
-                                                              cell.candidateRole
+                                                              candidateRoleLabel(
+                                                                  cell.candidateRole
+                                                              )
                                                           }${
                                                               isFoundation
                                                                   ? ' (foundation margin)'
@@ -1176,8 +1237,8 @@ export default function PaletteProofPanel({
                                                     onClick={handleContinueTargets}
                                                     title={
                                                         canContinueTargets
-                                                            ? 'Keep these targets and test untried stack candidates'
-                                                            : 'Every stack candidate has been tested for these targets'
+                                                            ? 'Keep these targets and test nearby untried challengers'
+                                                            : 'At least one target has no nearby untried challenger; start a new target set'
                                                     }
                                                 >
                                                     <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
