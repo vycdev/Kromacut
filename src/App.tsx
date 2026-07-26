@@ -725,6 +725,7 @@ function App(): React.ReactElement | null {
                                 ) : (
                                     <ThreeDControls
                                         swatches={swatches}
+                                        imageSrc={imageSrc}
                                         imageDimensions={imageDimensions}
                                         builtState={builtThreeDState}
                                         builtFlatPaint={builtFlatPaint}

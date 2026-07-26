@@ -54,15 +54,40 @@ test('Palette Proof stays usable, persists results, and downloads its frozen 3MF
     await dialog.getByRole('combobox', { name: 'Palette Proof candidate count' }).click();
     await page.getByRole('option', { name: '2', exact: true }).click();
     await expect(panel.getByText('20 x 28 mm / 3 targets / 2 candidates')).toBeVisible();
-    const priorityTargets = panel.locator('[data-priority-target-id]');
-    const priorityTargetCount = await priorityTargets.count();
-    expect(priorityTargetCount).toBeGreaterThan(0);
-    const prioritizedTarget = priorityTargets.nth(priorityTargetCount - 1);
-    const prioritizedTargetId = await prioritizedTarget.getAttribute('data-priority-target-id');
+    await panel.getByRole('button', { name: 'Choose from image', exact: true }).click();
+    await expect(panel).toHaveAttribute('data-screen', 'target-selection');
+    const targetImage = panel.getByTestId('palette-proof-target-image');
+    await expect(targetImage).toBeVisible();
+    const targetImageBounds = await targetImage.boundingBox();
+    expect(targetImageBounds).not.toBeNull();
+    await targetImage.click({
+        position: {
+            x: targetImageBounds!.width / 2,
+            y: targetImageBounds!.height / 2,
+        },
+    });
+    const prioritizedTarget = panel
+        .getByTestId('palette-proof-selected-targets')
+        .locator('[data-selected-target-id]')
+        .first();
+    await expect(prioritizedTarget).toBeVisible();
+    const prioritizedTargetId = await prioritizedTarget.getAttribute('data-selected-target-id');
     expect(prioritizedTargetId).not.toBeNull();
-    await prioritizedTarget.click();
-    await expect(prioritizedTarget).toHaveAttribute('aria-pressed', 'true');
-    await expect(panel.getByText(/Kromacut chooses the other 2 automatically/)).toBeVisible();
+    await page.screenshot({ path: testInfo.outputPath('palette-proof-target-selection.png') });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await panel.scrollIntoViewIfNeeded();
+    expect(
+        await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)
+    ).toBe(true);
+    await page.screenshot({
+        path: testInfo.outputPath('palette-proof-target-selection-mobile.png'),
+    });
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await panel.getByRole('button', { name: 'Use 1 chosen + 2 smart', exact: true }).click();
+    await expect(panel).toHaveAttribute('data-screen', 'proof');
+    await expect(panel.getByTestId('palette-proof-target-summary')).toContainText(
+        '1 chosen from image / 2 smart'
+    );
     await expect
         .poll(() =>
             panel
@@ -183,13 +208,26 @@ test('Palette Proof stays usable, persists results, and downloads its frozen 3MF
     expect(storedAppearance.viewingSessions[0].status).toBe('complete');
 
     const completedProofId = await panel.getAttribute('data-proof-id');
-    const continueTargetsButton = dialog.getByRole('button', {
+    let continueTargetsButton = dialog.getByRole('button', {
         name: 'Continue targets',
         exact: true,
     });
     await expect(continueTargetsButton).toBeEnabled();
-    await expect(dialog.getByRole('button', { name: 'New targets', exact: true })).toBeEnabled();
+    const newTargetsButton = dialog.getByRole('button', { name: 'New targets', exact: true });
+    await expect(newTargetsButton).toBeEnabled();
     await page.screenshot({ path: testInfo.outputPath('palette-proof-completed.png') });
+    await newTargetsButton.click();
+    await expect(panel).toHaveAttribute('data-screen', 'target-selection');
+    await expect(panel.getByTestId('palette-proof-target-image')).toBeVisible();
+    await panel.getByRole('button', { name: 'Back to Palette Proof', exact: true }).click();
+    await dialog.getByRole('combobox', { name: 'Palette Proof record' }).click();
+    await page.getByRole('option', { name: /^Set 1 \/ Initial \// }).click();
+    await dialog.getByRole('tab', { name: /Results/ }).click();
+    continueTargetsButton = dialog.getByRole('button', {
+        name: 'Continue targets',
+        exact: true,
+    });
+    await expect(continueTargetsButton).toBeEnabled();
     await continueTargetsButton.click();
     await expect(dialog.getByRole('tab', { name: 'Proof map' })).toHaveAttribute(
         'data-state',

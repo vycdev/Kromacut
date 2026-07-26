@@ -32,6 +32,7 @@ export type { Filament, ThreeDControlsStateShape } from '../types';
 
 interface ThreeDControlsProps {
     swatches: Swatch[] | null;
+    imageSrc: string | null;
     imageDimensions: ImageDimensions | null;
     /** Snapshot of the settings used for the model currently built in the preview/export pane. */
     builtState?: ThreeDControlsStateShape | null;
@@ -52,6 +53,7 @@ interface ThreeDControlsProps {
 
 export default function ThreeDControls({
     swatches,
+    imageSrc,
     imageDimensions,
     builtState = null,
     builtFlatPaint = false,
@@ -539,6 +541,7 @@ export default function ThreeDControls({
                     firstLayerHeight={slicerFirstLayerHeight}
                     filteredCount={filtered.length}
                     imageSwatches={filtered}
+                    paletteProofImageSrc={imageSrc}
                     enhancedColorMatch={enhancedColorMatch}
                     setEnhancedColorMatch={handleEnhancedColorMatchChange}
                     preserveSeparation={preserveSeparation}

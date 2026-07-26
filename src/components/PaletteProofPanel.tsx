@@ -1,6 +1,17 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Check, Download, Loader2, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react';
+import {
+    ArrowLeft,
+    Check,
+    Download,
+    ImageIcon,
+    Loader2,
+    Pencil,
+    Plus,
+    RefreshCw,
+    Trash2,
+} from 'lucide-react';
 
+import PaletteProofImageTargetPicker from '@/components/PaletteProofImageTargetPicker';
 import { Button } from '@/components/ui/button';
 import {
     Select,
@@ -36,6 +47,7 @@ import type { FinalPrintableStackSnapshot } from '../types/appearance';
 
 interface PaletteProofPanelProps {
     snapshot?: FinalPrintableStackSnapshot;
+    imageSrc?: string | null;
     profile?: AutoPaintProfile;
     profileDirty?: boolean;
     embedded?: boolean;
@@ -73,12 +85,6 @@ function swatchTextColor(rgb: readonly [number, number, number]): string {
     return luminance > 0.55 ? '#111111' : '#ffffff';
 }
 
-function formatUsagePercent(usageWeight: number): string {
-    const percent = usageWeight * 100;
-    if (percent === 0) return '0%';
-    return percent >= 10 ? `${Math.round(percent)}%` : `${percent.toFixed(1)}%`;
-}
-
 function proofTimestamp(record: PaletteProofRecord): string {
     return new Date(record.exportedAt).toLocaleString(undefined, {
         month: 'short',
@@ -90,6 +96,7 @@ function proofTimestamp(record: PaletteProofRecord): string {
 
 export default function PaletteProofPanel({
     snapshot,
+    imageSrc,
     profile,
     profileDirty = false,
     embedded = false,
@@ -106,6 +113,7 @@ export default function PaletteProofPanel({
     );
     const [prioritizedTargetIds, setPrioritizedTargetIds] = useState<string[]>([]);
     const [proofGeneration, setProofGeneration] = useState<ProofGeneration>({ mode: 'initial' });
+    const [isSelectingTargets, setIsSelectingTargets] = useState(false);
     const maximumTargetCount = Math.min(
         PALETTE_PROOF_MAX_TARGETS,
         snapshot?.targetMappings.length ?? 0
@@ -120,14 +128,6 @@ export default function PaletteProofPanel({
     const candidateCount = Math.max(
         minimumCandidateCount,
         Math.min(requestedCandidateCount, maximumCandidateCount)
-    );
-    const targetPickerTargets = useMemo(
-        () =>
-            [...(snapshot?.targetMappings ?? [])].sort(
-                (left, right) =>
-                    right.usageWeight - left.usageWeight || left.index - right.index
-            ),
-        [snapshot]
     );
     const filamentProfileFingerprint = useMemo(
         () =>
@@ -221,10 +221,12 @@ export default function PaletteProofPanel({
     const [actionError, setActionError] = useState<string | null>(null);
     const [saved, setSaved] = useState(false);
     const [pendingDeleteProofId, setPendingDeleteProofId] = useState<string | null>(null);
+    const targetCountOptions = Array.from({ length: maximumTargetCount }, (_, index) => index + 1);
 
     useEffect(() => {
         setProofGeneration({ mode: 'initial' });
         setPrioritizedTargetIds([]);
+        setIsSelectingTargets(false);
     }, [snapshot?.fingerprint]);
 
     useEffect(() => {
@@ -379,6 +381,7 @@ export default function PaletteProofPanel({
 
     const handleContinueTargets = () => {
         if (!selectedRecord) return;
+        setIsSelectingTargets(false);
         prepareNextProof({
             mode: 'continue',
             sourceProofId: selectedRecord.id,
@@ -395,7 +398,111 @@ export default function PaletteProofPanel({
                 (column) => column.targetMappingId
             ),
         });
+        setIsSelectingTargets(Boolean(imageSrc));
     };
+
+    if (
+        isSelectingTargets &&
+        snapshot &&
+        imageSrc &&
+        proofGeneration.mode !== 'continue' &&
+        targetCountOptions.length > 0
+    ) {
+        const automaticTargetCount = Math.max(0, targetCount - prioritizedTargetIds.length);
+        return (
+            <section
+                data-testid="palette-proof-panel"
+                data-screen="target-selection"
+                className={cn('space-y-3', !embedded && 'mt-4 border-t border-border/50 pt-3')}
+            >
+                <div className="flex items-start gap-2">
+                    <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        className="h-8 w-8 shrink-0"
+                        onClick={() => setIsSelectingTargets(false)}
+                        aria-label="Back to Palette Proof"
+                    >
+                        <ArrowLeft className="h-4 w-4" />
+                    </Button>
+                    <div className="min-w-0">
+                        <h4 className="text-xs font-semibold text-foreground">
+                            Choose target colors
+                        </h4>
+                        <p className="text-[10px] text-muted-foreground">
+                            Click regions in the processed image to tell Kromacut which colors
+                            matter most.
+                        </p>
+                    </div>
+                </div>
+
+                <label className="block space-y-1 text-[10px] font-medium text-muted-foreground">
+                    Total proof targets
+                    <Select
+                        value={String(targetCount)}
+                        onValueChange={(value) => {
+                            const nextTargetCount = Number(value);
+                            setSelectedProofId('');
+                            setRequestedTargetCount(nextTargetCount);
+                            setPrioritizedTargetIds((current) => current.slice(0, nextTargetCount));
+                        }}
+                    >
+                        <SelectTrigger
+                            className="mt-1 h-8 text-xs text-foreground"
+                            aria-label="Palette Proof target count"
+                        >
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {targetCountOptions.map((count) => (
+                                <SelectItem key={count} value={String(count)} className="text-xs">
+                                    {count}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </label>
+
+                <PaletteProofImageTargetPicker
+                    imageSrc={imageSrc}
+                    targets={snapshot.targetMappings}
+                    selectedTargetIds={prioritizedTargetIds}
+                    maximumSelected={targetCount}
+                    onToggleTarget={handlePrioritizedTargetToggle}
+                />
+
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                    {prioritizedTargetIds.length > 0 && (
+                        <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            className="mr-auto h-8 text-xs"
+                            onClick={() => {
+                                setSelectedProofId('');
+                                setPrioritizedTargetIds([]);
+                            }}
+                        >
+                            Clear selections
+                        </Button>
+                    )}
+                    <Button
+                        type="button"
+                        size="sm"
+                        className="h-8 text-xs"
+                        onClick={() => setIsSelectingTargets(false)}
+                    >
+                        {prioritizedTargetIds.length === 0
+                            ? 'Use smart targets'
+                            : automaticTargetCount === 0
+                              ? `Use ${prioritizedTargetIds.length} chosen`
+                              : `Use ${prioritizedTargetIds.length} chosen + ${automaticTargetCount} smart`}
+                    </Button>
+                </div>
+            </section>
+        );
+    }
 
     if (currentProofState.error) {
         return (
@@ -473,7 +580,6 @@ export default function PaletteProofPanel({
         (count, group) => count + group.items.length,
         0
     );
-    const targetCountOptions = Array.from({ length: maximumTargetCount }, (_, index) => index + 1);
     const candidateCountOptions =
         maximumCandidateCount === 1
             ? [1]
@@ -519,6 +625,7 @@ export default function PaletteProofPanel({
     return (
         <section
             data-testid="palette-proof-panel"
+            data-screen="proof"
             data-proof-id={selectedSpec.id}
             className={cn('space-y-3', !embedded && 'mt-4 border-t border-border/50 pt-3')}
         >
@@ -700,80 +807,35 @@ export default function PaletteProofPanel({
                 </div>
             )}
 
-            {currentSpec &&
-                isSelectedCurrent &&
-                proofGeneration.mode !== 'continue' &&
-                targetPickerTargets.length > 0 && (
-                    <div
-                        className="space-y-2 rounded-md border border-border/70 bg-muted/20 p-2.5"
-                        data-testid="palette-proof-target-picker"
-                    >
-                        <div className="flex items-start gap-2">
-                            <div className="min-w-0 flex-1">
-                                <p className="text-[10px] font-medium text-foreground">
-                                    Prioritize image colors
-                                </p>
-                                <p className="text-[9px] text-muted-foreground">
-                                    Pin colors you care about. Kromacut chooses the other{' '}
-                                    {Math.max(0, targetCount - prioritizedTargetIds.length)}{' '}
-                                    automatically.
-                                </p>
-                            </div>
-                            {prioritizedTargetIds.length > 0 && (
-                                <Button
-                                    type="button"
-                                    size="sm"
-                                    variant="ghost"
-                                    className="h-6 shrink-0 px-2 text-[9px]"
-                                    onClick={() => {
-                                        setSelectedProofId('');
-                                        setPrioritizedTargetIds([]);
-                                    }}
-                                >
-                                    Clear pins
-                                </Button>
-                            )}
-                        </div>
-                        <div className="flex flex-wrap gap-1.5">
-                            {targetPickerTargets.map((target) => {
-                                const isPrioritized = prioritizedTargetIds.includes(target.id);
-                                const usage = formatUsagePercent(target.usageWeight);
-                                return (
-                                    <button
-                                        key={target.id}
-                                        type="button"
-                                        className={cn(
-                                            'flex h-9 min-w-[3.25rem] items-center justify-center rounded border px-1.5 text-[9px] font-semibold shadow-sm transition-[box-shadow,opacity]',
-                                            isPrioritized
-                                                ? 'border-foreground ring-2 ring-ring ring-offset-1 ring-offset-background'
-                                                : 'border-border/80 hover:opacity-80',
-                                            !isPrioritized &&
-                                                prioritizedTargetIds.length >= targetCount &&
-                                                'cursor-not-allowed opacity-40'
-                                        )}
-                                        style={{
-                                            backgroundColor: target.targetColor.hex,
-                                            color: swatchTextColor(target.targetColor.rgb),
-                                        }}
-                                        onClick={() => handlePrioritizedTargetToggle(target.id)}
-                                        disabled={
-                                            !isPrioritized &&
-                                            prioritizedTargetIds.length >= targetCount
-                                        }
-                                        aria-label={`Prioritize ${target.targetColor.hex.toUpperCase()}, ${usage} of image`}
-                                        aria-pressed={isPrioritized}
-                                        title={`${target.targetColor.hex.toUpperCase()} · ${usage} of processed image`}
-                                        data-testid={`palette-proof-priority-target-${target.index + 1}`}
-                                        data-priority-target-id={target.id}
-                                    >
-                                        {isPrioritized && <Check className="mr-1 h-3 w-3" />}
-                                        {usage}
-                                    </button>
-                                );
-                            })}
-                        </div>
+            {currentSpec && isSelectedCurrent && proofGeneration.mode !== 'continue' && (
+                <div
+                    className="flex items-center gap-2 rounded-md border border-border/70 bg-muted/20 p-2"
+                    data-testid="palette-proof-target-summary"
+                >
+                    <ImageIcon className="h-4 w-4 shrink-0 text-primary" />
+                    <div className="min-w-0 flex-1">
+                        <p className="text-[10px] font-medium text-foreground">Target selection</p>
+                        <p className="truncate text-[9px] text-muted-foreground">
+                            {prioritizedTargetIds.length > 0
+                                ? `${prioritizedTargetIds.length} chosen from image / ${Math.max(
+                                      0,
+                                      targetCount - prioritizedTargetIds.length
+                                  )} smart`
+                                : `${targetCount} smart targets`}
+                        </p>
                     </div>
-                )}
+                    <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="h-7 shrink-0 px-2 text-[10px]"
+                        disabled={!imageSrc}
+                        onClick={() => setIsSelectingTargets(true)}
+                    >
+                        Choose from image
+                    </Button>
+                </div>
+            )}
 
             <Tabs value={view} onValueChange={(value) => setView(value as PanelView)}>
                 <TabsList className="grid h-8 w-full grid-cols-2">

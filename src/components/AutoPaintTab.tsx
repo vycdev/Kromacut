@@ -231,6 +231,7 @@ interface AutoPaintTabProps {
     // Image colors
     filteredCount: number;
     imageSwatches: Array<{ hex: string; count?: number }>;
+    paletteProofImageSrc: string | null;
 
     // Enhanced matching options
     enhancedColorMatch: boolean;
@@ -301,6 +302,7 @@ export default function AutoPaintTab({
     firstLayerHeight,
     filteredCount,
     imageSwatches,
+    paletteProofImageSrc,
     enhancedColorMatch,
     setEnhancedColorMatch,
     preserveSeparation,
@@ -1390,6 +1392,7 @@ export default function AutoPaintTab({
                 layerHeight={calibrationLayerHeight}
                 firstLayerHeight={firstLayerHeight}
                 paletteProofSnapshot={autoPaintResult?.finalStack}
+                paletteProofImageSrc={paletteProofImageSrc}
                 paletteProofProfile={activeProfile}
                 paletteProofProfileDirty={isDirty}
                 onRegisterPaletteProof={handleRegisterPaletteProof}
