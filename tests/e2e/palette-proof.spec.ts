@@ -203,14 +203,14 @@ test('Palette Proof stays usable, persists results, and downloads its frozen 3MF
     await expect(panel).toHaveAttribute('data-proof-id', savedProofId!);
     await expect(dialog.getByText('1/5 targets answered')).toBeVisible();
     const firstMatchQuality = panel.getByTestId('palette-proof-match-quality-1');
-    await expect(
-        firstMatchQuality.getByRole('button', { name: 'Best available', exact: true })
-    ).toHaveAttribute('aria-pressed', 'true');
+    const firstMatchQualitySelect = firstMatchQuality.getByRole('combobox', {
+        name: 'Match quality for Target 1',
+    });
+    await expect(firstMatchQualitySelect).toHaveText('Best');
     await dialog.getByRole('button', { name: 'C1', exact: true }).click();
-    await firstMatchQuality.getByRole('button', { name: 'Dead on', exact: true }).click();
-    await expect(
-        firstMatchQuality.getByRole('button', { name: 'Dead on', exact: true })
-    ).toHaveAttribute('aria-pressed', 'true');
+    await firstMatchQualitySelect.click();
+    await page.getByRole('option', { name: 'Dead on', exact: true }).click();
+    await expect(firstMatchQualitySelect).toHaveText('Dead on');
     for (let column = 2; column <= 5; column++) {
         await dialog
             .getByTestId(`palette-proof-result-column-${column}`)
