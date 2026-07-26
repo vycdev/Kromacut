@@ -2,16 +2,21 @@ import { useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
 import { Check, X } from 'lucide-react';
 
 import {
-    buildPaletteProofTargetHighlight,
+    buildPaletteProofTargetPreview,
     paletteProofRgbKey,
     paletteProofTargetImageSize,
     paletteProofTargetKeyAt,
 } from '../lib/paletteProofTargetImage';
+import {
+    paletteProofTargetMappingsForMode,
+    type PaletteProofTargetColorMode,
+} from '../lib/paletteProof';
 import type { FinalStackTargetMappingSnapshot } from '../types/appearance';
 
 interface PaletteProofImageTargetPickerProps {
     imageSrc: string;
     targets: readonly FinalStackTargetMappingSnapshot[];
+    targetColorMode: PaletteProofTargetColorMode;
     selectedTargetIds: readonly string[];
     maximumSelected: number;
     onToggleTarget: (targetId: string) => void;
@@ -31,6 +36,7 @@ function formatUsagePercent(usageWeight: number): string {
 export default function PaletteProofImageTargetPicker({
     imageSrc,
     targets,
+    targetColorMode,
     selectedTargetIds,
     maximumSelected,
     onToggleTarget,
@@ -41,16 +47,35 @@ export default function PaletteProofImageTargetPicker({
     const [loadError, setLoadError] = useState<string | null>(null);
     const [selectionMessage, setSelectionMessage] = useState<string | null>(null);
 
-    const targetByRgbKey = useMemo(
+    const selectableTargets = useMemo(
+        () => paletteProofTargetMappingsForMode(targets, targetColorMode),
+        [targetColorMode, targets]
+    );
+    const displayRgbBySourceKey = useMemo(
         () =>
             new Map(
-                targets.map((target) => [paletteProofRgbKey(...target.targetColor.rgb), target])
+                targets.map((target) => [
+                    paletteProofRgbKey(...target.targetColor.rgb),
+                    targetColorMode === 'fitted'
+                        ? target.predictedColor.rgb
+                        : target.targetColor.rgb,
+                ])
             ),
-        [targets]
+        [targetColorMode, targets]
+    );
+    const targetByDisplayRgbKey = useMemo(
+        () =>
+            new Map(
+                selectableTargets.map((target) => [
+                    paletteProofRgbKey(...target.targetColor.rgb),
+                    target,
+                ])
+            ),
+        [selectableTargets]
     );
     const targetById = useMemo(
-        () => new Map(targets.map((target) => [target.id, target])),
-        [targets]
+        () => new Map(selectableTargets.map((target) => [target.id, target])),
+        [selectableTargets]
     );
     const selectedTargets = useMemo(
         () =>
@@ -112,11 +137,15 @@ export default function PaletteProofImageTargetPicker({
         canvas.height = imageSize.height;
         const context = canvas.getContext('2d');
         if (!context) return;
-        const highlighted = buildPaletteProofTargetHighlight(source.data, selectedRgbKeys);
+        const highlighted = buildPaletteProofTargetPreview(
+            source.data,
+            displayRgbBySourceKey,
+            selectedRgbKeys
+        );
         const output = context.createImageData(source.width, source.height);
         output.data.set(highlighted);
         context.putImageData(output, 0, 0);
-    }, [imageSize, selectedRgbKeys]);
+    }, [displayRgbBySourceKey, imageSize, selectedRgbKeys]);
 
     const handleCanvasClick = (event: MouseEvent<HTMLCanvasElement>) => {
         const canvas = event.currentTarget;
@@ -125,8 +154,18 @@ export default function PaletteProofImageTargetPicker({
         const bounds = canvas.getBoundingClientRect();
         const x = ((event.clientX - bounds.left) / bounds.width) * source.width;
         const y = ((event.clientY - bounds.top) / bounds.height) * source.height;
-        const rgbKey = paletteProofTargetKeyAt(source.data, source.width, source.height, x, y);
-        const target = rgbKey === null ? undefined : targetByRgbKey.get(rgbKey);
+        const sourceRgbKey = paletteProofTargetKeyAt(
+            source.data,
+            source.width,
+            source.height,
+            x,
+            y
+        );
+        const displayRgb =
+            sourceRgbKey === null ? undefined : displayRgbBySourceKey.get(sourceRgbKey);
+        const target = displayRgb
+            ? targetByDisplayRgbKey.get(paletteProofRgbKey(...displayRgb))
+            : undefined;
         if (!target) {
             setSelectionMessage('That area is not part of the current processed palette.');
             return;
@@ -139,7 +178,9 @@ export default function PaletteProofImageTargetPicker({
         setSelectionMessage(
             isSelected
                 ? `Removed ${target.targetColor.hex.toUpperCase()}.`
-                : `Selected ${target.targetColor.hex.toUpperCase()} across the image.`
+                : `Selected ${target.targetColor.hex.toUpperCase()} across the ${
+                      targetColorMode === 'fitted' ? 'fitted preview' : 'image'
+                  }.`
         );
         onToggleTarget(target.id);
     };
@@ -165,7 +206,9 @@ export default function PaletteProofImageTargetPicker({
             <p className="text-[9px] text-muted-foreground">
                 {selectedTargetIds.length > 0
                     ? 'Selected colors stay bright; all other image colors are dimmed.'
-                    : 'Click any region to select that processed color everywhere it appears.'}
+                    : `Click any region to select that ${
+                          targetColorMode === 'fitted' ? 'fitted achievable' : 'processed image'
+                      } color everywhere it appears.`}
             </p>
             <div
                 className="flex min-h-8 flex-wrap items-center gap-1.5"

@@ -6,11 +6,17 @@ import {
     paletteProofTargetSetKey,
 } from '../src/lib/paletteProofGroups.ts';
 
-function record(id: string, exportedAt: string, targetMappingIds: readonly string[]) {
+function record(
+    id: string,
+    exportedAt: string,
+    targetMappingIds: readonly string[],
+    targetColorMode?: 'original' | 'fitted'
+) {
     return {
         id,
         exportedAt,
         proof: {
+            ...(targetColorMode ? { targetColorMode } : {}),
             columns: targetMappingIds.map((targetMappingId) => ({ targetMappingId })),
         },
     };
@@ -21,6 +27,15 @@ test('target-set keys ignore target display order', () => {
         paletteProofTargetSetKey(record('a', '2026-07-19T10:00:00Z', ['red', 'blue']).proof),
         paletteProofTargetSetKey(record('b', '2026-07-19T10:01:00Z', ['blue', 'red']).proof)
     );
+});
+
+test('original and fitted targets form separate proof groups', () => {
+    const groups = groupPaletteProofRecords([
+        record('original', '2026-07-19T10:00:00Z', ['red', 'blue']),
+        record('fitted', '2026-07-19T11:00:00Z', ['red', 'blue'], 'fitted'),
+    ]);
+
+    assert.equal(groups.length, 2);
 });
 
 test('proofs group by target set and retain chronological round order', () => {

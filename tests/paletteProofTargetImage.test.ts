@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
     buildPaletteProofTargetHighlight,
+    buildPaletteProofTargetPreview,
     paletteProofRgbKey,
     paletteProofTargetImageSize,
     paletteProofTargetKeyAt,
@@ -29,6 +30,23 @@ test('target image highlight preserves selected colors and dims the rest', () =>
 
     assert.deepEqual([...highlighted], [200, 100, 50, 255, 10, 20, 30, 255, 10, 20, 30, 0]);
     assert.deepEqual([...pixels], [200, 100, 50, 255, 40, 80, 120, 255, 10, 20, 30, 0]);
+});
+
+test('target image preview uses the supplied fitted colors before highlighting', () => {
+    const pixels = new Uint8ClampedArray([200, 100, 50, 255, 40, 80, 120, 255]);
+    const fittedRed = [20, 30, 40] as const;
+    const fittedBlue = [100, 120, 140] as const;
+    const preview = buildPaletteProofTargetPreview(
+        pixels,
+        new Map<number, readonly [number, number, number]>([
+            [paletteProofRgbKey(200, 100, 50), fittedRed],
+            [paletteProofRgbKey(40, 80, 120), fittedBlue],
+        ]),
+        new Set([paletteProofRgbKey(...fittedRed)]),
+        0.5
+    );
+
+    assert.deepEqual([...preview], [20, 30, 40, 255, 50, 60, 70, 255]);
 });
 
 test('target image sampling stays within the dimension cap', () => {

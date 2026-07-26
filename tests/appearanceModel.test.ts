@@ -340,6 +340,18 @@ test('proof history counts target visits and rejects evidence from another filam
         rejected.selectionHistory.targetPriorityById.get(snapshot.targetMappings[0].id),
         0
     );
+    const fittedMode = history.buildPaletteProofHistory(
+        appearance,
+        snapshot,
+        undefined,
+        undefined,
+        undefined,
+        'fitted'
+    );
+    assert.equal(
+        fittedMode.selectionHistory.targetPriorityById.get(snapshot.targetMappings[0].id),
+        0
+    );
 });
 
 test('proof history ignores tested stacks that are absent from the current printable stack', async () => {

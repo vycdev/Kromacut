@@ -4,7 +4,11 @@ import {
     type AppearanceProfileV1,
     type PaletteProofRecord,
 } from './appearanceProfile';
-import type { PaletteProofCandidateHistory, PaletteProofSelectionHistory } from './paletteProof';
+import type {
+    PaletteProofCandidateHistory,
+    PaletteProofSelectionHistory,
+    PaletteProofTargetColorMode,
+} from './paletteProof';
 
 export interface PaletteProofHistorySummary {
     proofIds: readonly string[];
@@ -16,7 +20,8 @@ function completedRecords(
     appearance: AppearanceProfileV1 | undefined,
     snapshot: FinalPrintableStackSnapshot,
     allowedProofIds?: ReadonlySet<string>,
-    filamentProfileFingerprint?: string
+    filamentProfileFingerprint?: string,
+    targetColorMode: PaletteProofTargetColorMode = 'original'
 ): PaletteProofRecord[] {
     if (!appearance) return [];
     return appearance.proofs
@@ -35,6 +40,7 @@ function completedRecords(
                 return false;
             }
             if (allowedProofIds && !allowedProofIds.has(record.id)) return false;
+            if ((record.proof.targetColorMode ?? 'original') !== targetColorMode) return false;
             return getPaletteProofEvaluationState(appearance, record.id).complete;
         })
         .sort(
@@ -48,13 +54,15 @@ export function buildPaletteProofHistory(
     snapshot: FinalPrintableStackSnapshot,
     proofIds?: readonly string[],
     filamentProfileFingerprint?: string,
-    deprioritizedTargetIds?: ReadonlySet<string>
+    deprioritizedTargetIds?: ReadonlySet<string>,
+    targetColorMode: PaletteProofTargetColorMode = 'original'
 ): PaletteProofHistorySummary {
     const records = completedRecords(
         appearance,
         snapshot,
         proofIds ? new Set(proofIds) : undefined,
-        filamentProfileFingerprint
+        filamentProfileFingerprint,
+        targetColorMode
     );
     const targetVisitCountById = new Map<string, number>();
     const testedByTarget = new Map<string, Set<string>>();

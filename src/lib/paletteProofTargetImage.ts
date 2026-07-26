@@ -33,13 +33,32 @@ export function buildPaletteProofTargetHighlight(
     selectedRgbKeys: ReadonlySet<number>,
     dimFactor = 0.22
 ): Uint8ClampedArray {
-    const output = new Uint8ClampedArray(pixels);
-    if (selectedRgbKeys.size === 0) return output;
+    return buildPaletteProofTargetPreview(pixels, new Map(), selectedRgbKeys, dimFactor);
+}
 
+export function buildPaletteProofTargetPreview(
+    pixels: Uint8ClampedArray,
+    displayRgbBySourceKey: ReadonlyMap<number, readonly [number, number, number]>,
+    selectedRgbKeys: ReadonlySet<number>,
+    dimFactor = 0.22
+): Uint8ClampedArray {
+    const output = new Uint8ClampedArray(pixels);
     const factor = Math.max(0, Math.min(1, dimFactor));
     for (let offset = 0; offset < output.length; offset += 4) {
+        if (output[offset + 3] === 0) continue;
+        const sourceKey = paletteProofRgbKey(
+            output[offset],
+            output[offset + 1],
+            output[offset + 2]
+        );
+        const displayRgb = displayRgbBySourceKey.get(sourceKey);
+        if (displayRgb) {
+            output[offset] = displayRgb[0];
+            output[offset + 1] = displayRgb[1];
+            output[offset + 2] = displayRgb[2];
+        }
         if (
-            output[offset + 3] === 0 ||
+            selectedRgbKeys.size === 0 ||
             selectedRgbKeys.has(
                 paletteProofRgbKey(output[offset], output[offset + 1], output[offset + 2])
             )

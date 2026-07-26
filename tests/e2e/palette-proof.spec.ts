@@ -58,6 +58,31 @@ test('Palette Proof stays usable, persists results, and downloads its frozen 3MF
     await expect(panel).toHaveAttribute('data-screen', 'target-selection');
     const targetImage = panel.getByTestId('palette-proof-target-image');
     await expect(targetImage).toBeVisible();
+    const originalModeButton = panel.getByRole('button', {
+        name: 'Original image',
+        exact: true,
+    });
+    const fittedModeButton = panel.getByRole('button', {
+        name: 'Fitted / achievable',
+        exact: true,
+    });
+    await expect(originalModeButton).toHaveAttribute('aria-pressed', 'true');
+    const canvasHash = () =>
+        targetImage.evaluate((canvas) => {
+            const targetCanvas = canvas as HTMLCanvasElement;
+            const context = targetCanvas.getContext('2d');
+            const data = context?.getImageData(0, 0, targetCanvas.width, targetCanvas.height).data;
+            if (!data) return 0;
+            let hash = 0;
+            for (let offset = 0; offset < data.length; offset += 97) {
+                hash = Math.imul(hash ^ data[offset], 16_777_619);
+            }
+            return hash;
+        });
+    const originalImageHash = await canvasHash();
+    await fittedModeButton.click();
+    await expect(fittedModeButton).toHaveAttribute('aria-pressed', 'true');
+    await expect.poll(canvasHash).not.toBe(originalImageHash);
     const targetImageBounds = await targetImage.boundingBox();
     expect(targetImageBounds).not.toBeNull();
     await targetImage.click({
@@ -86,7 +111,7 @@ test('Palette Proof stays usable, persists results, and downloads its frozen 3MF
     await panel.getByRole('button', { name: 'Use 1 chosen + 2 smart', exact: true }).click();
     await expect(panel).toHaveAttribute('data-screen', 'proof');
     await expect(panel.getByTestId('palette-proof-target-summary')).toContainText(
-        '1 chosen from image / 2 smart'
+        'Fitted / achievable · 1 chosen / 2 smart'
     );
     await expect
         .poll(() =>
@@ -99,10 +124,10 @@ test('Palette Proof stays usable, persists results, and downloads its frozen 3MF
         .toContain(prioritizedTargetId);
 
     await dialog.getByRole('combobox', { name: 'Palette Proof target count' }).click();
-    await page.getByRole('option', { name: '8', exact: true }).click();
+    await page.getByRole('option', { name: '5', exact: true }).click();
     await dialog.getByRole('combobox', { name: 'Palette Proof candidate count' }).click();
     await page.getByRole('option', { name: '5', exact: true }).click();
-    await expect(panel.getByText('44 x 68 mm / 8 targets / 5 candidates')).toBeVisible();
+    await expect(panel.getByText('44 x 44 mm / 5 targets / 5 candidates')).toBeVisible();
     const firstProofRow = panel.getByTestId('palette-proof-map-target-1');
     await expect(firstProofRow.getByLabel('A1', { exact: true })).toBeVisible();
     await expect(firstProofRow.getByLabel('B1', { exact: true })).toBeVisible();
@@ -122,6 +147,9 @@ test('Palette Proof stays usable, persists results, and downloads its frozen 3MF
     const zip = await JSZip.loadAsync(await readFile(downloadPath!));
     expect(zip.file('Metadata/palette-proof.json')).not.toBeNull();
     expect(zip.file('Metadata/palette-proof-instructions.txt')).not.toBeNull();
+    expect(await zip.file('Metadata/palette-proof-instructions.txt')!.async('string')).toContain(
+        'Target color source: Fitted / achievable'
+    );
     await expect(panel.getByTestId('palette-proof-size-controls')).toHaveCount(0);
     await expect(panel.getByTestId('palette-proof-target-summary')).toHaveCount(0);
     await expect(dialog.getByRole('combobox', { name: 'Palette Proof target count' })).toHaveCount(
@@ -170,18 +198,18 @@ test('Palette Proof stays usable, persists results, and downloads its frozen 3MF
     expect(savedProofFile.suggestedFilename()).toContain(savedProofId!.slice(-8));
 
     await dialog.getByRole('tab', { name: /Results/ }).click();
-    await expect(dialog.getByText('0/8 targets answered')).toBeVisible();
+    await expect(dialog.getByText('0/5 targets answered')).toBeVisible();
     await dialog.getByRole('button', { name: 'B1', exact: true }).click();
     await expect(panel).toHaveAttribute('data-proof-id', savedProofId!);
-    await expect(dialog.getByText('1/8 targets answered')).toBeVisible();
+    await expect(dialog.getByText('1/5 targets answered')).toBeVisible();
     await dialog.getByRole('button', { name: 'C1', exact: true }).click();
-    for (let column = 2; column <= 8; column++) {
+    for (let column = 2; column <= 5; column++) {
         await dialog
             .getByTestId(`palette-proof-result-column-${column}`)
             .getByRole('button', { name: 'None', exact: true })
             .click();
     }
-    await expect(dialog.getByText('8/8 targets answered')).toBeVisible();
+    await expect(dialog.getByText('5/5 targets answered')).toBeVisible();
     await dialog.getByRole('button', { name: 'Complete results', exact: true }).click();
     await expect(dialog.getByText('Complete', { exact: true })).toBeVisible();
     await expect(dialog.getByRole('button', { name: 'Edit results', exact: true })).toBeVisible();
@@ -194,6 +222,9 @@ test('Palette Proof stays usable, persists results, and downloads its frozen 3MF
     await newTargetsButton.click();
     await expect(panel).toHaveAttribute('data-screen', 'target-selection');
     await expect(panel.getByTestId('palette-proof-target-image')).toBeVisible();
+    await expect(
+        panel.getByRole('button', { name: 'Fitted / achievable', exact: true })
+    ).toHaveAttribute('aria-pressed', 'true');
     await expect(
         dialog.getByRole('combobox', { name: 'Palette Proof target count' })
     ).toBeVisible();
@@ -225,7 +256,8 @@ test('Palette Proof stays usable, persists results, and downloads its frozen 3MF
     });
     expect(storedAppearance.schemaVersion).toBe(1);
     expect(storedAppearance.proofs).toHaveLength(1);
-    expect(storedAppearance.targetJudgments).toHaveLength(8);
+    expect(storedAppearance.proofs[0].proof.targetColorMode).toBe('fitted');
+    expect(storedAppearance.targetJudgments).toHaveLength(5);
     expect(storedAppearance.targetJudgments[0].closestCellIds).toEqual(['B1', 'C1']);
     expect(storedAppearance.viewingSessions[0].status).toBe('complete');
 

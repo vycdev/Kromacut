@@ -133,6 +133,34 @@ test('prioritized targets stay first while automatic selection fills the remaini
     );
 });
 
+test('fitted target mode reuses mapped preview colors and merges identical achievable colors', async () => {
+    const { buildPaletteProofSpec, paletteProofTargetMappingsForMode } =
+        await loadPaletteProofModule();
+    const snapshot = buildPaletteProofSnapshot(3, 6);
+    const fittedTargets = paletteProofTargetMappingsForMode(snapshot.targetMappings, 'fitted');
+
+    assert.equal(fittedTargets.length, 3);
+    assert.equal(fittedTargets[0].id, snapshot.targetMappings[0].id);
+    assert.deepEqual(fittedTargets[0].targetColor, snapshot.targetMappings[0].predictedColor);
+    assert.deepEqual(fittedTargets[0].targetLab, snapshot.targetMappings[0].predictedLab);
+    assert.equal(
+        fittedTargets[0].usageWeight,
+        snapshot.targetMappings[0].usageWeight + snapshot.targetMappings[3].usageWeight
+    );
+
+    const fittedProof = buildPaletteProofSpec(snapshot, {
+        targetCount: 3,
+        targetColorMode: 'fitted',
+    });
+    assert.equal(fittedProof.targetColorMode, 'fitted');
+    for (const column of fittedProof.columns) {
+        const target = fittedTargets.find((candidate) => candidate.id === column.targetMappingId);
+        assert.deepEqual(column.targetColor, target?.predictedColor);
+        assert.deepEqual(column.targetLab, target?.predictedLab);
+    }
+    assert.notEqual(fittedProof.id, buildPaletteProofSpec(snapshot, { targetCount: 3 }).id);
+});
+
 test('prioritized targets reject invalid or conflicting target sets', async () => {
     const { buildPaletteProofSpec } = await loadPaletteProofModule();
     const snapshot = buildPaletteProofSnapshot(8, 12);

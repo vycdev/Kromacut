@@ -37,7 +37,9 @@ import {
     PALETTE_PROOF_MAX_CANDIDATES,
     PALETTE_PROOF_MAX_TARGETS,
     PALETTE_PROOF_MIN_CANDIDATES,
+    paletteProofTargetMappingsForMode,
     type PaletteProofSpec,
+    type PaletteProofTargetColorMode,
 } from '../lib/paletteProof';
 import { exportPaletteProof3MF } from '../lib/paletteProofExport';
 import { groupPaletteProofRecords, paletteProofTargetSetKey } from '../lib/paletteProofGroups';
@@ -114,10 +116,15 @@ export default function PaletteProofPanel({
     const [prioritizedTargetIds, setPrioritizedTargetIds] = useState<string[]>([]);
     const [proofGeneration, setProofGeneration] = useState<ProofGeneration>({ mode: 'initial' });
     const [isSelectingTargets, setIsSelectingTargets] = useState(false);
-    const maximumTargetCount = Math.min(
-        PALETTE_PROOF_MAX_TARGETS,
-        snapshot?.targetMappings.length ?? 0
+    const [targetColorMode, setTargetColorMode] = useState<PaletteProofTargetColorMode>('original');
+    const targetMappingsForMode = useMemo(
+        () =>
+            snapshot
+                ? paletteProofTargetMappingsForMode(snapshot.targetMappings, targetColorMode)
+                : [],
+        [snapshot, targetColorMode]
     );
+    const maximumTargetCount = Math.min(PALETTE_PROOF_MAX_TARGETS, targetMappingsForMode.length);
     const maximumCandidateCount = Math.min(
         PALETTE_PROOF_MAX_CANDIDATES,
         snapshot?.palette.length ?? 0
@@ -144,10 +151,12 @@ export default function PaletteProofPanel({
                       compatibleAppearance,
                       snapshot,
                       undefined,
-                      filamentProfileFingerprint
+                      filamentProfileFingerprint,
+                      undefined,
+                      targetColorMode
                   )
                 : null,
-        [compatibleAppearance, filamentProfileFingerprint, snapshot]
+        [compatibleAppearance, filamentProfileFingerprint, snapshot, targetColorMode]
     );
     const generationHistory = useMemo(() => {
         if (!snapshot) return null;
@@ -159,7 +168,8 @@ export default function PaletteProofPanel({
             filamentProfileFingerprint,
             proofGeneration.mode === 'new-targets'
                 ? new Set(proofGeneration.deprioritizedTargetIds)
-                : undefined
+                : undefined,
+            targetColorMode
         );
     }, [
         allCompletedHistory,
@@ -167,6 +177,7 @@ export default function PaletteProofPanel({
         filamentProfileFingerprint,
         proofGeneration,
         snapshot,
+        targetColorMode,
     ]);
     const currentProofState = useMemo(() => {
         if (!snapshot) return { spec: null, error: null };
@@ -184,6 +195,7 @@ export default function PaletteProofPanel({
                         proofGeneration.mode !== 'continue' && prioritizedTargetIds.length > 0
                             ? prioritizedTargetIds
                             : undefined,
+                    targetColorMode,
                 }),
                 error: null,
             };
@@ -200,6 +212,7 @@ export default function PaletteProofPanel({
         proofGeneration,
         snapshot,
         targetCount,
+        targetColorMode,
     ]);
     const savedProofs = useMemo(
         () =>
@@ -227,6 +240,7 @@ export default function PaletteProofPanel({
         setProofGeneration({ mode: 'initial' });
         setPrioritizedTargetIds([]);
         setIsSelectingTargets(false);
+        setTargetColorMode('original');
     }, [snapshot?.fingerprint]);
 
     useEffect(() => {
@@ -283,6 +297,13 @@ export default function PaletteProofPanel({
                   ? [...current, targetId]
                   : current
         );
+    };
+
+    const handleTargetColorModeChange = (mode: PaletteProofTargetColorMode) => {
+        if (mode === targetColorMode) return;
+        setSelectedProofId('');
+        setPrioritizedTargetIds([]);
+        setTargetColorMode(mode);
     };
 
     const handleDownload = async () => {
@@ -376,6 +397,7 @@ export default function PaletteProofPanel({
         setRequestedCandidateCount(selectedRecord.proof.layout.rowCount);
         setPrioritizedTargetIds([]);
         setSelectedProofId('');
+        setTargetColorMode(selectedRecord.proof.targetColorMode ?? 'original');
         setProofGeneration(generation);
         setView('proof');
     };
@@ -439,6 +461,41 @@ export default function PaletteProofPanel({
                     </div>
                 </div>
 
+                <div className="space-y-1.5">
+                    <div
+                        className="grid grid-cols-2 gap-1 rounded-md bg-muted/40 p-1"
+                        role="group"
+                        aria-label="Palette Proof target color source"
+                        data-testid="palette-proof-target-color-mode"
+                    >
+                        <Button
+                            type="button"
+                            size="sm"
+                            variant={targetColorMode === 'original' ? 'default' : 'ghost'}
+                            className="h-7 text-[10px]"
+                            aria-pressed={targetColorMode === 'original'}
+                            onClick={() => handleTargetColorModeChange('original')}
+                        >
+                            Original image
+                        </Button>
+                        <Button
+                            type="button"
+                            size="sm"
+                            variant={targetColorMode === 'fitted' ? 'default' : 'ghost'}
+                            className="h-7 text-[10px]"
+                            aria-pressed={targetColorMode === 'fitted'}
+                            onClick={() => handleTargetColorModeChange('fitted')}
+                        >
+                            Fitted / achievable
+                        </Button>
+                    </div>
+                    <p className="text-[9px] text-muted-foreground">
+                        {targetColorMode === 'fitted'
+                            ? 'Uses the exact fitted colors from the current Auto-paint preview.'
+                            : 'Uses the processed image colors before appearance fitting.'}
+                    </p>
+                </div>
+
                 <label className="block space-y-1 text-[10px] font-medium text-muted-foreground">
                     Total proof targets
                     <Select
@@ -469,6 +526,7 @@ export default function PaletteProofPanel({
                 <PaletteProofImageTargetPicker
                     imageSrc={imageSrc}
                     targets={snapshot.targetMappings}
+                    targetColorMode={targetColorMode}
                     selectedTargetIds={prioritizedTargetIds}
                     maximumSelected={targetCount}
                     onToggleTarget={handlePrioritizedTargetToggle}
@@ -598,7 +656,7 @@ export default function PaletteProofPanel({
     const selectedTargetsExistInCurrentResult = Boolean(
         snapshot &&
         [...selectedTargetIds].every((targetId) =>
-            snapshot.targetMappings.some((target) => target.id === targetId)
+            targetMappingsForMode.some((target) => target.id === targetId)
         )
     );
     const selectedProofMatchesCurrentProcess = Boolean(
@@ -619,7 +677,7 @@ export default function PaletteProofPanel({
     const canStartNewTargets = Boolean(
         selectedProofMatchesCurrentProcess &&
         evaluation?.complete &&
-        snapshot?.targetMappings.some(
+        targetMappingsForMode.some(
             (target) => !selectedTargetIds.has(target.id) && targetHasUnseenCandidates(target.id)
         )
     );
@@ -713,6 +771,10 @@ export default function PaletteProofPanel({
                     value={selectedProofId}
                     onValueChange={(proofId) => {
                         setSelectedProofId(proofId);
+                        const record = savedById.get(proofId);
+                        if (record) {
+                            setTargetColorMode(record.proof.targetColorMode ?? 'original');
+                        }
                         setView('proof');
                         setActionError(null);
                         setPendingDeleteProofId(null);
@@ -818,8 +880,12 @@ export default function PaletteProofPanel({
                     <div className="min-w-0 flex-1">
                         <p className="text-[10px] font-medium text-foreground">Target selection</p>
                         <p className="truncate text-[9px] text-muted-foreground">
+                            {targetColorMode === 'fitted'
+                                ? 'Fitted / achievable'
+                                : 'Original image'}
+                            {' · '}
                             {prioritizedTargetIds.length > 0
-                                ? `${prioritizedTargetIds.length} chosen from image / ${Math.max(
+                                ? `${prioritizedTargetIds.length} chosen / ${Math.max(
                                       0,
                                       targetCount - prioritizedTargetIds.length
                                   )} smart`

@@ -251,6 +251,12 @@ function sanitizePaletteProofSpec(value: unknown): PaletteProofSpec | null {
 
     const id = boundedString(value.id, 128);
     const snapshotFingerprint = boundedString(value.snapshotFingerprint, 128);
+    const targetColorMode =
+        value.targetColorMode === undefined
+            ? undefined
+            : value.targetColorMode === 'original' || value.targetColorMode === 'fitted'
+              ? value.targetColorMode
+              : null;
     const rowCount = integer(value.layout.rowCount, 0, PALETTE_PROOF_MAX_CANDIDATES);
     const columnCount = integer(value.layout.columnCount, 0, PALETTE_PROOF_MAX_TARGETS);
     const widthMm = finiteNumber(value.layout.widthMm, 0, 1_000);
@@ -278,6 +284,7 @@ function sanitizePaletteProofSpec(value: unknown): PaletteProofSpec | null {
     if (
         !id ||
         !snapshotFingerprint ||
+        targetColorMode === null ||
         rowCount === null ||
         columnCount === null ||
         widthMm === null ||
@@ -418,6 +425,7 @@ function sanitizePaletteProofSpec(value: unknown): PaletteProofSpec | null {
         schemaVersion: 1,
         id,
         snapshotFingerprint,
+        ...(targetColorMode === undefined ? {} : { targetColorMode }),
         comparisonEnabled: value.comparisonEnabled,
         layout: {
             kind: 'target-column-matrix',

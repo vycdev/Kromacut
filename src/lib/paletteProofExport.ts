@@ -47,6 +47,9 @@ export function buildPaletteProofPrintInstructions(
         '------------------------------------------',
         `Proof ID: ${spec.id}`,
         `Final stack: ${snapshot.fingerprint}`,
+        `Target color source: ${
+            spec.targetColorMode === 'fitted' ? 'Fitted / achievable' : 'Original image'
+        }`,
         `Coupon size: ${spec.layout.widthMm.toFixed(1)} x ${spec.layout.heightMm.toFixed(1)} mm`,
         `Sample spacing: ${
             spec.layout.gapMm === 0

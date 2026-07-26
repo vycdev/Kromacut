@@ -21,6 +21,7 @@ export const PALETTE_PROOF_REINFORCEMENT_LAYERS = 2;
 export const PALETTE_PROOF_REINFORCEMENT_CLEARANCE_MM = 0.15;
 
 export type PaletteProofGapMm = 0 | 1;
+export type PaletteProofTargetColorMode = 'original' | 'fitted';
 
 export type PaletteProofCandidateRole =
     | 'incumbent'
@@ -102,6 +103,7 @@ export interface PaletteProofSpec {
     schemaVersion: 1;
     id: string;
     snapshotFingerprint: string;
+    targetColorMode?: PaletteProofTargetColorMode;
     comparisonEnabled: boolean;
     layout: {
         kind: 'target-column-matrix';
@@ -199,16 +201,51 @@ export function enumerateFinalStackPrefixes(
     });
 }
 
+export function paletteProofTargetMappingsForMode(
+    targetMappings: readonly FinalStackTargetMappingSnapshot[],
+    mode: PaletteProofTargetColorMode
+): FinalStackTargetMappingSnapshot[] {
+    if (mode === 'original') return [...targetMappings];
+
+    const fittedByColor = new Map<
+        string,
+        { representative: FinalStackTargetMappingSnapshot; usageWeight: number }
+    >();
+    for (const target of [...targetMappings].sort(
+        (left, right) => left.index - right.index || left.id.localeCompare(right.id)
+    )) {
+        const key = target.predictedColor.hex;
+        const existing = fittedByColor.get(key);
+        if (existing) {
+            existing.usageWeight += target.usageWeight;
+        } else {
+            fittedByColor.set(key, { representative: target, usageWeight: target.usageWeight });
+        }
+    }
+
+    return [...fittedByColor.values()].map(({ representative, usageWeight }) => ({
+        ...representative,
+        targetColor: representative.predictedColor,
+        targetLab: representative.predictedLab,
+        usageWeight,
+    }));
+}
+
 export function selectPaletteProofTargets(
     snapshot: FinalPrintableStackSnapshot,
     requestedCount: number = PALETTE_PROOF_DEFAULT_TARGETS,
     targetPriorityById?: ReadonlyMap<string, number>,
-    prioritizedTargetMappingIds: readonly string[] = []
+    prioritizedTargetMappingIds: readonly string[] = [],
+    targetColorMode: PaletteProofTargetColorMode = 'original'
 ): FinalStackTargetMappingSnapshot[] {
+    const availableTargets = paletteProofTargetMappingsForMode(
+        snapshot.targetMappings,
+        targetColorMode
+    );
     const limit = Math.min(
         PALETTE_PROOF_MAX_TARGETS,
         Math.max(0, Math.floor(requestedCount)),
-        snapshot.targetMappings.length
+        availableTargets.length
     );
     if (new Set(prioritizedTargetMappingIds).size !== prioritizedTargetMappingIds.length) {
         throw new Error('Prioritized Palette Proof targets must be unique');
@@ -218,7 +255,7 @@ export function selectPaletteProofTargets(
     }
 
     const prioritizedTargets = prioritizedTargetMappingIds.map((targetId) => {
-        const target = snapshot.targetMappings.find((candidate) => candidate.id === targetId);
+        const target = availableTargets.find((candidate) => candidate.id === targetId);
         if (!target) {
             throw new Error(
                 `Prioritized Palette Proof target ${targetId} is not in the current result`
@@ -229,7 +266,7 @@ export function selectPaletteProofTargets(
     if (limit === 0) return [];
 
     const prioritizedIds = new Set(prioritizedTargetMappingIds);
-    const remaining = snapshot.targetMappings
+    const remaining = availableTargets
         .filter((target) => !prioritizedIds.has(target.id))
         .sort(
             (left, right) =>
@@ -467,6 +504,7 @@ export function buildPaletteProofSpec(
         selectionHistory?: PaletteProofSelectionHistory;
         targetMappingIds?: readonly string[];
         prioritizedTargetMappingIds?: readonly string[];
+        targetColorMode?: PaletteProofTargetColorMode;
     } = {}
 ): PaletteProofSpec {
     if (options.targetMappingIds && options.prioritizedTargetMappingIds) {
@@ -475,9 +513,14 @@ export function buildPaletteProofSpec(
         );
     }
     const prefixes = enumerateFinalStackPrefixes(snapshot);
+    const targetColorMode = options.targetColorMode ?? 'original';
+    const availableTargets = paletteProofTargetMappingsForMode(
+        snapshot.targetMappings,
+        targetColorMode
+    );
     const targets = options.targetMappingIds
         ? options.targetMappingIds.map((targetId) => {
-              const target = snapshot.targetMappings.find((candidate) => candidate.id === targetId);
+              const target = availableTargets.find((candidate) => candidate.id === targetId);
               if (!target) {
                   throw new Error(`Palette Proof target ${targetId} is not in the current result`);
               }
@@ -487,7 +530,8 @@ export function buildPaletteProofSpec(
               snapshot,
               options.targetCount ?? PALETTE_PROOF_DEFAULT_TARGETS,
               options.selectionHistory?.targetPriorityById,
-              options.prioritizedTargetMappingIds
+              options.prioritizedTargetMappingIds,
+              targetColorMode
           );
     if (targets.length > PALETTE_PROOF_MAX_TARGETS) {
         throw new Error(`Palette Proof supports at most ${PALETTE_PROOF_MAX_TARGETS} targets`);
@@ -581,6 +625,7 @@ export function buildPaletteProofSpec(
     const specWithoutId = {
         schemaVersion: 1 as const,
         snapshotFingerprint: snapshot.fingerprint,
+        ...(targetColorMode === 'fitted' ? { targetColorMode } : {}),
         comparisonEnabled: prefixes.length >= 2 && columns.length > 0,
         layout: {
             kind: 'target-column-matrix' as const,
@@ -628,6 +673,13 @@ export function validatePaletteProofSpec(
 
     if (spec.snapshotFingerprint !== snapshot.fingerprint) {
         errors.push('snapshot fingerprint does not match');
+    }
+    if (
+        spec.targetColorMode !== undefined &&
+        spec.targetColorMode !== 'original' &&
+        spec.targetColorMode !== 'fitted'
+    ) {
+        errors.push('target color mode is inconsistent');
     }
     if (spec.layout.columnCount !== spec.columns.length) {
         errors.push('layout column count does not match columns');

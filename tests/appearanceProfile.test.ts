@@ -260,7 +260,10 @@ test('profile v3 export and import preserve appearance evidence', async () => {
     const { CURRENT_PROFILE_VERSION, exportProfileBlob, importProfiles, parseProfileFile } =
         await loadProfileManager();
     const snapshot = buildPaletteProofSnapshot(6, 3);
-    const proof = buildPaletteProofSpec(snapshot, { targetCount: 3 });
+    const proof = buildPaletteProofSpec(snapshot, {
+        targetCount: 3,
+        targetColorMode: 'fitted',
+    });
     const appearance = upsertPaletteProofRecord(
         createEmptyAppearanceProfile(),
         buildPaletteProofRecord(filaments, snapshot, proof, '2026-07-17T20:00:00.000Z')
@@ -282,4 +285,5 @@ test('profile v3 export and import preserve appearance evidence', async () => {
 
     assert.equal(imported.imported[0].version, 3);
     assert.deepEqual(imported.imported[0].appearance, appearance);
+    assert.equal(imported.imported[0].appearance?.proofs[0].proof.targetColorMode, 'fitted');
 });
