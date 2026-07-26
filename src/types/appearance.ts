@@ -8,7 +8,7 @@ export interface CanonicalSrgbColor {
 
 export interface AppearanceRankModelV1 {
     schemaVersion: 1;
-    modelVersion: 'lab-rank-global-v2';
+    modelVersion: 'lab-rank-global-v3';
     fingerprint: string;
     contextFingerprint: string;
     applied: boolean;

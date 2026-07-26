@@ -5,6 +5,7 @@ import { createServer } from 'vite';
 
 import type { Filament } from '../src/types/index.ts';
 import type { CanonicalSrgbColor, FinalPrintableStackSnapshot } from '../src/types/appearance.ts';
+import type { PaletteTargetMatchQuality } from '../src/lib/appearanceProfile.ts';
 import { labToRgb, rgbToLab } from '../src/lib/colorDifference.ts';
 import { buildPaletteProofSnapshot } from './helpers/paletteProofFixture.ts';
 
@@ -128,7 +129,8 @@ function shiftedProofSnapshot(group: number): FinalPrintableStackSnapshot {
 
 async function buildSyntheticAppearance(
     response: 'closest' | 'none',
-    targetCounts: readonly number[] = [10, 10, 10]
+    targetCounts: readonly number[] = [10, 10, 10],
+    matchQuality: PaletteTargetMatchQuality = 'best-available'
 ) {
     const {
         buildPaletteProofRecord,
@@ -166,7 +168,11 @@ async function buildSyntheticAppearance(
                 column.column,
                 response === 'none'
                     ? { response: 'none' }
-                    : { response: 'closest', closestCellIds: [winner.id] },
+                    : {
+                          response: 'closest',
+                          closestCellIds: [winner.id],
+                          matchQuality,
+                      },
                 `2026-07-1${group + 1}T12:${String(column.column).padStart(2, '0')}:00.000Z`
             );
         }
@@ -249,6 +255,37 @@ test('appearance fit is deterministic and only applies after held-out improvemen
     assert.equal(first.heldOutCount, 10);
     assert.ok(first.heldOutDistinctStackCount >= 2);
     assert.deepEqual(second, first);
+});
+
+test('match quality participates in deterministic absolute color anchoring', async () => {
+    const { model, profile } = await modules;
+    const context = {
+        filamentProfileFingerprint: profile.fingerprintAppearanceFilaments(filaments),
+        layerHeight: 0.08,
+        firstLayerHeight: 0.16,
+        transitionOpacity: 0.9,
+    };
+    const bestAvailable = model.fitAppearanceRankModel(
+        await buildSyntheticAppearance('closest', [10, 10, 10], 'best-available'),
+        context
+    );
+    const close = model.fitAppearanceRankModel(
+        await buildSyntheticAppearance('closest', [10, 10, 10], 'close'),
+        context
+    );
+    const exact = model.fitAppearanceRankModel(
+        await buildSyntheticAppearance('closest', [10, 10, 10], 'exact'),
+        context
+    );
+
+    assert.equal(bestAvailable.modelVersion, 'lab-rank-global-v3');
+    assert.equal(bestAvailable.applied, true);
+    assert.equal(close.applied, true);
+    assert.equal(exact.applied, true);
+    assert.ok(close.deltaL >= bestAvailable.deltaL);
+    assert.ok(exact.deltaL >= close.deltaL);
+    assert.notEqual(bestAvailable.fingerprint, close.fingerprint);
+    assert.notEqual(close.fingerprint, exact.fingerprint);
 });
 
 test('held-out split chooses the proof closest to the validation target', async () => {

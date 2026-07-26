@@ -99,6 +99,8 @@ export interface AppearanceViewingSession {
     completedAt?: string;
 }
 
+export type PaletteTargetMatchQuality = 'best-available' | 'close' | 'exact';
+
 export interface PaletteTargetJudgment {
     id: string;
     proofId: string;
@@ -107,6 +109,7 @@ export interface PaletteTargetJudgment {
     candidateCellIds: string[];
     closestCellIds: string[];
     response: 'closest' | 'none';
+    matchQuality?: PaletteTargetMatchQuality;
     viewingSessionId: string;
     createdAt: string;
     updatedAt: string;
@@ -120,7 +123,11 @@ export interface AppearanceProfileV1 {
 }
 
 export type PaletteTargetResponse =
-    | { response: 'closest'; closestCellIds: string[] }
+    | {
+          response: 'closest';
+          closestCellIds: string[];
+          matchQuality?: PaletteTargetMatchQuality;
+      }
     | { response: 'none' };
 
 export interface PaletteProofEvaluationState {
@@ -607,6 +614,9 @@ export function fingerprintCompletedAppearanceEvidence(
             candidateCellIds: judgment.candidateCellIds,
             closestCellIds: judgment.closestCellIds,
             response: judgment.response,
+            ...(judgment.response === 'closest'
+                ? { matchQuality: judgment.matchQuality ?? 'best-available' }
+                : {}),
             viewingSessionId: judgment.viewingSessionId,
         }))
         .sort((left, right) => left.id.localeCompare(right.id));
@@ -813,6 +823,14 @@ export function setPaletteTargetResponse(
         if (response.response === 'closest' && closestCellIds.length === 0) {
             throw new Error('Select at least one candidate or choose None');
         }
+        const matchQuality =
+            response.response === 'closest'
+                ? (response.matchQuality ??
+                  (existingJudgment?.response === 'closest'
+                      ? existingJudgment.matchQuality
+                      : undefined) ??
+                  'best-available')
+                : undefined;
         const judgment: PaletteTargetJudgment = {
             id:
                 existingJudgment?.id ??
@@ -827,6 +845,7 @@ export function setPaletteTargetResponse(
             candidateCellIds: [...column.cellIds],
             closestCellIds,
             response: response.response,
+            ...(matchQuality ? { matchQuality } : {}),
             viewingSessionId: session.id,
             createdAt: existingJudgment?.createdAt ?? timestamp,
             updatedAt: timestamp,
@@ -1079,6 +1098,14 @@ function sanitizeTargetJudgment(value: unknown): PaletteTargetJudgment | null {
     const updatedAt = isoTimestamp(value.updatedAt);
     const candidateCellIds = value.candidateCellIds.map((cellId) => boundedString(cellId, 16));
     const closestCellIds = value.closestCellIds.map((cellId) => boundedString(cellId, 16));
+    const matchQuality =
+        value.matchQuality === undefined
+            ? 'best-available'
+            : value.matchQuality === 'best-available' ||
+                value.matchQuality === 'close' ||
+                value.matchQuality === 'exact'
+              ? value.matchQuality
+              : null;
     if (
         !id ||
         !proofId ||
@@ -1094,6 +1121,8 @@ function sanitizeTargetJudgment(value: unknown): PaletteTargetJudgment | null {
         closestCellIds.some((cellId) => !cellId) ||
         (value.response === 'closest' && closestCellIds.length === 0) ||
         (value.response === 'none' && closestCellIds.length !== 0) ||
+        (value.response === 'closest' && matchQuality === null) ||
+        (value.response === 'none' && value.matchQuality !== undefined) ||
         closestCellIds.some((cellId) => !candidateCellIds.includes(cellId))
     ) {
         return null;
@@ -1106,6 +1135,9 @@ function sanitizeTargetJudgment(value: unknown): PaletteTargetJudgment | null {
         candidateCellIds: candidateCellIds as string[],
         closestCellIds: closestCellIds as string[],
         response: value.response,
+        ...(value.response === 'closest'
+            ? { matchQuality: matchQuality as PaletteTargetMatchQuality }
+            : {}),
         viewingSessionId,
         createdAt,
         updatedAt,

@@ -30,6 +30,7 @@ import {
     fingerprintAppearanceFilaments,
     getPaletteProofEvaluationState,
     type PaletteProofRecord,
+    type PaletteTargetMatchQuality,
     type PaletteTargetResponse,
 } from '../lib/appearanceProfile';
 import {
@@ -99,6 +100,28 @@ function candidateRoleLabel(role: PaletteProofCandidateRole): string {
     if (role === 'unseen-alternative') return 'exploratory';
     return role.replaceAll('-', ' ');
 }
+
+const MATCH_QUALITY_OPTIONS: readonly {
+    value: PaletteTargetMatchQuality;
+    label: string;
+    title: string;
+}[] = [
+    {
+        value: 'best-available',
+        label: 'Best available',
+        title: 'Closest option, but not necessarily an accurate color match',
+    },
+    {
+        value: 'close',
+        label: 'Close',
+        title: 'The selected patch is close enough to provide a soft color anchor',
+    },
+    {
+        value: 'exact',
+        label: 'Dead on',
+        title: 'The selected patch accurately matches the target color',
+    },
+];
 
 function proofTimestamp(record: PaletteProofRecord): string {
     return new Date(record.exportedAt).toLocaleString(undefined, {
@@ -390,8 +413,33 @@ export default function PaletteProofPanel({
             onSetTargetResponse(
                 selectedRecord.id,
                 column,
-                closestCellIds.length > 0 ? { response: 'closest', closestCellIds } : null
+                closestCellIds.length > 0
+                    ? {
+                          response: 'closest',
+                          closestCellIds,
+                          matchQuality:
+                              current?.response === 'closest'
+                                  ? (current.matchQuality ?? 'best-available')
+                                  : 'best-available',
+                      }
+                    : null
             )
+        );
+    };
+
+    const handleMatchQualityChange = (
+        column: number,
+        matchQuality: PaletteTargetMatchQuality
+    ) => {
+        if (!selectedRecord || !onSetTargetResponse || evaluation?.complete) return;
+        const current = judgmentsByColumn.get(column);
+        if (current?.response !== 'closest') return;
+        runProfileAction(() =>
+            onSetTargetResponse(selectedRecord.id, column, {
+                response: 'closest',
+                closestCellIds: current.closestCellIds,
+                matchQuality,
+            })
         );
     };
 
@@ -1170,75 +1218,131 @@ export default function PaletteProofPanel({
                                                     </p>
                                                 </div>
                                             </div>
-                                            <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-6">
-                                                {column.cellIds.map((cellId) => {
-                                                    const cell = cellsById.get(cellId);
-                                                    const color = cell
-                                                        ? prefixesByKey.get(cell.canonicalStackKey)
-                                                        : undefined;
-                                                    const selected =
-                                                        judgment?.response === 'closest' &&
-                                                        judgment.closestCellIds.includes(cellId);
-                                                    const isFoundation =
-                                                        cell?.physicalPatchId ===
-                                                        'foundation-reference';
-                                                    return (
-                                                        <button
-                                                            key={cellId}
-                                                            type="button"
-                                                            disabled={
-                                                                !canTrack || evaluation?.complete
-                                                            }
-                                                            onClick={() =>
-                                                                handleCellToggle(
-                                                                    column.column,
-                                                                    cellId
-                                                                )
-                                                            }
-                                                            className={cn(
-                                                                'relative flex h-10 items-center justify-center rounded border text-[10px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60',
-                                                                selected
-                                                                    ? 'border-primary ring-2 ring-primary/50'
-                                                                    : 'border-border hover:border-foreground/50'
-                                                            )}
-                                                            style={{
-                                                                backgroundColor:
-                                                                    color?.hex ?? '#000000',
-                                                                color: color
-                                                                    ? swatchTextColor(color.rgb)
-                                                                    : '#ffffff',
-                                                            }}
-                                                            aria-pressed={selected}
-                                                            aria-label={`${cellId}${
-                                                                isFoundation
-                                                                    ? ', foundation reference'
-                                                                    : ''
-                                                            }`}
-                                                            title={`${cellId}: ${
-                                                                cell?.candidateRole ?? 'candidate'
-                                                            }`}
-                                                        >
-                                                            {isFoundation ? `${cellId} F` : cellId}
-                                                            {selected && (
-                                                                <Check className="absolute right-0.5 top-0.5 h-3 w-3" />
-                                                            )}
-                                                        </button>
-                                                    );
-                                                })}
-                                                <button
-                                                    type="button"
-                                                    disabled={!canTrack || evaluation?.complete}
-                                                    onClick={() => handleNoneToggle(column.column)}
-                                                    className={cn(
-                                                        'h-10 rounded border px-1 text-[9px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60',
-                                                        judgment?.response === 'none'
-                                                            ? 'border-primary bg-primary/10 text-primary ring-2 ring-primary/30'
-                                                            : 'border-dashed border-border text-muted-foreground hover:border-foreground/50'
-                                                    )}
-                                                    aria-pressed={judgment?.response === 'none'}
-                                                >
-                                                    None
-                                                </button>
+                                            <div className="min-w-0 space-y-1.5">
+                                                <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-6">
+                                                    {column.cellIds.map((cellId) => {
+                                                        const cell = cellsById.get(cellId);
+                                                        const color = cell
+                                                            ? prefixesByKey.get(
+                                                                  cell.canonicalStackKey
+                                                              )
+                                                            : undefined;
+                                                        const selected =
+                                                            judgment?.response === 'closest' &&
+                                                            judgment.closestCellIds.includes(
+                                                                cellId
+                                                            );
+                                                        const isFoundation =
+                                                            cell?.physicalPatchId ===
+                                                            'foundation-reference';
+                                                        return (
+                                                            <button
+                                                                key={cellId}
+                                                                type="button"
+                                                                disabled={
+                                                                    !canTrack ||
+                                                                    evaluation?.complete
+                                                                }
+                                                                onClick={() =>
+                                                                    handleCellToggle(
+                                                                        column.column,
+                                                                        cellId
+                                                                    )
+                                                                }
+                                                                className={cn(
+                                                                    'relative flex h-10 items-center justify-center rounded border text-[10px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60',
+                                                                    selected
+                                                                        ? 'border-primary ring-2 ring-primary/50'
+                                                                        : 'border-border hover:border-foreground/50'
+                                                                )}
+                                                                style={{
+                                                                    backgroundColor:
+                                                                        color?.hex ?? '#000000',
+                                                                    color: color
+                                                                        ? swatchTextColor(color.rgb)
+                                                                        : '#ffffff',
+                                                                }}
+                                                                aria-pressed={selected}
+                                                                aria-label={`${cellId}${
+                                                                    isFoundation
+                                                                        ? ', foundation reference'
+                                                                        : ''
+                                                                }`}
+                                                                title={`${cellId}: ${
+                                                                    cell?.candidateRole ??
+                                                                    'candidate'
+                                                                }`}
+                                                            >
+                                                                {isFoundation
+                                                                    ? `${cellId} F`
+                                                                    : cellId}
+                                                                {selected && (
+                                                                    <Check className="absolute right-0.5 top-0.5 h-3 w-3" />
+                                                                )}
+                                                            </button>
+                                                        );
+                                                    })}
+                                                    <button
+                                                        type="button"
+                                                        disabled={!canTrack || evaluation?.complete}
+                                                        onClick={() =>
+                                                            handleNoneToggle(column.column)
+                                                        }
+                                                        className={cn(
+                                                            'h-10 rounded border px-1 text-[9px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60',
+                                                            judgment?.response === 'none'
+                                                                ? 'border-primary bg-primary/10 text-primary ring-2 ring-primary/30'
+                                                                : 'border-dashed border-border text-muted-foreground hover:border-foreground/50'
+                                                        )}
+                                                        aria-pressed={
+                                                            judgment?.response === 'none'
+                                                        }
+                                                    >
+                                                        None
+                                                    </button>
+                                                </div>
+                                                {judgment?.response === 'closest' && (
+                                                    <div
+                                                        className="flex min-w-0 flex-wrap items-center gap-1"
+                                                        data-testid={`palette-proof-match-quality-${column.column + 1}`}
+                                                    >
+                                                        <span className="mr-0.5 text-[9px] text-muted-foreground">
+                                                            Match:
+                                                        </span>
+                                                        {MATCH_QUALITY_OPTIONS.map((option) => {
+                                                            const selectedQuality =
+                                                                (judgment.matchQuality ??
+                                                                    'best-available') ===
+                                                                option.value;
+                                                            return (
+                                                                <button
+                                                                    key={option.value}
+                                                                    type="button"
+                                                                    disabled={
+                                                                        !canTrack ||
+                                                                        evaluation?.complete
+                                                                    }
+                                                                    onClick={() =>
+                                                                        handleMatchQualityChange(
+                                                                            column.column,
+                                                                            option.value
+                                                                        )
+                                                                    }
+                                                                    className={cn(
+                                                                        'h-6 rounded border px-2 text-[9px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed',
+                                                                        selectedQuality
+                                                                            ? 'border-primary bg-primary/10 text-primary'
+                                                                            : 'border-border text-muted-foreground hover:border-foreground/50'
+                                                                    )}
+                                                                    aria-pressed={selectedQuality}
+                                                                    title={option.title}
+                                                                >
+                                                                    {option.label}
+                                                                </button>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
                                     );
@@ -1247,9 +1351,9 @@ export default function PaletteProofPanel({
 
                             <div className="flex flex-wrap items-center gap-2">
                                 <p className="text-[9px] text-muted-foreground">
-                                    Pick the visibly closest patch even if it is imperfect. Select
-                                    ties together; use None only when every candidate is clearly a
-                                    poor match.
+                                    Pick the visibly closest patch, then describe the match as Best
+                                    available, Close, or Dead on. Select ties together; use None
+                                    only when every candidate is clearly a poor match.
                                 </p>
                                 {evaluation?.complete ? (
                                     <div className="ml-auto flex flex-wrap items-center justify-end gap-2">

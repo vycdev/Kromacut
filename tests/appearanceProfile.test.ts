@@ -125,7 +125,11 @@ test('target-column judgments preserve equal choices, none, and completion state
         appearance,
         proof.id,
         0,
-        { response: 'closest', closestCellIds: proof.columns[0].cellIds.slice(0, 2).reverse() },
+        {
+            response: 'closest',
+            closestCellIds: proof.columns[0].cellIds.slice(0, 2).reverse(),
+            matchQuality: 'exact',
+        },
         '2026-07-17T20:01:00.000Z'
     );
     appearance = setPaletteTargetResponse(
@@ -147,7 +151,10 @@ test('target-column judgments preserve equal choices, none, and completion state
     assert.equal(draft.answeredColumns, 3);
     assert.equal(draft.complete, false);
     assert.deepEqual(draft.judgments[0].closestCellIds, proof.columns[0].cellIds.slice(0, 2));
+    assert.equal(draft.judgments[0].matchQuality, 'exact');
     assert.equal(draft.judgments[1].response, 'none');
+    assert.equal(draft.judgments[1].matchQuality, undefined);
+    assert.equal(draft.judgments[2].matchQuality, 'best-available');
 
     appearance = completePaletteProofEvaluation(appearance, proof.id, '2026-07-17T20:04:00.000Z');
     assert.equal(getPaletteProofEvaluationState(appearance, proof.id).complete, true);
@@ -201,6 +208,7 @@ test('appearance import sanitation preserves valid records and drops tampered co
         buildPaletteProofRecord,
         createEmptyAppearanceProfile,
         sanitizeAppearanceProfile,
+        setPaletteTargetResponse,
         upsertPaletteProofRecord,
     } = await loadAppearanceProfile();
     const { buildPaletteProofSpec, calculatePaletteProofFootprint } = await loadPaletteProof();
@@ -210,6 +218,21 @@ test('appearance import sanitation preserves valid records and drops tampered co
     const appearance = upsertPaletteProofRecord(createEmptyAppearanceProfile(), record);
 
     assert.deepEqual(sanitizeAppearanceProfile(structuredClone(appearance)), appearance);
+
+    const legacyQuality = structuredClone(
+        setPaletteTargetResponse(
+            appearance,
+            proof.id,
+            0,
+            { response: 'closest', closestCellIds: [proof.columns[0].cellIds[0]] },
+            '2026-07-17T20:01:00.000Z'
+        )
+    );
+    delete legacyQuality.targetJudgments[0].matchQuality;
+    assert.equal(
+        sanitizeAppearanceProfile(legacyQuality)?.targetJudgments[0].matchQuality,
+        'best-available'
+    );
 
     const storedGapAppearance = structuredClone(appearance);
     const storedGapLayout = storedGapAppearance.proofs[0].proof.layout;

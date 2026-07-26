@@ -4,6 +4,7 @@ import {
     getPaletteProofEvaluationState,
     type AppearanceProfileV1,
     type PaletteProofRecord,
+    type PaletteTargetMatchQuality,
 } from './appearanceProfile';
 import { fingerprintJson } from './fingerprint';
 
@@ -26,11 +27,14 @@ interface RankObservation {
     targetLab: Lab;
     candidates: RankCandidate[];
     winnerCellIds: Set<string>;
+    matchQuality: PaletteTargetMatchQuality;
 }
 
-const MODEL_VERSION = 'lab-rank-global-v2' as const;
+const MODEL_VERSION = 'lab-rank-global-v3' as const;
 const SOFTMAX_TEMPERATURE = 5;
 const TIE_LOGIT_PENALTY = 0.5;
+const EXACT_MATCH_SIGMA = 2;
+const CLOSE_MATCH_SIGMA = 6;
 const LIGHTNESS_PRIOR_SIGMA = 2;
 const CHROMA_PRIOR_SIGMA = 0.05;
 const MIN_TRAINING_OBSERVATIONS = 8;
@@ -55,7 +59,7 @@ export function createIdentityAppearanceRankModel(
     return {
         schemaVersion: 1,
         modelVersion: MODEL_VERSION,
-        fingerprint: fingerprintJson('appearance-rank-model-v2', payload),
+        fingerprint: fingerprintJson('appearance-rank-model-v3', payload),
         contextFingerprint,
         applied: false,
         gateReason: 'insufficient-evidence',
@@ -151,6 +155,7 @@ function collectObservations(
                 targetLab: colorLab(judgment.targetColor.rgb),
                 candidates,
                 winnerCellIds: new Set(judgment.closestCellIds),
+                matchQuality: judgment.matchQuality ?? 'best-available',
             });
         }
     }
@@ -208,7 +213,26 @@ function observationLoss(
                   selectedLogits.reduce((sum, logit) => sum + (logit - selectedMean) ** 2, 0)) /
               selectedLogits.length
             : 0;
-    return -Math.log(Math.max(1e-12, winnerMass / Math.max(1e-12, denominator))) + tiePenalty;
+    const rankLoss =
+        -Math.log(Math.max(1e-12, winnerMass / Math.max(1e-12, denominator))) + tiePenalty;
+    if (observation.matchQuality === 'best-available') return rankLoss;
+
+    const selectedDistances = observation.candidates
+        .filter((candidate) => observation.winnerCellIds.has(candidate.cellId))
+        .map((candidate) =>
+            deltaE2000Lab(
+                observation.targetLab,
+                transformLab(candidate.baseLab, deltaL, logChromaScale)
+            )
+        );
+    const sigma =
+        observation.matchQuality === 'exact' ? EXACT_MATCH_SIGMA : CLOSE_MATCH_SIGMA;
+    const anchorLoss =
+        selectedDistances.reduce(
+            (sum, distance) => sum + 0.5 * (distance / sigma) ** 2,
+            0
+        ) / Math.max(1, selectedDistances.length);
+    return rankLoss + anchorLoss;
 }
 
 function objective(
@@ -411,6 +435,7 @@ export function fitAppearanceRankModel(
                 baseLab: candidate.baseLab,
             })),
             winnerCellIds: [...observation.winnerCellIds].sort(),
+            matchQuality: observation.matchQuality,
         })),
         trainingObservationIds: training.map((observation) => observation.id),
         heldOutObservationIds: heldOut.map((observation) => observation.id),
@@ -420,7 +445,7 @@ export function fitAppearanceRankModel(
     return {
         schemaVersion: 1,
         modelVersion: MODEL_VERSION,
-        fingerprint: fingerprintJson('appearance-rank-model-v2', fingerprintPayload),
+        fingerprint: fingerprintJson('appearance-rank-model-v3', fingerprintPayload),
         contextFingerprint,
         applied,
         gateReason,
