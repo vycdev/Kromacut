@@ -19,7 +19,7 @@ export const PALETTE_PROOF_MIN_CANDIDATES = 2;
 export const PALETTE_PROOF_MAX_CANDIDATES = 5;
 export const PALETTE_PROOF_REINFORCEMENT_LAYERS = 2;
 export const PALETTE_PROOF_REINFORCEMENT_CLEARANCE_MM = 0.15;
-export const PALETTE_PROOF_LOCAL_CHALLENGER_MAX_DELTA_E = 12;
+export const PALETTE_PROOF_LOCAL_CHALLENGER_MAX_DELTA_E = 18;
 
 export type PaletteProofGapMm = 0 | 1;
 export type PaletteProofTargetColorMode = 'original' | 'fitted';

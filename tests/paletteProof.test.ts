@@ -235,7 +235,7 @@ test('continuation keeps the previous best, local challengers, and at most one e
     const { enumerateFinalStackPrefixes, selectPrefixCandidates } =
         await loadPaletteProofModule();
     const snapshot = buildPaletteProofSnapshot(8, 1);
-    const offsets = [-35, -25, -4, 0, 3, 8, 25, 40];
+    const offsets = [-35, -25, -16, 0, 3, 8, 25, 40];
     const prefixes = enumerateFinalStackPrefixes(snapshot).map((prefix, index) => ({
         ...prefix,
         predictedLab: [50 + offsets[index], 0, 0] as const,
@@ -271,7 +271,7 @@ test('continuation shrinks instead of padding an exhausted local neighborhood', 
     const { buildPaletteProofSpec, validatePaletteProofSpec } =
         await loadPaletteProofModule();
     const original = buildPaletteProofSnapshot(8, 2);
-    const offsets = [-35, -25, -20, 0, 3, 25, 30, 40];
+    const offsets = [-40, -30, -25, 0, 3, 25, 35, 45];
     const snapshot = {
         ...original,
         layers: original.layers.map((layer, index) => ({
