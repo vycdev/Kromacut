@@ -6,9 +6,24 @@ export interface CanonicalSrgbColor {
     hex: string;
 }
 
+export interface AppearanceAnchorLayer {
+    filamentId: string;
+    filamentColor: string;
+    thickness: number;
+}
+
+export interface AppearanceExactAnchorV1 {
+    id: string;
+    proofId: string;
+    sourceStackKey: string;
+    targetLab: readonly [number, number, number];
+    suffixLayers: readonly AppearanceAnchorLayer[];
+    maxSubstrateTransmission: number;
+}
+
 export interface AppearanceRankModelV1 {
     schemaVersion: 1;
-    modelVersion: 'lab-rank-global-v3';
+    modelVersion: 'lab-rank-global-v4';
     fingerprint: string;
     contextFingerprint: string;
     applied: boolean;
@@ -33,10 +48,11 @@ export interface AppearanceRankModelV1 {
     fittedAgreement: number;
     sourceProofIds: readonly string[];
     comparedStackKeys: readonly string[];
+    exactAnchors: readonly AppearanceExactAnchorV1[];
 }
 
 export type AppearanceGeometryClass = 'flat-interior' | 'edge-limited' | 'mixed' | 'unknown';
-export type AppearanceSupportStatus = 'compared' | 'fitted' | 'estimated';
+export type AppearanceSupportStatus = 'anchored' | 'compared' | 'fitted' | 'estimated';
 
 export interface TargetSampleContext {
     geometryClass: AppearanceGeometryClass;
@@ -60,6 +76,8 @@ export interface FinalStackLayerSnapshot {
     predictedColor: CanonicalSrgbColor;
     predictedLab: readonly [number, number, number];
     appearanceStatus: AppearanceSupportStatus;
+    exactAnchorId?: string;
+    exactAnchorTargetLab?: readonly [number, number, number];
 }
 
 export interface FinalStackZoneSnapshot {
@@ -97,6 +115,8 @@ export interface FinalStackPaletteEntrySnapshot {
     predictedColor: CanonicalSrgbColor;
     predictedLab: readonly [number, number, number];
     appearanceStatus: AppearanceSupportStatus;
+    exactAnchorId?: string;
+    exactAnchorTargetLab?: readonly [number, number, number];
 }
 
 export interface FinalStackTargetMappingSnapshot {

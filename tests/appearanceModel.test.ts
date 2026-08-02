@@ -205,11 +205,9 @@ test('Lab conversion round-trips representative sRGB colors', () => {
 });
 
 test('appearance transforms score the same gamut-mapped color they render', async () => {
-    const {
-        appearanceLabToRgb,
-        applyAppearanceRankModel,
-        createIdentityAppearanceRankModel,
-    } = (await modules).model;
+    const { appearanceLabToRgb, applyAppearanceRankModel, createIdentityAppearanceRankModel } = (
+        await modules
+    ).model;
     const base = rgbToLab([255, 0, 0]);
     const model = {
         ...createIdentityAppearanceRankModel(),
@@ -278,7 +276,7 @@ test('match quality participates in deterministic absolute color anchoring', asy
         context
     );
 
-    assert.equal(bestAvailable.modelVersion, 'lab-rank-global-v3');
+    assert.equal(bestAvailable.modelVersion, 'lab-rank-global-v4');
     assert.equal(bestAvailable.applied, true);
     assert.equal(close.applied, true);
     assert.equal(exact.applied, true);
@@ -286,6 +284,112 @@ test('match quality participates in deterministic absolute color anchoring', asy
     assert.ok(exact.deltaL >= close.deltaL);
     assert.notEqual(bestAvailable.fingerprint, close.fingerprint);
     assert.notEqual(close.fingerprint, exact.fingerprint);
+});
+
+test('Dead-on evidence transfers through the complete opaque top run without pinning the foundation', async () => {
+    const { model, profile, proof } = await modules;
+    const proofFilaments: Filament[] = [
+        { id: 'foundation', color: '#111111', td: 0.08 },
+        { id: 'purple', color: '#4a2378', td: 0.16 },
+    ];
+    const original = buildPaletteProofSnapshot(4, 1);
+    const targetColor = canonical([62, 62, 96]);
+    const targetLab = rgbToLab([targetColor.rgb[0], targetColor.rgb[1], targetColor.rgb[2]]);
+    const layers = original.layers.map((layer, index) => ({
+        ...layer,
+        filamentId: index === 0 ? 'foundation' : 'purple',
+        filamentColor: index === 0 ? '#111111' : '#4a2378',
+        canonicalStackKey: `dead-on-stack-${index + 1}`,
+    }));
+    const palette = original.palette.map((entry, index) => ({
+        ...entry,
+        canonicalStackKey: layers[index].canonicalStackKey,
+    }));
+    const selected = palette[3];
+    const snapshot: FinalPrintableStackSnapshot = {
+        ...original,
+        fingerprint: 'dead-on-suffix-snapshot',
+        layers,
+        palette,
+        targetMappings: [
+            {
+                ...original.targetMappings[0],
+                targetColor,
+                targetLab: [targetLab.L, targetLab.a, targetLab.b],
+                paletteIndex: selected.index,
+                paletteEntryId: selected.id,
+                canonicalStackKey: selected.canonicalStackKey,
+                projectedHeight: selected.height,
+                predictedColor: selected.predictedColor,
+                predictedLab: selected.predictedLab,
+            },
+        ],
+    };
+    const spec = proof.buildPaletteProofSpec(snapshot, { targetCount: 1, candidateCount: 4 });
+    const winner = spec.cells.find(
+        (cell) => cell.canonicalStackKey === selected.canonicalStackKey
+    )!;
+    let appearance = profile.upsertPaletteProofRecord(
+        profile.createEmptyAppearanceProfile(),
+        profile.buildPaletteProofRecord(proofFilaments, snapshot, spec, '2026-07-20T12:00:00.000Z')
+    );
+    appearance = profile.setPaletteTargetResponse(
+        appearance,
+        spec.id,
+        0,
+        { response: 'closest', closestCellIds: [winner.id], matchQuality: 'exact' },
+        '2026-07-20T12:01:00.000Z'
+    );
+    appearance = profile.completePaletteProofEvaluation(
+        appearance,
+        spec.id,
+        '2026-07-20T12:02:00.000Z'
+    );
+
+    const fitted = model.fitAppearanceRankModel(appearance, {
+        filamentProfileFingerprint: profile.fingerprintAppearanceFilaments(proofFilaments),
+        layerHeight: 0.08,
+        firstLayerHeight: 0.16,
+        transitionOpacity: 0.9,
+        filaments: proofFilaments,
+    });
+    const differentTransitionDetail = model.fitAppearanceRankModel(appearance, {
+        filamentProfileFingerprint: profile.fingerprintAppearanceFilaments(proofFilaments),
+        layerHeight: 0.08,
+        firstLayerHeight: 0.16,
+        transitionOpacity: 0.95,
+        filaments: proofFilaments,
+    });
+
+    assert.equal(fitted.applied, false, 'a local anchor must not bypass the global-fit gate');
+    assert.equal(fitted.exactAnchors.length, 1);
+    assert.equal(differentTransitionDetail.observationCount, 0);
+    assert.equal(differentTransitionDetail.exactAnchors.length, 1);
+    assert.deepEqual(
+        fitted.exactAnchors[0].suffixLayers.map((layer) => layer.filamentId),
+        ['purple', 'purple', 'purple']
+    );
+    assert.ok(fitted.exactAnchors[0].maxSubstrateTransmission <= 0.1);
+
+    const differentFoundation = {
+        filamentId: 'other-foundation',
+        filamentColor: '#eeeeee',
+        thickness: 0.16,
+    };
+    const purpleLayers = fitted.exactAnchors[0].suffixLayers;
+    const base = rgbToLab([80, 40, 120]);
+    const transferred = model.resolveAppearanceRankModel(base, fitted, [
+        differentFoundation,
+        ...purpleLayers,
+    ]);
+    const tooShort = model.resolveAppearanceRankModel(base, fitted, [
+        differentFoundation,
+        ...purpleLayers.slice(1),
+    ]);
+
+    assert.equal(transferred.exactAnchor?.id, fitted.exactAnchors[0].id);
+    assert.deepEqual(transferred.lab, targetLab);
+    assert.equal(tooShort.exactAnchor, undefined);
 });
 
 test('held-out split chooses the proof closest to the validation target', async () => {

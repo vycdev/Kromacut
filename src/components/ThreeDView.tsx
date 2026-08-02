@@ -30,6 +30,7 @@ import {
     syncPreviewWireframeOverlayVisibility as syncPreviewWireframeVisibility,
 } from '../lib/previewWireframe';
 import type { PreviewColorMode, PreviewRenderMode } from '../types';
+import type { FinalPrintableStackSnapshot } from '../types/appearance';
 import { Layers } from 'lucide-react';
 import ProgressOverlay from './ProgressOverlay';
 
@@ -51,6 +52,7 @@ interface ThreeDViewProps {
     autoPaintEnabled?: boolean;
     autoPaintTotalHeight?: number; // Total model height when auto-paint is enabled
     autoPaintFilamentOrder?: string[]; // Filament IDs in order (for cache invalidation)
+    autoPaintFinalStack?: FinalPrintableStackSnapshot;
     enhancedColorMatch?: boolean; // Use color-distance mapping instead of luminance
     preserveSeparation?: boolean; // Assign each image color to a distinct printable color
     heightDithering?: boolean; // Stucki error diffusion on height map
@@ -353,6 +355,7 @@ export default function ThreeDView({
     autoPaintEnabled = false,
     autoPaintTotalHeight,
     autoPaintFilamentOrder,
+    autoPaintFinalStack,
     enhancedColorMatch = false,
     preserveSeparation = false,
     heightDithering = false,
@@ -763,6 +766,7 @@ export default function ThreeDView({
             autoPaintEnabled,
             autoPaintTotalHeight,
             autoPaintFilamentOrder, // Include filament order to detect optimizer changes
+            autoPaintFinalStackFingerprint: autoPaintFinalStack?.fingerprint,
             enhancedColorMatch,
             preserveSeparation,
             heightDithering,
@@ -1099,6 +1103,22 @@ export default function ThreeDView({
                         // Separation assignments seed the cache so each color's
                         // pixels all land on its assigned printable height.
                         const colorHeightCache = new Map<number, number>(separationHeights);
+                        if (autoPaintFinalStack) {
+                            for (const mapping of autoPaintFinalStack.targetMappings) {
+                                const paletteEntry =
+                                    autoPaintFinalStack.palette[mapping.paletteIndex];
+                                if (!paletteEntry?.exactAnchorId) continue;
+                                const [r, g, b] = mapping.targetColor.rgb;
+                                const key = ((r & 0xff) << 16) | ((g & 0xff) << 8) | (b & 0xff);
+                                colorHeightCache.set(
+                                    key,
+                                    Math.max(
+                                        minModelH,
+                                        Math.min(maxModelH, mapping.projectedHeight)
+                                    )
+                                );
+                            }
+                        }
 
                         for (let py = minY; py < minY + boxH; py++) {
                             for (let px = minX; px < minX + boxW; px++) {
@@ -2112,6 +2132,7 @@ export default function ThreeDView({
         autoPaintEnabled,
         autoPaintTotalHeight,
         autoPaintFilamentOrder,
+        autoPaintFinalStack,
         enhancedColorMatch,
         preserveSeparation,
         heightDithering,

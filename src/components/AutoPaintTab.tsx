@@ -65,6 +65,7 @@ function ConfidenceStat({ label, value }: { label: string; value: number }) {
 
 function AppearanceModelStat({ result }: { result: AutoPaintResult }) {
     const model = result.finalStack.appearanceModel;
+    const exactAnchorCount = model.exactAnchors?.length ?? 0;
     const comparedStackKeys = new Set(model.comparedStackKeys);
     const comparedCoverage = result.finalStack.targetMappings
         .filter((mapping) => comparedStackKeys.has(mapping.canonicalStackKey))
@@ -98,19 +99,24 @@ function AppearanceModelStat({ result }: { result: AutoPaintResult }) {
                     className={
                         model.applied
                             ? getConfidenceColor(model.confidence)
+                            : exactAnchorCount > 0
+                              ? 'text-green-500'
                             : 'text-muted-foreground'
                     }
                 >
                     {model.applied
                         ? `Fitted estimate (${(model.confidence * 100).toFixed(0)}%)`
-                        : model.observationCount > 0 || model.noneCount > 0
-                          ? 'Evidence gathered, fit gated'
-                          : 'Estimated only'}
+                        : exactAnchorCount > 0
+                          ? 'Dead-on anchors active'
+                          : model.observationCount > 0 || model.noneCount > 0
+                            ? 'Evidence gathered, fit gated'
+                            : 'Estimated only'}
                 </span>
             </div>
             <div className="mt-0.5 text-muted-foreground">
                 {model.sourceProofIds.length} completed proofs {' / '}
                 {model.distinctStackCount} physically compared stacks {' / '}
+                {exactAnchorCount} dead-on anchors {' / '}
                 {model.noneCount} no matches
             </div>
             <div className="mt-0.5 text-muted-foreground">

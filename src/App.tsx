@@ -811,6 +811,9 @@ function App(): React.ReactElement | null {
                                             autoPaintFilamentOrder={
                                                 builtModelState.autoPaintResult?.filamentOrder
                                             }
+                                            autoPaintFinalStack={
+                                                builtModelState.autoPaintResult?.finalStack
+                                            }
                                             enhancedColorMatch={builtModelState.enhancedColorMatch}
                                             preserveSeparation={builtModelState.preserveSeparation}
                                             heightDithering={builtModelState.heightDithering}

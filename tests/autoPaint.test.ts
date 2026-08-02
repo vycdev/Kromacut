@@ -64,6 +64,62 @@ test('enhanced matching keeps every color from the processed 2D palette', async 
     assertAlmostEqual(targets[2].weight, 0.1);
 });
 
+test('Dead-on palette anchors win over an earlier uncalibrated color tie', async () => {
+    const { mapTargetsToPrintablePalette } = await loadAutoPaintModule();
+    const target = { L: 40, a: 12, b: -18, weight: 1 };
+    const mapped = mapTargetsToPrintablePalette(
+        [
+            {
+                height: 0.16,
+                lab: { L: 40, a: 12, b: -18 },
+                rgb: { r: 62, g: 62, b: 96 },
+            },
+            {
+                height: 0.24,
+                lab: { L: 45, a: 8, b: -12 },
+                rgb: { r: 70, g: 70, b: 105 },
+            },
+            {
+                height: 0.32,
+                lab: { L: 40, a: 12, b: -18 },
+                rgb: { r: 62, g: 62, b: 96 },
+                exactAnchorId: 'dead-on-purple',
+                exactAnchorTargetLab: { L: 40, a: 12, b: -18 },
+            },
+        ],
+        [target]
+    );
+
+    assert.equal(mapped[0].paletteIndex, 2);
+    assert.equal(mapped[0].projectedHeight, 0.32);
+});
+
+test('optimizer scoring penalizes dropping a Dead-on suffix for a calibrated target', async () => {
+    const { scoreSequenceAgainstImage } = await loadAutoPaintModule();
+    const target = { L: 40, a: 12, b: -18, weight: 1 };
+    const unanchored = [
+        {
+            height: 0.16,
+            lab: { L: 40, a: 12, b: -18 },
+            rgb: { r: 62, g: 62, b: 96 },
+        },
+    ];
+    const anchored = [
+        {
+            ...unanchored[0],
+            height: 0.32,
+            exactAnchorId: 'dead-on-purple',
+            exactAnchorTargetLab: { L: 40, a: 12, b: -18 },
+        },
+    ];
+    const options = { exactAnchorTargets: [{ L: 40, a: 12, b: -18 }] };
+
+    assert.ok(
+        scoreSequenceAgainstImage(unanchored, [target], options) >
+            scoreSequenceAgainstImage(anchored, [target], options) + 10
+    );
+});
+
 test('transition thickness follows the selected Beer-Lambert opacity endpoint', async () => {
     const { calculateTransitionThickness, hexToRgb } = await loadAutoPaintModule();
     const layerHeight = 0.1;

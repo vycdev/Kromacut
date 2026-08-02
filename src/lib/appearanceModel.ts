@@ -1,4 +1,9 @@
-import type { AppearanceRankModelV1 } from '../types/appearance';
+import type { Filament } from '../types';
+import type {
+    AppearanceAnchorLayer,
+    AppearanceExactAnchorV1,
+    AppearanceRankModelV1,
+} from '../types/appearance';
 import { deltaE2000Lab, labToRgb, rgbToLab, type Lab, type Rgb } from './colorDifference';
 import {
     getPaletteProofEvaluationState,
@@ -6,6 +11,7 @@ import {
     type PaletteProofRecord,
     type PaletteTargetMatchQuality,
 } from './appearanceProfile';
+import { channelHds } from './calibration';
 import { fingerprintJson } from './fingerprint';
 
 export interface AppearanceFitContext {
@@ -13,6 +19,7 @@ export interface AppearanceFitContext {
     layerHeight: number;
     firstLayerHeight: number;
     transitionOpacity: number;
+    filaments?: readonly Filament[];
 }
 
 interface RankCandidate {
@@ -30,7 +37,7 @@ interface RankObservation {
     matchQuality: PaletteTargetMatchQuality;
 }
 
-const MODEL_VERSION = 'lab-rank-global-v3' as const;
+const MODEL_VERSION = 'lab-rank-global-v4' as const;
 const SOFTMAX_TEMPERATURE = 5;
 const TIE_LOGIT_PENALTY = 0.5;
 const EXACT_MATCH_SIGMA = 2;
@@ -42,6 +49,15 @@ const MIN_TRAINING_DISTINCT_STACKS = 8;
 const MIN_HELD_OUT = 2;
 const MIN_HELD_OUT_AGREEMENT = 0.7;
 const MIN_HELD_OUT_IMPROVEMENT = 0.1;
+
+function contextFingerprintPayload(context: AppearanceFitContext) {
+    return {
+        filamentProfileFingerprint: context.filamentProfileFingerprint,
+        layerHeight: context.layerHeight,
+        firstLayerHeight: context.firstLayerHeight,
+        transitionOpacity: context.transitionOpacity,
+    };
+}
 
 export function createIdentityAppearanceRankModel(
     contextFingerprint = fingerprintJson('appearance-fit-context-v1', null)
@@ -55,11 +71,12 @@ export function createIdentityAppearanceRankModel(
         logChromaScale: 0,
         observations: [],
         noneJudgmentIds: [],
+        exactAnchors: [],
     };
     return {
         schemaVersion: 1,
         modelVersion: MODEL_VERSION,
-        fingerprint: fingerprintJson('appearance-rank-model-v3', payload),
+        fingerprint: fingerprintJson('appearance-rank-model-v4', payload),
         contextFingerprint,
         applied: false,
         gateReason: 'insufficient-evidence',
@@ -77,6 +94,7 @@ export function createIdentityAppearanceRankModel(
         fittedAgreement: 0,
         sourceProofIds: [],
         comparedStackKeys: [],
+        exactAnchors: [],
     };
 }
 
@@ -86,6 +104,14 @@ function sameProcess(record: PaletteProofRecord, context: AppearanceFitContext):
         record.process.layerHeight === context.layerHeight &&
         record.process.firstLayerHeight === context.firstLayerHeight &&
         record.process.transitionOpacity === context.transitionOpacity
+    );
+}
+
+function sameAnchorProcess(record: PaletteProofRecord, context: AppearanceFitContext): boolean {
+    return (
+        record.process.filamentProfileFingerprint === context.filamentProfileFingerprint &&
+        record.process.layerHeight === context.layerHeight &&
+        record.process.firstLayerHeight === context.firstLayerHeight
     );
 }
 
@@ -180,6 +206,107 @@ function transformLab(base: Lab, deltaL: number, logChromaScale: number): Lab {
     return rgbToLab(labToRgb(transformed));
 }
 
+function layerToken(layer: AppearanceAnchorLayer): string {
+    return [
+        layer.filamentId,
+        layer.filamentColor.toLowerCase(),
+        Number(layer.thickness.toFixed(8)),
+    ].join('\0');
+}
+
+function suffixTransmission(
+    layers: readonly AppearanceAnchorLayer[],
+    filamentsById: ReadonlyMap<string, Filament>
+): number {
+    const transmission: [number, number, number] = [1, 1, 1];
+    for (const layer of layers) {
+        const filament = filamentsById.get(layer.filamentId);
+        if (!filament) return 1;
+        const hds = channelHds(filament);
+        for (let channel = 0; channel < 3; channel++) {
+            if (!Number.isFinite(hds[channel]) || hds[channel] <= 0) return 1;
+            transmission[channel] *= Math.pow(0.1, layer.thickness / hds[channel]);
+        }
+    }
+    return Math.max(...transmission);
+}
+
+/**
+ * Keep the complete visible filament run from the measured patch, then extend
+ * downward by whole runs until the retained suffix hides the omitted substrate
+ * to the same opacity endpoint used to build the proof.
+ */
+function transferableSuffix(
+    record: PaletteProofRecord,
+    prefixIndex: number,
+    filamentsById: ReadonlyMap<string, Filament>
+): { layers: AppearanceAnchorLayer[]; maxSubstrateTransmission: number } {
+    const prefix = record.stack.slice(0, prefixIndex + 1);
+    if (prefix.length === 0) return { layers: [], maxSubstrateTransmission: 1 };
+
+    let start = prefix.length - 1;
+    const terminalFilamentId = prefix[start].filamentId;
+    while (start > 0 && prefix[start - 1].filamentId === terminalFilamentId) start--;
+
+    const maximumTransmission = Math.max(0.01, 1 - record.process.transitionOpacity);
+    let retained = prefix.slice(start);
+    let transmission = suffixTransmission(retained, filamentsById);
+    while (start > 0 && transmission > maximumTransmission + 1e-12) {
+        const previousFilamentId = prefix[start - 1].filamentId;
+        do {
+            start--;
+        } while (start > 0 && prefix[start - 1].filamentId === previousFilamentId);
+        retained = prefix.slice(start);
+        transmission = suffixTransmission(retained, filamentsById);
+    }
+
+    return {
+        layers: retained.map((layer) => ({ ...layer })),
+        maxSubstrateTransmission: start === 0 ? 0 : transmission,
+    };
+}
+
+function collectExactAnchors(
+    appearance: AppearanceProfileV1 | undefined,
+    context: AppearanceFitContext
+): AppearanceExactAnchorV1[] {
+    if (!appearance) return [];
+    const filamentsById = new Map(
+        (context.filaments ?? []).map((filament) => [filament.id, filament])
+    );
+    const anchors: AppearanceExactAnchorV1[] = [];
+
+    for (const record of appearance.proofs) {
+        if (!sameAnchorProcess(record, context)) continue;
+        const evaluation = getPaletteProofEvaluationState(appearance, record.id);
+        if (!evaluation.complete) continue;
+        const cellsById = new Map(record.proof.cells.map((cell) => [cell.id, cell]));
+
+        for (const judgment of evaluation.judgments) {
+            if (judgment.response !== 'closest' || judgment.matchQuality !== 'exact') {
+                continue;
+            }
+            for (const cellId of judgment.closestCellIds) {
+                const cell = cellsById.get(cellId);
+                if (!cell || !judgment.candidateCellIds.includes(cellId)) continue;
+                const suffix = transferableSuffix(record, cell.prefixIndex, filamentsById);
+                if (suffix.layers.length === 0) continue;
+                const targetLab = colorLab(judgment.targetColor.rgb);
+                anchors.push({
+                    id: `${judgment.id}:${cell.id}`,
+                    proofId: record.id,
+                    sourceStackKey: cell.canonicalStackKey,
+                    targetLab: [targetLab.L, targetLab.a, targetLab.b],
+                    suffixLayers: suffix.layers,
+                    maxSubstrateTransmission: suffix.maxSubstrateTransmission,
+                });
+            }
+        }
+    }
+
+    return anchors.sort((left, right) => left.id.localeCompare(right.id));
+}
+
 function observationLoss(
     observation: RankObservation,
     deltaL: number,
@@ -225,13 +352,10 @@ function observationLoss(
                 transformLab(candidate.baseLab, deltaL, logChromaScale)
             )
         );
-    const sigma =
-        observation.matchQuality === 'exact' ? EXACT_MATCH_SIGMA : CLOSE_MATCH_SIGMA;
+    const sigma = observation.matchQuality === 'exact' ? EXACT_MATCH_SIGMA : CLOSE_MATCH_SIGMA;
     const anchorLoss =
-        selectedDistances.reduce(
-            (sum, distance) => sum + 0.5 * (distance / sigma) ** 2,
-            0
-        ) / Math.max(1, selectedDistances.length);
+        selectedDistances.reduce((sum, distance) => sum + 0.5 * (distance / sigma) ** 2, 0) /
+        Math.max(1, selectedDistances.length);
     return rankLoss + anchorLoss;
 }
 
@@ -339,11 +463,21 @@ export function fitAppearanceRankModel(
     appearance: AppearanceProfileV1 | undefined,
     context: AppearanceFitContext
 ): AppearanceRankModelV1 {
-    const contextFingerprint = fingerprintJson('appearance-fit-context-v1', context);
+    const contextFingerprint = fingerprintJson(
+        'appearance-fit-context-v1',
+        contextFingerprintPayload(context)
+    );
+    const exactAnchors = collectExactAnchors(appearance, context);
     const { observations, noneCount, noneJudgmentIds, proofIds, stackKeys } = collectObservations(
         appearance,
         context
     );
+    const sourceProofIds = [...new Set([...proofIds, ...exactAnchors.map((anchor) => anchor.proofId)])]
+        .sort();
+    const comparedStackKeys = new Set([
+        ...stackKeys,
+        ...exactAnchors.map((anchor) => anchor.sourceStackKey),
+    ]);
     const { training, heldOut } = splitObservations(observations);
     const trainingStackKeys = observationStackKeys(training);
     const heldOutStackKeys = observationStackKeys(heldOut);
@@ -440,12 +574,13 @@ export function fitAppearanceRankModel(
         trainingObservationIds: training.map((observation) => observation.id),
         heldOutObservationIds: heldOut.map((observation) => observation.id),
         noneJudgmentIds,
+        exactAnchors,
     };
 
     return {
         schemaVersion: 1,
         modelVersion: MODEL_VERSION,
-        fingerprint: fingerprintJson('appearance-rank-model-v3', fingerprintPayload),
+        fingerprint: fingerprintJson('appearance-rank-model-v4', fingerprintPayload),
         contextFingerprint,
         applied,
         gateReason,
@@ -456,18 +591,104 @@ export function fitAppearanceRankModel(
         trainingObservationCount: training.length,
         trainingDistinctStackCount: trainingStackKeys.size,
         noneCount,
-        distinctStackCount: stackKeys.size,
+        distinctStackCount: comparedStackKeys.size,
         heldOutCount: heldOut.length,
         heldOutDistinctStackCount: heldOutStackKeys.size,
         baselineAgreement,
         fittedAgreement,
-        sourceProofIds: proofIds,
-        comparedStackKeys: [...stackKeys].sort(),
+        sourceProofIds,
+        comparedStackKeys: [...comparedStackKeys].sort(),
+        exactAnchors,
     };
 }
 
-export function applyAppearanceRankModel(base: Lab, model: AppearanceRankModelV1): Lab {
-    return model.applied ? transformLab(base, model.deltaL, model.logChromaScale) : { ...base };
+interface AnchorTrieNode {
+    children: Map<string, AnchorTrieNode>;
+    anchors: AppearanceExactAnchorV1[];
+}
+
+const anchorTrieCache = new WeakMap<AppearanceRankModelV1, AnchorTrieNode>();
+
+function anchorTrie(model: AppearanceRankModelV1): AnchorTrieNode {
+    const cached = anchorTrieCache.get(model);
+    if (cached) return cached;
+    const root: AnchorTrieNode = { children: new Map(), anchors: [] };
+    for (const anchor of model.exactAnchors ?? []) {
+        let node = root;
+        for (let index = anchor.suffixLayers.length - 1; index >= 0; index--) {
+            const token = layerToken(anchor.suffixLayers[index]);
+            let child = node.children.get(token);
+            if (!child) {
+                child = { children: new Map(), anchors: [] };
+                node.children.set(token, child);
+            }
+            node = child;
+        }
+        node.anchors.push(anchor);
+    }
+    for (const node of [root, ...root.children.values()]) {
+        node.anchors.sort((left, right) => left.id.localeCompare(right.id));
+    }
+    anchorTrieCache.set(model, root);
+    return root;
+}
+
+function matchingExactAnchors(
+    model: AppearanceRankModelV1,
+    prefixLayers: readonly AppearanceAnchorLayer[]
+): AppearanceExactAnchorV1[] {
+    if ((model.exactAnchors?.length ?? 0) === 0 || prefixLayers.length === 0) return [];
+    let node = anchorTrie(model);
+    let deepest: AppearanceExactAnchorV1[] = [];
+    for (let index = prefixLayers.length - 1; index >= 0; index--) {
+        const child = node.children.get(layerToken(prefixLayers[index]));
+        if (!child) break;
+        node = child;
+        if (node.anchors.length > 0) deepest = node.anchors;
+    }
+    return deepest;
+}
+
+export interface ResolvedAppearancePrediction {
+    lab: Lab;
+    exactAnchor?: AppearanceExactAnchorV1;
+}
+
+export function resolveAppearanceRankModel(
+    base: Lab,
+    model: AppearanceRankModelV1,
+    prefixLayers?: readonly AppearanceAnchorLayer[]
+): ResolvedAppearancePrediction {
+    const fitted = model.applied
+        ? transformLab(base, model.deltaL, model.logChromaScale)
+        : { ...base };
+    const anchors = prefixLayers ? matchingExactAnchors(model, prefixLayers) : [];
+    if (anchors.length === 0) return { lab: fitted };
+
+    const exactAnchor = [...anchors].sort((left, right) => {
+        const leftLab = { L: left.targetLab[0], a: left.targetLab[1], b: left.targetLab[2] };
+        const rightLab = { L: right.targetLab[0], a: right.targetLab[1], b: right.targetLab[2] };
+        return (
+            deltaE2000Lab(fitted, leftLab) - deltaE2000Lab(fitted, rightLab) ||
+            left.id.localeCompare(right.id)
+        );
+    })[0];
+    return {
+        lab: {
+            L: exactAnchor.targetLab[0],
+            a: exactAnchor.targetLab[1],
+            b: exactAnchor.targetLab[2],
+        },
+        exactAnchor,
+    };
+}
+
+export function applyAppearanceRankModel(
+    base: Lab,
+    model: AppearanceRankModelV1,
+    prefixLayers?: readonly AppearanceAnchorLayer[]
+): Lab {
+    return resolveAppearanceRankModel(base, model, prefixLayers).lab;
 }
 
 export function appearanceLabToRgb(lab: Lab): Rgb {

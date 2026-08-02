@@ -10,6 +10,7 @@
 
 import type { Filament } from '../types';
 import type {
+    AppearanceAnchorLayer,
     AppearanceRankModelV1,
     CanonicalSrgbColor,
     FinalPrintableStackSnapshot,
@@ -22,8 +23,8 @@ import type {
 } from '../types/appearance';
 import {
     appearanceLabToRgb,
-    applyAppearanceRankModel,
     createIdentityAppearanceRankModel,
+    resolveAppearanceRankModel,
 } from './appearanceModel';
 import {
     optimizeFilamentOrder,
@@ -908,24 +909,34 @@ function buildFinalPrintableStackSnapshot(
         filamentColor: string;
         thickness: number;
     }> = [];
+    const appearancePrefix: AppearanceAnchorLayer[] = [];
     const layerSnapshots: FinalStackLayerSnapshot[] = stack.layers.map((layer, index) => {
         const filamentColor = rgbToHex(hexToRgb(layer.filamentColor));
-        prefixTokens.push({
+        const physicalLayer = {
             filamentId: layer.filamentId,
             filamentColor,
             thickness: layer.thickness,
-        });
+        };
+        prefixTokens.push(physicalLayer);
+        appearancePrefix.push(physicalLayer);
         const canonicalStackKey = fingerprintJson('stack-v1', prefixTokens);
         const basePredictedLab = rgbToLab(layer.virtualColor);
-        const predictedLab = applyAppearanceRankModel(basePredictedLab, appearanceModel);
-        const predictedRgb = appearanceModel.applied
-            ? appearanceLabToRgb(predictedLab)
-            : [layer.virtualColor.r, layer.virtualColor.g, layer.virtualColor.b];
-        const appearanceStatus = comparedStackKeys.has(canonicalStackKey)
-            ? ('compared' as const)
-            : appearanceModel.applied
-              ? ('fitted' as const)
-              : ('estimated' as const);
+        const prediction = resolveAppearanceRankModel(
+            basePredictedLab,
+            appearanceModel,
+            appearancePrefix
+        );
+        const predictedRgb =
+            appearanceModel.applied || prediction.exactAnchor
+                ? appearanceLabToRgb(prediction.lab)
+                : [layer.virtualColor.r, layer.virtualColor.g, layer.virtualColor.b];
+        const appearanceStatus = prediction.exactAnchor
+            ? ('anchored' as const)
+            : comparedStackKeys.has(canonicalStackKey)
+              ? ('compared' as const)
+              : appearanceModel.applied
+                ? ('fitted' as const)
+                : ('estimated' as const);
 
         return {
             id: `layer-${index + 1}`,
@@ -944,8 +955,14 @@ function buildFinalPrintableStackSnapshot(
                 g: predictedRgb[1],
                 b: predictedRgb[2],
             }),
-            predictedLab: labTuple(predictedLab),
+            predictedLab: labTuple(prediction.lab),
             appearanceStatus,
+            ...(prediction.exactAnchor
+                ? {
+                      exactAnchorId: prediction.exactAnchor.id,
+                      exactAnchorTargetLab: prediction.exactAnchor.targetLab,
+                  }
+                : {}),
         };
     });
     const palette: FinalStackPaletteEntrySnapshot[] = layerSnapshots.map((layer) => ({
@@ -959,6 +976,12 @@ function buildFinalPrintableStackSnapshot(
         predictedColor: layer.predictedColor,
         predictedLab: layer.predictedLab,
         appearanceStatus: layer.appearanceStatus,
+        ...(layer.exactAnchorId
+            ? {
+                  exactAnchorId: layer.exactAnchorId,
+                  exactAnchorTargetLab: layer.exactAnchorTargetLab,
+              }
+            : {}),
     }));
     const swapSequence: FinalStackSwapSnapshot[] = zoneSnapshots.map((zone) => {
         const zoneLayers = layerSnapshots.filter((layer) => layer.zoneIndex === zone.index);
@@ -1010,6 +1033,14 @@ function buildFinalPrintableStackSnapshot(
                           g: entry.predictedColor.rgb[1],
                           b: entry.predictedColor.rgb[2],
                       },
+                      exactAnchorId: entry.exactAnchorId,
+                      exactAnchorTargetLab: entry.exactAnchorTargetLab
+                          ? {
+                                L: entry.exactAnchorTargetLab[0],
+                                a: entry.exactAnchorTargetLab[1],
+                                b: entry.exactAnchorTargetLab[2],
+                            }
+                          : undefined,
                   })),
                   sourceTargets.map((target) => ({ ...target.lab, weight: target.weight })),
                   { preserveSeparation: settings.preserveSeparation }
@@ -1217,6 +1248,14 @@ export function clusterImageColors(
  * @param transitionThicknessCache - Optional cache shared by optimizer evaluations
  * @returns Array of achievable { height, lab, rgb } at each layer step
  */
+export interface AchievableColor {
+    height: number;
+    lab: Lab;
+    rgb: RGB;
+    exactAnchorId?: string;
+    exactAnchorTargetLab?: Lab;
+}
+
 export function buildAchievableColorPalette(
     sequence: AutoPaintFilament[],
     layerHeight: number,
@@ -1225,7 +1264,7 @@ export function buildAchievableColorPalette(
     transitionOpacity: number = DEFAULT_TRANSITION_OPACITY,
     transitionThicknessCache?: Map<string, number>,
     appearanceModel: AppearanceRankModelV1 = createIdentityAppearanceRankModel()
-): Array<{ height: number; lab: Lab; rgb: RGB }> {
+): AchievableColor[] {
     if (sequence.length === 0) return [];
 
     // Calculate zones for this sequence
@@ -1249,14 +1288,33 @@ export function buildAchievableColorPalette(
             : compressZones(zones, printableMaxHeight).compressedZones;
     const stack = buildPrintableAutoPaintStack(activeZones, layerHeight, firstLayerHeight);
 
+    const appearancePrefix: AppearanceAnchorLayer[] = [];
     return stack.layers.map((layer) => {
+        appearancePrefix.push({
+            filamentId: layer.filamentId,
+            filamentColor: rgbToHex(hexToRgb(layer.filamentColor)),
+            thickness: layer.thickness,
+        });
         const baseLab = rgbToLab(layer.virtualColor);
-        const lab = applyAppearanceRankModel(baseLab, appearanceModel);
-        const rgb = appearanceModel.applied ? appearanceLabToRgb(lab) : null;
+        const prediction = resolveAppearanceRankModel(baseLab, appearanceModel, appearancePrefix);
+        const rgb =
+            appearanceModel.applied || prediction.exactAnchor
+                ? appearanceLabToRgb(prediction.lab)
+                : null;
         return {
             height: layer.endHeight,
-            lab,
+            lab: prediction.lab,
             rgb: rgb ? { r: rgb[0], g: rgb[1], b: rgb[2] } : layer.virtualColor,
+            ...(prediction.exactAnchor
+                ? {
+                      exactAnchorId: prediction.exactAnchor.id,
+                      exactAnchorTargetLab: {
+                          L: prediction.exactAnchor.targetLab[0],
+                          a: prediction.exactAnchor.targetLab[1],
+                          b: prediction.exactAnchor.targetLab[2],
+                      },
+                  }
+                : {}),
         };
     });
 }
@@ -1283,6 +1341,34 @@ export interface MappedTarget {
  */
 /** Minimum ΔE between two printable colors for them to count as "distinct". */
 const SEPARATION_MIN_DE = 2;
+const EXACT_ANCHOR_TARGET_DE = 0.25;
+// Large enough that a sequence cannot beat a physically verified recipe merely
+// by landing an unverified prefix on the same simulated Lab coordinate.
+const MISSING_EXACT_ANCHOR_PENALTY = 20;
+
+function exactAnchorMapping(palette: AchievableColor[], target: WeightedLab): MappedTarget | null {
+    let bestIndex = -1;
+    let bestDistance = Infinity;
+    for (let index = 0; index < palette.length; index++) {
+        const anchorTarget = palette[index].exactAnchorTargetLab;
+        if (!anchorTarget) continue;
+        const distance = optimizerColorDistance(anchorTarget, target);
+        if (
+            distance <= EXACT_ANCHOR_TARGET_DE &&
+            (distance < bestDistance || (distance === bestDistance && index < bestIndex))
+        ) {
+            bestIndex = index;
+            bestDistance = distance;
+        }
+    }
+    if (bestIndex < 0) return null;
+    return {
+        target,
+        paletteIndex: bestIndex,
+        mappedLab: palette[bestIndex].lab,
+        projectedHeight: palette[bestIndex].height,
+    };
+}
 
 /**
  * Injective ("preserve color separation") mapping: assign each weighted image
@@ -1294,23 +1380,41 @@ const SEPARATION_MIN_DE = 2;
  * (and may collide) — the only case that cannot be fully separated.
  */
 function mapTargetsWithSeparation(
-    palette: Array<{ height: number; lab: Lab; rgb: RGB }>,
+    palette: AchievableColor[],
     imageTargets: WeightedLab[]
 ): MappedTarget[] {
     // Distinct printable colors, keeping a representative entry for each.
     const distinct: Array<{ lab: Lab; height: number; paletteIndex: number }> = [];
     for (let i = 0; i < palette.length; i++) {
         const entry = palette[i];
-        if (distinct.every((k) => optimizerColorDistance(k.lab, entry.lab) >= SEPARATION_MIN_DE)) {
+        const existingIndex = distinct.findIndex(
+            (candidate) => optimizerColorDistance(candidate.lab, entry.lab) < SEPARATION_MIN_DE
+        );
+        if (existingIndex < 0) {
             distinct.push({ lab: entry.lab, height: entry.height, paletteIndex: i });
+        } else if (
+            entry.exactAnchorId &&
+            !palette[distinct[existingIndex].paletteIndex].exactAnchorId
+        ) {
+            distinct[existingIndex] = { lab: entry.lab, height: entry.height, paletteIndex: i };
         }
     }
 
-    const result = new Array<MappedTarget>(imageTargets.length);
+    const result = new Array<MappedTarget | undefined>(imageTargets.length);
     const used = new Set<number>();
+    for (let index = 0; index < imageTargets.length; index++) {
+        const anchored = exactAnchorMapping(palette, imageTargets[index]);
+        if (!anchored) continue;
+        result[index] = anchored;
+        const distinctIndex = distinct.findIndex(
+            (entry) => entry.paletteIndex === anchored.paletteIndex
+        );
+        if (distinctIndex >= 0) used.add(distinctIndex);
+    }
     // Assign dominant colors first.
     const order = imageTargets
         .map((_, i) => i)
+        .filter((index) => result[index] === undefined)
         .sort((a, b) => imageTargets[b].weight - imageTargets[a].weight);
     for (const i of order) {
         const target = imageTargets[i];
@@ -1338,11 +1442,11 @@ function mapTargetsWithSeparation(
             projectedHeight: distinct[j].height,
         };
     }
-    return result;
+    return result as MappedTarget[];
 }
 
 export function mapTargetsToPrintablePalette(
-    palette: Array<{ height: number; lab: Lab; rgb: RGB }>,
+    palette: AchievableColor[],
     imageTargets: WeightedLab[],
     options: { preserveSeparation?: boolean } = {}
 ): MappedTarget[] {
@@ -1405,6 +1509,8 @@ export function mapTargetsToPrintablePalette(
     });
 
     return imageTargets.map((target) => {
+        const anchored = exactAnchorMapping(palette, target);
+        if (anchored) return anchored;
         let minDistance = Infinity;
         let nodeMatch = 0;
         let onSegment = false;
@@ -1523,9 +1629,9 @@ const USEFUL_PALETTE_MATCH_DE = 8;
  *    only as transitions and contribute no useful color to the image.
  */
 export function scoreSequenceAgainstImage(
-    palette: Array<{ height: number; lab: Lab; rgb: RGB }>,
+    palette: AchievableColor[],
     imageTargets: WeightedLab[],
-    options: { preserveSeparation?: boolean } = {}
+    options: { preserveSeparation?: boolean; exactAnchorTargets?: readonly Lab[] } = {}
 ): number {
     if (palette.length === 0) return Infinity;
     if (imageTargets.length === 0) return Infinity;
@@ -1540,6 +1646,7 @@ export function scoreSequenceAgainstImage(
     const bestMatchHeights: number[] = [];
     const usedPaletteEntries = new Set<number>();
     let detailCoveredWeight = 0;
+    let missingExactAnchorWeight = 0;
 
     for (const entry of mapped) {
         const realizedDeltaE = realizedColorError(entry.mappedLab, entry.target);
@@ -1551,6 +1658,17 @@ export function scoreSequenceAgainstImage(
         if (realizedDeltaE <= DETAIL_COVERAGE_DE) detailCoveredWeight += weight;
         // Mark this palette entry as useful if its printable color is a decent match.
         if (realizedDeltaE < USEFUL_PALETTE_MATCH_DE) usedPaletteEntries.add(entry.paletteIndex);
+        const expectedAnchor = options.exactAnchorTargets?.some(
+            (target) => optimizerColorDistance(target, entry.target) <= EXACT_ANCHOR_TARGET_DE
+        );
+        const realizedAnchor = palette[entry.paletteIndex].exactAnchorTargetLab;
+        if (
+            expectedAnchor &&
+            (!realizedAnchor ||
+                optimizerColorDistance(realizedAnchor, entry.target) > EXACT_ANCHOR_TARGET_DE)
+        ) {
+            missingExactAnchorWeight += weight;
+        }
     }
 
     if (totalWeight <= 0) return Infinity;
@@ -1559,6 +1677,7 @@ export function scoreSequenceAgainstImage(
     const weightedTail = weightedErrorPercentile(errorSamples, REALIZED_ERROR_TAIL_PERCENTILE);
     let score = weightedMean + REALIZED_ERROR_TAIL_WEIGHT * weightedTail;
     score += (1 - detailCoveredWeight / totalWeight) * DETAIL_COVERAGE_PENALTY;
+    score += (missingExactAnchorWeight / totalWeight) * MISSING_EXACT_ANCHOR_PENALTY;
 
     // 2. Height spread penalty: penalize when distinct image colors
     //    collapse to the same height (leading to flat surfaces).

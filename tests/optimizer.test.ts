@@ -225,7 +225,7 @@ test('cache keys include all weighted clusters and optimizer tuning', async () =
 
     const appearanceModel = {
         schemaVersion: 1 as const,
-        modelVersion: 'lab-rank-global-v3' as const,
+        modelVersion: 'lab-rank-global-v4' as const,
         fingerprint: 'appearance-fit-a',
         contextFingerprint: 'appearance-context',
         applied: true,
@@ -244,6 +244,7 @@ test('cache keys include all weighted clusters and optimizer tuning', async () =
         fittedAgreement: 0.8,
         sourceProofIds: ['proof-a'],
         comparedStackKeys: [],
+        exactAnchors: [],
     };
     const changedAppearance = optimizeFilamentOrder(
         filaments,

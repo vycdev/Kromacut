@@ -83,6 +83,7 @@ self.onmessage = (e: MessageEvent<AutoPaintWorkerRequest>) => {
             firstLayerHeight: Math.max(req.layerHeight, req.firstLayerHeight),
             transitionOpacity:
                 req.optimizerOptions?.transitionOpacity ?? DEFAULT_TRANSITION_OPACITY,
+            filaments: req.filaments,
         });
         const result = generateAutoLayers(
             req.filaments,
