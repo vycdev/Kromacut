@@ -140,6 +140,7 @@ export default function ThreeDControls({
     );
     const [ditherLineWidth, setDitherLineWidth] = useState(persisted?.ditherLineWidth ?? 0.42);
     const [flatPaint, setFlatPaint] = useState(initialFlatPaint);
+    const [flatPaintFaceUp, setFlatPaintFaceUp] = useState(persisted?.flatPaintFaceUp ?? false);
 
     // --- Optimizer Options ---
     const [optimizerAlgorithm, setOptimizerAlgorithm] = useState<
@@ -200,6 +201,7 @@ export default function ThreeDControls({
             heightDithering,
             ditherLineWidth,
             flatPaint,
+            flatPaintFaceUp,
             optimizerAlgorithm,
             optimizerSeed,
             regionWeightingMode,
@@ -216,6 +218,7 @@ export default function ThreeDControls({
         heightDithering,
         ditherLineWidth,
         flatPaint,
+        flatPaintFaceUp,
         optimizerAlgorithm,
         optimizerSeed,
         regionWeightingMode,
@@ -303,12 +306,18 @@ export default function ThreeDControls({
             paintMode === 'autopaint' && autoPaintSliceData
                 ? autoPaintSliceData.colorSliceHeights
                 : colorSliceHeights;
+        const activeFlatLayerCount = estimateOrder.filter(
+            (swatchIndex) => (estimateHeights[swatchIndex] ?? 0) > 0
+        ).length;
         const depth =
             flatPaintActive && paintMode === 'autopaint'
-                ? Math.max(slicerFirstLayerHeight, layerHeight) +
-                  estimateOrder.filter((swatchIndex) => (estimateHeights[swatchIndex] ?? 0) > 0)
-                      .length *
-                      layerHeight
+                ? flatPaintFaceUp
+                    ? activeFlatLayerCount > 0
+                        ? Math.max(slicerFirstLayerHeight, layerHeight) +
+                          Math.max(0, activeFlatLayerCount - 1) * layerHeight
+                        : 0
+                    : Math.max(slicerFirstLayerHeight, layerHeight) +
+                      activeFlatLayerCount * layerHeight
                 : estimateOrder.reduce((total, swatchIndex, position) => {
                       const height = estimateHeights[swatchIndex] ?? 0;
                       return (
@@ -328,6 +337,7 @@ export default function ThreeDControls({
         colorSliceHeights,
         imageDimensions,
         flatPaintActive,
+        flatPaintFaceUp,
         layerHeight,
         paintMode,
         pixelSize,
@@ -343,6 +353,9 @@ export default function ThreeDControls({
     const instructionSlicerFirstLayerHeight =
         builtState?.slicerFirstLayerHeight ?? slicerFirstLayerHeight;
     const instructionFlatPaint = builtState ? builtFlatPaint : flatPaintActive;
+    const instructionFlatPaintFaceUp = builtState
+        ? !!builtState.flatPaintFaceUp
+        : flatPaintActive && flatPaintFaceUp;
     const instructionColorCount =
         instructionPaintMode === 'autopaint'
             ? (instructionAutoPaintResult?.layers.length ?? 0)
@@ -360,6 +373,7 @@ export default function ThreeDControls({
         autoPaintResult: instructionAutoPaintResult,
         disabled: isInstructionOverLimit,
         flatPaint: instructionFlatPaint,
+        flatPaintFaceUp: instructionFlatPaintFaceUp,
     });
 
     // --- Apply handler ---
@@ -383,6 +397,7 @@ export default function ThreeDControls({
                 heightDithering,
                 ditherLineWidth,
                 flatPaint,
+                flatPaintFaceUp,
                 optimizerAlgorithm,
                 optimizerSeed,
                 regionWeightingMode,
@@ -403,6 +418,7 @@ export default function ThreeDControls({
                 filaments,
                 paintMode,
                 flatPaint,
+                flatPaintFaceUp,
                 optimizerAlgorithm,
                 optimizerSeed,
                 regionWeightingMode,
@@ -427,6 +443,7 @@ export default function ThreeDControls({
         heightDithering,
         ditherLineWidth,
         flatPaint,
+        flatPaintFaceUp,
         optimizerAlgorithm,
         optimizerSeed,
         regionWeightingMode,
@@ -556,6 +573,8 @@ export default function ThreeDControls({
                     setDitherLineWidth={setDitherLineWidth}
                     flatPaint={flatPaint}
                     setFlatPaint={handleFlatPaintChange}
+                    flatPaintFaceUp={flatPaintFaceUp}
+                    setFlatPaintFaceUp={setFlatPaintFaceUp}
                     optimizerAlgorithm={optimizerAlgorithm}
                     setOptimizerAlgorithm={setOptimizerAlgorithm}
                     optimizerSeed={optimizerSeed}
@@ -653,6 +672,7 @@ export default function ThreeDControls({
                 tooManyColors={isInstructionOverLimit}
                 colorCount={instructionColorCount}
                 flatPaint={instructionFlatPaint}
+                flatPaintFaceUp={instructionFlatPaintFaceUp}
             />
         </div>
     );

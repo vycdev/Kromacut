@@ -1,10 +1,10 @@
 /**
- * Flat Paint layout planning for Auto-paint face-down flat prints.
+ * Flat Paint layout planning for Auto-paint uniform slabs.
  *
  * A normal auto-paint model varies each pixel column's height: the stack is
  * built dark-to-light from the plate and the image is viewed from the stepped
- * top surface. Flat Paint instead produces a uniform-thickness slab that is
- * printed FACE DOWN:
+ * top surface. Flat Paint instead produces a uniform-thickness slab. The
+ * original face-down layout:
  *
  * 1. Each pixel column's layer sequence is REVERSED so the final visible
  *    blend layer touches the build plate. Optically this is identical to the
@@ -17,15 +17,18 @@
  *    with the foundation filament so every printed layer has the exact same
  *    footprint — the defining Flat Paint property.
  *
+ * The optional face-up layout removes the carrier, keeps every color stack in
+ * its normal order, and moves foundation backing below shorter columns so all
+ * visible blend layers meet at the flat top surface.
+ *
  * Because a single printed layer now contains several filaments side by side,
  * Flat Paint prints require a multi-material setup (AMS/toolchanger). Parts are
  * therefore tagged with a per-filament export group so the 3MF exporter can
  * emit one object per physical filament.
  *
  * Coordinate conventions: the caller provides a per-pixel layer-count grid
- * already oriented for the 3D scene (Y flipped) and mirrored in X — mirroring
- * is required so the artwork reads correctly after the finished print is
- * flipped over.
+ * already oriented for the 3D scene. Face-down grids are mirrored in X;
+ * face-up grids are not.
  */
 
 import { normalizeHexColor } from './colorUtils.ts';
@@ -59,8 +62,7 @@ export interface FlatPaintPart {
 export interface FlatPaintLayout {
     parts: FlatPaintPart[];
     /**
-     * Uniform slab height: carrier + tallest present column class ×
-     * layerHeight. Trailing stack layers no pixel reaches are trimmed.
+     * Uniform slab height. Trailing stack layers no pixel reaches are trimmed.
      */
     totalHeight: number;
     carrierThickness: number;
@@ -68,11 +70,12 @@ export interface FlatPaintLayout {
     classCount: number;
 }
 
+export type FlatPaintOrientation = 'face-down' | 'face-up';
+
 export interface FlatPaintLayoutOptions {
     /**
      * Per-pixel layer counts (0 = transparent pixel, otherwise 1..layerCount),
-     * already oriented for the scene (Y flipped) and mirrored in X for
-     * face-down printing.
+     * already oriented for the selected print direction.
      */
     layerCounts: Uint16Array | Uint8Array;
     width: number;
@@ -83,6 +86,10 @@ export interface FlatPaintLayoutOptions {
     layerHeight: number;
     /** Thickness of the transparent carrier layer in mm */
     carrierThickness: number;
+    /** Face-down with a clear carrier (default), or exposed face-up. */
+    orientation?: FlatPaintOrientation;
+    /** Physical thickness of printed level zero in face-up mode. */
+    firstLayerThickness?: number;
     /** Per-layer blended preview colors (virtual swatches), bottom-up order */
     layerVirtualHexes: string[];
     /** Per-layer physical filament colors, bottom-up order */
@@ -91,6 +98,29 @@ export interface FlatPaintLayoutOptions {
 
 export const FLAT_PAINT_CARRIER_GROUP = 'flat-paint:carrier';
 export const FLAT_PAINT_CARRIER_HEX = '#D8FFF8';
+
+/**
+ * Orient a source-image layer-count grid for the 3D scene. Scene Y is always
+ * flipped. Face-down printing additionally mirrors X so the artwork reads
+ * correctly after the finished print is flipped over.
+ */
+export function orientFlatPaintLayerCounts(
+    layerCounts: Uint16Array | Uint8Array,
+    width: number,
+    height: number,
+    orientation: FlatPaintOrientation
+): Uint16Array {
+    const oriented = new Uint16Array(width * height);
+    for (let y = 0; y < height; y++) {
+        const srcRow = y * width;
+        const dstRow = (height - 1 - y) * width;
+        for (let x = 0; x < width; x++) {
+            const dstX = orientation === 'face-down' ? width - 1 - x : x;
+            oriented[dstRow + dstX] = layerCounts[srcRow + x] ?? 0;
+        }
+    }
+    return oriented;
+}
 
 /**
  * Convert a per-pixel target height map (mm) into per-pixel layer counts.
@@ -166,7 +196,7 @@ export function heightMapToFlatPaintLayerCounts(
 }
 
 /**
- * Plan the solid parts of a uniform face-down slab.
+ * Plan the solid parts of a uniform Flat Paint slab.
  *
  * Pixels are grouped into classes by their layer count `k`. Each class
  * produces (bottom-up, in printed orientation):
@@ -178,8 +208,9 @@ export function heightMapToFlatPaintLayerCounts(
  * - a BACKING slab from the end of the column to the slab top, in the
  *   foundation filament (layer 0), when the column is shorter than the stack.
  *
- * Every opaque pixel additionally receives the transparent CARRIER slab at
- * [0, carrierThickness]; all image slabs are shifted up by the carrier.
+ * In face-down mode every opaque pixel additionally receives the transparent
+ * CARRIER slab at [0, carrierThickness]. In face-up mode no carrier is added;
+ * the normal-order image stacks are top-aligned over foundation backing.
  */
 export function buildFlatPaintLayout(options: FlatPaintLayoutOptions): FlatPaintLayout {
     const {
@@ -189,18 +220,23 @@ export function buildFlatPaintLayout(options: FlatPaintLayoutOptions): FlatPaint
         layerCount,
         layerHeight,
         carrierThickness,
+        orientation = 'face-down',
+        firstLayerThickness = layerHeight,
         layerVirtualHexes,
         layerFilamentHexes,
     } = options;
 
     const parts: FlatPaintPart[] = [];
     const pixelCount = width * height;
+    const effectiveCarrierThickness =
+        orientation === 'face-down' ? Math.max(0, carrierThickness) : 0;
+    const effectiveFirstLayerThickness = Math.max(layerHeight, firstLayerThickness);
 
     if (layerCount <= 0 || layerHeight <= 0 || pixelCount === 0) {
         return {
             parts,
-            totalHeight: Math.max(0, carrierThickness),
-            carrierThickness,
+            totalHeight: effectiveCarrierThickness,
+            carrierThickness: effectiveCarrierThickness,
             classCount: 0,
         };
     }
@@ -218,7 +254,12 @@ export function buildFlatPaintLayout(options: FlatPaintLayoutOptions): FlatPaint
     }
 
     if (opaqueCount === 0) {
-        return { parts, totalHeight: carrierThickness, carrierThickness, classCount: 0 };
+        return {
+            parts,
+            totalHeight: effectiveCarrierThickness,
+            carrierThickness: effectiveCarrierThickness,
+            classCount: 0,
+        };
     }
 
     // The auto-paint stack can end with layers no pixel actually reaches
@@ -233,7 +274,14 @@ export function buildFlatPaintLayout(options: FlatPaintLayoutOptions): FlatPaint
         }
     }
 
-    const totalHeight = carrierThickness + effectiveLayerCount * layerHeight;
+    const levelBase = (level: number) => {
+        if (orientation === 'face-down') {
+            return effectiveCarrierThickness + level * layerHeight;
+        }
+        if (level <= 0) return 0;
+        return effectiveFirstLayerThickness + (level - 1) * layerHeight;
+    };
+    const totalHeight = levelBase(effectiveLayerCount);
 
     const opaqueMask = new Uint8Array(pixelCount);
     const classMasks = new Map<number, Uint8Array>();
@@ -248,7 +296,6 @@ export function buildFlatPaintLayout(options: FlatPaintLayoutOptions): FlatPaint
         classMasks.get(Math.min(layerCount, k))![i] = 1;
     }
 
-    const levelBase = (level: number) => carrierThickness + level * layerHeight;
     const filamentHex = (layer: number) =>
         normalizeHexColor(
             layerFilamentHexes[layer],
@@ -259,25 +306,88 @@ export function buildFlatPaintLayout(options: FlatPaintLayoutOptions): FlatPaint
     const filamentGroup = (hex: string) => `flat-paint:filament:${hex}`;
     const filamentPartName = (hex: string) => `Flat Paint filament (${hex})`;
 
-    // --- Carrier slab: full opaque footprint at the plate ---
-    parts.push({
-        kind: 'carrier',
-        classIndex: 0,
-        mask: opaqueMask,
-        activeCount: opaqueCount,
-        baseZ: 0,
-        topZ: carrierThickness,
-        previewHex: FLAT_PAINT_CARRIER_HEX,
-        filamentHex: FLAT_PAINT_CARRIER_HEX,
-        exportGroup: FLAT_PAINT_CARRIER_GROUP,
-        partName: 'Flat Paint transparent carrier (use clear filament)',
-    });
+    // --- Carrier slab: face-down only, full opaque footprint at the plate ---
+    if (orientation === 'face-down' && effectiveCarrierThickness > 0) {
+        parts.push({
+            kind: 'carrier',
+            classIndex: 0,
+            mask: opaqueMask,
+            activeCount: opaqueCount,
+            baseZ: 0,
+            topZ: effectiveCarrierThickness,
+            previewHex: FLAT_PAINT_CARRIER_HEX,
+            filamentHex: FLAT_PAINT_CARRIER_HEX,
+            exportGroup: FLAT_PAINT_CARRIER_GROUP,
+            partName: 'Flat Paint transparent carrier (use clear filament)',
+        });
+    }
 
     // --- Per-class slabs ---
     const foundationHex = filamentHex(0);
 
     for (const [k, mask] of classMasks) {
         const activeCount = classActiveCounts[k];
+
+        if (orientation === 'face-up') {
+            const stackStartLevel = effectiveLayerCount - k;
+
+            // Shorter normal-order image stacks are lifted to the common top
+            // surface. Foundation backing fills the space beneath them.
+            if (stackStartLevel > 0) {
+                parts.push({
+                    kind: 'backing',
+                    classIndex: k,
+                    mask,
+                    activeCount,
+                    baseZ: 0,
+                    topZ: levelBase(stackStartLevel),
+                    previewHex: foundationHex,
+                    filamentHex: foundationHex,
+                    exportGroup: filamentGroup(foundationHex),
+                    partName: filamentPartName(foundationHex),
+                });
+            }
+
+            // Preserve the normal bottom-up stack order below the visible top
+            // layer, merging adjacent runs of the same physical filament.
+            let runStart = 0;
+            while (runStart < k - 1) {
+                const runHex = filamentHex(runStart);
+                let runEnd = runStart;
+                while (runEnd + 1 < k - 1 && filamentHex(runEnd + 1) === runHex) {
+                    runEnd++;
+                }
+
+                parts.push({
+                    kind: 'zone',
+                    classIndex: k,
+                    mask,
+                    activeCount,
+                    baseZ: levelBase(stackStartLevel + runStart),
+                    topZ: levelBase(stackStartLevel + runEnd + 1),
+                    previewHex: runHex,
+                    filamentHex: runHex,
+                    exportGroup: filamentGroup(runHex),
+                    partName: filamentPartName(runHex),
+                });
+
+                runStart = runEnd + 1;
+            }
+
+            parts.push({
+                kind: 'face',
+                classIndex: k,
+                mask,
+                activeCount,
+                baseZ: levelBase(effectiveLayerCount - 1),
+                topZ: totalHeight,
+                previewHex: virtualHex(k - 1),
+                filamentHex: filamentHex(k - 1),
+                exportGroup: filamentGroup(filamentHex(k - 1)),
+                partName: filamentPartName(filamentHex(k - 1)),
+            });
+            continue;
+        }
 
         // Face slab: printed level 0 = the column's top (visible) layer k-1.
         // Preview uses the blended virtual color so the face shows the artwork.
@@ -340,5 +450,10 @@ export function buildFlatPaintLayout(options: FlatPaintLayoutOptions): FlatPaint
     // Stable build order: bottom-up by baseZ, then by class for determinism.
     parts.sort((a, b) => a.baseZ - b.baseZ || a.classIndex - b.classIndex);
 
-    return { parts, totalHeight, carrierThickness, classCount: classMasks.size };
+    return {
+        parts,
+        totalHeight,
+        carrierThickness: effectiveCarrierThickness,
+        classCount: classMasks.size,
+    };
 }

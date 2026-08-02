@@ -99,13 +99,15 @@ When a filament has been calibrated, Auto-paint uses its measured red, green, an
 
 ## Flat Paint
 
-**Flat Paint (flat face-down print)** builds a uniform-thickness slab instead of a stepped relief. Every printed layer has the full model footprint:
+**Flat Paint** builds a uniform-thickness slab instead of a stepped relief. Every printed layer has the full model footprint. Its default layout is face-down:
 
 - The artwork is placed face down against the build plate, under a **transparent carrier layer** that prints first and becomes the smooth viewing face. Use clear filament for the carrier object.
 - Each pixel column's layer order is reversed so the print looks identical to the normal model when viewed from the face side, and the space behind the image is filled with the foundation filament.
 - The model is already mirrored for face-down printing — do not mirror it again in the slicer. After printing, flip the piece over to view the image.
 
 Because a single printed layer contains several filaments side by side, Flat Paint requires a multi-material printer (AMS or toolchanger). Export as **3MF**: the model contains one object per filament, plus the carrier object, ready for per-object filament assignment in the slicer.
+
+Enable **Face-up, no clear layer** under Flat Paint when you do not want a transparent carrier. This layout keeps each pixel's normal bottom-to-top color order, fills beneath shorter stacks with the foundation filament, and aligns their visible colors at the flat top surface. Print it face-up as shown and do not mirror it. The image surface is exposed, and the 3MF contains only the physical filament objects—there is no clear-carrier object to assign.
 
 Flat Paint works in both standard and enhanced color matching modes. Expect heavier geometry and slower slicing than a normal build — flat models are best for bookmarks, coasters, and other pieces that benefit from a smooth, glass-flat face.
 

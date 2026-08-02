@@ -91,8 +91,10 @@ export interface ThreeDControlsStateShape {
     transitionOpacity?: AutoPaintTransitionOpacity;
     heightDithering?: boolean;
     ditherLineWidth?: number;
-    /** Flat Paint: build a flat, face-down slab (auto-paint only) */
+    /** Flat Paint: build a uniform multi-material slab (auto-paint only). */
     flatPaint?: boolean;
+    /** Print Flat Paint face-up without the transparent carrier layer. */
+    flatPaintFaceUp?: boolean;
     // Optimizer options (effort tier; legacy values migrate on load)
     optimizerAlgorithm?: 'fast' | 'balanced' | 'thorough' | 'deep' | 'exact';
     optimizerSeed?: number;

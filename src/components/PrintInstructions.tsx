@@ -11,6 +11,8 @@ interface PrintInstructionsProps {
     colorCount?: number;
     /** Flat Paint prints swap filaments per layer via AMS — no manual plan */
     flatPaint?: boolean;
+    /** Flat Paint is printed face-up without a transparent carrier. */
+    flatPaintFaceUp?: boolean;
 }
 
 export default function PrintInstructions({
@@ -22,6 +24,7 @@ export default function PrintInstructions({
     tooManyColors = false,
     colorCount = 0,
     flatPaint = false,
+    flatPaintFaceUp = false,
 }: PrintInstructionsProps) {
     return (
         <CollapsibleCard
@@ -88,16 +91,29 @@ export default function PrintInstructions({
                                 contains one object per filament. Assign each object to its filament
                                 in the slicer (AMS/toolchanger required).
                             </li>
-                            <li>
-                                Use <span className="font-semibold">clear filament</span> for the
-                                transparent carrier object — it prints first and becomes the smooth
-                                viewing face.
-                            </li>
-                            <li>
-                                Print as-is — the artwork is already mirrored for face-down
-                                printing. Do not mirror in the slicer.
-                            </li>
-                            <li>After printing, flip the piece over to view the image.</li>
+                            {flatPaintFaceUp ? (
+                                <>
+                                    <li>No clear or transparent carrier object is included.</li>
+                                    <li>
+                                        Print as-is and face-up. Do not mirror the model in the
+                                        slicer.
+                                    </li>
+                                    <li>The artwork is exposed on the top surface.</li>
+                                </>
+                            ) : (
+                                <>
+                                    <li>
+                                        Use <span className="font-semibold">clear filament</span>{' '}
+                                        for the transparent carrier object — it prints first and
+                                        becomes the smooth viewing face.
+                                    </li>
+                                    <li>
+                                        Print as-is — the artwork is already mirrored for face-down
+                                        printing. Do not mirror in the slicer.
+                                    </li>
+                                    <li>After printing, flip the piece over to view the image.</li>
+                                </>
+                            )}
                         </ul>
                     </div>
                 ) : (

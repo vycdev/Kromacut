@@ -12,7 +12,12 @@ import {
 } from '../lib/meshing';
 import { LAYER_ACTIVATION_EPSILON } from '../lib/layerActivation';
 import { normalizeHexColor as normalizeHexColorValue } from '../lib/colorUtils';
-import { buildFlatPaintLayout, heightMapToFlatPaintLayerCounts } from '../lib/flatPaint';
+import {
+    buildFlatPaintLayout,
+    heightMapToFlatPaintLayerCounts,
+    heightMapToLayerCounts,
+    orientFlatPaintLayerCounts,
+} from '../lib/flatPaint';
 import { mapTargetsToPrintablePalette, type WeightedLab } from '../lib/autoPaint';
 import {
     clampProgress,
@@ -59,7 +64,8 @@ interface ThreeDViewProps {
     ditherLineWidth?: number; // Minimum dot size in mm for dithering
     smoothMeshing?: boolean; // Smooth connected boundaries using welded grid topology
     isOrtho?: boolean;
-    flatPaint?: boolean; // Build a flat face-down slab (Flat Paint style, auto-paint only)
+    flatPaint?: boolean; // Build a uniform Flat Paint slab (auto-paint only)
+    flatPaintFaceUp?: boolean; // Expose the artwork on top without a transparent carrier
     previewRenderMode?: PreviewRenderMode;
     /** Auto-paint 3D preview color source: simulated blend vs. physical filament colors. */
     previewColorMode?: PreviewColorMode;
@@ -275,6 +281,7 @@ interface E2EBuildMetrics {
         enhancedColorMatch: boolean;
         heightDithering: boolean;
         flatPaint?: boolean;
+        flatPaintFaceUp?: boolean;
     };
 }
 
@@ -363,6 +370,7 @@ export default function ThreeDView({
     smoothMeshing = false,
     isOrtho = false,
     flatPaint = false,
+    flatPaintFaceUp = false,
     previewRenderMode = 'shaded',
     previewColorMode = 'simulated',
 }: ThreeDViewProps) {
@@ -773,6 +781,7 @@ export default function ThreeDView({
             ditherLineWidth,
             smoothMeshing,
             flatPaint,
+            flatPaintFaceUp,
         });
         if (paramsKey === lastParamsKeyRef.current) return; // nothing changed logically
         lastParamsKeyRef.current = paramsKey;
@@ -800,6 +809,7 @@ export default function ThreeDView({
                     enhancedColorMatch,
                     heightDithering,
                     flatPaint,
+                    flatPaintFaceUp,
                 },
             });
 
@@ -1462,28 +1472,24 @@ export default function ThreeDView({
                     }
 
                     if (flatPaint) {
-                        // === FLAT_PAINT: uniform face-down slab ===
-                        // Reverse each pixel column so the visible blend layer
-                        // touches the plate (mirrored in X so the artwork reads
-                        // correctly once the finished print is flipped over),
-                        // backfill behind the columns with the foundation
-                        // filament, and add a transparent carrier first layer.
-                        const orientedCounts = new Uint16Array(boxW * boxH);
-                        {
-                            const rawCounts = heightMapToFlatPaintLayerCounts(
-                                pixelHeightMap,
-                                cumulativeHeights,
-                                layerHeight
-                            );
-                            for (let y = 0; y < boxH; y++) {
-                                const srcRow = y * boxW;
-                                const dstRow = (boxH - 1 - y) * boxW;
-                                for (let x = 0; x < boxW; x++) {
-                                    orientedCounts[dstRow + (boxW - 1 - x)] =
-                                        rawCounts[srcRow + x];
-                                }
-                            }
-                        }
+                        // === FLAT_PAINT: uniform multi-material slab ===
+                        // Face-down reverses and mirrors each color stack under
+                        // a clear carrier. Face-up keeps the normal stack order,
+                        // does not mirror it, and fills beneath shorter columns.
+                        const flatPaintOrientation = flatPaintFaceUp ? 'face-up' : 'face-down';
+                        const rawCounts = flatPaintFaceUp
+                            ? heightMapToLayerCounts(pixelHeightMap, cumulativeHeights)
+                            : heightMapToFlatPaintLayerCounts(
+                                  pixelHeightMap,
+                                  cumulativeHeights,
+                                  layerHeight
+                              );
+                        const orientedCounts = orientFlatPaintLayerCounts(
+                            rawCounts,
+                            boxW,
+                            boxH,
+                            flatPaintOrientation
+                        );
 
                         const layout = buildFlatPaintLayout({
                             layerCounts: orientedCounts,
@@ -1492,6 +1498,8 @@ export default function ThreeDView({
                             layerCount: colorOrder.length,
                             layerHeight,
                             carrierThickness: Math.max(slicerFirstLayerHeight, layerHeight),
+                            orientation: flatPaintOrientation,
+                            firstLayerThickness: Math.max(slicerFirstLayerHeight, layerHeight),
                             layerVirtualHexes: colorOrder.map(
                                 (swatchIdx) => swatches[swatchIdx]?.hex ?? '#888888'
                             ),
@@ -2006,6 +2014,7 @@ export default function ThreeDView({
                         enhancedColorMatch,
                         heightDithering,
                         flatPaint,
+                        flatPaintFaceUp,
                     },
                 });
 
@@ -2139,6 +2148,7 @@ export default function ThreeDView({
         ditherLineWidth,
         smoothMeshing,
         flatPaint,
+        flatPaintFaceUp,
         cameraRef,
         controlsRef,
         materialRef,

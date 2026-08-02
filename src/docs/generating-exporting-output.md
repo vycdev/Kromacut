@@ -38,7 +38,7 @@ Open the 3D download menu and choose:
 
 3MF export preserves physical filament colors in Auto-paint where possible. Still review slicer assignments before printing.
 
-For **Flat Paint** models the download menu offers only 3MF: the model contains one object per physical filament plus a transparent carrier object, and an uncolored single-geometry STL of the flat slab would be useless. Flat Paint turns off **Smooth Meshing** because the flat slab layout does not use smoothed boundary contours.
+For **Flat Paint** models the download menu offers only 3MF: the model contains one object per physical filament and, in the default face-down layout, a transparent carrier object. The optional face-up layout omits that carrier. An uncolored single-geometry STL of either flat slab would be useless. Flat Paint turns off **Smooth Meshing** because the flat slab layout does not use smoothed boundary contours.
 
 ## Print Instructions
 
@@ -51,7 +51,7 @@ The **Print Instructions** panel gives you:
 
 Use the copied plan beside your slicer preview. The layer numbers depend on **Layer Height** and **First Layer Height**, so keep those values consistent.
 
-In Flat Paint mode there is no manual swap plan. The panel instead summarizes the multi-material workflow: assign each 3MF object to its filament, use clear filament for the carrier, and print without mirroring.
+In Flat Paint mode there is no manual swap plan. The panel instead summarizes the selected multi-material workflow: assign each 3MF object to its filament, then either use clear filament and flip the default face-down print or print the carrier-free layout face-up. Neither layout should be mirrored in the slicer.
 
 ## Recommended Slicer Setup
 

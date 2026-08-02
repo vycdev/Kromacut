@@ -253,9 +253,11 @@ interface AutoPaintTabProps {
     ditherLineWidth: number;
     setDitherLineWidth: (v: number) => void;
 
-    // Flat Paint (flat face-down print)
+    // Flat Paint
     flatPaint: boolean;
     setFlatPaint: (v: boolean) => void;
+    flatPaintFaceUp: boolean;
+    setFlatPaintFaceUp: (v: boolean) => void;
 
     // Optimizer options
     optimizerAlgorithm: 'fast' | 'balanced' | 'thorough' | 'deep' | 'exact';
@@ -323,6 +325,8 @@ export default function AutoPaintTab({
     setDitherLineWidth,
     flatPaint,
     setFlatPaint,
+    flatPaintFaceUp,
+    setFlatPaintFaceUp,
     optimizerAlgorithm,
     setOptimizerAlgorithm,
     optimizerSeed,
@@ -907,6 +911,25 @@ export default function AutoPaintTab({
                                     checked={flatPaint}
                                     onCheckedChange={setFlatPaint}
                                 />
+                            </div>
+                            <div className="space-y-3 border-l border-border/50 pl-3 ml-1">
+                                <div
+                                    className={`flex items-center justify-between transition-opacity ${flatPaint ? 'opacity-100' : 'opacity-40 pointer-events-none'}`}
+                                >
+                                    <Label
+                                        htmlFor="flat-paint-face-up"
+                                        className="text-xs font-medium text-foreground cursor-pointer"
+                                    >
+                                        Face-up, no clear layer
+                                    </Label>
+                                    <Switch
+                                        id="flat-paint-face-up"
+                                        data-testid="autopaint-flat-paint-face-up"
+                                        checked={flatPaintFaceUp}
+                                        onCheckedChange={setFlatPaintFaceUp}
+                                        disabled={!flatPaint}
+                                    />
+                                </div>
                             </div>
                         </div>
                     )}

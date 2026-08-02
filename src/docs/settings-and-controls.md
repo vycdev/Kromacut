@@ -44,7 +44,7 @@ Auto-paint settings are preserved across sessions, including:
 - Preserve color separation.
 - Repeated swaps.
 - Height dithering and line width.
-- Flat Paint.
+- Flat Paint and its face-up, no-clear-layer preference.
 - Optimizer algorithm and seed.
 - Region priority.
 
