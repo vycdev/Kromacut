@@ -190,6 +190,11 @@ export const ControlsPanel: React.FC<Props> = ({
                                         <div className="px-2 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider select-none border-t border-border/50 mt-1 pt-2">
                                             Supplier Palettes
                                         </div>
+                                        <div className="px-2 pb-1.5 text-[9px] leading-snug text-muted-foreground/70 select-none">
+                                            Supplier names are trademarks of their owners, used for
+                                            identification only. Kromacut is not affiliated with or
+                                            endorsed by any filament manufacturer.
+                                        </div>
                                         {SUPPLIER_PALETTES.map((p) => (
                                             <SelectItem key={p.id} value={p.id}>
                                                 <div className="flex items-center gap-2">

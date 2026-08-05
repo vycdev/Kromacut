@@ -358,6 +358,11 @@ export default function AutoPaintTab({
                                         <div className="px-2 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider select-none border-t border-border/50 mt-1 pt-2">
                                             Templates
                                         </div>
+                                        <div className="px-2 pb-1.5 text-[9px] leading-snug text-muted-foreground/70 select-none">
+                                            Supplier names are trademarks of their owners, used for
+                                            identification only. Kromacut is not affiliated with or
+                                            endorsed by any filament manufacturer.
+                                        </div>
                                         {TEMPLATE_PROFILES.map((p) => (
                                             <SelectItem key={p.id} value={p.id} className="text-xs">
                                                 <div className="flex items-center gap-2">
