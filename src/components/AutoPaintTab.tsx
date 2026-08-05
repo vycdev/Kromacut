@@ -359,9 +359,10 @@ export default function AutoPaintTab({
                                             Templates
                                         </div>
                                         <div className="px-2 pb-1.5 text-[9px] leading-snug text-muted-foreground/70 select-none">
-                                            Supplier names are trademarks of their owners, used for
-                                            identification only. Kromacut is not affiliated with or
-                                            endorsed by any filament manufacturer.
+                                            Unofficial reference filament sets based on supplier
+                                            color charts. Not affiliated with, endorsed by, or
+                                            sponsored by any manufacturer; names identify the
+                                            referenced products only.
                                         </div>
                                         {TEMPLATE_PROFILES.map((p) => (
                                             <SelectItem key={p.id} value={p.id} className="text-xs">

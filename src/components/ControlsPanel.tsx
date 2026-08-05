@@ -191,9 +191,10 @@ export const ControlsPanel: React.FC<Props> = ({
                                             Supplier Palettes
                                         </div>
                                         <div className="px-2 pb-1.5 text-[9px] leading-snug text-muted-foreground/70 select-none">
-                                            Supplier names are trademarks of their owners, used for
-                                            identification only. Kromacut is not affiliated with or
-                                            endorsed by any filament manufacturer.
+                                            Unofficial reference palettes of filament color names
+                                            and hex values. Not affiliated with, endorsed by, or
+                                            sponsored by any manufacturer; names identify the
+                                            referenced products only.
                                         </div>
                                         {SUPPLIER_PALETTES.map((p) => (
                                             <SelectItem key={p.id} value={p.id}>
