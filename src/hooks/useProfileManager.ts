@@ -16,6 +16,10 @@ import {
     loadLastProfileId,
     saveLastProfileId,
 } from '../lib/profileManager';
+import { TEMPLATE_PROFILES, isTemplateProfileId } from '../data/supplierFilaments';
+
+/** Built-in template profile ids are reserved — imported files can never claim them. */
+const RESERVED_PROFILE_IDS = new Set(TEMPLATE_PROFILES.map((p) => p.id));
 
 export interface UseProfileManagerOptions {
     /** Current filament list (used for save/export operations). */
@@ -28,7 +32,10 @@ export function useProfileManager({ filaments, setFilaments }: UseProfileManager
     const [initialState] = useState(() => {
         const loadedProfiles = loadProfiles();
         const lastId = loadLastProfileId();
-        const activeProfile = lastId ? loadedProfiles.find((p) => p.id === lastId) : null;
+        // Templates are selectable too, so the selection survives reloads
+        const activeProfile = lastId
+            ? [...loadedProfiles, ...TEMPLATE_PROFILES].find((p) => p.id === lastId)
+            : null;
         return {
             profiles: loadedProfiles,
             activeProfileId: activeProfile ? activeProfile.id : null,
@@ -53,10 +60,13 @@ export function useProfileManager({ filaments, setFilaments }: UseProfileManager
         []
     );
 
+    const isTemplateActive = activeProfileId !== null && isTemplateProfileId(activeProfileId);
+
     // Dirty state: detect if current filaments differ from the active profile's
+    // (templates included, so the badge nudges toward Save New after tweaking one)
     const isDirty = useMemo(() => {
         if (!activeProfileId) return false;
-        const active = profiles.find((p) => p.id === activeProfileId);
+        const active = [...profiles, ...TEMPLATE_PROFILES].find((p) => p.id === activeProfileId);
         if (!active) return false;
         if (active.filaments.length !== filaments.length) return true;
         return active.filaments.some(
@@ -84,9 +94,9 @@ export function useProfileManager({ filaments, setFilaments }: UseProfileManager
         [filaments, profiles]
     );
 
-    // Save (overwrite): updates existing profile in-place
+    // Save (overwrite): updates existing profile in-place (templates are read-only)
     const handleOverwriteProfile = useCallback(() => {
-        if (!activeProfileId) return;
+        if (!activeProfileId || isTemplateProfileId(activeProfileId)) return;
         const updated = overwriteProfile(profiles, activeProfileId, filaments);
         setProfiles(updated);
         saveProfilesToStorage(updated);
@@ -94,7 +104,7 @@ export function useProfileManager({ filaments, setFilaments }: UseProfileManager
 
     const handleRenameProfile = useCallback(
         (name: string) => {
-            if (!activeProfileId || !name.trim()) return;
+            if (!activeProfileId || isTemplateProfileId(activeProfileId) || !name.trim()) return;
             const updated = renameProfile(profiles, activeProfileId, name);
             setProfiles(updated);
             saveProfilesToStorage(updated);
@@ -105,7 +115,7 @@ export function useProfileManager({ filaments, setFilaments }: UseProfileManager
 
     const handleLoadProfile = useCallback(
         (id: string) => {
-            const profile = profiles.find((p) => p.id === id);
+            const profile = [...profiles, ...TEMPLATE_PROFILES].find((p) => p.id === id);
             if (!profile) return;
             setActiveProfileId(id);
             saveLastProfileId(id);
@@ -116,6 +126,7 @@ export function useProfileManager({ filaments, setFilaments }: UseProfileManager
 
     const handleDeleteProfile = useCallback(
         (id: string) => {
+            if (isTemplateProfileId(id)) return;
             const updated = deleteProfileFromList(profiles, id);
             setProfiles(updated);
             saveProfilesToStorage(updated);
@@ -128,10 +139,11 @@ export function useProfileManager({ filaments, setFilaments }: UseProfileManager
     );
 
     const handleExportProfile = useCallback(() => {
-        const active = profiles.find((p) => p.id === activeProfileId);
+        const active = [...profiles, ...TEMPLATE_PROFILES].find((p) => p.id === activeProfileId);
         const profile = createProfile(active?.name ?? 'Exported Profile', filaments);
-        // Preserve original ID if exporting active profile
-        if (active) profile.id = active.id;
+        // Preserve original ID if exporting active profile — but never a
+        // reserved template id, so re-importing the file creates a user profile
+        if (active && !isTemplateProfileId(active.id)) profile.id = active.id;
 
         const blob = exportProfileBlob(profile);
         const url = URL.createObjectURL(blob);
@@ -160,7 +172,7 @@ export function useProfileManager({ filaments, setFilaments }: UseProfileManager
                     console.error('Invalid profile file');
                     return;
                 }
-                const result = importProfiles(profiles, incoming);
+                const result = importProfiles(profiles, incoming, RESERVED_PROFILE_IDS);
                 setProfiles(result.profiles);
                 saveProfilesToStorage(result.profiles);
 
@@ -204,6 +216,7 @@ export function useProfileManager({ filaments, setFilaments }: UseProfileManager
     return {
         profiles,
         activeProfileId,
+        isTemplateActive,
         isDirty,
         showSaveNewPopover,
         setShowSaveNewPopover,

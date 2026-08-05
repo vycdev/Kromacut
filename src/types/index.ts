@@ -40,6 +40,8 @@ export interface CustomPalette {
     name: string;
     version: number;
     colors: string[];
+    /** Indices into `colors` excluded from quantization. Absent = all enabled. */
+    disabledColors?: number[];
     createdAt: number;
     updatedAt: number;
 }

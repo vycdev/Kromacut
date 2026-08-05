@@ -32,6 +32,7 @@ import {
     FilamentCalibrationDialog,
     type CalibrationApplyUpdate,
 } from './FilamentCalibrationDialog';
+import { TEMPLATE_PROFILES, isTemplateProfileId } from '../data/supplierFilaments';
 import { getConfidenceLabel, getConfidenceColor } from '../lib/calibration';
 import { getExactBaseOrderCount } from '../lib/optimizer';
 import { useNextBestColorWorker } from '../hooks/useNextBestColorWorker';
@@ -256,6 +257,9 @@ export default function AutoPaintTab({
     // Calibration dialog state
     const [calibrationDialogOpen, setCalibrationDialogOpen] = React.useState(false);
 
+    // Built-in templates are read-only: no overwrite, rename, or delete
+    const isTemplateActive = activeProfileId !== null && isTemplateProfileId(activeProfileId);
+
     const handleOpenCalibration = React.useCallback(() => {
         setCalibrationDialogOpen(true);
     }, []);
@@ -349,6 +353,36 @@ export default function AutoPaintTab({
                                         </SelectItem>
                                     ))
                                 )}
+                                {TEMPLATE_PROFILES.length > 0 && (
+                                    <>
+                                        <div className="px-2 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider select-none border-t border-border/50 mt-1 pt-2">
+                                            Templates
+                                        </div>
+                                        {TEMPLATE_PROFILES.map((p) => (
+                                            <SelectItem key={p.id} value={p.id} className="text-xs">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="flex gap-0.5">
+                                                        {p.filaments.slice(0, 4).map((f, i) => (
+                                                            <span
+                                                                key={i}
+                                                                className="w-3 h-3 rounded-full border border-border/50"
+                                                                style={{
+                                                                    backgroundColor: f.color,
+                                                                }}
+                                                            />
+                                                        ))}
+                                                        {p.filaments.length > 4 && (
+                                                            <span className="text-[9px] text-muted-foreground ml-0.5">
+                                                                +{p.filaments.length - 4}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <span>{p.name}</span>
+                                                </div>
+                                            </SelectItem>
+                                        ))}
+                                    </>
+                                )}
                             </SelectContent>
                         </Select>
 
@@ -357,8 +391,12 @@ export default function AutoPaintTab({
                             variant="ghost"
                             size="icon"
                             className="h-8 w-8 text-muted-foreground hover:text-primary cursor-pointer flex-shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
-                            title="Save changes to current profile"
-                            disabled={!activeProfileId || !isDirty}
+                            title={
+                                isTemplateActive
+                                    ? 'Templates are read-only — use Save as new profile'
+                                    : 'Save changes to current profile'
+                            }
+                            disabled={!activeProfileId || !isDirty || isTemplateActive}
                             onClick={handleOverwriteProfile}
                         >
                             <Save className="w-4 h-4" />
@@ -410,8 +448,12 @@ export default function AutoPaintTab({
                                     variant="ghost"
                                     size="icon"
                                     className="h-8 w-8 text-muted-foreground hover:text-primary cursor-pointer flex-shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
-                                    title="Rename selected profile"
-                                    disabled={!activeProfileId}
+                                    title={
+                                        isTemplateActive
+                                            ? 'Templates cannot be renamed'
+                                            : 'Rename selected profile'
+                                    }
+                                    disabled={!activeProfileId || isTemplateActive}
                                 >
                                     <Pencil className="w-4 h-4" />
                                 </Button>
@@ -483,8 +525,12 @@ export default function AutoPaintTab({
                             variant="ghost"
                             size="icon"
                             className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 cursor-pointer flex-shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
-                            title="Delete selected profile"
-                            disabled={!activeProfileId}
+                            title={
+                                isTemplateActive
+                                    ? 'Templates cannot be deleted'
+                                    : 'Delete selected profile'
+                            }
+                            disabled={!activeProfileId || isTemplateActive}
                             onClick={() => activeProfileId && handleDeleteProfile(activeProfileId)}
                         >
                             <Trash2 className="w-4 h-4" />

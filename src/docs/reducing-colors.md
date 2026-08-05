@@ -29,7 +29,8 @@ Click **Apply** in the Adjustments panel to bake the current look into the image
 
 Use **Quantization Settings** to reduce the image.
 
-- **Palette** chooses the target color set. **Auto** lets Kromacut find colors from the image. Built-in palettes and custom palettes constrain the result to known colors.
+- **Palette** chooses the target color set. **Auto** lets Kromacut find colors from the image. Built-in palettes, supplier palettes, and custom palettes constrain the result to known colors.
+- **Supplier Palettes** are built-in color sets matching real filament lines (for example Bambu Lab PLA Basic), so the reduced image only uses colors you can actually buy. They cannot be edited directly — clone one into a custom palette to adjust it.
 - **Number of Colors** sets the target color count when using **Auto**.
 - **Algorithm Weight** changes how strongly the selected algorithm groups colors. It is disabled when the algorithm is **None (postprocess only)**.
 - **Algorithm** chooses the reduction method.
@@ -50,11 +51,22 @@ If the result looks muddy, try fewer colors plus stronger contrast. If important
 
 ## Custom Palettes
 
-The palette toolbar lets you create, edit, import, export, or delete custom palettes.
+The palette toolbar lets you create, edit, clone, import, export, or delete custom palettes.
 
 - Custom palettes can be saved for later use.
 - Palette files use the `.kpal` format.
 - Pick colors that match real filament when you plan to use Manual mode.
+- **Clone** copies the currently selected palette — including built-in and supplier palettes — into a new custom palette you can edit. The clone is named after the original with "(copy)" appended.
+
+### Disabling Colors
+
+In the palette editor, use the eye toggle on a color row to disable that color without deleting it — handy when a spool runs out but you plan to restock it. Disabled colors:
+
+- Are skipped during quantization, so the reduced image only uses the enabled colors.
+- Stay saved in the palette and are included when you export it.
+- Show as `Name (enabled/total)` in the palette dropdown, for example `My Filaments (5/8)`.
+
+At least one color must stay enabled.
 
 ## Image Colors
 

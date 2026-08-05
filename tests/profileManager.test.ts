@@ -5,6 +5,7 @@ import { resolve } from 'node:path';
 import { createServer } from 'vite';
 
 import { parseHueForgeCSV, type AutoPaintProfile } from '../src/lib/profileManager.ts';
+import { TEMPLATE_PROFILES } from '../src/data/supplierFilaments.ts';
 
 type ProfileManagerModule = typeof import('../src/lib/profileManager.ts');
 
@@ -243,6 +244,7 @@ test('auto-paint profiles can be renamed without changing filament data', async 
     assert.ok(renamed[0].updatedAt >= profiles[0].updatedAt);
 });
 
+<<<<<<< HEAD
 test('profile imports strip legacy photo calibration objects', async () => {
     const { importProfiles } = await loadProfileManager();
     const incoming = [
@@ -528,4 +530,44 @@ test('loading a filament rejects non-positive hiding distances', async () => {
 
     assert.equal(sanitizeProfileFilament({ id: 'zero', color: '#ffffff', td: 0 }), null);
     assert.equal(sanitizeProfileFilament({ id: 'negative', color: '#ffffff', td: -0.1 }), null);
+});
+
+test('profile import re-assigns ids that collide with reserved template ids', async () => {
+    const { importProfiles } = await loadProfileManager();
+    const template = TEMPLATE_PROFILES[0];
+    const incoming: AutoPaintProfile[] = [
+        {
+            id: template.id,
+            name: 'Sneaky Template Impersonator',
+            version: 2,
+            createdAt: 1,
+            updatedAt: 1,
+            filaments: [{ id: 'filament-1', color: '#123456', td: 0.15 }],
+        },
+    ];
+
+    const reserved = new Set(TEMPLATE_PROFILES.map((p) => p.id));
+    const result = importProfiles([], incoming, reserved);
+
+    assert.equal(result.imported.length, 1);
+    assert.notEqual(result.imported[0].id, template.id);
+});
+
+test('profile import keeps non-reserved ids unchanged', async () => {
+    const { importProfiles } = await loadProfileManager();
+    const incoming: AutoPaintProfile[] = [
+        {
+            id: 'user-profile-1',
+            name: 'User Profile',
+            version: 2,
+            createdAt: 1,
+            updatedAt: 1,
+            filaments: [{ id: 'filament-1', color: '#123456', td: 0.15 }],
+        },
+    ];
+
+    const reserved = new Set(TEMPLATE_PROFILES.map((p) => p.id));
+    const result = importProfiles([], incoming, reserved);
+
+    assert.equal(result.imported[0].id, 'user-profile-1');
 });

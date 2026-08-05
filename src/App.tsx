@@ -226,6 +226,7 @@ function App(): React.ReactElement | null {
         importInputRef: paletteImportInputRef,
         handleCreatePalette,
         handleUpdatePalette,
+        handleClonePalette,
         handleDeletePalette,
         handleExportPalette,
         handleImportFile: handleImportPaletteFile,
@@ -709,6 +710,7 @@ function App(): React.ReactElement | null {
                                                 importInputRef={paletteImportInputRef}
                                                 onCreatePalette={handleCreatePalette}
                                                 onUpdatePalette={handleUpdatePalette}
+                                                onClonePalette={handleClonePalette}
                                                 onDeletePalette={handleDeletePalette}
                                                 onExportPalette={handleExportPalette}
                                                 onImportPaletteFile={handleImportPaletteFile}

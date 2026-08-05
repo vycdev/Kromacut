@@ -1,6 +1,8 @@
 import type { CustomPalette } from '../types';
+import { deduplicateName } from './nameUtils.ts';
+import { toHex6 } from './colorUtils.ts';
 
-export const CURRENT_PALETTE_VERSION = 1;
+export const CURRENT_PALETTE_VERSION = 2;
 
 const PALETTES_STORAGE_KEY = 'kromacut.palettes';
 const LAST_PALETTE_KEY = 'kromacut.palettes.lastId';
@@ -10,15 +12,58 @@ const SELECTED_PALETTE_KEY = 'kromacut.palettes.selected';
  * localStorage helpers
  * --------------------------------------------------------------------------- */
 
+/**
+ * Normalize a raw `disabledColors` value against a color list: keep unique
+ * in-range integer indices, sorted ascending. Returns undefined (all enabled)
+ * when the value is missing/invalid, empty, or would disable every color.
+ */
+export function normalizeDisabledColors(
+    colors: string[],
+    disabled: unknown
+): number[] | undefined {
+    if (!Array.isArray(disabled)) return undefined;
+    const indices = [
+        ...new Set(
+            disabled.filter(
+                (i): i is number => Number.isInteger(i) && i >= 0 && i < colors.length
+            )
+        ),
+    ].sort((a, b) => a - b);
+    if (indices.length === 0 || indices.length >= colors.length) return undefined;
+    return indices;
+}
+
+/** Apply normalized disabled indices to a palette, dropping the field when all-enabled. */
+function withNormalizedDisabled(palette: CustomPalette): CustomPalette {
+    const disabled = normalizeDisabledColors(palette.colors, palette.disabledColors);
+    if (disabled) return { ...palette, disabledColors: disabled };
+    if (palette.disabledColors === undefined) return palette;
+    const rest = { ...palette };
+    delete rest.disabledColors;
+    return rest;
+}
+
+/** The colors of a palette that participate in quantization. */
+export function enabledColors(palette: CustomPalette): string[] {
+    if (!palette.disabledColors || palette.disabledColors.length === 0) return palette.colors;
+    const disabled = new Set(palette.disabledColors);
+    return palette.colors.filter((_, i) => !disabled.has(i));
+}
+
 export function loadCustomPalettes(): CustomPalette[] {
     try {
         const raw = localStorage.getItem(PALETTES_STORAGE_KEY);
         if (!raw) return [];
         const parsed = JSON.parse(raw) as CustomPalette[];
         if (!Array.isArray(parsed)) return [];
-        return parsed.filter(
-            (p) => typeof p.id === 'string' && typeof p.name === 'string' && Array.isArray(p.colors)
-        );
+        return parsed
+            .filter(
+                (p) =>
+                    typeof p.id === 'string' &&
+                    typeof p.name === 'string' &&
+                    Array.isArray(p.colors)
+            )
+            .map(withNormalizedDisabled);
     } catch {
         return [];
     }
@@ -72,13 +117,19 @@ export function saveSelectedPalette(id: string) {
  * CRUD
  * --------------------------------------------------------------------------- */
 
-export function createCustomPalette(name: string, colors: string[]): CustomPalette {
+export function createCustomPalette(
+    name: string,
+    colors: string[],
+    disabledColors?: number[]
+): CustomPalette {
     const now = Date.now();
+    const disabled = normalizeDisabledColors(colors, disabledColors);
     return {
         id: crypto.randomUUID(),
         name: name.trim(),
         version: CURRENT_PALETTE_VERSION,
         colors: [...colors],
+        ...(disabled ? { disabledColors: disabled } : {}),
         createdAt: now,
         updatedAt: now,
     };
@@ -87,18 +138,58 @@ export function createCustomPalette(name: string, colors: string[]): CustomPalet
 export function updateCustomPalette(
     palettes: CustomPalette[],
     id: string,
-    patch: { name?: string; colors?: string[] }
+    patch: { name?: string; colors?: string[]; disabledColors?: number[] }
 ): CustomPalette[] {
-    return palettes.map((p) =>
-        p.id === id
-            ? {
-                  ...p,
-                  ...(patch.name !== undefined ? { name: patch.name.trim() } : {}),
-                  ...(patch.colors !== undefined ? { colors: [...patch.colors] } : {}),
-                  updatedAt: Date.now(),
-              }
-            : p
+    return palettes.map((p) => {
+        if (p.id !== id) return p;
+        const updated: CustomPalette = {
+            ...p,
+            ...(patch.name !== undefined ? { name: patch.name.trim() } : {}),
+            ...(patch.colors !== undefined ? { colors: [...patch.colors] } : {}),
+            ...(patch.disabledColors !== undefined
+                ? { disabledColors: [...patch.disabledColors] }
+                : {}),
+            updatedAt: Date.now(),
+        };
+        return withNormalizedDisabled(updated);
+    });
+}
+
+/**
+ * Clone a palette (built-in or custom) into a new custom palette.
+ * Colors are normalized to `#RRGGBB` hex (built-ins may use hsl() strings);
+ * colors that cannot be converted are dropped, with disabled indices remapped.
+ * Returns null when no colors survive conversion.
+ */
+export function clonePalette(
+    source: { label: string; colors: string[]; disabledColors?: number[] },
+    existing: CustomPalette[]
+): CustomPalette | null {
+    const disabled = new Set(source.disabledColors ?? []);
+    const converted = source.colors
+        .map((c, i) => ({ hex: toHex6(c), wasDisabled: disabled.has(i) }))
+        .filter((c): c is { hex: string; wasDisabled: boolean } => c.hex !== null);
+    if (converted.length === 0) return null;
+
+    const colors = converted.map((c) => c.hex);
+    const disabledColors = normalizeDisabledColors(
+        colors,
+        converted.flatMap((c, i) => (c.wasDisabled ? [i] : []))
     );
+
+    const now = Date.now();
+    return {
+        id: crypto.randomUUID(),
+        name: deduplicateName(
+            `${source.label} (copy)`,
+            existing.map((p) => p.name)
+        ),
+        version: CURRENT_PALETTE_VERSION,
+        colors,
+        ...(disabledColors ? { disabledColors } : {}),
+        createdAt: now,
+        updatedAt: now,
+    };
 }
 
 export function deleteCustomPalette(palettes: CustomPalette[], id: string): CustomPalette[] {
@@ -115,13 +206,12 @@ function colorsEqual(a: string[], b: string[]): boolean {
     return a.every((c, i) => c.toLowerCase() === b[i].toLowerCase());
 }
 
-/** Derive a unique name by appending a numeric suffix if it already exists. */
-function deduplicateName(name: string, existing: CustomPalette[]): string {
-    const names = new Set(existing.map((p) => p.name));
-    if (!names.has(name)) return name;
-    let suffix = 2;
-    while (names.has(`${name} (${suffix})`)) suffix++;
-    return `${name} (${suffix})`;
+/** Content equality: same colors AND same (normalized) disabled indices. */
+function paletteContentEqual(a: CustomPalette, b: CustomPalette): boolean {
+    if (!colorsEqual(a.colors, b.colors)) return false;
+    const da = a.disabledColors ?? [];
+    const db = b.disabledColors ?? [];
+    return da.length === db.length && da.every((v, i) => v === db[i]);
 }
 
 export interface ImportPaletteResult {
@@ -135,12 +225,16 @@ export interface ImportPaletteResult {
 /**
  * Import palettes with duplicate prevention:
  * - ID match: overwrite
- * - Content match (same colors): skip
+ * - Content match (same colors + disabled set): skip
  * - Name match (different content): rename with numeric suffix
+ *
+ * Ids in `reservedIds` (built-in / supplier palette ids) are never accepted
+ * from a file; such palettes get a fresh UUID instead.
  */
 export function importCustomPalettes(
     existing: CustomPalette[],
-    incoming: CustomPalette[]
+    incoming: CustomPalette[],
+    reservedIds?: Set<string>
 ): ImportPaletteResult {
     const result: ImportPaletteResult = {
         palettes: [...existing],
@@ -156,14 +250,19 @@ export function importCustomPalettes(
         const validColors = raw.colors.filter((c) => typeof c === 'string');
 
         const now = Date.now();
-        const palette: CustomPalette = {
-            id: raw.id && typeof raw.id === 'string' ? raw.id : crypto.randomUUID(),
+        const incomingId =
+            raw.id && typeof raw.id === 'string' && !reservedIds?.has(raw.id)
+                ? raw.id
+                : crypto.randomUUID();
+        const palette: CustomPalette = withNormalizedDisabled({
+            id: incomingId,
             name: raw.name,
             version: typeof raw.version === 'number' ? raw.version : CURRENT_PALETTE_VERSION,
             colors: validColors,
+            disabledColors: raw.disabledColors,
             createdAt: typeof raw.createdAt === 'number' ? raw.createdAt : now,
             updatedAt: now,
-        };
+        });
 
         // 1. ID match → overwrite
         const idMatch = result.palettes.findIndex((p) => p.id === palette.id);
@@ -174,8 +273,8 @@ export function importCustomPalettes(
             continue;
         }
 
-        // 2. Content match (same colors) → skip
-        const contentMatch = result.palettes.find((p) => colorsEqual(p.colors, validColors));
+        // 2. Content match (same colors + disabled set) → skip
+        const contentMatch = result.palettes.find((p) => paletteContentEqual(p, palette));
         if (contentMatch) {
             result.skipped.push(`${palette.name} (matches "${contentMatch.name}")`);
             continue;
@@ -184,7 +283,10 @@ export function importCustomPalettes(
         // 3. Name match → rename
         const nameMatch = result.palettes.some((p) => p.name === palette.name);
         if (nameMatch) {
-            palette.name = deduplicateName(palette.name, result.palettes);
+            palette.name = deduplicateName(
+                palette.name,
+                result.palettes.map((p) => p.name)
+            );
             result.renamed.push(palette.name);
         }
 

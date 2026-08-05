@@ -72,6 +72,10 @@ Auto-paint profiles store reusable filament sets.
 - **Export current filaments as .kfil file** shares the current filament setup.
 - **Delete selected profile** removes the selected profile.
 
+### Templates
+
+The profile dropdown also lists built-in **Templates** — filament sets matching real supplier lines, such as Bambu Lab PLA Basic, with colors, names, brands, and color-estimated hiding distances pre-filled. Loading a template copies its filaments into the working set. Templates are read-only: adjust the filaments (remove colors you do not own, calibrate their hiding distances), then use **Save as new profile** to keep your version.
+
 ## Max Height
 
 **Max Height** limits the total printed model height in Auto-paint. Leave it on **Auto** for the physics-derived, layer-aligned height. If a value falls between valid first-layer and layer-height steps, Kromacut uses the next lower printable height so the generated model never exceeds your cap. Set a smaller value when the model is too tall, but watch for compressed transition zones.

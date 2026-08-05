@@ -1,6 +1,7 @@
 import type { Filament } from '../types';
 import { FRONTLIT_TD_SCALE, sanitizeFrontlitCalibration } from './calibration.ts';
 import { normalizeHexColor } from './colorUtils.ts';
+import { deduplicateName } from './nameUtils.ts';
 
 export interface AutoPaintProfile {
     id: string;
@@ -223,15 +224,6 @@ function filamentsEqual(a: Filament[], b: Filament[]): boolean {
     );
 }
 
-/** Derive a unique name by appending a numeric suffix if the name already exists. */
-function deduplicateName(name: string, existing: AutoPaintProfile[]): string {
-    const names = new Set(existing.map((p) => p.name));
-    if (!names.has(name)) return name;
-    let suffix = 2;
-    while (names.has(`${name} (${suffix})`)) suffix++;
-    return `${name} (${suffix})`;
-}
-
 export interface ImportResult {
     profiles: AutoPaintProfile[];
     imported: AutoPaintProfile[];
@@ -245,10 +237,14 @@ export interface ImportResult {
  * - ID match: overwrite existing profile
  * - Content match (different ID): skip
  * - Name match (different ID, different content): rename with numeric suffix
+ *
+ * Ids in `reservedIds` (built-in template ids) are never accepted from a
+ * file; such profiles get a fresh UUID instead.
  */
 export function importProfiles(
     existing: AutoPaintProfile[],
-    incoming: AutoPaintProfile[]
+    incoming: AutoPaintProfile[],
+    reservedIds?: Set<string>
 ): ImportResult {
     const result: ImportResult = {
         profiles: [...existing],
@@ -267,7 +263,10 @@ export function importProfiles(
 
         const now = Date.now();
         const profile: AutoPaintProfile = {
-            id: raw.id && typeof raw.id === 'string' ? raw.id : crypto.randomUUID(),
+            id:
+                raw.id && typeof raw.id === 'string' && !reservedIds?.has(raw.id)
+                    ? raw.id
+                    : crypto.randomUUID(),
             name: raw.name,
             version: CURRENT_PROFILE_VERSION,
             filaments: validFilaments,
@@ -296,7 +295,10 @@ export function importProfiles(
         // 3. Name match → rename
         const nameMatch = result.profiles.some((p) => p.name === profile.name);
         if (nameMatch) {
-            profile.name = deduplicateName(profile.name, result.profiles);
+            profile.name = deduplicateName(
+                profile.name,
+                result.profiles.map((p) => p.name)
+            );
             result.renamed.push(profile.name);
         }
 

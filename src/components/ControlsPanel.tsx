@@ -12,6 +12,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { PALETTES } from '../data/palettes';
+import { SUPPLIER_PALETTES } from '../data/supplierFilaments';
 import type { MergedPalette } from '../hooks/usePaletteManager';
 import type { CustomPalette } from '../types';
 import { PaletteManager } from './PaletteManager';
@@ -35,8 +36,12 @@ interface Props {
     customPalettes: CustomPalette[];
     importFeedback: string | null;
     importInputRef: React.RefObject<HTMLInputElement | null>;
-    onCreatePalette: (name: string, colors: string[]) => void;
-    onUpdatePalette: (id: string, patch: { name?: string; colors?: string[] }) => void;
+    onCreatePalette: (name: string, colors: string[], disabledColors?: number[]) => void;
+    onUpdatePalette: (
+        id: string,
+        patch: { name?: string; colors?: string[]; disabledColors?: number[] }
+    ) => void;
+    onClonePalette: (id: string) => void;
     onDeletePalette: (id: string) => void;
     onExportPalette: (id: string) => void;
     onImportPaletteFile: (e: React.ChangeEvent<HTMLInputElement>) => void;
@@ -62,6 +67,7 @@ export const ControlsPanel: React.FC<Props> = ({
     importInputRef,
     onCreatePalette,
     onUpdatePalette,
+    onClonePalette,
     onDeletePalette,
     onExportPalette,
     onImportPaletteFile,
@@ -69,6 +75,9 @@ export const ControlsPanel: React.FC<Props> = ({
     // Local state for relaxed typing
     const [localColors, setLocalColors] = useState(finalColors);
     const [localWeight, setLocalWeight] = useState(weight);
+
+    // Custom palettes as merged entries so counts reflect enabled colors only
+    const customEntries = allPalettes.filter((p) => p.custom);
 
     // Sync from parent props
     useEffect(() => {
@@ -166,16 +175,58 @@ export const ControlsPanel: React.FC<Props> = ({
                                         </div>
                                     </SelectItem>
                                 ))}
-                                {customPalettes.length > 0 && (
+                                {SUPPLIER_PALETTES.length > 0 && (
+                                    <>
+                                        <div className="px-2 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider select-none border-t border-border/50 mt-1 pt-2">
+                                            Supplier Palettes
+                                        </div>
+                                        {SUPPLIER_PALETTES.map((p) => (
+                                            <SelectItem key={p.id} value={p.id}>
+                                                <div className="flex items-center gap-2">
+                                                    <span>
+                                                        {p.label} ({p.size})
+                                                    </span>
+                                                    <div className="flex gap-1">
+                                                        {p.colors
+                                                            .slice(0, 5)
+                                                            .map((c: string, i: number) => (
+                                                                <div
+                                                                    key={i}
+                                                                    className="rounded border border-border/70 select-none"
+                                                                    style={{
+                                                                        background: c,
+                                                                        width: '15px',
+                                                                        height: '15px',
+                                                                        aspectRatio: '1',
+                                                                    }}
+                                                                />
+                                                            ))}
+                                                        {p.colors.length > 5 && (
+                                                            <div className="text-xs text-muted-foreground">
+                                                                +{p.colors.length - 5}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </SelectItem>
+                                        ))}
+                                    </>
+                                )}
+                                {customEntries.length > 0 && (
                                     <>
                                         <div className="px-2 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider select-none border-t border-border/50 mt-1 pt-2">
                                             Custom Palettes
                                         </div>
-                                        {customPalettes.map((cp) => (
+                                        {customEntries.map((cp) => (
                                             <SelectItem key={cp.id} value={cp.id}>
                                                 <div className="flex items-center gap-2">
                                                     <span>
-                                                        {cp.name} ({cp.colors.length})
+                                                        {cp.label} (
+                                                        {cp.totalColors !== undefined &&
+                                                        cp.totalColors > cp.size
+                                                            ? `${cp.size}/${cp.totalColors}`
+                                                            : cp.size}
+                                                        )
                                                     </span>
                                                     <div className="flex gap-1">
                                                         {cp.colors
@@ -213,6 +264,7 @@ export const ControlsPanel: React.FC<Props> = ({
                             importInputRef={importInputRef}
                             onCreatePalette={onCreatePalette}
                             onUpdatePalette={onUpdatePalette}
+                            onClonePalette={onClonePalette}
                             onDeletePalette={onDeletePalette}
                             onExportPalette={onExportPalette}
                             onImportFile={onImportPaletteFile}
