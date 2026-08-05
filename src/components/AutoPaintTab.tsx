@@ -543,6 +543,15 @@ export default function AutoPaintTab({
                             {importFeedback}
                         </div>
                     )}
+
+                    {/* Persistent template notice — estimates need calibration */}
+                    {isTemplateActive && (
+                        <div className="text-[10px] px-2 py-1 rounded bg-amber-500/10 text-amber-600 border border-amber-500/20">
+                            Template hiding distances are estimated from color — calibrate before
+                            printing. Colors are the supplier's advertised values. Use "Save as new
+                            profile" to keep an editable copy.
+                        </div>
+                    )}
                 </div>
 
                 <div className="space-y-3">
