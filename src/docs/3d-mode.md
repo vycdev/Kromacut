@@ -76,7 +76,7 @@ Auto-paint profiles store reusable filament sets.
 
 The profile dropdown also lists built-in **Templates** — filament sets matching real supplier lines, such as Bambu Lab PLA Basic, with colors, names, brands, and color-estimated hiding distances pre-filled. Loading a template copies its filaments into the working set. Templates are read-only: adjust the filaments (remove colors you do not own, calibrate their hiding distances), then use **Save as new profile** to keep your version.
 
-Template colors are the manufacturer's advertised values and may not match printed filament exactly — actual color varies with batch, layer height, and lighting. Hiding distances in templates are estimated from color, not measured; calibrate any filament you care about before printing. Supplier and product names are trademarks of their respective owners, used for identification only; Kromacut is not affiliated with or endorsed by any filament manufacturer.
+Template colors come from [Bambu Lab's official filament hex chart](https://store.bblcdn.com/s7/default/1084369ef84345bbaa5d704a492954e0/Bambu_PLA_Basic_Hex_Code.pdf) and are the manufacturer's advertised values — actual color varies with batch, layer height, and lighting. Hiding distances in templates are estimated from color, not measured; calibrate any filament you care about before printing. Supplier and product names are trademarks of their respective owners, used for identification only; Kromacut is not affiliated with or endorsed by any filament manufacturer.
 
 ## Max Height
 

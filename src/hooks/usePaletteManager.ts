@@ -47,7 +47,7 @@ const RESERVED_PALETTE_IDS = new Set(ALL_BUILTIN_PALETTES.map((p) => p.id));
 
 export function usePaletteManager() {
     const [customPalettes, setCustomPalettes] = useState<CustomPalette[]>(() =>
-        loadCustomPalettes()
+        loadCustomPalettes(RESERVED_PALETTE_IDS)
     );
     const [importFeedback, setImportFeedback] = useState<string | null>(null);
     const importInputRef = useRef<HTMLInputElement>(null);

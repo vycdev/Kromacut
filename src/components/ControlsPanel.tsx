@@ -306,6 +306,15 @@ export const ControlsPanel: React.FC<Props> = ({
                             min={2}
                             max={256}
                             value={localColors}
+                            // With a named palette selected the palette determines the
+                            // color count, so the input (and its min-2 clamp, which would
+                            // fight one-color palettes) is disabled.
+                            disabled={selectedPalette !== 'auto'}
+                            title={
+                                selectedPalette !== 'auto'
+                                    ? 'Determined by the selected palette'
+                                    : undefined
+                            }
                             onChange={(e) => {
                                 const v = Number(e.target.value);
                                 if (!Number.isNaN(v)) {

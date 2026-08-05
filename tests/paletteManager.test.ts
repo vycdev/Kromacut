@@ -7,6 +7,7 @@ import {
     customPaletteFileName,
     enabledColors,
     importCustomPalettes,
+    loadCustomPalettes,
     normalizeColorNames,
     normalizeDisabledColors,
     updateCustomPalette,
@@ -29,6 +30,67 @@ function makePalette(overrides: Partial<CustomPalette> = {}): CustomPalette {
 
 test('custom palette exports use kpal filenames', () => {
     assert.equal(customPaletteFileName('My Palette!'), 'My_Palette_.kpal');
+});
+
+/** Run fn with an in-memory localStorage stub installed, restoring afterwards. */
+function withMemoryStorage(fn: (values: Map<string, string>) => void) {
+    const values = new Map<string, string>();
+    const original = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
+    Object.defineProperty(globalThis, 'localStorage', {
+        configurable: true,
+        value: {
+            getItem: (key: string) => (values.has(key) ? values.get(key)! : null),
+            setItem: (key: string, value: string) => void values.set(key, value),
+            removeItem: (key: string) => void values.delete(key),
+        },
+    });
+    try {
+        fn(values);
+    } finally {
+        if (original) Object.defineProperty(globalThis, 'localStorage', original);
+        else delete (globalThis as Record<string, unknown>).localStorage;
+    }
+}
+
+test('stored palettes with reserved built-in ids are re-assigned and persisted once', () => {
+    withMemoryStorage((values) => {
+        const stored = [
+            makePalette({ id: 'p4', name: 'Shadowing Built-in' }),
+            makePalette({ id: 'sup_bambu-pla-basic', name: 'Shadowing Supplier' }),
+            makePalette({ id: 'legit-uuid', name: 'Untouched' }),
+        ];
+        values.set('kromacut.palettes', JSON.stringify(stored));
+
+        const reserved = new Set(['auto', 'p4', 'g8']);
+        const loaded = loadCustomPalettes(reserved);
+
+        assert.equal(loaded.length, 3);
+        assert.notEqual(loaded[0].id, 'p4');
+        assert.notEqual(loaded[1].id, 'sup_bambu-pla-basic');
+        assert.equal(loaded[2].id, 'legit-uuid');
+
+        // Migration is written back, so a second load returns stable ids.
+        const persisted = JSON.parse(values.get('kromacut.palettes')!) as { id: string }[];
+        assert.deepEqual(
+            persisted.map((p) => p.id),
+            loaded.map((p) => p.id)
+        );
+        const reloaded = loadCustomPalettes(reserved);
+        assert.deepEqual(
+            reloaded.map((p) => p.id),
+            loaded.map((p) => p.id)
+        );
+    });
+});
+
+test('stored palettes without reserved ids are not rewritten on load', () => {
+    withMemoryStorage((values) => {
+        const stored = [makePalette({ id: 'legit-uuid' })];
+        const raw = JSON.stringify(stored);
+        values.set('kromacut.palettes', raw);
+        loadCustomPalettes(new Set(['auto', 'p4']));
+        assert.equal(values.get('kromacut.palettes'), raw);
+    });
 });
 
 test('normalizeDisabledColors drops invalid, duplicate and out-of-range indices', () => {

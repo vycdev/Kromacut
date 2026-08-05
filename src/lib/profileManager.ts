@@ -125,9 +125,15 @@ export function loadProfiles(): AutoPaintProfile[] {
         if (!raw) return [];
         const parsed = JSON.parse(raw) as AutoPaintProfile[];
         if (!Array.isArray(parsed)) return [];
-        return parsed
+        const hadReservedId = parsed.some(
+            (p) => p && typeof p.id === 'string' && isTemplateProfileId(p.id)
+        );
+        const profiles = parsed
             .map((profile) => sanitizeProfile(profile))
             .filter((profile): profile is AutoPaintProfile => profile !== null);
+        // Persist re-assigned template ids so they stay stable across reloads.
+        if (hadReservedId) saveProfilesToStorage(profiles);
+        return profiles;
     } catch {
         return [];
     }

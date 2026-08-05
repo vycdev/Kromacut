@@ -390,6 +390,12 @@ export const PaletteManager: React.FC<PaletteManagerProps> = ({
                                             variant="ghost"
                                             size="icon"
                                             className="h-7 w-7 text-muted-foreground hover:text-primary cursor-pointer flex-shrink-0"
+                                            aria-pressed={!enabled}
+                                            aria-label={
+                                                enabled
+                                                    ? `Disable color ${index + 1}`
+                                                    : `Enable color ${index + 1}`
+                                            }
                                             title={
                                                 enabled
                                                     ? 'Disable color (kept in palette, excluded from quantization)'

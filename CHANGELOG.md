@@ -40,7 +40,8 @@ All notable changes to Kromacut are documented in this file.
 
 ### Fixed
 
-- **Palette color count sync** - The "Number of Colors" input now updates immediately when the selected palette's color count changes — after editing a custom palette, toggling colors on or off, cloning, or importing — instead of only when a palette is re-selected in the dropdown. Display-only: the applied quantization always used the palette's actual colors.
+- **Palette color count sync** - The "Number of Colors" input now updates immediately when the selected palette's color count changes — after editing a custom palette, toggling colors on or off, cloning, or importing — instead of only when a palette is re-selected in the dropdown, and it is disabled while a named palette is selected since the palette determines the count. Display-only: the applied quantization always used the palette's actual colors.
+- **Reserved palette and profile ids** - Stored custom palettes or profiles whose ids collide with built-in palette ids or the new supplier/template ids (possible via hand-crafted files imported by older versions) are re-assigned a fresh id once on load and persisted, instead of shadowing the built-in entry and becoming undeletable.
 - **HueForge spool CSV/TSV imports** - BOM-prefixed HueForge spool files now import correctly when a UTF-8 byte-order mark precedes the first header.
 - **Settings documentation link** - Opening Docs from Settings now remains in the documentation when Docs is already active instead of unexpectedly returning to the app.
 - **Auto-paint Max Height** - Auto-paint now plans, scores, previews, and exports the same layer-aligned stack. Height caps round down to a valid printable layer boundary, so a generated model no longer exceeds the requested maximum by adding a final whole layer.

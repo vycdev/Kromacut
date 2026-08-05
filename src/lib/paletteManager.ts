@@ -72,13 +72,14 @@ export function enabledColors(palette: CustomPalette): string[] {
     return palette.colors.filter((_, i) => !disabled.has(i));
 }
 
-export function loadCustomPalettes(): CustomPalette[] {
+export function loadCustomPalettes(reservedIds?: Set<string>): CustomPalette[] {
     try {
         const raw = localStorage.getItem(PALETTES_STORAGE_KEY);
         if (!raw) return [];
         const parsed = JSON.parse(raw) as CustomPalette[];
         if (!Array.isArray(parsed)) return [];
-        return parsed
+        let migrated = false;
+        const palettes = parsed
             .filter(
                 (p) =>
                     typeof p.id === 'string' &&
@@ -87,8 +88,17 @@ export function loadCustomPalettes(): CustomPalette[] {
             )
             // A reserved (built-in) id in storage would shadow the built-in and
             // be undeletable — re-assign such palettes a fresh user id.
-            .map((p) => (isSupplierPaletteId(p.id) ? { ...p, id: crypto.randomUUID() } : p))
+            .map((p) => {
+                if (isSupplierPaletteId(p.id) || reservedIds?.has(p.id)) {
+                    migrated = true;
+                    return { ...p, id: crypto.randomUUID() };
+                }
+                return p;
+            })
             .map(normalizeCustomPalette);
+        // Persist re-assigned ids so they stay stable across reloads.
+        if (migrated) saveCustomPalettes(palettes);
+        return palettes;
     } catch {
         return [];
     }
