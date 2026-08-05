@@ -16,6 +16,7 @@ import {
     loadLastProfileId,
     saveLastProfileId,
 } from '../lib/profileManager';
+import { deduplicateName } from '../lib/nameUtils';
 import { TEMPLATE_PROFILES, isTemplateProfileId } from '../data/supplierFilaments';
 
 /** Built-in template profile ids are reserved — imported files can never claim them. */
@@ -215,6 +216,23 @@ export function useProfileManager({ filaments, setFilaments }: UseProfileManager
         const active = activeProfileId ? profiles.find((p) => p.id === activeProfileId) : null;
         setRenameProfileName(active?.name ?? '');
     }, [activeProfileId, profiles, showRenamePopover]);
+
+    // Prefill Save New with a "(copy)" name forked from the active profile or
+    // template, so saving a tweaked template is a two-click operation.
+    useEffect(() => {
+        if (!showSaveNewPopover) return;
+        const active = activeProfileId
+            ? [...profiles, ...TEMPLATE_PROFILES].find((p) => p.id === activeProfileId)
+            : null;
+        setSaveProfileName(
+            active
+                ? deduplicateName(
+                      `${active.name} (copy)`,
+                      profiles.map((p) => p.name)
+                  )
+                : ''
+        );
+    }, [activeProfileId, profiles, showSaveNewPopover]);
 
     return {
         profiles,
