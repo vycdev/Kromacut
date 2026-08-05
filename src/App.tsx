@@ -231,6 +231,16 @@ function App(): React.ReactElement | null {
         handleExportPalette,
         handleImportFile: handleImportPaletteFile,
     } = usePaletteManager();
+
+    // Keep the postprocess color count in sync with the selected palette's
+    // enabled size. Edits, per-color toggles, clones, and imports all change
+    // the size without a re-selection, so the dropdown callback alone is not
+    // enough. Manual overrides persist until the palette or selection changes.
+    useEffect(() => {
+        if (selectedPalette === 'auto') return;
+        const pal = allPalettes.find((p) => p.id === selectedPalette);
+        if (pal && pal.size > 0) setFinalColors(pal.size);
+    }, [allPalettes, selectedPalette]);
     const { imageSrc, setImage, clearCurrent, undo, redo, canUndo, canRedo } = useImageHistory(
         logo,
         undefined
