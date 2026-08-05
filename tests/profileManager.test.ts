@@ -552,6 +552,25 @@ test('profile import re-assigns ids that collide with reserved template ids', as
     assert.notEqual(result.imported[0].id, template.id);
 });
 
+test('profile import re-assigns any tpl_-prefixed id even without an explicit reserved set', async () => {
+    const { importProfiles } = await loadProfileManager();
+    const incoming: AutoPaintProfile[] = [
+        {
+            id: 'tpl_future-template',
+            name: 'Future Template Impersonator',
+            version: 2,
+            createdAt: 1,
+            updatedAt: 1,
+            filaments: [{ id: 'filament-1', color: '#123456', td: 0.15 }],
+        },
+    ];
+
+    const result = importProfiles([], incoming);
+
+    assert.equal(result.imported.length, 1);
+    assert.notEqual(result.imported[0].id, 'tpl_future-template');
+});
+
 test('profile import keeps non-reserved ids unchanged', async () => {
     const { importProfiles } = await loadProfileManager();
     const incoming: AutoPaintProfile[] = [

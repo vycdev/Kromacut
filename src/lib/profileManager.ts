@@ -2,6 +2,7 @@ import type { Filament } from '../types';
 import { FRONTLIT_TD_SCALE, sanitizeFrontlitCalibration } from './calibration.ts';
 import { normalizeHexColor } from './colorUtils.ts';
 import { deduplicateName } from './nameUtils.ts';
+import { isTemplateProfileId } from './reservedIds.ts';
 
 export interface AutoPaintProfile {
     id: string;
@@ -107,7 +108,9 @@ function sanitizeProfile(value: unknown): AutoPaintProfile | null {
     const version = typeof value.version === 'number' ? value.version : 1;
     const now = Date.now();
     return {
-        id: value.id,
+        // A reserved template id in storage would shadow the built-in template
+        // and be undeletable — re-assign such profiles a fresh user id.
+        id: isTemplateProfileId(value.id) ? crypto.randomUUID() : value.id,
         name: value.name,
         version: CURRENT_PROFILE_VERSION,
         filaments: sanitizeProfileFilaments(value.filaments, version),
@@ -264,7 +267,10 @@ export function importProfiles(
         const now = Date.now();
         const profile: AutoPaintProfile = {
             id:
-                raw.id && typeof raw.id === 'string' && !reservedIds?.has(raw.id)
+                raw.id &&
+                typeof raw.id === 'string' &&
+                !reservedIds?.has(raw.id) &&
+                !isTemplateProfileId(raw.id)
                     ? raw.id
                     : crypto.randomUUID(),
             name: raw.name,

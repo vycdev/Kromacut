@@ -60,8 +60,6 @@ export function useProfileManager({ filaments, setFilaments }: UseProfileManager
         []
     );
 
-    const isTemplateActive = activeProfileId !== null && isTemplateProfileId(activeProfileId);
-
     // Dirty state: detect if current filaments differ from the active profile's
     // (templates included, so the badge nudges toward Save New after tweaking one)
     const isDirty = useMemo(() => {
@@ -221,7 +219,6 @@ export function useProfileManager({ filaments, setFilaments }: UseProfileManager
     return {
         profiles,
         activeProfileId,
-        isTemplateActive,
         isDirty,
         showSaveNewPopover,
         setShowSaveNewPopover,

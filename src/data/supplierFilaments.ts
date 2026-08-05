@@ -75,11 +75,13 @@ export const SUPPLIER_SETS: SupplierSet[] = [
     },
 ];
 
-const SUPPLIER_PALETTE_PREFIX = 'sup_';
-const TEMPLATE_PROFILE_PREFIX = 'tpl_';
-
-export const isSupplierPaletteId = (id: string) => id.startsWith(SUPPLIER_PALETTE_PREFIX);
-export const isTemplateProfileId = (id: string) => id.startsWith(TEMPLATE_PROFILE_PREFIX);
+export {
+    isSupplierPaletteId,
+    isTemplateProfileId,
+    SUPPLIER_PALETTE_PREFIX,
+    TEMPLATE_PROFILE_PREFIX,
+} from '../lib/reservedIds.ts';
+import { SUPPLIER_PALETTE_PREFIX, TEMPLATE_PROFILE_PREFIX } from '../lib/reservedIds.ts';
 
 /** Supplier color sets as palettes for the quantization dropdown. */
 export const SUPPLIER_PALETTES: Palette[] = SUPPLIER_SETS.map((set) => ({

@@ -103,6 +103,34 @@ test('import re-assigns ids that collide with reserved built-in ids', () => {
     assert.notEqual(result.imported[0].id, 'sup_bambu-pla-basic');
 });
 
+test('import re-assigns any sup_-prefixed id even without an explicit reserved set', () => {
+    const incoming = [makePalette({ id: 'sup_future-supplier-set' })];
+    const result = importCustomPalettes([], incoming);
+    assert.equal(result.imported.length, 1);
+    assert.notEqual(result.imported[0].id, 'sup_future-supplier-set');
+});
+
+test('import remaps disabled indices and names when invalid color entries are dropped', () => {
+    const incoming = [
+        makePalette({
+            colors: [123, '#FF0000', '#00FF00'] as unknown as string[],
+            disabledColors: [2],
+            colorNames: ['Ghost', 'Red', 'Green'],
+        }),
+    ];
+    const result = importCustomPalettes([], incoming);
+    assert.equal(result.imported.length, 1);
+    assert.deepEqual(result.imported[0].colors, ['#FF0000', '#00FF00']);
+    assert.deepEqual(result.imported[0].disabledColors, [1]);
+    assert.deepEqual(result.imported[0].colorNames, ['Red', 'Green']);
+});
+
+test('updateCustomPalette stamps the current palette version on edited legacy palettes', () => {
+    const palettes = [makePalette({ version: 1 })];
+    const updated = updateCustomPalette(palettes, 'palette-1', { disabledColors: [1] });
+    assert.equal(updated[0].version, 2);
+});
+
 test('deduplicateName appends incrementing numeric suffixes', () => {
     const names = ['Gray 8 (copy)', 'Gray 8 (copy) (2)'];
     assert.equal(deduplicateName('Gray 8 (copy)', names), 'Gray 8 (copy) (3)');

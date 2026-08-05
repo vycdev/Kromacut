@@ -1,6 +1,7 @@
 import type { CustomPalette } from '../types';
 import { deduplicateName } from './nameUtils.ts';
 import { toHex6 } from './colorUtils.ts';
+import { isSupplierPaletteId } from './reservedIds.ts';
 
 export const CURRENT_PALETTE_VERSION = 2;
 
@@ -84,6 +85,9 @@ export function loadCustomPalettes(): CustomPalette[] {
                     typeof p.name === 'string' &&
                     Array.isArray(p.colors)
             )
+            // A reserved (built-in) id in storage would shadow the built-in and
+            // be undeletable — re-assign such palettes a fresh user id.
+            .map((p) => (isSupplierPaletteId(p.id) ? { ...p, id: crypto.randomUUID() } : p))
             .map(normalizeCustomPalette);
     } catch {
         return [];
@@ -172,6 +176,7 @@ export function updateCustomPalette(
                 ? { disabledColors: [...patch.disabledColors] }
                 : {}),
             ...(patch.colorNames !== undefined ? { colorNames: [...patch.colorNames] } : {}),
+            version: CURRENT_PALETTE_VERSION,
             updatedAt: Date.now(),
         };
         return normalizeCustomPalette(updated);
@@ -278,20 +283,33 @@ export function importCustomPalettes(
     for (const raw of incoming) {
         if (!raw || typeof raw.name !== 'string' || !Array.isArray(raw.colors)) continue;
 
-        const validColors = raw.colors.filter((c) => typeof c === 'string');
+        // Filter invalid color entries and remap disabled indices / names with
+        // them so per-color data stays attached to the right color.
+        const disabledSet = new Set(Array.isArray(raw.disabledColors) ? raw.disabledColors : []);
+        const rawNames: unknown[] = Array.isArray(raw.colorNames) ? raw.colorNames : [];
+        const validEntries = raw.colors
+            .map((c, i) => ({
+                color: c,
+                wasDisabled: disabledSet.has(i),
+                name: typeof rawNames[i] === 'string' ? (rawNames[i] as string) : '',
+            }))
+            .filter((e) => typeof e.color === 'string');
 
         const now = Date.now();
         const incomingId =
-            raw.id && typeof raw.id === 'string' && !reservedIds?.has(raw.id)
+            raw.id &&
+            typeof raw.id === 'string' &&
+            !reservedIds?.has(raw.id) &&
+            !isSupplierPaletteId(raw.id)
                 ? raw.id
                 : crypto.randomUUID();
         const palette: CustomPalette = normalizeCustomPalette({
             id: incomingId,
             name: raw.name,
             version: typeof raw.version === 'number' ? raw.version : CURRENT_PALETTE_VERSION,
-            colors: validColors,
-            disabledColors: raw.disabledColors,
-            colorNames: raw.colorNames,
+            colors: validEntries.map((e) => e.color),
+            disabledColors: validEntries.flatMap((e, i) => (e.wasDisabled ? [i] : [])),
+            colorNames: validEntries.map((e) => e.name),
             createdAt: typeof raw.createdAt === 'number' ? raw.createdAt : now,
             updatedAt: now,
         });
@@ -305,7 +323,7 @@ export function importCustomPalettes(
             continue;
         }
 
-        // 2. Content match (same colors + disabled set) → skip
+        // 2. Content match (same colors + disabled set + names) → skip
         const contentMatch = result.palettes.find((p) => paletteContentEqual(p, palette));
         if (contentMatch) {
             result.skipped.push(`${palette.name} (matches "${contentMatch.name}")`);

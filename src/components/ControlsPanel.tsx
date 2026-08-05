@@ -36,10 +36,20 @@ interface Props {
     customPalettes: CustomPalette[];
     importFeedback: string | null;
     importInputRef: React.RefObject<HTMLInputElement | null>;
-    onCreatePalette: (name: string, colors: string[], disabledColors?: number[]) => void;
+    onCreatePalette: (
+        name: string,
+        colors: string[],
+        disabledColors?: number[],
+        colorNames?: string[]
+    ) => void;
     onUpdatePalette: (
         id: string,
-        patch: { name?: string; colors?: string[]; disabledColors?: number[] }
+        patch: {
+            name?: string;
+            colors?: string[];
+            disabledColors?: number[];
+            colorNames?: string[];
+        }
     ) => void;
     onClonePalette: (id: string) => void;
     onDeletePalette: (id: string) => void;
