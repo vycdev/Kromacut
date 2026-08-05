@@ -120,6 +120,11 @@ export function useProfileManager({ filaments, setFilaments }: UseProfileManager
             setActiveProfileId(id);
             saveLastProfileId(id);
             setFilaments(profile.filaments.map((f) => ({ ...f })));
+            if (isTemplateProfileId(id)) {
+                setImportFeedback(
+                    `Loaded ${profile.name} — hiding distances are estimated from color. Calibrate before printing.`
+                );
+            }
         },
         [profiles, setFilaments]
     );
