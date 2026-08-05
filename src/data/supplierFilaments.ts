@@ -77,6 +77,7 @@ export const SUPPLIER_PALETTES: Palette[] = SUPPLIER_SETS.map((set) => ({
     colors: set.filaments.map((f) => f.hex),
     size: set.filaments.length,
     group: 'supplier',
+    colorNames: set.filaments.map((f) => f.name),
 }));
 
 /**

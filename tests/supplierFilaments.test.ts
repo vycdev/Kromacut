@@ -38,6 +38,10 @@ test('supplier palettes derive from the sets with prefixed ids', () => {
             p.colors,
             set.filaments.map((f) => f.hex)
         );
+        assert.deepEqual(
+            p.colorNames,
+            set.filaments.map((f) => f.name)
+        );
     });
 });
 

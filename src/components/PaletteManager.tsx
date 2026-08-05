@@ -23,10 +23,20 @@ interface PaletteManagerProps {
     selectedPalette: string;
     importFeedback: string | null;
     importInputRef: React.RefObject<HTMLInputElement | null>;
-    onCreatePalette: (name: string, colors: string[], disabledColors?: number[]) => void;
+    onCreatePalette: (
+        name: string,
+        colors: string[],
+        disabledColors?: number[],
+        colorNames?: string[]
+    ) => void;
     onUpdatePalette: (
         id: string,
-        patch: { name?: string; colors?: string[]; disabledColors?: number[] }
+        patch: {
+            name?: string;
+            colors?: string[];
+            disabledColors?: number[];
+            colorNames?: string[];
+        }
     ) => void;
     onClonePalette: (id: string) => void;
     onDeletePalette: (id: string) => void;
@@ -50,6 +60,8 @@ function normalizeHex(s: string): string {
 interface EditorColor {
     hex: string;
     enabled: boolean;
+    /** Optional display name, e.g. "Pumpkin Orange". */
+    name: string;
 }
 
 interface EditorState {
@@ -73,14 +85,14 @@ export const PaletteManager: React.FC<PaletteManagerProps> = ({
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editor, setEditor] = useState<EditorState>({
         name: '',
-        colors: [{ hex: '#FF0000', enabled: true }],
+        colors: [{ hex: '#FF0000', enabled: true, name: '' }],
     });
 
     const isCustomSelected = customPalettes.some((p) => p.id === selectedPalette);
 
     const openCreate = useCallback(() => {
         setEditingId(null);
-        setEditor({ name: '', colors: [{ hex: '#FF0000', enabled: true }] });
+        setEditor({ name: '', colors: [{ hex: '#FF0000', enabled: true, name: '' }] });
         setDialogOpen(true);
     }, []);
 
@@ -91,7 +103,11 @@ export const PaletteManager: React.FC<PaletteManagerProps> = ({
         setEditingId(cp.id);
         setEditor({
             name: cp.name,
-            colors: cp.colors.map((hex, i) => ({ hex, enabled: !disabled.has(i) })),
+            colors: cp.colors.map((hex, i) => ({
+                hex,
+                enabled: !disabled.has(i),
+                name: cp.colorNames?.[i] ?? '',
+            })),
         });
         setDialogOpen(true);
     }, [customPalettes, selectedPalette]);
@@ -101,12 +117,13 @@ export const PaletteManager: React.FC<PaletteManagerProps> = ({
         const validColors = editor.colors.filter((c) => isValidHex(c.hex));
         const colors = validColors.map((c) => normalizeHex(c.hex));
         const disabledColors = validColors.flatMap((c, i) => (c.enabled ? [] : [i]));
+        const colorNames = validColors.map((c) => c.name.trim());
         if (!trimmed || colors.length === 0 || disabledColors.length >= colors.length) return;
 
         if (editingId) {
-            onUpdatePalette(editingId, { name: trimmed, colors, disabledColors });
+            onUpdatePalette(editingId, { name: trimmed, colors, disabledColors, colorNames });
         } else {
-            onCreatePalette(trimmed, colors, disabledColors);
+            onCreatePalette(trimmed, colors, disabledColors, colorNames);
         }
         setDialogOpen(false);
     }, [editor, editingId, onCreatePalette, onUpdatePalette]);
@@ -114,7 +131,7 @@ export const PaletteManager: React.FC<PaletteManagerProps> = ({
     const addColor = useCallback(() => {
         setEditor((prev) => ({
             ...prev,
-            colors: [...prev.colors, { hex: '#000000', enabled: true }],
+            colors: [...prev.colors, { hex: '#000000', enabled: true, name: '' }],
         }));
     }, []);
 
@@ -137,6 +154,14 @@ export const PaletteManager: React.FC<PaletteManagerProps> = ({
         setEditor((prev) => {
             const next = [...prev.colors];
             next[index] = { ...next[index], enabled: !next[index].enabled };
+            return { ...prev, colors: next };
+        });
+    }, []);
+
+    const updateColorName = useCallback((index: number, value: string) => {
+        setEditor((prev) => {
+            const next = [...prev.colors];
+            next[index] = { ...next[index], name: value };
             return { ...prev, colors: next };
         });
     }, []);
@@ -291,7 +316,7 @@ export const PaletteManager: React.FC<PaletteManagerProps> = ({
                                 </Button>
                             </div>
                             <div className="max-h-52 overflow-y-auto space-y-1.5 pr-1">
-                                {editor.colors.map(({ hex: color, enabled }, index) => (
+                                {editor.colors.map(({ hex: color, enabled, name }, index) => (
                                     <div key={index} className="flex items-center gap-2">
                                         {/* Color picker popover */}
                                         <Popover>
@@ -342,11 +367,23 @@ export const PaletteManager: React.FC<PaletteManagerProps> = ({
                                             value={color}
                                             onChange={(e) => updateColor(index, e.target.value)}
                                             placeholder="#RRGGBB"
-                                            className={`h-8 text-xs font-mono flex-1 ${
+                                            className={`h-8 text-xs font-mono w-24 flex-shrink-0 ${
                                                 color && !isValidHex(color)
                                                     ? 'border-destructive'
                                                     : ''
                                             } ${enabled ? '' : 'opacity-50'}`}
+                                        />
+                                        {/* Optional display name */}
+                                        <Input
+                                            value={name}
+                                            onChange={(e) =>
+                                                updateColorName(index, e.target.value)
+                                            }
+                                            placeholder="Name (optional)"
+                                            title="Optional color name, e.g. Pumpkin Orange"
+                                            className={`h-8 text-xs flex-1 min-w-0 ${
+                                                enabled ? '' : 'opacity-50'
+                                            }`}
                                         />
                                         {/* Enable / disable toggle */}
                                         <Button

@@ -3,9 +3,11 @@ import assert from 'node:assert/strict';
 
 import {
     clonePalette,
+    createCustomPalette,
     customPaletteFileName,
     enabledColors,
     importCustomPalettes,
+    normalizeColorNames,
     normalizeDisabledColors,
     updateCustomPalette,
 } from '../src/lib/paletteManager.ts';
@@ -136,6 +138,61 @@ test('clonePalette converts hsl built-in colors to hex and remaps disabled indic
 
 test('clonePalette returns null when no colors survive conversion', () => {
     assert.equal(clonePalette({ label: 'Empty', colors: ['nope'] }, []), null);
+});
+
+test('normalizeColorNames trims, pads, truncates, and drops all-empty sets', () => {
+    const colors = ['#111111', '#222222', '#333333'];
+    assert.deepEqual(normalizeColorNames(colors, ['  Pumpkin Orange  ', 7, 'Sky', 'Extra']), [
+        'Pumpkin Orange',
+        '',
+        'Sky',
+    ]);
+    assert.equal(normalizeColorNames(colors, ['', '  ', '']), undefined);
+    assert.equal(normalizeColorNames(colors, undefined), undefined);
+    assert.equal(normalizeColorNames(colors, 'not-an-array'), undefined);
+});
+
+test('createCustomPalette keeps color names and drops them when all empty', () => {
+    const named = createCustomPalette('Named', ['#FF0000', '#00FF00'], undefined, [
+        'Pumpkin Orange',
+        '',
+    ]);
+    assert.deepEqual(named.colorNames, ['Pumpkin Orange', '']);
+    const unnamed = createCustomPalette('Unnamed', ['#FF0000'], undefined, ['']);
+    assert.equal(unnamed.colorNames, undefined);
+});
+
+test('updateCustomPalette normalizes color names against the new colors', () => {
+    const palettes = [makePalette({ colorNames: ['A', 'B', 'C'] })];
+    const updated = updateCustomPalette(palettes, 'palette-1', {
+        colors: ['#FF0000', '#00FF00'],
+        colorNames: ['Red ', ''],
+    });
+    assert.deepEqual(updated[0].colorNames, ['Red', '']);
+});
+
+test('import treats identical colors with different names as distinct content', () => {
+    const existing = [makePalette()];
+    const incoming = [
+        makePalette({ id: 'palette-2', name: 'Named Twin', colorNames: ['R', 'G', 'B'] }),
+    ];
+    const result = importCustomPalettes(existing, incoming);
+    assert.equal(result.imported.length, 1);
+    assert.deepEqual(result.imported[0].colorNames, ['R', 'G', 'B']);
+});
+
+test('clonePalette carries color names and remaps them when colors are dropped', () => {
+    const clone = clonePalette(
+        {
+            label: 'Named',
+            colors: ['not-a-color', '#FF0000', '#00FF00'],
+            colorNames: ['Ghost', 'Pumpkin Orange', ''],
+        },
+        []
+    );
+    assert.ok(clone);
+    assert.deepEqual(clone.colors, ['#FF0000', '#00FF00']);
+    assert.deepEqual(clone.colorNames, ['Pumpkin Orange', '']);
 });
 
 test('toHex6 handles hex shorthand, full hex, and hsl strings', () => {

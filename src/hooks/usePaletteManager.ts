@@ -25,6 +25,7 @@ import {
  * count for labels like "Name (5/8)".
  */
 function toPalette(cp: CustomPalette): Palette & { custom: true; totalColors: number } {
+    const disabled = new Set(cp.disabledColors ?? []);
     const enabled = enabledColors(cp);
     return {
         id: cp.id,
@@ -33,6 +34,9 @@ function toPalette(cp: CustomPalette): Palette & { custom: true; totalColors: nu
         size: enabled.length,
         custom: true,
         totalColors: cp.colors.length,
+        ...(cp.colorNames
+            ? { colorNames: cp.colorNames.filter((_, i) => !disabled.has(i)) }
+            : {}),
     };
 }
 
@@ -75,9 +79,9 @@ export function usePaletteManager() {
     // ---- CRUD ----
 
     const handleCreatePalette = useCallback(
-        (name: string, colors: string[], disabledColors?: number[]) => {
+        (name: string, colors: string[], disabledColors?: number[], colorNames?: string[]) => {
             if (!name.trim() || colors.length === 0) return;
-            const newPal = createCustomPalette(name, colors, disabledColors);
+            const newPal = createCustomPalette(name, colors, disabledColors, colorNames);
             const updated = [...customPalettes, newPal];
             setCustomPalettes(updated);
             saveCustomPalettes(updated);
@@ -88,7 +92,15 @@ export function usePaletteManager() {
     );
 
     const handleUpdatePalette = useCallback(
-        (id: string, patch: { name?: string; colors?: string[]; disabledColors?: number[] }) => {
+        (
+            id: string,
+            patch: {
+                name?: string;
+                colors?: string[];
+                disabledColors?: number[];
+                colorNames?: string[];
+            }
+        ) => {
             const updated = updateCustomPalette(customPalettes, id, patch);
             setCustomPalettes(updated);
             saveCustomPalettes(updated);
@@ -103,9 +115,18 @@ export function usePaletteManager() {
             const cp = customPalettes.find((p) => p.id === id);
             const builtIn = cp ? undefined : ALL_BUILTIN_PALETTES.find((p) => p.id === id);
             const source = cp
-                ? { label: cp.name, colors: cp.colors, disabledColors: cp.disabledColors }
+                ? {
+                      label: cp.name,
+                      colors: cp.colors,
+                      disabledColors: cp.disabledColors,
+                      colorNames: cp.colorNames,
+                  }
                 : builtIn
-                  ? { label: builtIn.label, colors: builtIn.colors }
+                  ? {
+                        label: builtIn.label,
+                        colors: builtIn.colors,
+                        colorNames: builtIn.colorNames,
+                    }
                   : undefined;
             if (!source || source.colors.length === 0) return;
 

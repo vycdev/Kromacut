@@ -244,7 +244,6 @@ test('auto-paint profiles can be renamed without changing filament data', async 
     assert.ok(renamed[0].updatedAt >= profiles[0].updatedAt);
 });
 
-<<<<<<< HEAD
 test('profile imports strip legacy photo calibration objects', async () => {
     const { importProfiles } = await loadProfileManager();
     const incoming = [

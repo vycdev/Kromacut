@@ -57,6 +57,7 @@ The palette toolbar lets you create, edit, clone, import, export, or delete cust
 - Palette files use the `.kpal` format.
 - Pick colors that match real filament when you plan to use Manual mode.
 - **Clone** copies the currently selected palette — including built-in and supplier palettes — into a new custom palette you can edit. The clone is named after the original with "(copy)" appended.
+- Each color can have an optional **name** (for example "Pumpkin Orange") so you can recognize it quickly. Names show as tooltips on the color chips in the palette dropdown, travel with `.kpal` exports, and are kept when cloning — supplier palettes come with the real filament names filled in.
 
 ### Disabling Colors
 

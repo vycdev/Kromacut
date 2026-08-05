@@ -7,6 +7,8 @@ export type Palette = {
     size: number;
     /** Dropdown grouping; built-in generic palettes leave this unset. */
     group?: 'supplier';
+    /** Optional display names parallel to `colors` (supplier filament names). */
+    colorNames?: string[];
 };
 
 export const PALETTES: Palette[] = [

@@ -192,6 +192,11 @@ export const ControlsPanel: React.FC<Props> = ({
                                                             .map((c: string, i: number) => (
                                                                 <div
                                                                     key={i}
+                                                                    title={
+                                                                        p.colorNames?.[i]
+                                                                            ? `${p.colorNames[i]} (${c})`
+                                                                            : c
+                                                                    }
                                                                     className="rounded border border-border/70 select-none"
                                                                     style={{
                                                                         background: c,
@@ -234,6 +239,11 @@ export const ControlsPanel: React.FC<Props> = ({
                                                             .map((c: string, i: number) => (
                                                                 <div
                                                                     key={i}
+                                                                    title={
+                                                                        cp.colorNames?.[i]
+                                                                            ? `${cp.colorNames[i]} (${c})`
+                                                                            : c
+                                                                    }
                                                                     className="rounded border border-border/70 select-none"
                                                                     style={{
                                                                         background: c,
