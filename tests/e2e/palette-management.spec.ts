@@ -15,7 +15,9 @@ test('@smoke supplier palettes, clone, and color toggles work end to end', async
     // Supplier group, non-affiliation caption, and the Bambu palette (30 colors)
     await paletteTrigger.click();
     await expect(page.getByText('Supplier Palettes', { exact: true })).toBeVisible();
-    await expect(page.getByText(/not affiliated with or endorsed/i).first()).toBeVisible();
+    await expect(
+        page.getByText(/not affiliated with, endorsed by, or sponsored by/i).first()
+    ).toBeVisible();
     const bambuOption = page.getByRole('option', { name: /Bambu Lab PLA Basic \(30\)/ });
     await expect(bambuOption).toBeVisible();
 
@@ -33,7 +35,7 @@ test('@smoke supplier palettes, clone, and color toggles work end to end', async
     // Disable one color in the editor; supplier names came along with the clone
     await page.getByRole('button', { name: 'Edit selected palette' }).click();
     await expect(page.getByPlaceholder('Name (optional)').first()).toHaveValue('Jade White');
-    await page.getByRole('button', { name: 'Disable color 1' }).click();
+    await page.getByRole('button', { name: 'Disable color 1', exact: true }).click();
     await page.getByRole('button', { name: 'Save Changes' }).click();
 
     // The dropdown now reports enabled/total and the count input follows
