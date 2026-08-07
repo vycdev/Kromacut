@@ -15,6 +15,7 @@ import {
     profileFileName,
     loadLastProfileId,
     saveLastProfileId,
+    profileFilamentsEqual,
 } from '../lib/profileManager';
 import { deduplicateName } from '../lib/nameUtils';
 import { TEMPLATE_PROFILES, isTemplateProfileId } from '../data/supplierFilaments';
@@ -56,26 +57,14 @@ export function useProfileManager({ filaments, setFilaments }: UseProfileManager
     const [renameProfileName, setRenameProfileName] = useState('');
     const [importFeedback, setImportFeedback] = useState<string | null>(null);
     const importInputRef = useRef<HTMLInputElement>(null);
-    const filamentCalibrationSignature = useCallback(
-        (filament: Filament) => JSON.stringify(filament.calibration ?? null),
-        []
-    );
-
     // Dirty state: detect if current filaments differ from the active profile's
     // (templates included, so the badge nudges toward Save New after tweaking one)
     const isDirty = useMemo(() => {
         if (!activeProfileId) return false;
         const active = [...profiles, ...TEMPLATE_PROFILES].find((p) => p.id === activeProfileId);
         if (!active) return false;
-        if (active.filaments.length !== filaments.length) return true;
-        return active.filaments.some(
-            (af, i) =>
-                af.color !== filaments[i].color ||
-                af.td !== filaments[i].td ||
-                (af.name ?? '') !== (filaments[i].name ?? '') ||
-                filamentCalibrationSignature(af) !== filamentCalibrationSignature(filaments[i])
-        );
-    }, [activeProfileId, profiles, filaments, filamentCalibrationSignature]);
+        return !profileFilamentsEqual(active.filaments, filaments);
+    }, [activeProfileId, profiles, filaments]);
 
     // Save New: always creates a new profile
     const handleSaveNewProfile = useCallback(

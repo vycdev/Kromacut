@@ -589,3 +589,35 @@ test('profile import keeps non-reserved ids unchanged', async () => {
 
     assert.equal(result.imported[0].id, 'user-profile-1');
 });
+
+test('profile imports preserve profiles that differ only by filament brand', async () => {
+    const { importProfiles } = await loadProfileManager();
+    const makeProfile = (id: string, brand: string): AutoPaintProfile => ({
+        id,
+        name: `Profile ${brand}`,
+        version: 2,
+        createdAt: 1,
+        updatedAt: 1,
+        filaments: [
+            {
+                id: 'filament-1',
+                color: '#FFFFFF',
+                td: 0.7,
+                name: 'White',
+                brand,
+            },
+        ],
+    });
+
+    const result = importProfiles(
+        [makeProfile('profile-a', 'Brand A')],
+        [makeProfile('profile-b', 'Brand B')]
+    );
+
+    assert.equal(result.imported.length, 1);
+    assert.equal(result.skipped.length, 0);
+    assert.deepEqual(
+        result.profiles.map((profile) => profile.filaments[0].brand),
+        ['Brand A', 'Brand B']
+    );
+});

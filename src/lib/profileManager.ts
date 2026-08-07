@@ -218,17 +218,18 @@ export function deleteProfile(profiles: AutoPaintProfile[], id: string): AutoPai
     return profiles.filter((p) => p.id !== id);
 }
 
-/** Check if two filament arrays are identical by color+td (order-sensitive). */
+/** Check if two filament arrays have identical persisted profile data (order-sensitive). */
 const filamentCalibrationSignature = (filament: Filament) =>
     JSON.stringify(filament.calibration ?? null);
 
-function filamentsEqual(a: Filament[], b: Filament[]): boolean {
+export function profileFilamentsEqual(a: Filament[], b: Filament[]): boolean {
     if (a.length !== b.length) return false;
     return a.every(
         (af, i) =>
             af.color === b[i].color &&
             af.td === b[i].td &&
             (af.name ?? '') === (b[i].name ?? '') &&
+            (af.brand ?? '') === (b[i].brand ?? '') &&
             filamentCalibrationSignature(af) === filamentCalibrationSignature(b[i])
     );
 }
@@ -297,7 +298,7 @@ export function importProfiles(
 
         // 2. Content match (same filaments) → skip
         const contentMatch = result.profiles.find((p) =>
-            filamentsEqual(p.filaments, validFilaments)
+            profileFilamentsEqual(p.filaments, validFilaments)
         );
         if (contentMatch) {
             result.skipped.push(`${profile.name} (matches "${contentMatch.name}")`);
