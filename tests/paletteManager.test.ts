@@ -32,34 +32,44 @@ test('custom palette exports use kpal filenames', () => {
     assert.equal(customPaletteFileName('My Palette!'), 'My_Palette_.kpal');
 });
 
-/** Run fn with an in-memory localStorage stub installed, restoring afterwards. */
-function withMemoryStorage(fn: (values: Map<string, string>) => void) {
+/** Run fn with isolated palette storage, reusing a shared test stub when one is installed. */
+function withMemoryStorage(fn: (storage: Pick<Storage, 'getItem' | 'setItem'>) => void) {
+    const original = Reflect.get(globalThis, 'localStorage') as Storage | undefined;
     const values = new Map<string, string>();
-    const original = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
-    Object.defineProperty(globalThis, 'localStorage', {
-        configurable: true,
-        value: {
+    const storage =
+        original ??
+        ({
             getItem: (key: string) => (values.has(key) ? values.get(key)! : null),
             setItem: (key: string, value: string) => void values.set(key, value),
             removeItem: (key: string) => void values.delete(key),
-        },
-    });
+        } as Storage);
+    const storageKey = 'kromacut.palettes';
+    const previous = storage.getItem(storageKey);
+
+    if (!original) {
+        Object.defineProperty(globalThis, 'localStorage', {
+            configurable: true,
+            value: storage,
+        });
+    }
+    storage.removeItem(storageKey);
     try {
-        fn(values);
+        fn(storage);
     } finally {
-        if (original) Object.defineProperty(globalThis, 'localStorage', original);
-        else delete (globalThis as Record<string, unknown>).localStorage;
+        if (previous === null) storage.removeItem(storageKey);
+        else storage.setItem(storageKey, previous);
+        if (!original) delete (globalThis as Record<string, unknown>).localStorage;
     }
 }
 
 test('stored palettes with reserved built-in ids are re-assigned and persisted once', () => {
-    withMemoryStorage((values) => {
+    withMemoryStorage((storage) => {
         const stored = [
             makePalette({ id: 'p4', name: 'Shadowing Built-in' }),
             makePalette({ id: 'sup_bambu-pla-basic', name: 'Shadowing Supplier' }),
             makePalette({ id: 'legit-uuid', name: 'Untouched' }),
         ];
-        values.set('kromacut.palettes', JSON.stringify(stored));
+        storage.setItem('kromacut.palettes', JSON.stringify(stored));
 
         const reserved = new Set(['auto', 'p4', 'g8']);
         const loaded = loadCustomPalettes(reserved);
@@ -70,7 +80,7 @@ test('stored palettes with reserved built-in ids are re-assigned and persisted o
         assert.equal(loaded[2].id, 'legit-uuid');
 
         // Migration is written back, so a second load returns stable ids.
-        const persisted = JSON.parse(values.get('kromacut.palettes')!) as { id: string }[];
+        const persisted = JSON.parse(storage.getItem('kromacut.palettes')!) as { id: string }[];
         assert.deepEqual(
             persisted.map((p) => p.id),
             loaded.map((p) => p.id)
@@ -84,12 +94,12 @@ test('stored palettes with reserved built-in ids are re-assigned and persisted o
 });
 
 test('stored palettes without reserved ids are not rewritten on load', () => {
-    withMemoryStorage((values) => {
+    withMemoryStorage((storage) => {
         const stored = [makePalette({ id: 'legit-uuid' })];
         const raw = JSON.stringify(stored);
-        values.set('kromacut.palettes', raw);
+        storage.setItem('kromacut.palettes', raw);
         loadCustomPalettes(new Set(['auto', 'p4']));
-        assert.equal(values.get('kromacut.palettes'), raw);
+        assert.equal(storage.getItem('kromacut.palettes'), raw);
     });
 });
 
