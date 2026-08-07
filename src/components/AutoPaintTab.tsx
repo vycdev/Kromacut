@@ -323,7 +323,7 @@ export default function AutoPaintTab({
                             <SelectTrigger className="h-8 text-xs flex-1">
                                 <SelectValue placeholder="Unsaved Configuration" />
                             </SelectTrigger>
-                            <SelectContent>
+                            <SelectContent className="w-[var(--radix-select-trigger-width)]">
                                 {profiles.length === 0 ? (
                                     <div className="px-2 py-1.5 text-xs text-muted-foreground">
                                         No saved profiles
@@ -331,8 +331,8 @@ export default function AutoPaintTab({
                                 ) : (
                                     profiles.map((p) => (
                                         <SelectItem key={p.id} value={p.id} className="text-xs">
-                                            <div className="flex items-center gap-2">
-                                                <div className="flex gap-0.5">
+                                            <div className="flex min-w-0 items-center gap-2">
+                                                <div className="flex shrink-0 gap-0.5">
                                                     {p.filaments.slice(0, 4).map((f, i) => (
                                                         <span
                                                             key={i}
@@ -348,7 +348,7 @@ export default function AutoPaintTab({
                                                         </span>
                                                     )}
                                                 </div>
-                                                <span>{p.name}</span>
+                                                <span className="truncate">{p.name}</span>
                                             </div>
                                         </SelectItem>
                                     ))
@@ -358,7 +358,7 @@ export default function AutoPaintTab({
                                         <div className="px-2 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider select-none border-t border-border/50 mt-1 pt-2">
                                             Templates
                                         </div>
-                                        <div className="px-2 pb-1.5 text-[9px] leading-snug text-muted-foreground/70 select-none">
+                                        <div className="px-2 pb-1.5 text-[9px] leading-snug whitespace-normal text-muted-foreground/70 select-none">
                                             Unofficial reference filament sets based on supplier
                                             color charts. Not affiliated with, endorsed by, or
                                             sponsored by any manufacturer; names identify the
@@ -366,8 +366,8 @@ export default function AutoPaintTab({
                                         </div>
                                         {TEMPLATE_PROFILES.map((p) => (
                                             <SelectItem key={p.id} value={p.id} className="text-xs">
-                                                <div className="flex items-center gap-2">
-                                                    <div className="flex gap-0.5">
+                                                <div className="flex min-w-0 items-center gap-2">
+                                                    <div className="flex shrink-0 gap-0.5">
                                                         {p.filaments.slice(0, 4).map((f, i) => (
                                                             <span
                                                                 key={i}
@@ -383,7 +383,7 @@ export default function AutoPaintTab({
                                                             </span>
                                                         )}
                                                     </div>
-                                                    <span>{p.name}</span>
+                                                    <span className="truncate">{p.name}</span>
                                                 </div>
                                             </SelectItem>
                                         ))}

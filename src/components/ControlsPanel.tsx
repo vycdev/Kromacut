@@ -152,7 +152,7 @@ export const ControlsPanel: React.FC<Props> = ({
                             <SelectTrigger id="palette-select">
                                 <SelectValue placeholder="Select a palette" />
                             </SelectTrigger>
-                            <SelectContent className="max-h-48 overflow-y-auto">
+                            <SelectContent className="max-h-48 w-[var(--radix-select-trigger-width)] overflow-y-auto">
                                 {PALETTES.map((p) => (
                                     <SelectItem key={p.id} value={p.id}>
                                         <div className="flex items-center gap-2">
@@ -190,7 +190,7 @@ export const ControlsPanel: React.FC<Props> = ({
                                         <div className="px-2 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider select-none border-t border-border/50 mt-1 pt-2">
                                             Supplier Palettes
                                         </div>
-                                        <div className="px-2 pb-1.5 text-[9px] leading-snug text-muted-foreground/70 select-none">
+                                        <div className="px-2 pb-1.5 text-[9px] leading-snug whitespace-normal text-muted-foreground/70 select-none">
                                             Unofficial reference palettes of filament color names
                                             and hex values. Not affiliated with, endorsed by, or
                                             sponsored by any manufacturer; names identify the
@@ -198,11 +198,11 @@ export const ControlsPanel: React.FC<Props> = ({
                                         </div>
                                         {SUPPLIER_PALETTES.map((p) => (
                                             <SelectItem key={p.id} value={p.id}>
-                                                <div className="flex items-center gap-2">
-                                                    <span>
+                                                <div className="flex min-w-0 items-center gap-2">
+                                                    <span className="truncate">
                                                         {p.label} ({p.size})
                                                     </span>
-                                                    <div className="flex gap-1">
+                                                    <div className="flex shrink-0 gap-1">
                                                         {p.colors
                                                             .slice(0, 5)
                                                             .map((c: string, i: number) => (
