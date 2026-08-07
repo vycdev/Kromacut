@@ -7,7 +7,8 @@ import {
     enforcePaletteSizeAsync,
     mapImageToPalette,
 } from '../lib/algorithms';
-import { PALETTES } from '../data/palettes';
+import { findBuiltInPalette } from '../data/palettes';
+import { enabledColors } from '../lib/paletteManager';
 import type { CustomPalette } from '../types';
 import { rgbToHsl } from '../lib/color';
 import {
@@ -202,10 +203,10 @@ export function useQuantize({
             await mapImageToPalette(data, overridePalette, { onProgress: postProgress });
             ctx.putImageData(data, 0, 0);
         } else if (selectedPalette && selectedPalette !== 'auto') {
-            // Search built-in palettes first, then custom palettes
-            const builtIn = PALETTES.find((p) => p.id === selectedPalette);
-            const palColors =
-                builtIn?.colors ?? customPalettes.find((p) => p.id === selectedPalette)?.colors;
+            // Search built-in palettes first, then custom palettes (enabled colors only)
+            const builtIn = findBuiltInPalette(selectedPalette);
+            const custom = customPalettes.find((p) => p.id === selectedPalette);
+            const palColors = builtIn?.colors ?? (custom ? enabledColors(custom) : undefined);
             if (palColors && palColors.length > 0) {
                 await mapImageToPalette(data, palColors, { onProgress: postProgress });
                 ctx.putImageData(data, 0, 0);
