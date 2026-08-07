@@ -16,6 +16,50 @@ export function normalizeHexColor(hex: string | undefined, fallback: string): st
 }
 
 /**
+ * Convert a CSS-ish color string to canonical `#RRGGBB` uppercase form.
+ * Accepts `#RGB`, `#RRGGBB` (with or without '#') and `hsl(H S% L%)` /
+ * `hsl(H, S%, L%)` strings (the shapes used by built-in palettes).
+ * Returns null for anything else.
+ */
+export function toHex6(color: string): string | null {
+    const str = color.trim();
+    const raw = str.replace(/^#/, '');
+    if (/^[0-9a-f]{3}$/i.test(raw)) {
+        return `#${raw[0]}${raw[0]}${raw[1]}${raw[1]}${raw[2]}${raw[2]}`.toUpperCase();
+    }
+    if (/^[0-9a-f]{6}$/i.test(raw)) {
+        return `#${raw}`.toUpperCase();
+    }
+    const hsl = str.match(
+        /^hsl\(\s*([\d.-]+)(?:deg)?(?:\s*,\s*|\s+)([\d.]+)%?(?:\s*,\s*|\s+)([\d.]+)%?\s*\)$/i
+    );
+    if (hsl) {
+        const h = Number(hsl[1]);
+        const s = Number(hsl[2]) / 100;
+        const l = Number(hsl[3]) / 100;
+        const c = (1 - Math.abs(2 * l - 1)) * s;
+        const hh = ((h % 360) + 360) % 360;
+        const x = c * (1 - Math.abs(((hh / 60) % 2) - 1));
+        let r1 = 0,
+            g1 = 0,
+            b1 = 0;
+        if (hh < 60) [r1, g1, b1] = [c, x, 0];
+        else if (hh < 120) [r1, g1, b1] = [x, c, 0];
+        else if (hh < 180) [r1, g1, b1] = [0, c, x];
+        else if (hh < 240) [r1, g1, b1] = [0, x, c];
+        else if (hh < 300) [r1, g1, b1] = [x, 0, c];
+        else [r1, g1, b1] = [c, 0, x];
+        const m = l - c / 2;
+        const toByte = (v: number) =>
+            Math.round(Math.max(0, Math.min(255, (v + m) * 255)))
+                .toString(16)
+                .padStart(2, '0');
+        return `#${toByte(r1)}${toByte(g1)}${toByte(b1)}`.toUpperCase();
+    }
+    return null;
+}
+
+/**
  * Compute perceived luminance (0–1) from a hex color string.
  * Uses the standard sRGB luminance coefficients.
  */

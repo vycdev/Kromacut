@@ -27,7 +27,13 @@ import {
     profileFileName,
     loadLastProfileId,
     saveLastProfileId,
+    profileFilamentsEqual,
 } from '../lib/profileManager';
+import { deduplicateName } from '../lib/nameUtils';
+import { TEMPLATE_PROFILES, isTemplateProfileId } from '../data/supplierFilaments';
+
+/** Built-in template profile ids are reserved — imported files can never claim them. */
+const RESERVED_PROFILE_IDS = new Set(TEMPLATE_PROFILES.map((p) => p.id));
 
 export interface UseProfileManagerOptions {
     /** Current filament list (used for save/export operations). */
@@ -40,7 +46,10 @@ export function useProfileManager({ filaments, setFilaments }: UseProfileManager
     const [initialState] = useState(() => {
         const loadedProfiles = loadProfiles();
         const lastId = loadLastProfileId();
-        const activeProfile = lastId ? loadedProfiles.find((p) => p.id === lastId) : null;
+        // Templates are selectable too, so the selection survives reloads
+        const activeProfile = lastId
+            ? [...loadedProfiles, ...TEMPLATE_PROFILES].find((p) => p.id === lastId)
+            : null;
         return {
             profiles: loadedProfiles,
             activeProfileId: activeProfile ? activeProfile.id : null,
@@ -60,25 +69,14 @@ export function useProfileManager({ filaments, setFilaments }: UseProfileManager
     const [renameProfileName, setRenameProfileName] = useState('');
     const [importFeedback, setImportFeedback] = useState<string | null>(null);
     const importInputRef = useRef<HTMLInputElement>(null);
-    const filamentCalibrationSignature = useCallback(
-        (filament: Filament) => JSON.stringify(filament.calibration ?? null),
-        []
-    );
-
     // Dirty state: detect if current filaments differ from the active profile's
+    // (templates included, so the badge nudges toward Save New after tweaking one)
     const isDirty = useMemo(() => {
         if (!activeProfileId) return false;
-        const active = profiles.find((p) => p.id === activeProfileId);
+        const active = [...profiles, ...TEMPLATE_PROFILES].find((p) => p.id === activeProfileId);
         if (!active) return false;
-        if (active.filaments.length !== filaments.length) return true;
-        return active.filaments.some(
-            (af, i) =>
-                af.color !== filaments[i].color ||
-                af.td !== filaments[i].td ||
-                (af.name ?? '') !== (filaments[i].name ?? '') ||
-                filamentCalibrationSignature(af) !== filamentCalibrationSignature(filaments[i])
-        );
-    }, [activeProfileId, profiles, filaments, filamentCalibrationSignature]);
+        return !profileFilamentsEqual(active.filaments, filaments);
+    }, [activeProfileId, profiles, filaments]);
     const activeProfile = useMemo(
         () => profiles.find((profile) => profile.id === activeProfileId),
         [activeProfileId, profiles]
@@ -100,9 +98,9 @@ export function useProfileManager({ filaments, setFilaments }: UseProfileManager
         [filaments, profiles]
     );
 
-    // Save (overwrite): updates existing profile in-place
+    // Save (overwrite): updates existing profile in-place (templates are read-only)
     const handleOverwriteProfile = useCallback(() => {
-        if (!activeProfileId) return;
+        if (!activeProfileId || isTemplateProfileId(activeProfileId)) return;
         const updated = overwriteProfile(profiles, activeProfileId, filaments);
         setProfiles(updated);
         saveProfilesToStorage(updated);
@@ -110,7 +108,7 @@ export function useProfileManager({ filaments, setFilaments }: UseProfileManager
 
     const handleRenameProfile = useCallback(
         (name: string) => {
-            if (!activeProfileId || !name.trim()) return;
+            if (!activeProfileId || isTemplateProfileId(activeProfileId) || !name.trim()) return;
             const updated = renameProfile(profiles, activeProfileId, name);
             setProfiles(updated);
             saveProfilesToStorage(updated);
@@ -121,17 +119,23 @@ export function useProfileManager({ filaments, setFilaments }: UseProfileManager
 
     const handleLoadProfile = useCallback(
         (id: string) => {
-            const profile = profiles.find((p) => p.id === id);
+            const profile = [...profiles, ...TEMPLATE_PROFILES].find((p) => p.id === id);
             if (!profile) return;
             setActiveProfileId(id);
             saveLastProfileId(id);
             setFilaments(profile.filaments.map((f) => ({ ...f })));
+            if (isTemplateProfileId(id)) {
+                setImportFeedback(
+                    `Loaded ${profile.name} — hiding distances are estimated from color. Calibrate before printing.`
+                );
+            }
         },
         [profiles, setFilaments]
     );
 
     const handleDeleteProfile = useCallback(
         (id: string) => {
+            if (isTemplateProfileId(id)) return;
             const updated = deleteProfileFromList(profiles, id);
             setProfiles(updated);
             saveProfilesToStorage(updated);
@@ -144,14 +148,14 @@ export function useProfileManager({ filaments, setFilaments }: UseProfileManager
     );
 
     const handleExportProfile = useCallback(() => {
-        const active = profiles.find((p) => p.id === activeProfileId);
-        const profile = active
+        const active = [...profiles, ...TEMPLATE_PROFILES].find((p) => p.id === activeProfileId);
+        const profile = active && !isTemplateProfileId(active.id)
             ? {
                   ...active,
                   filaments: filaments.map((filament) => ({ ...filament })),
                   updatedAt: Date.now(),
               }
-            : createProfile('Exported Profile', filaments);
+            : createProfile(active?.name ?? 'Exported Profile', filaments);
 
         const blob = exportProfileBlob(profile);
         const url = URL.createObjectURL(blob);
@@ -302,7 +306,7 @@ export function useProfileManager({ filaments, setFilaments }: UseProfileManager
                     console.error('Invalid profile file');
                     return;
                 }
-                const result = importProfiles(profiles, incoming);
+                const result = importProfiles(profiles, incoming, RESERVED_PROFILE_IDS);
                 setProfiles(result.profiles);
                 saveProfilesToStorage(result.profiles);
 
@@ -342,6 +346,23 @@ export function useProfileManager({ filaments, setFilaments }: UseProfileManager
         const active = activeProfileId ? profiles.find((p) => p.id === activeProfileId) : null;
         setRenameProfileName(active?.name ?? '');
     }, [activeProfileId, profiles, showRenamePopover]);
+
+    // Prefill Save New with a "(copy)" name forked from the active profile or
+    // template, so saving a tweaked template is a two-click operation.
+    useEffect(() => {
+        if (!showSaveNewPopover) return;
+        const active = activeProfileId
+            ? [...profiles, ...TEMPLATE_PROFILES].find((p) => p.id === activeProfileId)
+            : null;
+        setSaveProfileName(
+            active
+                ? deduplicateName(
+                      `${active.name} (copy)`,
+                      profiles.map((p) => p.name)
+                  )
+                : ''
+        );
+    }, [activeProfileId, profiles, showSaveNewPopover]);
 
     return {
         profiles,

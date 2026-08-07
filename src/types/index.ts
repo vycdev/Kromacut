@@ -55,6 +55,13 @@ export interface CustomPalette {
     name: string;
     version: number;
     colors: string[];
+    /** Indices into `colors` excluded from quantization. Absent = all enabled. */
+    disabledColors?: number[];
+    /**
+     * Optional display names parallel to `colors` (e.g. "Pumpkin Orange");
+     * empty string = unnamed. Absent = no names.
+     */
+    colorNames?: string[];
     createdAt: number;
     updatedAt: number;
 }

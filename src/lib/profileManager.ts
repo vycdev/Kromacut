@@ -5,6 +5,8 @@ import {
 } from './appearanceProfile.ts';
 import { FRONTLIT_TD_SCALE, sanitizeFrontlitCalibration } from './calibration.ts';
 import { normalizeHexColor } from './colorUtils.ts';
+import { deduplicateName } from './nameUtils.ts';
+import { isTemplateProfileId } from './reservedIds.ts';
 
 export interface AutoPaintProfile {
     id: string;
@@ -112,7 +114,9 @@ function sanitizeProfile(value: unknown): AutoPaintProfile | null {
     const version = typeof value.version === 'number' ? value.version : 1;
     const now = Date.now();
     const profile: AutoPaintProfile = {
-        id: value.id,
+        // A reserved template id in storage would shadow the built-in template
+        // and be undeletable — re-assign such profiles a fresh user id.
+        id: isTemplateProfileId(value.id) ? crypto.randomUUID() : value.id,
         name: value.name,
         version: CURRENT_PROFILE_VERSION,
         filaments: sanitizeProfileFilaments(value.filaments, version),
@@ -130,9 +134,15 @@ export function loadProfiles(): AutoPaintProfile[] {
         if (!raw) return [];
         const parsed = JSON.parse(raw) as AutoPaintProfile[];
         if (!Array.isArray(parsed)) return [];
-        return parsed
+        const hadReservedId = parsed.some(
+            (p) => p && typeof p.id === 'string' && isTemplateProfileId(p.id)
+        );
+        const profiles = parsed
             .map((profile) => sanitizeProfile(profile))
             .filter((profile): profile is AutoPaintProfile => profile !== null);
+        // Persist re-assigned template ids so they stay stable across reloads.
+        if (hadReservedId) saveProfilesToStorage(profiles);
+        return profiles;
     } catch {
         return [];
     }
@@ -218,17 +228,18 @@ export function deleteProfile(profiles: AutoPaintProfile[], id: string): AutoPai
     return profiles.filter((p) => p.id !== id);
 }
 
-/** Check if two filament arrays are identical by color+td (order-sensitive). */
+/** Check if two filament arrays have identical persisted profile data (order-sensitive). */
 const filamentCalibrationSignature = (filament: Filament) =>
     JSON.stringify(filament.calibration ?? null);
 
-function filamentsEqual(a: Filament[], b: Filament[]): boolean {
+export function profileFilamentsEqual(a: Filament[], b: Filament[]): boolean {
     if (a.length !== b.length) return false;
     return a.every(
         (af, i) =>
             af.color === b[i].color &&
             af.td === b[i].td &&
             (af.name ?? '') === (b[i].name ?? '') &&
+            (af.brand ?? '') === (b[i].brand ?? '') &&
             filamentCalibrationSignature(af) === filamentCalibrationSignature(b[i])
     );
 }
@@ -238,15 +249,6 @@ function appearanceEqual(
     b: AppearanceProfileV1 | undefined
 ): boolean {
     return JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
-}
-
-/** Derive a unique name by appending a numeric suffix if the name already exists. */
-function deduplicateName(name: string, existing: AutoPaintProfile[]): string {
-    const names = new Set(existing.map((p) => p.name));
-    if (!names.has(name)) return name;
-    let suffix = 2;
-    while (names.has(`${name} (${suffix})`)) suffix++;
-    return `${name} (${suffix})`;
 }
 
 export interface ImportResult {
@@ -262,10 +264,14 @@ export interface ImportResult {
  * - ID match: overwrite existing profile
  * - Content match (different ID): skip
  * - Name match (different ID, different content): rename with numeric suffix
+ *
+ * Ids in `reservedIds` (built-in template ids) are never accepted from a
+ * file; such profiles get a fresh UUID instead.
  */
 export function importProfiles(
     existing: AutoPaintProfile[],
-    incoming: AutoPaintProfile[]
+    incoming: AutoPaintProfile[],
+    reservedIds?: Set<string>
 ): ImportResult {
     const result: ImportResult = {
         profiles: [...existing],
@@ -284,7 +290,13 @@ export function importProfiles(
 
         const now = Date.now();
         const profile: AutoPaintProfile = {
-            id: raw.id && typeof raw.id === 'string' ? raw.id : crypto.randomUUID(),
+            id:
+                raw.id &&
+                typeof raw.id === 'string' &&
+                !reservedIds?.has(raw.id) &&
+                !isTemplateProfileId(raw.id)
+                    ? raw.id
+                    : crypto.randomUUID(),
             name: raw.name,
             version: CURRENT_PROFILE_VERSION,
             filaments: validFilaments,
@@ -306,7 +318,7 @@ export function importProfiles(
         // 2. Content match (same filaments) → skip
         const contentMatch = result.profiles.find(
             (p) =>
-                filamentsEqual(p.filaments, validFilaments) &&
+                profileFilamentsEqual(p.filaments, validFilaments) &&
                 appearanceEqual(p.appearance, appearance)
         );
         if (contentMatch) {
@@ -317,7 +329,10 @@ export function importProfiles(
         // 3. Name match → rename
         const nameMatch = result.profiles.some((p) => p.name === profile.name);
         if (nameMatch) {
-            profile.name = deduplicateName(profile.name, result.profiles);
+            profile.name = deduplicateName(
+                profile.name,
+                result.profiles.map((p) => p.name)
+            );
             result.renamed.push(profile.name);
         }
 

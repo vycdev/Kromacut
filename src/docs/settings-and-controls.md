@@ -54,6 +54,8 @@ Profiles are separate from this remembered state. Use profiles when you want nam
 
 Custom palettes are for 2D color reduction. Palette files use `.kpal`.
 
+Palette format version 2 adds two optional fields: `disabledColors` (colors kept in the palette but excluded from quantization) and `colorNames` (optional per-color display names). Both round-trip through export and import. Version 1 files load unchanged with every color enabled and unnamed, and a v2 file opened by an older Kromacut simply treats all colors as enabled.
+
 Use custom palettes when you want the reduced image to match a known filament set or a fixed color collection.
 
 ## Filament Profile Files

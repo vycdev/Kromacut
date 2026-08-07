@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { CustomPalette } from '../types';
 import type { Palette } from '../data/palettes';
-import { PALETTES } from '../data/palettes';
+import { ALL_BUILTIN_PALETTES } from '../data/palettes';
 import {
     loadCustomPalettes,
     saveCustomPalettes,
@@ -14,24 +14,40 @@ import {
     customPaletteFileName,
     loadSelectedPalette,
     saveSelectedPalette,
+    enabledColors,
+    clonePalette,
 } from '../lib/paletteManager';
 
-/** Convert a CustomPalette to the built-in Palette shape for the dropdown. */
-function toPalette(cp: CustomPalette): Palette & { custom: true } {
+/**
+ * Convert a CustomPalette to the built-in Palette shape for the dropdown.
+ * `colors`/`size` reflect only the enabled colors so chips, the color-count
+ * target, and quantization stay in agreement; `totalColors` keeps the full
+ * count for labels like "Name (5/8)".
+ */
+function toPalette(cp: CustomPalette): Palette & { custom: true; totalColors: number } {
+    const disabled = new Set(cp.disabledColors ?? []);
+    const enabled = enabledColors(cp);
     return {
         id: cp.id,
         label: cp.name,
-        colors: cp.colors,
-        size: cp.colors.length,
+        colors: enabled,
+        size: enabled.length,
         custom: true,
+        totalColors: cp.colors.length,
+        ...(cp.colorNames
+            ? { colorNames: cp.colorNames.filter((_, i) => !disabled.has(i)) }
+            : {}),
     };
 }
 
-export type MergedPalette = Palette & { custom?: boolean };
+export type MergedPalette = Palette & { custom?: boolean; totalColors?: number };
+
+/** Built-in palette ids are reserved — imported files can never claim them. */
+const RESERVED_PALETTE_IDS = new Set(ALL_BUILTIN_PALETTES.map((p) => p.id));
 
 export function usePaletteManager() {
     const [customPalettes, setCustomPalettes] = useState<CustomPalette[]>(() =>
-        loadCustomPalettes()
+        loadCustomPalettes(RESERVED_PALETTE_IDS)
     );
     const [importFeedback, setImportFeedback] = useState<string | null>(null);
     const importInputRef = useRef<HTMLInputElement>(null);
@@ -49,7 +65,7 @@ export function usePaletteManager() {
     // Merge built-in + custom palettes for the dropdown
     const allPalettes: MergedPalette[] = useMemo(() => {
         const customs = customPalettes.map(toPalette);
-        return [...PALETTES, ...customs];
+        return [...ALL_BUILTIN_PALETTES, ...customs];
     }, [customPalettes]);
 
     // Resolve a palette ID → Palette (works for both built-in and custom)
@@ -63,9 +79,9 @@ export function usePaletteManager() {
     // ---- CRUD ----
 
     const handleCreatePalette = useCallback(
-        (name: string, colors: string[]) => {
+        (name: string, colors: string[], disabledColors?: number[], colorNames?: string[]) => {
             if (!name.trim() || colors.length === 0) return;
-            const newPal = createCustomPalette(name, colors);
+            const newPal = createCustomPalette(name, colors, disabledColors, colorNames);
             const updated = [...customPalettes, newPal];
             setCustomPalettes(updated);
             saveCustomPalettes(updated);
@@ -76,12 +92,53 @@ export function usePaletteManager() {
     );
 
     const handleUpdatePalette = useCallback(
-        (id: string, patch: { name?: string; colors?: string[] }) => {
+        (
+            id: string,
+            patch: {
+                name?: string;
+                colors?: string[];
+                disabledColors?: number[];
+                colorNames?: string[];
+            }
+        ) => {
             const updated = updateCustomPalette(customPalettes, id, patch);
             setCustomPalettes(updated);
             saveCustomPalettes(updated);
         },
         [customPalettes]
+    );
+
+    const handleClonePalette = useCallback(
+        (id: string) => {
+            // Prefer the custom palette so disabled flags survive; otherwise
+            // fall back to built-ins (whose colors may need hex normalization).
+            const cp = customPalettes.find((p) => p.id === id);
+            const builtIn = cp ? undefined : ALL_BUILTIN_PALETTES.find((p) => p.id === id);
+            const source = cp
+                ? {
+                      label: cp.name,
+                      colors: cp.colors,
+                      disabledColors: cp.disabledColors,
+                      colorNames: cp.colorNames,
+                  }
+                : builtIn
+                  ? {
+                        label: builtIn.label,
+                        colors: builtIn.colors,
+                        colorNames: builtIn.colorNames,
+                    }
+                  : undefined;
+            if (!source || source.colors.length === 0) return;
+
+            const clone = clonePalette(source, customPalettes);
+            if (!clone) return;
+            const updated = [...customPalettes, clone];
+            setCustomPalettes(updated);
+            saveCustomPalettes(updated);
+            setSelectedPalette(clone.id);
+            setImportFeedback(`Cloned as "${clone.name}"`);
+        },
+        [customPalettes, setSelectedPalette]
     );
 
     const handleDeletePalette = useCallback(
@@ -126,7 +183,7 @@ export function usePaletteManager() {
                     setImportFeedback('Invalid palette file');
                     return;
                 }
-                const result = importCustomPalettes(customPalettes, incoming);
+                const result = importCustomPalettes(customPalettes, incoming, RESERVED_PALETTE_IDS);
                 setCustomPalettes(result.palettes);
                 saveCustomPalettes(result.palettes);
 
@@ -176,6 +233,7 @@ export function usePaletteManager() {
         importInputRef,
         handleCreatePalette,
         handleUpdatePalette,
+        handleClonePalette,
         handleDeletePalette,
         handleExportPalette,
         handleImportFile,
