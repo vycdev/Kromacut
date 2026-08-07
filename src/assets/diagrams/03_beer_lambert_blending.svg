@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="460" viewBox="0 0 960 460">
+<defs><clipPath id="clipA"><rect x="156.0" y="108.0" width="324.0" height="240.0"/></clipPath><clipPath id="clipB"><rect x="480.0" y="108.0" width="324.0" height="240.0"/></clipPath><linearGradient id="gradA" x1="0" y1="0" x2="0" y2="1" gradientUnits="objectBoundingBox"><stop offset="0.00%" stop-color="#2980b9"/><stop offset="4.17%" stop-color="#2980b9"/><stop offset="8.33%" stop-color="#2980b8"/><stop offset="12.50%" stop-color="#2980b8"/><stop offset="16.67%" stop-color="#297fb8"/><stop offset="20.83%" stop-color="#2980b9"/><stop offset="25.00%" stop-color="#2980b9"/><stop offset="29.17%" stop-color="#2880b9"/><stop offset="33.33%" stop-color="#2980b9"/><stop offset="37.50%" stop-color="#3679ac"/><stop offset="41.67%" stop-color="#4074a2"/><stop offset="45.83%" stop-color="#48719b"/><stop offset="50.00%" stop-color="#4f6d94"/><stop offset="54.17%" stop-color="#556a8e"/><stop offset="58.33%" stop-color="#5a688a"/><stop offset="62.50%" stop-color="#5e6686"/><stop offset="66.67%" stop-color="#626482"/><stop offset="70.83%" stop-color="#606781"/><stop offset="75.00%" stop-color="#5e6980"/><stop offset="79.17%" stop-color="#5d6b7f"/><stop offset="83.33%" stop-color="#5b6d7e"/><stop offset="87.50%" stop-color="#5a6e7d"/><stop offset="91.67%" stop-color="#59707d"/><stop offset="95.83%" stop-color="#58717c"/><stop offset="100.00%" stop-color="#57727c"/></linearGradient><linearGradient id="gradB" x1="0" y1="0" x2="0" y2="1" gradientUnits="objectBoundingBox"><stop offset="0.00%" stop-color="#c0392b"/><stop offset="4.17%" stop-color="#c0392b"/><stop offset="8.33%" stop-color="#c0392b"/><stop offset="12.50%" stop-color="#bf392a"/><stop offset="16.67%" stop-color="#c0392b"/><stop offset="20.83%" stop-color="#bf392a"/><stop offset="25.00%" stop-color="#bf392b"/><stop offset="29.17%" stop-color="#bf382b"/><stop offset="33.33%" stop-color="#c0382b"/><stop offset="37.50%" stop-color="#b23f37"/><stop offset="41.67%" stop-color="#a84441"/><stop offset="45.83%" stop-color="#a04748"/><stop offset="50.00%" stop-color="#994b4f"/><stop offset="54.17%" stop-color="#934e55"/><stop offset="58.33%" stop-color="#8e5059"/><stop offset="62.50%" stop-color="#8a525d"/><stop offset="66.67%" stop-color="#865461"/><stop offset="70.83%" stop-color="#825761"/><stop offset="75.00%" stop-color="#805a61"/><stop offset="79.17%" stop-color="#7d5c61"/><stop offset="83.33%" stop-color="#7b5e61"/><stop offset="87.50%" stop-color="#796061"/><stop offset="91.67%" stop-color="#776261"/><stop offset="95.83%" stop-color="#756361"/><stop offset="100.00%" stop-color="#746561"/></linearGradient><marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#71717a"/></marker></defs>
+<rect x="0.0" y="0.0" width="960.0" height="460.0" fill="#18181b" stroke="none" rx="0" />
+<text x="480.0" y="42.0" font-size="17" fill="#e4e4e7" text-anchor="middle" font-weight="bold" font-family="Inter,ui-sans-serif,sans-serif" >Beer-Lambert Blending  —  Layer Assignment Changes Colour</text>
+<text x="480.0" y="62.0" font-size="10" fill="#71717a" text-anchor="middle" font-weight="normal" font-family="Inter,ui-sans-serif,sans-serif" >Same three filaments, different per-layer assignment → different perceived colour.</text>
+<text x="480.0" y="78.0" font-size="10" fill="#71717a" text-anchor="middle" font-weight="normal" font-family="Inter,ui-sans-serif,sans-serif" >Side bars: cumulative perceived colour as light penetrates deeper (outer layers dominate).</text>
+<line x1="156.0" y1="108.0" x2="804.0" y2="108.0" stroke="#e4e4e7" stroke-width="1.8" />
+<text x="160.0" y="103.0" font-size="9" fill="#71717a" text-anchor="start" font-weight="normal" font-family="Inter,ui-sans-serif,sans-serif" >outer face — closest to viewer</text>
+<g clip-path="url(#clipA)"><rect x="156.0" y="108.0" width="324.0" height="80.0" fill="#2980b9" stroke="none" rx="0" /><rect x="156.0" y="188.0" width="324.0" height="80.0" fill="#c0392b" stroke="none" rx="0" /><rect x="156.0" y="268.0" width="324.0" height="80.0" fill="#27ae60" stroke="none" rx="0" /></g>
+<g clip-path="url(#clipB)"><rect x="480.0" y="108.0" width="324.0" height="80.0" fill="#c0392b" stroke="none" rx="0" /><rect x="480.0" y="188.0" width="324.0" height="80.0" fill="#2980b9" stroke="none" rx="0" /><rect x="480.0" y="268.0" width="324.0" height="80.0" fill="#27ae60" stroke="none" rx="0" /></g>
+<rect x="44.0" y="108.0" width="50.0" height="240.0" fill="url(#gradA)" stroke="#3f3f46" stroke-width="1" rx="4" />
+<line x1="150.0" y1="111.0" x2="150.0" y2="185.0" stroke="#2980b9" stroke-width="2" />
+<line x1="150.0" y1="111.0" x2="145.0" y2="111.0" stroke="#2980b9" stroke-width="2" />
+<line x1="150.0" y1="185.0" x2="145.0" y2="185.0" stroke="#2980b9" stroke-width="2" />
+<text x="100.0" y="152.0" font-size="10" fill="#2980b9" text-anchor="start" font-weight="bold" font-family="Inter,ui-sans-serif,sans-serif" >N1</text>
+<line x1="150.0" y1="191.0" x2="150.0" y2="265.0" stroke="#c0392b" stroke-width="2" />
+<line x1="150.0" y1="191.0" x2="145.0" y2="191.0" stroke="#c0392b" stroke-width="2" />
+<line x1="150.0" y1="265.0" x2="145.0" y2="265.0" stroke="#c0392b" stroke-width="2" />
+<text x="100.0" y="232.0" font-size="10" fill="#c0392b" text-anchor="start" font-weight="bold" font-family="Inter,ui-sans-serif,sans-serif" >N2</text>
+<line x1="150.0" y1="271.0" x2="150.0" y2="345.0" stroke="#27ae60" stroke-width="2" />
+<line x1="150.0" y1="271.0" x2="145.0" y2="271.0" stroke="#27ae60" stroke-width="2" />
+<line x1="150.0" y1="345.0" x2="145.0" y2="345.0" stroke="#27ae60" stroke-width="2" />
+<text x="100.0" y="312.0" font-size="10" fill="#27ae60" text-anchor="start" font-weight="bold" font-family="Inter,ui-sans-serif,sans-serif" >N3</text>
+<rect x="866.0" y="108.0" width="50.0" height="240.0" fill="url(#gradB)" stroke="#3f3f46" stroke-width="1" rx="4" />
+<line x1="810.0" y1="111.0" x2="810.0" y2="185.0" stroke="#c0392b" stroke-width="2" />
+<line x1="810.0" y1="111.0" x2="815.0" y2="111.0" stroke="#c0392b" stroke-width="2" />
+<line x1="810.0" y1="185.0" x2="815.0" y2="185.0" stroke="#c0392b" stroke-width="2" />
+<text x="860.0" y="152.0" font-size="10" fill="#c0392b" text-anchor="end" font-weight="bold" font-family="Inter,ui-sans-serif,sans-serif" >N1</text>
+<line x1="810.0" y1="191.0" x2="810.0" y2="265.0" stroke="#2980b9" stroke-width="2" />
+<line x1="810.0" y1="191.0" x2="815.0" y2="191.0" stroke="#2980b9" stroke-width="2" />
+<line x1="810.0" y1="265.0" x2="815.0" y2="265.0" stroke="#2980b9" stroke-width="2" />
+<text x="860.0" y="232.0" font-size="10" fill="#2980b9" text-anchor="end" font-weight="bold" font-family="Inter,ui-sans-serif,sans-serif" >N2</text>
+<line x1="810.0" y1="271.0" x2="810.0" y2="345.0" stroke="#27ae60" stroke-width="2" />
+<line x1="810.0" y1="271.0" x2="815.0" y2="271.0" stroke="#27ae60" stroke-width="2" />
+<line x1="810.0" y1="345.0" x2="815.0" y2="345.0" stroke="#27ae60" stroke-width="2" />
+<text x="860.0" y="312.0" font-size="10" fill="#27ae60" text-anchor="end" font-weight="bold" font-family="Inter,ui-sans-serif,sans-serif" >N3</text>
+<rect x="156.0" y="348.0" width="648.0" height="12.0" fill="#c8baa0" stroke="none" rx="0" />
+<line x1="156.0" y1="348.0" x2="804.0" y2="348.0" stroke="#e4e4e7" stroke-width="1.8" />
+<text x="480.0" y="369.0" font-size="9" fill="#71717a" text-anchor="middle" font-weight="normal" font-family="Inter,ui-sans-serif,sans-serif" >opaque back wall</text>
+<line x1="480.0" y1="108.0" x2="480.0" y2="360.0" stroke="#f5a623" stroke-width="1.5" stroke-dasharray="6,3"/>
+<text x="486.0" y="103.0" font-size="9" fill="#f5a623" text-anchor="start" font-weight="normal" font-family="Inter,ui-sans-serif,sans-serif" >layer assignment changes here</text>
+<rect x="220.8" y="374.0" width="194.4" height="40.0" fill="#57727c" stroke="#e4e4e7" stroke-width="1" rx="5" />
+<text x="318.0" y="399.0" font-size="9" fill="#ffffff" text-anchor="middle" font-weight="normal" font-family="Inter,ui-sans-serif,sans-serif" >perceived colour</text>
+<text x="318.0" y="429.0" font-size="9" fill="#71717a" text-anchor="middle" font-weight="normal" font-family="Inter,ui-sans-serif,sans-serif" >Arrangement A:  N1=Blue, N2=Red, N3=Green</text>
+<rect x="544.8" y="374.0" width="194.4" height="40.0" fill="#746561" stroke="#e4e4e7" stroke-width="1" rx="5" />
+<text x="642.0" y="399.0" font-size="9" fill="#ffffff" text-anchor="middle" font-weight="normal" font-family="Inter,ui-sans-serif,sans-serif" >perceived colour</text>
+<text x="642.0" y="429.0" font-size="9" fill="#71717a" text-anchor="middle" font-weight="normal" font-family="Inter,ui-sans-serif,sans-serif" >Arrangement B:  N1=Red, N2=Blue, N3=Green</text>
+<path d="M69.0,348.0 Q69.0,394.0 220.8,394.0" fill="none" stroke="#71717a" stroke-width="1.5" marker-end="url(#arr)"/>
+<path d="M891.0,348.0 Q891.0,394.0 739.2,394.0" fill="none" stroke="#71717a" stroke-width="1.5" marker-end="url(#arr)"/>
+<text x="480.0" y="452.0" font-size="10" fill="#71717a" text-anchor="middle" font-weight="normal" font-family="Inter,ui-sans-serif,sans-serif" >Kromacut · multi-head colour analysis</text>
+</svg>

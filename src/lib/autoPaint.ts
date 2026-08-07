@@ -14,16 +14,16 @@ import {
     type OptimizerOptions,
     type OptimizerResult,
     type ScoringContext,
-} from './optimizer';
+} from './optimizer.ts';
 import {
     activeFrontlitCalibration,
     channelHds,
     computeProfileConfidence,
     type CalibrationRgb,
-} from './calibration';
-import { blendSrgbChannel } from './colorSpace';
+} from './calibration.ts';
+import { blendSrgbChannel } from './colorSpace.ts';
 
-export { LAYER_ACTIVATION_EPSILON } from './layerActivation';
+export { LAYER_ACTIVATION_EPSILON } from './layerActivation.ts';
 
 /** RGB color representation (0-255 range) */
 export interface RGB {

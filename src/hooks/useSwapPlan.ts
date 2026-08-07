@@ -1,6 +1,14 @@
 import { useMemo, useRef, useState } from 'react';
-import type { Swatch } from '../types';
-import type { AutoPaintResult } from '../lib/autoPaint';
+import type { Swatch, Filament, MultiHeadRangeAssignment } from '../types';
+import type { AutoPaintResult, TransitionZone } from '../lib/autoPaint';
+import type { WindowResult } from '../lib/multiHeadAnalysis';
+import { buildMultiHeadSchedule } from '../lib/multiHeadSchedule';
+import type {
+    MultiHeadNozzleEntry,
+    MultiHeadScheduleEvent,
+} from '../lib/multiHeadSchedule';
+
+export type { MultiHeadNozzleEntry, MultiHeadScheduleEvent };
 
 export type SwapEntry =
     | { type: 'start'; swatch: Swatch }
@@ -14,7 +22,15 @@ export interface UseSwapPlanOptions {
     slicerFirstLayerHeight: number;
     paintMode: 'manual' | 'autopaint';
     autoPaintResult?: AutoPaintResult;
-    disabled?: boolean;
+    multiHeadWindows?: WindowResult[];
+    /** When set, used in place of autoPaintResult.layers for the swap plan. */
+    patchedTransitionZones?: TransitionZone[];
+    // Multi-head nozzle assignment data (from optimizeNozzleAssignments).
+    nozzleAssignments?: number[][];
+    windowRunFilaments?: string[][];
+    preWindowFilaments?: string[];
+    nonWindowedRanges?: MultiHeadRangeAssignment[];
+    filaments?: Filament[];
     /** Flat Paint prints have no manual swap sequence (multi-material per layer) */
     flatPaint?: boolean;
 }
@@ -27,20 +43,29 @@ export function useSwapPlan({
     slicerFirstLayerHeight,
     paintMode,
     autoPaintResult,
-    disabled = false,
+    multiHeadWindows = [],
+    patchedTransitionZones,
+    nozzleAssignments,
+    windowRunFilaments,
+    nonWindowedRanges,
+    filaments,
     flatPaint = false,
 }: UseSwapPlanOptions) {
     const swapPlan = useMemo(() => {
-        if (disabled || flatPaint) {
+        if (flatPaint) {
             return [] as SwapEntry[];
         }
 
-        // When auto-paint is active and we have computed layers, use those
-        if (paintMode === 'autopaint' && autoPaintResult && autoPaintResult.layers.length > 0) {
+        // When auto-paint is active, build the swap plan from the effective
+        // layer sequence.  patchedTransitionZones (from the multi-head analysis)
+        // takes priority over the original autoPaintResult.layers so that any
+        // reordered windows appear as additional swaps in the instructions.
+        const effectiveLayers = patchedTransitionZones ?? autoPaintResult?.layers;
+        if (paintMode === 'autopaint' && effectiveLayers && effectiveLayers.length > 0) {
             const plan: SwapEntry[] = [];
-            autoPaintResult.layers.forEach(
+            effectiveLayers.forEach(
                 (
-                    layer: { filamentColor: string; startHeight: number; endHeight: number },
+                    layer: { filamentColor: string; startHeight: number },
                     idx: number
                 ) => {
                     const sw: Swatch = { hex: layer.filamentColor, a: 255 };
@@ -112,9 +137,22 @@ export function useSwapPlan({
         slicerFirstLayerHeight,
         paintMode,
         autoPaintResult,
-        disabled,
+        patchedTransitionZones,
         flatPaint,
     ]);
+
+    // Per-checkpoint head schedule for multi-head mode, ordered by layer number.
+    const multiHeadPlan = useMemo<MultiHeadScheduleEvent[] | null>(
+        () =>
+            buildMultiHeadSchedule({
+                multiHeadWindows,
+                nozzleAssignments,
+                windowRunFilaments,
+                nonWindowedRanges,
+                filaments,
+            }),
+        [multiHeadWindows, nozzleAssignments, windowRunFilaments, nonWindowedRanges, filaments]
+    );
 
     // Build a plain-text representation of the instructions for copying
     const buildInstructionsText = () => {
@@ -151,28 +189,45 @@ export function useSwapPlan({
             return lines.join('\n');
         }
 
-        if (swapPlan.length) {
-            const first = swapPlan[0];
-            if (first.type === 'start') lines.push(`Start with color: ${first.swatch.hex}`);
-        }
-
-        lines.push('');
-        lines.push('Color swap plan:');
-        if (swapPlan.length <= 1) {
-            lines.push('- No swaps — only one color configured.');
-        } else {
-            let idx = 1;
-            for (const entry of swapPlan) {
-                if (entry.type === 'start') {
-                    lines.push(`${idx}. Start with ${entry.swatch.hex}`);
-                } else {
-                    lines.push(
-                        `${idx}. Swap to ${entry.swatch.hex} at layer ${
-                            entry.layer
-                        } (~${entry.height.toFixed(3)} mm)`
-                    );
+        if (multiHeadPlan) {
+            lines.push('Head load schedule:');
+            for (const evt of multiHeadPlan.filter(e => e.isPrePrint || e.swapCount > 0)) {
+                const label = evt.isPrePrint
+                    ? 'Before print — load all heads:'
+                    : evt.swapCount === 0
+                        ? `Layer ${evt.startLayer} — no changes needed:`
+                        : `Layer ${evt.startLayer} — swap ${evt.swapCount} head${evt.swapCount !== 1 ? 's' : ''}:`;
+                lines.push(label);
+                for (const n of evt.nozzles) {
+                    if (evt.isPrePrint || n.changed) {
+                        lines.push(`  Head ${n.nozzle}: ${n.filamentName}${n.changed ? ' ← swap' : ''}`);
+                    }
                 }
-                idx++;
+                lines.push('');
+            }
+        } else {
+            if (swapPlan.length) {
+                const first = swapPlan[0];
+                if (first.type === 'start') lines.push(`Start with color: ${first.swatch.hex}`);
+            }
+            lines.push('');
+            lines.push('Color swap plan:');
+            if (swapPlan.length <= 1) {
+                lines.push('- No swaps — only one color configured.');
+            } else {
+                let idx = 1;
+                for (const entry of swapPlan) {
+                    if (entry.type === 'start') {
+                        lines.push(`${idx}. Start with ${entry.swatch.hex}`);
+                    } else {
+                        lines.push(
+                            `${idx}. Swap to ${entry.swatch.hex} at layer ${
+                                entry.layer
+                            } (~${entry.height.toFixed(3)} mm)`
+                        );
+                    }
+                    idx++;
+                }
             }
         }
         appendFooter();
@@ -208,6 +263,7 @@ export function useSwapPlan({
 
     return {
         swapPlan,
+        multiHeadPlan,
         copied,
         copyToClipboard,
     };

@@ -31,11 +31,32 @@ interface MeshYieldOptions {
     yieldIntervalMs?: number;
     onYield?: () => Promise<void>;
     onProgress?: (progress: MeshProgress) => void;
+    /**
+     * Skip the downward-facing bottom cap. Used by the multi-head / per-colour-group
+     * meshing path when stacking sub-meshes on top of a lower layer so interior faces
+     * don't z-fight the layer beneath.
+     */
+    skipBottomCap?: boolean;
+    /**
+     * Skip the binary corner-contact repair pass. Used when a layer is split into
+     * multiple colour groups so adjacent groups aren't independently "repaired" into
+     * overlapping geometry.
+     */
+    skipRepair?: boolean;
+    /**
+     * Union of all colour-group masks on this layer. When provided, boundary smoothing
+     * runs on this combined solid instead of the group's own mask: internal seams
+     * between adjacent groups are never smoothed, and vertices on the true exterior
+     * are moved identically by every group's mesher. Without this, each group smooths
+     * its own outline independently and adjacent colours peel apart at shared edges.
+     */
+    combinedMask?: PixelMask;
 }
 
 interface GridMeshOptions extends MeshYieldOptions {
     mesher: 'greedy' | 'smooth';
     smoothBoundary: boolean;
+    combinedMask?: PixelMask;
 }
 
 interface Rect {
@@ -384,15 +405,24 @@ function createGridVertexMapper(
     meshingPixels: PixelMask,
     width: number,
     height: number,
-    smoothBoundary: boolean
+    smoothBoundary: boolean,
+    combinedMask?: PixelMask
 ) {
     if (!smoothBoundary) {
         return (x: number, y: number): [number, number] => [x, y];
     }
 
     const stride = width + 1;
+    // Build the smoothing graph from the union of all colour groups on the layer
+    // (falling back to this group's own pixels for single-group layers). Every group
+    // is a subset of the combined mask, so all groups derive the identical boundary
+    // graph and therefore identical smoothed positions — vertices shared between
+    // adjacent groups stay welded instead of each group smoothing them differently.
+    // Seam vertices interior to the combined solid never enter the graph and map to
+    // their original grid position in every group.
+    const solidPixels = combinedMask ?? meshingPixels;
     const getCell = (x: number, y: number) =>
-        x >= 0 && y >= 0 && x < width && y < height && meshingPixels[y * width + x] ? 1 : 0;
+        x >= 0 && y >= 0 && x < width && y < height && solidPixels[y * width + x] ? 1 : 0;
 
     const boundaryNeighbors = new Map<number, Set<number>>();
     const addBoundaryEdge = (ax: number, ay: number, bx: number, by: number) => {
@@ -509,7 +539,10 @@ async function generateGridMesh(
     options: GridMeshOptions
 ): Promise<MeshData> {
     const startedAt = performance.now();
-    const meshingPixels = repairBinaryCornerContacts(activePixels, width, height);
+    const skipBottomCap = options.skipBottomCap ?? false;
+    const meshingPixels = options.skipRepair
+        ? activePixels
+        : repairBinaryCornerContacts(activePixels, width, height);
     const positions: number[] = [];
     const indices: number[] = [];
     let vertCount = 0;
@@ -555,7 +588,8 @@ async function generateGridMesh(
         meshingPixels,
         width,
         height,
-        options.smoothBoundary
+        options.smoothBoundary,
+        options.combinedMask
     );
 
     const getOrAddVertex = (x: number, y: number, isTop: boolean): number => {
@@ -775,7 +809,9 @@ async function generateGridMesh(
 
         for (const [a, b, c] of faces) {
             indices.push(topLoop[a], topLoop[b], topLoop[c]);
-            indices.push(bottomLoop[a], bottomLoop[c], bottomLoop[b]);
+            if (!skipBottomCap) {
+                indices.push(bottomLoop[a], bottomLoop[c], bottomLoop[b]);
+            }
         }
 
         await maybeYield();
