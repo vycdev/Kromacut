@@ -227,6 +227,47 @@ test('appearance transforms score the same gamut-mapped color they render', asyn
     assert.ok(Math.abs(corrected.b - realized.b) < 1e-12);
 });
 
+test('conflicting exact anchors prefer reviewed Palette Proof evidence over simulator proximity', async () => {
+    const { model } = await modules;
+    const suffixLayers = [{ filamentId: 'purple', filamentColor: '#663399', thickness: 0.08 }];
+    const identity = model.createIdentityAppearanceRankModel();
+    const withAnchors = {
+        ...identity,
+        exactAnchors: [
+            {
+                id: 'matrix-newer',
+                proofId: 'matrix-proof',
+                source: 'stack-matrix' as const,
+                sourceStackKey: 'matrix-stack',
+                targetLab: [50, 1, 1] as [number, number, number],
+                suffixLayers,
+                maxSubstrateTransmission: 0,
+                observedAt: '2026-08-08T12:00:00.000Z',
+                confidence: 0.99,
+            },
+            {
+                id: 'palette-reviewed',
+                proofId: 'palette-proof',
+                source: 'palette-proof' as const,
+                sourceStackKey: 'proof-stack',
+                targetLab: [72, 30, -20] as [number, number, number],
+                suffixLayers,
+                maxSubstrateTransmission: 0,
+                observedAt: '2026-08-07T12:00:00.000Z',
+                confidence: 1,
+            },
+        ],
+    };
+
+    const resolved = model.resolveAppearanceRankModel(
+        { L: 50, a: 0, b: 0 },
+        withAnchors,
+        suffixLayers
+    );
+    assert.equal(resolved.exactAnchor?.id, 'palette-reviewed');
+    assert.deepEqual(resolved.lab, { L: 72, a: 30, b: -20 });
+});
+
 test('appearance fit is deterministic and only applies after held-out improvement', async () => {
     const { model, profile } = await modules;
     const { fitAppearanceRankModel } = model;
@@ -471,6 +512,36 @@ test('proof history counts target visits and rejects evidence from another filam
     });
     assert.equal(result.selectionHistory.targetPriorityById.get(snapshot.targetMappings[0].id), 1);
     assert.equal(result.hasUnseenEvidence, true);
+    const candidateHistory = result.selectionHistory.candidateHistoryByTargetId.get(
+        snapshot.targetMappings[0].id
+    );
+    assert.deepEqual(candidateHistory?.anchorStackKeys, []);
+    assert.equal(candidateHistory?.anchorStackKey, undefined);
+    const continuationCandidates = proof.selectPrefixCandidates(
+        snapshot.targetMappings[0],
+        proof.enumerateFinalStackPrefixes(snapshot),
+        undefined,
+        5,
+        candidateHistory,
+        'local-refinement'
+    );
+    assert.ok(continuationCandidates.length > 0);
+    assert.ok(continuationCandidates.every((candidate) => candidate.role === 'unseen-alternative'));
+    assert.ok(
+        continuationCandidates.every(
+            (candidate) =>
+                !candidateHistory?.testedStackKeys.has(candidate.prefix.canonicalStackKey)
+        )
+    );
+    const nextProofCandidates = proof.selectPrefixCandidates(
+        snapshot.targetMappings[0],
+        proof.enumerateFinalStackPrefixes(snapshot),
+        undefined,
+        5,
+        candidateHistory
+    );
+    assert.ok(nextProofCandidates.length > 0);
+    assert.ok(nextProofCandidates.every((candidate) => candidate.role === 'unseen-alternative'));
     const rejected = history.buildPaletteProofHistory(
         appearance,
         snapshot,

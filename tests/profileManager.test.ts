@@ -60,6 +60,46 @@ test('auto-paint profile exports use kfil filenames', async () => {
     assert.equal(profileFileName('PLA Basic White'), 'PLA_Basic_White.kfil');
 });
 
+test('dirty profile exports use a fresh id and omit incompatible appearance evidence', async () => {
+    const { buildProfileExportSnapshot } = await loadProfileManager();
+    const active: AutoPaintProfile = {
+        id: 'saved-profile',
+        name: 'Saved Profile',
+        version: 3,
+        filaments: [{ id: 'old-filament', color: '#111111', td: 0.2 }],
+        appearance: {
+            schemaVersion: 1,
+            proofs: [{ id: 'saved-proof' } as never],
+            viewingSessions: [],
+            targetJudgments: [],
+            stackMatrices: [],
+        },
+        createdAt: 1,
+        updatedAt: 1,
+    };
+    const exported = buildProfileExportSnapshot(
+        active,
+        [{ id: 'edited-filament', color: '#222222', td: 0.3 }],
+        true
+    );
+
+    assert.notEqual(exported.id, active.id);
+    assert.equal(exported.name, 'Saved Profile (unsaved edits)');
+    assert.equal(exported.appearance, undefined);
+    assert.equal(exported.filaments[0].id, 'edited-filament');
+});
+
+test('profile dirty equality includes stable filament identity', async () => {
+    const { profileFilamentsEqual } = await loadProfileManager();
+    assert.equal(
+        profileFilamentsEqual(
+            [{ id: 'first-id', color: '#ffffff', td: 0.4 }],
+            [{ id: 'second-id', color: '#ffffff', td: 0.4 }]
+        ),
+        false
+    );
+});
+
 const HUEFORGE_CSV = `Brand, Type, Color, Name, TD, Tags, Secondary_Type, Secondary_Color, Secondary_Strength, Owned, Uuid
 Inland Basic,PLA,#bf9c81,Light Brown,1.7,,None,#0000ff,0,true,{631cbb3a-9db8-45b4-96cd-5d21a5f3b2e9}
 Overture Basic,PLA,#033877,Blue,3.5,,None,#0000ff,0,true,{c8518afd-068e-4a5c-90d2-9981d4d7edde}`;
@@ -268,6 +308,43 @@ test('profile imports strip legacy photo calibration objects', async () => {
 
     assert.equal(result.imported.length, 1);
     assert.equal(result.imported[0].filaments[0].calibration, undefined);
+});
+
+test('same-id legacy imports cannot erase newer appearance calibration evidence', async () => {
+    const { importProfiles } = await loadProfileManager();
+    const existing: AutoPaintProfile = {
+        id: 'calibrated-profile',
+        name: 'Calibrated Profile',
+        version: 3,
+        filaments: [{ id: 'filament-1', color: '#ffffff', td: 0.4 }],
+        appearance: {
+            schemaVersion: 1,
+            proofs: [{ id: 'calibrated-proof' } as never],
+            viewingSessions: [],
+            targetJudgments: [],
+            stackMatrices: [],
+        },
+        createdAt: 1,
+        updatedAt: 2,
+    };
+    const legacy = {
+        id: existing.id,
+        name: existing.name,
+        version: 2,
+        filaments: structuredClone(existing.filaments),
+        createdAt: 1,
+        updatedAt: 1,
+    } as AutoPaintProfile;
+    const result = importProfiles([existing], [legacy]);
+
+    assert.equal(result.overwritten.length, 0);
+    assert.equal(
+        result.profiles.find((profile) => profile.id === existing.id)?.appearance,
+        existing.appearance
+    );
+    assert.equal(result.profiles.length, 2);
+    assert.notEqual(result.imported[0].id, existing.id);
+    assert.equal(result.imported[0].name, 'Calibrated Profile (2)');
 });
 
 test('stored auto-paint profiles strip legacy photo calibration objects on load', async () => {

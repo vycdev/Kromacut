@@ -9,6 +9,18 @@ interface Mesh {
     triangles: number[];
 }
 
+interface MeshPart {
+    filamentIndex: number;
+    mesh: Mesh;
+    name: string;
+}
+
+const RECIPE_MESH_GROUP_COUNT = 8;
+
+function emptyMesh(): Mesh {
+    return { vertices: [], triangles: [] };
+}
+
 function appendBox(
     mesh: Mesh,
     x0: number,
@@ -110,7 +122,7 @@ function cellOrigin(
 }
 
 function appendRecipe(
-    meshes: Mesh[],
+    meshes: Mesh[][],
     record: StackMatrixCalibrationV1,
     stack: readonly number[],
     row: number,
@@ -119,8 +131,12 @@ function appendRecipe(
 ) {
     const { x, y } = cellOrigin(record, row, column);
     stack.forEach((filamentIndex, layerIndex) => {
+        // Cubes in one parity group are separated by at least one complete voxel in
+        // x, y, or z. This keeps every mesh object closed and manifold while the
+        // parent assembly can still group all pieces by their physical material.
+        const group = ((column & 1) << 2) | ((row & 1) << 1) | (layerIndex & 1);
         appendBox(
-            meshes[filamentIndex],
+            meshes[filamentIndex][group],
             x,
             y,
             foundationHeight + layerIndex * record.process.layerHeight,
@@ -132,14 +148,17 @@ function appendRecipe(
 }
 
 export async function generateStackMatrix3mf(record: StackMatrixCalibrationV1): Promise<Blob> {
-    const meshes = record.filaments.map((): Mesh => ({ vertices: [], triangles: [] }));
+    const recipeMeshes = record.filaments.map(() =>
+        Array.from({ length: RECIPE_MESH_GROUP_COUNT }, emptyMesh)
+    );
+    const foundationMesh = emptyMesh();
     const size = stackMatrixPhysicalSize(record);
     const foundationHeight = record.foundationLayerThicknesses.reduce(
         (sum, thickness) => sum + thickness,
         0
     );
     appendBox(
-        meshes[record.backingFilamentIndex],
+        foundationMesh,
         -size.width / 2,
         -size.height / 2,
         0,
@@ -150,7 +169,7 @@ export async function generateStackMatrix3mf(record: StackMatrixCalibrationV1): 
 
     for (const sample of record.samples) {
         appendRecipe(
-            meshes,
+            recipeMeshes,
             record,
             sample.stack,
             sample.row + 1,
@@ -166,7 +185,25 @@ export async function generateStackMatrix3mf(record: StackMatrixCalibrationV1): 
     ] as const;
     record.cornerStacks.forEach((stack, index) => {
         const [row, column] = markerPositions[index];
-        appendRecipe(meshes, record, stack, row, column, foundationHeight);
+        appendRecipe(recipeMeshes, record, stack, row, column, foundationHeight);
+    });
+
+    const meshParts: MeshPart[] = [
+        {
+            filamentIndex: record.backingFilamentIndex,
+            mesh: foundationMesh,
+            name: `${record.filaments[record.backingFilamentIndex].name} foundation`,
+        },
+    ];
+    recipeMeshes.forEach((groups, filamentIndex) => {
+        groups.forEach((mesh, group) => {
+            if (mesh.triangles.length === 0) return;
+            meshParts.push({
+                filamentIndex,
+                mesh,
+                name: `${record.filaments[filamentIndex].name} matrix group ${group + 1}`,
+            });
+        });
     });
 
     const materialId = 1;
@@ -174,18 +211,16 @@ export async function generateStackMatrix3mf(record: StackMatrixCalibrationV1): 
     const partObjectIds: number[] = [];
     const objects: string[] = [];
     const partSettings: string[] = [];
-    record.filaments.forEach((filament, index) => {
-        const mesh = meshes[index];
-        if (mesh.triangles.length === 0) return;
+    meshParts.forEach((part) => {
         const objectId = nextObjectId++;
         partObjectIds.push(objectId);
         objects.push(
-            `<object id="${objectId}" p:UUID="${uuid()}" type="model" pid="${materialId}" pindex="${index}" name="${escapeXml(filament.name)}">${meshXml(mesh)}</object>`
+            `<object id="${objectId}" p:UUID="${uuid()}" type="model" pid="${materialId}" pindex="${part.filamentIndex}" name="${escapeXml(part.name)}">${meshXml(part.mesh)}</object>`
         );
         partSettings.push(
             `  <part id="${objectId}" subtype="normal_part">\n` +
-                `   <metadata key="name" value="${escapeXml(filament.name)}"/>\n` +
-                `   <metadata key="extruder" value="${index + 1}"/>\n` +
+                `   <metadata key="name" value="${escapeXml(part.name)}"/>\n` +
+                `   <metadata key="extruder" value="${part.filamentIndex + 1}"/>\n` +
                 `  </part>\n`
         );
     });

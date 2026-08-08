@@ -62,7 +62,7 @@ Use custom palettes when you want the reduced image to match a known filament se
 
 Auto-paint filament profiles are named sets of filaments that can be saved, loaded, imported, and exported. They use `.kfil` and store filament colors, names, hiding distance values, calibration data, saved Palette Proof records and judgments, and bounded Stack Matrix plans and measured colors when available. Older `.kapp` profile files can still be imported. Profiles saved by older versions stored uncalibrated values on the conventional TD scale; they are converted automatically (×0.1) when loaded or imported.
 
-Use the **upload icon** in the Auto-paint profile toolbar to import a file. Use the **download icon** to export the current filament set. Exported files default to `.kfil`.
+Use the **upload icon** in the Auto-paint profile toolbar to import a file. An older same-ID file without appearance data is imported as a separate renamed copy instead of erasing newer calibration evidence, and a storage failure leaves the existing profile list unchanged with an error message. Use the **download icon** to export the current filament set. Exported files default to `.kfil`. When the loaded profile has unsaved filament edits, the export is a new “unsaved edits” profile without appearance evidence tied to the old filament identities.
 
 ### Supported import formats
 

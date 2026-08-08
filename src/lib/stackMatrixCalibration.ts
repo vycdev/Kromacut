@@ -19,6 +19,14 @@ export interface StackMatrixBuildOptions {
     stackLayerCount: number;
     maximumSamples: number;
     backingFilamentId: string;
+    /** Fingerprint of the complete named profile that owns this subset matrix. */
+    ownerProfileFingerprint?: string;
+}
+
+export interface StackMatrixCompletionEvidence {
+    alignmentConfidence: number;
+    alignmentMethod: 'detected' | 'manual';
+    alignmentVerified: boolean;
 }
 
 export const STACK_MATRIX_PATCH_SIZE_MM = 5;
@@ -27,6 +35,8 @@ export const STACK_MATRIX_GAP_MM = 0;
 const FOUNDATION_MINIMUM_MM = 0.6;
 const FOUNDATION_OPACITY_MULTIPLIER = 1.3;
 const MAX_MATRIX_FILAMENTS = 8;
+const MIN_HD_GAMUT_POOL_SIZE = 8_192;
+const HD_GAMUT_POOL_MULTIPLIER = 8;
 
 function roundHeight(value: number): number {
     return Math.round(value * 1e6) / 1e6;
@@ -141,15 +151,19 @@ function squaredLabDistance(left: Candidate['lab'], right: Candidate['lab']): nu
 
 function selectHdGamutCandidates(
     candidates: Candidate[],
-    filamentCount: number,
-    stackLayerCount: number,
+    pureCombinationIndices: readonly number[],
     maximumSamples: number
 ): Candidate[] {
     if (candidates.length <= maximumSamples) return candidates;
     const selectedIndices: number[] = [];
     const selectedSet = new Set<number>();
     const add = (candidateIndex: number) => {
-        if (!selectedSet.has(candidateIndex) && selectedIndices.length < maximumSamples) {
+        if (
+            candidateIndex >= 0 &&
+            candidateIndex < candidates.length &&
+            !selectedSet.has(candidateIndex) &&
+            selectedIndices.length < maximumSamples
+        ) {
             selectedSet.add(candidateIndex);
             selectedIndices.push(candidateIndex);
         }
@@ -157,12 +171,8 @@ function selectHdGamutCandidates(
 
     // Every pure filament recipe is retained, even when the rest of the board
     // is selected for HD-predicted gamut coverage.
-    for (let filamentIndex = 0; filamentIndex < filamentCount; filamentIndex++) {
-        let combinationIndex = 0;
-        for (let layer = 0; layer < stackLayerCount; layer++) {
-            combinationIndex = combinationIndex * filamentCount + filamentIndex;
-        }
-        add(combinationIndex);
+    for (const combinationIndex of pureCombinationIndices) {
+        add(candidates.findIndex((candidate) => candidate.combinationIndex === combinationIndex));
     }
 
     const minimumDistances = new Float64Array(candidates.length);
@@ -202,6 +212,38 @@ function selectHdGamutCandidates(
         .sort((left, right) => left.combinationIndex - right.combinationIndex);
 }
 
+function pureCombinationIndices(filamentCount: number, stackLayerCount: number): number[] {
+    return Array.from({ length: filamentCount }, (_, filamentIndex) => {
+        let combinationIndex = 0;
+        for (let layer = 0; layer < stackLayerCount; layer++) {
+            combinationIndex = combinationIndex * filamentCount + filamentIndex;
+        }
+        return combinationIndex;
+    });
+}
+
+function candidatePoolCombinationIndices(
+    totalCombinationCount: number,
+    maximumSamples: number,
+    pureIndices: readonly number[]
+): number[] {
+    if (totalCombinationCount <= maximumSamples) {
+        return Array.from({ length: totalCombinationCount }, (_, index) => index);
+    }
+    const poolSize = Math.min(
+        totalCombinationCount,
+        Math.max(MIN_HD_GAMUT_POOL_SIZE, maximumSamples * HD_GAMUT_POOL_MULTIPLIER)
+    );
+    const indices = new Set<number>(pureIndices);
+    if (poolSize === 1) indices.add(0);
+    else {
+        for (let slot = 0; slot < poolSize; slot++) {
+            indices.add(Math.round((slot * (totalCombinationCount - 1)) / (poolSize - 1)));
+        }
+    }
+    return [...indices].sort((left, right) => left - right);
+}
+
 function uuid(): string {
     if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
         return crypto.randomUUID();
@@ -222,7 +264,7 @@ export function buildStackMatrixCalibration(
     if (backingIndex < 0) throw new Error('The Stack Matrix backing filament is not selected');
     const stackLayerCount = Math.max(2, Math.min(6, Math.round(options.stackLayerCount)));
     const maximumSamples = Math.max(
-        4,
+        filaments.length,
         Math.min(MAX_STACK_MATRIX_SAMPLES, Math.round(options.maximumSamples))
     );
     const totalCombinationCount = filaments.length ** stackLayerCount;
@@ -230,8 +272,14 @@ export function buildStackMatrixCalibration(
         throw new Error('This Stack Matrix has too many combinations');
     }
 
-    const candidates: Candidate[] = new Array(totalCombinationCount);
-    for (let combinationIndex = 0; combinationIndex < totalCombinationCount; combinationIndex++) {
+    const pureIndices = pureCombinationIndices(filaments.length, stackLayerCount);
+    const poolIndices = candidatePoolCombinationIndices(
+        totalCombinationCount,
+        maximumSamples,
+        pureIndices
+    );
+    const candidates: Candidate[] = [];
+    for (const combinationIndex of poolIndices) {
         const stack = decodeCombination(combinationIndex, filaments.length, stackLayerCount);
         const predictedColor = predictStackColor(
             filaments,
@@ -239,19 +287,14 @@ export function buildStackMatrixCalibration(
             stack,
             options.layerHeight
         );
-        candidates[combinationIndex] = {
+        candidates.push({
             combinationIndex,
             stack,
             predictedColor,
             lab: rgbToLab([predictedColor.rgb[0], predictedColor.rgb[1], predictedColor.rgb[2]]),
-        };
+        });
     }
-    const selected = selectHdGamutCandidates(
-        candidates,
-        filaments.length,
-        stackLayerCount,
-        maximumSamples
-    );
+    const selected = selectHdGamutCandidates(candidates, pureIndices, maximumSamples);
     const columns = Math.ceil(Math.sqrt(selected.length));
     const rows = Math.ceil(selected.length / columns);
     const foundationLayerThicknesses = matrixFoundationLayerThicknesses(
@@ -259,6 +302,7 @@ export function buildStackMatrixCalibration(
         options.layerHeight,
         options.firstLayerHeight
     );
+    const printableFirstLayerHeight = Math.max(options.layerHeight, options.firstLayerHeight);
     const samples = selected.map((candidate, index) => {
         const layers = stackLayers(
             filaments,
@@ -290,9 +334,10 @@ export function buildStackMatrixCalibration(
         id: `stack-matrix-${uuid()}`,
         status: 'planned',
         process: {
-            filamentProfileFingerprint: fingerprintAppearanceFilaments(inputFilaments),
+            filamentProfileFingerprint:
+                options.ownerProfileFingerprint ?? fingerprintAppearanceFilaments(inputFilaments),
             layerHeight: roundHeight(options.layerHeight),
-            firstLayerHeight: roundHeight(options.firstLayerHeight),
+            firstLayerHeight: roundHeight(printableFirstLayerHeight),
             unknownFields: [],
         },
         filaments: filaments.map((filament) => ({
@@ -329,7 +374,8 @@ export function completeStackMatrixCalibration(
     measuredColors: readonly Rgb[],
     photoName: string,
     referenceCorrection: boolean,
-    timestamp = new Date().toISOString()
+    timestamp = new Date().toISOString(),
+    evidence?: StackMatrixCompletionEvidence
 ): StackMatrixCalibrationV1 {
     if (measuredColors.length !== record.samples.length) {
         throw new Error('The photographed grid does not match this Stack Matrix');
@@ -344,30 +390,17 @@ export function completeStackMatrixCalibration(
         completedAt: timestamp,
         photoName: photoName.slice(0, 256) || 'matrix-photo',
         referenceCorrection,
+        ...(evidence
+            ? {
+                  alignmentConfidence: Math.max(0, Math.min(1, evidence.alignmentConfidence)),
+                  alignmentMethod: evidence.alignmentMethod,
+                  alignmentVerified: evidence.alignmentVerified,
+              }
+            : {}),
     };
 }
 
-function sampleRgb(
-    pixels: Uint8ClampedArray,
-    width: number,
-    height: number,
-    point: MatrixPhotoPoint,
-    radius: number
-): Rgb {
-    const channels: number[][] = [[], [], []];
-    const centerX = Math.round(point.x);
-    const centerY = Math.round(point.y);
-    for (let y = centerY - radius; y <= centerY + radius; y++) {
-        if (y < 0 || y >= height) continue;
-        for (let x = centerX - radius; x <= centerX + radius; x++) {
-            if (x < 0 || x >= width) continue;
-            const offset = (y * width + x) * 4;
-            if (pixels[offset + 3] < 128) continue;
-            channels[0].push(pixels[offset]);
-            channels[1].push(pixels[offset + 1]);
-            channels[2].push(pixels[offset + 2]);
-        }
-    }
+function trimmedRgb(channels: number[][]): Rgb {
     return channels.map((values) => {
         if (values.length === 0) return 0;
         values.sort((left, right) => left - right);
@@ -375,6 +408,37 @@ function sampleRgb(
         const kept = values.slice(trim, Math.max(trim + 1, values.length - trim));
         return Math.round(kept.reduce((sum, value) => sum + value, 0) / kept.length);
     }) as Rgb;
+}
+
+function sampleProjectedCell(
+    pixels: Uint8ClampedArray,
+    width: number,
+    height: number,
+    project: (u: number, v: number) => MatrixPhotoPoint,
+    centerU: number,
+    centerV: number,
+    pitchU: number,
+    pitchV: number
+): Rgb {
+    const channels: number[][] = [[], [], []];
+    const sampleGridSize = 9;
+    const insetHalfSize = 0.16;
+    for (let sampleY = 0; sampleY < sampleGridSize; sampleY++) {
+        const offsetV = (sampleY / (sampleGridSize - 1) - 0.5) * 2 * insetHalfSize * pitchV;
+        for (let sampleX = 0; sampleX < sampleGridSize; sampleX++) {
+            const offsetU = (sampleX / (sampleGridSize - 1) - 0.5) * 2 * insetHalfSize * pitchU;
+            const point = project(centerU + offsetU, centerV + offsetV);
+            const x = Math.round(point.x);
+            const y = Math.round(point.y);
+            if (x < 0 || x >= width || y < 0 || y >= height) continue;
+            const offset = (y * width + x) * 4;
+            if (pixels[offset + 3] < 128) continue;
+            channels[0].push(pixels[offset]);
+            channels[1].push(pixels[offset + 1]);
+            channels[2].push(pixels[offset + 2]);
+        }
+    }
+    return trimmedRgb(channels);
 }
 
 function stackEquals(left: readonly number[], right: readonly number[]): boolean {
@@ -391,40 +455,27 @@ export function sampleStackMatrixPhoto(
 ): Rgb[] {
     if (pixels.length !== width * height * 4) throw new Error('Invalid Stack Matrix photo data');
     const project = createProjectiveMapper(corners);
-    const horizontal =
-        (Math.hypot(corners[1].x - corners[0].x, corners[1].y - corners[0].y) +
-            Math.hypot(corners[2].x - corners[3].x, corners[2].y - corners[3].y)) /
-        2;
-    const vertical =
-        (Math.hypot(corners[3].x - corners[0].x, corners[3].y - corners[0].y) +
-            Math.hypot(corners[2].x - corners[1].x, corners[2].y - corners[1].y)) /
-        2;
-    const radius = Math.max(
-        1,
-        Math.floor(
-            Math.min(horizontal / (record.grid.columns + 1), vertical / (record.grid.rows + 1)) *
-                0.16
-        )
-    );
+    const pitchU = 1 / (record.grid.columns + 1);
+    const pitchV = 1 / (record.grid.rows + 1);
     const measured = record.samples.map((sample) =>
-        sampleRgb(
+        sampleProjectedCell(
             pixels,
             width,
             height,
-            project(
-                (sample.column + 1) / (record.grid.columns + 1),
-                (sample.row + 1) / (record.grid.rows + 1)
-            ),
-            radius
+            project,
+            (sample.column + 1) * pitchU,
+            (sample.row + 1) * pitchV,
+            pitchU,
+            pitchV
         )
     );
     if (!referenceCorrection) return measured;
 
     const measuredCorners = [
-        sampleRgb(pixels, width, height, project(0, 0), radius),
-        sampleRgb(pixels, width, height, project(1, 0), radius),
-        sampleRgb(pixels, width, height, project(1, 1), radius),
-        sampleRgb(pixels, width, height, project(0, 1), radius),
+        sampleProjectedCell(pixels, width, height, project, 0, 0, pitchU, pitchV),
+        sampleProjectedCell(pixels, width, height, project, 1, 0, pitchU, pitchV),
+        sampleProjectedCell(pixels, width, height, project, 1, 1, pitchU, pitchV),
+        sampleProjectedCell(pixels, width, height, project, 0, 1, pitchU, pitchV),
     ];
     const expectedCorners = record.cornerStacks.map((stack) => {
         const sample = record.samples.find((candidate) => stackEquals(candidate.stack, stack));

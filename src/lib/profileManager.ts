@@ -1,8 +1,5 @@
 import type { Filament } from '../types';
-import {
-    sanitizeAppearanceProfile,
-    type AppearanceProfileV1,
-} from './appearanceProfile.ts';
+import { sanitizeAppearanceProfile, type AppearanceProfileV1 } from './appearanceProfile.ts';
 import { FRONTLIT_TD_SCALE, sanitizeFrontlitCalibration } from './calibration.ts';
 import { normalizeHexColor } from './colorUtils.ts';
 import { deduplicateName } from './nameUtils.ts';
@@ -189,6 +186,29 @@ export function createProfile(name: string, filaments: Filament[]): AutoPaintPro
     };
 }
 
+/** Build the exact profile payload exported by the UI without attaching stale appearance evidence. */
+export function buildProfileExportSnapshot(
+    active: AutoPaintProfile | undefined,
+    filaments: readonly Filament[],
+    isDirty: boolean
+): AutoPaintProfile {
+    if (active && !isTemplateProfileId(active.id) && !isDirty) {
+        return {
+            ...active,
+            filaments: filaments.map((filament) => ({ ...filament })),
+            updatedAt: Date.now(),
+        };
+    }
+    const name =
+        active && !isTemplateProfileId(active.id) && isDirty
+            ? `${active.name} (unsaved edits)`
+            : (active?.name ?? 'Exported Profile');
+    return createProfile(
+        name,
+        filaments.map((filament) => ({ ...filament }))
+    );
+}
+
 export function overwriteProfile(
     profiles: AutoPaintProfile[],
     id: string,
@@ -236,6 +256,7 @@ export function profileFilamentsEqual(a: Filament[], b: Filament[]): boolean {
     if (a.length !== b.length) return false;
     return a.every(
         (af, i) =>
+            af.id === b[i].id &&
             af.color === b[i].color &&
             af.td === b[i].td &&
             (af.name ?? '') === (b[i].name ?? '') &&
@@ -249,6 +270,16 @@ function appearanceEqual(
     b: AppearanceProfileV1 | undefined
 ): boolean {
     return JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+}
+
+function appearanceHasEvidence(appearance: AppearanceProfileV1 | undefined): boolean {
+    return Boolean(
+        appearance &&
+        (appearance.proofs.length > 0 ||
+            appearance.viewingSessions.length > 0 ||
+            appearance.targetJudgments.length > 0 ||
+            (appearance.stackMatrices?.length ?? 0) > 0)
+    );
 }
 
 export interface ImportResult {
@@ -305,6 +336,17 @@ export function importProfiles(
         };
         const appearance = sanitizeAppearanceProfile(raw.appearance);
         if (appearance) profile.appearance = appearance;
+
+        // A same-id file without usable appearance data must not erase newer
+        // Palette Proof or Stack Matrix evidence. Import it as a separate copy;
+        // the name collision path below will make the fork visible to the user.
+        const collidingProfile = result.profiles.find((candidate) => candidate.id === profile.id);
+        if (
+            appearanceHasEvidence(collidingProfile?.appearance) &&
+            !appearanceHasEvidence(profile.appearance)
+        ) {
+            profile.id = crypto.randomUUID();
+        }
 
         // 1. ID match → overwrite
         const idMatch = result.profiles.findIndex((p) => p.id === profile.id);

@@ -12,7 +12,10 @@ export const APPEARANCE_RENDERER_VERSION = 'kromacut-palette-proof-v1';
 export const MAX_STORED_PALETTE_PROOFS = 50;
 export const MAX_STORED_VIEWING_SESSIONS = 100;
 export const MAX_STORED_TARGET_JUDGMENTS = 1_000;
-export const MAX_STORED_STACK_MATRICES = 4;
+export const MAX_STORED_COMPLETED_STACK_MATRICES = 4;
+export const MAX_STORED_PLANNED_STACK_MATRICES = 4;
+export const MAX_STORED_STACK_MATRICES =
+    MAX_STORED_COMPLETED_STACK_MATRICES + MAX_STORED_PLANNED_STACK_MATRICES;
 export const MAX_STACK_MATRIX_SAMPLES = 2_025;
 
 const MAX_STACK_LAYERS = 500;
@@ -159,6 +162,9 @@ export interface StackMatrixCalibrationV1 {
     completedAt?: string;
     photoName?: string;
     referenceCorrection?: boolean;
+    alignmentConfidence?: number;
+    alignmentMethod?: 'detected' | 'manual';
+    alignmentVerified?: boolean;
 }
 
 export interface AppearanceProfileV1 {
@@ -612,11 +618,24 @@ export function upsertStackMatrixCalibration(
     const nextRecord = previous ? { ...record, createdAt: previous.createdAt } : record;
     return {
         ...current,
-        stackMatrices: [
+        stackMatrices: retainStackMatrixCalibrations([
             ...(current.stackMatrices ?? []).filter((matrix) => matrix.id !== record.id),
             nextRecord,
-        ].slice(-MAX_STORED_STACK_MATRICES),
+        ]),
     };
+}
+
+function retainStackMatrixCalibrations(
+    records: readonly StackMatrixCalibrationV1[]
+): StackMatrixCalibrationV1[] {
+    const completed = records
+        .filter((record) => record.status === 'complete')
+        .slice(-MAX_STORED_COMPLETED_STACK_MATRICES);
+    const planned = records
+        .filter((record) => record.status === 'planned')
+        .slice(-MAX_STORED_PLANNED_STACK_MATRICES);
+    const retainedIds = new Set([...completed, ...planned].map((record) => record.id));
+    return records.filter((record) => retainedIds.has(record.id));
 }
 
 export function deleteStackMatrixCalibration(
@@ -663,6 +682,7 @@ export function fingerprintCompletedAppearanceEvidence(
         .map((proof) => ({
             id: proof.id,
             proof: { cells: proof.proof.cells },
+            stack: proof.stack,
             prefixes: proof.prefixes,
             process: proof.process,
         }))
@@ -1267,9 +1287,17 @@ function sanitizeStackMatrixCalibration(value: unknown): StackMatrixCalibrationV
         value.completedAt === undefined ? undefined : isoTimestamp(value.completedAt);
     const photoName =
         value.photoName === undefined ? undefined : boundedString(value.photoName, 256);
+    const alignmentConfidence =
+        value.alignmentConfidence === undefined
+            ? undefined
+            : finiteNumber(value.alignmentConfidence, 0, 1);
+    const alignmentMethod =
+        value.alignmentMethod === 'detected' || value.alignmentMethod === 'manual'
+            ? value.alignmentMethod
+            : undefined;
     const filamentProfileFingerprint = boundedString(value.process.filamentProfileFingerprint, 128);
     const layerHeight = finiteNumber(value.process.layerHeight, 0.001, 10);
-    const firstLayerHeight = finiteNumber(value.process.firstLayerHeight, 0.001, 10);
+    const firstLayerHeight = finiteNumber(value.process.firstLayerHeight, 0, 10);
     const stackLayerCount = integer(value.stackLayerCount, 2, 6);
     const rows = integer(value.grid.rows, 1, 64);
     const columns = integer(value.grid.columns, 1, 64);
@@ -1283,6 +1311,9 @@ function sanitizeStackMatrixCalibration(value: unknown): StackMatrixCalibrationV
         (value.exportedAt !== undefined && !exportedAt) ||
         (value.completedAt !== undefined && !completedAt) ||
         (value.photoName !== undefined && !photoName) ||
+        (value.alignmentConfidence !== undefined && alignmentConfidence === null) ||
+        (value.alignmentMethod !== undefined && !alignmentMethod) ||
+        (value.alignmentVerified !== undefined && typeof value.alignmentVerified !== 'boolean') ||
         !filamentProfileFingerprint ||
         layerHeight === null ||
         firstLayerHeight === null ||
@@ -1386,7 +1417,7 @@ function sanitizeStackMatrixCalibration(value: unknown): StackMatrixCalibrationV
         process: {
             filamentProfileFingerprint,
             layerHeight,
-            firstLayerHeight,
+            firstLayerHeight: Math.max(layerHeight, firstLayerHeight),
             unknownFields: unknownFields as string[],
         },
         filaments: filaments as StackMatrixFilamentV1[],
@@ -1404,6 +1435,13 @@ function sanitizeStackMatrixCalibration(value: unknown): StackMatrixCalibrationV
         ...(photoName ? { photoName } : {}),
         ...(typeof value.referenceCorrection === 'boolean'
             ? { referenceCorrection: value.referenceCorrection }
+            : {}),
+        ...(alignmentConfidence !== undefined && alignmentConfidence !== null
+            ? { alignmentConfidence }
+            : {}),
+        ...(alignmentMethod ? { alignmentMethod } : {}),
+        ...(typeof value.alignmentVerified === 'boolean'
+            ? { alignmentVerified: value.alignmentVerified }
             : {}),
     };
 }
@@ -1476,12 +1514,14 @@ export function sanitizeAppearanceProfile(value: unknown): AppearanceProfileV1 |
         return draft;
     });
     const stackMatrices = Array.isArray(value.stackMatrices)
-        ? dedupeLast(
-              value.stackMatrices
-                  .slice(-MAX_STORED_STACK_MATRICES)
-                  .map(sanitizeStackMatrixCalibration)
-                  .filter((matrix): matrix is StackMatrixCalibrationV1 => matrix !== null),
-              (matrix) => matrix.id
+        ? retainStackMatrixCalibrations(
+              dedupeLast(
+                  value.stackMatrices
+                      .slice(-MAX_STORED_STACK_MATRICES * 4)
+                      .map(sanitizeStackMatrixCalibration)
+                      .filter((matrix): matrix is StackMatrixCalibrationV1 => matrix !== null),
+                  (matrix) => matrix.id
+              )
           )
         : [];
     return {

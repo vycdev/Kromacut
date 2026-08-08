@@ -29,7 +29,10 @@ import {
 import { Switch } from '@/components/ui/switch';
 import type { Filament } from '@/types';
 import type { AutoPaintProfile } from '@/lib/profileManager';
-import type { StackMatrixCalibrationV1 } from '@/lib/appearanceProfile';
+import {
+    fingerprintAppearanceFilaments,
+    type StackMatrixCalibrationV1,
+} from '@/lib/appearanceProfile';
 import {
     completeStackMatrixCalibration,
     sampleStackMatrixPhoto,
@@ -240,6 +243,7 @@ export default function StackMatrixCalibrationPanel({
     const [corners, setCorners] = useState<MatrixPhotoPoint[]>([]);
     const [cornerEstimate, setCornerEstimate] = useState<MatrixCornerEstimate | null>(null);
     const [alignmentAdjusted, setAlignmentAdjusted] = useState(false);
+    const [alignmentConfirmed, setAlignmentConfirmed] = useState(false);
     const [draggingCorner, setDraggingCorner] = useState<number | null>(null);
     const [selectedCorner, setSelectedCorner] = useState<number | null>(null);
     const [showTemplate, setShowTemplate] = useState(true);
@@ -325,6 +329,7 @@ export default function StackMatrixCalibrationPanel({
         setCorners([]);
         setCornerEstimate(null);
         setAlignmentAdjusted(false);
+        setAlignmentConfirmed(false);
         setDraggingCorner(null);
         setSelectedCorner(null);
         setPhotoLoupe(null);
@@ -343,6 +348,13 @@ export default function StackMatrixCalibrationPanel({
         if (localRecord?.id === activeRecordId) return localRecord;
         return records.find((record) => record.id === activeRecordId) ?? null;
     }, [activeRecordId, localRecord, records]);
+    const alignmentAutoAccepted = Boolean(
+        cornerEstimate &&
+        !alignmentAdjusted &&
+        cornerEstimate.method === 'detected' &&
+        cornerEstimate.confidence >= 0.55
+    );
+    const alignmentReady = alignmentAutoAccepted || alignmentConfirmed;
     const selectedFilaments = useMemo(
         () => filaments.filter((filament) => selectedIds.has(filament.id)).slice(0, 8),
         [filaments, selectedIds]
@@ -395,10 +407,18 @@ export default function StackMatrixCalibrationPanel({
                     stackLayerCount,
                     maximumSamples,
                     backingFilamentId: backingId,
+                    ownerProfileFingerprint: profile
+                        ? fingerprintAppearanceFilaments(profile.filaments)
+                        : undefined,
                 },
             });
-            onUpsert?.(exported);
             downloadBlob(blob, `kromacut-stack-matrix-${exported.samples.length}.3mf`);
+            let persistenceWarning: string | null = null;
+            try {
+                onUpsert?.(exported);
+            } catch (caught) {
+                persistenceWarning = `3MF downloaded, but its plan is only available in this session: ${caught instanceof Error ? caught.message : 'profile storage failed'}`;
+            }
             setLocalRecord(exported);
             setActiveRecordId(exported.id);
             setCreatingNew(false);
@@ -407,7 +427,9 @@ export default function StackMatrixCalibrationPanel({
             setCorners([]);
             setCornerEstimate(null);
             setAlignmentAdjusted(false);
+            setAlignmentConfirmed(false);
             setMeasuredColors([]);
+            setError(persistenceWarning);
         } catch (caught) {
             setError(caught instanceof Error ? caught.message : 'Could not create Stack Matrix');
         } finally {
@@ -421,6 +443,7 @@ export default function StackMatrixCalibrationPanel({
         layerHeight,
         maximumSamples,
         onUpsert,
+        profile,
         runGenerationWorker,
         selectedFilaments,
         stackLayerCount,
@@ -436,9 +459,15 @@ export default function StackMatrixCalibrationPanel({
                 type: 'export',
                 record: activeRecord,
             });
-            onUpsert?.(exported);
             downloadBlob(blob, `kromacut-stack-matrix-${exported.samples.length}.3mf`);
+            let persistenceWarning: string | null = null;
+            try {
+                onUpsert?.(exported);
+            } catch (caught) {
+                persistenceWarning = `3MF downloaded, but its refreshed export metadata was not saved: ${caught instanceof Error ? caught.message : 'profile storage failed'}`;
+            }
             setLocalRecord(exported);
+            setError(persistenceWarning);
         } catch (caught) {
             setError(caught instanceof Error ? caught.message : 'Could not export Stack Matrix');
         } finally {
@@ -463,6 +492,7 @@ export default function StackMatrixCalibrationPanel({
             setCorners(nextCorners);
             setCornerEstimate(estimate);
             setAlignmentAdjusted(false);
+            setAlignmentConfirmed(estimate.method === 'detected' && estimate.confidence >= 0.55);
             setDraggingCorner(null);
             setSelectedCorner(null);
             setPhotoLoupe(null);
@@ -964,6 +994,7 @@ export default function StackMatrixCalibrationPanel({
         setDraggingCorner(nearest.index);
         setSelectedCorner(nearest.index);
         setAlignmentAdjusted(true);
+        setAlignmentConfirmed(false);
         setPhotoLoupe(
             createLoupeState(
                 liveCornersRef.current[nearest.index],
@@ -1012,6 +1043,9 @@ export default function StackMatrixCalibrationPanel({
         liveCornersRef.current = copyPoints(nextCorners);
         setCorners(nextCorners);
         setAlignmentAdjusted(false);
+        setAlignmentConfirmed(
+            cornerEstimate?.method === 'detected' && cornerEstimate.confidence >= 0.55
+        );
         setDraggingCorner(null);
         setSelectedCorner(null);
         setPhotoLoupe(null);
@@ -1024,14 +1058,29 @@ export default function StackMatrixCalibrationPanel({
     };
 
     const handleSave = () => {
-        if (!activeRecord || !photo || measuredColors.length !== activeRecord.samples.length)
+        if (
+            !activeRecord ||
+            !photo ||
+            !cornerEstimate ||
+            !alignmentReady ||
+            measuredColors.length !== activeRecord.samples.length
+        )
             return;
         try {
             const completed = completeStackMatrixCalibration(
                 activeRecord,
                 measuredColors,
                 photo.fileName,
-                referenceCorrection
+                referenceCorrection,
+                undefined,
+                {
+                    alignmentConfidence: cornerEstimate.confidence,
+                    alignmentMethod:
+                        !alignmentAdjusted && cornerEstimate.method === 'detected'
+                            ? 'detected'
+                            : 'manual',
+                    alignmentVerified: true,
+                }
             );
             onUpsert?.(completed);
             setLocalRecord(completed);
@@ -1042,8 +1091,13 @@ export default function StackMatrixCalibrationPanel({
     };
 
     const handleDelete = () => {
-        if (!activeRecord || !onDelete) return;
-        onDelete(activeRecord.id);
+        if (!activeRecord || !onDelete || busy) return;
+        try {
+            onDelete(activeRecord.id);
+        } catch (caught) {
+            setError(caught instanceof Error ? caught.message : 'Could not delete Stack Matrix');
+            return;
+        }
         setLocalRecord(null);
         const remaining = records.filter((record) => record.id !== activeRecord.id);
         setActiveRecordId(remaining.at(-1)?.id ?? null);
@@ -1052,6 +1106,7 @@ export default function StackMatrixCalibrationPanel({
         setCorners([]);
         setCornerEstimate(null);
         setAlignmentAdjusted(false);
+        setAlignmentConfirmed(false);
         setMeasuredColors([]);
     };
 
@@ -1073,7 +1128,11 @@ export default function StackMatrixCalibrationPanel({
             <div className="space-y-4">
                 <div className="flex flex-wrap items-center gap-2">
                     {records.length > 0 && (
-                        <Select value={activeRecord.id} onValueChange={setActiveRecordId}>
+                        <Select
+                            value={activeRecord.id}
+                            onValueChange={setActiveRecordId}
+                            disabled={busy}
+                        >
                             <SelectTrigger className="min-w-[20rem] flex-1">
                                 <SelectValue />
                             </SelectTrigger>
@@ -1086,7 +1145,7 @@ export default function StackMatrixCalibrationPanel({
                             </SelectContent>
                         </Select>
                     )}
-                    <Button variant="outline" onClick={() => setCreatingNew(true)}>
+                    <Button variant="outline" onClick={() => setCreatingNew(true)} disabled={busy}>
                         <Plus className="mr-1.5 h-4 w-4" />
                         New matrix
                     </Button>
@@ -1094,6 +1153,7 @@ export default function StackMatrixCalibrationPanel({
                         variant="outline"
                         size="icon"
                         onClick={handleDelete}
+                        disabled={busy}
                         aria-label="Delete Stack Matrix"
                     >
                         <Trash2 className="h-4 w-4" />
@@ -1456,6 +1516,24 @@ export default function StackMatrixCalibrationPanel({
                                 disabled={!photo}
                             />
                         </div>
+                        {photo && cornerEstimate && !alignmentAutoAccepted && (
+                            <div className="flex items-center justify-between gap-3 rounded-md border border-amber-500/40 bg-amber-500/5 p-3">
+                                <div>
+                                    <Label htmlFor="matrix-alignment-confirmed" className="text-xs">
+                                        I verified every grid line and marker center
+                                    </Label>
+                                    <p className="mt-0.5 text-[11px] text-muted-foreground">
+                                        Required for adjusted or low-confidence alignment before
+                                        these samples become exact calibration evidence.
+                                    </p>
+                                </div>
+                                <Switch
+                                    id="matrix-alignment-confirmed"
+                                    checked={alignmentConfirmed}
+                                    onCheckedChange={setAlignmentConfirmed}
+                                />
+                            </div>
+                        )}
                         {photo && corners.length === 4 && (
                             <div>
                                 <div className="overflow-hidden rounded-md border border-border bg-black">
@@ -1536,7 +1614,15 @@ export default function StackMatrixCalibrationPanel({
                         )}
                         <Button
                             onClick={handleSave}
-                            disabled={measuredColors.length !== activeRecord.samples.length}
+                            disabled={
+                                measuredColors.length !== activeRecord.samples.length ||
+                                !alignmentReady
+                            }
+                            title={
+                                alignmentReady
+                                    ? undefined
+                                    : 'Verify the projected grid alignment before saving'
+                            }
                             className="w-full"
                         >
                             <Check className="mr-1.5 h-4 w-4" />

@@ -20,6 +20,8 @@ export interface AppearanceExactAnchorV1 {
     targetLab: readonly [number, number, number];
     suffixLayers: readonly AppearanceAnchorLayer[];
     maxSubstrateTransmission: number;
+    observedAt?: string;
+    confidence?: number;
 }
 
 export interface AppearanceRankModelV1 {

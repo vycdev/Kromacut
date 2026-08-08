@@ -427,10 +427,7 @@ export default function PaletteProofPanel({
         );
     };
 
-    const handleMatchQualityChange = (
-        column: number,
-        matchQuality: PaletteTargetMatchQuality
-    ) => {
+    const handleMatchQualityChange = (column: number, matchQuality: PaletteTargetMatchQuality) => {
         if (!selectedRecord || !onSetTargetResponse || evaluation?.complete) return;
         const current = judgmentsByColumn.get(column);
         if (current?.response !== 'closest') return;
@@ -762,13 +759,15 @@ export default function PaletteProofPanel({
             candidateCount,
             history,
             'local-refinement'
-        ).some((candidate) => candidate.role === 'unseen-neighbor');
+        ).some(
+            (candidate) =>
+                candidate.role === 'unseen-neighbor' || candidate.role === 'unseen-alternative'
+        );
     };
-    const selectedTargetSetMappingIds =
-        selectedRecord?.proof.targetSetMappingIds ?? [...selectedTargetIds];
-    const continuableSelectedTargetIds = [...selectedTargetIds].filter(
-        targetHasLocalChallenger
-    );
+    const selectedTargetSetMappingIds = selectedRecord?.proof.targetSetMappingIds ?? [
+        ...selectedTargetIds,
+    ];
+    const continuableSelectedTargetIds = [...selectedTargetIds].filter(targetHasLocalChallenger);
     const continuableSelectedTargetIdSet = new Set(continuableSelectedTargetIds);
     const exhaustedTargetNumbers = selectedTargetSetMappingIds.flatMap((targetId, index) =>
         continuableSelectedTargetIdSet.has(targetId) ? [] : [index + 1]
@@ -1122,11 +1121,9 @@ export default function PaletteProofPanel({
                                                 }}
                                                 title={
                                                     cell
-                                                        ? `${cell.id}: prefix ${cell.prefixIndex + 1}, ${
-                                                              candidateRoleLabel(
-                                                                  cell.candidateRole
-                                                              )
-                                                          }${
+                                                        ? `${cell.id}: prefix ${cell.prefixIndex + 1}, ${candidateRoleLabel(
+                                                              cell.candidateRole
+                                                          )}${
                                                               isFoundation
                                                                   ? ' (foundation margin)'
                                                                   : ''
@@ -1307,9 +1304,7 @@ export default function PaletteProofPanel({
                                                                 ? 'border-primary bg-primary/10 text-primary ring-2 ring-primary/30'
                                                                 : 'border-dashed border-border text-muted-foreground hover:border-foreground/50'
                                                         )}
-                                                        aria-pressed={
-                                                            judgment?.response === 'none'
-                                                        }
+                                                        aria-pressed={judgment?.response === 'none'}
                                                     >
                                                         None
                                                     </button>

@@ -103,16 +103,10 @@ test('target selection is deterministic and retains the dominant target', async 
 });
 
 test('prioritized targets stay first while automatic selection fills the remaining slots', async () => {
-    const { buildPaletteProofSpec, selectPaletteProofTargets } =
-        await loadPaletteProofModule();
+    const { buildPaletteProofSpec, selectPaletteProofTargets } = await loadPaletteProofModule();
     const snapshot = buildPaletteProofSnapshot(8, 12);
     const prioritizedTargetMappingIds = ['target-11', 'target-6'];
-    const selected = selectPaletteProofTargets(
-        snapshot,
-        5,
-        undefined,
-        prioritizedTargetMappingIds
-    );
+    const selected = selectPaletteProofTargets(snapshot, 5, undefined, prioritizedTargetMappingIds);
 
     assert.deepEqual(
         selected.slice(0, prioritizedTargetMappingIds.length).map((target) => target.id),
@@ -232,8 +226,7 @@ test('candidate selection honors bounded proof row counts', async () => {
 });
 
 test('continuation keeps the previous best, local challengers, and at most one explorer', async () => {
-    const { enumerateFinalStackPrefixes, selectPrefixCandidates } =
-        await loadPaletteProofModule();
+    const { enumerateFinalStackPrefixes, selectPrefixCandidates } = await loadPaletteProofModule();
     const snapshot = buildPaletteProofSnapshot(8, 1);
     const offsets = [-35, -25, -16, 0, 3, 8, 25, 40];
     const prefixes = enumerateFinalStackPrefixes(snapshot).map((prefix, index) => ({
@@ -267,9 +260,8 @@ test('continuation keeps the previous best, local challengers, and at most one e
     );
 });
 
-test('continuation shrinks instead of padding an exhausted local neighborhood', async () => {
-    const { buildPaletteProofSpec, validatePaletteProofSpec } =
-        await loadPaletteProofModule();
+test('continuation keeps one unseen explorer after the local neighborhood is exhausted', async () => {
+    const { buildPaletteProofSpec, validatePaletteProofSpec } = await loadPaletteProofModule();
     const original = buildPaletteProofSnapshot(8, 2);
     const offsets = [-40, -30, -25, 0, 3, 25, 35, 45];
     const snapshot = {
@@ -317,10 +309,11 @@ test('continuation shrinks instead of padding an exhausted local neighborhood', 
         continuation.targetSetMappingIds,
         snapshot.targetMappings.map((target) => target.id)
     );
-    assert.deepEqual(
-        continuation.cells.map((cell) => cell.candidateRole).sort(),
-        ['previous-best', 'unseen-alternative', 'unseen-neighbor']
-    );
+    assert.deepEqual(continuation.cells.map((cell) => cell.candidateRole).sort(), [
+        'previous-best',
+        'unseen-alternative',
+        'unseen-neighbor',
+    ]);
     assert.deepEqual(validatePaletteProofSpec(snapshot, continuation), []);
 
     const exhausted = buildPaletteProofSpec(snapshot, {
@@ -343,8 +336,12 @@ test('continuation shrinks instead of padding an exhausted local neighborhood', 
             ]),
         },
     });
-    assert.equal(exhausted.layout.rowCount, 1);
-    assert.equal(exhausted.comparisonEnabled, false);
+    assert.equal(exhausted.layout.rowCount, 2);
+    assert.equal(exhausted.comparisonEnabled, true);
+    assert.deepEqual(exhausted.cells.map((cell) => cell.candidateRole).sort(), [
+        'previous-best',
+        'unseen-alternative',
+    ]);
 
     const coverageProof = buildPaletteProofSpec(snapshot, {
         targetMappingIds: [targetId],

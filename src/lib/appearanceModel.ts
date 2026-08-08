@@ -6,6 +6,7 @@ import type {
 } from '../types/appearance';
 import { deltaE2000Lab, labToRgb, rgbToLab, type Lab, type Rgb } from './colorDifference';
 import {
+    fingerprintAppearanceFilaments,
     getPaletteProofEvaluationState,
     type AppearanceProfileV1,
     type PaletteProofRecord,
@@ -119,9 +120,21 @@ function sameMatrixProcess(
     record: NonNullable<AppearanceProfileV1['stackMatrices']>[number],
     context: AppearanceFitContext
 ): boolean {
+    const exactProfileMatch =
+        record.process.filamentProfileFingerprint === context.filamentProfileFingerprint;
+    const currentById = new Map(
+        (context.filaments ?? []).map((filament) => [filament.id, filament])
+    );
+    const currentSubset = record.filaments
+        .map((filament) => currentById.get(filament.id))
+        .filter((filament): filament is Filament => Boolean(filament));
+    const legacySubsetMatch =
+        currentSubset.length === record.filaments.length &&
+        fingerprintAppearanceFilaments(currentSubset) === record.process.filamentProfileFingerprint;
     return (
         record.status === 'complete' &&
-        record.process.filamentProfileFingerprint === context.filamentProfileFingerprint &&
+        record.alignmentVerified !== false &&
+        (exactProfileMatch || legacySubsetMatch) &&
         record.process.layerHeight === context.layerHeight
     );
 }
@@ -321,6 +334,8 @@ function collectExactAnchors(
                     targetLab: [targetLab.L, targetLab.a, targetLab.b],
                     suffixLayers: suffix.layers,
                     maxSubstrateTransmission: suffix.maxSubstrateTransmission,
+                    observedAt: judgment.updatedAt,
+                    confidence: 1,
                 });
             }
         }
@@ -365,6 +380,11 @@ function collectExactAnchors(
                 targetLab: [targetLab.L, targetLab.a, targetLab.b],
                 suffixLayers: suffix.layers,
                 maxSubstrateTransmission: suffix.maxSubstrateTransmission,
+                observedAt: latestMatrix.completedAt ?? latestMatrix.createdAt,
+                confidence:
+                    latestMatrix.alignmentMethod === 'manual'
+                        ? 0.95
+                        : Math.max(0.55, latestMatrix.alignmentConfidence ?? 0.75),
             });
         }
     }
@@ -731,14 +751,15 @@ export function resolveAppearanceRankModel(
     const anchors = prefixLayers ? matchingExactAnchors(model, prefixLayers) : [];
     if (anchors.length === 0) return { lab: fitted };
 
-    const exactAnchor = [...anchors].sort((left, right) => {
-        const leftLab = { L: left.targetLab[0], a: left.targetLab[1], b: left.targetLab[2] };
-        const rightLab = { L: right.targetLab[0], a: right.targetLab[1], b: right.targetLab[2] };
-        return (
-            deltaE2000Lab(fitted, leftLab) - deltaE2000Lab(fitted, rightLab) ||
+    const sourcePriority = (anchor: AppearanceExactAnchorV1) =>
+        anchor.source === 'palette-proof' ? 2 : anchor.source === 'stack-matrix' ? 1 : 0;
+    const exactAnchor = [...anchors].sort(
+        (left, right) =>
+            sourcePriority(right) - sourcePriority(left) ||
+            (right.confidence ?? 0) - (left.confidence ?? 0) ||
+            (right.observedAt ?? '').localeCompare(left.observedAt ?? '') ||
             left.id.localeCompare(right.id)
-        );
-    })[0];
+    )[0];
     return {
         lab: {
             L: exactAnchor.targetLab[0],

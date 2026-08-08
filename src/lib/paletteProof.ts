@@ -436,11 +436,7 @@ export function selectPrefixCandidates(
         selected.push({ prefix, role, replacesRole });
     };
 
-    if (
-        selectionMode === 'local-refinement' &&
-        history &&
-        history.testedStackKeys.size > 0
-    ) {
+    if (selectionMode === 'local-refinement' && history && history.testedStackKeys.size > 0) {
         const historicalAnchorKeys = [
             ...(history.anchorStackKeys ?? []),
             ...(history.anchorStackKey ? [history.anchorStackKey] : []),
@@ -448,8 +444,19 @@ export function selectPrefixCandidates(
         const historicalAnchors = prefixes.filter((prefix) =>
             historicalAnchorKeys.includes(prefix.canonicalStackKey)
         );
-        const anchorCandidates =
-            historicalAnchors.length > 0 ? historicalAnchors : [prefixes[target.paletteIndex]];
+        const unseen = prefixes.filter(
+            (prefix) => !history.testedStackKeys.has(prefix.canonicalStackKey)
+        );
+        if (historicalAnchors.length === 0) {
+            while (selected.length < desiredCount) {
+                const prefix = closestUnusedPrefix(target, unseen, used);
+                if (!prefix) break;
+                add(prefix, 'unseen-alternative');
+            }
+            return selected;
+        }
+
+        const anchorCandidates = historicalAnchors;
         const anchor = [...anchorCandidates].sort(
             (left, right) =>
                 targetDistance(target, left) - targetDistance(target, right) ||
@@ -457,9 +464,6 @@ export function selectPrefixCandidates(
         )[0];
         add(anchor, 'previous-best');
 
-        const unseen = prefixes.filter(
-            (prefix) => !history.testedStackKeys.has(prefix.canonicalStackKey)
-        );
         const distanceFromPreviousBest = (prefix: PaletteProofPrefix) =>
             Math.min(
                 ...anchorCandidates.map((anchorCandidate) =>
@@ -469,8 +473,7 @@ export function selectPrefixCandidates(
         const localUnseen = unseen
             .filter(
                 (prefix) =>
-                    distanceFromPreviousBest(prefix) <=
-                    PALETTE_PROOF_LOCAL_CHALLENGER_MAX_DELTA_E
+                    distanceFromPreviousBest(prefix) <= PALETTE_PROOF_LOCAL_CHALLENGER_MAX_DELTA_E
             )
             .sort(
                 (left, right) =>
@@ -482,31 +485,36 @@ export function selectPrefixCandidates(
             add(prefix, 'unseen-neighbor');
         }
 
-        if (localUnseen.length > 0 && selected.length < desiredCount) {
-            const localKeys = new Set(
-                localUnseen.map((prefix) => prefix.canonicalStackKey)
-            );
+        if (selected.length < desiredCount) {
+            const localKeys = new Set(localUnseen.map((prefix) => prefix.canonicalStackKey));
             const distantUnseen = unseen.filter(
                 (prefix) => !localKeys.has(prefix.canonicalStackKey)
             );
-            add(
-                closestUnusedPrefix(target, distantUnseen, used),
-                'unseen-alternative'
-            );
+            add(closestUnusedPrefix(target, distantUnseen, used), 'unseen-alternative');
         }
 
         return selected;
     }
 
     if (history && history.testedStackKeys.size > 0) {
-        const anchor =
-            prefixes.find((prefix) => prefix.canonicalStackKey === history.anchorStackKey) ??
-            prefixes[target.paletteIndex];
-        add(anchor, 'previous-best');
-
         const unseen = prefixes.filter(
             (prefix) => !history.testedStackKeys.has(prefix.canonicalStackKey)
         );
+        const anchor = prefixes.find(
+            (prefix) =>
+                prefix.canonicalStackKey === history.anchorStackKey ||
+                history.anchorStackKeys?.includes(prefix.canonicalStackKey)
+        );
+        if (!anchor) {
+            while (selected.length < desiredCount) {
+                const prefix = closestUnusedPrefix(target, unseen, used);
+                if (!prefix) break;
+                add(prefix, 'unseen-alternative');
+            }
+            return selected;
+        }
+        add(anchor, 'previous-best');
+
         const adjacentUnseen = [
             [...unseen]
                 .filter((prefix) => prefix.index < anchor.index)

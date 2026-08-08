@@ -31,6 +31,7 @@ import {
     loadLastProfileId,
     saveLastProfileId,
     profileFilamentsEqual,
+    buildProfileExportSnapshot,
 } from '../lib/profileManager';
 import { deduplicateName } from '../lib/nameUtils';
 import { TEMPLATE_PROFILES, isTemplateProfileId } from '../data/supplierFilaments';
@@ -152,14 +153,7 @@ export function useProfileManager({ filaments, setFilaments }: UseProfileManager
 
     const handleExportProfile = useCallback(() => {
         const active = [...profiles, ...TEMPLATE_PROFILES].find((p) => p.id === activeProfileId);
-        const profile =
-            active && !isTemplateProfileId(active.id)
-                ? {
-                      ...active,
-                      filaments: filaments.map((filament) => ({ ...filament })),
-                      updatedAt: Date.now(),
-                  }
-                : createProfile(active?.name ?? 'Exported Profile', filaments);
+        const profile = buildProfileExportSnapshot(active, filaments, isDirty);
 
         const blob = exportProfileBlob(profile);
         const url = URL.createObjectURL(blob);
@@ -170,7 +164,12 @@ export function useProfileManager({ filaments, setFilaments }: UseProfileManager
         a.click();
         a.remove();
         URL.revokeObjectURL(url);
-    }, [filaments, profiles, activeProfileId]);
+        if (active && !isTemplateProfileId(active.id) && isDirty) {
+            setImportFeedback(
+                'Exported unsaved filament edits as a new profile without incompatible calibration evidence.'
+            );
+        }
+    }, [filaments, profiles, activeProfileId, isDirty]);
 
     const handleRegisterPaletteProof = useCallback(
         (snapshot: FinalPrintableStackSnapshot, proof: PaletteProofSpec): PaletteProofRecord => {
@@ -357,8 +356,13 @@ export function useProfileManager({ filaments, setFilaments }: UseProfileManager
                     return;
                 }
                 const result = importProfiles(profiles, incoming, RESERVED_PROFILE_IDS);
+                if (!saveProfilesToStorage(result.profiles)) {
+                    setImportFeedback(
+                        'Import could not be saved. Existing profiles were left unchanged; free browser storage and try again.'
+                    );
+                    return;
+                }
                 setProfiles(result.profiles);
-                saveProfilesToStorage(result.profiles);
 
                 // Build feedback message
                 const parts: string[] = [];

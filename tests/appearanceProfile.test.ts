@@ -104,6 +104,39 @@ test('tall proof records keep one shared stack instead of duplicating every pref
     assert.ok(JSON.stringify(record).length < 100_000);
 });
 
+test('completed evidence fingerprint changes when the stored physical proof stack changes', async () => {
+    const {
+        buildPaletteProofRecord,
+        completePaletteProofEvaluation,
+        createEmptyAppearanceProfile,
+        fingerprintCompletedAppearanceEvidence,
+        setPaletteTargetResponse,
+        upsertPaletteProofRecord,
+    } = await loadAppearanceProfile();
+    const { buildPaletteProofSpec } = await loadPaletteProof();
+    const snapshot = buildPaletteProofSnapshot(6, 1);
+    const proof = buildPaletteProofSpec(snapshot, { targetCount: 1, candidateCount: 3 });
+    let appearance = upsertPaletteProofRecord(
+        createEmptyAppearanceProfile(),
+        buildPaletteProofRecord(filaments, snapshot, proof, '2026-07-17T20:00:00.000Z')
+    );
+    appearance = setPaletteTargetResponse(
+        appearance,
+        proof.id,
+        0,
+        { response: 'closest', closestCellIds: [proof.columns[0].cellIds[0]] },
+        '2026-07-17T20:01:00.000Z'
+    );
+    appearance = completePaletteProofEvaluation(appearance, proof.id, '2026-07-17T20:02:00.000Z');
+    const changedStack = structuredClone(appearance);
+    changedStack.proofs[0].stack[0].thickness += 0.01;
+
+    assert.notEqual(
+        fingerprintCompletedAppearanceEvidence(appearance),
+        fingerprintCompletedAppearanceEvidence(changedStack)
+    );
+});
+
 test('target-column judgments preserve equal choices, none, and completion state', async () => {
     const {
         buildPaletteProofRecord,

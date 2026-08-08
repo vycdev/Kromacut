@@ -121,12 +121,10 @@ export function buildPaletteProofHistory(
             const historicalAnchors = (anchorsByTarget.get(target.id) ?? []).filter((stackKey) =>
                 currentStackKeys.has(stackKey)
             );
-            const fallbackAnchor = target.canonicalStackKey;
             candidateHistoryByTargetId.set(target.id, {
                 testedStackKeys,
-                anchorStackKey: historicalAnchors[0] ?? fallbackAnchor,
-                anchorStackKeys:
-                    historicalAnchors.length > 0 ? historicalAnchors : [fallbackAnchor],
+                anchorStackKey: historicalAnchors[0],
+                anchorStackKeys: historicalAnchors,
             });
         }
     }
