@@ -13,6 +13,8 @@ import {
     RotateCw,
     ScanSearch,
     Trash2,
+    ZoomIn,
+    ZoomOut,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -84,6 +86,11 @@ interface PendingCornerDrag {
     localX: number;
     localY: number;
     bounds: DOMRect;
+}
+
+interface PhotoViewportSize {
+    width: number;
+    height: number;
 }
 
 const SAMPLE_CHOICES = [64, 144, 256, 400, 625, 1024, 1296, 1600, 2025];
@@ -224,6 +231,11 @@ export default function StackMatrixCalibrationPanel({
     const [generationPhase, setGenerationPhase] = useState<'planning' | 'exporting' | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [photo, setPhoto] = useState<LoadedPhoto | null>(null);
+    const [photoZoom, setPhotoZoom] = useState(1);
+    const [photoViewportSize, setPhotoViewportSize] = useState<PhotoViewportSize>({
+        width: 0,
+        height: 0,
+    });
     const [photoDragActive, setPhotoDragActive] = useState(false);
     const [corners, setCorners] = useState<MatrixPhotoPoint[]>([]);
     const [cornerEstimate, setCornerEstimate] = useState<MatrixCornerEstimate | null>(null);
@@ -240,6 +252,7 @@ export default function StackMatrixCalibrationPanel({
     const loupeContainerRef = useRef<HTMLDivElement>(null);
     const rectifiedCanvasRef = useRef<HTMLCanvasElement>(null);
     const lutPreviewCanvasRef = useRef<HTMLCanvasElement>(null);
+    const photoViewportRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const initialCornersRef = useRef<MatrixPhotoPoint[]>([]);
     const liveCornersRef = useRef<MatrixPhotoPoint[]>([]);
@@ -308,6 +321,7 @@ export default function StackMatrixCalibrationPanel({
 
     useEffect(() => {
         setPhoto(null);
+        setPhotoZoom(1);
         setCorners([]);
         setCornerEstimate(null);
         setAlignmentAdjusted(false);
@@ -389,6 +403,7 @@ export default function StackMatrixCalibrationPanel({
             setActiveRecordId(exported.id);
             setCreatingNew(false);
             setPhoto(null);
+            setPhotoZoom(1);
             setCorners([]);
             setCornerEstimate(null);
             setAlignmentAdjusted(false);
@@ -493,6 +508,7 @@ export default function StackMatrixCalibrationPanel({
                     fileName: file.name,
                 };
                 setPhoto(loadedPhoto);
+                setPhotoZoom(1);
                 detectPhotoAlignment(loadedPhoto);
                 setMeasuredColors([]);
                 setError(null);
@@ -535,6 +551,7 @@ export default function StackMatrixCalibrationPanel({
                 sourceCanvas: scratch,
             };
             setPhoto(rotatedPhoto);
+            setPhotoZoom(1);
             detectPhotoAlignment(rotatedPhoto);
             setMeasuredColors([]);
             setError(null);
@@ -706,10 +723,37 @@ export default function StackMatrixCalibrationPanel({
     }, [photo]);
 
     useEffect(() => {
+        const viewport = photoViewportRef.current;
+        if (!viewport || !photo) return;
+        const updateSize = () => {
+            const bounds = viewport.getBoundingClientRect();
+            setPhotoViewportSize((current) => {
+                const width = Math.max(1, Math.round(bounds.width));
+                const height = Math.max(1, Math.round(bounds.height));
+                return current.width === width && current.height === height
+                    ? current
+                    : { width, height };
+            });
+        };
+        updateSize();
+        const observer = new ResizeObserver(updateSize);
+        observer.observe(viewport);
+        return () => observer.disconnect();
+    }, [photo]);
+
+    useEffect(() => {
         if (draggingCorner !== null) return;
         liveCornersRef.current = copyPoints(corners);
         drawPhotoOverlay(corners, selectedCorner);
-    }, [corners, draggingCorner, drawPhotoOverlay, selectedCorner]);
+    }, [
+        corners,
+        draggingCorner,
+        drawPhotoOverlay,
+        photoViewportSize.height,
+        photoViewportSize.width,
+        photoZoom,
+        selectedCorner,
+    ]);
 
     useEffect(() => {
         if (!photoLoupe) return;
@@ -1013,6 +1057,18 @@ export default function StackMatrixCalibrationPanel({
 
     if (!creatingNew && activeRecord) {
         const physicalSize = stackMatrixPhysicalSize(activeRecord);
+        const fitScale = photo
+            ? Math.min(
+                  photoViewportSize.width / photo.width,
+                  photoViewportSize.height / photo.height
+              )
+            : 0;
+        const fittedPhotoWidth = photo ? Math.max(1, photo.width * fitScale) : 0;
+        const fittedPhotoHeight = photo ? Math.max(1, photo.height * fitScale) : 0;
+        const displayedPhotoWidth = fittedPhotoWidth * photoZoom;
+        const displayedPhotoHeight = fittedPhotoHeight * photoZoom;
+        const photoWorkspaceWidth = Math.max(photoViewportSize.width, displayedPhotoWidth);
+        const photoWorkspaceHeight = Math.max(photoViewportSize.height, displayedPhotoHeight);
         return (
             <div className="space-y-4">
                 <div className="flex flex-wrap items-center gap-2">
@@ -1099,30 +1155,76 @@ export default function StackMatrixCalibrationPanel({
                                     Use diffuse front lighting and avoid glare.
                                 </p>
                             </div>
-                            <div className="flex items-center gap-2">
+                            <div className="flex flex-wrap items-center justify-end gap-2">
                                 {photo && (
-                                    <div className="flex items-center rounded-md border border-border bg-background p-0.5">
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-8 w-8"
-                                            onClick={() => handleRotatePhoto('counterclockwise')}
-                                            aria-label="Rotate photo left 90 degrees"
-                                            title="Rotate photo left 90°"
-                                        >
-                                            <RotateCcw className="h-4 w-4" />
-                                        </Button>
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-8 w-8"
-                                            onClick={() => handleRotatePhoto('clockwise')}
-                                            aria-label="Rotate photo right 90 degrees"
-                                            title="Rotate photo right 90°"
-                                        >
-                                            <RotateCw className="h-4 w-4" />
-                                        </Button>
-                                    </div>
+                                    <>
+                                        <div className="flex items-center rounded-md border border-border bg-background p-0.5">
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-8 w-8"
+                                                onClick={() =>
+                                                    handleRotatePhoto('counterclockwise')
+                                                }
+                                                aria-label="Rotate photo left 90 degrees"
+                                                title="Rotate photo left 90°"
+                                            >
+                                                <RotateCcw className="h-4 w-4" />
+                                            </Button>
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-8 w-8"
+                                                onClick={() => handleRotatePhoto('clockwise')}
+                                                aria-label="Rotate photo right 90 degrees"
+                                                title="Rotate photo right 90°"
+                                            >
+                                                <RotateCw className="h-4 w-4" />
+                                            </Button>
+                                        </div>
+                                        <div className="flex items-center rounded-md border border-border bg-background p-0.5">
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-8 w-8"
+                                                onClick={() =>
+                                                    setPhotoZoom((current) =>
+                                                        Math.max(1, current - 0.5)
+                                                    )
+                                                }
+                                                disabled={photoZoom <= 1}
+                                                aria-label="Zoom photo out"
+                                                title="Zoom out"
+                                            >
+                                                <ZoomOut className="h-4 w-4" />
+                                            </Button>
+                                            <Button
+                                                variant="ghost"
+                                                className="h-8 min-w-12 px-1.5 text-[11px] tabular-nums"
+                                                onClick={() => setPhotoZoom(1)}
+                                                disabled={photoZoom === 1}
+                                                aria-label="Reset photo zoom to 100 percent"
+                                                title="Reset zoom"
+                                            >
+                                                {Math.round(photoZoom * 100)}%
+                                            </Button>
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-8 w-8"
+                                                onClick={() =>
+                                                    setPhotoZoom((current) =>
+                                                        Math.min(4, current + 0.5)
+                                                    )
+                                                }
+                                                disabled={photoZoom >= 4}
+                                                aria-label="Zoom photo in"
+                                                title="Zoom in"
+                                            >
+                                                <ZoomIn className="h-4 w-4" />
+                                            </Button>
+                                        </div>
+                                    </>
                                 )}
                                 <Button
                                     variant="outline"
@@ -1197,9 +1299,10 @@ export default function StackMatrixCalibrationPanel({
                                     Align the handles with the printed marker centers
                                 </p>
                                 <p className="mt-0.5 text-xs text-muted-foreground">
-                                    Orient the print using the corner key, then drag 1 top-left · 2
-                                    top-right · 3 bottom-right · 4 bottom-left. The magnifier locks
-                                    its crosshair to the exact point.
+                                    Put each handle in the center of its colored marker cell, just
+                                    diagonally outside the dense recipe grid—not on the last recipe
+                                    cell or the physical board corner. The blue outline should
+                                    extend half a cell beyond every handle.
                                 </p>
                                 {photo && draggingCorner !== null && (
                                     <p className="mt-2 text-sm font-medium text-primary">
@@ -1217,50 +1320,69 @@ export default function StackMatrixCalibrationPanel({
                         {photo ? (
                             <div className="mt-3 space-y-2">
                                 <div
-                                    className="relative mx-auto w-full overflow-hidden rounded-md border border-border bg-black"
-                                    style={{
-                                        aspectRatio: `${photo.width} / ${photo.height}`,
-                                        maxWidth: `${(31 * photo.width) / photo.height}rem`,
-                                    }}
+                                    ref={photoViewportRef}
+                                    className="relative h-[clamp(30rem,68vh,52rem)] w-full overflow-auto rounded-md border border-border bg-black"
                                 >
-                                    <canvas
-                                        ref={photoCanvasRef}
-                                        className="block h-full w-full"
-                                        aria-hidden="true"
-                                    />
-                                    <canvas
-                                        ref={overlayCanvasRef}
-                                        className={`absolute inset-0 block h-full w-full touch-none ${draggingCorner !== null ? 'cursor-grabbing' : 'cursor-grab'}`}
-                                        onPointerDown={handleCanvasPointerDown}
-                                        onPointerMove={handleCanvasPointerMove}
-                                        onPointerUp={finishCornerDrag}
-                                        onPointerCancel={finishCornerDrag}
-                                    />
-                                    {photoLoupe && draggingCorner !== null && (
+                                    <div
+                                        className="relative"
+                                        style={{
+                                            width: photoWorkspaceWidth,
+                                            height: photoWorkspaceHeight,
+                                        }}
+                                    >
                                         <div
-                                            ref={loupeContainerRef}
-                                            className="pointer-events-none absolute z-10 overflow-hidden rounded-full border-4 border-primary bg-black shadow-2xl ring-2 ring-black/70"
+                                            className="absolute"
                                             style={{
-                                                left: photoLoupe.left,
-                                                top: photoLoupe.top,
-                                                width: 184,
-                                                height: 184,
+                                                left:
+                                                    (photoWorkspaceWidth - displayedPhotoWidth) / 2,
+                                                top:
+                                                    (photoWorkspaceHeight - displayedPhotoHeight) /
+                                                    2,
+                                                width: displayedPhotoWidth,
+                                                height: displayedPhotoHeight,
                                             }}
                                         >
                                             <canvas
-                                                ref={loupeCanvasRef}
-                                                className="block h-44 w-44 rounded-full"
+                                                ref={photoCanvasRef}
+                                                className="block h-full w-full"
+                                                aria-hidden="true"
                                             />
-                                            <span className="absolute bottom-2 left-1/2 -translate-x-1/2 rounded-full bg-black/75 px-2 py-0.5 text-[10px] font-medium text-white">
-                                                {POINT_LABELS[draggingCorner]}
-                                            </span>
+                                            <canvas
+                                                ref={overlayCanvasRef}
+                                                className={`absolute inset-0 block h-full w-full touch-none ${draggingCorner !== null ? 'cursor-grabbing' : 'cursor-grab'}`}
+                                                onPointerDown={handleCanvasPointerDown}
+                                                onPointerMove={handleCanvasPointerMove}
+                                                onPointerUp={finishCornerDrag}
+                                                onPointerCancel={finishCornerDrag}
+                                            />
+                                            {photoLoupe && draggingCorner !== null && (
+                                                <div
+                                                    ref={loupeContainerRef}
+                                                    className="pointer-events-none absolute z-10 overflow-hidden rounded-full border-4 border-primary bg-black shadow-2xl ring-2 ring-black/70"
+                                                    style={{
+                                                        left: photoLoupe.left,
+                                                        top: photoLoupe.top,
+                                                        width: 184,
+                                                        height: 184,
+                                                    }}
+                                                >
+                                                    <canvas
+                                                        ref={loupeCanvasRef}
+                                                        className="block h-44 w-44 rounded-full"
+                                                    />
+                                                    <span className="absolute bottom-2 left-1/2 -translate-x-1/2 rounded-full bg-black/75 px-2 py-0.5 text-[10px] font-medium text-white">
+                                                        {POINT_LABELS[draggingCorner]}
+                                                    </span>
+                                                </div>
+                                            )}
                                         </div>
-                                    )}
+                                    </div>
                                 </div>
                                 <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
                                     <Crosshair className="h-3.5 w-3.5 flex-none text-primary" />
-                                    Grab a numbered handle; the crosshair in the magnifier is the
-                                    sampled marker center.
+                                    100% fits the full photo. Zoom in and scroll the workspace for
+                                    precise placement; the magnifier crosshair is the sampled
+                                    center.
                                 </div>
                             </div>
                         ) : (
