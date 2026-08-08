@@ -905,7 +905,7 @@ export default function PaletteProofPanel({
                     <SelectTrigger className="h-8 text-xs" aria-label="Palette Proof record">
                         <SelectValue />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="max-h-[min(24rem,var(--radix-select-content-available-height))] overscroll-contain">
                         {selectorGroups.map((group) => (
                             <SelectGroup key={group.key}>
                                 <SelectLabel className="px-2 py-1 text-[10px] font-medium text-muted-foreground">

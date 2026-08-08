@@ -47,6 +47,7 @@ All notable changes to Kromacut are documented in this file.
 
 ### Fixed
 
+- The Palette Proof history selector now stays within a bounded viewport and scrolls internally when many saved target sets and continuation rounds are available.
 - Crop mode no longer places its transparent interaction overlay above the preview toolbar or image-size HUD, so Save crop, Cancel crop, and the other visible actions remain clickable while the original and selected crop dimensions stay readable.
 - Changing the first-layer or regular layer height while Auto-paint is active no longer crashes the 3D controls while the replacement worker result is pending; stale stack snapshots are ignored until their slice grid matches the current print settings.
 - Stack Matrix photo alignment now preserves the image aspect ratio without a hidden letterboxed coordinate offset and makes the marker center unambiguous through draggable handles, an exact crosshair magnifier, a projected template, and a rectified preview.
