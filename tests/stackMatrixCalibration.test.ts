@@ -174,6 +174,35 @@ test('photo sampling reads perspective-addressed cells and completes the persist
     );
 });
 
+test('Stack Matrix photo rotation preserves pixels and swaps image dimensions', async () => {
+    const [, , , , alignment] = await modules;
+    const pixels = new Uint8ClampedArray([
+        1, 0, 0, 255, 2, 0, 0, 255, 3, 0, 0, 255, 4, 0, 0, 255, 5, 0, 0, 255, 6, 0, 0, 255,
+    ]);
+    const channelValues = (rotated: Uint8ClampedArray) => {
+        const values: number[] = [];
+        for (let offset = 0; offset < rotated.length; offset += 4) {
+            values.push(rotated[offset]);
+        }
+        return values;
+    };
+
+    const clockwise = alignment.rotateStackMatrixPhotoPixels(pixels, 2, 3, 'clockwise');
+    assert.equal(clockwise.width, 3);
+    assert.equal(clockwise.height, 2);
+    assert.deepEqual(channelValues(clockwise.pixels), [5, 3, 1, 6, 4, 2]);
+
+    const counterclockwise = alignment.rotateStackMatrixPhotoPixels(
+        pixels,
+        2,
+        3,
+        'counterclockwise'
+    );
+    assert.equal(counterclockwise.width, 3);
+    assert.equal(counterclockwise.height, 2);
+    assert.deepEqual(channelValues(counterclockwise.pixels), [2, 4, 6, 1, 3, 5]);
+});
+
 test('photo alignment expands marker centers into the exact board template', async () => {
     const [, , , , alignment] = await modules;
     const corners = [
@@ -224,6 +253,47 @@ test('photo alignment constrains dragged corners before the projected grid can d
     assert.ok(
         Number.isFinite(alignment.stackMatrixTemplateLines(constrainedCorners, 8, 8)[0].start.x)
     );
+});
+
+test('constrained corner dragging smoothly catches up without path-dependent validity', async () => {
+    const [, , , , alignment] = await modules;
+    let corners = [
+        { x: 50, y: 50 },
+        { x: 450, y: 50 },
+        { x: 450, y: 450 },
+        { x: 50, y: 450 },
+    ];
+    const invalidTarget = { x: 150, y: 300 };
+    const constrained = alignment.constrainStackMatrixCornerMove(corners, 1, invalidTarget, 8, 8);
+    corners = corners.map((corner, index) => (index === 1 ? constrained : corner));
+
+    const validTarget = { x: 410, y: 85 };
+    const validCandidate = corners.map((corner, index) => (index === 1 ? validTarget : corner));
+    assert.equal(alignment.isStackMatrixCornerLayoutValid(validCandidate, 8, 8), true);
+
+    let reachedTarget = false;
+    for (let frame = 0; frame < 100; frame++) {
+        const before = corners[1];
+        const nextCorner = alignment.approachStackMatrixCornerMove(
+            corners,
+            1,
+            validTarget,
+            8,
+            8,
+            12
+        );
+        const handleDistance = Math.hypot(nextCorner.x - before.x, nextCorner.y - before.y);
+        assert.ok(handleDistance <= 12 + 1e-6);
+        corners = corners.map((corner, index) => (index === 1 ? nextCorner : corner));
+        assert.equal(alignment.isStackMatrixCornerLayoutValid(corners, 8, 8), true);
+        if (nextCorner.x === validTarget.x && nextCorner.y === validTarget.y) {
+            reachedTarget = true;
+            break;
+        }
+    }
+
+    assert.equal(reachedTarget, true);
+    assert.deepEqual(corners[1], validTarget);
 });
 
 test('photo alignment auto-detects a contrasting matrix board and falls back safely', async () => {

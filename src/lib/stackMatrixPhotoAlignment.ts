@@ -22,6 +22,36 @@ export interface RectifiedMatrixPhoto {
     height: number;
 }
 
+export function rotateStackMatrixPhotoPixels(
+    pixels: Uint8ClampedArray,
+    width: number,
+    height: number,
+    direction: 'clockwise' | 'counterclockwise'
+): RectifiedMatrixPhoto {
+    if (
+        !Number.isInteger(width) ||
+        !Number.isInteger(height) ||
+        width <= 0 ||
+        height <= 0 ||
+        pixels.length !== width * height * 4
+    ) {
+        throw new Error('Stack Matrix photo dimensions do not match its pixels');
+    }
+    const rotatedWidth = height;
+    const rotatedHeight = width;
+    const rotated = new Uint8ClampedArray(pixels.length);
+    for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+            const rotatedX = direction === 'clockwise' ? height - 1 - y : y;
+            const rotatedY = direction === 'clockwise' ? x : width - 1 - x;
+            const sourceOffset = (y * width + x) * 4;
+            const destinationOffset = (rotatedY * rotatedWidth + rotatedX) * 4;
+            rotated.set(pixels.subarray(sourceOffset, sourceOffset + 4), destinationOffset);
+        }
+    }
+    return { pixels: rotated, width: rotatedWidth, height: rotatedHeight };
+}
+
 function solveLinearSystem(matrix: number[][], values: number[]): number[] {
     const rows = matrix.map((row, index) => [...row, values[index]]);
     for (let column = 0; column < values.length; column++) {
@@ -209,6 +239,46 @@ export function constrainStackMatrixCornerMove(
         }
     }
     return valid;
+}
+
+export function approachStackMatrixCornerMove(
+    corners: readonly MatrixPhotoPoint[],
+    cornerIndex: number,
+    target: MatrixPhotoPoint,
+    rows: number,
+    columns: number,
+    maxDistance: number
+): MatrixPhotoPoint {
+    const current = corners[cornerIndex];
+    if (
+        !current ||
+        !Number.isFinite(target.x) ||
+        !Number.isFinite(target.y) ||
+        !Number.isFinite(maxDistance) ||
+        maxDistance <= 0
+    ) {
+        return current;
+    }
+    const constrainedTarget = constrainStackMatrixCornerMove(
+        corners,
+        cornerIndex,
+        target,
+        rows,
+        columns
+    );
+    const distance = Math.hypot(constrainedTarget.x - current.x, constrainedTarget.y - current.y);
+    if (distance <= maxDistance) return constrainedTarget;
+    const amount = maxDistance / distance;
+    return constrainStackMatrixCornerMove(
+        corners,
+        cornerIndex,
+        {
+            x: current.x + (constrainedTarget.x - current.x) * amount,
+            y: current.y + (constrainedTarget.y - current.y) * amount,
+        },
+        rows,
+        columns
+    );
 }
 
 function median(values: number[]): number {

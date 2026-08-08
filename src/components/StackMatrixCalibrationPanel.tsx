@@ -10,6 +10,7 @@ import {
     Move,
     Plus,
     RotateCcw,
+    RotateCw,
     ScanSearch,
     Trash2,
 } from 'lucide-react';
@@ -36,9 +37,11 @@ import {
     type MatrixPhotoPoint,
 } from '@/lib/stackMatrixCalibration';
 import {
+    approachStackMatrixCornerMove,
     constrainStackMatrixCornerMove,
     estimateStackMatrixMarkerCenters,
     rectifyStackMatrixPhoto,
+    rotateStackMatrixPhotoPixels,
     stackMatrixOuterCorners,
     stackMatrixTemplateLines,
     type MatrixCornerEstimate,
@@ -85,6 +88,12 @@ interface PendingCornerDrag {
 
 const SAMPLE_CHOICES = [64, 144, 256, 400, 625, 1024, 1296, 1600, 2025];
 const POINT_LABELS = ['Top-left', 'Top-right', 'Bottom-right', 'Bottom-left'];
+const CORNER_MARKER_LAYOUT = [
+    { cornerIndex: 0, number: 1, label: 'Top-left', rightAligned: false },
+    { cornerIndex: 1, number: 2, label: 'Top-right', rightAligned: true },
+    { cornerIndex: 3, number: 4, label: 'Bottom-left', rightAligned: false },
+    { cornerIndex: 2, number: 3, label: 'Bottom-right', rightAligned: true },
+] as const;
 let nextMatrixWorkerRequestId = 1;
 
 function isImageFile(file: Pick<File, 'name' | 'type'>): boolean {
@@ -104,6 +113,23 @@ function swatchLuminance(hex: string): number {
         Number.parseInt(value.slice(offset, offset + 2), 16)
     );
     return channels[0] * 0.2126 + channels[1] * 0.7152 + channels[2] * 0.0722;
+}
+
+function stacksEqual(left: readonly number[], right: readonly number[]): boolean {
+    return left.length === right.length && left.every((value, index) => value === right[index]);
+}
+
+function cornerMarkerColor(record: StackMatrixCalibrationV1, cornerIndex: number): string {
+    const stack = record.cornerStacks[cornerIndex] ?? [];
+    const sample = record.samples.find((candidate) => stacksEqual(candidate.stack, stack));
+    const visibleFilamentIndex = stack.at(-1);
+    return (
+        sample?.predictedColor.hex ??
+        (visibleFilamentIndex === undefined
+            ? undefined
+            : record.filaments[visibleFilamentIndex]?.color) ??
+        '#808080'
+    );
 }
 
 function downloadBlob(blob: Blob, fileName: string) {
@@ -213,6 +239,7 @@ export default function StackMatrixCalibrationPanel({
     const loupeCanvasRef = useRef<HTMLCanvasElement>(null);
     const loupeContainerRef = useRef<HTMLDivElement>(null);
     const rectifiedCanvasRef = useRef<HTMLCanvasElement>(null);
+    const lutPreviewCanvasRef = useRef<HTMLCanvasElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const initialCornersRef = useRef<MatrixPhotoPoint[]>([]);
     const liveCornersRef = useRef<MatrixPhotoPoint[]>([]);
@@ -480,6 +507,41 @@ export default function StackMatrixCalibrationPanel({
         [detectPhotoAlignment]
     );
 
+    const handleRotatePhoto = useCallback(
+        (direction: 'clockwise' | 'counterclockwise') => {
+            if (!photo) return;
+            const rotated = rotateStackMatrixPhotoPixels(
+                photo.pixels,
+                photo.width,
+                photo.height,
+                direction
+            );
+            const scratch = document.createElement('canvas');
+            scratch.width = rotated.width;
+            scratch.height = rotated.height;
+            const context = scratch.getContext('2d', { willReadFrequently: true });
+            if (!context) {
+                setError('This browser could not rotate the Stack Matrix photo');
+                return;
+            }
+            context.putImageData(
+                new ImageData(rotated.pixels, rotated.width, rotated.height),
+                0,
+                0
+            );
+            const rotatedPhoto: LoadedPhoto = {
+                ...photo,
+                ...rotated,
+                sourceCanvas: scratch,
+            };
+            setPhoto(rotatedPhoto);
+            detectPhotoAlignment(rotatedPhoto);
+            setMeasuredColors([]);
+            setError(null);
+        },
+        [detectPhotoAlignment, photo]
+    );
+
     const handlePhotoDragEnter = (event: React.DragEvent<HTMLElement>) => {
         event.preventDefault();
         event.stopPropagation();
@@ -706,6 +768,26 @@ export default function StackMatrixCalibrationPanel({
         }
     }, [activeRecord, corners, draggingCorner, photo, referenceCorrection]);
 
+    useEffect(() => {
+        const canvas = lutPreviewCanvasRef.current;
+        if (!canvas || !activeRecord || measuredColors.length === 0) return;
+        const { columns, rows } = activeRecord.grid;
+        canvas.width = columns;
+        canvas.height = rows;
+        const context = canvas.getContext('2d');
+        if (!context) return;
+        const pixels = new Uint8ClampedArray(columns * rows * 4);
+        for (let index = 0; index < measuredColors.length; index++) {
+            const color = measuredColors[index];
+            const offset = index * 4;
+            pixels[offset] = color[0];
+            pixels[offset + 1] = color[1];
+            pixels[offset + 2] = color[2];
+            pixels[offset + 3] = 255;
+        }
+        context.putImageData(new ImageData(pixels, columns, rows), 0, 0);
+    }, [activeRecord, measuredColors]);
+
     const pointFromCanvasEvent = (
         event: React.PointerEvent<HTMLCanvasElement>
     ): {
@@ -752,14 +834,24 @@ export default function StackMatrixCalibrationPanel({
         };
     };
 
-    const applyPendingCornerDrag = (pending: PendingCornerDrag) => {
-        if (!activeRecord || !photo || liveCornersRef.current.length !== 4) return;
-        const constrainedPoint = constrainStackMatrixCornerMove(
+    const applyPendingCornerDrag = (pending: PendingCornerDrag): boolean => {
+        if (!activeRecord || !photo || liveCornersRef.current.length !== 4) return false;
+        const currentPoint = liveCornersRef.current[pending.cornerIndex];
+        const maxDistance = 24 * (photo.width / Math.max(1, pending.bounds.width));
+        const constrainedTarget = constrainStackMatrixCornerMove(
             liveCornersRef.current,
             pending.cornerIndex,
             pending.point,
             activeRecord.grid.rows,
             activeRecord.grid.columns
+        );
+        const constrainedPoint = approachStackMatrixCornerMove(
+            liveCornersRef.current,
+            pending.cornerIndex,
+            pending.point,
+            activeRecord.grid.rows,
+            activeRecord.grid.columns,
+            maxDistance
         );
         const nextCorners = liveCornersRef.current.map((corner, index) =>
             index === pending.cornerIndex ? constrainedPoint : corner
@@ -773,13 +865,33 @@ export default function StackMatrixCalibrationPanel({
             pending.localY,
             pending.bounds
         );
-        if (!loupe) return;
+        if (!loupe) return false;
         const container = loupeContainerRef.current;
         if (container) {
             container.style.left = `${loupe.left}px`;
             container.style.top = `${loupe.top}px`;
         }
         drawPhotoLoupe(loupe, nextCorners);
+        return (
+            Math.hypot(
+                constrainedTarget.x - constrainedPoint.x,
+                constrainedTarget.y - constrainedPoint.y
+            ) > 0.25 &&
+            Math.hypot(constrainedPoint.x - currentPoint.x, constrainedPoint.y - currentPoint.y) >
+                1e-6
+        );
+    };
+
+    const scheduleCornerDragFrame = () => {
+        if (cornerDragFrameRef.current !== null) return;
+        cornerDragFrameRef.current = requestAnimationFrame(() => {
+            cornerDragFrameRef.current = null;
+            const pending = pendingCornerDragRef.current;
+            if (!pending || draggingCornerRef.current !== pending.cornerIndex) return;
+            const shouldContinue = applyPendingCornerDrag(pending);
+            if (shouldContinue) scheduleCornerDragFrame();
+            else pendingCornerDragRef.current = null;
+        });
     };
 
     const handleCanvasPointerDown = (event: React.PointerEvent<HTMLCanvasElement>) => {
@@ -808,8 +920,6 @@ export default function StackMatrixCalibrationPanel({
         setDraggingCorner(nearest.index);
         setSelectedCorner(nearest.index);
         setAlignmentAdjusted(true);
-        const pending = { cornerIndex: nearest.index, ...mapped };
-        applyPendingCornerDrag(pending);
         setPhotoLoupe(
             createLoupeState(
                 liveCornersRef.current[nearest.index],
@@ -826,14 +936,7 @@ export default function StackMatrixCalibrationPanel({
         const mapped = pointFromCanvasEvent(event);
         if (!mapped) return;
         pendingCornerDragRef.current = { cornerIndex, ...mapped };
-        if (cornerDragFrameRef.current !== null) return;
-        cornerDragFrameRef.current = requestAnimationFrame(() => {
-            cornerDragFrameRef.current = null;
-            const pending = pendingCornerDragRef.current;
-            pendingCornerDragRef.current = null;
-            if (!pending || draggingCornerRef.current !== pending.cornerIndex) return;
-            applyPendingCornerDrag(pending);
-        });
+        scheduleCornerDragFrame();
     };
 
     const finishCornerDrag = (event: React.PointerEvent<HTMLCanvasElement>) => {
@@ -987,7 +1090,7 @@ export default function StackMatrixCalibrationPanel({
                         onDragLeave={handlePhotoDragLeave}
                         onDrop={handlePhotoDrop}
                     >
-                        <div className="flex items-center justify-between gap-3">
+                        <div className="flex flex-wrap items-center justify-between gap-3">
                             <div>
                                 <h5 className="text-sm font-semibold">
                                     Photograph the printed matrix
@@ -996,9 +1099,38 @@ export default function StackMatrixCalibrationPanel({
                                     Use diffuse front lighting and avoid glare.
                                 </p>
                             </div>
-                            <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
-                                <Camera className="mr-1.5 h-4 w-4" /> Choose photo
-                            </Button>
+                            <div className="flex items-center gap-2">
+                                {photo && (
+                                    <div className="flex items-center rounded-md border border-border bg-background p-0.5">
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-8 w-8"
+                                            onClick={() => handleRotatePhoto('counterclockwise')}
+                                            aria-label="Rotate photo left 90 degrees"
+                                            title="Rotate photo left 90°"
+                                        >
+                                            <RotateCcw className="h-4 w-4" />
+                                        </Button>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-8 w-8"
+                                            onClick={() => handleRotatePhoto('clockwise')}
+                                            aria-label="Rotate photo right 90 degrees"
+                                            title="Rotate photo right 90°"
+                                        >
+                                            <RotateCw className="h-4 w-4" />
+                                        </Button>
+                                    </div>
+                                )}
+                                <Button
+                                    variant="outline"
+                                    onClick={() => fileInputRef.current?.click()}
+                                >
+                                    <Camera className="mr-1.5 h-4 w-4" /> Choose photo
+                                </Button>
+                            </div>
                             <input
                                 ref={fileInputRef}
                                 type="file"
@@ -1010,6 +1142,54 @@ export default function StackMatrixCalibrationPanel({
                                 }}
                             />
                         </div>
+                        <div
+                            className="mt-3 rounded-md border border-border/70 bg-muted/20 p-3"
+                            aria-label="Printed matrix corner orientation key"
+                        >
+                            <div className="mb-2 flex items-center justify-between gap-3">
+                                <div>
+                                    <p className="text-xs font-semibold">Printed corner key</p>
+                                    <p className="mt-0.5 text-[11px] text-muted-foreground">
+                                        Rotate the print until its corner colors match this layout.
+                                    </p>
+                                </div>
+                                <span className="whitespace-nowrap rounded-full border border-border bg-background px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                    ↑ Top edge
+                                </span>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2">
+                                {CORNER_MARKER_LAYOUT.map((marker) => {
+                                    const color = cornerMarkerColor(
+                                        activeRecord,
+                                        marker.cornerIndex
+                                    );
+                                    const textColor =
+                                        swatchLuminance(color) < 140 ? '#ffffff' : '#000000';
+                                    return (
+                                        <div
+                                            key={marker.number}
+                                            className={`flex items-center gap-2 rounded-md border border-border/60 bg-background/70 p-2 ${marker.rightAligned ? 'flex-row-reverse text-right' : ''}`}
+                                        >
+                                            <span
+                                                className="grid h-8 w-8 flex-none place-items-center rounded-md border border-black/25 text-xs font-bold shadow-sm"
+                                                style={{ backgroundColor: color, color: textColor }}
+                                                title={`${marker.label} marker: ${color}`}
+                                            >
+                                                {marker.number}
+                                            </span>
+                                            <span className="min-w-0">
+                                                <span className="block text-xs font-medium">
+                                                    {marker.label}
+                                                </span>
+                                                <span className="block font-mono text-[10px] uppercase text-muted-foreground">
+                                                    {color}
+                                                </span>
+                                            </span>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
                         <div className="mt-3 flex gap-3 rounded-md border border-primary/40 bg-primary/10 p-3">
                             <Move className="mt-0.5 h-5 w-5 flex-none text-primary" />
                             <div>
@@ -1017,8 +1197,9 @@ export default function StackMatrixCalibrationPanel({
                                     Align the handles with the printed marker centers
                                 </p>
                                 <p className="mt-0.5 text-xs text-muted-foreground">
-                                    Drag 1 top-left · 2 top-right · 3 bottom-right · 4 bottom-left.
-                                    The magnifier locks its crosshair to the exact point.
+                                    Orient the print using the corner key, then drag 1 top-left · 2
+                                    top-right · 3 bottom-right · 4 bottom-left. The magnifier locks
+                                    its crosshair to the exact point.
                                 </p>
                                 {photo && draggingCorner !== null && (
                                     <p className="mt-2 text-sm font-medium text-primary">
@@ -1190,20 +1371,36 @@ export default function StackMatrixCalibrationPanel({
                         </div>
                         {measuredColors.length > 0 && (
                             <div>
-                                <div
-                                    className="grid overflow-hidden rounded border border-border"
-                                    style={{
-                                        gridTemplateColumns: `repeat(${activeRecord.grid.columns}, minmax(0, 1fr))`,
-                                    }}
-                                >
-                                    {measuredColors.map((color, index) => (
-                                        <span
-                                            key={index}
-                                            className="aspect-square min-h-1"
-                                            style={{ backgroundColor: `rgb(${color.join(',')})` }}
-                                            title={`Cell ${index + 1}: rgb(${color.join(', ')})`}
-                                        />
-                                    ))}
+                                <div className="overflow-hidden rounded border border-border bg-black">
+                                    <canvas
+                                        ref={lutPreviewCanvasRef}
+                                        className="block h-auto w-full"
+                                        style={{ imageRendering: 'pixelated' }}
+                                        aria-label={`Extracted LUT preview with ${measuredColors.length} sampled cells`}
+                                        onPointerMove={(event) => {
+                                            const bounds =
+                                                event.currentTarget.getBoundingClientRect();
+                                            const column = Math.min(
+                                                activeRecord.grid.columns - 1,
+                                                Math.floor(
+                                                    ((event.clientX - bounds.left) / bounds.width) *
+                                                        activeRecord.grid.columns
+                                                )
+                                            );
+                                            const row = Math.min(
+                                                activeRecord.grid.rows - 1,
+                                                Math.floor(
+                                                    ((event.clientY - bounds.top) / bounds.height) *
+                                                        activeRecord.grid.rows
+                                                )
+                                            );
+                                            const index = row * activeRecord.grid.columns + column;
+                                            const color = measuredColors[index];
+                                            event.currentTarget.title = color
+                                                ? `Cell ${index + 1}: rgb(${color.join(', ')})`
+                                                : 'Unused matrix cell';
+                                        }}
+                                    />
                                 </div>
                                 <p className="mt-1.5 text-[11px] text-muted-foreground">
                                     Extracted LUT preview
