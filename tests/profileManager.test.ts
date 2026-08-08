@@ -414,7 +414,7 @@ test('calibrated frontlit fixture imports without rescaling measured hiding dist
 
     const source = parsed[0];
     assert.equal(source.name, '8 Colors Calibrated Frontlit');
-    assert.equal(source.version, CURRENT_PROFILE_VERSION);
+    assert.equal(source.version, 2);
     assert.equal(source.filaments.length, 8);
 
     const sourceTds = source.filaments.map((filament) => filament.td);
@@ -435,7 +435,7 @@ test('calibrated frontlit fixture imports without rescaling measured hiding dist
     }
 });
 
-test('stored v1 profiles migrate tds once on load', async () => {
+test('stored v1/v2 profiles migrate to v3 without re-scaling v2 hiding distances', async () => {
     const { loadProfiles, CURRENT_PROFILE_VERSION } = await loadProfileManager();
     const existingStorage = Reflect.get(globalThis, 'localStorage') as
         | ReturnType<typeof createMemoryStorage>
@@ -463,7 +463,7 @@ test('stored v1 profiles migrate tds once on load', async () => {
             {
                 id: 'stored-v2',
                 name: 'Stored HD',
-                version: CURRENT_PROFILE_VERSION,
+                version: 2,
                 createdAt: 1,
                 updatedAt: 1,
                 filaments: [{ id: 'f2', color: '#f7d000', td: 0.63 }],
@@ -480,6 +480,7 @@ test('stored v1 profiles migrate tds once on load', async () => {
         assert.ok(Math.abs(v1!.filaments[0].td - 0.63) < 1e-12, 'v1 td migrates ×0.1');
         assert.equal(v2!.filaments[0].td, 0.63, 'v2 td untouched');
         assert.equal(v1!.version, CURRENT_PROFILE_VERSION);
+        assert.equal(v2!.version, CURRENT_PROFILE_VERSION);
     } finally {
         if (previousProfiles === null) {
             storage.removeItem('kromacut.autopaint.profiles');

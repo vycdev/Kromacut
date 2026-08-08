@@ -337,7 +337,8 @@ input[type='number'] {
 .crop-overlay {
     position: absolute;
     inset: 0;
-    z-index: 50;
+    /* Keep crop interaction above the preview but below the z-40 action toolbar. */
+    z-index: 30;
 }
 
 .crop-dim {

@@ -25,8 +25,20 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { TabsContent } from '@/components/ui/tabs';
 import type { AutoPaintResult, TransitionZone } from '../lib/autoPaint';
+import type {
+    PaletteProofRecord,
+    PaletteTargetResponse,
+    StackMatrixCalibrationV1,
+} from '../lib/appearanceProfile';
+import type { PaletteProofSpec } from '../lib/paletteProof';
 import type { AutoPaintProfile } from '../lib/profileManager';
-import type { AutoPaintRepeatLimit, AutoPaintTransitionOpacity, Filament, Swatch } from '../types';
+import type {
+    AutoPaintRepeatLimit,
+    AutoPaintTransitionOpacity,
+    Filament,
+    FinalPrintableStackSnapshot,
+    Swatch,
+} from '../types';
 import FilamentRow from './FilamentRow';
 import {
     FilamentCalibrationDialog,
@@ -52,6 +64,86 @@ function ConfidenceStat({ label, value }: { label: string; value: number }) {
                     />
                 </div>
             </div>
+        </div>
+    );
+}
+
+function AppearanceModelStat({ result }: { result: AutoPaintResult }) {
+    const model = result.finalStack.appearanceModel;
+    const exactAnchorCount = model.exactAnchors?.length ?? 0;
+    const matrixAnchorCount =
+        model.exactAnchors?.filter((anchor) => anchor.source === 'stack-matrix').length ?? 0;
+    const proofAnchorCount = exactAnchorCount - matrixAnchorCount;
+    const comparedStackKeys = new Set(model.comparedStackKeys);
+    const comparedCoverage = result.finalStack.targetMappings
+        .filter((mapping) => comparedStackKeys.has(mapping.canonicalStackKey))
+        .reduce((sum, mapping) => sum + mapping.usageWeight, 0);
+    const evidenceNeeds = [
+        model.trainingObservationCount < 8
+            ? `${8 - model.trainingObservationCount} more training choices`
+            : null,
+        model.trainingDistinctStackCount < 8
+            ? `${8 - model.trainingDistinctStackCount} more training stacks`
+            : null,
+    ].filter((need): need is string => need !== null);
+    const gateDetail =
+        model.gateReason === 'insufficient-evidence'
+            ? evidenceNeeds.join(' / ')
+            : model.gateReason === 'insufficient-heldout'
+              ? 'Complete another proof for validation'
+              : model.gateReason === 'no-training-improvement'
+                ? 'Base model already ranks these choices'
+                : model.gateReason === 'heldout-below-threshold'
+                  ? 'Held-out agreement is below 70%'
+                  : model.gateReason === 'heldout-no-improvement'
+                    ? 'Held-out gain is below 10 points'
+                    : null;
+
+    return (
+        <div className="rounded border border-border/50 bg-background/40 px-2 py-1.5 text-[10px]">
+            <div className="flex items-center justify-between gap-2">
+                <span className="font-semibold">Appearance model</span>
+                <span
+                    className={
+                        model.applied
+                            ? getConfidenceColor(model.confidence)
+                            : exactAnchorCount > 0
+                              ? 'text-green-500'
+                              : 'text-muted-foreground'
+                    }
+                >
+                    {model.applied
+                        ? `Fitted estimate (${(model.confidence * 100).toFixed(0)}%)`
+                        : exactAnchorCount > 0
+                          ? matrixAnchorCount > 0 && proofAnchorCount === 0
+                              ? 'Stack Matrix anchors active'
+                              : 'Measured anchors active'
+                          : model.observationCount > 0 || model.noneCount > 0
+                            ? 'Evidence gathered, fit gated'
+                            : 'Estimated only'}
+                </span>
+            </div>
+            <div className="mt-0.5 text-muted-foreground">
+                {model.sourceProofIds.length} evidence sets {' / '}
+                {model.distinctStackCount} physically compared stacks {' / '}
+                {proofAnchorCount} dead-on anchors {' / '}
+                {matrixAnchorCount} matrix anchors {' / '}
+                {model.noneCount} no matches
+            </div>
+            <div className="mt-0.5 text-muted-foreground">
+                {model.trainingObservationCount} training choices {' / '}
+                {model.trainingDistinctStackCount} training stacks {' / '}
+                {model.heldOutCount} held-out choices {' / '}
+                {model.heldOutDistinctStackCount} held-out stacks
+            </div>
+            {model.applied && (
+                <div className="mt-0.5 text-muted-foreground">
+                    {(comparedCoverage * 100).toFixed(0)}% current palette coverage
+                </div>
+            )}
+            {gateDetail && (model.observationCount > 0 || model.noneCount > 0) && (
+                <div className="mt-0.5 text-muted-foreground">{gateDetail}</div>
+            )}
         </div>
     );
 }
@@ -128,6 +220,20 @@ interface AutoPaintTabProps {
     handleDeleteProfile: (id: string) => void;
     handleExportProfile: () => void;
     handleImportFile: (e: React.ChangeEvent<HTMLInputElement>) => void;
+    handleRegisterPaletteProof: (
+        snapshot: FinalPrintableStackSnapshot,
+        proof: PaletteProofSpec
+    ) => PaletteProofRecord;
+    handleSetPaletteTargetResponse: (
+        proofId: string,
+        column: number,
+        response: PaletteTargetResponse | null
+    ) => void;
+    handleCompletePaletteProofEvaluation: (proofId: string) => void;
+    handleReopenPaletteProofEvaluation: (proofId: string) => void;
+    handleDeletePaletteProof: (proofId: string) => void;
+    handleUpsertStackMatrixCalibration: (record: StackMatrixCalibrationV1) => void;
+    handleDeleteStackMatrixCalibration: (matrixId: string) => void;
 
     // Auto-paint state
     autoPaintMaxHeight: number | undefined;
@@ -144,6 +250,7 @@ interface AutoPaintTabProps {
     // Image colors
     filteredCount: number;
     imageSwatches: Array<{ hex: string; count?: number }>;
+    paletteProofImageSrc: string | null;
 
     // Enhanced matching options
     enhancedColorMatch: boolean;
@@ -159,9 +266,11 @@ interface AutoPaintTabProps {
     ditherLineWidth: number;
     setDitherLineWidth: (v: number) => void;
 
-    // Flat Paint (flat face-down print)
+    // Flat Paint
     flatPaint: boolean;
     setFlatPaint: (v: boolean) => void;
+    flatPaintFaceUp: boolean;
+    setFlatPaintFaceUp: (v: boolean) => void;
 
     // Optimizer options
     optimizerAlgorithm: 'fast' | 'balanced' | 'thorough' | 'deep' | 'exact';
@@ -198,6 +307,13 @@ export default function AutoPaintTab({
     handleDeleteProfile,
     handleExportProfile,
     handleImportFile,
+    handleRegisterPaletteProof,
+    handleSetPaletteTargetResponse,
+    handleCompletePaletteProofEvaluation,
+    handleReopenPaletteProofEvaluation,
+    handleDeletePaletteProof,
+    handleUpsertStackMatrixCalibration,
+    handleDeleteStackMatrixCalibration,
     autoPaintMaxHeight,
     setAutoPaintMaxHeight,
     autoPaintResult,
@@ -209,6 +325,7 @@ export default function AutoPaintTab({
     firstLayerHeight,
     filteredCount,
     imageSwatches,
+    paletteProofImageSrc,
     enhancedColorMatch,
     setEnhancedColorMatch,
     preserveSeparation,
@@ -223,6 +340,8 @@ export default function AutoPaintTab({
     setDitherLineWidth,
     flatPaint,
     setFlatPaint,
+    flatPaintFaceUp,
+    setFlatPaintFaceUp,
     optimizerAlgorithm,
     setOptimizerAlgorithm,
     optimizerSeed,
@@ -230,6 +349,10 @@ export default function AutoPaintTab({
     regionWeightingMode,
     setRegionWeightingMode,
 }: AutoPaintTabProps) {
+    const activeProfile = React.useMemo(
+        () => profiles.find((profile) => profile.id === activeProfileId),
+        [activeProfileId, profiles]
+    );
     const {
         result: nextBestResult,
         isComputing: isNextBestComputing,
@@ -577,7 +700,13 @@ export default function AutoPaintTab({
                             ))}
                         </div>
                     )}
-                    <div className={filaments.length > 0 ? 'grid grid-cols-2 gap-2' : ''}>
+                    <div
+                        className={
+                            filaments.length > 0
+                                ? 'grid grid-cols-[repeat(auto-fit,minmax(7.5rem,1fr))] gap-2'
+                                : ''
+                        }
+                    >
                         <Button
                             variant="outline"
                             size="sm"
@@ -596,7 +725,7 @@ export default function AutoPaintTab({
                                 className="w-full text-xs gap-1.5 h-8 cursor-pointer"
                             >
                                 <FlaskConical className="w-3.5 h-3.5" />
-                                Calibrate Filaments
+                                Calibrate
                             </Button>
                         )}
                     </div>
@@ -857,6 +986,25 @@ export default function AutoPaintTab({
                                     checked={flatPaint}
                                     onCheckedChange={setFlatPaint}
                                 />
+                            </div>
+                            <div className="space-y-3 border-l border-border/50 pl-3 ml-1">
+                                <div
+                                    className={`flex items-center justify-between transition-opacity ${flatPaint ? 'opacity-100' : 'opacity-40 pointer-events-none'}`}
+                                >
+                                    <Label
+                                        htmlFor="flat-paint-face-up"
+                                        className="text-xs font-medium text-foreground cursor-pointer"
+                                    >
+                                        Face-up, no clear layer
+                                    </Label>
+                                    <Switch
+                                        id="flat-paint-face-up"
+                                        data-testid="autopaint-flat-paint-face-up"
+                                        checked={flatPaintFaceUp}
+                                        onCheckedChange={setFlatPaintFaceUp}
+                                        disabled={!flatPaint}
+                                    />
+                                </div>
                             </div>
                         </div>
                     )}
@@ -1142,6 +1290,7 @@ export default function AutoPaintTab({
                     {/* Overall Confidence Indicator */}
                     {autoPaintResult && (
                         <div className="mt-4 p-3 rounded-md border border-border/50 bg-muted/30 space-y-2">
+                            <AppearanceModelStat result={autoPaintResult} />
                             <div className="flex items-center justify-between">
                                 <span className="text-xs font-semibold">Result Confidence</span>
                                 <span
@@ -1346,6 +1495,17 @@ export default function AutoPaintTab({
                 filaments={filaments}
                 layerHeight={calibrationLayerHeight}
                 firstLayerHeight={firstLayerHeight}
+                paletteProofSnapshot={autoPaintResult?.finalStack}
+                paletteProofImageSrc={paletteProofImageSrc}
+                paletteProofProfile={activeProfile}
+                paletteProofProfileDirty={isDirty}
+                onRegisterPaletteProof={handleRegisterPaletteProof}
+                onSetPaletteTargetResponse={handleSetPaletteTargetResponse}
+                onCompletePaletteProofEvaluation={handleCompletePaletteProofEvaluation}
+                onReopenPaletteProofEvaluation={handleReopenPaletteProofEvaluation}
+                onDeletePaletteProof={handleDeletePaletteProof}
+                onUpsertStackMatrixCalibration={handleUpsertStackMatrixCalibration}
+                onDeleteStackMatrixCalibration={handleDeleteStackMatrixCalibration}
                 onApply={handleApplyCalibration}
             />
         </TabsContent>

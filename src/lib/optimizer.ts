@@ -11,6 +11,7 @@
  */
 
 import type { Filament } from '../types';
+import type { AppearanceRankModelV1 } from '../types/appearance';
 import {
     buildAchievableColorPalette,
     scoreSequenceAgainstImage,
@@ -94,6 +95,7 @@ export interface ScoringContext {
     maxHeight?: number;
     transitionOpacity?: number;
     preserveSeparation?: boolean;
+    appearanceModel?: AppearanceRankModelV1;
 }
 
 // ============================================================================
@@ -224,6 +226,7 @@ function canonicalOptimizerInput(
         firstLayerHeight: context.firstLayerHeight,
         maxHeight: context.maxHeight ?? null,
         transitionOpacity: context.transitionOpacity ?? null,
+        appearanceModelFingerprint: context.appearanceModel?.fingerprint ?? null,
         algorithm,
         seed: seed ?? null,
         tuning: tuningFingerprint(options),
@@ -245,6 +248,13 @@ function stableHash32(value: string): number {
 export function createSequenceScorer(context: ScoringContext): (filaments: Filament[]) => number {
     const paletteCache = new Map<string, ReturnType<typeof buildAchievableColorPalette>>();
     const transitionThicknessCache = new Map<string, number>();
+    const exactAnchorTargets = context.appearanceModel?.exactAnchors
+        ?.filter((anchor) => anchor.source !== 'stack-matrix')
+        .map((anchor) => ({
+            L: anchor.targetLab[0],
+            a: anchor.targetLab[1],
+            b: anchor.targetLab[2],
+        }));
 
     return (filaments) => {
         if (filaments.length === 0) return Infinity;
@@ -257,12 +267,14 @@ export function createSequenceScorer(context: ScoringContext): (filaments: Filam
                 context.firstLayerHeight,
                 context.maxHeight,
                 context.transitionOpacity,
-                transitionThicknessCache
+                transitionThicknessCache,
+                context.appearanceModel
             );
             paletteCache.set(sequenceKey, palette);
         }
         return scoreSequenceAgainstImage(palette, context.imageColors, {
             preserveSeparation: context.preserveSeparation,
+            exactAnchorTargets,
         });
     };
 }

@@ -1,5 +1,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Filament } from '../types';
+import type { FinalPrintableStackSnapshot } from '../types/appearance';
+import {
+    buildPaletteProofRecord,
+    completePaletteProofEvaluation,
+    deletePaletteProof,
+    deleteStackMatrixCalibration,
+    reopenPaletteProofEvaluation,
+    setPaletteTargetResponse,
+    upsertPaletteProofRecord,
+    upsertStackMatrixCalibration,
+    type PaletteProofRecord,
+    type PaletteTargetResponse,
+    type StackMatrixCalibrationV1,
+} from '../lib/appearanceProfile';
+import type { PaletteProofSpec } from '../lib/paletteProof';
 import {
     type AutoPaintProfile,
     loadProfiles,
@@ -65,6 +80,10 @@ export function useProfileManager({ filaments, setFilaments }: UseProfileManager
         if (!active) return false;
         return !profileFilamentsEqual(active.filaments, filaments);
     }, [activeProfileId, profiles, filaments]);
+    const activeProfile = useMemo(
+        () => profiles.find((profile) => profile.id === activeProfileId),
+        [activeProfileId, profiles]
+    );
 
     // Save New: always creates a new profile
     const handleSaveNewProfile = useCallback(
@@ -133,10 +152,14 @@ export function useProfileManager({ filaments, setFilaments }: UseProfileManager
 
     const handleExportProfile = useCallback(() => {
         const active = [...profiles, ...TEMPLATE_PROFILES].find((p) => p.id === activeProfileId);
-        const profile = createProfile(active?.name ?? 'Exported Profile', filaments);
-        // Preserve original ID if exporting active profile — but never a
-        // reserved template id, so re-importing the file creates a user profile
-        if (active && !isTemplateProfileId(active.id)) profile.id = active.id;
+        const profile =
+            active && !isTemplateProfileId(active.id)
+                ? {
+                      ...active,
+                      filaments: filaments.map((filament) => ({ ...filament })),
+                      updatedAt: Date.now(),
+                  }
+                : createProfile(active?.name ?? 'Exported Profile', filaments);
 
         const blob = exportProfileBlob(profile);
         const url = URL.createObjectURL(blob);
@@ -148,6 +171,174 @@ export function useProfileManager({ filaments, setFilaments }: UseProfileManager
         a.remove();
         URL.revokeObjectURL(url);
     }, [filaments, profiles, activeProfileId]);
+
+    const handleRegisterPaletteProof = useCallback(
+        (snapshot: FinalPrintableStackSnapshot, proof: PaletteProofSpec): PaletteProofRecord => {
+            if (!activeProfileId || !activeProfile) {
+                throw new Error('Save a named filament profile before tracking a Palette Proof');
+            }
+            if (isDirty) {
+                throw new Error(
+                    'Save or overwrite the edited filament profile before tracking a Palette Proof'
+                );
+            }
+            const record = buildPaletteProofRecord(activeProfile.filaments, snapshot, proof);
+            const updated = profiles.map((profile) =>
+                profile.id === activeProfileId
+                    ? {
+                          ...profile,
+                          appearance: upsertPaletteProofRecord(profile.appearance, record),
+                          updatedAt: Date.now(),
+                      }
+                    : profile
+            );
+            if (!saveProfilesToStorage(updated)) {
+                throw new Error('Not enough browser storage to retain this Palette Proof');
+            }
+            setProfiles(updated);
+            return record;
+        },
+        [activeProfile, activeProfileId, isDirty, profiles]
+    );
+
+    const handleSetPaletteTargetResponse = useCallback(
+        (proofId: string, column: number, response: PaletteTargetResponse | null) => {
+            if (!activeProfileId || !activeProfile) {
+                throw new Error('Load the filament profile that owns this Palette Proof');
+            }
+            if (isDirty) {
+                throw new Error('Save or revert filament edits before recording proof results');
+            }
+            const appearance = setPaletteTargetResponse(
+                activeProfile.appearance,
+                proofId,
+                column,
+                response
+            );
+            const updated = profiles.map((profile) =>
+                profile.id === activeProfileId
+                    ? { ...profile, appearance, updatedAt: Date.now() }
+                    : profile
+            );
+            if (!saveProfilesToStorage(updated)) {
+                throw new Error('Could not persist Palette Proof results');
+            }
+            setProfiles(updated);
+        },
+        [activeProfile, activeProfileId, isDirty, profiles]
+    );
+
+    const handleCompletePaletteProofEvaluation = useCallback(
+        (proofId: string) => {
+            if (!activeProfileId || !activeProfile?.appearance) {
+                throw new Error('Load the filament profile that owns this Palette Proof');
+            }
+            if (isDirty) {
+                throw new Error('Save or revert filament edits before completing proof results');
+            }
+            const appearance = completePaletteProofEvaluation(activeProfile.appearance, proofId);
+            const updated = profiles.map((profile) =>
+                profile.id === activeProfileId
+                    ? { ...profile, appearance, updatedAt: Date.now() }
+                    : profile
+            );
+            if (!saveProfilesToStorage(updated)) {
+                throw new Error('Could not persist Palette Proof completion');
+            }
+            setProfiles(updated);
+        },
+        [activeProfile, activeProfileId, isDirty, profiles]
+    );
+
+    const handleReopenPaletteProofEvaluation = useCallback(
+        (proofId: string) => {
+            if (!activeProfileId || !activeProfile?.appearance) {
+                throw new Error('Load the filament profile that owns this Palette Proof');
+            }
+            if (isDirty) {
+                throw new Error('Save or revert filament edits before editing proof results');
+            }
+            const appearance = reopenPaletteProofEvaluation(activeProfile.appearance, proofId);
+            const updated = profiles.map((profile) =>
+                profile.id === activeProfileId
+                    ? { ...profile, appearance, updatedAt: Date.now() }
+                    : profile
+            );
+            if (!saveProfilesToStorage(updated)) {
+                throw new Error('Could not persist the reopened Palette Proof');
+            }
+            setProfiles(updated);
+        },
+        [activeProfile, activeProfileId, isDirty, profiles]
+    );
+
+    const handleDeletePaletteProof = useCallback(
+        (proofId: string) => {
+            if (!activeProfileId || !activeProfile?.appearance) {
+                throw new Error('Load the filament profile that owns this Palette Proof');
+            }
+            if (isDirty) {
+                throw new Error('Save or revert filament edits before deleting this proof');
+            }
+            const appearance = deletePaletteProof(activeProfile.appearance, proofId);
+            const updated = profiles.map((profile) =>
+                profile.id === activeProfileId
+                    ? { ...profile, appearance, updatedAt: Date.now() }
+                    : profile
+            );
+            if (!saveProfilesToStorage(updated)) {
+                throw new Error('Could not persist Palette Proof deletion');
+            }
+            setProfiles(updated);
+        },
+        [activeProfile, activeProfileId, isDirty, profiles]
+    );
+
+    const handleUpsertStackMatrixCalibration = useCallback(
+        (record: StackMatrixCalibrationV1) => {
+            if (!activeProfileId || !activeProfile) {
+                throw new Error('Save a named filament profile before creating a Stack Matrix');
+            }
+            if (isDirty) {
+                throw new Error(
+                    'Save or overwrite the edited filament profile before creating a Stack Matrix'
+                );
+            }
+            const appearance = upsertStackMatrixCalibration(activeProfile.appearance, record);
+            const updated = profiles.map((profile) =>
+                profile.id === activeProfileId
+                    ? { ...profile, appearance, updatedAt: Date.now() }
+                    : profile
+            );
+            if (!saveProfilesToStorage(updated)) {
+                throw new Error('Not enough browser storage to retain this Stack Matrix');
+            }
+            setProfiles(updated);
+        },
+        [activeProfile, activeProfileId, isDirty, profiles]
+    );
+
+    const handleDeleteStackMatrixCalibration = useCallback(
+        (matrixId: string) => {
+            if (!activeProfileId || !activeProfile?.appearance) {
+                throw new Error('Load the filament profile that owns this Stack Matrix');
+            }
+            if (isDirty) {
+                throw new Error('Save or revert filament edits before deleting this Stack Matrix');
+            }
+            const appearance = deleteStackMatrixCalibration(activeProfile.appearance, matrixId);
+            const updated = profiles.map((profile) =>
+                profile.id === activeProfileId
+                    ? { ...profile, appearance, updatedAt: Date.now() }
+                    : profile
+            );
+            if (!saveProfilesToStorage(updated)) {
+                throw new Error('Could not persist Stack Matrix deletion');
+            }
+            setProfiles(updated);
+        },
+        [activeProfile, activeProfileId, isDirty, profiles]
+    );
 
     const handleImportFile = useCallback(
         (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -226,6 +417,7 @@ export function useProfileManager({ filaments, setFilaments }: UseProfileManager
     return {
         profiles,
         activeProfileId,
+        activeProfile,
         isDirty,
         showSaveNewPopover,
         setShowSaveNewPopover,
@@ -245,5 +437,12 @@ export function useProfileManager({ filaments, setFilaments }: UseProfileManager
         handleDeleteProfile,
         handleExportProfile,
         handleImportFile,
+        handleRegisterPaletteProof,
+        handleSetPaletteTargetResponse,
+        handleCompletePaletteProofEvaluation,
+        handleReopenPaletteProofEvaluation,
+        handleDeletePaletteProof,
+        handleUpsertStackMatrixCalibration,
+        handleDeleteStackMatrixCalibration,
     };
 }

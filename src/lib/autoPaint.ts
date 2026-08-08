@@ -9,6 +9,23 @@
  */
 
 import type { Filament } from '../types';
+import type {
+    AppearanceAnchorLayer,
+    AppearanceRankModelV1,
+    CanonicalSrgbColor,
+    FinalPrintableStackSnapshot,
+    FinalStackLayerSnapshot,
+    FinalStackPaletteEntrySnapshot,
+    FinalStackSwapSnapshot,
+    FinalStackTargetMappingSnapshot,
+    FinalStackZoneSnapshot,
+    TargetSampleContext,
+} from '../types/appearance';
+import {
+    appearanceLabToRgb,
+    createIdentityAppearanceRankModel,
+    resolveAppearanceRankModel,
+} from './appearanceModel';
 import {
     optimizeFilamentOrder,
     type OptimizerOptions,
@@ -22,6 +39,7 @@ import {
     type CalibrationRgb,
 } from './calibration';
 import { blendSrgbChannel } from './colorSpace';
+import { fingerprintJson } from './fingerprint';
 
 export { LAYER_ACTIVATION_EPSILON } from './layerActivation';
 
@@ -42,6 +60,12 @@ export interface Lab {
 /** Lab color with a frequency weight (0-1, normalized) */
 export interface WeightedLab extends Lab {
     weight: number;
+}
+
+export interface AutoPaintImageSwatch {
+    hex: string;
+    count?: number;
+    sampleContext?: TargetSampleContext;
 }
 
 type ColorDistanceMetric = 'cie76' | 'ciede2000';
@@ -89,6 +113,8 @@ export interface AutoPaintResult {
     compressionRatio: number; // 1.0 = no compression, 0.5 = 50% compressed
     filamentOrder: string[]; // Filament IDs in order (dark to light)
     transitionZones: TransitionZone[]; // Detailed zone info
+    /** Frozen, serializable single source of truth for preview, proof, and export. */
+    finalStack: FinalPrintableStackSnapshot;
     // Confidence metrics
     confidence: number; // Overall confidence score (0-1)
     confidenceFactors: {
@@ -802,6 +828,276 @@ function buildPrintableAutoPaintStack(
     };
 }
 
+function canonicalSrgbColor(rgb: RGB): CanonicalSrgbColor {
+    const channels = [rgb.r, rgb.g, rgb.b].map((channel) =>
+        Math.round(Math.max(0, Math.min(255, channel)))
+    ) as [number, number, number];
+
+    return {
+        space: 'srgb',
+        encoding: 'uint8',
+        whitePoint: 'D65',
+        rgb: channels,
+        hex: rgbToHex({ r: channels[0], g: channels[1], b: channels[2] }),
+    };
+}
+
+function labTuple(lab: Lab): [number, number, number] {
+    return [lab.L, lab.a, lab.b];
+}
+
+function freezeSnapshotValue<T>(value: T): T {
+    if (!value || typeof value !== 'object' || Object.isFrozen(value)) return value;
+
+    for (const child of Object.values(value)) {
+        freezeSnapshotValue(child);
+    }
+
+    return Object.freeze(value);
+}
+
+export function freezeFinalPrintableStackSnapshot(
+    snapshot: FinalPrintableStackSnapshot
+): FinalPrintableStackSnapshot {
+    return freezeSnapshotValue(snapshot);
+}
+
+function buildFinalPrintableStackSnapshot(
+    stack: PrintableAutoPaintStack,
+    imageSwatches: AutoPaintImageSwatch[],
+    settings: {
+        layerHeight: number;
+        firstLayerHeight: number;
+        requestedMaxHeight?: number;
+        printableMaxHeight: number;
+        transitionOpacity?: number;
+        compressionRatio: number;
+        preserveSeparation?: boolean;
+        appearanceModel?: AppearanceRankModelV1;
+    }
+): FinalPrintableStackSnapshot {
+    const appearanceModel = settings.appearanceModel ?? createIdentityAppearanceRankModel();
+    const comparedStackKeys = new Set(appearanceModel.comparedStackKeys);
+    const zoneSnapshots: FinalStackZoneSnapshot[] = stack.zones.map((zone, index) => ({
+        id: `zone-${index + 1}`,
+        index,
+        filamentId: zone.filamentId,
+        filamentColor: rgbToHex(hexToRgb(zone.filamentColor)),
+        filamentHd: zone.filamentTd,
+        filamentHdChannels: zone.filamentTdChannels
+            ? [zone.filamentTdChannels[0], zone.filamentTdChannels[1], zone.filamentTdChannels[2]]
+            : undefined,
+        startHeight: zone.startHeight,
+        endHeight: zone.endHeight,
+        idealThickness: zone.idealThickness,
+        actualThickness: zone.actualThickness,
+    }));
+    const modelVersion = 'rgb-beer-lambert-v1' as const;
+    const modelFingerprint = fingerprintJson('appearance-model-v1', {
+        modelVersion,
+        zones: zoneSnapshots.map((zone) => ({
+            filamentId: zone.filamentId,
+            filamentColor: zone.filamentColor,
+            filamentHd: zone.filamentHd,
+            filamentHdChannels: zone.filamentHdChannels ?? null,
+        })),
+        transitionOpacity: normalizeTransitionOpacity(settings.transitionOpacity),
+    });
+
+    const prefixTokens: Array<{
+        filamentId: string;
+        filamentColor: string;
+        thickness: number;
+    }> = [];
+    const appearancePrefix: AppearanceAnchorLayer[] = [];
+    const layerSnapshots: FinalStackLayerSnapshot[] = stack.layers.map((layer, index) => {
+        const filamentColor = rgbToHex(hexToRgb(layer.filamentColor));
+        const physicalLayer = {
+            filamentId: layer.filamentId,
+            filamentColor,
+            thickness: layer.thickness,
+        };
+        prefixTokens.push(physicalLayer);
+        appearancePrefix.push(physicalLayer);
+        const canonicalStackKey = fingerprintJson('stack-v1', prefixTokens);
+        const basePredictedLab = rgbToLab(layer.virtualColor);
+        const prediction = resolveAppearanceRankModel(
+            basePredictedLab,
+            appearanceModel,
+            appearancePrefix
+        );
+        const predictedRgb =
+            appearanceModel.applied || prediction.exactAnchor
+                ? appearanceLabToRgb(prediction.lab)
+                : [layer.virtualColor.r, layer.virtualColor.g, layer.virtualColor.b];
+        const appearanceStatus = prediction.exactAnchor
+            ? ('anchored' as const)
+            : comparedStackKeys.has(canonicalStackKey)
+              ? ('compared' as const)
+              : appearanceModel.applied
+                ? ('fitted' as const)
+                : ('estimated' as const);
+
+        return {
+            id: `layer-${index + 1}`,
+            index,
+            filamentId: layer.filamentId,
+            filamentColor,
+            startHeight: layer.startHeight,
+            endHeight: layer.endHeight,
+            thickness: layer.thickness,
+            zoneIndex: layer.zoneIndex,
+            canonicalStackKey,
+            basePredictedColor: canonicalSrgbColor(layer.virtualColor),
+            basePredictedLab: labTuple(basePredictedLab),
+            predictedColor: canonicalSrgbColor({
+                r: predictedRgb[0],
+                g: predictedRgb[1],
+                b: predictedRgb[2],
+            }),
+            predictedLab: labTuple(prediction.lab),
+            appearanceStatus,
+            ...(prediction.exactAnchor
+                ? {
+                      exactAnchorId: prediction.exactAnchor.id,
+                      exactAnchorTargetLab: prediction.exactAnchor.targetLab,
+                  }
+                : {}),
+        };
+    });
+    const palette: FinalStackPaletteEntrySnapshot[] = layerSnapshots.map((layer) => ({
+        id: `prefix-${layer.index + 1}`,
+        index: layer.index,
+        layerId: layer.id,
+        height: layer.endHeight,
+        canonicalStackKey: layer.canonicalStackKey,
+        basePredictedColor: layer.basePredictedColor,
+        basePredictedLab: layer.basePredictedLab,
+        predictedColor: layer.predictedColor,
+        predictedLab: layer.predictedLab,
+        appearanceStatus: layer.appearanceStatus,
+        ...(layer.exactAnchorId
+            ? {
+                  exactAnchorId: layer.exactAnchorId,
+                  exactAnchorTargetLab: layer.exactAnchorTargetLab,
+              }
+            : {}),
+    }));
+    const swapSequence: FinalStackSwapSnapshot[] = zoneSnapshots.map((zone) => {
+        const zoneLayers = layerSnapshots.filter((layer) => layer.zoneIndex === zone.index);
+        const firstLayer = zoneLayers[0];
+        const lastLayer = zoneLayers.at(-1);
+
+        return {
+            id: `swap-run-${zone.index + 1}`,
+            index: zone.index,
+            filamentId: zone.filamentId,
+            filamentColor: zone.filamentColor,
+            startLayerIndex: firstLayer?.index ?? 0,
+            endLayerIndex: lastLayer?.index ?? 0,
+            startHeight: firstLayer?.startHeight ?? zone.startHeight,
+            endHeight: lastLayer?.endHeight ?? zone.endHeight,
+        };
+    });
+
+    const totalTargetWeight = imageSwatches.reduce(
+        (sum, swatch) => sum + Math.max(0, swatch.count ?? 1),
+        0
+    );
+    const sourceTargets = imageSwatches
+        .map((swatch, index) => ({
+            index,
+            color: canonicalSrgbColor(hexToRgb(swatch.hex)),
+            lab: rgbToLab(hexToRgb(swatch.hex)),
+            weight: Math.max(0, swatch.count ?? 1) / Math.max(1, totalTargetWeight),
+            sampleContext: {
+                geometryClass: swatch.sampleContext?.geometryClass ?? ('unknown' as const),
+                interiorRadiusMm: swatch.sampleContext?.interiorRadiusMm,
+                flatInteriorWeight: swatch.sampleContext?.flatInteriorWeight,
+                edgeLimitedWeight: swatch.sampleContext?.edgeLimitedWeight,
+            },
+        }))
+        .filter((target) => target.weight > 0);
+    const mappedTargets =
+        palette.length > 0
+            ? mapTargetsToPrintablePalette(
+                  palette.map((entry) => ({
+                      height: entry.height,
+                      lab: {
+                          L: entry.predictedLab[0],
+                          a: entry.predictedLab[1],
+                          b: entry.predictedLab[2],
+                      },
+                      rgb: {
+                          r: entry.predictedColor.rgb[0],
+                          g: entry.predictedColor.rgb[1],
+                          b: entry.predictedColor.rgb[2],
+                      },
+                      exactAnchorId: entry.exactAnchorId,
+                      exactAnchorTargetLab: entry.exactAnchorTargetLab
+                          ? {
+                                L: entry.exactAnchorTargetLab[0],
+                                a: entry.exactAnchorTargetLab[1],
+                                b: entry.exactAnchorTargetLab[2],
+                            }
+                          : undefined,
+                  })),
+                  sourceTargets.map((target) => ({ ...target.lab, weight: target.weight })),
+                  { preserveSeparation: settings.preserveSeparation }
+              )
+            : [];
+    const targetMappings: FinalStackTargetMappingSnapshot[] = mappedTargets.map((mapped, index) => {
+        const source = sourceTargets[index];
+        const paletteEntry = palette[mapped.paletteIndex];
+
+        return {
+            id: `target-${source.index + 1}-${source.color.hex.slice(1)}`,
+            index: source.index,
+            targetColor: source.color,
+            targetLab: labTuple(source.lab),
+            usageWeight: source.weight,
+            paletteIndex: mapped.paletteIndex,
+            paletteEntryId: paletteEntry.id,
+            canonicalStackKey: paletteEntry.canonicalStackKey,
+            projectedHeight: mapped.projectedHeight,
+            predictedColor: paletteEntry.predictedColor,
+            predictedLab: paletteEntry.predictedLab,
+            sampleContext: { ...source.sampleContext },
+        };
+    });
+
+    const snapshotWithoutFingerprint = {
+        schemaVersion: 1 as const,
+        modelFingerprint,
+        modelVersion,
+        appearanceModel,
+        settings: {
+            layerHeight: settings.layerHeight,
+            firstLayerHeight: printableFirstLayerHeight(
+                settings.layerHeight,
+                settings.firstLayerHeight
+            ),
+            requestedMaxHeight: settings.requestedMaxHeight ?? null,
+            printableMaxHeight: settings.printableMaxHeight,
+            transitionOpacity: normalizeTransitionOpacity(settings.transitionOpacity),
+            compressionRatio: settings.compressionRatio,
+        },
+        totalHeight: stack.totalHeight,
+        truncated: stack.truncated,
+        layers: layerSnapshots,
+        zones: zoneSnapshots,
+        swapSequence,
+        palette,
+        targetMappings,
+    };
+    const snapshot: FinalPrintableStackSnapshot = {
+        ...snapshotWithoutFingerprint,
+        fingerprint: fingerprintJson('final-stack-v1', snapshotWithoutFingerprint),
+    };
+
+    return freezeFinalPrintableStackSnapshot(snapshot);
+}
+
 function buildZoneBackgrounds(zones: TransitionZone[]): RGB[] {
     if (zones.length === 0) return [];
 
@@ -853,7 +1149,7 @@ function buildZoneBackgrounds(zones: TransitionZone[]): RGB[] {
  * @returns Weighted Lab targets, normalized so weights sum to 1.0
  */
 export function clusterImageColors(
-    swatches: Array<{ hex: string; count?: number }>,
+    swatches: AutoPaintImageSwatch[],
     maxClusters: number = 32,
     threshold: number = 5.0
 ): WeightedLab[] {
@@ -952,14 +1248,23 @@ export function clusterImageColors(
  * @param transitionThicknessCache - Optional cache shared by optimizer evaluations
  * @returns Array of achievable { height, lab, rgb } at each layer step
  */
+export interface AchievableColor {
+    height: number;
+    lab: Lab;
+    rgb: RGB;
+    exactAnchorId?: string;
+    exactAnchorTargetLab?: Lab;
+}
+
 export function buildAchievableColorPalette(
     sequence: AutoPaintFilament[],
     layerHeight: number,
     firstLayerHeight: number,
     maxHeight?: number,
     transitionOpacity: number = DEFAULT_TRANSITION_OPACITY,
-    transitionThicknessCache?: Map<string, number>
-): Array<{ height: number; lab: Lab; rgb: RGB }> {
+    transitionThicknessCache?: Map<string, number>,
+    appearanceModel: AppearanceRankModelV1 = createIdentityAppearanceRankModel()
+): AchievableColor[] {
     if (sequence.length === 0) return [];
 
     // Calculate zones for this sequence
@@ -983,11 +1288,35 @@ export function buildAchievableColorPalette(
             : compressZones(zones, printableMaxHeight).compressedZones;
     const stack = buildPrintableAutoPaintStack(activeZones, layerHeight, firstLayerHeight);
 
-    return stack.layers.map((layer) => ({
-        height: layer.endHeight,
-        lab: rgbToLab(layer.virtualColor),
-        rgb: layer.virtualColor,
-    }));
+    const appearancePrefix: AppearanceAnchorLayer[] = [];
+    return stack.layers.map((layer) => {
+        appearancePrefix.push({
+            filamentId: layer.filamentId,
+            filamentColor: rgbToHex(hexToRgb(layer.filamentColor)),
+            thickness: layer.thickness,
+        });
+        const baseLab = rgbToLab(layer.virtualColor);
+        const prediction = resolveAppearanceRankModel(baseLab, appearanceModel, appearancePrefix);
+        const rgb =
+            appearanceModel.applied || prediction.exactAnchor
+                ? appearanceLabToRgb(prediction.lab)
+                : null;
+        return {
+            height: layer.endHeight,
+            lab: prediction.lab,
+            rgb: rgb ? { r: rgb[0], g: rgb[1], b: rgb[2] } : layer.virtualColor,
+            ...(prediction.exactAnchor
+                ? {
+                      exactAnchorId: prediction.exactAnchor.id,
+                      exactAnchorTargetLab: {
+                          L: prediction.exactAnchor.targetLab[0],
+                          a: prediction.exactAnchor.targetLab[1],
+                          b: prediction.exactAnchor.targetLab[2],
+                      },
+                  }
+                : {}),
+        };
+    });
 }
 
 export interface MappedTarget {
@@ -1012,6 +1341,34 @@ export interface MappedTarget {
  */
 /** Minimum ΔE between two printable colors for them to count as "distinct". */
 const SEPARATION_MIN_DE = 2;
+const EXACT_ANCHOR_TARGET_DE = 0.25;
+// Large enough that a sequence cannot beat a physically verified recipe merely
+// by landing an unverified prefix on the same simulated Lab coordinate.
+const MISSING_EXACT_ANCHOR_PENALTY = 20;
+
+function exactAnchorMapping(palette: AchievableColor[], target: WeightedLab): MappedTarget | null {
+    let bestIndex = -1;
+    let bestDistance = Infinity;
+    for (let index = 0; index < palette.length; index++) {
+        const anchorTarget = palette[index].exactAnchorTargetLab;
+        if (!anchorTarget) continue;
+        const distance = optimizerColorDistance(anchorTarget, target);
+        if (
+            distance <= EXACT_ANCHOR_TARGET_DE &&
+            (distance < bestDistance || (distance === bestDistance && index < bestIndex))
+        ) {
+            bestIndex = index;
+            bestDistance = distance;
+        }
+    }
+    if (bestIndex < 0) return null;
+    return {
+        target,
+        paletteIndex: bestIndex,
+        mappedLab: palette[bestIndex].lab,
+        projectedHeight: palette[bestIndex].height,
+    };
+}
 
 /**
  * Injective ("preserve color separation") mapping: assign each weighted image
@@ -1023,23 +1380,41 @@ const SEPARATION_MIN_DE = 2;
  * (and may collide) — the only case that cannot be fully separated.
  */
 function mapTargetsWithSeparation(
-    palette: Array<{ height: number; lab: Lab; rgb: RGB }>,
+    palette: AchievableColor[],
     imageTargets: WeightedLab[]
 ): MappedTarget[] {
     // Distinct printable colors, keeping a representative entry for each.
     const distinct: Array<{ lab: Lab; height: number; paletteIndex: number }> = [];
     for (let i = 0; i < palette.length; i++) {
         const entry = palette[i];
-        if (distinct.every((k) => optimizerColorDistance(k.lab, entry.lab) >= SEPARATION_MIN_DE)) {
+        const existingIndex = distinct.findIndex(
+            (candidate) => optimizerColorDistance(candidate.lab, entry.lab) < SEPARATION_MIN_DE
+        );
+        if (existingIndex < 0) {
             distinct.push({ lab: entry.lab, height: entry.height, paletteIndex: i });
+        } else if (
+            entry.exactAnchorId &&
+            !palette[distinct[existingIndex].paletteIndex].exactAnchorId
+        ) {
+            distinct[existingIndex] = { lab: entry.lab, height: entry.height, paletteIndex: i };
         }
     }
 
-    const result = new Array<MappedTarget>(imageTargets.length);
+    const result = new Array<MappedTarget | undefined>(imageTargets.length);
     const used = new Set<number>();
+    for (let index = 0; index < imageTargets.length; index++) {
+        const anchored = exactAnchorMapping(palette, imageTargets[index]);
+        if (!anchored) continue;
+        result[index] = anchored;
+        const distinctIndex = distinct.findIndex(
+            (entry) => entry.paletteIndex === anchored.paletteIndex
+        );
+        if (distinctIndex >= 0) used.add(distinctIndex);
+    }
     // Assign dominant colors first.
     const order = imageTargets
         .map((_, i) => i)
+        .filter((index) => result[index] === undefined)
         .sort((a, b) => imageTargets[b].weight - imageTargets[a].weight);
     for (const i of order) {
         const target = imageTargets[i];
@@ -1067,11 +1442,11 @@ function mapTargetsWithSeparation(
             projectedHeight: distinct[j].height,
         };
     }
-    return result;
+    return result as MappedTarget[];
 }
 
 export function mapTargetsToPrintablePalette(
-    palette: Array<{ height: number; lab: Lab; rgb: RGB }>,
+    palette: AchievableColor[],
     imageTargets: WeightedLab[],
     options: { preserveSeparation?: boolean } = {}
 ): MappedTarget[] {
@@ -1134,6 +1509,8 @@ export function mapTargetsToPrintablePalette(
     });
 
     return imageTargets.map((target) => {
+        const anchored = exactAnchorMapping(palette, target);
+        if (anchored) return anchored;
         let minDistance = Infinity;
         let nodeMatch = 0;
         let onSegment = false;
@@ -1252,9 +1629,9 @@ const USEFUL_PALETTE_MATCH_DE = 8;
  *    only as transitions and contribute no useful color to the image.
  */
 export function scoreSequenceAgainstImage(
-    palette: Array<{ height: number; lab: Lab; rgb: RGB }>,
+    palette: AchievableColor[],
     imageTargets: WeightedLab[],
-    options: { preserveSeparation?: boolean } = {}
+    options: { preserveSeparation?: boolean; exactAnchorTargets?: readonly Lab[] } = {}
 ): number {
     if (palette.length === 0) return Infinity;
     if (imageTargets.length === 0) return Infinity;
@@ -1269,6 +1646,7 @@ export function scoreSequenceAgainstImage(
     const bestMatchHeights: number[] = [];
     const usedPaletteEntries = new Set<number>();
     let detailCoveredWeight = 0;
+    let missingExactAnchorWeight = 0;
 
     for (const entry of mapped) {
         const realizedDeltaE = realizedColorError(entry.mappedLab, entry.target);
@@ -1280,6 +1658,17 @@ export function scoreSequenceAgainstImage(
         if (realizedDeltaE <= DETAIL_COVERAGE_DE) detailCoveredWeight += weight;
         // Mark this palette entry as useful if its printable color is a decent match.
         if (realizedDeltaE < USEFUL_PALETTE_MATCH_DE) usedPaletteEntries.add(entry.paletteIndex);
+        const expectedAnchor = options.exactAnchorTargets?.some(
+            (target) => optimizerColorDistance(target, entry.target) <= EXACT_ANCHOR_TARGET_DE
+        );
+        const realizedAnchor = palette[entry.paletteIndex].exactAnchorTargetLab;
+        if (
+            expectedAnchor &&
+            (!realizedAnchor ||
+                optimizerColorDistance(realizedAnchor, entry.target) > EXACT_ANCHOR_TARGET_DE)
+        ) {
+            missingExactAnchorWeight += weight;
+        }
     }
 
     if (totalWeight <= 0) return Infinity;
@@ -1288,6 +1677,7 @@ export function scoreSequenceAgainstImage(
     const weightedTail = weightedErrorPercentile(errorSamples, REALIZED_ERROR_TAIL_PERCENTILE);
     let score = weightedMean + REALIZED_ERROR_TAIL_WEIGHT * weightedTail;
     score += (1 - detailCoveredWeight / totalWeight) * DETAIL_COVERAGE_PENALTY;
+    score += (missingExactAnchorWeight / totalWeight) * MISSING_EXACT_ANCHOR_PENALTY;
 
     // 2. Height spread penalty: penalize when distinct image colors
     //    collapse to the same height (leading to flat surfaces).
@@ -1328,12 +1718,13 @@ export function scoreSequenceAgainstImage(
  */
 function findBestFilamentOrder(
     filaments: Filament[],
-    imageSwatches: Array<{ hex: string; count?: number }>,
+    imageSwatches: AutoPaintImageSwatch[],
     layerHeight: number,
     firstLayerHeight: number,
     optimizerOptions?: Partial<OptimizerOptions>,
     maxHeight?: number,
-    allowRepeatedSwaps: boolean = false
+    allowRepeatedSwaps: boolean = false,
+    appearanceModel?: AppearanceRankModelV1
 ): { sortedFilaments: Filament[]; result?: OptimizerResult } {
     if (filaments.length <= 1) {
         return { sortedFilaments: [...filaments] };
@@ -1346,7 +1737,8 @@ function findBestFilamentOrder(
         firstLayerHeight,
         optimizerOptions ?? {},
         maxHeight,
-        allowRepeatedSwaps
+        allowRepeatedSwaps,
+        appearanceModel
     );
 }
 
@@ -1357,9 +1749,7 @@ function findBestFilamentOrder(
  * Convert the already-processed 2D palette into weighted optimizer targets
  * without applying another palette-reduction pass.
  */
-export function buildOptimizerImageTargets(
-    imageSwatches: Array<{ hex: string; count?: number }>
-): WeightedLab[] {
+export function buildOptimizerImageTargets(imageSwatches: AutoPaintImageSwatch[]): WeightedLab[] {
     const totalWeight = imageSwatches.reduce(
         (total, swatch) => total + Math.max(0, swatch.count ?? 1),
         0
@@ -1375,12 +1765,13 @@ export function buildOptimizerImageTargets(
 
 function findBestFilamentOrderWithOptimizer(
     filaments: Filament[],
-    imageSwatches: Array<{ hex: string; count?: number }>,
+    imageSwatches: AutoPaintImageSwatch[],
     layerHeight: number,
     firstLayerHeight: number,
     optimizerOptions: Partial<OptimizerOptions>,
     maxHeight?: number,
-    allowRepeatedSwaps: boolean = false
+    allowRepeatedSwaps: boolean = false,
+    appearanceModel?: AppearanceRankModelV1
 ): { sortedFilaments: Filament[]; result: OptimizerResult } {
     const imageTargets = buildOptimizerImageTargets(imageSwatches);
 
@@ -1391,6 +1782,7 @@ function findBestFilamentOrderWithOptimizer(
         firstLayerHeight,
         maxHeight,
         transitionOpacity: optimizerOptions.transitionOpacity,
+        appearanceModel,
     };
 
     // Run optimizer (tds are hiding distances; no scaling needed)
@@ -1431,16 +1823,31 @@ function findBestFilamentOrderWithOptimizer(
  */
 export function generateAutoLayers(
     filaments: Filament[],
-    imageSwatches: Array<{ hex: string; count?: number }>,
+    imageSwatches: AutoPaintImageSwatch[],
     layerHeight: number,
     firstLayerHeight: number,
     maxHeight?: number,
     enhancedColorMatch?: boolean,
     allowRepeatedSwaps?: boolean,
-    optimizerOptions?: Partial<OptimizerOptions>
+    optimizerOptions?: Partial<OptimizerOptions>,
+    appearanceModel: AppearanceRankModelV1 = createIdentityAppearanceRankModel()
 ): AutoPaintResult {
     // --- STEP 1: VALIDATION ---
     if (filaments.length === 0) {
+        const finalStack = buildFinalPrintableStackSnapshot(
+            { layers: [], zones: [], totalHeight: 0, truncated: false },
+            imageSwatches,
+            {
+                layerHeight,
+                firstLayerHeight,
+                requestedMaxHeight: maxHeight,
+                printableMaxHeight: 0,
+                transitionOpacity: optimizerOptions?.transitionOpacity,
+                compressionRatio: 1,
+                preserveSeparation: optimizerOptions?.preserveSeparation,
+                appearanceModel,
+            }
+        );
         return {
             layers: [],
             totalHeight: 0,
@@ -1449,6 +1856,7 @@ export function generateAutoLayers(
             compressionRatio: 1,
             filamentOrder: [],
             transitionZones: [],
+            finalStack,
             confidence: 0,
             confidenceFactors: {
                 calibrationQuality: 0,
@@ -1459,6 +1867,20 @@ export function generateAutoLayers(
     }
 
     if (imageSwatches.length === 0) {
+        const finalStack = buildFinalPrintableStackSnapshot(
+            { layers: [], zones: [], totalHeight: 0, truncated: false },
+            imageSwatches,
+            {
+                layerHeight,
+                firstLayerHeight,
+                requestedMaxHeight: maxHeight,
+                printableMaxHeight: 0,
+                transitionOpacity: optimizerOptions?.transitionOpacity,
+                compressionRatio: 1,
+                preserveSeparation: optimizerOptions?.preserveSeparation,
+                appearanceModel,
+            }
+        );
         return {
             layers: [],
             totalHeight: 0,
@@ -1467,6 +1889,7 @@ export function generateAutoLayers(
             compressionRatio: 1,
             filamentOrder: [],
             transitionZones: [],
+            finalStack,
             confidence: 0,
             confidenceFactors: {
                 calibrationQuality: 0,
@@ -1489,7 +1912,8 @@ export function generateAutoLayers(
             firstLayerHeight,
             optimizerOptions,
             maxHeight,
-            allowRepeatedSwaps
+            allowRepeatedSwaps,
+            appearanceModel
         );
 
         sortedFilaments = orderingResult.sortedFilaments;
@@ -1545,6 +1969,16 @@ export function generateAutoLayers(
 
     // --- STEP 6: CALCULATE CONFIDENCE METRICS ---
     const confidence = calculateAutoConfidence(imageSwatches, printedFilaments, compressionRatio);
+    const finalStack = buildFinalPrintableStackSnapshot(printableStack, imageSwatches, {
+        layerHeight,
+        firstLayerHeight,
+        requestedMaxHeight: maxHeight,
+        printableMaxHeight: targetMaxHeight,
+        transitionOpacity: optimizerOptions?.transitionOpacity,
+        compressionRatio,
+        preserveSeparation: optimizerOptions?.preserveSeparation,
+        appearanceModel,
+    });
 
     const result: AutoPaintResult = {
         layers,
@@ -1554,6 +1988,7 @@ export function generateAutoLayers(
         compressionRatio,
         filamentOrder,
         transitionZones: printableStack.zones,
+        finalStack,
         ...confidence,
     };
 
@@ -1610,8 +2045,28 @@ export function calculateRecommendedHeight(
  * - colorOrder: ordering of swatch indices
  * - virtualSwatches: colors for each layer
  */
+type AutoPaintSliceInput = Omit<AutoPaintResult, 'finalStack'> & {
+    finalStack?: FinalPrintableStackSnapshot;
+};
+
+export function autoPaintResultMatchesSliceGrid(
+    result: AutoPaintSliceInput,
+    layerHeight: number,
+    firstLayerHeight: number
+): boolean {
+    if (!result.finalStack) return true;
+    return (
+        Math.abs(result.finalStack.settings.layerHeight - layerHeight) <=
+            PRINTABLE_HEIGHT_EPSILON &&
+        Math.abs(
+            result.finalStack.settings.firstLayerHeight -
+                printableFirstLayerHeight(layerHeight, firstLayerHeight)
+        ) <= PRINTABLE_HEIGHT_EPSILON
+    );
+}
+
 export function autoPaintToSliceHeights(
-    result: AutoPaintResult,
+    result: AutoPaintSliceInput,
     layerHeight: number,
     firstLayerHeight: number
 ): {
@@ -1620,7 +2075,29 @@ export function autoPaintToSliceHeights(
     virtualSwatches: Array<{ hex: string; a: number }>;
     filamentSwatches: Array<{ hex: string; a: number }>;
 } {
-    if (result.layers.length === 0 || result.totalHeight <= 0) {
+    // Generated results always carry finalStack. The fallback keeps old in-memory
+    // fixtures and pre-snapshot callers readable without rebuilding modern results.
+    if (!result.finalStack) {
+        const legacyStack = buildPrintableAutoPaintStack(
+            result.transitionZones,
+            layerHeight,
+            firstLayerHeight
+        );
+        return {
+            colorSliceHeights: legacyStack.layers.map((layer) => layer.thickness),
+            colorOrder: legacyStack.layers.map((_, index) => index),
+            virtualSwatches: legacyStack.layers.map((layer) => ({
+                hex: rgbToHex(layer.virtualColor),
+                a: 255,
+            })),
+            filamentSwatches: legacyStack.layers.map((layer) => ({
+                hex: layer.filamentColor,
+                a: 255,
+            })),
+        };
+    }
+
+    if (result.finalStack.layers.length === 0 || result.finalStack.totalHeight <= 0) {
         return {
             colorSliceHeights: [],
             colorOrder: [],
@@ -1629,11 +2106,10 @@ export function autoPaintToSliceHeights(
         };
     }
 
-    const stack = buildPrintableAutoPaintStack(
-        result.transitionZones,
-        layerHeight,
-        firstLayerHeight
-    );
+    const stack = result.finalStack;
+    if (!autoPaintResultMatchesSliceGrid(result, layerHeight, firstLayerHeight)) {
+        throw new Error('Auto-paint final stack settings do not match the requested slice grid');
+    }
     if (stack.truncated) {
         console.warn('autoPaintToSliceHeights: too many layers, stopping at 500');
     }
@@ -1642,7 +2118,7 @@ export function autoPaintToSliceHeights(
         colorSliceHeights: stack.layers.map((layer) => layer.thickness),
         colorOrder: stack.layers.map((_, index) => index),
         virtualSwatches: stack.layers.map((layer) => ({
-            hex: rgbToHex(layer.virtualColor),
+            hex: layer.predictedColor.hex,
             a: 255,
         })),
         filamentSwatches: stack.layers.map((layer) => ({
@@ -1670,7 +2146,7 @@ export function autoPaintToSliceHeights(
  * @returns Confidence score and detailed factors
  */
 function calculateAutoConfidence(
-    imageSwatches: Array<{ hex: string; count?: number }>,
+    imageSwatches: AutoPaintImageSwatch[],
     printedFilaments: Filament[],
     compressionRatio: number
 ): {

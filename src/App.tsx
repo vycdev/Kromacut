@@ -107,6 +107,7 @@ type AutoPaintPersisted = Pick<
     | 'heightDithering'
     | 'ditherLineWidth'
     | 'flatPaint'
+    | 'flatPaintFaceUp'
 >;
 
 // Schema v2: filament `td` values store frontlit hiding distances. State
@@ -170,6 +171,7 @@ const loadAutoPaintPersisted = (): AutoPaintPersisted | null => {
             heightDithering: parsed.heightDithering ?? false,
             ditherLineWidth: parsed.ditherLineWidth,
             flatPaint: parsed.flatPaint ?? false,
+            flatPaintFaceUp: parsed.flatPaintFaceUp === true,
         };
     } catch {
         return null;
@@ -355,6 +357,7 @@ function App(): React.ReactElement | null {
                 heightDithering: autopaintHydrated.heightDithering ?? prev.heightDithering,
                 ditherLineWidth: autopaintHydrated.ditherLineWidth ?? prev.ditherLineWidth,
                 flatPaint: autopaintHydrated.flatPaint ?? prev.flatPaint,
+                flatPaintFaceUp: autopaintHydrated.flatPaintFaceUp ?? prev.flatPaintFaceUp,
             }));
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -376,6 +379,7 @@ function App(): React.ReactElement | null {
             heightDithering: threeDState.heightDithering,
             ditherLineWidth: threeDState.ditherLineWidth,
             flatPaint: threeDState.flatPaint,
+            flatPaintFaceUp: threeDState.flatPaintFaceUp,
         });
     }, [
         threeDState.filaments,
@@ -390,6 +394,7 @@ function App(): React.ReactElement | null {
         threeDState.heightDithering,
         threeDState.ditherLineWidth,
         threeDState.flatPaint,
+        threeDState.flatPaintFaceUp,
     ]);
 
     // No auto-build on tab switch — the user must click "Build 3D Model" / "Apply Changes".
@@ -737,6 +742,7 @@ function App(): React.ReactElement | null {
                                 ) : (
                                     <ThreeDControls
                                         swatches={swatches}
+                                        imageSrc={imageSrc}
                                         imageDimensions={imageDimensions}
                                         builtState={builtThreeDState}
                                         builtFlatPaint={builtFlatPaint}
@@ -822,6 +828,9 @@ function App(): React.ReactElement | null {
                                             autoPaintFilamentOrder={
                                                 builtModelState.autoPaintResult?.filamentOrder
                                             }
+                                            autoPaintFinalStack={
+                                                builtModelState.autoPaintResult?.finalStack
+                                            }
                                             enhancedColorMatch={builtModelState.enhancedColorMatch}
                                             preserveSeparation={builtModelState.preserveSeparation}
                                             heightDithering={builtModelState.heightDithering}
@@ -829,6 +838,7 @@ function App(): React.ReactElement | null {
                                             smoothMeshing={builtModelState.smoothMeshing}
                                             isOrtho={isOrtho}
                                             flatPaint={builtFlatPaint}
+                                            flatPaintFaceUp={!!builtModelState.flatPaintFaceUp}
                                             previewRenderMode={previewRenderMode}
                                             previewColorMode={previewColorMode}
                                         />

@@ -44,7 +44,7 @@ Auto-paint settings are preserved across sessions, including:
 - Preserve color separation.
 - Repeated swaps.
 - Height dithering and line width.
-- Flat Paint.
+- Flat Paint and its face-up, no-clear-layer preference.
 - Optimizer algorithm and seed.
 - Region priority.
 
@@ -60,7 +60,7 @@ Use custom palettes when you want the reduced image to match a known filament se
 
 ## Filament Profile Files
 
-Auto-paint filament profiles are named sets of filaments that can be saved, loaded, imported, and exported. They use `.kfil` and store filament colors, names, hiding distance values, and calibration data when available. Older `.kapp` profile files can still be imported. Profiles saved by older versions stored uncalibrated values on the conventional TD scale; they are converted automatically (×0.1) when loaded or imported.
+Auto-paint filament profiles are named sets of filaments that can be saved, loaded, imported, and exported. They use `.kfil` and store filament colors, names, hiding distance values, calibration data, saved Palette Proof records and judgments, and bounded Stack Matrix plans and measured colors when available. Older `.kapp` profile files can still be imported. Profiles saved by older versions stored uncalibrated values on the conventional TD scale; they are converted automatically (×0.1) when loaded or imported.
 
 Use the **upload icon** in the Auto-paint profile toolbar to import a file. Use the **download icon** to export the current filament set. Exported files default to `.kfil`.
 

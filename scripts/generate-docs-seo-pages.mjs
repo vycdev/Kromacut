@@ -114,6 +114,7 @@ function resolveDocImage(src) {
         '06_frontlit_hiding_distance.svg': '06_frontlit_hiding_distance-',
         '07_calibration_wedge.svg': '07_calibration_wedge-',
         '08_opacity_solve.svg': '08_opacity_solve-',
+        '09_palette_proof.svg': '09_palette_proof-',
     };
     const diagramName = Object.keys(diagramPrefixes).find((name) => clean.includes(name));
     if (diagramName) {

@@ -5,7 +5,7 @@ import { Sortable, SortableContent, SortableOverlay } from '@/components/ui/sort
 import { Button } from '@/components/ui/button';
 import { Check, RotateCcw, Loader2 } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { autoPaintToSliceHeights } from '../lib/autoPaint';
+import { autoPaintResultMatchesSliceGrid, autoPaintToSliceHeights } from '../lib/autoPaint';
 import {
     loadPrintSettingsFromStorage,
     savePrintSettingsToStorage,
@@ -32,6 +32,7 @@ export type { Filament, ThreeDControlsStateShape } from '../types';
 
 interface ThreeDControlsProps {
     swatches: Swatch[] | null;
+    imageSrc: string | null;
     imageDimensions: ImageDimensions | null;
     /** Snapshot of the settings used for the model currently built in the preview/export pane. */
     builtState?: ThreeDControlsStateShape | null;
@@ -52,6 +53,7 @@ interface ThreeDControlsProps {
 
 export default function ThreeDControls({
     swatches,
+    imageSrc,
     imageDimensions,
     builtState = null,
     builtFlatPaint = false,
@@ -138,6 +140,7 @@ export default function ThreeDControls({
     );
     const [ditherLineWidth, setDitherLineWidth] = useState(persisted?.ditherLineWidth ?? 0.42);
     const [flatPaint, setFlatPaint] = useState(initialFlatPaint);
+    const [flatPaintFaceUp, setFlatPaintFaceUp] = useState(persisted?.flatPaintFaceUp ?? false);
 
     // --- Optimizer Options ---
     const [optimizerAlgorithm, setOptimizerAlgorithm] = useState<
@@ -198,6 +201,7 @@ export default function ThreeDControls({
             heightDithering,
             ditherLineWidth,
             flatPaint,
+            flatPaintFaceUp,
             optimizerAlgorithm,
             optimizerSeed,
             regionWeightingMode,
@@ -214,6 +218,7 @@ export default function ThreeDControls({
         heightDithering,
         ditherLineWidth,
         flatPaint,
+        flatPaintFaceUp,
         optimizerAlgorithm,
         optimizerSeed,
         regionWeightingMode,
@@ -277,11 +282,20 @@ export default function ThreeDControls({
         optimizerAlgorithm,
         optimizerSeed,
         regionWeightingMode,
+        appearance:
+            profileManager.activeProfile && !profileManager.isDirty
+                ? profileManager.activeProfile.appearance
+                : undefined,
     });
     const autoPaintProgressPercent = Math.round(Math.max(0, Math.min(1, autoPaintProgress)) * 100);
 
     const autoPaintSliceData = useMemo(() => {
         if (!autoPaintResult) return undefined;
+        if (
+            !autoPaintResultMatchesSliceGrid(autoPaintResult, layerHeight, slicerFirstLayerHeight)
+        ) {
+            return undefined;
+        }
         return autoPaintToSliceHeights(autoPaintResult, layerHeight, slicerFirstLayerHeight);
     }, [autoPaintResult, layerHeight, slicerFirstLayerHeight]);
 
@@ -297,12 +311,18 @@ export default function ThreeDControls({
             paintMode === 'autopaint' && autoPaintSliceData
                 ? autoPaintSliceData.colorSliceHeights
                 : colorSliceHeights;
+        const activeFlatLayerCount = estimateOrder.filter(
+            (swatchIndex) => (estimateHeights[swatchIndex] ?? 0) > 0
+        ).length;
         const depth =
             flatPaintActive && paintMode === 'autopaint'
-                ? Math.max(slicerFirstLayerHeight, layerHeight) +
-                  estimateOrder.filter((swatchIndex) => (estimateHeights[swatchIndex] ?? 0) > 0)
-                      .length *
-                      layerHeight
+                ? flatPaintFaceUp
+                    ? activeFlatLayerCount > 0
+                        ? Math.max(slicerFirstLayerHeight, layerHeight) +
+                          Math.max(0, activeFlatLayerCount - 1) * layerHeight
+                        : 0
+                    : Math.max(slicerFirstLayerHeight, layerHeight) +
+                      activeFlatLayerCount * layerHeight
                 : estimateOrder.reduce((total, swatchIndex, position) => {
                       const height = estimateHeights[swatchIndex] ?? 0;
                       return (
@@ -322,6 +342,7 @@ export default function ThreeDControls({
         colorSliceHeights,
         imageDimensions,
         flatPaintActive,
+        flatPaintFaceUp,
         layerHeight,
         paintMode,
         pixelSize,
@@ -337,6 +358,9 @@ export default function ThreeDControls({
     const instructionSlicerFirstLayerHeight =
         builtState?.slicerFirstLayerHeight ?? slicerFirstLayerHeight;
     const instructionFlatPaint = builtState ? builtFlatPaint : flatPaintActive;
+    const instructionFlatPaintFaceUp = builtState
+        ? !!builtState.flatPaintFaceUp
+        : flatPaintActive && flatPaintFaceUp;
     const instructionColorCount =
         instructionPaintMode === 'autopaint'
             ? (instructionAutoPaintResult?.layers.length ?? 0)
@@ -354,6 +378,7 @@ export default function ThreeDControls({
         autoPaintResult: instructionAutoPaintResult,
         disabled: isInstructionOverLimit,
         flatPaint: instructionFlatPaint,
+        flatPaintFaceUp: instructionFlatPaintFaceUp,
     });
 
     // --- Apply handler ---
@@ -377,6 +402,7 @@ export default function ThreeDControls({
                 heightDithering,
                 ditherLineWidth,
                 flatPaint,
+                flatPaintFaceUp,
                 optimizerAlgorithm,
                 optimizerSeed,
                 regionWeightingMode,
@@ -397,6 +423,7 @@ export default function ThreeDControls({
                 filaments,
                 paintMode,
                 flatPaint,
+                flatPaintFaceUp,
                 optimizerAlgorithm,
                 optimizerSeed,
                 regionWeightingMode,
@@ -421,6 +448,7 @@ export default function ThreeDControls({
         heightDithering,
         ditherLineWidth,
         flatPaint,
+        flatPaintFaceUp,
         optimizerAlgorithm,
         optimizerSeed,
         regionWeightingMode,
@@ -514,6 +542,21 @@ export default function ThreeDControls({
                     handleDeleteProfile={profileManager.handleDeleteProfile}
                     handleExportProfile={profileManager.handleExportProfile}
                     handleImportFile={profileManager.handleImportFile}
+                    handleRegisterPaletteProof={profileManager.handleRegisterPaletteProof}
+                    handleSetPaletteTargetResponse={profileManager.handleSetPaletteTargetResponse}
+                    handleCompletePaletteProofEvaluation={
+                        profileManager.handleCompletePaletteProofEvaluation
+                    }
+                    handleReopenPaletteProofEvaluation={
+                        profileManager.handleReopenPaletteProofEvaluation
+                    }
+                    handleDeletePaletteProof={profileManager.handleDeletePaletteProof}
+                    handleUpsertStackMatrixCalibration={
+                        profileManager.handleUpsertStackMatrixCalibration
+                    }
+                    handleDeleteStackMatrixCalibration={
+                        profileManager.handleDeleteStackMatrixCalibration
+                    }
                     autoPaintMaxHeight={autoPaintMaxHeight}
                     setAutoPaintMaxHeight={setAutoPaintMaxHeight}
                     autoPaintResult={autoPaintResult}
@@ -526,6 +569,7 @@ export default function ThreeDControls({
                     firstLayerHeight={slicerFirstLayerHeight}
                     filteredCount={filtered.length}
                     imageSwatches={filtered}
+                    paletteProofImageSrc={imageSrc}
                     enhancedColorMatch={enhancedColorMatch}
                     setEnhancedColorMatch={handleEnhancedColorMatchChange}
                     preserveSeparation={preserveSeparation}
@@ -540,6 +584,8 @@ export default function ThreeDControls({
                     setDitherLineWidth={setDitherLineWidth}
                     flatPaint={flatPaint}
                     setFlatPaint={handleFlatPaintChange}
+                    flatPaintFaceUp={flatPaintFaceUp}
+                    setFlatPaintFaceUp={setFlatPaintFaceUp}
                     optimizerAlgorithm={optimizerAlgorithm}
                     setOptimizerAlgorithm={setOptimizerAlgorithm}
                     optimizerSeed={optimizerSeed}
@@ -637,6 +683,7 @@ export default function ThreeDControls({
                 tooManyColors={isInstructionOverLimit}
                 colorCount={instructionColorCount}
                 flatPaint={instructionFlatPaint}
+                flatPaintFaceUp={instructionFlatPaintFaceUp}
             />
         </div>
     );

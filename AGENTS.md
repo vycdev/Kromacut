@@ -15,7 +15,8 @@ geometry, slicer behavior, and print instructions at the same time.
 
 - **Hiding Distance (HD):** Used by auto-paint to model light through thin filament layers with
   Beer-Lambert-style optical simulation. `filament.td` stores the frontlit hiding distance in mm
-  (profile schema v2); the field keeps its historical `td` name for data compatibility. Conventional
+  (introduced in profile schema v2; v3 adds appearance evidence); the field keeps its historical
+  `td` name for data compatibility. Conventional
   backlit/lithophane Transmission Distance values are an *input format* only — converted ×0.1
   (`FRONTLIT_TD_SCALE`) at entry or during the one-time v1→v2 migration, never stored. HD is not
   just a display value; changing how it is stored or rounded can change generated layer stacks.

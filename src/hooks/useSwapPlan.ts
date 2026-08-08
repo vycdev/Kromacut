@@ -17,6 +17,8 @@ export interface UseSwapPlanOptions {
     disabled?: boolean;
     /** Flat Paint prints have no manual swap sequence (multi-material per layer) */
     flatPaint?: boolean;
+    /** Flat Paint is printed face-up without a transparent carrier. */
+    flatPaintFaceUp?: boolean;
 }
 
 export function useSwapPlan({
@@ -29,6 +31,7 @@ export function useSwapPlan({
     autoPaintResult,
     disabled = false,
     flatPaint = false,
+    flatPaintFaceUp = false,
 }: UseSwapPlanOptions) {
     const swapPlan = useMemo(() => {
         if (disabled || flatPaint) {
@@ -135,18 +138,28 @@ export function useSwapPlan({
         lines.push('');
 
         if (flatPaint) {
-            lines.push('Flat Paint mode (flat face-down print):');
+            lines.push(
+                flatPaintFaceUp
+                    ? 'Flat Paint mode (face-up, no clear layer):'
+                    : 'Flat Paint mode (face-down with clear carrier):'
+            );
             lines.push('- Export as 3MF: the model contains one object per filament.');
             lines.push(
                 '- Assign each object to its filament in the slicer (multi-material printer required).'
             );
-            lines.push(
-                '- Use clear/transparent filament for the carrier object — it is the first printed layer and becomes the smooth viewing face.'
-            );
-            lines.push(
-                '- Print as-is: the artwork is already mirrored for face-down printing. Do not mirror in the slicer.'
-            );
-            lines.push('- After printing, flip the piece over: the image side is the bottom.');
+            if (flatPaintFaceUp) {
+                lines.push('- No clear/transparent carrier is included.');
+                lines.push('- Print as-is and face-up. Do not mirror the model in the slicer.');
+                lines.push('- The artwork is exposed on the top surface.');
+            } else {
+                lines.push(
+                    '- Use clear/transparent filament for the carrier object — it is the first printed layer and becomes the smooth viewing face.'
+                );
+                lines.push(
+                    '- Print as-is: the artwork is already mirrored for face-down printing. Do not mirror in the slicer.'
+                );
+                lines.push('- After printing, flip the piece over: the image side is the bottom.');
+            }
             appendFooter();
             return lines.join('\n');
         }

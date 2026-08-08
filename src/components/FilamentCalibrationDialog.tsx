@@ -21,6 +21,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
     X,
     Download,
@@ -31,10 +32,21 @@ import {
     FlaskConical,
     AlertTriangle,
     BookOpen,
+    Palette,
+    Grid3X3,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { openDocsAt } from '@/lib/docs/navigation';
-import type { Filament } from '../types';
+import type { Filament, FinalPrintableStackSnapshot } from '../types';
+import type {
+    PaletteProofRecord,
+    PaletteTargetResponse,
+    StackMatrixCalibrationV1,
+} from '../lib/appearanceProfile';
+import type { PaletteProofSpec } from '../lib/paletteProof';
+import type { AutoPaintProfile } from '../lib/profileManager';
+import PaletteProofPanel from './PaletteProofPanel';
+import StackMatrixCalibrationPanel from './StackMatrixCalibrationPanel';
 import {
     activeFrontlitCalibration,
     channelHds,
@@ -61,6 +73,7 @@ import {
 type Step = 'select' | 'base' | 'print' | 'measure';
 type PrintFormat = 'stl' | '3mf';
 type CalibrationMode = 'quick' | 'accurate';
+type CalibrationSurface = 'hiding-distance' | 'palette-proof' | 'stack-matrix';
 
 export interface CalibrationApplyUpdate {
     id: string;
@@ -74,6 +87,24 @@ interface FilamentCalibrationDialogProps {
     filaments: Filament[];
     layerHeight: number;
     firstLayerHeight: number;
+    paletteProofSnapshot?: FinalPrintableStackSnapshot;
+    paletteProofImageSrc?: string | null;
+    paletteProofProfile?: AutoPaintProfile;
+    paletteProofProfileDirty?: boolean;
+    onRegisterPaletteProof?: (
+        snapshot: FinalPrintableStackSnapshot,
+        proof: PaletteProofSpec
+    ) => PaletteProofRecord;
+    onSetPaletteTargetResponse?: (
+        proofId: string,
+        column: number,
+        response: PaletteTargetResponse | null
+    ) => void;
+    onCompletePaletteProofEvaluation?: (proofId: string) => void;
+    onReopenPaletteProofEvaluation?: (proofId: string) => void;
+    onDeletePaletteProof?: (proofId: string) => void;
+    onUpsertStackMatrixCalibration?: (record: StackMatrixCalibrationV1) => void;
+    onDeleteStackMatrixCalibration?: (matrixId: string) => void;
     onApply: (updates: CalibrationApplyUpdate[]) => void;
 }
 
@@ -168,8 +199,21 @@ export function FilamentCalibrationDialog({
     filaments,
     layerHeight,
     firstLayerHeight,
+    paletteProofSnapshot,
+    paletteProofImageSrc,
+    paletteProofProfile,
+    paletteProofProfileDirty,
+    onRegisterPaletteProof,
+    onSetPaletteTargetResponse,
+    onCompletePaletteProofEvaluation,
+    onReopenPaletteProofEvaluation,
+    onDeletePaletteProof,
+    onUpsertStackMatrixCalibration,
+    onDeleteStackMatrixCalibration,
     onApply,
 }: FilamentCalibrationDialogProps) {
+    const [calibrationSurface, setCalibrationSurface] =
+        useState<CalibrationSurface>('hiding-distance');
     const [step, setStep] = useState<Step>('select');
     const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
     const [maxLayers, setMaxLayers] = useState(DEFAULT_CALIBRATION_PRINT_OPTIONS.maxLayers);
@@ -398,6 +442,7 @@ export function FilamentCalibrationDialog({
         setIsSaving(false);
         setBaseChoices({});
         setPrintedPlan(null);
+        setCalibrationSurface('hiding-distance');
     }, [layerHeight]);
 
     useEffect(() => {
@@ -1277,6 +1322,60 @@ export function FilamentCalibrationDialog({
         </>
     );
 
+    const renderPaletteProof = () => (
+        <>
+            <AlertDialogHeader>
+                <AlertDialogTitle className="flex items-center gap-2">
+                    <Palette className="h-5 w-5 text-primary" />
+                    Palette Proof
+                </AlertDialogTitle>
+            </AlertDialogHeader>
+            <PaletteProofPanel
+                snapshot={paletteProofSnapshot}
+                imageSrc={paletteProofImageSrc}
+                profile={paletteProofProfile}
+                profileDirty={paletteProofProfileDirty}
+                embedded
+                showTitle={false}
+                onRegisterProof={onRegisterPaletteProof}
+                onSetTargetResponse={onSetPaletteTargetResponse}
+                onCompleteEvaluation={onCompletePaletteProofEvaluation}
+                onReopenEvaluation={onReopenPaletteProofEvaluation}
+                onDeleteProof={onDeletePaletteProof}
+            />
+            <AlertDialogFooter>
+                <Button variant="outline" onClick={handleClose}>
+                    Close
+                </Button>
+            </AlertDialogFooter>
+        </>
+    );
+
+    const renderStackMatrix = () => (
+        <>
+            <AlertDialogHeader>
+                <AlertDialogTitle className="flex items-center gap-2">
+                    <Grid3X3 className="h-5 w-5 text-primary" />
+                    Stack Matrix
+                </AlertDialogTitle>
+            </AlertDialogHeader>
+            <StackMatrixCalibrationPanel
+                filaments={filaments}
+                layerHeight={layerHeight}
+                firstLayerHeight={firstLayerHeight}
+                profile={paletteProofProfile}
+                profileDirty={paletteProofProfileDirty}
+                onUpsert={onUpsertStackMatrixCalibration}
+                onDelete={onDeleteStackMatrixCalibration}
+            />
+            <AlertDialogFooter>
+                <Button variant="outline" onClick={handleClose}>
+                    Close
+                </Button>
+            </AlertDialogFooter>
+        </>
+    );
+
     return (
         <AlertDialog
             open={open}
@@ -1284,24 +1383,65 @@ export function FilamentCalibrationDialog({
                 if (!isOpen) handleClose();
             }}
         >
-            <AlertDialogContent className="fixed left-1/2 top-1/2 z-50 flex max-h-[90vh] w-[min(96vw,42rem)] max-w-[42rem] -translate-x-1/2 -translate-y-1/2 flex-col gap-4 overflow-y-auto rounded-lg border border-border bg-background p-6 shadow-lg">
+            <AlertDialogContent
+                className={cn(
+                    'fixed left-2 right-2 top-1/2 z-50 mx-auto box-border flex max-h-[90vh] w-auto translate-x-0 -translate-y-1/2 flex-col gap-4 overflow-y-auto rounded-lg border border-border bg-background p-6 shadow-lg',
+                    calibrationSurface === 'palette-proof' || calibrationSurface === 'stack-matrix'
+                        ? 'max-w-[72rem]'
+                        : 'max-w-[42rem]'
+                )}
+            >
                 <AlertDialogDescription className="sr-only">
-                    Frontlit filament calibration: generate a print and read back opacity layers to
-                    derive transmission distance.
+                    Filament calibration tools for hiding distance, job-specific Palette Proofs, and
+                    photographed Stack Matrices.
                 </AlertDialogDescription>
                 <Button
                     variant="ghost"
                     size="icon"
                     onClick={handleClose}
-                    className="absolute right-3 top-3 h-7 w-7 text-muted-foreground hover:text-foreground"
+                    className="absolute right-3 top-7 h-7 w-7 text-muted-foreground hover:text-foreground"
                     aria-label="Close calibration dialog"
                 >
                     <X className="h-4 w-4" />
                 </Button>
-                {step === 'select' && renderSelect()}
-                {step === 'base' && renderBase()}
-                {step === 'print' && renderPrint()}
-                {step === 'measure' && renderMeasure()}
+                <Tabs
+                    className="pr-10"
+                    value={calibrationSurface}
+                    onValueChange={(value) => {
+                        setCalibrationSurface(value as CalibrationSurface);
+                        setStep('select');
+                    }}
+                >
+                    <TabsList
+                        className="grid w-full grid-cols-3"
+                        data-testid="calibration-surface-tabs"
+                    >
+                        <TabsTrigger value="hiding-distance" className="gap-1.5">
+                            <FlaskConical className="h-4 w-4" />
+                            Hiding Distance
+                        </TabsTrigger>
+                        <TabsTrigger value="palette-proof" className="gap-1.5">
+                            <Palette className="h-4 w-4" />
+                            Palette Proof
+                        </TabsTrigger>
+                        <TabsTrigger value="stack-matrix" className="gap-1.5">
+                            <Grid3X3 className="h-4 w-4" />
+                            Stack Matrix
+                        </TabsTrigger>
+                    </TabsList>
+                </Tabs>
+                {calibrationSurface === 'palette-proof' ? (
+                    renderPaletteProof()
+                ) : calibrationSurface === 'stack-matrix' ? (
+                    renderStackMatrix()
+                ) : (
+                    <>
+                        {step === 'select' && renderSelect()}
+                        {step === 'base' && renderBase()}
+                        {step === 'print' && renderPrint()}
+                        {step === 'measure' && renderMeasure()}
+                    </>
+                )}
             </AlertDialogContent>
         </AlertDialog>
     );

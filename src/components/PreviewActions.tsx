@@ -167,7 +167,7 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
     };
 
     return (
-        <div className="absolute top-4 right-4 flex flex-wrap justify-end gap-2 z-[60]">
+        <div className="absolute top-4 right-4 flex flex-wrap justify-end gap-2 z-40">
             {mode === '3d' && onPreviewRenderModeChange && (
                 <Popover open={previewModeMenuOpen} onOpenChange={setPreviewModeMenuOpen}>
                     <PopoverTrigger asChild>

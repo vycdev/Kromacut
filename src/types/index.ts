@@ -1,5 +1,18 @@
 import type { AutoPaintResult } from '../lib/autoPaint';
 import type { FrontlitCalibration } from '../lib/calibration';
+import type { TargetSampleContext } from './appearance';
+
+export type {
+    AppearanceGeometryClass,
+    CanonicalSrgbColor,
+    FinalPrintableStackSnapshot,
+    FinalStackLayerSnapshot,
+    FinalStackPaletteEntrySnapshot,
+    FinalStackSwapSnapshot,
+    FinalStackTargetMappingSnapshot,
+    FinalStackZoneSnapshot,
+    TargetSampleContext,
+} from './appearance';
 
 export const AUTO_PAINT_REPEAT_LIMITS = [0, 2, 4, 6, 8, 12] as const;
 export type AutoPaintRepeatLimit = (typeof AUTO_PAINT_REPEAT_LIMITS)[number];
@@ -33,6 +46,8 @@ export type Swatch = {
     centerWeight?: number;
     /** Sum of edge-priority weights for this color's source pixels. */
     edgeWeight?: number;
+    /** Optional spatial transfer context for appearance-proof evidence. */
+    sampleContext?: TargetSampleContext;
 };
 
 export interface CustomPalette {
@@ -83,8 +98,10 @@ export interface ThreeDControlsStateShape {
     transitionOpacity?: AutoPaintTransitionOpacity;
     heightDithering?: boolean;
     ditherLineWidth?: number;
-    /** Flat Paint: build a flat, face-down slab (auto-paint only) */
+    /** Flat Paint: build a uniform multi-material slab (auto-paint only). */
     flatPaint?: boolean;
+    /** Print Flat Paint face-up without the transparent carrier layer. */
+    flatPaintFaceUp?: boolean;
     // Optimizer options (effort tier; legacy values migrate on load)
     optimizerAlgorithm?: 'fast' | 'balanced' | 'thorough' | 'deep' | 'exact';
     optimizerSeed?: number;
