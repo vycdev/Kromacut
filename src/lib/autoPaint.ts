@@ -2049,6 +2049,22 @@ type AutoPaintSliceInput = Omit<AutoPaintResult, 'finalStack'> & {
     finalStack?: FinalPrintableStackSnapshot;
 };
 
+export function autoPaintResultMatchesSliceGrid(
+    result: AutoPaintSliceInput,
+    layerHeight: number,
+    firstLayerHeight: number
+): boolean {
+    if (!result.finalStack) return true;
+    return (
+        Math.abs(result.finalStack.settings.layerHeight - layerHeight) <=
+            PRINTABLE_HEIGHT_EPSILON &&
+        Math.abs(
+            result.finalStack.settings.firstLayerHeight -
+                printableFirstLayerHeight(layerHeight, firstLayerHeight)
+        ) <= PRINTABLE_HEIGHT_EPSILON
+    );
+}
+
 export function autoPaintToSliceHeights(
     result: AutoPaintSliceInput,
     layerHeight: number,
@@ -2091,13 +2107,7 @@ export function autoPaintToSliceHeights(
     }
 
     const stack = result.finalStack;
-    if (
-        Math.abs(stack.settings.layerHeight - layerHeight) > PRINTABLE_HEIGHT_EPSILON ||
-        Math.abs(
-            stack.settings.firstLayerHeight -
-                printableFirstLayerHeight(layerHeight, firstLayerHeight)
-        ) > PRINTABLE_HEIGHT_EPSILON
-    ) {
+    if (!autoPaintResultMatchesSliceGrid(result, layerHeight, firstLayerHeight)) {
         throw new Error('Auto-paint final stack settings do not match the requested slice grid');
     }
     if (stack.truncated) {

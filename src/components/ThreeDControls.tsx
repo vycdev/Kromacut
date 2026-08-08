@@ -5,7 +5,7 @@ import { Sortable, SortableContent, SortableOverlay } from '@/components/ui/sort
 import { Button } from '@/components/ui/button';
 import { Check, RotateCcw, Loader2 } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { autoPaintToSliceHeights } from '../lib/autoPaint';
+import { autoPaintResultMatchesSliceGrid, autoPaintToSliceHeights } from '../lib/autoPaint';
 import {
     loadPrintSettingsFromStorage,
     savePrintSettingsToStorage,
@@ -291,6 +291,11 @@ export default function ThreeDControls({
 
     const autoPaintSliceData = useMemo(() => {
         if (!autoPaintResult) return undefined;
+        if (
+            !autoPaintResultMatchesSliceGrid(autoPaintResult, layerHeight, slicerFirstLayerHeight)
+        ) {
+            return undefined;
+        }
         return autoPaintToSliceHeights(autoPaintResult, layerHeight, slicerFirstLayerHeight);
     }, [autoPaintResult, layerHeight, slicerFirstLayerHeight]);
 
@@ -546,6 +551,12 @@ export default function ThreeDControls({
                         profileManager.handleReopenPaletteProofEvaluation
                     }
                     handleDeletePaletteProof={profileManager.handleDeletePaletteProof}
+                    handleUpsertStackMatrixCalibration={
+                        profileManager.handleUpsertStackMatrixCalibration
+                    }
+                    handleDeleteStackMatrixCalibration={
+                        profileManager.handleDeleteStackMatrixCalibration
+                    }
                     autoPaintMaxHeight={autoPaintMaxHeight}
                     setAutoPaintMaxHeight={setAutoPaintMaxHeight}
                     autoPaintResult={autoPaintResult}

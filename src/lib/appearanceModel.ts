@@ -115,6 +115,17 @@ function sameAnchorProcess(record: PaletteProofRecord, context: AppearanceFitCon
     );
 }
 
+function sameMatrixProcess(
+    record: NonNullable<AppearanceProfileV1['stackMatrices']>[number],
+    context: AppearanceFitContext
+): boolean {
+    return (
+        record.status === 'complete' &&
+        record.process.filamentProfileFingerprint === context.filamentProfileFingerprint &&
+        record.process.layerHeight === context.layerHeight
+    );
+}
+
 function colorLab(rgb: readonly [number, number, number]): Lab {
     return rgbToLab([rgb[0], rgb[1], rgb[2]]);
 }
@@ -236,19 +247,17 @@ function suffixTransmission(
  * downward by whole runs until the retained suffix hides the omitted substrate
  * to the same opacity endpoint used to build the proof.
  */
-function transferableSuffix(
-    record: PaletteProofRecord,
-    prefixIndex: number,
-    filamentsById: ReadonlyMap<string, Filament>
+function transferableLayerSuffix(
+    prefix: readonly AppearanceAnchorLayer[],
+    filamentsById: ReadonlyMap<string, Filament>,
+    maximumTransmission: number
 ): { layers: AppearanceAnchorLayer[]; maxSubstrateTransmission: number } {
-    const prefix = record.stack.slice(0, prefixIndex + 1);
     if (prefix.length === 0) return { layers: [], maxSubstrateTransmission: 1 };
 
     let start = prefix.length - 1;
     const terminalFilamentId = prefix[start].filamentId;
     while (start > 0 && prefix[start - 1].filamentId === terminalFilamentId) start--;
 
-    const maximumTransmission = Math.max(0.01, 1 - record.process.transitionOpacity);
     let retained = prefix.slice(start);
     let transmission = suffixTransmission(retained, filamentsById);
     while (start > 0 && transmission > maximumTransmission + 1e-12) {
@@ -264,6 +273,18 @@ function transferableSuffix(
         layers: retained.map((layer) => ({ ...layer })),
         maxSubstrateTransmission: start === 0 ? 0 : transmission,
     };
+}
+
+function transferableSuffix(
+    record: PaletteProofRecord,
+    prefixIndex: number,
+    filamentsById: ReadonlyMap<string, Filament>
+): { layers: AppearanceAnchorLayer[]; maxSubstrateTransmission: number } {
+    return transferableLayerSuffix(
+        record.stack.slice(0, prefixIndex + 1),
+        filamentsById,
+        Math.max(0.01, 1 - record.process.transitionOpacity)
+    );
 }
 
 function collectExactAnchors(
@@ -295,12 +316,56 @@ function collectExactAnchors(
                 anchors.push({
                     id: `${judgment.id}:${cell.id}`,
                     proofId: record.id,
+                    source: 'palette-proof',
                     sourceStackKey: cell.canonicalStackKey,
                     targetLab: [targetLab.L, targetLab.a, targetLab.b],
                     suffixLayers: suffix.layers,
                     maxSubstrateTransmission: suffix.maxSubstrateTransmission,
                 });
             }
+        }
+    }
+
+    const latestMatrix = (appearance.stackMatrices ?? [])
+        .filter((record) => sameMatrixProcess(record, context))
+        .sort((left, right) =>
+            (right.completedAt ?? right.createdAt).localeCompare(left.completedAt ?? left.createdAt)
+        )[0];
+    if (latestMatrix) {
+        const backing = latestMatrix.filaments[latestMatrix.backingFilamentIndex];
+        for (const sample of latestMatrix.samples) {
+            if (!sample.measuredColor || !backing) continue;
+            const foundation: AppearanceAnchorLayer[] = latestMatrix.foundationLayerThicknesses.map(
+                (thickness) => ({
+                    filamentId: backing.id,
+                    filamentColor: backing.color,
+                    thickness,
+                })
+            );
+            const matrixLayers: AppearanceAnchorLayer[] = sample.stack.map((filamentIndex) => {
+                const filament = latestMatrix.filaments[filamentIndex];
+                return {
+                    filamentId: filament.id,
+                    filamentColor: filament.color,
+                    thickness: latestMatrix.process.layerHeight,
+                };
+            });
+            const suffix = transferableLayerSuffix(
+                [...foundation, ...matrixLayers],
+                filamentsById,
+                0.1
+            );
+            if (suffix.layers.length === 0) continue;
+            const targetLab = colorLab(sample.measuredColor.rgb);
+            anchors.push({
+                id: `${latestMatrix.id}:${sample.index}`,
+                proofId: latestMatrix.id,
+                source: 'stack-matrix',
+                sourceStackKey: sample.canonicalStackKey,
+                targetLab: [targetLab.L, targetLab.a, targetLab.b],
+                suffixLayers: suffix.layers,
+                maxSubstrateTransmission: suffix.maxSubstrateTransmission,
+            });
         }
     }
 
@@ -472,8 +537,9 @@ export function fitAppearanceRankModel(
         appearance,
         context
     );
-    const sourceProofIds = [...new Set([...proofIds, ...exactAnchors.map((anchor) => anchor.proofId)])]
-        .sort();
+    const sourceProofIds = [
+        ...new Set([...proofIds, ...exactAnchors.map((anchor) => anchor.proofId)]),
+    ].sort();
     const comparedStackKeys = new Set([
         ...stackKeys,
         ...exactAnchors.map((anchor) => anchor.sourceStackKey),

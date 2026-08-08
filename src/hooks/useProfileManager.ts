@@ -5,11 +5,14 @@ import {
     buildPaletteProofRecord,
     completePaletteProofEvaluation,
     deletePaletteProof,
+    deleteStackMatrixCalibration,
     reopenPaletteProofEvaluation,
     setPaletteTargetResponse,
     upsertPaletteProofRecord,
+    upsertStackMatrixCalibration,
     type PaletteProofRecord,
     type PaletteTargetResponse,
+    type StackMatrixCalibrationV1,
 } from '../lib/appearanceProfile';
 import type { PaletteProofSpec } from '../lib/paletteProof';
 import {
@@ -149,13 +152,14 @@ export function useProfileManager({ filaments, setFilaments }: UseProfileManager
 
     const handleExportProfile = useCallback(() => {
         const active = [...profiles, ...TEMPLATE_PROFILES].find((p) => p.id === activeProfileId);
-        const profile = active && !isTemplateProfileId(active.id)
-            ? {
-                  ...active,
-                  filaments: filaments.map((filament) => ({ ...filament })),
-                  updatedAt: Date.now(),
-              }
-            : createProfile(active?.name ?? 'Exported Profile', filaments);
+        const profile =
+            active && !isTemplateProfileId(active.id)
+                ? {
+                      ...active,
+                      filaments: filaments.map((filament) => ({ ...filament })),
+                      updatedAt: Date.now(),
+                  }
+                : createProfile(active?.name ?? 'Exported Profile', filaments);
 
         const blob = exportProfileBlob(profile);
         const url = URL.createObjectURL(blob);
@@ -290,6 +294,52 @@ export function useProfileManager({ filaments, setFilaments }: UseProfileManager
         [activeProfile, activeProfileId, isDirty, profiles]
     );
 
+    const handleUpsertStackMatrixCalibration = useCallback(
+        (record: StackMatrixCalibrationV1) => {
+            if (!activeProfileId || !activeProfile) {
+                throw new Error('Save a named filament profile before creating a Stack Matrix');
+            }
+            if (isDirty) {
+                throw new Error(
+                    'Save or overwrite the edited filament profile before creating a Stack Matrix'
+                );
+            }
+            const appearance = upsertStackMatrixCalibration(activeProfile.appearance, record);
+            const updated = profiles.map((profile) =>
+                profile.id === activeProfileId
+                    ? { ...profile, appearance, updatedAt: Date.now() }
+                    : profile
+            );
+            if (!saveProfilesToStorage(updated)) {
+                throw new Error('Not enough browser storage to retain this Stack Matrix');
+            }
+            setProfiles(updated);
+        },
+        [activeProfile, activeProfileId, isDirty, profiles]
+    );
+
+    const handleDeleteStackMatrixCalibration = useCallback(
+        (matrixId: string) => {
+            if (!activeProfileId || !activeProfile?.appearance) {
+                throw new Error('Load the filament profile that owns this Stack Matrix');
+            }
+            if (isDirty) {
+                throw new Error('Save or revert filament edits before deleting this Stack Matrix');
+            }
+            const appearance = deleteStackMatrixCalibration(activeProfile.appearance, matrixId);
+            const updated = profiles.map((profile) =>
+                profile.id === activeProfileId
+                    ? { ...profile, appearance, updatedAt: Date.now() }
+                    : profile
+            );
+            if (!saveProfilesToStorage(updated)) {
+                throw new Error('Could not persist Stack Matrix deletion');
+            }
+            setProfiles(updated);
+        },
+        [activeProfile, activeProfileId, isDirty, profiles]
+    );
+
     const handleImportFile = useCallback(
         (e: React.ChangeEvent<HTMLInputElement>) => {
             const file = e.target.files?.[0];
@@ -392,5 +442,7 @@ export function useProfileManager({ filaments, setFilaments }: UseProfileManager
         handleCompletePaletteProofEvaluation,
         handleReopenPaletteProofEvaluation,
         handleDeletePaletteProof,
+        handleUpsertStackMatrixCalibration,
+        handleDeleteStackMatrixCalibration,
     };
 }

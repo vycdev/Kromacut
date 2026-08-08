@@ -5,16 +5,15 @@ import type {
     TargetSampleContext,
 } from '../types/appearance';
 import { fingerprintJson } from './fingerprint.ts';
-import type {
-    PaletteProofCandidateRole,
-    PaletteProofSpec,
-} from './paletteProof';
+import type { PaletteProofCandidateRole, PaletteProofSpec } from './paletteProof';
 
 export const APPEARANCE_PROFILE_SCHEMA_VERSION = 1;
 export const APPEARANCE_RENDERER_VERSION = 'kromacut-palette-proof-v1';
 export const MAX_STORED_PALETTE_PROOFS = 50;
 export const MAX_STORED_VIEWING_SESSIONS = 100;
 export const MAX_STORED_TARGET_JUDGMENTS = 1_000;
+export const MAX_STORED_STACK_MATRICES = 4;
+export const MAX_STACK_MATRIX_SAMPLES = 2_025;
 
 const MAX_STACK_LAYERS = 500;
 const MAX_TEXT_LENGTH = 256;
@@ -115,11 +114,59 @@ export interface PaletteTargetJudgment {
     updatedAt: string;
 }
 
+export interface StackMatrixFilamentV1 {
+    id: string;
+    color: string;
+    name: string;
+}
+
+export interface StackMatrixSampleV1 {
+    index: number;
+    row: number;
+    column: number;
+    stack: number[];
+    canonicalStackKey: string;
+    predictedColor: CanonicalSrgbColor;
+    measuredColor?: CanonicalSrgbColor;
+}
+
+export interface StackMatrixCalibrationV1 {
+    schemaVersion: 1;
+    id: string;
+    status: 'planned' | 'complete';
+    process: {
+        filamentProfileFingerprint: string;
+        layerHeight: number;
+        firstLayerHeight: number;
+        unknownFields: string[];
+    };
+    filaments: StackMatrixFilamentV1[];
+    backingFilamentIndex: number;
+    foundationLayerThicknesses: number[];
+    stackLayerCount: number;
+    grid: {
+        rows: number;
+        columns: number;
+        patchSize: number;
+        gap: number;
+    };
+    totalCombinationCount: number;
+    selection: 'exhaustive' | 'hd-gamut';
+    samples: StackMatrixSampleV1[];
+    cornerStacks: number[][];
+    createdAt: string;
+    exportedAt?: string;
+    completedAt?: string;
+    photoName?: string;
+    referenceCorrection?: boolean;
+}
+
 export interface AppearanceProfileV1 {
     schemaVersion: 1;
     proofs: PaletteProofRecord[];
     viewingSessions: AppearanceViewingSession[];
     targetJudgments: PaletteTargetJudgment[];
+    stackMatrices?: StackMatrixCalibrationV1[];
 }
 
 export type PaletteTargetResponse =
@@ -143,9 +190,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function boundedString(value: unknown, maximum = MAX_TEXT_LENGTH): string | null {
-    return typeof value === 'string' && value.length > 0 && value.length <= maximum
-        ? value
-        : null;
+    return typeof value === 'string' && value.length > 0 && value.length <= maximum ? value : null;
 }
 
 function finiteNumber(value: unknown, minimum: number, maximum: number): number | null {
@@ -203,14 +248,14 @@ function sanitizeCanonicalColor(value: unknown): CanonicalSrgbColor | null {
 function sanitizeLab(value: unknown): readonly [number, number, number] | null {
     if (!Array.isArray(value) || value.length !== 3) return null;
     const lab = value.map((channel) => finiteNumber(channel, -256, 256));
-    return lab.some((channel) => channel === null)
-        ? null
-        : (lab as [number, number, number]);
+    return lab.some((channel) => channel === null) ? null : (lab as [number, number, number]);
 }
 
 function sanitizeSampleContext(value: unknown): TargetSampleContext | null {
     if (!isRecord(value)) return null;
-    if (!['flat-interior', 'edge-limited', 'mixed', 'unknown'].includes(String(value.geometryClass))) {
+    if (
+        !['flat-interior', 'edge-limited', 'mixed', 'unknown'].includes(String(value.geometryClass))
+    ) {
         return null;
     }
     const context: TargetSampleContext = {
@@ -250,8 +295,7 @@ function sanitizePaletteProofSpec(value: unknown): PaletteProofSpec | null {
         !Array.isArray(value.physicalPatches) ||
         value.columns.length > PALETTE_PROOF_MAX_TARGETS ||
         value.cells.length > PALETTE_PROOF_MAX_TARGETS * PALETTE_PROOF_MAX_CANDIDATES ||
-        value.physicalPatches.length >
-            PALETTE_PROOF_MAX_TARGETS * PALETTE_PROOF_MAX_CANDIDATES
+        value.physicalPatches.length > PALETTE_PROOF_MAX_TARGETS * PALETTE_PROOF_MAX_CANDIDATES
     ) {
         return null;
     }
@@ -321,8 +365,7 @@ function sanitizePaletteProofSpec(value: unknown): PaletteProofSpec | null {
                 reinforcementClearanceMm == null ||
                 (reinforcementLayers === 0 && reinforcementClearanceMm !== 0) ||
                 (reinforcementLayers > 0 &&
-                    reinforcementClearanceMm !==
-                        PALETTE_PROOF_REINFORCEMENT_CLEARANCE_MM))) ||
+                    reinforcementClearanceMm !== PALETTE_PROOF_REINFORCEMENT_CLEARANCE_MM))) ||
         value.layout.orientationMarker !== 'top-left-notch' ||
         value.columns.length !== columnCount ||
         value.targetPalette.length !== columnCount
@@ -522,18 +565,16 @@ function sanitizePaletteProofSpec(value: unknown): PaletteProofSpec | null {
                         .map((cell) => cell.id)
                         .join('|')
         ) ||
-        spec.cells.some(
-            (cell) => {
-                const patch = patchesById.get(cell.physicalPatchId);
-                return (
-                    cell.column >= columnCount ||
-                    cell.row >= rowCount ||
-                    !patch ||
-                    patch.canonicalStackKey !== cell.canonicalStackKey ||
-                    patch.prefixIndex !== cell.prefixIndex
-                );
-            }
-        )
+        spec.cells.some((cell) => {
+            const patch = patchesById.get(cell.physicalPatchId);
+            return (
+                cell.column >= columnCount ||
+                cell.row >= rowCount ||
+                !patch ||
+                patch.canonicalStackKey !== cell.canonicalStackKey ||
+                patch.prefixIndex !== cell.prefixIndex
+            );
+        })
     ) {
         return null;
     }
@@ -558,6 +599,33 @@ export function createEmptyAppearanceProfile(): AppearanceProfileV1 {
         proofs: [],
         viewingSessions: [],
         targetJudgments: [],
+        stackMatrices: [],
+    };
+}
+
+export function upsertStackMatrixCalibration(
+    appearance: AppearanceProfileV1 | undefined,
+    record: StackMatrixCalibrationV1
+): AppearanceProfileV1 {
+    const current = appearance ?? createEmptyAppearanceProfile();
+    const previous = current.stackMatrices?.find((matrix) => matrix.id === record.id);
+    const nextRecord = previous ? { ...record, createdAt: previous.createdAt } : record;
+    return {
+        ...current,
+        stackMatrices: [
+            ...(current.stackMatrices ?? []).filter((matrix) => matrix.id !== record.id),
+            nextRecord,
+        ].slice(-MAX_STORED_STACK_MATRICES),
+    };
+}
+
+export function deleteStackMatrixCalibration(
+    appearance: AppearanceProfileV1,
+    matrixId: string
+): AppearanceProfileV1 {
+    return {
+        ...appearance,
+        stackMatrices: (appearance.stackMatrices ?? []).filter((matrix) => matrix.id !== matrixId),
     };
 }
 
@@ -574,18 +642,18 @@ export function fingerprintCompletedAppearanceEvidence(
             proofs: [],
             viewingSessions: [],
             targetJudgments: [],
+            stackMatrices: [],
         });
     }
 
     const completedSessions = appearance.proofs
-        .map((proof) =>
-            [...appearance.viewingSessions]
-                .filter((session) => session.proofId === proof.id)
-                .sort((left, right) => right.createdAt.localeCompare(left.createdAt))[0]
+        .map(
+            (proof) =>
+                [...appearance.viewingSessions]
+                    .filter((session) => session.proofId === proof.id)
+                    .sort((left, right) => right.createdAt.localeCompare(left.createdAt))[0]
         )
-        .filter(
-            (session): session is AppearanceViewingSession => session?.status === 'complete'
-        )
+        .filter((session): session is AppearanceViewingSession => session?.status === 'complete')
         .sort((left, right) => left.id.localeCompare(right.id));
     const completedSessionIds = new Set(completedSessions.map((session) => session.id));
     const completedProofIds = new Set(completedSessions.map((session) => session.proofId));
@@ -621,10 +689,29 @@ export function fingerprintCompletedAppearanceEvidence(
         }))
         .sort((left, right) => left.id.localeCompare(right.id));
 
+    const stackMatrices = (appearance.stackMatrices ?? [])
+        .filter((matrix) => matrix.status === 'complete')
+        .map((matrix) => ({
+            id: matrix.id,
+            process: matrix.process,
+            filaments: matrix.filaments,
+            backingFilamentIndex: matrix.backingFilamentIndex,
+            foundationLayerThicknesses: matrix.foundationLayerThicknesses,
+            stackLayerCount: matrix.stackLayerCount,
+            samples: matrix.samples.map((sample) => ({
+                stack: sample.stack,
+                canonicalStackKey: sample.canonicalStackKey,
+                measuredColor: sample.measuredColor,
+            })),
+            completedAt: matrix.completedAt,
+        }))
+        .sort((left, right) => left.id.localeCompare(right.id));
+
     return fingerprintJson('completed-appearance-evidence-v1', {
         proofs,
         viewingSessions,
         targetJudgments,
+        stackMatrices,
     });
 }
 
@@ -644,12 +731,16 @@ export function buildPaletteProofRecord(
 
     const seen = new Set<string>();
     const prefixes: StoredPaletteProofPrefix[] = [];
-    for (const cell of [...proof.cells].sort((left, right) => left.prefixIndex - right.prefixIndex)) {
+    for (const cell of [...proof.cells].sort(
+        (left, right) => left.prefixIndex - right.prefixIndex
+    )) {
         if (seen.has(cell.canonicalStackKey)) continue;
         seen.add(cell.canonicalStackKey);
         const paletteEntry = snapshot.palette[cell.prefixIndex];
         if (!paletteEntry || paletteEntry.canonicalStackKey !== cell.canonicalStackKey) {
-            throw new Error(`Palette Proof cell ${cell.id} does not resolve to its final stack prefix`);
+            throw new Error(
+                `Palette Proof cell ${cell.id} does not resolve to its final stack prefix`
+            );
         }
         prefixes.push({
             canonicalStackKey: cell.canonicalStackKey,
@@ -693,10 +784,9 @@ export function upsertPaletteProofRecord(
     const current = appearance ?? createEmptyAppearanceProfile();
     const previous = current.proofs.find((proof) => proof.id === record.id);
     const nextRecord = previous ? { ...record, createdAt: previous.createdAt } : record;
-    const proofs = [
-        ...current.proofs.filter((proof) => proof.id !== record.id),
-        nextRecord,
-    ].slice(-MAX_STORED_PALETTE_PROOFS);
+    const proofs = [...current.proofs.filter((proof) => proof.id !== record.id), nextRecord].slice(
+        -MAX_STORED_PALETTE_PROOFS
+    );
     const proofIds = new Set(proofs.map((proof) => proof.id));
     const viewingSessions = current.viewingSessions.filter((session) =>
         proofIds.has(session.proofId)
@@ -802,14 +892,11 @@ export function setPaletteTargetResponse(
     }
 
     const existingJudgment = current.targetJudgments.find(
-        (judgment) =>
-            judgment.viewingSessionId === session!.id && judgment.column === columnIndex
+        (judgment) => judgment.viewingSessionId === session!.id && judgment.column === columnIndex
     );
     const otherJudgments = current.targetJudgments.filter(
         (judgment) =>
-            !(
-                judgment.viewingSessionId === session!.id && judgment.column === columnIndex
-            )
+            !(judgment.viewingSessionId === session!.id && judgment.column === columnIndex)
     );
 
     let nextJudgments = otherJudgments;
@@ -943,7 +1030,12 @@ function sanitizeAppearanceStack(value: unknown): AppearanceStackLayer[] | null 
         const filamentId = boundedString(raw.filamentId, 128);
         const filamentColor = boundedString(raw.filamentColor, 16);
         const thickness = finiteNumber(raw.thickness, 0.0001, 100);
-        if (!filamentId || !filamentColor || !/^#[0-9a-f]{6}$/i.test(filamentColor) || thickness === null) {
+        if (
+            !filamentId ||
+            !filamentColor ||
+            !/^#[0-9a-f]{6}$/i.test(filamentColor) ||
+            thickness === null
+        ) {
             return null;
         }
         stack.push({ filamentId, filamentColor, thickness });
@@ -986,10 +1078,7 @@ function sanitizePaletteProofRecord(value: unknown): PaletteProofRecord | null {
     const firstLayerHeight = finiteNumber(value.process.firstLayerHeight, 0.001, 100);
     const transitionOpacity = finiteNumber(value.process.transitionOpacity, 0, 1);
     const modelFingerprint = boundedString(value.process.modelFingerprint, 128);
-    const filamentProfileFingerprint = boundedString(
-        value.process.filamentProfileFingerprint,
-        128
-    );
+    const filamentProfileFingerprint = boundedString(value.process.filamentProfileFingerprint, 128);
     if (
         value.process.paintMode !== 'autopaint' ||
         layerHeight === null ||
@@ -1007,9 +1096,7 @@ function sanitizePaletteProofRecord(value: unknown): PaletteProofRecord | null {
         unknownFields.some(
             (field) =>
                 !field ||
-                !UNKNOWN_PROCESS_FIELDS.includes(
-                    field as (typeof UNKNOWN_PROCESS_FIELDS)[number]
-                )
+                !UNKNOWN_PROCESS_FIELDS.includes(field as (typeof UNKNOWN_PROCESS_FIELDS)[number])
         )
     ) {
         return null;
@@ -1052,7 +1139,8 @@ function sanitizeViewingSession(value: unknown): AppearanceViewingSession | null
     const proofId = boundedString(value.proofId, 128);
     const createdAt = isoTimestamp(value.createdAt);
     const updatedAt = isoTimestamp(value.updatedAt);
-    const completedAt = value.completedAt === undefined ? undefined : isoTimestamp(value.completedAt);
+    const completedAt =
+        value.completedAt === undefined ? undefined : isoTimestamp(value.completedAt);
     if (
         !id ||
         !proofId ||
@@ -1086,7 +1174,11 @@ function sanitizeViewingSession(value: unknown): AppearanceViewingSession | null
 }
 
 function sanitizeTargetJudgment(value: unknown): PaletteTargetJudgment | null {
-    if (!isRecord(value) || !Array.isArray(value.candidateCellIds) || !Array.isArray(value.closestCellIds)) {
+    if (
+        !isRecord(value) ||
+        !Array.isArray(value.candidateCellIds) ||
+        !Array.isArray(value.closestCellIds)
+    ) {
         return null;
     }
     const id = boundedString(value.id, 128);
@@ -1144,6 +1236,178 @@ function sanitizeTargetJudgment(value: unknown): PaletteTargetJudgment | null {
     };
 }
 
+function sanitizeStackMatrixFilament(value: unknown): StackMatrixFilamentV1 | null {
+    if (!isRecord(value)) return null;
+    const id = boundedString(value.id, 128);
+    const color = boundedString(value.color, 16);
+    const name = boundedString(value.name, 256);
+    return id && color && /^#[0-9a-f]{6}$/i.test(color) && name
+        ? { id, color: color.toLowerCase(), name }
+        : null;
+}
+
+function sanitizeStackMatrixCalibration(value: unknown): StackMatrixCalibrationV1 | null {
+    if (
+        !isRecord(value) ||
+        value.schemaVersion !== 1 ||
+        (value.status !== 'planned' && value.status !== 'complete') ||
+        !isRecord(value.process) ||
+        !isRecord(value.grid) ||
+        !Array.isArray(value.filaments) ||
+        !Array.isArray(value.foundationLayerThicknesses) ||
+        !Array.isArray(value.samples) ||
+        !Array.isArray(value.cornerStacks)
+    ) {
+        return null;
+    }
+    const id = boundedString(value.id, 128);
+    const createdAt = isoTimestamp(value.createdAt);
+    const exportedAt = value.exportedAt === undefined ? undefined : isoTimestamp(value.exportedAt);
+    const completedAt =
+        value.completedAt === undefined ? undefined : isoTimestamp(value.completedAt);
+    const photoName =
+        value.photoName === undefined ? undefined : boundedString(value.photoName, 256);
+    const filamentProfileFingerprint = boundedString(value.process.filamentProfileFingerprint, 128);
+    const layerHeight = finiteNumber(value.process.layerHeight, 0.001, 10);
+    const firstLayerHeight = finiteNumber(value.process.firstLayerHeight, 0.001, 10);
+    const stackLayerCount = integer(value.stackLayerCount, 2, 6);
+    const rows = integer(value.grid.rows, 1, 64);
+    const columns = integer(value.grid.columns, 1, 64);
+    const patchSize = finiteNumber(value.grid.patchSize, 1, 20);
+    const gap = finiteNumber(value.grid.gap, 0, 5);
+    const totalCombinationCount = integer(value.totalCombinationCount, 1, 10_000_000);
+    const backingFilamentIndex = integer(value.backingFilamentIndex, 0, 31);
+    if (
+        !id ||
+        !createdAt ||
+        (value.exportedAt !== undefined && !exportedAt) ||
+        (value.completedAt !== undefined && !completedAt) ||
+        (value.photoName !== undefined && !photoName) ||
+        !filamentProfileFingerprint ||
+        layerHeight === null ||
+        firstLayerHeight === null ||
+        stackLayerCount === null ||
+        rows === null ||
+        columns === null ||
+        patchSize === null ||
+        gap === null ||
+        totalCombinationCount === null ||
+        backingFilamentIndex === null ||
+        (value.selection !== 'exhaustive' && value.selection !== 'hd-gamut') ||
+        !Array.isArray(value.process.unknownFields) ||
+        value.process.unknownFields.length > UNKNOWN_PROCESS_FIELDS.length ||
+        value.filaments.length < 2 ||
+        value.filaments.length > 8 ||
+        value.foundationLayerThicknesses.length < 1 ||
+        value.foundationLayerThicknesses.length > MAX_STACK_LAYERS ||
+        value.samples.length < 1 ||
+        value.samples.length > MAX_STACK_MATRIX_SAMPLES ||
+        value.samples.length > rows * columns ||
+        value.cornerStacks.length !== 4
+    ) {
+        return null;
+    }
+    const unknownFields = value.process.unknownFields.map((field) => boundedString(field, 64));
+    if (
+        unknownFields.some(
+            (field) =>
+                !field ||
+                !UNKNOWN_PROCESS_FIELDS.includes(field as (typeof UNKNOWN_PROCESS_FIELDS)[number])
+        )
+    ) {
+        return null;
+    }
+    const filaments = value.filaments.map(sanitizeStackMatrixFilament);
+    if (
+        filaments.some((filament) => filament === null) ||
+        new Set(filaments.map((filament) => filament!.id)).size !== filaments.length ||
+        backingFilamentIndex >= filaments.length
+    ) {
+        return null;
+    }
+    const foundationLayerThicknesses = value.foundationLayerThicknesses.map((thickness) =>
+        finiteNumber(thickness, 0.001, 10)
+    );
+    if (foundationLayerThicknesses.some((thickness) => thickness === null)) return null;
+
+    const sanitizeStack = (raw: unknown): number[] | null => {
+        if (!Array.isArray(raw) || raw.length !== stackLayerCount) return null;
+        const stack = raw.map((index) => integer(index, 0, filaments.length - 1));
+        return stack.some((index) => index === null) ? null : (stack as number[]);
+    };
+    const cornerStacks = value.cornerStacks.map(sanitizeStack);
+    if (cornerStacks.some((stack) => stack === null)) return null;
+
+    const samples: StackMatrixSampleV1[] = [];
+    for (const raw of value.samples) {
+        if (!isRecord(raw)) return null;
+        const index = integer(raw.index, 0, MAX_STACK_MATRIX_SAMPLES - 1);
+        const row = integer(raw.row, 0, rows - 1);
+        const column = integer(raw.column, 0, columns - 1);
+        const stack = sanitizeStack(raw.stack);
+        const canonicalStackKey = boundedString(raw.canonicalStackKey, 128);
+        const predictedColor = sanitizeCanonicalColor(raw.predictedColor);
+        const measuredColor =
+            raw.measuredColor === undefined ? undefined : sanitizeCanonicalColor(raw.measuredColor);
+        if (
+            index === null ||
+            row === null ||
+            column === null ||
+            !stack ||
+            !canonicalStackKey ||
+            !predictedColor ||
+            (raw.measuredColor !== undefined && !measuredColor) ||
+            (value.status === 'complete' && !measuredColor)
+        ) {
+            return null;
+        }
+        samples.push({
+            index,
+            row,
+            column,
+            stack,
+            canonicalStackKey,
+            predictedColor,
+            ...(measuredColor ? { measuredColor } : {}),
+        });
+    }
+    if (
+        new Set(samples.map((sample) => sample.index)).size !== samples.length ||
+        new Set(samples.map((sample) => `${sample.row}:${sample.column}`)).size !==
+            samples.length ||
+        (value.status === 'complete' && !completedAt)
+    ) {
+        return null;
+    }
+    return {
+        schemaVersion: 1,
+        id,
+        status: value.status,
+        process: {
+            filamentProfileFingerprint,
+            layerHeight,
+            firstLayerHeight,
+            unknownFields: unknownFields as string[],
+        },
+        filaments: filaments as StackMatrixFilamentV1[],
+        backingFilamentIndex,
+        foundationLayerThicknesses: foundationLayerThicknesses as number[],
+        stackLayerCount,
+        grid: { rows, columns, patchSize, gap },
+        totalCombinationCount,
+        selection: value.selection,
+        samples,
+        cornerStacks: cornerStacks as number[][],
+        createdAt,
+        ...(exportedAt ? { exportedAt } : {}),
+        ...(completedAt ? { completedAt } : {}),
+        ...(photoName ? { photoName } : {}),
+        ...(typeof value.referenceCorrection === 'boolean'
+            ? { referenceCorrection: value.referenceCorrection }
+            : {}),
+    };
+}
+
 export function sanitizeAppearanceProfile(value: unknown): AppearanceProfileV1 | undefined {
     if (
         !isRecord(value) ||
@@ -1187,10 +1451,10 @@ export function sanitizeAppearanceProfile(value: unknown): AppearanceProfileV1 |
                 );
                 return Boolean(
                     session &&
-                        session.proofId === judgment.proofId &&
-                        column &&
-                        judgment.candidateCellIds.join('|') === column.cellIds.join('|') &&
-                        judgment.targetColor.hex === column.targetColor.hex
+                    session.proofId === judgment.proofId &&
+                    column &&
+                    judgment.candidateCellIds.join('|') === column.cellIds.join('|') &&
+                    judgment.targetColor.hex === column.targetColor.hex
                 );
             }),
         (judgment) => `${judgment.viewingSessionId}:${judgment.column}`
@@ -1204,20 +1468,27 @@ export function sanitizeAppearanceProfile(value: unknown): AppearanceProfileV1 |
     }
     const normalizedViewingSessions = viewingSessions.map((session) => {
         const expected = proofsById.get(session.proofId)?.proof.columns.length ?? 0;
-        if (
-            session.status !== 'complete' ||
-            (judgmentCounts.get(session.id) ?? 0) === expected
-        ) {
+        if (session.status !== 'complete' || (judgmentCounts.get(session.id) ?? 0) === expected) {
             return session;
         }
         const draft: AppearanceViewingSession = { ...session, status: 'draft' };
         delete draft.completedAt;
         return draft;
     });
+    const stackMatrices = Array.isArray(value.stackMatrices)
+        ? dedupeLast(
+              value.stackMatrices
+                  .slice(-MAX_STORED_STACK_MATRICES)
+                  .map(sanitizeStackMatrixCalibration)
+                  .filter((matrix): matrix is StackMatrixCalibrationV1 => matrix !== null),
+              (matrix) => matrix.id
+          )
+        : [];
     return {
         schemaVersion: 1,
         proofs,
         viewingSessions: normalizedViewingSessions,
         targetJudgments,
+        stackMatrices,
     };
 }

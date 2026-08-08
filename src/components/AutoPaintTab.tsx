@@ -25,7 +25,11 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { TabsContent } from '@/components/ui/tabs';
 import type { AutoPaintResult, TransitionZone } from '../lib/autoPaint';
-import type { PaletteProofRecord, PaletteTargetResponse } from '../lib/appearanceProfile';
+import type {
+    PaletteProofRecord,
+    PaletteTargetResponse,
+    StackMatrixCalibrationV1,
+} from '../lib/appearanceProfile';
 import type { PaletteProofSpec } from '../lib/paletteProof';
 import type { AutoPaintProfile } from '../lib/profileManager';
 import type {
@@ -67,6 +71,9 @@ function ConfidenceStat({ label, value }: { label: string; value: number }) {
 function AppearanceModelStat({ result }: { result: AutoPaintResult }) {
     const model = result.finalStack.appearanceModel;
     const exactAnchorCount = model.exactAnchors?.length ?? 0;
+    const matrixAnchorCount =
+        model.exactAnchors?.filter((anchor) => anchor.source === 'stack-matrix').length ?? 0;
+    const proofAnchorCount = exactAnchorCount - matrixAnchorCount;
     const comparedStackKeys = new Set(model.comparedStackKeys);
     const comparedCoverage = result.finalStack.targetMappings
         .filter((mapping) => comparedStackKeys.has(mapping.canonicalStackKey))
@@ -102,22 +109,25 @@ function AppearanceModelStat({ result }: { result: AutoPaintResult }) {
                             ? getConfidenceColor(model.confidence)
                             : exactAnchorCount > 0
                               ? 'text-green-500'
-                            : 'text-muted-foreground'
+                              : 'text-muted-foreground'
                     }
                 >
                     {model.applied
                         ? `Fitted estimate (${(model.confidence * 100).toFixed(0)}%)`
                         : exactAnchorCount > 0
-                          ? 'Dead-on anchors active'
+                          ? matrixAnchorCount > 0 && proofAnchorCount === 0
+                              ? 'Stack Matrix anchors active'
+                              : 'Measured anchors active'
                           : model.observationCount > 0 || model.noneCount > 0
                             ? 'Evidence gathered, fit gated'
                             : 'Estimated only'}
                 </span>
             </div>
             <div className="mt-0.5 text-muted-foreground">
-                {model.sourceProofIds.length} completed proofs {' / '}
+                {model.sourceProofIds.length} evidence sets {' / '}
                 {model.distinctStackCount} physically compared stacks {' / '}
-                {exactAnchorCount} dead-on anchors {' / '}
+                {proofAnchorCount} dead-on anchors {' / '}
+                {matrixAnchorCount} matrix anchors {' / '}
                 {model.noneCount} no matches
             </div>
             <div className="mt-0.5 text-muted-foreground">
@@ -222,6 +232,8 @@ interface AutoPaintTabProps {
     handleCompletePaletteProofEvaluation: (proofId: string) => void;
     handleReopenPaletteProofEvaluation: (proofId: string) => void;
     handleDeletePaletteProof: (proofId: string) => void;
+    handleUpsertStackMatrixCalibration: (record: StackMatrixCalibrationV1) => void;
+    handleDeleteStackMatrixCalibration: (matrixId: string) => void;
 
     // Auto-paint state
     autoPaintMaxHeight: number | undefined;
@@ -300,6 +312,8 @@ export default function AutoPaintTab({
     handleCompletePaletteProofEvaluation,
     handleReopenPaletteProofEvaluation,
     handleDeletePaletteProof,
+    handleUpsertStackMatrixCalibration,
+    handleDeleteStackMatrixCalibration,
     autoPaintMaxHeight,
     setAutoPaintMaxHeight,
     autoPaintResult,
@@ -1490,6 +1504,8 @@ export default function AutoPaintTab({
                 onCompletePaletteProofEvaluation={handleCompletePaletteProofEvaluation}
                 onReopenPaletteProofEvaluation={handleReopenPaletteProofEvaluation}
                 onDeletePaletteProof={handleDeletePaletteProof}
+                onUpsertStackMatrixCalibration={handleUpsertStackMatrixCalibration}
+                onDeleteStackMatrixCalibration={handleDeleteStackMatrixCalibration}
                 onApply={handleApplyCalibration}
             />
         </TabsContent>

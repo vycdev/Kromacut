@@ -33,14 +33,20 @@ import {
     AlertTriangle,
     BookOpen,
     Palette,
+    Grid3X3,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { openDocsAt } from '@/lib/docs/navigation';
 import type { Filament, FinalPrintableStackSnapshot } from '../types';
-import type { PaletteProofRecord, PaletteTargetResponse } from '../lib/appearanceProfile';
+import type {
+    PaletteProofRecord,
+    PaletteTargetResponse,
+    StackMatrixCalibrationV1,
+} from '../lib/appearanceProfile';
 import type { PaletteProofSpec } from '../lib/paletteProof';
 import type { AutoPaintProfile } from '../lib/profileManager';
 import PaletteProofPanel from './PaletteProofPanel';
+import StackMatrixCalibrationPanel from './StackMatrixCalibrationPanel';
 import {
     activeFrontlitCalibration,
     channelHds,
@@ -67,7 +73,7 @@ import {
 type Step = 'select' | 'base' | 'print' | 'measure';
 type PrintFormat = 'stl' | '3mf';
 type CalibrationMode = 'quick' | 'accurate';
-type CalibrationSurface = 'hiding-distance' | 'palette-proof';
+type CalibrationSurface = 'hiding-distance' | 'palette-proof' | 'stack-matrix';
 
 export interface CalibrationApplyUpdate {
     id: string;
@@ -97,6 +103,8 @@ interface FilamentCalibrationDialogProps {
     onCompletePaletteProofEvaluation?: (proofId: string) => void;
     onReopenPaletteProofEvaluation?: (proofId: string) => void;
     onDeletePaletteProof?: (proofId: string) => void;
+    onUpsertStackMatrixCalibration?: (record: StackMatrixCalibrationV1) => void;
+    onDeleteStackMatrixCalibration?: (matrixId: string) => void;
     onApply: (updates: CalibrationApplyUpdate[]) => void;
 }
 
@@ -200,6 +208,8 @@ export function FilamentCalibrationDialog({
     onCompletePaletteProofEvaluation,
     onReopenPaletteProofEvaluation,
     onDeletePaletteProof,
+    onUpsertStackMatrixCalibration,
+    onDeleteStackMatrixCalibration,
     onApply,
 }: FilamentCalibrationDialogProps) {
     const [calibrationSurface, setCalibrationSurface] =
@@ -1341,6 +1351,31 @@ export function FilamentCalibrationDialog({
         </>
     );
 
+    const renderStackMatrix = () => (
+        <>
+            <AlertDialogHeader>
+                <AlertDialogTitle className="flex items-center gap-2">
+                    <Grid3X3 className="h-5 w-5 text-primary" />
+                    Stack Matrix
+                </AlertDialogTitle>
+            </AlertDialogHeader>
+            <StackMatrixCalibrationPanel
+                filaments={filaments}
+                layerHeight={layerHeight}
+                firstLayerHeight={firstLayerHeight}
+                profile={paletteProofProfile}
+                profileDirty={paletteProofProfileDirty}
+                onUpsert={onUpsertStackMatrixCalibration}
+                onDelete={onDeleteStackMatrixCalibration}
+            />
+            <AlertDialogFooter>
+                <Button variant="outline" onClick={handleClose}>
+                    Close
+                </Button>
+            </AlertDialogFooter>
+        </>
+    );
+
     return (
         <AlertDialog
             open={open}
@@ -1351,13 +1386,14 @@ export function FilamentCalibrationDialog({
             <AlertDialogContent
                 className={cn(
                     'fixed left-2 right-2 top-1/2 z-50 mx-auto box-border flex max-h-[90vh] w-auto translate-x-0 -translate-y-1/2 flex-col gap-4 overflow-y-auto rounded-lg border border-border bg-background p-6 shadow-lg',
-                    calibrationSurface === 'palette-proof'
-                        ? 'max-w-[64rem]'
+                    calibrationSurface === 'palette-proof' || calibrationSurface === 'stack-matrix'
+                        ? 'max-w-[72rem]'
                         : 'max-w-[42rem]'
                 )}
             >
                 <AlertDialogDescription className="sr-only">
-                    Filament calibration tools for hiding distance and job-specific Palette Proofs.
+                    Filament calibration tools for hiding distance, job-specific Palette Proofs, and
+                    photographed Stack Matrices.
                 </AlertDialogDescription>
                 <Button
                     variant="ghost"
@@ -1377,7 +1413,7 @@ export function FilamentCalibrationDialog({
                     }}
                 >
                     <TabsList
-                        className="grid w-full grid-cols-2"
+                        className="grid w-full grid-cols-3"
                         data-testid="calibration-surface-tabs"
                     >
                         <TabsTrigger value="hiding-distance" className="gap-1.5">
@@ -1388,10 +1424,16 @@ export function FilamentCalibrationDialog({
                             <Palette className="h-4 w-4" />
                             Palette Proof
                         </TabsTrigger>
+                        <TabsTrigger value="stack-matrix" className="gap-1.5">
+                            <Grid3X3 className="h-4 w-4" />
+                            Stack Matrix
+                        </TabsTrigger>
                     </TabsList>
                 </Tabs>
                 {calibrationSurface === 'palette-proof' ? (
                     renderPaletteProof()
+                ) : calibrationSurface === 'stack-matrix' ? (
+                    renderStackMatrix()
                 ) : (
                     <>
                         {step === 'select' && renderSelect()}

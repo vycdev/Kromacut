@@ -248,11 +248,13 @@ function stableHash32(value: string): number {
 export function createSequenceScorer(context: ScoringContext): (filaments: Filament[]) => number {
     const paletteCache = new Map<string, ReturnType<typeof buildAchievableColorPalette>>();
     const transitionThicknessCache = new Map<string, number>();
-    const exactAnchorTargets = context.appearanceModel?.exactAnchors?.map((anchor) => ({
-        L: anchor.targetLab[0],
-        a: anchor.targetLab[1],
-        b: anchor.targetLab[2],
-    }));
+    const exactAnchorTargets = context.appearanceModel?.exactAnchors
+        ?.filter((anchor) => anchor.source !== 'stack-matrix')
+        .map((anchor) => ({
+            L: anchor.targetLab[0],
+            a: anchor.targetLab[1],
+            b: anchor.targetLab[2],
+        }));
 
     return (filaments) => {
         if (filaments.length === 0) return Infinity;

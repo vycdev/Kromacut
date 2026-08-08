@@ -171,6 +171,21 @@ Auto-paint derives a small global lightness/chroma ranking correction from compl
 
 When appearance evidence changes, Auto-paint reruns filament-order optimization and simulated preview mapping. A Dead-on anchor gives realizable matching suffixes a strong optimizer preference and maps its target to the first calibrated prefix rather than an earlier uncalibrated color tie, so it can intentionally change the chosen height, swap plan, and exported geometry. It never changes hiding-distance calibration or physical filament colors. Raw judgments remain the persisted source of truth; global parameters and transferable suffixes are regenerated deterministically so a future model can reuse the same physical evidence.
 
+## Stack Matrix
+
+Open **Calibrate Filaments** and select **Stack Matrix** to measure many fixed-depth recipes at once. You need a saved, unchanged filament profile because the printed cells and photographed results belong to those exact filament IDs, colors, and HD values.
+
+1. Choose 2–8 filaments in profile order, the number of recipe layers, a square capacity from 64 (8 × 8) through 2,025 (45 × 45) cells, and the filament used for the opaque backing. Every matrix uses gapless 5 mm cells for a consistent, compact layout.
+2. Select **Create and download 3MF**. If every recipe fits, the board contains all `filaments^layers` combinations. Otherwise Kromacut simulates all recipes with the existing per-channel HD model, always keeps the pure-filament recipes, and selects the remaining cells to cover the predicted Lab gamut. The summary shows the cell count, physical size, layer heights, and a conservative minimum filament-swap count. Gamut coverage is prioritized over swap reduction, and the slicer's material ordering may add changes at layer boundaries.
+3. Keep the board face-up and at 100% scale. Confirm the embedded filament assignments, regular layer height, and first-layer height in the slicer. The 3MF uses one real material part per selected profile filament, a foundation thick enough for the backing filament's HD, and four corner marker recipes. Its `Metadata/kromacut-stack-matrix.json` file freezes the cell-to-recipe map.
+4. After printing, reopen the saved matrix and upload a frontlit photo. Kromacut estimates the board automatically and places numbered handles over the **Top-left**, **Top-right**, **Bottom-right**, and **Bottom-left** marker centers. Drag any handle that needs correction; a magnified crosshair shows the exact sampled point. Use the projected template grid to match the printed cell boundaries and check the perspective-corrected preview before saving. **Detect again** reruns the estimate, while **Reset** restores the estimate from the current photo. Leave **Reference marker correction** off to retain raw camera color, or enable it to reduce a lighting cast from the four known marker recipes.
+
+The planned record is saved when the 3MF is generated, so you can close Kromacut while the print runs and resume later. A completed record can be photographed again to replace its measurements, downloaded again, or deleted. Only the newest completed matrix compatible with the current profile and layer height supplies matrix anchors.
+
+Stack Matrix measurements do not replace HD and do not create a separate color-fitting algorithm. The existing Beer-Lambert/HD simulation still predicts every stack and selects overflow recipes. Measured cells locally replace the simulated color only when a current Auto-paint prefix ends in the same physical layer suffix (including lower context when the suffix remains translucent). Unlike a Dead-on Palette Proof target, a matrix cell is not a requested artwork color and does not receive an optimizer preference merely because it was printed.
+
+For best results, use diffuse front lighting, avoid specular glare, fill most of the photo with the board, keep automatic camera filters consistent, and do not mix matrices photographed under very different light. See [Calibration theory](calibration-theory#stack-matrix-calibration) for the optical limitations.
+
 ## Preview Controls
 
 The toolbar in the top-right corner of the 3D preview contains controls for the active view:

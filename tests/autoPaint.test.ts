@@ -41,10 +41,7 @@ function assertAlmostEqual(actual: number, expected: number, message?: string) {
 
 test('CIEDE2000 distance matches the published reference pair', async () => {
     const { deltaE2000Lab } = await loadAutoPaintModule();
-    const distance = deltaE2000Lab(
-        { L: 50, a: 2.6772, b: -79.7751 },
-        { L: 50, a: 0, b: -82.7485 }
-    );
+    const distance = deltaE2000Lab({ L: 50, a: 2.6772, b: -79.7751 }, { L: 50, a: 0, b: -82.7485 });
 
     assert.ok(Math.abs(distance - 2.0425) < 0.0001);
 });
@@ -58,7 +55,10 @@ test('enhanced matching keeps every color from the processed 2D palette', async 
     ]);
 
     assert.equal(targets.length, 3, 'the optimizer must not perform a second color reduction');
-    assertAlmostEqual(targets.reduce((sum, target) => sum + target.weight, 0), 1);
+    assertAlmostEqual(
+        targets.reduce((sum, target) => sum + target.weight, 0),
+        1
+    );
     assertAlmostEqual(targets[0].weight, 0.6);
     assertAlmostEqual(targets[1].weight, 0.3);
     assertAlmostEqual(targets[2].weight, 0.1);
@@ -236,7 +236,11 @@ test('calibrated per-channel TDs tint blends without changing scalar TD behavior
     const equalChannels = blendColors(background, filament, [1, 1, 1], 0.25);
     const calibrated = blendColors(background, filament, [0.5, 1, 2], 0.25);
 
-    assert.deepEqual(equalChannels, scalar, 'equal channel TDs must preserve legacy scalar blending');
+    assert.deepEqual(
+        equalChannels,
+        scalar,
+        'equal channel TDs must preserve legacy scalar blending'
+    );
     assert.ok(
         calibrated.r > calibrated.g && calibrated.g > calibrated.b,
         'shorter channel TDs must become opaque sooner'
@@ -274,7 +278,10 @@ test('legacy photo calibrations are ignored and blend like uncalibrated filament
     assert.deepEqual(legacy.layers, baseline.layers);
     assert.deepEqual(legacy.transitionZones, baseline.transitionZones);
     assert.equal(legacy.totalHeight, baseline.totalHeight);
-    assert.equal(legacy.confidenceFactors.calibrationQuality, baseline.confidenceFactors.calibrationQuality);
+    assert.equal(
+        legacy.confidenceFactors.calibrationQuality,
+        baseline.confidenceFactors.calibrationQuality
+    );
 });
 
 test('Beer-Lambert blends operate in linear light before returning sRGB', async () => {
@@ -295,8 +302,7 @@ test('Beer-Lambert blends operate in linear light before returning sRGB', async 
 });
 
 test('calibrated channel TDs flow through generated auto-paint preview slices', async () => {
-    const { autoPaintToSliceHeights, generateAutoLayers, hexToRgb } =
-        await loadAutoPaintModule();
+    const { autoPaintToSliceHeights, generateAutoLayers, hexToRgb } = await loadAutoPaintModule();
     const baseFilaments = [
         { id: 'black', color: '#000000', td: 1 },
         { id: 'white', color: '#ffffff', td: 16 },
@@ -344,7 +350,9 @@ test('calibrated channel TDs flow through generated auto-paint preview slices', 
         calibratedSlices.colorSliceHeights.length > scalarSlices.colorSliceHeights.length,
         'the preview must contain the additional calibrated transition layers'
     );
-    const whiteLayer = calibratedSlices.filamentSwatches.findIndex((swatch) => swatch.hex === '#ffffff');
+    const whiteLayer = calibratedSlices.filamentSwatches.findIndex(
+        (swatch) => swatch.hex === '#ffffff'
+    );
     assert.ok(whiteLayer >= 0, 'the calibrated filament should contribute preview layers');
 
     const scalarColor = hexToRgb(scalarSlices.virtualSwatches[whiteLayer].hex);
@@ -403,7 +411,11 @@ test('ideal-height zones include a foundation and remain contiguous when compres
     }
 
     const noCompression = compressZones(zones, idealHeight + 1);
-    assert.equal(noCompression.compressionRatio, 1, 'a sufficiently tall limit should not compress');
+    assert.equal(
+        noCompression.compressionRatio,
+        1,
+        'a sufficiently tall limit should not compress'
+    );
     assert.deepEqual(noCompression.compressedZones, zones);
 });
 
@@ -422,12 +434,7 @@ test('transition planning carries the actual prior end color into the next zone'
         0.15,
         layerHeight
     );
-    const pureMiddleFinalThickness = calculateTransitionThickness(
-        middle,
-        final,
-        0.15,
-        layerHeight
-    );
+    const pureMiddleFinalThickness = calculateTransitionThickness(middle, final, 0.15, layerHeight);
     const { zones } = calculateIdealHeight(
         [
             { id: 'foundation', color: '#ffffff', td: 0.1 },
@@ -468,16 +475,31 @@ test('preview slices blend each zone over the actual prior end color', async () 
         filamentOrder: ['first', 'middle', 'final'],
         transitionZones: [
             {
-                filamentId: 'first', filamentColor: '#ff0000', filamentTd: 0.1,
-                startHeight: 0, endHeight: 0.1, idealThickness: 0.1, actualThickness: 0.1,
+                filamentId: 'first',
+                filamentColor: '#ff0000',
+                filamentTd: 0.1,
+                startHeight: 0,
+                endHeight: 0.1,
+                idealThickness: 0.1,
+                actualThickness: 0.1,
             },
             {
-                filamentId: 'middle', filamentColor: '#ff8800', filamentTd: 0.2,
-                startHeight: 0.1, endHeight: 0.2, idealThickness: 0.1, actualThickness: 0.1,
+                filamentId: 'middle',
+                filamentColor: '#ff8800',
+                filamentTd: 0.2,
+                startHeight: 0.1,
+                endHeight: 0.2,
+                idealThickness: 0.1,
+                actualThickness: 0.1,
             },
             {
-                filamentId: 'final', filamentColor: '#ff0000', filamentTd: 0.3,
-                startHeight: 0.2, endHeight: 0.3, idealThickness: 0.1, actualThickness: 0.1,
+                filamentId: 'final',
+                filamentColor: '#ff0000',
+                filamentTd: 0.3,
+                startHeight: 0.2,
+                endHeight: 0.3,
+                idealThickness: 0.1,
+                actualThickness: 0.1,
             },
         ],
         confidence: 1,
@@ -491,6 +513,7 @@ test('preview slices blend each zone over the actual prior end color', async () 
 
 test('auto-paint slice data stays synchronized and uses print-layer heights', async () => {
     const {
+        autoPaintResultMatchesSliceGrid,
         autoPaintToSliceHeights,
         freezeFinalPrintableStackSnapshot,
         generateAutoLayers,
@@ -513,10 +536,21 @@ test('auto-paint slice data stays synchronized and uses print-layer heights', as
     );
     const slices = autoPaintToSliceHeights(result, layerHeight, firstLayerHeight);
 
+    assert.equal(autoPaintResultMatchesSliceGrid(result, layerHeight, firstLayerHeight), true);
+    assert.equal(
+        autoPaintResultMatchesSliceGrid(result, layerHeight, firstLayerHeight + layerHeight),
+        false,
+        'a result built for the previous first-layer height must be treated as stale'
+    );
+
     assert.ok(slices.colorSliceHeights.length > 0, 'a valid stack should produce slices');
     assert.equal(slices.colorSliceHeights[0], firstLayerHeight);
     for (const height of slices.colorSliceHeights.slice(1)) {
-        assert.equal(height, layerHeight, 'all later slices should use the configured layer height');
+        assert.equal(
+            height,
+            layerHeight,
+            'all later slices should use the configured layer height'
+        );
     }
     assert.ok(slices.colorSliceHeights.length <= 500, 'slice output must respect the safety limit');
     assert.equal(slices.virtualSwatches.length, slices.colorSliceHeights.length);
@@ -602,12 +636,17 @@ test('auto-paint caps and optimizer palettes use the same discrete printable sta
     );
     const slices = autoPaintToSliceHeights(result, layerHeight, firstLayerHeight);
     const printedHeight = slices.colorSliceHeights.reduce(
-        (total, height, index) => total + (index === 0 ? Math.max(height, firstLayerHeight) : height),
+        (total, height, index) =>
+            total + (index === 0 ? Math.max(height, firstLayerHeight) : height),
         0
     );
 
     assertAlmostEqual(result.totalHeight, 0.3, 'cap should snap down to a valid stack height');
-    assertAlmostEqual(printedHeight, result.totalHeight, 'reported and printable heights must agree');
+    assertAlmostEqual(
+        printedHeight,
+        result.totalHeight,
+        'reported and printable heights must agree'
+    );
     assert.ok(printedHeight <= maxHeight + EPSILON, 'the printed stack must not exceed Max Height');
     assert.equal(
         floorAutoPaintHeightToPrintableStack(0.15, layerHeight, firstLayerHeight),
@@ -639,8 +678,7 @@ test('auto-paint caps and optimizer palettes use the same discrete printable sta
 });
 
 test('enhanced repeated-swap search keeps the printable red-to-pink transition', async () => {
-    const { autoPaintToSliceHeights, generateAutoLayers, hexToRgb } =
-        await loadAutoPaintModule();
+    const { autoPaintToSliceHeights, generateAutoLayers, hexToRgb } = await loadAutoPaintModule();
     const layerHeight = 0.08;
     const firstLayerHeight = 0.16;
     const result = generateAutoLayers(
@@ -666,7 +704,9 @@ test('enhanced repeated-swap search keeps the printable red-to-pink transition',
         'the optimized stack should include red under white'
     );
     assert.ok(
-        result.filamentOrder.every((id, index) => index === 0 || id !== result.filamentOrder[index - 1]),
+        result.filamentOrder.every(
+            (id, index) => index === 0 || id !== result.filamentOrder[index - 1]
+        ),
         'the optimizer must never emit adjacent duplicate swaps'
     );
     assert.ok(
@@ -769,7 +809,10 @@ test('calibrated profiles produce identical output across the hiding-distance mi
         )
     ) as { filaments: Array<{ id: string; color: string; td: number }> };
     const baseline = JSON.parse(
-        readFileSync(resolve(process.cwd(), 'tests/assets/autopaint-calibrated-baseline.json'), 'utf8')
+        readFileSync(
+            resolve(process.cwd(), 'tests/assets/autopaint-calibrated-baseline.json'),
+            'utf8'
+        )
     );
     const swatches = [
         { hex: '#000000', count: 120 },
@@ -797,10 +840,19 @@ test('calibrated profiles produce identical output across the hiding-distance mi
     const standard = generateAutoLayers(profile.filaments, swatches, 0.08, 0.16, undefined, false);
     assert.deepEqual(normalize(standard), baseline.standard);
 
-    const enhanced = generateAutoLayers(profile.filaments, swatches, 0.08, 0.16, undefined, true, false, {
-        algorithm: 'fast',
-        seed: 42,
-    });
+    const enhanced = generateAutoLayers(
+        profile.filaments,
+        swatches,
+        0.08,
+        0.16,
+        undefined,
+        true,
+        false,
+        {
+            algorithm: 'fast',
+            seed: 42,
+        }
+    );
     assert.deepEqual(normalize(enhanced), baseline.enhancedFast);
 });
 

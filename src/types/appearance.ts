@@ -15,6 +15,7 @@ export interface AppearanceAnchorLayer {
 export interface AppearanceExactAnchorV1 {
     id: string;
     proofId: string;
+    source?: 'palette-proof' | 'stack-matrix';
     sourceStackKey: string;
     targetLab: readonly [number, number, number];
     suffixLayers: readonly AppearanceAnchorLayer[];

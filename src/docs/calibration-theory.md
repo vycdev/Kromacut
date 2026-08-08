@@ -2,12 +2,12 @@
 title: Calibration Theory
 slug: calibration-theory
 order: 62
-description: The optics and math behind filament hiding-distance calibration.
+description: The optics and math behind hiding-distance, Palette Proof, and Stack Matrix calibration.
 ---
 
 # Calibration Theory
 
-Calibration measures each filament's **hiding distance (HD)**: the depth at which it visually hides what is printed beneath it. Auto-paint's color model depends on this value per filament, so a measured HD is better than an estimate. This page covers what the calibration wedge measures and how Kromacut converts a single patch read into a full optical model.
+Kromacut has three complementary calibration tools. **Hiding Distance** measures the physical opacity of each filament. **Palette Proof** asks you to rank a small set of printed candidates for colors that matter to one job. **Stack Matrix** photographs many known physical recipes and records their observed colors. They all feed the same Auto-paint stack model, but they answer different questions.
 
 For the step-by-step wizard, see [3D mode](3d-mode).
 
@@ -25,7 +25,7 @@ T = 10^(−d / HD)
 
 of the underlying color. Each added layer multiplies the show-through, so a stack reaches opacity geometrically. The rate is a material property: a dense black hides in a fraction of a millimeter, a translucent white can need ten times the depth. That rate is the hiding distance.
 
-The Transmission Distance printed on spool sheets, or measured with backlit TD test prints, describes light passing *through* the filament once (lithophane-style). Frontlit viewing passes light through the layer twice and reads it against reflection, so a conventional TD is roughly 10× the hiding distance. Kromacut accepts conventional TD as input (the convert button on each filament row) but stores and simulates with HD.
+The Transmission Distance printed on spool sheets, or measured with backlit TD test prints, describes light passing _through_ the filament once (lithophane-style). Frontlit viewing passes light through the layer twice and reads it against reflection, so a conventional TD is roughly 10× the hiding distance. Kromacut accepts conventional TD as input (the convert button on each filament row) but stores and simulates with HD.
 
 ## The Wedge
 
@@ -48,6 +48,16 @@ HD = −d* / log10(T*)
 ![As layers stack, the color difference between patch and rail decays; the reported patch pins where it crosses one JND, and inverting the transmission law yields the hiding distance.](08_opacity_solve.svg)
 
 Base contrast matters here: a black filament over a black base never differs from its rail by a full JND, so there is nothing to measure. The wizard detects this and assigns dark filaments a lighter base.
+
+## Stack Matrix Calibration
+
+The Stack Matrix is a LUT-style measurement rather than another HD solve. A recipe is a fixed number of real filament layers over one opaque foundation. For `N` selected filaments and `L` recipe layers there are `N^L` possible recipes. Kromacut prints all of them when they fit the selected board capacity. When they do not, it simulates every recipe with the existing per-channel HD values, converts the predictions to Lab, keeps every pure-filament recipe, and fills the remaining cells with a deterministic farthest-color selection. HD therefore decides which limited set covers the predicted gamut; the matrix does not estimate HD again.
+
+The matrix prints face-up so its foundation, first-layer thickness, and following recipe layers use the same physical order as a normal Kromacut build. Four corner recipes identify orientation and define the perspective transform. After printing, photograph the face under diffuse front lighting. Kromacut estimates the board, then lets you drag four numbered marker-center handles with a magnified crosshair. An exact projected cell grid and a live rectified preview make perspective, tilt, and skew errors visible before Kromacut samples the center of every cell. Raw sampling is the conservative default. Optional reference-marker correction estimates a per-channel lighting gain from the four known marker recipes, which can reduce a color cast but can also hide a real lighting-dependent difference.
+
+A completed matrix stores predicted and photographed sRGB colors beside the immutable physical recipes in the named filament profile. Kromacut converts those measurements into local appearance anchors using the same opacity rule as Dead-on Palette Proof results: it keeps the complete visible filament run and extends down until the retained suffix hides its substrate, or keeps the foundation when it does not. Consequently a measured recipe transfers only to a compatible physical suffix; it does not globally recolor unrelated stacks. Matrix cells correct matching predictions but are not treated as desired image targets, so printing a broad matrix does not make the optimizer chase every sampled color.
+
+Photo calibration is inherently sensitive to the camera, exposure, glare, white balance, and viewing light. The camera-free wedge remains the preferred way to measure material HD. Use a Stack Matrix when you want broad empirical recipe colors under a controlled setup, and use Palette Proof when you care most about a few colors in one image.
 
 ## Per-Channel Hiding Distances
 
