@@ -77,6 +77,15 @@ test('new proofs pack sorted touching candidates', async () => {
         );
     }
     assert.deepEqual(validatePaletteProofSpec(snapshot, touching), []);
+
+    const overlappingReinforcement = structuredClone(touching);
+    overlappingReinforcement.layout.reinforcementLayers = 1;
+    overlappingReinforcement.layout.reinforcementClearanceMm = 0.15;
+    assert.ok(
+        validatePaletteProofSpec(snapshot, overlappingReinforcement).includes(
+            'layout reinforcement clearance overlaps adjacent cells'
+        )
+    );
 });
 
 test('final stack exposes exactly one non-empty prefix per physical layer', async () => {

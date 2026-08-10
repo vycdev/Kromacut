@@ -300,6 +300,14 @@ test('appearance import sanitation preserves valid records and drops tampered co
         storedGapAppearance
     );
 
+    const overlappingReinforcement = structuredClone(appearance);
+    const overlappingLayout = overlappingReinforcement.proofs[0].proof.layout;
+    overlappingLayout.reinforcementLayers = 2;
+    overlappingLayout.reinforcementClearanceMm = 0.15;
+    const sanitizedOverlapping = sanitizeAppearanceProfile(overlappingReinforcement);
+    assert.ok(sanitizedOverlapping);
+    assert.equal(sanitizedOverlapping.proofs.length, 0);
+
     const legacyLandscape = structuredClone(appearance);
     const legacyLayout = legacyLandscape.proofs[0].proof.layout;
     delete legacyLayout.matrixOrientation;

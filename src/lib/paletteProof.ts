@@ -846,6 +846,12 @@ export function validatePaletteProofSpec(
     ) {
         errors.push('layout reinforcement clearance is inconsistent');
     }
+    if (
+        reinforcementLayers > 0 &&
+        spec.layout.gapMm < reinforcementClearanceMm * 2
+    ) {
+        errors.push('layout reinforcement clearance overlaps adjacent cells');
+    }
     if (spec.layout.foundationPrefixKey !== (snapshot.palette[0]?.canonicalStackKey ?? null)) {
         errors.push('foundation is not the first physical prefix');
     }

@@ -371,7 +371,8 @@ function sanitizePaletteProofSpec(value: unknown): PaletteProofSpec | null {
                 reinforcementClearanceMm == null ||
                 (reinforcementLayers === 0 && reinforcementClearanceMm !== 0) ||
                 (reinforcementLayers > 0 &&
-                    reinforcementClearanceMm !== PALETTE_PROOF_REINFORCEMENT_CLEARANCE_MM))) ||
+                    (reinforcementClearanceMm !== PALETTE_PROOF_REINFORCEMENT_CLEARANCE_MM ||
+                        gapMm < reinforcementClearanceMm * 2)))) ||
         value.layout.orientationMarker !== 'top-left-notch' ||
         value.columns.length !== columnCount ||
         value.targetPalette.length !== columnCount
