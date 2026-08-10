@@ -4,7 +4,10 @@ import { resolve } from 'node:path';
 import test, { type TestContext } from 'node:test';
 import { createServer } from 'vite';
 
-import { autoPaintGoldenScenarios } from './autoPaintGoldenFixtures.ts';
+import {
+    autoPaintGoldenScenarios,
+    migrateGoldenFixtureFilament,
+} from './autoPaintGoldenFixtures.ts';
 
 type AutoPaintModule = typeof import('../src/lib/autoPaint.ts');
 
@@ -90,6 +93,13 @@ function assertApproximateGolden(actual: AutoPaintGolden, expected: AutoPaintGol
         }
     });
 }
+
+test('golden fixtures migrate hiding distance only across the v1 to v2 boundary', () => {
+    const filament = { id: 'fixture', color: '#FFFFFF', td: 5 };
+    assert.equal(migrateGoldenFixtureFilament(1, filament).td, 0.5);
+    assert.equal(migrateGoldenFixtureFilament(2, filament).td, 5);
+    assert.equal(migrateGoldenFixtureFilament(3, filament).td, 5);
+});
 
 test('seeded auto-paint stack goldens stay deliberate', async (t: TestContext) => {
     const expected = JSON.parse(readFileSync(goldenPath, 'utf8')) as Record<string, AutoPaintGolden>;

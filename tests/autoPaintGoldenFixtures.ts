@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-import { CURRENT_PROFILE_VERSION, migrateLegacyFilamentTd } from '../src/lib/profileManager.ts';
+import { TD_MIGRATION_VERSION, migrateLegacyFilamentTd } from '../src/lib/profileManager.ts';
 import {
     colorSwatchesFromJpegBlocks,
     logoFixturePath,
@@ -25,12 +25,21 @@ interface FilamentProfileFixture {
     filaments: Array<{ id: string; color: string; td: number }>;
 }
 
+type GoldenFixtureFilament = { id: string; color: string; td: number };
+
 const PROFILE_FILES = [
     ['2_Colors.kapp', 2],
     ['4_Colors.kapp', 4],
     ['8_Colors.kapp', 8],
 ] as const;
 const SWATCH_CAP = 2 ** 14;
+
+export function migrateGoldenFixtureFilament(
+    version: number,
+    filament: GoldenFixtureFilament
+): GoldenFixtureFilament {
+    return version < TD_MIGRATION_VERSION ? migrateLegacyFilamentTd(filament) : filament;
+}
 
 function readProfile(fileName: string, expectedFilamentCount: number): FilamentProfileFixture {
     const profilePath = resolve(testAssetsRoot, 'filament-profiles', fileName);
@@ -55,7 +64,7 @@ function readProfile(fileName: string, expectedFilamentCount: number): FilamentP
                 color: filament.color,
                 td: filament.td,
             };
-            return version < CURRENT_PROFILE_VERSION ? migrateLegacyFilamentTd(shaped) : shaped;
+            return migrateGoldenFixtureFilament(version, shaped);
         }),
     };
 }

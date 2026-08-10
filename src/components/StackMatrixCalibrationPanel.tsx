@@ -35,6 +35,7 @@ import {
 } from '@/lib/appearanceProfile';
 import {
     completeStackMatrixCalibration,
+    lightestStackMatrixFilamentId,
     sampleStackMatrixPhoto,
     STACK_MATRIX_GAP_MM,
     STACK_MATRIX_PATCH_SIZE_MM,
@@ -226,12 +227,9 @@ export default function StackMatrixCalibrationPanel({
     );
     const [stackLayerCount, setStackLayerCount] = useState(5);
     const [maximumSamples, setMaximumSamples] = useState(256);
-    const [backingId, setBackingId] = useState(() => {
-        const lightest = [...filaments].sort(
-            (left, right) => swatchLuminance(right.color) - swatchLuminance(left.color)
-        )[0];
-        return lightest?.id ?? '';
-    });
+    const [backingId, setBackingId] = useState(() =>
+        lightestStackMatrixFilamentId(filaments.slice(0, 8))
+    );
     const [busy, setBusy] = useState(false);
     const [generationPhase, setGenerationPhase] = useState<'planning' | 'exporting' | null>(null);
     const [error, setError] = useState<string | null>(null);
@@ -372,6 +370,11 @@ export default function StackMatrixCalibrationPanel({
         () => filaments.filter((filament) => selectedIds.has(filament.id)).slice(0, 8),
         [filaments, selectedIds]
     );
+    useEffect(() => {
+        if (!selectedFilaments.some((filament) => filament.id === backingId)) {
+            setBackingId(lightestStackMatrixFilamentId(selectedFilaments));
+        }
+    }, [backingId, selectedFilaments]);
     const backingFilament = selectedFilaments.find((filament) => filament.id === backingId);
     const combinationCount = selectedFilaments.length ** stackLayerCount;
     const minimumFilamentSwaps = stackLayerCount * Math.max(0, selectedFilaments.length - 1);
@@ -386,7 +389,11 @@ export default function StackMatrixCalibrationPanel({
         (estimatedRows + 2) * STACK_MATRIX_PATCH_SIZE_MM +
         (estimatedRows + 1) * STACK_MATRIX_GAP_MM;
     const canCreate = Boolean(
-        profile && !profileDirty && onUpsert && selectedFilaments.length >= 2
+        profile &&
+        !profileDirty &&
+        onUpsert &&
+        selectedFilaments.length >= 2 &&
+        backingFilament
     );
     const toggleFilament = (filamentId: string) => {
         setSelectedIds((current) => {
@@ -394,9 +401,6 @@ export default function StackMatrixCalibrationPanel({
             if (next.has(filamentId)) {
                 if (next.size > 2) {
                     next.delete(filamentId);
-                    if (filamentId === backingId) {
-                        setBackingId([...next][0] ?? '');
-                    }
                 }
             } else if (next.size < 8) {
                 next.add(filamentId);

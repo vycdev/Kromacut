@@ -38,6 +38,22 @@ const MAX_MATRIX_FILAMENTS = 8;
 const MIN_HD_GAMUT_POOL_SIZE = 8_192;
 const HD_GAMUT_POOL_MULTIPLIER = 8;
 
+export function lightestStackMatrixFilamentId(
+    filaments: readonly Pick<Filament, 'id' | 'color'>[]
+): string {
+    let lightestId = '';
+    let lightestLuminance = Number.NEGATIVE_INFINITY;
+    for (const filament of filaments) {
+        const rgb = hexToRgb(filament.color);
+        const luminance = rgb.r * 0.2126 + rgb.g * 0.7152 + rgb.b * 0.0722;
+        if (luminance > lightestLuminance) {
+            lightestId = filament.id;
+            lightestLuminance = luminance;
+        }
+    }
+    return lightestId;
+}
+
 function roundHeight(value: number): number {
     return Math.round(value * 1e6) / 1e6;
 }

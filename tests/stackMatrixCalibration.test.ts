@@ -46,6 +46,19 @@ const filaments = [
     { id: 'white', color: '#f4f2ea', td: 1.2, name: 'White' },
 ];
 
+test('Stack Matrix backing defaults to the lightest selected filament', async () => {
+    const [matrix] = await modules;
+    assert.equal(
+        matrix.lightestStackMatrixFilamentId([
+            { id: 'dark', color: '#101010' },
+            { id: 'light', color: '#F0F0F0' },
+            { id: 'middle', color: '#808080' },
+        ]),
+        'light'
+    );
+    assert.equal(matrix.lightestStackMatrixFilamentId([]), '');
+});
+
 function options(maximumSamples: number) {
     return {
         layerHeight: 0.08,

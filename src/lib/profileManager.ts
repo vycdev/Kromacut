@@ -28,7 +28,7 @@ export const CURRENT_PROFILE_VERSION = 3;
 /** Schema version that introduced hiding-distance td storage. The td migration
  *  applies to profiles below this version only — never re-gate it on
  *  CURRENT_PROFILE_VERSION, or a future bump would re-scale v2 profiles. */
-const TD_MIGRATION_VERSION = 2;
+export const TD_MIGRATION_VERSION = 2;
 
 const PROFILES_STORAGE_KEY = 'kromacut.autopaint.profiles';
 const LAST_PROFILE_KEY = 'kromacut.autopaint.lastProfileId';
