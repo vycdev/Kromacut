@@ -1197,7 +1197,9 @@ function sanitizeTargetJudgment(value: unknown): PaletteTargetJudgment | null {
     if (
         !isRecord(value) ||
         !Array.isArray(value.candidateCellIds) ||
-        !Array.isArray(value.closestCellIds)
+        !Array.isArray(value.closestCellIds) ||
+        value.candidateCellIds.length > PALETTE_PROOF_MAX_CANDIDATES ||
+        value.closestCellIds.length > PALETTE_PROOF_MAX_CANDIDATES
     ) {
         return null;
     }
@@ -1228,9 +1230,10 @@ function sanitizeTargetJudgment(value: unknown): PaletteTargetJudgment | null {
         !updatedAt ||
         (value.response !== 'closest' && value.response !== 'none') ||
         candidateCellIds.length === 0 ||
-        candidateCellIds.length > PALETTE_PROOF_MAX_CANDIDATES ||
         candidateCellIds.some((cellId) => !cellId) ||
         closestCellIds.some((cellId) => !cellId) ||
+        new Set(candidateCellIds).size !== candidateCellIds.length ||
+        new Set(closestCellIds).size !== closestCellIds.length ||
         (value.response === 'closest' && closestCellIds.length === 0) ||
         (value.response === 'none' && closestCellIds.length !== 0) ||
         (value.response === 'closest' && matchQuality === null) ||

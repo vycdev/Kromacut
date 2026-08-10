@@ -240,6 +240,15 @@ Overture Basic,#033877,Blue,3.5`;
     assert.equal(profile.filaments[0].td, 0.35);
 });
 
+test('parseHueForgeCSV rejects TD values with trailing characters', () => {
+    const csv = `Brand,Color,Name,TD
+Inland Basic,#bf9c81,Malformed,1.7junk
+Overture Basic,#033877,Blue,3.5`;
+    const [profile] = parseHueForgeCSV(csv)!;
+    assert.equal(profile.filaments.length, 1);
+    assert.equal(profile.filaments[0].color, '#033877');
+});
+
 test('parseHueForgeCSV strips a leading UTF-8 BOM before parsing the header', () => {
     // A UTF-8 BOM (U+FEFF) is often prepended by spreadsheet tools (e.g.
     // Excel) when saving CSV/TSV. Without stripping it, the first header

@@ -149,12 +149,20 @@ function hexToRgb(hex: string): CalibrationRgb | null {
 const isFinitePositive = (value: unknown): value is number =>
     typeof value === 'number' && Number.isFinite(value) && value > 0;
 
+const isFiniteFrontlitTd = (value: unknown): value is number =>
+    typeof value === 'number' &&
+    Number.isFinite(value) &&
+    value >= FRONTLIT_TD_MIN &&
+    value <= FRONTLIT_TD_MAX;
+
 type ReadResidualMode = 'interval' | 'center';
 
 function sanitizeCalibrationRgb(value: unknown): CalibrationRgb | undefined {
     if (!Array.isArray(value) || value.length !== 3) return undefined;
     const [r, g, b] = value;
-    if (!isFinitePositive(r) || !isFinitePositive(g) || !isFinitePositive(b)) return undefined;
+    if (!isFiniteFrontlitTd(r) || !isFiniteFrontlitTd(g) || !isFiniteFrontlitTd(b)) {
+        return undefined;
+    }
     return [r, g, b];
 }
 
@@ -204,7 +212,7 @@ export function sanitizeFrontlitCalibration(value: unknown): FrontlitCalibration
     }
     if (!isFinitePositive(candidate.layerHeight)) return undefined;
     if (!isFinitePositive(candidate.firstLayerHeight)) return undefined;
-    if (!isFinitePositive(candidate.tdSingleValue)) return undefined;
+    if (!isFiniteFrontlitTd(candidate.tdSingleValue)) return undefined;
     if (!isFinitePositive(candidate.jnd)) return undefined;
     if (typeof candidate.baseColor !== 'string' || !hexToRgb(candidate.baseColor)) {
         return undefined;

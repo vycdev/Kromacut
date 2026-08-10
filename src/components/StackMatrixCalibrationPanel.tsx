@@ -74,6 +74,8 @@ interface LoadedPhoto {
     width: number;
     height: number;
     fileName: string;
+    profileId: string | null;
+    recordId: string;
 }
 
 interface PhotoLoupeState {
@@ -265,6 +267,15 @@ export default function StackMatrixCalibrationPanel({
     const pendingCornerDragRef = useRef<PendingCornerDrag | null>(null);
     const cornerDragFrameRef = useRef<number | null>(null);
     const generationWorkerRef = useRef<Worker | null>(null);
+    const photoLoadGenerationRef = useRef(0);
+    const activePhotoOwnerRef = useRef({
+        profileId: profile?.id ?? null,
+        recordId: activeRecordId,
+    });
+    activePhotoOwnerRef.current = {
+        profileId: profile?.id ?? null,
+        recordId: activeRecordId,
+    };
 
     const runGenerationWorker = useCallback(
         (job: StackMatrixWorkerJob): Promise<StackMatrixWorkerCompleteResponse> => {
@@ -312,6 +323,7 @@ export default function StackMatrixCalibrationPanel({
 
     useEffect(() => {
         return () => {
+            photoLoadGenerationRef.current += 1;
             generationWorkerRef.current?.terminate();
             if (cornerDragFrameRef.current !== null) {
                 cancelAnimationFrame(cornerDragFrameRef.current);
@@ -324,6 +336,7 @@ export default function StackMatrixCalibrationPanel({
     }, [activeRecordId, newestRecord]);
 
     useEffect(() => {
+        photoLoadGenerationRef.current += 1;
         setPhoto(null);
         setPhotoZoom(1);
         setCorners([]);
@@ -342,7 +355,7 @@ export default function StackMatrixCalibrationPanel({
             cancelAnimationFrame(cornerDragFrameRef.current);
             cornerDragFrameRef.current = null;
         }
-    }, [activeRecordId]);
+    }, [activeRecordId, profile?.id]);
 
     const activeRecord = useMemo(() => {
         if (localRecord?.id === activeRecordId) return localRecord;
@@ -508,14 +521,26 @@ export default function StackMatrixCalibrationPanel({
 
     const handlePhotoFile = useCallback(
         (file: File | undefined) => {
-            if (!file) return;
+            if (!file || !activeRecord) return;
             if (!isImageFile(file)) {
                 setError('Drop an image file for the Stack Matrix photo');
                 return;
             }
+            const loadGeneration = ++photoLoadGenerationRef.current;
+            const profileId = profile?.id ?? null;
+            const recordId = activeRecord.id;
             const url = URL.createObjectURL(file);
             const image = new Image();
             image.onload = () => {
+                const activeOwner = activePhotoOwnerRef.current;
+                if (
+                    loadGeneration !== photoLoadGenerationRef.current ||
+                    activeOwner.profileId !== profileId ||
+                    activeOwner.recordId !== recordId
+                ) {
+                    URL.revokeObjectURL(url);
+                    return;
+                }
                 const scale = Math.min(1, 1200 / Math.max(image.naturalWidth, image.naturalHeight));
                 const width = Math.max(1, Math.round(image.naturalWidth * scale));
                 const height = Math.max(1, Math.round(image.naturalHeight * scale));
@@ -536,6 +561,8 @@ export default function StackMatrixCalibrationPanel({
                     width,
                     height,
                     fileName: file.name,
+                    profileId,
+                    recordId,
                 };
                 setPhoto(loadedPhoto);
                 setPhotoZoom(1);
@@ -545,12 +572,14 @@ export default function StackMatrixCalibrationPanel({
                 URL.revokeObjectURL(url);
             };
             image.onerror = () => {
-                setError('Could not open that photo');
+                if (loadGeneration === photoLoadGenerationRef.current) {
+                    setError('Could not open that photo');
+                }
                 URL.revokeObjectURL(url);
             };
             image.src = url;
         },
-        [detectPhotoAlignment]
+        [activeRecord, detectPhotoAlignment, profile?.id]
     );
 
     const handleRotatePhoto = useCallback(
@@ -1061,6 +1090,8 @@ export default function StackMatrixCalibrationPanel({
         if (
             !activeRecord ||
             !photo ||
+            photo.profileId !== (profile?.id ?? null) ||
+            photo.recordId !== activeRecord.id ||
             !cornerEstimate ||
             !alignmentReady ||
             measuredColors.length !== activeRecord.samples.length

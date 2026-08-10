@@ -147,6 +147,22 @@ export default function PaletteProofImageTargetPicker({
         context.putImageData(output, 0, 0);
     }, [displayRgbBySourceKey, imageSize, selectedRgbKeys]);
 
+    const toggleTarget = (target: FinalStackTargetMappingSnapshot) => {
+        const isSelected = selectedTargetIds.includes(target.id);
+        if (!isSelected && selectedTargetIds.length >= maximumSelected) {
+            setSelectionMessage(`You can select up to ${maximumSelected} target colors.`);
+            return;
+        }
+        setSelectionMessage(
+            isSelected
+                ? `Removed ${target.targetColor.hex.toUpperCase()}.`
+                : `Selected ${target.targetColor.hex.toUpperCase()} across the ${
+                      targetColorMode === 'fitted' ? 'fitted preview' : 'image'
+                  }.`
+        );
+        onToggleTarget(target.id);
+    };
+
     const handleCanvasClick = (event: MouseEvent<HTMLCanvasElement>) => {
         const canvas = event.currentTarget;
         const source = sourcePixelsRef.current;
@@ -170,19 +186,7 @@ export default function PaletteProofImageTargetPicker({
             setSelectionMessage('That area is not part of the current processed palette.');
             return;
         }
-        const isSelected = selectedTargetIds.includes(target.id);
-        if (!isSelected && selectedTargetIds.length >= maximumSelected) {
-            setSelectionMessage(`You can select up to ${maximumSelected} target colors.`);
-            return;
-        }
-        setSelectionMessage(
-            isSelected
-                ? `Removed ${target.targetColor.hex.toUpperCase()}.`
-                : `Selected ${target.targetColor.hex.toUpperCase()} across the ${
-                      targetColorMode === 'fitted' ? 'fitted preview' : 'image'
-                  }.`
-        );
-        onToggleTarget(target.id);
+        toggleTarget(target);
     };
 
     return (
@@ -210,6 +214,46 @@ export default function PaletteProofImageTargetPicker({
                           targetColorMode === 'fitted' ? 'fitted achievable' : 'processed image'
                       } color everywhere it appears.`}
             </p>
+            <div className="space-y-1">
+                <p className="text-[9px] font-medium text-foreground">
+                    Choose by color
+                    <span className="ml-1 font-normal text-muted-foreground">
+                        (keyboard accessible)
+                    </span>
+                </p>
+                <div
+                    className="grid max-h-24 grid-cols-[repeat(auto-fill,minmax(5.5rem,1fr))] gap-1 overflow-y-auto rounded-md border border-border/70 bg-muted/20 p-1"
+                    role="group"
+                    aria-label="Available image target colors"
+                >
+                    {selectableTargets.map((target) => {
+                        const selected = selectedTargetIds.includes(target.id);
+                        const disabled = !selected && selectedTargetIds.length >= maximumSelected;
+                        const hex = target.targetColor.hex.toUpperCase();
+                        return (
+                            <button
+                                key={target.id}
+                                type="button"
+                                className="flex h-8 items-center justify-between gap-1 rounded border border-foreground/30 px-2 text-[9px] font-semibold shadow-sm outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-40"
+                                style={{
+                                    backgroundColor: target.targetColor.hex,
+                                    color: swatchTextColor(target.targetColor.rgb),
+                                }}
+                                onClick={() => toggleTarget(target)}
+                                aria-label={`${selected ? 'Remove' : 'Select'} image color ${hex}, ${formatUsagePercent(target.usageWeight)} usage`}
+                                aria-pressed={selected}
+                                disabled={disabled}
+                                data-available-target-id={target.id}
+                            >
+                                <span>{hex}</span>
+                                <span className="opacity-75">
+                                    {formatUsagePercent(target.usageWeight)}
+                                </span>
+                            </button>
+                        );
+                    })}
+                </div>
+            </div>
             <div
                 className="flex min-h-8 flex-wrap items-center gap-1.5"
                 aria-live="polite"

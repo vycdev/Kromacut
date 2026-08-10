@@ -139,7 +139,9 @@ test.describe('landing page smoke @smoke', () => {
         await expect(dialog.getByRole('link', { name: /Support Me/ })).toBeVisible();
 
         await page.keyboard.press('Shift+Tab');
-        await expect(dialog.getByRole('link', { name: /Support Me/ })).toBeFocused();
+        await expect(
+            dialog.getByRole('switch', { name: 'Enable experimental multi-plate mode' })
+        ).toBeFocused();
         await page.keyboard.press('Escape');
         await expect(dialog).toBeHidden();
         await expect(settingsButton).toBeFocused();

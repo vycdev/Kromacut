@@ -72,6 +72,11 @@ test('Palette Proof stays usable, persists results, and downloads its frozen 3MF
         exact: true,
     });
     await expect(originalModeButton).toHaveAttribute('aria-pressed', 'true');
+    const keyboardTargetGroup = panel.getByRole('group', {
+        name: 'Available image target colors',
+    });
+    const firstKeyboardTarget = keyboardTargetGroup.getByRole('button').first();
+    await expect(firstKeyboardTarget).toHaveAttribute('aria-pressed', 'false');
     const canvasHash = () =>
         targetImage.evaluate((canvas) => {
             const targetCanvas = canvas as HTMLCanvasElement;
@@ -275,13 +280,13 @@ test('Palette Proof stays usable, persists results, and downloads its frozen 3MF
     expect(storedAppearance.viewingSessions[0].status).toBe('complete');
 
     const continueTargetsButton = dialog.getByRole('button', {
-        name: 'Continue 2 targets',
+        name: 'Continue targets',
         exact: true,
     });
     await expect(continueTargetsButton).toBeEnabled();
     await expect(continueTargetsButton).toHaveAttribute(
         'title',
-        /Continue 2 of 5 targets; exhausted targets .* will be skipped/
+        'Keep these targets and test nearby untried challengers'
     );
     await continueTargetsButton.click();
     await expect(dialog.getByRole('tab', { name: 'Proof map' })).toHaveAttribute(
@@ -289,10 +294,7 @@ test('Palette Proof stays usable, persists results, and downloads its frozen 3MF
         'active'
     );
     await expect(panel.getByTestId('palette-proof-continuation-guidance')).toContainText(
-        'Continuing 2 of 5 targets.'
-    );
-    await expect(panel.getByTestId('palette-proof-continuation-guidance')).toContainText(
-        'were skipped'
+        'The proof was reduced to 4 candidates per target'
     );
     await expect(dialog.getByRole('combobox', { name: 'Palette Proof record' })).toContainText(
         'Set 1 / Continuation 1 / not saved'

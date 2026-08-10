@@ -641,17 +641,27 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
         // source of truth, and the imageSrc round trip is absorbed by the
         // self-commit fast path in the image-loading effect.
         const queueTouchUpCommit = () => {
+            const original = originalCanvasRef.current;
+            const commitCallback = onTouchUpCommitRef.current;
+            if (!original || !commitCallback) return;
+            // Capture this edit now, before a later pointer event mutates the
+            // shared live canvas while an earlier history commit is encoding.
+            const snapshot = document.createElement('canvas');
+            snapshot.width = original.width;
+            snapshot.height = original.height;
+            const snapshotContext = snapshot.getContext('2d');
+            if (!snapshotContext) return;
+            snapshotContext.imageSmoothingEnabled = false;
+            snapshotContext.drawImage(original, 0, 0);
             const externalGeneration = externalImageGenerationRef.current;
             touchUpCommitChainRef.current = touchUpCommitChainRef.current.then(async () => {
-                const original = originalCanvasRef.current;
-                const commitCallback = onTouchUpCommitRef.current;
-                if (!original || !commitCallback || !mountedRef.current) return;
+                if (!mountedRef.current) return;
                 // The image was replaced from outside (undo, quantize, …)
                 // after this edit was made — the edit is gone by design.
                 if (externalImageGenerationRef.current !== externalGeneration) return;
 
                 const blob = await new Promise<Blob | null>((resolve) =>
-                    original.toBlob((result) => resolve(result), 'image/png')
+                    snapshot.toBlob((result) => resolve(result), 'image/png')
                 );
                 if (
                     !mountedRef.current ||
@@ -666,9 +676,10 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
                     // Encoding failed — restore the canvases from the last
                     // committed image so the preview matches the history.
                     const img = imgRef.current;
-                    const octx = original.getContext('2d');
-                    if (img && octx) {
-                        octx.clearRect(0, 0, original.width, original.height);
+                    const liveOriginal = originalCanvasRef.current;
+                    const octx = liveOriginal?.getContext('2d');
+                    if (img && liveOriginal && octx) {
+                        octx.clearRect(0, 0, liveOriginal.width, liveOriginal.height);
                         octx.imageSmoothingEnabled = false;
                         octx.drawImage(img, 0, 0);
                     }
@@ -1217,10 +1228,12 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
                 return hasValidCropSelection;
             },
             exportImageBlob: async (): Promise<Blob | null> => {
-                const img = imgRef.current;
-                if (!img) return null;
-                const iw = img.naturalWidth;
-                const ih = img.naturalHeight;
+                if (!imageLoaded) return null;
+                const source = originalCanvasRef.current ?? imgRef.current;
+                if (!source) return null;
+                const iw = source instanceof HTMLCanvasElement ? source.width : source.naturalWidth;
+                const ih =
+                    source instanceof HTMLCanvasElement ? source.height : source.naturalHeight;
                 if (!iw || !ih) return null;
                 const outCanvas = document.createElement('canvas');
                 outCanvas.width = iw;
@@ -1231,7 +1244,7 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
                 // the source image exactly (no interpolation artifacts)
                 ctx.imageSmoothingEnabled = false;
                 ctx.imageSmoothingQuality = 'low';
-                ctx.drawImage(img, 0, 0, iw, ih);
+                ctx.drawImage(source, 0, 0, iw, ih);
                 return await new Promise<Blob | null>((resolve) =>
                     outCanvas.toBlob((b) => resolve(b), 'image/png')
                 );

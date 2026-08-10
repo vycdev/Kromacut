@@ -297,13 +297,19 @@ export function importCustomPalettes(
         // them so per-color data stays attached to the right color.
         const disabledSet = new Set(Array.isArray(raw.disabledColors) ? raw.disabledColors : []);
         const rawNames: unknown[] = Array.isArray(raw.colorNames) ? raw.colorNames : [];
-        const validEntries = raw.colors
-            .map((c, i) => ({
-                color: c,
-                wasDisabled: disabledSet.has(i),
-                name: typeof rawNames[i] === 'string' ? (rawNames[i] as string) : '',
-            }))
-            .filter((e) => typeof e.color === 'string');
+        const validEntries = raw.colors.flatMap((candidate, index) => {
+            if (typeof candidate !== 'string') return [];
+            const color = toHex6(candidate);
+            if (!color) return [];
+            return [
+                {
+                    color,
+                    wasDisabled: disabledSet.has(index),
+                    name: typeof rawNames[index] === 'string' ? rawNames[index] : '',
+                },
+            ];
+        });
+        if (validEntries.length === 0) continue;
 
         const now = Date.now();
         const incomingId =

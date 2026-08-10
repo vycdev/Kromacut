@@ -197,6 +197,27 @@ test('import remaps disabled indices and names when invalid color entries are dr
     assert.deepEqual(result.imported[0].colorNames, ['Red', 'Green']);
 });
 
+test('import canonicalizes supported colors and drops malformed color strings', () => {
+    const incoming = [
+        makePalette({
+            colors: ['not-a-color', '#abc', '00ff00'],
+            disabledColors: [2],
+            colorNames: ['Ghost', 'Short hex', 'Green'],
+        }),
+    ];
+    const result = importCustomPalettes([], incoming);
+    assert.equal(result.imported.length, 1);
+    assert.deepEqual(result.imported[0].colors, ['#AABBCC', '#00FF00']);
+    assert.deepEqual(result.imported[0].disabledColors, [1]);
+    assert.deepEqual(result.imported[0].colorNames, ['Short hex', 'Green']);
+});
+
+test('import skips palettes with no valid colors', () => {
+    const result = importCustomPalettes([], [makePalette({ colors: ['not-a-color'] })]);
+    assert.equal(result.imported.length, 0);
+    assert.equal(result.palettes.length, 0);
+});
+
 test('updateCustomPalette stamps the current palette version on edited legacy palettes', () => {
     const palettes = [makePalette({ version: 1 })];
     const updated = updateCustomPalette(palettes, 'palette-1', { disabledColors: [1] });

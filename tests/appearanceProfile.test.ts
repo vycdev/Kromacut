@@ -267,6 +267,20 @@ test('appearance import sanitation preserves valid records and drops tampered co
         'best-available'
     );
 
+    const duplicateClosest = structuredClone(legacyQuality);
+    duplicateClosest.targetJudgments[0].closestCellIds = [
+        proof.columns[0].cellIds[0],
+        proof.columns[0].cellIds[0],
+    ];
+    assert.equal(sanitizeAppearanceProfile(duplicateClosest)?.targetJudgments.length, 0);
+
+    const oversizedClosest = structuredClone(legacyQuality);
+    oversizedClosest.targetJudgments[0].closestCellIds = Array.from(
+        { length: 10_000 },
+        () => proof.columns[0].cellIds[0]
+    );
+    assert.equal(sanitizeAppearanceProfile(oversizedClosest)?.targetJudgments.length, 0);
+
     const storedGapAppearance = structuredClone(appearance);
     const storedGapLayout = storedGapAppearance.proofs[0].proof.layout;
     storedGapLayout.gapMm = 1;

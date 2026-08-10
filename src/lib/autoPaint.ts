@@ -459,10 +459,14 @@ export function calculateTransitionThickness(
     // earlier when the blended result is already close to the target color.
     const resolvedOpacity = normalizeTransitionOpacity(targetOpacity);
     const opacityThicknessMultiplier = transitionThicknessMultiplier(resolvedOpacity);
-    const maxThickness = Math.max(
+    const opticalMaxThickness = Math.max(
         layerHeight,
         Math.max(...channelTds) * opacityThicknessMultiplier
     );
+    // Keep malformed in-memory filament values from turning this layer-wise
+    // simulation into an effectively infinite loop. No printable Auto-paint
+    // result can retain more than 500 layers anyway.
+    const maxThickness = Math.min(opticalMaxThickness, layerHeight * 500);
 
     // Simulate adding layers until color converges or we hit the cap
     while (thickness < maxThickness) {

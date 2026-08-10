@@ -414,6 +414,14 @@ test('sanitizeFrontlitCalibration accepts only the new frontlit calibration shap
         }),
         undefined
     );
+    assert.equal(
+        sanitizeFrontlitCalibration({
+            ...result.calibration,
+            td: [1e308, 1e308, 1e308],
+            tdSingleValue: 1e308,
+        }),
+        undefined
+    );
 });
 
 test('computeFrontlitCalibration rejects invalid reads and uncalibratable colors', async () => {

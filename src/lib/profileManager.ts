@@ -511,7 +511,7 @@ export function parseHueForgeCSV(
         const colorRaw = col(row, 'Color');
         const color = normalizeHexColor(colorRaw, '');
         const tdRaw = col(row, 'TD');
-        const conventionalTd = parseFloat(tdRaw);
+        const conventionalTd = Number(tdRaw);
         if (
             !color ||
             !Number.isFinite(conventionalTd) ||

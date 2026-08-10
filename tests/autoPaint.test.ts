@@ -191,6 +191,18 @@ test('calibrated channel TDs determine transition thickness', async () => {
     );
 });
 
+test('transition thickness bounds malformed enormous hiding distances', async () => {
+    const { calculateTransitionThickness, hexToRgb } = await loadAutoPaintModule();
+    const layerHeight = 0.1;
+    const thickness = calculateTransitionThickness(
+        hexToRgb('#000000'),
+        hexToRgb('#ffffff'),
+        [1e308, 1e308, 1e308],
+        layerHeight
+    );
+    assert.equal(thickness, layerHeight * 500);
+});
+
 test('transition-thickness cache distinguishes calibrated channel TDs', async () => {
     const { calculateIdealHeight } = await loadAutoPaintModule();
     const cache = new Map<string, number>();
@@ -305,7 +317,7 @@ test('calibrated channel TDs flow through generated auto-paint preview slices', 
     const { autoPaintToSliceHeights, generateAutoLayers, hexToRgb } = await loadAutoPaintModule();
     const baseFilaments = [
         { id: 'black', color: '#000000', td: 1 },
-        { id: 'white', color: '#ffffff', td: 16 },
+        { id: 'white', color: '#ffffff', td: 4 },
     ];
     const calibratedFilaments = [
         baseFilaments[0],
@@ -315,8 +327,8 @@ test('calibrated channel TDs flow through generated auto-paint preview slices', 
                 opacityLayers: 6,
                 layerHeight: 0.1,
                 firstLayerHeight: 0.2,
-                td: [8, 16, 32] as [number, number, number],
-                tdSingleValue: 16,
+                td: [2, 4, 8] as [number, number, number],
+                tdSingleValue: 4,
                 jnd: 2,
                 baseColor: '#000000',
                 confidence: 1,

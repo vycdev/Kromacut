@@ -85,5 +85,3 @@ Uncalibrated filaments get a lower score based on how plausible their estimated 
 Per-channel hiding distances feed both the **colors** auto-paint predicts for each stack and the **thickness** of its transition zones. Calibrating can change generated stack heights and the swap plan, not just the preview.
 
 A calibration belongs to the material it measured: it is tied to the swatch color it was calibrated for, editing the filament's color deactivates it, and recalibrating replaces the previous measurement rather than averaging into it.
-
-Next: [Multi-head printing](multi-head-printing).
