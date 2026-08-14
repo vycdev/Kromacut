@@ -150,6 +150,10 @@ export interface FinalPrintableStackSnapshot {
         printableMaxHeight: number;
         transitionOpacity: number;
         compressionRatio: number;
+        /** Hard ΔE00 boundary used by Preserve color separation, when enabled. */
+        separationMaxDeltaE?: number;
+        /** Whether a missed separation target invalidates the whole Auto-paint result. */
+        failOnSeparationError?: boolean;
     };
     totalHeight: number;
     truncated: boolean;

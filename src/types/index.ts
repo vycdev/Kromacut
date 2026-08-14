@@ -90,6 +90,10 @@ export interface ThreeDControlsStateShape {
     enhancedColorMatch?: boolean;
     /** Assign each image color to a distinct printable color (no collapse). */
     preserveSeparation?: boolean;
+    /** Maximum accepted ΔE00 for each separated printable color (1–100). */
+    separationMaxDeltaE?: number;
+    /** Reject the build when any color cannot be separated within the threshold. */
+    failOnSeparationError?: boolean;
     /** Legacy persisted value. Migrate to maxRepeatedSwaps when loading. */
     allowRepeatedSwaps?: boolean;
     /** Maximum extra non-adjacent filament occurrences the optimizer may add. */

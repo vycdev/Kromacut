@@ -5,7 +5,11 @@ import { Sortable, SortableContent, SortableOverlay } from '@/components/ui/sort
 import { Button } from '@/components/ui/button';
 import { Check, RotateCcw, Loader2 } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { autoPaintResultMatchesSliceGrid, autoPaintToSliceHeights } from '../lib/autoPaint';
+import {
+    autoPaintResultMatchesSliceGrid,
+    autoPaintToSliceHeights,
+    normalizeSeparationMaxDeltaE,
+} from '../lib/autoPaint';
 import {
     loadPrintSettingsFromStorage,
     savePrintSettingsToStorage,
@@ -129,6 +133,12 @@ export default function ThreeDControls({
     );
     const initialPreserveSeparation = persisted?.preserveSeparation ?? false;
     const [preserveSeparation, setPreserveSeparation] = useState(initialPreserveSeparation);
+    const [separationMaxDeltaE, setSeparationMaxDeltaE] = useState(() =>
+        normalizeSeparationMaxDeltaE(persisted?.separationMaxDeltaE)
+    );
+    const [failOnSeparationError, setFailOnSeparationError] = useState(
+        persisted?.failOnSeparationError !== false
+    );
     const [maxRepeatedSwaps, setMaxRepeatedSwaps] = useState<AutoPaintRepeatLimit>(
         persisted?.maxRepeatedSwaps ?? (persisted?.allowRepeatedSwaps ? 4 : 0)
     );
@@ -196,6 +206,8 @@ export default function ThreeDControls({
             filaments,
             enhancedColorMatch,
             preserveSeparation,
+            separationMaxDeltaE,
+            failOnSeparationError,
             maxRepeatedSwaps,
             transitionOpacity,
             heightDithering,
@@ -213,6 +225,8 @@ export default function ThreeDControls({
         filaments,
         enhancedColorMatch,
         preserveSeparation,
+        separationMaxDeltaE,
+        failOnSeparationError,
         maxRepeatedSwaps,
         transitionOpacity,
         heightDithering,
@@ -277,6 +291,8 @@ export default function ThreeDControls({
         autoPaintMaxHeight,
         enhancedColorMatch,
         preserveSeparation,
+        separationMaxDeltaE,
+        failOnSeparationError,
         maxRepeatedSwaps,
         transitionOpacity,
         optimizerAlgorithm,
@@ -301,6 +317,7 @@ export default function ThreeDControls({
 
     const modelSizeEstimate = useMemo(() => {
         if (!imageDimensions) return null;
+        if (paintMode === 'autopaint' && !autoPaintSliceData) return null;
         const widthPx = imageDimensions.opaqueWidth || imageDimensions.width;
         const heightPx = imageDimensions.opaqueHeight || imageDimensions.height;
         const estimateOrder =
@@ -365,6 +382,8 @@ export default function ThreeDControls({
         instructionPaintMode === 'autopaint'
             ? (instructionAutoPaintResult?.layers.length ?? 0)
             : instructionColorOrder.length;
+    const instructionAvailable =
+        instructionPaintMode === 'manual' || instructionAutoPaintResult !== undefined;
     const isInstructionOverLimit = instructionColorCount > 64;
 
     // --- Swap Plan ---
@@ -385,7 +404,12 @@ export default function ThreeDControls({
     const handleApply = useCallback(() => {
         if (!onChange) return;
 
-        if (paintMode === 'autopaint' && autoPaintSliceData && autoPaintResult) {
+        if (paintMode === 'autopaint') {
+            // Auto-paint is a hard mode boundary. A missing or rejected result
+            // must never fall through to the unrelated manual color heights.
+            if (isAutoPaintComputing || autoPaintError || !autoPaintSliceData || !autoPaintResult) {
+                return;
+            }
             onChange({
                 layerHeight,
                 slicerFirstLayerHeight,
@@ -397,6 +421,8 @@ export default function ThreeDControls({
                 paintMode,
                 enhancedColorMatch,
                 preserveSeparation,
+                separationMaxDeltaE,
+                failOnSeparationError,
                 maxRepeatedSwaps,
                 transitionOpacity,
                 heightDithering,
@@ -412,25 +438,26 @@ export default function ThreeDControls({
                 calibrationLayerHeight,
                 smoothMeshing,
             });
-        } else {
-            onChange({
-                layerHeight,
-                slicerFirstLayerHeight,
-                colorSliceHeights,
-                colorOrder,
-                filteredSwatches: filtered,
-                pixelSize,
-                filaments,
-                paintMode,
-                flatPaint,
-                flatPaintFaceUp,
-                optimizerAlgorithm,
-                optimizerSeed,
-                regionWeightingMode,
-                calibrationLayerHeight,
-                smoothMeshing,
-            });
+            return;
         }
+
+        onChange({
+            layerHeight,
+            slicerFirstLayerHeight,
+            colorSliceHeights,
+            colorOrder,
+            filteredSwatches: filtered,
+            pixelSize,
+            filaments,
+            paintMode,
+            flatPaint,
+            flatPaintFaceUp,
+            optimizerAlgorithm,
+            optimizerSeed,
+            regionWeightingMode,
+            calibrationLayerHeight,
+            smoothMeshing,
+        });
     }, [
         onChange,
         layerHeight,
@@ -443,6 +470,8 @@ export default function ThreeDControls({
         paintMode,
         enhancedColorMatch,
         preserveSeparation,
+        separationMaxDeltaE,
+        failOnSeparationError,
         maxRepeatedSwaps,
         transitionOpacity,
         heightDithering,
@@ -456,7 +485,12 @@ export default function ThreeDControls({
         smoothMeshing,
         autoPaintResult,
         autoPaintSliceData,
+        autoPaintError,
+        isAutoPaintComputing,
     ]);
+
+    const autoPaintBuildUnavailable =
+        paintMode === 'autopaint' && (!!autoPaintError || !autoPaintResult || !autoPaintSliceData);
 
     return (
         <div className="space-y-4">
@@ -465,7 +499,7 @@ export default function ThreeDControls({
                 <Button
                     onClick={handleApply}
                     data-testid="build-3d-model"
-                    disabled={isAutoPaintComputing}
+                    disabled={isAutoPaintComputing || autoPaintBuildUnavailable}
                     className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold transition-all duration-200 shadow-md hover:shadow-lg active:scale-95 gap-1.5 disabled:opacity-60"
                 >
                     {isAutoPaintComputing ? (
@@ -473,6 +507,10 @@ export default function ThreeDControls({
                             <Loader2 className="w-4 h-4 animate-spin" />
                             <span>Computing... {autoPaintProgressPercent}%</span>
                         </>
+                    ) : autoPaintBuildUnavailable ? (
+                        <span>
+                            {autoPaintError ? 'Auto-paint failed' : 'Waiting for Auto-paint'}
+                        </span>
                     ) : (
                         <>
                             <Check className="w-4 h-4" />
@@ -574,6 +612,10 @@ export default function ThreeDControls({
                     setEnhancedColorMatch={handleEnhancedColorMatchChange}
                     preserveSeparation={preserveSeparation}
                     setPreserveSeparation={handlePreserveSeparationChange}
+                    separationMaxDeltaE={separationMaxDeltaE}
+                    setSeparationMaxDeltaE={setSeparationMaxDeltaE}
+                    failOnSeparationError={failOnSeparationError}
+                    setFailOnSeparationError={setFailOnSeparationError}
                     maxRepeatedSwaps={maxRepeatedSwaps}
                     setMaxRepeatedSwaps={setMaxRepeatedSwaps}
                     transitionOpacity={transitionOpacity}
@@ -674,17 +716,32 @@ export default function ThreeDControls({
             </Tabs>
 
             {/* Print Instructions */}
-            <PrintInstructions
-                swapPlan={swapPlan}
-                layerHeight={instructionLayerHeight}
-                slicerFirstLayerHeight={instructionSlicerFirstLayerHeight}
-                copied={copied}
-                onCopy={copyToClipboard}
-                tooManyColors={isInstructionOverLimit}
-                colorCount={instructionColorCount}
-                flatPaint={instructionFlatPaint}
-                flatPaintFaceUp={instructionFlatPaintFaceUp}
-            />
+            {instructionAvailable ? (
+                <PrintInstructions
+                    swapPlan={swapPlan}
+                    layerHeight={instructionLayerHeight}
+                    slicerFirstLayerHeight={instructionSlicerFirstLayerHeight}
+                    copied={copied}
+                    onCopy={copyToClipboard}
+                    tooManyColors={isInstructionOverLimit}
+                    colorCount={instructionColorCount}
+                    flatPaint={instructionFlatPaint}
+                    flatPaintFaceUp={instructionFlatPaintFaceUp}
+                />
+            ) : (
+                <CollapsibleCard
+                    id="print-instructions"
+                    title="Print Instructions"
+                    subtitle="No valid Auto-paint model"
+                    headingLevel={4}
+                    className="mt-6"
+                >
+                    <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">
+                        Auto-paint did not produce a valid stack. Resolve the error above before
+                        building or generating print instructions.
+                    </div>
+                </CollapsibleCard>
+            )}
         </div>
     );
 }

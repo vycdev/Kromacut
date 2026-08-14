@@ -37,6 +37,8 @@ export interface UseAutoPaintWorkerOptions {
     autoPaintMaxHeight?: number;
     enhancedColorMatch: boolean;
     preserveSeparation: boolean;
+    separationMaxDeltaE: number;
+    failOnSeparationError: boolean;
     maxRepeatedSwaps: AutoPaintRepeatLimit;
     transitionOpacity: AutoPaintTransitionOpacity;
     optimizerAlgorithm: 'fast' | 'balanced' | 'thorough' | 'deep' | 'exact';
@@ -92,6 +94,8 @@ export function useAutoPaintWorker(opts: UseAutoPaintWorkerOptions): UseAutoPain
         autoPaintMaxHeight,
         enhancedColorMatch,
         preserveSeparation,
+        separationMaxDeltaE,
+        failOnSeparationError,
         maxRepeatedSwaps,
         transitionOpacity,
         optimizerAlgorithm,
@@ -285,6 +289,8 @@ export function useAutoPaintWorker(opts: UseAutoPaintWorkerOptions): UseAutoPain
                         maxExtraRepeats: maxRepeatedSwaps,
                         transitionOpacity,
                         preserveSeparation,
+                        separationMaxDeltaE,
+                        failOnSeparationError,
                         ...(optimizerSeed !== undefined && { seed: optimizerSeed }),
                     },
                     appearance: stableAppearance,
@@ -317,6 +323,8 @@ export function useAutoPaintWorker(opts: UseAutoPaintWorkerOptions): UseAutoPain
         autoPaintMaxHeight,
         enhancedColorMatch,
         preserveSeparation,
+        separationMaxDeltaE,
+        failOnSeparationError,
         maxRepeatedSwaps,
         transitionOpacity,
         optimizerAlgorithm,
