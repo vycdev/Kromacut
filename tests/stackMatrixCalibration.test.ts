@@ -596,6 +596,8 @@ test('completed Stack Matrix samples become measured anchors without global fit 
     assert.equal(fitted.observationCount, 0);
     assert.equal(fitted.applied, false);
     assert.equal(fitted.exactAnchors.length, completed.samples.length);
+    assert.equal(fitted.empiricalLuts.length, 1);
+    assert.equal(fitted.empiricalLuts[0].samples.length, completed.samples.length);
     assert.ok(fitted.exactAnchors.every((anchor) => anchor.source === 'stack-matrix'));
     const anchor = fitted.exactAnchors[0];
     const resolved = model.resolveAppearanceRankModel(
@@ -605,6 +607,128 @@ test('completed Stack Matrix samples become measured anchors without global fit 
     );
     assert.equal(resolved.exactAnchor?.id, anchor.id);
     assert.deepEqual([resolved.lab.L, resolved.lab.a, resolved.lab.b], [...anchor.targetLab]);
+});
+
+test('Stack Matrix LUT uses an exact photographed recipe before the optical simulation', async () => {
+    const [matrix, , profile, model] = await modules;
+    const planned = matrix.buildStackMatrixCalibration(
+        filaments,
+        options(8),
+        '2026-08-07T10:00:00.000Z'
+    );
+    const measuredColors = planned.samples.map(
+        (_, index) => [30 + index, 150 + index, 45 + index] as [number, number, number]
+    );
+    const completed = matrix.completeStackMatrixCalibration(
+        planned,
+        measuredColors,
+        'matrix.jpg',
+        false,
+        '2026-08-07T11:00:00.000Z'
+    );
+    const fitted = model.fitAppearanceRankModel(
+        profile.upsertStackMatrixCalibration(profile.createEmptyAppearanceProfile(), completed),
+        {
+            filamentProfileFingerprint: profile.fingerprintAppearanceFilaments(filaments),
+            layerHeight: 0.08,
+            firstLayerHeight: 0.2,
+            transitionOpacity: 0.9,
+            filaments,
+        }
+    );
+    const lut = fitted.empiricalLuts[0];
+    const sample = lut.samples.find((candidate) => new Set(candidate.recipeFilamentIds).size > 1)!;
+    const prefix = sample.recipeFilamentIds.map((filamentId) => ({
+        filamentId,
+        filamentColor: filaments.find((filament) => filament.id === filamentId)!.color,
+        thickness: 0.08,
+    }));
+
+    const resolved = model.resolveAppearanceRankModel({ L: 60, a: 0, b: 0 }, fitted, prefix);
+
+    assert.equal(resolved.empiricalMatch?.kind, 'exact');
+    assert.deepEqual(resolved.empiricalMatch?.sampleIds, [sample.id]);
+    assert.deepEqual(resolved.lab, {
+        L: sample.measuredLab[0],
+        a: sample.measuredLab[1],
+        b: sample.measuredLab[2],
+    });
+    assert.equal(resolved.exactAnchor?.id, sample.exactAnchorId);
+});
+
+test('Stack Matrix LUT interpolates nearby photographed recipes and falls back outside coverage', async () => {
+    const [matrix, , profile, model] = await modules;
+    const exhaustive = matrix.buildStackMatrixCalibration(
+        filaments,
+        options(64),
+        '2026-08-07T09:00:00.000Z'
+    );
+    const planned = matrix.buildStackMatrixCalibration(
+        filaments,
+        options(8),
+        '2026-08-07T10:00:00.000Z'
+    );
+    const completed = matrix.completeStackMatrixCalibration(
+        planned,
+        planned.samples.map(
+            (_, index) => [25 + index * 2, 145 + index * 3, 35 + index] as [number, number, number]
+        ),
+        'matrix.jpg',
+        false,
+        '2026-08-07T11:00:00.000Z'
+    );
+    const fitted = model.fitAppearanceRankModel(
+        profile.upsertStackMatrixCalibration(profile.createEmptyAppearanceProfile(), completed),
+        {
+            filamentProfileFingerprint: profile.fingerprintAppearanceFilaments(filaments),
+            layerHeight: 0.08,
+            firstLayerHeight: 0.2,
+            transitionOpacity: 0.9,
+            filaments,
+        }
+    );
+    const lut = fitted.empiricalLuts[0];
+    const measuredRecipeKeys = new Set(
+        lut.samples.map((sample) => sample.recipeFilamentIds.join())
+    );
+    const weights = [1, Math.sqrt(2), 2];
+    const distance = (left: readonly string[], right: readonly string[]) =>
+        left.reduce(
+            (sum, filamentId, index) => sum + (filamentId === right[index] ? 0 : weights[index]),
+            0
+        ) / weights.reduce((sum, weight) => sum + weight, 0);
+    const missing = exhaustive.samples
+        .map((sample) => sample.stack.map((index) => filaments[index].id))
+        .find(
+            (recipe) =>
+                !measuredRecipeKeys.has(recipe.join()) &&
+                lut.samples.filter((sample) => distance(recipe, sample.recipeFilamentIds) <= 0.6)
+                    .length >= 2
+        )!;
+    assert.ok(missing, 'the sparse matrix should leave an interpolatable recipe unmeasured');
+    const prefix = missing.map((filamentId) => ({
+        filamentId,
+        filamentColor: filaments.find((filament) => filament.id === filamentId)!.color,
+        thickness: 0.08,
+    }));
+    const nearbyBase = lut.samples[0].predictedLab;
+
+    const interpolated = model.resolveAppearanceRankModel(
+        { L: nearbyBase[0], a: nearbyBase[1], b: nearbyBase[2] },
+        fitted,
+        prefix
+    );
+    const outside = model.resolveAppearanceRankModel({ L: 100, a: 200, b: 200 }, fitted, prefix);
+
+    assert.equal(interpolated.empiricalMatch?.kind, 'interpolated');
+    assert.ok((interpolated.empiricalMatch?.sampleIds.length ?? 0) >= 2);
+    assert.notDeepEqual(interpolated.lab, {
+        L: nearbyBase[0],
+        a: nearbyBase[1],
+        b: nearbyBase[2],
+    });
+    assert.equal(outside.empiricalMatch, undefined);
+    assert.deepEqual(outside.lab, { L: 100, a: 200, b: 200 });
 });
 
 test('Stack Matrix subset evidence applies to its full owner profile and legacy subset plans', async () => {
@@ -641,6 +765,7 @@ test('Stack Matrix subset evidence applies to its full owner profile and legacy 
             filaments,
         });
         assert.equal(fitted.exactAnchors.length, completed.samples.length);
+        assert.equal(fitted.empiricalLuts[0].samples.length, completed.samples.length);
     }
 });
 
@@ -675,6 +800,7 @@ test('Stack Matrix anchors ignore alignments explicitly saved as unverified', as
     );
 
     assert.equal(fitted.exactAnchors.length, 0);
+    assert.equal(fitted.empiricalLuts.length, 0);
 });
 
 test('Stack Matrix profile sanitation preserves bounded evidence and drops invalid recipes', async () => {

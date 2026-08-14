@@ -121,8 +121,7 @@ test('color separation reports distant unique assignments as unsatisfied', async
 });
 
 test('color separation honors a configurable maximum color error', async () => {
-    const { mapTargetsWithSeparation, normalizeSeparationMaxDeltaE } =
-        await loadAutoPaintModule();
+    const { mapTargetsWithSeparation, normalizeSeparationMaxDeltaE } = await loadAutoPaintModule();
     const palette = [
         {
             height: 0.16,
@@ -1106,6 +1105,117 @@ test('a fitted appearance model changes preview colors without changing physical
         baseline.finalStack.layers.map((layer) => layer.predictedColor)
     );
     assert.ok(corrected.finalStack.layers.every((layer) => layer.appearanceStatus === 'fitted'));
+    assert.notDeepEqual(
+        autoPaintToSliceHeights(corrected, 0.08, 0.16).virtualSwatches,
+        autoPaintToSliceHeights(baseline, 0.08, 0.16).virtualSwatches
+    );
+});
+
+test('an empirical Stack Matrix recipe drives the final preview without changing physical layers', async () => {
+    const { autoPaintToSliceHeights, buildAchievableColorPalette, generateAutoLayers } =
+        await loadAutoPaintModule();
+    const filaments = [
+        { id: 'black', color: '#101010', td: 0.2 },
+        { id: 'green', color: '#178341', td: 0.35 },
+        { id: 'pink', color: '#e58fa8', td: 0.5 },
+    ];
+    const swatches = [
+        { hex: '#20352a', count: 20 },
+        { hex: '#788878', count: 40 },
+        { hex: '#e4c5ce', count: 10 },
+    ];
+    const baseline = generateAutoLayers(filaments, swatches, 0.08, 0.16);
+    const sampleLayerIndex = baseline.finalStack.layers.findIndex(
+        (_, index, layers) =>
+            index >= 3 &&
+            layers.slice(index - 2, index + 1).every((layer) => layer.thickness === 0.08)
+    );
+    assert.ok(sampleLayerIndex >= 3);
+    const sampleLayer = baseline.finalStack.layers[sampleLayerIndex];
+    const recipeLayers = baseline.finalStack.layers.slice(
+        sampleLayerIndex - 2,
+        sampleLayerIndex + 1
+    );
+    const measuredLab = [72, -38, 24] as const;
+    const anchorId = 'matrix-empirical-sample';
+    const empiricalModel = {
+        ...baseline.finalStack.appearanceModel,
+        fingerprint: 'empirical-preview-test',
+        exactAnchors: [
+            {
+                id: anchorId,
+                proofId: 'matrix-proof',
+                source: 'stack-matrix' as const,
+                sourceStackKey: sampleLayer.canonicalStackKey,
+                targetLab: measuredLab,
+                suffixLayers: recipeLayers.map((layer) => ({
+                    filamentId: layer.filamentId,
+                    filamentColor: layer.filamentColor,
+                    thickness: layer.thickness,
+                })),
+                maxSubstrateTransmission: 0,
+            },
+        ],
+        empiricalLuts: [
+            {
+                id: 'empirical-lut:matrix-proof',
+                sourceMatrixId: 'matrix-proof',
+                observedAt: '2026-08-14T12:00:00.000Z',
+                layerHeight: 0.08,
+                stackLayerCount: 3,
+                backingFilamentId: 'black',
+                filamentIds: filaments.map((filament) => filament.id),
+                coverageRadius: 10,
+                samples: [
+                    {
+                        id: anchorId,
+                        sourceStackKey: sampleLayer.canonicalStackKey,
+                        recipeFilamentIds: recipeLayers.map((layer) => layer.filamentId),
+                        predictedLab: sampleLayer.basePredictedLab,
+                        measuredLab,
+                        confidence: 0.95,
+                        exactAnchorId: anchorId,
+                    },
+                ],
+            },
+        ],
+    };
+    const corrected = generateAutoLayers(
+        filaments,
+        swatches,
+        0.08,
+        0.16,
+        undefined,
+        false,
+        false,
+        undefined,
+        empiricalModel
+    );
+    const correctedLayer = corrected.finalStack.layers[sampleLayerIndex];
+    const optimizerPalette = buildAchievableColorPalette(
+        filaments,
+        0.08,
+        0.16,
+        undefined,
+        undefined,
+        undefined,
+        empiricalModel
+    );
+    const optimizerEntry = optimizerPalette.find(
+        (entry) => Math.abs(entry.height - correctedLayer.endHeight) < 1e-9
+    );
+
+    assert.deepEqual(corrected.layers, baseline.layers);
+    assert.deepEqual(correctedLayer.predictedLab, measuredLab);
+    assert.notDeepEqual(correctedLayer.predictedColor, sampleLayer.predictedColor);
+    assert.equal(correctedLayer.appearanceStatus, 'anchored');
+    assert.equal(correctedLayer.empiricalLutId, 'empirical-lut:matrix-proof');
+    assert.deepEqual(correctedLayer.empiricalSampleIds, [anchorId]);
+    assert.deepEqual(optimizerEntry?.lab, {
+        L: measuredLab[0],
+        a: measuredLab[1],
+        b: measuredLab[2],
+    });
     assert.notDeepEqual(
         autoPaintToSliceHeights(corrected, 0.08, 0.16).virtualSwatches,
         autoPaintToSliceHeights(baseline, 0.08, 0.16).virtualSwatches

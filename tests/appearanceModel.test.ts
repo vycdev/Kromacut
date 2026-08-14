@@ -317,7 +317,7 @@ test('match quality participates in deterministic absolute color anchoring', asy
         context
     );
 
-    assert.equal(bestAvailable.modelVersion, 'lab-rank-global-v4');
+    assert.equal(bestAvailable.modelVersion, 'lab-rank-global-v5');
     assert.equal(bestAvailable.applied, true);
     assert.equal(close.applied, true);
     assert.equal(exact.applied, true);

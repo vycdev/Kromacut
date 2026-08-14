@@ -79,6 +79,8 @@ function AppearanceModelStat({ result }: { result: AutoPaintResult }) {
     const exactAnchorCount = model.exactAnchors?.length ?? 0;
     const matrixAnchorCount =
         model.exactAnchors?.filter((anchor) => anchor.source === 'stack-matrix').length ?? 0;
+    const matrixLutSampleCount =
+        model.empiricalLuts?.reduce((sum, lut) => sum + lut.samples.length, 0) ?? 0;
     const proofAnchorCount = exactAnchorCount - matrixAnchorCount;
     const comparedStackKeys = new Set(model.comparedStackKeys);
     const comparedCoverage = result.finalStack.targetMappings
@@ -120,9 +122,9 @@ function AppearanceModelStat({ result }: { result: AutoPaintResult }) {
                 >
                     {model.applied
                         ? `Fitted estimate (${(model.confidence * 100).toFixed(0)}%)`
-                        : exactAnchorCount > 0
+                        : exactAnchorCount > 0 || matrixLutSampleCount > 0
                           ? matrixAnchorCount > 0 && proofAnchorCount === 0
-                              ? 'Stack Matrix anchors active'
+                              ? 'Stack Matrix LUT active'
                               : 'Measured anchors active'
                           : model.observationCount > 0 || model.noneCount > 0
                             ? 'Evidence gathered, fit gated'
@@ -133,7 +135,7 @@ function AppearanceModelStat({ result }: { result: AutoPaintResult }) {
                 {model.sourceProofIds.length} evidence sets {' / '}
                 {model.distinctStackCount} physically compared stacks {' / '}
                 {proofAnchorCount} dead-on anchors {' / '}
-                {matrixAnchorCount} matrix anchors {' / '}
+                {matrixLutSampleCount} matrix LUT recipes {' / '}
                 {model.noneCount} no matches
             </div>
             <div className="mt-0.5 text-muted-foreground">
@@ -953,9 +955,7 @@ export default function AutoPaintTab({
                                                     setLocalSeparationMaxDeltaE(event.target.value)
                                                 }
                                                 onBlur={() => {
-                                                    const parsed = Number(
-                                                        localSeparationMaxDeltaE
-                                                    );
+                                                    const parsed = Number(localSeparationMaxDeltaE);
                                                     const normalized =
                                                         localSeparationMaxDeltaE.trim() === '' ||
                                                         !Number.isFinite(parsed)

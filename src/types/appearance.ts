@@ -24,9 +24,33 @@ export interface AppearanceExactAnchorV1 {
     confidence?: number;
 }
 
+export interface AppearanceEmpiricalLutSampleV1 {
+    id: string;
+    sourceStackKey: string;
+    /** Bottom-to-top fixed-depth recipe measured by the Stack Matrix. */
+    recipeFilamentIds: readonly string[];
+    predictedLab: readonly [number, number, number];
+    measuredLab: readonly [number, number, number];
+    confidence: number;
+    exactAnchorId: string;
+}
+
+export interface AppearanceEmpiricalLutV1 {
+    id: string;
+    sourceMatrixId: string;
+    observedAt: string;
+    layerHeight: number;
+    stackLayerCount: number;
+    backingFilamentId: string;
+    filamentIds: readonly string[];
+    /** Local predicted-Lab radius that defines measured territory. */
+    coverageRadius: number;
+    samples: readonly AppearanceEmpiricalLutSampleV1[];
+}
+
 export interface AppearanceRankModelV1 {
     schemaVersion: 1;
-    modelVersion: 'lab-rank-global-v4';
+    modelVersion: 'lab-rank-global-v5';
     fingerprint: string;
     contextFingerprint: string;
     applied: boolean;
@@ -52,10 +76,16 @@ export interface AppearanceRankModelV1 {
     sourceProofIds: readonly string[];
     comparedStackKeys: readonly string[];
     exactAnchors: readonly AppearanceExactAnchorV1[];
+    empiricalLuts: readonly AppearanceEmpiricalLutV1[];
 }
 
 export type AppearanceGeometryClass = 'flat-interior' | 'edge-limited' | 'mixed' | 'unknown';
-export type AppearanceSupportStatus = 'anchored' | 'compared' | 'fitted' | 'estimated';
+export type AppearanceSupportStatus =
+    | 'anchored'
+    | 'interpolated'
+    | 'compared'
+    | 'fitted'
+    | 'estimated';
 
 export interface TargetSampleContext {
     geometryClass: AppearanceGeometryClass;
@@ -81,6 +111,8 @@ export interface FinalStackLayerSnapshot {
     appearanceStatus: AppearanceSupportStatus;
     exactAnchorId?: string;
     exactAnchorTargetLab?: readonly [number, number, number];
+    empiricalLutId?: string;
+    empiricalSampleIds?: readonly string[];
 }
 
 export interface FinalStackZoneSnapshot {
@@ -120,6 +152,8 @@ export interface FinalStackPaletteEntrySnapshot {
     appearanceStatus: AppearanceSupportStatus;
     exactAnchorId?: string;
     exactAnchorTargetLab?: readonly [number, number, number];
+    empiricalLutId?: string;
+    empiricalSampleIds?: readonly string[];
 }
 
 export interface FinalStackTargetMappingSnapshot {

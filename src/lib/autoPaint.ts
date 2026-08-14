@@ -936,16 +936,18 @@ function buildFinalPrintableStackSnapshot(
             appearancePrefix
         );
         const predictedRgb =
-            appearanceModel.applied || prediction.exactAnchor
+            appearanceModel.applied || prediction.exactAnchor || prediction.empiricalMatch
                 ? appearanceLabToRgb(prediction.lab)
                 : [layer.virtualColor.r, layer.virtualColor.g, layer.virtualColor.b];
         const appearanceStatus = prediction.exactAnchor
             ? ('anchored' as const)
-            : comparedStackKeys.has(canonicalStackKey)
-              ? ('compared' as const)
-              : appearanceModel.applied
-                ? ('fitted' as const)
-                : ('estimated' as const);
+            : prediction.empiricalMatch
+              ? ('interpolated' as const)
+              : comparedStackKeys.has(canonicalStackKey)
+                ? ('compared' as const)
+                : appearanceModel.applied
+                  ? ('fitted' as const)
+                  : ('estimated' as const);
 
         return {
             id: `layer-${index + 1}`,
@@ -972,6 +974,12 @@ function buildFinalPrintableStackSnapshot(
                       exactAnchorTargetLab: prediction.exactAnchor.targetLab,
                   }
                 : {}),
+            ...(prediction.empiricalMatch
+                ? {
+                      empiricalLutId: prediction.empiricalMatch.lutId,
+                      empiricalSampleIds: prediction.empiricalMatch.sampleIds,
+                  }
+                : {}),
         };
     });
     const palette: FinalStackPaletteEntrySnapshot[] = layerSnapshots.map((layer) => ({
@@ -989,6 +997,12 @@ function buildFinalPrintableStackSnapshot(
             ? {
                   exactAnchorId: layer.exactAnchorId,
                   exactAnchorTargetLab: layer.exactAnchorTargetLab,
+              }
+            : {}),
+        ...(layer.empiricalLutId
+            ? {
+                  empiricalLutId: layer.empiricalLutId,
+                  empiricalSampleIds: layer.empiricalSampleIds,
               }
             : {}),
     }));
@@ -1318,7 +1332,7 @@ export function buildAchievableColorPalette(
         const baseLab = rgbToLab(layer.virtualColor);
         const prediction = resolveAppearanceRankModel(baseLab, appearanceModel, appearancePrefix);
         const rgb =
-            appearanceModel.applied || prediction.exactAnchor
+            appearanceModel.applied || prediction.exactAnchor || prediction.empiricalMatch
                 ? appearanceLabToRgb(prediction.lab)
                 : null;
         return {
@@ -1745,11 +1759,8 @@ export function mapTargetsToPrintablePalette(
     // Separation mode: assign each distinct image color to a DISTINCT printable
     // color so perceptibly different colors never collapse to one flat surface.
     if (options.preserveSeparation) {
-        return mapTargetsWithSeparation(
-            palette,
-            imageTargets,
-            options.separationMaxDeltaE
-        ).mappedTargets;
+        return mapTargetsWithSeparation(palette, imageTargets, options.separationMaxDeltaE)
+            .mappedTargets;
     }
 
     // Collapse consecutive near-identical layers into flat-zone nodes (ΔE<0.5),
