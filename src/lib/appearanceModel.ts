@@ -10,9 +10,11 @@ import { deltaE2000Lab, labToRgb, rgbToLab, type Lab, type Rgb } from './colorDi
 import {
     fingerprintAppearanceFilaments,
     getPaletteProofEvaluationState,
+    MAX_STACK_MATRIX_SAMPLES,
     type AppearanceProfileV1,
     type PaletteProofRecord,
     type PaletteTargetMatchQuality,
+    type StackMatrixCalibrationV1,
 } from './appearanceProfile';
 import { channelHds } from './calibration';
 import { fingerprintJson } from './fingerprint';
@@ -40,7 +42,7 @@ interface RankObservation {
     matchQuality: PaletteTargetMatchQuality;
 }
 
-const MODEL_VERSION = 'lab-rank-global-v5' as const;
+const MODEL_VERSION = 'lab-rank-global-v6' as const;
 const SOFTMAX_TEMPERATURE = 5;
 const TIE_LOGIT_PENALTY = 0.5;
 const EXACT_MATCH_SIGMA = 2;
@@ -56,6 +58,8 @@ const EMPIRICAL_NEIGHBOR_COUNT = 8;
 const EMPIRICAL_MAX_RECIPE_DISTANCE = 0.6;
 const EMPIRICAL_MIN_COVERAGE_RADIUS = 5;
 const EMPIRICAL_MAX_COVERAGE_RADIUS = 30;
+const MATRIX_RECENCY_HALF_LIFE_DAYS = 365;
+const MATRIX_AGREEMENT_SCALE_DELTA_E = 10;
 
 function contextFingerprintPayload(context: AppearanceFitContext) {
     return {
@@ -84,7 +88,7 @@ export function createIdentityAppearanceRankModel(
     return {
         schemaVersion: 1,
         modelVersion: MODEL_VERSION,
-        fingerprint: fingerprintJson('appearance-rank-model-v5', payload),
+        fingerprint: fingerprintJson('appearance-rank-model-v6', payload),
         contextFingerprint,
         applied: false,
         gateReason: 'insufficient-evidence',
@@ -147,21 +151,118 @@ function sameMatrixProcess(
     );
 }
 
-function latestCompatibleStackMatrix(
+function compatibleStackMatrices(
     appearance: AppearanceProfileV1 | undefined,
     context: AppearanceFitContext
-): NonNullable<AppearanceProfileV1['stackMatrices']>[number] | undefined {
+): StackMatrixCalibrationV1[] {
     return (appearance?.stackMatrices ?? [])
         .filter((record) => sameMatrixProcess(record, context))
-        .sort((left, right) =>
-            (right.completedAt ?? right.createdAt).localeCompare(left.completedAt ?? left.createdAt)
-        )[0];
+        .sort(
+            (left, right) =>
+                (right.completedAt ?? right.createdAt).localeCompare(
+                    left.completedAt ?? left.createdAt
+                ) || left.id.localeCompare(right.id)
+        );
 }
 
 function matrixConfidence(record: NonNullable<AppearanceProfileV1['stackMatrices']>[number]) {
     return record.alignmentMethod === 'manual'
         ? 0.95
         : Math.max(0.55, record.alignmentConfidence ?? 0.75);
+}
+
+interface WeightedCompatibleStackMatrix {
+    record: StackMatrixCalibrationV1;
+    alignmentWeight: number;
+    coverageWeight: number;
+    recencyWeight: number;
+    agreementWeight: number;
+    matrixWeight: number;
+}
+
+function matrixRecipeKey(record: StackMatrixCalibrationV1, stack: readonly number[]): string {
+    return stack.map((filamentIndex) => record.filaments[filamentIndex].id).join('\0');
+}
+
+function median(values: readonly number[]): number {
+    if (values.length === 0) return 0;
+    const sorted = [...values].sort((left, right) => left - right);
+    const middle = Math.floor(sorted.length / 2);
+    return sorted.length % 2 === 0 ? (sorted[middle - 1] + sorted[middle]) / 2 : sorted[middle];
+}
+
+/**
+ * Weight all compatible completed matrices without allowing a newer board to
+ * erase earlier recipes. Agreement is intentionally neutral until at least
+ * three boards measured the same recipe; two conflicting observations do not
+ * contain enough information to identify the outlier.
+ */
+function weightedCompatibleStackMatrices(
+    appearance: AppearanceProfileV1 | undefined,
+    context: AppearanceFitContext
+): WeightedCompatibleStackMatrix[] {
+    const records = compatibleStackMatrices(appearance, context);
+    if (records.length === 0) return [];
+
+    const newestTimestamp = Math.max(
+        ...records.map((record) => Date.parse(record.completedAt ?? record.createdAt))
+    );
+    const recipeGroups = new Map<string, Lab[]>();
+    for (const record of records) {
+        for (const sample of record.samples) {
+            if (!sample.measuredColor) continue;
+            const key = matrixRecipeKey(record, sample.stack);
+            const measured = colorLab(sample.measuredColor.rgb);
+            const group = recipeGroups.get(key) ?? [];
+            group.push(measured);
+            recipeGroups.set(key, group);
+        }
+    }
+
+    return records.map((record) => {
+        const measuredCount = record.samples.filter((sample) => sample.measuredColor).length;
+        const recipeSpace = Math.max(
+            1,
+            Math.min(record.totalCombinationCount, MAX_STACK_MATRIX_SAMPLES)
+        );
+        const coverageFraction = Math.min(1, measuredCount / recipeSpace);
+        // Keep sparse matrices useful while rewarding genuinely broader recipe coverage.
+        const coverageWeight = 0.5 + 0.5 * Math.sqrt(coverageFraction);
+        const observedTimestamp = Date.parse(record.completedAt ?? record.createdAt);
+        const ageDays =
+            Number.isFinite(observedTimestamp) && Number.isFinite(newestTimestamp)
+                ? Math.max(0, newestTimestamp - observedTimestamp) / 86_400_000
+                : 0;
+        // Recency breaks otherwise-equal conflicts, but old unique evidence retains at least 50%.
+        const recencyWeight =
+            0.5 + 0.5 * Math.exp((-Math.LN2 * ageDays) / MATRIX_RECENCY_HALF_LIFE_DAYS);
+        const agreementDistances: number[] = [];
+        for (const sample of record.samples) {
+            if (!sample.measuredColor) continue;
+            const group = recipeGroups.get(matrixRecipeKey(record, sample.stack)) ?? [];
+            if (group.length < 3) continue;
+            const consensus: Lab = {
+                L: median(group.map((entry) => entry.L)),
+                a: median(group.map((entry) => entry.a)),
+                b: median(group.map((entry) => entry.b)),
+            };
+            agreementDistances.push(deltaE2000Lab(colorLab(sample.measuredColor.rgb), consensus));
+        }
+        const disagreement = median(agreementDistances);
+        const agreementWeight =
+            agreementDistances.length === 0
+                ? 1
+                : 0.35 + 0.65 * Math.exp(-disagreement / MATRIX_AGREEMENT_SCALE_DELTA_E);
+        const alignmentWeight = matrixConfidence(record);
+        return {
+            record,
+            alignmentWeight,
+            coverageWeight,
+            recencyWeight,
+            agreementWeight,
+            matrixWeight: alignmentWeight * coverageWeight * recencyWeight * agreementWeight,
+        };
+    });
 }
 
 function colorLab(rgb: readonly [number, number, number]): Lab {
@@ -327,7 +428,8 @@ function transferableSuffix(
 
 function collectExactAnchors(
     appearance: AppearanceProfileV1 | undefined,
-    context: AppearanceFitContext
+    context: AppearanceFitContext,
+    matrixEvidence = weightedCompatibleStackMatrices(appearance, context)
 ): AppearanceExactAnchorV1[] {
     if (!appearance) return [];
     const filamentsById = new Map(
@@ -366,12 +468,13 @@ function collectExactAnchors(
         }
     }
 
-    const latestMatrix = latestCompatibleStackMatrix(appearance, context);
-    if (latestMatrix) {
-        const backing = latestMatrix.filaments[latestMatrix.backingFilamentIndex];
-        for (const sample of latestMatrix.samples) {
+    for (const evidence of matrixEvidence) {
+        const matrix = evidence.record;
+        const backing = matrix.filaments[matrix.backingFilamentIndex];
+        if (!backing) continue;
+        for (const sample of matrix.samples) {
             if (!sample.measuredColor || !backing) continue;
-            const foundation: AppearanceAnchorLayer[] = latestMatrix.foundationLayerThicknesses.map(
+            const foundation: AppearanceAnchorLayer[] = matrix.foundationLayerThicknesses.map(
                 (thickness) => ({
                     filamentId: backing.id,
                     filamentColor: backing.color,
@@ -379,11 +482,11 @@ function collectExactAnchors(
                 })
             );
             const matrixLayers: AppearanceAnchorLayer[] = sample.stack.map((filamentIndex) => {
-                const filament = latestMatrix.filaments[filamentIndex];
+                const filament = matrix.filaments[filamentIndex];
                 return {
                     filamentId: filament.id,
                     filamentColor: filament.color,
-                    thickness: latestMatrix.process.layerHeight,
+                    thickness: matrix.process.layerHeight,
                 };
             });
             const suffix = transferableLayerSuffix(
@@ -394,15 +497,15 @@ function collectExactAnchors(
             if (suffix.layers.length === 0) continue;
             const targetLab = colorLab(sample.measuredColor.rgb);
             anchors.push({
-                id: `${latestMatrix.id}:${sample.index}`,
-                proofId: latestMatrix.id,
+                id: `${matrix.id}:${sample.index}`,
+                proofId: matrix.id,
                 source: 'stack-matrix',
                 sourceStackKey: sample.canonicalStackKey,
                 targetLab: [targetLab.L, targetLab.a, targetLab.b],
                 suffixLayers: suffix.layers,
                 maxSubstrateTransmission: suffix.maxSubstrateTransmission,
-                observedAt: latestMatrix.completedAt ?? latestMatrix.createdAt,
-                confidence: matrixConfidence(latestMatrix),
+                observedAt: matrix.completedAt ?? matrix.createdAt,
+                confidence: evidence.matrixWeight,
             });
         }
     }
@@ -442,46 +545,51 @@ function empiricalCoverageRadius(samples: readonly AppearanceEmpiricalLutSampleV
 
 function collectEmpiricalLuts(
     appearance: AppearanceProfileV1 | undefined,
-    context: AppearanceFitContext
+    context: AppearanceFitContext,
+    matrixEvidence = weightedCompatibleStackMatrices(appearance, context)
 ): AppearanceEmpiricalLutV1[] {
-    const matrix = latestCompatibleStackMatrix(appearance, context);
-    const backing = matrix?.filaments[matrix.backingFilamentIndex];
-    if (!matrix || !backing) return [];
-
-    const confidence = matrixConfidence(matrix);
-    const samples = matrix.samples
-        .filter((sample) => Boolean(sample.measuredColor))
-        .map((sample): AppearanceEmpiricalLutSampleV1 => {
-            const predicted = colorLab(sample.predictedColor.rgb);
-            const measured = colorLab(sample.measuredColor!.rgb);
-            return {
-                id: `${matrix.id}:${sample.index}`,
-                sourceStackKey: sample.canonicalStackKey,
-                recipeFilamentIds: sample.stack.map(
-                    (filamentIndex) => matrix.filaments[filamentIndex].id
-                ),
-                predictedLab: [predicted.L, predicted.a, predicted.b],
-                measuredLab: [measured.L, measured.a, measured.b],
-                confidence,
-                exactAnchorId: `${matrix.id}:${sample.index}`,
-            };
-        })
-        .sort((left, right) => left.id.localeCompare(right.id));
-    if (samples.length === 0) return [];
-
-    return [
-        {
-            id: `empirical-lut:${matrix.id}`,
-            sourceMatrixId: matrix.id,
-            observedAt: matrix.completedAt ?? matrix.createdAt,
-            layerHeight: matrix.process.layerHeight,
-            stackLayerCount: matrix.stackLayerCount,
-            backingFilamentId: backing.id,
-            filamentIds: matrix.filaments.map((filament) => filament.id),
-            coverageRadius: empiricalCoverageRadius(samples),
-            samples,
-        },
-    ];
+    return matrixEvidence.flatMap((evidence): AppearanceEmpiricalLutV1[] => {
+        const matrix = evidence.record;
+        const backing = matrix.filaments[matrix.backingFilamentIndex];
+        if (!backing) return [];
+        const samples = matrix.samples
+            .filter((sample) => Boolean(sample.measuredColor))
+            .map((sample): AppearanceEmpiricalLutSampleV1 => {
+                const predicted = colorLab(sample.predictedColor.rgb);
+                const measured = colorLab(sample.measuredColor!.rgb);
+                return {
+                    id: `${matrix.id}:${sample.index}`,
+                    sourceStackKey: sample.canonicalStackKey,
+                    recipeFilamentIds: sample.stack.map(
+                        (filamentIndex) => matrix.filaments[filamentIndex].id
+                    ),
+                    predictedLab: [predicted.L, predicted.a, predicted.b],
+                    measuredLab: [measured.L, measured.a, measured.b],
+                    confidence: evidence.matrixWeight,
+                    exactAnchorId: `${matrix.id}:${sample.index}`,
+                };
+            })
+            .sort((left, right) => left.id.localeCompare(right.id));
+        if (samples.length === 0) return [];
+        return [
+            {
+                id: `empirical-lut:${matrix.id}`,
+                sourceMatrixId: matrix.id,
+                observedAt: matrix.completedAt ?? matrix.createdAt,
+                layerHeight: matrix.process.layerHeight,
+                stackLayerCount: matrix.stackLayerCount,
+                backingFilamentId: backing.id,
+                filamentIds: matrix.filaments.map((filament) => filament.id),
+                alignmentWeight: evidence.alignmentWeight,
+                coverageWeight: evidence.coverageWeight,
+                recencyWeight: evidence.recencyWeight,
+                agreementWeight: evidence.agreementWeight,
+                matrixWeight: evidence.matrixWeight,
+                coverageRadius: empiricalCoverageRadius(samples),
+                samples,
+            },
+        ];
+    });
 }
 
 function observationLoss(
@@ -644,8 +752,9 @@ export function fitAppearanceRankModel(
         'appearance-fit-context-v1',
         contextFingerprintPayload(context)
     );
-    const exactAnchors = collectExactAnchors(appearance, context);
-    const empiricalLuts = collectEmpiricalLuts(appearance, context);
+    const matrixEvidence = weightedCompatibleStackMatrices(appearance, context);
+    const exactAnchors = collectExactAnchors(appearance, context, matrixEvidence);
+    const empiricalLuts = collectEmpiricalLuts(appearance, context, matrixEvidence);
     const { observations, noneCount, noneJudgmentIds, proofIds, stackKeys } = collectObservations(
         appearance,
         context
@@ -760,7 +869,7 @@ export function fitAppearanceRankModel(
     return {
         schemaVersion: 1,
         modelVersion: MODEL_VERSION,
-        fingerprint: fingerprintJson('appearance-rank-model-v5', fingerprintPayload),
+        fingerprint: fingerprintJson('appearance-rank-model-v6', fingerprintPayload),
         contextFingerprint,
         applied,
         gateReason,
@@ -922,7 +1031,10 @@ function nearbyEmpiricalSamples(
 
 export interface EmpiricalLutMatch {
     kind: 'exact' | 'interpolated';
+    /** Highest-weight contributing LUT, retained for compact snapshot provenance. */
     lutId: string;
+    /** Every matrix LUT that contributed to the combined prediction. */
+    lutIds: readonly string[];
     sampleIds: readonly string[];
     confidence: number;
     nearestPredictedDistance: number;
@@ -931,7 +1043,7 @@ export interface EmpiricalLutMatch {
 interface EmpiricalResolution {
     lab: Lab;
     match: EmpiricalLutMatch;
-    exactAnchorId?: string;
+    exactAnchorIds?: readonly string[];
 }
 
 function resolveEmpiricalLut(
@@ -957,11 +1069,12 @@ function resolveEmpiricalLut(
                 match: {
                     kind: 'exact',
                     lutId: lut.id,
+                    lutIds: [lut.id],
                     sampleIds: [exact.id],
                     confidence: exact.confidence,
                     nearestPredictedDistance: labTupleDistance(baseTuple, exact.predictedLab),
                 },
-                exactAnchorId: exact.exactAnchorId,
+                exactAnchorIds: [exact.exactAnchorId],
             });
             continue;
         }
@@ -1010,6 +1123,7 @@ function resolveEmpiricalLut(
             match: {
                 kind: 'interpolated',
                 lutId: lut.id,
+                lutIds: [lut.id],
                 sampleIds: neighbors.map((neighbor) => neighbor.sample.id),
                 confidence:
                     (weightedConfidence / totalWeight) *
@@ -1019,13 +1133,62 @@ function resolveEmpiricalLut(
         });
     }
 
-    return resolutions.sort(
-        (left, right) =>
-            Number(left.match.kind !== 'exact') - Number(right.match.kind !== 'exact') ||
-            left.match.nearestPredictedDistance - right.match.nearestPredictedDistance ||
-            right.match.confidence - left.match.confidence ||
-            left.match.lutId.localeCompare(right.match.lutId)
-    )[0];
+    const exact = resolutions.filter((resolution) => resolution.match.kind === 'exact');
+    const contributors = (exact.length > 0 ? exact : resolutions)
+        .filter((resolution) => resolution.match.confidence > 0)
+        .sort(
+            (left, right) =>
+                right.match.confidence - left.match.confidence ||
+                left.match.nearestPredictedDistance - right.match.nearestPredictedDistance ||
+                left.match.lutId.localeCompare(right.match.lutId)
+        );
+    if (contributors.length === 0) return undefined;
+    if (contributors.length === 1) return contributors[0];
+
+    let totalWeight = 0;
+    let lightness = 0;
+    let a = 0;
+    let b = 0;
+    for (const contributor of contributors) {
+        const weight = contributor.match.confidence;
+        totalWeight += weight;
+        lightness += contributor.lab.L * weight;
+        a += contributor.lab.a * weight;
+        b += contributor.lab.b * weight;
+    }
+    const blended = rgbToLab(
+        labToRgb({
+            L: lightness / totalWeight,
+            a: a / totalWeight,
+            b: b / totalWeight,
+        })
+    );
+    return {
+        lab: blended,
+        match: {
+            kind: exact.length > 0 ? 'exact' : 'interpolated',
+            lutId: contributors[0].match.lutId,
+            lutIds: contributors.map((contributor) => contributor.match.lutId),
+            sampleIds: [
+                ...new Set(contributors.flatMap((contributor) => contributor.match.sampleIds)),
+            ],
+            confidence:
+                contributors.reduce((sum, contributor) => sum + contributor.match.confidence, 0) /
+                contributors.length,
+            nearestPredictedDistance: Math.min(
+                ...contributors.map((contributor) => contributor.match.nearestPredictedDistance)
+            ),
+        },
+        ...(exact.length > 0
+            ? {
+                  exactAnchorIds: [
+                      ...new Set(
+                          contributors.flatMap((contributor) => contributor.exactAnchorIds ?? [])
+                      ),
+                  ],
+              }
+            : {}),
+    };
 }
 
 export interface ResolvedAppearancePrediction {
@@ -1066,9 +1229,23 @@ export function resolveAppearanceRankModel(
 
     const empirical = prefixLayers ? resolveEmpiricalLut(base, model, prefixLayers) : undefined;
     if (empirical) {
-        const exactAnchor = empirical.exactAnchorId
-            ? model.exactAnchors.find((anchor) => anchor.id === empirical.exactAnchorId)
-            : undefined;
+        const empiricalAnchors = (empirical.exactAnchorIds ?? [])
+            .map((id) => model.exactAnchors.find((anchor) => anchor.id === id))
+            .filter((anchor): anchor is AppearanceExactAnchorV1 => Boolean(anchor));
+        const primaryAnchor = empiricalAnchors[0];
+        const exactAnchor =
+            empiricalAnchors.length <= 1
+                ? primaryAnchor
+                : {
+                      ...primaryAnchor,
+                      id: `empirical-exact:${empirical.match.sampleIds.join('|')}`,
+                      targetLab: [empirical.lab.L, empirical.lab.a, empirical.lab.b] as const,
+                      confidence: empirical.match.confidence,
+                      observedAt: empiricalAnchors
+                          .map((anchor) => anchor.observedAt ?? '')
+                          .sort()
+                          .at(-1),
+                  };
         return {
             lab: empirical.lab,
             exactAnchor,

@@ -43,6 +43,16 @@ export interface AppearanceEmpiricalLutV1 {
     stackLayerCount: number;
     backingFilamentId: string;
     filamentIds: readonly string[];
+    /** Confidence in the photographed board alignment. */
+    alignmentWeight: number;
+    /** Breadth of measured recipes relative to the printable recipe space. */
+    coverageWeight: number;
+    /** Time-decay weight relative to the newest compatible matrix. */
+    recencyWeight: number;
+    /** Robust agreement with recipes measured by at least two other matrices. */
+    agreementWeight: number;
+    /** Product of the four matrix-level evidence weights. */
+    matrixWeight: number;
     /** Local predicted-Lab radius that defines measured territory. */
     coverageRadius: number;
     samples: readonly AppearanceEmpiricalLutSampleV1[];
@@ -50,7 +60,7 @@ export interface AppearanceEmpiricalLutV1 {
 
 export interface AppearanceRankModelV1 {
     schemaVersion: 1;
-    modelVersion: 'lab-rank-global-v5';
+    modelVersion: 'lab-rank-global-v6';
     fingerprint: string;
     contextFingerprint: string;
     applied: boolean;

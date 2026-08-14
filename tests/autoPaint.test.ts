@@ -1165,6 +1165,11 @@ test('an empirical Stack Matrix recipe drives the final preview without changing
                 stackLayerCount: 3,
                 backingFilamentId: 'black',
                 filamentIds: filaments.map((filament) => filament.id),
+                alignmentWeight: 1,
+                coverageWeight: 1,
+                recencyWeight: 1,
+                agreementWeight: 1,
+                matrixWeight: 1,
                 coverageRadius: 10,
                 samples: [
                     {

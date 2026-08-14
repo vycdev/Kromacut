@@ -656,6 +656,254 @@ test('Stack Matrix LUT uses an exact photographed recipe before the optical simu
     assert.equal(resolved.exactAnchor?.id, sample.exactAnchorId);
 });
 
+test('Stack Matrix LUT keeps exact recipes recovered by earlier compatible matrices', async () => {
+    const [matrix, , profile, model] = await modules;
+    const olderPlan = matrix.buildStackMatrixCalibration(
+        filaments,
+        options(64),
+        '2026-07-01T10:00:00.000Z'
+    );
+    const older = matrix.completeStackMatrixCalibration(
+        olderPlan,
+        olderPlan.samples.map(
+            (_, index) => [40 + index, 90 + index, 120] as [number, number, number]
+        ),
+        'older.jpg',
+        false,
+        '2026-07-01T11:00:00.000Z'
+    );
+    const newerPlan = matrix.buildStackMatrixCalibration(
+        filaments,
+        options(8),
+        '2026-08-01T10:00:00.000Z'
+    );
+    const newer = matrix.completeStackMatrixCalibration(
+        newerPlan,
+        newerPlan.samples.map((sample) => [...sample.predictedColor.rgb]),
+        'newer.jpg',
+        false,
+        '2026-08-01T11:00:00.000Z'
+    );
+    let appearance = profile.createEmptyAppearanceProfile();
+    appearance = profile.upsertStackMatrixCalibration(appearance, older);
+    appearance = profile.upsertStackMatrixCalibration(appearance, newer);
+    const fitted = model.fitAppearanceRankModel(appearance, {
+        filamentProfileFingerprint: profile.fingerprintAppearanceFilaments(filaments),
+        layerHeight: 0.08,
+        firstLayerHeight: 0.2,
+        transitionOpacity: 0.9,
+        filaments,
+    });
+
+    assert.equal(fitted.empiricalLuts.length, 2);
+    assert.equal(fitted.exactAnchors.length, older.samples.length + newer.samples.length);
+    const newerRecipes = new Set(
+        newer.samples.map((sample) => sample.stack.map((index) => filaments[index].id).join())
+    );
+    const recovered = fitted.empiricalLuts
+        .find((lut) => lut.sourceMatrixId === older.id)!
+        .samples.find((sample) => !newerRecipes.has(sample.recipeFilamentIds.join()))!;
+    assert.ok(recovered, 'the exhaustive earlier matrix should contain a recipe absent later');
+    const prefix = recovered.recipeFilamentIds.map((filamentId) => ({
+        filamentId,
+        filamentColor: filaments.find((filament) => filament.id === filamentId)!.color,
+        thickness: 0.08,
+    }));
+
+    const resolved = model.resolveAppearanceRankModel(
+        {
+            L: recovered.predictedLab[0],
+            a: recovered.predictedLab[1],
+            b: recovered.predictedLab[2],
+        },
+        fitted,
+        prefix
+    );
+
+    assert.equal(resolved.empiricalMatch?.kind, 'exact');
+    assert.deepEqual(resolved.empiricalMatch?.lutIds, [`empirical-lut:${older.id}`]);
+    assert.deepEqual(resolved.empiricalMatch?.sampleIds, [recovered.id]);
+    assert.deepEqual(resolved.lab, {
+        L: recovered.measuredLab[0],
+        a: recovered.measuredLab[1],
+        b: recovered.measuredLab[2],
+    });
+});
+
+test('Stack Matrix aggregation weights alignment, coverage, recency, and cross-matrix agreement', async () => {
+    const [matrix, , profile, model] = await modules;
+    const makeCompleted = (
+        maximumSamples: number,
+        createdAt: string,
+        completedAt: string,
+        colors: (index: number) => [number, number, number],
+        alignment: { alignmentConfidence: number; alignmentMethod: 'detected' | 'manual' }
+    ) => {
+        const planned = matrix.buildStackMatrixCalibration(
+            filaments,
+            options(maximumSamples),
+            createdAt
+        );
+        return matrix.completeStackMatrixCalibration(
+            planned,
+            planned.samples.map((_, index) => colors(index)),
+            `${createdAt}.jpg`,
+            false,
+            completedAt,
+            { ...alignment, alignmentVerified: true }
+        );
+    };
+    const agreeingColor = (index: number): [number, number, number] => [80 + index, 100, 125];
+    const oldest = makeCompleted(
+        64,
+        '2025-08-01T10:00:00.000Z',
+        '2025-08-01T11:00:00.000Z',
+        agreeingColor,
+        { alignmentConfidence: 1, alignmentMethod: 'manual' }
+    );
+    const agreeing = makeCompleted(
+        64,
+        '2026-07-01T10:00:00.000Z',
+        '2026-07-01T11:00:00.000Z',
+        agreeingColor,
+        { alignmentConfidence: 1, alignmentMethod: 'manual' }
+    );
+    const outlier = makeCompleted(
+        8,
+        '2026-08-01T10:00:00.000Z',
+        '2026-08-01T11:00:00.000Z',
+        () => [230, 20, 220],
+        { alignmentConfidence: 0.2, alignmentMethod: 'detected' }
+    );
+    let appearance = profile.createEmptyAppearanceProfile();
+    for (const completed of [oldest, agreeing, outlier]) {
+        appearance = profile.upsertStackMatrixCalibration(appearance, completed);
+    }
+    const fitted = model.fitAppearanceRankModel(appearance, {
+        filamentProfileFingerprint: profile.fingerprintAppearanceFilaments(filaments),
+        layerHeight: 0.08,
+        firstLayerHeight: 0.2,
+        transitionOpacity: 0.9,
+        filaments,
+    });
+    const byMatrixId = new Map(fitted.empiricalLuts.map((lut) => [lut.sourceMatrixId, lut]));
+    const oldestLut = byMatrixId.get(oldest.id)!;
+    const agreeingLut = byMatrixId.get(agreeing.id)!;
+    const outlierLut = byMatrixId.get(outlier.id)!;
+
+    assert.ok(oldestLut.recencyWeight < agreeingLut.recencyWeight);
+    assert.ok(outlierLut.coverageWeight < agreeingLut.coverageWeight);
+    assert.ok(outlierLut.alignmentWeight < agreeingLut.alignmentWeight);
+    assert.ok(outlierLut.agreementWeight < agreeingLut.agreementWeight);
+    assert.ok(outlierLut.matrixWeight < agreeingLut.matrixWeight);
+
+    const outlierSample = outlierLut.samples[0];
+    const agreeingSample = agreeingLut.samples.find(
+        (sample) => sample.recipeFilamentIds.join() === outlierSample.recipeFilamentIds.join()
+    )!;
+    const prefix = outlierSample.recipeFilamentIds.map((filamentId) => ({
+        filamentId,
+        filamentColor: filaments.find((filament) => filament.id === filamentId)!.color,
+        thickness: 0.08,
+    }));
+    const resolved = model.resolveAppearanceRankModel(
+        {
+            L: agreeingSample.predictedLab[0],
+            a: agreeingSample.predictedLab[1],
+            b: agreeingSample.predictedLab[2],
+        },
+        fitted,
+        prefix
+    );
+    const tupleDistance = (
+        left: { L: number; a: number; b: number },
+        right: readonly [number, number, number]
+    ) => Math.hypot(left.L - right[0], left.a - right[1], left.b - right[2]);
+
+    assert.equal(resolved.empiricalMatch?.kind, 'exact');
+    assert.equal(resolved.empiricalMatch?.lutIds.length, 3);
+    assert.equal(resolved.empiricalMatch?.sampleIds.length, 3);
+    assert.ok(
+        tupleDistance(resolved.lab, agreeingSample.measuredLab) <
+            tupleDistance(resolved.lab, outlierSample.measuredLab)
+    );
+    assert.deepEqual(resolved.exactAnchor?.targetLab, [
+        resolved.lab.L,
+        resolved.lab.a,
+        resolved.lab.b,
+    ]);
+});
+
+test('Stack Matrix aggregation combines overlapping interpolation from every compatible board', async () => {
+    const [matrix, , profile, model] = await modules;
+    const exhaustive = matrix.buildStackMatrixCalibration(
+        filaments,
+        options(64),
+        '2026-06-01T09:00:00.000Z'
+    );
+    const inputs: Array<[string, readonly [number, number, number]]> = [
+        ['2026-07-01T10:00:00.000Z', [35, 120, 70]],
+        ['2026-08-01T10:00:00.000Z', [55, 145, 90]],
+    ];
+    const completed = inputs.map(([createdAt, baseColor], matrixIndex) => {
+        const planned = matrix.buildStackMatrixCalibration(filaments, options(8), createdAt);
+        return matrix.completeStackMatrixCalibration(
+            planned,
+            planned.samples.map(
+                (_, sampleIndex) =>
+                    [
+                        baseColor[0] + sampleIndex,
+                        baseColor[1] + sampleIndex,
+                        baseColor[2] + sampleIndex,
+                    ] as [number, number, number]
+            ),
+            `matrix-${matrixIndex}.jpg`,
+            false,
+            createdAt.replace('10:00', '11:00')
+        );
+    });
+    let appearance = profile.createEmptyAppearanceProfile();
+    for (const record of completed) {
+        appearance = profile.upsertStackMatrixCalibration(appearance, record);
+    }
+    const fitted = model.fitAppearanceRankModel(appearance, {
+        filamentProfileFingerprint: profile.fingerprintAppearanceFilaments(filaments),
+        layerHeight: 0.08,
+        firstLayerHeight: 0.2,
+        transitionOpacity: 0.9,
+        filaments,
+    });
+    const firstLut = fitted.empiricalLuts[0];
+    const measuredRecipes = new Set(
+        firstLut.samples.map((sample) => sample.recipeFilamentIds.join())
+    );
+    const missing = exhaustive.samples
+        .map((sample) => sample.stack.map((index) => filaments[index].id))
+        .find((recipe) => !measuredRecipes.has(recipe.join()))!;
+    const prefix = missing.map((filamentId) => ({
+        filamentId,
+        filamentColor: filaments.find((filament) => filament.id === filamentId)!.color,
+        thickness: 0.08,
+    }));
+    const nearbyBase = firstLut.samples[0].predictedLab;
+
+    const resolved = model.resolveAppearanceRankModel(
+        { L: nearbyBase[0], a: nearbyBase[1], b: nearbyBase[2] },
+        fitted,
+        prefix
+    );
+
+    assert.equal(resolved.empiricalMatch?.kind, 'interpolated');
+    assert.equal(resolved.empiricalMatch?.lutIds.length, 2);
+    assert.ok(
+        completed.every((record) =>
+            resolved.empiricalMatch?.sampleIds.some((sampleId) =>
+                sampleId.startsWith(`${record.id}:`)
+            )
+        )
+    );
+});
+
 test('Stack Matrix LUT interpolates nearby photographed recipes and falls back outside coverage', async () => {
     const [matrix, , profile, model] = await modules;
     const exhaustive = matrix.buildStackMatrixCalibration(
