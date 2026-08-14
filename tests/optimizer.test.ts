@@ -451,7 +451,7 @@ test('repeats can close the RGB color path to reach the missing magenta blend', 
 });
 
 test('variable-length optimizers preserve sequence safety invariants', async (t) => {
-    const { optimizeFilamentOrder } = await loadOptimizerModule();
+    const { countExtraFilamentOccurrences, optimizeFilamentOrder } = await loadOptimizerModule();
     const algorithms = [
         'exhaustive',
         'simulated-annealing',
@@ -477,6 +477,9 @@ test('variable-length optimizers preserve sequence safety invariants', async (t)
                 assert.ok(ids.length >= 1);
                 assert.ok(ids.length <= filaments.length + (allowRepeatedSwaps ? 4 : 0));
                 assert.ok(ids.every((id, index) => index === 0 || id !== ids[index - 1]));
+                assert.ok(
+                    countExtraFilamentOccurrences(result.order) <= (allowRepeatedSwaps ? 4 : 0)
+                );
                 if (!allowRepeatedSwaps) {
                     assert.equal(new Set(ids).size, ids.length);
                 }
@@ -486,7 +489,17 @@ test('variable-length optimizers preserve sequence safety invariants', async (t)
 });
 
 test('maxExtraRepeats supports the full user-facing repeat-limit range', async () => {
-    const { optimizeFilamentOrder } = await loadOptimizerModule();
+    const { countExtraFilamentOccurrences, isWithinTotalRepeatLimit, optimizeFilamentOrder } =
+        await loadOptimizerModule();
+
+    const omittedFilamentSequence = [filaments[0], filaments[1], filaments[0], filaments[1]];
+    assert.equal(countExtraFilamentOccurrences(omittedFilamentSequence), 2);
+    assert.equal(
+        isWithinTotalRepeatLimit(omittedFilamentSequence, 1),
+        false,
+        'omitted profile filaments must not create hidden repeat allowance'
+    );
+    assert.equal(isWithinTotalRepeatLimit(omittedFilamentSequence, 2), true);
 
     for (const maxExtraRepeats of [0, 2, 4, 6, 8, 12]) {
         const result = optimizeFilamentOrder(filaments, context, {
@@ -498,6 +511,8 @@ test('maxExtraRepeats supports the full user-facing repeat-limit range', async (
         const ids = result.order.map((filament) => filament.id);
 
         assert.ok(ids.length <= filaments.length + maxExtraRepeats);
+        assert.ok(countExtraFilamentOccurrences(result.order) <= maxExtraRepeats);
+        assert.equal(result.extraRepeatCount, countExtraFilamentOccurrences(result.order));
         assert.ok(ids.every((id, index) => index === 0 || id !== ids[index - 1]));
         if (maxExtraRepeats === 0) {
             assert.equal(new Set(ids).size, ids.length, 'Off must prohibit all repeated filaments');

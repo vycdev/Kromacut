@@ -371,11 +371,23 @@ function hasDuplicateIds(sequence: Filament[]): boolean {
     return new Set(sequence.map((filament) => filament.id)).size !== sequence.length;
 }
 
-function isValidSequence(sequence: Filament[], allowRepeatedSwaps: boolean): boolean {
+export function countExtraFilamentOccurrences(order: readonly Pick<Filament, 'id'>[]): number {
+    return order.length - new Set(order.map((filament) => filament.id)).size;
+}
+
+export function isWithinTotalRepeatLimit(
+    order: readonly Pick<Filament, 'id'>[],
+    maxExtraRepeats: number
+): boolean {
+    return countExtraFilamentOccurrences(order) <= Math.max(0, Math.floor(maxExtraRepeats));
+}
+
+function isValidSequence(sequence: Filament[], maxExtraRepeats: number): boolean {
     return (
         sequence.length > 0 &&
         !hasConsecutiveDuplicates(sequence) &&
-        (allowRepeatedSwaps || !hasDuplicateIds(sequence))
+        (maxExtraRepeats > 0 || !hasDuplicateIds(sequence)) &&
+        isWithinTotalRepeatLimit(sequence, maxExtraRepeats)
     );
 }
 
@@ -460,7 +472,7 @@ function expandWithRepeatedFilaments(
                     filament,
                     ...best.order.slice(position),
                 ];
-                if (!isValidSequence(candidateOrder, true)) continue;
+                if (!isValidSequence(candidateOrder, maxExtraRepeats)) continue;
 
                 const candidate = {
                     order: candidateOrder,
@@ -597,6 +609,7 @@ function optimizeBeamSearch(
                 }
 
                 const order = [...state.order, filament];
+                if (!isValidSequence(order, maxExtraRepeats)) continue;
                 const key = sequenceKey(order);
                 if (candidates.has(key)) continue;
 
@@ -712,10 +725,7 @@ function buildVariableLengthNeighbor(
             candidate[position] = eligible[rng.nextInt(0, eligible.length)];
         }
 
-        if (
-            isValidSequence(candidate, allowRepeatedSwaps) &&
-            !sequenceEquals(candidate, sequence)
-        ) {
+        if (isValidSequence(candidate, maxExtraRepeats) && !sequenceEquals(candidate, sequence)) {
             return candidate;
         }
     }
@@ -1036,15 +1046,8 @@ function sequenceSeparationReport(
         new Map<string, number>(),
         context.appearanceModel
     );
-    return mapTargetsWithSeparation(
-        palette,
-        context.imageColors,
-        context.separationMaxDeltaE
-    ).report;
-}
-
-function repeatedOccurrenceCount(order: readonly Filament[]): number {
-    return order.length - new Set(order.map((filament) => filament.id)).size;
+    return mapTargetsWithSeparation(palette, context.imageColors, context.separationMaxDeltaE)
+        .report;
 }
 
 // ============================================================================
@@ -1075,7 +1078,7 @@ export function optimizeFilamentOrder(
         ...context,
         preserveSeparation: opts.preserveSeparation ?? context.preserveSeparation ?? false,
         separationMaxDeltaE:
-            opts.preserveSeparation ?? context.preserveSeparation
+            (opts.preserveSeparation ?? context.preserveSeparation)
                 ? normalizeSeparationMaxDeltaE(
                       opts.separationMaxDeltaE ?? context.separationMaxDeltaE
                   )
@@ -1139,7 +1142,7 @@ export function optimizeFilamentOrder(
             );
             totalIterations += candidate.iterations;
             candidate.separation = sequenceSeparationReport(candidate.order, scoringContext);
-            candidate.extraRepeatCount = repeatedOccurrenceCount(candidate.order);
+            candidate.extraRepeatCount = countExtraFilamentOccurrences(candidate.order);
             candidate.iterations = totalIterations;
             if (!retained || isBetterCandidate(candidate, retained)) retained = candidate;
             if (repeatLimit === 0 && resolved === 'exact-base') exactBase = candidate;
@@ -1153,9 +1156,16 @@ export function optimizeFilamentOrder(
         result = runResolvedOptimizer(resolved, filaments, scoreSequence, opts);
         if (scoringContext.preserveSeparation) {
             result.separation = sequenceSeparationReport(result.order, scoringContext);
-            result.extraRepeatCount = repeatedOccurrenceCount(result.order);
         }
     }
+
+    const actualExtraRepeats = countExtraFilamentOccurrences(result.order);
+    if (!isWithinTotalRepeatLimit(result.order, requestedRepeats)) {
+        throw new Error(
+            `Optimizer produced ${actualExtraRepeats} repeated filament appearances with a limit of ${requestedRepeats}`
+        );
+    }
+    result.extraRepeatCount = actualExtraRepeats;
 
     // Tag the result with the resolved algorithm
     result.resolvedAlgorithm = resolved;
