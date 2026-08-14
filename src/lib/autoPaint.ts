@@ -115,6 +115,8 @@ export interface AutoPaintResult {
     transitionZones: TransitionZone[]; // Detailed zone info
     /** Frozen, serializable single source of truth for preview, proof, and export. */
     finalStack: FinalPrintableStackSnapshot;
+    /** Present when hard color-separation constraints were requested. */
+    colorSeparation?: ColorSeparationReport;
     // Confidence metrics
     confidence: number; // Overall confidence score (0-1)
     confidenceFactors: {
@@ -129,6 +131,7 @@ export interface AutoPaintResult {
         iterations: number; // Iterations performed
         converged: boolean; // Whether algorithm converged
         cacheHit: boolean; // Whether result came from cache
+        extraRepeatCount: number; // Actual repeated occurrences used by the chosen stack
     };
 }
 
@@ -877,6 +880,8 @@ function buildFinalPrintableStackSnapshot(
         transitionOpacity?: number;
         compressionRatio: number;
         preserveSeparation?: boolean;
+        separationMaxDeltaE?: number;
+        failOnSeparationError?: boolean;
         appearanceModel?: AppearanceRankModelV1;
     }
 ): FinalPrintableStackSnapshot {
@@ -1047,7 +1052,10 @@ function buildFinalPrintableStackSnapshot(
                           : undefined,
                   })),
                   sourceTargets.map((target) => ({ ...target.lab, weight: target.weight })),
-                  { preserveSeparation: settings.preserveSeparation }
+                  {
+                      preserveSeparation: settings.preserveSeparation,
+                      separationMaxDeltaE: settings.separationMaxDeltaE,
+                  }
               )
             : [];
     const targetMappings: FinalStackTargetMappingSnapshot[] = mappedTargets.map((mapped, index) => {
@@ -1085,6 +1093,14 @@ function buildFinalPrintableStackSnapshot(
             printableMaxHeight: settings.printableMaxHeight,
             transitionOpacity: normalizeTransitionOpacity(settings.transitionOpacity),
             compressionRatio: settings.compressionRatio,
+            ...(settings.preserveSeparation
+                ? {
+                      separationMaxDeltaE: normalizeSeparationMaxDeltaE(
+                          settings.separationMaxDeltaE
+                      ),
+                      failOnSeparationError: settings.failOnSeparationError !== false,
+                  }
+                : {}),
         },
         totalHeight: stack.totalHeight,
         truncated: stack.truncated,
@@ -1333,6 +1349,21 @@ export interface MappedTarget {
     projectedHeight: number;
 }
 
+export interface ColorSeparationReport {
+    requestedColorCount: number;
+    printableColorCount: number;
+    assignedDistinctColorCount: number;
+    unacceptableColorCount: number;
+    maximumDeltaE: number;
+    maximumAllowedDeltaE: number;
+    satisfied: boolean;
+}
+
+export interface ColorSeparationMapping {
+    mappedTargets: MappedTarget[];
+    report: ColorSeparationReport;
+}
+
 /**
  * Map each weighted image target onto the printable palette exactly the way the
  * 3D preview does, so the optimizer scores the colors the model actually shows.
@@ -1345,6 +1376,18 @@ export interface MappedTarget {
  */
 /** Minimum ΔE between two printable colors for them to count as "distinct". */
 const SEPARATION_MIN_DE = 2;
+export const MIN_SEPARATION_MAX_DELTA_E = 1;
+export const MAX_SEPARATION_MAX_DELTA_E = 100;
+/** Default hard fidelity boundary for a separated printable color. */
+export const SEPARATION_MAX_DELTA_E = 6;
+export function normalizeSeparationMaxDeltaE(value: unknown): number {
+    const numeric = typeof value === 'number' ? value : Number.NaN;
+    if (!Number.isFinite(numeric)) return SEPARATION_MAX_DELTA_E;
+    return Math.max(
+        MIN_SEPARATION_MAX_DELTA_E,
+        Math.min(MAX_SEPARATION_MAX_DELTA_E, Math.round(numeric * 10) / 10)
+    );
+}
 const EXACT_ANCHOR_TARGET_DE = 0.25;
 // Large enough that a sequence cannot beat a physically verified recipe merely
 // by landing an unverified prefix on the same simulated Lab coordinate.
@@ -1375,18 +1418,173 @@ function exactAnchorMapping(palette: AchievableColor[], target: WeightedLab): Ma
 }
 
 /**
- * Injective ("preserve color separation") mapping: assign each weighted image
- * color to a DISTINCT printable color so perceptibly different image colors are
- * never collapsed onto the same surface color. Dominant colors (higher weight)
- * pick first, so large regions get the closest match and smaller ones absorb
- * the shift needed to stay distinct. When there are more image colors than the
- * curve exposes distinct printable colors, the surplus falls back to nearest
- * (and may collide) — the only case that cannot be fully separated.
+ * Rectangular Hungarian assignment. Rows are targets and columns are distinct
+ * printable colors (plus dummy columns when there are too few colors). Keeping
+ * this deterministic is important because optimizer goldens and cache entries
+ * depend on stable tie-breaking.
  */
-function mapTargetsWithSeparation(
+function minimumCostAssignment(costs: readonly (readonly number[])[]): number[] {
+    const rowCount = costs.length;
+    if (rowCount === 0) return [];
+    const columnCount = costs[0]?.length ?? 0;
+    if (columnCount < rowCount) {
+        throw new Error('Color assignment requires at least as many columns as rows');
+    }
+
+    const rowPotential = new Float64Array(rowCount + 1);
+    const columnPotential = new Float64Array(columnCount + 1);
+    const matchedRow = new Int32Array(columnCount + 1);
+    const previousColumn = new Int32Array(columnCount + 1);
+
+    for (let row = 1; row <= rowCount; row++) {
+        matchedRow[0] = row;
+        let currentColumn = 0;
+        const minimum = new Float64Array(columnCount + 1);
+        minimum.fill(Infinity);
+        const used = new Uint8Array(columnCount + 1);
+
+        do {
+            used[currentColumn] = 1;
+            const currentRow = matchedRow[currentColumn];
+            let delta = Infinity;
+            let nextColumn = 0;
+            for (let column = 1; column <= columnCount; column++) {
+                if (used[column]) continue;
+                const reducedCost =
+                    costs[currentRow - 1][column - 1] -
+                    rowPotential[currentRow] -
+                    columnPotential[column];
+                if (reducedCost < minimum[column] - 1e-12) {
+                    minimum[column] = reducedCost;
+                    previousColumn[column] = currentColumn;
+                }
+                if (
+                    minimum[column] < delta - 1e-12 ||
+                    (Math.abs(minimum[column] - delta) <= 1e-12 && column < nextColumn)
+                ) {
+                    delta = minimum[column];
+                    nextColumn = column;
+                }
+            }
+            for (let column = 0; column <= columnCount; column++) {
+                if (used[column]) {
+                    rowPotential[matchedRow[column]] += delta;
+                    columnPotential[column] -= delta;
+                } else {
+                    minimum[column] -= delta;
+                }
+            }
+            currentColumn = nextColumn;
+        } while (matchedRow[currentColumn] !== 0);
+
+        do {
+            const previous = previousColumn[currentColumn];
+            matchedRow[currentColumn] = matchedRow[previous];
+            currentColumn = previous;
+        } while (currentColumn !== 0);
+    }
+
+    const assignment = new Array<number>(rowCount).fill(-1);
+    for (let column = 1; column <= columnCount; column++) {
+        const row = matchedRow[column];
+        if (row > 0) assignment[row - 1] = column - 1;
+    }
+    return assignment;
+}
+
+/**
+ * Find the largest target-to-candidate matching whose every edge is inside the
+ * hard separation boundary. Most optimizer candidates are infeasible; this
+ * sparse check avoids paying for a full cubic cost assignment just to reject
+ * them. Targets with fewer options go first so the deterministic matching also
+ * provides useful mappings when the graph cannot cover every target.
+ */
+function maximumAcceptableMatching(
+    distances: readonly (readonly number[])[],
+    maximumDeltaE: number
+): number[] {
+    const targetCount = distances.length;
+    const candidateCount = distances[0]?.length ?? 0;
+    const acceptable = distances.map((row) =>
+        row
+            .map((distance, candidate) => ({ candidate, distance }))
+            .filter(({ distance }) => distance <= maximumDeltaE)
+            .sort(
+                (left, right) => left.distance - right.distance || left.candidate - right.candidate
+            )
+            .map(({ candidate }) => candidate)
+    );
+    const targetOrder = Array.from({ length: targetCount }, (_, target) => target).sort(
+        (left, right) => acceptable[left].length - acceptable[right].length || left - right
+    );
+    const candidateTarget = new Int32Array(candidateCount);
+    candidateTarget.fill(-1);
+
+    const augment = (target: number, visited: Uint8Array): boolean => {
+        for (const candidate of acceptable[target]) {
+            if (visited[candidate]) continue;
+            visited[candidate] = 1;
+            const incumbent = candidateTarget[candidate];
+            if (incumbent < 0 || augment(incumbent, visited)) {
+                candidateTarget[candidate] = target;
+                return true;
+            }
+        }
+        return false;
+    };
+
+    for (const target of targetOrder) {
+        augment(target, new Uint8Array(candidateCount));
+    }
+
+    const assignment = new Array<number>(targetCount).fill(-1);
+    for (let candidate = 0; candidate < candidateCount; candidate++) {
+        const target = candidateTarget[candidate];
+        if (target >= 0) assignment[target] = candidate;
+    }
+    return assignment;
+}
+
+/**
+ * Globally assign source colors to distinct printable colors. Unlike the old
+ * dominant-first greedy mapper, this considers every collision together and
+ * treats an assignment outside the acceptable error boundary as unsatisfied.
+ */
+export function mapTargetsWithSeparation(
     palette: AchievableColor[],
-    imageTargets: WeightedLab[]
-): MappedTarget[] {
+    imageTargets: WeightedLab[],
+    requestedMaximumDeltaE: number = SEPARATION_MAX_DELTA_E
+): ColorSeparationMapping {
+    const maximumAllowedDeltaE = normalizeSeparationMaxDeltaE(requestedMaximumDeltaE);
+    if (imageTargets.length === 0) {
+        return {
+            mappedTargets: [],
+            report: {
+                requestedColorCount: 0,
+                printableColorCount: 0,
+                assignedDistinctColorCount: 0,
+                unacceptableColorCount: 0,
+                maximumDeltaE: 0,
+                maximumAllowedDeltaE,
+                satisfied: true,
+            },
+        };
+    }
+    if (palette.length === 0) {
+        return {
+            mappedTargets: [],
+            report: {
+                requestedColorCount: imageTargets.length,
+                printableColorCount: 0,
+                assignedDistinctColorCount: 0,
+                unacceptableColorCount: imageTargets.length,
+                maximumDeltaE: Infinity,
+                maximumAllowedDeltaE,
+                satisfied: false,
+            },
+        };
+    }
+
     // Distinct printable colors, keeping a representative entry for each.
     const distinct: Array<{ lab: Lab; height: number; paletteIndex: number }> = [];
     for (let i = 0; i < palette.length; i++) {
@@ -1404,62 +1602,154 @@ function mapTargetsWithSeparation(
         }
     }
 
-    const result = new Array<MappedTarget | undefined>(imageTargets.length);
-    const used = new Set<number>();
-    for (let index = 0; index < imageTargets.length; index++) {
-        const anchored = exactAnchorMapping(palette, imageTargets[index]);
-        if (!anchored) continue;
-        result[index] = anchored;
-        const distinctIndex = distinct.findIndex(
-            (entry) => entry.paletteIndex === anchored.paletteIndex
-        );
-        if (distinctIndex >= 0) used.add(distinctIndex);
-    }
-    // Assign dominant colors first.
-    const order = imageTargets
-        .map((_, i) => i)
-        .filter((index) => result[index] === undefined)
-        .sort((a, b) => imageTargets[b].weight - imageTargets[a].weight);
-    for (const i of order) {
-        const target = imageTargets[i];
-        let bestJ = -1;
-        let bestDistance = Infinity;
-        let fallbackJ = 0;
-        let fallbackDistance = Infinity;
-        for (let j = 0; j < distinct.length; j++) {
-            const de = optimizerColorDistance(distinct[j].lab, target);
-            if (de < fallbackDistance) {
-                fallbackDistance = de;
-                fallbackJ = j;
+    const distances = imageTargets.map((target) =>
+        distinct.map((candidate) => optimizerColorDistance(candidate.lab, target))
+    );
+    const acceptableAssignment = maximumAcceptableMatching(distances, maximumAllowedDeltaE);
+    const acceptableMatchCount = acceptableAssignment.reduce(
+        (count, candidate) => count + (candidate >= 0 ? 1 : 0),
+        0
+    );
+
+    if (acceptableMatchCount < imageTargets.length) {
+        const mappedTargets = imageTargets.map((target, targetIndex) => {
+            let candidateColumn = acceptableAssignment[targetIndex];
+            if (candidateColumn < 0) {
+                candidateColumn = 0;
+                for (let column = 1; column < distinct.length; column++) {
+                    if (distances[targetIndex][column] < distances[targetIndex][candidateColumn]) {
+                        candidateColumn = column;
+                    }
+                }
             }
-            if (!used.has(j) && de < bestDistance) {
-                bestDistance = de;
-                bestJ = j;
-            }
-        }
-        const j = bestJ >= 0 ? bestJ : fallbackJ; // surplus colors reuse nearest
-        if (bestJ >= 0) used.add(j);
-        result[i] = {
-            target,
-            paletteIndex: distinct[j].paletteIndex,
-            mappedLab: distinct[j].lab,
-            projectedHeight: distinct[j].height,
+            const candidate = distinct[candidateColumn];
+            return {
+                target,
+                paletteIndex: candidate.paletteIndex,
+                mappedLab: candidate.lab,
+                projectedHeight: candidate.height,
+            };
+        });
+        return {
+            mappedTargets,
+            report: {
+                requestedColorCount: imageTargets.length,
+                printableColorCount: distinct.length,
+                assignedDistinctColorCount: acceptableMatchCount,
+                unacceptableColorCount: imageTargets.length - acceptableMatchCount,
+                maximumDeltaE: mappedTargets.reduce(
+                    (maximum, mapping) =>
+                        Math.max(
+                            maximum,
+                            optimizerColorDistance(mapping.mappedLab, mapping.target)
+                        ),
+                    0
+                ),
+                maximumAllowedDeltaE,
+                satisfied: false,
+            },
         };
     }
-    return result as MappedTarget[];
+
+    const columnCount = distinct.length;
+    const UNACCEPTABLE_COST = 1_000_000;
+    const DUMMY_COST = 100_000_000;
+    const costs = imageTargets.map((target, targetIndex) => {
+        const anchored = exactAnchorMapping(palette, target);
+        return Array.from({ length: columnCount }, (_, column) => {
+            if (column >= distinct.length) return DUMMY_COST + column;
+            const candidate = distinct[column];
+            const deltaE = distances[targetIndex][column];
+            const anchorPenalty =
+                anchored && candidate.paletteIndex !== anchored.paletteIndex ? DUMMY_COST / 2 : 0;
+            const unacceptablePenalty =
+                deltaE > maximumAllowedDeltaE
+                    ? UNACCEPTABLE_COST + (deltaE - maximumAllowedDeltaE) * 10_000
+                    : 0;
+            // Once every row is inside the hard boundary, retain the ordinary
+            // image-area weighting. Squared error discourages sacrificing one
+            // color to improve many already-good matches. The tiny column term
+            // makes ties stable.
+            return (
+                anchorPenalty +
+                unacceptablePenalty +
+                deltaE * deltaE * Math.max(target.weight, Number.EPSILON) +
+                column * 1e-9
+            );
+        });
+    });
+    const assignment = minimumCostAssignment(costs);
+    const mappedTargets: MappedTarget[] = [];
+    let unacceptableColorCount = 0;
+    let maximumDeltaE = 0;
+    const assignedDistinct = new Set<number>();
+
+    for (let index = 0; index < imageTargets.length; index++) {
+        const target = imageTargets[index];
+        const assignedColumn = assignment[index];
+        let candidateColumn = assignedColumn;
+        if (candidateColumn < 0 || candidateColumn >= distinct.length) {
+            unacceptableColorCount++;
+            candidateColumn = 0;
+            let nearestDistance = Infinity;
+            for (let column = 0; column < distinct.length; column++) {
+                const distance = optimizerColorDistance(distinct[column].lab, target);
+                if (distance < nearestDistance) {
+                    nearestDistance = distance;
+                    candidateColumn = column;
+                }
+            }
+        } else {
+            assignedDistinct.add(candidateColumn);
+        }
+        const candidate = distinct[candidateColumn];
+        const deltaE = optimizerColorDistance(candidate.lab, target);
+        maximumDeltaE = Math.max(maximumDeltaE, deltaE);
+        if (
+            assignedColumn >= 0 &&
+            assignedColumn < distinct.length &&
+            deltaE > maximumAllowedDeltaE
+        ) {
+            unacceptableColorCount++;
+        }
+        mappedTargets.push({
+            target,
+            paletteIndex: candidate.paletteIndex,
+            mappedLab: candidate.lab,
+            projectedHeight: candidate.height,
+        });
+    }
+
+    return {
+        mappedTargets,
+        report: {
+            requestedColorCount: imageTargets.length,
+            printableColorCount: distinct.length,
+            assignedDistinctColorCount: assignedDistinct.size,
+            unacceptableColorCount,
+            maximumDeltaE,
+            maximumAllowedDeltaE,
+            satisfied:
+                assignedDistinct.size === imageTargets.length && unacceptableColorCount === 0,
+        },
+    };
 }
 
 export function mapTargetsToPrintablePalette(
     palette: AchievableColor[],
     imageTargets: WeightedLab[],
-    options: { preserveSeparation?: boolean } = {}
+    options: { preserveSeparation?: boolean; separationMaxDeltaE?: number } = {}
 ): MappedTarget[] {
     if (palette.length === 0) return [];
 
     // Separation mode: assign each distinct image color to a DISTINCT printable
     // color so perceptibly different colors never collapse to one flat surface.
     if (options.preserveSeparation) {
-        return mapTargetsWithSeparation(palette, imageTargets);
+        return mapTargetsWithSeparation(
+            palette,
+            imageTargets,
+            options.separationMaxDeltaE
+        ).mappedTargets;
     }
 
     // Collapse consecutive near-identical layers into flat-zone nodes (ΔE<0.5),
@@ -1635,12 +1925,20 @@ const USEFUL_PALETTE_MATCH_DE = 8;
 export function scoreSequenceAgainstImage(
     palette: AchievableColor[],
     imageTargets: WeightedLab[],
-    options: { preserveSeparation?: boolean; exactAnchorTargets?: readonly Lab[] } = {}
+    options: {
+        preserveSeparation?: boolean;
+        separationMaxDeltaE?: number;
+        exactAnchorTargets?: readonly Lab[];
+    } = {}
 ): number {
     if (palette.length === 0) return Infinity;
     if (imageTargets.length === 0) return Infinity;
 
-    const mapped = mapTargetsToPrintablePalette(palette, imageTargets, options);
+    const separation = options.preserveSeparation
+        ? mapTargetsWithSeparation(palette, imageTargets, options.separationMaxDeltaE)
+        : undefined;
+    const mapped =
+        separation?.mappedTargets ?? mapTargetsToPrintablePalette(palette, imageTargets, options);
 
     // 1. Weighted realized color error (CIEDE2000), with a p95 tail term so a
     //    few rare conspicuous colors cannot be sacrificed to lower the mean.
@@ -1682,6 +1980,22 @@ export function scoreSequenceAgainstImage(
     let score = weightedMean + REALIZED_ERROR_TAIL_WEIGHT * weightedTail;
     score += (1 - detailCoveredWeight / totalWeight) * DETAIL_COVERAGE_PENALTY;
     score += (missingExactAnchorWeight / totalWeight) * MISSING_EXACT_ANCHOR_PENALTY;
+
+    if (separation && !separation.report.satisfied) {
+        const missingDistinct =
+            separation.report.requestedColorCount - separation.report.assignedDistinctColorCount;
+        const excessError = Math.max(
+            0,
+            separation.report.maximumDeltaE - separation.report.maximumAllowedDeltaE
+        );
+        // A feasible separation must always outrank an infeasible one. Within
+        // infeasible candidates, guide the optimizer toward fewer collisions,
+        // then fewer out-of-gamut assignments, then smaller excess error.
+        score +=
+            missingDistinct * 10_000_000 +
+            separation.report.unacceptableColorCount * 1_000_000 +
+            excessError * 10_000;
+    }
 
     // 2. Height spread penalty: penalize when distinct image colors
     //    collapse to the same height (leading to flat surfaces).
@@ -1849,6 +2163,8 @@ export function generateAutoLayers(
                 transitionOpacity: optimizerOptions?.transitionOpacity,
                 compressionRatio: 1,
                 preserveSeparation: optimizerOptions?.preserveSeparation,
+                separationMaxDeltaE: optimizerOptions?.separationMaxDeltaE,
+                failOnSeparationError: optimizerOptions?.failOnSeparationError,
                 appearanceModel,
             }
         );
@@ -1882,6 +2198,8 @@ export function generateAutoLayers(
                 transitionOpacity: optimizerOptions?.transitionOpacity,
                 compressionRatio: 1,
                 preserveSeparation: optimizerOptions?.preserveSeparation,
+                separationMaxDeltaE: optimizerOptions?.separationMaxDeltaE,
+                failOnSeparationError: optimizerOptions?.failOnSeparationError,
                 appearanceModel,
             }
         );
@@ -1981,8 +2299,51 @@ export function generateAutoLayers(
         transitionOpacity: optimizerOptions?.transitionOpacity,
         compressionRatio,
         preserveSeparation: optimizerOptions?.preserveSeparation,
+        separationMaxDeltaE: optimizerOptions?.separationMaxDeltaE,
+        failOnSeparationError: optimizerOptions?.failOnSeparationError,
         appearanceModel,
     });
+    let colorSeparation: ColorSeparationReport | undefined;
+    if (optimizerOptions?.preserveSeparation) {
+        const sourceTargets = buildOptimizerImageTargets(imageSwatches);
+        const palette = finalStack.palette.map((entry) => ({
+            height: entry.height,
+            lab: {
+                L: entry.predictedLab[0],
+                a: entry.predictedLab[1],
+                b: entry.predictedLab[2],
+            },
+            rgb: {
+                r: entry.predictedColor.rgb[0],
+                g: entry.predictedColor.rgb[1],
+                b: entry.predictedColor.rgb[2],
+            },
+            exactAnchorId: entry.exactAnchorId,
+            exactAnchorTargetLab: entry.exactAnchorTargetLab
+                ? {
+                      L: entry.exactAnchorTargetLab[0],
+                      a: entry.exactAnchorTargetLab[1],
+                      b: entry.exactAnchorTargetLab[2],
+                  }
+                : undefined,
+        }));
+        colorSeparation = mapTargetsWithSeparation(
+            palette,
+            sourceTargets,
+            optimizerOptions.separationMaxDeltaE
+        ).report;
+        if (!colorSeparation.satisfied && optimizerOptions.failOnSeparationError !== false) {
+            const maximumError = Number.isFinite(colorSeparation.maximumDeltaE)
+                ? colorSeparation.maximumDeltaE.toFixed(1)
+                : 'unknown';
+            throw new Error(
+                `Could not preserve all ${colorSeparation.requestedColorCount} image colors within ΔE ${colorSeparation.maximumAllowedDeltaE}. ` +
+                    `${colorSeparation.assignedDistinctColorCount} received distinct printable colors; ` +
+                    `${colorSeparation.unacceptableColorCount} assignments remain unacceptable (worst ΔE ${maximumError}). ` +
+                    'Raise Maximum color error if less accurate matches are acceptable, increase Max Height or the total repeat limit, add a filament, or reduce the 2D palette.'
+            );
+        }
+    }
 
     const result: AutoPaintResult = {
         layers,
@@ -1993,6 +2354,7 @@ export function generateAutoLayers(
         filamentOrder,
         transitionZones: printableStack.zones,
         finalStack,
+        ...(colorSeparation ? { colorSeparation } : {}),
         ...confidence,
     };
 
@@ -2005,6 +2367,7 @@ export function generateAutoLayers(
             iterations: optimizerResult.iterations,
             converged: optimizerResult.converged,
             cacheHit: optimizerResult.cacheHit || false,
+            extraRepeatCount: optimizerResult.extraRepeatCount ?? 0,
         };
     }
 

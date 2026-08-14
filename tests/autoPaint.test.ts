@@ -64,6 +64,189 @@ test('enhanced matching keeps every color from the processed 2D palette', async 
     assertAlmostEqual(targets[2].weight, 0.1);
 });
 
+test('color separation assigns colliding colors globally instead of greedily', async () => {
+    const { mapTargetsWithSeparation } = await loadAutoPaintModule();
+    const result = mapTargetsWithSeparation(
+        [
+            {
+                height: 0.16,
+                lab: { L: 52, a: 0, b: 0 },
+                rgb: { r: 124, g: 124, b: 124 },
+            },
+            {
+                height: 0.24,
+                lab: { L: 47, a: 0, b: 0 },
+                rgb: { r: 110, g: 110, b: 110 },
+            },
+        ],
+        [
+            { L: 50, a: 0, b: 0, weight: 0.9 },
+            { L: 54, a: 0, b: 0, weight: 0.1 },
+        ]
+    );
+
+    assert.equal(result.report.satisfied, true);
+    assert.equal(result.report.assignedDistinctColorCount, 2);
+    assert.deepEqual(
+        result.mappedTargets.map((mapping) => mapping.paletteIndex),
+        [1, 0],
+        'the dominant target must accept its second-best gray so both targets remain accurate'
+    );
+});
+
+test('color separation reports distant unique assignments as unsatisfied', async () => {
+    const { mapTargetsWithSeparation, SEPARATION_MAX_DELTA_E } = await loadAutoPaintModule();
+    const result = mapTargetsWithSeparation(
+        [
+            {
+                height: 0.16,
+                lab: { L: 50, a: 0, b: 0 },
+                rgb: { r: 119, g: 119, b: 119 },
+            },
+            {
+                height: 0.24,
+                lab: { L: 55, a: 0, b: 0 },
+                rgb: { r: 132, g: 132, b: 132 },
+            },
+        ],
+        [
+            { L: 50, a: 0, b: 0, weight: 0.5 },
+            { L: 50, a: 60, b: -50, weight: 0.5 },
+        ]
+    );
+
+    assert.equal(result.report.satisfied, false);
+    assert.equal(result.report.unacceptableColorCount, 1);
+    assert.ok(result.report.maximumDeltaE > SEPARATION_MAX_DELTA_E);
+});
+
+test('color separation honors a configurable maximum color error', async () => {
+    const { mapTargetsWithSeparation, normalizeSeparationMaxDeltaE } =
+        await loadAutoPaintModule();
+    const palette = [
+        {
+            height: 0.16,
+            lab: { L: 50, a: 0, b: 0 },
+            rgb: { r: 119, g: 119, b: 119 },
+        },
+        {
+            height: 0.24,
+            lab: { L: 55, a: 0, b: 0 },
+            rgb: { r: 132, g: 132, b: 132 },
+        },
+    ];
+    const targets = [
+        { L: 50, a: 0, b: 0, weight: 0.5 },
+        { L: 70, a: 0, b: 0, weight: 0.5 },
+    ];
+
+    const strict = mapTargetsWithSeparation(palette, targets, 6);
+    const permissive = mapTargetsWithSeparation(palette, targets, 20);
+
+    assert.equal(strict.report.satisfied, false);
+    assert.equal(strict.report.maximumAllowedDeltaE, 6);
+    assert.equal(permissive.report.satisfied, true);
+    assert.equal(permissive.report.maximumAllowedDeltaE, 20);
+    assert.equal(permissive.report.assignedDistinctColorCount, 2);
+    assert.equal(normalizeSeparationMaxDeltaE(undefined), 6);
+    assert.equal(normalizeSeparationMaxDeltaE(-5), 1);
+    assert.equal(normalizeSeparationMaxDeltaE(30), 30);
+    assert.equal(normalizeSeparationMaxDeltaE(200), 100);
+    assert.equal(normalizeSeparationMaxDeltaE(8.64), 8.6);
+    assert.equal(normalizeSeparationMaxDeltaE(27.2), 27.2);
+});
+
+test('color separation refuses to build when distinct acceptable matches are impossible', async () => {
+    const { generateAutoLayers } = await loadAutoPaintModule();
+
+    assert.throws(
+        () =>
+            generateAutoLayers(
+                [{ id: 'black', color: '#000000', td: 1 }],
+                [
+                    { hex: '#000000', count: 1 },
+                    { hex: '#ffffff', count: 1 },
+                ],
+                0.08,
+                0.16,
+                1,
+                true,
+                false,
+                {
+                    algorithm: 'exhaustive',
+                    preserveSeparation: true,
+                    maxExtraRepeats: 0,
+                    cachingEnabled: false,
+                }
+            ),
+        /Could not preserve all 2 image colors within ΔE 6/
+    );
+});
+
+test('color separation can keep the build and fall back only missed colors', async () => {
+    const { generateAutoLayers } = await loadAutoPaintModule();
+    const result = generateAutoLayers(
+        [{ id: 'black', color: '#000000', td: 1 }],
+        [
+            { hex: '#000000', count: 1 },
+            { hex: '#ffffff', count: 1 },
+        ],
+        0.08,
+        0.16,
+        1,
+        true,
+        false,
+        {
+            algorithm: 'exhaustive',
+            preserveSeparation: true,
+            separationMaxDeltaE: 6,
+            failOnSeparationError: false,
+            maxExtraRepeats: 0,
+            cachingEnabled: false,
+        }
+    );
+
+    assert.equal(result.colorSeparation?.satisfied, false);
+    assert.equal(result.colorSeparation?.assignedDistinctColorCount, 1);
+    assert.equal(result.colorSeparation?.unacceptableColorCount, 1);
+    assert.equal(result.finalStack.settings.failOnSeparationError, false);
+    assert.equal(result.finalStack.targetMappings.length, 2);
+    assert.equal(
+        new Set(result.finalStack.targetMappings.map((mapping) => mapping.paletteIndex)).size,
+        1,
+        'the missed white target should fall back to the nearest available black prefix'
+    );
+});
+
+test('color separation returns a verified report without spending the repeat allowance', async () => {
+    const { generateAutoLayers } = await loadAutoPaintModule();
+    const result = generateAutoLayers(
+        [
+            { id: 'black', color: '#000000', td: 1 },
+            { id: 'white', color: '#ffffff', td: 1 },
+        ],
+        [{ hex: '#000000', count: 1 }],
+        0.08,
+        0.16,
+        1,
+        true,
+        true,
+        {
+            algorithm: 'exact',
+            preserveSeparation: true,
+            separationMaxDeltaE: 12,
+            maxExtraRepeats: 4,
+            cachingEnabled: false,
+        }
+    );
+
+    assert.equal(result.colorSeparation?.satisfied, true);
+    assert.equal(result.colorSeparation?.maximumAllowedDeltaE, 12);
+    assert.equal(result.colorSeparation?.assignedDistinctColorCount, 1);
+    assert.equal(result.optimizerMetadata?.extraRepeatCount, 0);
+    assert.equal(result.finalStack.settings.separationMaxDeltaE, 12);
+});
+
 test('Dead-on palette anchors win over an earlier uncalibrated color tie', async () => {
     const { mapTargetsToPrintablePalette } = await loadAutoPaintModule();
     const target = { L: 40, a: 12, b: -18, weight: 1 };

@@ -223,6 +223,18 @@ test('cache keys include all weighted clusters and optimizer tuning', async () =
     );
     assert.equal(getOptimizerCacheStats().size, 5);
 
+    const changedSeparationThreshold = optimizeFilamentOrder(
+        filaments,
+        { ...manyClusters, preserveSeparation: true },
+        { ...options, separationMaxDeltaE: 12 }
+    );
+    assert.equal(
+        changedSeparationThreshold.cacheHit,
+        undefined,
+        'a changed separation threshold must miss cache'
+    );
+    assert.equal(getOptimizerCacheStats().size, 6);
+
     const appearanceModel = {
         schemaVersion: 1 as const,
         modelVersion: 'lab-rank-global-v4' as const,
@@ -262,7 +274,7 @@ test('cache keys include all weighted clusters and optimizer tuning', async () =
         'a changed appearance model must miss cache'
     );
     assert.equal(cachedAppearance.cacheHit, true);
-    assert.equal(getOptimizerCacheStats().size, 6);
+    assert.equal(getOptimizerCacheStats().size, 7);
 });
 
 test('cache keys distinguish active and inactive calibrated swatch colors', async () => {
@@ -490,6 +502,39 @@ test('maxExtraRepeats supports the full user-facing repeat-limit range', async (
             assert.equal(new Set(ids).size, ids.length, 'Off must prohibit all repeated filaments');
         }
     }
+});
+
+test('color separation does not add repeated filament runs when the base sequence is sufficient', async () => {
+    const { optimizeFilamentOrder } = await loadOptimizerModule();
+    const progress: number[] = [];
+    const result = optimizeFilamentOrder(
+        filaments,
+        {
+            imageColors: [{ L: 5, a: 0, b: 0, weight: 1 }],
+            layerHeight: 0.08,
+            firstLayerHeight: 0.16,
+        },
+        {
+            algorithm: 'exact',
+            preserveSeparation: true,
+            maxExtraRepeats: 4,
+            seed: 20260813,
+            cachingEnabled: false,
+            onProgress: (iteration, total) => progress.push(total > 0 ? iteration / total : 0),
+        }
+    );
+
+    assert.equal(result.separation?.satisfied, true);
+    assert.equal(result.extraRepeatCount, 0, 'the no-repeat tier must be accepted first');
+    assert.equal(
+        new Set(result.order.map((filament) => filament.id)).size,
+        result.order.length,
+        'a successful base sequence must not contain repeated filament runs'
+    );
+    assert.ok(
+        Math.max(...progress.filter((value) => value < 1)) >= 0.49,
+        'the primary no-repeat search should occupy a visible portion of staged progress'
+    );
 });
 
 test('fast uses a narrow beam while explicit exhaustive remains exact', async () => {

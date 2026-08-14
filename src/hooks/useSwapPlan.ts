@@ -69,6 +69,9 @@ export function useSwapPlan({
             return plan;
         }
 
+        // Never reinterpret missing Auto-paint output as a manual stack.
+        if (paintMode === 'autopaint') return [] as SwapEntry[];
+
         // Standard mode: Build cumulative slice heights
         const cumulativeHeights: number[] = [];
         let run = 0;

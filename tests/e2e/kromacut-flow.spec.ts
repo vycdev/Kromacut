@@ -279,14 +279,13 @@ async function runFlow(
             });
 
             await setSwitch(page, 'autopaint-enhanced-color-match', true);
-            await page.getByRole('combobox', { name: 'Extra repeated swaps' }).click();
-            await page.getByRole('option', { name: '2 extra swaps', exact: true }).click();
+            await page.getByRole('combobox', { name: 'Total repeat limit' }).click();
+            await page
+                .getByRole('option', { name: 'Up to 2 extra appearances', exact: true })
+                .click();
             await setSwitch(page, 'autopaint-height-dithering', true);
 
-            await waitForAutoPaintIdle(
-                page,
-                profile.colorCount >= 8 ? 3 * 60 * 1000 : 90 * 1000
-            );
+            await waitForAutoPaintIdle(page, profile.colorCount >= 8 ? 3 * 60 * 1000 : 90 * 1000);
 
             const buildState = await page.evaluate(() => {
                 const hook = (
@@ -899,10 +898,7 @@ function summarizeMemory(samples: MemorySample[]): MemorySummary {
     };
 
     for (const sample of samples) {
-        summary.peakJsHeapUsedSize = maxDefined(
-            summary.peakJsHeapUsedSize,
-            sample.jsHeapUsedSize
-        );
+        summary.peakJsHeapUsedSize = maxDefined(summary.peakJsHeapUsedSize, sample.jsHeapUsedSize);
         summary.peakJsHeapTotalSize = maxDefined(
             summary.peakJsHeapTotalSize,
             sample.jsHeapTotalSize
@@ -922,9 +918,7 @@ function summarizeMemory(samples: MemorySample[]): MemorySummary {
         summary.jsHeapUsedSizeMiB = bytesToMiB(summary.peakJsHeapUsedSize);
     }
     if (summary.peakPerformanceUsedJSHeapSize !== undefined) {
-        summary.performanceUsedJSHeapSizeMiB = bytesToMiB(
-            summary.peakPerformanceUsedJSHeapSize
-        );
+        summary.performanceUsedJSHeapSizeMiB = bytesToMiB(summary.peakPerformanceUsedJSHeapSize);
     }
 
     return summary;

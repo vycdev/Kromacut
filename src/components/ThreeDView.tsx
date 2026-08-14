@@ -60,6 +60,7 @@ interface ThreeDViewProps {
     autoPaintFinalStack?: FinalPrintableStackSnapshot;
     enhancedColorMatch?: boolean; // Use color-distance mapping instead of luminance
     preserveSeparation?: boolean; // Assign each image color to a distinct printable color
+    separationMaxDeltaE?: number; // Maximum accepted ΔE00 for separated colors
     heightDithering?: boolean; // Stucki error diffusion on height map
     ditherLineWidth?: number; // Minimum dot size in mm for dithering
     smoothMeshing?: boolean; // Smooth connected boundaries using welded grid topology
@@ -365,6 +366,7 @@ export default function ThreeDView({
     autoPaintFinalStack,
     enhancedColorMatch = false,
     preserveSeparation = false,
+    separationMaxDeltaE,
     heightDithering = false,
     ditherLineWidth = 0.42,
     smoothMeshing = false,
@@ -777,6 +779,7 @@ export default function ThreeDView({
             autoPaintFinalStackFingerprint: autoPaintFinalStack?.fingerprint,
             enhancedColorMatch,
             preserveSeparation,
+            separationMaxDeltaE,
             heightDithering,
             ditherLineWidth,
             smoothMeshing,
@@ -1097,6 +1100,9 @@ export default function ThreeDView({
                             });
                             const mapped = mapTargetsToPrintablePalette(sepPalette, sepTargets, {
                                 preserveSeparation: true,
+                                separationMaxDeltaE:
+                                    autoPaintFinalStack?.settings.separationMaxDeltaE ??
+                                    separationMaxDeltaE,
                             });
                             mapped.forEach((m, i) => {
                                 separationHeights.set(
@@ -2144,6 +2150,7 @@ export default function ThreeDView({
         autoPaintFinalStack,
         enhancedColorMatch,
         preserveSeparation,
+        separationMaxDeltaE,
         heightDithering,
         ditherLineWidth,
         smoothMeshing,

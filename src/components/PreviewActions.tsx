@@ -53,6 +53,8 @@ export interface PreviewActionsProps {
     onExport3MF: () => Promise<void>;
     /** The currently built model is a Flat Paint slab — STL export is useless for it */
     flatPaintModel?: boolean;
+    /** No valid model exists for the selected 3D mode/settings. */
+    modelExportDisabled?: boolean;
     isOrtho?: boolean;
     onToggleCamera?: () => void;
     previewRenderMode?: PreviewRenderMode;
@@ -95,6 +97,7 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
     onExportStl,
     onExport3MF,
     flatPaintModel = false,
+    modelExportDisabled = false,
     isOrtho = false,
     onToggleCamera,
     previewRenderMode = 'shaded',
@@ -368,7 +371,7 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
                                     : 'Download 3D Model'
                             }
                             aria-label="Download 3D Model"
-                            disabled={!imageAvailable || exportingSTL}
+                            disabled={!imageAvailable || exportingSTL || modelExportDisabled}
                             className="bg-primary hover:bg-primary/80 text-primary-foreground disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             {exportingSTL ? (
@@ -386,7 +389,7 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
                                 variant="ghost"
                                 onClick={onExportStl}
                                 data-testid="download-stl"
-                                disabled={exportingSTL}
+                                disabled={exportingSTL || modelExportDisabled}
                                 className="justify-start gap-2 h-9 px-2 font-normal"
                             >
                                 <FileBox className="w-4 h-4 text-muted-foreground" />
@@ -397,7 +400,7 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
                             variant="ghost"
                             onClick={onExport3MF}
                             data-testid="download-3mf"
-                            disabled={exportingSTL}
+                            disabled={exportingSTL || modelExportDisabled}
                             className="justify-start gap-2 h-9 px-2 font-normal"
                         >
                             <FileType className="w-4 h-4 text-muted-foreground" />

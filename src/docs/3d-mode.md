@@ -88,8 +88,8 @@ Enable **Enhanced color matching** when filament order matters and you want Krom
 
 Optional controls appear with enhanced matching:
 
-- **Extra repeated swaps** chooses whether a filament may reappear, and lets you allow 2, 4, 6, 8, or 12 extra occurrences. More repeats can create useful blend paths but expand the search space.
-- **Preserve color separation** keeps distinct 2D image colors assigned to distinct printable colors when the stack has enough printable colors.
+- **Total repeat limit** sets one shared ceiling across the whole stack: Off, or up to 2, 4, 6, 8, or 12 extra filament appearances. Two repeats can mean two filaments appearing once more each, or one filament appearing twice more. Repeats can create useful blend paths but expand the search space.
+- **Preserve color separation** tries to give every distinct 2D image color its own printable surface color within the selected **Maximum color error**. The numeric field accepts ΔE00 1 to 100 and defaults to 6; raising it makes preserving every color more feasible, but permits less accurate matches. Kromacut solves these assignments globally so one dominant region cannot take the only good match from another color. It first searches at the selected optimizer effort without repeating a filament, then permits one additional filament occurrence at a time and stops at the first successful complexity level. **Fail build if any color is missed** is enabled by default and rejects a result that cannot satisfy every color. Turn it off to keep the result: colors that meet the threshold remain separately assigned, while only missed colors fall back to their nearest printable match and may merge.
 - **Transition detail** chooses the opacity endpoint for each physical color transition: Compact stops at 80% opacity, Detailed at 90%, and Maximum at 95%. Higher settings create taller stacks with more printable intermediate colors.
 - **Height dithering** uses printable height dots to smooth tonal transitions.
 - **Line width** should roughly match the printer line or nozzle width used for dither dots.
@@ -100,6 +100,8 @@ Preserve color separation and **Height dithering** are mutually exclusive. Turni
 Enhanced matching scores the palette that is already visible in 2D mode; it does not reduce that palette again. For detailed work, prepare the image in 2D first (for example, K-means with a weight of 128 and an Auto palette of 64 or 128 colors), then switch to Auto-paint. This keeps the 2D palette decision explicit, but more source colors make every optimizer tier slower.
 
 While Kromacut is optimizing a filament order, the panel shows an approximate completion percentage. Starting a new calculation cancels the older one, so the percentage always belongs to the current settings.
+
+The total repeat limit is a ceiling, not a target. With Preserve color separation enabled, the completed result reports whether any repeated appearances were actually needed and how many colors met the threshold. To resolve a strict separation failure, raise Maximum color error if less accurate matches are acceptable, increase Max Height or the repeat limit, add a suitable filament, reduce the processed 2D palette, or turn off **Fail build if any color is missed** to permit explicit nearest-color fallbacks. A rejected Auto-paint calculation cannot be built or exported and never falls back to the unrelated manual color-height stack; the preview may continue showing the previous valid build.
 
 When a filament has been calibrated, Auto-paint uses its measured red, green, and blue hiding distances for both transition colors and transition thickness. Uncalibrated filaments use per-channel values estimated from their color around the scalar HD. Calibration can therefore change the generated stack height and swap plan as well as the preview color, making the print model more faithful to the measured filament.
 
@@ -136,7 +138,7 @@ best result from the tier below for the same seed.
 **Exact base order** checks every possible no-repeat filament order. It checks 109,600
 orders at eight filaments and 986,409 at nine, so larger profiles can take a long time.
 The search stays in the background worker and you can start another search to cancel it.
-When **Extra repeated swaps** is above Off, Exact still proves the base order but treats
+When **Total repeat limit** is above Off, Exact still proves the base order but treats
 repeated occurrences as a separate refined search. Enhanced matching can omit filaments that do
 not improve the printable stack and add the selected number of non-adjacent repeated occurrences
 when they improve the blend path.

@@ -14,7 +14,10 @@ import type { Filament } from '../types';
 import type { AppearanceRankModelV1 } from '../types/appearance';
 import {
     buildAchievableColorPalette,
+    mapTargetsWithSeparation,
+    normalizeSeparationMaxDeltaE,
     scoreSequenceAgainstImage,
+    type ColorSeparationReport,
     type WeightedLab,
 } from './autoPaint';
 import { activeFrontlitCalibration, channelHds } from './calibration';
@@ -67,6 +70,10 @@ export interface OptimizerOptions {
     transitionOpacity?: number;
     /** Assign each image color to a distinct printable color (no collapse). */
     preserveSeparation?: boolean;
+    /** Maximum accepted ΔE00 for every separated printable color. */
+    separationMaxDeltaE?: number;
+    /** Reject the final build instead of allowing unmatched colors to fall back. */
+    failOnSeparationError?: boolean;
     seed?: number; // For deterministic results
     maxIterations?: number; // Algorithm-specific iteration limit
     temperature?: number; // Initial temperature for SA
@@ -86,6 +93,9 @@ export interface OptimizerResult {
     converged: boolean; // Whether algorithm converged
     cacheHit?: boolean; // Whether result came from cache
     resolvedAlgorithm?: string; // Actual algorithm used (after 'auto' resolution)
+    separation?: ColorSeparationReport;
+    /** Actual repeated occurrences beyond the first use of each filament. */
+    extraRepeatCount?: number;
 }
 
 export interface ScoringContext {
@@ -95,6 +105,7 @@ export interface ScoringContext {
     maxHeight?: number;
     transitionOpacity?: number;
     preserveSeparation?: boolean;
+    separationMaxDeltaE?: number;
     appearanceModel?: AppearanceRankModelV1;
 }
 
@@ -174,6 +185,8 @@ function tuningFingerprint(options: OptimizerOptions) {
         maxExtraRepeats: options.maxExtraRepeats ?? null,
         transitionOpacity: options.transitionOpacity ?? null,
         preserveSeparation: options.preserveSeparation ?? false,
+        separationMaxDeltaE: options.separationMaxDeltaE ?? null,
+        failOnSeparationError: options.failOnSeparationError ?? true,
         maxIterations: options.maxIterations ?? null,
         temperature: options.temperature ?? null,
         coolingRate: options.coolingRate ?? null,
@@ -274,6 +287,7 @@ export function createSequenceScorer(context: ScoringContext): (filaments: Filam
         }
         return scoreSequenceAgainstImage(palette, context.imageColors, {
             preserveSeparation: context.preserveSeparation,
+            separationMaxDeltaE: context.separationMaxDeltaE,
             exactAnchorTargets,
         });
     };
@@ -907,34 +921,6 @@ function optimizeDeep(
     );
 }
 
-/**
- * Exact base-order search. Repeated swaps remain a separate larger space, so
- * when they are enabled retain Deep's repeat-aware result alongside exact base
- * enumeration and its greedy repeat refinement.
- */
-function optimizeExactBase(
-    filaments: Filament[],
-    scoreSequence: SequenceScorer,
-    options: OptimizerOptions
-): OptimizerResult {
-    if (resolveMaxExtraRepeats(options) === 0) {
-        return optimizeExhaustive(filaments, scoreSequence, options);
-    }
-
-    const deep = optimizeDeep(filaments, scoreSequence, withProgressSpan(options, 0, 0.4));
-    const exact = optimizeExhaustive(filaments, scoreSequence, withProgressSpan(options, 0.4, 1));
-    const exactCandidate = { order: exact.order, score: exact.score };
-    const deepCandidate = { order: deep.order, score: deep.score };
-    const best = isBetterCandidate(deepCandidate, exactCandidate) ? deepCandidate : exactCandidate;
-
-    return {
-        order: best.order,
-        score: best.score,
-        iterations: deep.iterations + exact.iterations,
-        converged: true,
-    };
-}
-
 function resolveAlgorithm(
     requested: OptimizerAlgorithm,
     filamentCount: number
@@ -961,6 +947,104 @@ function resolveAlgorithm(
         case 'exact':
             return 'exact-base';
     }
+}
+
+function runResolvedOptimizer(
+    resolved: ResolvedOptimizerAlgorithm,
+    filaments: Filament[],
+    scoreSequence: SequenceScorer,
+    options: OptimizerOptions,
+    exactBase?: OptimizerResult
+): OptimizerResult {
+    switch (resolved) {
+        case 'exhaustive':
+            return optimizeExhaustive(filaments, scoreSequence, options);
+        case 'beam':
+            return optimizeBeamSearch(filaments, scoreSequence, options);
+        case 'simulated-annealing':
+            return optimizeSimulatedAnnealing(filaments, scoreSequence, options);
+        case 'narrow-beam':
+            return optimizeBeamSearch(filaments, scoreSequence, {
+                ...options,
+                beamWidth: options.beamWidth ?? FAST_BEAM_WIDTH,
+            });
+        case 'thorough-hybrid':
+            return optimizeHybrid(filaments, scoreSequence, options, THOROUGH_PLAN);
+        case 'deep-hybrid':
+            return optimizeDeep(filaments, scoreSequence, options);
+        case 'exact-base': {
+            const repeatLimit = resolveMaxExtraRepeats(options);
+            if (repeatLimit === 0) {
+                return optimizeExhaustive(filaments, scoreSequence, options);
+            }
+            if (!exactBase) {
+                // Preserve the established Exact behavior for ordinary enhanced
+                // matching: combine the complete base-order enumeration with
+                // Deep's wider repeat-placement search.
+                const deep = optimizeDeep(
+                    filaments,
+                    scoreSequence,
+                    withProgressSpan(options, 0, 0.4)
+                );
+                const exhaustive = optimizeExhaustive(
+                    filaments,
+                    scoreSequence,
+                    withProgressSpan(options, 0.4, 1)
+                );
+                const best = isBetterCandidate(deep, exhaustive) ? deep : exhaustive;
+                return {
+                    ...best,
+                    iterations: deep.iterations + exhaustive.iterations,
+                    converged: true,
+                };
+            }
+            // The no-repeat tier already enumerated every ordered base subset.
+            // For a later repeat tier, retain that exact baseline, try targeted
+            // insertions from it, and use Deep to explore alternate placements.
+            const expanded = expandWithRepeatedFilaments(
+                { order: exactBase.order, score: exactBase.score },
+                filaments,
+                scoreSequence,
+                repeatLimit
+            );
+            const deep = optimizeDeep(filaments, scoreSequence, options);
+            const expandedCandidate = expanded.best;
+            const deepCandidate = { order: deep.order, score: deep.score };
+            const best = isBetterCandidate(deepCandidate, expandedCandidate)
+                ? deepCandidate
+                : expandedCandidate;
+            return {
+                order: best.order,
+                score: best.score,
+                iterations: deep.iterations + expanded.iterations,
+                converged: true,
+            };
+        }
+    }
+}
+
+function sequenceSeparationReport(
+    order: Filament[],
+    context: ScoringContext
+): ColorSeparationReport {
+    const palette = buildAchievableColorPalette(
+        order,
+        context.layerHeight,
+        context.firstLayerHeight,
+        context.maxHeight,
+        context.transitionOpacity,
+        new Map<string, number>(),
+        context.appearanceModel
+    );
+    return mapTargetsWithSeparation(
+        palette,
+        context.imageColors,
+        context.separationMaxDeltaE
+    ).report;
+}
+
+function repeatedOccurrenceCount(order: readonly Filament[]): number {
+    return order.length - new Set(order.map((filament) => filament.id)).size;
 }
 
 // ============================================================================
@@ -990,8 +1074,15 @@ export function optimizeFilamentOrder(
     const scoringContext: ScoringContext = {
         ...context,
         preserveSeparation: opts.preserveSeparation ?? context.preserveSeparation ?? false,
+        separationMaxDeltaE:
+            opts.preserveSeparation ?? context.preserveSeparation
+                ? normalizeSeparationMaxDeltaE(
+                      opts.separationMaxDeltaE ?? context.separationMaxDeltaE
+                  )
+                : undefined,
     };
     opts.preserveSeparation = scoringContext.preserveSeparation;
+    opts.separationMaxDeltaE = scoringContext.separationMaxDeltaE;
 
     // Tiers share the same automatic seed so higher effort builds directly on
     // comparable deterministic search paths. The cache key still includes the
@@ -1014,34 +1105,56 @@ export function optimizeFilamentOrder(
         }
     }
 
-    let result: OptimizerResult;
     const scoreSequence = createSequenceScorer(scoringContext);
+    const requestedRepeats = resolveMaxExtraRepeats(opts);
+    let result: OptimizerResult;
 
-    switch (resolved) {
-        case 'exhaustive':
-            result = optimizeExhaustive(filaments, scoreSequence, opts);
-            break;
-        case 'beam':
-            result = optimizeBeamSearch(filaments, scoreSequence, opts);
-            break;
-        case 'simulated-annealing':
-            result = optimizeSimulatedAnnealing(filaments, scoreSequence, opts);
-            break;
-        case 'narrow-beam':
-            result = optimizeBeamSearch(filaments, scoreSequence, {
+    if (scoringContext.preserveSeparation && requestedRepeats > 0) {
+        let retained: OptimizerResult | undefined;
+        let exactBase: OptimizerResult | undefined;
+        let totalIterations = 0;
+        // Search physical complexity conservatively: completely search the
+        // selected effort tier without repeats, then permit one additional
+        // occurrence at a time and stop at the first valid separation.
+        for (let repeatLimit = 0; repeatLimit <= requestedRepeats; repeatLimit++) {
+            // This search may stop after any tier. Give the primary no-repeat
+            // tier half the bar, then split the remainder geometrically instead
+            // of making Exact appear stuck in 1/(repeat limit + 1) of the bar.
+            const progressStart = repeatLimit === 0 ? 0 : 1 - 0.5 ** repeatLimit;
+            const progressEnd = repeatLimit === requestedRepeats ? 1 : 1 - 0.5 ** (repeatLimit + 1);
+            const tierOptions: OptimizerOptions = {
                 ...opts,
-                beamWidth: opts.beamWidth ?? FAST_BEAM_WIDTH,
-            });
-            break;
-        case 'thorough-hybrid':
-            result = optimizeHybrid(filaments, scoreSequence, opts, THOROUGH_PLAN);
-            break;
-        case 'deep-hybrid':
-            result = optimizeDeep(filaments, scoreSequence, opts);
-            break;
-        case 'exact-base':
-            result = optimizeExactBase(filaments, scoreSequence, opts);
-            break;
+                allowRepeatedSwaps: repeatLimit > 0,
+                maxExtraRepeats: repeatLimit,
+                onProgress: opts.onProgress
+                    ? withProgressSpan(opts, progressStart, progressEnd).onProgress
+                    : undefined,
+            };
+            const candidate = runResolvedOptimizer(
+                resolved,
+                filaments,
+                scoreSequence,
+                tierOptions,
+                exactBase
+            );
+            totalIterations += candidate.iterations;
+            candidate.separation = sequenceSeparationReport(candidate.order, scoringContext);
+            candidate.extraRepeatCount = repeatedOccurrenceCount(candidate.order);
+            candidate.iterations = totalIterations;
+            if (!retained || isBetterCandidate(candidate, retained)) retained = candidate;
+            if (repeatLimit === 0 && resolved === 'exact-base') exactBase = candidate;
+            if (candidate.separation.satisfied) {
+                retained = candidate;
+                break;
+            }
+        }
+        result = retained!;
+    } else {
+        result = runResolvedOptimizer(resolved, filaments, scoreSequence, opts);
+        if (scoringContext.preserveSeparation) {
+            result.separation = sequenceSeparationReport(result.order, scoringContext);
+            result.extraRepeatCount = repeatedOccurrenceCount(result.order);
+        }
     }
 
     // Tag the result with the resolved algorithm

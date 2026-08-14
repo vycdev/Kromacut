@@ -24,7 +24,13 @@ import {
 } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { TabsContent } from '@/components/ui/tabs';
-import type { AutoPaintResult, TransitionZone } from '../lib/autoPaint';
+import {
+    MAX_SEPARATION_MAX_DELTA_E,
+    MIN_SEPARATION_MAX_DELTA_E,
+    normalizeSeparationMaxDeltaE,
+    type AutoPaintResult,
+    type TransitionZone,
+} from '../lib/autoPaint';
 import type {
     PaletteProofRecord,
     PaletteTargetResponse,
@@ -257,6 +263,10 @@ interface AutoPaintTabProps {
     setEnhancedColorMatch: (v: boolean) => void;
     preserveSeparation: boolean;
     setPreserveSeparation: (v: boolean) => void;
+    separationMaxDeltaE: number;
+    setSeparationMaxDeltaE: (v: number) => void;
+    failOnSeparationError: boolean;
+    setFailOnSeparationError: (v: boolean) => void;
     maxRepeatedSwaps: AutoPaintRepeatLimit;
     setMaxRepeatedSwaps: (v: AutoPaintRepeatLimit) => void;
     transitionOpacity: AutoPaintTransitionOpacity;
@@ -330,6 +340,10 @@ export default function AutoPaintTab({
     setEnhancedColorMatch,
     preserveSeparation,
     setPreserveSeparation,
+    separationMaxDeltaE,
+    setSeparationMaxDeltaE,
+    failOnSeparationError,
+    setFailOnSeparationError,
     maxRepeatedSwaps,
     setMaxRepeatedSwaps,
     transitionOpacity,
@@ -368,6 +382,12 @@ export default function AutoPaintTab({
     const [localDitherLineWidth, setLocalDitherLineWidth] = React.useState(
         ditherLineWidth.toString()
     );
+    const [localSeparationMaxDeltaE, setLocalSeparationMaxDeltaE] = React.useState(
+        separationMaxDeltaE.toString()
+    );
+    React.useEffect(() => {
+        setLocalSeparationMaxDeltaE(separationMaxDeltaE.toString());
+    }, [separationMaxDeltaE]);
     const [localOptimizerSeed, setLocalOptimizerSeed] = React.useState(
         optimizerSeed?.toString() ?? ''
     );
@@ -815,7 +835,16 @@ export default function AutoPaintTab({
                                 </div>
                             )}
                             {error && !isComputing && (
-                                <div className="text-[10px] text-destructive">{error}</div>
+                                <div
+                                    role="alert"
+                                    className="space-y-1 text-[10px] text-destructive"
+                                >
+                                    <p>{error}</p>
+                                    <p>
+                                        No new Auto-paint model was created. The preview may still
+                                        show the previous build.
+                                    </p>
+                                </div>
                             )}
                         </div>
                     )}
@@ -846,7 +875,7 @@ export default function AutoPaintTab({
                                         htmlFor="repeated-swaps"
                                         className="text-xs font-medium text-foreground whitespace-nowrap"
                                     >
-                                        Extra repeated swaps
+                                        Total repeat limit
                                     </Label>
                                     <Select
                                         value={maxRepeatedSwaps.toString()}
@@ -868,19 +897,19 @@ export default function AutoPaintTab({
                                                 Off
                                             </SelectItem>
                                             <SelectItem value="2" className="text-xs">
-                                                2 extra swaps
+                                                Up to 2 extra appearances
                                             </SelectItem>
                                             <SelectItem value="4" className="text-xs">
-                                                4 extra swaps
+                                                Up to 4 extra appearances
                                             </SelectItem>
                                             <SelectItem value="6" className="text-xs">
-                                                6 extra swaps
+                                                Up to 6 extra appearances
                                             </SelectItem>
                                             <SelectItem value="8" className="text-xs">
-                                                8 extra swaps
+                                                Up to 8 extra appearances
                                             </SelectItem>
                                             <SelectItem value="12" className="text-xs">
-                                                12 extra swaps
+                                                Up to 12 extra appearances
                                             </SelectItem>
                                         </SelectContent>
                                     </Select>
@@ -902,6 +931,95 @@ export default function AutoPaintTab({
                                         disabled={!enhancedColorMatch}
                                     />
                                 </div>
+                                {preserveSeparation && enhancedColorMatch && (
+                                    <div className="space-y-2 rounded-md border border-border/60 bg-background/40 px-2.5 py-2 text-[10px] text-muted-foreground">
+                                        <div className="flex items-center justify-between gap-3">
+                                            <Label
+                                                htmlFor="separation-max-delta-e"
+                                                className="text-[11px] font-medium text-foreground"
+                                            >
+                                                Maximum color error (ΔE)
+                                            </Label>
+                                            <NumberInput
+                                                id="separation-max-delta-e"
+                                                data-testid="autopaint-separation-max-delta-e"
+                                                aria-label="Maximum color error"
+                                                min={MIN_SEPARATION_MAX_DELTA_E}
+                                                max={MAX_SEPARATION_MAX_DELTA_E}
+                                                step={0.1}
+                                                inputMode="decimal"
+                                                value={localSeparationMaxDeltaE}
+                                                onChange={(event) =>
+                                                    setLocalSeparationMaxDeltaE(event.target.value)
+                                                }
+                                                onBlur={() => {
+                                                    const parsed = Number(
+                                                        localSeparationMaxDeltaE
+                                                    );
+                                                    const normalized =
+                                                        localSeparationMaxDeltaE.trim() === '' ||
+                                                        !Number.isFinite(parsed)
+                                                            ? separationMaxDeltaE
+                                                            : normalizeSeparationMaxDeltaE(parsed);
+                                                    setSeparationMaxDeltaE(normalized);
+                                                    setLocalSeparationMaxDeltaE(
+                                                        normalized.toString()
+                                                    );
+                                                }}
+                                                onKeyDown={(event) => {
+                                                    if (event.key === 'Enter') {
+                                                        event.currentTarget.blur();
+                                                    }
+                                                }}
+                                                className="h-7 w-20 text-right font-mono text-xs font-semibold"
+                                            />
+                                        </div>
+                                        <div className="flex items-center justify-between gap-3 border-t border-border/50 pt-2">
+                                            <Label
+                                                htmlFor="fail-on-separation-error"
+                                                className="text-[11px] font-medium text-foreground cursor-pointer"
+                                            >
+                                                Fail if any color is missed
+                                            </Label>
+                                            <Switch
+                                                id="fail-on-separation-error"
+                                                data-testid="autopaint-fail-on-separation-error"
+                                                checked={failOnSeparationError}
+                                                onCheckedChange={setFailOnSeparationError}
+                                            />
+                                        </div>
+                                        {autoPaintResult?.colorSeparation && (
+                                            <p
+                                                className={`font-medium ${
+                                                    autoPaintResult.colorSeparation.satisfied
+                                                        ? 'text-emerald-600 dark:text-emerald-400'
+                                                        : 'text-amber-600 dark:text-amber-400'
+                                                }`}
+                                            >
+                                                {
+                                                    autoPaintResult.colorSeparation
+                                                        .assignedDistinctColorCount
+                                                }
+                                                /
+                                                {
+                                                    autoPaintResult.colorSeparation
+                                                        .requestedColorCount
+                                                }{' '}
+                                                colors within threshold
+                                                {!autoPaintResult.colorSeparation.satisfied &&
+                                                    ` · ${autoPaintResult.colorSeparation.unacceptableColorCount} fell back`}
+                                                {' · worst ΔE '}
+                                                {autoPaintResult.colorSeparation.maximumDeltaE.toFixed(
+                                                    1
+                                                )}
+                                                {' · '}
+                                                {autoPaintResult.optimizerMetadata?.extraRepeatCount
+                                                    ? `${autoPaintResult.optimizerMetadata.extraRepeatCount} additional filament ${autoPaintResult.optimizerMetadata.extraRepeatCount === 1 ? 'run' : 'runs'} used`
+                                                    : 'no repeated filament runs needed'}
+                                            </p>
+                                        )}
+                                    </div>
+                                )}
                                 <div
                                     className={`flex items-center justify-between transition-opacity ${enhancedColorMatch ? 'opacity-100' : 'opacity-40 pointer-events-none'}`}
                                 >

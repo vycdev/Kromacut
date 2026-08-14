@@ -36,6 +36,7 @@ import { useProcessingState } from './hooks/useProcessingState';
 import { useBuildWarning } from './hooks/useBuildWarning';
 import { clampProgress } from './lib/progress';
 import { normalizeOptimizerTier } from './lib/optimizer';
+import { normalizeSeparationMaxDeltaE } from './lib/autoPaint';
 import ResizableSplitter from './components/ResizableSplitter';
 import { ControlsPanel } from './components/ControlsPanel';
 import { usePaletteManager } from './hooks/usePaletteManager';
@@ -56,10 +57,7 @@ import { appPath, markLaunched } from './lib/routes';
 import { isTauri } from '@tauri-apps/api/core';
 import { migrateLegacyFilamentTd, sanitizeProfileFilament } from './lib/profileManager';
 import PrintUnlockEffect from './components/PrintUnlockEffect';
-import {
-    getMultiPlateEnabled,
-    subscribeToMultiPlateEnabled,
-} from './lib/experimentalFeatures';
+import { getMultiPlateEnabled, subscribeToMultiPlateEnabled } from './lib/experimentalFeatures';
 import {
     AlertDialog,
     AlertDialogContent,
@@ -101,6 +99,8 @@ type AutoPaintPersisted = Pick<
     | 'regionWeightingMode'
     | 'enhancedColorMatch'
     | 'preserveSeparation'
+    | 'separationMaxDeltaE'
+    | 'failOnSeparationError'
     | 'allowRepeatedSwaps'
     | 'maxRepeatedSwaps'
     | 'transitionOpacity'
@@ -163,6 +163,8 @@ const loadAutoPaintPersisted = (): AutoPaintPersisted | null => {
             regionWeightingMode: parsed.regionWeightingMode,
             enhancedColorMatch: parsed.enhancedColorMatch ?? false,
             preserveSeparation: parsed.preserveSeparation ?? false,
+            separationMaxDeltaE: normalizeSeparationMaxDeltaE(parsed.separationMaxDeltaE),
+            failOnSeparationError: parsed.failOnSeparationError !== false,
             maxRepeatedSwaps: normalizeRepeatLimit(
                 parsed.maxRepeatedSwaps,
                 parsed.allowRepeatedSwaps
@@ -334,6 +336,7 @@ function App(): React.ReactElement | null {
     } = useBuildWarning({ imageSrc });
     const builtModelState = builtThreeDState ?? threeDState;
     const builtModelAutoPaint = builtModelState.paintMode === 'autopaint';
+    const builtModelValid = !builtModelAutoPaint || builtModelState.autoPaintResult !== undefined;
 
     // Hydrate threeDState once with persisted autopaint data
     const [autopaintHydrated] = useState(() => {
@@ -352,6 +355,10 @@ function App(): React.ReactElement | null {
                     autopaintHydrated.regionWeightingMode ?? prev.regionWeightingMode,
                 enhancedColorMatch: autopaintHydrated.enhancedColorMatch ?? prev.enhancedColorMatch,
                 preserveSeparation: autopaintHydrated.preserveSeparation ?? prev.preserveSeparation,
+                separationMaxDeltaE:
+                    autopaintHydrated.separationMaxDeltaE ?? prev.separationMaxDeltaE,
+                failOnSeparationError:
+                    autopaintHydrated.failOnSeparationError ?? prev.failOnSeparationError,
                 maxRepeatedSwaps: autopaintHydrated.maxRepeatedSwaps ?? prev.maxRepeatedSwaps,
                 transitionOpacity: autopaintHydrated.transitionOpacity ?? prev.transitionOpacity,
                 heightDithering: autopaintHydrated.heightDithering ?? prev.heightDithering,
@@ -374,6 +381,8 @@ function App(): React.ReactElement | null {
             regionWeightingMode: threeDState.regionWeightingMode,
             enhancedColorMatch: threeDState.enhancedColorMatch,
             preserveSeparation: threeDState.preserveSeparation,
+            separationMaxDeltaE: threeDState.separationMaxDeltaE,
+            failOnSeparationError: threeDState.failOnSeparationError,
             maxRepeatedSwaps: threeDState.maxRepeatedSwaps,
             transitionOpacity: threeDState.transitionOpacity,
             heightDithering: threeDState.heightDithering,
@@ -389,6 +398,8 @@ function App(): React.ReactElement | null {
         threeDState.regionWeightingMode,
         threeDState.enhancedColorMatch,
         threeDState.preserveSeparation,
+        threeDState.separationMaxDeltaE,
+        threeDState.failOnSeparationError,
         threeDState.maxRepeatedSwaps,
         threeDState.transitionOpacity,
         threeDState.heightDithering,
@@ -572,11 +583,7 @@ function App(): React.ReactElement | null {
     return (
         <>
             <div className="box-border text-inherit font-sans flex flex-col flex-1 min-w-0 max-w-full min-h-0 h-screen w-full">
-                <Header
-                    docsOpen={docsOpen}
-                    onBackToApp={backToApp}
-                    onOpenDocs={openDocs}
-                />
+                <Header docsOpen={docsOpen} onBackToApp={backToApp} onOpenDocs={openDocs} />
                 {docsOpen && (
                     <div className="flex flex-1 min-h-0 w-full">
                         <DocsPage />
@@ -805,7 +812,7 @@ function App(): React.ReactElement | null {
                                 ) : (
                                     <>
                                         <ThreeDView
-                                            imageSrc={imageSrc}
+                                            imageSrc={builtModelValid ? imageSrc : null}
                                             baseSliceHeight={0}
                                             layerHeight={builtModelState.layerHeight}
                                             slicerFirstLayerHeight={
@@ -833,6 +840,9 @@ function App(): React.ReactElement | null {
                                             }
                                             enhancedColorMatch={builtModelState.enhancedColorMatch}
                                             preserveSeparation={builtModelState.preserveSeparation}
+                                            separationMaxDeltaE={
+                                                builtModelState.separationMaxDeltaE
+                                            }
                                             heightDithering={builtModelState.heightDithering}
                                             ditherLineWidth={builtModelState.ditherLineWidth}
                                             smoothMeshing={builtModelState.smoothMeshing}
@@ -889,6 +899,7 @@ function App(): React.ReactElement | null {
                                     onExportStl={onExportStl}
                                     onExport3MF={onExport3MF}
                                     flatPaintModel={builtFlatPaint}
+                                    modelExportDisabled={!builtModelValid}
                                     isOrtho={isOrtho}
                                     previewRenderMode={previewRenderMode}
                                     onPreviewRenderModeChange={(next) => {
