@@ -37,7 +37,7 @@ const filaments: Filament[] = [
 function truthModel(): AppearanceEffectiveOpticsModelV1 {
     return {
         schemaVersion: 1,
-        modelVersion: 'matrix-effective-optics-v1',
+        modelVersion: 'matrix-effective-optics-v2',
         fingerprint: 'synthetic-truth',
         applied: true,
         gateReason: 'applied',
@@ -45,6 +45,9 @@ function truthModel(): AppearanceEffectiveOpticsModelV1 {
         sampleCount: 81,
         baselineMeanDeltaE: 0,
         fittedMeanDeltaE: 0,
+        crossValidationMeanDeltaE: 0,
+        crossValidationP90DeltaE: 0,
+        crossValidationSampleCount: 0,
         confidence: 1,
         filaments: [
             {
@@ -141,6 +144,10 @@ test('joint matrix fit improves predictions and moves every effective property t
 
     assert.equal(fitted.applied, true);
     assert.equal(fitted.sampleCount, 81);
+    assert.equal(fitted.crossValidationSampleCount, 81);
+    assert.ok(Number.isFinite(fitted.crossValidationMeanDeltaE));
+    assert.ok(fitted.crossValidationMeanDeltaE > 0);
+    assert.ok(fitted.crossValidationP90DeltaE >= fitted.crossValidationMeanDeltaE);
     assert.ok(
         fitted.fittedMeanDeltaE < fitted.baselineMeanDeltaE * 0.7,
         `${fitted.fittedMeanDeltaE} should materially improve ${fitted.baselineMeanDeltaE}`

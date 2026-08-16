@@ -150,8 +150,10 @@ when they improve the blend path.
 After Auto-paint computes a result, Kromacut can show:
 
 - **Transition Zones**, with height ranges and compressed-zone badges.
-- **Result Confidence**, including Calibration, Coverage, and Compression scores. The appearance row separately reports whether simulated colors are still estimated or use a proof-fitted correction, how many physical stacks were compared, and why a tentative fit was rejected.
+- **Result Confidence**, including Calibration, Coverage, and Compression scores. The appearance row separately reports whether simulated colors are still estimated or use a proof-fitted correction, how many physical stacks were compared, why a tentative fit was rejected, and the average and lowest confidence of the colors actually mapped into the image. It also counts whether those predictions are exact measurements, interpolations, fitted estimates, or pure simulation.
 - **Optimizer Performance**, including Algorithm, Quality Score, Iterations, Cache hit, and Converged.
+
+Prediction confidence is distinct from raw color error. Kromacut lowers it as a recipe moves away from physical measurements, nearby measured corrections disagree, or held-out predictions miss their photographed colors. Exact measurements start strongest, followed by local interpolation, fitted models, and unsupported simulation. Enhanced matching adds a bounded uncertainty cost, so a slightly less accurate but well-supported printable color can beat a speculative match. Preserve color separation still enforces its selected Maximum color error using raw ΔE00; uncertainty cannot make an out-of-limit color valid.
 
 Low confidence usually means you should calibrate filaments, add a missing filament color, or loosen a restrictive max height.
 

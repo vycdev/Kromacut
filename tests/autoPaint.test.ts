@@ -276,6 +276,46 @@ test('Dead-on palette anchors win over an earlier uncalibrated color tie', async
     assert.equal(mapped[0].projectedHeight, 0.32);
 });
 
+test('uncertainty makes a supported near-match beat a speculative exact-looking color', async () => {
+    const { mapTargetsToPrintablePalette, scoreSequenceAgainstImage } = await loadAutoPaintModule();
+    const target = { L: 50, a: 0, b: 0, weight: 1 };
+    const confidence = (
+        method: 'exact' | 'interpolated' | 'fitted' | 'simulated',
+        value: number
+    ) => ({
+        method,
+        confidence: value,
+        uncertainty: 1 - value,
+        nearestMeasuredDeltaE: method === 'simulated' ? null : 1,
+        nearestMeasuredRecipeDistance: method === 'simulated' ? null : 0.1,
+        distanceConfidence: method === 'simulated' ? 0 : 0.9,
+        agreementConfidence: method === 'simulated' ? 0 : 0.9,
+        crossValidationDeltaE: method === 'simulated' ? null : 2,
+        crossValidationConfidence: method === 'simulated' ? 0.15 : 0.85,
+        evidenceSampleCount: method === 'simulated' ? 0 : 8,
+    });
+    const speculative = {
+        height: 0.16,
+        lab: { L: 50, a: 0, b: 0 },
+        rgb: { r: 119, g: 119, b: 119 },
+        predictionConfidence: confidence('simulated', 0.1),
+    };
+    const supported = {
+        height: 0.24,
+        lab: { L: 51.5, a: 0, b: 0 },
+        rgb: { r: 123, g: 123, b: 123 },
+        predictionConfidence: confidence('interpolated', 0.95),
+    };
+
+    const mapped = mapTargetsToPrintablePalette([speculative, supported], [target]);
+    assert.equal(mapped[0].paletteIndex, 1);
+    assert.ok(
+        scoreSequenceAgainstImage([supported], [target]) <
+            scoreSequenceAgainstImage([speculative], [target]),
+        'the bounded uncertainty cost should outweigh a small raw ΔE advantage'
+    );
+});
+
 test('optimizer scoring penalizes dropping a Dead-on suffix for a calibrated target', async () => {
     const { scoreSequenceAgainstImage } = await loadAutoPaintModule();
     const target = { L: 40, a: 12, b: -18, weight: 1 };
@@ -1160,7 +1200,7 @@ test('matrix-fitted optics drive the same optimizer palette and final preview wh
     const baseline = generateAutoLayers(filaments, swatches, 0.08, 0.16);
     const effectiveOptics = {
         schemaVersion: 1 as const,
-        modelVersion: 'matrix-effective-optics-v1' as const,
+        modelVersion: 'matrix-effective-optics-v2' as const,
         fingerprint: 'effective-optics-preview-test',
         applied: true,
         gateReason: 'applied' as const,
@@ -1168,6 +1208,9 @@ test('matrix-fitted optics drive the same optimizer palette and final preview wh
         sampleCount: 64,
         baselineMeanDeltaE: 14,
         fittedMeanDeltaE: 4,
+        crossValidationMeanDeltaE: 5,
+        crossValidationP90DeltaE: 8,
+        crossValidationSampleCount: 64,
         confidence: 0.9,
         filaments: [
             {
@@ -1248,6 +1291,19 @@ test('matrix-fitted optics drive the same optimizer palette and final preview wh
         optimizerPalette.map((entry) => [entry.height, rgbToHex(entry.rgb)]),
         corrected.finalStack.palette.map((entry) => [entry.height, entry.predictedColor.hex]),
         'search and rendering must consume the same fitted physical model'
+    );
+    assert.deepEqual(
+        optimizerPalette.map((entry) => entry.predictionConfidence),
+        corrected.finalStack.palette.map((entry) => entry.predictionConfidence),
+        'search and rendering must also consume identical uncertainty diagnostics'
+    );
+    assert.ok(
+        corrected.finalStack.layers.every((layer) => layer.predictionConfidence),
+        'every generated layer color should carry prediction confidence'
+    );
+    assert.ok(
+        corrected.finalStack.targetMappings.every((mapping) => mapping.predictionConfidence),
+        'every mapped image color should retain the chosen printable confidence'
     );
     const physicalColors = new Map(filaments.map((filament) => [filament.id, filament.color]));
     assert.ok(

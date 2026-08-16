@@ -69,6 +69,17 @@ A completed matrix stores predicted and photographed sRGB colors beside the immu
 
 The compatible matrices also remain scattered empirical LUTs in predicted Lab and physical recipe space, so a newer sparse board does not erase recipes measured by an earlier board. Kromacut weights each board by reviewed alignment confidence, measured recipe coverage, recency, and robust agreement with recipes measured by at least two other boards. With only one or two observations of a recipe, agreement remains neutral because there is not enough evidence to identify an outlier. An exact fixed-depth layer recipe combines its photographed Lab observations directly. A missing recipe combines deterministic inverse-distance interpolations of nearby photographed Lab values, with physical layer order weighted toward the optically dominant top layers. Interpolation is allowed only inside each matrix's local predicted-Lab coverage and a bounded recipe neighborhood; otherwise the jointly fitted physical model is used. Outside compatible matrix evidence, that model falls back to the saved Beer-Lambert/HD priors. This avoids unsupported photo extrapolation while letting both optimizer scoring and the final preview share the same prediction. Dead-on Palette Proof anchors still take priority over matrix evidence, and matrix cells are observations rather than desired image targets, so printing a broad matrix does not make the optimizer chase every sampled color.
 
+## Prediction Uncertainty
+
+Every printable prefix receives a confidence alongside its predicted Lab color. The confidence keeps four inputs visible instead of collapsing them into unexplained certainty:
+
+- **Measurement distance:** predicted-color distance and physical-recipe distance to the nearest compatible measured recipe.
+- **Local agreement:** whether nearby samples describe a consistent correction from simulated to photographed color.
+- **Held-out error:** every matrix recipe is predicted once without using its own empirical sample, while the effective physical model is refitted in deterministic folds and evaluated on the omitted cells.
+- **Prediction method:** an exact physical observation starts with more support than interpolation, a fitted estimate, or pure Beer-Lambert simulation.
+
+The optimizer adds at most five ΔE-equivalent points for a wholly uncertain match. This is large enough for an empirically supported near-match to beat a speculative perfect-looking gray, but it remains bounded so evidence confidence cannot overwhelm major visible color error. Dead-on anchors keep their explicit priority, and Preserve color separation still judges feasibility against raw ΔE00 rather than the risk-adjusted cost. Optimizer palettes, final preview layers, and saved target mappings retain the same confidence object, preventing search and rendering from silently using different evidence assumptions.
+
 Photo calibration is inherently sensitive to the camera, exposure, glare, white balance, and viewing light. The camera-free wedge remains the preferred way to measure material HD. Use a Stack Matrix when you want broad empirical recipe colors under a controlled setup, and use Palette Proof when you care most about a few colors in one image.
 
 ## Per-Channel Hiding Distances

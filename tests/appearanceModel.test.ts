@@ -268,6 +268,87 @@ test('conflicting exact anchors prefer reviewed Palette Proof evidence over simu
     assert.deepEqual(resolved.lab, { L: 72, a: 30, b: -20 });
 });
 
+test('every prediction reports ordered exact, interpolated, fitted, or simulated confidence', async () => {
+    const { model } = await modules;
+    const identity = model.createIdentityAppearanceRankModel();
+    const sample = (
+        id: string,
+        recipeFilamentIds: readonly string[],
+        predictedLab: readonly [number, number, number],
+        measuredLab: readonly [number, number, number]
+    ) => ({
+        id,
+        sourceStackKey: `stack-${id}`,
+        recipeFilamentIds,
+        predictedLab,
+        measuredLab,
+        confidence: 0.9,
+        crossValidationDeltaE: 2,
+        exactAnchorId: `anchor-${id}`,
+    });
+    const empiricalLut = {
+        id: 'empirical-confidence',
+        sourceMatrixId: 'matrix-confidence',
+        observedAt: '2026-08-16T12:00:00.000Z',
+        layerHeight: 0.08,
+        stackLayerCount: 3,
+        backingFilamentId: 'foundation',
+        filamentIds: ['a', 'b'],
+        alignmentWeight: 0.9,
+        coverageWeight: 1,
+        recencyWeight: 1,
+        agreementWeight: 0.9,
+        matrixWeight: 0.9,
+        coverageRadius: 30,
+        crossValidationMeanDeltaE: 2,
+        crossValidationP90DeltaE: 3,
+        crossValidationSampleCount: 3,
+        samples: [
+            sample('bottom', ['b', 'a', 'a'], [49, 0, 0], [51, 0, 0]),
+            sample('middle', ['a', 'b', 'a'], [51, 0, 0], [53, 0, 0]),
+            sample('top', ['a', 'a', 'b'], [50, 1, 0], [52, 1, 0]),
+        ],
+    };
+    const withMatrix = { ...identity, empiricalLuts: [empiricalLut] };
+    const layers = (ids: readonly string[]) =>
+        ids.map((filamentId) => ({ filamentId, filamentColor: '#808080', thickness: 0.08 }));
+    const exact = model.resolveAppearanceRankModel(
+        { L: 49, a: 0, b: 0 },
+        withMatrix,
+        layers(['b', 'a', 'a'])
+    );
+    const interpolated = model.resolveAppearanceRankModel(
+        { L: 50, a: 0, b: 0 },
+        withMatrix,
+        layers(['a', 'a', 'a'])
+    );
+    const fitted = model.resolveAppearanceRankModel(
+        { L: 50, a: 0, b: 0 },
+        { ...identity, applied: true, gateReason: 'applied', confidence: 0.8, deltaL: 1 },
+        layers(['a', 'a', 'a'])
+    );
+    const simulated = model.resolveAppearanceRankModel(
+        { L: 50, a: 0, b: 0 },
+        identity,
+        layers(['a', 'a', 'a'])
+    );
+
+    assert.equal(exact.predictionConfidence.method, 'exact');
+    assert.equal(exact.predictionConfidence.nearestMeasuredDeltaE, 0);
+    assert.equal(interpolated.predictionConfidence.method, 'interpolated');
+    assert.ok((interpolated.predictionConfidence.nearestMeasuredDeltaE ?? Infinity) < 2);
+    assert.ok(interpolated.predictionConfidence.evidenceSampleCount >= 2);
+    assert.equal(interpolated.predictionConfidence.crossValidationDeltaE, 2);
+    assert.equal(fitted.predictionConfidence.method, 'fitted');
+    assert.equal(simulated.predictionConfidence.method, 'simulated');
+    assert.equal(simulated.predictionConfidence.nearestMeasuredDeltaE, null);
+    assert.ok(exact.predictionConfidence.confidence > interpolated.predictionConfidence.confidence);
+    assert.ok(
+        interpolated.predictionConfidence.confidence > fitted.predictionConfidence.confidence
+    );
+    assert.ok(fitted.predictionConfidence.confidence > simulated.predictionConfidence.confidence);
+});
+
 test('repeated nearby recipe losses reinforce one target-local uncertainty signal', async () => {
     const { model } = await modules;
     const identity = model.createIdentityAppearanceRankModel();
@@ -369,7 +450,7 @@ test('match quality participates in deterministic absolute color anchoring', asy
         context
     );
 
-    assert.equal(bestAvailable.modelVersion, 'lab-rank-local-v8');
+    assert.equal(bestAvailable.modelVersion, 'lab-rank-local-v9');
     assert.equal(bestAvailable.applied, true);
     assert.equal(close.applied, true);
     assert.equal(exact.applied, true);

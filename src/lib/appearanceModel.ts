@@ -6,6 +6,7 @@ import type {
     AppearanceEffectiveOpticsModelV1,
     AppearanceExactAnchorV1,
     AppearanceLocalEvidenceV1,
+    AppearancePredictionConfidenceV1,
     AppearanceRankModelV1,
 } from '../types/appearance';
 import { deltaE2000Lab, labToRgb, rgbToLab, type Lab, type Rgb } from './colorDifference';
@@ -51,7 +52,7 @@ interface RankObservation {
     matchQuality: PaletteTargetMatchQuality;
 }
 
-const MODEL_VERSION = 'lab-rank-local-v8' as const;
+const MODEL_VERSION = 'lab-rank-local-v9' as const;
 const SOFTMAX_TEMPERATURE = 5;
 const TIE_LOGIT_PENALTY = 0.5;
 const EXACT_MATCH_SIGMA = 2;
@@ -107,7 +108,7 @@ export function createIdentityAppearanceRankModel(
     return {
         schemaVersion: 1,
         modelVersion: MODEL_VERSION,
-        fingerprint: fingerprintJson('appearance-rank-model-v8', payload),
+        fingerprint: fingerprintJson('appearance-rank-model-v9', payload),
         contextFingerprint,
         applied: false,
         gateReason: 'insufficient-evidence',
@@ -851,6 +852,115 @@ function empiricalCoverageRadius(samples: readonly AppearanceEmpiricalLutSampleV
     );
 }
 
+function leaveOneOutEmpiricalError(
+    heldOut: AppearanceEmpiricalLutSampleV1,
+    heldOutIndex: number,
+    samples: readonly AppearanceEmpiricalLutSampleV1[],
+    coverageRadius: number
+): number {
+    const neighbors: Array<{
+        sample: AppearanceEmpiricalLutSampleV1;
+        recipeDistance: number;
+        predictedDistance: number;
+    }> = [];
+    for (let index = 0; index < samples.length; index++) {
+        if (index === heldOutIndex) continue;
+        const sample = samples[index];
+        const candidate = {
+            sample,
+            recipeDistance: recipeDistance(heldOut.recipeFilamentIds, sample.recipeFilamentIds),
+            predictedDistance: labTupleDistance(heldOut.predictedLab, sample.predictedLab),
+        };
+        if (candidate.recipeDistance > EMPIRICAL_MAX_RECIPE_DISTANCE) continue;
+        const insertion = neighbors.findIndex(
+            (neighbor) =>
+                candidate.predictedDistance < neighbor.predictedDistance ||
+                (candidate.predictedDistance === neighbor.predictedDistance &&
+                    (candidate.recipeDistance < neighbor.recipeDistance ||
+                        (candidate.recipeDistance === neighbor.recipeDistance &&
+                            candidate.sample.id < neighbor.sample.id)))
+        );
+        if (insertion < 0) neighbors.push(candidate);
+        else neighbors.splice(insertion, 0, candidate);
+        if (neighbors.length > EMPIRICAL_NEIGHBOR_COUNT) neighbors.pop();
+    }
+
+    let predicted: Lab = {
+        L: heldOut.predictedLab[0],
+        a: heldOut.predictedLab[1],
+        b: heldOut.predictedLab[2],
+    };
+    if (neighbors.length >= 2 && neighbors[0].predictedDistance <= coverageRadius) {
+        let totalWeight = 0;
+        let lightness = 0;
+        let a = 0;
+        let b = 0;
+        for (const neighbor of neighbors) {
+            const normalizedPredictedDistance =
+                neighbor.predictedDistance / Math.max(1, coverageRadius);
+            const combinedDistance = normalizedPredictedDistance + neighbor.recipeDistance * 2;
+            const weight = neighbor.sample.confidence / Math.max(0.05, combinedDistance) ** 2;
+            totalWeight += weight;
+            lightness += neighbor.sample.measuredLab[0] * weight;
+            a += neighbor.sample.measuredLab[1] * weight;
+            b += neighbor.sample.measuredLab[2] * weight;
+        }
+        if (Number.isFinite(totalWeight) && totalWeight > 0) {
+            predicted = rgbToLab(
+                labToRgb({
+                    L: lightness / totalWeight,
+                    a: a / totalWeight,
+                    b: b / totalWeight,
+                })
+            );
+        }
+    }
+
+    return deltaE2000Lab(predicted, {
+        L: heldOut.measuredLab[0],
+        a: heldOut.measuredLab[1],
+        b: heldOut.measuredLab[2],
+    });
+}
+
+function withEmpiricalCrossValidation(
+    samples: readonly AppearanceEmpiricalLutSampleV1[],
+    coverageRadius: number
+): {
+    samples: AppearanceEmpiricalLutSampleV1[];
+    meanDeltaE: number;
+    p90DeltaE: number;
+} {
+    const validated = samples.map((sample, index) => ({
+        ...sample,
+        crossValidationDeltaE: leaveOneOutEmpiricalError(sample, index, samples, coverageRadius),
+    }));
+    const totalWeight = validated.reduce((sum, sample) => sum + sample.confidence, 0);
+    const meanDeltaE =
+        totalWeight > 0
+            ? validated.reduce(
+                  (sum, sample) => sum + (sample.crossValidationDeltaE ?? 0) * sample.confidence,
+                  0
+              ) / totalWeight
+            : 0;
+    const ordered = [...validated].sort(
+        (left, right) =>
+            (left.crossValidationDeltaE ?? 0) - (right.crossValidationDeltaE ?? 0) ||
+            left.id.localeCompare(right.id)
+    );
+    const threshold = totalWeight * 0.9;
+    let cumulative = 0;
+    let p90DeltaE = ordered.at(-1)?.crossValidationDeltaE ?? 0;
+    for (const sample of ordered) {
+        cumulative += sample.confidence;
+        if (cumulative >= threshold) {
+            p90DeltaE = sample.crossValidationDeltaE ?? 0;
+            break;
+        }
+    }
+    return { samples: validated, meanDeltaE, p90DeltaE };
+}
+
 function collectEmpiricalLuts(
     appearance: AppearanceProfileV1 | undefined,
     context: AppearanceFitContext,
@@ -861,7 +971,7 @@ function collectEmpiricalLuts(
         const matrix = evidence.record;
         const backing = matrix.filaments[matrix.backingFilamentIndex];
         if (!backing) return [];
-        const samples = matrix.samples
+        const rawSamples = matrix.samples
             .filter((sample) => Boolean(sample.measuredColor))
             .map((sample): AppearanceEmpiricalLutSampleV1 => {
                 const effectivePrediction = effectiveOptics.applied
@@ -889,7 +999,9 @@ function collectEmpiricalLuts(
                 };
             })
             .sort((left, right) => left.id.localeCompare(right.id));
-        if (samples.length === 0) return [];
+        if (rawSamples.length === 0) return [];
+        const coverageRadius = empiricalCoverageRadius(rawSamples);
+        const crossValidation = withEmpiricalCrossValidation(rawSamples, coverageRadius);
         return [
             {
                 id: `empirical-lut:${matrix.id}`,
@@ -904,8 +1016,11 @@ function collectEmpiricalLuts(
                 recencyWeight: evidence.recencyWeight,
                 agreementWeight: evidence.agreementWeight,
                 matrixWeight: evidence.matrixWeight,
-                coverageRadius: empiricalCoverageRadius(samples),
-                samples,
+                coverageRadius,
+                crossValidationMeanDeltaE: crossValidation.meanDeltaE,
+                crossValidationP90DeltaE: crossValidation.p90DeltaE,
+                crossValidationSampleCount: crossValidation.samples.length,
+                samples: crossValidation.samples,
             },
         ];
     });
@@ -1198,7 +1313,7 @@ export function fitAppearanceRankModel(
     return {
         schemaVersion: 1,
         modelVersion: MODEL_VERSION,
-        fingerprint: fingerprintJson('appearance-rank-model-v8', fingerprintPayload),
+        fingerprint: fingerprintJson('appearance-rank-model-v9', fingerprintPayload),
         contextFingerprint,
         applied,
         gateReason,
@@ -1315,6 +1430,7 @@ interface IndexedEmpiricalNeighbor {
 interface EmpiricalLutIndex {
     exactByRecipe: Map<string, AppearanceEmpiricalLutSampleV1>;
     neighborsByRecipe: Map<string, IndexedEmpiricalNeighbor[]>;
+    nearestByRecipe: Map<string, IndexedEmpiricalNeighbor | undefined>;
 }
 
 const empiricalLutIndexCache = new WeakMap<AppearanceEmpiricalLutV1, EmpiricalLutIndex>();
@@ -1325,6 +1441,7 @@ function empiricalLutIndex(lut: AppearanceEmpiricalLutV1): EmpiricalLutIndex {
     const index = {
         exactByRecipe: new Map<string, AppearanceEmpiricalLutSampleV1>(),
         neighborsByRecipe: new Map<string, IndexedEmpiricalNeighbor[]>(),
+        nearestByRecipe: new Map<string, IndexedEmpiricalNeighbor | undefined>(),
     };
     for (const sample of lut.samples) {
         index.exactByRecipe.set(recipeKey(sample.recipeFilamentIds), sample);
@@ -1342,10 +1459,19 @@ function nearbyEmpiricalSamples(
     const cached = index.neighborsByRecipe.get(key);
     if (cached) return cached;
     const neighbors: IndexedEmpiricalNeighbor[] = [];
+    let nearest: IndexedEmpiricalNeighbor | undefined;
     for (const sample of lut.samples) {
         const distance = recipeDistance(recipe, sample.recipeFilamentIds);
-        if (distance > EMPIRICAL_MAX_RECIPE_DISTANCE) continue;
         const candidate = { sample, recipeDistance: distance };
+        if (
+            !nearest ||
+            candidate.recipeDistance < nearest.recipeDistance ||
+            (candidate.recipeDistance === nearest.recipeDistance &&
+                candidate.sample.id < nearest.sample.id)
+        ) {
+            nearest = candidate;
+        }
+        if (distance > EMPIRICAL_MAX_RECIPE_DISTANCE) continue;
         const insertion = neighbors.findIndex(
             (neighbor) =>
                 candidate.recipeDistance < neighbor.recipeDistance ||
@@ -1357,7 +1483,18 @@ function nearbyEmpiricalSamples(
         if (neighbors.length > EMPIRICAL_NEIGHBOR_COUNT) neighbors.pop();
     }
     index.neighborsByRecipe.set(key, neighbors);
+    index.nearestByRecipe.set(key, nearest);
     return neighbors;
+}
+
+function nearestEmpiricalSample(
+    lut: AppearanceEmpiricalLutV1,
+    recipe: readonly string[]
+): IndexedEmpiricalNeighbor | undefined {
+    const index = empiricalLutIndex(lut);
+    const key = recipeKey(recipe);
+    if (!index.nearestByRecipe.has(key)) nearbyEmpiricalSamples(lut, recipe);
+    return index.nearestByRecipe.get(key);
 }
 
 interface IndexedLocalEvidence {
@@ -1540,6 +1677,9 @@ export interface AppearanceLocalMatch {
     evidenceIds: readonly string[];
     correctionStrength: number;
     uncertainty: number;
+    nearestMeasuredDeltaE: number;
+    nearestMeasuredRecipeDistance: number;
+    agreement: number;
     preferences: readonly AppearanceLocalPreferenceMatch[];
 }
 
@@ -1572,6 +1712,7 @@ function resolveLocalEvidence(
     let correctionLightness = 0;
     let correctionA = 0;
     let correctionB = 0;
+    const correctionSamples: Array<{ lab: Lab; weight: number }> = [];
 
     for (const neighbor of neighbors) {
         const targetLab: Lab = {
@@ -1599,6 +1740,14 @@ function resolveLocalEvidence(
             correctionLightness += neighbor.evidence.correctionTargetLab[0] * weight;
             correctionA += neighbor.evidence.correctionTargetLab[1] * weight;
             correctionB += neighbor.evidence.correctionTargetLab[2] * weight;
+            correctionSamples.push({
+                lab: {
+                    L: neighbor.evidence.correctionTargetLab[0],
+                    a: neighbor.evidence.correctionTargetLab[1],
+                    b: neighbor.evidence.correctionTargetLab[2],
+                },
+                weight,
+            });
         }
     }
 
@@ -1618,6 +1767,26 @@ function resolveLocalEvidence(
             })
         );
     }
+    const correctionConsensus: Lab | undefined =
+        correctionMass > 0
+            ? {
+                  L: correctionLightness / correctionMass,
+                  a: correctionA / correctionMass,
+                  b: correctionB / correctionMass,
+              }
+            : undefined;
+    const correctionDisagreement = correctionConsensus
+        ? correctionSamples.reduce(
+              (sum, sample) => sum + deltaE2000Lab(sample.lab, correctionConsensus) * sample.weight,
+              0
+          ) / Math.max(Number.EPSILON, correctionMass)
+        : 8;
+    const agreement =
+        correctionSamples.length >= 2
+            ? Math.exp(-correctionDisagreement / 8)
+            : correctionSamples.length === 1
+              ? 0.65
+              : 0.5;
 
     const preferences = [...preferenceGroups.values()]
         .map(
@@ -1646,6 +1815,10 @@ function resolveLocalEvidence(
                 preferenceMass > 0
                     ? Math.min(1, positivePreferenceMass / Math.max(0.5, preferenceMass))
                     : 0,
+            nearestMeasuredDeltaE: Math.min(...neighbors.map((neighbor) => neighbor.colorDistance)),
+            nearestMeasuredRecipeDistance:
+                1 - Math.max(...neighbors.map((neighbor) => neighbor.recipeSimilarity)),
+            agreement,
             preferences,
         },
     };
@@ -1660,12 +1833,213 @@ export interface EmpiricalLutMatch {
     sampleIds: readonly string[];
     confidence: number;
     nearestPredictedDistance: number;
+    nearestMeasuredDeltaE: number;
+    nearestRecipeDistance: number;
+    agreement: number;
+    crossValidationDeltaE: number;
+    evidenceSampleCount: number;
 }
 
 interface EmpiricalResolution {
     lab: Lab;
     match: EmpiricalLutMatch;
     exactAnchorIds?: readonly string[];
+}
+
+interface NearestMeasuredEvidence {
+    predictedDistance: number;
+    deltaE: number;
+    recipeDistance: number;
+    agreement: number;
+    crossValidationDeltaE: number;
+    confidence: number;
+    sampleCount: number;
+}
+
+function nearestMeasuredEvidence(
+    base: Lab,
+    model: AppearanceRankModelV1,
+    prefixLayers: readonly AppearanceAnchorLayer[]
+): NearestMeasuredEvidence | undefined {
+    const baseTuple = [base.L, base.a, base.b] as const;
+    let best:
+        | (NearestMeasuredEvidence & {
+              normalizedDistance: number;
+              id: string;
+          })
+        | undefined;
+    for (const lut of model.empiricalLuts ?? []) {
+        const recipe = recipeWindow(lut, prefixLayers);
+        if (!recipe) continue;
+        const neighbor = nearestEmpiricalSample(lut, recipe);
+        if (!neighbor) continue;
+        const predictedDistance = labTupleDistance(baseTuple, neighbor.sample.predictedLab);
+        const neighborPredictedLab = {
+            L: neighbor.sample.predictedLab[0],
+            a: neighbor.sample.predictedLab[1],
+            b: neighbor.sample.predictedLab[2],
+        };
+        const normalizedDistance =
+            predictedDistance / Math.max(1, lut.coverageRadius) + neighbor.recipeDistance * 2;
+        const candidate = {
+            predictedDistance,
+            deltaE: deltaE2000Lab(base, neighborPredictedLab),
+            recipeDistance: neighbor.recipeDistance,
+            agreement: lut.agreementWeight,
+            crossValidationDeltaE:
+                neighbor.sample.crossValidationDeltaE ??
+                lut.crossValidationMeanDeltaE ??
+                model.effectiveOptics?.crossValidationMeanDeltaE ??
+                20,
+            confidence: neighbor.sample.confidence,
+            sampleCount: 1,
+            normalizedDistance,
+            id: neighbor.sample.id,
+        };
+        if (
+            !best ||
+            candidate.normalizedDistance < best.normalizedDistance ||
+            (candidate.normalizedDistance === best.normalizedDistance && candidate.id < best.id)
+        ) {
+            best = candidate;
+        }
+    }
+    if (!best) return undefined;
+    return best;
+}
+
+function clampConfidence(value: number): number {
+    return Math.max(0, Math.min(1, value));
+}
+
+function roundConfidenceMetric(value: number): number {
+    return Math.round(value * 1e6) / 1e6;
+}
+
+function predictionConfidence(
+    base: Lab,
+    model: AppearanceRankModelV1,
+    prefixLayers: readonly AppearanceAnchorLayer[] | undefined,
+    exactAnchor: AppearanceExactAnchorV1 | undefined,
+    empiricalMatch: EmpiricalLutMatch | undefined,
+    localMatch: AppearanceLocalMatch | undefined
+): AppearancePredictionConfidenceV1 {
+    const localCorrectionApplied = (localMatch?.correctionStrength ?? 0) > 0;
+    const method =
+        exactAnchor && !localCorrectionApplied
+            ? ('exact' as const)
+            : empiricalMatch && !localCorrectionApplied
+              ? empiricalMatch.kind === 'exact'
+                  ? ('exact' as const)
+                  : ('interpolated' as const)
+              : localCorrectionApplied || model.applied || model.effectiveOptics?.applied
+                ? ('fitted' as const)
+                : ('simulated' as const);
+    const nearest = prefixLayers ? nearestMeasuredEvidence(base, model, prefixLayers) : undefined;
+    const nearestMeasuredDeltaE =
+        method === 'exact'
+            ? 0
+            : Math.min(
+                  empiricalMatch?.nearestMeasuredDeltaE ?? Infinity,
+                  localMatch?.nearestMeasuredDeltaE ?? Infinity,
+                  nearest?.deltaE ?? Infinity
+              );
+    const nearestMeasuredRecipeDistance =
+        method === 'exact'
+            ? 0
+            : Math.min(
+                  empiricalMatch?.nearestRecipeDistance ?? Infinity,
+                  localMatch?.nearestMeasuredRecipeDistance ?? Infinity,
+                  nearest?.recipeDistance ?? Infinity
+              );
+    const finiteMeasuredDistance = Number.isFinite(nearestMeasuredDeltaE)
+        ? nearestMeasuredDeltaE
+        : null;
+    const finiteRecipeDistance = Number.isFinite(nearestMeasuredRecipeDistance)
+        ? nearestMeasuredRecipeDistance
+        : null;
+    const distanceConfidence =
+        method === 'exact'
+            ? 1
+            : finiteMeasuredDistance === null || finiteRecipeDistance === null
+              ? 0
+              : Math.exp(-finiteMeasuredDistance / 12) * Math.exp(-finiteRecipeDistance * 2.5);
+
+    const agreementCandidates = [
+        empiricalMatch?.agreement,
+        localCorrectionApplied ? localMatch?.agreement : undefined,
+        nearest?.agreement,
+    ].filter((value): value is number => value !== undefined && Number.isFinite(value));
+    const agreementConfidence =
+        method === 'exact' && agreementCandidates.length === 0
+            ? clampConfidence(exactAnchor?.confidence ?? 1)
+            : agreementCandidates.length > 0
+              ? agreementCandidates.reduce(
+                    (product, value) => product * clampConfidence(value),
+                    1
+                ) **
+                (1 / agreementCandidates.length)
+              : 0;
+
+    const crossValidationDeltaE =
+        empiricalMatch?.crossValidationDeltaE ??
+        nearest?.crossValidationDeltaE ??
+        (model.effectiveOptics?.crossValidationSampleCount
+            ? model.effectiveOptics.crossValidationMeanDeltaE
+            : null);
+    const crossValidationConfidence =
+        crossValidationDeltaE !== null
+            ? Math.exp(-crossValidationDeltaE / 12)
+            : method === 'exact'
+              ? 1
+              : 0.15;
+    const methodConfidence =
+        method === 'exact'
+            ? 0.98
+            : method === 'interpolated'
+              ? 0.82
+              : method === 'fitted'
+                ? 0.62
+                : 0.35;
+    const evidenceReliability = clampConfidence(
+        exactAnchor?.confidence ??
+            empiricalMatch?.confidence ??
+            (localCorrectionApplied
+                ? 0.35 + 0.65 * (localMatch?.correctionStrength ?? 0)
+                : model.effectiveOptics?.applied
+                  ? model.effectiveOptics.confidence
+                  : model.applied
+                    ? model.confidence
+                    : (nearest?.confidence ?? 0.35))
+    );
+    const componentScore =
+        methodConfidence * 0.35 +
+        distanceConfidence * 0.25 +
+        agreementConfidence * 0.2 +
+        crossValidationConfidence * 0.2;
+    const confidence = clampConfidence(componentScore * (0.65 + 0.35 * evidenceReliability));
+    const evidenceSampleCount = Math.max(
+        empiricalMatch?.evidenceSampleCount ?? 0,
+        localMatch?.evidenceIds.length ?? 0,
+        nearest?.sampleCount ?? 0,
+        exactAnchor ? 1 : 0
+    );
+
+    return {
+        method,
+        confidence: roundConfidenceMetric(confidence),
+        uncertainty: roundConfidenceMetric(1 - confidence),
+        nearestMeasuredDeltaE:
+            finiteMeasuredDistance === null ? null : roundConfidenceMetric(finiteMeasuredDistance),
+        nearestMeasuredRecipeDistance:
+            finiteRecipeDistance === null ? null : roundConfidenceMetric(finiteRecipeDistance),
+        distanceConfidence: roundConfidenceMetric(distanceConfidence),
+        agreementConfidence: roundConfidenceMetric(agreementConfidence),
+        crossValidationDeltaE:
+            crossValidationDeltaE === null ? null : roundConfidenceMetric(crossValidationDeltaE),
+        crossValidationConfidence: roundConfidenceMetric(crossValidationConfidence),
+        evidenceSampleCount,
+    };
 }
 
 function resolveEmpiricalLut(
@@ -1695,6 +2069,19 @@ function resolveEmpiricalLut(
                     sampleIds: [exact.id],
                     confidence: exact.confidence,
                     nearestPredictedDistance: labTupleDistance(baseTuple, exact.predictedLab),
+                    nearestMeasuredDeltaE: deltaE2000Lab(base, {
+                        L: exact.predictedLab[0],
+                        a: exact.predictedLab[1],
+                        b: exact.predictedLab[2],
+                    }),
+                    nearestRecipeDistance: 0,
+                    agreement: lut.agreementWeight,
+                    crossValidationDeltaE:
+                        exact.crossValidationDeltaE ??
+                        lut.crossValidationMeanDeltaE ??
+                        model.effectiveOptics?.crossValidationMeanDeltaE ??
+                        20,
+                    evidenceSampleCount: 1,
                 },
                 exactAnchorIds: [exact.exactAnchorId],
             });
@@ -1721,6 +2108,14 @@ function resolveEmpiricalLut(
         let a = 0;
         let b = 0;
         let weightedConfidence = 0;
+        let weightedCrossValidationError = 0;
+        let correctionLightness = 0;
+        let correctionA = 0;
+        let correctionB = 0;
+        const weightedNeighbors: Array<{
+            correction: readonly [number, number, number];
+            weight: number;
+        }> = [];
         for (const neighbor of neighbors) {
             const normalizedPredictedDistance =
                 neighbor.predictedDistance / Math.max(1, lut.coverageRadius);
@@ -1731,6 +2126,20 @@ function resolveEmpiricalLut(
             a += neighbor.sample.measuredLab[1] * weight;
             b += neighbor.sample.measuredLab[2] * weight;
             weightedConfidence += neighbor.sample.confidence * weight;
+            weightedCrossValidationError +=
+                (neighbor.sample.crossValidationDeltaE ??
+                    lut.crossValidationMeanDeltaE ??
+                    model.effectiveOptics?.crossValidationMeanDeltaE ??
+                    20) * weight;
+            const correction = [
+                neighbor.sample.measuredLab[0] - neighbor.sample.predictedLab[0],
+                neighbor.sample.measuredLab[1] - neighbor.sample.predictedLab[1],
+                neighbor.sample.measuredLab[2] - neighbor.sample.predictedLab[2],
+            ] as const;
+            correctionLightness += correction[0] * weight;
+            correctionA += correction[1] * weight;
+            correctionB += correction[2] * weight;
+            weightedNeighbors.push({ correction, weight });
         }
         if (!Number.isFinite(totalWeight) || totalWeight <= 0) continue;
         const interpolated = rgbToLab(
@@ -1740,6 +2149,24 @@ function resolveEmpiricalLut(
                 b: b / totalWeight,
             })
         );
+        const correctionConsensus = [
+            correctionLightness / totalWeight,
+            correctionA / totalWeight,
+            correctionB / totalWeight,
+        ] as const;
+        const correctionDisagreement =
+            weightedNeighbors.reduce(
+                (sum, neighbor) =>
+                    sum +
+                    Math.hypot(
+                        neighbor.correction[0] - correctionConsensus[0],
+                        neighbor.correction[1] - correctionConsensus[1],
+                        neighbor.correction[2] - correctionConsensus[2]
+                    ) *
+                        neighbor.weight,
+                0
+            ) / totalWeight;
+        const localAgreement = Math.exp(-correctionDisagreement / 8);
         resolutions.push({
             lab: interpolated,
             match: {
@@ -1751,6 +2178,21 @@ function resolveEmpiricalLut(
                     (weightedConfidence / totalWeight) *
                     Math.max(0, 1 - nearestPredictedDistance / lut.coverageRadius),
                 nearestPredictedDistance,
+                nearestMeasuredDeltaE: Math.min(
+                    ...neighbors.map((neighbor) =>
+                        deltaE2000Lab(base, {
+                            L: neighbor.sample.predictedLab[0],
+                            a: neighbor.sample.predictedLab[1],
+                            b: neighbor.sample.predictedLab[2],
+                        })
+                    )
+                ),
+                nearestRecipeDistance: Math.min(
+                    ...neighbors.map((neighbor) => neighbor.recipeDistance)
+                ),
+                agreement: Math.sqrt(Math.max(0, lut.agreementWeight * localAgreement)),
+                crossValidationDeltaE: weightedCrossValidationError / totalWeight,
+                evidenceSampleCount: neighbors.length,
             },
         });
     }
@@ -1785,6 +2227,17 @@ function resolveEmpiricalLut(
             b: b / totalWeight,
         })
     );
+    const contributorDisagreement =
+        contributors.reduce(
+            (sum, contributor) =>
+                sum + deltaE2000Lab(contributor.lab, blended) * contributor.match.confidence,
+            0
+        ) / totalWeight;
+    const meanAgreement =
+        contributors.reduce(
+            (sum, contributor) => sum + contributor.match.agreement * contributor.match.confidence,
+            0
+        ) / totalWeight;
     return {
         lab: blended,
         match: {
@@ -1800,6 +2253,25 @@ function resolveEmpiricalLut(
             nearestPredictedDistance: Math.min(
                 ...contributors.map((contributor) => contributor.match.nearestPredictedDistance)
             ),
+            nearestMeasuredDeltaE: Math.min(
+                ...contributors.map((contributor) => contributor.match.nearestMeasuredDeltaE)
+            ),
+            nearestRecipeDistance: Math.min(
+                ...contributors.map((contributor) => contributor.match.nearestRecipeDistance)
+            ),
+            agreement: Math.sqrt(
+                Math.max(0, meanAgreement * Math.exp(-contributorDisagreement / 8))
+            ),
+            crossValidationDeltaE:
+                contributors.reduce(
+                    (sum, contributor) =>
+                        sum +
+                        contributor.match.crossValidationDeltaE * contributor.match.confidence,
+                    0
+                ) / totalWeight,
+            evidenceSampleCount: new Set(
+                contributors.flatMap((contributor) => contributor.match.sampleIds)
+            ).size,
         },
         ...(exact.length > 0
             ? {
@@ -1815,6 +2287,7 @@ function resolveEmpiricalLut(
 
 export interface ResolvedAppearancePrediction {
     lab: Lab;
+    predictionConfidence: AppearancePredictionConfidenceV1;
     exactAnchor?: AppearanceExactAnchorV1;
     empiricalMatch?: EmpiricalLutMatch;
     localMatch?: AppearanceLocalMatch;
@@ -1847,6 +2320,14 @@ export function resolveAppearanceRankModel(
                 b: paletteProofAnchor.targetLab[2],
             },
             exactAnchor: paletteProofAnchor,
+            predictionConfidence: predictionConfidence(
+                base,
+                model,
+                prefixLayers,
+                paletteProofAnchor,
+                undefined,
+                undefined
+            ),
         };
     }
 
@@ -1891,6 +2372,14 @@ export function resolveAppearanceRankModel(
     if (!local) {
         return {
             lab: resolvedLab,
+            predictionConfidence: predictionConfidence(
+                base,
+                model,
+                prefixLayers,
+                exactAnchor,
+                empiricalMatch,
+                undefined
+            ),
             ...(exactAnchor ? { exactAnchor } : {}),
             ...(empiricalMatch ? { empiricalMatch } : {}),
         };
@@ -1905,6 +2394,14 @@ export function resolveAppearanceRankModel(
     }
     return {
         lab: local.lab,
+        predictionConfidence: predictionConfidence(
+            base,
+            model,
+            prefixLayers,
+            exactAnchor,
+            empiricalMatch,
+            local.match
+        ),
         ...(exactAnchor ? { exactAnchor } : {}),
         ...(empiricalMatch ? { empiricalMatch } : {}),
         localMatch: local.match,

@@ -58,6 +58,8 @@ export interface AppearanceEmpiricalLutSampleV1 {
     predictedLab: readonly [number, number, number];
     measuredLab: readonly [number, number, number];
     confidence: number;
+    /** Leave-one-out error of this recipe under the empirical resolver. */
+    crossValidationDeltaE?: number;
     exactAnchorId: string;
 }
 
@@ -81,6 +83,9 @@ export interface AppearanceEmpiricalLutV1 {
     matrixWeight: number;
     /** Local predicted-Lab radius that defines measured territory. */
     coverageRadius: number;
+    crossValidationMeanDeltaE?: number;
+    crossValidationP90DeltaE?: number;
+    crossValidationSampleCount?: number;
     samples: readonly AppearanceEmpiricalLutSampleV1[];
 }
 
@@ -106,7 +111,7 @@ export interface AppearanceSubstrateInteractionV1 {
 
 export interface AppearanceEffectiveOpticsModelV1 {
     schemaVersion: 1;
-    modelVersion: 'matrix-effective-optics-v1';
+    modelVersion: 'matrix-effective-optics-v2';
     fingerprint: string;
     applied: boolean;
     gateReason: 'applied' | 'no-compatible-matrix' | 'insufficient-samples' | 'no-improvement';
@@ -114,6 +119,10 @@ export interface AppearanceEffectiveOpticsModelV1 {
     sampleCount: number;
     baselineMeanDeltaE: number;
     fittedMeanDeltaE: number;
+    /** Deterministic K-fold held-out error for the fitted physical model. */
+    crossValidationMeanDeltaE: number;
+    crossValidationP90DeltaE: number;
+    crossValidationSampleCount: number;
     confidence: number;
     filaments: readonly AppearanceEffectiveFilamentOpticsV1[];
     substrateInteractions: readonly AppearanceSubstrateInteractionV1[];
@@ -121,7 +130,7 @@ export interface AppearanceEffectiveOpticsModelV1 {
 
 export interface AppearanceRankModelV1 {
     schemaVersion: 1;
-    modelVersion: 'lab-rank-local-v8';
+    modelVersion: 'lab-rank-local-v9';
     fingerprint: string;
     contextFingerprint: string;
     applied: boolean;
@@ -162,6 +171,22 @@ export type AppearanceSupportStatus =
     | 'fitted'
     | 'estimated';
 
+export type AppearancePredictionMethod = 'exact' | 'interpolated' | 'fitted' | 'simulated';
+
+/** Evidence-aware confidence attached to every newly generated predicted color. */
+export interface AppearancePredictionConfidenceV1 {
+    method: AppearancePredictionMethod;
+    confidence: number;
+    uncertainty: number;
+    nearestMeasuredDeltaE: number | null;
+    nearestMeasuredRecipeDistance: number | null;
+    distanceConfidence: number;
+    agreementConfidence: number;
+    crossValidationDeltaE: number | null;
+    crossValidationConfidence: number;
+    evidenceSampleCount: number;
+}
+
 export interface TargetSampleContext {
     geometryClass: AppearanceGeometryClass;
     interiorRadiusMm?: number;
@@ -184,6 +209,8 @@ export interface FinalStackLayerSnapshot {
     predictedColor: CanonicalSrgbColor;
     predictedLab: readonly [number, number, number];
     appearanceStatus: AppearanceSupportStatus;
+    /** Optional only for snapshots created before prediction confidence existed. */
+    predictionConfidence?: AppearancePredictionConfidenceV1;
     exactAnchorId?: string;
     exactAnchorTargetLab?: readonly [number, number, number];
     empiricalLutId?: string;
@@ -233,6 +260,8 @@ export interface FinalStackPaletteEntrySnapshot {
     predictedColor: CanonicalSrgbColor;
     predictedLab: readonly [number, number, number];
     appearanceStatus: AppearanceSupportStatus;
+    /** Optional only for snapshots created before prediction confidence existed. */
+    predictionConfidence?: AppearancePredictionConfidenceV1;
     exactAnchorId?: string;
     exactAnchorTargetLab?: readonly [number, number, number];
     empiricalLutId?: string;
@@ -254,6 +283,8 @@ export interface FinalStackTargetMappingSnapshot {
     projectedHeight: number;
     predictedColor: CanonicalSrgbColor;
     predictedLab: readonly [number, number, number];
+    /** Optional only for snapshots created before prediction confidence existed. */
+    predictionConfidence?: AppearancePredictionConfidenceV1;
     sampleContext: TargetSampleContext;
 }
 

@@ -77,9 +77,11 @@ interface ForwardStep {
     exponent: number;
 }
 
-const MODEL_VERSION = 'matrix-effective-optics-v1' as const;
+const MODEL_VERSION = 'matrix-effective-optics-v2' as const;
 const MIN_FIT_SAMPLES = 16;
 const FIT_ITERATIONS = 220;
+const CROSS_VALIDATION_FOLDS = 4;
+const CROSS_VALIDATION_ITERATIONS = 140;
 const HUBER_DELTA = 0.1;
 const HD_PRIOR_WEIGHT = 0.004;
 const COLOR_PRIOR_WEIGHT = 0.02;
@@ -125,6 +127,9 @@ function modelFingerprintPayload(
     sampleCount: number,
     baselineMeanDeltaE: number,
     fittedMeanDeltaE: number,
+    crossValidationMeanDeltaE: number,
+    crossValidationP90DeltaE: number,
+    crossValidationSampleCount: number,
     confidence: number,
     filaments: readonly AppearanceEffectiveFilamentOpticsV1[],
     substrateInteractions: readonly AppearanceSubstrateInteractionV1[]
@@ -137,6 +142,9 @@ function modelFingerprintPayload(
         sampleCount,
         baselineMeanDeltaE,
         fittedMeanDeltaE,
+        crossValidationMeanDeltaE,
+        crossValidationP90DeltaE,
+        crossValidationSampleCount,
         confidence,
         filaments,
         substrateInteractions,
@@ -150,6 +158,9 @@ function buildModel(
     sampleCount: number,
     baselineMeanDeltaE: number,
     fittedMeanDeltaE: number,
+    crossValidationMeanDeltaE: number,
+    crossValidationP90DeltaE: number,
+    crossValidationSampleCount: number,
     confidence: number,
     filaments: readonly AppearanceEffectiveFilamentOpticsV1[],
     substrateInteractions: readonly AppearanceSubstrateInteractionV1[]
@@ -161,13 +172,16 @@ function buildModel(
         sampleCount,
         baselineMeanDeltaE,
         fittedMeanDeltaE,
+        crossValidationMeanDeltaE,
+        crossValidationP90DeltaE,
+        crossValidationSampleCount,
         confidence,
         filaments,
         substrateInteractions
     );
     return {
         schemaVersion: 1,
-        fingerprint: fingerprintJson('matrix-effective-optics-v1', payload),
+        fingerprint: fingerprintJson('matrix-effective-optics-v2', payload),
         ...payload,
     };
 }
@@ -201,6 +215,9 @@ export function createPriorEffectiveOpticsModel(
         sampleCount,
         baselineMeanDeltaE,
         baselineMeanDeltaE,
+        baselineMeanDeltaE,
+        baselineMeanDeltaE,
+        0,
         0,
         properties,
         []
@@ -540,7 +557,8 @@ function optimize(
     observations: readonly FitObservation[],
     initial: FitState,
     priorHds: readonly (readonly [number, number, number])[],
-    priorColors: readonly (readonly [number, number, number])[]
+    priorColors: readonly (readonly [number, number, number])[],
+    iterations = FIT_ITERATIONS
 ): FitState {
     const state: FitState = {
         ...initial,
@@ -558,7 +576,7 @@ function optimize(
     ).objective;
     let staleIterations = 0;
 
-    for (let iteration = 1; iteration <= FIT_ITERATIONS; iteration++) {
+    for (let iteration = 1; iteration <= iterations; iteration++) {
         const { gradient } = objectiveAndGradient(observations, state, priorHds, priorColors, true);
         const learningRate = iteration > 180 ? 0.008 : iteration > 120 ? 0.018 : 0.04;
         const beta1Power = 1 - Math.pow(0.9, iteration);
@@ -621,6 +639,80 @@ function weightedMeanDeltaE(
     return totalWeight > 0 ? total / totalWeight : 0;
 }
 
+interface WeightedPredictionError {
+    value: number;
+    weight: number;
+}
+
+function predictionErrors(
+    observations: readonly FitObservation[],
+    state: FitState,
+    priorHds: readonly (readonly [number, number, number])[]
+): WeightedPredictionError[] {
+    return observations.map((observation) => {
+        const predictedRgb = toSrgb(predictLinear(observation, state, priorHds));
+        return {
+            value: deltaE2000(
+                [predictedRgb[0], predictedRgb[1], predictedRgb[2]],
+                observation.measuredRgb
+            ),
+            weight: observation.weight,
+        };
+    });
+}
+
+function weightedErrorSummary(errors: readonly WeightedPredictionError[]): {
+    mean: number;
+    p90: number;
+    sampleCount: number;
+} {
+    const totalWeight = errors.reduce((sum, error) => sum + error.weight, 0);
+    if (errors.length === 0 || totalWeight <= 0) return { mean: 0, p90: 0, sampleCount: 0 };
+    const mean = errors.reduce((sum, error) => sum + error.value * error.weight, 0) / totalWeight;
+    const ordered = [...errors].sort(
+        (left, right) => left.value - right.value || left.weight - right.weight
+    );
+    const threshold = totalWeight * 0.9;
+    let cumulative = 0;
+    let p90 = ordered.at(-1)?.value ?? 0;
+    for (const error of ordered) {
+        cumulative += error.weight;
+        if (cumulative >= threshold) {
+            p90 = error.value;
+            break;
+        }
+    }
+    return { mean, p90, sampleCount: errors.length };
+}
+
+/** Deterministic K-fold validation of the physical refit against held-out matrix cells. */
+function crossValidateFit(
+    observations: readonly FitObservation[],
+    initial: FitState,
+    priorHds: readonly (readonly [number, number, number])[],
+    priorColors: readonly (readonly [number, number, number])[]
+): { mean: number; p90: number; sampleCount: number } {
+    const foldCount = Math.min(
+        CROSS_VALIDATION_FOLDS,
+        Math.max(2, Math.floor(observations.length / 8))
+    );
+    const errors: WeightedPredictionError[] = [];
+    for (let fold = 0; fold < foldCount; fold++) {
+        const training = observations.filter((_, index) => index % foldCount !== fold);
+        const validation = observations.filter((_, index) => index % foldCount === fold);
+        if (training.length === 0 || validation.length === 0) continue;
+        const fitted = optimize(
+            training,
+            initial,
+            priorHds,
+            priorColors,
+            CROSS_VALIDATION_ITERATIONS
+        );
+        errors.push(...predictionErrors(validation, fitted, priorHds));
+    }
+    return weightedErrorSummary(errors);
+}
+
 export function fitEffectiveOpticsFromMatrix(
     input: EffectiveOpticsFitInput
 ): AppearanceEffectiveOpticsModelV1 {
@@ -669,6 +761,8 @@ export function fitEffectiveOpticsFromMatrix(
             baselineMeanDeltaE
         );
     }
+
+    const crossValidation = crossValidateFit(prepared.observations, initial, priorHds, priorColors);
 
     const { parameters, layout } = fitted;
     const filamentProperties = prepared.filaments.map(
@@ -719,8 +813,10 @@ export function fitEffectiveOpticsFromMatrix(
         1,
         prepared.observations.length / Math.max(32, prepared.filaments.length * 24)
     );
+    const crossValidationQuality = Math.exp(-crossValidation.mean / 18);
     const confidence = clamp(
-        sampleCoverage * (0.35 + 0.65 * Math.min(1, relativeImprovement / 0.35)),
+        sampleCoverage *
+            (0.2 + 0.45 * Math.min(1, relativeImprovement / 0.35) + 0.35 * crossValidationQuality),
         0,
         1
     );
@@ -731,6 +827,9 @@ export function fitEffectiveOpticsFromMatrix(
         prepared.observations.length,
         roundModelValue(baselineMeanDeltaE),
         roundModelValue(fittedMeanDeltaE),
+        roundModelValue(crossValidation.mean),
+        roundModelValue(crossValidation.p90),
+        crossValidation.sampleCount,
         roundModelValue(confidence),
         filamentProperties,
         interactions

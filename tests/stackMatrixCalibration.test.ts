@@ -598,6 +598,13 @@ test('completed Stack Matrix samples become measured anchors without global fit 
     assert.equal(fitted.exactAnchors.length, completed.samples.length);
     assert.equal(fitted.empiricalLuts.length, 1);
     assert.equal(fitted.empiricalLuts[0].samples.length, completed.samples.length);
+    assert.equal(fitted.empiricalLuts[0].crossValidationSampleCount, completed.samples.length);
+    assert.ok(Number.isFinite(fitted.empiricalLuts[0].crossValidationMeanDeltaE));
+    assert.ok(
+        fitted.empiricalLuts[0].samples.every((sample) =>
+            Number.isFinite(sample.crossValidationDeltaE)
+        )
+    );
     assert.ok(fitted.exactAnchors.every((anchor) => anchor.source === 'stack-matrix'));
     const anchor = fitted.exactAnchors[0];
     const resolved = model.resolveAppearanceRankModel(
@@ -607,6 +614,8 @@ test('completed Stack Matrix samples become measured anchors without global fit 
     );
     assert.equal(resolved.exactAnchor?.id, anchor.id);
     assert.deepEqual([resolved.lab.L, resolved.lab.a, resolved.lab.b], [...anchor.targetLab]);
+    assert.equal(resolved.predictionConfidence.method, 'exact');
+    assert.equal(resolved.predictionConfidence.nearestMeasuredDeltaE, 0);
 });
 
 test('all compatible Stack Matrix samples jointly refit physical optics without crossing process boundaries', async () => {
@@ -647,6 +656,7 @@ test('all compatible Stack Matrix samples jointly refit physical optics without 
     assert.equal(fitted.effectiveOptics?.applied, true);
     assert.equal(fitted.effectiveOptics?.matrixCount, 1);
     assert.equal(fitted.effectiveOptics?.sampleCount, planned.samples.length);
+    assert.equal(fitted.effectiveOptics?.crossValidationSampleCount, planned.samples.length);
     assert.ok(
         (fitted.effectiveOptics?.fittedMeanDeltaE ?? Infinity) <
             (fitted.effectiveOptics?.baselineMeanDeltaE ?? 0)

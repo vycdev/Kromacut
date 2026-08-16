@@ -95,6 +95,39 @@ function AppearanceModelStat({ result }: { result: AutoPaintResult }) {
                 (result.finalStack.palette[mapping.paletteIndex]?.localEvidenceIds?.length ?? 0) > 0
         )
         .reduce((sum, mapping) => sum + mapping.usageWeight, 0);
+    const mappedPredictionConfidence = result.finalStack.targetMappings
+        .map((mapping) => ({
+            confidence: mapping.predictionConfidence,
+            weight: mapping.usageWeight,
+        }))
+        .filter(
+            (
+                entry
+            ): entry is {
+                confidence: NonNullable<typeof entry.confidence>;
+                weight: number;
+            } => Boolean(entry.confidence)
+        );
+    const predictionWeight = mappedPredictionConfidence.reduce(
+        (sum, entry) => sum + entry.weight,
+        0
+    );
+    const averagePredictionConfidence =
+        predictionWeight > 0
+            ? mappedPredictionConfidence.reduce(
+                  (sum, entry) => sum + entry.confidence.confidence * entry.weight,
+                  0
+              ) / predictionWeight
+            : null;
+    const minimumPredictionConfidence =
+        mappedPredictionConfidence.length > 0
+            ? Math.min(...mappedPredictionConfidence.map((entry) => entry.confidence.confidence))
+            : null;
+    const predictionMethods = new Map<string, number>();
+    for (const entry of mappedPredictionConfidence) {
+        const method = entry.confidence.method;
+        predictionMethods.set(method, (predictionMethods.get(method) ?? 0) + 1);
+    }
     const evidenceNeeds = [
         model.trainingObservationCount < 8
             ? `${8 - model.trainingObservationCount} more training choices`
@@ -168,8 +201,27 @@ function AppearanceModelStat({ result }: { result: AutoPaintResult }) {
                         <>
                             {' / '}mean ΔE {effectiveOptics.baselineMeanDeltaE.toFixed(1)} →{' '}
                             {effectiveOptics.fittedMeanDeltaE.toFixed(1)}
+                            {effectiveOptics.crossValidationSampleCount > 0 && (
+                                <>
+                                    {' / '}held-out ΔE{' '}
+                                    {effectiveOptics.crossValidationMeanDeltaE.toFixed(1)}
+                                </>
+                            )}
                         </>
                     )}
+                </div>
+            )}
+            {averagePredictionConfidence !== null && minimumPredictionConfidence !== null && (
+                <div className="mt-0.5 text-muted-foreground">
+                    Prediction confidence {(averagePredictionConfidence * 100).toFixed(0)}% avg
+                    {' / '}
+                    {(minimumPredictionConfidence * 100).toFixed(0)}% lowest
+                    {[...predictionMethods.entries()].map(([method, count]) => (
+                        <span key={method}>
+                            {' / '}
+                            {count} {method}
+                        </span>
+                    ))}
                 </div>
             )}
             <div className="mt-0.5 text-muted-foreground">
