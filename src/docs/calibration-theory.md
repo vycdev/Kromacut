@@ -49,6 +49,16 @@ HD = −d* / log10(T*)
 
 Base contrast matters here: a black filament over a black base never differs from its rail by a full JND, so there is nothing to measure. The wizard detects this and assigns dark filaments a lighter base.
 
+## Palette Proof Evidence
+
+A Palette Proof compares real printed prefixes against colors from the current artwork. Kromacut keeps the physical layer recipe, its original HD prediction, the requested target color, and every answer. That lets one sheet provide two kinds of evidence without pretending every choice is an exact measurement.
+
+**Best available** supports the selected recipe and rejects the unselected alternatives near that target, but does not force the selected patch to equal the target color. **Close** adds a partial local color correction. **Dead on** adds the strongest correction and preserves the exact tested opaque suffix as a direct anchor. Every selected patch in a tie receives support. **None** rejects plausible candidates near the target without inventing a correction direction.
+
+These effects are local in both physical-recipe space and color space. Recent, optically dominant layers count most when Kromacut compares recipes; moving the same filament elsewhere in the recent stack is a weaker match. Evidence also fades as the simulated stack color or requested target moves away from the reviewed color. Several similar recipes that repeatedly lose near green targets therefore reinforce a local warning for nearby green stacks, while an unrelated red recipe is left alone.
+
+Close and Dead-on corrections feed the same predicted Lab colors used by optimizer scoring and the final preview. Support and rejection evidence add a bounded target-aware optimizer preference, so repeated evidence can break a close numerical tie without overriding actual color error or exact anchors. The broader global lightness/chroma fit remains separate and must still pass its held-out validation gate. Local evidence and Dead-on anchors can remain useful when that global fit is gated, and all derived parameters are rebuilt deterministically from the saved raw judgments.
+
 ## Stack Matrix Calibration
 
 The Stack Matrix is a LUT-style measurement rather than another HD solve. A recipe is a fixed number of real filament layers over one opaque foundation. For `N` selected filaments and `L` recipe layers there are `N^L` possible recipes. Kromacut prints all of them when they fit the selected board capacity. When they do not, it evaluates a deterministic pool distributed across the recipe-index space with the existing per-channel HD values, converts the predictions to Lab, keeps every pure-filament recipe, and fills the remaining cells with a farthest-color selection. The pool is bounded for very large spaces, avoiding an exhaustive `N^L` scan while retaining reproducible broad coverage. HD therefore decides which limited set covers the predicted gamut; the matrix does not estimate HD again.

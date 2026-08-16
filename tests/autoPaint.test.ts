@@ -302,6 +302,39 @@ test('optimizer scoring penalizes dropping a Dead-on suffix for a calibrated tar
     );
 });
 
+test('optimizer scoring applies Palette Proof preferences only near their reviewed target', async () => {
+    const { scoreSequenceAgainstImage } = await loadAutoPaintModule();
+    const target = { L: 50, a: -30, b: 10, weight: 1 };
+    const baseEntry = {
+        height: 0.16,
+        lab: { L: 50, a: -30, b: 10 },
+        rgb: { r: 80, g: 140, b: 100 },
+    };
+    const preference = {
+        targetLab: { L: 50, a: -30, b: 10 },
+        confidence: 1,
+        evidenceIds: ['green-proof'],
+    };
+    const supported = [{ ...baseEntry, localPreferences: [{ ...preference, preference: -0.8 }] }];
+    const neutral = [baseEntry];
+    const rejected = [{ ...baseEntry, localPreferences: [{ ...preference, preference: 0.8 }] }];
+
+    const supportedScore = scoreSequenceAgainstImage(supported, [target]);
+    const neutralScore = scoreSequenceAgainstImage(neutral, [target]);
+    const rejectedScore = scoreSequenceAgainstImage(rejected, [target]);
+    assert.ok(supportedScore < neutralScore);
+    assert.ok(rejectedScore > neutralScore);
+    assert.ok(rejectedScore - supportedScore > 5);
+
+    const farTarget = { L: 50, a: 60, b: -60, weight: 1 };
+    const farNeutralScore = scoreSequenceAgainstImage(neutral, [farTarget]);
+    const farRejectedScore = scoreSequenceAgainstImage(rejected, [farTarget]);
+    assert.ok(
+        Math.abs(farRejectedScore - farNeutralScore) < 0.001,
+        'local green evidence should not affect a distant target color'
+    );
+});
+
 test('transition thickness follows the selected Beer-Lambert opacity endpoint', async () => {
     const { calculateTransitionThickness, hexToRgb } = await loadAutoPaintModule();
     const layerHeight = 0.1;
@@ -1108,6 +1141,120 @@ test('a fitted appearance model changes preview colors without changing physical
     assert.notDeepEqual(
         autoPaintToSliceHeights(corrected, 0.08, 0.16).virtualSwatches,
         autoPaintToSliceHeights(baseline, 0.08, 0.16).virtualSwatches
+    );
+});
+
+test('a local Palette Proof correction changes optimizer and preview colors without changing layers', async () => {
+    const { autoPaintToSliceHeights, buildAchievableColorPalette, generateAutoLayers } =
+        await loadAutoPaintModule();
+    const filaments = [
+        { id: 'black', color: '#101010', td: 0.2 },
+        { id: 'green', color: '#178341', td: 0.35 },
+        { id: 'white', color: '#f4f4f4', td: 0.5 },
+    ];
+    const swatches = [
+        { hex: '#20352a', count: 20 },
+        { hex: '#788878', count: 40 },
+        { hex: '#e4e4e4', count: 10 },
+    ];
+    const baseline = generateAutoLayers(filaments, swatches, 0.08, 0.16);
+    const sourceLayer = baseline.finalStack.layers.at(-1)!;
+    const sourceIndex = sourceLayer.index;
+    const suffixLayers = baseline.finalStack.layers
+        .slice(Math.max(0, sourceIndex + 1 - 8), sourceIndex + 1)
+        .map((layer) => ({
+            filamentId: layer.filamentId,
+            filamentColor: layer.filamentColor,
+            thickness: layer.thickness,
+        }));
+    const targetLab = [
+        Math.min(95, sourceLayer.basePredictedLab[0] + 8),
+        sourceLayer.basePredictedLab[1] + 4,
+        sourceLayer.basePredictedLab[2] - 5,
+    ] as const;
+    const appearanceModel = {
+        ...baseline.finalStack.appearanceModel,
+        fingerprint: 'local-proof-preview-test',
+        localEvidence: [
+            {
+                id: 'local-green-close',
+                proofIds: ['proof-green'],
+                judgmentIds: ['judgment-green'],
+                sourceStackKey: sourceLayer.canonicalStackKey,
+                baseLab: sourceLayer.basePredictedLab,
+                targetLab,
+                suffixLayers,
+                observedAt: '2026-08-16T12:00:00.000Z',
+                winnerCount: 1,
+                loserCount: 0,
+                noneCount: 0,
+                tieWinnerCount: 0,
+                supportWeight: 0.8,
+                rejectionWeight: 0,
+                preference: -0.44,
+                confidence: 0.8,
+                correctionTargetLab: targetLab,
+                correctionStrength: 0.65,
+            },
+        ],
+    };
+    const corrected = generateAutoLayers(
+        filaments,
+        swatches,
+        0.08,
+        0.16,
+        undefined,
+        false,
+        false,
+        undefined,
+        appearanceModel
+    );
+
+    assert.deepEqual(corrected.layers, baseline.layers);
+    assert.deepEqual(
+        corrected.finalStack.layers.map((layer) => [
+            layer.filamentId,
+            layer.startHeight,
+            layer.endHeight,
+        ]),
+        baseline.finalStack.layers.map((layer) => [
+            layer.filamentId,
+            layer.startHeight,
+            layer.endHeight,
+        ])
+    );
+    assert.notDeepEqual(
+        corrected.finalStack.layers.map((layer) => layer.predictedColor),
+        baseline.finalStack.layers.map((layer) => layer.predictedColor)
+    );
+    assert.ok(
+        corrected.finalStack.layers.some(
+            (layer) =>
+                layer.appearanceStatus === 'locally-fitted' &&
+                layer.localEvidenceIds?.includes('local-green-close')
+        )
+    );
+    assert.notDeepEqual(
+        autoPaintToSliceHeights(corrected, 0.08, 0.16).virtualSwatches,
+        autoPaintToSliceHeights(baseline, 0.08, 0.16).virtualSwatches
+    );
+
+    const optimizerPalette = buildAchievableColorPalette(
+        corrected.filamentOrder.map((id) => filaments.find((filament) => filament.id === id)!),
+        0.08,
+        0.16,
+        undefined,
+        undefined,
+        undefined,
+        appearanceModel
+    );
+    assert.ok(
+        optimizerPalette.some(
+            (entry) =>
+                entry.localEvidenceIds?.includes('local-green-close') &&
+                entry.localPreferences?.some((preference) => preference.preference < 0)
+        ),
+        'the optimizer palette must consume the same local evidence as the preview'
     );
 });
 

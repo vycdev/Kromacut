@@ -24,6 +24,32 @@ export interface AppearanceExactAnchorV1 {
     confidence?: number;
 }
 
+export interface AppearanceLocalEvidenceV1 {
+    id: string;
+    proofIds: readonly string[];
+    judgmentIds: readonly string[];
+    sourceStackKey: string;
+    /** Simulated color of this physically tested recipe before appearance fitting. */
+    baseLab: readonly [number, number, number];
+    /** Desired proof color whose neighborhood this comparison describes. */
+    targetLab: readonly [number, number, number];
+    /** Recent bottom-to-top physical layers used for recipe-neighborhood matching. */
+    suffixLayers: readonly AppearanceAnchorLayer[];
+    observedAt: string;
+    winnerCount: number;
+    loserCount: number;
+    noneCount: number;
+    tieWinnerCount: number;
+    supportWeight: number;
+    rejectionWeight: number;
+    /** Signed local optimizer signal: negative supports this recipe, positive rejects it. */
+    preference: number;
+    confidence: number;
+    /** Close/Dead-on target estimate used to correct nearby recipes, when available. */
+    correctionTargetLab?: readonly [number, number, number];
+    correctionStrength: number;
+}
+
 export interface AppearanceEmpiricalLutSampleV1 {
     id: string;
     sourceStackKey: string;
@@ -60,7 +86,7 @@ export interface AppearanceEmpiricalLutV1 {
 
 export interface AppearanceRankModelV1 {
     schemaVersion: 1;
-    modelVersion: 'lab-rank-global-v6';
+    modelVersion: 'lab-rank-local-v7';
     fingerprint: string;
     contextFingerprint: string;
     applied: boolean;
@@ -86,6 +112,7 @@ export interface AppearanceRankModelV1 {
     sourceProofIds: readonly string[];
     comparedStackKeys: readonly string[];
     exactAnchors: readonly AppearanceExactAnchorV1[];
+    localEvidence: readonly AppearanceLocalEvidenceV1[];
     empiricalLuts: readonly AppearanceEmpiricalLutV1[];
 }
 
@@ -93,6 +120,7 @@ export type AppearanceGeometryClass = 'flat-interior' | 'edge-limited' | 'mixed'
 export type AppearanceSupportStatus =
     | 'anchored'
     | 'interpolated'
+    | 'locally-fitted'
     | 'compared'
     | 'fitted'
     | 'estimated';
@@ -123,6 +151,9 @@ export interface FinalStackLayerSnapshot {
     exactAnchorTargetLab?: readonly [number, number, number];
     empiricalLutId?: string;
     empiricalSampleIds?: readonly string[];
+    localEvidenceIds?: readonly string[];
+    localCorrectionStrength?: number;
+    localUncertainty?: number;
 }
 
 export interface FinalStackZoneSnapshot {
@@ -164,6 +195,9 @@ export interface FinalStackPaletteEntrySnapshot {
     exactAnchorTargetLab?: readonly [number, number, number];
     empiricalLutId?: string;
     empiricalSampleIds?: readonly string[];
+    localEvidenceIds?: readonly string[];
+    localCorrectionStrength?: number;
+    localUncertainty?: number;
 }
 
 export interface FinalStackTargetMappingSnapshot {

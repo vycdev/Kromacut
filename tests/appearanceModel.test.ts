@@ -6,7 +6,7 @@ import { createServer } from 'vite';
 import type { Filament } from '../src/types/index.ts';
 import type { CanonicalSrgbColor, FinalPrintableStackSnapshot } from '../src/types/appearance.ts';
 import type { PaletteTargetMatchQuality } from '../src/lib/appearanceProfile.ts';
-import { labToRgb, rgbToLab } from '../src/lib/colorDifference.ts';
+import { deltaE2000Lab, labToRgb, rgbToLab } from '../src/lib/colorDifference.ts';
 import { buildPaletteProofSnapshot } from './helpers/paletteProofFixture.ts';
 
 type AppearanceModelModule = typeof import('../src/lib/appearanceModel.ts');
@@ -268,6 +268,58 @@ test('conflicting exact anchors prefer reviewed Palette Proof evidence over simu
     assert.deepEqual(resolved.lab, { L: 72, a: 30, b: -20 });
 });
 
+test('repeated nearby recipe losses reinforce one target-local uncertainty signal', async () => {
+    const { model } = await modules;
+    const identity = model.createIdentityAppearanceRankModel();
+    const base = { L: 50, a: -30, b: 10 };
+    const targetLab = [50, -30, 10] as const;
+    const queryLayers = [
+        { filamentId: 'green', filamentColor: '#16834a', thickness: 0.08 },
+        { filamentId: 'green', filamentColor: '#16834a', thickness: 0.08 },
+        { filamentId: 'white', filamentColor: '#f4f4f4', thickness: 0.08 },
+    ];
+    const rejectedEvidence = (id: string, suffixLayers: typeof queryLayers) => ({
+        id,
+        proofIds: [`proof-${id}`],
+        judgmentIds: [`judgment-${id}`],
+        sourceStackKey: `stack-${id}`,
+        baseLab: [base.L, base.a, base.b] as const,
+        targetLab,
+        suffixLayers,
+        observedAt: '2026-08-16T12:00:00.000Z',
+        winnerCount: 0,
+        loserCount: 1,
+        noneCount: 0,
+        tieWinnerCount: 0,
+        supportWeight: 0,
+        rejectionWeight: 0.8,
+        preference: 0.44,
+        confidence: 0.7,
+        correctionStrength: 0,
+    });
+    const first = rejectedEvidence('green-loss-a', queryLayers);
+    const second = rejectedEvidence('green-loss-b', queryLayers.slice(1));
+    const single = model.resolveAppearanceRankModel(
+        base,
+        { ...identity, localEvidence: [first] },
+        queryLayers
+    );
+    const repeated = model.resolveAppearanceRankModel(
+        base,
+        { ...identity, localEvidence: [first, second] },
+        queryLayers
+    );
+
+    assert.ok(single.localMatch);
+    assert.ok(repeated.localMatch);
+    assert.ok(single.localMatch.preferences[0].preference > 0);
+    assert.ok(
+        repeated.localMatch.preferences[0].confidence > single.localMatch.preferences[0].confidence,
+        'consistent losses from similar green recipes should reinforce confidence'
+    );
+    assert.deepEqual(repeated.lab, base, 'rejection evidence must not invent a color correction');
+});
+
 test('appearance fit is deterministic and only applies after held-out improvement', async () => {
     const { model, profile } = await modules;
     const { fitAppearanceRankModel } = model;
@@ -317,7 +369,7 @@ test('match quality participates in deterministic absolute color anchoring', asy
         context
     );
 
-    assert.equal(bestAvailable.modelVersion, 'lab-rank-global-v6');
+    assert.equal(bestAvailable.modelVersion, 'lab-rank-local-v7');
     assert.equal(bestAvailable.applied, true);
     assert.equal(close.applied, true);
     assert.equal(exact.applied, true);
@@ -325,6 +377,99 @@ test('match quality participates in deterministic absolute color anchoring', asy
     assert.ok(exact.deltaL >= close.deltaL);
     assert.notEqual(bestAvailable.fingerprint, close.fingerprint);
     assert.notEqual(close.fingerprint, exact.fingerprint);
+
+    const bestWinner = bestAvailable.localEvidence.find((evidence) => evidence.winnerCount > 0)!;
+    const bestLoser = bestAvailable.localEvidence.find((evidence) => evidence.loserCount > 0)!;
+    assert.ok(bestWinner.preference < 0, 'Best available should locally support its winner');
+    assert.ok(bestLoser.preference > 0, 'Best available should locally reject its losers');
+    assert.equal(bestWinner.correctionStrength, 0, 'Best available is not an absolute color');
+
+    const closeWinner = close.localEvidence.find((evidence) => evidence.winnerCount > 0)!;
+    const exactWinner = exact.localEvidence.find((evidence) => evidence.winnerCount > 0)!;
+    assert.equal(closeWinner.correctionStrength, 0.65);
+    assert.equal(exactWinner.correctionStrength, 1);
+
+    const resolveEvidence = (
+        fitted: typeof bestAvailable,
+        evidence: (typeof fitted.localEvidence)[number],
+        perturbTopThickness = false
+    ) => {
+        const isolated = {
+            ...fitted,
+            applied: false,
+            gateReason: 'insufficient-evidence' as const,
+            deltaL: 0,
+            logChromaScale: 0,
+            localEvidence: [evidence],
+            empiricalLuts: [],
+        };
+        const base = { L: evidence.baseLab[0], a: evidence.baseLab[1], b: evidence.baseLab[2] };
+        const suffixLayers = evidence.suffixLayers.map((layer, index) =>
+            perturbTopThickness && index === evidence.suffixLayers.length - 1
+                ? { ...layer, thickness: layer.thickness + 0.001 }
+                : { ...layer }
+        );
+        return {
+            base,
+            noLocal: model.resolveAppearanceRankModel(
+                base,
+                { ...isolated, localEvidence: [] },
+                suffixLayers
+            ),
+            local: model.resolveAppearanceRankModel(base, isolated, suffixLayers),
+        };
+    };
+
+    const bestResolved = resolveEvidence(bestAvailable, bestWinner);
+    assert.deepEqual(bestResolved.local.lab, bestResolved.noLocal.lab);
+    assert.equal(bestResolved.local.localMatch?.correctionStrength, 0);
+    assert.ok(
+        bestResolved.local.localMatch?.preferences.some((preference) => preference.preference < 0)
+    );
+
+    const closeResolved = resolveEvidence(close, closeWinner);
+    const closeTarget = {
+        L: closeWinner.targetLab[0],
+        a: closeWinner.targetLab[1],
+        b: closeWinner.targetLab[2],
+    };
+    assert.ok(
+        deltaE2000Lab(closeResolved.local.lab, closeTarget) <
+            deltaE2000Lab(closeResolved.noLocal.lab, closeTarget),
+        'Close should pull nearby recipes toward the reviewed target'
+    );
+
+    const exactResolved = resolveEvidence(exact, exactWinner, true);
+    const exactTarget = {
+        L: exactWinner.targetLab[0],
+        a: exactWinner.targetLab[1],
+        b: exactWinner.targetLab[2],
+    };
+    assert.equal(exactResolved.local.exactAnchor, undefined, 'the perturbed recipe is not exact');
+    assert.ok(
+        deltaE2000Lab(exactResolved.local.lab, exactTarget) <
+            deltaE2000Lab(exactResolved.noLocal.lab, exactTarget),
+        'Dead-on should transfer a stronger correction to a nearby physical recipe'
+    );
+
+    const unrelated = model.resolveAppearanceRankModel(bestResolved.base, bestAvailable, [
+        { filamentId: 'unrelated', filamentColor: '#123456', thickness: 0.08 },
+    ]);
+    assert.equal(
+        unrelated.localMatch,
+        undefined,
+        'local evidence must not leak to unrelated recipes'
+    );
+    const unrelatedColor = model.resolveAppearanceRankModel(
+        { L: 5, a: 90, b: -90 },
+        bestAvailable,
+        bestWinner.suffixLayers
+    );
+    assert.equal(
+        unrelatedColor.localMatch,
+        undefined,
+        'local evidence must also decay outside the reviewed color neighborhood'
+    );
 });
 
 test('Dead-on evidence transfers through the complete opaque top run without pinning the foundation', async () => {
@@ -468,6 +613,24 @@ test('none answers add uncertainty but never direct the fitted correction', asyn
     assert.equal(model.noneCount, 30);
     assert.ok(model.comparedStackKeys.length >= 8);
     assert.ok(model.distinctStackCount >= 8);
+    assert.ok(model.localEvidence.length > 0);
+    assert.ok(
+        model.localEvidence.every(
+            (evidence) =>
+                evidence.noneCount > 0 &&
+                evidence.preference > 0 &&
+                evidence.correctionStrength === 0
+        ),
+        'None should add only local rejection evidence'
+    );
+    const rejected = model.localEvidence[0];
+    const resolved = modelModule.resolveAppearanceRankModel(
+        { L: rejected.baseLab[0], a: rejected.baseLab[1], b: rejected.baseLab[2] },
+        model,
+        rejected.suffixLayers
+    );
+    assert.ok(resolved.localMatch?.uncertainty && resolved.localMatch.uncertainty > 0);
+    assert.ok(resolved.localMatch?.preferences.some((preference) => preference.preference > 0));
 });
 
 test('appearance evidence does not transfer across a changed print process', async () => {
@@ -597,6 +760,35 @@ test('proof history preserves tied previous-best stacks as the continuation anch
     assert.deepEqual(
         candidateHistory?.anchorStackKeys,
         tiedCellIds.map((cellId) => cellsById.get(cellId)!.canonicalStackKey)
+    );
+
+    const fitted = (await modules).model.fitAppearanceRankModel(appearance, {
+        filamentProfileFingerprint: profile.fingerprintAppearanceFilaments(filaments),
+        layerHeight: 0.08,
+        firstLayerHeight: 0.16,
+        transitionOpacity: 0.9,
+    });
+    const tiedStackKeys = new Set(
+        tiedCellIds.map((cellId) => cellsById.get(cellId)!.canonicalStackKey)
+    );
+    const tiedEvidence = fitted.localEvidence.filter((evidence) =>
+        tiedStackKeys.has(evidence.sourceStackKey)
+    );
+    assert.equal(tiedEvidence.length, 2);
+    assert.ok(
+        tiedEvidence.every(
+            (evidence) =>
+                evidence.winnerCount === 1 &&
+                evidence.tieWinnerCount === 1 &&
+                evidence.preference < 0
+        ),
+        'every tied winner should receive local support'
+    );
+    assert.ok(
+        fitted.localEvidence.some(
+            (evidence) => !tiedStackKeys.has(evidence.sourceStackKey) && evidence.preference > 0
+        ),
+        'unselected candidates should still receive local rejection evidence'
     );
 });
 

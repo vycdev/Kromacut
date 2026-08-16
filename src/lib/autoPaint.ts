@@ -25,6 +25,7 @@ import {
     appearanceLabToRgb,
     createIdentityAppearanceRankModel,
     resolveAppearanceRankModel,
+    type AppearanceLocalPreferenceMatch,
 } from './appearanceModel';
 import {
     optimizeFilamentOrder,
@@ -936,18 +937,23 @@ function buildFinalPrintableStackSnapshot(
             appearancePrefix
         );
         const predictedRgb =
-            appearanceModel.applied || prediction.exactAnchor || prediction.empiricalMatch
+            appearanceModel.applied ||
+            prediction.exactAnchor ||
+            prediction.empiricalMatch ||
+            prediction.localMatch
                 ? appearanceLabToRgb(prediction.lab)
                 : [layer.virtualColor.r, layer.virtualColor.g, layer.virtualColor.b];
         const appearanceStatus = prediction.exactAnchor
             ? ('anchored' as const)
-            : prediction.empiricalMatch
-              ? ('interpolated' as const)
-              : comparedStackKeys.has(canonicalStackKey)
-                ? ('compared' as const)
-                : appearanceModel.applied
-                  ? ('fitted' as const)
-                  : ('estimated' as const);
+            : prediction.localMatch && prediction.localMatch.correctionStrength > 0
+              ? ('locally-fitted' as const)
+              : prediction.empiricalMatch
+                ? ('interpolated' as const)
+                : comparedStackKeys.has(canonicalStackKey)
+                  ? ('compared' as const)
+                  : appearanceModel.applied
+                    ? ('fitted' as const)
+                    : ('estimated' as const);
 
         return {
             id: `layer-${index + 1}`,
@@ -980,6 +986,13 @@ function buildFinalPrintableStackSnapshot(
                       empiricalSampleIds: prediction.empiricalMatch.sampleIds,
                   }
                 : {}),
+            ...(prediction.localMatch
+                ? {
+                      localEvidenceIds: prediction.localMatch.evidenceIds,
+                      localCorrectionStrength: prediction.localMatch.correctionStrength,
+                      localUncertainty: prediction.localMatch.uncertainty,
+                  }
+                : {}),
         };
     });
     const palette: FinalStackPaletteEntrySnapshot[] = layerSnapshots.map((layer) => ({
@@ -1003,6 +1016,13 @@ function buildFinalPrintableStackSnapshot(
             ? {
                   empiricalLutId: layer.empiricalLutId,
                   empiricalSampleIds: layer.empiricalSampleIds,
+              }
+            : {}),
+        ...(layer.localEvidenceIds
+            ? {
+                  localEvidenceIds: layer.localEvidenceIds,
+                  localCorrectionStrength: layer.localCorrectionStrength,
+                  localUncertainty: layer.localUncertainty,
               }
             : {}),
     }));
@@ -1288,6 +1308,10 @@ export interface AchievableColor {
     rgb: RGB;
     exactAnchorId?: string;
     exactAnchorTargetLab?: Lab;
+    localPreferences?: readonly AppearanceLocalPreferenceMatch[];
+    localEvidenceIds?: readonly string[];
+    localCorrectionStrength?: number;
+    localUncertainty?: number;
 }
 
 export function buildAchievableColorPalette(
@@ -1332,7 +1356,10 @@ export function buildAchievableColorPalette(
         const baseLab = rgbToLab(layer.virtualColor);
         const prediction = resolveAppearanceRankModel(baseLab, appearanceModel, appearancePrefix);
         const rgb =
-            appearanceModel.applied || prediction.exactAnchor || prediction.empiricalMatch
+            appearanceModel.applied ||
+            prediction.exactAnchor ||
+            prediction.empiricalMatch ||
+            prediction.localMatch
                 ? appearanceLabToRgb(prediction.lab)
                 : null;
         return {
@@ -1347,6 +1374,14 @@ export function buildAchievableColorPalette(
                           a: prediction.exactAnchor.targetLab[1],
                           b: prediction.exactAnchor.targetLab[2],
                       },
+                  }
+                : {}),
+            ...(prediction.localMatch
+                ? {
+                      localPreferences: prediction.localMatch.preferences,
+                      localEvidenceIds: prediction.localMatch.evidenceIds,
+                      localCorrectionStrength: prediction.localMatch.correctionStrength,
+                      localUncertainty: prediction.localMatch.uncertainty,
                   }
                 : {}),
         };
@@ -1913,6 +1948,27 @@ const DETAIL_COVERAGE_DE = 6;
 const DETAIL_COVERAGE_PENALTY = 8;
 /** A printable palette entry counts as "used" if a target lands within this ΔE00. */
 const USEFUL_PALETTE_MATCH_DE = 8;
+/** Keep local proof preferences meaningful without overwhelming measured color error. */
+const LOCAL_APPEARANCE_PREFERENCE_WEIGHT = 6;
+/** Palette Proof comparisons only influence nearby target colors. */
+const LOCAL_APPEARANCE_TARGET_SIGMA = 12;
+
+function localAppearancePreference(entry: AchievableColor, target: Lab): number {
+    if (!entry.localPreferences?.length) return 0;
+    let signed = 0;
+    let influence = 0;
+    for (const preference of entry.localPreferences) {
+        const distance = optimizerColorDistance(preference.targetLab, target);
+        const locality = Math.exp(-0.5 * (distance / LOCAL_APPEARANCE_TARGET_SIGMA) ** 2);
+        const weight = preference.confidence * locality;
+        signed += preference.preference * weight;
+        influence += weight;
+    }
+    if (influence <= 0) return 0;
+    // Repeated agreeing neighborhoods reinforce each other, but the bounded
+    // signal cannot dominate actual CIEDE2000 error or exact-anchor constraints.
+    return Math.max(-1, Math.min(1, signed));
+}
 
 /**
  * Score a filament sequence against weighted image target colors.
@@ -1960,6 +2016,7 @@ export function scoreSequenceAgainstImage(
     const usedPaletteEntries = new Set<number>();
     let detailCoveredWeight = 0;
     let missingExactAnchorWeight = 0;
+    let localPreferenceSum = 0;
 
     for (const entry of mapped) {
         const realizedDeltaE = realizedColorError(entry.mappedLab, entry.target);
@@ -1982,6 +2039,8 @@ export function scoreSequenceAgainstImage(
         ) {
             missingExactAnchorWeight += weight;
         }
+        localPreferenceSum +=
+            localAppearancePreference(palette[entry.paletteIndex], entry.target) * weight;
     }
 
     if (totalWeight <= 0) return Infinity;
@@ -1991,6 +2050,7 @@ export function scoreSequenceAgainstImage(
     let score = weightedMean + REALIZED_ERROR_TAIL_WEIGHT * weightedTail;
     score += (1 - detailCoveredWeight / totalWeight) * DETAIL_COVERAGE_PENALTY;
     score += (missingExactAnchorWeight / totalWeight) * MISSING_EXACT_ANCHOR_PENALTY;
+    score += (localPreferenceSum / totalWeight) * LOCAL_APPEARANCE_PREFERENCE_WEIGHT;
 
     if (separation && !separation.report.satisfied) {
         const missingDistinct =

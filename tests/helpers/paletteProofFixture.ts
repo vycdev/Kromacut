@@ -85,7 +85,7 @@ export function buildPaletteProofSnapshot(
         modelVersion: 'rgb-beer-lambert-v1',
         appearanceModel: {
             schemaVersion: 1,
-            modelVersion: 'lab-rank-global-v6',
+            modelVersion: 'lab-rank-local-v7',
             fingerprint: 'appearance-rank-model-test',
             contextFingerprint: 'appearance-context-test',
             applied: false,
@@ -105,6 +105,7 @@ export function buildPaletteProofSnapshot(
             sourceProofIds: [],
             comparedStackKeys: [],
             exactAnchors: [],
+            localEvidence: [],
             empiricalLuts: [],
         },
         settings: {

@@ -81,10 +81,17 @@ function AppearanceModelStat({ result }: { result: AutoPaintResult }) {
         model.exactAnchors?.filter((anchor) => anchor.source === 'stack-matrix').length ?? 0;
     const matrixLutSampleCount =
         model.empiricalLuts?.reduce((sum, lut) => sum + lut.samples.length, 0) ?? 0;
+    const localEvidenceCount = model.localEvidence?.length ?? 0;
     const proofAnchorCount = exactAnchorCount - matrixAnchorCount;
     const comparedStackKeys = new Set(model.comparedStackKeys);
     const comparedCoverage = result.finalStack.targetMappings
         .filter((mapping) => comparedStackKeys.has(mapping.canonicalStackKey))
+        .reduce((sum, mapping) => sum + mapping.usageWeight, 0);
+    const localCoverage = result.finalStack.targetMappings
+        .filter(
+            (mapping) =>
+                (result.finalStack.palette[mapping.paletteIndex]?.localEvidenceIds?.length ?? 0) > 0
+        )
         .reduce((sum, mapping) => sum + mapping.usageWeight, 0);
     const evidenceNeeds = [
         model.trainingObservationCount < 8
@@ -115,26 +122,33 @@ function AppearanceModelStat({ result }: { result: AutoPaintResult }) {
                     className={
                         model.applied
                             ? getConfidenceColor(model.confidence)
-                            : exactAnchorCount > 0
+                            : exactAnchorCount > 0 || localEvidenceCount > 0
                               ? 'text-green-500'
                               : 'text-muted-foreground'
                     }
                 >
                     {model.applied
-                        ? `Fitted estimate (${(model.confidence * 100).toFixed(0)}%)`
-                        : exactAnchorCount > 0 || matrixLutSampleCount > 0
-                          ? matrixAnchorCount > 0 && proofAnchorCount === 0
-                              ? 'Stack Matrix LUT active'
-                              : 'Measured anchors active'
-                          : model.observationCount > 0 || model.noneCount > 0
-                            ? 'Evidence gathered, fit gated'
-                            : 'Estimated only'}
+                        ? localEvidenceCount > 0
+                            ? `Global + local fit (${(model.confidence * 100).toFixed(0)}%)`
+                            : `Fitted estimate (${(model.confidence * 100).toFixed(0)}%)`
+                        : localEvidenceCount > 0
+                          ? exactAnchorCount > 0 || matrixLutSampleCount > 0
+                              ? 'Measured + local evidence active'
+                              : 'Local Palette Proof evidence active'
+                          : exactAnchorCount > 0 || matrixLutSampleCount > 0
+                            ? matrixAnchorCount > 0 && proofAnchorCount === 0
+                                ? 'Stack Matrix LUT active'
+                                : 'Measured anchors active'
+                            : model.observationCount > 0 || model.noneCount > 0
+                              ? 'Evidence gathered, fit gated'
+                              : 'Estimated only'}
                 </span>
             </div>
             <div className="mt-0.5 text-muted-foreground">
                 {model.sourceProofIds.length} evidence sets {' / '}
                 {model.distinctStackCount} physically compared stacks {' / '}
                 {proofAnchorCount} dead-on anchors {' / '}
+                {localEvidenceCount} local neighborhoods {' / '}
                 {matrixLutSampleCount} matrix LUT recipes {' / '}
                 {model.noneCount} no matches
             </div>
@@ -144,9 +158,10 @@ function AppearanceModelStat({ result }: { result: AutoPaintResult }) {
                 {model.heldOutCount} held-out choices {' / '}
                 {model.heldOutDistinctStackCount} held-out stacks
             </div>
-            {model.applied && (
+            {(model.applied || localEvidenceCount > 0) && (
                 <div className="mt-0.5 text-muted-foreground">
-                    {(comparedCoverage * 100).toFixed(0)}% current palette coverage
+                    {(comparedCoverage * 100).toFixed(0)}% compared {' / '}
+                    {(localCoverage * 100).toFixed(0)}% local current-palette coverage
                 </div>
             )}
             {gateDetail && (model.observationCount > 0 || model.noneCount > 0) && (
