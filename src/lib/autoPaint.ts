@@ -40,6 +40,11 @@ import {
     type CalibrationRgb,
 } from './calibration';
 import { blendSrgbChannel } from './colorSpace';
+import {
+    effectiveSubstrateHdMultiplier,
+    effectiveTransmission,
+    resolveEffectiveFilamentOptics,
+} from './effectiveOptics';
 import { fingerprintJson } from './fingerprint';
 
 export { LAYER_ACTIVATION_EPSILON } from './layerActivation';
@@ -77,6 +82,12 @@ export interface TransitionZone {
     filamentColor: string;
     filamentTd: number; // Transmission Distance of this filament
     filamentTdChannels?: CalibrationRgb; // Calibrated R, G, B TDs when available
+    /** Runtime optical properties jointly fitted from Stack Matrix measurements. */
+    effectiveColor?: RGB;
+    effectiveTdChannels?: CalibrationRgb;
+    transmissionExponent?: number;
+    substrateFilamentId?: string;
+    substrateHdMultiplier?: number;
     startHeight: number; // mm from Z=0
     endHeight: number; // mm from Z=0
     idealThickness: number; // Uncompressed zone thickness
@@ -264,7 +275,9 @@ export function blendColors(
     backgroundColor: RGB,
     filamentColor: RGB,
     filamentTD: number | CalibrationRgb,
-    layerThickness: number
+    layerThickness: number,
+    transmissionExponent = 1,
+    substrateHdMultiplier = 1
 ): RGB {
     if (layerThickness <= 0) {
         return filamentColor;
@@ -279,7 +292,12 @@ export function blendColors(
     const blendChannel = (background: number, filament: number, td: number) => {
         // Beer-Lambert law: transmission = 10^(-thickness/TD).
         // At thickness == TD, transmission = 10^(-1) = 0.1 (10%).
-        const transmission = Math.pow(0.1, layerThickness / td);
+        const transmission = effectiveTransmission(
+            layerThickness,
+            td,
+            transmissionExponent,
+            substrateHdMultiplier
+        );
         return blendSrgbChannel(background, filament, transmission);
     };
 
@@ -381,14 +399,25 @@ function realizedColorError(left: Lab, right: Lab): number {
  * @param thickness - Layer thickness (mm)
  * @returns Opacity value (0-1); calibrated TDs return the least-opaque channel
  */
-export function getOpacity(filamentTD: number | CalibrationRgb, thickness: number): number {
+export function getOpacity(
+    filamentTD: number | CalibrationRgb,
+    thickness: number,
+    transmissionExponent = 1,
+    substrateHdMultiplier = 1
+): number {
     if (thickness <= 0) return 0;
 
     const channelTds: CalibrationRgb =
         typeof filamentTD === 'number' ? [filamentTD, filamentTD, filamentTD] : filamentTD;
     if (channelTds.some((td) => !Number.isFinite(td) || td <= 0)) return 0;
 
-    return Math.min(...channelTds.map((td) => 1 - Math.pow(0.1, thickness / td)));
+    return Math.min(
+        ...channelTds.map(
+            (td) =>
+                1 -
+                effectiveTransmission(thickness, td, transmissionExponent, substrateHdMultiplier)
+        )
+    );
 }
 
 // =============================================================================
@@ -443,7 +472,9 @@ export function calculateTransitionThickness(
     filamentColor: RGB,
     filamentTD: number | CalibrationRgb,
     layerHeight: number,
-    targetOpacity: number = DEFAULT_TRANSITION_OPACITY
+    targetOpacity: number = DEFAULT_TRANSITION_OPACITY,
+    transmissionExponent = 1,
+    substrateHdMultiplier = 1
 ): number {
     // Early exit if colors are already close
     if (deltaE(backgroundColor, filamentColor) < DELTA_E_THRESHOLD) {
@@ -462,7 +493,12 @@ export function calculateTransitionThickness(
     // thickness. Perceptual convergence can still complete the transition
     // earlier when the blended result is already close to the target color.
     const resolvedOpacity = normalizeTransitionOpacity(targetOpacity);
-    const opacityThicknessMultiplier = transitionThicknessMultiplier(resolvedOpacity);
+    const opacityThicknessMultiplier =
+        substrateHdMultiplier *
+        Math.pow(
+            transitionThicknessMultiplier(resolvedOpacity),
+            1 / Math.max(0.01, transmissionExponent)
+        );
     const opticalMaxThickness = Math.max(
         layerHeight,
         Math.max(...channelTds) * opacityThicknessMultiplier
@@ -475,7 +511,14 @@ export function calculateTransitionThickness(
     // Simulate adding layers until color converges or we hit the cap
     while (thickness < maxThickness) {
         thickness += layerHeight;
-        currentColor = blendColors(backgroundColor, filamentColor, filamentTD, thickness);
+        currentColor = blendColors(
+            backgroundColor,
+            filamentColor,
+            filamentTD,
+            thickness,
+            transmissionExponent,
+            substrateHdMultiplier
+        );
 
         // Stop if the blended color is perceptually close to the target
         if (deltaE(currentColor, filamentColor) < DELTA_E_THRESHOLD) {
@@ -484,7 +527,10 @@ export function calculateTransitionThickness(
 
         // Stop at the selected opacity endpoint when perceptual convergence
         // has not already completed the transition.
-        if (getOpacity(filamentTD, thickness) >= resolvedOpacity) {
+        if (
+            getOpacity(filamentTD, thickness, transmissionExponent, substrateHdMultiplier) >=
+            resolvedOpacity
+        ) {
             break;
         }
     }
@@ -510,7 +556,8 @@ export function calculateIdealHeight(
     layerHeight: number,
     baseThickness: number = 0.6,
     transitionThicknessCache?: Map<string, number>,
-    transitionOpacity: number = DEFAULT_TRANSITION_OPACITY
+    transitionOpacity: number = DEFAULT_TRANSITION_OPACITY,
+    appearanceModel: AppearanceRankModelV1 = createIdentityAppearanceRankModel()
 ): { idealHeight: number; zones: TransitionZone[] } {
     if (sortedFilaments.length === 0) {
         return { idealHeight: baseThickness, zones: [] };
@@ -518,7 +565,13 @@ export function calculateIdealHeight(
 
     const zones: TransitionZone[] = [];
     let currentHeight = 0;
-    let currentBackgroundColor = hexToRgb(sortedFilaments[0].color);
+    const effectiveOptics = appearanceModel.effectiveOptics;
+    const firstResolvedOptics = resolveEffectiveFilamentOptics(effectiveOptics, sortedFilaments[0]);
+    let currentBackgroundColor: RGB = {
+        r: firstResolvedOptics.color[0],
+        g: firstResolvedOptics.color[1],
+        b: firstResolvedOptics.color[2],
+    };
 
     // Zone 1: Foundation layer (darkest filament)
     // Needs to be opaque enough to block the backlight.
@@ -527,10 +580,16 @@ export function calculateIdealHeight(
     // Dark filaments have low TD (e.g. 0.5mm) → foundation ≈ 0.65mm
     const firstFilament = sortedFilaments[0];
     const foundationTdChannels = channelHds(firstFilament);
+    const effectiveFoundationTdChannels: CalibrationRgb = [
+        firstResolvedOptics.hdChannels[0],
+        firstResolvedOptics.hdChannels[1],
+        firstResolvedOptics.hdChannels[2],
+    ];
     // Use the least-opaque (largest) channel hiding distance so every channel
     // reaches ~95% opacity.
-    const foundationTd = Math.max(...foundationTdChannels);
-    const opacityThickness = foundationTd * 1.3; // 95% opaque
+    const foundationTd = Math.max(...effectiveFoundationTdChannels);
+    const opacityThickness =
+        foundationTd * Math.pow(1.3, 1 / firstResolvedOptics.transmissionExponent); // ~95% opaque
     // Ensure at least the base thickness (avoid unnecessary extra layers)
     const foundationThickness = Math.max(baseThickness, opacityThickness);
 
@@ -539,6 +598,14 @@ export function calculateIdealHeight(
         filamentColor: firstFilament.color,
         filamentTd: firstFilament.td,
         filamentTdChannels: foundationTdChannels,
+        ...(effectiveOptics?.applied
+            ? {
+                  effectiveColor: { ...currentBackgroundColor },
+                  effectiveTdChannels: effectiveFoundationTdChannels,
+                  transmissionExponent: firstResolvedOptics.transmissionExponent,
+                  substrateHdMultiplier: 1,
+              }
+            : {}),
         startHeight: 0,
         endHeight: foundationThickness,
         idealThickness: foundationThickness,
@@ -549,8 +616,24 @@ export function calculateIdealHeight(
     // Subsequent zones: each filament transitions from the previous
     for (let i = 1; i < sortedFilaments.length; i++) {
         const filament = sortedFilaments[i];
-        const filamentRgb = hexToRgb(filament.color);
+        const resolvedOptics = resolveEffectiveFilamentOptics(effectiveOptics, filament);
+        const filamentRgb: RGB = {
+            r: resolvedOptics.color[0],
+            g: resolvedOptics.color[1],
+            b: resolvedOptics.color[2],
+        };
         const transitionTd = channelHds(filament);
+        const effectiveTransitionTd: CalibrationRgb = [
+            resolvedOptics.hdChannels[0],
+            resolvedOptics.hdChannels[1],
+            resolvedOptics.hdChannels[2],
+        ];
+        const substrateFilamentId = sortedFilaments[i - 1].id;
+        const substrateHdMultiplier = effectiveSubstrateHdMultiplier(
+            effectiveOptics,
+            filament.id,
+            substrateFilamentId
+        );
 
         // Calculate how thick this zone needs to be
         const transitionKey = [
@@ -560,7 +643,10 @@ export function calculateIdealHeight(
             filamentRgb.r,
             filamentRgb.g,
             filamentRgb.b,
-            ...transitionTd,
+            ...effectiveTransitionTd,
+            resolvedOptics.transmissionExponent,
+            substrateFilamentId,
+            substrateHdMultiplier,
             layerHeight,
             transitionOpacity,
         ].join(':');
@@ -569,9 +655,11 @@ export function calculateIdealHeight(
             transitionThickness = calculateTransitionThickness(
                 currentBackgroundColor,
                 filamentRgb,
-                transitionTd,
+                effectiveTransitionTd,
                 layerHeight,
-                transitionOpacity
+                transitionOpacity,
+                resolvedOptics.transmissionExponent,
+                substrateHdMultiplier
             );
             transitionThicknessCache?.set(transitionKey, transitionThickness);
         }
@@ -581,6 +669,15 @@ export function calculateIdealHeight(
             filamentColor: filament.color,
             filamentTd: filament.td,
             filamentTdChannels: transitionTd,
+            ...(effectiveOptics?.applied
+                ? {
+                      effectiveColor: filamentRgb,
+                      effectiveTdChannels: effectiveTransitionTd,
+                      transmissionExponent: resolvedOptics.transmissionExponent,
+                      substrateFilamentId,
+                      substrateHdMultiplier,
+                  }
+                : {}),
             startHeight: currentHeight,
             endHeight: currentHeight + transitionThickness,
             idealThickness: transitionThickness,
@@ -592,8 +689,10 @@ export function calculateIdealHeight(
         currentBackgroundColor = blendColors(
             currentBackgroundColor,
             filamentRgb,
-            transitionTd,
-            transitionThickness
+            effectiveTransitionTd,
+            transitionThickness,
+            resolvedOptics.transmissionExponent,
+            substrateHdMultiplier
         );
         currentHeight += transitionThickness;
     }
@@ -806,15 +905,17 @@ function buildPrintableAutoPaintStack(
         const thicknessInZone = roundPrintableHeight(
             (thicknessByZone[zoneIndex] += layer.thickness)
         );
-        const filamentColor = hexToRgb(zone.filamentColor);
+        const filamentColor = zone.effectiveColor ?? hexToRgb(zone.filamentColor);
         const virtualColor =
             zoneIndex === 0
                 ? filamentColor
                 : blendColors(
                       zoneBackgrounds[zoneIndex],
                       filamentColor,
-                      zone.filamentTdChannels ?? zone.filamentTd,
-                      thicknessInZone
+                      zone.effectiveTdChannels ?? zone.filamentTdChannels ?? zone.filamentTd,
+                      thicknessInZone,
+                      zone.transmissionExponent ?? 1,
+                      zone.substrateHdMultiplier ?? 1
                   );
 
         return {
@@ -897,12 +998,39 @@ function buildFinalPrintableStackSnapshot(
         filamentHdChannels: zone.filamentTdChannels
             ? [zone.filamentTdChannels[0], zone.filamentTdChannels[1], zone.filamentTdChannels[2]]
             : undefined,
+        ...(zone.effectiveColor
+            ? {
+                  effectiveOpaqueColor: [
+                      zone.effectiveColor.r,
+                      zone.effectiveColor.g,
+                      zone.effectiveColor.b,
+                  ] as const,
+              }
+            : {}),
+        ...(zone.effectiveTdChannels
+            ? {
+                  effectiveHdChannels: [
+                      zone.effectiveTdChannels[0],
+                      zone.effectiveTdChannels[1],
+                      zone.effectiveTdChannels[2],
+                  ] as const,
+              }
+            : {}),
+        ...(zone.transmissionExponent !== undefined
+            ? { transmissionExponent: zone.transmissionExponent }
+            : {}),
+        ...(zone.substrateFilamentId ? { substrateFilamentId: zone.substrateFilamentId } : {}),
+        ...(zone.substrateHdMultiplier !== undefined
+            ? { substrateHdMultiplier: zone.substrateHdMultiplier }
+            : {}),
         startHeight: zone.startHeight,
         endHeight: zone.endHeight,
         idealThickness: zone.idealThickness,
         actualThickness: zone.actualThickness,
     }));
-    const modelVersion = 'rgb-beer-lambert-v1' as const;
+    const modelVersion = appearanceModel.effectiveOptics?.applied
+        ? ('rgb-effective-optics-v2' as const)
+        : ('rgb-beer-lambert-v1' as const);
     const modelFingerprint = fingerprintJson('appearance-model-v1', {
         modelVersion,
         zones: zoneSnapshots.map((zone) => ({
@@ -910,6 +1038,11 @@ function buildFinalPrintableStackSnapshot(
             filamentColor: zone.filamentColor,
             filamentHd: zone.filamentHd,
             filamentHdChannels: zone.filamentHdChannels ?? null,
+            effectiveOpaqueColor: zone.effectiveOpaqueColor ?? null,
+            effectiveHdChannels: zone.effectiveHdChannels ?? null,
+            transmissionExponent: zone.transmissionExponent ?? null,
+            substrateFilamentId: zone.substrateFilamentId ?? null,
+            substrateHdMultiplier: zone.substrateHdMultiplier ?? null,
         })),
         transitionOpacity: normalizeTransitionOpacity(settings.transitionOpacity),
     });
@@ -1156,11 +1289,11 @@ function buildZoneBackgrounds(zones: TransitionZone[]): RGB[] {
     if (zones.length === 0) return [];
 
     const backgrounds: RGB[] = [];
-    let previousEndColor = hexToRgb(zones[0].filamentColor);
+    let previousEndColor = zones[0].effectiveColor ?? hexToRgb(zones[0].filamentColor);
 
     for (let index = 0; index < zones.length; index++) {
         const zone = zones[index];
-        const filamentColor = hexToRgb(zone.filamentColor);
+        const filamentColor = zone.effectiveColor ?? hexToRgb(zone.filamentColor);
         const backgroundColor = index === 0 ? filamentColor : previousEndColor;
         backgrounds.push(backgroundColor);
 
@@ -1170,8 +1303,10 @@ function buildZoneBackgrounds(zones: TransitionZone[]): RGB[] {
                 : blendColors(
                       backgroundColor,
                       filamentColor,
-                      zone.filamentTdChannels ?? zone.filamentTd,
-                      zone.actualThickness
+                      zone.effectiveTdChannels ?? zone.filamentTdChannels ?? zone.filamentTd,
+                      zone.actualThickness,
+                      zone.transmissionExponent ?? 1,
+                      zone.substrateHdMultiplier ?? 1
                   );
     }
 
@@ -1331,7 +1466,8 @@ export function buildAchievableColorPalette(
         layerHeight,
         Math.max(firstLayerHeight, layerHeight),
         transitionThicknessCache,
-        transitionOpacity
+        transitionOpacity,
+        appearanceModel
     );
 
     if (zones.length === 0) return [];
@@ -2314,8 +2450,18 @@ export function generateAutoLayers(
     } else {
         // Standard: sort by luminance (dark to light)
         sortedFilaments = [...filaments].sort((a, b) => {
-            const lumA = getLuminance(hexToRgb(a.color));
-            const lumB = getLuminance(hexToRgb(b.color));
+            const effectiveA = resolveEffectiveFilamentOptics(appearanceModel.effectiveOptics, a);
+            const effectiveB = resolveEffectiveFilamentOptics(appearanceModel.effectiveOptics, b);
+            const lumA = getLuminance({
+                r: effectiveA.color[0],
+                g: effectiveA.color[1],
+                b: effectiveA.color[2],
+            });
+            const lumB = getLuminance({
+                r: effectiveB.color[0],
+                g: effectiveB.color[1],
+                b: effectiveB.color[2],
+            });
             return lumA - lumB;
         });
     }
@@ -2326,7 +2472,8 @@ export function generateAutoLayers(
         layerHeight,
         Math.max(firstLayerHeight, layerHeight),
         undefined,
-        optimizerOptions?.transitionOpacity
+        optimizerOptions?.transitionOpacity,
+        appearanceModel
     );
 
     // --- STEP 4: APPLY COMPRESSION ON THE PRINTABLE HEIGHT GRID ---

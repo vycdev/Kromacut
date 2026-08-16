@@ -1144,6 +1144,127 @@ test('a fitted appearance model changes preview colors without changing physical
     );
 });
 
+test('matrix-fitted optics drive the same optimizer palette and final preview while retaining physical filament colors', async () => {
+    const { buildAchievableColorPalette, generateAutoLayers, rgbToHex } =
+        await loadAutoPaintModule();
+    const filaments = [
+        { id: 'black', color: '#16191d', td: 0.24 },
+        { id: 'green', color: '#278a52', td: 0.39 },
+        { id: 'white', color: '#f1eee7', td: 0.56 },
+    ];
+    const swatches = [
+        { hex: '#202820', count: 20 },
+        { hex: '#739b78', count: 40 },
+        { hex: '#e9e4db', count: 10 },
+    ];
+    const baseline = generateAutoLayers(filaments, swatches, 0.08, 0.16);
+    const effectiveOptics = {
+        schemaVersion: 1 as const,
+        modelVersion: 'matrix-effective-optics-v1' as const,
+        fingerprint: 'effective-optics-preview-test',
+        applied: true,
+        gateReason: 'applied' as const,
+        matrixCount: 1,
+        sampleCount: 64,
+        baselineMeanDeltaE: 14,
+        fittedMeanDeltaE: 4,
+        confidence: 0.9,
+        filaments: [
+            {
+                filamentId: 'black',
+                priorHdChannels: [0.24, 0.24, 0.24] as const,
+                effectiveHdChannels: [0.2, 0.27, 0.3] as const,
+                priorOpaqueColor: [22, 25, 29] as const,
+                effectiveOpaqueColor: [18, 23, 30] as const,
+                transmissionExponent: 1.15,
+                sampleCount: 64,
+            },
+            {
+                filamentId: 'green',
+                priorHdChannels: [0.39, 0.39, 0.39] as const,
+                effectiveHdChannels: [0.46, 0.34, 0.41] as const,
+                priorOpaqueColor: [39, 138, 82] as const,
+                effectiveOpaqueColor: [34, 128, 75] as const,
+                transmissionExponent: 0.82,
+                sampleCount: 64,
+            },
+            {
+                filamentId: 'white',
+                priorHdChannels: [0.56, 0.56, 0.56] as const,
+                effectiveHdChannels: [0.62, 0.53, 0.48] as const,
+                priorOpaqueColor: [241, 238, 231] as const,
+                effectiveOpaqueColor: [235, 231, 222] as const,
+                transmissionExponent: 1.3,
+                sampleCount: 64,
+            },
+        ],
+        substrateInteractions: [
+            {
+                foregroundFilamentId: 'green',
+                substrateFilamentId: 'black',
+                hdMultiplier: 1.24,
+                sampleCount: 20,
+            },
+            {
+                foregroundFilamentId: 'white',
+                substrateFilamentId: 'green',
+                hdMultiplier: 0.76,
+                sampleCount: 20,
+            },
+        ],
+    };
+    const appearanceModel = {
+        ...baseline.finalStack.appearanceModel,
+        fingerprint: 'matrix-physical-preview-test',
+        effectiveOptics,
+    };
+    const corrected = generateAutoLayers(
+        filaments,
+        swatches,
+        0.08,
+        0.16,
+        undefined,
+        false,
+        false,
+        undefined,
+        appearanceModel
+    );
+    const optimizerPalette = buildAchievableColorPalette(
+        corrected.filamentOrder.map((id) => filaments.find((filament) => filament.id === id)!),
+        0.08,
+        0.16,
+        undefined,
+        undefined,
+        undefined,
+        appearanceModel
+    );
+
+    assert.equal(corrected.finalStack.modelVersion, 'rgb-effective-optics-v2');
+    assert.notDeepEqual(
+        corrected.finalStack.layers.map((layer) => layer.basePredictedColor),
+        baseline.finalStack.layers.map((layer) => layer.basePredictedColor)
+    );
+    assert.deepEqual(
+        optimizerPalette.map((entry) => [entry.height, rgbToHex(entry.rgb)]),
+        corrected.finalStack.palette.map((entry) => [entry.height, entry.predictedColor.hex]),
+        'search and rendering must consume the same fitted physical model'
+    );
+    const physicalColors = new Map(filaments.map((filament) => [filament.id, filament.color]));
+    assert.ok(
+        corrected.finalStack.layers.every(
+            (layer) => layer.filamentColor === physicalColors.get(layer.filamentId)
+        ),
+        'the physical material colors must not be replaced by fitted display colors'
+    );
+    assert.ok(
+        corrected.finalStack.zones.some(
+            (zone) =>
+                zone.transmissionExponent !== 1 ||
+                (zone.substrateHdMultiplier !== undefined && zone.substrateHdMultiplier !== 1)
+        )
+    );
+});
+
 test('a local Palette Proof correction changes optimizer and preview colors without changing layers', async () => {
     const { autoPaintToSliceHeights, buildAchievableColorPalette, generateAutoLayers } =
         await loadAutoPaintModule();

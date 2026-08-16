@@ -3,6 +3,7 @@ import type {
     AppearanceAnchorLayer,
     AppearanceEmpiricalLutSampleV1,
     AppearanceEmpiricalLutV1,
+    AppearanceEffectiveOpticsModelV1,
     AppearanceExactAnchorV1,
     AppearanceLocalEvidenceV1,
     AppearanceRankModelV1,
@@ -18,6 +19,13 @@ import {
     type StackMatrixCalibrationV1,
 } from './appearanceProfile';
 import { channelHds } from './calibration';
+import {
+    createPriorEffectiveOpticsModel,
+    effectiveSuffixTransmission,
+    fitEffectiveOpticsFromMatrix,
+    predictEffectiveAutoPaintColor,
+    predictEffectiveRecipeColor,
+} from './effectiveOptics';
 import { fingerprintJson } from './fingerprint';
 
 export interface AppearanceFitContext {
@@ -43,7 +51,7 @@ interface RankObservation {
     matchQuality: PaletteTargetMatchQuality;
 }
 
-const MODEL_VERSION = 'lab-rank-local-v7' as const;
+const MODEL_VERSION = 'lab-rank-local-v8' as const;
 const SOFTMAX_TEMPERATURE = 5;
 const TIE_LOGIT_PENALTY = 0.5;
 const EXACT_MATCH_SIGMA = 2;
@@ -81,6 +89,7 @@ function contextFingerprintPayload(context: AppearanceFitContext) {
 export function createIdentityAppearanceRankModel(
     contextFingerprint = fingerprintJson('appearance-fit-context-v1', null)
 ): AppearanceRankModelV1 {
+    const effectiveOptics = createPriorEffectiveOpticsModel();
     const payload = {
         modelVersion: MODEL_VERSION,
         contextFingerprint,
@@ -93,11 +102,12 @@ export function createIdentityAppearanceRankModel(
         exactAnchors: [],
         localEvidence: [],
         empiricalLuts: [],
+        effectiveOptics,
     };
     return {
         schemaVersion: 1,
         modelVersion: MODEL_VERSION,
-        fingerprint: fingerprintJson('appearance-rank-model-v7', payload),
+        fingerprint: fingerprintJson('appearance-rank-model-v8', payload),
         contextFingerprint,
         applied: false,
         gateReason: 'insufficient-evidence',
@@ -118,6 +128,7 @@ export function createIdentityAppearanceRankModel(
         exactAnchors: [],
         localEvidence: [],
         empiricalLuts: [],
+        effectiveOptics,
     };
 }
 
@@ -275,13 +286,66 @@ function weightedCompatibleStackMatrices(
     });
 }
 
+function fitMatrixEffectiveOptics(
+    context: AppearanceFitContext,
+    matrixEvidence: readonly WeightedCompatibleStackMatrix[]
+): AppearanceEffectiveOpticsModelV1 {
+    const filaments = context.filaments ?? [];
+    if (filaments.length === 0) return createPriorEffectiveOpticsModel();
+    return fitEffectiveOpticsFromMatrix({
+        filaments,
+        matrixCount: matrixEvidence.length,
+        samples: matrixEvidence.flatMap((evidence) => {
+            const matrix = evidence.record;
+            const backing = matrix.filaments[matrix.backingFilamentIndex];
+            if (!backing) return [];
+            return matrix.samples.flatMap((sample) => {
+                if (!sample.measuredColor) return [];
+                const recipeFilamentIds = sample.stack.map(
+                    (filamentIndex) => matrix.filaments[filamentIndex]?.id
+                );
+                if (recipeFilamentIds.some((filamentId) => !filamentId)) return [];
+                return [
+                    {
+                        id: `${matrix.id}:${sample.index}`,
+                        backingFilamentId: backing.id,
+                        recipeFilamentIds: recipeFilamentIds as string[],
+                        layerHeight: matrix.process.layerHeight,
+                        measuredRgb: sample.measuredColor.rgb,
+                        weight: evidence.matrixWeight,
+                    },
+                ];
+            });
+        }),
+    });
+}
+
+function effectiveProofPrefixLab(
+    record: PaletteProofRecord,
+    prefixIndex: number,
+    effectiveOptics: AppearanceEffectiveOpticsModelV1
+): Lab | undefined {
+    if (!effectiveOptics.applied || prefixIndex < 0 || prefixIndex >= record.stack.length) {
+        return undefined;
+    }
+    const predicted = predictEffectiveAutoPaintColor(
+        effectiveOptics,
+        record.stack.slice(0, prefixIndex + 1).map((layer) => ({
+            filamentId: layer.filamentId,
+            thickness: layer.thickness,
+        }))
+    );
+    return predicted ? rgbToLab(predicted) : undefined;
+}
+
 function colorLab(rgb: readonly [number, number, number]): Lab {
     return rgbToLab([rgb[0], rgb[1], rgb[2]]);
 }
 
 function collectObservations(
     appearance: AppearanceProfileV1 | undefined,
-    context: AppearanceFitContext
+    context: AppearanceFitContext,
+    effectiveOptics: AppearanceEffectiveOpticsModelV1
 ): {
     observations: RankObservation[];
     noneCount: number;
@@ -325,10 +389,17 @@ function collectObservations(
                     const prefix = cell ? prefixesByKey.get(cell.canonicalStackKey) : undefined;
                     if (!cell || !prefix) return null;
                     stackKeys.add(cell.canonicalStackKey);
+                    const effectiveLab = effectiveProofPrefixLab(
+                        record,
+                        prefix.prefixIndex,
+                        effectiveOptics
+                    );
                     return {
                         cellId,
                         stackKey: cell.canonicalStackKey,
-                        baseLab: colorLab((prefix.basePredictedColor ?? prefix.predictedColor).rgb),
+                        baseLab:
+                            effectiveLab ??
+                            colorLab((prefix.basePredictedColor ?? prefix.predictedColor).rgb),
                     };
                 })
                 .filter((candidate): candidate is RankCandidate => candidate !== null);
@@ -407,7 +478,8 @@ function localTargetAffinity(candidate: Lab, target: Lab): number {
  */
 function collectLocalEvidence(
     appearance: AppearanceProfileV1 | undefined,
-    context: AppearanceFitContext
+    context: AppearanceFitContext,
+    effectiveOptics: AppearanceEffectiveOpticsModelV1
 ): AppearanceLocalEvidenceV1[] {
     if (!appearance) return [];
     const accumulators = new Map<string, LocalEvidenceAccumulator>();
@@ -442,7 +514,9 @@ function collectLocalEvidence(
                 const cell = cellsById.get(cellId);
                 const prefix = cell ? prefixesByKey.get(cell.canonicalStackKey) : undefined;
                 if (!cell || !prefix || prefix.prefixIndex >= record.stack.length) continue;
-                const baseLab = colorLab((prefix.basePredictedColor ?? prefix.predictedColor).rgb);
+                const baseLab =
+                    effectiveProofPrefixLab(record, prefix.prefixIndex, effectiveOptics) ??
+                    colorLab((prefix.basePredictedColor ?? prefix.predictedColor).rgb);
                 const targetKey = judgment.targetColor.hex.toLowerCase();
                 const accumulatorKey = `${cell.canonicalStackKey}\0${targetKey}`;
                 let accumulator = accumulators.get(accumulatorKey);
@@ -580,8 +654,18 @@ function layerToken(layer: AppearanceAnchorLayer): string {
 
 function suffixTransmission(
     layers: readonly AppearanceAnchorLayer[],
-    filamentsById: ReadonlyMap<string, Filament>
+    filamentsById: ReadonlyMap<string, Filament>,
+    effectiveOptics: AppearanceEffectiveOpticsModelV1
 ): number {
+    if (effectiveOptics.applied) {
+        return effectiveSuffixTransmission(
+            effectiveOptics,
+            layers.map((layer) => ({
+                filamentId: layer.filamentId,
+                thickness: layer.thickness,
+            }))
+        );
+    }
     const transmission: [number, number, number] = [1, 1, 1];
     for (const layer of layers) {
         const filament = filamentsById.get(layer.filamentId);
@@ -603,7 +687,8 @@ function suffixTransmission(
 function transferableLayerSuffix(
     prefix: readonly AppearanceAnchorLayer[],
     filamentsById: ReadonlyMap<string, Filament>,
-    maximumTransmission: number
+    maximumTransmission: number,
+    effectiveOptics: AppearanceEffectiveOpticsModelV1
 ): { layers: AppearanceAnchorLayer[]; maxSubstrateTransmission: number } {
     if (prefix.length === 0) return { layers: [], maxSubstrateTransmission: 1 };
 
@@ -612,14 +697,14 @@ function transferableLayerSuffix(
     while (start > 0 && prefix[start - 1].filamentId === terminalFilamentId) start--;
 
     let retained = prefix.slice(start);
-    let transmission = suffixTransmission(retained, filamentsById);
+    let transmission = suffixTransmission(retained, filamentsById, effectiveOptics);
     while (start > 0 && transmission > maximumTransmission + 1e-12) {
         const previousFilamentId = prefix[start - 1].filamentId;
         do {
             start--;
         } while (start > 0 && prefix[start - 1].filamentId === previousFilamentId);
         retained = prefix.slice(start);
-        transmission = suffixTransmission(retained, filamentsById);
+        transmission = suffixTransmission(retained, filamentsById, effectiveOptics);
     }
 
     return {
@@ -631,19 +716,22 @@ function transferableLayerSuffix(
 function transferableSuffix(
     record: PaletteProofRecord,
     prefixIndex: number,
-    filamentsById: ReadonlyMap<string, Filament>
+    filamentsById: ReadonlyMap<string, Filament>,
+    effectiveOptics: AppearanceEffectiveOpticsModelV1
 ): { layers: AppearanceAnchorLayer[]; maxSubstrateTransmission: number } {
     return transferableLayerSuffix(
         record.stack.slice(0, prefixIndex + 1),
         filamentsById,
-        Math.max(0.01, 1 - record.process.transitionOpacity)
+        Math.max(0.01, 1 - record.process.transitionOpacity),
+        effectiveOptics
     );
 }
 
 function collectExactAnchors(
     appearance: AppearanceProfileV1 | undefined,
     context: AppearanceFitContext,
-    matrixEvidence = weightedCompatibleStackMatrices(appearance, context)
+    matrixEvidence = weightedCompatibleStackMatrices(appearance, context),
+    effectiveOptics = createPriorEffectiveOpticsModel(context.filaments ?? [])
 ): AppearanceExactAnchorV1[] {
     if (!appearance) return [];
     const filamentsById = new Map(
@@ -664,7 +752,12 @@ function collectExactAnchors(
             for (const cellId of judgment.closestCellIds) {
                 const cell = cellsById.get(cellId);
                 if (!cell || !judgment.candidateCellIds.includes(cellId)) continue;
-                const suffix = transferableSuffix(record, cell.prefixIndex, filamentsById);
+                const suffix = transferableSuffix(
+                    record,
+                    cell.prefixIndex,
+                    filamentsById,
+                    effectiveOptics
+                );
                 if (suffix.layers.length === 0) continue;
                 const targetLab = colorLab(judgment.targetColor.rgb);
                 anchors.push({
@@ -706,7 +799,8 @@ function collectExactAnchors(
             const suffix = transferableLayerSuffix(
                 [...foundation, ...matrixLayers],
                 filamentsById,
-                0.1
+                0.1,
+                effectiveOptics
             );
             if (suffix.layers.length === 0) continue;
             const targetLab = colorLab(sample.measuredColor.rgb);
@@ -760,7 +854,8 @@ function empiricalCoverageRadius(samples: readonly AppearanceEmpiricalLutSampleV
 function collectEmpiricalLuts(
     appearance: AppearanceProfileV1 | undefined,
     context: AppearanceFitContext,
-    matrixEvidence = weightedCompatibleStackMatrices(appearance, context)
+    matrixEvidence = weightedCompatibleStackMatrices(appearance, context),
+    effectiveOptics = createPriorEffectiveOpticsModel(context.filaments ?? [])
 ): AppearanceEmpiricalLutV1[] {
     return matrixEvidence.flatMap((evidence): AppearanceEmpiricalLutV1[] => {
         const matrix = evidence.record;
@@ -769,7 +864,17 @@ function collectEmpiricalLuts(
         const samples = matrix.samples
             .filter((sample) => Boolean(sample.measuredColor))
             .map((sample): AppearanceEmpiricalLutSampleV1 => {
-                const predicted = colorLab(sample.predictedColor.rgb);
+                const effectivePrediction = effectiveOptics.applied
+                    ? predictEffectiveRecipeColor(
+                          effectiveOptics,
+                          backing.id,
+                          sample.stack.map((filamentIndex) => ({
+                              filamentId: matrix.filaments[filamentIndex].id,
+                              thickness: matrix.process.layerHeight,
+                          }))
+                      )
+                    : undefined;
+                const predicted = colorLab(effectivePrediction ?? sample.predictedColor.rgb);
                 const measured = colorLab(sample.measuredColor!.rgb);
                 return {
                     id: `${matrix.id}:${sample.index}`,
@@ -967,12 +1072,19 @@ export function fitAppearanceRankModel(
         contextFingerprintPayload(context)
     );
     const matrixEvidence = weightedCompatibleStackMatrices(appearance, context);
-    const exactAnchors = collectExactAnchors(appearance, context, matrixEvidence);
-    const localEvidence = collectLocalEvidence(appearance, context);
-    const empiricalLuts = collectEmpiricalLuts(appearance, context, matrixEvidence);
+    const effectiveOptics = fitMatrixEffectiveOptics(context, matrixEvidence);
+    const exactAnchors = collectExactAnchors(appearance, context, matrixEvidence, effectiveOptics);
+    const localEvidence = collectLocalEvidence(appearance, context, effectiveOptics);
+    const empiricalLuts = collectEmpiricalLuts(
+        appearance,
+        context,
+        matrixEvidence,
+        effectiveOptics
+    );
     const { observations, noneCount, noneJudgmentIds, proofIds, stackKeys } = collectObservations(
         appearance,
-        context
+        context,
+        effectiveOptics
     );
     const sourceProofIds = [
         ...new Set([...proofIds, ...exactAnchors.map((anchor) => anchor.proofId)]),
@@ -1080,12 +1192,13 @@ export function fitAppearanceRankModel(
         exactAnchors,
         localEvidence,
         empiricalLuts,
+        effectiveOptics,
     };
 
     return {
         schemaVersion: 1,
         modelVersion: MODEL_VERSION,
-        fingerprint: fingerprintJson('appearance-rank-model-v7', fingerprintPayload),
+        fingerprint: fingerprintJson('appearance-rank-model-v8', fingerprintPayload),
         contextFingerprint,
         applied,
         gateReason,
@@ -1106,6 +1219,7 @@ export function fitAppearanceRankModel(
         exactAnchors,
         localEvidence,
         empiricalLuts,
+        effectiveOptics,
     };
 }
 

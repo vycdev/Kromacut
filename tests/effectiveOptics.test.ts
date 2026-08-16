@@ -1,0 +1,238 @@
+import assert from 'node:assert/strict';
+import { resolve } from 'node:path';
+import test from 'node:test';
+import { createServer } from 'vite';
+
+import type { Filament } from '../src/types/index.ts';
+import type { AppearanceEffectiveOpticsModelV1 } from '../src/types/appearance.ts';
+
+type EffectiveOpticsModule = typeof import('../src/lib/effectiveOptics.ts');
+
+async function loadModule(): Promise<EffectiveOpticsModule> {
+    const server = await createServer({
+        appType: 'custom',
+        cacheDir: 'dist/.vite-test-cache',
+        configFile: false,
+        logLevel: 'error',
+        optimizeDeps: { noDiscovery: true },
+        resolve: { alias: { '@': resolve(process.cwd(), 'src') } },
+        root: process.cwd(),
+        server: { hmr: false, middlewareMode: true },
+    });
+    try {
+        return (await server.ssrLoadModule('/src/lib/effectiveOptics.ts')) as EffectiveOpticsModule;
+    } finally {
+        await server.close();
+    }
+}
+
+const modulePromise = loadModule();
+
+const filaments: Filament[] = [
+    { id: 'foundation', color: '#242b32', td: 0.36 },
+    { id: 'rose', color: '#d86f91', td: 0.45 },
+    { id: 'teal', color: '#2aa79d', td: 0.5 },
+];
+
+function truthModel(): AppearanceEffectiveOpticsModelV1 {
+    return {
+        schemaVersion: 1,
+        modelVersion: 'matrix-effective-optics-v1',
+        fingerprint: 'synthetic-truth',
+        applied: true,
+        gateReason: 'applied',
+        matrixCount: 1,
+        sampleCount: 81,
+        baselineMeanDeltaE: 0,
+        fittedMeanDeltaE: 0,
+        confidence: 1,
+        filaments: [
+            {
+                filamentId: 'foundation',
+                priorHdChannels: [0.36, 0.36, 0.36],
+                effectiveHdChannels: [0.29, 0.39, 0.46],
+                priorOpaqueColor: [36, 43, 50],
+                effectiveOpaqueColor: [29, 38, 48],
+                transmissionExponent: 1.2,
+                sampleCount: 81,
+            },
+            {
+                filamentId: 'rose',
+                priorHdChannels: [0.45, 0.45, 0.45],
+                effectiveHdChannels: [0.58, 0.37, 0.5],
+                priorOpaqueColor: [216, 111, 145],
+                effectiveOpaqueColor: [207, 96, 139],
+                transmissionExponent: 0.76,
+                sampleCount: 81,
+            },
+            {
+                filamentId: 'teal',
+                priorHdChannels: [0.5, 0.5, 0.5],
+                effectiveHdChannels: [0.41, 0.62, 0.53],
+                priorOpaqueColor: [42, 167, 157],
+                effectiveOpaqueColor: [33, 154, 147],
+                transmissionExponent: 1.38,
+                sampleCount: 81,
+            },
+        ],
+        substrateInteractions: [
+            {
+                foregroundFilamentId: 'rose',
+                substrateFilamentId: 'foundation',
+                hdMultiplier: 1.38,
+                sampleCount: 20,
+            },
+            {
+                foregroundFilamentId: 'teal',
+                substrateFilamentId: 'rose',
+                hdMultiplier: 0.68,
+                sampleCount: 20,
+            },
+            {
+                foregroundFilamentId: 'foundation',
+                substrateFilamentId: 'teal',
+                hdMultiplier: 1.22,
+                sampleCount: 20,
+            },
+        ],
+    };
+}
+
+function recipes(length: number): string[][] {
+    const ids = filaments.map((filament) => filament.id);
+    const result: string[][] = [];
+    const visit = (prefix: string[]) => {
+        if (prefix.length === length) {
+            result.push(prefix);
+            return;
+        }
+        for (const id of ids) visit([...prefix, id]);
+    };
+    visit([]);
+    return result;
+}
+
+async function syntheticInput() {
+    const optics = await modulePromise;
+    const truth = truthModel();
+    const samples = recipes(4).map((recipeFilamentIds, index) => {
+        const measured = optics.predictEffectiveRecipeColor(
+            truth,
+            'foundation',
+            recipeFilamentIds.map((filamentId) => ({ filamentId, thickness: 0.08 }))
+        );
+        assert.ok(measured);
+        return {
+            id: `sample-${index.toString().padStart(3, '0')}`,
+            backingFilamentId: 'foundation',
+            recipeFilamentIds,
+            layerHeight: 0.08,
+            measuredRgb: measured,
+            weight: 1,
+        };
+    });
+    return { filaments, matrixCount: 1, samples };
+}
+
+test('joint matrix fit improves predictions and moves every effective property toward stacked-PLA truth', async () => {
+    const optics = await modulePromise;
+    const input = await syntheticInput();
+    const fitted = optics.fitEffectiveOpticsFromMatrix(input);
+
+    assert.equal(fitted.applied, true);
+    assert.equal(fitted.sampleCount, 81);
+    assert.ok(
+        fitted.fittedMeanDeltaE < fitted.baselineMeanDeltaE * 0.7,
+        `${fitted.fittedMeanDeltaE} should materially improve ${fitted.baselineMeanDeltaE}`
+    );
+
+    const rose = fitted.filaments.find((entry) => entry.filamentId === 'rose');
+    const teal = fitted.filaments.find((entry) => entry.filamentId === 'teal');
+    assert.ok(rose && teal);
+    assert.ok(Math.abs(rose.effectiveHdChannels[0] - 0.58) < Math.abs(0.45 - 0.58));
+    assert.ok(
+        Math.abs(rose.effectiveOpaqueColor[1] - 96) < Math.abs(rose.priorOpaqueColor[1] - 96)
+    );
+    assert.ok(Math.abs(rose.transmissionExponent - 0.76) < Math.abs(1 - 0.76));
+    assert.ok(Math.abs(teal.transmissionExponent - 1.38) < Math.abs(1 - 1.38));
+
+    const roseOverFoundation = fitted.substrateInteractions.find(
+        (entry) =>
+            entry.foregroundFilamentId === 'rose' && entry.substrateFilamentId === 'foundation'
+    );
+    const tealOverRose = fitted.substrateInteractions.find(
+        (entry) => entry.foregroundFilamentId === 'teal' && entry.substrateFilamentId === 'rose'
+    );
+    assert.ok(roseOverFoundation && tealOverRose);
+    assert.ok(
+        Math.abs(roseOverFoundation.hdMultiplier - 1.38) < 0.38,
+        `rose/foundation multiplier was ${roseOverFoundation.hdMultiplier}`
+    );
+    assert.ok(
+        Math.abs(tealOverRose.hdMultiplier - 1) > 0.02,
+        `teal/rose interaction should be fitted, got ${tealOverRose.hdMultiplier}`
+    );
+});
+
+test('joint matrix fit is deterministic across input ordering and uses every sample', async () => {
+    const optics = await modulePromise;
+    const input = await syntheticInput();
+    const forward = optics.fitEffectiveOpticsFromMatrix(input);
+    const reversed = optics.fitEffectiveOpticsFromMatrix({
+        ...input,
+        filaments: [...input.filaments].reverse(),
+        samples: [...input.samples].reverse(),
+    });
+
+    assert.equal(forward.fingerprint, reversed.fingerprint);
+    assert.deepEqual(forward, reversed);
+    assert.equal(forward.sampleCount, input.samples.length);
+});
+
+test('sparse matrix evidence remains on the existing HD and swatch priors', async () => {
+    const optics = await modulePromise;
+    const input = await syntheticInput();
+    const sparse = optics.fitEffectiveOpticsFromMatrix({
+        ...input,
+        samples: input.samples.slice(0, 5),
+    });
+
+    assert.equal(sparse.applied, false);
+    assert.equal(sparse.gateReason, 'insufficient-samples');
+    assert.equal(sparse.sampleCount, 5);
+    assert.deepEqual(
+        sparse.filaments.map((entry) => entry.effectiveHdChannels),
+        sparse.filaments.map((entry) => entry.priorHdChannels)
+    );
+    assert.deepEqual(
+        sparse.filaments.map((entry) => entry.effectiveOpaqueColor),
+        sparse.filaments.map((entry) => entry.priorOpaqueColor)
+    );
+    assert.ok(sparse.filaments.every((entry) => entry.transmissionExponent === 1));
+    assert.deepEqual(sparse.substrateInteractions, []);
+});
+
+test('nonlinear transmission is evaluated over a contiguous run', async () => {
+    const optics = await modulePromise;
+    const model = truthModel();
+    const split = optics.predictEffectiveRecipeColor(model, 'foundation', [
+        { filamentId: 'rose', thickness: 0.08 },
+        { filamentId: 'rose', thickness: 0.08 },
+    ]);
+    const combined = optics.predictEffectiveRecipeColor(model, 'foundation', [
+        { filamentId: 'rose', thickness: 0.16 },
+    ]);
+    assert.deepEqual(split, combined);
+});
+
+test('ordered substrate interaction only changes its matching material pair', async () => {
+    const optics = await modulePromise;
+    const model = truthModel();
+    const roseOverFoundation = optics.effectiveSubstrateHdMultiplier(model, 'rose', 'foundation');
+    const roseOverTeal = optics.effectiveSubstrateHdMultiplier(model, 'rose', 'teal');
+    const reversePair = optics.effectiveSubstrateHdMultiplier(model, 'foundation', 'rose');
+
+    assert.equal(roseOverFoundation, 1.38);
+    assert.equal(roseOverTeal, 1);
+    assert.equal(reversePair, 1);
+});

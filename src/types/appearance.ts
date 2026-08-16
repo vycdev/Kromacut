@@ -84,9 +84,44 @@ export interface AppearanceEmpiricalLutV1 {
     samples: readonly AppearanceEmpiricalLutSampleV1[];
 }
 
+export interface AppearanceEffectiveFilamentOpticsV1 {
+    filamentId: string;
+    /** Existing wedge/swatch calibration retained as the regularizing prior. */
+    priorHdChannels: readonly [number, number, number];
+    effectiveHdChannels: readonly [number, number, number];
+    priorOpaqueColor: readonly [number, number, number];
+    effectiveOpaqueColor: readonly [number, number, number];
+    /** Power in T = 10^(-(thickness / effectiveHd)^exponent). */
+    transmissionExponent: number;
+    sampleCount: number;
+}
+
+export interface AppearanceSubstrateInteractionV1 {
+    foregroundFilamentId: string;
+    substrateFilamentId: string;
+    /** Multiplies the foreground RGB-channel HDs for this ordered material pair. */
+    hdMultiplier: number;
+    sampleCount: number;
+}
+
+export interface AppearanceEffectiveOpticsModelV1 {
+    schemaVersion: 1;
+    modelVersion: 'matrix-effective-optics-v1';
+    fingerprint: string;
+    applied: boolean;
+    gateReason: 'applied' | 'no-compatible-matrix' | 'insufficient-samples' | 'no-improvement';
+    matrixCount: number;
+    sampleCount: number;
+    baselineMeanDeltaE: number;
+    fittedMeanDeltaE: number;
+    confidence: number;
+    filaments: readonly AppearanceEffectiveFilamentOpticsV1[];
+    substrateInteractions: readonly AppearanceSubstrateInteractionV1[];
+}
+
 export interface AppearanceRankModelV1 {
     schemaVersion: 1;
-    modelVersion: 'lab-rank-local-v7';
+    modelVersion: 'lab-rank-local-v8';
     fingerprint: string;
     contextFingerprint: string;
     applied: boolean;
@@ -114,6 +149,8 @@ export interface AppearanceRankModelV1 {
     exactAnchors: readonly AppearanceExactAnchorV1[];
     localEvidence: readonly AppearanceLocalEvidenceV1[];
     empiricalLuts: readonly AppearanceEmpiricalLutV1[];
+    /** Runtime-only physical refit derived from compatible Stack Matrix measurements. */
+    effectiveOptics?: AppearanceEffectiveOpticsModelV1;
 }
 
 export type AppearanceGeometryClass = 'flat-interior' | 'edge-limited' | 'mixed' | 'unknown';
@@ -163,6 +200,11 @@ export interface FinalStackZoneSnapshot {
     filamentColor: string;
     filamentHd: number;
     filamentHdChannels?: readonly [number, number, number];
+    effectiveOpaqueColor?: readonly [number, number, number];
+    effectiveHdChannels?: readonly [number, number, number];
+    transmissionExponent?: number;
+    substrateFilamentId?: string;
+    substrateHdMultiplier?: number;
     startHeight: number;
     endHeight: number;
     idealThickness: number;
@@ -219,7 +261,7 @@ export interface FinalPrintableStackSnapshot {
     schemaVersion: 1;
     fingerprint: string;
     modelFingerprint: string;
-    modelVersion: 'rgb-beer-lambert-v1';
+    modelVersion: 'rgb-beer-lambert-v1' | 'rgb-effective-optics-v2';
     appearanceModel: AppearanceRankModelV1;
     settings: {
         layerHeight: number;

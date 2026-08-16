@@ -609,6 +609,68 @@ test('completed Stack Matrix samples become measured anchors without global fit 
     assert.deepEqual([resolved.lab.L, resolved.lab.a, resolved.lab.b], [...anchor.targetLab]);
 });
 
+test('all compatible Stack Matrix samples jointly refit physical optics without crossing process boundaries', async () => {
+    const [matrix, , profile, model] = await modules;
+    const planned = matrix.buildStackMatrixCalibration(
+        filaments,
+        options(64),
+        '2026-08-07T10:00:00.000Z'
+    );
+    const measuredColors = planned.samples.map(
+        (sample) =>
+            [
+                Math.max(0, Math.min(255, Math.round(sample.predictedColor.rgb[0] * 0.88 + 7))),
+                Math.max(0, Math.min(255, Math.round(sample.predictedColor.rgb[1] * 0.78 + 12))),
+                Math.max(0, Math.min(255, Math.round(sample.predictedColor.rgb[2] * 1.08 - 5))),
+            ] as [number, number, number]
+    );
+    const completed = matrix.completeStackMatrixCalibration(
+        planned,
+        measuredColors,
+        'matrix.jpg',
+        false,
+        '2026-08-07T11:00:00.000Z'
+    );
+    const appearance = profile.upsertStackMatrixCalibration(
+        profile.createEmptyAppearanceProfile(),
+        completed
+    );
+    const context = {
+        filamentProfileFingerprint: profile.fingerprintAppearanceFilaments(filaments),
+        layerHeight: 0.08,
+        firstLayerHeight: 0.2,
+        transitionOpacity: 0.9,
+        filaments,
+    };
+    const fitted = model.fitAppearanceRankModel(appearance, context);
+
+    assert.equal(fitted.effectiveOptics?.applied, true);
+    assert.equal(fitted.effectiveOptics?.matrixCount, 1);
+    assert.equal(fitted.effectiveOptics?.sampleCount, planned.samples.length);
+    assert.ok(
+        (fitted.effectiveOptics?.fittedMeanDeltaE ?? Infinity) <
+            (fitted.effectiveOptics?.baselineMeanDeltaE ?? 0)
+    );
+    assert.equal(fitted.empiricalLuts[0].samples.length, planned.samples.length);
+
+    const wrongLayer = model.fitAppearanceRankModel(appearance, {
+        ...context,
+        layerHeight: 0.12,
+    });
+    const changedFilaments = filaments.map((filament) =>
+        filament.id === 'red' ? { ...filament, td: filament.td + 0.1 } : filament
+    );
+    const wrongProfile = model.fitAppearanceRankModel(appearance, {
+        ...context,
+        filamentProfileFingerprint: profile.fingerprintAppearanceFilaments(changedFilaments),
+        filaments: changedFilaments,
+    });
+    assert.equal(wrongLayer.effectiveOptics?.gateReason, 'no-compatible-matrix');
+    assert.equal(wrongLayer.effectiveOptics?.sampleCount, 0);
+    assert.equal(wrongProfile.effectiveOptics?.gateReason, 'no-compatible-matrix');
+    assert.equal(wrongProfile.effectiveOptics?.sampleCount, 0);
+});
+
 test('Stack Matrix LUT uses an exact photographed recipe before the optical simulation', async () => {
     const [matrix, , profile, model] = await modules;
     const planned = matrix.buildStackMatrixCalibration(

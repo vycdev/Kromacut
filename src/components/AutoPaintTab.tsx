@@ -76,6 +76,8 @@ function ConfidenceStat({ label, value }: { label: string; value: number }) {
 
 function AppearanceModelStat({ result }: { result: AutoPaintResult }) {
     const model = result.finalStack.appearanceModel;
+    const effectiveOptics = model.effectiveOptics;
+    const physicalFitApplied = effectiveOptics?.applied ?? false;
     const exactAnchorCount = model.exactAnchors?.length ?? 0;
     const matrixAnchorCount =
         model.exactAnchors?.filter((anchor) => anchor.source === 'stack-matrix').length ?? 0;
@@ -120,28 +122,34 @@ function AppearanceModelStat({ result }: { result: AutoPaintResult }) {
                 <span className="font-semibold">Appearance model</span>
                 <span
                     className={
-                        model.applied
-                            ? getConfidenceColor(model.confidence)
+                        model.applied || physicalFitApplied
+                            ? getConfidenceColor(
+                                  physicalFitApplied
+                                      ? (effectiveOptics?.confidence ?? 0)
+                                      : model.confidence
+                              )
                             : exactAnchorCount > 0 || localEvidenceCount > 0
                               ? 'text-green-500'
                               : 'text-muted-foreground'
                     }
                 >
-                    {model.applied
-                        ? localEvidenceCount > 0
-                            ? `Global + local fit (${(model.confidence * 100).toFixed(0)}%)`
-                            : `Fitted estimate (${(model.confidence * 100).toFixed(0)}%)`
-                        : localEvidenceCount > 0
-                          ? exactAnchorCount > 0 || matrixLutSampleCount > 0
-                              ? 'Measured + local evidence active'
-                              : 'Local Palette Proof evidence active'
-                          : exactAnchorCount > 0 || matrixLutSampleCount > 0
-                            ? matrixAnchorCount > 0 && proofAnchorCount === 0
-                                ? 'Stack Matrix LUT active'
-                                : 'Measured anchors active'
-                            : model.observationCount > 0 || model.noneCount > 0
-                              ? 'Evidence gathered, fit gated'
-                              : 'Estimated only'}
+                    {physicalFitApplied
+                        ? `Matrix physical fit (${((effectiveOptics?.confidence ?? 0) * 100).toFixed(0)}%)`
+                        : model.applied
+                          ? localEvidenceCount > 0
+                              ? `Global + local fit (${(model.confidence * 100).toFixed(0)}%)`
+                              : `Fitted estimate (${(model.confidence * 100).toFixed(0)}%)`
+                          : localEvidenceCount > 0
+                            ? exactAnchorCount > 0 || matrixLutSampleCount > 0
+                                ? 'Measured + local evidence active'
+                                : 'Local Palette Proof evidence active'
+                            : exactAnchorCount > 0 || matrixLutSampleCount > 0
+                              ? matrixAnchorCount > 0 && proofAnchorCount === 0
+                                  ? 'Stack Matrix LUT active'
+                                  : 'Measured anchors active'
+                              : model.observationCount > 0 || model.noneCount > 0
+                                ? 'Evidence gathered, fit gated'
+                                : 'Estimated only'}
                 </span>
             </div>
             <div className="mt-0.5 text-muted-foreground">
@@ -152,13 +160,25 @@ function AppearanceModelStat({ result }: { result: AutoPaintResult }) {
                 {matrixLutSampleCount} matrix LUT recipes {' / '}
                 {model.noneCount} no matches
             </div>
+            {effectiveOptics && effectiveOptics.sampleCount > 0 && (
+                <div className="mt-0.5 text-muted-foreground">
+                    {effectiveOptics.sampleCount} physical fit samples {' / '}
+                    {effectiveOptics.substrateInteractions.length} substrate pairs
+                    {physicalFitApplied && (
+                        <>
+                            {' / '}mean ΔE {effectiveOptics.baselineMeanDeltaE.toFixed(1)} →{' '}
+                            {effectiveOptics.fittedMeanDeltaE.toFixed(1)}
+                        </>
+                    )}
+                </div>
+            )}
             <div className="mt-0.5 text-muted-foreground">
                 {model.trainingObservationCount} training choices {' / '}
                 {model.trainingDistinctStackCount} training stacks {' / '}
                 {model.heldOutCount} held-out choices {' / '}
                 {model.heldOutDistinctStackCount} held-out stacks
             </div>
-            {(model.applied || localEvidenceCount > 0) && (
+            {(model.applied || physicalFitApplied || localEvidenceCount > 0) && (
                 <div className="mt-0.5 text-muted-foreground">
                     {(comparedCoverage * 100).toFixed(0)}% compared {' / '}
                     {(localCoverage * 100).toFixed(0)}% local current-palette coverage
