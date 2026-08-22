@@ -20,6 +20,7 @@ import {
     type ColorSeparationReport,
     type WeightedLab,
 } from './autoPaint';
+import { BoundedCache } from './boundedCache';
 import { activeFrontlitCalibration, channelHds } from './calibration';
 
 // ============================================================================
@@ -107,6 +108,12 @@ export interface ScoringContext {
     preserveSeparation?: boolean;
     separationMaxDeltaE?: number;
     appearanceModel?: AppearanceRankModelV1;
+}
+
+export interface SequenceScorer {
+    (filaments: Filament[]): number;
+    /** Retained numeric scores; exposed for benchmarks and memory regressions. */
+    cacheSize(): number;
 }
 
 // ============================================================================
@@ -258,8 +265,16 @@ function stableHash32(value: string): number {
 // Scoring Functions
 // ============================================================================
 
-export function createSequenceScorer(context: ScoringContext): (filaments: Filament[]) => number {
-    const paletteCache = new Map<string, ReturnType<typeof buildAchievableColorPalette>>();
+export const MAX_CACHED_SEQUENCE_SCORES = 8_192;
+
+export function createSequenceScorer(
+    context: ScoringContext,
+    maxCachedScores: number = MAX_CACHED_SEQUENCE_SCORES
+): SequenceScorer {
+    // Retaining a rich palette for every Exact/Deep candidate can consume
+    // hundreds of megabytes. Only the deterministic scalar score is reusable;
+    // let each temporary palette be collected immediately after scoring.
+    const scoreCache = new BoundedCache<string, number>(maxCachedScores);
     const transitionThicknessCache = new Map<string, number>();
     const exactAnchorTargets = context.appearanceModel?.exactAnchors
         ?.filter((anchor) => anchor.source !== 'stack-matrix')
@@ -269,28 +284,30 @@ export function createSequenceScorer(context: ScoringContext): (filaments: Filam
             b: anchor.targetLab[2],
         }));
 
-    return (filaments) => {
+    const score = ((filaments: Filament[]) => {
         if (filaments.length === 0) return Infinity;
         const sequenceKey = filaments.map(filamentOpticalKey).join('|');
-        let palette = paletteCache.get(sequenceKey);
-        if (!palette) {
-            palette = buildAchievableColorPalette(
-                filaments,
-                context.layerHeight,
-                context.firstLayerHeight,
-                context.maxHeight,
-                context.transitionOpacity,
-                transitionThicknessCache,
-                context.appearanceModel
-            );
-            paletteCache.set(sequenceKey, palette);
-        }
-        return scoreSequenceAgainstImage(palette, context.imageColors, {
+        const cachedScore = scoreCache.get(sequenceKey);
+        if (cachedScore !== undefined) return cachedScore;
+        const palette = buildAchievableColorPalette(
+            filaments,
+            context.layerHeight,
+            context.firstLayerHeight,
+            context.maxHeight,
+            context.transitionOpacity,
+            transitionThicknessCache,
+            context.appearanceModel
+        );
+        const value = scoreSequenceAgainstImage(palette, context.imageColors, {
             preserveSeparation: context.preserveSeparation,
             separationMaxDeltaE: context.separationMaxDeltaE,
             exactAnchorTargets,
         });
-    };
+        scoreCache.set(sequenceKey, value);
+        return value;
+    }) as SequenceScorer;
+    score.cacheSize = () => scoreCache.size;
+    return score;
 }
 
 export function scoreFilamentSequence(filaments: Filament[], context: ScoringContext): number {
@@ -308,7 +325,6 @@ const BALANCED_BEAM_WIDTH = 100;
 const THOROUGH_BEAM_WIDTH = 100;
 const DEEP_BEAM_WIDTH = 250;
 
-type SequenceScorer = (filaments: Filament[]) => number;
 type ResolvedOptimizerAlgorithm =
     | 'exhaustive'
     | 'beam'

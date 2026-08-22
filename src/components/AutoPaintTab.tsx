@@ -54,6 +54,8 @@ import { TEMPLATE_PROFILES, isTemplateProfileId } from '../data/supplierFilament
 import { getConfidenceLabel, getConfidenceColor } from '../lib/calibration';
 import { getExactBaseOrderCount } from '../lib/optimizer';
 import { useNextBestColorWorker } from '../hooks/useNextBestColorWorker';
+import type { PrintableFeatureSimulation } from '../lib/printableFeatures.ts';
+import PrintableFeaturePreview from './PrintableFeaturePreview';
 
 /** Percentage stat tile with a slim progress bar, colored by confidence band. */
 function ConfidenceStat({ label, value }: { label: string; value: number }) {
@@ -338,6 +340,8 @@ interface AutoPaintTabProps {
     isComputing?: boolean;
     progress?: number;
     error?: string;
+    printableFeatureSimulation?: PrintableFeatureSimulation;
+    printableFeatureIsComputing?: boolean;
     calibrationLayerHeight: number;
     setCalibrationLayerHeight: (v: number) => void;
     firstLayerHeight: number;
@@ -364,6 +368,8 @@ interface AutoPaintTabProps {
     setHeightDithering: (v: boolean) => void;
     ditherLineWidth: number;
     setDitherLineWidth: (v: number) => void;
+    omitAtRiskPixels: boolean;
+    setOmitAtRiskPixels: (v: boolean) => void;
 
     // Flat Paint
     flatPaint: boolean;
@@ -420,6 +426,8 @@ export default function AutoPaintTab({
     isComputing = false,
     progress = 0,
     error,
+    printableFeatureSimulation,
+    printableFeatureIsComputing = false,
     calibrationLayerHeight,
     firstLayerHeight,
     filteredCount,
@@ -441,6 +449,8 @@ export default function AutoPaintTab({
     setHeightDithering,
     ditherLineWidth,
     setDitherLineWidth,
+    omitAtRiskPixels,
+    setOmitAtRiskPixels,
     flatPaint,
     setFlatPaint,
     flatPaintFaceUp,
@@ -907,17 +917,22 @@ export default function AutoPaintTab({
                                     <div className="flex items-center justify-between text-[10px] text-primary">
                                         <span className="flex items-center gap-1.5">
                                             <Loader2 className="w-3 h-3 animate-spin" />
-                                            Optimizing filament order…
+                                            {printableFeatureIsComputing
+                                                ? 'Analyzing printable detail…'
+                                                : 'Optimizing filament order…'}
                                         </span>
                                         <span className="tabular-nums">
-                                            {Math.round(progress * 100)}%
+                                            {!printableFeatureIsComputing &&
+                                                `${Math.round(progress * 100)}%`}
                                         </span>
                                     </div>
                                     <div className="h-1 w-full overflow-hidden rounded-full bg-muted">
                                         <div
-                                            className="h-full rounded-full bg-primary transition-[width] duration-200 ease-out"
+                                            className={`h-full rounded-full bg-primary transition-[width] duration-200 ease-out ${printableFeatureIsComputing ? 'animate-pulse' : ''}`}
                                             style={{
-                                                width: `${Math.max(2, Math.min(100, Math.round(progress * 100)))}%`,
+                                                width: printableFeatureIsComputing
+                                                    ? '100%'
+                                                    : `${Math.max(2, Math.min(100, Math.round(progress * 100)))}%`,
                                             }}
                                         />
                                     </div>
@@ -935,6 +950,74 @@ export default function AutoPaintTab({
                                     </p>
                                 </div>
                             )}
+                        </div>
+                    )}
+
+                    {/* Effective printable feature size */}
+                    {filaments.length > 0 && (
+                        <div className="space-y-3 pt-2">
+                            <div className="h-px bg-border/50" />
+                            <div className="flex items-center gap-2">
+                                <Label
+                                    htmlFor="effective-line-width"
+                                    className="text-xs font-medium text-foreground whitespace-nowrap"
+                                >
+                                    Effective line width
+                                </Label>
+                                <NumberInput
+                                    id="effective-line-width"
+                                    data-testid="autopaint-effective-line-width"
+                                    min={0.1}
+                                    max={2}
+                                    step={0.01}
+                                    value={localDitherLineWidth}
+                                    onChange={(event) =>
+                                        setLocalDitherLineWidth(event.target.value)
+                                    }
+                                    onBlur={() => {
+                                        let value = parseFloat(localDitherLineWidth);
+                                        if (Number.isNaN(value)) {
+                                            setLocalDitherLineWidth(ditherLineWidth.toString());
+                                            return;
+                                        }
+                                        value = Math.max(0.1, Math.min(2, value));
+                                        setDitherLineWidth(value);
+                                        setLocalDitherLineWidth(value.toString());
+                                    }}
+                                    onKeyDown={(event) => {
+                                        if (event.key === 'Enter') event.currentTarget.blur();
+                                    }}
+                                    className="ml-auto h-7 w-20 text-xs"
+                                />
+                                <span className="text-[10px] text-muted-foreground">mm</span>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => setDitherLineWidth(0.42)}
+                                    className="h-7 px-1.5 text-[10px] text-muted-foreground hover:text-foreground"
+                                    title="Reset to default (0.42mm)"
+                                >
+                                    Reset
+                                </Button>
+                            </div>
+                            <div className="flex items-center justify-between gap-3">
+                                <Label
+                                    htmlFor="omit-at-risk-pixels"
+                                    className="cursor-pointer text-xs font-medium text-foreground"
+                                >
+                                    Omit at-risk colors from matching
+                                </Label>
+                                <Switch
+                                    id="omit-at-risk-pixels"
+                                    data-testid="autopaint-omit-at-risk-pixels"
+                                    checked={omitAtRiskPixels}
+                                    onCheckedChange={setOmitAtRiskPixels}
+                                />
+                            </div>
+                            <PrintableFeaturePreview
+                                simulation={printableFeatureSimulation}
+                                isComputing={printableFeatureIsComputing}
+                            />
                         </div>
                     )}
 
@@ -1124,52 +1207,6 @@ export default function AutoPaintTab({
                                         disabled={!enhancedColorMatch}
                                     />
                                 </div>
-                                {heightDithering && enhancedColorMatch && (
-                                    <div className="flex items-center gap-2 pl-0.5">
-                                        <label className="text-[11px] text-muted-foreground whitespace-nowrap">
-                                            Line width
-                                        </label>
-                                        <NumberInput
-                                            min={0.1}
-                                            max={2}
-                                            step={0.01}
-                                            value={localDitherLineWidth}
-                                            onChange={(e) => {
-                                                setLocalDitherLineWidth(e.target.value);
-                                            }}
-                                            onBlur={() => {
-                                                let val = parseFloat(localDitherLineWidth);
-                                                if (isNaN(val)) {
-                                                    setLocalDitherLineWidth(
-                                                        ditherLineWidth.toString()
-                                                    );
-                                                    return;
-                                                }
-                                                val = Math.max(0.1, Math.min(2, val));
-                                                setDitherLineWidth(val);
-                                                setLocalDitherLineWidth(val.toString());
-                                            }}
-                                            onKeyDown={(e) => {
-                                                if (e.key === 'Enter') {
-                                                    e.currentTarget.blur();
-                                                }
-                                            }}
-                                            className="w-20 h-7 text-xs"
-                                        />
-                                        <span className="text-[10px] text-muted-foreground">
-                                            mm
-                                        </span>
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            onClick={() => setDitherLineWidth(0.42)}
-                                            className="h-7 px-1.5 text-[10px] text-muted-foreground hover:text-foreground ml-auto"
-                                            title="Reset to default (0.42mm)"
-                                        >
-                                            Reset
-                                        </Button>
-                                    </div>
-                                )}
                             </div>
                         </div>
                     )}
@@ -1571,8 +1608,30 @@ export default function AutoPaintTab({
                                             <div className="text-muted-foreground mb-1">
                                                 Quality Score
                                             </div>
-                                            <div className="font-semibold text-green-600 dark:text-green-400">
-                                                {autoPaintResult.optimizerMetadata.score.toFixed(2)}
+                                            <div
+                                                className={`font-semibold ${
+                                                    autoPaintResult.colorSeparation?.satisfied ===
+                                                    false
+                                                        ? 'text-amber-600 dark:text-amber-400'
+                                                        : 'text-green-600 dark:text-green-400'
+                                                }`}
+                                                title={
+                                                    autoPaintResult.colorSeparation?.satisfied ===
+                                                    false
+                                                        ? 'The separation constraint was not satisfied, so the internal optimizer objective includes hard constraint penalties.'
+                                                        : 'Lower is better.'
+                                                }
+                                            >
+                                                {autoPaintResult.colorSeparation?.satisfied ===
+                                                false
+                                                    ? 'Constraint unmet'
+                                                    : Number.isFinite(
+                                                            autoPaintResult.optimizerMetadata.score
+                                                        )
+                                                      ? autoPaintResult.optimizerMetadata.score.toFixed(
+                                                            2
+                                                        )
+                                                      : 'Unavailable'}
                                             </div>
                                         </div>
                                         <div className="text-center p-2 rounded bg-background">

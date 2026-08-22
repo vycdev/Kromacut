@@ -82,6 +82,14 @@ Templates are unofficial reference filament sets: colors come from [Bambu Lab's 
 
 **Max Height** limits the total printed model height in Auto-paint. Leave it on **Auto** for the physics-derived, layer-aligned height. If a value falls between valid first-layer and layer-height steps, Kromacut uses the next lower printable height so the generated model never exceeds your cap. Set a smaller value when the model is too tall, but watch for compressed transition zones.
 
+## Printable Detail
+
+Set **Effective line width** to the extrusion width you expect to use in the slicer. Before Auto-paint maps image colors, Kromacut finds color regions that cannot contain a path that wide and predicts which printable neighboring color would claim each vulnerable location. When omission is enabled, the same resolved pixels are used for optimizer scoring and for the built height map, so the diagnostic and model describe the same geometry.
+
+Use **Open preview** to inspect the affected locations at a useful size. **At risk** marks pixels expected to be claimed by a neighboring color in amber and isolated pixels with no printable neighbor in pink. **Printable** shows the image that Auto-paint actually receives. The compact sidebar summary reports the affected fraction without occupying space with a small embedded image.
+
+Enable **Omit at-risk colors from matching** to replace vulnerable source pixels with their predicted printable neighboring colors before swatch extraction and color prediction. Colors that exist only in unprintable details therefore do not consume optimizer work, while the generated model remains fully filled instead of developing holes. If an isolated region has no defensible printable neighbor, Kromacut keeps its original color. This is a conservative feature-size estimate rather than a replacement for checking the generated model in your slicer, because unusual path-generation settings can still produce a different result.
+
 ## Enhanced Color Matching
 
 Enable **Enhanced color matching** when filament order matters and you want Kromacut to optimize the stack.
@@ -91,8 +99,7 @@ Optional controls appear with enhanced matching:
 - **Total repeat limit** sets one shared ceiling across the whole stack: Off, or up to 2, 4, 6, 8, or 12 extra filament appearances. Two repeats can mean two filaments appearing once more each, or one filament appearing twice more. Repeats can create useful blend paths but expand the search space.
 - **Preserve color separation** tries to give every distinct 2D image color its own printable surface color within the selected **Maximum color error**. The numeric field accepts ΔE00 1 to 100 and defaults to 6; raising it makes preserving every color more feasible, but permits less accurate matches. Kromacut solves these assignments globally so one dominant region cannot take the only good match from another color. It first searches at the selected optimizer effort without repeating a filament, then permits one additional filament occurrence at a time and stops at the first successful complexity level. **Fail build if any color is missed** is enabled by default and rejects a result that cannot satisfy every color. Turn it off to keep the result: colors that meet the threshold remain separately assigned, while only missed colors fall back to their nearest printable match and may merge.
 - **Transition detail** chooses the opacity endpoint for each physical color transition: Compact stops at 80% opacity, Detailed at 90%, and Maximum at 95%. Higher settings create taller stacks with more printable intermediate colors.
-- **Height dithering** uses printable height dots to smooth tonal transitions.
-- **Line width** should roughly match the printer line or nozzle width used for dither dots.
+- **Height dithering** uses printable height dots to smooth tonal transitions. Its dot blocks use the same Effective line width as the printable-detail simulation.
 - **Optimizer Settings** let you choose **Algorithm**, **Region priority**, and an optional **Seed**.
 
 Preserve color separation and **Height dithering** are mutually exclusive. Turning one on turns the other off because both modes change how source colors map onto printable layer heights.
@@ -151,7 +158,7 @@ After Auto-paint computes a result, Kromacut can show:
 
 - **Transition Zones**, with height ranges and compressed-zone badges.
 - **Result Confidence**, including Calibration, Coverage, and Compression scores. The appearance row separately reports whether simulated colors are still estimated or use a proof-fitted correction, how many physical stacks were compared, why a tentative fit was rejected, and the average and lowest confidence of the colors actually mapped into the image. It also counts whether those predictions are exact measurements, interpolations, fitted estimates, or pure simulation.
-- **Optimizer Performance**, including Algorithm, Quality Score, Iterations, Cache hit, and Converged.
+- **Optimizer Performance**, including Algorithm, Quality Score, Iterations, Cache hit, and Converged. Quality Score is shown only for a valid objective; when Preserve color separation keeps a fallback result that misses its threshold, this field reports **Constraint unmet** instead of displaying the optimizer's large internal hard-constraint penalty as a meaningful quality value.
 
 Prediction confidence is distinct from raw color error. Kromacut lowers it as a recipe moves away from physical measurements, nearby measured corrections disagree, or held-out predictions miss their photographed colors. Exact measurements start strongest, followed by local interpolation, fitted models, and unsupported simulation. Enhanced matching adds a bounded uncertainty cost, so a slightly less accurate but well-supported printable color can beat a speculative match. Preserve color separation still enforces its selected Maximum color error using raw ΔE00; uncertainty cannot make an out-of-limit color valid.
 

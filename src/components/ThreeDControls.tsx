@@ -20,6 +20,7 @@ import { useProfileManager } from '../hooks/useProfileManager';
 import { useColorSlicing } from '../hooks/useColorSlicing';
 import { useSwapPlan } from '../hooks/useSwapPlan';
 import { useAutoPaintWorker } from '../hooks/useAutoPaintWorker';
+import { usePrintableFeatureSimulation } from '../hooks/usePrintableFeatureSimulation';
 import type {
     AutoPaintRepeatLimit,
     AutoPaintTransitionOpacity,
@@ -149,6 +150,9 @@ export default function ThreeDControls({
         initialPreserveSeparation ? false : (persisted?.heightDithering ?? false)
     );
     const [ditherLineWidth, setDitherLineWidth] = useState(persisted?.ditherLineWidth ?? 0.42);
+    const [omitAtRiskPixels, setOmitAtRiskPixels] = useState(
+        persisted?.omitAtRiskPixels ?? false
+    );
     const [flatPaint, setFlatPaint] = useState(initialFlatPaint);
     const [flatPaintFaceUp, setFlatPaintFaceUp] = useState(persisted?.flatPaintFaceUp ?? false);
 
@@ -212,6 +216,7 @@ export default function ThreeDControls({
             transitionOpacity,
             heightDithering,
             ditherLineWidth,
+            omitAtRiskPixels,
             flatPaint,
             flatPaintFaceUp,
             optimizerAlgorithm,
@@ -231,6 +236,7 @@ export default function ThreeDControls({
         transitionOpacity,
         heightDithering,
         ditherLineWidth,
+        omitAtRiskPixels,
         flatPaint,
         flatPaintFaceUp,
         optimizerAlgorithm,
@@ -276,16 +282,31 @@ export default function ThreeDControls({
         );
     }, [resetHeightsToValues]);
 
+    // --- Printable-feature simulation (shared by scoring, preview, and geometry) ---
+    const {
+        simulation: printableFeatureSimulation,
+        printableSwatches,
+        isComputing: isPrintableFeatureComputing,
+        error: printableFeatureError,
+    } = usePrintableFeatureSimulation({
+        enabled: paintMode === 'autopaint' && filaments.length > 0 && filtered.length > 0,
+        imageSrc,
+        sourceSwatches: filtered,
+        pixelSizeMm: pixelSize,
+        lineWidthMm: ditherLineWidth,
+        omitAtRiskPixels,
+    });
+
     // --- Auto-paint (runs in Web Worker to avoid blocking the UI) ---
     const {
         autoPaintResult,
-        isComputing: isAutoPaintComputing,
-        progress: autoPaintProgress,
-        error: autoPaintError,
+        isComputing: isOptimizerComputing,
+        progress: optimizerProgress,
+        error: optimizerError,
     } = useAutoPaintWorker({
         paintMode,
         filaments,
-        filtered,
+        filtered: printableFeatureSimulation ? printableSwatches : [],
         layerHeight,
         slicerFirstLayerHeight,
         autoPaintMaxHeight,
@@ -303,6 +324,9 @@ export default function ThreeDControls({
                 ? profileManager.activeProfile.appearance
                 : undefined,
     });
+    const isAutoPaintComputing = isPrintableFeatureComputing || isOptimizerComputing;
+    const autoPaintProgress = isPrintableFeatureComputing ? 0 : optimizerProgress;
+    const autoPaintError = printableFeatureError ?? optimizerError;
     const autoPaintProgressPercent = Math.round(Math.max(0, Math.min(1, autoPaintProgress)) * 100);
 
     const autoPaintSliceData = useMemo(() => {
@@ -407,7 +431,13 @@ export default function ThreeDControls({
         if (paintMode === 'autopaint') {
             // Auto-paint is a hard mode boundary. A missing or rejected result
             // must never fall through to the unrelated manual color heights.
-            if (isAutoPaintComputing || autoPaintError || !autoPaintSliceData || !autoPaintResult) {
+            if (
+                isAutoPaintComputing ||
+                autoPaintError ||
+                !printableFeatureSimulation ||
+                !autoPaintSliceData ||
+                !autoPaintResult
+            ) {
                 return;
             }
             onChange({
@@ -427,6 +457,7 @@ export default function ThreeDControls({
                 transitionOpacity,
                 heightDithering,
                 ditherLineWidth,
+                omitAtRiskPixels,
                 flatPaint,
                 flatPaintFaceUp,
                 optimizerAlgorithm,
@@ -435,6 +466,12 @@ export default function ThreeDControls({
                 autoPaintResult,
                 autoPaintSwatches: autoPaintSliceData.virtualSwatches,
                 autoPaintFilamentSwatches: autoPaintSliceData.filamentSwatches,
+                printableFeaturePixels: {
+                    width: printableFeatureSimulation.width,
+                    height: printableFeatureSimulation.height,
+                    data: printableFeatureSimulation.data,
+                    fingerprint: printableFeatureSimulation.fingerprint,
+                },
                 calibrationLayerHeight,
                 smoothMeshing,
             });
@@ -476,6 +513,7 @@ export default function ThreeDControls({
         transitionOpacity,
         heightDithering,
         ditherLineWidth,
+        omitAtRiskPixels,
         flatPaint,
         flatPaintFaceUp,
         optimizerAlgorithm,
@@ -485,12 +523,17 @@ export default function ThreeDControls({
         smoothMeshing,
         autoPaintResult,
         autoPaintSliceData,
+        printableFeatureSimulation,
         autoPaintError,
         isAutoPaintComputing,
     ]);
 
     const autoPaintBuildUnavailable =
-        paintMode === 'autopaint' && (!!autoPaintError || !autoPaintResult || !autoPaintSliceData);
+        paintMode === 'autopaint' &&
+        (!!autoPaintError ||
+            !printableFeatureSimulation ||
+            !autoPaintResult ||
+            !autoPaintSliceData);
 
     return (
         <div className="space-y-4">
@@ -602,11 +645,13 @@ export default function ThreeDControls({
                     isComputing={isAutoPaintComputing}
                     progress={autoPaintProgress}
                     error={autoPaintError}
+                    printableFeatureSimulation={printableFeatureSimulation}
+                    printableFeatureIsComputing={isPrintableFeatureComputing}
                     calibrationLayerHeight={calibrationLayerHeight}
                     setCalibrationLayerHeight={setCalibrationLayerHeight}
                     firstLayerHeight={slicerFirstLayerHeight}
-                    filteredCount={filtered.length}
-                    imageSwatches={filtered}
+                    filteredCount={printableSwatches.length}
+                    imageSwatches={printableSwatches}
                     paletteProofImageSrc={imageSrc}
                     enhancedColorMatch={enhancedColorMatch}
                     setEnhancedColorMatch={handleEnhancedColorMatchChange}
@@ -624,6 +669,8 @@ export default function ThreeDControls({
                     setHeightDithering={handleHeightDitheringChange}
                     ditherLineWidth={ditherLineWidth}
                     setDitherLineWidth={setDitherLineWidth}
+                    omitAtRiskPixels={omitAtRiskPixels}
+                    setOmitAtRiskPixels={setOmitAtRiskPixels}
                     flatPaint={flatPaint}
                     setFlatPaint={handleFlatPaintChange}
                     flatPaintFaceUp={flatPaintFaceUp}

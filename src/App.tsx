@@ -106,6 +106,7 @@ type AutoPaintPersisted = Pick<
     | 'transitionOpacity'
     | 'heightDithering'
     | 'ditherLineWidth'
+    | 'omitAtRiskPixels'
     | 'flatPaint'
     | 'flatPaintFaceUp'
 >;
@@ -172,6 +173,7 @@ const loadAutoPaintPersisted = (): AutoPaintPersisted | null => {
             transitionOpacity: normalizeTransitionOpacity(parsed.transitionOpacity),
             heightDithering: parsed.heightDithering ?? false,
             ditherLineWidth: parsed.ditherLineWidth,
+            omitAtRiskPixels: parsed.omitAtRiskPixels === true,
             flatPaint: parsed.flatPaint ?? false,
             flatPaintFaceUp: parsed.flatPaintFaceUp === true,
         };
@@ -363,6 +365,8 @@ function App(): React.ReactElement | null {
                 transitionOpacity: autopaintHydrated.transitionOpacity ?? prev.transitionOpacity,
                 heightDithering: autopaintHydrated.heightDithering ?? prev.heightDithering,
                 ditherLineWidth: autopaintHydrated.ditherLineWidth ?? prev.ditherLineWidth,
+                omitAtRiskPixels:
+                    autopaintHydrated.omitAtRiskPixels ?? prev.omitAtRiskPixels,
                 flatPaint: autopaintHydrated.flatPaint ?? prev.flatPaint,
                 flatPaintFaceUp: autopaintHydrated.flatPaintFaceUp ?? prev.flatPaintFaceUp,
             }));
@@ -387,6 +391,7 @@ function App(): React.ReactElement | null {
             transitionOpacity: threeDState.transitionOpacity,
             heightDithering: threeDState.heightDithering,
             ditherLineWidth: threeDState.ditherLineWidth,
+            omitAtRiskPixels: threeDState.omitAtRiskPixels,
             flatPaint: threeDState.flatPaint,
             flatPaintFaceUp: threeDState.flatPaintFaceUp,
         });
@@ -404,6 +409,7 @@ function App(): React.ReactElement | null {
         threeDState.transitionOpacity,
         threeDState.heightDithering,
         threeDState.ditherLineWidth,
+        threeDState.omitAtRiskPixels,
         threeDState.flatPaint,
         threeDState.flatPaintFaceUp,
     ]);
@@ -845,6 +851,9 @@ function App(): React.ReactElement | null {
                                             }
                                             heightDithering={builtModelState.heightDithering}
                                             ditherLineWidth={builtModelState.ditherLineWidth}
+                                            printableFeaturePixels={
+                                                builtModelState.printableFeaturePixels
+                                            }
                                             smoothMeshing={builtModelState.smoothMeshing}
                                             isOrtho={isOrtho}
                                             flatPaint={builtFlatPaint}

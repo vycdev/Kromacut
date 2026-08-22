@@ -75,6 +75,14 @@ export interface Filament {
     brand?: string;
 }
 
+/** The exact line-width-filtered pixels used by a built Auto-paint model. */
+export interface PrintableFeaturePixelSnapshot {
+    width: number;
+    height: number;
+    data: Uint8ClampedArray;
+    fingerprint: string;
+}
+
 export interface ThreeDControlsStateShape {
     layerHeight: number;
     slicerFirstLayerHeight: number;
@@ -101,7 +109,10 @@ export interface ThreeDControlsStateShape {
     /** Target transition opacity used to create the printable color ramp. */
     transitionOpacity?: AutoPaintTransitionOpacity;
     heightDithering?: boolean;
+    /** Effective extrusion width for printable-detail simulation and height-dither blocks. */
     ditherLineWidth?: number;
+    /** Replace at-risk source colors with nearby printable colors before matching. */
+    omitAtRiskPixels?: boolean;
     /** Flat Paint: build a uniform multi-material slab (auto-paint only). */
     flatPaint?: boolean;
     /** Print Flat Paint face-up without the transparent carrier layer. */
@@ -114,4 +125,5 @@ export interface ThreeDControlsStateShape {
     autoPaintResult?: AutoPaintResult;
     autoPaintSwatches?: Swatch[];
     autoPaintFilamentSwatches?: Swatch[];
+    printableFeaturePixels?: PrintableFeaturePixelSnapshot;
 }

@@ -77,6 +77,31 @@ test('each optimizer produces the same result for the same seed', async (t) => {
     }
 });
 
+test('sequence scoring retains only bounded scalar results without changing scores', async () => {
+    const { createSequenceScorer } = await loadOptimizerModule();
+    const uncached = createSequenceScorer(context, 0);
+    const bounded = createSequenceScorer(context, 2);
+    const sequences = [
+        [filaments[0]],
+        [filaments[1]],
+        [filaments[2]],
+        [filaments[0], filaments[3]],
+    ];
+
+    const expected = sequences.map((sequence) => uncached(sequence));
+    const actual = sequences.map((sequence) => bounded(sequence));
+
+    assert.deepEqual(actual, expected);
+    assert.equal(uncached.cacheSize(), 0);
+    assert.equal(bounded.cacheSize(), 2);
+    assert.equal(
+        bounded(sequences[0]),
+        expected[0],
+        'an evicted sequence must recompute identically'
+    );
+    assert.equal(bounded.cacheSize(), 2);
+});
+
 test('optimizer progress is monotonic and completes for every algorithm', async (t) => {
     const { optimizeFilamentOrder } = await loadOptimizerModule();
     const algorithms = [

@@ -34,7 +34,11 @@ import {
     rebuildPreviewWireframeOverlay as buildPreviewWireframeOverlay,
     syncPreviewWireframeOverlayVisibility as syncPreviewWireframeVisibility,
 } from '../lib/previewWireframe';
-import type { PreviewColorMode, PreviewRenderMode } from '../types';
+import type {
+    PreviewColorMode,
+    PreviewRenderMode,
+    PrintableFeaturePixelSnapshot,
+} from '../types';
 import type { FinalPrintableStackSnapshot } from '../types/appearance';
 import { Layers } from 'lucide-react';
 import ProgressOverlay from './ProgressOverlay';
@@ -62,7 +66,8 @@ interface ThreeDViewProps {
     preserveSeparation?: boolean; // Assign each image color to a distinct printable color
     separationMaxDeltaE?: number; // Maximum accepted ΔE00 for separated colors
     heightDithering?: boolean; // Stucki error diffusion on height map
-    ditherLineWidth?: number; // Minimum dot size in mm for dithering
+    ditherLineWidth?: number; // Effective extrusion width; also sets minimum dither-dot size
+    printableFeaturePixels?: PrintableFeaturePixelSnapshot; // exact filtered pixels used for Auto-paint
     smoothMeshing?: boolean; // Smooth connected boundaries using welded grid topology
     isOrtho?: boolean;
     flatPaint?: boolean; // Build a uniform Flat Paint slab (auto-paint only)
@@ -369,6 +374,7 @@ export default function ThreeDView({
     separationMaxDeltaE,
     heightDithering = false,
     ditherLineWidth = 0.42,
+    printableFeaturePixels,
     smoothMeshing = false,
     isOrtho = false,
     flatPaint = false,
@@ -782,6 +788,7 @@ export default function ThreeDView({
             separationMaxDeltaE,
             heightDithering,
             ditherLineWidth,
+            printableFeatureFingerprint: printableFeaturePixels?.fingerprint,
             smoothMeshing,
             flatPaint,
             flatPaintFaceUp,
@@ -839,21 +846,14 @@ export default function ThreeDView({
             // Build multi-mesh geometry (one object per color layer)
             const buildPixelGeometry = async (
                 img: HTMLImageElement,
-                bbox: { minX: number; minY: number; boxW: number; boxH: number }
+                bbox: { minX: number; minY: number; boxW: number; boxH: number },
+                data: Uint8ClampedArray
             ) => {
                 const nearestSwatchIndex = buildNearestSwatchFinder(swatches);
                 if (token !== buildTokenRef.current) return;
                 const fullW = img.naturalWidth;
                 const fullH = img.naturalHeight;
                 const { minX, minY, boxW, boxH } = bbox;
-
-                const canvas = document.createElement('canvas');
-                canvas.width = fullW;
-                canvas.height = fullH;
-                const ctx = canvas.getContext('2d');
-                if (!ctx) return;
-                ctx.drawImage(img, 0, 0, fullW, fullH);
-                const { data } = ctx.getImageData(0, 0, fullW, fullH);
 
                 // Clear current model
                 clearWireframeOverlay();
@@ -2082,7 +2082,14 @@ export default function ThreeDView({
                 const cx = c.getContext('2d');
                 if (!cx) return;
                 cx.drawImage(img, 0, 0, w, h);
-                const imgd = cx.getImageData(0, 0, w, h).data;
+                const originalImageData = cx.getImageData(0, 0, w, h).data;
+                const imgd =
+                    autoPaintEnabled &&
+                    printableFeaturePixels?.width === w &&
+                    printableFeaturePixels.height === h &&
+                    printableFeaturePixels.data.length === w * h * 4
+                        ? printableFeaturePixels.data
+                        : originalImageData;
                 let minX = w,
                     minY = h,
                     maxX = 0,
@@ -2120,7 +2127,7 @@ export default function ThreeDView({
                             res();
                             return;
                         }
-                        if (pixelColumns) await buildPixelGeometry(img, bbox);
+                        if (pixelColumns) await buildPixelGeometry(img, bbox, imgd);
                         res();
                     })
                 );
@@ -2153,6 +2160,7 @@ export default function ThreeDView({
         separationMaxDeltaE,
         heightDithering,
         ditherLineWidth,
+        printableFeaturePixels,
         smoothMeshing,
         flatPaint,
         flatPaintFaceUp,

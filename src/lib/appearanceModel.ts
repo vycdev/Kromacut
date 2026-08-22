@@ -27,6 +27,7 @@ import {
     predictEffectiveAutoPaintColor,
     predictEffectiveRecipeColor,
 } from './effectiveOptics';
+import { BoundedCache } from './boundedCache';
 import { fingerprintJson } from './fingerprint';
 
 export interface AppearanceFitContext {
@@ -65,6 +66,7 @@ const MIN_HELD_OUT = 2;
 const MIN_HELD_OUT_AGREEMENT = 0.7;
 const MIN_HELD_OUT_IMPROVEMENT = 0.1;
 const EMPIRICAL_NEIGHBOR_COUNT = 8;
+const EMPIRICAL_RECIPE_LOOKUP_CACHE_SIZE = 1_024;
 const EMPIRICAL_MAX_RECIPE_DISTANCE = 0.6;
 const EMPIRICAL_MIN_COVERAGE_RADIUS = 5;
 const EMPIRICAL_MAX_COVERAGE_RADIUS = 30;
@@ -1427,10 +1429,14 @@ interface IndexedEmpiricalNeighbor {
     recipeDistance: number;
 }
 
+interface EmpiricalNeighborLookup {
+    neighbors: IndexedEmpiricalNeighbor[];
+    nearest: IndexedEmpiricalNeighbor | undefined;
+}
+
 interface EmpiricalLutIndex {
     exactByRecipe: Map<string, AppearanceEmpiricalLutSampleV1>;
-    neighborsByRecipe: Map<string, IndexedEmpiricalNeighbor[]>;
-    nearestByRecipe: Map<string, IndexedEmpiricalNeighbor | undefined>;
+    neighborLookups: BoundedCache<string, EmpiricalNeighborLookup>;
 }
 
 const empiricalLutIndexCache = new WeakMap<AppearanceEmpiricalLutV1, EmpiricalLutIndex>();
@@ -1440,8 +1446,9 @@ function empiricalLutIndex(lut: AppearanceEmpiricalLutV1): EmpiricalLutIndex {
     if (cached) return cached;
     const index = {
         exactByRecipe: new Map<string, AppearanceEmpiricalLutSampleV1>(),
-        neighborsByRecipe: new Map<string, IndexedEmpiricalNeighbor[]>(),
-        nearestByRecipe: new Map<string, IndexedEmpiricalNeighbor | undefined>(),
+        neighborLookups: new BoundedCache<string, EmpiricalNeighborLookup>(
+            EMPIRICAL_RECIPE_LOOKUP_CACHE_SIZE
+        ),
     };
     for (const sample of lut.samples) {
         index.exactByRecipe.set(recipeKey(sample.recipeFilamentIds), sample);
@@ -1450,13 +1457,13 @@ function empiricalLutIndex(lut: AppearanceEmpiricalLutV1): EmpiricalLutIndex {
     return index;
 }
 
-function nearbyEmpiricalSamples(
+function empiricalNeighborLookup(
     lut: AppearanceEmpiricalLutV1,
     recipe: readonly string[]
-): IndexedEmpiricalNeighbor[] {
+): EmpiricalNeighborLookup {
     const index = empiricalLutIndex(lut);
     const key = recipeKey(recipe);
-    const cached = index.neighborsByRecipe.get(key);
+    const cached = index.neighborLookups.get(key);
     if (cached) return cached;
     const neighbors: IndexedEmpiricalNeighbor[] = [];
     let nearest: IndexedEmpiricalNeighbor | undefined;
@@ -1482,9 +1489,16 @@ function nearbyEmpiricalSamples(
         else neighbors.splice(insertion, 0, candidate);
         if (neighbors.length > EMPIRICAL_NEIGHBOR_COUNT) neighbors.pop();
     }
-    index.neighborsByRecipe.set(key, neighbors);
-    index.nearestByRecipe.set(key, nearest);
-    return neighbors;
+    const lookup = { neighbors, nearest };
+    index.neighborLookups.set(key, lookup);
+    return lookup;
+}
+
+function nearbyEmpiricalSamples(
+    lut: AppearanceEmpiricalLutV1,
+    recipe: readonly string[]
+): IndexedEmpiricalNeighbor[] {
+    return empiricalNeighborLookup(lut, recipe).neighbors;
 }
 
 function nearestEmpiricalSample(
@@ -1493,8 +1507,9 @@ function nearestEmpiricalSample(
 ): IndexedEmpiricalNeighbor | undefined {
     const index = empiricalLutIndex(lut);
     const key = recipeKey(recipe);
-    if (!index.nearestByRecipe.has(key)) nearbyEmpiricalSamples(lut, recipe);
-    return index.nearestByRecipe.get(key);
+    const exact = index.exactByRecipe.get(key);
+    if (exact) return { sample: exact, recipeDistance: 0 };
+    return empiricalNeighborLookup(lut, recipe).nearest;
 }
 
 interface IndexedLocalEvidence {

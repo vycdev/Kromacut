@@ -43,7 +43,7 @@ Auto-paint settings are preserved across sessions, including:
 - Enhanced color matching.
 - Preserve color separation, including its saved Maximum color error threshold, strict-failure/fallback preference, and conservative repeated-run search.
 - Total repeat limit (shared extra filament appearances across the stack).
-- Height dithering and line width.
+- Effective line width and the saved at-risk-color substitution preference for printable-detail simulation and height dithering.
 - Flat Paint and its face-up, no-clear-layer preference.
 - Optimizer algorithm and seed.
 - Region priority.
