@@ -1,4 +1,4 @@
-import { createCenterWeight, createEdgeWeight } from './regionWeighting.ts';
+import { createCenterEdgeWeight } from './regionWeighting.ts';
 
 /** Why a source pixel changed in the line-width simulation. */
 export const PRINTABLE_FEATURE_UNCHANGED = 0;
@@ -321,24 +321,25 @@ export function simulatePrintableFeatures(
         printableOpaquePixelCount++;
     }
 
-    const centerWeightFor = createCenterWeight(width, height);
-    const edgeWeightFor = createEdgeWeight(width, height);
+    const spatialWeightFor = createCenterEdgeWeight(width, height);
+    const spatialWeights = { center: 0, edge: 0 };
     const stats = new Map<number, Omit<PrintableFeatureColorStat, 'hex'>>();
     for (let y = 0; y < height; y++) {
         for (let x = 0; x < width; x++) {
             const pixel = y * width + x;
             if (output[pixel * 4 + 3] === 0) continue;
             const key = rgbKey(output, pixel);
+            spatialWeightFor(x, y, spatialWeights);
             const existing = stats.get(key);
             if (existing) {
                 existing.count++;
-                existing.centerWeight += centerWeightFor(x, y);
-                existing.edgeWeight += edgeWeightFor(x, y);
+                existing.centerWeight += spatialWeights.center;
+                existing.edgeWeight += spatialWeights.edge;
             } else {
                 stats.set(key, {
                     count: 1,
-                    centerWeight: centerWeightFor(x, y),
-                    edgeWeight: edgeWeightFor(x, y),
+                    centerWeight: spatialWeights.center,
+                    edgeWeight: spatialWeights.edge,
                 });
             }
         }

@@ -6,6 +6,7 @@ import { createServer } from 'vite';
 
 import {
     centerWeightAt,
+    createCenterEdgeWeight,
     createCenterWeight,
     createEdgeWeight,
     edgeWeightAt,
@@ -52,6 +53,26 @@ test('precomputed weight factories match the scalar helpers exactly', () => {
             for (let x = 0; x < width; x++) {
                 assert.ok(Math.abs(center(x, y) - centerWeightAt(x, y, width, height)) < 1e-12);
                 assert.ok(Math.abs(edge(x, y) - edgeWeightAt(x, y, width, height)) < 1e-12);
+            }
+        }
+    }
+});
+
+test('combined center and edge weights exactly match separate lookups', () => {
+    for (const [width, height] of [
+        [1, 1],
+        [8, 5],
+        [127, 96],
+    ]) {
+        const center = createCenterWeight(width, height);
+        const edge = createEdgeWeight(width, height);
+        const combined = createCenterEdgeWeight(width, height);
+        const out = { center: 0, edge: 0 };
+        for (let y = 0; y < height; y += Math.max(1, Math.floor(height / 7))) {
+            for (let x = 0; x < width; x += Math.max(1, Math.floor(width / 7))) {
+                combined(x, y, out);
+                assert.equal(out.center, center(x, y));
+                assert.equal(out.edge, edge(x, y));
             }
         }
     }

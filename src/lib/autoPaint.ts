@@ -27,6 +27,7 @@ import {
     createIdentityAppearanceRankModel,
     resolveAppearanceRankModel,
     type AppearanceLocalPreferenceMatch,
+    type ResolvedAppearancePrediction,
 } from './appearanceModel';
 import {
     optimizeFilamentOrder,
@@ -1456,6 +1457,25 @@ export interface AchievableColor {
     localUncertainty?: number;
 }
 
+const identityPredictionConfidenceCache = new WeakMap<
+    AppearanceRankModelV1,
+    AppearancePredictionConfidenceV1
+>();
+
+function getIdentityPredictionConfidence(
+    appearanceModel: AppearanceRankModelV1
+): AppearancePredictionConfidenceV1 {
+    const cached = identityPredictionConfidenceCache.get(appearanceModel);
+    if (cached) return cached;
+    const confidence = resolveAppearanceRankModel(
+        { L: 0, a: 0, b: 0 },
+        appearanceModel,
+        []
+    ).predictionConfidence;
+    identityPredictionConfidenceCache.set(appearanceModel, confidence);
+    return confidence;
+}
+
 export function buildAchievableColorPalette(
     sequence: AutoPaintFilament[],
     layerHeight: number,
@@ -1489,15 +1509,34 @@ export function buildAchievableColorPalette(
             : compressZones(zones, printableMaxHeight).compressedZones;
     const stack = buildPrintableAutoPaintStack(activeZones, layerHeight, firstLayerHeight);
 
+    const identityAppearance =
+        !appearanceModel.applied &&
+        !appearanceModel.effectiveOptics?.applied &&
+        (appearanceModel.exactAnchors?.length ?? 0) === 0 &&
+        (appearanceModel.localEvidence?.length ?? 0) === 0 &&
+        (appearanceModel.empiricalLuts?.length ?? 0) === 0;
+    // With no fitted or measured evidence, confidence is the same simulated
+    // prior for every prefix. Resolve it once and skip recipe construction and
+    // evidence-index traversal for every physical layer of every candidate.
+    const identityPredictionConfidence = identityAppearance
+        ? getIdentityPredictionConfidence(appearanceModel)
+        : undefined;
     const appearancePrefix: AppearanceAnchorLayer[] = [];
     return stack.layers.map((layer) => {
-        appearancePrefix.push({
-            filamentId: layer.filamentId,
-            filamentColor: rgbToHex(hexToRgb(layer.filamentColor)),
-            thickness: layer.thickness,
-        });
+        if (!identityAppearance) {
+            appearancePrefix.push({
+                filamentId: layer.filamentId,
+                filamentColor: rgbToHex(hexToRgb(layer.filamentColor)),
+                thickness: layer.thickness,
+            });
+        }
         const baseLab = rgbToLab(layer.virtualColor);
-        const prediction = resolveAppearanceRankModel(baseLab, appearanceModel, appearancePrefix);
+        const prediction: ResolvedAppearancePrediction = identityPredictionConfidence
+            ? {
+                  lab: baseLab,
+                  predictionConfidence: identityPredictionConfidence,
+              }
+            : resolveAppearanceRankModel(baseLab, appearanceModel, appearancePrefix);
         const rgb =
             appearanceModel.applied ||
             prediction.exactAnchor ||
@@ -2043,6 +2082,28 @@ export function mapTargetsToPrintablePalette(
         };
     });
 
+    // Printable palettes are height-ordered. Resolve the first physical layer
+    // at or above a projected height with a binary search instead of scanning
+    // the full palette once for every target/transition pair. Keep the linear
+    // fallback for callers that provide a legacy or synthetic unordered palette.
+    const heightsAreOrdered = palette.every(
+        (entry, index) => index === 0 || palette[index - 1].height <= entry.height
+    );
+    const paletteIndexAtOrAboveHeight = (height: number): number => {
+        if (!heightsAreOrdered) {
+            const index = palette.findIndex((entry) => entry.height >= height);
+            return index >= 0 ? index : palette.length - 1;
+        }
+        let low = 0;
+        let high = palette.length;
+        while (low < high) {
+            const middle = low + ((high - low) >> 1);
+            if (palette[middle].height >= height) high = middle;
+            else low = middle + 1;
+        }
+        return low < palette.length ? low : palette.length - 1;
+    };
+
     return imageTargets.map((target) => {
         const anchored = exactAnchorMapping(palette, target);
         if (anchored) return anchored;
@@ -2050,6 +2111,7 @@ export function mapTargetsToPrintablePalette(
         let nodeMatch = 0;
         let onSegment = false;
         let segmentHeight = nodes[0].minHeight;
+        const projectedLab: Lab = { L: 0, a: 0, b: 0 };
 
         // Nearest flat-zone node by color.
         for (let ni = 0; ni < nodes.length; ni++) {
@@ -2078,14 +2140,12 @@ export function mapTargetsToPrintablePalette(
                         lengthSquared
                 )
             );
-            const projectedDistance = optimizerColorDistance(target, {
-                L: seg.aL + t * seg.dL,
-                a: seg.aa + t * seg.da,
-                b: seg.ab + t * seg.db,
-            });
+            projectedLab.L = seg.aL + t * seg.dL;
+            projectedLab.a = seg.aa + t * seg.da;
+            projectedLab.b = seg.ab + t * seg.db;
+            const projectedDistance = optimizerColorDistance(target, projectedLab);
             const projectedHeight = seg.hStart + t * (seg.hEnd - seg.hStart);
-            const mappedIndex = palette.findIndex((entry) => entry.height >= projectedHeight);
-            const paletteIndex = mappedIndex >= 0 ? mappedIndex : palette.length - 1;
+            const paletteIndex = paletteIndexAtOrAboveHeight(projectedHeight);
             const selectionCost =
                 projectedDistance +
                 (1 - predictionConfidenceValue(palette[paletteIndex])) *
@@ -2110,8 +2170,7 @@ export function mapTargetsToPrintablePalette(
         }
 
         // Transition match: the printed color is the layer at that height.
-        const mappedIdx = palette.findIndex((entry) => entry.height >= segmentHeight);
-        const paletteIndex = mappedIdx >= 0 ? mappedIdx : palette.length - 1;
+        const paletteIndex = paletteIndexAtOrAboveHeight(segmentHeight);
         return {
             target,
             paletteIndex,
@@ -2134,6 +2193,14 @@ export function weightedErrorPercentile(
     if (totalWeight <= 0) return 0;
 
     const ordered = [...samples].sort((left, right) => left.value - right.value);
+    return weightedErrorPercentileFromOrdered(ordered, quantile, totalWeight);
+}
+
+function weightedErrorPercentileFromOrdered(
+    ordered: Array<{ value: number; weight: number }>,
+    quantile: number,
+    totalWeight: number
+): number {
     const threshold = totalWeight * quantile;
     let cumulative = 0;
     for (const sample of ordered) {
@@ -2141,6 +2208,16 @@ export function weightedErrorPercentile(
         if (cumulative >= threshold) return sample.value;
     }
     return ordered[ordered.length - 1].value;
+}
+
+/** Scoring owns its sample array, so it can avoid an extra copy before sorting. */
+function weightedErrorPercentileInPlace(
+    samples: Array<{ value: number; weight: number }>,
+    quantile: number,
+    totalWeight: number
+): number {
+    samples.sort((left, right) => left.value - right.value);
+    return weightedErrorPercentileFromOrdered(samples, quantile, totalWeight);
 }
 
 /** Weight applied to the weighted-p95 realized-error tail in the objective. */
@@ -2219,7 +2296,7 @@ export function scoreSequenceAgainstImage(
     let weightedErrorSum = 0;
     let totalWeight = 0;
     const errorSamples: Array<{ value: number; weight: number }> = [];
-    const bestMatchHeights: number[] = [];
+    const bestMatchHeightKeys = new Set<number>();
     const usedPaletteEntries = new Set<number>();
     let detailCoveredWeight = 0;
     let missingExactAnchorWeight = 0;
@@ -2232,7 +2309,7 @@ export function scoreSequenceAgainstImage(
         weightedErrorSum += realizedDeltaE * weight;
         totalWeight += weight;
         errorSamples.push({ value: realizedDeltaE, weight });
-        bestMatchHeights.push(entry.projectedHeight);
+        bestMatchHeightKeys.add(Math.round(entry.projectedHeight * 100));
         if (realizedDeltaE <= DETAIL_COVERAGE_DE) detailCoveredWeight += weight;
         // Mark this palette entry as useful if its printable color is a decent match.
         if (realizedDeltaE < USEFUL_PALETTE_MATCH_DE) usedPaletteEntries.add(entry.paletteIndex);
@@ -2256,7 +2333,11 @@ export function scoreSequenceAgainstImage(
     if (totalWeight <= 0) return Infinity;
 
     const weightedMean = weightedErrorSum / totalWeight;
-    const weightedTail = weightedErrorPercentile(errorSamples, REALIZED_ERROR_TAIL_PERCENTILE);
+    const weightedTail = weightedErrorPercentileInPlace(
+        errorSamples,
+        REALIZED_ERROR_TAIL_PERCENTILE,
+        totalWeight
+    );
     let score = weightedMean + REALIZED_ERROR_TAIL_WEIGHT * weightedTail;
     score += (1 - detailCoveredWeight / totalWeight) * DETAIL_COVERAGE_PENALTY;
     score += (missingExactAnchorWeight / totalWeight) * MISSING_EXACT_ANCHOR_PENALTY;
@@ -2281,11 +2362,10 @@ export function scoreSequenceAgainstImage(
 
     // 3. Height spread penalty: penalize when distinct image colors
     //    collapse to the same height (leading to flat surfaces).
-    if (bestMatchHeights.length > 1 && palette.length > 1) {
+    if (mapped.length > 1 && palette.length > 1) {
         const totalModelHeight = palette[palette.length - 1].height - palette[0].height;
         if (totalModelHeight > 0) {
-            const uniqueHeights = new Set(bestMatchHeights.map((h) => Math.round(h * 100)));
-            const spreadRatio = uniqueHeights.size / imageTargets.length;
+            const spreadRatio = bestMatchHeightKeys.size / imageTargets.length;
             score += 1 - spreadRatio;
         }
     }

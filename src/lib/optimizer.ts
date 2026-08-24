@@ -276,6 +276,7 @@ export function createSequenceScorer(
     // let each temporary palette be collected immediately after scoring.
     const scoreCache = new BoundedCache<string, number>(maxCachedScores);
     const transitionThicknessCache = new Map<string, number>();
+    const filamentKeyCache = new WeakMap<Filament, string>();
     const exactAnchorTargets = context.appearanceModel?.exactAnchors
         ?.filter((anchor) => anchor.source !== 'stack-matrix')
         .map((anchor) => ({
@@ -286,7 +287,17 @@ export function createSequenceScorer(
 
     const score = ((filaments: Filament[]) => {
         if (filaments.length === 0) return Infinity;
-        const sequenceKey = filaments.map(filamentOpticalKey).join('|');
+        let sequenceKey = '';
+        for (let index = 0; index < filaments.length; index++) {
+            const filament = filaments[index];
+            let filamentKey = filamentKeyCache.get(filament);
+            if (filamentKey === undefined) {
+                filamentKey = filamentOpticalKey(filament);
+                filamentKeyCache.set(filament, filamentKey);
+            }
+            if (index > 0) sequenceKey += '|';
+            sequenceKey += filamentKey;
+        }
         const cachedScore = scoreCache.get(sequenceKey);
         if (cachedScore !== undefined) return cachedScore;
         const palette = buildAchievableColorPalette(
@@ -533,23 +544,33 @@ function optimizeExhaustive(
     let iterations = 0;
     reportProgress(options, 0, totalIterations, Infinity);
 
-    const visit = (sequence: Filament[], remaining: Filament[]): void => {
+    const sequence: Filament[] = [];
+    const used = new Uint8Array(filaments.length);
+    const visit = (): void => {
         if (sequence.length > 0) {
-            const candidate = { order: sequence, score: scoreSequence(sequence) };
+            const candidateScore = scoreSequence(sequence);
             iterations++;
-            if (isBetterCandidate(candidate, best)) best = candidate;
+            if (
+                !best ||
+                candidateScore < best.score ||
+                (candidateScore === best.score && compareSequenceKeys(sequence, best.order) < 0)
+            ) {
+                best = { order: [...sequence], score: candidateScore };
+            }
             reportProgress(options, iterations, totalIterations, best?.score ?? Infinity);
         }
 
-        for (let index = 0; index < remaining.length; index++) {
-            visit(
-                [...sequence, remaining[index]],
-                [...remaining.slice(0, index), ...remaining.slice(index + 1)]
-            );
+        for (let index = 0; index < filaments.length; index++) {
+            if (used[index]) continue;
+            used[index] = 1;
+            sequence.push(filaments[index]);
+            visit();
+            sequence.pop();
+            used[index] = 0;
         }
     };
 
-    visit([], filaments);
+    visit();
     const baseBest = best ?? { order: [filaments[0]], score: scoreSequence([filaments[0]]) };
 
     if (!allowRepeatedSwaps) {
