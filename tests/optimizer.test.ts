@@ -102,6 +102,52 @@ test('sequence scoring retains only bounded scalar results without changing scor
     assert.equal(bounded.cacheSize(), 2);
 });
 
+test('evidence-aware prefix caching is bounded and preserves exact sequence scores', async () => {
+    const { createSequenceScorer } = await loadOptimizerModule();
+    const appearanceModel = {
+        schemaVersion: 1 as const,
+        modelVersion: 'lab-rank-local-v9' as const,
+        fingerprint: 'optimizer-prefix-cache-test',
+        contextFingerprint: 'optimizer-prefix-cache-context',
+        applied: true,
+        gateReason: 'applied' as const,
+        deltaL: 2,
+        logChromaScale: 0.04,
+        confidence: 0.8,
+        observationCount: 20,
+        trainingObservationCount: 16,
+        trainingDistinctStackCount: 8,
+        noneCount: 0,
+        distinctStackCount: 10,
+        heldOutCount: 4,
+        heldOutDistinctStackCount: 4,
+        baselineAgreement: 0.5,
+        fittedAgreement: 0.8,
+        sourceProofIds: ['proof-a'],
+        comparedStackKeys: [],
+        exactAnchors: [],
+        localEvidence: [],
+        empiricalLuts: [],
+    };
+    const evidenceContext = { ...context, appearanceModel };
+    const uncached = createSequenceScorer(evidenceContext, 0, 0);
+    const bounded = createSequenceScorer(evidenceContext, 0, 3);
+    const sequences = [
+        [filaments[0], filaments[1]],
+        [filaments[0], filaments[1], filaments[2]],
+        [filaments[0], filaments[1], filaments[3]],
+        [filaments[0], filaments[2], filaments[3]],
+    ];
+
+    for (const sequence of [...sequences, ...sequences]) {
+        assert.equal(bounded(sequence), uncached(sequence));
+    }
+
+    assert.equal(uncached.appearanceCacheSize(), 0);
+    assert.ok(bounded.appearanceCacheSize() > 0);
+    assert.ok(bounded.appearanceCacheSize() <= 3);
+});
+
 test('optimizer progress is monotonic and completes for every algorithm', async (t) => {
     const { optimizeFilamentOrder } = await loadOptimizerModule();
     const algorithms = [

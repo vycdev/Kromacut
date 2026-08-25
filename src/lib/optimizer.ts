@@ -11,13 +11,16 @@
  */
 
 import type { Filament } from '../types';
-import type { AppearanceRankModelV1 } from '../types/appearance';
+import type { AppearanceAnchorLayer, AppearanceRankModelV1 } from '../types/appearance';
+import type { ResolvedAppearancePrediction } from './appearanceModel';
 import {
     buildAchievableColorPalette,
     mapTargetsWithSeparation,
     normalizeSeparationMaxDeltaE,
     scoreSequenceAgainstImage,
+    type AppearancePredictionCache,
     type ColorSeparationReport,
+    type Lab,
     type WeightedLab,
 } from './autoPaint';
 import { BoundedCache } from './boundedCache';
@@ -114,6 +117,8 @@ export interface SequenceScorer {
     (filaments: Filament[]): number;
     /** Retained numeric scores; exposed for benchmarks and memory regressions. */
     cacheSize(): number;
+    /** Retained evidence-aware prefix predictions. */
+    appearanceCacheSize(): number;
 }
 
 // ============================================================================
@@ -266,17 +271,118 @@ function stableHash32(value: string): number {
 // ============================================================================
 
 export const MAX_CACHED_SEQUENCE_SCORES = 8_192;
+export const MAX_CACHED_APPEARANCE_PREDICTIONS = 128;
+
+class BoundedAppearancePredictionCache implements AppearancePredictionCache {
+    private readonly layerTokens = new Map<string, Map<string, Map<number, number>>>();
+    private readonly prefixByEdge: BoundedCache<number | string, number>;
+    private readonly predictionSlotByPrefix = new Map<number, number>();
+    private readonly predictionPrefixBySlot: Float64Array;
+    private readonly predictionBaseL: Float64Array;
+    private readonly predictionBaseA: Float64Array;
+    private readonly predictionBaseB: Float64Array;
+    private readonly predictionBySlot: Array<ResolvedAppearancePrediction | undefined>;
+    private readonly maxPredictions: number;
+    private predictionCount = 0;
+    private nextPredictionEvictionSlot = 0;
+    private nextLayerToken = 0;
+    private nextPrefixId = 1;
+
+    constructor(maxPredictions: number) {
+        this.maxPredictions = maxPredictions;
+        this.prefixByEdge = new BoundedCache<number | string, number>(maxPredictions * 4);
+        this.predictionPrefixBySlot = new Float64Array(maxPredictions);
+        this.predictionBaseL = new Float64Array(maxPredictions);
+        this.predictionBaseA = new Float64Array(maxPredictions);
+        this.predictionBaseB = new Float64Array(maxPredictions);
+        this.predictionBySlot = new Array(maxPredictions);
+    }
+
+    startPrefix(): number {
+        return 0;
+    }
+
+    extendPrefix(parentPrefix: number, layer: AppearanceAnchorLayer): number {
+        let byColor = this.layerTokens.get(layer.filamentId);
+        if (!byColor) {
+            byColor = new Map();
+            this.layerTokens.set(layer.filamentId, byColor);
+        }
+        let byThickness = byColor.get(layer.filamentColor);
+        if (!byThickness) {
+            byThickness = new Map();
+            byColor.set(layer.filamentColor, byThickness);
+        }
+        let layerToken = byThickness.get(layer.thickness);
+        if (layerToken === undefined) {
+            layerToken = this.nextLayerToken++;
+            byThickness.set(layer.thickness, layerToken);
+        }
+
+        const sum = parentPrefix + layerToken;
+        const paired = (sum * (sum + 1)) / 2 + layerToken;
+        const edgeKey = Number.isSafeInteger(paired) ? paired : `${parentPrefix},${layerToken}`;
+        let prefix = this.prefixByEdge.get(edgeKey);
+        if (prefix === undefined) {
+            prefix = this.nextPrefixId++;
+            this.prefixByEdge.set(edgeKey, prefix);
+        }
+        return prefix;
+    }
+
+    get(prefix: number, base: Lab): ResolvedAppearancePrediction | undefined {
+        const slot = this.predictionSlotByPrefix.get(prefix);
+        return slot !== undefined &&
+            this.predictionBaseL[slot] === base.L &&
+            this.predictionBaseA[slot] === base.a &&
+            this.predictionBaseB[slot] === base.b
+            ? this.predictionBySlot[slot]
+            : undefined;
+    }
+
+    set(prefix: number, base: Lab, value: ResolvedAppearancePrediction): void {
+        let slot = this.predictionSlotByPrefix.get(prefix);
+        if (slot === undefined) {
+            if (this.predictionCount < this.maxPredictions) {
+                slot = this.predictionCount++;
+            } else {
+                slot = this.nextPredictionEvictionSlot;
+                this.predictionSlotByPrefix.delete(this.predictionPrefixBySlot[slot]);
+                this.nextPredictionEvictionSlot =
+                    (this.nextPredictionEvictionSlot + 1) % this.maxPredictions;
+            }
+            this.predictionSlotByPrefix.set(prefix, slot);
+            this.predictionPrefixBySlot[slot] = prefix;
+        }
+        this.predictionBaseL[slot] = base.L;
+        this.predictionBaseA[slot] = base.a;
+        this.predictionBaseB[slot] = base.b;
+        this.predictionBySlot[slot] = value;
+    }
+
+    get size(): number {
+        return this.predictionSlotByPrefix.size;
+    }
+}
 
 export function createSequenceScorer(
     context: ScoringContext,
-    maxCachedScores: number = MAX_CACHED_SEQUENCE_SCORES
+    maxCachedScores: number = MAX_CACHED_SEQUENCE_SCORES,
+    maxCachedAppearancePredictions: number = MAX_CACHED_APPEARANCE_PREDICTIONS
 ): SequenceScorer {
     // Retaining a rich palette for every Exact/Deep candidate can consume
     // hundreds of megabytes. Only the deterministic scalar score is reusable;
     // let each temporary palette be collected immediately after scoring.
     const scoreCache = new BoundedCache<string, number>(maxCachedScores);
     const transitionThicknessCache = new Map<string, number>();
-    const filamentKeyCache = new WeakMap<Filament, string>();
+    const appearancePredictionCache =
+        maxCachedAppearancePredictions > 0
+            ? new BoundedAppearancePredictionCache(
+                  Math.max(1, Math.floor(maxCachedAppearancePredictions))
+              )
+            : undefined;
+    const filamentTokenCache = new WeakMap<Filament, string>();
+    const tokenByOpticalKey = new Map<string, string>();
     const exactAnchorTargets = context.appearanceModel?.exactAnchors
         ?.filter((anchor) => anchor.source !== 'stack-matrix')
         .map((anchor) => ({
@@ -290,13 +396,17 @@ export function createSequenceScorer(
         let sequenceKey = '';
         for (let index = 0; index < filaments.length; index++) {
             const filament = filaments[index];
-            let filamentKey = filamentKeyCache.get(filament);
-            if (filamentKey === undefined) {
-                filamentKey = filamentOpticalKey(filament);
-                filamentKeyCache.set(filament, filamentKey);
+            let token = filamentTokenCache.get(filament);
+            if (token === undefined) {
+                const opticalKey = filamentOpticalKey(filament);
+                token = tokenByOpticalKey.get(opticalKey);
+                if (token === undefined) {
+                    token = `${tokenByOpticalKey.size.toString(36)},`;
+                    tokenByOpticalKey.set(opticalKey, token);
+                }
+                filamentTokenCache.set(filament, token);
             }
-            if (index > 0) sequenceKey += '|';
-            sequenceKey += filamentKey;
+            sequenceKey += token;
         }
         const cachedScore = scoreCache.get(sequenceKey);
         if (cachedScore !== undefined) return cachedScore;
@@ -307,7 +417,8 @@ export function createSequenceScorer(
             context.maxHeight,
             context.transitionOpacity,
             transitionThicknessCache,
-            context.appearanceModel
+            context.appearanceModel,
+            appearancePredictionCache
         );
         const value = scoreSequenceAgainstImage(palette, context.imageColors, {
             preserveSeparation: context.preserveSeparation,
@@ -318,6 +429,7 @@ export function createSequenceScorer(
         return value;
     }) as SequenceScorer;
     score.cacheSize = () => scoreCache.size;
+    score.appearanceCacheSize = () => appearancePredictionCache?.size ?? 0;
     return score;
 }
 

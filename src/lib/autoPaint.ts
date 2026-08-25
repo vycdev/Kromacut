@@ -1457,6 +1457,13 @@ export interface AchievableColor {
     localUncertainty?: number;
 }
 
+export interface AppearancePredictionCache {
+    startPrefix(): number;
+    extendPrefix(parentPrefix: number, layer: AppearanceAnchorLayer): number;
+    get(prefix: number, base: Lab): ResolvedAppearancePrediction | undefined;
+    set(prefix: number, base: Lab, value: ResolvedAppearancePrediction): void;
+}
+
 const identityPredictionConfidenceCache = new WeakMap<
     AppearanceRankModelV1,
     AppearancePredictionConfidenceV1
@@ -1483,7 +1490,8 @@ export function buildAchievableColorPalette(
     maxHeight?: number,
     transitionOpacity: number = DEFAULT_TRANSITION_OPACITY,
     transitionThicknessCache?: Map<string, number>,
-    appearanceModel: AppearanceRankModelV1 = createIdentityAppearanceRankModel()
+    appearanceModel: AppearanceRankModelV1 = createIdentityAppearanceRankModel(),
+    appearancePredictionCache?: AppearancePredictionCache
 ): AchievableColor[] {
     if (sequence.length === 0) return [];
 
@@ -1522,21 +1530,40 @@ export function buildAchievableColorPalette(
         ? getIdentityPredictionConfidence(appearanceModel)
         : undefined;
     const appearancePrefix: AppearanceAnchorLayer[] = [];
+    let appearancePrefixId = appearancePredictionCache?.startPrefix();
     return stack.layers.map((layer) => {
         if (!identityAppearance) {
-            appearancePrefix.push({
+            const physicalLayer = {
                 filamentId: layer.filamentId,
                 filamentColor: rgbToHex(hexToRgb(layer.filamentColor)),
                 thickness: layer.thickness,
-            });
+            };
+            appearancePrefix.push(physicalLayer);
+            if (appearancePredictionCache && appearancePrefixId !== undefined) {
+                appearancePrefixId = appearancePredictionCache.extendPrefix(
+                    appearancePrefixId,
+                    physicalLayer
+                );
+            }
         }
         const baseLab = rgbToLab(layer.virtualColor);
-        const prediction: ResolvedAppearancePrediction = identityPredictionConfidence
-            ? {
-                  lab: baseLab,
-                  predictionConfidence: identityPredictionConfidence,
-              }
-            : resolveAppearanceRankModel(baseLab, appearanceModel, appearancePrefix);
+        let prediction: ResolvedAppearancePrediction;
+        if (identityPredictionConfidence) {
+            prediction = {
+                lab: baseLab,
+                predictionConfidence: identityPredictionConfidence,
+            };
+        } else if (appearancePredictionCache && appearancePrefixId !== undefined) {
+            const cached = appearancePredictionCache.get(appearancePrefixId, baseLab);
+            if (cached) {
+                prediction = cached;
+            } else {
+                prediction = resolveAppearanceRankModel(baseLab, appearanceModel, appearancePrefix);
+                appearancePredictionCache.set(appearancePrefixId, baseLab, prediction);
+            }
+        } else {
+            prediction = resolveAppearanceRankModel(baseLab, appearanceModel, appearancePrefix);
+        }
         const rgb =
             appearanceModel.applied ||
             prediction.exactAnchor ||
@@ -1630,13 +1657,6 @@ export const PREDICTION_UNCERTAINTY_PENALTY = 5;
 function predictionConfidenceValue(entry: AchievableColor): number {
     // Legacy/manual palettes without diagnostics retain their historical score.
     return Math.max(0, Math.min(1, entry.predictionConfidence?.confidence ?? 1));
-}
-
-function uncertaintyAdjustedDistance(entry: AchievableColor, target: Lab): number {
-    return (
-        optimizerColorDistance(entry.lab, target) +
-        (1 - predictionConfidenceValue(entry)) * PREDICTION_UNCERTAINTY_PENALTY
-    );
 }
 
 function exactAnchorMapping(palette: AchievableColor[], target: WeightedLab): MappedTarget | null {
@@ -1752,34 +1772,34 @@ function maximumAcceptableMatching(
 ): number[] {
     const targetCount = distances.length;
     const candidateCount = distances[0]?.length ?? 0;
-    const acceptable = distances.map((row, target) =>
-        row
-            .map((distance, candidate) => ({
-                candidate,
-                distance,
-                selectionCost: selectionCosts[target]?.[candidate] ?? distance,
-            }))
-            .filter(({ distance }) => distance <= maximumDeltaE)
-            .sort(
-                (left, right) =>
-                    left.selectionCost - right.selectionCost ||
-                    left.distance - right.distance ||
-                    left.candidate - right.candidate
-            )
-            .map(({ candidate }) => candidate)
-    );
+    const acceptable = distances.map((row, target) => {
+        const candidates: number[] = [];
+        for (let candidate = 0; candidate < row.length; candidate++) {
+            if (row[candidate] <= maximumDeltaE) candidates.push(candidate);
+        }
+        candidates.sort(
+            (left, right) =>
+                (selectionCosts[target]?.[left] ?? row[left]) -
+                    (selectionCosts[target]?.[right] ?? row[right]) ||
+                row[left] - row[right] ||
+                left - right
+        );
+        return candidates;
+    });
     const targetOrder = Array.from({ length: targetCount }, (_, target) => target).sort(
         (left, right) => acceptable[left].length - acceptable[right].length || left - right
     );
     const candidateTarget = new Int32Array(candidateCount);
     candidateTarget.fill(-1);
+    const visitedGeneration = new Uint32Array(candidateCount);
+    let generation = 0;
 
-    const augment = (target: number, visited: Uint8Array): boolean => {
+    const augment = (target: number): boolean => {
         for (const candidate of acceptable[target]) {
-            if (visited[candidate]) continue;
-            visited[candidate] = 1;
+            if (visitedGeneration[candidate] === generation) continue;
+            visitedGeneration[candidate] = generation;
             const incumbent = candidateTarget[candidate];
-            if (incumbent < 0 || augment(incumbent, visited)) {
+            if (incumbent < 0 || augment(incumbent)) {
                 candidateTarget[candidate] = target;
                 return true;
             }
@@ -1788,7 +1808,8 @@ function maximumAcceptableMatching(
     };
 
     for (const target of targetOrder) {
-        augment(target, new Uint8Array(candidateCount));
+        generation++;
+        augment(target);
     }
 
     const assignment = new Array<number>(targetCount).fill(-1);
@@ -1862,10 +1883,13 @@ export function mapTargetsWithSeparation(
     const distances = imageTargets.map((target) =>
         distinct.map((candidate) => optimizerColorDistance(candidate.lab, target))
     );
-    const selectionCosts = imageTargets.map((target) =>
-        distinct.map((candidate) =>
-            uncertaintyAdjustedDistance(palette[candidate.paletteIndex], target)
-        )
+    const uncertaintyPenalties = distinct.map(
+        (candidate) =>
+            (1 - predictionConfidenceValue(palette[candidate.paletteIndex])) *
+            PREDICTION_UNCERTAINTY_PENALTY
+    );
+    const selectionCosts = distances.map((row) =>
+        row.map((distance, candidate) => distance + uncertaintyPenalties[candidate])
     );
     const acceptableAssignment = maximumAcceptableMatching(
         distances,
@@ -1878,6 +1902,7 @@ export function mapTargetsWithSeparation(
     );
 
     if (acceptableMatchCount < imageTargets.length) {
+        let maximumDeltaE = 0;
         const mappedTargets = imageTargets.map((target, targetIndex) => {
             let candidateColumn = acceptableAssignment[targetIndex];
             if (candidateColumn < 0) {
@@ -1892,6 +1917,7 @@ export function mapTargetsWithSeparation(
                 }
             }
             const candidate = distinct[candidateColumn];
+            maximumDeltaE = Math.max(maximumDeltaE, distances[targetIndex][candidateColumn]);
             return {
                 target,
                 paletteIndex: candidate.paletteIndex,
@@ -1906,14 +1932,7 @@ export function mapTargetsWithSeparation(
                 printableColorCount: distinct.length,
                 assignedDistinctColorCount: acceptableMatchCount,
                 unacceptableColorCount: imageTargets.length - acceptableMatchCount,
-                maximumDeltaE: mappedTargets.reduce(
-                    (maximum, mapping) =>
-                        Math.max(
-                            maximum,
-                            optimizerColorDistance(mapping.mappedLab, mapping.target)
-                        ),
-                    0
-                ),
+                maximumDeltaE,
                 maximumAllowedDeltaE,
                 satisfied: false,
             },
@@ -1973,7 +1992,7 @@ export function mapTargetsWithSeparation(
             assignedDistinct.add(candidateColumn);
         }
         const candidate = distinct[candidateColumn];
-        const deltaE = optimizerColorDistance(candidate.lab, target);
+        const deltaE = distances[index][candidateColumn];
         maximumDeltaE = Math.max(maximumDeltaE, deltaE);
         if (
             assignedColumn >= 0 &&
@@ -2089,6 +2108,7 @@ export function mapTargetsToPrintablePalette(
     const heightsAreOrdered = palette.every(
         (entry, index) => index === 0 || palette[index - 1].height <= entry.height
     );
+    const hasExactAnchors = palette.some((entry) => entry.exactAnchorTargetLab !== undefined);
     const paletteIndexAtOrAboveHeight = (height: number): number => {
         if (!heightsAreOrdered) {
             const index = palette.findIndex((entry) => entry.height >= height);
@@ -2105,8 +2125,10 @@ export function mapTargetsToPrintablePalette(
     };
 
     return imageTargets.map((target) => {
-        const anchored = exactAnchorMapping(palette, target);
-        if (anchored) return anchored;
+        if (hasExactAnchors) {
+            const anchored = exactAnchorMapping(palette, target);
+            if (anchored) return anchored;
+        }
         let minimumSelectionCost = Infinity;
         let nodeMatch = 0;
         let onSegment = false;
