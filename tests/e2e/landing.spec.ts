@@ -12,6 +12,9 @@ test.describe('landing page smoke @smoke', () => {
         await expect(communityLinks).toBeVisible();
         await expect(communityLinks.getByRole('link')).toHaveCount(4);
         await expect(communityLinks.getByRole('link', { name: 'r/kromacut on Reddit' })).toHaveAttribute('href', 'https://www.reddit.com/r/kromacut/');
+        await expect(page.getByRole('heading', { name: 'Made by the Kromacut community.' })).toBeVisible();
+        await expect(page.getByAltText(/Hobbits and Dragons/)).toHaveCount(2);
+        await expect(page.getByRole('link', { name: 'View the Reddit post' })).toHaveAttribute('href', 'https://www.reddit.com/r/kromacut/comments/1vum7om/hobbits_and_dragons/');
 
         await page.getByTestId('landing-open-app').click();
         await expect(page).toHaveURL(/\/app$/);

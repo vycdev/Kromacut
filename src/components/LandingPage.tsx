@@ -18,6 +18,8 @@ import fuji2d from '../../content/fuji2d_new.png';
 import fuji3d from '../../content/fuji3d_new.png';
 import sliced from '../../content/fuji3dsliced.png';
 import printed from '../../content/printed.jpg';
+import hobbitsAndDragonsOne from '../../content/community/hobbits-and-dragons-1.jpg';
+import hobbitsAndDragonsTwo from '../../content/community/hobbits-and-dragons-2.jpg';
 import redditIcon from '../assets/reddit.svg';
 import { APP_PATH, docsPath } from '@/lib/routes';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -79,6 +81,17 @@ const workflow = [
         imagePosition: '55% 50%',
         imageScale: 1,
         imageFit: 'contain',
+    },
+];
+
+const communityShowcase = [
+    {
+        image: hobbitsAndDragonsOne,
+        alt: 'A colorful Hobbits and Dragons layered 3D print',
+    },
+    {
+        image: hobbitsAndDragonsTwo,
+        alt: 'A second view of the Hobbits and Dragons layered 3D print',
     },
 ];
 
@@ -314,6 +327,28 @@ export default function LandingPage() {
                         {['Non-destructive image adjustments', 'Three.js layer-by-layer 3D preview', 'Calibrated Auto-paint with deterministic search', 'Slicer-friendly STL and multi-material 3MF'].map((item) => <li key={item} className="flex items-start gap-3"><Check aria-hidden="true" className="mt-0.5 h-4 w-4 flex-shrink-0 text-emerald-400" />{item}</li>)}
                     </ul>
                     <a href={APP_PATH} className="mt-9 inline-flex items-center gap-2 font-bold text-blue-700 underline decoration-blue-700/30 underline-offset-4 transition-colors motion-reduce:transition-none hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:text-blue-300 dark:decoration-blue-300/30">Open the tool <ExternalArrow /></a>
+                </div>
+            </section>
+
+            <section className="border-y border-slate-200/90 bg-white/65 dark:border-border/70 dark:bg-card/30">
+                <div className="mx-auto max-w-7xl px-5 py-20 sm:px-8 lg:px-10 lg:py-24">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+                        <div className="max-w-2xl">
+                            <p className="text-xs font-bold uppercase tracking-[0.2em] text-blue-700 dark:text-blue-300">Community showcase</p>
+                            <h2 className="mt-4 text-3xl font-extrabold tracking-tight sm:text-5xl">Made by the Kromacut community.</h2>
+                            <p className="mt-5 text-lg leading-8 text-muted-foreground">A Hobbits and Dragons print by <span className="font-semibold text-foreground">u/ominaex25</span>.</p>
+                        </div>
+                        <a href="https://www.reddit.com/r/kromacut/comments/1vum7om/hobbits_and_dragons/" target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center gap-2 self-start rounded-lg border border-border bg-background px-4 py-2.5 text-sm font-bold transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:self-auto">
+                            View the Reddit post <ExternalArrow />
+                        </a>
+                    </div>
+                    <div className="mt-10 grid gap-5 sm:grid-cols-2">
+                        {communityShowcase.map((item) => (
+                            <a key={item.image} href="https://www.reddit.com/r/kromacut/comments/1vum7om/hobbits_and_dragons/" target="_blank" rel="noopener noreferrer" className="group overflow-hidden rounded-xl border border-slate-200/90 bg-white/90 shadow-md shadow-slate-200/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:border-border dark:bg-background/70 dark:shadow-sm dark:shadow-black/20">
+                                <div className="aspect-[4/3] overflow-hidden bg-muted"><img src={item.image} alt={item.alt} loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03] motion-reduce:transition-none" /></div>
+                            </a>
+                        ))}
+                    </div>
                 </div>
             </section>
 
