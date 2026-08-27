@@ -25,6 +25,7 @@ import type {
 } from '../workers/autoPaint.worker';
 import {
     fingerprintCompletedAppearanceEvidence,
+    serializeAppearanceProfile,
     type AppearanceProfileV1,
 } from '../lib/appearanceProfile.ts';
 
@@ -202,6 +203,10 @@ export function useAutoPaintWorker(opts: UseAutoPaintWorkerOptions): UseAutoPain
         [appearance]
     );
     const stableAppearance = useStableValueByKey(appearance, appearanceKey);
+    const serializedAppearance = useMemo(
+        () => serializeAppearanceProfile(stableAppearance),
+        [stableAppearance]
+    );
 
     const getWorker = useCallback(() => {
         if (!workerRef.current) {
@@ -293,7 +298,7 @@ export function useAutoPaintWorker(opts: UseAutoPaintWorkerOptions): UseAutoPain
                         failOnSeparationError,
                         ...(optimizerSeed !== undefined && { seed: optimizerSeed }),
                     },
-                    appearance: stableAppearance,
+                    appearanceJson: serializedAppearance,
                 };
 
                 worker.postMessage(request);
@@ -334,7 +339,7 @@ export function useAutoPaintWorker(opts: UseAutoPaintWorkerOptions): UseAutoPain
         getWorker,
         stableFilaments,
         stableImageSwatches,
-        stableAppearance,
+        serializedAppearance,
         clearTimers,
         cancelWorker,
         finishRequest,

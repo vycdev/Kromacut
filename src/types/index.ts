@@ -94,6 +94,8 @@ export interface ThreeDControlsStateShape {
     smoothMeshing?: boolean; // boundary-chain smoothed grid meshing
     filaments: Filament[];
     paintMode: 'manual' | 'autopaint';
+    /** Optional user-selected cap for the generated Auto-paint stack height. */
+    autoPaintMaxHeight?: number;
     // Enhanced color matching options
     enhancedColorMatch?: boolean;
     /** Assign each image color to a distinct printable color (no collapse). */

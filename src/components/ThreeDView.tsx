@@ -75,6 +75,10 @@ interface ThreeDViewProps {
     previewRenderMode?: PreviewRenderMode;
     /** Auto-paint 3D preview color source: simulated blend vs. physical filament colors. */
     previewColorMode?: PreviewColorMode;
+    /** Signals that mesh generation has taken over from the parent's preparation overlay. */
+    onBuildStarted?: () => void;
+    /** Pauses continuous preview rendering while the retained 3D workspace is hidden. */
+    active?: boolean;
 }
 
 // Convert hex color to RGB tuple
@@ -381,6 +385,8 @@ export default function ThreeDView({
     flatPaintFaceUp = false,
     previewRenderMode = 'shaded',
     previewColorMode = 'simulated',
+    onBuildStarted,
+    active = true,
 }: ThreeDViewProps) {
     const mountRef = useRef<HTMLDivElement | null>(null);
     const [isBuilding, setIsBuilding] = useState(false);
@@ -408,7 +414,8 @@ export default function ThreeDView({
         materialRef,
         requestRender,
         switchCamera,
-    } = useThreeScene(mountRef, setIsBuilding);
+        sceneReady,
+    } = useThreeScene(mountRef, setIsBuilding, active);
     const previewRenderModeRef = useRef(previewRenderMode);
     const previewColorModeRef = useRef(previewColorMode);
     const previewMaterialBaselinesRef = useRef(createPreviewMaterialBaselines());
@@ -805,6 +812,7 @@ export default function ThreeDView({
             const buildStartedAt = performance.now();
             // mark that a build is in progress for the overlay
             setIsBuilding(true);
+            onBuildStarted?.();
             pushProgress(0);
             setBuildOverlayStep(null);
             updateE2EBuild({
@@ -2171,6 +2179,8 @@ export default function ThreeDView({
         requestRender,
         clearWireframeOverlay,
         rebuildWireframeOverlay,
+        onBuildStarted,
+        sceneReady,
     ]);
 
     const currentBuildOverlayStep =

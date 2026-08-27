@@ -39,6 +39,24 @@ export interface PrintableFeatureSimulation {
     fingerprint: string;
 }
 
+/**
+ * Keep large pixel buffers directly accessible to Kromacut while excluding
+ * them from generic object enumeration. React's development performance
+ * instrumentation recursively inspects changed props; enumerating a
+ * megapixel typed array there can block the UI and allocate gigabytes.
+ */
+export function concealPrintableFeatureBuffers<
+    T extends { data: Uint8ClampedArray; changeMask?: Uint8Array },
+>(value: T): T {
+    for (const key of ['data', 'changeMask'] as const) {
+        const descriptor = Object.getOwnPropertyDescriptor(value, key);
+        if (descriptor?.enumerable) {
+            Object.defineProperty(value, key, { ...descriptor, enumerable: false });
+        }
+    }
+    return value;
+}
+
 export interface PrintableFeatureOptions {
     width: number;
     height: number;

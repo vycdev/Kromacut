@@ -31,6 +31,7 @@ import PrintSettingsCard from './PrintSettingsCard';
 import PrintInstructions from './PrintInstructions';
 import AutoPaintTab from './AutoPaintTab';
 import type { ImageDimensions } from '../hooks/useSwatches';
+import { concealPrintableFeatureBuffers } from '../lib/printableFeatures.ts';
 
 // Re-export types for backward compatibility
 export type { Filament, ThreeDControlsStateShape } from '../types';
@@ -128,7 +129,9 @@ export default function ThreeDControls({
         persisted?.calibrationLayerHeight ?? initialPrintSettings.layerHeight
     );
     const [paintMode, setPaintMode] = useState<'manual' | 'autopaint'>(initialPaintMode);
-    const [autoPaintMaxHeight, setAutoPaintMaxHeight] = useState<number | undefined>(undefined);
+    const [autoPaintMaxHeight, setAutoPaintMaxHeight] = useState<number | undefined>(
+        persisted?.autoPaintMaxHeight
+    );
     const [enhancedColorMatch, setEnhancedColorMatch] = useState(
         persisted?.enhancedColorMatch ?? false
     );
@@ -208,6 +211,8 @@ export default function ThreeDControls({
         onSettingsChange?.({
             paintMode,
             filaments,
+            autoPaintMaxHeight,
+            calibrationLayerHeight,
             enhancedColorMatch,
             preserveSeparation,
             separationMaxDeltaE,
@@ -228,6 +233,8 @@ export default function ThreeDControls({
     }, [
         paintMode,
         filaments,
+        autoPaintMaxHeight,
+        calibrationLayerHeight,
         enhancedColorMatch,
         preserveSeparation,
         separationMaxDeltaE,
@@ -449,6 +456,7 @@ export default function ThreeDControls({
                 pixelSize,
                 filaments,
                 paintMode,
+                autoPaintMaxHeight,
                 enhancedColorMatch,
                 preserveSeparation,
                 separationMaxDeltaE,
@@ -466,12 +474,12 @@ export default function ThreeDControls({
                 autoPaintResult,
                 autoPaintSwatches: autoPaintSliceData.virtualSwatches,
                 autoPaintFilamentSwatches: autoPaintSliceData.filamentSwatches,
-                printableFeaturePixels: {
+                printableFeaturePixels: concealPrintableFeatureBuffers({
                     width: printableFeatureSimulation.width,
                     height: printableFeatureSimulation.height,
                     data: printableFeatureSimulation.data,
                     fingerprint: printableFeatureSimulation.fingerprint,
-                },
+                }),
                 calibrationLayerHeight,
                 smoothMeshing,
             });
@@ -505,6 +513,7 @@ export default function ThreeDControls({
         pixelSize,
         filaments,
         paintMode,
+        autoPaintMaxHeight,
         enhancedColorMatch,
         preserveSeparation,
         separationMaxDeltaE,

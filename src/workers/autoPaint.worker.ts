@@ -32,6 +32,9 @@ export interface AutoPaintWorkerRequest {
     enhancedColorMatch?: boolean;
     maxRepeatedSwaps?: AutoPaintRepeatLimit;
     optimizerOptions?: Partial<WorkerOptimizerOptions>;
+    /** JSON transport avoids recursively cloning a large evidence graph on the UI thread. */
+    appearanceJson?: string;
+    /** Legacy/direct-worker input retained for compatibility with focused tests. */
     appearance?: AppearanceProfileV1;
 }
 
@@ -77,7 +80,10 @@ self.onmessage = (e: MessageEvent<AutoPaintWorkerRequest>) => {
     };
 
     try {
-        const appearanceModel = fitAppearanceRankModel(req.appearance, {
+        const appearance = req.appearanceJson
+            ? (JSON.parse(req.appearanceJson) as AppearanceProfileV1)
+            : req.appearance;
+        const appearanceModel = fitAppearanceRankModel(appearance, {
             filamentProfileFingerprint: fingerprintAppearanceFilaments(req.filaments),
             layerHeight: req.layerHeight,
             firstLayerHeight: Math.max(req.layerHeight, req.firstLayerHeight),

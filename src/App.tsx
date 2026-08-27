@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import ThreeDControls from './components/ThreeDControls';
 import {
     AUTO_PAINT_REPEAT_LIMITS,
@@ -55,7 +55,11 @@ import { buildDocsPath, parseDocsLocation } from './lib/docs/navigation';
 import { applyAppSeo } from './lib/seo';
 import { appPath, markLaunched } from './lib/routes';
 import { isTauri } from '@tauri-apps/api/core';
-import { migrateLegacyFilamentTd, sanitizeProfileFilament } from './lib/profileManager';
+import {
+    migrateLegacyFilamentTd,
+    prewarmAutoPaintProfiles,
+    sanitizeProfileFilament,
+} from './lib/profileManager';
 import PrintUnlockEffect from './components/PrintUnlockEffect';
 import { getMultiPlateEnabled, subscribeToMultiPlateEnabled } from './lib/experimentalFeatures';
 import {
@@ -94,6 +98,8 @@ type AutoPaintPersisted = Pick<
     ThreeDControlsStateShape,
     | 'filaments'
     | 'paintMode'
+    | 'autoPaintMaxHeight'
+    | 'calibrationLayerHeight'
     | 'optimizerAlgorithm'
     | 'optimizerSeed'
     | 'regionWeightingMode'
@@ -159,6 +165,18 @@ const loadAutoPaintPersisted = (): AutoPaintPersisted | null => {
         return {
             filaments,
             paintMode,
+            autoPaintMaxHeight:
+                typeof parsed.autoPaintMaxHeight === 'number' &&
+                Number.isFinite(parsed.autoPaintMaxHeight) &&
+                parsed.autoPaintMaxHeight > 0
+                    ? parsed.autoPaintMaxHeight
+                    : undefined,
+            calibrationLayerHeight:
+                typeof parsed.calibrationLayerHeight === 'number' &&
+                Number.isFinite(parsed.calibrationLayerHeight) &&
+                parsed.calibrationLayerHeight > 0
+                    ? parsed.calibrationLayerHeight
+                    : undefined,
             optimizerAlgorithm: normalizeOptimizerTier(parsed.optimizerAlgorithm),
             optimizerSeed: parsed.optimizerSeed,
             regionWeightingMode: parsed.regionWeightingMode,
@@ -310,6 +328,60 @@ function App(): React.ReactElement | null {
     const [adjustmentsEpoch, setAdjustmentsEpoch] = useState(0);
     // UI mode toggles (2D / 3D) - UI only for now
     const [mode, setMode] = useState<'2d' | '3d'>('2d');
+    const [hasMountedThreeDControls, setHasMountedThreeDControls] = useState(false);
+    const [, startThreeDControlsTransition] = useTransition();
+    const firstThreeDMountFrameRef = useRef<number | null>(null);
+    const secondThreeDMountFrameRef = useRef<number | null>(null);
+    const handleModeChange = useCallback(
+        (nextMode: '2d' | '3d') => {
+            setMode(nextMode);
+            if (nextMode === '3d' && !hasMountedThreeDControls) {
+                firstThreeDMountFrameRef.current = window.requestAnimationFrame(() => {
+                    secondThreeDMountFrameRef.current = window.requestAnimationFrame(() => {
+                        firstThreeDMountFrameRef.current = null;
+                        secondThreeDMountFrameRef.current = null;
+                        startThreeDControlsTransition(() => setHasMountedThreeDControls(true));
+                    });
+                });
+            }
+        },
+        [hasMountedThreeDControls]
+    );
+    useEffect(
+        () => () => {
+            if (firstThreeDMountFrameRef.current !== null) {
+                window.cancelAnimationFrame(firstThreeDMountFrameRef.current);
+            }
+            if (secondThreeDMountFrameRef.current !== null) {
+                window.cancelAnimationFrame(secondThreeDMountFrameRef.current);
+            }
+        },
+        []
+    );
+    useEffect(() => {
+        let cancelled = false;
+        const prewarm = () => {
+            if (!cancelled) prewarmAutoPaintProfiles();
+        };
+
+        const idleWindow = window as unknown as {
+            requestIdleCallback?: Window['requestIdleCallback'];
+            cancelIdleCallback?: Window['cancelIdleCallback'];
+        };
+        if (idleWindow.requestIdleCallback && idleWindow.cancelIdleCallback) {
+            const idleId = idleWindow.requestIdleCallback(prewarm);
+            return () => {
+                cancelled = true;
+                idleWindow.cancelIdleCallback?.(idleId);
+            };
+        }
+
+        const timerId = globalThis.setTimeout(prewarm, 250);
+        return () => {
+            cancelled = true;
+            globalThis.clearTimeout(timerId);
+        };
+    }, []);
     const [docsOpen, setDocsOpen] = useState(() => parseDocsLocation(window.location) !== null);
     const [isOrtho, setIsOrtho] = useState(loadCameraMode);
     const [previewRenderMode, setPreviewRenderMode] =
@@ -324,6 +396,11 @@ function App(): React.ReactElement | null {
         stepIndex: 1,
         stepCount: 1,
     });
+    // Hydrate before the shared 3D state is created. Hydrating in an effect lets
+    // the persistence effect from the same initial commit overwrite saved values
+    // with defaults before React applies the hydrated state (especially on HMR).
+    const [autopaintHydrated] = useState(loadAutoPaintPersisted);
+
     // 3D printing shared state
     const {
         threeDState,
@@ -332,47 +409,15 @@ function App(): React.ReactElement | null {
         builtThreeDState,
         builtFlatPaint,
         buildWarning,
+        isBuildStarting,
         handleThreeDStateChange,
         confirmBuild,
         cancelBuild,
-    } = useBuildWarning({ imageSrc });
+        markBuildStarted,
+    } = useBuildWarning({ imageSrc, initialState: autopaintHydrated });
     const builtModelState = builtThreeDState ?? threeDState;
     const builtModelAutoPaint = builtModelState.paintMode === 'autopaint';
     const builtModelValid = !builtModelAutoPaint || builtModelState.autoPaintResult !== undefined;
-
-    // Hydrate threeDState once with persisted autopaint data
-    const [autopaintHydrated] = useState(() => {
-        const persisted = loadAutoPaintPersisted();
-        return persisted;
-    });
-    useEffect(() => {
-        if (autopaintHydrated) {
-            setThreeDState((prev) => ({
-                ...prev,
-                filaments: autopaintHydrated.filaments ?? prev.filaments,
-                paintMode: autopaintHydrated.paintMode ?? prev.paintMode,
-                optimizerAlgorithm: autopaintHydrated.optimizerAlgorithm ?? prev.optimizerAlgorithm,
-                optimizerSeed: autopaintHydrated.optimizerSeed ?? prev.optimizerSeed,
-                regionWeightingMode:
-                    autopaintHydrated.regionWeightingMode ?? prev.regionWeightingMode,
-                enhancedColorMatch: autopaintHydrated.enhancedColorMatch ?? prev.enhancedColorMatch,
-                preserveSeparation: autopaintHydrated.preserveSeparation ?? prev.preserveSeparation,
-                separationMaxDeltaE:
-                    autopaintHydrated.separationMaxDeltaE ?? prev.separationMaxDeltaE,
-                failOnSeparationError:
-                    autopaintHydrated.failOnSeparationError ?? prev.failOnSeparationError,
-                maxRepeatedSwaps: autopaintHydrated.maxRepeatedSwaps ?? prev.maxRepeatedSwaps,
-                transitionOpacity: autopaintHydrated.transitionOpacity ?? prev.transitionOpacity,
-                heightDithering: autopaintHydrated.heightDithering ?? prev.heightDithering,
-                ditherLineWidth: autopaintHydrated.ditherLineWidth ?? prev.ditherLineWidth,
-                omitAtRiskPixels:
-                    autopaintHydrated.omitAtRiskPixels ?? prev.omitAtRiskPixels,
-                flatPaint: autopaintHydrated.flatPaint ?? prev.flatPaint,
-                flatPaintFaceUp: autopaintHydrated.flatPaintFaceUp ?? prev.flatPaintFaceUp,
-            }));
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
 
     const prevModeRef = useRef<typeof mode>(mode);
 
@@ -380,6 +425,8 @@ function App(): React.ReactElement | null {
         saveAutoPaintPersisted({
             filaments: threeDState.filaments,
             paintMode: threeDState.paintMode ?? 'manual',
+            autoPaintMaxHeight: threeDState.autoPaintMaxHeight,
+            calibrationLayerHeight: threeDState.calibrationLayerHeight,
             optimizerAlgorithm: threeDState.optimizerAlgorithm,
             optimizerSeed: threeDState.optimizerSeed,
             regionWeightingMode: threeDState.regionWeightingMode,
@@ -398,6 +445,8 @@ function App(): React.ReactElement | null {
     }, [
         threeDState.filaments,
         threeDState.paintMode,
+        threeDState.autoPaintMaxHeight,
+        threeDState.calibrationLayerHeight,
         threeDState.optimizerAlgorithm,
         threeDState.optimizerSeed,
         threeDState.regionWeightingMode,
@@ -600,10 +649,10 @@ function App(): React.ReactElement | null {
                     ref={layoutRef}
                 >
                     <ResizableSplitter defaultSize={30} minSize={20} maxSize={50}>
-                        <aside className="w-full bg-card border-r border-border flex flex-col min-h-0">
-                            <ModeTabs mode={mode} onChange={setMode} />
+                        <aside className="h-full w-full bg-card border-r border-border flex flex-col min-h-0">
+                            <ModeTabs mode={mode} onChange={handleModeChange} />
                             <div className="flex-1 overflow-y-auto overflow-x-auto p-4">
-                                {mode === '2d' ? (
+                                {mode === '2d' && (
                                     <>
                                         <input
                                             ref={inputRef}
@@ -752,7 +801,14 @@ function App(): React.ReactElement | null {
                                             />
                                         </div>
                                     </>
-                                ) : (
+                                )}
+                                {mode === '3d' && !hasMountedThreeDControls && (
+                                    <div className="flex min-h-32 items-center justify-center text-sm text-muted-foreground">
+                                        Preparing 3D controls…
+                                    </div>
+                                )}
+                                {hasMountedThreeDControls && (
+                                    <div className={mode === '3d' ? undefined : 'hidden'}>
                                     <ThreeDControls
                                         swatches={swatches}
                                         imageSrc={imageSrc}
@@ -765,6 +821,7 @@ function App(): React.ReactElement | null {
                                         }
                                         persisted={threeDState}
                                     />
+                                    </div>
                                 )}
                             </div>
                         </aside>
@@ -775,7 +832,15 @@ function App(): React.ReactElement | null {
                                 onDragOver={dropzone.onDragOver}
                                 onDragLeave={dropzone.onDragLeave}
                             >
-                                {mode === '2d' ? (
+                                {mode === '3d' && !hasMountedThreeDControls && (
+                                    <ProgressOverlay
+                                        title="Preparing 3D workspace"
+                                        stepLabel="Loading controls"
+                                        progress={0}
+                                        indeterminate
+                                    />
+                                )}
+                                {mode === '2d' && (
                                     <>
                                         <CanvasPreview
                                             ref={canvasPreviewRef}
@@ -815,7 +880,11 @@ function App(): React.ReactElement | null {
                                             />
                                         )}
                                     </>
-                                ) : (
+                                )}
+                                {hasMountedThreeDControls && (
+                                    <div
+                                        className={`absolute inset-0 ${mode === '3d' ? '' : 'hidden'}`}
+                                    >
                                     <>
                                         <ThreeDView
                                             imageSrc={builtModelValid ? imageSrc : null}
@@ -860,7 +929,17 @@ function App(): React.ReactElement | null {
                                             flatPaintFaceUp={!!builtModelState.flatPaintFaceUp}
                                             previewRenderMode={previewRenderMode}
                                             previewColorMode={previewColorMode}
+                                            onBuildStarted={markBuildStarted}
+                                            active={mode === '3d'}
                                         />
+                                        {isBuildStarting && (
+                                            <ProgressOverlay
+                                                title="Preparing 3D model"
+                                                stepLabel="Starting build"
+                                                progress={0}
+                                                indeterminate
+                                            />
+                                        )}
                                         {exportingSTL && (
                                             <ProgressOverlay
                                                 title={exportStep.title}
@@ -873,6 +952,7 @@ function App(): React.ReactElement | null {
                                             />
                                         )}
                                     </>
+                                    </div>
                                 )}
                                 <PreviewActions
                                     mode={mode}

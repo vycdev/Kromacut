@@ -15,6 +15,9 @@ import type { AppearanceAnchorLayer, AppearanceRankModelV1 } from '../types/appe
 import type { ResolvedAppearancePrediction } from './appearanceModel';
 import {
     buildAchievableColorPalette,
+    createSequenceScoringWorkspace,
+    deltaELab,
+    EXACT_ANCHOR_TARGET_DE,
     mapTargetsWithSeparation,
     normalizeSeparationMaxDeltaE,
     scoreSequenceAgainstImage,
@@ -271,7 +274,7 @@ function stableHash32(value: string): number {
 // ============================================================================
 
 export const MAX_CACHED_SEQUENCE_SCORES = 8_192;
-export const MAX_CACHED_APPEARANCE_PREDICTIONS = 128;
+export const MAX_CACHED_APPEARANCE_PREDICTIONS = 256;
 
 class BoundedAppearancePredictionCache implements AppearancePredictionCache {
     private readonly layerTokens = new Map<string, Map<string, Map<number, number>>>();
@@ -390,6 +393,17 @@ export function createSequenceScorer(
             a: anchor.targetLab[1],
             b: anchor.targetLab[2],
         }));
+    const exactAnchorTargetSet = exactAnchorTargets?.length
+        ? new Set(
+              context.imageColors.filter((target) =>
+                  exactAnchorTargets.some(
+                      (anchor) =>
+                          deltaELab(anchor, target) <= EXACT_ANCHOR_TARGET_DE
+                  )
+              )
+          )
+        : undefined;
+    const scoringWorkspace = createSequenceScoringWorkspace();
 
     const score = ((filaments: Filament[]) => {
         if (filaments.length === 0) return Infinity;
@@ -424,6 +438,8 @@ export function createSequenceScorer(
             preserveSeparation: context.preserveSeparation,
             separationMaxDeltaE: context.separationMaxDeltaE,
             exactAnchorTargets,
+            exactAnchorTargetSet,
+            workspace: scoringWorkspace,
         });
         scoreCache.set(sequenceKey, value);
         return value;

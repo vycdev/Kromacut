@@ -20,6 +20,9 @@ export const MAX_STACK_MATRIX_SAMPLES = 2_025;
 
 const MAX_STACK_LAYERS = 500;
 const MAX_TEXT_LENGTH = 256;
+const completedEvidenceFingerprintCache = new WeakMap<AppearanceProfileV1, string>();
+const serializedAppearanceProfileCache = new WeakMap<AppearanceProfileV1, string>();
+let emptyCompletedEvidenceFingerprint: string | undefined;
 // These constants are part of the persisted Palette Proof v1 contract. Keep
 // them versioned here instead of resolving imports while sanitizing profile data.
 const PALETTE_PROOF_PATCH_SIZE_MM = 8;
@@ -658,13 +661,19 @@ export function fingerprintCompletedAppearanceEvidence(
     appearance: AppearanceProfileV1 | undefined
 ): string {
     if (!appearance) {
-        return fingerprintJson('completed-appearance-evidence-v1', {
-            proofs: [],
-            viewingSessions: [],
-            targetJudgments: [],
-            stackMatrices: [],
-        });
+        return (emptyCompletedEvidenceFingerprint ??= fingerprintJson(
+            'completed-appearance-evidence-v1',
+            {
+                proofs: [],
+                viewingSessions: [],
+                targetJudgments: [],
+                stackMatrices: [],
+            }
+        ));
     }
+
+    const cached = completedEvidenceFingerprintCache.get(appearance);
+    if (cached) return cached;
 
     const completedSessions = appearance.proofs
         .map(
@@ -728,12 +737,33 @@ export function fingerprintCompletedAppearanceEvidence(
         }))
         .sort((left, right) => left.id.localeCompare(right.id));
 
-    return fingerprintJson('completed-appearance-evidence-v1', {
+    const fingerprint = fingerprintJson('completed-appearance-evidence-v1', {
         proofs,
         viewingSessions,
         targetJudgments,
         stackMatrices,
     });
+    // Appearance profiles are updated immutably. Remembering the completed-evidence
+    // key avoids repeatedly normalizing and hashing large Stack Matrix datasets when
+    // React remounts the 3D controls.
+    completedEvidenceFingerprintCache.set(appearance, fingerprint);
+    return fingerprint;
+}
+
+/**
+ * Serialize immutable, sanitized appearance evidence once for worker transport.
+ * Posting the resulting string avoids a synchronous recursive structured clone
+ * of the multi-megabyte calibration graph on the UI thread.
+ */
+export function serializeAppearanceProfile(
+    appearance: AppearanceProfileV1 | undefined
+): string | undefined {
+    if (!appearance) return undefined;
+    const cached = serializedAppearanceProfileCache.get(appearance);
+    if (cached !== undefined) return cached;
+    const serialized = JSON.stringify(appearance);
+    serializedAppearanceProfileCache.set(appearance, serialized);
+    return serialized;
 }
 
 export function buildPaletteProofRecord(

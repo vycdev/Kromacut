@@ -9,7 +9,14 @@ import type {
     AppearancePredictionConfidenceV1,
     AppearanceRankModelV1,
 } from '../types/appearance';
-import { deltaE2000Lab, labToRgb, rgbToLab, type Lab, type Rgb } from './colorDifference';
+import {
+    deltaE2000Lab,
+    deltaE2000LabWithinRadiusPrepared,
+    labToRgb,
+    rgbToLab,
+    type Lab,
+    type Rgb,
+} from './colorDifference';
 import {
     fingerprintAppearanceFilaments,
     getPaletteProofEvaluationState,
@@ -73,6 +80,9 @@ const EMPIRICAL_MAX_COVERAGE_RADIUS = 30;
 const MATRIX_RECENCY_HALF_LIFE_DAYS = 365;
 const MATRIX_AGREEMENT_SCALE_DELTA_E = 10;
 const LOCAL_RECIPE_LAYER_DEPTH = 8;
+const LOCAL_RECIPE_LAYER_WEIGHTS = Array.from({ length: LOCAL_RECIPE_LAYER_DEPTH }, (_, index) =>
+    Math.pow(0.75, index)
+);
 const LOCAL_EVIDENCE_TARGET_RADIUS = 18;
 const LOCAL_EVIDENCE_COLOR_RADIUS = 24;
 const LOCAL_EVIDENCE_COLOR_SIGMA = 12;
@@ -647,12 +657,18 @@ function transformLab(base: Lab, deltaL: number, logChromaScale: number): Lab {
     return rgbToLab(labToRgb(transformed));
 }
 
+const layerTokenCache = new WeakMap<AppearanceAnchorLayer, string>();
+
 function layerToken(layer: AppearanceAnchorLayer): string {
-    return [
+    const cached = layerTokenCache.get(layer);
+    if (cached !== undefined) return cached;
+    const token = [
         layer.filamentId,
         layer.filamentColor.toLowerCase(),
         Number(layer.thickness.toFixed(8)),
     ].join('\0');
+    layerTokenCache.set(layer, token);
+    return token;
 }
 
 function suffixTransmission(
@@ -1346,6 +1362,26 @@ interface AnchorTrieNode {
 }
 
 const anchorTrieCache = new WeakMap<AppearanceRankModelV1, AnchorTrieNode>();
+const exactAnchorByIdCache = new WeakMap<
+    AppearanceRankModelV1,
+    ReadonlyMap<string, AppearanceExactAnchorV1>
+>();
+
+function exactAnchorSourcePriority(anchor: AppearanceExactAnchorV1): number {
+    return anchor.source === 'palette-proof' ? 2 : anchor.source === 'stack-matrix' ? 1 : 0;
+}
+
+function compareExactAnchors(
+    left: AppearanceExactAnchorV1,
+    right: AppearanceExactAnchorV1
+): number {
+    return (
+        exactAnchorSourcePriority(right) - exactAnchorSourcePriority(left) ||
+        (right.confidence ?? 0) - (left.confidence ?? 0) ||
+        (right.observedAt ?? '').localeCompare(left.observedAt ?? '') ||
+        left.id.localeCompare(right.id)
+    );
+}
 
 function anchorTrie(model: AppearanceRankModelV1): AnchorTrieNode {
     const cached = anchorTrieCache.get(model);
@@ -1364,11 +1400,29 @@ function anchorTrie(model: AppearanceRankModelV1): AnchorTrieNode {
         }
         node.anchors.push(anchor);
     }
-    for (const node of [root, ...root.children.values()]) {
-        node.anchors.sort((left, right) => left.id.localeCompare(right.id));
+    const pending = [root];
+    while (pending.length > 0) {
+        const node = pending.pop()!;
+        node.anchors.sort(compareExactAnchors);
+        for (const child of node.children.values()) pending.push(child);
     }
     anchorTrieCache.set(model, root);
     return root;
+}
+
+function exactAnchorById(
+    model: AppearanceRankModelV1
+): ReadonlyMap<string, AppearanceExactAnchorV1> {
+    const cached = exactAnchorByIdCache.get(model);
+    if (cached) return cached;
+    const byId = new Map<string, AppearanceExactAnchorV1>();
+    for (const anchor of model.exactAnchors ?? []) {
+        // Preserve Array.find's first-match behavior for malformed legacy data
+        // that happens to contain duplicate anchor IDs.
+        if (!byId.has(anchor.id)) byId.set(anchor.id, anchor);
+    }
+    exactAnchorByIdCache.set(model, byId);
+    return byId;
 }
 
 function matchingExactAnchors(
@@ -1514,49 +1568,113 @@ function nearestEmpiricalSample(
 
 interface IndexedLocalEvidence {
     evidence: AppearanceLocalEvidenceV1;
+    derived: LocalEvidenceDerivedValues;
     influence: number;
     colorDistance: number;
     recipeSimilarity: number;
 }
 
+interface LocalEvidenceDerivedValues {
+    baseLab: Lab;
+    baseChroma: number;
+    targetLab: Lab;
+    targetKey: string;
+    correctionTargetLab?: Lab;
+}
+
+interface PreparedLocalEvidence {
+    evidence: AppearanceLocalEvidenceV1;
+    derived: LocalEvidenceDerivedValues;
+    ordinal: number;
+}
+
 interface LocalEvidenceIndex {
-    byFilamentId: Map<string, AppearanceLocalEvidenceV1[]>;
-    byTopFilamentId: Map<string, AppearanceLocalEvidenceV1[]>;
-    byTopRunPair: Map<string, AppearanceLocalEvidenceV1[]>;
+    byFilamentId: Map<string, PreparedLocalEvidence[]>;
+    byTopFilamentId: Map<string, PreparedLocalEvidence[]>;
+    byTopRunPair: Map<string, PreparedLocalEvidence[]>;
+    visitMarks: Uint32Array;
+    visitGeneration: number;
 }
 
 const localEvidenceIndexCache = new WeakMap<AppearanceRankModelV1, LocalEvidenceIndex>();
 
+function prepareLocalEvidenceValues(
+    evidence: AppearanceLocalEvidenceV1
+): LocalEvidenceDerivedValues {
+    const baseLab: Lab = {
+        L: evidence.baseLab[0],
+        a: evidence.baseLab[1],
+        b: evidence.baseLab[2],
+    };
+    const values: LocalEvidenceDerivedValues = {
+        baseLab,
+        baseChroma: Math.hypot(baseLab.a, baseLab.b),
+        targetLab: {
+            L: evidence.targetLab[0],
+            a: evidence.targetLab[1],
+            b: evidence.targetLab[2],
+        },
+        targetKey: evidence.targetLab.map((value) => value.toFixed(4)).join('\0'),
+        ...(evidence.correctionTargetLab
+            ? {
+                  correctionTargetLab: {
+                      L: evidence.correctionTargetLab[0],
+                      a: evidence.correctionTargetLab[1],
+                      b: evidence.correctionTargetLab[2],
+                  },
+              }
+            : {}),
+    };
+    return values;
+}
+
 function localEvidenceIndex(model: AppearanceRankModelV1): LocalEvidenceIndex {
     const cached = localEvidenceIndexCache.get(model);
     if (cached) return cached;
-    const byFilamentId = new Map<string, AppearanceLocalEvidenceV1[]>();
-    const byTopFilamentId = new Map<string, AppearanceLocalEvidenceV1[]>();
-    const byTopRunPair = new Map<string, AppearanceLocalEvidenceV1[]>();
+    const byFilamentId = new Map<string, PreparedLocalEvidence[]>();
+    const byTopFilamentId = new Map<string, PreparedLocalEvidence[]>();
+    const byTopRunPair = new Map<string, PreparedLocalEvidence[]>();
     const add = (
-        index: Map<string, AppearanceLocalEvidenceV1[]>,
+        index: Map<string, PreparedLocalEvidence[]>,
         key: string | undefined,
-        evidence: AppearanceLocalEvidenceV1
+        prepared: PreparedLocalEvidence
     ) => {
         if (!key) return;
         const entries = index.get(key) ?? [];
-        entries.push(evidence);
+        entries.push(prepared);
         index.set(key, entries);
     };
+    const ordinalById = new Map<string, number>();
     for (const evidence of model.localEvidence ?? []) {
+        let ordinal = ordinalById.get(evidence.id);
+        if (ordinal === undefined) {
+            ordinal = ordinalById.size;
+            ordinalById.set(evidence.id, ordinal);
+        }
+        const prepared = {
+            evidence,
+            derived: prepareLocalEvidenceValues(evidence),
+            ordinal,
+        };
         for (const filamentId of new Set(evidence.suffixLayers.map((layer) => layer.filamentId))) {
-            add(byFilamentId, filamentId, evidence);
+            add(byFilamentId, filamentId, prepared);
         }
         const topRuns = recentRunFilamentIds(evidence.suffixLayers);
-        add(byTopFilamentId, topRuns[0], evidence);
-        add(byTopRunPair, localRunPairKey(topRuns), evidence);
+        add(byTopFilamentId, topRuns[0], prepared);
+        add(byTopRunPair, localRunPairKey(topRuns), prepared);
     }
     for (const index of [byFilamentId, byTopFilamentId, byTopRunPair]) {
         for (const entries of index.values()) {
-            entries.sort((left, right) => left.id.localeCompare(right.id));
+            entries.sort((left, right) => left.evidence.id.localeCompare(right.evidence.id));
         }
     }
-    const index = { byFilamentId, byTopFilamentId, byTopRunPair };
+    const index = {
+        byFilamentId,
+        byTopFilamentId,
+        byTopRunPair,
+        visitMarks: new Uint32Array(ordinalById.size),
+        visitGeneration: 0,
+    };
     localEvidenceIndexCache.set(model, index);
     return index;
 }
@@ -1576,28 +1694,31 @@ function localRunPairKey(runs: readonly string[]): string | undefined {
 
 function localRecipeSimilarity(
     evidenceLayers: readonly AppearanceAnchorLayer[],
-    prefixLayers: readonly AppearanceAnchorLayer[]
+    prefixLayers: readonly AppearanceAnchorLayer[],
+    currentFilamentIds: ReadonlySet<string>
 ): number {
     if (evidenceLayers.length === 0 || prefixLayers.length === 0) return 0;
-    const evidence = evidenceLayers.slice(-LOCAL_RECIPE_LAYER_DEPTH).reverse();
-    const current = prefixLayers.slice(-LOCAL_RECIPE_LAYER_DEPTH).reverse();
-    const currentFilaments = new Set(current.map((layer) => layer.filamentId));
-    const depth = Math.max(evidence.length, current.length);
+    const evidenceLength = Math.min(evidenceLayers.length, LOCAL_RECIPE_LAYER_DEPTH);
+    const currentLength = Math.min(prefixLayers.length, LOCAL_RECIPE_LAYER_DEPTH);
+    const depth = Math.max(evidenceLength, currentLength);
     let similarity = 0;
     let totalWeight = 0;
 
     for (let index = 0; index < depth; index++) {
-        const weight = Math.pow(0.75, index);
+        const weight = LOCAL_RECIPE_LAYER_WEIGHTS[index];
         totalWeight += weight;
-        const expected = evidence[index];
-        const actual = current[index];
+        const expected =
+            index < evidenceLength ? evidenceLayers[evidenceLayers.length - 1 - index] : undefined;
+        const actual =
+            index < currentLength ? prefixLayers[prefixLayers.length - 1 - index] : undefined;
         if (!expected || !actual) continue;
         if (expected.filamentId === actual.filamentId) {
             const thicknessScale = Math.max(0.04, expected.thickness, actual.thickness);
             similarity +=
                 weight *
                 Math.exp(-Math.abs(expected.thickness - actual.thickness) / thicknessScale);
-        } else if (currentFilaments.has(expected.filamentId)) {
+        } else {
+            if (!currentFilamentIds.has(expected.filamentId)) continue;
             // Preserve a weaker composition relationship when the same material
             // moved within the recent optical stack.
             similarity += weight * 0.2;
@@ -1613,24 +1734,32 @@ function nearbyLocalEvidence(
 ): IndexedLocalEvidence[] {
     if ((model.localEvidence?.length ?? 0) === 0 || prefixLayers.length === 0) return [];
     const index = localEvidenceIndex(model);
-    const considered = new Set<string>();
+    const baseChroma = Math.hypot(base.a, base.b);
+    index.visitGeneration = (index.visitGeneration + 1) >>> 0;
+    if (index.visitGeneration === 0) {
+        index.visitMarks.fill(0);
+        index.visitGeneration = 1;
+    }
+    const visitGeneration = index.visitGeneration;
     const colorCandidates: Array<{
-        evidence: AppearanceLocalEvidenceV1;
+        prepared: PreparedLocalEvidence;
         colorDistance: number;
         recipeTier: number;
     }> = [];
-    const consider = (entries: readonly AppearanceLocalEvidenceV1[], recipeTier: number) => {
-        for (const evidence of entries) {
-            if (considered.has(evidence.id)) continue;
-            considered.add(evidence.id);
-            const evidenceBase: Lab = {
-                L: evidence.baseLab[0],
-                a: evidence.baseLab[1],
-                b: evidence.baseLab[2],
-            };
-            const colorDistance = deltaE2000Lab(base, evidenceBase);
+    const consider = (entries: readonly PreparedLocalEvidence[], recipeTier: number) => {
+        for (const prepared of entries) {
+            if (index.visitMarks[prepared.ordinal] === visitGeneration) continue;
+            index.visitMarks[prepared.ordinal] = visitGeneration;
+            const derived = prepared.derived;
+            const colorDistance = deltaE2000LabWithinRadiusPrepared(
+                base,
+                baseChroma,
+                derived.baseLab,
+                derived.baseChroma,
+                LOCAL_EVIDENCE_COLOR_RADIUS
+            );
             if (colorDistance <= LOCAL_EVIDENCE_COLOR_RADIUS) {
-                colorCandidates.push({ evidence, colorDistance, recipeTier });
+                colorCandidates.push({ prepared, colorDistance, recipeTier });
             }
         }
     };
@@ -1639,46 +1768,60 @@ function nearbyLocalEvidence(
     if (runPairKey) consider(index.byTopRunPair.get(runPairKey) ?? [], 0);
     if (topRuns[0]) consider(index.byTopFilamentId.get(topRuns[0]) ?? [], 1);
 
+    const recentFilamentIds = new Set<string>();
+    const recentLayerStart = Math.max(0, prefixLayers.length - LOCAL_RECIPE_LAYER_DEPTH);
+    for (let layerIndex = recentLayerStart; layerIndex < prefixLayers.length; layerIndex++) {
+        recentFilamentIds.add(prefixLayers[layerIndex].filamentId);
+    }
+
     // Matching the optically dominant top run is normally enough to fill the
     // bounded candidate set. Only broaden to moved/reordered recent materials
     // when that strong neighborhood is sparse.
     if (colorCandidates.length < LOCAL_EVIDENCE_CANDIDATE_LIMIT) {
-        for (const filamentId of new Set(
-            prefixLayers.slice(-LOCAL_RECIPE_LAYER_DEPTH).map((layer) => layer.filamentId)
-        )) {
+        for (const filamentId of recentFilamentIds) {
             consider(index.byFilamentId.get(filamentId) ?? [], 2);
         }
     }
 
-    return colorCandidates
-        .sort(
-            (left, right) =>
-                left.recipeTier - right.recipeTier ||
-                left.colorDistance - right.colorDistance ||
-                left.evidence.id.localeCompare(right.evidence.id)
-        )
-        .slice(0, LOCAL_EVIDENCE_CANDIDATE_LIMIT)
-        .map((candidate): IndexedLocalEvidence | null => {
-            const evidence = candidate.evidence;
-            const colorDistance = candidate.colorDistance;
-            const recipeSimilarity = localRecipeSimilarity(evidence.suffixLayers, prefixLayers);
-            if (recipeSimilarity < LOCAL_EVIDENCE_MIN_RECIPE_SIMILARITY) return null;
-            const colorKernel = Math.exp(-0.5 * (colorDistance / LOCAL_EVIDENCE_COLOR_SIGMA) ** 2);
-            return {
-                evidence,
-                colorDistance,
-                recipeSimilarity,
-                influence: evidence.confidence * colorKernel * recipeSimilarity * recipeSimilarity,
-            };
-        })
-        .filter((entry): entry is IndexedLocalEvidence => entry !== null && entry.influence > 0)
-        .sort(
-            (left, right) =>
-                right.influence - left.influence ||
-                left.colorDistance - right.colorDistance ||
-                left.evidence.id.localeCompare(right.evidence.id)
-        )
-        .slice(0, LOCAL_EVIDENCE_MAX_NEIGHBORS);
+    colorCandidates.sort(
+        (left, right) =>
+            left.recipeTier - right.recipeTier ||
+            left.colorDistance - right.colorDistance ||
+            left.prepared.evidence.id.localeCompare(right.prepared.evidence.id)
+    );
+    const neighbors: IndexedLocalEvidence[] = [];
+    const candidateCount = Math.min(colorCandidates.length, LOCAL_EVIDENCE_CANDIDATE_LIMIT);
+    for (let candidateIndex = 0; candidateIndex < candidateCount; candidateIndex++) {
+        const candidate = colorCandidates[candidateIndex];
+        const evidence = candidate.prepared.evidence;
+        const colorDistance = candidate.colorDistance;
+        const recipeSimilarity = localRecipeSimilarity(
+            evidence.suffixLayers,
+            prefixLayers,
+            recentFilamentIds
+        );
+        if (recipeSimilarity < LOCAL_EVIDENCE_MIN_RECIPE_SIMILARITY) continue;
+        const colorKernel = Math.exp(-0.5 * (colorDistance / LOCAL_EVIDENCE_COLOR_SIGMA) ** 2);
+        const influence = evidence.confidence * colorKernel * recipeSimilarity * recipeSimilarity;
+        if (influence <= 0) continue;
+        neighbors.push({
+            evidence,
+            derived: candidate.prepared.derived,
+            colorDistance,
+            recipeSimilarity,
+            influence,
+        });
+    }
+    neighbors.sort(
+        (left, right) =>
+            right.influence - left.influence ||
+            left.colorDistance - right.colorDistance ||
+            left.evidence.id.localeCompare(right.evidence.id)
+    );
+    if (neighbors.length > LOCAL_EVIDENCE_MAX_NEIGHBORS) {
+        neighbors.length = LOCAL_EVIDENCE_MAX_NEIGHBORS;
+    }
+    return neighbors;
 }
 
 export interface AppearanceLocalPreferenceMatch {
@@ -1727,15 +1870,14 @@ function resolveLocalEvidence(
     let correctionLightness = 0;
     let correctionA = 0;
     let correctionB = 0;
+    let nearestMeasuredDeltaE = Infinity;
+    let maximumRecipeSimilarity = -Infinity;
     const correctionSamples: Array<{ lab: Lab; weight: number }> = [];
 
     for (const neighbor of neighbors) {
-        const targetLab: Lab = {
-            L: neighbor.evidence.targetLab[0],
-            a: neighbor.evidence.targetLab[1],
-            b: neighbor.evidence.targetLab[2],
-        };
-        const targetKey = neighbor.evidence.targetLab.map((value) => value.toFixed(4)).join('\0');
+        const derived = neighbor.derived;
+        const targetLab = derived.targetLab;
+        const targetKey = derived.targetKey;
         const group = preferenceGroups.get(targetKey) ?? {
             targetLab,
             signedMass: 0,
@@ -1748,40 +1890,23 @@ function resolveLocalEvidence(
         preferenceGroups.set(targetKey, group);
         positivePreferenceMass += neighbor.influence * Math.max(0, neighbor.evidence.preference);
         preferenceMass += neighbor.influence * Math.abs(neighbor.evidence.preference);
+        nearestMeasuredDeltaE = Math.min(nearestMeasuredDeltaE, neighbor.colorDistance);
+        maximumRecipeSimilarity = Math.max(maximumRecipeSimilarity, neighbor.recipeSimilarity);
 
-        if (neighbor.evidence.correctionTargetLab && neighbor.evidence.correctionStrength > 0) {
+        if (derived.correctionTargetLab && neighbor.evidence.correctionStrength > 0) {
             const weight = neighbor.influence * neighbor.evidence.correctionStrength;
             correctionMass += weight;
-            correctionLightness += neighbor.evidence.correctionTargetLab[0] * weight;
-            correctionA += neighbor.evidence.correctionTargetLab[1] * weight;
-            correctionB += neighbor.evidence.correctionTargetLab[2] * weight;
+            correctionLightness += derived.correctionTargetLab.L * weight;
+            correctionA += derived.correctionTargetLab.a * weight;
+            correctionB += derived.correctionTargetLab.b * weight;
             correctionSamples.push({
-                lab: {
-                    L: neighbor.evidence.correctionTargetLab[0],
-                    a: neighbor.evidence.correctionTargetLab[1],
-                    b: neighbor.evidence.correctionTargetLab[2],
-                },
+                lab: derived.correctionTargetLab,
                 weight,
             });
         }
     }
 
     const correctionStrength = Math.min(0.9, correctionMass);
-    let corrected = current;
-    if (correctionMass > 0 && correctionStrength > 0) {
-        const target = {
-            L: correctionLightness / correctionMass,
-            a: correctionA / correctionMass,
-            b: correctionB / correctionMass,
-        };
-        corrected = rgbToLab(
-            labToRgb({
-                L: current.L + (target.L - current.L) * correctionStrength,
-                a: current.a + (target.a - current.a) * correctionStrength,
-                b: current.b + (target.b - current.b) * correctionStrength,
-            })
-        );
-    }
     const correctionConsensus: Lab | undefined =
         correctionMass > 0
             ? {
@@ -1790,6 +1915,16 @@ function resolveLocalEvidence(
                   b: correctionB / correctionMass,
               }
             : undefined;
+    let corrected = current;
+    if (correctionConsensus && correctionStrength > 0) {
+        corrected = rgbToLab(
+            labToRgb({
+                L: current.L + (correctionConsensus.L - current.L) * correctionStrength,
+                a: current.a + (correctionConsensus.a - current.a) * correctionStrength,
+                b: current.b + (correctionConsensus.b - current.b) * correctionStrength,
+            })
+        );
+    }
     const correctionDisagreement = correctionConsensus
         ? correctionSamples.reduce(
               (sum, sample) => sum + deltaE2000Lab(sample.lab, correctionConsensus) * sample.weight,
@@ -1803,23 +1938,31 @@ function resolveLocalEvidence(
               ? 0.65
               : 0.5;
 
-    const preferences = [...preferenceGroups.values()]
-        .map(
-            (group): AppearanceLocalPreferenceMatch => ({
+    const preferenceEntries: Array<{
+        match: AppearanceLocalPreferenceMatch;
+        evidenceSortKey: string;
+    }> = [];
+    for (const group of preferenceGroups.values()) {
+        group.evidenceIds.sort();
+        preferenceEntries.push({
+            match: {
                 targetLab: group.targetLab,
                 preference: Math.max(
                     -1,
                     Math.min(1, group.signedMass / Math.max(0.5, group.totalMass))
                 ),
                 confidence: Math.min(1, group.totalMass),
-                evidenceIds: [...new Set(group.evidenceIds)].sort(),
-            })
-        )
-        .sort(
-            (left, right) =>
-                right.confidence - left.confidence ||
-                left.evidenceIds.join('\0').localeCompare(right.evidenceIds.join('\0'))
-        );
+                evidenceIds: group.evidenceIds,
+            },
+            evidenceSortKey: group.evidenceIds.join('\0'),
+        });
+    }
+    preferenceEntries.sort(
+        (left, right) =>
+            right.match.confidence - left.match.confidence ||
+            left.evidenceSortKey.localeCompare(right.evidenceSortKey)
+    );
+    const preferences = preferenceEntries.map((entry) => entry.match);
 
     return {
         lab: corrected,
@@ -1830,9 +1973,8 @@ function resolveLocalEvidence(
                 preferenceMass > 0
                     ? Math.min(1, positivePreferenceMass / Math.max(0.5, preferenceMass))
                     : 0,
-            nearestMeasuredDeltaE: Math.min(...neighbors.map((neighbor) => neighbor.colorDistance)),
-            nearestMeasuredRecipeDistance:
-                1 - Math.max(...neighbors.map((neighbor) => neighbor.recipeSimilarity)),
+            nearestMeasuredDeltaE,
+            nearestMeasuredRecipeDistance: 1 - maximumRecipeSimilarity,
             agreement,
             preferences,
         },
@@ -2313,20 +2455,8 @@ export function resolveAppearanceRankModel(
     model: AppearanceRankModelV1,
     prefixLayers?: readonly AppearanceAnchorLayer[]
 ): ResolvedAppearancePrediction {
-    const fitted = model.applied
-        ? transformLab(base, model.deltaL, model.logChromaScale)
-        : { ...base };
     const anchors = prefixLayers ? matchingExactAnchors(model, prefixLayers) : [];
-    const sourcePriority = (anchor: AppearanceExactAnchorV1) =>
-        anchor.source === 'palette-proof' ? 2 : anchor.source === 'stack-matrix' ? 1 : 0;
-    const sortedAnchors = [...anchors].sort(
-        (left, right) =>
-            sourcePriority(right) - sourcePriority(left) ||
-            (right.confidence ?? 0) - (left.confidence ?? 0) ||
-            (right.observedAt ?? '').localeCompare(left.observedAt ?? '') ||
-            left.id.localeCompare(right.id)
-    );
-    const paletteProofAnchor = sortedAnchors.find((anchor) => anchor.source === 'palette-proof');
+    const paletteProofAnchor = anchors.find((anchor) => anchor.source === 'palette-proof');
     if (paletteProofAnchor) {
         return {
             lab: {
@@ -2347,12 +2477,13 @@ export function resolveAppearanceRankModel(
     }
 
     const empirical = prefixLayers ? resolveEmpiricalLut(base, model, prefixLayers) : undefined;
-    let resolvedLab = fitted;
+    let resolvedLab: Lab;
     let exactAnchor: AppearanceExactAnchorV1 | undefined;
     let empiricalMatch: EmpiricalLutMatch | undefined;
     if (empirical) {
+        const byId = exactAnchorById(model);
         const empiricalAnchors = (empirical.exactAnchorIds ?? [])
-            .map((id) => model.exactAnchors.find((anchor) => anchor.id === id))
+            .map((id) => byId.get(id))
             .filter((anchor): anchor is AppearanceExactAnchorV1 => Boolean(anchor));
         const primaryAnchor = empiricalAnchors[0];
         exactAnchor =
@@ -2371,13 +2502,17 @@ export function resolveAppearanceRankModel(
         resolvedLab = empirical.lab;
         empiricalMatch = empirical.match;
     } else {
-        exactAnchor = sortedAnchors[0];
+        exactAnchor = anchors[0];
         if (exactAnchor) {
             resolvedLab = {
                 L: exactAnchor.targetLab[0],
                 a: exactAnchor.targetLab[1],
                 b: exactAnchor.targetLab[2],
             };
+        } else {
+            resolvedLab = model.applied
+                ? transformLab(base, model.deltaL, model.logChromaScale)
+                : { ...base };
         }
     }
 

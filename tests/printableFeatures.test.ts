@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
     PRINTABLE_FEATURE_NEIGHBOR_TAKEOVER,
     PRINTABLE_FEATURE_NO_SUPPORT,
+    concealPrintableFeatureBuffers,
     simulatePrintableFeatures,
 } from '../src/lib/printableFeatures.ts';
 
@@ -25,6 +26,17 @@ function pixelRgb(data: Uint8ClampedArray, width: number, x: number, y: number) 
     const offset = (y * width + x) * 4;
     return [...data.slice(offset, offset + 4)];
 }
+
+test('large printable buffers stay accessible without generic enumeration', () => {
+    const data = new Uint8ClampedArray([1, 2, 3, 255]);
+    const changeMask = new Uint8Array([PRINTABLE_FEATURE_NEIGHBOR_TAKEOVER]);
+    const simulation = concealPrintableFeatureBuffers({ data, changeMask });
+
+    assert.equal(simulation.data, data);
+    assert.equal(simulation.changeMask, changeMask);
+    assert.equal(Object.keys(simulation).includes('data'), false);
+    assert.equal(Object.keys(simulation).includes('changeMask'), false);
+});
 
 test('printable feature simulation leaves regions wider than the line width unchanged', () => {
     const data = image(7, 7, () => [12, 34, 56, 255]);

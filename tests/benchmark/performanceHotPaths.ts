@@ -63,6 +63,22 @@ for (let iteration = 0; iteration < mappingIterations; iteration++) {
 }
 const mappingElapsedMs = performance.now() - mappingStartedAt;
 
+autoPaint.mapTargetsWithSeparation(palette, targets, 25);
+let separationChecksum = 0;
+const separationIterations = 30;
+const separationStartedAt = performance.now();
+for (let iteration = 0; iteration < separationIterations; iteration++) {
+    const separated = autoPaint.mapTargetsWithSeparation(palette, targets, 25);
+    separationChecksum +=
+        separated.report.assignedDistinctColorCount * 1_000 +
+        separated.report.unacceptableColorCount * 10 +
+        separated.report.maximumDeltaE;
+    for (const entry of separated.mappedTargets) {
+        separationChecksum += entry.paletteIndex + entry.projectedHeight;
+    }
+}
+const separationElapsedMs = performance.now() - separationStartedAt;
+
 const filaments = [
     { id: 'black', color: '#101010', td: 0.32 },
     { id: 'blue', color: '#1458c0', td: 0.34 },
@@ -160,6 +176,13 @@ console.log(
                 iterations: mappingIterations,
                 elapsedMs: mappingElapsedMs,
                 checksum: mappingChecksum,
+            },
+            separationMapping: {
+                paletteColors: palette.length,
+                targets: targets.length,
+                iterations: separationIterations,
+                elapsedMs: separationElapsedMs,
+                checksum: separationChecksum,
             },
             exact: {
                 filaments: filaments.length,

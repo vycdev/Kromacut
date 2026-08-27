@@ -155,6 +155,53 @@ test('color separation honors a configurable maximum color error', async () => {
     assert.equal(normalizeSeparationMaxDeltaE(27.2), 27.2);
 });
 
+test('reused scoring workspaces preserve separation mappings and exact scores', async () => {
+    const {
+        createSequenceScoringWorkspace,
+        mapTargetsWithSeparation,
+        scoreSequenceAgainstImage,
+    } = await loadAutoPaintModule();
+    const targets = [
+        { L: 48, a: 2, b: -1, weight: 0.6 },
+        { L: 57, a: 8, b: 4, weight: 0.3 },
+        { L: 72, a: -4, b: 9, weight: 0.1 },
+    ];
+    const palettes = [
+        [
+            { height: 0.16, lab: { L: 47, a: 1, b: -2 }, rgb: { r: 110, g: 110, b: 115 } },
+            { height: 0.24, lab: { L: 56, a: 7, b: 5 }, rgb: { r: 145, g: 130, b: 125 } },
+            { height: 0.32, lab: { L: 70, a: -3, b: 8 }, rgb: { r: 170, g: 175, b: 155 } },
+        ],
+        [
+            { height: 0.16, lab: { L: 42, a: 0, b: 0 }, rgb: { r: 99, g: 99, b: 99 } },
+            { height: 0.24, lab: { L: 60, a: 10, b: 3 }, rgb: { r: 158, g: 139, b: 141 } },
+        ],
+    ];
+    const workspace = createSequenceScoringWorkspace();
+
+    for (const palette of [...palettes, ...palettes]) {
+        const expectedMapping = mapTargetsWithSeparation(palette, targets, 12);
+        const actualMapping = mapTargetsWithSeparation(
+            palette,
+            targets,
+            12,
+            workspace.separation
+        );
+        assert.deepEqual(actualMapping, expectedMapping);
+        assert.equal(
+            scoreSequenceAgainstImage(palette, targets, {
+                preserveSeparation: true,
+                separationMaxDeltaE: 12,
+                workspace,
+            }),
+            scoreSequenceAgainstImage(palette, targets, {
+                preserveSeparation: true,
+                separationMaxDeltaE: 12,
+            })
+        );
+    }
+});
+
 test('color separation refuses to build when distinct acceptable matches are impossible', async () => {
     const { generateAutoLayers } = await loadAutoPaintModule();
 

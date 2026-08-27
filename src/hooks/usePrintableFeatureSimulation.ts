@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 
-import type { PrintableFeatureSimulation } from '../lib/printableFeatures.ts';
+import {
+    concealPrintableFeatureBuffers,
+    type PrintableFeatureSimulation,
+} from '../lib/printableFeatures.ts';
 import type { Swatch } from '../types';
 import type {
     PrintableFeatureWorkerRequest,
@@ -24,6 +27,18 @@ interface UsePrintableFeatureSimulationResult {
 }
 
 let nextPrintableFeatureRequestId = 1;
+let lastCompletedSimulation:
+    | { key: string; simulation: PrintableFeatureSimulation }
+    | undefined;
+
+function simulationKey(
+    imageSrc: string,
+    pixelSizeMm: number,
+    lineWidthMm: number,
+    omitAtRiskPixels: boolean
+): string {
+    return JSON.stringify([imageSrc, pixelSizeMm, lineWidthMm, omitAtRiskPixels]);
+}
 
 function loadImage(source: string): Promise<HTMLImageElement> {
     return new Promise((resolve, reject) => {
@@ -52,44 +67,36 @@ export function usePrintableFeatureSimulation(
             return;
         }
 
+        const cacheKey = simulationKey(
+            imageSrc,
+            pixelSizeMm,
+            lineWidthMm,
+            omitAtRiskPixels
+        );
+        if (lastCompletedSimulation?.key === cacheKey) {
+            setSimulation(lastCompletedSimulation.simulation);
+            setIsComputing(false);
+            setError(undefined);
+            return;
+        }
+
         const requestId = nextPrintableFeatureRequestId++;
         let cancelled = false;
-        const worker = new Worker(
-            new URL('../workers/printableFeature.worker.ts', import.meta.url),
-            {
-                type: 'module',
-            }
-        );
+        let activeWorker: Worker | null = null;
+        let retryTimer: number | null = null;
+        let attempt = 0;
 
         setSimulation(undefined);
         setIsComputing(true);
         setError(undefined);
 
-        worker.onmessage = (event: MessageEvent<PrintableFeatureWorkerResponse>) => {
-            if (cancelled || event.data.id !== requestId) return;
-            worker.terminate();
-            setIsComputing(false);
-            if (event.data.error) {
-                setSimulation(undefined);
-                setError(event.data.error);
-            } else {
-                setSimulation(event.data.result);
-                setError(undefined);
-            }
-        };
-        worker.onerror = (event) => {
+        const finishWithError = (message: string) => {
             if (cancelled) return;
-            worker.terminate();
+            activeWorker?.terminate();
+            activeWorker = null;
             setSimulation(undefined);
             setIsComputing(false);
-            setError(event.message || 'Printable-detail analysis failed');
-        };
-        worker.onmessageerror = () => {
-            if (cancelled) return;
-            worker.terminate();
-            setSimulation(undefined);
-            setIsComputing(false);
-            setError('Printable-detail analysis returned an unreadable result');
+            setError(message);
         };
 
         void loadImage(imageSrc)
@@ -102,29 +109,97 @@ export function usePrintableFeatureSimulation(
                 if (!context)
                     throw new Error('Canvas is unavailable for printable-detail analysis');
                 context.drawImage(image, 0, 0);
-                const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-                const request: PrintableFeatureWorkerRequest = {
-                    id: requestId,
-                    width: canvas.width,
-                    height: canvas.height,
-                    data: imageData.data,
-                    pixelSizeMm,
-                    lineWidthMm,
-                    omitAtRiskPixels,
+
+                const startAttempt = () => {
+                    if (cancelled) return;
+                    attempt += 1;
+                    const worker = new Worker(
+                        new URL('../workers/printableFeature.worker.ts', import.meta.url),
+                        { type: 'module' }
+                    );
+                    activeWorker = worker;
+
+                    const retryOrFail = (message: string) => {
+                        if (cancelled || activeWorker !== worker) return;
+                        worker.terminate();
+                        activeWorker = null;
+                        if (attempt < 2) {
+                            retryTimer = window.setTimeout(() => {
+                                retryTimer = null;
+                                startAttempt();
+                            }, 0);
+                        } else {
+                            finishWithError(message);
+                        }
+                    };
+
+                    worker.onmessage = (
+                        event: MessageEvent<PrintableFeatureWorkerResponse>
+                    ) => {
+                        if (
+                            cancelled ||
+                            activeWorker !== worker ||
+                            event.data.id !== requestId
+                        ) {
+                            return;
+                        }
+                        worker.terminate();
+                        activeWorker = null;
+                        setIsComputing(false);
+                        if (event.data.error || !event.data.result) {
+                            setSimulation(undefined);
+                            setError(event.data.error ?? 'Printable-detail analysis failed');
+                        } else {
+                            const simulation = concealPrintableFeatureBuffers(
+                                event.data.result
+                            );
+                            lastCompletedSimulation = {
+                                key: cacheKey,
+                                simulation,
+                            };
+                            setSimulation(simulation);
+                            setError(undefined);
+                        }
+                    };
+                    worker.onerror = (event) => {
+                        event.preventDefault();
+                        retryOrFail(event.message || 'Printable-detail analysis failed');
+                    };
+                    worker.onmessageerror = () => {
+                        retryOrFail('Printable-detail analysis returned an unreadable result');
+                    };
+
+                    const imageData = context.getImageData(
+                        0,
+                        0,
+                        canvas.width,
+                        canvas.height
+                    );
+                    const request: PrintableFeatureWorkerRequest = {
+                        id: requestId,
+                        width: canvas.width,
+                        height: canvas.height,
+                        data: imageData.data,
+                        pixelSizeMm,
+                        lineWidthMm,
+                        omitAtRiskPixels,
+                    };
+                    worker.postMessage(request, [imageData.data.buffer as ArrayBuffer]);
                 };
-                worker.postMessage(request, [imageData.data.buffer as ArrayBuffer]);
+
+                startAttempt();
             })
             .catch((loadError) => {
                 if (cancelled) return;
-                worker.terminate();
-                setSimulation(undefined);
-                setIsComputing(false);
-                setError(loadError instanceof Error ? loadError.message : String(loadError));
+                finishWithError(
+                    loadError instanceof Error ? loadError.message : String(loadError)
+                );
             });
 
         return () => {
             cancelled = true;
-            worker.terminate();
+            if (retryTimer !== null) window.clearTimeout(retryTimer);
+            activeWorker?.terminate();
         };
     }, [enabled, imageSrc, lineWidthMm, omitAtRiskPixels, pixelSizeMm]);
 

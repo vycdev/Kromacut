@@ -2,7 +2,15 @@
 
 Run `npm run benchmark:autopaint > benchmark.json` to create a local JSON report. It is deliberately outside normal tests: it measures quality and cost across the saved profiles and image fixtures.
 
-Run `npm run benchmark:hotpaths` for a short, deterministic comparison of the transition mapper, six-filament Exact search, full-image spatial weighting, and large-palette order reconciliation. Treat its checksums, optimizer score/order, layer count, and final-stack fingerprint as correctness gates: timing improvements are acceptable only when those values remain identical.
+Run `npm run benchmark:hotpaths` for a short, deterministic comparison of the transition mapper, preserve-separation mapper, six-filament Exact search, full-image spatial weighting, and large-palette order reconciliation. Treat its checksums, optimizer score/order, layer count, and final-stack fingerprint as correctness gates: timing improvements are acceptable only when those values remain identical.
+
+Run `npm run benchmark:calibrated` for the slower real-world eight-filament Exact K-logo case, `npm run benchmark:calibrated -- cats` for the 128-color Exact cats case, `npm run benchmark:calibrated -- desk-landscape` for the 128-color Thorough landscape case, or `npm run benchmark:calibrated -- prismatic-portrait` for the 128-color Thorough portrait case. They load the dated profile under `tests/assets/performance`, fit all saved Palette Proof and Stack Matrix evidence through the production path, then assert the case-specific optimizer result. Use these benchmarks when changing calibrated appearance lookup, preserve-separation scoring, optimizer traversal, optimizer memory behavior, or complex model-build performance. The legacy `benchmark:calibrated-exact` command remains an alias.
+
+Run `npm run profile:calibrated -- cats` to capture a compact V8 sampling profile without Chrome's Performance trace buffer. The command writes `optimizer.cpuprofile`, a readable Markdown hot-function summary, and machine-readable summary JSON under `.profiles/<timestamp>-<case>`. The raw profile can also be loaded into Chrome DevTools. Other calibrated case names are accepted in place of `cats`.
+
+Run `npm run profile:compare` after collecting multiple profiles to write `.profiles/comparison.md` and `.profiles/comparison.json`. The comparison includes only enriched runs when they are available, so older hotspot-only captures do not accidentally receive equal weight.
+
+Run `npm run benchmark:calibrated-series -- cats thorough 3` for sequential, unprofiled repetitions of a calibrated workload. It rejects nondeterministic output and reports median timing, peak memory, and heap retained after an explicit GC under `.profiles/series`, making small before/after changes easier to distinguish from sampling-profiler overhead, temporary garbage, and one-off runtime noise.
 
 The main number is `realizedError.weightedMean`. It replays the preview's Lab-space color-to-height projection and compares the virtual color at that printable height with the target color. Lower is better.
 
