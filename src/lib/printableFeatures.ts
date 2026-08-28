@@ -1,4 +1,4 @@
-import { createCenterWeight, createEdgeWeight } from './regionWeighting.ts';
+import { createCenterEdgeWeight } from './regionWeighting.ts';
 
 /** Why a source pixel changed in the line-width simulation. */
 export const PRINTABLE_FEATURE_UNCHANGED = 0;
@@ -37,6 +37,24 @@ export interface PrintableFeatureSimulation {
     colorStats: PrintableFeatureColorStat[];
     diagnostics: PrintableFeatureDiagnostics;
     fingerprint: string;
+}
+
+/**
+ * Keep large pixel buffers directly accessible to Kromacut while excluding
+ * them from generic object enumeration. React's development performance
+ * instrumentation recursively inspects changed props; enumerating a
+ * megapixel typed array there can block the UI and allocate gigabytes.
+ */
+export function concealPrintableFeatureBuffers<
+    T extends { data: Uint8ClampedArray; changeMask?: Uint8Array },
+>(value: T): T {
+    for (const key of ['data', 'changeMask'] as const) {
+        const descriptor = Object.getOwnPropertyDescriptor(value, key);
+        if (descriptor?.enumerable) {
+            Object.defineProperty(value, key, { ...descriptor, enumerable: false });
+        }
+    }
+    return value;
 }
 
 export interface PrintableFeatureOptions {
@@ -321,24 +339,25 @@ export function simulatePrintableFeatures(
         printableOpaquePixelCount++;
     }
 
-    const centerWeightFor = createCenterWeight(width, height);
-    const edgeWeightFor = createEdgeWeight(width, height);
+    const spatialWeightFor = createCenterEdgeWeight(width, height);
+    const spatialWeights = { center: 0, edge: 0 };
     const stats = new Map<number, Omit<PrintableFeatureColorStat, 'hex'>>();
     for (let y = 0; y < height; y++) {
         for (let x = 0; x < width; x++) {
             const pixel = y * width + x;
             if (output[pixel * 4 + 3] === 0) continue;
             const key = rgbKey(output, pixel);
+            spatialWeightFor(x, y, spatialWeights);
             const existing = stats.get(key);
             if (existing) {
                 existing.count++;
-                existing.centerWeight += centerWeightFor(x, y);
-                existing.edgeWeight += edgeWeightFor(x, y);
+                existing.centerWeight += spatialWeights.center;
+                existing.edgeWeight += spatialWeights.edge;
             } else {
                 stats.set(key, {
                     count: 1,
-                    centerWeight: centerWeightFor(x, y),
-                    edgeWeight: edgeWeightFor(x, y),
+                    centerWeight: spatialWeights.center,
+                    edgeWeight: spatialWeights.edge,
                 });
             }
         }

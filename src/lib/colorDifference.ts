@@ -83,25 +83,96 @@ export function labToRgb({ L, a, b }: Lab): Rgb {
     return [encode(linear[0]), encode(linear[1]), encode(linear[2])];
 }
 
+function labHueDegrees(a: number, b: number): number {
+    return ((Math.atan2(b, a) * 180) / Math.PI + 360) % 360;
+}
+
+/**
+ * Lower bound for CIEDE2000 using only its independent lightness term.
+ *
+ * The chroma/hue portion of the CIEDE2000 quadratic is non-negative, so a
+ * pair whose normalized lightness difference already exceeds a threshold
+ * cannot pass the complete distance test. This is substantially cheaper than
+ * evaluating hue angles, trigonometric weights, and rotation terms.
+ */
+export function deltaE2000LightnessLowerBound(lab1: Lab, lab2: Lab): number {
+    const meanL = (lab1.L + lab2.L) / 2;
+    const meanLightnessOffsetSquared = (meanL - 50) ** 2;
+    const lightnessScale =
+        1 + (0.015 * meanLightnessOffsetSquared) / Math.sqrt(20 + meanLightnessOffsetSquared);
+    return Math.abs(lab2.L - lab1.L) / lightnessScale;
+}
+
 /** CIEDE2000 color difference between two Lab values. */
 export function deltaE2000Lab(lab1: Lab, lab2: Lab): number {
-    const chroma1 = Math.hypot(lab1.a, lab1.b);
-    const chroma2 = Math.hypot(lab2.a, lab2.b);
+    return deltaE2000LabInternal(lab1, lab2, Infinity);
+}
+
+/**
+ * Compute CIEDE2000 while allowing exact lower bounds to reject pairs that
+ * cannot be within `maximumDistance`. Rejected pairs return Infinity; every
+ * surviving pair returns the same full distance as `deltaE2000Lab`.
+ */
+export function deltaE2000LabWithinRadius(lab1: Lab, lab2: Lab, maximumDistance: number): number {
+    return deltaE2000LabInternal(lab1, lab2, Math.max(0, maximumDistance));
+}
+
+/**
+ * Radius-aware CIEDE2000 for callers that reuse the same Lab values many
+ * times. The supplied chromas must be the exact `Math.hypot(a, b)` values.
+ */
+export function deltaE2000LabWithinRadiusPrepared(
+    lab1: Lab,
+    chroma1: number,
+    lab2: Lab,
+    chroma2: number,
+    maximumDistance: number
+): number {
+    return deltaE2000LabInternal(lab1, lab2, Math.max(0, maximumDistance), chroma1, chroma2);
+}
+
+function deltaE2000LabInternal(
+    lab1: Lab,
+    lab2: Lab,
+    maximumDistance: number,
+    preparedChroma1?: number,
+    preparedChroma2?: number
+): number {
+    const deltaL = lab2.L - lab1.L;
+    const meanL = (lab1.L + lab2.L) / 2;
+    const meanLightnessOffsetSquared = (meanL - 50) ** 2;
+    const lightnessScale =
+        1 + (0.015 * meanLightnessOffsetSquared) / Math.sqrt(20 + meanLightnessOffsetSquared);
+    const normalizedDeltaL = deltaL / lightnessScale;
+    const bounded = Number.isFinite(maximumDistance);
+    const conservativeMaximum = maximumDistance + 1e-9;
+    if (bounded && Math.abs(normalizedDeltaL) > conservativeMaximum) return Infinity;
+
+    const chroma1 = preparedChroma1 ?? Math.hypot(lab1.a, lab1.b);
+    const chroma2 = preparedChroma2 ?? Math.hypot(lab2.a, lab2.b);
     const averageChroma = (chroma1 + chroma2) / 2;
     const g = 0.5 * (1 - Math.sqrt(averageChroma ** 7 / (averageChroma ** 7 + 25 ** 7)));
     const a1 = (1 + g) * lab1.a;
     const a2 = (1 + g) * lab2.a;
     const adjustedChroma1 = Math.hypot(a1, lab1.b);
     const adjustedChroma2 = Math.hypot(a2, lab2.b);
-    const hue = (a: number, b: number) => ((Math.atan2(b, a) * 180) / Math.PI + 360) % 360;
-    const hue1 = hue(a1, lab1.b);
-    const hue2 = hue(a2, lab2.b);
-    const deltaL = lab2.L - lab1.L;
     const deltaChroma = adjustedChroma2 - adjustedChroma1;
+    const meanChroma = (adjustedChroma1 + adjustedChroma2) / 2;
+    const chromaScale = 1 + 0.045 * meanChroma;
+    const normalizedDeltaChroma = deltaChroma / chromaScale;
+    if (
+        bounded &&
+        normalizedDeltaL ** 2 + 0.25 * normalizedDeltaChroma ** 2 > conservativeMaximum ** 2
+    ) {
+        return Infinity;
+    }
+    const hue1 = labHueDegrees(a1, lab1.b);
+    const hue2 = labHueDegrees(a2, lab2.b);
+    const hueSeparation = Math.abs(hue2 - hue1);
     const hueDifference =
         adjustedChroma1 * adjustedChroma2 === 0
             ? 0
-            : Math.abs(hue2 - hue1) <= 180
+            : hueSeparation <= 180
               ? hue2 - hue1
               : hue2 <= hue1
                 ? hue2 - hue1 + 360
@@ -110,12 +181,11 @@ export function deltaE2000Lab(lab1: Lab, lab2: Lab): number {
         2 *
         Math.sqrt(adjustedChroma1 * adjustedChroma2) *
         Math.sin(((hueDifference / 2) * Math.PI) / 180);
-    const meanL = (lab1.L + lab2.L) / 2;
-    const meanChroma = (adjustedChroma1 + adjustedChroma2) / 2;
+    const adjustedChromaProduct = adjustedChroma1 * adjustedChroma2;
     const meanHue =
-        adjustedChroma1 * adjustedChroma2 === 0
+        adjustedChromaProduct === 0
             ? hue1 + hue2
-            : Math.abs(hue1 - hue2) <= 180
+            : hueSeparation <= 180
               ? (hue1 + hue2) / 2
               : hue1 + hue2 < 360
                 ? (hue1 + hue2 + 360) / 2
@@ -126,19 +196,18 @@ export function deltaE2000Lab(lab1: Lab, lab2: Lab): number {
         0.24 * Math.cos((2 * meanHue * Math.PI) / 180) +
         0.32 * Math.cos(((3 * meanHue + 6) * Math.PI) / 180) -
         0.2 * Math.cos(((4 * meanHue - 63) * Math.PI) / 180);
-    const lightnessScale = 1 + (0.015 * (meanL - 50) ** 2) / Math.sqrt(20 + (meanL - 50) ** 2);
-    const chromaScale = 1 + 0.045 * meanChroma;
     const hueScale = 1 + 0.015 * meanChroma * hueWeight;
     const rotation =
         -2 *
         Math.sqrt(meanChroma ** 7 / (meanChroma ** 7 + 25 ** 7)) *
-        Math.sin(((60 * Math.exp(-(((meanHue - 275) / 25) ** 2))) * Math.PI) / 180);
+        Math.sin((60 * Math.exp(-(((meanHue - 275) / 25) ** 2)) * Math.PI) / 180);
 
+    const normalizedDeltaHue = deltaHue / hueScale;
     return Math.sqrt(
-        (deltaL / lightnessScale) ** 2 +
-            (deltaChroma / chromaScale) ** 2 +
-            (deltaHue / hueScale) ** 2 +
-            rotation * (deltaChroma / chromaScale) * (deltaHue / hueScale)
+        normalizedDeltaL ** 2 +
+            normalizedDeltaChroma ** 2 +
+            normalizedDeltaHue ** 2 +
+            rotation * normalizedDeltaChroma * normalizedDeltaHue
     );
 }
 

@@ -74,8 +74,6 @@
   "B&W / logo-png / enhanced=true / repeats=true": {
     "filamentOrder": [
       "plvjtmc",
-      "p9c63ms",
-      "plvjtmc",
       "p9c63ms"
     ],
     "transitionZones": [
@@ -92,23 +90,9 @@
         "endHeight": 0.64,
         "idealThickness": 0.42,
         "actualThickness": 0.48
-      },
-      {
-        "filamentId": "plvjtmc",
-        "startHeight": 0.64,
-        "endHeight": 0.72,
-        "idealThickness": 0.08,
-        "actualThickness": 0.08
-      },
-      {
-        "filamentId": "p9c63ms",
-        "startHeight": 0.72,
-        "endHeight": 1.12,
-        "idealThickness": 0.42,
-        "actualThickness": 0.4
       }
     ],
-    "totalHeight": 1.12,
+    "totalHeight": 0.64,
     "compressionRatio": 1
   },
   "B&W / large-jpeg / enhanced=false / repeats=false": {

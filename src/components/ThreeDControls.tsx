@@ -31,11 +31,14 @@ import PrintSettingsCard from './PrintSettingsCard';
 import PrintInstructions from './PrintInstructions';
 import AutoPaintTab from './AutoPaintTab';
 import type { ImageDimensions } from '../hooks/useSwatches';
+import { concealPrintableFeatureBuffers } from '../lib/printableFeatures.ts';
 
 // Re-export types for backward compatibility
 export type { Filament, ThreeDControlsStateShape } from '../types';
 
 interface ThreeDControlsProps {
+    /** Whether the 3D workspace is visible and may run expensive background work. */
+    active?: boolean;
     swatches: Swatch[] | null;
     imageSrc: string | null;
     imageDimensions: ImageDimensions | null;
@@ -57,6 +60,7 @@ interface ThreeDControlsProps {
 }
 
 export default function ThreeDControls({
+    active = true,
     swatches,
     imageSrc,
     imageDimensions,
@@ -128,7 +132,9 @@ export default function ThreeDControls({
         persisted?.calibrationLayerHeight ?? initialPrintSettings.layerHeight
     );
     const [paintMode, setPaintMode] = useState<'manual' | 'autopaint'>(initialPaintMode);
-    const [autoPaintMaxHeight, setAutoPaintMaxHeight] = useState<number | undefined>(undefined);
+    const [autoPaintMaxHeight, setAutoPaintMaxHeight] = useState<number | undefined>(
+        persisted?.autoPaintMaxHeight
+    );
     const [enhancedColorMatch, setEnhancedColorMatch] = useState(
         persisted?.enhancedColorMatch ?? false
     );
@@ -208,6 +214,8 @@ export default function ThreeDControls({
         onSettingsChange?.({
             paintMode,
             filaments,
+            autoPaintMaxHeight,
+            calibrationLayerHeight,
             enhancedColorMatch,
             preserveSeparation,
             separationMaxDeltaE,
@@ -228,6 +236,8 @@ export default function ThreeDControls({
     }, [
         paintMode,
         filaments,
+        autoPaintMaxHeight,
+        calibrationLayerHeight,
         enhancedColorMatch,
         preserveSeparation,
         separationMaxDeltaE,
@@ -289,6 +299,7 @@ export default function ThreeDControls({
         isComputing: isPrintableFeatureComputing,
         error: printableFeatureError,
     } = usePrintableFeatureSimulation({
+        active,
         enabled: paintMode === 'autopaint' && filaments.length > 0 && filtered.length > 0,
         imageSrc,
         sourceSwatches: filtered,
@@ -304,6 +315,7 @@ export default function ThreeDControls({
         progress: optimizerProgress,
         error: optimizerError,
     } = useAutoPaintWorker({
+        active,
         paintMode,
         filaments,
         filtered: printableFeatureSimulation ? printableSwatches : [],
@@ -449,6 +461,7 @@ export default function ThreeDControls({
                 pixelSize,
                 filaments,
                 paintMode,
+                autoPaintMaxHeight,
                 enhancedColorMatch,
                 preserveSeparation,
                 separationMaxDeltaE,
@@ -466,12 +479,12 @@ export default function ThreeDControls({
                 autoPaintResult,
                 autoPaintSwatches: autoPaintSliceData.virtualSwatches,
                 autoPaintFilamentSwatches: autoPaintSliceData.filamentSwatches,
-                printableFeaturePixels: {
+                printableFeaturePixels: concealPrintableFeatureBuffers({
                     width: printableFeatureSimulation.width,
                     height: printableFeatureSimulation.height,
                     data: printableFeatureSimulation.data,
                     fingerprint: printableFeatureSimulation.fingerprint,
-                },
+                }),
                 calibrationLayerHeight,
                 smoothMeshing,
             });
@@ -505,6 +518,7 @@ export default function ThreeDControls({
         pixelSize,
         filaments,
         paintMode,
+        autoPaintMaxHeight,
         enhancedColorMatch,
         preserveSeparation,
         separationMaxDeltaE,

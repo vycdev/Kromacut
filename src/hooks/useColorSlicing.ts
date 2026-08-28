@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Swatch, ThreeDControlsStateShape } from '../types';
 import { hexLuminance } from '../lib/colorUtils';
+import { reconcileColorOrder } from '../lib/colorOrder';
 
 export interface UseColorSlicingOptions {
     swatches: Swatch[] | null;
@@ -116,23 +117,7 @@ export function useColorSlicing({
         });
         setColorSliceHeights(nextHeights);
 
-        // Reconstruct order using previous colorOrder mapping if available.
-        const nextOrder: number[] = [];
-        if (prevOrder.length && prevFiltered.length) {
-            for (const prevIdx of prevOrder) {
-                const sw = prevFiltered[prevIdx];
-                if (!sw) continue;
-                const idx = filtered.findIndex((f) => f.hex === sw.hex && f.a === sw.a);
-                if (idx !== -1 && !nextOrder.includes(idx)) nextOrder.push(idx);
-            }
-        }
-        // Fallback / append any remaining colors not yet in order.
-        const remaining: number[] = [];
-        for (let i = 0; i < filtered.length; i++) {
-            if (!nextOrder.includes(i)) remaining.push(i);
-        }
-        remaining.sort((a, b) => hexLuminance(filtered[a].hex) - hexLuminance(filtered[b].hex));
-        nextOrder.push(...remaining);
+        const nextOrder = reconcileColorOrder(filtered, prevFiltered, prevOrder);
         setColorOrder(nextOrder);
 
         prevFilteredRef.current = filtered.slice();

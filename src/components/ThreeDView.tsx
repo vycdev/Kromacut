@@ -75,6 +75,10 @@ interface ThreeDViewProps {
     previewRenderMode?: PreviewRenderMode;
     /** Auto-paint 3D preview color source: simulated blend vs. physical filament colors. */
     previewColorMode?: PreviewColorMode;
+    /** Signals that mesh generation has taken over from the parent's preparation overlay. */
+    onBuildStarted?: () => void;
+    /** Pauses continuous preview rendering while the retained 3D workspace is hidden. */
+    active?: boolean;
 }
 
 // Convert hex color to RGB tuple
@@ -381,6 +385,8 @@ export default function ThreeDView({
     flatPaintFaceUp = false,
     previewRenderMode = 'shaded',
     previewColorMode = 'simulated',
+    onBuildStarted,
+    active = true,
 }: ThreeDViewProps) {
     const mountRef = useRef<HTMLDivElement | null>(null);
     const [isBuilding, setIsBuilding] = useState(false);
@@ -408,7 +414,8 @@ export default function ThreeDView({
         materialRef,
         requestRender,
         switchCamera,
-    } = useThreeScene(mountRef, setIsBuilding);
+        sceneReady,
+    } = useThreeScene(mountRef, setIsBuilding, active);
     const previewRenderModeRef = useRef(previewRenderMode);
     const previewColorModeRef = useRef(previewColorMode);
     const previewMaterialBaselinesRef = useRef(createPreviewMaterialBaselines());
@@ -524,8 +531,9 @@ export default function ThreeDView({
     }, [modelGroupRef, previewColorMode, rebuildWireframeOverlay, requestRender]);
 
     useEffect(() => {
+        if (!sceneReady) return;
         switchCamera(isOrtho);
-    }, [isOrtho, switchCamera]);
+    }, [isOrtho, sceneReady, switchCamera]);
 
     const progressRef = useRef(0);
     const progressLastUpdateRef = useRef(0);
@@ -703,11 +711,19 @@ export default function ThreeDView({
         const modelGroup = modelGroupRef.current;
         if (!modelGroup) return;
 
+        const rebuildRequested = rebuildSignal !== lastRebuildRef.current;
+        const acknowledgeRejectedBuild = () => {
+            if (!rebuildRequested) return;
+            lastRebuildRef.current = rebuildSignal;
+            onBuildStarted?.();
+        };
+
         const imageChanged = imageSrc !== lastImageSrcRef.current;
         lastImageSrcRef.current = imageSrc;
 
         if (!imageSrc) {
             buildTokenRef.current++;
+            lastParamsKeyRef.current = null;
             if (debounceTimerRef.current !== null) {
                 window.clearTimeout(debounceTimerRef.current);
                 debounceTimerRef.current = null;
@@ -721,6 +737,7 @@ export default function ThreeDView({
             setPreviewMinHeight(0);
             setPreviewHeight(null);
             requestRender();
+            acknowledgeRejectedBuild();
             return;
         }
 
@@ -742,15 +759,14 @@ export default function ThreeDView({
             requestRender();
         }
 
-        const rebuildRequested = rebuildSignal !== lastRebuildRef.current;
         if (!rebuildRequested) return;
 
-        lastParamsKeyRef.current = null;
         lastRebuildRef.current = rebuildSignal;
 
         // Don't build if there are no layers configured
         if (!colorOrder || colorOrder.length === 0 || !swatches || swatches.length === 0) {
             buildTokenRef.current++;
+            lastParamsKeyRef.current = null;
             if (debounceTimerRef.current !== null) {
                 window.clearTimeout(debounceTimerRef.current);
                 debounceTimerRef.current = null;
@@ -759,6 +775,7 @@ export default function ThreeDView({
             modelGroup.clear();
             clearLastMeshRef();
             setIsBuilding(false);
+            onBuildStarted?.();
             return;
         }
 
@@ -793,7 +810,10 @@ export default function ThreeDView({
             flatPaint,
             flatPaintFaceUp,
         });
-        if (paramsKey === lastParamsKeyRef.current) return; // nothing changed logically
+        if (paramsKey === lastParamsKeyRef.current) {
+            onBuildStarted?.();
+            return; // nothing changed logically
+        }
         lastParamsKeyRef.current = paramsKey;
 
         // Debounce rapid changes (e.g., dragging slider)
@@ -805,6 +825,7 @@ export default function ThreeDView({
             const buildStartedAt = performance.now();
             // mark that a build is in progress for the overlay
             setIsBuilding(true);
+            onBuildStarted?.();
             pushProgress(0);
             setBuildOverlayStep(null);
             updateE2EBuild({
@@ -2070,9 +2091,19 @@ export default function ThreeDView({
                 pushProgress(1);
             };
 
-            (async () => {
+            const finishCurrentBuild = (failed = false) => {
+                if (token !== buildTokenRef.current) return;
+                if (failed) lastParamsKeyRef.current = null;
+                setIsBuilding(false);
+            };
+
+            void (async () => {
                 const img = await loadImage();
-                if (!img || token !== buildTokenRef.current) return;
+                if (token !== buildTokenRef.current) return;
+                if (!img) {
+                    finishCurrentBuild(true);
+                    return;
+                }
                 const w = img.naturalWidth;
                 const h = img.naturalHeight;
                 // compute opaque bounding box
@@ -2080,7 +2111,10 @@ export default function ThreeDView({
                 c.width = w;
                 c.height = h;
                 const cx = c.getContext('2d');
-                if (!cx) return;
+                if (!cx) {
+                    finishCurrentBuild(true);
+                    return;
+                }
                 cx.drawImage(img, 0, 0, w, h);
                 const originalImageData = cx.getImageData(0, 0, w, h).data;
                 const imgd =
@@ -2115,27 +2149,29 @@ export default function ThreeDView({
                 const boxH = maxY - minY + 1;
                 const bbox = { minX, minY, boxW, boxH };
 
-                if (token !== buildTokenRef.current) {
-                    setIsBuilding(false);
-                    return;
-                }
+                if (token !== buildTokenRef.current) return;
 
                 // Schedule final build
-                await new Promise<void>((res) =>
-                    requestIdle(async () => {
+                await new Promise<void>((resolve, reject) => {
+                    requestIdle(() => {
                         if (token !== buildTokenRef.current) {
-                            res();
+                            resolve();
                             return;
                         }
-                        if (pixelColumns) await buildPixelGeometry(img, bbox, imgd);
-                        res();
-                    })
-                );
+                        void (async () => {
+                            if (pixelColumns) await buildPixelGeometry(img, bbox, imgd);
+                        })().then(resolve, reject);
+                    });
+                });
                 if (token === buildTokenRef.current) {
-                    setIsBuilding(false);
+                    finishCurrentBuild();
                     pushProgress(1);
                 }
-            })();
+            })().catch((buildError) => {
+                if (token !== buildTokenRef.current) return;
+                console.error('[ThreeDView] build failed:', buildError);
+                finishCurrentBuild(true);
+            });
         }, 120);
     }, [
         imageSrc,
@@ -2171,6 +2207,8 @@ export default function ThreeDView({
         requestRender,
         clearWireframeOverlay,
         rebuildWireframeOverlay,
+        onBuildStarted,
+        sceneReady,
     ]);
 
     const currentBuildOverlayStep =

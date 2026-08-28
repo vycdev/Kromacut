@@ -6,6 +6,7 @@ import {
     APPEARANCE_RENDERER_VERSION,
     createEmptyAppearanceProfile,
     fingerprintCompletedAppearanceEvidence,
+    serializeAppearanceProfile,
     type AppearanceProfileV1,
     type AppearanceViewingSession,
     type PaletteProofRecord,
@@ -16,6 +17,15 @@ test('auto-paint worker ignores progress and result messages from stale requests
     assert.equal(isCurrentAutoPaintWorkerResponse(7, 7), true);
     assert.equal(isCurrentAutoPaintWorkerResponse(6, 7), false);
     assert.equal(isCurrentAutoPaintWorkerResponse(8, 7), false);
+});
+
+test('appearance evidence worker transport preserves the sanitized profile exactly', () => {
+    const appearance = createEmptyAppearanceProfile();
+    const serialized = serializeAppearanceProfile(appearance);
+
+    assert.ok(serialized);
+    assert.deepEqual(JSON.parse(serialized), appearance);
+    assert.equal(serializeAppearanceProfile(appearance), serialized);
 });
 
 test('draft proof edits do not invalidate Auto-paint until the evaluation is completed', () => {

@@ -6,7 +6,14 @@ import { createServer } from 'vite';
 import type { Filament } from '../src/types/index.ts';
 import type { CanonicalSrgbColor, FinalPrintableStackSnapshot } from '../src/types/appearance.ts';
 import type { PaletteTargetMatchQuality } from '../src/lib/appearanceProfile.ts';
-import { deltaE2000Lab, labToRgb, rgbToLab } from '../src/lib/colorDifference.ts';
+import {
+    deltaE2000Lab,
+    deltaE2000LabWithinRadius,
+    deltaE2000LabWithinRadiusPrepared,
+    deltaE2000LightnessLowerBound,
+    labToRgb,
+    rgbToLab,
+} from '../src/lib/colorDifference.ts';
 import { buildPaletteProofSnapshot } from './helpers/paletteProofFixture.ts';
 
 type AppearanceModelModule = typeof import('../src/lib/appearanceModel.ts');
@@ -49,6 +56,57 @@ async function loadModules(): Promise<{
 }
 
 const modules = loadModules();
+
+test('CIEDE2000 lightness lower bound never exceeds the full distance', () => {
+    const labs = [
+        { L: 0, a: 0, b: 0 },
+        { L: 8, a: 70, b: -90 },
+        { L: 24, a: -110, b: 45 },
+        { L: 42, a: 35, b: 100 },
+        { L: 50, a: -75, b: -60 },
+        { L: 68, a: 95, b: 15 },
+        { L: 84, a: -30, b: 75 },
+        { L: 100, a: 0, b: 0 },
+    ];
+    for (const left of labs) {
+        for (const right of labs) {
+            assert.ok(
+                deltaE2000LightnessLowerBound(left, right) <= deltaE2000Lab(left, right) + 1e-12
+            );
+        }
+    }
+});
+
+test('CIEDE2000 radius rejection preserves every surviving distance exactly', () => {
+    const labs = [
+        { L: 0, a: 0, b: 0 },
+        { L: 8, a: 70, b: -90 },
+        { L: 24, a: -110, b: 45 },
+        { L: 42, a: 35, b: 100 },
+        { L: 50, a: -75, b: -60 },
+        { L: 68, a: 95, b: 15 },
+        { L: 84, a: -30, b: 75 },
+        { L: 100, a: 0, b: 0 },
+    ];
+    for (const left of labs) {
+        for (const right of labs) {
+            const fullDistance = deltaE2000Lab(left, right);
+            for (const radius of [6, 12, 20, 40]) {
+                const boundedDistance = deltaE2000LabWithinRadius(left, right, radius);
+                const preparedDistance = deltaE2000LabWithinRadiusPrepared(
+                    left,
+                    Math.hypot(left.a, left.b),
+                    right,
+                    Math.hypot(right.a, right.b),
+                    radius
+                );
+                assert.equal(preparedDistance, boundedDistance);
+                if (fullDistance <= radius) assert.equal(boundedDistance, fullDistance);
+                else assert.ok(boundedDistance === fullDistance || boundedDistance === Infinity);
+            }
+        }
+    }
+});
 
 const filaments: Filament[] = [
     { id: 'filament-0', color: '#000000', td: 0.1 },
@@ -266,6 +324,42 @@ test('conflicting exact anchors prefer reviewed Palette Proof evidence over simu
     );
     assert.equal(resolved.exactAnchor?.id, 'palette-reviewed');
     assert.deepEqual(resolved.lab, { L: 72, a: 30, b: -20 });
+});
+
+test('deep exact-anchor suffixes retain confidence precedence after indexing', async () => {
+    const { model } = await modules;
+    const suffixLayers = [
+        { filamentId: 'black', filamentColor: '#000000', thickness: 0.08 },
+        { filamentId: 'cyan', filamentColor: '#00b8c4', thickness: 0.08 },
+        { filamentId: 'purple', filamentColor: '#663399', thickness: 0.08 },
+    ];
+    const identity = model.createIdentityAppearanceRankModel();
+    const anchor = (id: string, confidence: number, targetLab: [number, number, number]) => ({
+        id,
+        proofId: `proof-${id}`,
+        source: 'stack-matrix' as const,
+        sourceStackKey: `stack-${id}`,
+        targetLab,
+        suffixLayers,
+        maxSubstrateTransmission: 0,
+        observedAt: '2026-08-08T12:00:00.000Z',
+        confidence,
+    });
+    const withAnchors = {
+        ...identity,
+        exactAnchors: [
+            anchor('lower-confidence', 0.7, [40, 10, 5]),
+            anchor('winner', 0.95, [65, -5, 20]),
+        ],
+    };
+
+    const resolved = model.resolveAppearanceRankModel({ L: 50, a: 0, b: 0 }, withAnchors, [
+        { filamentId: 'foundation', filamentColor: '#ffffff', thickness: 0.4 },
+        ...suffixLayers,
+    ]);
+
+    assert.equal(resolved.exactAnchor?.id, 'winner');
+    assert.deepEqual(resolved.lab, { L: 65, a: -5, b: 20 });
 });
 
 test('every prediction reports ordered exact, interpolated, fitted, or simulated confidence', async () => {

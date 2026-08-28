@@ -35,3 +35,4 @@ src-tauri/WixTools/
 
 # Agent workspace files
 .agents/
+.profiles/

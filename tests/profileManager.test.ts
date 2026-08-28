@@ -405,6 +405,52 @@ test('stored auto-paint profiles strip legacy photo calibration objects on load'
     }
 });
 
+test('stored profiles reuse an unchanged sanitized snapshot and invalidate on external writes', async () => {
+    const { loadProfiles } = await loadProfileManager();
+    const existingStorage = Reflect.get(globalThis, 'localStorage') as
+        | ReturnType<typeof createMemoryStorage>
+        | undefined;
+    const storage = existingStorage ?? createMemoryStorage();
+    if (!existingStorage) {
+        Object.defineProperty(globalThis, 'localStorage', {
+            configurable: true,
+            value: storage,
+        });
+    }
+
+    const storageKey = 'kromacut.autopaint.profiles';
+    const previousProfiles = storage.getItem(storageKey);
+    const storedProfile = (id: string) =>
+        JSON.stringify([
+            {
+                id,
+                name: `Profile ${id}`,
+                version: 3,
+                createdAt: 1,
+                updatedAt: 1,
+                filaments: [{ id: 'filament', color: '#ffffff', td: 0.5 }],
+            },
+        ]);
+
+    try {
+        storage.setItem(storageKey, storedProfile('cached-a'));
+        const first = loadProfiles();
+        assert.strictEqual(loadProfiles(), first);
+
+        storage.setItem(storageKey, storedProfile('cached-b'));
+        const changed = loadProfiles();
+        assert.notStrictEqual(changed, first);
+        assert.equal(changed[0].id, 'cached-b');
+    } finally {
+        if (previousProfiles === null) {
+            storage.removeItem(storageKey);
+        } else {
+            storage.setItem(storageKey, previousProfiles);
+        }
+        if (!existingStorage) Reflect.deleteProperty(globalThis, 'localStorage');
+    }
+});
+
 test('v1 profile imports migrate uncalibrated tds to hiding distances', async () => {
     const { importProfiles, CURRENT_PROFILE_VERSION } = await loadProfileManager();
     const incoming = [

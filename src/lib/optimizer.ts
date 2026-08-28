@@ -11,13 +11,19 @@
  */
 
 import type { Filament } from '../types';
-import type { AppearanceRankModelV1 } from '../types/appearance';
+import type { AppearanceAnchorLayer, AppearanceRankModelV1 } from '../types/appearance';
+import type { ResolvedAppearancePrediction } from './appearanceModel';
 import {
     buildAchievableColorPalette,
+    createSequenceScoringWorkspace,
+    deltaELab,
+    EXACT_ANCHOR_TARGET_DE,
     mapTargetsWithSeparation,
     normalizeSeparationMaxDeltaE,
     scoreSequenceAgainstImage,
+    type AppearancePredictionCache,
     type ColorSeparationReport,
+    type Lab,
     type WeightedLab,
 } from './autoPaint';
 import { BoundedCache } from './boundedCache';
@@ -114,6 +120,8 @@ export interface SequenceScorer {
     (filaments: Filament[]): number;
     /** Retained numeric scores; exposed for benchmarks and memory regressions. */
     cacheSize(): number;
+    /** Retained evidence-aware prefix predictions. */
+    appearanceCacheSize(): number;
 }
 
 // ============================================================================
@@ -266,16 +274,118 @@ function stableHash32(value: string): number {
 // ============================================================================
 
 export const MAX_CACHED_SEQUENCE_SCORES = 8_192;
+export const MAX_CACHED_APPEARANCE_PREDICTIONS = 512;
+
+class BoundedAppearancePredictionCache implements AppearancePredictionCache {
+    private readonly layerTokens = new Map<string, Map<string, Map<number, number>>>();
+    private readonly prefixByEdge: BoundedCache<number | string, number>;
+    private readonly predictionSlotByPrefix = new Map<number, number>();
+    private readonly predictionPrefixBySlot: Float64Array;
+    private readonly predictionBaseL: Float64Array;
+    private readonly predictionBaseA: Float64Array;
+    private readonly predictionBaseB: Float64Array;
+    private readonly predictionBySlot: Array<ResolvedAppearancePrediction | undefined>;
+    private readonly maxPredictions: number;
+    private predictionCount = 0;
+    private nextPredictionEvictionSlot = 0;
+    private nextLayerToken = 0;
+    private nextPrefixId = 1;
+
+    constructor(maxPredictions: number) {
+        this.maxPredictions = maxPredictions;
+        this.prefixByEdge = new BoundedCache<number | string, number>(maxPredictions * 4);
+        this.predictionPrefixBySlot = new Float64Array(maxPredictions);
+        this.predictionBaseL = new Float64Array(maxPredictions);
+        this.predictionBaseA = new Float64Array(maxPredictions);
+        this.predictionBaseB = new Float64Array(maxPredictions);
+        this.predictionBySlot = new Array(maxPredictions);
+    }
+
+    startPrefix(): number {
+        return 0;
+    }
+
+    extendPrefix(parentPrefix: number, layer: AppearanceAnchorLayer): number {
+        let byColor = this.layerTokens.get(layer.filamentId);
+        if (!byColor) {
+            byColor = new Map();
+            this.layerTokens.set(layer.filamentId, byColor);
+        }
+        let byThickness = byColor.get(layer.filamentColor);
+        if (!byThickness) {
+            byThickness = new Map();
+            byColor.set(layer.filamentColor, byThickness);
+        }
+        let layerToken = byThickness.get(layer.thickness);
+        if (layerToken === undefined) {
+            layerToken = this.nextLayerToken++;
+            byThickness.set(layer.thickness, layerToken);
+        }
+
+        const sum = parentPrefix + layerToken;
+        const paired = (sum * (sum + 1)) / 2 + layerToken;
+        const edgeKey = Number.isSafeInteger(paired) ? paired : `${parentPrefix},${layerToken}`;
+        let prefix = this.prefixByEdge.get(edgeKey);
+        if (prefix === undefined) {
+            prefix = this.nextPrefixId++;
+            this.prefixByEdge.set(edgeKey, prefix);
+        }
+        return prefix;
+    }
+
+    get(prefix: number, base: Lab): ResolvedAppearancePrediction | undefined {
+        const slot = this.predictionSlotByPrefix.get(prefix);
+        return slot !== undefined &&
+            this.predictionBaseL[slot] === base.L &&
+            this.predictionBaseA[slot] === base.a &&
+            this.predictionBaseB[slot] === base.b
+            ? this.predictionBySlot[slot]
+            : undefined;
+    }
+
+    set(prefix: number, base: Lab, value: ResolvedAppearancePrediction): void {
+        let slot = this.predictionSlotByPrefix.get(prefix);
+        if (slot === undefined) {
+            if (this.predictionCount < this.maxPredictions) {
+                slot = this.predictionCount++;
+            } else {
+                slot = this.nextPredictionEvictionSlot;
+                this.predictionSlotByPrefix.delete(this.predictionPrefixBySlot[slot]);
+                this.nextPredictionEvictionSlot =
+                    (this.nextPredictionEvictionSlot + 1) % this.maxPredictions;
+            }
+            this.predictionSlotByPrefix.set(prefix, slot);
+            this.predictionPrefixBySlot[slot] = prefix;
+        }
+        this.predictionBaseL[slot] = base.L;
+        this.predictionBaseA[slot] = base.a;
+        this.predictionBaseB[slot] = base.b;
+        this.predictionBySlot[slot] = value;
+    }
+
+    get size(): number {
+        return this.predictionSlotByPrefix.size;
+    }
+}
 
 export function createSequenceScorer(
     context: ScoringContext,
-    maxCachedScores: number = MAX_CACHED_SEQUENCE_SCORES
+    maxCachedScores: number = MAX_CACHED_SEQUENCE_SCORES,
+    maxCachedAppearancePredictions: number = MAX_CACHED_APPEARANCE_PREDICTIONS
 ): SequenceScorer {
     // Retaining a rich palette for every Exact/Deep candidate can consume
     // hundreds of megabytes. Only the deterministic scalar score is reusable;
     // let each temporary palette be collected immediately after scoring.
     const scoreCache = new BoundedCache<string, number>(maxCachedScores);
     const transitionThicknessCache = new Map<string, number>();
+    const appearancePredictionCache =
+        maxCachedAppearancePredictions > 0
+            ? new BoundedAppearancePredictionCache(
+                  Math.max(1, Math.floor(maxCachedAppearancePredictions))
+              )
+            : undefined;
+    const filamentTokenCache = new WeakMap<Filament, string>();
+    const tokenByOpticalKey = new Map<string, string>();
     const exactAnchorTargets = context.appearanceModel?.exactAnchors
         ?.filter((anchor) => anchor.source !== 'stack-matrix')
         .map((anchor) => ({
@@ -283,10 +393,35 @@ export function createSequenceScorer(
             a: anchor.targetLab[1],
             b: anchor.targetLab[2],
         }));
+    const exactAnchorTargetSet = exactAnchorTargets?.length
+        ? new Set(
+              context.imageColors.filter((target) =>
+                  exactAnchorTargets.some(
+                      (anchor) =>
+                          deltaELab(anchor, target) <= EXACT_ANCHOR_TARGET_DE
+                  )
+              )
+          )
+        : undefined;
+    const scoringWorkspace = createSequenceScoringWorkspace();
 
     const score = ((filaments: Filament[]) => {
         if (filaments.length === 0) return Infinity;
-        const sequenceKey = filaments.map(filamentOpticalKey).join('|');
+        let sequenceKey = '';
+        for (let index = 0; index < filaments.length; index++) {
+            const filament = filaments[index];
+            let token = filamentTokenCache.get(filament);
+            if (token === undefined) {
+                const opticalKey = filamentOpticalKey(filament);
+                token = tokenByOpticalKey.get(opticalKey);
+                if (token === undefined) {
+                    token = `${tokenByOpticalKey.size.toString(36)},`;
+                    tokenByOpticalKey.set(opticalKey, token);
+                }
+                filamentTokenCache.set(filament, token);
+            }
+            sequenceKey += token;
+        }
         const cachedScore = scoreCache.get(sequenceKey);
         if (cachedScore !== undefined) return cachedScore;
         const palette = buildAchievableColorPalette(
@@ -296,17 +431,21 @@ export function createSequenceScorer(
             context.maxHeight,
             context.transitionOpacity,
             transitionThicknessCache,
-            context.appearanceModel
+            context.appearanceModel,
+            appearancePredictionCache
         );
         const value = scoreSequenceAgainstImage(palette, context.imageColors, {
             preserveSeparation: context.preserveSeparation,
             separationMaxDeltaE: context.separationMaxDeltaE,
             exactAnchorTargets,
+            exactAnchorTargetSet,
+            workspace: scoringWorkspace,
         });
         scoreCache.set(sequenceKey, value);
         return value;
     }) as SequenceScorer;
     score.cacheSize = () => scoreCache.size;
+    score.appearanceCacheSize = () => appearancePredictionCache?.size ?? 0;
     return score;
 }
 
@@ -533,23 +672,33 @@ function optimizeExhaustive(
     let iterations = 0;
     reportProgress(options, 0, totalIterations, Infinity);
 
-    const visit = (sequence: Filament[], remaining: Filament[]): void => {
+    const sequence: Filament[] = [];
+    const used = new Uint8Array(filaments.length);
+    const visit = (): void => {
         if (sequence.length > 0) {
-            const candidate = { order: sequence, score: scoreSequence(sequence) };
+            const candidateScore = scoreSequence(sequence);
             iterations++;
-            if (isBetterCandidate(candidate, best)) best = candidate;
+            if (
+                !best ||
+                candidateScore < best.score ||
+                (candidateScore === best.score && compareSequenceKeys(sequence, best.order) < 0)
+            ) {
+                best = { order: [...sequence], score: candidateScore };
+            }
             reportProgress(options, iterations, totalIterations, best?.score ?? Infinity);
         }
 
-        for (let index = 0; index < remaining.length; index++) {
-            visit(
-                [...sequence, remaining[index]],
-                [...remaining.slice(0, index), ...remaining.slice(index + 1)]
-            );
+        for (let index = 0; index < filaments.length; index++) {
+            if (used[index]) continue;
+            used[index] = 1;
+            sequence.push(filaments[index]);
+            visit();
+            sequence.pop();
+            used[index] = 0;
         }
     };
 
-    visit([], filaments);
+    visit();
     const baseBest = best ?? { order: [filaments[0]], score: scoreSequence([filaments[0]]) };
 
     if (!allowRepeatedSwaps) {

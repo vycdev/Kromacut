@@ -1,5 +1,10 @@
 import type { Filament } from '../types';
-import { sanitizeAppearanceProfile, type AppearanceProfileV1 } from './appearanceProfile.ts';
+import {
+    fingerprintCompletedAppearanceEvidence,
+    sanitizeAppearanceProfile,
+    serializeAppearanceProfile,
+    type AppearanceProfileV1,
+} from './appearanceProfile.ts';
 import { FRONTLIT_TD_SCALE, sanitizeFrontlitCalibration } from './calibration.ts';
 import { normalizeHexColor } from './colorUtils.ts';
 import { deduplicateName } from './nameUtils.ts';
@@ -32,6 +37,15 @@ export const TD_MIGRATION_VERSION = 2;
 
 const PROFILES_STORAGE_KEY = 'kromacut.autopaint.profiles';
 const LAST_PROFILE_KEY = 'kromacut.autopaint.lastProfileId';
+
+let cachedProfilesRaw: string | null | undefined;
+let cachedProfiles: AutoPaintProfile[] | undefined;
+
+function rememberProfiles(raw: string | null, profiles: AutoPaintProfile[]): AutoPaintProfile[] {
+    cachedProfilesRaw = raw;
+    cachedProfiles = profiles;
+    return profiles;
+}
 
 function conventionalTdToFrontlit(td: number): number {
     return Math.round(td * FRONTLIT_TD_SCALE * 1e4) / 1e4;
@@ -128,9 +142,10 @@ function sanitizeProfile(value: unknown): AutoPaintProfile | null {
 export function loadProfiles(): AutoPaintProfile[] {
     try {
         const raw = localStorage.getItem(PROFILES_STORAGE_KEY);
-        if (!raw) return [];
+        if (raw === cachedProfilesRaw && cachedProfiles) return cachedProfiles;
+        if (!raw) return rememberProfiles(raw, []);
         const parsed = JSON.parse(raw) as AutoPaintProfile[];
-        if (!Array.isArray(parsed)) return [];
+        if (!Array.isArray(parsed)) return rememberProfiles(raw, []);
         const hadReservedId = parsed.some(
             (p) => p && typeof p.id === 'string' && isTemplateProfileId(p.id)
         );
@@ -139,9 +154,24 @@ export function loadProfiles(): AutoPaintProfile[] {
             .filter((profile): profile is AutoPaintProfile => profile !== null);
         // Persist re-assigned template ids so they stay stable across reloads.
         if (hadReservedId) saveProfilesToStorage(profiles);
-        return profiles;
+        return rememberProfiles(hadReservedId ? JSON.stringify(profiles) : raw, profiles);
     } catch {
         return [];
+    }
+}
+
+/**
+ * Parse and prepare saved calibration data while the 2D workspace is idle.
+ * This keeps a large profile's first completed-evidence fingerprint out of the
+ * synchronous render that opens the 3D controls.
+ */
+export function prewarmAutoPaintProfiles(): void {
+    const profiles = loadProfiles();
+    const activeProfileId = loadLastProfileId();
+    const activeProfile = profiles.find((profile) => profile.id === activeProfileId);
+    if (activeProfile) {
+        fingerprintCompletedAppearanceEvidence(activeProfile.appearance);
+        serializeAppearanceProfile(activeProfile.appearance);
     }
 }
 
@@ -167,7 +197,9 @@ export function saveLastProfileId(id: string | null) {
 
 export function saveProfilesToStorage(profiles: AutoPaintProfile[]): boolean {
     try {
-        localStorage.setItem(PROFILES_STORAGE_KEY, JSON.stringify(profiles));
+        const raw = JSON.stringify(profiles);
+        localStorage.setItem(PROFILES_STORAGE_KEY, raw);
+        rememberProfiles(raw, profiles);
         return true;
     } catch {
         return false;

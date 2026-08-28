@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 
 export function useThreeScene(
     mountRef: React.RefObject<HTMLDivElement | null>,
-    setIsBuilding: (v: boolean) => void
+    setIsBuilding: (v: boolean) => void,
+    active = true
 ) {
     const rafRef = useRef<number | null>(null);
     const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -14,6 +15,9 @@ export function useThreeScene(
     const controlsRef = useRef<OrbitControls | null>(null);
     const modelGroupRef = useRef<THREE.Group | null>(null);
     const materialRef = useRef<THREE.MeshStandardMaterial | null>(null);
+    const [sceneReady, setSceneReady] = useState(false);
+    const activeRef = useRef(active);
+    activeRef.current = active;
 
     const requestRenderRef = useRef<(() => void) | null>(null);
     const switchCameraRef = useRef<((isOrtho: boolean) => void) | null>(null);
@@ -26,6 +30,15 @@ export function useThreeScene(
     useEffect(() => {
         const el = mountRef.current;
         if (!el) return;
+        let cancelled = false;
+        let firstFrame: number | null = null;
+        let secondFrame: number | null = null;
+        let disposeScene: (() => void) | undefined;
+
+        setSceneReady(false);
+        firstFrame = window.requestAnimationFrame(() => {
+            secondFrame = window.requestAnimationFrame(() => {
+                if (cancelled) return;
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
         renderer.setSize(el.clientWidth, el.clientHeight);
@@ -175,13 +188,16 @@ export function useThreeScene(
         });
 
         const animate = () => {
-            if (controlsRef.current) controlsRef.current.update();
-            if (cameraRef.current) renderer.render(scene, cameraRef.current);
+            if (activeRef.current) {
+                if (controlsRef.current) controlsRef.current.update();
+                if (cameraRef.current) renderer.render(scene, cameraRef.current);
+            }
             rafRef.current = requestAnimationFrame(animate);
         };
         rafRef.current = requestAnimationFrame(animate);
+        setSceneReady(true);
 
-        return () => {
+        disposeScene = () => {
             if (rafRef.current) cancelAnimationFrame(rafRef.current);
             ro.disconnect();
             themeObserver.disconnect();
@@ -200,6 +216,16 @@ export function useThreeScene(
             materialRef.current = null;
             switchCameraRef.current = null;
             setIsBuilding(false);
+            setSceneReady(false);
+        };
+            });
+        });
+
+        return () => {
+            cancelled = true;
+            if (firstFrame !== null) window.cancelAnimationFrame(firstFrame);
+            if (secondFrame !== null) window.cancelAnimationFrame(secondFrame);
+            disposeScene?.();
         };
     }, [mountRef, setIsBuilding]);
 
@@ -212,6 +238,7 @@ export function useThreeScene(
         materialRef,
         requestRender,
         switchCamera,
+        sceneReady,
     } as const;
 }
 

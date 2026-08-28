@@ -1,6 +1,13 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
-import type { PrintableFeatureSimulation } from '../lib/printableFeatures.ts';
+import {
+    concealPrintableFeatureBuffers,
+    type PrintableFeatureSimulation,
+} from '../lib/printableFeatures.ts';
+import {
+    shouldRetainCompletedThreeDWork,
+    shouldRunThreeDBackgroundWork,
+} from '../lib/threeDWorkLifecycle.ts';
 import type { Swatch } from '../types';
 import type {
     PrintableFeatureWorkerRequest,
@@ -8,6 +15,7 @@ import type {
 } from '../workers/printableFeature.worker.ts';
 
 interface UsePrintableFeatureSimulationOptions {
+    active?: boolean;
     enabled: boolean;
     imageSrc: string | null;
     sourceSwatches: Swatch[];
@@ -24,6 +32,18 @@ interface UsePrintableFeatureSimulationResult {
 }
 
 let nextPrintableFeatureRequestId = 1;
+let lastCompletedSimulation:
+    | { key: string; simulation: PrintableFeatureSimulation }
+    | undefined;
+
+function simulationKey(
+    imageSrc: string,
+    pixelSizeMm: number,
+    lineWidthMm: number,
+    omitAtRiskPixels: boolean
+): string {
+    return JSON.stringify([imageSrc, pixelSizeMm, lineWidthMm, omitAtRiskPixels]);
+}
 
 function loadImage(source: string): Promise<HTMLImageElement> {
     return new Promise((resolve, reject) => {
@@ -38,15 +58,49 @@ function loadImage(source: string): Promise<HTMLImageElement> {
 export function usePrintableFeatureSimulation(
     options: UsePrintableFeatureSimulationOptions
 ): UsePrintableFeatureSimulationResult {
-    const { enabled, imageSrc, sourceSwatches, pixelSizeMm, lineWidthMm, omitAtRiskPixels } =
-        options;
+    const {
+        active = true,
+        enabled,
+        imageSrc,
+        sourceSwatches,
+        pixelSizeMm,
+        lineWidthMm,
+        omitAtRiskPixels,
+    } = options;
     const [simulation, setSimulation] = useState<PrintableFeatureSimulation | undefined>();
     const [isComputing, setIsComputing] = useState(false);
     const [error, setError] = useState<string | undefined>();
+    const completedKeyRef = useRef<string | null>(null);
 
     useEffect(() => {
-        if (!enabled || !imageSrc) {
-            setSimulation(undefined);
+        const ready = enabled && Boolean(imageSrc);
+        if (!shouldRunThreeDBackgroundWork(active, ready)) {
+            // The cleanup from the previous effect terminates any in-flight worker.
+            // Keep a completed result only while it still describes the hidden inputs.
+            const hiddenKey = imageSrc
+                ? simulationKey(imageSrc, pixelSizeMm, lineWidthMm, omitAtRiskPixels)
+                : null;
+            if (!shouldRetainCompletedThreeDWork(active, completedKeyRef.current, hiddenKey)) {
+                setSimulation(undefined);
+                setError(undefined);
+                completedKeyRef.current = null;
+            }
+            setIsComputing(false);
+            return;
+        }
+
+        // `ready` guarantees this, while preserving the narrowed string type below.
+        if (!imageSrc) return;
+
+        const cacheKey = simulationKey(
+            imageSrc,
+            pixelSizeMm,
+            lineWidthMm,
+            omitAtRiskPixels
+        );
+        if (lastCompletedSimulation?.key === cacheKey) {
+            completedKeyRef.current = cacheKey;
+            setSimulation(lastCompletedSimulation.simulation);
             setIsComputing(false);
             setError(undefined);
             return;
@@ -54,42 +108,21 @@ export function usePrintableFeatureSimulation(
 
         const requestId = nextPrintableFeatureRequestId++;
         let cancelled = false;
-        const worker = new Worker(
-            new URL('../workers/printableFeature.worker.ts', import.meta.url),
-            {
-                type: 'module',
-            }
-        );
+        let activeWorker: Worker | null = null;
+        let retryTimer: number | null = null;
+        let attempt = 0;
 
         setSimulation(undefined);
         setIsComputing(true);
         setError(undefined);
 
-        worker.onmessage = (event: MessageEvent<PrintableFeatureWorkerResponse>) => {
-            if (cancelled || event.data.id !== requestId) return;
-            worker.terminate();
-            setIsComputing(false);
-            if (event.data.error) {
-                setSimulation(undefined);
-                setError(event.data.error);
-            } else {
-                setSimulation(event.data.result);
-                setError(undefined);
-            }
-        };
-        worker.onerror = (event) => {
+        const finishWithError = (message: string) => {
             if (cancelled) return;
-            worker.terminate();
+            activeWorker?.terminate();
+            activeWorker = null;
             setSimulation(undefined);
             setIsComputing(false);
-            setError(event.message || 'Printable-detail analysis failed');
-        };
-        worker.onmessageerror = () => {
-            if (cancelled) return;
-            worker.terminate();
-            setSimulation(undefined);
-            setIsComputing(false);
-            setError('Printable-detail analysis returned an unreadable result');
+            setError(message);
         };
 
         void loadImage(imageSrc)
@@ -102,31 +135,100 @@ export function usePrintableFeatureSimulation(
                 if (!context)
                     throw new Error('Canvas is unavailable for printable-detail analysis');
                 context.drawImage(image, 0, 0);
-                const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-                const request: PrintableFeatureWorkerRequest = {
-                    id: requestId,
-                    width: canvas.width,
-                    height: canvas.height,
-                    data: imageData.data,
-                    pixelSizeMm,
-                    lineWidthMm,
-                    omitAtRiskPixels,
+
+                const startAttempt = () => {
+                    if (cancelled) return;
+                    attempt += 1;
+                    const worker = new Worker(
+                        new URL('../workers/printableFeature.worker.ts', import.meta.url),
+                        { type: 'module' }
+                    );
+                    activeWorker = worker;
+
+                    const retryOrFail = (message: string) => {
+                        if (cancelled || activeWorker !== worker) return;
+                        worker.terminate();
+                        activeWorker = null;
+                        if (attempt < 2) {
+                            retryTimer = window.setTimeout(() => {
+                                retryTimer = null;
+                                startAttempt();
+                            }, 0);
+                        } else {
+                            finishWithError(message);
+                        }
+                    };
+
+                    worker.onmessage = (
+                        event: MessageEvent<PrintableFeatureWorkerResponse>
+                    ) => {
+                        if (
+                            cancelled ||
+                            activeWorker !== worker ||
+                            event.data.id !== requestId
+                        ) {
+                            return;
+                        }
+                        worker.terminate();
+                        activeWorker = null;
+                        setIsComputing(false);
+                        if (event.data.error || !event.data.result) {
+                            setSimulation(undefined);
+                            setError(event.data.error ?? 'Printable-detail analysis failed');
+                        } else {
+                            const simulation = concealPrintableFeatureBuffers(
+                                event.data.result
+                            );
+                            lastCompletedSimulation = {
+                                key: cacheKey,
+                                simulation,
+                            };
+                            completedKeyRef.current = cacheKey;
+                            setSimulation(simulation);
+                            setError(undefined);
+                        }
+                    };
+                    worker.onerror = (event) => {
+                        event.preventDefault();
+                        retryOrFail(event.message || 'Printable-detail analysis failed');
+                    };
+                    worker.onmessageerror = () => {
+                        retryOrFail('Printable-detail analysis returned an unreadable result');
+                    };
+
+                    const imageData = context.getImageData(
+                        0,
+                        0,
+                        canvas.width,
+                        canvas.height
+                    );
+                    const request: PrintableFeatureWorkerRequest = {
+                        id: requestId,
+                        width: canvas.width,
+                        height: canvas.height,
+                        data: imageData.data,
+                        pixelSizeMm,
+                        lineWidthMm,
+                        omitAtRiskPixels,
+                    };
+                    worker.postMessage(request, [imageData.data.buffer as ArrayBuffer]);
                 };
-                worker.postMessage(request, [imageData.data.buffer as ArrayBuffer]);
+
+                startAttempt();
             })
             .catch((loadError) => {
                 if (cancelled) return;
-                worker.terminate();
-                setSimulation(undefined);
-                setIsComputing(false);
-                setError(loadError instanceof Error ? loadError.message : String(loadError));
+                finishWithError(
+                    loadError instanceof Error ? loadError.message : String(loadError)
+                );
             });
 
         return () => {
             cancelled = true;
-            worker.terminate();
+            if (retryTimer !== null) window.clearTimeout(retryTimer);
+            activeWorker?.terminate();
         };
-    }, [enabled, imageSrc, lineWidthMm, omitAtRiskPixels, pixelSizeMm]);
+    }, [active, enabled, imageSrc, lineWidthMm, omitAtRiskPixels, pixelSizeMm]);
 
     const printableSwatches = useMemo(() => {
         if (!simulation) return [];
