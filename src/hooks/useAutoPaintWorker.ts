@@ -28,8 +28,13 @@ import {
     serializeAppearanceProfile,
     type AppearanceProfileV1,
 } from '../lib/appearanceProfile.ts';
+import {
+    shouldRetainCompletedThreeDWork,
+    shouldRunThreeDBackgroundWork,
+} from '../lib/threeDWorkLifecycle.ts';
 
 export interface UseAutoPaintWorkerOptions {
+    active?: boolean;
     paintMode: 'manual' | 'autopaint';
     filaments: Filament[];
     filtered: Swatch[];
@@ -87,6 +92,7 @@ function freezeWorkerValue<T>(value: T): T {
 
 export function useAutoPaintWorker(opts: UseAutoPaintWorkerOptions): UseAutoPaintWorkerResult {
     const {
+        active = true,
         paintMode,
         filaments,
         filtered,
@@ -112,6 +118,8 @@ export function useAutoPaintWorker(opts: UseAutoPaintWorkerOptions): UseAutoPain
 
     const workerRef = useRef<Worker | null>(null);
     const activeRequestIdRef = useRef<number>(0);
+    const activeRequestKeyRef = useRef<string | null>(null);
+    const completedRequestKeyRef = useRef<string | null>(null);
     const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const clearTimers = useCallback(() => {
@@ -130,15 +138,19 @@ export function useAutoPaintWorker(opts: UseAutoPaintWorkerOptions): UseAutoPain
         (id: number, nextError?: string, result?: AutoPaintResult) => {
             if (id !== activeRequestIdRef.current) return;
 
+            const completedKey = activeRequestKeyRef.current;
             activeRequestIdRef.current = 0;
+            activeRequestKeyRef.current = null;
             setIsComputing(false);
             setProgress(nextError ? 0 : 1);
             setError(nextError);
 
             if (nextError) {
+                completedRequestKeyRef.current = null;
                 console.error('[autoPaintWorker] error:', nextError);
                 setAutoPaintResult(undefined);
             } else {
+                completedRequestKeyRef.current = result ? completedKey : null;
                 setAutoPaintResult(
                     result
                         ? {
@@ -207,6 +219,45 @@ export function useAutoPaintWorker(opts: UseAutoPaintWorkerOptions): UseAutoPain
         () => serializeAppearanceProfile(stableAppearance),
         [stableAppearance]
     );
+    const requestKey = useMemo(
+        () =>
+            JSON.stringify([
+                paintMode,
+                filamentsKey,
+                filteredKey,
+                layerHeight,
+                slicerFirstLayerHeight,
+                autoPaintMaxHeight,
+                enhancedColorMatch,
+                preserveSeparation,
+                separationMaxDeltaE,
+                failOnSeparationError,
+                maxRepeatedSwaps,
+                transitionOpacity,
+                optimizerAlgorithm,
+                optimizerSeed,
+                regionWeightingMode,
+                appearanceKey,
+            ]),
+        [
+            appearanceKey,
+            autoPaintMaxHeight,
+            enhancedColorMatch,
+            failOnSeparationError,
+            filamentsKey,
+            filteredKey,
+            layerHeight,
+            maxRepeatedSwaps,
+            optimizerAlgorithm,
+            optimizerSeed,
+            paintMode,
+            preserveSeparation,
+            regionWeightingMode,
+            separationMaxDeltaE,
+            slicerFirstLayerHeight,
+            transitionOpacity,
+        ]
+    );
 
     const getWorker = useCallback(() => {
         if (!workerRef.current) {
@@ -257,12 +308,34 @@ export function useAutoPaintWorker(opts: UseAutoPaintWorkerOptions): UseAutoPain
     useEffect(() => {
         clearTimers();
 
-        if (paintMode !== 'autopaint' || filaments.length === 0 || filtered.length === 0) {
+        const ready =
+            paintMode === 'autopaint' && filaments.length > 0 && filtered.length > 0;
+        if (!shouldRunThreeDBackgroundWork(active, ready)) {
             activeRequestIdRef.current = 0;
+            activeRequestKeyRef.current = null;
             cancelWorker();
-            setAutoPaintResult(undefined);
+            if (
+                !shouldRetainCompletedThreeDWork(
+                    active,
+                    completedRequestKeyRef.current,
+                    requestKey
+                )
+            ) {
+                completedRequestKeyRef.current = null;
+                setAutoPaintResult(undefined);
+            }
             setIsComputing(false);
             setProgress(0);
+            setError(undefined);
+            return;
+        }
+
+        if (completedRequestKeyRef.current === requestKey) {
+            activeRequestIdRef.current = 0;
+            activeRequestKeyRef.current = null;
+            cancelWorker();
+            setIsComputing(false);
+            setProgress(1);
             setError(undefined);
             return;
         }
@@ -272,6 +345,8 @@ export function useAutoPaintWorker(opts: UseAutoPaintWorkerOptions): UseAutoPain
         cancelWorker();
         const id = nextRequestId++;
         activeRequestIdRef.current = id;
+        activeRequestKeyRef.current = requestKey;
+        completedRequestKeyRef.current = null;
         setAutoPaintResult(undefined);
         setIsComputing(true);
         setProgress(0);
@@ -318,6 +393,8 @@ export function useAutoPaintWorker(opts: UseAutoPaintWorkerOptions): UseAutoPain
             }
         };
     }, [
+        active,
+        requestKey,
         paintMode,
         filaments.length,
         filamentsKey,

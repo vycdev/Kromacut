@@ -37,6 +37,8 @@ import { concealPrintableFeatureBuffers } from '../lib/printableFeatures.ts';
 export type { Filament, ThreeDControlsStateShape } from '../types';
 
 interface ThreeDControlsProps {
+    /** Whether the 3D workspace is visible and may run expensive background work. */
+    active?: boolean;
     swatches: Swatch[] | null;
     imageSrc: string | null;
     imageDimensions: ImageDimensions | null;
@@ -58,6 +60,7 @@ interface ThreeDControlsProps {
 }
 
 export default function ThreeDControls({
+    active = true,
     swatches,
     imageSrc,
     imageDimensions,
@@ -296,6 +299,7 @@ export default function ThreeDControls({
         isComputing: isPrintableFeatureComputing,
         error: printableFeatureError,
     } = usePrintableFeatureSimulation({
+        active,
         enabled: paintMode === 'autopaint' && filaments.length > 0 && filtered.length > 0,
         imageSrc,
         sourceSwatches: filtered,
@@ -311,6 +315,7 @@ export default function ThreeDControls({
         progress: optimizerProgress,
         error: optimizerError,
     } = useAutoPaintWorker({
+        active,
         paintMode,
         filaments,
         filtered: printableFeatureSimulation ? printableSwatches : [],

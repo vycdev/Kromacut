@@ -35,6 +35,10 @@ import { useAppHandlers, type ExportProgressStep } from './hooks/useAppHandlers'
 import { useProcessingState } from './hooks/useProcessingState';
 import { useBuildWarning } from './hooks/useBuildWarning';
 import { clampProgress } from './lib/progress';
+import {
+    scheduleAfterTwoAnimationFrames,
+    type CancelDeferredWork,
+} from './lib/threeDWorkLifecycle';
 import { normalizeOptimizerTier } from './lib/optimizer';
 import { normalizeSeparationMaxDeltaE } from './lib/autoPaint';
 import ResizableSplitter from './components/ResizableSplitter';
@@ -330,18 +334,20 @@ function App(): React.ReactElement | null {
     const [mode, setMode] = useState<'2d' | '3d'>('2d');
     const [hasMountedThreeDControls, setHasMountedThreeDControls] = useState(false);
     const [, startThreeDControlsTransition] = useTransition();
-    const firstThreeDMountFrameRef = useRef<number | null>(null);
-    const secondThreeDMountFrameRef = useRef<number | null>(null);
+    const cancelThreeDMountRef = useRef<CancelDeferredWork | null>(null);
     const handleModeChange = useCallback(
         (nextMode: '2d' | '3d') => {
             setMode(nextMode);
-            if (nextMode === '3d' && !hasMountedThreeDControls) {
-                firstThreeDMountFrameRef.current = window.requestAnimationFrame(() => {
-                    secondThreeDMountFrameRef.current = window.requestAnimationFrame(() => {
-                        firstThreeDMountFrameRef.current = null;
-                        secondThreeDMountFrameRef.current = null;
-                        startThreeDControlsTransition(() => setHasMountedThreeDControls(true));
-                    });
+            if (nextMode !== '3d') {
+                cancelThreeDMountRef.current?.();
+                cancelThreeDMountRef.current = null;
+                return;
+            }
+
+            if (!hasMountedThreeDControls && !cancelThreeDMountRef.current) {
+                cancelThreeDMountRef.current = scheduleAfterTwoAnimationFrames(() => {
+                    cancelThreeDMountRef.current = null;
+                    startThreeDControlsTransition(() => setHasMountedThreeDControls(true));
                 });
             }
         },
@@ -349,12 +355,8 @@ function App(): React.ReactElement | null {
     );
     useEffect(
         () => () => {
-            if (firstThreeDMountFrameRef.current !== null) {
-                window.cancelAnimationFrame(firstThreeDMountFrameRef.current);
-            }
-            if (secondThreeDMountFrameRef.current !== null) {
-                window.cancelAnimationFrame(secondThreeDMountFrameRef.current);
-            }
+            cancelThreeDMountRef.current?.();
+            cancelThreeDMountRef.current = null;
         },
         []
     );
@@ -810,6 +812,7 @@ function App(): React.ReactElement | null {
                                 {hasMountedThreeDControls && (
                                     <div className={mode === '3d' ? undefined : 'hidden'}>
                                     <ThreeDControls
+                                        active={mode === '3d'}
                                         swatches={swatches}
                                         imageSrc={imageSrc}
                                         imageDimensions={imageDimensions}

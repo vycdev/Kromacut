@@ -1,3 +1,5 @@
+import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { performance } from 'node:perf_hooks';
 import { resolve } from 'node:path';
 import { createServer } from 'vite';
@@ -10,6 +12,22 @@ import { reconcileColorOrder } from '../../src/lib/colorOrder.ts';
 import { hexLuminance } from '../../src/lib/colorUtils.ts';
 
 type AutoPaintModule = typeof import('../../src/lib/autoPaint.ts');
+
+const EXPECTED_RESULTS = {
+    mappingChecksum: 318940.70617037377,
+    mappingFingerprint: 'b35b9f78ce225970b86240366f8e00c6044bbd2f69c105e628592aa27748f39b',
+    separationChecksum: 2791727.266269258,
+    separationFingerprint: '68de1594628204467070d1bdb833a82d5e7835ae7df6d81fc309d18c924e562f',
+    spatialChecksum: 808586.5285891531,
+    colorOrderChecksum: 11453245440,
+    exact: {
+        iterations: 1956,
+        score: 46.875850346975874,
+        order: ['black', 'blue', 'red', 'white', 'yellow', 'green'],
+        layerCount: 20,
+        finalStackFingerprint: 'final-stack-v1-b48a2cc09419a9cd',
+    },
+} as const;
 
 async function loadAutoPaintModule(): Promise<AutoPaintModule> {
     const server = await createServer({
@@ -51,7 +69,7 @@ const targets = Array.from({ length: 128 }, (_, index) => ({
 }));
 
 // Warm V8 before measuring the mapping loop.
-autoPaint.mapTargetsToPrintablePalette(palette, targets);
+const mappingReference = autoPaint.mapTargetsToPrintablePalette(palette, targets);
 let mappingChecksum = 0;
 const mappingIterations = 30;
 const mappingStartedAt = performance.now();
@@ -78,6 +96,27 @@ for (let iteration = 0; iteration < separationIterations; iteration++) {
     }
 }
 const separationElapsedMs = performance.now() - separationStartedAt;
+
+const separationWorkspace = autoPaint.createSequenceScoringWorkspace();
+autoPaint.mapTargetsWithSeparation(palette, targets, 25, separationWorkspace.separation);
+let separationWorkspaceChecksum = 0;
+const separationWorkspaceStartedAt = performance.now();
+for (let iteration = 0; iteration < separationIterations; iteration++) {
+    const separated = autoPaint.mapTargetsWithSeparation(
+        palette,
+        targets,
+        25,
+        separationWorkspace.separation
+    );
+    separationWorkspaceChecksum +=
+        separated.report.assignedDistinctColorCount * 1_000 +
+        separated.report.unacceptableColorCount * 10 +
+        separated.report.maximumDeltaE;
+    for (const entry of separated.mappedTargets) {
+        separationWorkspaceChecksum += entry.paletteIndex + entry.projectedHeight;
+    }
+}
+const separationWorkspaceElapsedMs = performance.now() - separationWorkspaceStartedAt;
 
 const filaments = [
     { id: 'black', color: '#101010', td: 0.32 },
@@ -167,6 +206,80 @@ const indexedOrderStartedAt = performance.now();
 const indexedOrder = reconcileColorOrder(orderSwatches, orderSwatches, previousOrder);
 const indexedOrderElapsedMs = performance.now() - indexedOrderStartedAt;
 
+const ordinarySeparation = autoPaint.mapTargetsWithSeparation(palette, targets, 25);
+const workspaceSeparation = autoPaint.mapTargetsWithSeparation(
+    palette,
+    targets,
+    25,
+    separationWorkspace.separation
+);
+const mappingFingerprint = fingerprintJson(mappingReference);
+const separationFingerprint = fingerprintJson(ordinarySeparation);
+assert.deepEqual(
+    workspaceSeparation,
+    ordinarySeparation,
+    'Reusable separation workspace changed mapping output'
+);
+assertApproximatelyEqual(
+    mappingChecksum,
+    EXPECTED_RESULTS.mappingChecksum,
+    'Printable-palette mapping checksum changed'
+);
+assert.equal(
+    mappingFingerprint,
+    EXPECTED_RESULTS.mappingFingerprint,
+    'Printable-palette mapping output changed'
+);
+assertApproximatelyEqual(
+    separationChecksum,
+    EXPECTED_RESULTS.separationChecksum,
+    'Separation mapping checksum changed'
+);
+assert.equal(
+    separationFingerprint,
+    EXPECTED_RESULTS.separationFingerprint,
+    'Separation mapping output changed'
+);
+assertApproximatelyEqual(
+    separationWorkspaceChecksum,
+    separationChecksum,
+    'Reusable separation workspace checksum changed'
+);
+assertApproximatelyEqual(
+    separateSpatialChecksum,
+    EXPECTED_RESULTS.spatialChecksum,
+    'Separate spatial-weight checksum changed'
+);
+assertApproximatelyEqual(
+    combinedSpatialChecksum,
+    separateSpatialChecksum,
+    'Combined spatial weighting changed center/edge results'
+);
+assert.deepEqual(indexedOrder, legacyOrder, 'Indexed color reconciliation changed ordering');
+const legacyOrderChecksum = legacyOrder.reduce(
+    (checksum, index, position) => checksum + index * (position + 1),
+    0
+);
+const indexedOrderChecksum = indexedOrder.reduce(
+    (checksum, index, position) => checksum + index * (position + 1),
+    0
+);
+assert.equal(legacyOrderChecksum, EXPECTED_RESULTS.colorOrderChecksum);
+assert.equal(indexedOrderChecksum, legacyOrderChecksum);
+assert.equal(exactResult.optimizerMetadata?.iterations, EXPECTED_RESULTS.exact.iterations);
+assertApproximatelyEqual(
+    exactResult.optimizerMetadata?.score ?? Number.NaN,
+    EXPECTED_RESULTS.exact.score,
+    'Exact optimizer score changed'
+);
+assert.deepEqual(exactResult.filamentOrder, EXPECTED_RESULTS.exact.order);
+assert.equal(exactResult.finalStack.layers.length, EXPECTED_RESULTS.exact.layerCount);
+assert.equal(
+    exactResult.finalStack.fingerprint,
+    EXPECTED_RESULTS.exact.finalStackFingerprint,
+    'Exact final-stack fingerprint changed'
+);
+
 console.log(
     JSON.stringify(
         {
@@ -176,6 +289,7 @@ console.log(
                 iterations: mappingIterations,
                 elapsedMs: mappingElapsedMs,
                 checksum: mappingChecksum,
+                fingerprint: mappingFingerprint,
             },
             separationMapping: {
                 paletteColors: palette.length,
@@ -183,6 +297,14 @@ console.log(
                 iterations: separationIterations,
                 elapsedMs: separationElapsedMs,
                 checksum: separationChecksum,
+                fingerprint: separationFingerprint,
+            },
+            separationWorkspaceMapping: {
+                paletteColors: palette.length,
+                targets: targets.length,
+                iterations: separationIterations,
+                elapsedMs: separationWorkspaceElapsedMs,
+                checksum: separationWorkspaceChecksum,
             },
             exact: {
                 filaments: filaments.length,
@@ -204,17 +326,40 @@ console.log(
                 colors: orderSize,
                 legacyElapsedMs: legacyOrderElapsedMs,
                 indexedElapsedMs: indexedOrderElapsedMs,
-                legacyChecksum: legacyOrder.reduce(
-                    (checksum, index, position) => checksum + index * (position + 1),
-                    0
-                ),
-                indexedChecksum: indexedOrder.reduce(
-                    (checksum, index, position) => checksum + index * (position + 1),
-                    0
-                ),
+                legacyChecksum: legacyOrderChecksum,
+                indexedChecksum: indexedOrderChecksum,
             },
         },
         null,
         2
     )
 );
+
+function assertApproximatelyEqual(actual: number, expected: number, message: string): void {
+    const tolerance = Math.max(1e-9, Math.abs(expected) * 1e-9);
+    assert.ok(
+        Number.isFinite(actual) && Math.abs(actual - expected) <= tolerance,
+        `${message}: expected ${expected} ± ${tolerance}, received ${actual}`
+    );
+}
+
+function fingerprintJson(value: unknown): string {
+    return createHash('sha256')
+        .update(JSON.stringify(normalizeFingerprintValue(value)))
+        .digest('hex');
+}
+
+function normalizeFingerprintValue(value: unknown): unknown {
+    if (typeof value === 'number') {
+        return Number.isFinite(value) ? Math.round(value * 1e9) / 1e9 : String(value);
+    }
+    if (Array.isArray(value)) return value.map(normalizeFingerprintValue);
+    if (value && typeof value === 'object') {
+        return Object.fromEntries(
+            Object.entries(value as Record<string, unknown>)
+                .sort(([left], [right]) => left.localeCompare(right))
+                .map(([key, child]) => [key, normalizeFingerprintValue(child)])
+        );
+    }
+    return value;
+}

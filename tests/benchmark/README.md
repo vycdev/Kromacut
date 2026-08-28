@@ -10,7 +10,7 @@ Run `npm run profile:calibrated -- cats` to capture a compact V8 sampling profil
 
 Run `npm run profile:compare` after collecting multiple profiles to write `.profiles/comparison.md` and `.profiles/comparison.json`. The comparison includes only enriched runs when they are available, so older hotspot-only captures do not accidentally receive equal weight.
 
-Run `npm run benchmark:calibrated-series -- cats thorough 3` for sequential, unprofiled repetitions of a calibrated workload. It rejects nondeterministic output and reports median timing, peak memory, and heap retained after an explicit GC under `.profiles/series`, making small before/after changes easier to distinguish from sampling-profiler overhead, temporary garbage, and one-off runtime noise.
+Run `npm run benchmark:calibrated-series -- cats thorough 3` for sequential, unprofiled repetitions of a calibrated workload. It rejects output that differs from the checked-in known-good result as well as nondeterministic output, then reports median timing, peak memory, and heap retained after an explicit GC under `.profiles/series`. Recorded non-baseline goldens currently cover `cats/separation-off`, `cats/repeats-0`, `cats/thorough`, and `k-logo/delta-e-40`; other case/variant pairs are rejected until an explicit golden is added.
 
 The main number is `realizedError.weightedMean`. It replays the preview's Lab-space color-to-height projection and compares the virtual color at that printable height with the target color. Lower is better.
 

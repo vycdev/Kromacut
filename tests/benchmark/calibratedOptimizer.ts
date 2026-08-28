@@ -48,6 +48,32 @@ interface CalibratedOptimizerCase {
 
 type CalibratedOptimizerSettings = CalibratedOptimizerCase['settings'];
 
+interface StableOptimizerResult {
+    score: number;
+    iterations: number;
+    converged: boolean;
+    extraRepeatCount: number;
+    orderColors: string[];
+    transitionZones: number;
+    physicalLayers: number;
+    totalHeight: number;
+    finalStackFingerprint: string;
+    separation?: {
+        requestedColorCount: number;
+        printableColorCount: number;
+        assignedDistinctColorCount: number;
+        unacceptableColorCount: number;
+        maximumDeltaE: number;
+        maximumAllowedDeltaE: number;
+        satisfied: boolean;
+    };
+}
+
+interface CalibratedOptimizerVariantGoldens {
+    schemaVersion: 1;
+    results: Record<string, Record<string, StableOptimizerResult>>;
+}
+
 const VARIANT_OVERRIDES: Record<string, Partial<CalibratedOptimizerSettings>> = {
     baseline: {},
     'separation-off': { preserveColorSeparation: false },
@@ -140,6 +166,17 @@ const fixtureDirectory = resolve(fixtureRoot, caseName);
 const fixture = JSON.parse(
     readFileSync(resolve(fixtureDirectory, 'case.json'), 'utf8')
 ) as CalibratedOptimizerCase;
+const variantGoldens = JSON.parse(
+    readFileSync(resolve(fixtureRoot, 'optimizer-variant-goldens.json'), 'utf8')
+) as CalibratedOptimizerVariantGoldens;
+assert.equal(variantGoldens.schemaVersion, 1, 'Unsupported calibrated optimizer golden schema');
+const expectedVariantResult =
+    variantName === 'baseline' ? undefined : variantGoldens.results[caseName]?.[variantName];
+if (variantName !== 'baseline' && !expectedVariantResult) {
+    throw new Error(
+        `Unsupported calibrated optimizer variant ${caseName}/${variantName}: add an explicit known-good result to optimizer-variant-goldens.json before benchmarking it`
+    );
+}
 const settings: CalibratedOptimizerSettings = {
     ...fixture.settings,
     ...VARIANT_OVERRIDES[variantName],
@@ -239,6 +276,22 @@ try {
         );
         assert.equal(separation.unacceptableColorCount, expectedResult.fallbackColorCount);
         assert.equal(Number(separation.maximumDeltaE.toFixed(1)), expectedResult.worstDeltaE);
+    } else {
+        assertStableResult(
+            {
+                score: result.optimizerMetadata?.score ?? NaN,
+                iterations: result.optimizerMetadata?.iterations ?? 0,
+                converged: result.optimizerMetadata?.converged ?? false,
+                extraRepeatCount: result.optimizerMetadata?.extraRepeatCount ?? 0,
+                orderColors,
+                transitionZones: result.transitionZones.length,
+                physicalLayers: result.finalStack.layers.length,
+                totalHeight: result.totalHeight,
+                finalStackFingerprint: result.finalStack.fingerprint,
+                separation,
+            },
+            expectedVariantResult
+        );
     }
 } catch (error) {
     console.error(
@@ -304,3 +357,34 @@ console.log(
         2
     )
 );
+
+function assertStableResult(
+    actual: StableOptimizerResult,
+    expected: StableOptimizerResult | undefined
+): void {
+    assert.ok(expected, 'Expected an explicit calibrated optimizer variant golden');
+    assert.ok(Math.abs(actual.score - expected.score) < 1e-6, 'Optimizer score changed');
+    assert.ok(Math.abs(actual.totalHeight - expected.totalHeight) < 1e-9, 'Total height changed');
+    if (actual.separation && expected.separation) {
+        assert.ok(
+            Math.abs(actual.separation.maximumDeltaE - expected.separation.maximumDeltaE) < 1e-9,
+            'Maximum separation Delta-E changed'
+        );
+    }
+    const actualExact: Partial<StableOptimizerResult> = { ...actual };
+    const expectedExact: Partial<StableOptimizerResult> = { ...expected };
+    delete actualExact.score;
+    delete actualExact.totalHeight;
+    delete expectedExact.score;
+    delete expectedExact.totalHeight;
+    if (actual.separation) {
+        actualExact.separation = {
+            ...actual.separation,
+            maximumDeltaE: expected.separation?.maximumDeltaE ?? Number.NaN,
+        };
+    } else {
+        delete actualExact.separation;
+    }
+    if (!expected.separation) delete expectedExact.separation;
+    assert.deepEqual(actualExact, expectedExact);
+}

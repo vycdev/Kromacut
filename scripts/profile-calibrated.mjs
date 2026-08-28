@@ -2,7 +2,7 @@ import { spawn, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { arch, cpus, platform, release, totalmem } from 'node:os';
-import { resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
 
 const caseName = process.argv[2] ?? 'cats';
 if (!/^[a-z0-9-]+$/.test(caseName)) {
@@ -18,6 +18,8 @@ const runName = variantName === 'baseline' ? caseName : `${caseName}-${variantNa
 const outputDirectory = resolve('.profiles', `${timestamp}-${runName}`);
 const profilePath = resolve(outputDirectory, 'optimizer.cpuprofile');
 const samplingIntervalMicroseconds = 1000;
+const capturedWorkload = readWorkload(caseName);
+const capturedEnvironment = collectEnvironment(samplingIntervalMicroseconds);
 mkdirSync(outputDirectory, { recursive: true });
 
 const childArguments = [
@@ -61,11 +63,18 @@ if (exitCode !== 0) {
 } else {
     const profile = JSON.parse(readFileSync(profilePath, 'utf8'));
     const benchmark = parseBenchmarkOutput(benchmarkOutput);
-    const workload = readWorkload(caseName);
+    const finalWorkload = readWorkload(caseName);
+    const finalEnvironment = collectEnvironment(samplingIntervalMicroseconds);
     const summary = summarizeProfile(profile, runName, {
         benchmark,
-        workload,
-        samplingIntervalMicroseconds,
+        workload: capturedWorkload,
+        environment: capturedEnvironment,
+        provenance: compareCaptureProvenance(
+            capturedWorkload,
+            finalWorkload,
+            capturedEnvironment,
+            finalEnvironment
+        ),
     });
     const benchmarkJsonPath = resolve(outputDirectory, 'benchmark.json');
     const summaryJsonPath = resolve(outputDirectory, 'summary.json');
@@ -168,13 +177,15 @@ function summarizeProfile(profile, fixture, metadata) {
                 metadata.benchmark.variant && metadata.benchmark.variant !== 'baseline'
                     ? `${metadata.workload.name} / ${metadata.benchmark.variant}`
                     : metadata.workload.name,
-            profileSha256: metadata.workload.sha256?.profile ?? null,
-            sourceImageSha256: metadata.workload.sha256?.sourceImage ?? null,
+            profileSha256: metadata.workload.currentSha256.profile,
+            sourceImageSha256: metadata.workload.currentSha256.sourceImage,
+            caseSha256: metadata.workload.currentSha256.case,
             settingsSha256: hashJson(effectiveSettings),
             settings: effectiveSettings,
         },
         benchmark: metadata.benchmark,
-        environment: collectEnvironment(metadata.samplingIntervalMicroseconds),
+        environment: metadata.environment,
+        provenance: metadata.provenance,
         sampledMicroseconds,
         sampledDuration: formatDuration(sampledMicroseconds),
         sampleCount: samples.length,
@@ -203,7 +214,47 @@ function readWorkload(fixture) {
         fixture,
         'case.json'
     );
-    return JSON.parse(readFileSync(casePath, 'utf8'));
+    const workload = JSON.parse(readFileSync(casePath, 'utf8'));
+    const caseDirectory = dirname(casePath);
+    return {
+        ...workload,
+        // case.json records the hashes captured when the fixture was added, but a
+        // profile must identify the files it actually consumed. Hash the current
+        // files so a locally modified fixture cannot inherit stale provenance.
+        currentSha256: {
+            case: hashFile(casePath),
+            profile: hashFile(resolve(caseDirectory, workload.profile)),
+            sourceImage: hashFile(resolve(caseDirectory, workload.sourceImage)),
+        },
+    };
+}
+
+function compareCaptureProvenance(startWorkload, endWorkload, startEnvironment, endEnvironment) {
+    const sourceCaptureAvailable = Boolean(
+        startEnvironment.gitRevision &&
+        endEnvironment.gitRevision &&
+        startEnvironment.sourceStateSha256 &&
+        endEnvironment.sourceStateSha256
+    );
+    const sourceChanged =
+        !sourceCaptureAvailable ||
+        startEnvironment.gitRevision !== endEnvironment.gitRevision ||
+        startEnvironment.sourceStateSha256 !== endEnvironment.sourceStateSha256;
+    const workloadChanged =
+        startWorkload.currentSha256.case !== endWorkload.currentSha256.case ||
+        startWorkload.currentSha256.profile !== endWorkload.currentSha256.profile ||
+        startWorkload.currentSha256.sourceImage !== endWorkload.currentSha256.sourceImage;
+    return {
+        stable: !sourceChanged && !workloadChanged,
+        sourceCaptureAvailable,
+        sourceChangedDuringCapture: sourceChanged,
+        workloadChangedDuringCapture: workloadChanged,
+        finalGitRevision: endEnvironment.gitRevision,
+        finalSourceStateSha256: endEnvironment.sourceStateSha256,
+        finalCaseSha256: endWorkload.currentSha256.case,
+        finalProfileSha256: endWorkload.currentSha256.profile,
+        finalSourceImageSha256: endWorkload.currentSha256.sourceImage,
+    };
 }
 
 function collectEnvironment(samplingInterval) {
@@ -216,6 +267,25 @@ function collectEnvironment(samplingInterval) {
         cwd: process.cwd(),
         encoding: 'utf8',
     });
+    const sourceDiff = spawnSync(
+        'git',
+        [
+            'diff',
+            '--no-ext-diff',
+            'HEAD',
+            '--',
+            'src',
+            'tests/benchmark/calibratedOptimizer.ts',
+            'tests/imageFixtures.ts',
+            'tests/assets/performance/8-colors-frontlit-2026-08-26/optimizer-variant-goldens.json',
+            'scripts/profile-calibrated.mjs',
+        ],
+        {
+            cwd: process.cwd(),
+            encoding: 'utf8',
+            maxBuffer: 32 * 1024 * 1024,
+        }
+    );
     return {
         node: process.version,
         platform: platform(),
@@ -226,6 +296,11 @@ function collectEnvironment(samplingInterval) {
         totalMemoryBytes: totalmem(),
         gitRevision: gitRevision.status === 0 ? gitRevision.stdout.trim() : null,
         gitDirty: gitStatus.status === 0 ? gitStatus.stdout.trim().length > 0 : null,
+        sourceDiffSha256:
+            sourceDiff.status === 0
+                ? createHash('sha256').update(sourceDiff.stdout).digest('hex')
+                : null,
+        sourceStateSha256: hashCurrentSourceState(),
         samplingIntervalMicroseconds: samplingInterval,
     };
 }
@@ -277,6 +352,53 @@ function hashJson(value) {
     return createHash('sha256').update(JSON.stringify(value)).digest('hex');
 }
 
+function hashFile(path) {
+    return createHash('sha256').update(readFileSync(path)).digest('hex');
+}
+
+function hashCurrentSourceState() {
+    const sourceFiles = spawnSync(
+        'git',
+        [
+            'ls-files',
+            '--cached',
+            '--others',
+            '--exclude-standard',
+            '-z',
+            '--',
+            'src',
+            'tests/benchmark/calibratedOptimizer.ts',
+            'tests/imageFixtures.ts',
+            'tests/assets/performance/8-colors-frontlit-2026-08-26/optimizer-variant-goldens.json',
+            'scripts/profile-calibrated.mjs',
+            'package.json',
+            'package-lock.json',
+        ],
+        {
+            cwd: process.cwd(),
+            encoding: 'utf8',
+            maxBuffer: 32 * 1024 * 1024,
+        }
+    );
+    if (sourceFiles.status !== 0) return null;
+
+    const hash = createHash('sha256');
+    const paths = sourceFiles.stdout.split('\0').filter(Boolean).sort();
+    for (const relativePath of paths) {
+        hash.update(relativePath);
+        hash.update('\0');
+        try {
+            hash.update(readFileSync(resolve(process.cwd(), relativePath)));
+        } catch (error) {
+            if (error?.code !== 'ENOENT') return null;
+            // A tracked deletion is part of the working-tree identity too.
+            hash.update('<deleted>');
+        }
+        hash.update('\0');
+    }
+    return hash.digest('hex');
+}
+
 function isApplicationLocation(location) {
     const normalized = location.replaceAll('\\', '/').toLowerCase();
     return (
@@ -323,6 +445,13 @@ function renderMarkdown(summary) {
         `- Benchmark wall time: ${formatDuration(benchmark.timing.totalMs * 1000)} (${formatDuration(benchmark.timing.appearanceFitMs * 1000)} appearance fit, ${formatDuration(benchmark.timing.optimizationMs * 1000)} optimization)`,
         `- Peak RSS: ${formatBytes(benchmark.memory.maximumResidentSetBytes)}`,
         `- Output fingerprint: ${benchmark.result.finalStackFingerprint}`,
+        `- Git revision: ${summary.environment.gitRevision ?? 'unknown'}`,
+        `- Source diff SHA-256: ${summary.environment.sourceDiffSha256 ?? 'unknown'}`,
+        `- Source state SHA-256: ${summary.environment.sourceStateSha256 ?? 'unknown'}`,
+        `- Profile fixture SHA-256: ${summary.workload.profileSha256}`,
+        `- Source image SHA-256: ${summary.workload.sourceImageSha256}`,
+        `- Case SHA-256: ${summary.workload.caseSha256}`,
+        `- Provenance stable during capture: ${summary.provenance.stable ? 'yes' : 'NO'}`,
         `- Sampled duration: ${summary.sampledDuration}`,
         `- Samples: ${summary.sampleCount.toLocaleString('en-US')}`,
         '',

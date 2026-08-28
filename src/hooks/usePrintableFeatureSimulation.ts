@@ -1,9 +1,13 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import {
     concealPrintableFeatureBuffers,
     type PrintableFeatureSimulation,
 } from '../lib/printableFeatures.ts';
+import {
+    shouldRetainCompletedThreeDWork,
+    shouldRunThreeDBackgroundWork,
+} from '../lib/threeDWorkLifecycle.ts';
 import type { Swatch } from '../types';
 import type {
     PrintableFeatureWorkerRequest,
@@ -11,6 +15,7 @@ import type {
 } from '../workers/printableFeature.worker.ts';
 
 interface UsePrintableFeatureSimulationOptions {
+    active?: boolean;
     enabled: boolean;
     imageSrc: string | null;
     sourceSwatches: Swatch[];
@@ -53,19 +58,39 @@ function loadImage(source: string): Promise<HTMLImageElement> {
 export function usePrintableFeatureSimulation(
     options: UsePrintableFeatureSimulationOptions
 ): UsePrintableFeatureSimulationResult {
-    const { enabled, imageSrc, sourceSwatches, pixelSizeMm, lineWidthMm, omitAtRiskPixels } =
-        options;
+    const {
+        active = true,
+        enabled,
+        imageSrc,
+        sourceSwatches,
+        pixelSizeMm,
+        lineWidthMm,
+        omitAtRiskPixels,
+    } = options;
     const [simulation, setSimulation] = useState<PrintableFeatureSimulation | undefined>();
     const [isComputing, setIsComputing] = useState(false);
     const [error, setError] = useState<string | undefined>();
+    const completedKeyRef = useRef<string | null>(null);
 
     useEffect(() => {
-        if (!enabled || !imageSrc) {
-            setSimulation(undefined);
+        const ready = enabled && Boolean(imageSrc);
+        if (!shouldRunThreeDBackgroundWork(active, ready)) {
+            // The cleanup from the previous effect terminates any in-flight worker.
+            // Keep a completed result only while it still describes the hidden inputs.
+            const hiddenKey = imageSrc
+                ? simulationKey(imageSrc, pixelSizeMm, lineWidthMm, omitAtRiskPixels)
+                : null;
+            if (!shouldRetainCompletedThreeDWork(active, completedKeyRef.current, hiddenKey)) {
+                setSimulation(undefined);
+                setError(undefined);
+                completedKeyRef.current = null;
+            }
             setIsComputing(false);
-            setError(undefined);
             return;
         }
+
+        // `ready` guarantees this, while preserving the narrowed string type below.
+        if (!imageSrc) return;
 
         const cacheKey = simulationKey(
             imageSrc,
@@ -74,6 +99,7 @@ export function usePrintableFeatureSimulation(
             omitAtRiskPixels
         );
         if (lastCompletedSimulation?.key === cacheKey) {
+            completedKeyRef.current = cacheKey;
             setSimulation(lastCompletedSimulation.simulation);
             setIsComputing(false);
             setError(undefined);
@@ -157,6 +183,7 @@ export function usePrintableFeatureSimulation(
                                 key: cacheKey,
                                 simulation,
                             };
+                            completedKeyRef.current = cacheKey;
                             setSimulation(simulation);
                             setError(undefined);
                         }
@@ -201,7 +228,7 @@ export function usePrintableFeatureSimulation(
             if (retryTimer !== null) window.clearTimeout(retryTimer);
             activeWorker?.terminate();
         };
-    }, [enabled, imageSrc, lineWidthMm, omitAtRiskPixels, pixelSizeMm]);
+    }, [active, enabled, imageSrc, lineWidthMm, omitAtRiskPixels, pixelSizeMm]);
 
     const printableSwatches = useMemo(() => {
         if (!simulation) return [];
