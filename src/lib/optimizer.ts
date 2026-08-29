@@ -77,7 +77,7 @@ export interface OptimizerOptions {
     transitionOpacity?: number;
     /** Assign each image color to a distinct printable color (no collapse). */
     preserveSeparation?: boolean;
-    /** Maximum accepted ΔE00 for every separated printable color. */
+    /** Raw ΔE limit for every unique printable-color assignment. */
     separationMaxDeltaE?: number;
     /** Reject the final build instead of allowing unmatched colors to fall back. */
     failOnSeparationError?: boolean;

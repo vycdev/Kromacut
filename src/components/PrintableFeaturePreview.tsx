@@ -32,12 +32,11 @@ export default function PrintableFeaturePreview({
     simulation,
     isComputing,
 }: PrintableFeaturePreviewProps) {
-    const canvasRef = React.useRef<HTMLCanvasElement | null>(null);
+    const [canvas, setCanvas] = React.useState<HTMLCanvasElement | null>(null);
     const [mode, setMode] = React.useState<PreviewMode>('risk');
     const [open, setOpen] = React.useState(false);
 
     React.useEffect(() => {
-        const canvas = canvasRef.current;
         if (!canvas || !simulation || !open) return;
         canvas.width = simulation.width;
         canvas.height = simulation.height;
@@ -78,7 +77,7 @@ export default function PrintableFeaturePreview({
             }
         }
         context.putImageData(new ImageData(pixels, simulation.width, simulation.height), 0, 0);
-    }, [mode, open, simulation]);
+    }, [canvas, mode, open, simulation]);
 
     if (isComputing && !simulation) {
         return (
@@ -156,7 +155,7 @@ export default function PrintableFeaturePreview({
 
                 <div className="flex min-h-0 flex-1 items-center justify-center overflow-auto rounded border border-border/60 bg-[linear-gradient(45deg,hsl(var(--muted))_25%,transparent_25%),linear-gradient(-45deg,hsl(var(--muted))_25%,transparent_25%),linear-gradient(45deg,transparent_75%,hsl(var(--muted))_75%),linear-gradient(-45deg,transparent_75%,hsl(var(--muted))_75%)] bg-[length:12px_12px] bg-[position:0_0,0_6px,6px_-6px,-6px_0px] p-2">
                     <canvas
-                        ref={canvasRef}
+                        ref={setCanvas}
                         role="img"
                         aria-label={
                             mode === 'risk'

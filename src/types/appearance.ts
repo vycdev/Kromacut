@@ -70,6 +70,8 @@ export interface AppearanceEmpiricalLutV1 {
     layerHeight: number;
     stackLayerCount: number;
     backingFilamentId: string;
+    /** Shared bottom-to-top foundation beneath every recipe measured by this matrix. */
+    foundationLayers: readonly AppearanceAnchorLayer[];
     filamentIds: readonly string[];
     /** Confidence in the photographed board alignment. */
     alignmentWeight: number;

@@ -64,7 +64,7 @@ interface ThreeDViewProps {
     autoPaintFinalStack?: FinalPrintableStackSnapshot;
     enhancedColorMatch?: boolean; // Use color-distance mapping instead of luminance
     preserveSeparation?: boolean; // Assign each image color to a distinct printable color
-    separationMaxDeltaE?: number; // Maximum accepted ΔE00 for separated colors
+    separationMaxDeltaE?: number; // Raw ΔE limit for unique separated-color mappings
     heightDithering?: boolean; // Stucki error diffusion on height map
     ditherLineWidth?: number; // Effective extrusion width; also sets minimum dither-dot size
     printableFeaturePixels?: PrintableFeaturePixelSnapshot; // exact filtered pixels used for Auto-paint

@@ -1610,9 +1610,23 @@ export interface MappedTarget {
 
 export interface ColorSeparationReport {
     requestedColorCount: number;
+    /** Distinct printable colors available after collapsing perceptually equivalent entries. */
     printableColorCount: number;
+    /** Maximum number of targets that can receive different printable colors within the limit. */
     assignedDistinctColorCount: number;
+    /** Distinct, within-limit printable colors actually used by the final target mappings. */
+    uniquelyPreservedWithinThresholdCount: number;
+    /** Internal hard-constraint deficit retained for optimizer scoring and legacy benchmarks. */
     unacceptableColorCount: number;
+    /** Final target mappings, including fallbacks, whose raw color error is within the limit. */
+    mappedWithinThresholdCount: number;
+    /** Final target mappings, including fallbacks, whose raw color error exceeds the limit. */
+    overThresholdColorCount: number;
+    /** Target colors for which no printable mapping exists at all. */
+    unmappedColorCount: number;
+    /** Final target mappings beyond the first use of each distinct printable color. */
+    reusedPrintableColorCount: number;
+    /** Worst raw color error across every final target mapping, including fallbacks. */
     maximumDeltaE: number;
     maximumAllowedDeltaE: number;
     satisfied: boolean;
@@ -1906,7 +1920,12 @@ export function mapTargetsWithSeparation(
                 requestedColorCount: 0,
                 printableColorCount: 0,
                 assignedDistinctColorCount: 0,
+                uniquelyPreservedWithinThresholdCount: 0,
                 unacceptableColorCount: 0,
+                mappedWithinThresholdCount: 0,
+                overThresholdColorCount: 0,
+                unmappedColorCount: 0,
+                reusedPrintableColorCount: 0,
                 maximumDeltaE: 0,
                 maximumAllowedDeltaE,
                 satisfied: true,
@@ -1920,7 +1939,12 @@ export function mapTargetsWithSeparation(
                 requestedColorCount: imageTargets.length,
                 printableColorCount: 0,
                 assignedDistinctColorCount: 0,
+                uniquelyPreservedWithinThresholdCount: 0,
                 unacceptableColorCount: imageTargets.length,
+                mappedWithinThresholdCount: 0,
+                overThresholdColorCount: 0,
+                unmappedColorCount: imageTargets.length,
+                reusedPrintableColorCount: 0,
                 maximumDeltaE: Infinity,
                 maximumAllowedDeltaE,
                 satisfied: false,
@@ -1977,9 +2001,12 @@ export function mapTargetsWithSeparation(
         (count, candidate) => count + (candidate >= 0 ? 1 : 0),
         0
     );
+    const mappedDistinctColumns = workspace?.assignedDistinct ?? new Set<number>();
+    mappedDistinctColumns.clear();
 
     if (acceptableMatchCount < imageTargets.length) {
         let maximumDeltaE = 0;
+        let mappedWithinThresholdCount = 0;
         const mappedTargets = workspace?.mappedTargets ?? [];
         mappedTargets.length = imageTargets.length;
         for (let targetIndex = 0; targetIndex < imageTargets.length; targetIndex++) {
@@ -1998,7 +2025,10 @@ export function mapTargetsWithSeparation(
                 }
             }
             const candidate = distinct[candidateColumn];
-            maximumDeltaE = Math.max(maximumDeltaE, distances[targetIndex][candidateColumn]);
+            const deltaE = distances[targetIndex][candidateColumn];
+            maximumDeltaE = Math.max(maximumDeltaE, deltaE);
+            if (deltaE <= maximumAllowedDeltaE) mappedWithinThresholdCount++;
+            mappedDistinctColumns.add(candidateColumn);
             mappedTargets[targetIndex] = {
                 target,
                 paletteIndex: candidate.paletteIndex,
@@ -2012,7 +2042,12 @@ export function mapTargetsWithSeparation(
                 requestedColorCount: imageTargets.length,
                 printableColorCount: distinct.length,
                 assignedDistinctColorCount: acceptableMatchCount,
+                uniquelyPreservedWithinThresholdCount: acceptableMatchCount,
                 unacceptableColorCount: imageTargets.length - acceptableMatchCount,
+                mappedWithinThresholdCount,
+                overThresholdColorCount: imageTargets.length - mappedWithinThresholdCount,
+                unmappedColorCount: 0,
+                reusedPrintableColorCount: imageTargets.length - mappedDistinctColumns.size,
                 maximumDeltaE,
                 maximumAllowedDeltaE,
                 satisfied: false,
@@ -2053,8 +2088,7 @@ export function mapTargetsWithSeparation(
     mappedTargets.length = 0;
     let unacceptableColorCount = 0;
     let maximumDeltaE = 0;
-    const assignedDistinct = workspace?.assignedDistinct ?? new Set<number>();
-    assignedDistinct.clear();
+    let mappedWithinThresholdCount = 0;
 
     for (let index = 0; index < imageTargets.length; index++) {
         const target = imageTargets[index];
@@ -2071,12 +2105,12 @@ export function mapTargetsWithSeparation(
                     candidateColumn = column;
                 }
             }
-        } else {
-            assignedDistinct.add(candidateColumn);
         }
         const candidate = distinct[candidateColumn];
         const deltaE = distances[index][candidateColumn];
         maximumDeltaE = Math.max(maximumDeltaE, deltaE);
+        if (deltaE <= maximumAllowedDeltaE) mappedWithinThresholdCount++;
+        mappedDistinctColumns.add(candidateColumn);
         if (
             assignedColumn >= 0 &&
             assignedColumn < distinct.length &&
@@ -2097,12 +2131,17 @@ export function mapTargetsWithSeparation(
         report: {
             requestedColorCount: imageTargets.length,
             printableColorCount: distinct.length,
-            assignedDistinctColorCount: assignedDistinct.size,
+            assignedDistinctColorCount: mappedDistinctColumns.size,
+            uniquelyPreservedWithinThresholdCount: mappedWithinThresholdCount,
             unacceptableColorCount,
+            mappedWithinThresholdCount,
+            overThresholdColorCount: imageTargets.length - mappedWithinThresholdCount,
+            unmappedColorCount: 0,
+            reusedPrintableColorCount: imageTargets.length - mappedDistinctColumns.size,
             maximumDeltaE,
             maximumAllowedDeltaE,
             satisfied:
-                assignedDistinct.size === imageTargets.length && unacceptableColorCount === 0,
+                mappedDistinctColumns.size === imageTargets.length && unacceptableColorCount === 0,
         },
     };
 }
@@ -2817,6 +2856,7 @@ export function generateAutoLayers(
                       b: entry.exactAnchorTargetLab[2],
                   }
                 : undefined,
+            predictionConfidence: entry.predictionConfidence,
         }));
         colorSeparation = mapTargetsWithSeparation(
             palette,
@@ -2825,13 +2865,38 @@ export function generateAutoLayers(
         ).report;
         if (!colorSeparation.satisfied && optimizerOptions.failOnSeparationError !== false) {
             const maximumError = Number.isFinite(colorSeparation.maximumDeltaE)
-                ? colorSeparation.maximumDeltaE.toFixed(1)
-                : 'unknown';
+                ? Number(colorSeparation.maximumDeltaE.toFixed(3)).toString()
+                : 'unavailable';
+            const reusedSummary =
+                colorSeparation.reusedPrintableColorCount === 1
+                    ? '1 final mapping reuses a printable color'
+                    : `${colorSeparation.reusedPrintableColorCount} final mappings reuse printable colors`;
+            const overLimitSummary =
+                colorSeparation.overThresholdColorCount === 0
+                    ? `no final mappings exceed ΔE ${colorSeparation.maximumAllowedDeltaE}`
+                    : colorSeparation.overThresholdColorCount === 1
+                      ? `1 final mapping exceeds ΔE ${colorSeparation.maximumAllowedDeltaE}`
+                      : `${colorSeparation.overThresholdColorCount} final mappings exceed ΔE ${colorSeparation.maximumAllowedDeltaE}`;
+            const unmappedSummary =
+                colorSeparation.unmappedColorCount === 0
+                    ? ''
+                    : colorSeparation.unmappedColorCount === 1
+                      ? ' 1 image color has no printable mapping.'
+                      : ` ${colorSeparation.unmappedColorCount} image colors have no printable mapping.`;
+            const uniqueSummary =
+                colorSeparation.uniquelyPreservedWithinThresholdCount === 1
+                    ? '1 image color receives a unique printable color within the limit'
+                    : `${colorSeparation.uniquelyPreservedWithinThresholdCount} image colors receive unique printable colors within the limit`;
+            const printableSummary =
+                colorSeparation.printableColorCount === 1
+                    ? '1 distinct printable color is available'
+                    : `${colorSeparation.printableColorCount} distinct printable colors are available`;
             throw new Error(
-                `Could not preserve all ${colorSeparation.requestedColorCount} image colors within ΔE ${colorSeparation.maximumAllowedDeltaE}. ` +
-                    `${colorSeparation.assignedDistinctColorCount} received distinct printable colors; ` +
-                    `${colorSeparation.unacceptableColorCount} assignments remain unacceptable (worst ΔE ${maximumError}). ` +
-                    'Raise Maximum color error if less accurate matches are acceptable, increase Max Height or the total repeat limit, add a filament, or reduce the 2D palette.'
+                `Could not uniquely preserve all ${colorSeparation.requestedColorCount} image colors within ΔE ${colorSeparation.maximumAllowedDeltaE}. ` +
+                    `${uniqueSummary}; ` +
+                    `${printableSummary}. ` +
+                    `${reusedSummary}; ${overLimitSummary}; worst mapped ΔE ${maximumError}.${unmappedSummary} ` +
+                    'Raise the Unique-match limit if less accurate matches are acceptable, increase Max Height or the total repeat limit, add a filament, or reduce the 2D palette.'
             );
         }
     }

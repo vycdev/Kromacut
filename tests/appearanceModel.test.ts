@@ -313,7 +313,7 @@ test('conflicting exact anchors prefer reviewed Palette Proof evidence over simu
     assert.deepEqual(resolved.lab, { L: 72, a: 30, b: -20 });
 });
 
-test('deep exact-anchor suffixes retain confidence precedence after indexing', async () => {
+test('deep Palette Proof exact-anchor suffixes retain confidence precedence after indexing', async () => {
     const { model } = await modules;
     const suffixLayers = [
         { filamentId: 'black', filamentColor: '#000000', thickness: 0.08 },
@@ -324,7 +324,7 @@ test('deep exact-anchor suffixes retain confidence precedence after indexing', a
     const anchor = (id: string, confidence: number, targetLab: [number, number, number]) => ({
         id,
         proofId: `proof-${id}`,
-        source: 'stack-matrix' as const,
+        source: 'palette-proof' as const,
         sourceStackKey: `stack-${id}`,
         targetLab,
         suffixLayers,
@@ -367,6 +367,20 @@ test('every prediction reports ordered exact, interpolated, fitted, or simulated
         crossValidationDeltaE: 2,
         exactAnchorId: `anchor-${id}`,
     });
+    const empiricalSamples = [
+        sample('bottom', ['b', 'a', 'a'], [49, 0, 0], [51, 0, 0]),
+        sample('middle', ['a', 'b', 'a'], [51, 0, 0], [53, 0, 0]),
+        sample('top', ['a', 'a', 'b'], [50, 1, 0], [52, 1, 0]),
+    ];
+    const layers = (ids: readonly string[]) =>
+        ids.map((filamentId) => ({ filamentId, filamentColor: '#808080', thickness: 0.08 }));
+    const foundationLayers = [
+        { filamentId: 'foundation', filamentColor: '#ffffff', thickness: 0.4 },
+    ];
+    const matrixLayers = (ids: readonly string[]) => [
+        ...foundationLayers,
+        ...layers(ids),
+    ];
     const empiricalLut = {
         id: 'empirical-confidence',
         sourceMatrixId: 'matrix-confidence',
@@ -374,6 +388,7 @@ test('every prediction reports ordered exact, interpolated, fitted, or simulated
         layerHeight: 0.08,
         stackLayerCount: 3,
         backingFilamentId: 'foundation',
+        foundationLayers,
         filamentIds: ['a', 'b'],
         alignmentWeight: 0.9,
         coverageWeight: 1,
@@ -384,34 +399,40 @@ test('every prediction reports ordered exact, interpolated, fitted, or simulated
         crossValidationMeanDeltaE: 2,
         crossValidationP90DeltaE: 3,
         crossValidationSampleCount: 3,
-        samples: [
-            sample('bottom', ['b', 'a', 'a'], [49, 0, 0], [51, 0, 0]),
-            sample('middle', ['a', 'b', 'a'], [51, 0, 0], [53, 0, 0]),
-            sample('top', ['a', 'a', 'b'], [50, 1, 0], [52, 1, 0]),
-        ],
+        samples: empiricalSamples,
     };
-    const withMatrix = { ...identity, empiricalLuts: [empiricalLut] };
-    const layers = (ids: readonly string[]) =>
-        ids.map((filamentId) => ({ filamentId, filamentColor: '#808080', thickness: 0.08 }));
+    const withMatrix = {
+        ...identity,
+        exactAnchors: empiricalSamples.map((entry) => ({
+            id: entry.exactAnchorId,
+            proofId: empiricalLut.sourceMatrixId,
+            source: 'stack-matrix' as const,
+            sourceStackKey: entry.sourceStackKey,
+            targetLab: entry.measuredLab,
+            suffixLayers: layers(entry.recipeFilamentIds),
+            maxSubstrateTransmission: 0,
+        })),
+        empiricalLuts: [empiricalLut],
+    };
     const exact = model.resolveAppearanceRankModel(
         { L: 49, a: 0, b: 0 },
         withMatrix,
-        layers(['b', 'a', 'a'])
+        matrixLayers(['b', 'a', 'a'])
     );
     const interpolated = model.resolveAppearanceRankModel(
         { L: 50, a: 0, b: 0 },
         withMatrix,
-        layers(['a', 'a', 'a'])
+        matrixLayers(['a', 'a', 'a'])
     );
     const fitted = model.resolveAppearanceRankModel(
         { L: 50, a: 0, b: 0 },
         { ...identity, applied: true, gateReason: 'applied', confidence: 0.8, deltaL: 1 },
-        layers(['a', 'a', 'a'])
+        matrixLayers(['a', 'a', 'a'])
     );
     const simulated = model.resolveAppearanceRankModel(
         { L: 50, a: 0, b: 0 },
         identity,
-        layers(['a', 'a', 'a'])
+        matrixLayers(['a', 'a', 'a'])
     );
 
     assert.equal(exact.predictionConfidence.method, 'exact');

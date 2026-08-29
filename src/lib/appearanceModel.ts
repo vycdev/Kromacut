@@ -77,6 +77,7 @@ const EMPIRICAL_RECIPE_LOOKUP_CACHE_SIZE = 1_024;
 const EMPIRICAL_MAX_RECIPE_DISTANCE = 0.6;
 const EMPIRICAL_MIN_COVERAGE_RADIUS = 5;
 const EMPIRICAL_MAX_COVERAGE_RADIUS = 30;
+const EMPIRICAL_MAX_SUBSTRATE_DELTA_E = 1;
 const MATRIX_RECENCY_HALF_LIFE_DAYS = 365;
 const MATRIX_AGREEMENT_SCALE_DELTA_E = 10;
 const LOCAL_RECIPE_LAYER_DEPTH = 8;
@@ -799,14 +800,7 @@ function collectExactAnchors(
         const backing = matrix.filaments[matrix.backingFilamentIndex];
         if (!backing) continue;
         for (const sample of matrix.samples) {
-            if (!sample.measuredColor || !backing) continue;
-            const foundation: AppearanceAnchorLayer[] = matrix.foundationLayerThicknesses.map(
-                (thickness) => ({
-                    filamentId: backing.id,
-                    filamentColor: backing.color,
-                    thickness,
-                })
-            );
+            if (!sample.measuredColor) continue;
             const matrixLayers: AppearanceAnchorLayer[] = sample.stack.map((filamentIndex) => {
                 const filament = matrix.filaments[filamentIndex];
                 return {
@@ -815,13 +809,12 @@ function collectExactAnchors(
                     thickness: matrix.process.layerHeight,
                 };
             });
-            const suffix = transferableLayerSuffix(
-                [...foundation, ...matrixLayers],
-                filamentsById,
-                0.1,
-                effectiveOptics
-            );
-            if (suffix.layers.length === 0) continue;
+            // Matrix anchors are resolved through their empirical LUT, which
+            // stores the common foundation once and validates it before using
+            // this recipe. Do not copy a potentially hundreds-of-layers-long
+            // foundation into every sample or index matrix anchors in the
+            // generic reverse suffix trie.
+            if (matrixLayers.length === 0) continue;
             const targetLab = colorLab(sample.measuredColor.rgb);
             anchors.push({
                 id: `${matrix.id}:${sample.index}`,
@@ -829,8 +822,8 @@ function collectExactAnchors(
                 source: 'stack-matrix',
                 sourceStackKey: sample.canonicalStackKey,
                 targetLab: [targetLab.L, targetLab.a, targetLab.b],
-                suffixLayers: suffix.layers,
-                maxSubstrateTransmission: suffix.maxSubstrateTransmission,
+                suffixLayers: matrixLayers,
+                maxSubstrateTransmission: 0,
                 observedAt: matrix.completedAt ?? matrix.createdAt,
                 confidence: evidence.matrixWeight,
             });
@@ -1028,6 +1021,11 @@ function collectEmpiricalLuts(
                 layerHeight: matrix.process.layerHeight,
                 stackLayerCount: matrix.stackLayerCount,
                 backingFilamentId: backing.id,
+                foundationLayers: matrix.foundationLayerThicknesses.map((thickness) => ({
+                    filamentId: backing.id,
+                    filamentColor: backing.color,
+                    thickness,
+                })),
                 filamentIds: matrix.filaments.map((filament) => filament.id),
                 alignmentWeight: evidence.alignmentWeight,
                 coverageWeight: evidence.coverageWeight,
@@ -1388,6 +1386,11 @@ function anchorTrie(model: AppearanceRankModelV1): AnchorTrieNode {
     if (cached) return cached;
     const root: AnchorTrieNode = { children: new Map(), anchors: [] };
     for (const anchor of model.exactAnchors ?? []) {
+        // Matrix samples have a fixed-depth recipe plus one foundation shared
+        // by the whole LUT. Indexing the complete context here would duplicate
+        // that foundation once per recipe; the empirical recipe index resolves
+        // them with their substrate instead.
+        if (anchor.source === 'stack-matrix') continue;
         let node = root;
         for (let index = anchor.suffixLayers.length - 1; index >= 0; index--) {
             const token = layerToken(anchor.suffixLayers[index]);
@@ -1462,6 +1465,135 @@ function recipeWindow(
         return null;
     }
     return window.map((layer) => layer.filamentId);
+}
+
+function empiricalSampleAnchor(
+    lut: AppearanceEmpiricalLutV1,
+    sample: AppearanceEmpiricalLutSampleV1,
+    model: AppearanceRankModelV1
+): AppearanceExactAnchorV1 | undefined {
+    const anchor = exactAnchorById(model).get(sample.exactAnchorId);
+    if (
+        !anchor ||
+        anchor.source !== 'stack-matrix' ||
+        anchor.proofId !== lut.sourceMatrixId ||
+        anchor.suffixLayers.length === 0
+    ) {
+        return undefined;
+    }
+    return anchor;
+}
+
+function layersMatchAt(
+    prefixLayers: readonly AppearanceAnchorLayer[],
+    start: number,
+    expected: readonly AppearanceAnchorLayer[],
+    expectedCount = expected.length
+): boolean {
+    if (
+        start < 0 ||
+        expectedCount < 0 ||
+        expectedCount > expected.length ||
+        start + expectedCount > prefixLayers.length
+    ) {
+        return false;
+    }
+    for (let index = 0; index < expectedCount; index++) {
+        if (layerToken(prefixLayers[start + index]) !== layerToken(expected[index])) return false;
+    }
+    return true;
+}
+
+/**
+ * Matrix recipes are photographed over an opaque backing. Preserve an exact
+ * measured foundation when it is present, but also accept a differently
+ * segmented foundation when it resolves to the same physical substrate. The
+ * top filament must match because the fitted optics include ordered
+ * filament-over-substrate interactions.
+ */
+function empiricalLutSubstrateMatches(
+    lut: AppearanceEmpiricalLutV1,
+    model: AppearanceRankModelV1,
+    prefixLayers: readonly AppearanceAnchorLayer[]
+): boolean {
+    const recipeStart = prefixLayers.length - lut.stackLayerCount;
+    const foundationStart = recipeStart - lut.foundationLayers.length;
+    if (lut.foundationLayers.length === 0 || recipeStart <= 0) return false;
+    if (
+        foundationStart >= 0 &&
+        layersMatchAt(prefixLayers, foundationStart, lut.foundationLayers)
+    ) {
+        return true;
+    }
+
+    const substrateLayers = prefixLayers.slice(0, recipeStart);
+    const substrateTop = substrateLayers.at(-1);
+    if (!substrateTop || substrateTop.filamentId !== lut.backingFilamentId) return false;
+
+    const optics = model.effectiveOptics;
+    if (!optics) return false;
+    // A matrix foundation is one contiguous run of its selected backing. Its
+    // calibrated interface is therefore the backing's opaque appearance; do
+    // not walk a potentially hundreds-of-layers-long foundation on every
+    // optimizer lookup.
+    const measuredSubstrate = predictEffectiveRecipeColor(optics, lut.backingFilamentId, []);
+    const actualSubstrate = predictEffectiveAutoPaintColor(optics, substrateLayers);
+    if (!measuredSubstrate || !actualSubstrate) return false;
+    return (
+        deltaE2000Lab(rgbToLab(measuredSubstrate), rgbToLab(actualSubstrate)) <=
+        EMPIRICAL_MAX_SUBSTRATE_DELTA_E
+    );
+}
+
+type EmpiricalSubstrateMatchCache = Map<AppearanceEmpiricalLutV1, boolean>;
+
+function cachedEmpiricalLutSubstrateMatch(
+    lut: AppearanceEmpiricalLutV1,
+    model: AppearanceRankModelV1,
+    prefixLayers: readonly AppearanceAnchorLayer[],
+    cache: EmpiricalSubstrateMatchCache | undefined
+): boolean {
+    const cached = cache?.get(lut);
+    if (cached !== undefined) return cached;
+    const matches = empiricalLutSubstrateMatches(lut, model, prefixLayers);
+    cache?.set(lut, matches);
+    return matches;
+}
+
+/**
+ * Exact matrix colors are absolute measurements. Substrate compatibility is
+ * checked once per LUT before this fixed-depth recipe check.
+ */
+function empiricalExactSampleMatches(
+    lut: AppearanceEmpiricalLutV1,
+    sample: AppearanceEmpiricalLutSampleV1,
+    model: AppearanceRankModelV1,
+    prefixLayers: readonly AppearanceAnchorLayer[]
+): boolean {
+    const anchor = empiricalSampleAnchor(lut, sample, model);
+    if (
+        !anchor ||
+        anchor.suffixLayers.length !== lut.stackLayerCount ||
+        lut.stackLayerCount >= prefixLayers.length
+    ) {
+        return false;
+    }
+    const recipeStart = prefixLayers.length - lut.stackLayerCount;
+    return layersMatchAt(prefixLayers, recipeStart, anchor.suffixLayers);
+}
+
+/**
+ * Interpolation may vary the measured recipe, but every contributing sample
+ * must still be linked to this LUT and retain its fixed recipe depth.
+ */
+function empiricalSampleBelongsToLut(
+    lut: AppearanceEmpiricalLutV1,
+    sample: AppearanceEmpiricalLutSampleV1,
+    model: AppearanceRankModelV1
+): boolean {
+    const anchor = empiricalSampleAnchor(lut, sample, model);
+    if (!anchor) return false;
+    return anchor.suffixLayers.length === lut.stackLayerCount;
 }
 
 function recipeDistance(left: readonly string[], right: readonly string[]): number {
@@ -1553,17 +1685,6 @@ function nearbyEmpiricalSamples(
     recipe: readonly string[]
 ): IndexedEmpiricalNeighbor[] {
     return empiricalNeighborLookup(lut, recipe).neighbors;
-}
-
-function nearestEmpiricalSample(
-    lut: AppearanceEmpiricalLutV1,
-    recipe: readonly string[]
-): IndexedEmpiricalNeighbor | undefined {
-    const index = empiricalLutIndex(lut);
-    const key = recipeKey(recipe);
-    const exact = index.exactByRecipe.get(key);
-    if (exact) return { sample: exact, recipeDistance: 0 };
-    return empiricalNeighborLookup(lut, recipe).nearest;
 }
 
 interface IndexedLocalEvidence {
@@ -2016,7 +2137,8 @@ interface NearestMeasuredEvidence {
 function nearestMeasuredEvidence(
     base: Lab,
     model: AppearanceRankModelV1,
-    prefixLayers: readonly AppearanceAnchorLayer[]
+    prefixLayers: readonly AppearanceAnchorLayer[],
+    substrateMatchCache?: EmpiricalSubstrateMatchCache
 ): NearestMeasuredEvidence | undefined {
     const baseTuple = [base.L, base.a, base.b] as const;
     let best:
@@ -2028,7 +2150,24 @@ function nearestMeasuredEvidence(
     for (const lut of model.empiricalLuts ?? []) {
         const recipe = recipeWindow(lut, prefixLayers);
         if (!recipe) continue;
-        const neighbor = nearestEmpiricalSample(lut, recipe);
+        if (!cachedEmpiricalLutSubstrateMatch(lut, model, prefixLayers, substrateMatchCache)) {
+            continue;
+        }
+        const index = empiricalLutIndex(lut);
+        const exact = index.exactByRecipe.get(recipeKey(recipe));
+        let neighbor: IndexedEmpiricalNeighbor | undefined;
+        if (exact) {
+            if (!empiricalExactSampleMatches(lut, exact, model, prefixLayers)) continue;
+            neighbor = { sample: exact, recipeDistance: 0 };
+        } else {
+            const lookup = empiricalNeighborLookup(lut, recipe);
+            neighbor =
+                lookup.nearest && empiricalSampleBelongsToLut(lut, lookup.nearest.sample, model)
+                    ? lookup.nearest
+                    : lookup.neighbors.find((candidate) =>
+                          empiricalSampleBelongsToLut(lut, candidate.sample, model)
+                      );
+        }
         if (!neighbor) continue;
         const predictedDistance = labTupleDistance(baseTuple, neighbor.sample.predictedLab);
         const neighborPredictedLab = {
@@ -2079,7 +2218,8 @@ function predictionConfidence(
     prefixLayers: readonly AppearanceAnchorLayer[] | undefined,
     exactAnchor: AppearanceExactAnchorV1 | undefined,
     empiricalMatch: EmpiricalLutMatch | undefined,
-    localMatch: AppearanceLocalMatch | undefined
+    localMatch: AppearanceLocalMatch | undefined,
+    substrateMatchCache?: EmpiricalSubstrateMatchCache
 ): AppearancePredictionConfidenceV1 {
     const localCorrectionApplied = (localMatch?.correctionStrength ?? 0) > 0;
     const method =
@@ -2092,7 +2232,9 @@ function predictionConfidence(
               : localCorrectionApplied || model.applied || model.effectiveOptics?.applied
                 ? ('fitted' as const)
                 : ('simulated' as const);
-    const nearest = prefixLayers ? nearestMeasuredEvidence(base, model, prefixLayers) : undefined;
+    const nearest = prefixLayers
+        ? nearestMeasuredEvidence(base, model, prefixLayers, substrateMatchCache)
+        : undefined;
     const nearestMeasuredDeltaE =
         method === 'exact'
             ? 0
@@ -2202,7 +2344,8 @@ function predictionConfidence(
 function resolveEmpiricalLut(
     base: Lab,
     model: AppearanceRankModelV1,
-    prefixLayers: readonly AppearanceAnchorLayer[]
+    prefixLayers: readonly AppearanceAnchorLayer[],
+    substrateMatchCache?: EmpiricalSubstrateMatchCache
 ): EmpiricalResolution | undefined {
     const resolutions: EmpiricalResolution[] = [];
     const baseTuple: [number, number, number] = [base.L, base.a, base.b];
@@ -2210,9 +2353,13 @@ function resolveEmpiricalLut(
     for (const lut of model.empiricalLuts ?? []) {
         const recipe = recipeWindow(lut, prefixLayers);
         if (!recipe) continue;
+        if (!cachedEmpiricalLutSubstrateMatch(lut, model, prefixLayers, substrateMatchCache)) {
+            continue;
+        }
         const index = empiricalLutIndex(lut);
         const exact = index.exactByRecipe.get(recipeKey(recipe));
         if (exact) {
+            if (!empiricalExactSampleMatches(lut, exact, model, prefixLayers)) continue;
             resolutions.push({
                 lab: {
                     L: exact.measuredLab[0],
@@ -2246,6 +2393,7 @@ function resolveEmpiricalLut(
         }
 
         const neighbors = nearbyEmpiricalSamples(lut, recipe)
+            .filter((neighbor) => empiricalSampleBelongsToLut(lut, neighbor.sample, model))
             .map((neighbor) => ({
                 ...neighbor,
                 predictedDistance: labTupleDistance(baseTuple, neighbor.sample.predictedLab),
@@ -2476,7 +2624,12 @@ export function resolveAppearanceRankModel(
         };
     }
 
-    const empirical = prefixLayers ? resolveEmpiricalLut(base, model, prefixLayers) : undefined;
+    const substrateMatchCache: EmpiricalSubstrateMatchCache | undefined = prefixLayers
+        ? new Map()
+        : undefined;
+    const empirical = prefixLayers
+        ? resolveEmpiricalLut(base, model, prefixLayers, substrateMatchCache)
+        : undefined;
     let resolvedLab: Lab;
     let exactAnchor: AppearanceExactAnchorV1 | undefined;
     let empiricalMatch: EmpiricalLutMatch | undefined;
@@ -2528,7 +2681,8 @@ export function resolveAppearanceRankModel(
                 prefixLayers,
                 exactAnchor,
                 empiricalMatch,
-                undefined
+                undefined,
+                substrateMatchCache
             ),
             ...(exactAnchor ? { exactAnchor } : {}),
             ...(empiricalMatch ? { empiricalMatch } : {}),
@@ -2550,7 +2704,8 @@ export function resolveAppearanceRankModel(
             prefixLayers,
             exactAnchor,
             empiricalMatch,
-            local.match
+            local.match,
+            substrateMatchCache
         ),
         ...(exactAnchor ? { exactAnchor } : {}),
         ...(empiricalMatch ? { empiricalMatch } : {}),

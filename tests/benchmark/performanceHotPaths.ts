@@ -16,7 +16,7 @@ const EXPECTED_RESULTS = {
     mappingChecksum: 318940.70617037377,
     mappingFingerprint: 'b35b9f78ce225970b86240366f8e00c6044bbd2f69c105e628592aa27748f39b',
     separationChecksum: 2791727.266269258,
-    separationFingerprint: '68de1594628204467070d1bdb833a82d5e7835ae7df6d81fc309d18c924e562f',
+    separationFingerprint: '5661f847d37eeca3f84416584d5575588f8391f686c24711c835530863e233da',
     spatialChecksum: 808586.5285891531,
     colorOrderChecksum: 11453245440,
     exact: {

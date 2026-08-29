@@ -56,6 +56,7 @@ import { getExactBaseOrderCount } from '../lib/optimizer';
 import { useNextBestColorWorker } from '../hooks/useNextBestColorWorker';
 import type { PrintableFeatureSimulation } from '../lib/printableFeatures.ts';
 import PrintableFeaturePreview from './PrintableFeaturePreview';
+import { formatColorSeparationStatus } from '../lib/colorSeparationStatus';
 
 /** Percentage stat tile with a slim progress bar, colored by confidence band. */
 function ConfidenceStat({ label, value }: { label: string; value: number }) {
@@ -73,6 +74,27 @@ function ConfidenceStat({ label, value }: { label: string; value: number }) {
                 </div>
             </div>
         </div>
+    );
+}
+
+function ColorSeparationStatus({ result }: { result: AutoPaintResult }) {
+    const report = result.colorSeparation;
+    if (!report) return null;
+    const extraRepeatCount = result.optimizerMetadata?.extraRepeatCount ?? 0;
+
+    return (
+        <p
+            data-testid="autopaint-color-separation-status"
+            role="status"
+            aria-live="polite"
+            className={`font-medium ${
+                report.satisfied
+                    ? 'text-emerald-600 dark:text-emerald-400'
+                    : 'text-amber-600 dark:text-amber-400'
+            }`}
+        >
+            {formatColorSeparationStatus(report, extraRepeatCount)}
+        </p>
     );
 }
 
@@ -1110,12 +1132,13 @@ export default function AutoPaintTab({
                                                 htmlFor="separation-max-delta-e"
                                                 className="text-[11px] font-medium text-foreground"
                                             >
-                                                Maximum color error (ΔE)
+                                                Unique-match limit (ΔE)
                                             </Label>
                                             <NumberInput
                                                 id="separation-max-delta-e"
                                                 data-testid="autopaint-separation-max-delta-e"
-                                                aria-label="Maximum color error"
+                                                aria-label="Unique-match color error limit"
+                                                title="Raw color-error limit for giving each image color a different printable color. Fallback mappings may exceed it."
                                                 min={MIN_SEPARATION_MAX_DELTA_E}
                                                 max={MAX_SEPARATION_MAX_DELTA_E}
                                                 step={0.1}
@@ -1149,7 +1172,7 @@ export default function AutoPaintTab({
                                                 htmlFor="fail-on-separation-error"
                                                 className="text-[11px] font-medium text-foreground cursor-pointer"
                                             >
-                                                Fail if any color is missed
+                                                Require a unique match for every color
                                             </Label>
                                             <Switch
                                                 id="fail-on-separation-error"
@@ -1158,35 +1181,8 @@ export default function AutoPaintTab({
                                                 onCheckedChange={setFailOnSeparationError}
                                             />
                                         </div>
-                                        {autoPaintResult?.colorSeparation && (
-                                            <p
-                                                className={`font-medium ${
-                                                    autoPaintResult.colorSeparation.satisfied
-                                                        ? 'text-emerald-600 dark:text-emerald-400'
-                                                        : 'text-amber-600 dark:text-amber-400'
-                                                }`}
-                                            >
-                                                {
-                                                    autoPaintResult.colorSeparation
-                                                        .assignedDistinctColorCount
-                                                }
-                                                /
-                                                {
-                                                    autoPaintResult.colorSeparation
-                                                        .requestedColorCount
-                                                }{' '}
-                                                colors within threshold
-                                                {!autoPaintResult.colorSeparation.satisfied &&
-                                                    ` · ${autoPaintResult.colorSeparation.unacceptableColorCount} fell back`}
-                                                {' · worst ΔE '}
-                                                {autoPaintResult.colorSeparation.maximumDeltaE.toFixed(
-                                                    1
-                                                )}
-                                                {' · '}
-                                                {autoPaintResult.optimizerMetadata?.extraRepeatCount
-                                                    ? `${autoPaintResult.optimizerMetadata.extraRepeatCount} additional filament ${autoPaintResult.optimizerMetadata.extraRepeatCount === 1 ? 'run' : 'runs'} used`
-                                                    : 'no repeated filament runs needed'}
-                                            </p>
+                                        {autoPaintResult && (
+                                            <ColorSeparationStatus result={autoPaintResult} />
                                         )}
                                     </div>
                                 )}

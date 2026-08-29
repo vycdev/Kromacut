@@ -57,6 +57,30 @@ function options(maximumSamples: number) {
     };
 }
 
+function matrixPrefix(
+    record: {
+        backingFilamentIndex: number;
+        filaments: readonly { id: string; color: string }[];
+        foundationLayerThicknesses: readonly number[];
+        process: { layerHeight: number };
+    },
+    recipeFilamentIds: readonly string[]
+) {
+    const backing = record.filaments[record.backingFilamentIndex];
+    return [
+        ...record.foundationLayerThicknesses.map((thickness) => ({
+            filamentId: backing.id,
+            filamentColor: backing.color,
+            thickness,
+        })),
+        ...recipeFilamentIds.map((filamentId) => ({
+            filamentId,
+            filamentColor: record.filaments.find((filament) => filament.id === filamentId)!.color,
+            thickness: record.process.layerHeight,
+        })),
+    ];
+}
+
 test('Stack Matrix enumerates every recipe when it fits and builds a printable foundation', async () => {
     const [matrix] = await modules;
     const record = matrix.buildStackMatrixCalibration(
@@ -595,10 +619,13 @@ test('completed Stack Matrix samples become measured anchors without global fit 
     );
     assert.ok(fitted.exactAnchors.every((anchor) => anchor.source === 'stack-matrix'));
     const anchor = fitted.exactAnchors[0];
+    const empiricalSample = fitted.empiricalLuts[0].samples.find(
+        (sample) => sample.exactAnchorId === anchor.id
+    )!;
     const resolved = model.resolveAppearanceRankModel(
         { L: 50, a: 0, b: 0 },
         fitted,
-        anchor.suffixLayers
+        matrixPrefix(completed, empiricalSample.recipeFilamentIds)
     );
     assert.equal(resolved.exactAnchor?.id, anchor.id);
     assert.deepEqual([resolved.lab.L, resolved.lab.a, resolved.lab.b], [...anchor.targetLab]);
@@ -669,7 +696,7 @@ test('all compatible Stack Matrix samples jointly refit physical optics without 
     assert.equal(wrongProfile.effectiveOptics?.sampleCount, 0);
 });
 
-test('Stack Matrix LUT uses an exact photographed recipe before the optical simulation', async () => {
+test('Stack Matrix LUT uses an exact photographed recipe only with its measured substrate', async () => {
     const [matrix, , profile, model] = await modules;
     const planned = matrix.buildStackMatrixCalibration(
         filaments,
@@ -697,14 +724,21 @@ test('Stack Matrix LUT uses an exact photographed recipe before the optical simu
         }
     );
     const lut = fitted.empiricalLuts[0];
-    const sample = lut.samples.find((candidate) => new Set(candidate.recipeFilamentIds).size > 1)!;
-    const prefix = sample.recipeFilamentIds.map((filamentId) => ({
+    const sample = lut.samples.find(
+        (candidate) => new Set(candidate.recipeFilamentIds).size > 1
+    )!;
+    const bareRecipe = sample.recipeFilamentIds.map((filamentId) => ({
         filamentId,
         filamentColor: filaments.find((filament) => filament.id === filamentId)!.color,
         thickness: 0.08,
     }));
 
-    const resolved = model.resolveAppearanceRankModel({ L: 60, a: 0, b: 0 }, fitted, prefix);
+    const resolved = model.resolveAppearanceRankModel(
+        { L: 60, a: 0, b: 0 },
+        fitted,
+        matrixPrefix(completed, sample.recipeFilamentIds)
+    );
+    const mismatched = model.resolveAppearanceRankModel({ L: 60, a: 0, b: 0 }, fitted, bareRecipe);
 
     assert.equal(resolved.empiricalMatch?.kind, 'exact');
     assert.deepEqual(resolved.empiricalMatch?.sampleIds, [sample.id]);
@@ -714,6 +748,118 @@ test('Stack Matrix LUT uses an exact photographed recipe before the optical simu
         b: sample.measuredLab[2],
     });
     assert.equal(resolved.exactAnchor?.id, sample.exactAnchorId);
+    assert.equal(mismatched.empiricalMatch, undefined);
+    assert.equal(mismatched.exactAnchor, undefined);
+    assert.notDeepEqual(mismatched.lab, resolved.lab);
+});
+
+test('Stack Matrix exact colors require their measured or optically equivalent backing', async () => {
+    const [matrix, , profile, model] = await modules;
+    const opaqueFilaments = [
+        { id: 'backing', color: '#f4f2ea', td: 1.2, name: 'Backing' },
+        { id: 'opaque', color: '#202020', td: 0.01, name: 'Opaque' },
+    ];
+    const planned = matrix.buildStackMatrixCalibration(
+        opaqueFilaments,
+        {
+            ...options(8),
+            backingFilamentId: 'backing',
+        },
+        '2026-08-07T10:00:00.000Z'
+    );
+    const completed = matrix.completeStackMatrixCalibration(
+        planned,
+        planned.samples.map((sample) => [...sample.predictedColor.rgb]),
+        'opaque-matrix.jpg',
+        false,
+        '2026-08-07T11:00:00.000Z'
+    );
+    const fitted = model.fitAppearanceRankModel(
+        profile.upsertStackMatrixCalibration(profile.createEmptyAppearanceProfile(), completed),
+        {
+            filamentProfileFingerprint: profile.fingerprintAppearanceFilaments(opaqueFilaments),
+            layerHeight: 0.08,
+            firstLayerHeight: 0.2,
+            transitionOpacity: 0.9,
+            filaments: opaqueFilaments,
+        }
+    );
+    const lut = fitted.empiricalLuts[0];
+    const sample = lut.samples.find((candidate) =>
+        candidate.recipeFilamentIds.every((filamentId) => filamentId === 'opaque')
+    )!;
+    const anchor = fitted.exactAnchors.find((entry) => entry.id === sample.exactAnchorId)!;
+    const bareRecipe = sample.recipeFilamentIds.map((filamentId) => ({
+        filamentId,
+        filamentColor: opaqueFilaments.find((filament) => filament.id === filamentId)!.color,
+        thickness: 0.08,
+    }));
+    const wrongFoundation = completed.foundationLayerThicknesses.map((thickness) => ({
+        filamentId: 'opaque',
+        filamentColor: '#202020',
+        thickness,
+    }));
+    const equivalentFoundation = [
+        {
+            filamentId: 'backing',
+            filamentColor: '#f4f2ea',
+            thickness: completed.foundationLayerThicknesses.reduce(
+                (total, thickness) => total + thickness,
+                0
+            ),
+        },
+    ];
+    const translucentBackingOverWrongSubstrate = [
+        ...wrongFoundation,
+        {
+            filamentId: 'backing',
+            filamentColor: '#f4f2ea',
+            thickness: 0.08,
+        },
+    ];
+
+    const mismatched = model.resolveAppearanceRankModel(
+        { L: sample.predictedLab[0], a: sample.predictedLab[1], b: sample.predictedLab[2] },
+        fitted,
+        [...wrongFoundation, ...bareRecipe]
+    );
+    const resolved = model.resolveAppearanceRankModel(
+        { L: sample.predictedLab[0], a: sample.predictedLab[1], b: sample.predictedLab[2] },
+        fitted,
+        matrixPrefix(completed, sample.recipeFilamentIds)
+    );
+    const equivalent = model.resolveAppearanceRankModel(
+        { L: sample.predictedLab[0], a: sample.predictedLab[1], b: sample.predictedLab[2] },
+        fitted,
+        [...equivalentFoundation, ...bareRecipe]
+    );
+    const translucentMismatch = model.resolveAppearanceRankModel(
+        { L: sample.predictedLab[0], a: sample.predictedLab[1], b: sample.predictedLab[2] },
+        fitted,
+        [...translucentBackingOverWrongSubstrate, ...bareRecipe]
+    );
+
+    assert.equal(anchor.suffixLayers.length, lut.stackLayerCount);
+    assert.equal(lut.foundationLayers.length, completed.foundationLayerThicknesses.length);
+    assert.equal(
+        fitted.exactAnchors
+            .filter((entry) => entry.source === 'stack-matrix')
+            .reduce((sum, entry) => sum + entry.suffixLayers.length, 0),
+        lut.samples.length * lut.stackLayerCount,
+        'matrix anchors must not duplicate the shared foundation per sample'
+    );
+    assert.equal(mismatched.empiricalMatch, undefined);
+    assert.equal(mismatched.exactAnchor, undefined);
+    assert.equal(translucentMismatch.empiricalMatch, undefined);
+    assert.equal(translucentMismatch.exactAnchor, undefined);
+    assert.equal(resolved.empiricalMatch?.kind, 'exact');
+    assert.deepEqual(resolved.lab, {
+        L: sample.measuredLab[0],
+        a: sample.measuredLab[1],
+        b: sample.measuredLab[2],
+    });
+    assert.equal(equivalent.empiricalMatch?.kind, 'exact');
+    assert.deepEqual(equivalent.lab, resolved.lab);
 });
 
 test('Stack Matrix LUT keeps exact recipes recovered by earlier compatible matrices', async () => {
@@ -764,11 +910,7 @@ test('Stack Matrix LUT keeps exact recipes recovered by earlier compatible matri
         .find((lut) => lut.sourceMatrixId === older.id)!
         .samples.find((sample) => !newerRecipes.has(sample.recipeFilamentIds.join()))!;
     assert.ok(recovered, 'the exhaustive earlier matrix should contain a recipe absent later');
-    const prefix = recovered.recipeFilamentIds.map((filamentId) => ({
-        filamentId,
-        filamentColor: filaments.find((filament) => filament.id === filamentId)!.color,
-        thickness: 0.08,
-    }));
+    const prefix = matrixPrefix(older, recovered.recipeFilamentIds);
 
     const resolved = model.resolveAppearanceRankModel(
         {
@@ -861,11 +1003,7 @@ test('Stack Matrix aggregation weights alignment, coverage, recency, and cross-m
     const agreeingSample = agreeingLut.samples.find(
         (sample) => sample.recipeFilamentIds.join() === outlierSample.recipeFilamentIds.join()
     )!;
-    const prefix = outlierSample.recipeFilamentIds.map((filamentId) => ({
-        filamentId,
-        filamentColor: filaments.find((filament) => filament.id === filamentId)!.color,
-        thickness: 0.08,
-    }));
+    const prefix = matrixPrefix(agreeing, agreeingSample.recipeFilamentIds);
     const resolved = model.resolveAppearanceRankModel(
         {
             L: agreeingSample.predictedLab[0],
@@ -940,11 +1078,7 @@ test('Stack Matrix aggregation combines overlapping interpolation from every com
     const missing = exhaustive.samples
         .map((sample) => sample.stack.map((index) => filaments[index].id))
         .find((recipe) => !measuredRecipes.has(recipe.join()))!;
-    const prefix = missing.map((filamentId) => ({
-        filamentId,
-        filamentColor: filaments.find((filament) => filament.id === filamentId)!.color,
-        thickness: 0.08,
-    }));
+    const prefix = matrixPrefix(completed[0], missing);
     const nearbyBase = firstLut.samples[0].predictedLab;
 
     const resolved = model.resolveAppearanceRankModel(
@@ -1014,11 +1148,7 @@ test('Stack Matrix LUT interpolates nearby photographed recipes and falls back o
                     .length >= 2
         )!;
     assert.ok(missing, 'the sparse matrix should leave an interpolatable recipe unmeasured');
-    const prefix = missing.map((filamentId) => ({
-        filamentId,
-        filamentColor: filaments.find((filament) => filament.id === filamentId)!.color,
-        thickness: 0.08,
-    }));
+    const prefix = matrixPrefix(completed, missing);
     const nearbyBase = lut.samples[0].predictedLab;
 
     const interpolated = model.resolveAppearanceRankModel(
@@ -1026,11 +1156,22 @@ test('Stack Matrix LUT interpolates nearby photographed recipes and falls back o
         fitted,
         prefix
     );
+    const mismatchedSubstrate = model.resolveAppearanceRankModel(
+        { L: nearbyBase[0], a: nearbyBase[1], b: nearbyBase[2] },
+        fitted,
+        prefix.slice(-lut.stackLayerCount)
+    );
     const outside = model.resolveAppearanceRankModel({ L: 100, a: 200, b: 200 }, fitted, prefix);
 
     assert.equal(interpolated.empiricalMatch?.kind, 'interpolated');
     assert.ok((interpolated.empiricalMatch?.sampleIds.length ?? 0) >= 2);
     assert.notDeepEqual(interpolated.lab, {
+        L: nearbyBase[0],
+        a: nearbyBase[1],
+        b: nearbyBase[2],
+    });
+    assert.equal(mismatchedSubstrate.empiricalMatch, undefined);
+    assert.deepEqual(mismatchedSubstrate.lab, {
         L: nearbyBase[0],
         a: nearbyBase[1],
         b: nearbyBase[2],

@@ -40,8 +40,9 @@ interface CalibratedOptimizerCase {
     };
     /**
      * Deterministic production-code replay when the supplied artifacts cannot
-     * be reconstructed exactly from their exported inputs alone. The captured
-     * UI/3MF result remains in observedResult as the physical reference truth.
+     * be reconstructed exactly from their exported inputs alone, or when an
+     * intentional behavior correction changes current output. The captured
+     * UI/3MF result remains in observedResult as immutable captured artifact data.
      */
     replayResult?: CalibratedOptimizerCase['observedResult'];
 }
@@ -72,6 +73,21 @@ interface StableOptimizerResult {
 interface CalibratedOptimizerVariantGoldens {
     schemaVersion: 1;
     results: Record<string, Record<string, StableOptimizerResult>>;
+}
+
+function stableSeparationSnapshot(
+    report: StableOptimizerResult['separation'] | undefined
+): StableOptimizerResult['separation'] | undefined {
+    if (!report) return undefined;
+    return {
+        requestedColorCount: report.requestedColorCount,
+        printableColorCount: report.printableColorCount,
+        assignedDistinctColorCount: report.assignedDistinctColorCount,
+        unacceptableColorCount: report.unacceptableColorCount,
+        maximumDeltaE: report.maximumDeltaE,
+        maximumAllowedDeltaE: report.maximumAllowedDeltaE,
+        satisfied: report.satisfied,
+    };
 }
 
 const VARIANT_OVERRIDES: Record<string, Partial<CalibratedOptimizerSettings>> = {
@@ -258,6 +274,8 @@ try {
             assert.equal(result.finalStack.fingerprint, expectedResult.finalStackFingerprint);
         }
         assert.ok(separation, 'Expected a preserve-separation report');
+        // These immutable captured-fixture names predate the report split. They
+        // intentionally retain the historical maximum-matching semantics.
         assert.equal(
             separation.requestedColorCount - separation.unacceptableColorCount,
             expectedResult.colorsWithinThreshold
@@ -276,7 +294,7 @@ try {
                 physicalLayers: result.finalStack.layers.length,
                 totalHeight: result.totalHeight,
                 finalStackFingerprint: result.finalStack.fingerprint,
-                separation,
+                separation: stableSeparationSnapshot(separation),
             },
             expectedVariantResult
         );
@@ -287,6 +305,8 @@ try {
             {
                 iterations: result.optimizerMetadata?.iterations,
                 score: result.optimizerMetadata?.score,
+                converged: result.optimizerMetadata?.converged,
+                extraRepeatCount: result.optimizerMetadata?.extraRepeatCount,
                 orderColors,
                 transitionZones: result.transitionZones.length,
                 physicalLayers: result.finalStack.layers.length,

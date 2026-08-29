@@ -69,10 +69,154 @@ test('color separation assigns colliding colors globally instead of greedily', a
 
     assert.equal(result.report.satisfied, true);
     assert.equal(result.report.assignedDistinctColorCount, 2);
+    assert.equal(result.report.uniquelyPreservedWithinThresholdCount, 2);
+    assert.equal(result.report.mappedWithinThresholdCount, 2);
+    assert.equal(result.report.overThresholdColorCount, 0);
+    assert.equal(result.report.reusedPrintableColorCount, 0);
     assert.deepEqual(
         result.mappedTargets.map((mapping) => mapping.paletteIndex),
         [1, 0],
         'the dominant target must accept its second-best gray so both targets remain accurate'
+    );
+});
+
+test('color separation distinguishes within-limit reuse from an over-limit mapping', async () => {
+    const { mapTargetsWithSeparation } = await loadAutoPaintModule();
+    const result = mapTargetsWithSeparation(
+        [
+            {
+                height: 0.16,
+                lab: { L: 50, a: 0, b: 0 },
+                rgb: { r: 119, g: 119, b: 119 },
+            },
+        ],
+        [
+            { L: 50, a: 0, b: 0, weight: 0.5 },
+            { L: 54, a: 0, b: 0, weight: 0.5 },
+        ],
+        6
+    );
+
+    assert.equal(result.report.satisfied, false);
+    assert.equal(result.report.assignedDistinctColorCount, 1);
+    assert.equal(result.report.uniquelyPreservedWithinThresholdCount, 1);
+    assert.equal(result.report.unacceptableColorCount, 1);
+    assert.equal(result.report.mappedWithinThresholdCount, 2);
+    assert.equal(result.report.overThresholdColorCount, 0);
+    assert.equal(result.report.reusedPrintableColorCount, 1);
+    assert.ok(result.report.maximumDeltaE <= result.report.maximumAllowedDeltaE);
+});
+
+test('color separation reports final fallback mappings above the unique-match limit', async () => {
+    const { mapTargetsWithSeparation } = await loadAutoPaintModule();
+    const result = mapTargetsWithSeparation(
+        [
+            {
+                height: 0.16,
+                lab: { L: 50, a: 0, b: 0 },
+                rgb: { r: 119, g: 119, b: 119 },
+            },
+        ],
+        [
+            { L: 50, a: 0, b: 0, weight: 0.5 },
+            { L: 70, a: 0, b: 0, weight: 0.5 },
+        ],
+        6
+    );
+
+    assert.equal(result.report.assignedDistinctColorCount, 1);
+    assert.equal(result.report.uniquelyPreservedWithinThresholdCount, 1);
+    assert.equal(result.report.mappedWithinThresholdCount, 1);
+    assert.equal(result.report.overThresholdColorCount, 1);
+    assert.equal(result.report.reusedPrintableColorCount, 1);
+    assert.ok(result.report.maximumDeltaE > result.report.maximumAllowedDeltaE);
+});
+
+test('color separation includes mappings exactly on the unique-match limit', async () => {
+    const { mapTargetsWithSeparation } = await loadAutoPaintModule();
+    const result = mapTargetsWithSeparation(
+        [
+            {
+                height: 0.16,
+                lab: { L: 50, a: 0, b: 0 },
+                rgb: { r: 119, g: 119, b: 119 },
+            },
+        ],
+        [{ L: 56, a: 0, b: 0, weight: 1 }],
+        6
+    );
+
+    assert.equal(result.report.satisfied, true);
+    assert.equal(result.report.uniquelyPreservedWithinThresholdCount, 1);
+    assert.equal(result.report.mappedWithinThresholdCount, 1);
+    assert.equal(result.report.overThresholdColorCount, 0);
+    assert.equal(result.report.maximumDeltaE, 6);
+});
+
+test('color separation reports the final mapping when anchor priority overrides a feasible match', async () => {
+    const { mapTargetsWithSeparation } = await loadAutoPaintModule();
+    const result = mapTargetsWithSeparation(
+        [
+            {
+                height: 0.16,
+                lab: { L: 50, a: 0, b: 0 },
+                rgb: { r: 119, g: 119, b: 119 },
+                exactAnchorId: 'measured-gray',
+                exactAnchorTargetLab: { L: 50, a: 0, b: 0 },
+            },
+            {
+                height: 0.24,
+                lab: { L: 44, a: 0, b: 0 },
+                rgb: { r: 105, g: 105, b: 105 },
+            },
+        ],
+        [
+            { L: 50, a: 0, b: 0, weight: 0.5 },
+            { L: 56, a: 0, b: 0, weight: 0.5 },
+        ],
+        6
+    );
+
+    assert.equal(result.report.assignedDistinctColorCount, 2, 'a feasible matching exists');
+    assert.equal(
+        result.report.uniquelyPreservedWithinThresholdCount,
+        1,
+        'the report must describe the anchor-prioritized final mapping rather than feasibility alone'
+    );
+    assert.equal(result.report.mappedWithinThresholdCount, 1);
+    assert.equal(result.report.overThresholdColorCount, 1);
+    assert.equal(result.report.reusedPrintableColorCount, 0);
+    assert.equal(result.report.satisfied, false);
+});
+
+test('color separation reports empty targets and an empty printable palette explicitly', async () => {
+    const { mapTargetsWithSeparation } = await loadAutoPaintModule();
+    const noTargets = mapTargetsWithSeparation([], [], 6);
+    const noPalette = mapTargetsWithSeparation(
+        [],
+        [{ L: 50, a: 0, b: 0, weight: 1 }],
+        6
+    );
+
+    assert.deepEqual(
+        {
+            within: noTargets.report.mappedWithinThresholdCount,
+            unique: noTargets.report.uniquelyPreservedWithinThresholdCount,
+            over: noTargets.report.overThresholdColorCount,
+            unmapped: noTargets.report.unmappedColorCount,
+            reused: noTargets.report.reusedPrintableColorCount,
+        },
+        { within: 0, unique: 0, over: 0, unmapped: 0, reused: 0 }
+    );
+    assert.deepEqual(
+        {
+            within: noPalette.report.mappedWithinThresholdCount,
+            unique: noPalette.report.uniquelyPreservedWithinThresholdCount,
+            over: noPalette.report.overThresholdColorCount,
+            unmapped: noPalette.report.unmappedColorCount,
+            reused: noPalette.report.reusedPrintableColorCount,
+        },
+        { within: 0, unique: 0, over: 0, unmapped: 1, reused: 0 }
     );
 });
 
@@ -207,7 +351,7 @@ test('color separation refuses to build when distinct acceptable matches are imp
                     cachingEnabled: false,
                 }
             ),
-        /Could not preserve all 2 image colors within ΔE 6/
+        /Could not uniquely preserve all 2 image colors within ΔE 6/
     );
 });
 
@@ -236,7 +380,11 @@ test('color separation can keep the build and fall back only missed colors', asy
 
     assert.equal(result.colorSeparation?.satisfied, false);
     assert.equal(result.colorSeparation?.assignedDistinctColorCount, 1);
+    assert.equal(result.colorSeparation?.uniquelyPreservedWithinThresholdCount, 1);
     assert.equal(result.colorSeparation?.unacceptableColorCount, 1);
+    assert.equal(result.colorSeparation?.mappedWithinThresholdCount, 1);
+    assert.equal(result.colorSeparation?.overThresholdColorCount, 1);
+    assert.equal(result.colorSeparation?.reusedPrintableColorCount, 1);
     assert.equal(result.finalStack.settings.failOnSeparationError, false);
     assert.equal(result.finalStack.targetMappings.length, 2);
     assert.equal(
@@ -1489,6 +1637,8 @@ test('an empirical Stack Matrix recipe drives the final preview without changing
         sampleLayerIndex - 2,
         sampleLayerIndex + 1
     );
+    const foundationLayers = baseline.finalStack.layers.slice(0, sampleLayerIndex - 2);
+    assert.ok(foundationLayers.length > 0);
     const measuredLab = [72, -38, 24] as const;
     const anchorId = 'matrix-empirical-sample';
     const empiricalModel = {
@@ -1516,7 +1666,12 @@ test('an empirical Stack Matrix recipe drives the final preview without changing
                 observedAt: '2026-08-14T12:00:00.000Z',
                 layerHeight: 0.08,
                 stackLayerCount: 3,
-                backingFilamentId: 'black',
+                backingFilamentId: foundationLayers.at(-1)!.filamentId,
+                foundationLayers: foundationLayers.map((layer) => ({
+                    filamentId: layer.filamentId,
+                    filamentColor: layer.filamentColor,
+                    thickness: layer.thickness,
+                })),
                 filamentIds: filaments.map((filament) => filament.id),
                 alignmentWeight: 1,
                 coverageWeight: 1,
