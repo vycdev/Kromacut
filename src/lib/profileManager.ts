@@ -55,6 +55,37 @@ function isRecord(value: unknown): value is Record<string, unknown> {
     return !!value && typeof value === 'object';
 }
 
+function hasDuplicateFilamentIds(filaments: readonly unknown[]): boolean {
+    const ids = new Set<string>();
+    for (const filament of filaments) {
+        if (!isRecord(filament) || typeof filament.id !== 'string') continue;
+        if (ids.has(filament.id)) return true;
+        ids.add(filament.id);
+    }
+    return false;
+}
+
+function reserveUniqueFilamentId(preferredId: string, usedIds: Set<string>): string {
+    let id = preferredId;
+    let suffix = 2;
+    while (usedIds.has(id)) id = `${preferredId}-${suffix++}`;
+    usedIds.add(id);
+    return id;
+}
+
+/**
+ * Repair legacy working-state collisions without dropping either filament.
+ * Profile imports use stricter rejection because their ids can own appearance
+ * evidence; the standalone working list can safely retain rows under new ids.
+ */
+export function repairDuplicateFilamentIds(filaments: readonly Filament[]): Filament[] {
+    const usedIds = new Set<string>();
+    return filaments.map((filament) => {
+        const id = reserveUniqueFilamentId(filament.id, usedIds);
+        return id === filament.id ? filament : { ...filament, id };
+    });
+}
+
 export function sanitizeProfileFilament(value: unknown): Filament | null {
     if (!isRecord(value)) return null;
     if (
@@ -121,21 +152,28 @@ function sanitizeProfile(value: unknown): AutoPaintProfile | null {
     ) {
         return null;
     }
-
+    const hadDuplicateFilamentIds = hasDuplicateFilamentIds(value.filaments);
     const version = typeof value.version === 'number' ? value.version : 1;
     const now = Date.now();
+    const sanitizedFilaments = sanitizeProfileFilaments(value.filaments, version);
     const profile: AutoPaintProfile = {
         // A reserved template id in storage would shadow the built-in template
         // and be undeletable — re-assign such profiles a fresh user id.
         id: isTemplateProfileId(value.id) ? crypto.randomUUID() : value.id,
         name: value.name,
         version: CURRENT_PROFILE_VERSION,
-        filaments: sanitizeProfileFilaments(value.filaments, version),
+        filaments: hadDuplicateFilamentIds
+            ? repairDuplicateFilamentIds(sanitizedFilaments)
+            : sanitizedFilaments,
         createdAt: typeof value.createdAt === 'number' ? value.createdAt : now,
         updatedAt: typeof value.updatedAt === 'number' ? value.updatedAt : now,
     };
-    const appearance = sanitizeAppearanceProfile(value.appearance);
-    if (appearance) profile.appearance = appearance;
+    // Duplicate ids make profile-level proof/matrix foreign keys ambiguous.
+    // Preserve every filament row but intentionally discard only that evidence.
+    if (!hadDuplicateFilamentIds) {
+        const appearance = sanitizeAppearanceProfile(value.appearance);
+        if (appearance) profile.appearance = appearance;
+    }
     return profile;
 }
 
@@ -149,12 +187,20 @@ export function loadProfiles(): AutoPaintProfile[] {
         const hadReservedId = parsed.some(
             (p) => p && typeof p.id === 'string' && isTemplateProfileId(p.id)
         );
+        const hadDuplicateFilamentIds = parsed.some(
+            (profile) =>
+                isRecord(profile) &&
+                Array.isArray(profile.filaments) &&
+                hasDuplicateFilamentIds(profile.filaments)
+        );
         const profiles = parsed
             .map((profile) => sanitizeProfile(profile))
             .filter((profile): profile is AutoPaintProfile => profile !== null);
-        // Persist re-assigned template ids so they stay stable across reloads.
-        if (hadReservedId) saveProfilesToStorage(profiles);
-        return rememberProfiles(hadReservedId ? JSON.stringify(profiles) : raw, profiles);
+        // Persist re-assigned template ids and repaired duplicate filament ids
+        // so both migrations stay stable across reloads.
+        const migrated = hadReservedId || hadDuplicateFilamentIds;
+        const migrationPersisted = migrated && saveProfilesToStorage(profiles);
+        return rememberProfiles(migrationPersisted ? JSON.stringify(profiles) : raw, profiles);
     } catch {
         return [];
     }
@@ -197,6 +243,7 @@ export function saveLastProfileId(id: string | null) {
 
 export function saveProfilesToStorage(profiles: AutoPaintProfile[]): boolean {
     try {
+        if (profiles.some((profile) => hasDuplicateFilamentIds(profile.filaments))) return false;
         const raw = JSON.stringify(profiles);
         localStorage.setItem(PROFILES_STORAGE_KEY, raw);
         rememberProfiles(raw, profiles);
@@ -212,7 +259,7 @@ export function createProfile(name: string, filaments: Filament[]): AutoPaintPro
         id: crypto.randomUUID(),
         name: name.trim(),
         version: CURRENT_PROFILE_VERSION,
-        filaments: filaments.map((f) => ({ ...f })),
+        filaments: repairDuplicateFilamentIds(filaments).map((f) => ({ ...f })),
         createdAt: now,
         updatedAt: now,
     };
@@ -246,15 +293,18 @@ export function overwriteProfile(
     id: string,
     filaments: Filament[]
 ): AutoPaintProfile[] {
-    return profiles.map((p) =>
-        p.id === id
-            ? {
-                  ...p,
-                  filaments: filaments.map((f) => ({ ...f })),
-                  updatedAt: Date.now(),
-              }
-            : p
-    );
+    const hadDuplicateFilamentIds = hasDuplicateFilamentIds(filaments);
+    const repairedFilaments = repairDuplicateFilamentIds(filaments);
+    return profiles.map((profile) => {
+        if (profile.id !== id) return profile;
+        const updated: AutoPaintProfile = {
+            ...profile,
+            filaments: repairedFilaments.map((filament) => ({ ...filament })),
+            updatedAt: Date.now(),
+        };
+        if (hadDuplicateFilamentIds) delete updated.appearance;
+        return updated;
+    });
 }
 
 export function renameProfile(
@@ -347,6 +397,10 @@ export function importProfiles(
     for (const raw of incoming) {
         // Validate required fields
         if (!raw || typeof raw.name !== 'string' || !Array.isArray(raw.filaments)) continue;
+        if (hasDuplicateFilamentIds(raw.filaments)) {
+            result.skipped.push(`${raw.name} (duplicate filament ids)`);
+            continue;
+        }
 
         const rawVersion = typeof raw.version === 'number' ? raw.version : 1;
         const validFilaments = sanitizeProfileFilaments(raw.filaments, rawVersion);
@@ -539,6 +593,7 @@ export function parseHueForgeCSV(
     };
 
     const filaments: import('../types').Filament[] = [];
+    const usedFilamentIds = new Set<string>();
     for (const row of rows.slice(1)) {
         const colorRaw = col(row, 'Color');
         const color = normalizeHexColor(colorRaw, '');
@@ -554,7 +609,10 @@ export function parseHueForgeCSV(
         }
 
         const rawId = col(row, 'Uuid').replace(/[{}]/g, '');
-        const id = rawId || crypto.randomUUID();
+        // HueForge libraries contain no Kromacut appearance evidence, so keep
+        // every valid spool row while deterministically disambiguating repeated
+        // UUIDs. This also keeps React keys and all downstream filament maps unique.
+        const id = reserveUniqueFilamentId(rawId || crypto.randomUUID(), usedFilamentIds);
         const colorName = col(row, 'Name');
         const brand = col(row, 'Brand') || undefined;
         const name = brand && colorName ? `${brand}-${colorName}-${color}` : colorName || undefined;

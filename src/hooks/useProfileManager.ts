@@ -34,10 +34,14 @@ import {
     buildProfileExportSnapshot,
 } from '../lib/profileManager';
 import { deduplicateName } from '../lib/nameUtils';
+import { persistProfilesBeforeCommit } from '../lib/profilePersistence';
 import { TEMPLATE_PROFILES, isTemplateProfileId } from '../data/supplierFilaments';
 
 /** Built-in template profile ids are reserved — imported files can never claim them. */
 const RESERVED_PROFILE_IDS = new Set(TEMPLATE_PROFILES.map((p) => p.id));
+
+const PROFILE_STORAGE_FAILURE_MESSAGE =
+    'Profile changes could not be saved. Existing profiles and selection were left unchanged; free browser storage and try again.';
 
 export interface UseProfileManagerOptions {
     /** Current filament list (used for save/export operations). */
@@ -92,12 +96,22 @@ export function useProfileManager({ filaments, setFilaments }: UseProfileManager
             if (!name.trim()) return;
             const newProfile = createProfile(name, filaments);
             const updated = [...profiles, newProfile];
-            setProfiles(updated);
-            saveProfilesToStorage(updated);
-            setActiveProfileId(newProfile.id);
-            saveLastProfileId(newProfile.id);
-            setShowSaveNewPopover(false);
-            setSaveProfileName('');
+            if (
+                !persistProfilesBeforeCommit(
+                    updated,
+                    saveProfilesToStorage,
+                    (persistedProfiles) => {
+                        setProfiles(persistedProfiles);
+                        setActiveProfileId(newProfile.id);
+                        saveLastProfileId(newProfile.id);
+                        setShowSaveNewPopover(false);
+                        setSaveProfileName('');
+                        setImportFeedback(null);
+                    }
+                )
+            ) {
+                setImportFeedback(PROFILE_STORAGE_FAILURE_MESSAGE);
+            }
         },
         [filaments, profiles]
     );
@@ -106,17 +120,33 @@ export function useProfileManager({ filaments, setFilaments }: UseProfileManager
     const handleOverwriteProfile = useCallback(() => {
         if (!activeProfileId || isTemplateProfileId(activeProfileId)) return;
         const updated = overwriteProfile(profiles, activeProfileId, filaments);
-        setProfiles(updated);
-        saveProfilesToStorage(updated);
+        if (
+            !persistProfilesBeforeCommit(updated, saveProfilesToStorage, (persistedProfiles) => {
+                setProfiles(persistedProfiles);
+                setImportFeedback(null);
+            })
+        ) {
+            setImportFeedback(PROFILE_STORAGE_FAILURE_MESSAGE);
+        }
     }, [activeProfileId, filaments, profiles]);
 
     const handleRenameProfile = useCallback(
         (name: string) => {
             if (!activeProfileId || isTemplateProfileId(activeProfileId) || !name.trim()) return;
             const updated = renameProfile(profiles, activeProfileId, name);
-            setProfiles(updated);
-            saveProfilesToStorage(updated);
-            setShowRenamePopover(false);
+            if (
+                !persistProfilesBeforeCommit(
+                    updated,
+                    saveProfilesToStorage,
+                    (persistedProfiles) => {
+                        setProfiles(persistedProfiles);
+                        setShowRenamePopover(false);
+                        setImportFeedback(null);
+                    }
+                )
+            ) {
+                setImportFeedback(PROFILE_STORAGE_FAILURE_MESSAGE);
+            }
         },
         [activeProfileId, profiles]
     );
@@ -141,11 +171,21 @@ export function useProfileManager({ filaments, setFilaments }: UseProfileManager
         (id: string) => {
             if (isTemplateProfileId(id)) return;
             const updated = deleteProfileFromList(profiles, id);
-            setProfiles(updated);
-            saveProfilesToStorage(updated);
-            if (activeProfileId === id) {
-                setActiveProfileId(null);
-                saveLastProfileId(null);
+            if (
+                !persistProfilesBeforeCommit(
+                    updated,
+                    saveProfilesToStorage,
+                    (persistedProfiles) => {
+                        setProfiles(persistedProfiles);
+                        if (activeProfileId === id) {
+                            setActiveProfileId(null);
+                            saveLastProfileId(null);
+                        }
+                        setImportFeedback(null);
+                    }
+                )
+            ) {
+                setImportFeedback(PROFILE_STORAGE_FAILURE_MESSAGE);
             }
         },
         [profiles, activeProfileId]
@@ -356,13 +396,15 @@ export function useProfileManager({ filaments, setFilaments }: UseProfileManager
                     return;
                 }
                 const result = importProfiles(profiles, incoming, RESERVED_PROFILE_IDS);
-                if (!saveProfilesToStorage(result.profiles)) {
-                    setImportFeedback(
-                        'Import could not be saved. Existing profiles were left unchanged; free browser storage and try again.'
-                    );
-                    return;
+                if (result.imported.length > 0) {
+                    if (!saveProfilesToStorage(result.profiles)) {
+                        setImportFeedback(
+                            'Import could not be saved. Existing profiles were left unchanged; free browser storage and try again.'
+                        );
+                        return;
+                    }
+                    setProfiles(result.profiles);
                 }
-                setProfiles(result.profiles);
 
                 // Build feedback message
                 const parts: string[] = [];

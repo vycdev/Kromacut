@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
     scheduleAfterTwoAnimationFrames,
+    shouldApplyInitialProfileFilaments,
     shouldRetainCompletedThreeDWork,
     shouldRunThreeDBackgroundWork,
 } from '../src/lib/threeDWorkLifecycle.ts';
@@ -107,4 +108,14 @@ test('hidden 3D work retains only a completed result for the same inputs', () =>
     assert.equal(shouldRetainCompletedThreeDWork(false, 'old', 'new'), false);
     assert.equal(shouldRetainCompletedThreeDWork(false, null, null), false);
     assert.equal(shouldRetainCompletedThreeDWork(true, 'same', 'same'), false);
+});
+
+test('remembered working filaments take precedence over the last selected profile', () => {
+    assert.equal(shouldApplyInitialProfileFilaments(true, 8), false);
+    assert.equal(shouldApplyInitialProfileFilaments(true, 0), false);
+});
+
+test('the last selected profile initializes a fresh Auto-paint workspace', () => {
+    assert.equal(shouldApplyInitialProfileFilaments(false, 8), true);
+    assert.equal(shouldApplyInitialProfileFilaments(false, 0), false);
 });

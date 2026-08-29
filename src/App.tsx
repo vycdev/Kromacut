@@ -62,6 +62,7 @@ import { isTauri } from '@tauri-apps/api/core';
 import {
     migrateLegacyFilamentTd,
     prewarmAutoPaintProfiles,
+    repairDuplicateFilamentIds,
     sanitizeProfileFilament,
 } from './lib/profileManager';
 import PrintUnlockEffect from './components/PrintUnlockEffect';
@@ -155,10 +156,11 @@ const loadAutoPaintPersisted = (): AutoPaintPersisted | null => {
                     filament !== null
             );
         const persistedSchema = typeof parsed.schemaVersion === 'number' ? parsed.schemaVersion : 1;
-        const filaments =
+        const migratedFilaments =
             persistedSchema >= AUTOPAINT_SCHEMA_VERSION
                 ? sanitized
                 : sanitized.map(migrateLegacyFilamentTd);
+        const filaments = repairDuplicateFilamentIds(migratedFilaments);
         // Migrate legacy `autoPaintEnabled` boolean → `paintMode`
         const paintMode: 'manual' | 'autopaint' =
             parsed.paintMode === 'autopaint' || parsed.paintMode === 'manual'
@@ -402,6 +404,7 @@ function App(): React.ReactElement | null {
     // the persistence effect from the same initial commit overwrite saved values
     // with defaults before React applies the hydrated state (especially on HMR).
     const [autopaintHydrated] = useState(loadAutoPaintPersisted);
+    const autoPaintWorkingStateInitializedRef = useRef(autopaintHydrated !== null);
 
     // 3D printing shared state
     const {
@@ -819,10 +822,14 @@ function App(): React.ReactElement | null {
                                         builtState={builtThreeDState}
                                         builtFlatPaint={builtFlatPaint}
                                         onChange={handleThreeDStateChange}
-                                        onSettingsChange={(partial) =>
-                                            setThreeDState((prev) => ({ ...prev, ...partial }))
-                                        }
+                                        onSettingsChange={(partial) => {
+                                            autoPaintWorkingStateInitializedRef.current = true;
+                                            setThreeDState((prev) => ({ ...prev, ...partial }));
+                                        }}
                                         persisted={threeDState}
+                                        hasAutoPaintWorkingState={
+                                            autoPaintWorkingStateInitializedRef.current
+                                        }
                                     />
                                     </div>
                                 )}

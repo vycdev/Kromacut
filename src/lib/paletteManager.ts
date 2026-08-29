@@ -104,11 +104,13 @@ export function loadCustomPalettes(reservedIds?: Set<string>): CustomPalette[] {
     }
 }
 
-export function saveCustomPalettes(palettes: CustomPalette[]) {
+/** Persist custom palettes, returning false when browser storage rejects the write. */
+export function saveCustomPalettes(palettes: CustomPalette[]): boolean {
     try {
         localStorage.setItem(PALETTES_STORAGE_KEY, JSON.stringify(palettes));
+        return true;
     } catch {
-        // ignore storage errors
+        return false;
     }
 }
 

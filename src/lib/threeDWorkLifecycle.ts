@@ -44,3 +44,15 @@ export function shouldRetainCompletedThreeDWork(
 ): boolean {
     return !active && completedKey !== null && completedKey === currentKey;
 }
+
+/**
+ * A remembered working Auto-paint state is authoritative, even when a named
+ * profile remains selected. The profile is only the initial filament source
+ * when no working state has been restored or established in this app session.
+ */
+export function shouldApplyInitialProfileFilaments(
+    hasAuthoritativeWorkingState: boolean,
+    profileFilamentCount: number
+): boolean {
+    return !hasAuthoritativeWorkingState && profileFilamentCount > 0;
+}

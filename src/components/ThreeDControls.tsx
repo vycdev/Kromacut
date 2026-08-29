@@ -11,6 +11,7 @@ import {
     normalizeSeparationMaxDeltaE,
 } from '../lib/autoPaint';
 import {
+    arePrintSettingsDefault,
     loadPrintSettingsFromStorage,
     savePrintSettingsToStorage,
     DEFAULT_PRINT_SETTINGS,
@@ -32,6 +33,7 @@ import PrintInstructions from './PrintInstructions';
 import AutoPaintTab from './AutoPaintTab';
 import type { ImageDimensions } from '../hooks/useSwatches';
 import { concealPrintableFeatureBuffers } from '../lib/printableFeatures.ts';
+import { shouldApplyInitialProfileFilaments } from '../lib/threeDWorkLifecycle';
 
 // Re-export types for backward compatibility
 export type { Filament, ThreeDControlsStateShape } from '../types';
@@ -57,6 +59,8 @@ interface ThreeDControlsProps {
      * when the user switches away from 3D mode and comes back later.
      */
     persisted?: ThreeDControlsStateShape | null;
+    /** Whether `persisted.filaments` belongs to an authoritative saved or in-session workspace. */
+    hasAutoPaintWorkingState?: boolean;
 }
 
 export default function ThreeDControls({
@@ -69,6 +73,7 @@ export default function ThreeDControls({
     onChange,
     onSettingsChange,
     persisted,
+    hasAutoPaintWorkingState = false,
 }: ThreeDControlsProps) {
     // --- Filaments ---
     const {
@@ -87,7 +92,13 @@ export default function ThreeDControls({
 
     // Apply initial filaments from profile if available (one-time)
     const [appliedProfileInit] = useState(() => {
-        if (profileManager.initialFilaments && profileManager.initialFilaments.length > 0) {
+        if (
+            profileManager.initialFilaments &&
+            shouldApplyInitialProfileFilaments(
+                hasAutoPaintWorkingState,
+                profileManager.initialFilaments.length
+            )
+        ) {
             return profileManager.initialFilaments;
         }
         return null;
@@ -286,6 +297,7 @@ export default function ThreeDControls({
         setLayerHeight(DEFAULT_PRINT_SETTINGS.layerHeight);
         setSlicerFirstLayerHeight(DEFAULT_PRINT_SETTINGS.slicerFirstLayerHeight);
         setPixelSize(DEFAULT_PRINT_SETTINGS.pixelSize);
+        setSmoothMeshing(DEFAULT_PRINT_SETTINGS.smoothMeshing);
         resetHeightsToValues(
             DEFAULT_PRINT_SETTINGS.layerHeight,
             DEFAULT_PRINT_SETTINGS.slicerFirstLayerHeight
@@ -589,11 +601,12 @@ export default function ThreeDControls({
                 onPixelSizeChange={setPixelSize}
                 onSmoothMeshingChange={handleSmoothMeshingChange}
                 onReset={handleResetPrintSettings}
-                allDefault={
-                    layerHeight === DEFAULT_PRINT_SETTINGS.layerHeight &&
-                    slicerFirstLayerHeight === DEFAULT_PRINT_SETTINGS.slicerFirstLayerHeight &&
-                    pixelSize === DEFAULT_PRINT_SETTINGS.pixelSize
-                }
+                allDefault={arePrintSettingsDefault({
+                    layerHeight,
+                    slicerFirstLayerHeight,
+                    pixelSize,
+                    smoothMeshing,
+                })}
             />
 
             {/* Paint Mode Tabs */}

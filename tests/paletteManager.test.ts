@@ -10,6 +10,7 @@ import {
     loadCustomPalettes,
     normalizeColorNames,
     normalizeDisabledColors,
+    saveCustomPalettes,
     updateCustomPalette,
 } from '../src/lib/paletteManager.ts';
 import { toHex6 } from '../src/lib/colorUtils.ts';
@@ -100,6 +101,24 @@ test('stored palettes without reserved ids are not rewritten on load', () => {
         storage.setItem('kromacut.palettes', raw);
         loadCustomPalettes(new Set(['auto', 'p4']));
         assert.equal(storage.getItem('kromacut.palettes'), raw);
+    });
+});
+
+test('saveCustomPalettes reports whether browser storage accepted the write', () => {
+    withMemoryStorage((storage) => {
+        const palettes = [makePalette()];
+        assert.equal(saveCustomPalettes(palettes), true);
+        assert.deepEqual(JSON.parse(storage.getItem('kromacut.palettes')!), palettes);
+
+        const originalSetItem = storage.setItem;
+        storage.setItem = () => {
+            throw new Error('quota exceeded');
+        };
+        try {
+            assert.equal(saveCustomPalettes(palettes), false);
+        } finally {
+            storage.setItem = originalSetItem;
+        }
     });
 });
 

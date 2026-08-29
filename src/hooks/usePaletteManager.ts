@@ -45,6 +45,9 @@ export type MergedPalette = Palette & { custom?: boolean; totalColors?: number }
 /** Built-in palette ids are reserved — imported files can never claim them. */
 const RESERVED_PALETTE_IDS = new Set(ALL_BUILTIN_PALETTES.map((p) => p.id));
 
+const paletteStorageFailure = (action: string) =>
+    `${action} could not be saved. Existing palettes were left unchanged; free browser storage and try again.`;
+
 export function usePaletteManager() {
     const [customPalettes, setCustomPalettes] = useState<CustomPalette[]>(() =>
         loadCustomPalettes(RESERVED_PALETTE_IDS)
@@ -83,8 +86,12 @@ export function usePaletteManager() {
             if (!name.trim() || colors.length === 0) return;
             const newPal = createCustomPalette(name, colors, disabledColors, colorNames);
             const updated = [...customPalettes, newPal];
+            if (!saveCustomPalettes(updated)) {
+                setImportFeedback(paletteStorageFailure('The new palette'));
+                return;
+            }
             setCustomPalettes(updated);
-            saveCustomPalettes(updated);
+            setImportFeedback(null);
             // Auto-select the new palette
             setSelectedPalette(newPal.id);
         },
@@ -102,8 +109,12 @@ export function usePaletteManager() {
             }
         ) => {
             const updated = updateCustomPalette(customPalettes, id, patch);
+            if (!saveCustomPalettes(updated)) {
+                setImportFeedback(paletteStorageFailure('Palette changes'));
+                return;
+            }
             setCustomPalettes(updated);
-            saveCustomPalettes(updated);
+            setImportFeedback(null);
         },
         [customPalettes]
     );
@@ -133,8 +144,11 @@ export function usePaletteManager() {
             const clone = clonePalette(source, customPalettes);
             if (!clone) return;
             const updated = [...customPalettes, clone];
+            if (!saveCustomPalettes(updated)) {
+                setImportFeedback(paletteStorageFailure('The cloned palette'));
+                return;
+            }
             setCustomPalettes(updated);
-            saveCustomPalettes(updated);
             setSelectedPalette(clone.id);
             setImportFeedback(`Cloned as "${clone.name}"`);
         },
@@ -144,8 +158,12 @@ export function usePaletteManager() {
     const handleDeletePalette = useCallback(
         (id: string) => {
             const updated = deleteFromList(customPalettes, id);
+            if (!saveCustomPalettes(updated)) {
+                setImportFeedback(paletteStorageFailure('Palette deletion'));
+                return;
+            }
             setCustomPalettes(updated);
-            saveCustomPalettes(updated);
+            setImportFeedback(null);
             if (selectedPalette === id) {
                 setSelectedPalette('auto');
             }
@@ -184,8 +202,13 @@ export function usePaletteManager() {
                     return;
                 }
                 const result = importCustomPalettes(customPalettes, incoming, RESERVED_PALETTE_IDS);
-                setCustomPalettes(result.palettes);
-                saveCustomPalettes(result.palettes);
+                if (result.imported.length > 0) {
+                    if (!saveCustomPalettes(result.palettes)) {
+                        setImportFeedback(paletteStorageFailure('The palette import'));
+                        return;
+                    }
+                    setCustomPalettes(result.palettes);
+                }
 
                 const parts: string[] = [];
                 if (result.imported.length > 0) parts.push(`${result.imported.length} imported`);

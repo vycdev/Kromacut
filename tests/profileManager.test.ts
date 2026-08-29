@@ -3,7 +3,11 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-import { parseHueForgeCSV, type AutoPaintProfile } from '../src/lib/profileManager.ts';
+import {
+    parseHueForgeCSV,
+    repairDuplicateFilamentIds,
+    type AutoPaintProfile,
+} from '../src/lib/profileManager.ts';
 import { TEMPLATE_PROFILES } from '../src/data/supplierFilaments.ts';
 import { loadViteModule } from './helpers/viteModule.ts';
 
@@ -116,6 +120,43 @@ test('parseHueForgeCSV strips braces from UUIDs', () => {
     const [profile] = parseHueForgeCSV(HUEFORGE_CSV)!;
     assert.equal(profile.filaments[0].id, '631cbb3a-9db8-45b4-96cd-5d21a5f3b2e9');
     assert.equal(profile.filaments[1].id, 'c8518afd-068e-4a5c-90d2-9981d4d7edde');
+});
+
+test('parseHueForgeCSV deterministically disambiguates repeated UUIDs', () => {
+    const csv = `Brand,Color,Name,TD,Uuid
+Brand A,#ffffff,White,4.0,{shared-spool}
+Brand B,#000000,Black,0.5,{shared-spool}
+Brand C,#ff0000,Red,2.0,{shared-spool}`;
+
+    const first = parseHueForgeCSV(csv)!;
+    const second = parseHueForgeCSV(csv)!;
+    const expectedIds = ['shared-spool', 'shared-spool-2', 'shared-spool-3'];
+
+    assert.deepEqual(
+        first[0].filaments.map((filament) => filament.id),
+        expectedIds
+    );
+    assert.deepEqual(
+        second[0].filaments.map((filament) => filament.id),
+        expectedIds
+    );
+    assert.equal(new Set(first[0].filaments.map((filament) => filament.id)).size, 3);
+});
+
+test('legacy working filaments retain every row under collision-free ids', () => {
+    const calibration = { preserved: true } as never;
+    const repaired = repairDuplicateFilamentIds([
+        { id: 'shared', color: '#ffffff', td: 0.4 },
+        { id: 'shared-2', color: '#000000', td: 0.1 },
+        { id: 'shared', color: '#ff0000', td: 0.3, calibration },
+        { id: 'shared', color: '#00ff00', td: 0.3 },
+    ]);
+
+    assert.deepEqual(
+        repaired.map((filament) => filament.id),
+        ['shared', 'shared-2', 'shared-3', 'shared-4']
+    );
+    assert.equal(repaired[2].calibration, calibration);
 });
 
 test('parseHueForgeCSV formats names as <mfr>-<color-name>-<color-hex>', () => {
@@ -335,6 +376,158 @@ test('same-id legacy imports cannot erase newer appearance calibration evidence'
     assert.equal(result.profiles.length, 2);
     assert.notEqual(result.imported[0].id, existing.id);
     assert.equal(result.imported[0].name, 'Calibrated Profile (2)');
+});
+
+test('native profile imports reject duplicate filament ids without overwriting evidence', async () => {
+    const { importProfiles, parseProfileFile } = await loadProfileManager();
+    const existing: AutoPaintProfile = {
+        id: 'calibrated-profile-with-unique-filaments',
+        name: 'Safe Calibrated Profile',
+        version: 3,
+        filaments: [
+            { id: 'white', color: '#ffffff', td: 0.4 },
+            { id: 'black', color: '#000000', td: 0.1 },
+        ],
+        appearance: {
+            schemaVersion: 1,
+            proofs: [{ id: 'keep-this-proof' } as never],
+            viewingSessions: [],
+            targetJudgments: [],
+            stackMatrices: [],
+        },
+        createdAt: 1,
+        updatedAt: 2,
+    };
+    const parsed = parseProfileFile(
+        JSON.stringify({
+            ...existing,
+            filaments: [
+                { id: 'collision', color: '#ffffff', td: 0.4 },
+                { id: 'collision', color: '#000000', td: 0.1 },
+            ],
+        })
+    );
+
+    assert.ok(parsed);
+    const result = importProfiles([existing], parsed!);
+
+    assert.deepEqual(result.profiles, [existing]);
+    assert.equal(result.imported.length, 0);
+    assert.equal(result.overwritten.length, 0);
+    assert.deepEqual(result.skipped, ['Safe Calibrated Profile (duplicate filament ids)']);
+});
+
+test('stored profiles repair duplicate filament ids without risking later data loss', async () => {
+    const { loadProfiles, saveProfilesToStorage } = await loadProfileManager();
+    const existingStorage = Reflect.get(globalThis, 'localStorage') as
+        | ReturnType<typeof createMemoryStorage>
+        | undefined;
+    const storage = existingStorage ?? createMemoryStorage();
+    if (!existingStorage) {
+        Object.defineProperty(globalThis, 'localStorage', {
+            configurable: true,
+            value: storage,
+        });
+    }
+
+    const storageKey = 'kromacut.autopaint.profiles';
+    const previousProfiles = storage.getItem(storageKey);
+    const duplicateProfile = JSON.stringify([
+        {
+            // Exercise duplicate-id repair and reserved-profile-id migration
+            // together so both values remain stable after the single rewrite.
+            id: 'tpl_stored-duplicate-filaments',
+            name: 'Stored Invalid Profile',
+            version: 3,
+            createdAt: 1,
+            updatedAt: 1,
+            filaments: [
+                { id: 'duplicate', color: '#ffffff', td: 0.4 },
+                { id: 'duplicate', color: '#000000', td: 0.1 },
+            ],
+            appearance: {
+                schemaVersion: 1,
+                proofs: [{ id: 'ambiguous-proof' }],
+                viewingSessions: [],
+                targetJudgments: [],
+                stackMatrices: [],
+            },
+        },
+    ]);
+
+    try {
+        storage.setItem(storageKey, duplicateProfile);
+        const loaded = loadProfiles();
+        assert.equal(loaded.length, 1);
+        assert.deepEqual(
+            loaded[0].filaments.map((filament) => filament.id),
+            ['duplicate', 'duplicate-2']
+        );
+        assert.equal(loaded[0].appearance, undefined);
+
+        const additional = {
+            ...loaded[0],
+            id: 'unrelated-profile',
+            name: 'Unrelated Profile',
+        };
+        assert.equal(saveProfilesToStorage([...loaded, additional]), true);
+        const persisted = JSON.parse(storage.getItem(storageKey)!) as AutoPaintProfile[];
+        assert.equal(persisted.length, 2);
+        assert.deepEqual(
+            persisted[0].filaments.map((filament) => filament.id),
+            ['duplicate', 'duplicate-2']
+        );
+        assert.equal(persisted[0].appearance, undefined);
+    } finally {
+        if (previousProfiles === null) {
+            storage.removeItem(storageKey);
+        } else {
+            storage.setItem(storageKey, previousProfiles);
+        }
+        if (!existingStorage) Reflect.deleteProperty(globalThis, 'localStorage');
+    }
+});
+
+test('profile creation repairs working-state collisions and storage rejects invalid profiles', async () => {
+    const { createProfile, saveProfilesToStorage } = await loadProfileManager();
+    const existingStorage = Reflect.get(globalThis, 'localStorage') as
+        | ReturnType<typeof createMemoryStorage>
+        | undefined;
+    const storage = existingStorage ?? createMemoryStorage();
+    if (!existingStorage) {
+        Object.defineProperty(globalThis, 'localStorage', {
+            configurable: true,
+            value: storage,
+        });
+    }
+
+    const storageKey = 'kromacut.autopaint.profiles';
+    const previousProfiles = storage.getItem(storageKey);
+    try {
+        const created = createProfile('Recovered Working State', [
+            { id: 'same', color: '#ffffff', td: 0.4 },
+            { id: 'same', color: '#000000', td: 0.1 },
+        ]);
+        assert.deepEqual(
+            created.filaments.map((filament) => filament.id),
+            ['same', 'same-2']
+        );
+        assert.equal(saveProfilesToStorage([created]), true);
+
+        const invalid = {
+            ...created,
+            filaments: created.filaments.map((filament) => ({ ...filament, id: 'collision' })),
+        };
+        assert.equal(saveProfilesToStorage([invalid]), false);
+        assert.deepEqual(JSON.parse(storage.getItem(storageKey)!), [created]);
+    } finally {
+        if (previousProfiles === null) {
+            storage.removeItem(storageKey);
+        } else {
+            storage.setItem(storageKey, previousProfiles);
+        }
+        if (!existingStorage) Reflect.deleteProperty(globalThis, 'localStorage');
+    }
 });
 
 test('stored auto-paint profiles strip legacy photo calibration objects on load', async () => {
