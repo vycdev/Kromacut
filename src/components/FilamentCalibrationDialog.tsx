@@ -37,6 +37,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { openDocsAt } from '@/lib/docs/navigation';
+import { downloadBlob } from '@/hooks/downloadBlob';
 import type { Filament, FinalPrintableStackSnapshot } from '../types';
 import type {
     PaletteProofRecord,
@@ -178,15 +179,6 @@ function governingChannel(
         }
     }
     return best;
-}
-
-function downloadBlob(blob: Blob, filename: string) {
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    a.click();
-    URL.revokeObjectURL(url);
 }
 
 function formatMm(value: number): string {

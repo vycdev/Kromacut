@@ -1,30 +1,12 @@
 import assert from 'node:assert/strict';
-import { resolve } from 'node:path';
 import test from 'node:test';
-import { createServer } from 'vite';
 import JSZip from 'jszip';
+
+import { loadViteModule } from './helpers/viteModule.ts';
 
 type GeneratorModule = typeof import('../src/lib/generateCalibrationPrint.ts');
 
 let generatorModule: Promise<GeneratorModule> | null = null;
-
-async function loadViteModule<T>(modulePath: string): Promise<T> {
-    const server = await createServer({
-        appType: 'custom',
-        cacheDir: 'dist/.vite-test-cache',
-        configFile: false,
-        logLevel: 'error',
-        optimizeDeps: { noDiscovery: true },
-        resolve: { alias: { '@': resolve(process.cwd(), 'src') } },
-        root: process.cwd(),
-        server: { hmr: false, middlewareMode: true },
-    });
-    try {
-        return (await server.ssrLoadModule(modulePath)) as T;
-    } finally {
-        await server.close();
-    }
-}
 
 const loadGenerator = () =>
     (generatorModule ??= loadViteModule<GeneratorModule>('/src/lib/generateCalibrationPrint.ts'));

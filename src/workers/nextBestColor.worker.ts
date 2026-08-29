@@ -5,8 +5,7 @@
  * inventories, so keep it off the UI thread.
  */
 
-import { nextBestColor } from '../lib/nextBestColor';
-import type { NextBestColorResult } from '../lib/nextBestColor';
+import { nextBestColor, type NextBestColorResult } from '../lib/nextBestColor';
 import type { Filament } from '../types';
 
 export interface NextBestColorWorkerRequest {

@@ -1,13 +1,5 @@
 import { useState } from 'react';
 
-export interface ProcessingState {
-    isQuantizing: boolean;
-    isDedithering: boolean;
-    processingLabel: string;
-    processingProgress: number;
-    processingIndeterminate: boolean;
-}
-
 export function useProcessingState() {
     const [isQuantizing, setIsQuantizing] = useState(false);
     const [isDedithering, setIsDedithering] = useState(false);

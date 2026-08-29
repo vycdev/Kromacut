@@ -25,6 +25,7 @@ import {
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
+import { swatchTextColor } from '@/lib/colorUtils';
 import { saveBlobToFile } from '../hooks/saveBlobToFile';
 import {
     fingerprintAppearanceFilaments,
@@ -88,11 +89,6 @@ type ProofGeneration =
           sourceProofId: string;
           deprioritizedTargetIds: readonly string[];
       };
-
-function swatchTextColor(rgb: readonly [number, number, number]): string {
-    const luminance = (0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2]) / 255;
-    return luminance > 0.55 ? '#111111' : '#ffffff';
-}
 
 function candidateRoleLabel(role: PaletteProofCandidateRole): string {
     if (role === 'previous-best') return 'previous best';

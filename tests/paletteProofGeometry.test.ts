@@ -1,11 +1,10 @@
 import assert from 'node:assert/strict';
-import { resolve } from 'node:path';
 import test from 'node:test';
 import JSZip from 'jszip';
 import * as THREE from 'three';
-import { createServer } from 'vite';
 
 import { buildPaletteProofSnapshot } from './helpers/paletteProofFixture.ts';
+import { withViteTestServer } from './helpers/viteModule.ts';
 
 type PaletteProofModule = typeof import('../src/lib/paletteProof.ts');
 type PaletteProofGeometryModule = typeof import('../src/lib/paletteProofGeometry.ts');
@@ -18,33 +17,18 @@ let modulesPromise: Promise<{
 }> | null = null;
 
 async function loadModules() {
-    modulesPromise ??= (async () => {
-        const server = await createServer({
-            appType: 'custom',
-            cacheDir: 'dist/.vite-test-cache',
-            configFile: false,
-            logLevel: 'error',
-            optimizeDeps: { noDiscovery: true },
-            resolve: { alias: { '@': resolve(process.cwd(), 'src') } },
-            root: process.cwd(),
-            server: { hmr: false, middlewareMode: true },
-        });
-
-        try {
-            const [proof, geometry, exporter] = await Promise.all([
-                server.ssrLoadModule('/src/lib/paletteProof.ts') as Promise<PaletteProofModule>,
-                server.ssrLoadModule(
-                    '/src/lib/paletteProofGeometry.ts'
-                ) as Promise<PaletteProofGeometryModule>,
-                server.ssrLoadModule(
-                    '/src/lib/paletteProofExport.ts'
-                ) as Promise<PaletteProofExportModule>,
-            ]);
-            return { proof, geometry, exporter };
-        } finally {
-            await server.close();
-        }
-    })();
+    modulesPromise ??= withViteTestServer(async (server) => {
+        const [proof, geometry, exporter] = await Promise.all([
+            server.ssrLoadModule('/src/lib/paletteProof.ts') as Promise<PaletteProofModule>,
+            server.ssrLoadModule(
+                '/src/lib/paletteProofGeometry.ts'
+            ) as Promise<PaletteProofGeometryModule>,
+            server.ssrLoadModule(
+                '/src/lib/paletteProofExport.ts'
+            ) as Promise<PaletteProofExportModule>,
+        ]);
+        return { proof, geometry, exporter };
+    });
     return modulesPromise;
 }
 

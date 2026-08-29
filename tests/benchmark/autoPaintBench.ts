@@ -1,8 +1,7 @@
 import { performance } from 'node:perf_hooks';
-import { resolve } from 'node:path';
-import { createServer } from 'vite';
 
 import { autoPaintGoldenScenarios } from '../autoPaintGoldenFixtures.ts';
+import { loadViteModule } from '../helpers/viteModule.ts';
 
 type AutoPaintModule = typeof import('../../src/lib/autoPaint.ts');
 type Algorithm = 'fast' | 'balanced' | 'thorough' | 'deep' | 'exact';
@@ -15,16 +14,6 @@ const LAYER_HEIGHT = 0.08;
 const FIRST_LAYER_HEIGHT = 0.16;
 const COMPRESSED_MAX_HEIGHT = 1.2;
 const SEEDS = [0x4b524f4d, 0x4b524f4e, 0x4b524f4f];
-
-async function loadAutoPaintModule(): Promise<AutoPaintModule> {
-    const server = await createServer({
-        appType: 'custom', cacheDir: 'dist/.vite-test-cache', configFile: false, logLevel: 'error',
-        optimizeDeps: { noDiscovery: true }, resolve: { alias: { '@': resolve(process.cwd(), 'src') } },
-        root: process.cwd(), server: { hmr: false, middlewareMode: true },
-    });
-    try { return (await server.ssrLoadModule('/src/lib/autoPaint.ts')) as AutoPaintModule; }
-    finally { await server.close(); }
-}
 
 function weightedSummary(samples: Sample[]) {
     const totalWeight = samples.reduce((sum, sample) => sum + sample.weight, 0);
@@ -53,7 +42,7 @@ function cumulativeHeights(sliceHeights: number[], colorOrder: number[]) {
     });
 }
 
-const autoPaint = await loadAutoPaintModule();
+const autoPaint = await loadViteModule<AutoPaintModule>('/src/lib/autoPaint.ts');
 
 // Build the printed palette exactly as the preview renders it: the per-layer
 // virtual blend colors stacked at their cumulative print heights.

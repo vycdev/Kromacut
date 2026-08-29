@@ -7,14 +7,14 @@ import {
 } from '../lib/stackMatrixCalibration';
 import { generateStackMatrix3mf } from '../lib/stackMatrixExport';
 
-export interface StackMatrixWorkerCreateRequest {
+interface StackMatrixWorkerCreateRequest {
     id: number;
     type: 'create';
     filaments: Filament[];
     options: StackMatrixBuildOptions;
 }
 
-export interface StackMatrixWorkerExportRequest {
+interface StackMatrixWorkerExportRequest {
     id: number;
     type: 'export';
     record: StackMatrixCalibrationV1;
@@ -28,7 +28,7 @@ export type StackMatrixWorkerJob =
     | Omit<StackMatrixWorkerCreateRequest, 'id'>
     | Omit<StackMatrixWorkerExportRequest, 'id'>;
 
-export interface StackMatrixWorkerPhaseResponse {
+interface StackMatrixWorkerPhaseResponse {
     id: number;
     type: 'phase';
     phase: 'planning' | 'exporting';
@@ -41,7 +41,7 @@ export interface StackMatrixWorkerCompleteResponse {
     blob: Blob;
 }
 
-export interface StackMatrixWorkerErrorResponse {
+interface StackMatrixWorkerErrorResponse {
     id: number;
     type: 'error';
     error: string;

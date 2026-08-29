@@ -18,6 +18,21 @@ const runName = variantName === 'baseline' ? caseName : `${caseName}-${variantNa
 const outputDirectory = resolve('.profiles', `${timestamp}-${runName}`);
 const profilePath = resolve(outputDirectory, 'optimizer.cpuprofile');
 const samplingIntervalMicroseconds = 1000;
+const calibratedFixtureRoot = [
+    'tests',
+    'assets',
+    'performance',
+    '8-colors-frontlit-2026-08-26',
+];
+const profiledSourcePaths = [
+    'src',
+    'tests/benchmark/calibratedOptimizer.ts',
+    'tests/helpers/viteModule.ts',
+    'tests/imageFixtures.ts',
+    'tests/assets/performance/8-colors-frontlit-2026-08-26/optimizer-variant-goldens.json',
+    'scripts/profile-calibrated.mjs',
+];
+const sourceStatePaths = [...profiledSourcePaths, 'package.json', 'package-lock.json'];
 const capturedWorkload = readWorkload(caseName);
 const capturedEnvironment = collectEnvironment(samplingIntervalMicroseconds);
 mkdirSync(outputDirectory, { recursive: true });
@@ -95,7 +110,7 @@ if (exitCode !== 0) {
     console.error(`Raw CPU profile:  ${profilePath}`);
 }
 
-function summarizeProfile(profile, fixture, metadata) {
+function summarizeProfile(profile, fallbackRunName, metadata) {
     const nodesById = new Map(profile.nodes.map((node) => [node.id, node]));
     const parentByNodeId = new Map();
     for (const node of profile.nodes) {
@@ -168,7 +183,7 @@ function summarizeProfile(profile, fixture, metadata) {
     const effectiveFixture =
         metadata.benchmark.variant && metadata.benchmark.variant !== 'baseline'
             ? `${metadata.benchmark.fixture}/${metadata.benchmark.variant}`
-            : (metadata.benchmark.fixture ?? fixture);
+            : (metadata.benchmark.fixture ?? fallbackRunName);
     return {
         fixture: effectiveFixture,
         capturedAt: new Date().toISOString(),
@@ -205,15 +220,8 @@ function parseBenchmarkOutput(output) {
     }
 }
 
-function readWorkload(fixture) {
-    const casePath = resolve(
-        'tests',
-        'assets',
-        'performance',
-        '8-colors-frontlit-2026-08-26',
-        fixture,
-        'case.json'
-    );
+function readWorkload(fixtureName) {
+    const casePath = resolve(...calibratedFixtureRoot, fixtureName, 'case.json');
     const workload = JSON.parse(readFileSync(casePath, 'utf8'));
     const caseDirectory = dirname(casePath);
     return {
@@ -274,11 +282,7 @@ function collectEnvironment(samplingInterval) {
             '--no-ext-diff',
             'HEAD',
             '--',
-            'src',
-            'tests/benchmark/calibratedOptimizer.ts',
-            'tests/imageFixtures.ts',
-            'tests/assets/performance/8-colors-frontlit-2026-08-26/optimizer-variant-goldens.json',
-            'scripts/profile-calibrated.mjs',
+            ...profiledSourcePaths,
         ],
         {
             cwd: process.cwd(),
@@ -366,13 +370,7 @@ function hashCurrentSourceState() {
             '--exclude-standard',
             '-z',
             '--',
-            'src',
-            'tests/benchmark/calibratedOptimizer.ts',
-            'tests/imageFixtures.ts',
-            'tests/assets/performance/8-colors-frontlit-2026-08-26/optimizer-variant-goldens.json',
-            'scripts/profile-calibrated.mjs',
-            'package.json',
-            'package-lock.json',
+            ...sourceStatePaths,
         ],
         {
             cwd: process.cwd(),

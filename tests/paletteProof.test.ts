@@ -1,9 +1,8 @@
 import assert from 'node:assert/strict';
-import { resolve } from 'node:path';
 import test from 'node:test';
-import { createServer } from 'vite';
 
 import { buildPaletteProofSnapshot } from './helpers/paletteProofFixture.ts';
+import { loadViteModule } from './helpers/viteModule.ts';
 
 type PaletteProofModule = typeof import('../src/lib/paletteProof.ts');
 
@@ -12,25 +11,6 @@ let paletteProofModule: Promise<PaletteProofModule> | null = null;
 async function loadPaletteProofModule(): Promise<PaletteProofModule> {
     paletteProofModule ??= loadViteModule<PaletteProofModule>('/src/lib/paletteProof.ts');
     return paletteProofModule;
-}
-
-async function loadViteModule<T>(modulePath: string): Promise<T> {
-    const server = await createServer({
-        appType: 'custom',
-        cacheDir: 'dist/.vite-test-cache',
-        configFile: false,
-        logLevel: 'error',
-        optimizeDeps: { noDiscovery: true },
-        resolve: { alias: { '@': resolve(process.cwd(), 'src') } },
-        root: process.cwd(),
-        server: { hmr: false, middlewareMode: true },
-    });
-
-    try {
-        return (await server.ssrLoadModule(modulePath)) as T;
-    } finally {
-        await server.close();
-    }
 }
 
 test('default target-row footprint is a touching 44 x 68 mm matrix', async () => {

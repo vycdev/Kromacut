@@ -1,7 +1,6 @@
 import { createCenterEdgeWeight } from './regionWeighting.ts';
 
 /** Why a source pixel changed in the line-width simulation. */
-export const PRINTABLE_FEATURE_UNCHANGED = 0;
 export const PRINTABLE_FEATURE_NEIGHBOR_TAKEOVER = 1;
 export const PRINTABLE_FEATURE_NO_SUPPORT = 2;
 

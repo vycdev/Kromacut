@@ -155,3 +155,9 @@ export function estimateHidingDistanceFromColor(hex: string): number {
     // round to 2 decimals (values live in roughly 0.06–0.85 mm).
     return Math.round(estimatedTD * FRONTLIT_TD_SCALE * 100) / 100;
 }
+
+/** Choose readable light or dark text for an RGB swatch. */
+export function swatchTextColor(rgb: readonly [number, number, number]): string {
+    const luminance = (0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2]) / 255;
+    return luminance > 0.55 ? '#111111' : '#ffffff';
+}

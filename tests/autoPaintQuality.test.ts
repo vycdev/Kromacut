@@ -1,9 +1,8 @@
 import assert from 'node:assert/strict';
-import { resolve } from 'node:path';
 import test from 'node:test';
-import { createServer } from 'vite';
 
 import { autoPaintGoldenScenarios } from './autoPaintGoldenFixtures.ts';
+import { loadViteModule } from './helpers/viteModule.ts';
 
 type AutoPaintModule = typeof import('../src/lib/autoPaint.ts');
 type AutoPaintResult = ReturnType<AutoPaintModule['generateAutoLayers']>;
@@ -45,23 +44,7 @@ const QUALITY_BUDGETS: Record<string, { meanMax: number; p95Max: number; coverag
 let autoPaintModule: Promise<AutoPaintModule> | null = null;
 
 async function loadAutoPaintModule(): Promise<AutoPaintModule> {
-    autoPaintModule ??= (async () => {
-        const server = await createServer({
-            appType: 'custom',
-            cacheDir: 'dist/.vite-test-cache',
-            configFile: false,
-            logLevel: 'error',
-            optimizeDeps: { noDiscovery: true },
-            resolve: { alias: { '@': resolve(process.cwd(), 'src') } },
-            root: process.cwd(),
-            server: { hmr: false, middlewareMode: true },
-        });
-        try {
-            return (await server.ssrLoadModule('/src/lib/autoPaint.ts')) as AutoPaintModule;
-        } finally {
-            await server.close();
-        }
-    })();
+    autoPaintModule ??= loadViteModule<AutoPaintModule>('/src/lib/autoPaint.ts');
     return autoPaintModule;
 }
 

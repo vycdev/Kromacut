@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
-import { resolve } from 'node:path';
 import test from 'node:test';
-import { createServer } from 'vite';
+
+import { loadViteModule } from './helpers/viteModule.ts';
 
 type CalibrationModule = typeof import('../src/lib/calibration.ts');
 type ColorDifferenceModule = typeof import('../src/lib/colorDifference.ts');
@@ -10,25 +10,6 @@ type ColorSpaceModule = typeof import('../src/lib/colorSpace.ts');
 let calibrationModule: Promise<CalibrationModule> | null = null;
 let colorDifferenceModule: Promise<ColorDifferenceModule> | null = null;
 let colorSpaceModule: Promise<ColorSpaceModule> | null = null;
-
-async function loadViteModule<T>(modulePath: string): Promise<T> {
-    const server = await createServer({
-        appType: 'custom',
-        cacheDir: 'dist/.vite-test-cache',
-        configFile: false,
-        logLevel: 'error',
-        optimizeDeps: { noDiscovery: true },
-        resolve: { alias: { '@': resolve(process.cwd(), 'src') } },
-        root: process.cwd(),
-        server: { hmr: false, middlewareMode: true },
-    });
-
-    try {
-        return (await server.ssrLoadModule(modulePath)) as T;
-    } finally {
-        await server.close();
-    }
-}
 
 const loadCalibration = () =>
     (calibrationModule ??= loadViteModule<CalibrationModule>('/src/lib/calibration.ts'));

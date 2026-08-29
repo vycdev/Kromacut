@@ -3,10 +3,10 @@ import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { performance } from 'node:perf_hooks';
-import { createServer } from 'vite';
 
 import { readPngFixture } from '../imageFixtures.ts';
 import { rgbToHsl } from '../../src/lib/color.ts';
+import { withViteTestServer } from '../helpers/viteModule.ts';
 
 interface CalibratedOptimizerCase {
     profile: string;
@@ -93,17 +93,7 @@ type LoadedModules = {
 };
 
 async function loadModules(): Promise<LoadedModules> {
-    const server = await createServer({
-        appType: 'custom',
-        cacheDir: 'dist/.vite-test-cache',
-        configFile: false,
-        logLevel: 'error',
-        optimizeDeps: { noDiscovery: true },
-        resolve: { alias: { '@': resolve(process.cwd(), 'src') } },
-        root: process.cwd(),
-        server: { hmr: false, middlewareMode: true },
-    });
-    try {
+    return withViteTestServer(async (server) => {
         const [autoPaint, appearanceModel, appearanceProfile, profileManager] = await Promise.all([
             server.ssrLoadModule('/src/lib/autoPaint.ts'),
             server.ssrLoadModule('/src/lib/appearanceModel.ts'),
@@ -116,9 +106,7 @@ async function loadModules(): Promise<LoadedModules> {
             appearanceProfile: appearanceProfile as LoadedModules['appearanceProfile'],
             profileManager: profileManager as LoadedModules['profileManager'],
         };
-    } finally {
-        await server.close();
-    }
+    });
 }
 
 function imageSwatches(path: string): Array<{ hex: string; count: number }> {

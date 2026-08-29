@@ -66,10 +66,6 @@ export function parseDocsLocation(location: Pick<Location, 'pathname' | 'hash'>)
     return parseDocsPath(location.pathname, location.hash);
 }
 
-export function isDocsPath(pathname: string): boolean {
-    return parseDocsPath(pathname) !== null;
-}
-
 export function resolveDocHref(
     href: string,
     currentDocSlug: string,
