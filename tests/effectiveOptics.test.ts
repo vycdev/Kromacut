@@ -1,32 +1,13 @@
 import assert from 'node:assert/strict';
-import { resolve } from 'node:path';
 import test from 'node:test';
-import { createServer } from 'vite';
 
 import type { Filament } from '../src/types/index.ts';
 import type { AppearanceEffectiveOpticsModelV1 } from '../src/types/appearance.ts';
+import { loadViteModule } from './helpers/viteModule.ts';
 
 type EffectiveOpticsModule = typeof import('../src/lib/effectiveOptics.ts');
 
-async function loadModule(): Promise<EffectiveOpticsModule> {
-    const server = await createServer({
-        appType: 'custom',
-        cacheDir: 'dist/.vite-test-cache',
-        configFile: false,
-        logLevel: 'error',
-        optimizeDeps: { noDiscovery: true },
-        resolve: { alias: { '@': resolve(process.cwd(), 'src') } },
-        root: process.cwd(),
-        server: { hmr: false, middlewareMode: true },
-    });
-    try {
-        return (await server.ssrLoadModule('/src/lib/effectiveOptics.ts')) as EffectiveOpticsModule;
-    } finally {
-        await server.close();
-    }
-}
-
-const modulePromise = loadModule();
+const modulePromise = loadViteModule<EffectiveOpticsModule>('/src/lib/effectiveOptics.ts');
 
 const filaments: Filament[] = [
     { id: 'foundation', color: '#242b32', td: 0.36 },

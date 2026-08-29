@@ -10,10 +10,10 @@ import {
     DEFAULT_TRANSITION_OPACITY,
     generateAutoLayers,
     type AutoPaintImageSwatch,
+    type AutoPaintResult,
 } from '../lib/autoPaint';
 import type { AutoPaintRepeatLimit, Filament } from '../types';
 import type { OptimizerOptions } from '../lib/optimizer';
-import type { AutoPaintResult } from '../lib/autoPaint';
 import { fitAppearanceRankModel } from '../lib/appearanceModel';
 import {
     fingerprintAppearanceFilaments,
@@ -38,7 +38,7 @@ export interface AutoPaintWorkerRequest {
     appearance?: AppearanceProfileV1;
 }
 
-export interface AutoPaintWorkerResult {
+interface AutoPaintWorkerResult {
     id: number;
     result?: AutoPaintResult;
     error?: string;

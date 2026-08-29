@@ -1,7 +1,5 @@
 import assert from 'node:assert/strict';
-import { resolve } from 'node:path';
 import test from 'node:test';
-import { createServer } from 'vite';
 
 import type { Filament } from '../src/types/index.ts';
 import type { CanonicalSrgbColor, FinalPrintableStackSnapshot } from '../src/types/appearance.ts';
@@ -15,6 +13,7 @@ import {
     rgbToLab,
 } from '../src/lib/colorDifference.ts';
 import { buildPaletteProofSnapshot } from './helpers/paletteProofFixture.ts';
+import { withViteTestServer } from './helpers/viteModule.ts';
 
 type AppearanceModelModule = typeof import('../src/lib/appearanceModel.ts');
 type AppearanceProfileModule = typeof import('../src/lib/appearanceProfile.ts');
@@ -27,17 +26,7 @@ async function loadModules(): Promise<{
     proof: PaletteProofModule;
     history: PaletteProofHistoryModule;
 }> {
-    const server = await createServer({
-        appType: 'custom',
-        cacheDir: 'dist/.vite-test-cache',
-        configFile: false,
-        logLevel: 'error',
-        optimizeDeps: { noDiscovery: true },
-        resolve: { alias: { '@': resolve(process.cwd(), 'src') } },
-        root: process.cwd(),
-        server: { hmr: false, middlewareMode: true },
-    });
-    try {
+    return withViteTestServer(async (server) => {
         return {
             model: (await server.ssrLoadModule(
                 '/src/lib/appearanceModel.ts'
@@ -50,9 +39,7 @@ async function loadModules(): Promise<{
                 '/src/lib/paletteProofHistory.ts'
             )) as PaletteProofHistoryModule,
         };
-    } finally {
-        await server.close();
-    }
+    });
 }
 
 const modules = loadModules();

@@ -1,9 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { resolve } from 'node:path';
 import * as THREE from 'three';
 import JSZip from 'jszip';
-import { createServer } from 'vite';
 import {
     buildFlatPaintLayout,
     heightMapToFlatPaintLayerCounts,
@@ -16,6 +14,7 @@ import {
 } from '../src/lib/flatPaint.ts';
 import { generateGreedyMesh, type MeshData } from '../src/lib/meshing.ts';
 import { exportObjectToStlBlob } from '../src/lib/exportStl.ts';
+import { loadViteModule } from './helpers/viteModule.ts';
 import { inspectMeshIntegrity, type MeshIntegrityReport } from './meshDiagnostics.ts';
 
 type Export3mfModule = typeof import('../src/lib/export3mf.ts');
@@ -26,34 +25,6 @@ async function loadExport3mfModule(): Promise<Export3mfModule> {
     export3mfModule ??= loadViteModule<Export3mfModule>('/src/lib/export3mf.ts');
 
     return export3mfModule;
-}
-
-async function loadViteModule<T>(modulePath: string): Promise<T> {
-    const server = await createServer({
-        appType: 'custom',
-        cacheDir: 'dist/.vite-test-cache',
-        configFile: false,
-        logLevel: 'error',
-        optimizeDeps: {
-            noDiscovery: true,
-        },
-        resolve: {
-            alias: {
-                '@': resolve(process.cwd(), 'src'),
-            },
-        },
-        root: process.cwd(),
-        server: {
-            hmr: false,
-            middlewareMode: true,
-        },
-    });
-
-    try {
-        return (await server.ssrLoadModule(modulePath)) as T;
-    } finally {
-        await server.close();
-    }
 }
 
 const noYieldOptions = {

@@ -1,5 +1,4 @@
-import { spawn } from 'node:child_process';
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { arch, cpus, platform, release } from 'node:os';

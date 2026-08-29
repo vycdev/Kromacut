@@ -3,16 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { CollapsibleCard, DirtyDot } from '@/components/CollapsibleCard';
 import { Check, RotateCcw } from 'lucide-react';
-
-export type SliderDef = {
-    key: string;
-    label: string;
-    min: number;
-    max: number;
-    step: number;
-    default: number;
-    unit?: string;
-};
+import type { SliderDef } from '@/components/sliderDefs';
 
 interface Props {
     defs: SliderDef[];

@@ -1,8 +1,6 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { performance } from 'node:perf_hooks';
-import { resolve } from 'node:path';
-import { createServer } from 'vite';
 import {
     createCenterEdgeWeight,
     createCenterWeight,
@@ -10,6 +8,7 @@ import {
 } from '../../src/lib/regionWeighting.ts';
 import { reconcileColorOrder } from '../../src/lib/colorOrder.ts';
 import { hexLuminance } from '../../src/lib/colorUtils.ts';
+import { loadViteModule } from '../helpers/viteModule.ts';
 
 type AutoPaintModule = typeof import('../../src/lib/autoPaint.ts');
 
@@ -29,25 +28,7 @@ const EXPECTED_RESULTS = {
     },
 } as const;
 
-async function loadAutoPaintModule(): Promise<AutoPaintModule> {
-    const server = await createServer({
-        appType: 'custom',
-        cacheDir: 'dist/.vite-test-cache',
-        configFile: false,
-        logLevel: 'error',
-        optimizeDeps: { noDiscovery: true },
-        resolve: { alias: { '@': resolve(process.cwd(), 'src') } },
-        root: process.cwd(),
-        server: { hmr: false, middlewareMode: true },
-    });
-    try {
-        return (await server.ssrLoadModule('/src/lib/autoPaint.ts')) as AutoPaintModule;
-    } finally {
-        await server.close();
-    }
-}
-
-const autoPaint = await loadAutoPaintModule();
+const autoPaint = await loadViteModule<AutoPaintModule>('/src/lib/autoPaint.ts');
 
 const palette = Array.from({ length: 160 }, (_, index) => {
     const phase = index / 17;

@@ -2,7 +2,6 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import test from 'node:test';
-import { createServer } from 'vite';
 
 import {
     centerWeightAt,
@@ -11,6 +10,7 @@ import {
     createEdgeWeight,
     edgeWeightAt,
 } from '../src/lib/regionWeighting.ts';
+import { loadViteModule } from './helpers/viteModule.ts';
 
 type AutoPaintModule = typeof import('../src/lib/autoPaint.ts');
 let autoPaintModule: Promise<AutoPaintModule> | null = null;
@@ -18,25 +18,6 @@ let autoPaintModule: Promise<AutoPaintModule> | null = null;
 async function loadAutoPaintModule(): Promise<AutoPaintModule> {
     autoPaintModule ??= loadViteModule<AutoPaintModule>('/src/lib/autoPaint.ts');
     return autoPaintModule;
-}
-
-async function loadViteModule<T>(modulePath: string): Promise<T> {
-    const server = await createServer({
-        appType: 'custom',
-        cacheDir: 'dist/.vite-test-cache',
-        configFile: false,
-        logLevel: 'error',
-        optimizeDeps: { noDiscovery: true },
-        resolve: { alias: { '@': resolve(process.cwd(), 'src') } },
-        root: process.cwd(),
-        server: { hmr: false, middlewareMode: true },
-    });
-
-    try {
-        return (await server.ssrLoadModule(modulePath)) as T;
-    } finally {
-        await server.close();
-    }
 }
 
 test('precomputed weight factories match the scalar helpers exactly', () => {

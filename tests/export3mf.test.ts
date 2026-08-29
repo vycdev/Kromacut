@@ -4,7 +4,6 @@ import { resolve } from 'node:path';
 import test, { type TestContext } from 'node:test';
 import JSZip from 'jszip';
 import * as THREE from 'three';
-import { createServer } from 'vite';
 import { exportObjectToStlBlob } from '../src/lib/exportStl.ts';
 import { generateGreedyMesh, generateSmoothMesh, type MeshData } from '../src/lib/meshing.ts';
 import {
@@ -17,6 +16,7 @@ import {
     type PngImage,
     type RasterMask,
 } from './imageFixtures.ts';
+import { loadViteModule } from './helpers/viteModule.ts';
 import { inspectMeshIntegrity, type MeshIntegrityReport } from './meshDiagnostics.ts';
 
 type Export3mfModule = typeof import('../src/lib/export3mf.ts');
@@ -251,34 +251,6 @@ async function loadAutoPaintModule(): Promise<AutoPaintModule> {
     autoPaintModule ??= loadViteModule<AutoPaintModule>('/src/lib/autoPaint.ts');
 
     return autoPaintModule;
-}
-
-async function loadViteModule<T>(modulePath: string): Promise<T> {
-    const server = await createServer({
-        appType: 'custom',
-        cacheDir: 'dist/.vite-test-cache',
-        configFile: false,
-        logLevel: 'error',
-        optimizeDeps: {
-            noDiscovery: true,
-        },
-        resolve: {
-            alias: {
-                '@': resolve(process.cwd(), 'src'),
-            },
-        },
-        root: process.cwd(),
-        server: {
-            hmr: false,
-            middlewareMode: true,
-        },
-    });
-
-    try {
-        return (await server.ssrLoadModule(modulePath)) as T;
-    } finally {
-        await server.close();
-    }
 }
 
 function createSharedCubeGeometry() {

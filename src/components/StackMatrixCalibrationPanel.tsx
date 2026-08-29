@@ -27,6 +27,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
+import { downloadBlob } from '@/hooks/downloadBlob';
 import type { Filament } from '@/types';
 import type { AutoPaintProfile } from '@/lib/profileManager';
 import {
@@ -143,15 +144,6 @@ function cornerMarkerColor(record: StackMatrixCalibrationV1, cornerIndex: number
             : record.filaments[visibleFilamentIndex]?.color) ??
         '#808080'
     );
-}
-
-function downloadBlob(blob: Blob, fileName: string) {
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = fileName;
-    anchor.click();
-    URL.revokeObjectURL(url);
 }
 
 function recordLabel(record: StackMatrixCalibrationV1): string {

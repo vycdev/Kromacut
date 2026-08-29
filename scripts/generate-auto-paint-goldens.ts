@@ -1,34 +1,15 @@
 import { writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { createServer } from 'vite';
 
 import { autoPaintGoldenScenarios } from '../tests/autoPaintGoldenFixtures.ts';
+import { loadViteModule } from '../tests/helpers/viteModule.ts';
 
 type AutoPaintModule = typeof import('../src/lib/autoPaint.ts');
 
 const LAYER_HEIGHT = 0.08;
 const FIRST_LAYER_HEIGHT = 0.16;
 
-async function loadAutoPaintModule(): Promise<AutoPaintModule> {
-    const server = await createServer({
-        appType: 'custom',
-        cacheDir: 'dist/.vite-test-cache',
-        configFile: false,
-        logLevel: 'error',
-        optimizeDeps: { noDiscovery: true },
-        resolve: { alias: { '@': resolve(process.cwd(), 'src') } },
-        root: process.cwd(),
-        server: { hmr: false, middlewareMode: true },
-    });
-
-    try {
-        return (await server.ssrLoadModule('/src/lib/autoPaint.ts')) as AutoPaintModule;
-    } finally {
-        await server.close();
-    }
-}
-
-const { generateAutoLayers } = await loadAutoPaintModule();
+const { generateAutoLayers } = await loadViteModule<AutoPaintModule>('/src/lib/autoPaint.ts');
 const goldens = Object.fromEntries(
     autoPaintGoldenScenarios().map((scenario) => {
         const result = generateAutoLayers(

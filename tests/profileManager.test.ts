@@ -2,33 +2,14 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { createServer } from 'vite';
 
 import { parseHueForgeCSV, type AutoPaintProfile } from '../src/lib/profileManager.ts';
 import { TEMPLATE_PROFILES } from '../src/data/supplierFilaments.ts';
+import { loadViteModule } from './helpers/viteModule.ts';
 
 type ProfileManagerModule = typeof import('../src/lib/profileManager.ts');
 
 let profileManagerModule: Promise<ProfileManagerModule> | null = null;
-
-async function loadViteModule<T>(modulePath: string): Promise<T> {
-    const server = await createServer({
-        appType: 'custom',
-        cacheDir: 'dist/.vite-test-cache',
-        configFile: false,
-        logLevel: 'error',
-        optimizeDeps: { noDiscovery: true },
-        resolve: { alias: { '@': resolve(process.cwd(), 'src') } },
-        root: process.cwd(),
-        server: { hmr: false, middlewareMode: true },
-    });
-
-    try {
-        return (await server.ssrLoadModule(modulePath)) as T;
-    } finally {
-        await server.close();
-    }
-}
 
 const loadProfileManager = () =>
     (profileManagerModule ??= loadViteModule<ProfileManagerModule>('/src/lib/profileManager.ts'));
