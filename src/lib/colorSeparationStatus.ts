@@ -9,19 +9,17 @@ export function formatColorSeparationStatus(
     extraRepeatCount: number = 0
 ): string {
     const parts = [
-        `${report.uniquelyPreservedWithinThresholdCount}/${report.requestedColorCount} colors uniquely preserved within ΔE ${report.maximumAllowedDeltaE}`,
+        `${report.uniquelyPreservedWithinThresholdCount}/${report.requestedColorCount} colors preserved within ΔE ${report.maximumAllowedDeltaE}`,
     ];
-    if (report.reusedPrintableColorCount > 0) {
+    if (report.mergedColorCount > 0) {
         parts.push(
-            report.reusedPrintableColorCount === 1
-                ? '1 color reuses a printable color'
-                : `${report.reusedPrintableColorCount} colors reuse printable colors`
+            report.mergedColorCount === 1
+                ? '1 color dropped and merged into a preserved color'
+                : `${report.mergedColorCount} colors dropped and merged into preserved colors`
         );
     }
     parts.push(
-        report.printableColorCount === 1
-            ? '1 distinct printable color available'
-            : `${report.printableColorCount} distinct printable colors available`
+        `${report.assignedDistinctColorCount} printable surface ${report.assignedDistinctColorCount === 1 ? 'color' : 'colors'} used from ${report.printableColorCount} available`
     );
     if (report.unmappedColorCount > 0) {
         parts.push(
@@ -30,16 +28,7 @@ export function formatColorSeparationStatus(
                 : `${report.unmappedColorCount} image colors have no printable mapping`
         );
     }
-    if (report.mappedWithinThresholdCount + report.overThresholdColorCount > 0) {
-        parts.push(
-            report.overThresholdColorCount === 0
-                ? `all final mappings within ΔE ${report.maximumAllowedDeltaE}`
-                : report.overThresholdColorCount === 1
-                  ? `1 final mapping exceeds ΔE ${report.maximumAllowedDeltaE}`
-                  : `${report.overThresholdColorCount} final mappings exceed ΔE ${report.maximumAllowedDeltaE}`
-        );
-    }
-    parts.push(`worst mapped ΔE ${formatReportedDeltaE(report.maximumDeltaE)}`);
+    parts.push(`worst preserved ΔE ${formatReportedDeltaE(report.maximumPreservedDeltaE)}`);
     parts.push(
         extraRepeatCount > 0
             ? `${extraRepeatCount} additional filament ${extraRepeatCount === 1 ? 'run' : 'runs'} used`

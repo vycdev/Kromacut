@@ -83,6 +83,97 @@ test('sequence scoring retains only bounded scalar results without changing scor
     assert.equal(bounded.cacheSize(), 2);
 });
 
+test('separation candidate comparison follows the explicit lexicographic priorities', async () => {
+    const { compareSeparationSequenceEvaluations } = await loadOptimizerModule();
+    const evaluation = (
+        preserved: number,
+        weight: number,
+        error: number,
+        printableLayerCount: number,
+        usedFilamentOccurrenceCount: number = printableLayerCount
+    ) => ({
+        score: 1,
+        printableLayerCount,
+        filamentOccurrenceCount: usedFilamentOccurrenceCount,
+        usedPrintableLayerCount: printableLayerCount,
+        usedFilamentOccurrenceCount,
+        usedHeight: printableLayerCount * 0.08,
+        separation: {
+            requestedColorCount: 4,
+            printableColorCount: 8,
+            assignedDistinctColorCount: preserved,
+            uniquelyPreservedWithinThresholdCount: preserved,
+            unacceptableColorCount: 4 - preserved,
+            mappedWithinThresholdCount: preserved,
+            overThresholdColorCount: 4 - preserved,
+            unmappedColorCount: 0,
+            reusedPrintableColorCount: 4 - preserved,
+            maximumDeltaE: 20,
+            maximumPreservedDeltaE: error,
+            preservedTargetWeight: weight,
+            preservedWeightedMeanDeltaE: error,
+            mergedColorCount: 4 - preserved,
+            maximumAllowedDeltaE: 10,
+            satisfied: preserved === 4,
+        },
+    });
+
+    assert.ok(
+        compareSeparationSequenceEvaluations(
+            evaluation(3, 0.3, 9, 100),
+            evaluation(2, 0.9, 1, 1),
+            8,
+            0
+        ) < 0,
+        'preserved color count must outrank every later metric'
+    );
+    assert.ok(
+        compareSeparationSequenceEvaluations(
+            evaluation(2, 0.8, 9, 100),
+            evaluation(2, 0.7, 1, 1),
+            8,
+            0
+        ) < 0,
+        'source coverage must break equal-cardinality ties'
+    );
+    assert.ok(
+        compareSeparationSequenceEvaluations(
+            evaluation(2, 0.8, 3, 100),
+            evaluation(2, 0.8, 4, 1),
+            8,
+            0
+        ) > 0,
+        'an in-limit numerical improvement must not justify a much larger physical stack'
+    );
+    assert.ok(
+        compareSeparationSequenceEvaluations(
+            evaluation(2, 0.8, 3, 100),
+            evaluation(2, 0.8, 3, 1),
+            1,
+            2
+        ) < 0,
+        'fewer repeats must outrank stack length'
+    );
+    assert.ok(
+        compareSeparationSequenceEvaluations(
+            evaluation(2, 0.8, 3, 10),
+            evaluation(2, 0.8, 3, 11),
+            1,
+            1
+        ) < 0,
+        'shorter printable stacks must break the final semantic tie'
+    );
+    assert.ok(
+        compareSeparationSequenceEvaluations(
+            evaluation(2, 0.8, 3, 10, 2),
+            evaluation(2, 0.8, 4, 10, 2),
+            1,
+            1
+        ) < 0,
+        'preserved error must break ties between equally compact stacks'
+    );
+});
+
 test('evidence-aware prefix caching is bounded and preserves exact sequence scores', async () => {
     const { createSequenceScorer } = await loadOptimizerModule();
     const appearanceModel = {
@@ -595,6 +686,8 @@ test('color separation does not add repeated filament runs when the base sequenc
 
     assert.equal(result.separation?.satisfied, true);
     assert.equal(result.extraRepeatCount, 0, 'the no-repeat tier must be accepted first');
+    assert.equal(result.optimality, 'exact');
+    assert.equal(result.singleRemovalMinimal, true);
     assert.equal(
         new Set(result.order.map((filament) => filament.id)).size,
         result.order.length,
@@ -603,6 +696,82 @@ test('color separation does not add repeated filament runs when the base sequenc
     assert.ok(
         Math.max(...progress.filter((value) => value < 1)) >= 0.49,
         'the primary no-repeat search should occupy a visible portion of staged progress'
+    );
+});
+
+test('discarded separation targets do not retain their candidate filament runs', async () => {
+    const { optimizeFilamentOrder } = await loadOptimizerModule();
+    const result = optimizeFilamentOrder(
+        [
+            { id: 'black', color: '#000000', td: 1 },
+            { id: 'red', color: '#ff0000', td: 1 },
+            { id: 'white', color: '#ffffff', td: 10 },
+        ],
+        {
+            imageColors: [
+                { L: 10, a: 0, b: 0, weight: 0.75 },
+                { L: 88, a: -86, b: 83, weight: 0.25 },
+            ],
+            layerHeight: 0.08,
+            firstLayerHeight: 0.16,
+        },
+        {
+            algorithm: 'exact',
+            preserveSeparation: true,
+            separationMaxDeltaE: 10,
+            failOnSeparationError: false,
+            maxExtraRepeats: 0,
+            cachingEnabled: false,
+        }
+    );
+
+    assert.equal(result.separation?.uniquelyPreservedWithinThresholdCount, 1);
+    assert.equal(result.separation?.mergedColorCount, 1);
+    assert.deepEqual(
+        result.order.map((filament) => filament.id),
+        ['black'],
+        'a closer gray blend and the unmatched green target must not justify extra in-limit runs'
+    );
+    assert.equal(result.optimality, 'exact');
+    assert.equal(result.singleRemovalMinimal, true);
+});
+
+test('incomplete separation exhausts every configured repeat tier', async () => {
+    const { optimizeFilamentOrder } = await loadOptimizerModule();
+    const impossibleContext = {
+        imageColors: [
+            { L: 0, a: 0, b: 0, weight: 0.5 },
+            { L: 100, a: 0, b: 0, weight: 0.5 },
+        ],
+        layerHeight: 0.08,
+        firstLayerHeight: 0.16,
+    };
+    const options = {
+        algorithm: 'exhaustive' as const,
+        preserveSeparation: true,
+        separationMaxDeltaE: 1,
+        cachingEnabled: false,
+    };
+    const oneTier = optimizeFilamentOrder(
+        [{ id: 'black', color: '#000000', td: 1 }],
+        impossibleContext,
+        { ...options, maxExtraRepeats: 1 }
+    );
+    const twoTiers = optimizeFilamentOrder(
+        [{ id: 'black', color: '#000000', td: 1 }],
+        impossibleContext,
+        { ...options, maxExtraRepeats: 2 }
+    );
+
+    assert.equal(oneTier.separation?.satisfied, false);
+    assert.equal(twoTiers.separation?.satisfied, false);
+    assert.equal(oneTier.optimality, 'best-found');
+    assert.equal(twoTiers.optimality, 'best-found');
+    assert.equal(oneTier.repeatTiersEvaluated, 2);
+    assert.equal(
+        twoTiers.repeatTiersEvaluated,
+        3,
+        'an unsatisfied search must not stop before the final configured repeat tier'
     );
 });
 
@@ -628,6 +797,8 @@ test('fast uses a narrow beam while explicit exhaustive remains exact', async ()
 
     assert.equal(fast.resolvedAlgorithm, 'narrow-beam');
     assert.equal(exhaustive.resolvedAlgorithm, 'exhaustive');
+    assert.equal(fast.optimality, 'best-found');
+    assert.equal(exhaustive.optimality, 'exact');
     assert.equal(
         exhaustive.iterations,
         13_699,

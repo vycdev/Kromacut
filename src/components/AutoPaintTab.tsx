@@ -1138,7 +1138,7 @@ export default function AutoPaintTab({
                                                 id="separation-max-delta-e"
                                                 data-testid="autopaint-separation-max-delta-e"
                                                 aria-label="Unique-match color error limit"
-                                                title="Raw color-error limit for giving each image color a different printable color. Fallback mappings may exceed it."
+                                                title="Hard color-error limit for preserving an image color as its own printable surface color."
                                                 min={MIN_SEPARATION_MAX_DELTA_E}
                                                 max={MAX_SEPARATION_MAX_DELTA_E}
                                                 step={0.1}
@@ -1181,6 +1181,11 @@ export default function AutoPaintTab({
                                                 onCheckedChange={setFailOnSeparationError}
                                             />
                                         </div>
+                                        <p className="leading-relaxed">
+                                            Colors without a unique match inside the limit are
+                                            dropped and merged into preserved colors. Requiring
+                                            every color rejects the result instead.
+                                        </p>
                                         {autoPaintResult && (
                                             <ColorSeparationStatus result={autoPaintResult} />
                                         )}
@@ -1581,9 +1586,27 @@ export default function AutoPaintTab({
                                                     Cache hit
                                                 </span>
                                             )}
-                                            {autoPaintResult.optimizerMetadata.converged && (
-                                                <span className="px-1.5 py-0.5 rounded border border-border/60 bg-background/50">
-                                                    Converged
+                                            <span
+                                                className="px-1.5 py-0.5 rounded border border-border/60 bg-background/50"
+                                                title={
+                                                    autoPaintResult.optimizerMetadata.optimality ===
+                                                    'exact'
+                                                        ? 'Every candidate in the applicable exact search space was compared.'
+                                                        : 'Heuristic search result; a better combined order may still exist.'
+                                                }
+                                            >
+                                                {autoPaintResult.optimizerMetadata.optimality ===
+                                                'exact'
+                                                    ? 'Exact optimum'
+                                                    : 'Best found'}
+                                            </span>
+                                            {autoPaintResult.optimizerMetadata
+                                                .singleRemovalMinimal && (
+                                                <span
+                                                    className="px-1.5 py-0.5 rounded border border-border/60 bg-background/50"
+                                                    title="Removing any one filament occurrence worsens preserved colors, coverage, or the selected physical-complexity objective."
+                                                >
+                                                    No removable run
                                                 </span>
                                             )}
                                         </span>
@@ -1614,13 +1637,13 @@ export default function AutoPaintTab({
                                                 title={
                                                     autoPaintResult.colorSeparation?.satisfied ===
                                                     false
-                                                        ? 'The separation constraint was not satisfied, so the internal optimizer objective includes hard constraint penalties.'
+                                                        ? 'Some source colors had no distinct printable match inside the hard limit and were merged into preserved colors.'
                                                         : 'Lower is better.'
                                                 }
                                             >
                                                 {autoPaintResult.colorSeparation?.satisfied ===
                                                 false
-                                                    ? 'Constraint unmet'
+                                                    ? 'Partial palette'
                                                     : Number.isFinite(
                                                             autoPaintResult.optimizerMetadata.score
                                                         )

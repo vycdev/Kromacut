@@ -13,8 +13,27 @@ test.describe('landing page smoke @smoke', () => {
         await expect(communityLinks.getByRole('link')).toHaveCount(4);
         await expect(communityLinks.getByRole('link', { name: 'r/kromacut on Reddit' })).toHaveAttribute('href', 'https://www.reddit.com/r/kromacut/');
         await expect(page.getByRole('heading', { name: 'Made by the Kromacut community.' })).toBeVisible();
-        await expect(page.getByAltText(/Hobbits and Dragons/)).toHaveCount(2);
-        await expect(page.getByRole('link', { name: 'View the Reddit post' })).toHaveAttribute('href', 'https://www.reddit.com/r/kromacut/comments/1vum7om/hobbits_and_dragons/');
+        const showcase = page.getByTestId('community-showcase');
+        const communityGallery = showcase.getByTestId('community-gallery');
+        await expect(communityGallery.getByAltText(/Hobbits and Dragons/)).toHaveCount(2);
+        await expect(communityGallery.getByAltText(/King of Hearts playing-card print/)).toHaveCount(2);
+        await expect(communityGallery.getByText('By vycdev')).toHaveCount(2);
+        await expect(communityGallery.getByText('47.72 \u00d7 66.53 \u00d7 3.2 mm')).toHaveCount(2);
+        const redditLinks = communityGallery.getByRole('link', { name: 'View Reddit post' });
+        await expect(redditLinks).toHaveCount(2);
+        await expect(redditLinks.first()).toHaveAttribute('href', 'https://www.reddit.com/r/kromacut/comments/1vum7om/hobbits_and_dragons/');
+        const showcaseImageAlts = await communityGallery.locator('img').evaluateAll((images) => images.slice(-2).map((image) => image.getAttribute('alt')));
+        expect(showcaseImageAlts).toEqual([
+            'Slicer preview of the multicolor King of Hearts playing-card print',
+            'A multicolor layered King of Hearts playing-card print',
+        ]);
+        const hopeShowcase = showcase.getByTestId('hope-showcase');
+        await expect(hopeShowcase.getByRole('heading', { name: 'Hope poster field test' })).toBeVisible();
+        await expect(hopeShowcase.getByText('1 of 4 target colors close')).toBeVisible();
+        await expect(hopeShowcase.getByAltText(/Hope poster/)).toHaveCount(3);
+        await expect(hopeShowcase.getByText('By vycdev')).toHaveCount(3);
+        await expect(hopeShowcase.getByText('72 \u00d7 108.4 \u00d7 3.04 mm')).toHaveCount(3);
+        await expect(showcase.getByRole('link', { name: 'Open a pull request' })).toHaveAttribute('href', 'https://github.com/vycdev/Kromacut/pulls');
 
         await page.getByTestId('landing-open-app').click();
         await expect(page).toHaveURL(/\/app$/);

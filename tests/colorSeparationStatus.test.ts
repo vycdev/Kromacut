@@ -16,32 +16,37 @@ function report(overrides: Partial<ColorSeparationReport> = {}): ColorSeparation
         unmappedColorCount: 0,
         reusedPrintableColorCount: 1,
         maximumDeltaE: 4,
+        maximumPreservedDeltaE: 4,
+        preservedTargetWeight: 0.5,
+        preservedWeightedMeanDeltaE: 4,
+        mergedColorCount: 1,
         maximumAllowedDeltaE: 6,
         satisfied: false,
         ...overrides,
     };
 }
 
-test('separation status distinguishes unique preservation from within-limit reuse', () => {
+test('separation status explains that unmatched colors are dropped and merged', () => {
     assert.equal(
         formatColorSeparationStatus(report()),
-        '1/2 colors uniquely preserved within ΔE 6 · 1 color reuses a printable color · 1 distinct printable color available · all final mappings within ΔE 6 · worst mapped ΔE 4 · no repeated filament runs needed'
+        '1/2 colors preserved within ΔE 6 · 1 color dropped and merged into a preserved color · 1 printable surface color used from 1 available · worst preserved ΔE 4 · no repeated filament runs needed'
     );
 });
 
-test('separation status calls out an over-limit final mapping and precise worst error', () => {
+test('separation status reports available capacity without treating a merged color as preserved', () => {
     assert.equal(
         formatColorSeparationStatus(
             report({
                 printableColorCount: 2,
                 mappedWithinThresholdCount: 1,
                 overThresholdColorCount: 1,
-                reusedPrintableColorCount: 0,
+                reusedPrintableColorCount: 1,
                 maximumDeltaE: 6.004,
+                mergedColorCount: 1,
             }),
             2
         ),
-        '1/2 colors uniquely preserved within ΔE 6 · 2 distinct printable colors available · 1 final mapping exceeds ΔE 6 · worst mapped ΔE 6.004 · 2 additional filament runs used'
+        '1/2 colors preserved within ΔE 6 · 1 color dropped and merged into a preserved color · 1 printable surface color used from 2 available · worst preserved ΔE 4 · 2 additional filament runs used'
     );
 });
 
@@ -58,8 +63,12 @@ test('separation status keeps unmapped colors separate from over-limit mappings'
                 unmappedColorCount: 1,
                 reusedPrintableColorCount: 0,
                 maximumDeltaE: Infinity,
+                maximumPreservedDeltaE: Infinity,
+                preservedTargetWeight: 0,
+                preservedWeightedMeanDeltaE: Infinity,
+                mergedColorCount: 0,
             })
         ),
-        '0/1 colors uniquely preserved within ΔE 6 · 0 distinct printable colors available · 1 image color has no printable mapping · worst mapped ΔE unavailable · no repeated filament runs needed'
+        '0/1 colors preserved within ΔE 6 · 0 printable surface colors used from 0 available · 1 image color has no printable mapping · worst preserved ΔE unavailable · no repeated filament runs needed'
     );
 });

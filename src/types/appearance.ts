@@ -287,6 +287,8 @@ export interface FinalStackTargetMappingSnapshot {
     predictedLab: readonly [number, number, number];
     /** Optional only for snapshots created before prediction confidence existed. */
     predictionConfidence?: AppearancePredictionConfidenceV1;
+    /** False when Preserve color separation merged this source color into a surviving mapping. */
+    preservedWithinThreshold?: boolean;
     sampleContext: TargetSampleContext;
 }
 

@@ -10,6 +10,7 @@ import {
     Monitor,
     Moon,
     Play,
+    Ruler,
     Sun,
 } from 'lucide-react';
 import React from 'react';
@@ -20,6 +21,11 @@ import sliced from '../../content/fuji3dsliced.png';
 import printed from '../../content/printed.jpg';
 import hobbitsAndDragonsOne from '../../content/community/hobbits-and-dragons-1.jpg';
 import hobbitsAndDragonsTwo from '../../content/community/hobbits-and-dragons-2.jpg';
+import kingOfHearts from '../../content/community/king-of-hearts.jpg';
+import kingOfHeartsSlicer from '../../content/community/king-of-hearts-slicer.jpg';
+import hopeKromacutPreview from '../../content/community/hope-kromacut-preview.jpg';
+import hopeSlicerPreview from '../../content/community/hope-slicer-preview.jpg';
+import hopeFinished from '../../content/community/hope-finished.jpg';
 import redditIcon from '../assets/reddit.svg';
 import { APP_PATH, docsPath } from '@/lib/routes';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -84,19 +90,108 @@ const workflow = [
     },
 ];
 
-const communityShowcase = [
+interface ShowcaseItem {
+    alt: string;
+    creator: string;
+    dimensions?: string;
+    href?: string;
+    image: string;
+    kind: string;
+    note?: string;
+    title: string;
+}
+
+const communityShowcase: ShowcaseItem[] = [
     {
         image: hobbitsAndDragonsOne,
         alt: 'A colorful Hobbits and Dragons layered 3D print',
+        title: 'Hobbits and Dragons',
+        kind: 'Finished print',
+        creator: 'u/ominaex25',
+        href: 'https://www.reddit.com/r/kromacut/comments/1vum7om/hobbits_and_dragons/',
     },
     {
         image: hobbitsAndDragonsTwo,
         alt: 'A second view of the Hobbits and Dragons layered 3D print',
+        title: 'Hobbits and Dragons',
+        kind: 'Finished print',
+        creator: 'u/ominaex25',
+        href: 'https://www.reddit.com/r/kromacut/comments/1vum7om/hobbits_and_dragons/',
+    },
+    {
+        image: kingOfHeartsSlicer,
+        alt: 'Slicer preview of the multicolor King of Hearts playing-card print',
+        title: 'King of Hearts',
+        kind: 'Slicer preview',
+        creator: 'vycdev',
+        dimensions: '47.72 \u00d7 66.53 \u00d7 3.2 mm',
+    },
+    {
+        image: kingOfHearts,
+        alt: 'A multicolor layered King of Hearts playing-card print',
+        title: 'King of Hearts',
+        kind: 'Finished print',
+        creator: 'vycdev',
+        dimensions: '47.72 \u00d7 66.53 \u00d7 3.2 mm',
+    },
+];
+
+const hopeShowcase: ShowcaseItem[] = [
+    {
+        image: hopeKromacutPreview,
+        alt: 'Kromacut Auto-paint prediction for a layered Hope poster print',
+        title: 'Hope poster',
+        kind: 'Kromacut prediction',
+        creator: 'vycdev',
+        dimensions: '72 \u00d7 108.4 \u00d7 3.04 mm',
+        note: 'Auto-paint prediction using the available calibrated filament profile.',
+    },
+    {
+        image: hopeSlicerPreview,
+        alt: 'Slicer preview of the layered Hope poster print',
+        title: 'Hope poster',
+        kind: 'Slicer preview',
+        creator: 'vycdev',
+        dimensions: '72 \u00d7 108.4 \u00d7 3.04 mm',
+        note: 'The physical layer plan prepared for printing without a red filament.',
+    },
+    {
+        image: hopeFinished,
+        alt: 'Finished layered Hope poster print showing orange and purple-blue color shifts',
+        title: 'Hope poster',
+        kind: 'Finished print',
+        creator: 'vycdev',
+        dimensions: '72 \u00d7 108.4 \u00d7 3.04 mm',
+        note: 'Pale yellow matched most closely; red printed orange, cyan leaned purple-blue, and black reproduced the preview but missed the target\'s dark teal.',
     },
 ];
 
 function ExternalArrow() {
     return <ArrowRight aria-hidden="true" className="h-4 w-4" />;
+}
+
+function ShowcaseCard({ item }: { item: ShowcaseItem }) {
+    return (
+        <article className="flex h-full flex-col overflow-hidden rounded-xl border border-slate-200/90 bg-white/90 shadow-md shadow-slate-200/60 dark:border-border dark:bg-background/70 dark:shadow-sm dark:shadow-black/20">
+            <div className="aspect-[4/3] overflow-hidden bg-muted"><img src={item.image} alt={item.alt} loading="lazy" className="h-full w-full object-cover" /></div>
+            <div className="flex flex-1 flex-col gap-4 border-t border-border/70 p-5 sm:p-6">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                        <h3 className="text-lg font-bold tracking-tight">{item.title}</h3>
+                        <p className="mt-1 text-sm text-muted-foreground">By <span className="font-semibold text-foreground">{item.creator}</span></p>
+                    </div>
+                    <span className="rounded-full border border-blue-500/25 bg-blue-500/10 px-2.5 py-1 text-xs font-bold text-blue-700 dark:text-blue-300">{item.kind}</span>
+                </div>
+                {item.dimensions && <p className="inline-flex items-center gap-2 text-sm font-semibold text-muted-foreground"><Ruler aria-hidden="true" className="h-4 w-4 shrink-0 text-blue-700 dark:text-blue-300" />{item.dimensions}</p>}
+                {item.note && <p className="text-sm leading-6 text-muted-foreground">{item.note}</p>}
+                {item.href && (
+                    <a href={item.href} target="_blank" rel="noopener noreferrer" className="mt-auto inline-flex min-h-11 items-center justify-center gap-2 self-start rounded-lg bg-blue-700 px-4 py-2.5 text-sm font-bold text-white shadow-sm shadow-blue-700/20 transition-colors hover:bg-blue-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background">
+                        View Reddit post <ExternalArrow />
+                    </a>
+                )}
+            </div>
+        </article>
+    );
 }
 
 interface CommunityLinksProps {
@@ -330,24 +425,37 @@ export default function LandingPage() {
                 </div>
             </section>
 
-            <section className="border-y border-slate-200/90 bg-white/65 dark:border-border/70 dark:bg-card/30">
+            <section data-testid="community-showcase" className="border-y border-slate-200/90 bg-white/65 dark:border-border/70 dark:bg-card/30">
                 <div className="mx-auto max-w-7xl px-5 py-20 sm:px-8 lg:px-10 lg:py-24">
-                    <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-                        <div className="max-w-2xl">
-                            <p className="text-xs font-bold uppercase tracking-[0.2em] text-blue-700 dark:text-blue-300">Community showcase</p>
-                            <h2 className="mt-4 text-3xl font-extrabold tracking-tight sm:text-5xl">Made by the Kromacut community.</h2>
-                            <p className="mt-5 text-lg leading-8 text-muted-foreground">A Hobbits and Dragons print by <span className="font-semibold text-foreground">u/ominaex25</span>.</p>
-                        </div>
-                        <a href="https://www.reddit.com/r/kromacut/comments/1vum7om/hobbits_and_dragons/" target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center gap-2 self-start rounded-lg border border-border bg-background px-4 py-2.5 text-sm font-bold transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:self-auto">
-                            View the Reddit post <ExternalArrow />
-                        </a>
+                    <div className="max-w-2xl">
+                        <p className="text-xs font-bold uppercase tracking-[0.2em] text-blue-700 dark:text-blue-300">Community showcase</p>
+                        <h2 className="mt-4 text-3xl font-extrabold tracking-tight sm:text-5xl">Made by the Kromacut community.</h2>
+                        <p className="mt-5 text-lg leading-8 text-muted-foreground">Finished prints and behind-the-scenes previews from people creating with Kromacut.</p>
                     </div>
-                    <div className="mt-10 grid gap-5 sm:grid-cols-2">
-                        {communityShowcase.map((item) => (
-                            <a key={item.image} href="https://www.reddit.com/r/kromacut/comments/1vum7om/hobbits_and_dragons/" target="_blank" rel="noopener noreferrer" className="group overflow-hidden rounded-xl border border-slate-200/90 bg-white/90 shadow-md shadow-slate-200/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:border-border dark:bg-background/70 dark:shadow-sm dark:shadow-black/20">
-                                <div className="aspect-[4/3] overflow-hidden bg-muted"><img src={item.image} alt={item.alt} loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03] motion-reduce:transition-none" /></div>
-                            </a>
-                        ))}
+                    <div data-testid="community-gallery" className="mt-10 grid gap-5 sm:grid-cols-2">
+                        {communityShowcase.map((item) => <ShowcaseCard key={item.image} item={item} />)}
+                    </div>
+                    <div data-testid="hope-showcase" className="mt-14 border-t border-border/70 pt-10">
+                        <div className="max-w-3xl">
+                            <div className="flex flex-wrap items-center gap-3">
+                                <p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-700 dark:text-blue-300">Prediction vs. print</p>
+                                <span className="rounded-full border border-amber-500/25 bg-amber-500/10 px-2.5 py-1 text-xs font-bold text-amber-700 dark:text-amber-300">1 of 4 target colors close</span>
+                            </div>
+                            <h3 className="mt-4 text-2xl font-extrabold tracking-tight sm:text-3xl">Hope poster field test</h3>
+                            <p className="mt-4 text-base leading-7 text-muted-foreground">With no red filament available, Auto-paint predicted red from orange over pink. The print stayed orange, while the predicted cyan shifted toward purple-blue. Pale yellow was the closest match. The printed black followed the preview, but both missed the original image&apos;s very dark teal-blue target. Limited calibration coverage and a permissive color-error limit may both have contributed.</p>
+                        </div>
+                        <div className="mt-7 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                            {hopeShowcase.map((item) => <ShowcaseCard key={item.image} item={item} />)}
+                        </div>
+                    </div>
+                    <div className="mt-8 flex flex-col gap-4 rounded-xl border border-blue-500/20 bg-blue-500/5 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+                        <div>
+                            <p className="font-bold">Want to showcase your work or contribute to Kromacut?</p>
+                            <p className="mt-1 text-sm leading-6 text-muted-foreground">Share what you made, improve the project, or help the community discover what Kromacut can do.</p>
+                        </div>
+                        <a href={`${links.github}/pulls`} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 self-start rounded-lg border border-border bg-background px-4 py-2.5 text-sm font-bold transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:self-auto">
+                            <Github aria-hidden="true" className="h-4 w-4" /> Open a pull request <ExternalArrow />
+                        </a>
                     </div>
                 </div>
             </section>

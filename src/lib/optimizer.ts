@@ -17,13 +17,14 @@ import {
     buildAchievableColorPalette,
     createSequenceScoringWorkspace,
     deltaELab,
+    evaluateSequenceAgainstImage,
     EXACT_ANCHOR_TARGET_DE,
     mapTargetsWithSeparation,
     normalizeSeparationMaxDeltaE,
-    scoreSequenceAgainstImage,
     type AppearancePredictionCache,
     type ColorSeparationReport,
     type Lab,
+    type SequenceScoreEvaluation,
     type WeightedLab,
 } from './autoPaint';
 import { BoundedCache } from './boundedCache';
@@ -79,7 +80,7 @@ export interface OptimizerOptions {
     preserveSeparation?: boolean;
     /** Raw ΔE limit for every unique printable-color assignment. */
     separationMaxDeltaE?: number;
-    /** Reject the final build instead of allowing unmatched colors to fall back. */
+    /** Reject the final build instead of merging unmatched colors into preserved mappings. */
     failOnSeparationError?: boolean;
     seed?: number; // For deterministic results
     maxIterations?: number; // Algorithm-specific iteration limit
@@ -103,6 +104,18 @@ export interface OptimizerResult {
     separation?: ColorSeparationReport;
     /** Actual repeated occurrences beyond the first use of each filament. */
     extraRepeatCount?: number;
+    /** Number of progressive repeat ceilings that were actually searched. */
+    repeatTiersEvaluated?: number;
+    /** Whether the selected search proved the winner or only found the best observed candidate. */
+    optimality?: 'exact' | 'best-found';
+    /** True when no single filament occurrence can be removed without worsening the comparator. */
+    singleRemovalMinimal?: boolean;
+    /** Physical complexity of the prefix that produces the preserved surface colors. */
+    usedFilamentOccurrenceCount?: number;
+    usedPrintableLayerCount?: number;
+    usedHeight?: number;
+    /** Candidate deletions evaluated by the final physical-stack minimizer. */
+    minimizationEvaluations?: number;
 }
 
 export interface ScoringContext {
@@ -118,10 +131,86 @@ export interface ScoringContext {
 
 export interface SequenceScorer {
     (filaments: Filament[]): number;
+    /** Compare two complete candidates using the explicit separation priorities. */
+    compare(left: Filament[], right: Filament[]): number;
+    /** Return the compact semantic evaluation retained by the scorer. */
+    evaluate(filaments: Filament[]): SequenceScoreEvaluation;
     /** Retained numeric scores; exposed for benchmarks and memory regressions. */
     cacheSize(): number;
     /** Retained evidence-aware prefix predictions. */
     appearanceCacheSize(): number;
+}
+
+/**
+ * Compare separation candidates by product semantics rather than a blended
+ * numeric objective. Once count and source coverage are equal, the hard Delta E
+ * limit defines acceptable quality and physical simplicity wins before smaller
+ * in-limit error. A negative result means the left candidate is preferred.
+ */
+export function compareSeparationSequenceEvaluations(
+    left: SequenceScoreEvaluation,
+    right: SequenceScoreEvaluation,
+    leftExtraRepeats: number,
+    rightExtraRepeats: number
+): number {
+    const leftSeparation = left.separation;
+    const rightSeparation = right.separation;
+    const leftPreserved = leftSeparation?.uniquelyPreservedWithinThresholdCount ?? 0;
+    const rightPreserved = rightSeparation?.uniquelyPreservedWithinThresholdCount ?? 0;
+    if (leftPreserved !== rightPreserved) return rightPreserved - leftPreserved;
+
+    const leftWeight = leftSeparation?.preservedTargetWeight ?? 0;
+    const rightWeight = rightSeparation?.preservedTargetWeight ?? 0;
+    if (Math.abs(leftWeight - rightWeight) > 1e-12) return leftWeight > rightWeight ? -1 : 1;
+
+    const leftRepeats = left.usedExtraRepeatCount ?? leftExtraRepeats;
+    const rightRepeats = right.usedExtraRepeatCount ?? rightExtraRepeats;
+    if (leftRepeats !== rightRepeats) return leftRepeats - rightRepeats;
+
+    const leftOccurrences = left.usedFilamentOccurrenceCount;
+    const rightOccurrences = right.usedFilamentOccurrenceCount;
+    if (
+        leftOccurrences !== undefined &&
+        rightOccurrences !== undefined &&
+        leftOccurrences !== rightOccurrences
+    ) {
+        return leftOccurrences - rightOccurrences;
+    }
+
+    const leftTotalOccurrences = left.filamentOccurrenceCount;
+    const rightTotalOccurrences = right.filamentOccurrenceCount;
+    if (
+        leftTotalOccurrences !== undefined &&
+        rightTotalOccurrences !== undefined &&
+        leftTotalOccurrences !== rightTotalOccurrences
+    ) {
+        return leftTotalOccurrences - rightTotalOccurrences;
+    }
+
+    const leftUsedLayers = left.usedPrintableLayerCount ?? left.printableLayerCount;
+    const rightUsedLayers = right.usedPrintableLayerCount ?? right.printableLayerCount;
+    if (leftUsedLayers !== rightUsedLayers) {
+        return leftUsedLayers - rightUsedLayers;
+    }
+
+    const leftUsedHeight = left.usedHeight;
+    const rightUsedHeight = right.usedHeight;
+    if (
+        leftUsedHeight !== undefined &&
+        rightUsedHeight !== undefined &&
+        leftUsedHeight !== rightUsedHeight
+    ) {
+        return leftUsedHeight - rightUsedHeight;
+    }
+
+    const leftError = leftSeparation?.preservedWeightedMeanDeltaE ?? Infinity;
+    const rightError = rightSeparation?.preservedWeightedMeanDeltaE ?? Infinity;
+    if (leftError !== rightError) return leftError < rightError ? -1 : 1;
+
+    if (left.printableLayerCount !== right.printableLayerCount) {
+        return left.printableLayerCount - right.printableLayerCount;
+    }
+    return 0;
 }
 
 // ============================================================================
@@ -374,9 +463,9 @@ export function createSequenceScorer(
     maxCachedAppearancePredictions: number = MAX_CACHED_APPEARANCE_PREDICTIONS
 ): SequenceScorer {
     // Retaining a rich palette for every Exact/Deep candidate can consume
-    // hundreds of megabytes. Only the deterministic scalar score is reusable;
-    // let each temporary palette be collected immediately after scoring.
-    const scoreCache = new BoundedCache<string, number>(maxCachedScores);
+    // hundreds of megabytes. Retain only compact ranking metrics and let each
+    // temporary palette be collected immediately after evaluation.
+    const evaluationCache = new BoundedCache<string, SequenceScoreEvaluation>(maxCachedScores);
     const transitionThicknessCache = new Map<string, number>();
     const appearancePredictionCache =
         maxCachedAppearancePredictions > 0
@@ -397,16 +486,15 @@ export function createSequenceScorer(
         ? new Set(
               context.imageColors.filter((target) =>
                   exactAnchorTargets.some(
-                      (anchor) =>
-                          deltaELab(anchor, target) <= EXACT_ANCHOR_TARGET_DE
+                      (anchor) => deltaELab(anchor, target) <= EXACT_ANCHOR_TARGET_DE
                   )
               )
           )
         : undefined;
     const scoringWorkspace = createSequenceScoringWorkspace();
 
-    const score = ((filaments: Filament[]) => {
-        if (filaments.length === 0) return Infinity;
+    const evaluate = (filaments: Filament[]): SequenceScoreEvaluation => {
+        if (filaments.length === 0) return { score: Infinity, printableLayerCount: 0 };
         let sequenceKey = '';
         for (let index = 0; index < filaments.length; index++) {
             const filament = filaments[index];
@@ -422,8 +510,8 @@ export function createSequenceScorer(
             }
             sequenceKey += token;
         }
-        const cachedScore = scoreCache.get(sequenceKey);
-        if (cachedScore !== undefined) return cachedScore;
+        const cached = evaluationCache.get(sequenceKey);
+        if (cached !== undefined) return cached;
         const palette = buildAchievableColorPalette(
             filaments,
             context.layerHeight,
@@ -434,17 +522,40 @@ export function createSequenceScorer(
             context.appearanceModel,
             appearancePredictionCache
         );
-        const value = scoreSequenceAgainstImage(palette, context.imageColors, {
-            preserveSeparation: context.preserveSeparation,
-            separationMaxDeltaE: context.separationMaxDeltaE,
-            exactAnchorTargets,
-            exactAnchorTargetSet,
-            workspace: scoringWorkspace,
-        });
-        scoreCache.set(sequenceKey, value);
+        const value: SequenceScoreEvaluation = {
+            ...evaluateSequenceAgainstImage(palette, context.imageColors, {
+                preserveSeparation: context.preserveSeparation,
+                separationMaxDeltaE: context.separationMaxDeltaE,
+                exactAnchorTargets,
+                exactAnchorTargetSet,
+                workspace: scoringWorkspace,
+            }),
+            filamentOccurrenceCount: filaments.length,
+        };
+        evaluationCache.set(sequenceKey, value);
         return value;
-    }) as SequenceScorer;
-    score.cacheSize = () => scoreCache.size;
+    };
+    const score = ((filaments: Filament[]) => evaluate(filaments).score) as SequenceScorer;
+    score.compare = (left, right) => {
+        const leftEvaluation = evaluate(left);
+        const rightEvaluation = evaluate(right);
+        if (context.preserveSeparation) {
+            const separationComparison = compareSeparationSequenceEvaluations(
+                leftEvaluation,
+                rightEvaluation,
+                countExtraFilamentOccurrences(left),
+                countExtraFilamentOccurrences(right)
+            );
+            if (separationComparison !== 0) return separationComparison;
+        }
+
+        if (leftEvaluation.score !== rightEvaluation.score) {
+            return leftEvaluation.score - rightEvaluation.score;
+        }
+        return compareSequenceKeys(left, right);
+    };
+    score.evaluate = evaluate;
+    score.cacheSize = () => evaluationCache.size;
     score.appearanceCacheSize = () => appearancePredictionCache?.size ?? 0;
     return score;
 }
@@ -557,10 +668,56 @@ function maxSequenceLength(filaments: Filament[], maxExtraRepeats: number): numb
     return filaments.length + maxExtraRepeats;
 }
 
-function isBetterCandidate(candidate: ScoredSequence, current: ScoredSequence | null): boolean {
+function isBetterCandidate(
+    candidate: ScoredSequence,
+    current: ScoredSequence | null,
+    scoreSequence: SequenceScorer
+): boolean {
     if (!current) return true;
-    if (candidate.score !== current.score) return candidate.score < current.score;
-    return compareSequenceKeys(candidate.order, current.order) < 0;
+    return scoreSequence.compare(candidate.order, current.order) < 0;
+}
+
+/**
+ * Remove dispensable occurrences from a heuristic result. This is deliberately
+ * a verification pass, not an optimality claim: every accepted deletion is
+ * fully re-simulated and the pass stops only when no single further deletion
+ * improves the same semantic comparator used by the main search.
+ */
+function minimizeBySingleRemoval(
+    initial: OptimizerResult,
+    scoreSequence: SequenceScorer
+): { result: OptimizerResult; evaluations: number } {
+    let order = [...initial.order];
+    let evaluations = 0;
+
+    while (order.length > 1) {
+        let bestRemoval: Filament[] | undefined;
+        for (let index = 0; index < order.length; index++) {
+            const candidate = [...order.slice(0, index), ...order.slice(index + 1)];
+            evaluations++;
+            if (scoreSequence.compare(candidate, order) >= 0) continue;
+            if (!bestRemoval || scoreSequence.compare(candidate, bestRemoval) < 0) {
+                bestRemoval = candidate;
+            }
+        }
+        if (!bestRemoval) break;
+        order = bestRemoval;
+    }
+
+    const evaluation = scoreSequence.evaluate(order);
+    return {
+        result: {
+            ...initial,
+            order,
+            score: evaluation.score,
+            separation: evaluation.separation,
+            usedFilamentOccurrenceCount: evaluation.usedFilamentOccurrenceCount,
+            usedPrintableLayerCount: evaluation.usedPrintableLayerCount,
+            usedHeight: evaluation.usedHeight,
+            singleRemovalMinimal: true,
+        },
+        evaluations,
+    };
 }
 
 function reportProgress(
@@ -634,11 +791,11 @@ function expandWithRepeatedFilaments(
                     score: scoreSequence(candidateOrder),
                 };
                 iterations++;
-                if (isBetterCandidate(candidate, next)) next = candidate;
+                if (isBetterCandidate(candidate, next, scoreSequence)) next = candidate;
             }
         }
 
-        if (!next || next.score >= best.score) break;
+        if (!next || !isBetterCandidate(next, best, scoreSequence)) break;
         best = next;
     }
 
@@ -678,11 +835,8 @@ function optimizeExhaustive(
         if (sequence.length > 0) {
             const candidateScore = scoreSequence(sequence);
             iterations++;
-            if (
-                !best ||
-                candidateScore < best.score ||
-                (candidateScore === best.score && compareSequenceKeys(sequence, best.order) < 0)
-            ) {
+            const candidate = { order: sequence, score: candidateScore };
+            if (isBetterCandidate(candidate, best, scoreSequence)) {
                 best = { order: [...sequence], score: candidateScore };
             }
             reportProgress(options, iterations, totalIterations, best?.score ?? Infinity);
@@ -749,15 +903,11 @@ function optimizeBeamSearch(
     let beam = filaments.map((filament) => {
         const candidate = { order: [filament], score: scoreSequence([filament]) };
         iterations++;
-        if (isBetterCandidate(candidate, best)) best = candidate;
+        if (isBetterCandidate(candidate, best, scoreSequence)) best = candidate;
         reportProgress(options, iterations, totalIterations, best?.score ?? Infinity);
         return candidate;
     });
-    beam.sort((left, right) =>
-        left.score === right.score
-            ? compareSequenceKeys(left.order, right.order)
-            : left.score - right.score
-    );
+    beam.sort((left, right) => scoreSequence.compare(left.order, right.order));
     beam = beam.slice(0, beamWidth);
 
     for (let depth = 1; depth < maximumLength && beam.length > 0; depth++) {
@@ -781,17 +931,13 @@ function optimizeBeamSearch(
                 const candidate = { order, score: scoreSequence(order) };
                 candidates.set(key, candidate);
                 iterations++;
-                if (isBetterCandidate(candidate, best)) best = candidate;
+                if (isBetterCandidate(candidate, best, scoreSequence)) best = candidate;
                 reportProgress(options, iterations, totalIterations, best?.score ?? Infinity);
             }
         }
 
         beam = [...candidates.values()]
-            .sort((left, right) =>
-                left.score === right.score
-                    ? compareSequenceKeys(left.order, right.order)
-                    : left.score - right.score
-            )
+            .sort((left, right) => scoreSequence.compare(left.order, right.order))
             .slice(0, beamWidth);
     }
 
@@ -931,16 +1077,27 @@ function runAnneal(
         }
 
         const newScore = scoreSequence(newOrder);
-        const deltaE = newScore - currentScore;
+        const semanticComparison = scoreSequence.compare(newOrder, currentOrder);
+        const scoreDelta = newScore - currentScore;
 
-        // Accept if better, or with probability exp(-ΔE/T) if worse
-        const acceptProbability = deltaE < 0 ? 1.0 : Math.exp(-deltaE / temperature);
+        // Always accept a lexicographically better separation candidate. The
+        // scalar score remains only an annealing energy for exploring candidates
+        // that are semantically tied or worse; it never overrules the hard
+        // preserved-count/coverage/repeat/physical-complexity/error priorities.
+        const acceptProbability =
+            semanticComparison < 0 || (semanticComparison === 0 && scoreDelta < 0)
+                ? 1
+                : Math.exp(
+                      -(Number.isFinite(scoreDelta) && scoreDelta > 0 ? scoreDelta : 1) /
+                          temperature
+                  );
 
         if (rng.next() < acceptProbability) {
             currentOrder = newOrder;
             currentScore = newScore;
 
-            if (currentScore < best.score) {
+            const current = { order: currentOrder, score: currentScore };
+            if (isBetterCandidate(current, best, scoreSequence)) {
                 best = { order: [...currentOrder], score: currentScore };
             }
         }
@@ -1031,7 +1188,10 @@ function optimizeHybrid(
     let best: ScoredSequence = { order: beam.order, score: beam.score };
     let iterations = beam.iterations;
 
-    if (baseline && isBetterCandidate({ order: baseline.order, score: baseline.score }, best)) {
+    if (
+        baseline &&
+        isBetterCandidate({ order: baseline.order, score: baseline.score }, best, scoreSequence)
+    ) {
         best = { order: baseline.order, score: baseline.score };
     }
     iterations += baseline?.iterations ?? 0;
@@ -1062,7 +1222,7 @@ function optimizeHybrid(
         );
 
         iterations += outcome.iterations;
-        if (isBetterCandidate(outcome.best, best)) best = outcome.best;
+        if (isBetterCandidate(outcome.best, best, scoreSequence)) best = outcome.best;
     }
 
     reportProgress(options, total, total, best.score);
@@ -1166,7 +1326,7 @@ function runResolvedOptimizer(
                     scoreSequence,
                     withProgressSpan(options, 0.4, 1)
                 );
-                const best = isBetterCandidate(deep, exhaustive) ? deep : exhaustive;
+                const best = isBetterCandidate(deep, exhaustive, scoreSequence) ? deep : exhaustive;
                 return {
                     ...best,
                     iterations: deep.iterations + exhaustive.iterations,
@@ -1185,7 +1345,7 @@ function runResolvedOptimizer(
             const deep = optimizeDeep(filaments, scoreSequence, options);
             const expandedCandidate = expanded.best;
             const deepCandidate = { order: deep.order, score: deep.score };
-            const best = isBetterCandidate(deepCandidate, expandedCandidate)
+            const best = isBetterCandidate(deepCandidate, expandedCandidate, scoreSequence)
                 ? deepCandidate
                 : expandedCandidate;
             return {
@@ -1276,15 +1436,18 @@ export function optimizeFilamentOrder(
     const scoreSequence = createSequenceScorer(scoringContext);
     const requestedRepeats = resolveMaxExtraRepeats(opts);
     let result: OptimizerResult;
+    let repeatTiersEvaluated = 1;
 
     if (scoringContext.preserveSeparation && requestedRepeats > 0) {
         let retained: OptimizerResult | undefined;
         let exactBase: OptimizerResult | undefined;
         let totalIterations = 0;
+        repeatTiersEvaluated = 0;
         // Search physical complexity conservatively: completely search the
         // selected effort tier without repeats, then permit one additional
         // occurrence at a time and stop at the first valid separation.
         for (let repeatLimit = 0; repeatLimit <= requestedRepeats; repeatLimit++) {
+            repeatTiersEvaluated++;
             // This search may stop after any tier. Give the primary no-repeat
             // tier half the bar, then split the remainder geometrically instead
             // of making Exact appear stuck in 1/(repeat limit + 1) of the bar.
@@ -1309,7 +1472,9 @@ export function optimizeFilamentOrder(
             candidate.separation = sequenceSeparationReport(candidate.order, scoringContext);
             candidate.extraRepeatCount = countExtraFilamentOccurrences(candidate.order);
             candidate.iterations = totalIterations;
-            if (!retained || isBetterCandidate(candidate, retained)) retained = candidate;
+            if (!retained || isBetterCandidate(candidate, retained, scoreSequence)) {
+                retained = candidate;
+            }
             if (repeatLimit === 0 && resolved === 'exact-base') exactBase = candidate;
             if (candidate.separation.satisfied) {
                 retained = candidate;
@@ -1324,6 +1489,12 @@ export function optimizeFilamentOrder(
         }
     }
 
+    if (scoringContext.preserveSeparation) {
+        const minimized = minimizeBySingleRemoval(result, scoreSequence);
+        result = minimized.result;
+        result.minimizationEvaluations = minimized.evaluations;
+    }
+
     const actualExtraRepeats = countExtraFilamentOccurrences(result.order);
     if (!isWithinTotalRepeatLimit(result.order, requestedRepeats)) {
         throw new Error(
@@ -1331,6 +1502,12 @@ export function optimizeFilamentOrder(
         );
     }
     result.extraRepeatCount = actualExtraRepeats;
+    result.repeatTiersEvaluated = repeatTiersEvaluated;
+    const exactBaseSearch = resolved === 'exhaustive' || resolved === 'exact-base';
+    const searchedOnlyExactRepeatTier =
+        requestedRepeats === 0 ||
+        (scoringContext.preserveSeparation === true && repeatTiersEvaluated === 1);
+    result.optimality = exactBaseSearch && searchedOnlyExactRepeatTier ? 'exact' : 'best-found';
 
     // Tag the result with the resolved algorithm
     result.resolvedAlgorithm = resolved;

@@ -80,7 +80,7 @@ test('color separation assigns colliding colors globally instead of greedily', a
     );
 });
 
-test('color separation distinguishes within-limit reuse from an over-limit mapping', async () => {
+test('color separation merges a colliding source color into the preserved printable color', async () => {
     const { mapTargetsWithSeparation } = await loadAutoPaintModule();
     const result = mapTargetsWithSeparation(
         [
@@ -104,10 +104,15 @@ test('color separation distinguishes within-limit reuse from an over-limit mappi
     assert.equal(result.report.mappedWithinThresholdCount, 2);
     assert.equal(result.report.overThresholdColorCount, 0);
     assert.equal(result.report.reusedPrintableColorCount, 1);
+    assert.equal(result.report.mergedColorCount, 1);
     assert.ok(result.report.maximumDeltaE <= result.report.maximumAllowedDeltaE);
+    assert.deepEqual(
+        result.mappedTargets.map((mapping) => mapping.preservedWithinThreshold),
+        [true, false]
+    );
 });
 
-test('color separation reports final fallback mappings above the unique-match limit', async () => {
+test('color separation does not preserve an above-limit source color as a distinct output', async () => {
     const { mapTargetsWithSeparation } = await loadAutoPaintModule();
     const result = mapTargetsWithSeparation(
         [
@@ -129,7 +134,65 @@ test('color separation reports final fallback mappings above the unique-match li
     assert.equal(result.report.mappedWithinThresholdCount, 1);
     assert.equal(result.report.overThresholdColorCount, 1);
     assert.equal(result.report.reusedPrintableColorCount, 1);
+    assert.equal(result.report.mergedColorCount, 1);
     assert.ok(result.report.maximumDeltaE > result.report.maximumAllowedDeltaE);
+    assert.equal(new Set(result.mappedTargets.map((mapping) => mapping.paletteIndex)).size, 1);
+    assert.deepEqual(
+        result.mappedTargets.map((mapping) => mapping.preservedWithinThreshold),
+        [true, false]
+    );
+});
+
+test('color separation keeps the maximum-weight target when unique capacity collides', async () => {
+    const { mapTargetsWithSeparation } = await loadAutoPaintModule();
+    const result = mapTargetsWithSeparation(
+        [
+            {
+                height: 0.16,
+                lab: { L: 50, a: 0, b: 0 },
+                rgb: { r: 119, g: 119, b: 119 },
+            },
+        ],
+        [
+            { L: 50, a: 0, b: 0, weight: 0.1 },
+            { L: 51, a: 0, b: 0, weight: 0.9 },
+        ],
+        6
+    );
+
+    assert.equal(result.report.uniquelyPreservedWithinThresholdCount, 1);
+    assert.equal(result.report.preservedTargetWeight, 0.9);
+    assert.deepEqual(
+        result.mappedTargets.map((mapping) => mapping.preservedWithinThreshold),
+        [false, true]
+    );
+});
+
+test('partial separation exposes only in-limit matches as distinct printable colors', async () => {
+    const { mapTargetsWithSeparation } = await loadAutoPaintModule();
+    const palette = [10, 20, 70, 80].map((L, index) => ({
+        height: 0.16 + index * 0.08,
+        lab: { L, a: 0, b: 0 },
+        rgb: { r: L * 2, g: L * 2, b: L * 2 },
+    }));
+    const result = mapTargetsWithSeparation(
+        palette,
+        [
+            { L: 10, a: 0, b: 0, weight: 0.4 },
+            { L: 20, a: 0, b: 0, weight: 0.3 },
+            { L: 40, a: 0, b: 0, weight: 0.2 },
+            { L: 50, a: 0, b: 0, weight: 0.1 },
+        ],
+        2
+    );
+
+    assert.equal(result.report.uniquelyPreservedWithinThresholdCount, 2);
+    assert.equal(result.report.mergedColorCount, 2);
+    assert.equal(new Set(result.mappedTargets.map((mapping) => mapping.paletteIndex)).size, 2);
+    assert.deepEqual(
+        result.mappedTargets.map((mapping) => mapping.preservedWithinThreshold),
+        [true, true, false, false]
+    );
 });
 
 test('color separation includes mappings exactly on the unique-match limit', async () => {
@@ -153,7 +216,7 @@ test('color separation includes mappings exactly on the unique-match limit', asy
     assert.equal(result.report.maximumDeltaE, 6);
 });
 
-test('color separation reports the final mapping when anchor priority overrides a feasible match', async () => {
+test('hard separation limit overrides anchor preference when a feasible mapping exists', async () => {
     const { mapTargetsWithSeparation } = await loadAutoPaintModule();
     const result = mapTargetsWithSeparation(
         [
@@ -178,25 +241,17 @@ test('color separation reports the final mapping when anchor priority overrides 
     );
 
     assert.equal(result.report.assignedDistinctColorCount, 2, 'a feasible matching exists');
-    assert.equal(
-        result.report.uniquelyPreservedWithinThresholdCount,
-        1,
-        'the report must describe the anchor-prioritized final mapping rather than feasibility alone'
-    );
-    assert.equal(result.report.mappedWithinThresholdCount, 1);
-    assert.equal(result.report.overThresholdColorCount, 1);
+    assert.equal(result.report.uniquelyPreservedWithinThresholdCount, 2);
+    assert.equal(result.report.mappedWithinThresholdCount, 2);
+    assert.equal(result.report.overThresholdColorCount, 0);
     assert.equal(result.report.reusedPrintableColorCount, 0);
-    assert.equal(result.report.satisfied, false);
+    assert.equal(result.report.satisfied, true);
 });
 
 test('color separation reports empty targets and an empty printable palette explicitly', async () => {
     const { mapTargetsWithSeparation } = await loadAutoPaintModule();
     const noTargets = mapTargetsWithSeparation([], [], 6);
-    const noPalette = mapTargetsWithSeparation(
-        [],
-        [{ L: 50, a: 0, b: 0, weight: 1 }],
-        6
-    );
+    const noPalette = mapTargetsWithSeparation([], [{ L: 50, a: 0, b: 0, weight: 1 }], 6);
 
     assert.deepEqual(
         {
@@ -282,11 +337,8 @@ test('color separation honors a configurable maximum color error', async () => {
 });
 
 test('reused scoring workspaces preserve separation mappings and exact scores', async () => {
-    const {
-        createSequenceScoringWorkspace,
-        mapTargetsWithSeparation,
-        scoreSequenceAgainstImage,
-    } = await loadAutoPaintModule();
+    const { createSequenceScoringWorkspace, mapTargetsWithSeparation, scoreSequenceAgainstImage } =
+        await loadAutoPaintModule();
     const targets = [
         { L: 48, a: 2, b: -1, weight: 0.6 },
         { L: 57, a: 8, b: 4, weight: 0.3 },
@@ -307,12 +359,7 @@ test('reused scoring workspaces preserve separation mappings and exact scores', 
 
     for (const palette of [...palettes, ...palettes]) {
         const expectedMapping = mapTargetsWithSeparation(palette, targets, 12);
-        const actualMapping = mapTargetsWithSeparation(
-            palette,
-            targets,
-            12,
-            workspace.separation
-        );
+        const actualMapping = mapTargetsWithSeparation(palette, targets, 12, workspace.separation);
         assert.deepEqual(actualMapping, expectedMapping);
         assert.equal(
             scoreSequenceAgainstImage(palette, targets, {
@@ -355,7 +402,7 @@ test('color separation refuses to build when distinct acceptable matches are imp
     );
 });
 
-test('color separation can keep the build and fall back only missed colors', async () => {
+test('non-strict color separation builds by merging only the missed colors', async () => {
     const { generateAutoLayers } = await loadAutoPaintModule();
     const result = generateAutoLayers(
         [{ id: 'black', color: '#000000', td: 1 }],
@@ -385,12 +432,86 @@ test('color separation can keep the build and fall back only missed colors', asy
     assert.equal(result.colorSeparation?.mappedWithinThresholdCount, 1);
     assert.equal(result.colorSeparation?.overThresholdColorCount, 1);
     assert.equal(result.colorSeparation?.reusedPrintableColorCount, 1);
+    assert.equal(result.colorSeparation?.mergedColorCount, 1);
     assert.equal(result.finalStack.settings.failOnSeparationError, false);
     assert.equal(result.finalStack.targetMappings.length, 2);
     assert.equal(
         new Set(result.finalStack.targetMappings.map((mapping) => mapping.paletteIndex)).size,
         1,
-        'the missed white target should fall back to the nearest available black prefix'
+        'the missed white target should merge into the surviving black mapping'
+    );
+    assert.deepEqual(
+        result.finalStack.targetMappings.map((mapping) => mapping.preservedWithinThreshold),
+        [true, false]
+    );
+});
+
+test('non-strict separation removes filament zones used only by discarded colors', async () => {
+    const { generateAutoLayers } = await loadAutoPaintModule();
+    const result = generateAutoLayers(
+        [
+            { id: 'black', color: '#000000', td: 1 },
+            { id: 'red', color: '#ff0000', td: 1 },
+            { id: 'white', color: '#ffffff', td: 1 },
+        ],
+        [
+            { hex: '#000000', count: 75 },
+            { hex: '#00ff00', count: 25 },
+        ],
+        0.08,
+        0.16,
+        1,
+        true,
+        false,
+        {
+            algorithm: 'exact',
+            preserveSeparation: true,
+            separationMaxDeltaE: 1,
+            failOnSeparationError: false,
+            maxExtraRepeats: 0,
+            cachingEnabled: false,
+        }
+    );
+
+    assert.equal(result.colorSeparation?.uniquelyPreservedWithinThresholdCount, 1);
+    assert.equal(result.colorSeparation?.mergedColorCount, 1);
+    assert.deepEqual(result.filamentOrder, ['black']);
+    assert.deepEqual(
+        result.layers.map((layer) => layer.filamentId),
+        ['black'],
+        'the final model and swap plan source must use the minimized physical sequence'
+    );
+    assert.equal(result.finalStack.layers.length, 1);
+    assert.equal(result.totalHeight, 0.16);
+    assert.equal(result.transitionZones.at(-1)?.endHeight, 0.16);
+    assert.equal(result.optimizerMetadata?.optimality, 'exact');
+    assert.equal(result.optimizerMetadata?.singleRemovalMinimal, true);
+    assert.equal(result.optimizerMetadata?.usedPrintableLayerCount, 1);
+});
+
+test('non-strict color separation rejects a build when no source color survives the limit', async () => {
+    const { generateAutoLayers } = await loadAutoPaintModule();
+
+    assert.throws(
+        () =>
+            generateAutoLayers(
+                [{ id: 'black', color: '#000000', td: 1 }],
+                [{ hex: '#ffffff', count: 1 }],
+                0.08,
+                0.16,
+                1,
+                true,
+                false,
+                {
+                    algorithm: 'exhaustive',
+                    preserveSeparation: true,
+                    separationMaxDeltaE: 1,
+                    failOnSeparationError: false,
+                    maxExtraRepeats: 0,
+                    cachingEnabled: false,
+                }
+            ),
+        /No image colors can be preserved/
     );
 });
 
