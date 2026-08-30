@@ -24,6 +24,7 @@
 
 import JSZip from 'jszip';
 import { normalizeHexColor } from './colorUtils';
+import { escapeXmlAttribute } from './xml';
 import {
     CALIBRATION_CORNER_RADIUS_MM,
     CALIBRATION_CORNER_SEGMENTS,
@@ -479,7 +480,10 @@ export async function generateCalibration3mf(
     }
 
     const baseMaterialsXml = slotColors
-        .map((hex, i) => `<base name="${escapeXml(slotNames[i])}" displaycolor="${to3mfColor(hex)}"/>`)
+        .map(
+            (hex, i) =>
+                `<base name="${escapeXmlAttribute(slotNames[i])}" displaycolor="${to3mfColor(hex)}"/>`
+        )
         .join('');
 
     // Initial Y spacing so the tile objects don't overlap before auto-arrange.
@@ -510,13 +514,13 @@ export async function generateCalibration3mf(
             `<object id="${baseObjId}" p:UUID="${generateUUID()}" type="model" pid="${baseMatId}" pindex="${baseSlot - 1}" name="Base">${meshXml(baseMesh)}</object>`
         );
         objects.push(
-            `<object id="${colorObjId}" p:UUID="${generateUUID()}" type="model" pid="${baseMatId}" pindex="${colorSlot - 1}" name="${escapeXml(tile.name)}">${meshXml(colorMesh)}</object>`
+            `<object id="${colorObjId}" p:UUID="${generateUUID()}" type="model" pid="${baseMatId}" pindex="${colorSlot - 1}" name="${escapeXmlAttribute(tile.name)}">${meshXml(colorMesh)}</object>`
         );
         // Each filament is its own object; its base + color are grouped as parts so
         // there is no "objects at multiple heights" merge prompt, while the tiles
         // stay separate objects the slicer can auto-arrange and sequence.
         objects.push(
-            `<object id="${tileObjId}" p:UUID="${generateUUID()}" type="model" name="${escapeXml(tile.name)}"><components>` +
+            `<object id="${tileObjId}" p:UUID="${generateUUID()}" type="model" name="${escapeXmlAttribute(tile.name)}"><components>` +
                 `<component objectid="${baseObjId}" p:UUID="${generateUUID()}"/>` +
                 `<component objectid="${colorObjId}" p:UUID="${generateUUID()}"/>` +
                 `</components></object>`
@@ -529,14 +533,14 @@ export async function generateCalibration3mf(
 
         settingObjects.push(
             ` <object id="${tileObjId}">\n` +
-                `  <metadata key="name" value="${escapeXml(tile.name)}"/>\n` +
+                `  <metadata key="name" value="${escapeXmlAttribute(tile.name)}"/>\n` +
                 `  <metadata key="extruder" value="${colorSlot}"/>\n` +
                 `  <part id="${baseObjId}" subtype="normal_part">\n` +
                 `   <metadata key="name" value="Base"/>\n` +
                 `   <metadata key="extruder" value="${baseSlot}"/>\n` +
                 `  </part>\n` +
                 `  <part id="${colorObjId}" subtype="normal_part">\n` +
-                `   <metadata key="name" value="${escapeXml(tile.name)}"/>\n` +
+                `   <metadata key="name" value="${escapeXmlAttribute(tile.name)}"/>\n` +
                 `   <metadata key="extruder" value="${colorSlot}"/>\n` +
                 `  </part>\n` +
                 ` </object>\n`
@@ -611,14 +615,6 @@ export async function generateCalibration3mf(
     zip.file('Metadata/kromacut.config', KROMACUT_CONFIG);
 
     return zip.generateAsync({ type: 'blob', mimeType: 'model/3mf' });
-}
-
-function escapeXml(value: string): string {
-    return value
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
 }
 
 function to3mfColor(hex: string): string {

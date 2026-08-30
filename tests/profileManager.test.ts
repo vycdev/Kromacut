@@ -488,6 +488,107 @@ test('stored profiles repair duplicate filament ids without risking later data l
     }
 });
 
+test('stored reserved profile migration preserves the last-selected custom profile', async () => {
+    const { loadLastProfileId, loadProfiles } = await loadProfileManager();
+    const existingStorage = Reflect.get(globalThis, 'localStorage') as
+        | ReturnType<typeof createMemoryStorage>
+        | undefined;
+    const storage = existingStorage ?? createMemoryStorage();
+    if (!existingStorage) {
+        Object.defineProperty(globalThis, 'localStorage', {
+            configurable: true,
+            value: storage,
+        });
+    }
+
+    const storageKey = 'kromacut.autopaint.profiles';
+    const lastProfileKey = 'kromacut.autopaint.lastProfileId';
+    const reservedId = 'tpl_selected-custom-profile';
+    const previousProfiles = storage.getItem(storageKey);
+    const previousLastProfileId = storage.getItem(lastProfileKey);
+    try {
+        storage.setItem(
+            storageKey,
+            JSON.stringify([
+                {
+                    id: reservedId,
+                    name: 'Selected Custom Profile',
+                    version: 3,
+                    createdAt: 1,
+                    updatedAt: 1,
+                    filaments: [{ id: 'white', color: '#ffffff', td: 0.4 }],
+                },
+            ])
+        );
+        storage.setItem(lastProfileKey, reservedId);
+
+        const loaded = loadProfiles();
+        assert.equal(loaded.length, 1);
+        assert.notEqual(loaded[0].id, reservedId);
+        assert.equal(loadLastProfileId(), loaded[0].id);
+        const persisted = JSON.parse(storage.getItem(storageKey)!) as AutoPaintProfile[];
+        assert.equal(persisted[0].id, loaded[0].id);
+    } finally {
+        if (previousProfiles === null) storage.removeItem(storageKey);
+        else storage.setItem(storageKey, previousProfiles);
+        if (previousLastProfileId === null) storage.removeItem(lastProfileKey);
+        else storage.setItem(lastProfileKey, previousLastProfileId);
+        if (!existingStorage) Reflect.deleteProperty(globalThis, 'localStorage');
+    }
+});
+
+test('reserved profile migration leaves last selection unchanged when persistence fails', async () => {
+    const { loadProfiles } = await loadProfileManager();
+    const existingStorage = Reflect.get(globalThis, 'localStorage') as
+        | ReturnType<typeof createMemoryStorage>
+        | undefined;
+    const storage = existingStorage ?? createMemoryStorage();
+    if (!existingStorage) {
+        Object.defineProperty(globalThis, 'localStorage', {
+            configurable: true,
+            value: storage,
+        });
+    }
+
+    const storageKey = 'kromacut.autopaint.profiles';
+    const lastProfileKey = 'kromacut.autopaint.lastProfileId';
+    const reservedId = 'tpl_failed-profile-migration';
+    const raw = JSON.stringify([
+        {
+            id: reservedId,
+            name: 'Unpersisted Custom Profile',
+            version: 3,
+            createdAt: 1,
+            updatedAt: 1,
+            filaments: [{ id: 'white', color: '#ffffff', td: 0.4 }],
+        },
+    ]);
+    const previousProfiles = storage.getItem(storageKey);
+    const previousLastProfileId = storage.getItem(lastProfileKey);
+    storage.setItem(storageKey, raw);
+    storage.setItem(lastProfileKey, reservedId);
+
+    const originalSetItem = storage.setItem;
+    storage.setItem = (key: string, value: string) => {
+        if (key === storageKey) throw new Error('quota exceeded');
+        originalSetItem.call(storage, key, value);
+    };
+    try {
+        const loaded = loadProfiles();
+        assert.equal(loaded.length, 1);
+        assert.notEqual(loaded[0].id, reservedId);
+        assert.equal(storage.getItem(storageKey), raw);
+        assert.equal(storage.getItem(lastProfileKey), reservedId);
+    } finally {
+        storage.setItem = originalSetItem;
+        if (previousProfiles === null) storage.removeItem(storageKey);
+        else storage.setItem(storageKey, previousProfiles);
+        if (previousLastProfileId === null) storage.removeItem(lastProfileKey);
+        else storage.setItem(lastProfileKey, previousLastProfileId);
+        if (!existingStorage) Reflect.deleteProperty(globalThis, 'localStorage');
+    }
+});
+
 test('profile creation repairs working-state collisions and storage rejects invalid profiles', async () => {
     const { createProfile, saveProfilesToStorage } = await loadProfileManager();
     const existingStorage = Reflect.get(globalThis, 'localStorage') as

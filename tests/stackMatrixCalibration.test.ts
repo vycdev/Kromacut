@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import JSZip from 'jszip';
 
+import { assertValidXml10Members } from './helpers/xml.ts';
 import { withViteTestServer } from './helpers/viteModule.ts';
 
 type MatrixModule = typeof import('../src/lib/stackMatrixCalibration.ts');
@@ -569,6 +570,23 @@ test('Stack Matrix 3MF keeps every mesh object manifold and embeds its immutable
         assert.ok(triangles.length > 0);
         assert.ok([...edgeUses.values()].every((count) => count === 2));
     }
+});
+
+test('Stack Matrix 3MF sanitizes arbitrary names in every XML member', async () => {
+    const [matrix, exporter] = await modules;
+    const unsafeName = `Black\u0001 & < > " ' \ud800 \u{1f308}`;
+    const safeName = `Black\uFFFD &amp; &lt; &gt; &quot; &apos; \uFFFD \u{1f308}`;
+    const record = matrix.buildStackMatrixCalibration(
+        [{ ...filaments[0], name: unsafeName }, ...filaments.slice(1)],
+        options(8),
+        '2026-08-07T10:00:00.000Z'
+    );
+
+    const blob = await exporter.generateStackMatrix3mf(record);
+    const members = await assertValidXml10Members(await JSZip.loadAsync(await blob.arrayBuffer()));
+
+    assert.ok(members['3D/3dmodel.model'].includes(safeName));
+    assert.ok(members['Metadata/model_settings.config'].includes(safeName));
 });
 
 test('completed Stack Matrix samples become measured anchors without global fit observations', async () => {

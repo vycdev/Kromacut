@@ -192,6 +192,18 @@ test('Palette Proof stays usable, persists results, and downloads its frozen 3MF
     await expect(panel.getByTestId('palette-proof-size-controls')).toBeVisible();
     await expect(panel.getByTestId('palette-proof-target-summary')).toBeVisible();
 
+    // The first, deleted proof already covered fitted-target persistence. Use
+    // original targets for the completed continuation fixture so completing
+    // it cannot redefine those targets from its own fitted output.
+    await panel.getByRole('button', { name: 'Choose from image', exact: true }).click();
+    await panel.getByRole('button', { name: 'Original image', exact: true }).click();
+    await panel.getByRole('button', { name: 'Use smart targets', exact: true }).click();
+    // Leave one of this result's five printable prefixes untested so the
+    // completed proof has a real continuation round to exercise below.
+    await dialog.getByRole('combobox', { name: 'Palette Proof candidate count' }).click();
+    await page.getByRole('option', { name: '4', exact: true }).click();
+    await expect(panel.getByText('36 x 44 mm / 5 targets / 4 candidates')).toBeVisible();
+
     const replacementDownloadPromise = page.waitForEvent('download');
     await page.getByTestId('download-palette-proof').click();
     await replacementDownloadPromise;
@@ -221,6 +233,18 @@ test('Palette Proof stays usable, persists results, and downloads its frozen 3MF
     await firstMatchQualitySelect.click();
     await page.getByRole('option', { name: 'Dead on', exact: true }).click();
     await expect(firstMatchQualitySelect).toHaveText('Dead on');
+    const inProgressAppearance = await page.evaluate(() => {
+        const profiles = JSON.parse(localStorage.getItem('kromacut.autopaint.profiles') ?? '[]');
+        return profiles[0]?.appearance;
+    });
+    expect(inProgressAppearance.targetJudgments[0].closestCellIds).toEqual(['B1', 'C1']);
+    expect(inProgressAppearance.targetJudgments[0].matchQuality).toBe('exact');
+    // Complete this fixture with neutral responses so calibration does not
+    // replace the printable stack whose continuation behavior it exercises.
+    await dialog
+        .getByTestId('palette-proof-result-column-1')
+        .getByRole('button', { name: 'None', exact: true })
+        .click();
     for (let column = 2; column <= 5; column++) {
         await dialog
             .getByTestId(`palette-proof-result-column-${column}`)
@@ -240,7 +264,7 @@ test('Palette Proof stays usable, persists results, and downloads its frozen 3MF
     await expect(panel).toHaveAttribute('data-screen', 'target-selection');
     await expect(panel.getByTestId('palette-proof-target-image')).toBeVisible();
     await expect(
-        panel.getByRole('button', { name: 'Fitted / achievable', exact: true })
+        panel.getByRole('button', { name: 'Original image', exact: true })
     ).toHaveAttribute('aria-pressed', 'true');
     await expect(
         dialog.getByRole('combobox', { name: 'Palette Proof target count' })
@@ -273,10 +297,10 @@ test('Palette Proof stays usable, persists results, and downloads its frozen 3MF
     });
     expect(storedAppearance.schemaVersion).toBe(1);
     expect(storedAppearance.proofs).toHaveLength(1);
-    expect(storedAppearance.proofs[0].proof.targetColorMode).toBe('fitted');
+    expect(storedAppearance.proofs[0].proof.layout.rowCount).toBe(4);
+    expect(storedAppearance.proofs[0].proof.targetColorMode ?? 'original').toBe('original');
     expect(storedAppearance.targetJudgments).toHaveLength(5);
-    expect(storedAppearance.targetJudgments[0].closestCellIds).toEqual(['B1', 'C1']);
-    expect(storedAppearance.targetJudgments[0].matchQuality).toBe('exact');
+    expect(storedAppearance.targetJudgments[0].response).toBe('none');
     expect(storedAppearance.viewingSessions[0].status).toBe('complete');
 
     const continueTargetsButton = dialog.getByRole('button', {
@@ -294,7 +318,7 @@ test('Palette Proof stays usable, persists results, and downloads its frozen 3MF
         'active'
     );
     await expect(panel.getByTestId('palette-proof-continuation-guidance')).toContainText(
-        'The proof was reduced to 4 candidates per target'
+        'This round keeps the previous best, nearby challengers, and at most one exploratory stack per target.'
     );
     await expect(dialog.getByRole('combobox', { name: 'Palette Proof record' })).toContainText(
         'Set 1 / Continuation 1 / not saved'

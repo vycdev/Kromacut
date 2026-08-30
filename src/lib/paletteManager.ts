@@ -79,6 +79,7 @@ export function loadCustomPalettes(reservedIds?: Set<string>): CustomPalette[] {
         const parsed = JSON.parse(raw) as CustomPalette[];
         if (!Array.isArray(parsed)) return [];
         let migrated = false;
+        const reassignedPaletteIds = new Map<string, string>();
         const palettes = parsed
             .filter(
                 (p) =>
@@ -91,13 +92,34 @@ export function loadCustomPalettes(reservedIds?: Set<string>): CustomPalette[] {
             .map((p) => {
                 if (isSupplierPaletteId(p.id) || reservedIds?.has(p.id)) {
                     migrated = true;
-                    return { ...p, id: crypto.randomUUID() };
+                    const id = crypto.randomUUID();
+                    // Preserve the palette that a duplicated id resolved to
+                    // before migration: custom palettes retain array-order
+                    // precedence among themselves.
+                    if (!reassignedPaletteIds.has(p.id)) reassignedPaletteIds.set(p.id, id);
+                    return { ...p, id };
                 }
                 return p;
             })
             .map(normalizeCustomPalette);
-        // Persist re-assigned ids so they stay stable across reloads.
-        if (migrated) saveCustomPalettes(palettes);
+        // Persist re-assigned ids so they stay stable across reloads, then move
+        // stored references to the same custom palette. Never update a
+        // reference when the primary migration was rejected by storage.
+        if (migrated && saveCustomPalettes(palettes)) {
+            const selectedPaletteId = loadSelectedPalette();
+            const reassignedSelectedPaletteId = selectedPaletteId
+                ? reassignedPaletteIds.get(selectedPaletteId)
+                : undefined;
+            if (reassignedSelectedPaletteId) saveSelectedPalette(reassignedSelectedPaletteId);
+
+            // This legacy pointer is not used by the current hook, but remains
+            // a public compatibility key and must not be left dangling.
+            const lastPaletteId = loadLastCustomPaletteId();
+            const reassignedLastPaletteId = lastPaletteId
+                ? reassignedPaletteIds.get(lastPaletteId)
+                : undefined;
+            if (reassignedLastPaletteId) saveLastCustomPaletteId(reassignedLastPaletteId);
+        }
         return palettes;
     } catch {
         return [];

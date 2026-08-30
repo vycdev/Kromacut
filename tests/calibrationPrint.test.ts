@@ -3,6 +3,7 @@ import test from 'node:test';
 import JSZip from 'jszip';
 
 import { loadViteModule } from './helpers/viteModule.ts';
+import { assertValidXml10Members } from './helpers/xml.ts';
 
 type GeneratorModule = typeof import('../src/lib/generateCalibrationPrint.ts');
 
@@ -108,4 +109,31 @@ test('generateCalibration3mf builds slots in profile order and colors the parts'
     assert.deepEqual(project.filament_colour, ['#FFFFFF', '#000000', '#FF0000', '#00AA55']);
     assert.equal(project.filament_colour[0], '#FFFFFF');
     assert.equal(project.filament_type.length, profileFilaments.length);
+});
+
+test('generateCalibration3mf sanitizes arbitrary names in every XML member', async () => {
+    const { generateCalibration3mf } = await loadGenerator();
+    const unsafeName = `Red\u0001 & < > " ' \ud800 \u{1f308}`;
+    const safeName = `Red\uFFFD &amp; &lt; &gt; &quot; &apos; \uFFFD \u{1f308}`;
+    const profileFilaments = [
+        { id: 'base', color: '#000000', name: 'Black' },
+        { id: 'red', color: '#ff0000', name: unsafeName },
+    ];
+    const tiles = [
+        {
+            filamentId: 'red',
+            color: '#ff0000',
+            baseFilamentId: 'base',
+            baseColor: '#000000',
+            name: unsafeName,
+        },
+    ];
+
+    const blob = await generateCalibration3mf(tiles, baseOptions, profileFilaments);
+    const members = await assertValidXml10Members(
+        await JSZip.loadAsync(await blob.arrayBuffer())
+    );
+
+    assert.ok(members['3D/3dmodel.model'].includes(safeName));
+    assert.ok(members['Metadata/model_settings.config'].includes(safeName));
 });

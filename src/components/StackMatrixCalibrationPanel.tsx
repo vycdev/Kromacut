@@ -31,6 +31,14 @@ import { downloadBlob } from '@/hooks/downloadBlob';
 import type { Filament } from '@/types';
 import type { AutoPaintProfile } from '@/lib/profileManager';
 import {
+    applyStackMatrixPanelOwnerUpdate,
+    createStackMatrixPanelOwnerStates,
+    reconcileStackMatrixPanelOwnerStates,
+    stackMatrixPanelOwnerState,
+    type StackMatrixPanelOwnerState,
+    type StackMatrixPanelOwnerStates,
+} from '@/lib/stackMatrixPanelState';
+import {
     fingerprintAppearanceFilaments,
     type StackMatrixCalibrationV1,
 } from '@/lib/appearanceProfile';
@@ -98,6 +106,11 @@ interface PendingCornerDrag {
 interface PhotoViewportSize {
     width: number;
     height: number;
+}
+
+interface PendingMatrixGeneration {
+    worker: Worker;
+    reject: (reason: Error) => void;
 }
 
 const SAMPLE_CHOICES = [64, 144, 256, 400, 625, 1024, 1296, 1600, 2025];
@@ -210,10 +223,15 @@ export default function StackMatrixCalibrationPanel({
         () => profile?.appearance?.stackMatrices ?? [],
         [profile?.appearance?.stackMatrices]
     );
-    const newestRecord = records.at(-1);
-    const [localRecord, setLocalRecord] = useState<StackMatrixCalibrationV1 | null>(null);
-    const [activeRecordId, setActiveRecordId] = useState<string | null>(newestRecord?.id ?? null);
-    const [creatingNew, setCreatingNew] = useState(records.length === 0);
+    const profileId = profile?.id ?? null;
+    const [storedOwnerStates, setStoredOwnerStates] = useState<StackMatrixPanelOwnerStates>(() =>
+        createStackMatrixPanelOwnerStates(profileId, records)
+    );
+    const ownerState = useMemo(
+        () => stackMatrixPanelOwnerState(storedOwnerStates, profileId, records),
+        [profileId, records, storedOwnerStates]
+    );
+    const { localRecord, activeRecordId, creatingNew } = ownerState;
     const [selectedIds, setSelectedIds] = useState<Set<string>>(
         () => new Set(filaments.slice(0, 8).map((filament) => filament.id))
     );
@@ -256,30 +274,61 @@ export default function StackMatrixCalibrationPanel({
     const draggingCornerRef = useRef<number | null>(null);
     const pendingCornerDragRef = useRef<PendingCornerDrag | null>(null);
     const cornerDragFrameRef = useRef<number | null>(null);
-    const generationWorkerRef = useRef<Worker | null>(null);
+    const generationWorkerRef = useRef<PendingMatrixGeneration | null>(null);
+    const generationRequestRef = useRef(0);
+    const panelMountedRef = useRef(true);
     const photoLoadGenerationRef = useRef(0);
+    const recordsRef = useRef(records);
+    const previousProfileIdRef = useRef(profileId);
+    recordsRef.current = records;
     const activePhotoOwnerRef = useRef({
-        profileId: profile?.id ?? null,
+        profileId,
         recordId: activeRecordId,
     });
     activePhotoOwnerRef.current = {
-        profileId: profile?.id ?? null,
+        profileId,
         recordId: activeRecordId,
     };
 
+    const updateOwnerState = useCallback(
+        (
+            expectedProfileId: string | null,
+            update: (current: StackMatrixPanelOwnerState) => StackMatrixPanelOwnerState
+        ) => {
+            setStoredOwnerStates((current) =>
+                applyStackMatrixPanelOwnerUpdate(
+                    current,
+                    expectedProfileId,
+                    activePhotoOwnerRef.current.profileId,
+                    recordsRef.current,
+                    update
+                )
+            );
+        },
+        []
+    );
+
+    const cancelGenerationWorker = useCallback((message: string) => {
+        const pending = generationWorkerRef.current;
+        if (!pending) return;
+        generationWorkerRef.current = null;
+        pending.worker.terminate();
+        pending.reject(new Error(message));
+    }, []);
+
     const runGenerationWorker = useCallback(
         (job: StackMatrixWorkerJob): Promise<StackMatrixWorkerCompleteResponse> => {
-            generationWorkerRef.current?.terminate();
+            cancelGenerationWorker('Stack Matrix generation was replaced');
             const id = nextMatrixWorkerRequestId++;
             return new Promise((resolve, reject) => {
                 const worker = new Worker(
                     new URL('../workers/stackMatrix.worker.ts', import.meta.url),
                     { type: 'module' }
                 );
-                generationWorkerRef.current = worker;
+                generationWorkerRef.current = { worker, reject };
                 const finish = () => {
                     worker.terminate();
-                    if (generationWorkerRef.current === worker) {
+                    if (generationWorkerRef.current?.worker === worker) {
                         generationWorkerRef.current = null;
                     }
                 };
@@ -308,22 +357,39 @@ export default function StackMatrixCalibrationPanel({
                 worker.postMessage({ id, ...job } as StackMatrixWorkerRequest);
             });
         },
-        []
+        [cancelGenerationWorker]
     );
 
     useEffect(() => {
+        panelMountedRef.current = true;
         return () => {
+            panelMountedRef.current = false;
+            generationRequestRef.current += 1;
             photoLoadGenerationRef.current += 1;
-            generationWorkerRef.current?.terminate();
+            cancelGenerationWorker('Stack Matrix generation was cancelled');
             if (cornerDragFrameRef.current !== null) {
                 cancelAnimationFrame(cornerDragFrameRef.current);
             }
         };
-    }, []);
+    }, [cancelGenerationWorker]);
 
     useEffect(() => {
-        if (!activeRecordId && newestRecord) setActiveRecordId(newestRecord.id);
-    }, [activeRecordId, newestRecord]);
+        setStoredOwnerStates((current) =>
+            reconcileStackMatrixPanelOwnerStates(current, profileId, records)
+        );
+    }, [profileId, records]);
+
+    useEffect(() => {
+        if (previousProfileIdRef.current === profileId) return;
+        previousProfileIdRef.current = profileId;
+        generationRequestRef.current += 1;
+        cancelGenerationWorker('Stack Matrix generation was cancelled after changing profiles');
+        setBusy(false);
+        setGenerationPhase(null);
+        setError(null);
+        setSelectedIds(new Set(filaments.slice(0, 8).map((filament) => filament.id)));
+        setBackingId(lightestStackMatrixFilamentId(filaments.slice(0, 8)));
+    }, [cancelGenerationWorker, filaments, profileId]);
 
     useEffect(() => {
         photoLoadGenerationRef.current += 1;
@@ -345,7 +411,7 @@ export default function StackMatrixCalibrationPanel({
             cancelAnimationFrame(cornerDragFrameRef.current);
             cornerDragFrameRef.current = null;
         }
-    }, [activeRecordId, profile?.id]);
+    }, [activeRecordId, profileId]);
 
     const activeRecord = useMemo(() => {
         if (localRecord?.id === activeRecordId) return localRecord;
@@ -403,6 +469,8 @@ export default function StackMatrixCalibrationPanel({
 
     const handleCreateAndDownload = useCallback(async () => {
         if (!canCreate) return;
+        const requestProfileId = profileId;
+        const requestGeneration = ++generationRequestRef.current;
         setBusy(true);
         setGenerationPhase('planning');
         setError(null);
@@ -421,6 +489,12 @@ export default function StackMatrixCalibrationPanel({
                         : undefined,
                 },
             });
+            if (
+                !panelMountedRef.current ||
+                generationRequestRef.current !== requestGeneration ||
+                activePhotoOwnerRef.current.profileId !== requestProfileId
+            )
+                return;
             downloadBlob(blob, `kromacut-stack-matrix-${exported.samples.length}.3mf`);
             let persistenceWarning: string | null = null;
             try {
@@ -428,9 +502,12 @@ export default function StackMatrixCalibrationPanel({
             } catch (caught) {
                 persistenceWarning = `3MF downloaded, but its plan is only available in this session: ${caught instanceof Error ? caught.message : 'profile storage failed'}`;
             }
-            setLocalRecord(exported);
-            setActiveRecordId(exported.id);
-            setCreatingNew(false);
+            updateOwnerState(requestProfileId, (current) => ({
+                ...current,
+                localRecord: exported,
+                activeRecordId: exported.id,
+                creatingNew: false,
+            }));
             setPhoto(null);
             setPhotoZoom(1);
             setCorners([]);
@@ -440,10 +517,22 @@ export default function StackMatrixCalibrationPanel({
             setMeasuredColors([]);
             setError(persistenceWarning);
         } catch (caught) {
+            if (
+                !panelMountedRef.current ||
+                generationRequestRef.current !== requestGeneration ||
+                activePhotoOwnerRef.current.profileId !== requestProfileId
+            )
+                return;
             setError(caught instanceof Error ? caught.message : 'Could not create Stack Matrix');
         } finally {
-            setBusy(false);
-            setGenerationPhase(null);
+            if (
+                panelMountedRef.current &&
+                generationRequestRef.current === requestGeneration &&
+                activePhotoOwnerRef.current.profileId === requestProfileId
+            ) {
+                setBusy(false);
+                setGenerationPhase(null);
+            }
         }
     }, [
         backingId,
@@ -453,13 +542,17 @@ export default function StackMatrixCalibrationPanel({
         maximumSamples,
         onUpsert,
         profile,
+        profileId,
         runGenerationWorker,
         selectedFilaments,
         stackLayerCount,
+        updateOwnerState,
     ]);
 
     const handleDownloadAgain = useCallback(async () => {
         if (!activeRecord) return;
+        const requestProfileId = profileId;
+        const requestGeneration = ++generationRequestRef.current;
         setBusy(true);
         setGenerationPhase('exporting');
         setError(null);
@@ -468,6 +561,12 @@ export default function StackMatrixCalibrationPanel({
                 type: 'export',
                 record: activeRecord,
             });
+            if (
+                !panelMountedRef.current ||
+                generationRequestRef.current !== requestGeneration ||
+                activePhotoOwnerRef.current.profileId !== requestProfileId
+            )
+                return;
             downloadBlob(blob, `kromacut-stack-matrix-${exported.samples.length}.3mf`);
             let persistenceWarning: string | null = null;
             try {
@@ -475,15 +574,30 @@ export default function StackMatrixCalibrationPanel({
             } catch (caught) {
                 persistenceWarning = `3MF downloaded, but its refreshed export metadata was not saved: ${caught instanceof Error ? caught.message : 'profile storage failed'}`;
             }
-            setLocalRecord(exported);
+            updateOwnerState(requestProfileId, (current) => ({
+                ...current,
+                localRecord: exported,
+            }));
             setError(persistenceWarning);
         } catch (caught) {
+            if (
+                !panelMountedRef.current ||
+                generationRequestRef.current !== requestGeneration ||
+                activePhotoOwnerRef.current.profileId !== requestProfileId
+            )
+                return;
             setError(caught instanceof Error ? caught.message : 'Could not export Stack Matrix');
         } finally {
-            setBusy(false);
-            setGenerationPhase(null);
+            if (
+                panelMountedRef.current &&
+                generationRequestRef.current === requestGeneration &&
+                activePhotoOwnerRef.current.profileId === requestProfileId
+            ) {
+                setBusy(false);
+                setGenerationPhase(null);
+            }
         }
-    }, [activeRecord, onUpsert, runGenerationWorker]);
+    }, [activeRecord, onUpsert, profileId, runGenerationWorker, updateOwnerState]);
 
     const detectPhotoAlignment = useCallback(
         (loadedPhoto: LoadedPhoto) => {
@@ -523,7 +637,7 @@ export default function StackMatrixCalibrationPanel({
                 return;
             }
             const loadGeneration = ++photoLoadGenerationRef.current;
-            const profileId = profile?.id ?? null;
+            const photoProfileId = profileId;
             const recordId = activeRecord.id;
             const url = URL.createObjectURL(file);
             const image = new Image();
@@ -531,7 +645,7 @@ export default function StackMatrixCalibrationPanel({
                 const activeOwner = activePhotoOwnerRef.current;
                 if (
                     loadGeneration !== photoLoadGenerationRef.current ||
-                    activeOwner.profileId !== profileId ||
+                    activeOwner.profileId !== photoProfileId ||
                     activeOwner.recordId !== recordId
                 ) {
                     URL.revokeObjectURL(url);
@@ -557,7 +671,7 @@ export default function StackMatrixCalibrationPanel({
                     width,
                     height,
                     fileName: file.name,
-                    profileId,
+                    profileId: photoProfileId,
                     recordId,
                 };
                 setPhoto(loadedPhoto);
@@ -568,14 +682,19 @@ export default function StackMatrixCalibrationPanel({
                 URL.revokeObjectURL(url);
             };
             image.onerror = () => {
-                if (loadGeneration === photoLoadGenerationRef.current) {
+                const activeOwner = activePhotoOwnerRef.current;
+                if (
+                    loadGeneration === photoLoadGenerationRef.current &&
+                    activeOwner.profileId === photoProfileId &&
+                    activeOwner.recordId === recordId
+                ) {
                     setError('Could not open that photo');
                 }
                 URL.revokeObjectURL(url);
             };
             image.src = url;
         },
-        [activeRecord, detectPhotoAlignment, profile?.id]
+        [activeRecord, detectPhotoAlignment, profileId]
     );
 
     const handleRotatePhoto = useCallback(
@@ -1086,7 +1205,7 @@ export default function StackMatrixCalibrationPanel({
         if (
             !activeRecord ||
             !photo ||
-            photo.profileId !== (profile?.id ?? null) ||
+            photo.profileId !== profileId ||
             photo.recordId !== activeRecord.id ||
             !cornerEstimate ||
             !alignmentReady ||
@@ -1110,7 +1229,10 @@ export default function StackMatrixCalibrationPanel({
                 }
             );
             onUpsert?.(completed);
-            setLocalRecord(completed);
+            updateOwnerState(profileId, (current) => ({
+                ...current,
+                localRecord: completed,
+            }));
             setError(null);
         } catch (caught) {
             setError(caught instanceof Error ? caught.message : 'Could not save Stack Matrix');
@@ -1125,10 +1247,13 @@ export default function StackMatrixCalibrationPanel({
             setError(caught instanceof Error ? caught.message : 'Could not delete Stack Matrix');
             return;
         }
-        setLocalRecord(null);
         const remaining = records.filter((record) => record.id !== activeRecord.id);
-        setActiveRecordId(remaining.at(-1)?.id ?? null);
-        setCreatingNew(remaining.length === 0);
+        updateOwnerState(profileId, (current) => ({
+            ...current,
+            localRecord: null,
+            activeRecordId: remaining.at(-1)?.id ?? null,
+            creatingNew: remaining.length === 0,
+        }));
         setPhoto(null);
         setCorners([]);
         setCornerEstimate(null);
@@ -1157,7 +1282,12 @@ export default function StackMatrixCalibrationPanel({
                     {records.length > 0 && (
                         <Select
                             value={activeRecord.id}
-                            onValueChange={setActiveRecordId}
+                            onValueChange={(recordId) =>
+                                updateOwnerState(profileId, (current) => ({
+                                    ...current,
+                                    activeRecordId: recordId,
+                                }))
+                            }
                             disabled={busy}
                         >
                             <SelectTrigger className="min-w-[20rem] flex-1">
@@ -1172,7 +1302,16 @@ export default function StackMatrixCalibrationPanel({
                             </SelectContent>
                         </Select>
                     )}
-                    <Button variant="outline" onClick={() => setCreatingNew(true)} disabled={busy}>
+                    <Button
+                        variant="outline"
+                        onClick={() =>
+                            updateOwnerState(profileId, (current) => ({
+                                ...current,
+                                creatingNew: true,
+                            }))
+                        }
+                        disabled={busy}
+                    >
                         <Plus className="mr-1.5 h-4 w-4" />
                         New matrix
                     </Button>
@@ -1678,7 +1817,15 @@ export default function StackMatrixCalibrationPanel({
                     </p>
                 </div>
                 {records.length > 0 && (
-                    <Button variant="outline" onClick={() => setCreatingNew(false)}>
+                    <Button
+                        variant="outline"
+                        onClick={() =>
+                            updateOwnerState(profileId, (current) => ({
+                                ...current,
+                                creatingNew: false,
+                            }))
+                        }
+                    >
                         Back to saved matrices
                     </Button>
                 )}

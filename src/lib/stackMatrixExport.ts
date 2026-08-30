@@ -3,6 +3,7 @@ import type { StackMatrixCalibrationV1 } from './appearanceProfile';
 import { normalizeHexColor } from './colorUtils';
 import { MINIMAL_PROJECT_SETTINGS, KROMACUT_CONFIG } from './slicerDefaults';
 import { stackMatrixPhysicalSize } from './stackMatrixCalibration';
+import { escapeXmlAttribute } from './xml';
 
 interface Mesh {
     vertices: number[];
@@ -65,14 +66,6 @@ function appendBox(
         0, 4, 3, 4, 7,
     ];
     for (const index of faces) mesh.triangles.push(base + index);
-}
-
-function escapeXml(value: string): string {
-    return value
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
 }
 
 function materialColor(hex: string): string {
@@ -215,11 +208,11 @@ export async function generateStackMatrix3mf(record: StackMatrixCalibrationV1): 
         const objectId = nextObjectId++;
         partObjectIds.push(objectId);
         objects.push(
-            `<object id="${objectId}" p:UUID="${uuid()}" type="model" pid="${materialId}" pindex="${part.filamentIndex}" name="${escapeXml(part.name)}">${meshXml(part.mesh)}</object>`
+            `<object id="${objectId}" p:UUID="${uuid()}" type="model" pid="${materialId}" pindex="${part.filamentIndex}" name="${escapeXmlAttribute(part.name)}">${meshXml(part.mesh)}</object>`
         );
         partSettings.push(
             `  <part id="${objectId}" subtype="normal_part">\n` +
-                `   <metadata key="name" value="${escapeXml(part.name)}"/>\n` +
+                `   <metadata key="name" value="${escapeXmlAttribute(part.name)}"/>\n` +
                 `   <metadata key="extruder" value="${part.filamentIndex + 1}"/>\n` +
                 `  </part>\n`
         );
@@ -235,7 +228,7 @@ export async function generateStackMatrix3mf(record: StackMatrixCalibrationV1): 
     const materials = record.filaments
         .map(
             (filament) =>
-                `<base name="${escapeXml(filament.name)}" displaycolor="${materialColor(filament.color)}"/>`
+                `<base name="${escapeXmlAttribute(filament.name)}" displaycolor="${materialColor(filament.color)}"/>`
         )
         .join('');
     const model =

@@ -44,8 +44,12 @@ function withMemoryStorage(fn: (storage: Pick<Storage, 'getItem' | 'setItem'>) =
             setItem: (key: string, value: string) => void values.set(key, value),
             removeItem: (key: string) => void values.delete(key),
         } as Storage);
-    const storageKey = 'kromacut.palettes';
-    const previous = storage.getItem(storageKey);
+    const storageKeys = [
+        'kromacut.palettes',
+        'kromacut.palettes.lastId',
+        'kromacut.palettes.selected',
+    ];
+    const previous = new Map(storageKeys.map((key) => [key, storage.getItem(key)]));
 
     if (!original) {
         Object.defineProperty(globalThis, 'localStorage', {
@@ -53,12 +57,15 @@ function withMemoryStorage(fn: (storage: Pick<Storage, 'getItem' | 'setItem'>) =
             value: storage,
         });
     }
-    storage.removeItem(storageKey);
+    for (const key of storageKeys) storage.removeItem(key);
     try {
         fn(storage);
     } finally {
-        if (previous === null) storage.removeItem(storageKey);
-        else storage.setItem(storageKey, previous);
+        for (const key of storageKeys) {
+            const value = previous.get(key);
+            if (value === null || value === undefined) storage.removeItem(key);
+            else storage.setItem(key, value);
+        }
         if (!original) delete (globalThis as Record<string, unknown>).localStorage;
     }
 }
@@ -71,6 +78,8 @@ test('stored palettes with reserved built-in ids are re-assigned and persisted o
             makePalette({ id: 'legit-uuid', name: 'Untouched' }),
         ];
         storage.setItem('kromacut.palettes', JSON.stringify(stored));
+        storage.setItem('kromacut.palettes.selected', 'p4');
+        storage.setItem('kromacut.palettes.lastId', 'sup_bambu-pla-basic');
 
         const reserved = new Set(['auto', 'p4', 'g8']);
         const loaded = loadCustomPalettes(reserved);
@@ -79,6 +88,8 @@ test('stored palettes with reserved built-in ids are re-assigned and persisted o
         assert.notEqual(loaded[0].id, 'p4');
         assert.notEqual(loaded[1].id, 'sup_bambu-pla-basic');
         assert.equal(loaded[2].id, 'legit-uuid');
+        assert.equal(storage.getItem('kromacut.palettes.selected'), loaded[0].id);
+        assert.equal(storage.getItem('kromacut.palettes.lastId'), loaded[1].id);
 
         // Migration is written back, so a second load returns stable ids.
         const persisted = JSON.parse(storage.getItem('kromacut.palettes')!) as { id: string }[];
@@ -91,6 +102,31 @@ test('stored palettes with reserved built-in ids are re-assigned and persisted o
             reloaded.map((p) => p.id),
             loaded.map((p) => p.id)
         );
+    });
+});
+
+test('reserved palette migration leaves stored references unchanged when persistence fails', () => {
+    withMemoryStorage((storage) => {
+        const storageKey = 'kromacut.palettes';
+        const raw = JSON.stringify([makePalette({ id: 'p4', name: 'Shadowing Built-in' })]);
+        storage.setItem(storageKey, raw);
+        storage.setItem('kromacut.palettes.selected', 'p4');
+        storage.setItem('kromacut.palettes.lastId', 'p4');
+
+        const originalSetItem = storage.setItem;
+        storage.setItem = (key: string, value: string) => {
+            if (key === storageKey) throw new Error('quota exceeded');
+            originalSetItem.call(storage, key, value);
+        };
+        try {
+            const loaded = loadCustomPalettes(new Set(['auto', 'p4']));
+            assert.notEqual(loaded[0].id, 'p4');
+            assert.equal(storage.getItem(storageKey), raw);
+            assert.equal(storage.getItem('kromacut.palettes.selected'), 'p4');
+            assert.equal(storage.getItem('kromacut.palettes.lastId'), 'p4');
+        } finally {
+            storage.setItem = originalSetItem;
+        }
     });
 });
 

@@ -193,13 +193,36 @@ export function loadProfiles(): AutoPaintProfile[] {
                 Array.isArray(profile.filaments) &&
                 hasDuplicateFilamentIds(profile.filaments)
         );
+        const reassignedProfileIds = new Map<string, string>();
         const profiles = parsed
-            .map((profile) => sanitizeProfile(profile))
+            .map((profile) => {
+                const sanitized = sanitizeProfile(profile);
+                if (
+                    sanitized &&
+                    isRecord(profile) &&
+                    typeof profile.id === 'string' &&
+                    sanitized.id !== profile.id &&
+                    !reassignedProfileIds.has(profile.id)
+                ) {
+                    // Preserve the profile that a duplicated id resolved to
+                    // before migration: callers search stored profiles in
+                    // array order, so the first matching profile wins.
+                    reassignedProfileIds.set(profile.id, sanitized.id);
+                }
+                return sanitized;
+            })
             .filter((profile): profile is AutoPaintProfile => profile !== null);
         // Persist re-assigned template ids and repaired duplicate filament ids
         // so both migrations stay stable across reloads.
         const migrated = hadReservedId || hadDuplicateFilamentIds;
         const migrationPersisted = migrated && saveProfilesToStorage(profiles);
+        if (migrationPersisted) {
+            const lastProfileId = loadLastProfileId();
+            const reassignedLastProfileId = lastProfileId
+                ? reassignedProfileIds.get(lastProfileId)
+                : undefined;
+            if (reassignedLastProfileId) saveLastProfileId(reassignedLastProfileId);
+        }
         return rememberProfiles(migrationPersisted ? JSON.stringify(profiles) : raw, profiles);
     } catch {
         return [];
