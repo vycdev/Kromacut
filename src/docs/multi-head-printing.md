@@ -20,6 +20,10 @@ Multi-head mode appears in the **Auto-Paint** panel and is only available when:
 
 The head count must be **2 or more**. Calibrated filaments give better color matches here for the same reason they do in single-head auto-paint — see [Calibration theory](calibration-theory).
 
+Multi-head mode and **Flat Paint** are mutually exclusive: turning one on turns the other off, because a flat face-down slab has no stepped layer stack for the head schedule to reorder.
+
+If the analysis can't find any head layout that improves on the normal stack — or the background worker fails — the build falls back to a normal single-head model and tells you why. It never exports a multi-head file with guessed head assignments; adjust the head count or search depth and rebuild.
+
 ## Runs and Windows
 
 Multi-head thinks in two units. A **run** is a contiguous block of layers printed with one filament; its height comes from the source color's brightness. A **window** is exactly **N consecutive runs**, where N is your head count. The printer holds all N heads for the duration of a window and only pauses at window boundaries.

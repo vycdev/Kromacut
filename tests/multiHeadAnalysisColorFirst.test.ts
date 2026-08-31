@@ -16,6 +16,7 @@ import {
     COLOR_GROUP_CAP,
 } from '../src/lib/multiHeadAnalysisColorFirst.ts';
 import type { WindowFilament } from '../src/lib/multiHeadAnalysis.ts';
+import { channelHds } from '../src/lib/calibration.ts';
 import type { Filament } from '../src/types/index.ts';
 
 const LAYER_HEIGHT = 0.12;
@@ -83,6 +84,39 @@ test('buildColorRuns — adjacent layers with different filaments each become th
         assert.notEqual(
             runs[i].filamentIdx, runs[i - 1].filamentIdx,
             `adjacent runs at indices ${i - 1} and ${i} should have different filaments`
+        );
+    }
+});
+
+// ---------------------------------------------------------------------------
+// Optical model — hiding distance must not be rescaled
+// ---------------------------------------------------------------------------
+
+test('expandZonesToPrinterLayers — layer td comes straight from channelHds (no second x0.1 scale)', () => {
+    // Schema v2 stores frontlit hiding distance directly in filament.td. The
+    // multi-head path must consume it through the shared channelHds() model, the
+    // same as normal auto-paint — not multiply it by 0.1 again.
+    const filaments = [
+        filament('a', '#101010', 0.71, 'A'),
+        filament('b', '#e8e8e8', 0.42, 'B'),
+    ];
+    const swatches = gradient(24);
+    const result = generateAutoLayers(filaments, swatches, LAYER_HEIGHT, FIRST_LAYER_HEIGHT);
+    const layers = expandZonesToPrinterLayers(result, filaments, LAYER_HEIGHT, FIRST_LAYER_HEIGHT);
+
+    assert.ok(layers.length > 1);
+    for (const layer of layers) {
+        const expected = channelHds(filaments[layer.filamentIdx]);
+        assert.deepEqual(
+            layer.td,
+            expected,
+            `layer td ${JSON.stringify(layer.td)} != channelHds ${JSON.stringify(expected)}`
+        );
+        // Guard the specific bug: the old code stored filament.td * 0.1.
+        const scalarLo = Math.min(expected[0], expected[1], expected[2]);
+        assert.ok(
+            scalarLo > filaments[layer.filamentIdx].td * 0.1 + 1e-9,
+            'layer td looks like it was rescaled by 0.1'
         );
     }
 });
@@ -477,10 +511,9 @@ test('computeColorOptimalAssignments — errorFactor is non-negative', () => {
     const windowRuns = runs.slice(1, 1 + N); // skip run 0 (foundation)
     const wEnd = windowRuns[N - 1].endLayerIdx;
     const uniqueIndices = [...new Set(windowRuns.map((r) => r.filamentIdx))];
-    const FRONTLIT_TD_SCALE = 0.1;
     const windowFilaments: WindowFilament[] = uniqueIndices.map((fi) => ({
         rgb: hexToRgb(FOUR_FILAMENTS[fi].color),
-        td: FOUR_FILAMENTS[fi].td * FRONTLIT_TD_SCALE,
+        td: channelHds(FOUR_FILAMENTS[fi]),
     }));
 
     const { errorFactor } = computeColorOptimalAssignments(
@@ -505,10 +538,9 @@ test('computeColorOptimalAssignments — affectedCount matches pixels in and abo
     const wStart = windowRuns[0].startLayerIdx;
     const wEnd = windowRuns[N - 1].endLayerIdx;
     const uniqueIndices = [...new Set(windowRuns.map((r) => r.filamentIdx))];
-    const FRONTLIT_TD_SCALE = 0.1;
     const windowFilaments: WindowFilament[] = uniqueIndices.map((fi) => ({
         rgb: colorAtLayer[wStart - 1],
-        td: FOUR_FILAMENTS[fi].td * FRONTLIT_TD_SCALE,
+        td: channelHds(FOUR_FILAMENTS[fi]),
     }));
 
     const { affectedCount } = computeColorOptimalAssignments(
@@ -535,10 +567,9 @@ test('computeColorOptimalAssignments — non-null assignments have length equal 
     const windowRuns = runs.slice(1, 1 + N);
     const wStart = windowRuns[0].startLayerIdx;
     const uniqueIndices = [...new Set(windowRuns.map((r) => r.filamentIdx))];
-    const FRONTLIT_TD_SCALE = 0.1;
     const windowFilaments: WindowFilament[] = uniqueIndices.map((fi) => ({
         rgb: colorAtLayer[wStart - 1],
-        td: FOUR_FILAMENTS[fi].td * FRONTLIT_TD_SCALE,
+        td: channelHds(FOUR_FILAMENTS[fi]),
     }));
 
     const { assignments } = computeColorOptimalAssignments(
@@ -572,10 +603,9 @@ test('computeColorOptimalAssignments — pixels outside the window have null ass
     const windowRuns = runs.slice(1, 1 + N);
     const wStart = windowRuns[0].startLayerIdx;
     const uniqueIndices = [...new Set(windowRuns.map((r) => r.filamentIdx))];
-    const FRONTLIT_TD_SCALE = 0.1;
     const windowFilaments: WindowFilament[] = uniqueIndices.map((fi) => ({
         rgb: colorAtLayer[wStart - 1],
-        td: FOUR_FILAMENTS[fi].td * FRONTLIT_TD_SCALE,
+        td: channelHds(FOUR_FILAMENTS[fi]),
     }));
 
     const { assignments } = computeColorOptimalAssignments(
@@ -774,28 +804,49 @@ test('runMultiHeadLayerAnalysisColorFirst — color mode produces a valid, compl
     // guaranteed to yield more distinct printed colors than luminance mode — the
     // visible-color count is dominated by how many windows the optimizer opens
     // (the head/swap budget), not just the group count, so the benefit is
-    // config-dependent. This test only asserts the color-mode path runs end to
-    // end and returns structurally consistent output. The strong grouping claim
-    // is covered by the buildColorGroupedPixels tests above.
+    // config-dependent. This test asserts the color-mode path runs end to end
+    // and returns structurally consistent output, whether or not the analysis
+    // finds an improving window. The strong grouping claim is covered by the
+    // buildColorGroupedPixels tests above.
+    //
+    // Realistic per-channel hiding distances (~0.3 mm, consumed directly via
+    // channelHds — no second ×0.1 scale) with a mixed grey + saturated palette:
+    // enough opacity per layer that reordering a window measurably helps.
     const filaments = [
-        filament('lf0', '#000000', 0.5, 'VeryDark'),
-        filament('lf1', '#555555', 0.5, 'Dark'),
-        filament('lf2', '#aaaaaa', 0.5, 'Light'),
-        filament('lf3', '#ffffff', 0.5, 'VeryLight'),
+        filament('lf0', '#101010', 0.3, 'VeryDark'),
+        filament('lf1', '#606060', 0.3, 'Dark'),
+        filament('lf2', '#b0b0b0', 0.3, 'Light'),
+        filament('lf3', '#f0f0f0', 0.3, 'VeryLight'),
+        filament('lf4', '#c02020', 0.3, 'Red'),
+        filament('lf5', '#2040c0', 0.3, 'Blue'),
     ];
-    const colors = distinctColors(40);
+    const grey = gradient(12).map((s) => ({ hex: s.hex, count: 1 }));
+    const hues = ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff', '#ff8000', '#8000ff']
+        .map((hex) => ({ hex, count: 1 }));
+    const colors = [...grey, ...hues];
     const knownHexes = new Set(colors.map((c) => c.hex));
     const result = generateAutoLayers(filaments, colors, LAYER_HEIGHT, FIRST_LAYER_HEIGHT);
 
     const col = runMultiHeadLayerAnalysisColorFirst(
-        filaments, result, colors, LAYER_HEIGHT, FIRST_LAYER_HEIGHT, 3, 'fast', 'color'
+        filaments, result, colors, LAYER_HEIGHT, FIRST_LAYER_HEIGHT, 3, 'balanced', 'color'
     );
 
     // One colorAssignments map per window.
     assert.equal(col.colorAssignments.length, col.windows.length);
-    // Every color path is keyed by a real image hex and has one filament index
-    // per printer layer, all in range.
-    assert.ok(col.patchedLayers.length > 0);
+
+    if (col.patchedLayers.length === 0) {
+        // A no-op result is a valid outcome — no window improved on the base
+        // stack. Everything downstream must be able to treat it as "not a
+        // multi-head build", so the whole result must be consistently empty.
+        assert.equal(col.windows.length, 0);
+        assert.equal(col.colorLayerFilaments.size, 0);
+        assert.equal(col.nozzleAssignments.length, 0);
+        return;
+    }
+
+    // Non-empty result: every color path is keyed by a real image hex and has
+    // one in-range filament index per printer layer.
+    assert.ok(col.windows.length > 0);
     for (const [hex, seq] of col.colorLayerFilaments) {
         assert.ok(knownHexes.has(hex), `unexpected hex ${hex}`);
         assert.equal(seq.length, col.patchedLayers.length);

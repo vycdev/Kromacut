@@ -21,23 +21,34 @@ import {
     getLuminance,
     type RGB,
 } from './autoPaint.ts';
+import { channelHds, type CalibrationRgb } from './calibration.ts';
 
-const FRONTLIT_TD_SCALE = 0.1;
+/**
+ * Fallback filament for the rare case where a window references a filament index
+ * that is no longer in the profile. Its per-channel HD comes from `channelHds`
+ * like any other filament.
+ */
+const FALLBACK_FILAMENT = { color: '#000000', td: 0.5 };
 
 export interface PrinterLayer {
     /** Index into the original filaments array */
     filamentIdx: number;
     filamentRgb: RGB;
-    /** TD already multiplied by FRONTLIT_TD_SCALE */
-    td: number;
+    /**
+     * Per-channel hiding distances (mm), from `channelHds()` — the same optical
+     * model as the normal auto-paint pipeline (schema v2 stores frontlit HD
+     * directly in `filament.td`; it is not rescaled). A scalar is still accepted
+     * for hand-built test fixtures.
+     */
+    td: number | CalibrationRgb;
     thickness: number;
     startZ: number;
 }
 
 export interface WindowFilament {
     rgb: RGB;
-    /** TD already multiplied by FRONTLIT_TD_SCALE */
-    td: number;
+    /** Per-channel hiding distances (mm), from `channelHds()`. See PrinterLayer.td. */
+    td: number | CalibrationRgb;
 }
 
 export interface PixelData {
@@ -112,7 +123,7 @@ export function expandZonesToPrinterLayers(
         layers.push({
             filamentIdx: Math.max(0, filamentIdx),
             filamentRgb: hexToRgb(zone.filamentColor),
-            td: filament.td * FRONTLIT_TD_SCALE,
+            td: channelHds(filament ?? FALLBACK_FILAMENT),
             thickness,
             startZ: currentZ,
         });
@@ -324,7 +335,7 @@ export function analyzeMultiHeadWindows(
         )];
         const windowFilaments: WindowFilament[] = uniqueIndices.map((fi) => ({
             rgb: hexToRgb(filaments[fi]?.color ?? '#000000'),
-            td: (filaments[fi]?.td ?? 0.5) * FRONTLIT_TD_SCALE,
+            td: channelHds(filaments[fi] ?? FALLBACK_FILAMENT),
         }));
         const lut = buildLUT(N, windowFilaments.length);
 

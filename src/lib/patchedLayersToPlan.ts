@@ -13,9 +13,7 @@ import type { PrinterLayer } from './multiHeadAnalysis.ts';
 import { buildColorStack } from './multiHeadAnalysis.ts';
 import type { Filament } from '../types';
 import { buildColorRuns } from './multiHeadAnalysisColorFirst.ts';
-
-/** Frontlit TD scaling — must match the value used in the analysis pipeline. */
-const FRONTLIT_TD_SCALE = 0.1;
+import { channelHds } from './calibration.ts';
 
 // ---------------------------------------------------------------------------
 // Slice data — ThreeDView mesh generation
@@ -96,10 +94,11 @@ export function buildPerColorLayerColors(
     const out = new Map<string, string[]>();
     if (layers.length === 0) return out;
 
-    // Pre-resolve each palette filament's rgb + frontlit-scaled TD.
+    // Pre-resolve each palette filament's rgb + per-channel hiding distances,
+    // using the shared optical model so multi-head colors match normal auto-paint.
     const palette = filaments.map((f) => ({
         rgb: hexToRgb(f.color),
-        td: f.td * FRONTLIT_TD_SCALE,
+        td: channelHds(f),
     }));
 
     for (const [hex, seq] of colorLayerFilaments) {

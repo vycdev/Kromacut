@@ -30,9 +30,13 @@ import {
     type WindowFilament,
     type WindowResult,
 } from './multiHeadAnalysis.ts';
+import { channelHds } from './calibration.ts';
 
-
-const FRONTLIT_TD_SCALE = 0.1;
+/**
+ * Fallback filament for a window that references a filament index no longer in
+ * the profile. Its per-channel HD comes from `channelHds` like any other.
+ */
+const FALLBACK_FILAMENT = { color: '#000000', td: 0.5 };
 
 /**
  * A swatch entry deduplicated by printer layer.
@@ -393,7 +397,7 @@ export function analyzeMultiHeadWindowsColorFirst(
         const uniqueIndices = [...new Set(windowRuns.map((r) => r.filamentIdx))];
         const windowFilaments: WindowFilament[] = uniqueIndices.map((fi) => ({
             rgb: hexToRgb(filaments[fi]?.color ?? '#000000'),
-            td: (filaments[fi]?.td ?? 0.5) * FRONTLIT_TD_SCALE,
+            td: channelHds(filaments[fi] ?? FALLBACK_FILAMENT),
         }));
 
         const { errorFactor, affectedCount } = computeColorOptimalAssignments(
@@ -526,9 +530,9 @@ function applyComboToLayers(
     for (let r = 0; r < windowRuns.length; r++) {
         const run = windowRuns[r];
         const fi = uniqueIndices[entry[r]];
-        const f = filaments[fi];
+        const f = filaments[fi] ?? FALLBACK_FILAMENT;
         const rgb = hexToRgb(f.color);
-        const td = f.td * FRONTLIT_TD_SCALE;
+        const td = channelHds(f);
         for (let i = run.startLayerIdx; i <= run.endLayerIdx; i++) {
             layers[i] = { ...layers[i], filamentIdx: fi, filamentRgb: rgb, td };
         }
@@ -894,7 +898,7 @@ export function runMultiHeadLayerAnalysisColorFirst(
             )];
             const windowFilaments: WindowFilament[] = uniqueIndices.map((fi) => ({
                 rgb: hexToRgb(filaments[fi]?.color ?? '#000000'),
-                td: (filaments[fi]?.td ?? 0.5) * FRONTLIT_TD_SCALE,
+                td: channelHds(filaments[fi] ?? FALLBACK_FILAMENT),
             }));
 
             const { entry, errorFactor, affectedCount } = findConsensusCombo(
@@ -937,7 +941,7 @@ export function runMultiHeadLayerAnalysisColorFirst(
         // across pixels within the same height band.
         const bestWindowFilaments: WindowFilament[] = bestUniqueIndices.map((fi) => ({
             rgb: hexToRgb(filaments[fi]?.color ?? '#000000'),
-            td: (filaments[fi]?.td ?? 0.5) * FRONTLIT_TD_SCALE,
+            td: channelHds(filaments[fi] ?? FALLBACK_FILAMENT),
         }));
         const { assignments } = computeColorOptimalAssignments(
             bestWindowRuns, wEnd, layers, colorAtLayer[wStart - 1], bestWindowFilaments, pixels

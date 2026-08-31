@@ -433,6 +433,15 @@ function App(): React.ReactElement | null {
     const builtModelAutoPaint = builtModelState.paintMode === 'autopaint';
     const builtModelValid = !builtModelAutoPaint || builtModelState.autoPaintResult !== undefined;
 
+    // Only drive the N-nozzle 3MF export when the built model actually carries a
+    // multi-head plan (selected windows + nozzle assignments). A flag alone —
+    // e.g. from an empty/failed analysis or stale persisted state — would make
+    // export3mf fall back to materialIndex-based extruders and misassign layers.
+    const multiHeadExportReady =
+        !!builtModelState.multiHeadMode &&
+        (builtModelState.multiHeadWindows?.length ?? 0) > 0 &&
+        (builtModelState.nozzleAssignments?.length ?? 0) > 0;
+
     const prevModeRef = useRef<typeof mode>(mode);
 
     useEffect(() => {
@@ -650,11 +659,11 @@ function App(): React.ReactElement | null {
                             ? (builtModelState.patchedSliceData?.swatches
                                   ?? builtModelState.autoPaintFilamentSwatches)?.map((s) => s.hex)
                             : undefined,
-                    extruderCount: builtModelState.multiHeadMode
+                    extruderCount: multiHeadExportReady
                         ? builtModelState.multiHeadCount
                         : undefined,
                     // Head Schedule swap checkpoints -> pause markers at those layers.
-                    swapLayers: builtModelState.multiHeadMode
+                    swapLayers: multiHeadExportReady
                         ? buildMultiHeadSchedule({
                               multiHeadWindows: builtModelState.multiHeadWindows,
                               nozzleAssignments: builtModelState.nozzleAssignments,

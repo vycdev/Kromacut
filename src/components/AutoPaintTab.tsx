@@ -416,6 +416,8 @@ interface AutoPaintTabProps {
     setMultiHeadSearchDepth: (v: 'fast' | 'balanced' | 'thorough') => void;
     multiHeadColorMode: 'luminance' | 'color';
     setMultiHeadColorMode: (v: 'luminance' | 'color') => void;
+    /** Set after a build that fell back from Multi-head mode to a single-head model. */
+    multiHeadNotice?: string;
 }
 
 export default function AutoPaintTab({
@@ -501,6 +503,7 @@ export default function AutoPaintTab({
     setMultiHeadSearchDepth,
     multiHeadColorMode,
     setMultiHeadColorMode,
+    multiHeadNotice,
 }: AutoPaintTabProps) {
     const activeProfile = React.useMemo(
         () => profiles.find((profile) => profile.id === activeProfileId),
@@ -1456,8 +1459,20 @@ export default function AutoPaintTab({
                                     onCheckedChange={setMultiHeadMode}
                                 />
                             </div>
+                            {multiHeadNotice && (
+                                <div
+                                    role="alert"
+                                    data-testid="autopaint-multi-head-notice"
+                                    className="text-[10px] text-destructive"
+                                >
+                                    {multiHeadNotice}
+                                </div>
+                            )}
                             {multiHeadMode && (
                                 <div className="space-y-2 pl-0.5">
+                                    <p className="text-[10px] text-muted-foreground">
+                                        Not compatible with Flat Paint — enabling Multi-head turns Flat Paint off.
+                                    </p>
                                     <div className="flex items-center gap-2">
                                         <Label htmlFor="multi-head-count" className="text-xs text-muted-foreground whitespace-nowrap">
                                             Head count
