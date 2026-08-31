@@ -16,6 +16,8 @@ import {
     hexToRgb,
     blendColors,
     deltaE,
+    deltaELab,
+    rgbToLab,
     getLuminance,
     type RGB,
 } from './autoPaint.ts';
@@ -97,6 +99,132 @@ export function buildPixelDataColorFirst(
 }
 
 /**
+ * How the palette is grouped into optimizer color groups.
+ * - 'luminance': every swatch sharing a printer layer collapses into one
+ *   centroid, so the number of distinct target colors ≤ printer-layer count.
+ * - 'color': distinct hues stay distinct groups (up to COLOR_GROUP_CAP), so
+ *   several groups may share a home layer and more colors survive.
+ */
+export type MultiHeadColorMode = 'luminance' | 'color';
+
+/**
+ * Upper bound on color-based groups. The optimizer inner loop scales with the
+ * group count, so this caps compute; the quantized palette is already ≤ 256.
+ */
+export const COLOR_GROUP_CAP = 200;
+
+interface ColorGroupResult {
+    pixels: ColorFirstPixel[];
+    hexToGroupIdx: Map<string, number>;
+}
+
+/**
+ * Color-based grouping (the alternative to buildPixelDataColorFirst).
+ *
+ * Instead of merging every swatch that lands on the same printer layer, this
+ * keeps distinct hues as distinct optimizer groups. The unique palette colors
+ * are agglomeratively merged in Lab space (via deltaE) down to `cap` clusters;
+ * each surviving cluster becomes one ColorFirstPixel whose home `layerIdx` still
+ * comes from its luminance (lightness maps to height), so multiple clusters may
+ * share a layer. Returns the group list plus a hex→group map built directly from
+ * cluster membership, bypassing the one-group-per-layer assumption.
+ *
+ * Deterministic: clusters start sorted by hex and merges pick the closest pair
+ * with a stable tie-break, so the same input always yields the same grouping.
+ */
+export function buildColorGroupedPixels(
+    imageSwatches: Array<{ hex: string; count?: number }>,
+    layers: PrinterLayer[],
+    colorAtLayer: RGB[],
+    transitionZones: AutoPaintResult['transitionZones'],
+    totalHeight: number,
+    firstLayerHeight: number,
+    cap: number
+): ColorGroupResult {
+    // Deduplicate palette hexes, summing pixel frequency per unique color.
+    const byHex = new Map<string, { rgb: RGB; count: number }>();
+    for (const s of imageSwatches) {
+        const cnt = s.count ?? 1;
+        const existing = byHex.get(s.hex);
+        if (existing) existing.count += cnt;
+        else byHex.set(s.hex, { rgb: hexToRgb(s.hex), count: cnt });
+    }
+
+    interface Cluster {
+        r: number;
+        g: number;
+        b: number;
+        count: number;
+        hexes: string[];
+    }
+
+    // One entry per unique color, sorted by hex for deterministic downstream order.
+    const uniq = Array.from(byHex.entries())
+        .sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0))
+        .map(([hex, { rgb, count }]) => ({ hex, rgb, lab: rgbToLab(rgb), count }));
+
+    let clusters: Cluster[];
+    if (uniq.length <= cap) {
+        // Under the cap: every distinct color keeps its own group.
+        clusters = uniq.map((u) => ({
+            r: u.rgb.r, g: u.rgb.g, b: u.rgb.b, count: u.count, hexes: [u.hex],
+        }));
+    } else {
+        // Over the cap (an image can carry up to SWATCH_CAP ≈ 16k distinct
+        // colors): reduce to `cap` groups by assigning every color to the nearest
+        // of the `cap` most-frequent colors. This is O(n·cap) time and O(n)
+        // memory — bounded even for tens of thousands of colors, unlike
+        // agglomerative all-pairs merging (which was O(n²) memory / O(n³) time and
+        // could OOM). Seeds break ties on frequency then hex for determinism.
+        const seeds = uniq
+            .slice()
+            .sort((a, b) => (b.count - a.count) || (a.hex < b.hex ? -1 : a.hex > b.hex ? 1 : 0))
+            .slice(0, cap);
+        const acc = seeds.map((s) => ({
+            r: 0, g: 0, b: 0, count: 0, hexes: [] as string[], seedLab: s.lab,
+        }));
+        for (const u of uniq) {
+            let best = 0;
+            let bestD = Infinity;
+            for (let si = 0; si < acc.length; si++) {
+                const d = deltaELab(u.lab, acc[si].seedLab);
+                if (d < bestD) { bestD = d; best = si; }
+            }
+            const g = acc[best];
+            g.r += u.rgb.r * u.count;
+            g.g += u.rgb.g * u.count;
+            g.b += u.rgb.b * u.count;
+            g.count += u.count;
+            g.hexes.push(u.hex);
+        }
+        clusters = acc
+            .filter((g) => g.count > 0)
+            .map((g) => ({
+                r: g.r / g.count, g: g.g / g.count, b: g.b / g.count,
+                count: g.count, hexes: g.hexes,
+            }));
+    }
+
+    const pixels: ColorFirstPixel[] = [];
+    const hexToGroupIdx = new Map<string, number>();
+    clusters.forEach((c, groupIdx) => {
+        const targetRgb: RGB = { r: c.r, g: c.g, b: c.b };
+        const lum = getLuminance(targetRgb) / 255;
+        const h = luminanceToHeight(lum, transitionZones, totalHeight, firstLayerHeight);
+        const layerIdx = findLayerIdxAtHeight(layers, h);
+        pixels.push({
+            targetRgb,
+            layerIdx,
+            actualErr: deltaE(targetRgb, colorAtLayer[layerIdx]),
+            count: c.count,
+        });
+        for (const hex of c.hexes) hexToGroupIdx.set(hex, groupIdx);
+    });
+
+    return { pixels, hexToGroupIdx };
+}
+
+/**
  * A contiguous run of printer layers that all share the same filament.
  * Windows are defined in terms of runs, not individual layers.
  */
@@ -153,6 +281,9 @@ export function computeColorOptimalAssignments(
     const pixelsAtLayer = new Map<number, number[]>();
     const minErr = new Float64Array(pixels.length).fill(Infinity);
     const assignments: (number[] | null)[] = new Array(pixels.length).fill(null);
+    // Precompute each target's Lab once; the K^N × layers loop below reuses it
+    // instead of re-running rgbToLab on the fixed target every combination.
+    const targetLab = pixels.map((p) => rgbToLab(p.targetRgb));
     let totalActualError = 0;
     let affectedCount = 0;
     let maxAffectedLayer = wStart - 1;
@@ -185,8 +316,9 @@ export function computeColorOptimalAssignments(
                 c = blendColors(c, filament.rgb, filament.td, layers[i].thickness);
                 const bucket = pixelsAtLayer.get(i);
                 if (bucket) {
+                    const cLab = rgbToLab(c);
                     for (const pxIdx of bucket) {
-                        const err = deltaE(pixels[pxIdx].targetRgb, c);
+                        const err = deltaELab(targetLab[pxIdx], cLab);
                         if (err < minErr[pxIdx]) { minErr[pxIdx] = err; assignments[pxIdx] = entry.slice(); }
                     }
                 }
@@ -198,8 +330,9 @@ export function computeColorOptimalAssignments(
             c = blendColors(c, layers[i].filamentRgb, layers[i].td, layers[i].thickness);
             const bucket = pixelsAtLayer.get(i);
             if (bucket) {
+                const cLab = rgbToLab(c);
                 for (const pxIdx of bucket) {
-                    const err = deltaE(pixels[pxIdx].targetRgb, c);
+                    const err = deltaELab(targetLab[pxIdx], cLab);
                     if (err < minErr[pxIdx]) { minErr[pxIdx] = err; assignments[pxIdx] = entry.slice(); }
                 }
             }
@@ -329,6 +462,9 @@ function findConsensusCombo(
         else pixelsAtLayer.set(px.layerIdx, [pxIdx]);
     }
 
+    // Precompute each target's Lab once (see computeColorOptimalAssignments).
+    const targetLab = pixels.map((p) => rgbToLab(p.targetRgb));
+
     const total = K ** N;
     let bestEntry: number[] = Array.from({ length: N }, () => 0);
     let bestError = Infinity;
@@ -347,15 +483,21 @@ function findConsensusCombo(
             for (let i = run.startLayerIdx; i <= run.endLayerIdx; i++) {
                 c = blendColors(c, filament.rgb, filament.td, layers[i].thickness);
                 const bucket = pixelsAtLayer.get(i);
-                if (bucket) for (const pxIdx of bucket)
-                    comboError += deltaE(pixels[pxIdx].targetRgb, c) * pixels[pxIdx].count;
+                if (bucket) {
+                    const cLab = rgbToLab(c);
+                    for (const pxIdx of bucket)
+                        comboError += deltaELab(targetLab[pxIdx], cLab) * pixels[pxIdx].count;
+                }
             }
         }
         for (let i = wEnd + 1; i <= maxAffectedLayer; i++) {
             c = blendColors(c, layers[i].filamentRgb, layers[i].td, layers[i].thickness);
             const bucket = pixelsAtLayer.get(i);
-            if (bucket) for (const pxIdx of bucket)
-                comboError += deltaE(pixels[pxIdx].targetRgb, c) * pixels[pxIdx].count;
+            if (bucket) {
+                const cLab = rgbToLab(c);
+                for (const pxIdx of bucket)
+                    comboError += deltaELab(targetLab[pxIdx], cLab) * pixels[pxIdx].count;
+            }
         }
 
         if (comboError < bestError) { bestError = comboError; bestEntry = entry; }
@@ -631,7 +773,8 @@ export function runMultiHeadLayerAnalysisColorFirst(
     layerHeight: number,
     firstLayerHeight: number,
     n: number,
-    searchDepth: 'fast' | 'balanced' | 'thorough' = 'balanced'
+    searchDepth: 'fast' | 'balanced' | 'thorough' = 'balanced',
+    colorMode: MultiHeadColorMode = 'luminance'
 ): ColorFirstResult {
     const N = Math.min(n, filaments.length);
     const empty: ColorFirstResult = { windows: [], colorAssignments: [], uniqueLayerCount: 0, patchedLayers: [], colorLayerFilaments: new Map(), windowRunFilaments: [], nozzleAssignments: [], preWindowFilaments: [], nonWindowedRanges: [] };
@@ -654,21 +797,38 @@ export function runMultiHeadLayerAnalysisColorFirst(
 
     // Color groups are fixed (derived from image content, not the stack).
     const initialColorAtLayer = buildColorStack(layers);
-    const pixels = buildPixelDataColorFirst(
-        imageSwatches, layers, initialColorAtLayer,
-        result.transitionZones, result.totalHeight, firstLayerHeight
-    );
 
-    const layerIdxToGroupIdx = new Map<number, number>(pixels.map((p, i) => [p.layerIdx, i]));
-    const hexToGroupIdx = new Map<string, number>();
-    for (const s of imageSwatches) {
-        if (hexToGroupIdx.has(s.hex)) continue;
-        const rgb = hexToRgb(s.hex);
-        const lum = getLuminance(rgb) / 255;
-        const h = luminanceToHeight(lum, result.transitionZones, result.totalHeight, firstLayerHeight);
-        const layerIdx = findLayerIdxAtHeight(layers, h);
-        const groupIdx = layerIdxToGroupIdx.get(layerIdx);
-        if (groupIdx !== undefined) hexToGroupIdx.set(s.hex, groupIdx);
+    // Build optimizer color groups per the selected mode. 'luminance' (default)
+    // collapses every swatch sharing a printer layer into one centroid, so the
+    // distinct color count is capped at the printer-layer count. 'color' keeps
+    // distinct hues as separate groups (up to COLOR_GROUP_CAP), so several groups
+    // can share a home layer and many more colors survive to the render/print.
+    let pixels: ColorFirstPixel[];
+    let hexToGroupIdx: Map<string, number>;
+    if (colorMode === 'color') {
+        const grouped = buildColorGroupedPixels(
+            imageSwatches, layers, initialColorAtLayer,
+            result.transitionZones, result.totalHeight, firstLayerHeight,
+            COLOR_GROUP_CAP
+        );
+        pixels = grouped.pixels;
+        hexToGroupIdx = grouped.hexToGroupIdx;
+    } else {
+        pixels = buildPixelDataColorFirst(
+            imageSwatches, layers, initialColorAtLayer,
+            result.transitionZones, result.totalHeight, firstLayerHeight
+        );
+        const layerIdxToGroupIdx = new Map<number, number>(pixels.map((p, i) => [p.layerIdx, i]));
+        hexToGroupIdx = new Map<string, number>();
+        for (const s of imageSwatches) {
+            if (hexToGroupIdx.has(s.hex)) continue;
+            const rgb = hexToRgb(s.hex);
+            const lum = getLuminance(rgb) / 255;
+            const h = luminanceToHeight(lum, result.transitionZones, result.totalHeight, firstLayerHeight);
+            const layerIdx = findLayerIdxAtHeight(layers, h);
+            const groupIdx = layerIdxToGroupIdx.get(layerIdx);
+            if (groupIdx !== undefined) hexToGroupIdx.set(s.hex, groupIdx);
+        }
     }
 
     const selectedWindows: WindowResult[] = [];

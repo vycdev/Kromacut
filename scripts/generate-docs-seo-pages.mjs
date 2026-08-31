@@ -111,6 +111,10 @@ function resolveDocImage(src) {
         return findBuiltAsset('logo-') ?? clean;
     }
     const diagramPrefixes = {
+        '01_window_run_diagram.svg': '01_window_run_diagram-',
+        '02_nozzle_swap_schedule.svg': '02_nozzle_swap_schedule-',
+        '03_beer_lambert_blending.svg': '03_beer_lambert_blending-',
+        '05_combo_search_space.svg': '05_combo_search_space-',
         '06_frontlit_hiding_distance.svg': '06_frontlit_hiding_distance-',
         '07_calibration_wedge.svg': '07_calibration_wedge-',
         '08_opacity_solve.svg': '08_opacity_solve-',

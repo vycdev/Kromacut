@@ -414,6 +414,8 @@ interface AutoPaintTabProps {
     setMultiHeadCount: (v: number) => void;
     multiHeadSearchDepth: 'fast' | 'balanced' | 'thorough';
     setMultiHeadSearchDepth: (v: 'fast' | 'balanced' | 'thorough') => void;
+    multiHeadColorMode: 'luminance' | 'color';
+    setMultiHeadColorMode: (v: 'luminance' | 'color') => void;
 }
 
 export default function AutoPaintTab({
@@ -497,6 +499,8 @@ export default function AutoPaintTab({
     setMultiHeadCount,
     multiHeadSearchDepth,
     setMultiHeadSearchDepth,
+    multiHeadColorMode,
+    setMultiHeadColorMode,
 }: AutoPaintTabProps) {
     const activeProfile = React.useMemo(
         () => profiles.find((profile) => profile.id === activeProfileId),
@@ -1494,6 +1498,30 @@ export default function AutoPaintTab({
                                             </SelectContent>
                                         </Select>
                                     </div>
+                                    <div className="flex items-center gap-2">
+                                        <Label htmlFor="multi-head-color-mode" className="text-xs text-muted-foreground whitespace-nowrap">
+                                            Color grouping
+                                        </Label>
+                                        <Select
+                                            value={multiHeadColorMode}
+                                            onValueChange={(v) => setMultiHeadColorMode(v as 'luminance' | 'color')}
+                                        >
+                                            <SelectTrigger id="multi-head-color-mode" className="h-7 text-xs flex-1">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="luminance" className="text-xs">
+                                                    Layer-based (current)
+                                                </SelectItem>
+                                                <SelectItem value="color" className="text-xs">
+                                                    Color-based (per-hue)
+                                                </SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <p className="text-[10px] text-muted-foreground">
+                                        Layer-based groups colors by brightness (capped at the layer count). Color-based keeps distinct hues apart; it can add colors with more heads loaded, but may add none — or fewer — at low head counts. Costs more compute.
+                                    </p>
                                 </div>
                             )}
                         </div>
