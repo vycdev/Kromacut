@@ -14,6 +14,7 @@ import {
     optimizeNozzleAssignments,
     runMultiHeadLayerAnalysisColorFirst,
     COLOR_GROUP_CAP,
+    MAX_MULTI_HEAD_HEADS,
 } from '../src/lib/multiHeadAnalysisColorFirst.ts';
 import type { WindowFilament } from '../src/lib/multiHeadAnalysis.ts';
 import { channelHds } from '../src/lib/calibration.ts';
@@ -853,5 +854,160 @@ test('runMultiHeadLayerAnalysisColorFirst — color mode produces a valid, compl
         for (const idx of seq) {
             assert.ok(idx >= 0 && idx < filaments.length, `filament idx ${idx} out of range`);
         }
+    }
+});
+
+// ---------------------------------------------------------------------------
+// Search-depth combo budget (deterministic sampling) + head-count cap
+// ---------------------------------------------------------------------------
+
+/** Set up a real non-foundation window from the FOUR_FILAMENTS gradient fixture. */
+function windowSetup() {
+    const swatches = gradient(40, 5);
+    const result = generateAutoLayers(FOUR_FILAMENTS, swatches, LAYER_HEIGHT, FIRST_LAYER_HEIGHT);
+    const layers = expandZonesToPrinterLayers(result, FOUR_FILAMENTS, LAYER_HEIGHT, FIRST_LAYER_HEIGHT);
+    const colorAtLayer = buildColorStack(layers);
+    const runs = buildColorRuns(layers);
+    const pixels = buildPixelDataColorFirst(
+        swatches, layers, colorAtLayer, result.transitionZones, result.totalHeight, FIRST_LAYER_HEIGHT
+    );
+    const N = 3;
+    const windowRuns = runs.slice(1, 1 + N);
+    const uniqueIndices = [...new Set(windowRuns.map((r) => r.filamentIdx))];
+    const windowFilaments: WindowFilament[] = uniqueIndices.map((fi) => ({
+        rgb: hexToRgb(FOUR_FILAMENTS[fi].color),
+        td: channelHds(FOUR_FILAMENTS[fi]),
+    }));
+    const currentEntry = windowRuns.map((r) => uniqueIndices.indexOf(r.filamentIdx));
+    return {
+        windowRuns,
+        wEnd: windowRuns[N - 1].endLayerIdx,
+        layers,
+        base: colorAtLayer[windowRuns[0].startLayerIdx - 1],
+        windowFilaments,
+        pixels,
+        currentEntry,
+        ok: runs.length >= 1 + N && uniqueIndices.length >= 2,
+    };
+}
+
+test('computeColorOptimalAssignments — a small combo budget forces deterministic sampling', () => {
+    const s = windowSetup();
+    if (!s.ok) return;
+
+    const call = () => computeColorOptimalAssignments(
+        s.windowRuns, s.wEnd, s.layers, s.base, s.windowFilaments, s.pixels, 3, s.currentEntry
+    );
+    const a = call();
+    const b = call();
+    assert.equal(a.errorFactor, b.errorFactor);
+    assert.deepEqual(a.assignments, b.assignments);
+});
+
+test('computeColorOptimalAssignments — budget ≥ K^N matches the exhaustive scan', () => {
+    const s = windowSetup();
+    if (!s.ok) return;
+    const exhaustive = computeColorOptimalAssignments(
+        s.windowRuns, s.wEnd, s.layers, s.base, s.windowFilaments, s.pixels
+    );
+    const budgeted = computeColorOptimalAssignments(
+        s.windowRuns, s.wEnd, s.layers, s.base, s.windowFilaments, s.pixels, 1_000_000, s.currentEntry
+    );
+    assert.equal(budgeted.errorFactor, exhaustive.errorFactor);
+    assert.deepEqual(budgeted.assignments, exhaustive.assignments);
+});
+
+test('computeColorOptimalAssignments — an extreme budget of 1 still returns a valid, stable result', () => {
+    const s = windowSetup();
+    if (!s.ok) return;
+    const call = () => computeColorOptimalAssignments(
+        s.windowRuns, s.wEnd, s.layers, s.base, s.windowFilaments, s.pixels, 1, s.currentEntry
+    );
+    const a = call();
+    const b = call();
+    assert.ok(Number.isFinite(a.errorFactor), 'errorFactor must be finite (no NaN from budget math)');
+    assert.equal(a.errorFactor, b.errorFactor);
+    for (const entry of a.assignments) {
+        if (entry === null) continue;
+        assert.equal(entry.length, s.windowRuns.length);
+        for (const slot of entry) {
+            assert.ok(slot >= 0 && slot < s.windowFilaments.length);
+        }
+    }
+});
+
+test('findConsensusCombo path — same searchDepth run twice yields identical stacks', () => {
+    // 10 filaments + a varied palette so windows form and K^N can exceed the
+    // Fast combo budget, exercising the deterministic sampler end to end.
+    const filaments = [
+        filament('d0', '#101010', 0.3, 'd0'), filament('d1', '#383838', 0.3, 'd1'),
+        filament('d2', '#606060', 0.3, 'd2'), filament('d3', '#909090', 0.3, 'd3'),
+        filament('d4', '#c0c0c0', 0.3, 'd4'), filament('d5', '#ececec', 0.3, 'd5'),
+        filament('d6', '#c41f1f', 0.3, 'd6'), filament('d7', '#1f4bc4', 0.3, 'd7'),
+        filament('d8', '#1fa33f', 0.3, 'd8'), filament('d9', '#c9a41f', 0.3, 'd9'),
+    ];
+    const colors = [
+        ...gradient(18).map((s) => ({ hex: s.hex, count: 1 })),
+        ...['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff'].map((hex) => ({ hex, count: 1 })),
+    ];
+    const result = generateAutoLayers(filaments, colors, LAYER_HEIGHT, FIRST_LAYER_HEIGHT);
+    const run = () => runMultiHeadLayerAnalysisColorFirst(
+        filaments, result, colors, LAYER_HEIGHT, FIRST_LAYER_HEIGHT, 8, 'fast', 'color'
+    );
+    const a = run();
+    const b = run();
+    assert.equal(a.patchedLayers.length, b.patchedLayers.length);
+    for (let i = 0; i < a.patchedLayers.length; i++) {
+        assert.equal(a.patchedLayers[i].filamentIdx, b.patchedLayers[i].filamentIdx);
+    }
+    assert.deepEqual(a.nozzleAssignments, b.nozzleAssignments);
+    assert.deepEqual(
+        [...a.colorLayerFilaments.entries()].sort(),
+        [...b.colorLayerFilaments.entries()].sort()
+    );
+});
+
+test('computeColorOptimalAssignments — sampling never beats the exhaustive optimum', () => {
+    const s = windowSetup();
+    if (!s.ok) return;
+    const exhaustive = computeColorOptimalAssignments(
+        s.windowRuns, s.wEnd, s.layers, s.base, s.windowFilaments, s.pixels
+    ).errorFactor;
+    const sampled = computeColorOptimalAssignments(
+        s.windowRuns, s.wEnd, s.layers, s.base, s.windowFilaments, s.pixels, 2, s.currentEntry
+    ).errorFactor;
+    assert.ok(sampled <= exhaustive + 1e-9, `sampled ${sampled} > exhaustive ${exhaustive}`);
+});
+
+test('runMultiHeadLayerAnalysisColorFirst — head count clamped to MAX_MULTI_HEAD_HEADS', () => {
+    assert.equal(MAX_MULTI_HEAD_HEADS, 8);
+    // Ten distinct filaments so a request above the cap has room to be clamped.
+    const filaments = [
+        filament('c0', '#101010', 0.3, 'c0'), filament('c1', '#383838', 0.3, 'c1'),
+        filament('c2', '#606060', 0.3, 'c2'), filament('c3', '#888888', 0.3, 'c3'),
+        filament('c4', '#b0b0b0', 0.3, 'c4'), filament('c5', '#e0e0e0', 0.3, 'c5'),
+        filament('c6', '#b81c1c', 0.3, 'c6'), filament('c7', '#1c46b8', 0.3, 'c7'),
+        filament('c8', '#1c9a3c', 0.3, 'c8'), filament('c9', '#c8a41c', 0.3, 'c9'),
+    ];
+    const colors = [
+        ...gradient(14).map((s) => ({ hex: s.hex, count: 1 })),
+        ...['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff'].map((hex) => ({ hex, count: 1 })),
+    ];
+    const result = generateAutoLayers(filaments, colors, LAYER_HEIGHT, FIRST_LAYER_HEIGHT);
+
+    const atCap = runMultiHeadLayerAnalysisColorFirst(
+        filaments, result, colors, LAYER_HEIGHT, FIRST_LAYER_HEIGHT, MAX_MULTI_HEAD_HEADS, 'balanced'
+    );
+    const overCap = runMultiHeadLayerAnalysisColorFirst(
+        filaments, result, colors, LAYER_HEIGHT, FIRST_LAYER_HEIGHT, 999, 'balanced'
+    );
+    assert.equal(overCap.windows.length, atCap.windows.length);
+    assert.equal(overCap.patchedLayers.length, atCap.patchedLayers.length);
+    assert.deepEqual(
+        [...overCap.colorLayerFilaments.entries()].sort(),
+        [...atCap.colorLayerFilaments.entries()].sort()
+    );
+    for (const w of atCap.windows) {
+        assert.ok(w.filamentIds.length <= MAX_MULTI_HEAD_HEADS);
     }
 });

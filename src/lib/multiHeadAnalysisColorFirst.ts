@@ -117,6 +117,61 @@ export type MultiHeadColorMode = 'luminance' | 'color';
  */
 export const COLOR_GROUP_CAP = 200;
 
+/**
+ * Safe upper bound on the head count. Every candidate window scans K^N
+ * filament-order combinations (K = distinct filaments in the window, K ≤ N)
+ * twice per iteration — once to pick the consensus ordering, once for the
+ * per-color assignments — so cost grows explosively with N: 8 heads already
+ * reaches 8^8 ≈ 16.7M combinations per window. Head counts above this are
+ * clamped by both the UI and the analysis.
+ */
+export const MAX_MULTI_HEAD_HEADS = 8;
+
+/**
+ * Per-window K^N combination budget by search depth. When K^N exceeds the
+ * tier's budget the scan evaluates that many evenly-spaced, deterministic
+ * sample points instead of every combination (plus the window's current
+ * assignment, so a sampled scan can never do worse than leaving the window
+ * unchanged). At or below the budget the scan is exhaustive. No RNG is
+ * involved, so repeated runs on the same input produce identical stacks.
+ */
+export const COMBO_BUDGET_BY_DEPTH: Record<'fast' | 'balanced' | 'thorough', number> = {
+    fast: 4096,
+    balanced: 65536,
+    thorough: 1_048_576,
+};
+
+/** Encode a slot entry as its base-K combination index (slot 0 = least significant digit). */
+function entryToComboIndex(entry: number[], K: number): number {
+    let idx = 0;
+    let pow = 1;
+    for (let j = 0; j < entry.length; j++) {
+        idx += entry[j] * pow;
+        pow *= K;
+    }
+    return idx;
+}
+
+/**
+ * Combination indices to evaluate for a K^N window: every index in [0, total)
+ * when total ≤ budget, otherwise `alwaysInclude` followed by `budget`
+ * evenly-spaced indices (both endpoints included). Deterministic.
+ */
+function* windowComboIndices(
+    total: number,
+    budget: number,
+    alwaysInclude: number
+): Generator<number> {
+    if (total <= budget) {
+        for (let i = 0; i < total; i++) yield i;
+        return;
+    }
+    yield alwaysInclude;
+    const span = total - 1;
+    const denom = Math.max(1, budget - 1);
+    for (let i = 0; i < budget; i++) yield Math.round((i * span) / denom);
+}
+
 interface ColorGroupResult {
     pixels: ColorFirstPixel[];
     hexToGroupIdx: Map<string, number>;
@@ -275,7 +330,11 @@ export function computeColorOptimalAssignments(
     layers: PrinterLayer[],
     baseColor: RGB,
     windowFilaments: WindowFilament[],
-    pixels: ColorFirstPixel[]
+    pixels: ColorFirstPixel[],
+    /** Max K^N combos to evaluate; above this the scan samples deterministically. */
+    comboBudget: number = Infinity,
+    /** The window's current slot assignment, always included when sampling. */
+    currentEntry?: number[]
 ): { errorFactor: number; affectedCount: number; assignments: (number[] | null)[] } {
     const K = windowFilaments.length;
     const N = windowRuns.length;
@@ -304,8 +363,9 @@ export function computeColorOptimalAssignments(
     }
 
     const total = K ** N;
+    const startCombo = currentEntry ? entryToComboIndex(currentEntry, K) : 0;
 
-    for (let combo = 0; combo < total; combo++) {
+    for (const combo of windowComboIndices(total, comboBudget, startCombo)) {
         // Decode combo to slot assignments (base-K digits).
         const entry: number[] = new Array(N);
         let v = combo;
@@ -444,7 +504,11 @@ function findConsensusCombo(
     layers: PrinterLayer[],
     baseColor: RGB,
     windowFilaments: WindowFilament[],
-    pixels: ColorFirstPixel[]
+    pixels: ColorFirstPixel[],
+    /** Max K^N combos to evaluate; above this the scan samples deterministically. */
+    comboBudget: number = Infinity,
+    /** The window's current slot assignment, always included when sampling. */
+    currentEntry?: number[]
 ): { entry: number[]; errorFactor: number; affectedCount: number } {
     const K = windowFilaments.length;
     const N = windowRuns.length;
@@ -470,10 +534,13 @@ function findConsensusCombo(
     const targetLab = pixels.map((p) => rgbToLab(p.targetRgb));
 
     const total = K ** N;
-    let bestEntry: number[] = Array.from({ length: N }, () => 0);
+    const startCombo = currentEntry ? entryToComboIndex(currentEntry, K) : 0;
+    let bestEntry: number[] = currentEntry
+        ? currentEntry.slice()
+        : Array.from({ length: N }, () => 0);
     let bestError = Infinity;
 
-    for (let combo = 0; combo < total; combo++) {
+    for (const combo of windowComboIndices(total, comboBudget, startCombo)) {
         const entry: number[] = new Array(N);
         let v = combo;
         for (let j = 0; j < N; j++) { entry[j] = v % K; v = Math.floor(v / K); }
@@ -780,7 +847,8 @@ export function runMultiHeadLayerAnalysisColorFirst(
     searchDepth: 'fast' | 'balanced' | 'thorough' = 'balanced',
     colorMode: MultiHeadColorMode = 'luminance'
 ): ColorFirstResult {
-    const N = Math.min(n, filaments.length);
+    const N = Math.min(n, filaments.length, MAX_MULTI_HEAD_HEADS);
+    const comboBudget = COMBO_BUDGET_BY_DEPTH[searchDepth];
     const empty: ColorFirstResult = { windows: [], colorAssignments: [], uniqueLayerCount: 0, patchedLayers: [], colorLayerFilaments: new Map(), windowRunFilaments: [], nozzleAssignments: [], preWindowFilaments: [], nonWindowedRanges: [] };
 
     if (N < 2 || result.transitionZones.length === 0 || imageSwatches.length === 0) {
@@ -846,9 +914,13 @@ export function runMultiHeadLayerAnalysisColorFirst(
     // that each layer has exactly one per-colour assignment source.
     const layerUsed: boolean[] = new Array(layers.length).fill(false);
     const heads = filaments.slice(0, N).map((f, i) => `[${i}] ${f.name ?? f.color}`).join('  ');
-    // fast:      high threshold + half the iteration budget → fewer windows, quick exit
-    // balanced:  default values
-    // thorough:  low threshold + full budget → more windows, longer search
+    // searchDepth controls three knobs together, so the tier label is honest:
+    //   fast:      high threshold + half the iteration budget + small combo budget
+    //              → fewer windows opened, fewer filament orders tried, quick exit
+    //   balanced:  default values
+    //   thorough:  low threshold + full iteration budget + large combo budget
+    //              → more windows, near-exhaustive filament-order search
+    // (the combo budget is `comboBudget`, computed above from searchDepth).
     const MIN_IMPROVEMENT = searchDepth === 'fast' ? 5e-4 : searchDepth === 'thorough' ? 2e-5 : 1e-4;
     // Upper bound: at most floor(runs/N) non-overlapping windows.
     const maxIter = searchDepth === 'fast'
@@ -900,9 +972,13 @@ export function runMultiHeadLayerAnalysisColorFirst(
                 rgb: hexToRgb(filaments[fi]?.color ?? '#000000'),
                 td: channelHds(filaments[fi] ?? FALLBACK_FILAMENT),
             }));
+            const currentEntry = windowRuns.map(
+                (r) => uniqueIndices.indexOf(layers[r.startLayerIdx].filamentIdx)
+            );
 
             const { entry, errorFactor, affectedCount } = findConsensusCombo(
-                windowRuns, wEnd, layers, colorAtLayer[wStart - 1], windowFilaments, pixels
+                windowRuns, wEnd, layers, colorAtLayer[wStart - 1], windowFilaments, pixels,
+                comboBudget, currentEntry
             );
 
             if (errorFactor > bestErrorFactor) {
@@ -943,8 +1019,12 @@ export function runMultiHeadLayerAnalysisColorFirst(
             rgb: hexToRgb(filaments[fi]?.color ?? '#000000'),
             td: channelHds(filaments[fi] ?? FALLBACK_FILAMENT),
         }));
+        const bestCurrentEntry = bestWindowRuns.map(
+            (r) => bestUniqueIndices!.indexOf(layers[r.startLayerIdx].filamentIdx)
+        );
         const { assignments } = computeColorOptimalAssignments(
-            bestWindowRuns, wEnd, layers, colorAtLayer[wStart - 1], bestWindowFilaments, pixels
+            bestWindowRuns, wEnd, layers, colorAtLayer[wStart - 1], bestWindowFilaments, pixels,
+            comboBudget, bestCurrentEntry
         );
 
         const colorMap = new Map<string, number[]>();

@@ -53,6 +53,7 @@ import {
 import { TEMPLATE_PROFILES, isTemplateProfileId } from '../data/supplierFilaments';
 import { getConfidenceLabel, getConfidenceColor } from '../lib/calibration';
 import { getExactBaseOrderCount } from '../lib/optimizer';
+import { MAX_MULTI_HEAD_HEADS } from '../lib/multiHeadAnalysisColorFirst';
 import { useNextBestColorWorker } from '../hooks/useNextBestColorWorker';
 import type { PrintableFeatureSimulation } from '../lib/printableFeatures.ts';
 import PrintableFeaturePreview from './PrintableFeaturePreview';
@@ -1482,10 +1483,13 @@ export default function AutoPaintTab({
                                             className="h-7 text-xs flex-1"
                                             value={multiHeadCount}
                                             min={2}
+                                            max={MAX_MULTI_HEAD_HEADS}
                                             step={1}
                                             onChange={(e) => {
                                                 const v = parseInt(e.target.value, 10);
-                                                if (v >= 2) setMultiHeadCount(v);
+                                                if (v >= 2) {
+                                                    setMultiHeadCount(Math.min(v, MAX_MULTI_HEAD_HEADS));
+                                                }
                                             }}
                                         />
                                     </div>
@@ -1502,17 +1506,20 @@ export default function AutoPaintTab({
                                             </SelectTrigger>
                                             <SelectContent>
                                                 <SelectItem value="fast" className="text-xs">
-                                                    Fast (coarse sampling)
+                                                    Fast
                                                 </SelectItem>
                                                 <SelectItem value="balanced" className="text-xs">
                                                     Balanced
                                                 </SelectItem>
                                                 <SelectItem value="thorough" className="text-xs">
-                                                    Thorough (all pixel groups)
+                                                    Thorough
                                                 </SelectItem>
                                             </SelectContent>
                                         </Select>
                                     </div>
+                                    <p className="text-[10px] text-muted-foreground">
+                                        Deeper search opens more head windows and tries more filament orders per window (near-exhaustive at Thorough). It does not change which pixels are considered.
+                                    </p>
                                     <div className="flex items-center gap-2">
                                         <Label htmlFor="multi-head-color-mode" className="text-xs text-muted-foreground whitespace-nowrap">
                                             Color grouping

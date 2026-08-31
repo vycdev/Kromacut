@@ -18,7 +18,7 @@ Multi-head mode appears in the **Auto-Paint** panel and is only available when:
 - **Auto-paint is the active paint mode**, and
 - at least one **filament** is loaded in the filament list.
 
-The head count must be **2 or more**. Calibrated filaments give better color matches here for the same reason they do in single-head auto-paint — see [Calibration theory](calibration-theory).
+The head count must be between **2 and 8**. The per-window search cost grows as K^N (filaments per head, across N heads), so the upper limit keeps a build bounded; higher values are clamped to 8. Calibrated filaments give better color matches here for the same reason they do in single-head auto-paint — see [Calibration theory](calibration-theory).
 
 Multi-head mode and **Flat Paint** are mutually exclusive: turning one on turns the other off, because a flat face-down slab has no stepped layer stack for the head schedule to reorder.
 
@@ -38,11 +38,13 @@ For each window, Kromacut evaluates filament-per-head assignments and keeps the 
 
 ![A grid of every filament-per-slot combination for a window, with the lowest-ΔE ordering marked best; a table shows how the K^N combo count grows with filaments and heads.](05_combo_search_space.svg)
 
-The **Search depth** control trades accuracy for speed as this space grows:
+The **Search depth** control moves two knobs together as this space grows — how many head windows the optimizer opens, and how many filament orders it tries within each one:
 
-- **Fast (coarse sampling)** — samples a subset of pixel groups. Quickest, roughest match.
+- **Fast** — opens fewer windows and samples a small, fixed set of filament orders per window. Quickest, roughest match.
 - **Balanced** — the default; a good compromise for most images.
-- **Thorough (all pixel groups)** — evaluates every pixel group. Slowest, best match.
+- **Thorough** — opens as many windows as fit and searches filament orders near-exhaustively. Slowest, best match.
+
+When K^N is small enough, every depth checks all of it; the sampling only kicks in on large windows. The sample is fixed (no randomness), so rebuilding with the same inputs gives the same result. Search depth does **not** change which image colors are considered — every depth uses the same target color groups (see [Color Grouping](#color-grouping)).
 
 The analysis runs in a background worker, so the interface stays responsive while a deep search runs, and leaving the 3D panel cancels an in-progress run.
 
