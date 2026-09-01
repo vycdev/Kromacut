@@ -11,6 +11,8 @@ import { fingerprintJson } from './fingerprint';
 
 export interface EffectiveOpticsFitSample {
     id: string;
+    /** Runtime-only source identity used to keep one physical matrix in one validation fold. */
+    sourceMatrixId?: string;
     backingFilamentId: string;
     recipeFilamentIds: readonly string[];
     layerHeight: number;
@@ -89,7 +91,94 @@ const EXPONENT_PRIOR_WEIGHT = 0.006;
 const INTERACTION_PRIOR_WEIGHT = 0.003;
 const MIN_ABSOLUTE_DELTA_E_IMPROVEMENT = 0.05;
 const MIN_RELATIVE_DELTA_E_IMPROVEMENT = 0.002;
+const MAX_ABSOLUTE_P90_REGRESSION = 0.25;
+const MAX_RELATIVE_P90_REGRESSION = 0.02;
 const LN_10 = Math.LN10;
+
+export interface EffectiveOpticsValidationMetrics {
+    mean: number;
+    p90: number;
+    sampleCount: number;
+}
+
+/** A fixed gate: thresholds are not selected from the evidence being reported. */
+export function groupedValidationSupportsFit(
+    baseline: EffectiveOpticsValidationMetrics,
+    fitted: EffectiveOpticsValidationMetrics
+): boolean {
+    if (
+        baseline.sampleCount <= 0 ||
+        fitted.sampleCount !== baseline.sampleCount ||
+        !Number.isFinite(baseline.mean) ||
+        !Number.isFinite(baseline.p90) ||
+        !Number.isFinite(fitted.mean) ||
+        !Number.isFinite(fitted.p90)
+    ) {
+        return false;
+    }
+    const absoluteImprovement = baseline.mean - fitted.mean;
+    const relativeImprovement = absoluteImprovement / Math.max(1e-9, baseline.mean);
+    const allowedP90Regression = Math.max(
+        MAX_ABSOLUTE_P90_REGRESSION,
+        baseline.p90 * MAX_RELATIVE_P90_REGRESSION
+    );
+    return (
+        absoluteImprovement >= MIN_ABSOLUTE_DELTA_E_IMPROVEMENT &&
+        relativeImprovement >= MIN_RELATIVE_DELTA_E_IMPROVEMENT &&
+        fitted.p90 <= baseline.p90 + allowedP90Regression
+    );
+}
+
+function terminalInteractionGroup(sample: EffectiveOpticsFitSample): string | undefined {
+    let substrateFilamentId = sample.backingFilamentId;
+    let previousFilamentId = '';
+    let terminalGroup: string | undefined;
+    for (const filamentId of sample.recipeFilamentIds) {
+        if (filamentId === previousFilamentId) continue;
+        terminalGroup = interactionKey(filamentId, substrateFilamentId);
+        substrateFilamentId = filamentId;
+        previousFilamentId = filamentId;
+    }
+    return terminalGroup;
+}
+
+/**
+ * Build deterministic validation folds without splitting correlated evidence.
+ * Whole physical matrices are preferred; a lone matrix falls back to its
+ * terminal recipe/substrate interaction groups.
+ */
+export function buildEffectiveOpticsValidationFolds(
+    samples: readonly EffectiveOpticsFitSample[],
+    matrixCount: number
+): string[][] | undefined {
+    if (matrixCount <= 0) return undefined;
+    const groupedSampleIds = new Map<string, string[]>();
+    for (const sample of [...samples].sort((left, right) => left.id.localeCompare(right.id))) {
+        const groupKey =
+            matrixCount >= 2
+                ? sample.sourceMatrixId && `matrix\0${sample.sourceMatrixId}`
+                : terminalInteractionGroup(sample);
+        if (!groupKey) return undefined;
+        const group = groupedSampleIds.get(groupKey) ?? [];
+        group.push(sample.id);
+        groupedSampleIds.set(groupKey, group);
+    }
+    if (groupedSampleIds.size < 2) return undefined;
+    const foldCount = Math.min(CROSS_VALIDATION_FOLDS, groupedSampleIds.size);
+    const folds = Array.from({ length: foldCount }, () => [] as string[]);
+    const foldSizes = Array.from({ length: foldCount }, () => 0);
+    for (const [, sampleIds] of [...groupedSampleIds].sort(
+        (left, right) => right[1].length - left[1].length || left[0].localeCompare(right[0])
+    )) {
+        let selectedFold = 0;
+        for (let fold = 1; fold < foldCount; fold++) {
+            if (foldSizes[fold] < foldSizes[selectedFold]) selectedFold = fold;
+        }
+        folds[selectedFold].push(...sampleIds);
+        foldSizes[selectedFold] += sampleIds.length;
+    }
+    return folds;
+}
 
 function clamp(value: number, minimum: number, maximum: number): number {
     return Math.max(minimum, Math.min(maximum, value));
@@ -358,6 +447,7 @@ function fitInputs(input: EffectiveOpticsFitInput) {
         .filter((observation): observation is FitObservation => observation !== null);
     return {
         filaments,
+        validSamples,
         observations,
         interactionKeys,
         interactionSupport,
@@ -685,22 +775,27 @@ function weightedErrorSummary(errors: readonly WeightedPredictionError[]): {
     return { mean, p90, sampleCount: errors.length };
 }
 
-/** Deterministic K-fold validation of the physical refit against held-out matrix cells. */
+interface CrossValidationSummary {
+    baseline: ReturnType<typeof weightedErrorSummary>;
+    fitted: ReturnType<typeof weightedErrorSummary>;
+}
+
+/** Deterministic grouped validation of the physical refit against independent evidence. */
 function crossValidateFit(
     observations: readonly FitObservation[],
+    folds: readonly (readonly string[])[],
     initial: FitState,
     priorHds: readonly (readonly [number, number, number])[],
     priorColors: readonly (readonly [number, number, number])[]
-): { mean: number; p90: number; sampleCount: number } {
-    const foldCount = Math.min(
-        CROSS_VALIDATION_FOLDS,
-        Math.max(2, Math.floor(observations.length / 8))
-    );
-    const errors: WeightedPredictionError[] = [];
-    for (let fold = 0; fold < foldCount; fold++) {
-        const training = observations.filter((_, index) => index % foldCount !== fold);
-        const validation = observations.filter((_, index) => index % foldCount === fold);
-        if (training.length === 0 || validation.length === 0) continue;
+): CrossValidationSummary | undefined {
+    const baselineErrors: WeightedPredictionError[] = [];
+    const fittedErrors: WeightedPredictionError[] = [];
+    const minimumTrainingSamples = Math.max(MIN_FIT_SAMPLES, initial.filamentCount * 3);
+    for (const fold of folds) {
+        const validationIds = new Set(fold);
+        const training = observations.filter((observation) => !validationIds.has(observation.id));
+        const validation = observations.filter((observation) => validationIds.has(observation.id));
+        if (training.length < minimumTrainingSamples || validation.length === 0) return undefined;
         const fitted = optimize(
             training,
             initial,
@@ -708,9 +803,14 @@ function crossValidateFit(
             priorColors,
             CROSS_VALIDATION_ITERATIONS
         );
-        errors.push(...predictionErrors(validation, fitted, priorHds));
+        baselineErrors.push(...predictionErrors(validation, initial, priorHds));
+        fittedErrors.push(...predictionErrors(validation, fitted, priorHds));
     }
-    return weightedErrorSummary(errors);
+    if (fittedErrors.length !== observations.length) return undefined;
+    return {
+        baseline: weightedErrorSummary(baselineErrors),
+        fitted: weightedErrorSummary(fittedErrors),
+    };
 }
 
 export function fitEffectiveOpticsFromMatrix(
@@ -744,15 +844,29 @@ export function fitEffectiveOpticsFromMatrix(
         );
     }
 
+    const validationFolds = buildEffectiveOpticsValidationFolds(
+        prepared.validSamples,
+        input.matrixCount
+    );
+    if (!validationFolds) {
+        return createPriorEffectiveOpticsModel(
+            prepared.filaments,
+            'insufficient-samples',
+            input.matrixCount,
+            prepared.observations.length,
+            baselineMeanDeltaE
+        );
+    }
+
     const fitted = optimize(prepared.observations, initial, priorHds, priorColors);
     const fittedMeanDeltaE = weightedMeanDeltaE(prepared.observations, fitted, priorHds);
     const absoluteImprovement = baselineMeanDeltaE - fittedMeanDeltaE;
     const relativeImprovement = absoluteImprovement / Math.max(1e-9, baselineMeanDeltaE);
-    const applied =
+    const improvesTraining =
         Number.isFinite(fittedMeanDeltaE) &&
         absoluteImprovement >= MIN_ABSOLUTE_DELTA_E_IMPROVEMENT &&
         relativeImprovement >= MIN_RELATIVE_DELTA_E_IMPROVEMENT;
-    if (!applied) {
+    if (!improvesTraining) {
         return createPriorEffectiveOpticsModel(
             prepared.filaments,
             'no-improvement',
@@ -762,7 +876,42 @@ export function fitEffectiveOpticsFromMatrix(
         );
     }
 
-    const crossValidation = crossValidateFit(prepared.observations, initial, priorHds, priorColors);
+    const crossValidation = crossValidateFit(
+        prepared.observations,
+        validationFolds,
+        initial,
+        priorHds,
+        priorColors
+    );
+    if (!crossValidation) {
+        return createPriorEffectiveOpticsModel(
+            prepared.filaments,
+            'insufficient-samples',
+            input.matrixCount,
+            prepared.observations.length,
+            baselineMeanDeltaE
+        );
+    }
+    const improvesHeldOut = groupedValidationSupportsFit(
+        crossValidation.baseline,
+        crossValidation.fitted
+    );
+    if (!improvesHeldOut) {
+        return buildModel(
+            false,
+            'no-improvement',
+            input.matrixCount,
+            prepared.observations.length,
+            roundModelValue(baselineMeanDeltaE),
+            roundModelValue(fittedMeanDeltaE),
+            roundModelValue(crossValidation.fitted.mean),
+            roundModelValue(crossValidation.fitted.p90),
+            crossValidation.fitted.sampleCount,
+            0,
+            priorModel.filaments,
+            []
+        );
+    }
 
     const { parameters, layout } = fitted;
     const filamentProperties = prepared.filaments.map(
@@ -813,7 +962,7 @@ export function fitEffectiveOpticsFromMatrix(
         1,
         prepared.observations.length / Math.max(32, prepared.filaments.length * 24)
     );
-    const crossValidationQuality = Math.exp(-crossValidation.mean / 18);
+    const crossValidationQuality = Math.exp(-crossValidation.fitted.mean / 18);
     const confidence = clamp(
         sampleCoverage *
             (0.2 + 0.45 * Math.min(1, relativeImprovement / 0.35) + 0.35 * crossValidationQuality),
@@ -827,9 +976,9 @@ export function fitEffectiveOpticsFromMatrix(
         prepared.observations.length,
         roundModelValue(baselineMeanDeltaE),
         roundModelValue(fittedMeanDeltaE),
-        roundModelValue(crossValidation.mean),
-        roundModelValue(crossValidation.p90),
-        crossValidation.sampleCount,
+        roundModelValue(crossValidation.fitted.mean),
+        roundModelValue(crossValidation.fitted.p90),
+        crossValidation.fitted.sampleCount,
         roundModelValue(confidence),
         filamentProperties,
         interactions

@@ -322,6 +322,7 @@ function fitMatrixEffectiveOptics(
                 return [
                     {
                         id: `${matrix.id}:${sample.index}`,
+                        sourceMatrixId: matrix.id,
                         backingFilamentId: backing.id,
                         recipeFilamentIds: recipeFilamentIds as string[],
                         layerHeight: matrix.process.layerHeight,
