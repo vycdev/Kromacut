@@ -83,6 +83,75 @@ test('sequence scoring retains only bounded scalar results without changing scor
     assert.equal(bounded.cacheSize(), 2);
 });
 
+test('transition-thickness scoring cache is bounded without changing scores', async () => {
+    const { createSequenceScorer } = await loadOptimizerModule();
+    const uncached = createSequenceScorer(context, 0, 0, 0);
+    const bounded = createSequenceScorer(context, 0, 0, 2);
+    const sequences = [
+        [filaments[0], filaments[1]],
+        [filaments[0], filaments[2]],
+        [filaments[1], filaments[2]],
+        [filaments[2], filaments[3]],
+    ];
+
+    assert.deepEqual(
+        sequences.map((sequence) => bounded(sequence)),
+        sequences.map((sequence) => uncached(sequence))
+    );
+    assert.equal(uncached.diagnostics().transitionCacheSize, 0);
+    assert.equal(bounded.diagnostics().transitionCacheSize, 2);
+});
+
+test('legacy prefix A/B mode keeps transition-thickness retention bounded', async () => {
+    const { MAX_CACHED_TRANSITION_THICKNESSES, optimizeFilamentOrder } =
+        await loadOptimizerModule();
+    const expandedFilaments = Array.from({ length: 7 }, (_, index) => ({
+        id: `bounded-transition-${index}`,
+        color: `#${(0x202020 + index * 0x17130f).toString(16).padStart(6, '0')}`,
+        td: 0.8 + index * 0.2,
+    }));
+    let transitionCacheSize = 0;
+
+    optimizeFilamentOrder(expandedFilaments, context, {
+        algorithm: 'exact',
+        maxExtraRepeats: 0,
+        cachingEnabled: false,
+        incrementalPrefixScoring: false,
+        onScoringComplete: (diagnostics) => {
+            transitionCacheSize = diagnostics.transitionCacheSize;
+        },
+    });
+
+    assert.equal(transitionCacheSize, MAX_CACHED_TRANSITION_THICKNESSES);
+});
+
+test('incremental prefix scoring produces the exact full-sequence evaluation', async () => {
+    const { createSequenceScorer } = await loadOptimizerModule();
+    const scorer = createSequenceScorer(context, 0, 0);
+    const sequence = [filaments[0], filaments[2], filaments[1], filaments[3]];
+    let prefix = scorer.extendPrefix(undefined, sequence[0]);
+    for (let index = 1; index < sequence.length; index++) {
+        prefix = scorer.extendPrefix(prefix, sequence[index]);
+    }
+
+    assert.deepEqual(scorer.evaluatePrefix(sequence, prefix), scorer.evaluate(sequence));
+    assert.equal(scorer.scorePrefix(sequence, prefix), scorer(sequence));
+});
+
+test('incremental scoring rejects a prefix for a different filament sequence', async () => {
+    const { createSequenceScorer } = await loadOptimizerModule();
+    const scorer = createSequenceScorer(context, 2, 0);
+    const prefixSequence = [filaments[0], filaments[2]];
+    const requestedSequence = [filaments[0], filaments[1]];
+    let prefix = scorer.extendPrefix(undefined, prefixSequence[0]);
+    prefix = scorer.extendPrefix(prefix, prefixSequence[1]);
+
+    assert.throws(
+        () => scorer.evaluatePrefix(requestedSequence, prefix),
+        /optical prefix does not match the filament sequence/
+    );
+});
+
 test('separation candidate comparison follows the explicit lexicographic priorities', async () => {
     const { compareSeparationSequenceEvaluations } = await loadOptimizerModule();
     const evaluation = (
@@ -508,6 +577,66 @@ test('optimizer scores its selected order with the shared build-model scorer', a
     });
 
     assert.equal(result.score, scoreFilamentSequence(result.order, context));
+});
+
+test('Exact scores every no-repeat candidate from incremental optical prefixes', async () => {
+    const { getExactBaseOrderCount, optimizeFilamentOrder } = await loadOptimizerModule();
+    let diagnostics:
+        | {
+              scoreEvaluations: number;
+              prefixExtensions: number;
+              incrementalPaletteBuilds: number;
+              fullPaletteBuilds: number;
+          }
+        | undefined;
+    const options = {
+        algorithm: 'exact' as const,
+        maxExtraRepeats: 0,
+        cachingEnabled: false,
+    };
+    const result = optimizeFilamentOrder(filaments.slice(0, 3), context, {
+        ...options,
+        onScoringComplete: (value) => {
+            diagnostics = value;
+        },
+    });
+    let baselineDiagnostics: typeof diagnostics;
+    const baseline = optimizeFilamentOrder(filaments.slice(0, 3), context, {
+        ...options,
+        incrementalPrefixScoring: false,
+        onScoringComplete: (value) => {
+            baselineDiagnostics = value;
+        },
+    });
+
+    const candidateCount = getExactBaseOrderCount(3);
+    assert.deepEqual(result, baseline);
+    assert.equal(result.iterations, candidateCount);
+    assert.equal(diagnostics?.scoreEvaluations, candidateCount);
+    assert.equal(diagnostics?.prefixExtensions, candidateCount);
+    assert.equal(diagnostics?.incrementalPaletteBuilds, candidateCount);
+    assert.equal(diagnostics?.fullPaletteBuilds, 0);
+    assert.equal(baselineDiagnostics?.prefixExtensions, 0);
+    assert.equal(baselineDiagnostics?.incrementalPaletteBuilds, 0);
+    assert.equal(baselineDiagnostics?.fullPaletteBuilds, candidateCount);
+});
+
+test('Deep beam stages score retained children from incremental optical prefixes', async () => {
+    const { optimizeFilamentOrder } = await loadOptimizerModule();
+    let diagnostics: { prefixExtensions: number; incrementalPaletteBuilds: number } | undefined;
+    optimizeFilamentOrder(filaments, context, {
+        algorithm: 'deep',
+        maxExtraRepeats: 0,
+        maxIterations: 10,
+        beamWidth: 4,
+        cachingEnabled: false,
+        onScoringComplete: (value) => {
+            diagnostics = value;
+        },
+    });
+
+    assert.ok((diagnostics?.prefixExtensions ?? 0) > 0);
+    assert.ok((diagnostics?.incrementalPaletteBuilds ?? 0) > 0);
 });
 
 test('the shared scorer evaluates the compressed stack when Max Height is set', async () => {

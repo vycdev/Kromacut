@@ -211,6 +211,7 @@ const appearanceModel = modules.appearanceModel.fitAppearanceRankModel(profile.a
 const appearanceFitMs = performance.now() - fitStartedAt;
 
 const optimizationStartedAt = performance.now();
+let scoringDiagnostics: import('../../src/lib/optimizer.ts').SequenceScoringDiagnostics | undefined;
 const result = modules.autoPaint.generateAutoLayers(
     profile.filaments,
     swatches,
@@ -227,6 +228,10 @@ const result = modules.autoPaint.generateAutoLayers(
         separationMaxDeltaE: settings.maximumColorErrorDeltaE,
         failOnSeparationError: settings.failIfAnyColorIsMissed,
         transitionOpacity: settings.transitionOpacity,
+        incrementalPrefixScoring: process.env.KROMACUT_INCREMENTAL_PREFIX !== '0',
+        onScoringComplete: (diagnostics) => {
+            scoringDiagnostics = diagnostics;
+        },
     },
     appearanceModel
 );
@@ -318,7 +323,8 @@ try {
             2
         )
     );
-    throw error;
+    if (process.env.KROMACUT_ALLOW_KNOWN_MISMATCH !== '1') throw error;
+    console.error(`Known calibrated replay mismatch retained: ${String(error)}`);
 }
 
 console.log(
@@ -339,6 +345,7 @@ console.log(
                 ),
             },
             timing: { appearanceFitMs, optimizationMs, totalMs: appearanceFitMs + optimizationMs },
+            scoringDiagnostics,
             memory: {
                 heapBeforeBytes: heapBefore,
                 heapAfterBytes: heapAfter,

@@ -82,6 +82,34 @@ test('golden fixtures migrate hiding distance only across the v1 to v2 boundary'
     assert.equal(migrateGoldenFixtureFilament(3, filament).td, 5);
 });
 
+test('incremental prefix scoring preserves repeated beam-search output', async () => {
+    const scenario = autoPaintGoldenScenarios().find(
+        (candidate) =>
+            candidate.name === 'B&W / logo-png / enhanced=true / repeats=true'
+    );
+    assert.ok(scenario);
+    const { generateAutoLayers } = await loadAutoPaintModule();
+    const run = (incrementalPrefixScoring: boolean) =>
+        snapshot(
+            generateAutoLayers(
+                scenario.filaments,
+                scenario.imageSwatches,
+                LAYER_HEIGHT,
+                FIRST_LAYER_HEIGHT,
+                undefined,
+                scenario.enhancedColorMatch,
+                scenario.allowRepeatedSwaps,
+                {
+                    algorithm: 'balanced',
+                    seed: scenario.seed,
+                    incrementalPrefixScoring,
+                }
+            )
+        );
+
+    assert.deepEqual(run(true), run(false));
+});
+
 test('seeded auto-paint stack goldens stay deliberate', async (t: TestContext) => {
     const expected = JSON.parse(readFileSync(goldenPath, 'utf8')) as Record<string, AutoPaintGolden>;
     const scenarios = autoPaintGoldenScenarios();

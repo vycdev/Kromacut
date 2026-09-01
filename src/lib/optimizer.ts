@@ -15,6 +15,7 @@ import type { AppearanceAnchorLayer, AppearanceRankModelV1 } from '../types/appe
 import type { ResolvedAppearancePrediction } from './appearanceModel';
 import {
     buildAchievableColorPalette,
+    createOpticalPrefixBuilder,
     createSequenceScoringWorkspace,
     deltaELab,
     evaluateSequenceAgainstImage,
@@ -24,6 +25,7 @@ import {
     type AppearancePredictionCache,
     type ColorSeparationReport,
     type Lab,
+    type OpticalPrefixState,
     type SequenceScoreEvaluation,
     type WeightedLab,
 } from './autoPaint';
@@ -91,7 +93,21 @@ export interface OptimizerOptions {
     eliteCount?: number; // Retained for persisted optimizer compatibility
     beamWidth?: number; // Number of partial stacks kept by beam search
     cachingEnabled?: boolean; // Enable result caching
+    /** Experimental A/B switch; Exact and Deep use incremental prefixes by default. */
+    incrementalPrefixScoring?: boolean;
     onProgress?: (iteration: number, total: number, bestScore: number) => void;
+    /** Optional benchmark diagnostics for an uncached optimizer run. */
+    onScoringComplete?: (diagnostics: SequenceScoringDiagnostics) => void;
+}
+
+export interface SequenceScoringDiagnostics {
+    scoreEvaluations: number;
+    prefixExtensions: number;
+    incrementalPaletteBuilds: number;
+    fullPaletteBuilds: number;
+    scoreCacheSize: number;
+    appearanceCacheSize: number;
+    transitionCacheSize: number;
 }
 
 export interface OptimizerResult {
@@ -135,10 +151,21 @@ export interface SequenceScorer {
     compare(left: Filament[], right: Filament[]): number;
     /** Return the compact semantic evaluation retained by the scorer. */
     evaluate(filaments: Filament[]): SequenceScoreEvaluation;
+    /** Extend the compact optical state for one search edge. */
+    extendPrefix(parent: OpticalPrefixState | undefined, filament: Filament): OpticalPrefixState;
+    /** Score a candidate from its already-extended optical state. */
+    scorePrefix(filaments: Filament[], prefix: OpticalPrefixState): number;
+    /** Evaluate a candidate from its already-extended optical state. */
+    evaluatePrefix(
+        filaments: Filament[],
+        prefix: OpticalPrefixState
+    ): SequenceScoreEvaluation;
     /** Retained numeric scores; exposed for benchmarks and memory regressions. */
     cacheSize(): number;
     /** Retained evidence-aware prefix predictions. */
     appearanceCacheSize(): number;
+    /** Stable counters and retained-cache sizes for benchmark evidence. */
+    diagnostics(): SequenceScoringDiagnostics;
 }
 
 /**
@@ -364,6 +391,7 @@ function stableHash32(value: string): number {
 
 export const MAX_CACHED_SEQUENCE_SCORES = 8_192;
 export const MAX_CACHED_APPEARANCE_PREDICTIONS = 512;
+export const MAX_CACHED_TRANSITION_THICKNESSES = 8_192;
 
 class BoundedAppearancePredictionCache implements AppearancePredictionCache {
     private readonly layerTokens = new Map<string, Map<string, Map<number, number>>>();
@@ -460,13 +488,16 @@ class BoundedAppearancePredictionCache implements AppearancePredictionCache {
 export function createSequenceScorer(
     context: ScoringContext,
     maxCachedScores: number = MAX_CACHED_SEQUENCE_SCORES,
-    maxCachedAppearancePredictions: number = MAX_CACHED_APPEARANCE_PREDICTIONS
+    maxCachedAppearancePredictions: number = MAX_CACHED_APPEARANCE_PREDICTIONS,
+    maxCachedTransitionThicknesses: number = MAX_CACHED_TRANSITION_THICKNESSES
 ): SequenceScorer {
     // Retaining a rich palette for every Exact/Deep candidate can consume
     // hundreds of megabytes. Retain only compact ranking metrics and let each
     // temporary palette be collected immediately after evaluation.
     const evaluationCache = new BoundedCache<string, SequenceScoreEvaluation>(maxCachedScores);
-    const transitionThicknessCache = new Map<string, number>();
+    const transitionThicknessCache = new BoundedCache<string, number>(
+        maxCachedTransitionThicknesses
+    );
     const appearancePredictionCache =
         maxCachedAppearancePredictions > 0
             ? new BoundedAppearancePredictionCache(
@@ -492,36 +523,70 @@ export function createSequenceScorer(
           )
         : undefined;
     const scoringWorkspace = createSequenceScoringWorkspace();
+    const opticalPrefixBuilder = createOpticalPrefixBuilder(
+        context.layerHeight,
+        context.firstLayerHeight,
+        context.transitionOpacity,
+        context.appearanceModel
+    );
+    const prefixSequenceKeys = new WeakMap<OpticalPrefixState, string>();
+    let scoreEvaluations = 0;
+    let prefixExtensions = 0;
+    let incrementalPaletteBuilds = 0;
+    let fullPaletteBuilds = 0;
 
-    const evaluate = (filaments: Filament[]): SequenceScoreEvaluation => {
-        if (filaments.length === 0) return { score: Infinity, printableLayerCount: 0 };
-        let sequenceKey = '';
-        for (let index = 0; index < filaments.length; index++) {
-            const filament = filaments[index];
-            let token = filamentTokenCache.get(filament);
+    const tokenForFilament = (filament: Filament): string => {
+        let token = filamentTokenCache.get(filament);
+        if (token === undefined) {
+            const opticalKey = filamentOpticalKey(filament);
+            token = tokenByOpticalKey.get(opticalKey);
             if (token === undefined) {
-                const opticalKey = filamentOpticalKey(filament);
-                token = tokenByOpticalKey.get(opticalKey);
-                if (token === undefined) {
-                    token = `${tokenByOpticalKey.size.toString(36)},`;
-                    tokenByOpticalKey.set(opticalKey, token);
-                }
-                filamentTokenCache.set(filament, token);
+                token = `${tokenByOpticalKey.size.toString(36)},`;
+                tokenByOpticalKey.set(opticalKey, token);
             }
-            sequenceKey += token;
+            filamentTokenCache.set(filament, token);
         }
+        return token;
+    };
+    const sequenceKeyFor = (filaments: Filament[]): string => {
+        let sequenceKey = '';
+        for (const filament of filaments) sequenceKey += tokenForFilament(filament);
+        return sequenceKey;
+    };
+
+    const evaluateWithPrefix = (
+        filaments: Filament[],
+        prefix?: OpticalPrefixState
+    ): SequenceScoreEvaluation => {
+        const sequenceKey = sequenceKeyFor(filaments);
+        if (prefix && prefixSequenceKeys.get(prefix) !== sequenceKey) {
+            throw new Error('The optical prefix does not match the filament sequence');
+        }
+        if (filaments.length === 0) return { score: Infinity, printableLayerCount: 0 };
         const cached = evaluationCache.get(sequenceKey);
         if (cached !== undefined) return cached;
-        const palette = buildAchievableColorPalette(
-            filaments,
-            context.layerHeight,
-            context.firstLayerHeight,
-            context.maxHeight,
-            context.transitionOpacity,
-            transitionThicknessCache,
-            context.appearanceModel,
-            appearancePredictionCache
-        );
+        scoreEvaluations++;
+        if (prefix) {
+            incrementalPaletteBuilds++;
+        } else {
+            fullPaletteBuilds++;
+        }
+        const palette = prefix
+            ? opticalPrefixBuilder.buildPalette(
+                  prefix,
+                  context.maxHeight,
+                  appearancePredictionCache
+              )
+            : buildAchievableColorPalette(
+                  filaments,
+                  context.layerHeight,
+                  context.firstLayerHeight,
+                  context.maxHeight,
+                  context.transitionOpacity,
+                  transitionThicknessCache,
+                  context.appearanceModel,
+                  appearancePredictionCache
+              );
         const value: SequenceScoreEvaluation = {
             ...evaluateSequenceAgainstImage(palette, context.imageColors, {
                 preserveSeparation: context.preserveSeparation,
@@ -535,6 +600,7 @@ export function createSequenceScorer(
         evaluationCache.set(sequenceKey, value);
         return value;
     };
+    const evaluate = (filaments: Filament[]) => evaluateWithPrefix(filaments);
     const score = ((filaments: Filament[]) => evaluate(filaments).score) as SequenceScorer;
     score.compare = (left, right) => {
         const leftEvaluation = evaluate(left);
@@ -555,8 +621,29 @@ export function createSequenceScorer(
         return compareSequenceKeys(left, right);
     };
     score.evaluate = evaluate;
+    score.extendPrefix = (parent, filament) => {
+        prefixExtensions++;
+        const prefix = opticalPrefixBuilder.extend(parent, filament);
+        const parentKey = parent ? prefixSequenceKeys.get(parent) : '';
+        if (parent && parentKey === undefined) {
+            throw new Error('Cannot extend an optical prefix created by a different scorer');
+        }
+        prefixSequenceKeys.set(prefix, parentKey + tokenForFilament(filament));
+        return prefix;
+    };
+    score.evaluatePrefix = (filaments, prefix) => evaluateWithPrefix(filaments, prefix);
+    score.scorePrefix = (filaments, prefix) => evaluateWithPrefix(filaments, prefix).score;
     score.cacheSize = () => evaluationCache.size;
     score.appearanceCacheSize = () => appearancePredictionCache?.size ?? 0;
+    score.diagnostics = () => ({
+        scoreEvaluations,
+        prefixExtensions,
+        incrementalPaletteBuilds,
+        fullPaletteBuilds,
+        scoreCacheSize: evaluationCache.size,
+        appearanceCacheSize: appearancePredictionCache?.size ?? 0,
+        transitionCacheSize: transitionThicknessCache.size,
+    });
     return score;
 }
 
@@ -616,6 +703,7 @@ const DEEP_PLAN: HybridSearchPlan = {
 interface ScoredSequence {
     order: Filament[];
     score: number;
+    prefix?: OpticalPrefixState;
 }
 
 function sequenceKey(sequence: Filament[]): string {
@@ -831,28 +919,31 @@ function optimizeExhaustive(
 
     const sequence: Filament[] = [];
     const used = new Uint8Array(filaments.length);
-    const visit = (): void => {
-        if (sequence.length > 0) {
-            const candidateScore = scoreSequence(sequence);
+    const incrementalPrefixScoring = options.incrementalPrefixScoring !== false;
+    const visit = (parentPrefix: OpticalPrefixState | undefined): void => {
+        for (let index = 0; index < filaments.length; index++) {
+            if (used[index]) continue;
+            used[index] = 1;
+            sequence.push(filaments[index]);
+            const prefix = incrementalPrefixScoring
+                ? scoreSequence.extendPrefix(parentPrefix, filaments[index])
+                : undefined;
+            const candidateScore = prefix
+                ? scoreSequence.scorePrefix(sequence, prefix)
+                : scoreSequence(sequence);
             iterations++;
             const candidate = { order: sequence, score: candidateScore };
             if (isBetterCandidate(candidate, best, scoreSequence)) {
                 best = { order: [...sequence], score: candidateScore };
             }
             reportProgress(options, iterations, totalIterations, best?.score ?? Infinity);
-        }
-
-        for (let index = 0; index < filaments.length; index++) {
-            if (used[index]) continue;
-            used[index] = 1;
-            sequence.push(filaments[index]);
-            visit();
+            visit(prefix);
             sequence.pop();
             used[index] = 0;
         }
     };
 
-    visit();
+    visit(undefined);
     const baseBest = best ?? { order: [filaments[0]], score: scoreSequence([filaments[0]]) };
 
     if (!allowRepeatedSwaps) {
@@ -898,10 +989,19 @@ function optimizeBeamSearch(
     const totalIterations = filaments.length + (maximumLength - 1) * beamWidth * filaments.length;
     let iterations = 0;
     let best: ScoredSequence | null = null;
+    const incrementalPrefixScoring = options.incrementalPrefixScoring !== false;
     reportProgress(options, 0, totalIterations, Infinity);
 
-    let beam = filaments.map((filament) => {
-        const candidate = { order: [filament], score: scoreSequence([filament]) };
+    let beam: ScoredSequence[] = filaments.map((filament) => {
+        const order = [filament];
+        const prefix = incrementalPrefixScoring
+            ? scoreSequence.extendPrefix(undefined, filament)
+            : undefined;
+        const candidate = {
+            order,
+            prefix,
+            score: prefix ? scoreSequence.scorePrefix(order, prefix) : scoreSequence(order),
+        };
         iterations++;
         if (isBetterCandidate(candidate, best, scoreSequence)) best = candidate;
         reportProgress(options, iterations, totalIterations, best?.score ?? Infinity);
@@ -928,7 +1028,14 @@ function optimizeBeamSearch(
                 const key = sequenceKey(order);
                 if (candidates.has(key)) continue;
 
-                const candidate = { order, score: scoreSequence(order) };
+                const prefix = incrementalPrefixScoring
+                    ? scoreSequence.extendPrefix(state.prefix, filament)
+                    : undefined;
+                const candidate = {
+                    order,
+                    prefix,
+                    score: prefix ? scoreSequence.scorePrefix(order, prefix) : scoreSequence(order),
+                };
                 candidates.set(key, candidate);
                 iterations++;
                 if (isBetterCandidate(candidate, best, scoreSequence)) best = candidate;
@@ -1516,6 +1623,7 @@ export function optimizeFilamentOrder(
     if (opts.cachingEnabled) {
         globalCache.set(cacheKey, result);
     }
+    opts.onScoringComplete?.(scoreSequence.diagnostics());
 
     return result;
 }

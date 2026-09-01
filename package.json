@@ -12,6 +12,7 @@
         "benchmark:autopaint": "node --no-warnings --experimental-strip-types tests/benchmark/autoPaintBench.ts",
         "benchmark:calibrated": "node --expose-gc --no-warnings --experimental-strip-types tests/benchmark/calibratedOptimizer.ts",
         "benchmark:calibrated-exact": "node --expose-gc --no-warnings --experimental-strip-types tests/benchmark/calibratedOptimizer.ts",
+        "benchmark:incremental-exact": "node --expose-gc --no-warnings --experimental-strip-types tests/benchmark/incrementalExactPrefix.ts",
         "benchmark:calibrated-series": "node scripts/benchmark-calibrated-series.mjs",
         "benchmark:hotpaths": "node --no-warnings --experimental-strip-types tests/benchmark/performanceHotPaths.ts",
         "profile:calibrated": "node scripts/profile-calibrated.mjs",

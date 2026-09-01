@@ -96,6 +96,11 @@ export interface TransitionZone {
     actualThickness: number; // After compression
 }
 
+export interface TransitionThicknessCache {
+    get(key: string): number | undefined;
+    set(key: string, value: number): void;
+}
+
 /** A generated layer segment from the auto-paint algorithm */
 export interface AutoPaintLayer {
     filamentId: string;
@@ -461,7 +466,7 @@ function transitionThicknessMultiplier(targetOpacity: number): number {
 // needed. Per-channel values come from `channelHds`: measured when calibrated,
 // derived from the swatch color otherwise.
 
-type AutoPaintFilament = Pick<Filament, 'id' | 'color' | 'td' | 'calibration'>;
+export type AutoPaintFilament = Pick<Filament, 'id' | 'color' | 'td' | 'calibration'>;
 
 /**
  * Simulate adding filament layers until the blended color matches the
@@ -562,7 +567,7 @@ export function calculateIdealHeight(
     sortedFilaments: AutoPaintFilament[],
     layerHeight: number,
     baseThickness: number = 0.6,
-    transitionThicknessCache?: Map<string, number>,
+    transitionThicknessCache?: TransitionThicknessCache,
     transitionOpacity: number = DEFAULT_TRANSITION_OPACITY,
     appearanceModel: AppearanceRankModelV1 = createIdentityAppearanceRankModel()
 ): { idealHeight: number; zones: TransitionZone[] } {
@@ -705,6 +710,165 @@ export function calculateIdealHeight(
     }
 
     return { idealHeight: currentHeight, zones };
+}
+
+/** Compact linked optical state retained while a search extends one prefix. */
+export interface OpticalPrefixState {
+    readonly parent: OpticalPrefixState | undefined;
+    readonly zone: TransitionZone;
+    readonly backgroundColor: RGB;
+    readonly depth: number;
+    readonly owner: symbol;
+}
+
+export interface OpticalPrefixBuilder {
+    extend(parent: OpticalPrefixState | undefined, filament: AutoPaintFilament): OpticalPrefixState;
+    buildPalette(
+        state: OpticalPrefixState,
+        maxHeight?: number,
+        appearancePredictionCache?: AppearancePredictionCache
+    ): AchievableColor[];
+}
+
+/**
+ * Build one-edge-at-a-time optical states for prefix-oriented searches.
+ * Printable palettes remain transient and are materialized only for scoring.
+ */
+export function createOpticalPrefixBuilder(
+    layerHeight: number,
+    firstLayerHeight: number,
+    transitionOpacity: number = DEFAULT_TRANSITION_OPACITY,
+    appearanceModel: AppearanceRankModelV1 = createIdentityAppearanceRankModel()
+): OpticalPrefixBuilder {
+    const owner = Symbol('optical-prefix-builder');
+    const baseThickness = Math.max(firstLayerHeight, layerHeight);
+    const effectiveOptics = appearanceModel.effectiveOptics;
+
+    const extend = (
+        parent: OpticalPrefixState | undefined,
+        filament: AutoPaintFilament
+    ): OpticalPrefixState => {
+        if (parent && parent.owner !== owner) {
+            throw new Error('Cannot extend an optical prefix created by a different builder');
+        }
+
+        const resolvedOptics = resolveEffectiveFilamentOptics(effectiveOptics, filament);
+        const effectiveTdChannels: CalibrationRgb = [
+            resolvedOptics.hdChannels[0],
+            resolvedOptics.hdChannels[1],
+            resolvedOptics.hdChannels[2],
+        ];
+        const effectiveColor: RGB = {
+            r: resolvedOptics.color[0],
+            g: resolvedOptics.color[1],
+            b: resolvedOptics.color[2],
+        };
+        const filamentTdChannels = channelHds(filament);
+
+        if (!parent) {
+            const foundationThickness = Math.max(
+                baseThickness,
+                Math.max(...effectiveTdChannels) *
+                    Math.pow(1.3, 1 / resolvedOptics.transmissionExponent)
+            );
+            return {
+                parent: undefined,
+                zone: {
+                    filamentId: filament.id,
+                    filamentColor: filament.color,
+                    filamentTd: filament.td,
+                    filamentTdChannels,
+                    ...(effectiveOptics?.applied
+                        ? {
+                              effectiveColor: { ...effectiveColor },
+                              effectiveTdChannels,
+                              transmissionExponent: resolvedOptics.transmissionExponent,
+                              substrateHdMultiplier: 1,
+                          }
+                        : {}),
+                    startHeight: 0,
+                    endHeight: foundationThickness,
+                    idealThickness: foundationThickness,
+                    actualThickness: foundationThickness,
+                },
+                backgroundColor: effectiveColor,
+                depth: 1,
+                owner,
+            };
+        }
+
+        const substrateFilamentId = parent.zone.filamentId;
+        const substrateHdMultiplier = effectiveSubstrateHdMultiplier(
+            effectiveOptics,
+            filament.id,
+            substrateFilamentId
+        );
+        const transitionThickness = calculateTransitionThickness(
+            parent.backgroundColor,
+            effectiveColor,
+            effectiveTdChannels,
+            layerHeight,
+            transitionOpacity,
+            resolvedOptics.transmissionExponent,
+            substrateHdMultiplier
+        );
+        const endHeight = parent.zone.endHeight + transitionThickness;
+        return {
+            parent,
+            zone: {
+                filamentId: filament.id,
+                filamentColor: filament.color,
+                filamentTd: filament.td,
+                filamentTdChannels,
+                ...(effectiveOptics?.applied
+                    ? {
+                          effectiveColor,
+                          effectiveTdChannels,
+                          transmissionExponent: resolvedOptics.transmissionExponent,
+                          substrateFilamentId,
+                          substrateHdMultiplier,
+                      }
+                    : {}),
+                startHeight: parent.zone.endHeight,
+                endHeight,
+                idealThickness: transitionThickness,
+                actualThickness: transitionThickness,
+            },
+            backgroundColor: blendColors(
+                parent.backgroundColor,
+                effectiveColor,
+                effectiveTdChannels,
+                transitionThickness,
+                resolvedOptics.transmissionExponent,
+                substrateHdMultiplier
+            ),
+            depth: parent.depth + 1,
+            owner,
+        };
+    };
+
+    return {
+        extend,
+        buildPalette(state, maxHeight, appearancePredictionCache) {
+            if (state.owner !== owner) {
+                throw new Error('Cannot materialize an optical prefix created by a different builder');
+            }
+            const zones = new Array<TransitionZone>(state.depth);
+            let current: OpticalPrefixState | undefined = state;
+            while (current) {
+                zones[current.depth - 1] = current.zone;
+                current = current.parent;
+            }
+            return buildAchievableColorPaletteFromZones(
+                zones,
+                layerHeight,
+                firstLayerHeight,
+                maxHeight,
+                appearanceModel,
+                appearancePredictionCache
+            );
+        },
+    };
 }
 
 /**
@@ -1545,7 +1709,7 @@ export function buildAchievableColorPalette(
     firstLayerHeight: number,
     maxHeight?: number,
     transitionOpacity: number = DEFAULT_TRANSITION_OPACITY,
-    transitionThicknessCache?: Map<string, number>,
+    transitionThicknessCache?: TransitionThicknessCache,
     appearanceModel: AppearanceRankModelV1 = createIdentityAppearanceRankModel(),
     appearancePredictionCache?: AppearancePredictionCache
 ): AchievableColor[] {
@@ -1562,6 +1726,25 @@ export function buildAchievableColorPalette(
     );
 
     if (zones.length === 0) return [];
+
+    return buildAchievableColorPaletteFromZones(
+        zones,
+        layerHeight,
+        firstLayerHeight,
+        maxHeight,
+        appearanceModel,
+        appearancePredictionCache
+    );
+}
+
+function buildAchievableColorPaletteFromZones(
+    zones: TransitionZone[],
+    layerHeight: number,
+    firstLayerHeight: number,
+    maxHeight: number | undefined,
+    appearanceModel: AppearanceRankModelV1,
+    appearancePredictionCache?: AppearancePredictionCache
+): AchievableColor[] {
 
     const printableMaxHeight =
         maxHeight === undefined
