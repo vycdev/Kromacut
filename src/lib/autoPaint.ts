@@ -34,7 +34,7 @@ import {
     type OptimizerOptions,
     type OptimizerResult,
     type ScoringContext,
-} from './optimizer.ts';
+} from './optimizer';
 import {
     activeFrontlitCalibration,
     channelHds,
@@ -49,7 +49,7 @@ import {
 } from './effectiveOptics';
 import { fingerprintJson } from './fingerprint';
 
-export { LAYER_ACTIVATION_EPSILON } from './layerActivation.ts';
+export { LAYER_ACTIVATION_EPSILON } from './layerActivation';
 
 /** RGB color representation (0-255 range) */
 export interface RGB {

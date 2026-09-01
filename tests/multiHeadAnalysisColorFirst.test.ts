@@ -1,11 +1,17 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { generateAutoLayers, hexToRgb } from '../src/lib/autoPaint.ts';
-import {
-    buildColorStack,
-    expandZonesToPrinterLayers,
-} from '../src/lib/multiHeadAnalysis.ts';
-import {
+import { loadViteModule } from './helpers/viteModule.ts';
+import type { WindowFilament } from '../src/lib/multiHeadAnalysis.ts';
+import type { Filament } from '../src/types/index.ts';
+
+// These lib modules reach an extensionless-import graph, so load them through
+// Vite (matching the rest of the suite) rather than node's strip-types loader.
+const { generateAutoLayers, hexToRgb } =
+    await loadViteModule<typeof import('../src/lib/autoPaint.ts')>('/src/lib/autoPaint.ts');
+const { buildColorStack, expandZonesToPrinterLayers } = await loadViteModule<
+    typeof import('../src/lib/multiHeadAnalysis.ts')
+>('/src/lib/multiHeadAnalysis.ts');
+const {
     buildPixelDataColorFirst,
     buildColorGroupedPixels,
     buildColorRuns,
@@ -15,10 +21,11 @@ import {
     runMultiHeadLayerAnalysisColorFirst,
     COLOR_GROUP_CAP,
     MAX_MULTI_HEAD_HEADS,
-} from '../src/lib/multiHeadAnalysisColorFirst.ts';
-import type { WindowFilament } from '../src/lib/multiHeadAnalysis.ts';
-import { channelHds } from '../src/lib/calibration.ts';
-import type { Filament } from '../src/types/index.ts';
+} = await loadViteModule<typeof import('../src/lib/multiHeadAnalysisColorFirst.ts')>(
+    '/src/lib/multiHeadAnalysisColorFirst.ts'
+);
+const { channelHds } =
+    await loadViteModule<typeof import('../src/lib/calibration.ts')>('/src/lib/calibration.ts');
 
 const LAYER_HEIGHT = 0.12;
 const FIRST_LAYER_HEIGHT = 0.20;

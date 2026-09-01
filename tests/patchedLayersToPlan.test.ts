@@ -1,10 +1,21 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { generateAutoLayers } from '../src/lib/autoPaint.ts';
-import { expandZonesToPrinterLayers } from '../src/lib/multiHeadAnalysis.ts';
-import { runMultiHeadLayerAnalysisColorFirst } from '../src/lib/multiHeadAnalysisColorFirst.ts';
-import { patchedLayersToPlan, patchedLayersToSliceData, buildPerColorLayerColors } from '../src/lib/patchedLayersToPlan.ts';
+import { loadViteModule } from './helpers/viteModule.ts';
 import type { Filament } from '../src/types/index.ts';
+
+// Loaded through Vite (extensionless-import graph — see the other multi-head tests).
+const { generateAutoLayers } =
+    await loadViteModule<typeof import('../src/lib/autoPaint.ts')>('/src/lib/autoPaint.ts');
+const { expandZonesToPrinterLayers } = await loadViteModule<
+    typeof import('../src/lib/multiHeadAnalysis.ts')
+>('/src/lib/multiHeadAnalysis.ts');
+const { runMultiHeadLayerAnalysisColorFirst } = await loadViteModule<
+    typeof import('../src/lib/multiHeadAnalysisColorFirst.ts')
+>('/src/lib/multiHeadAnalysisColorFirst.ts');
+const { patchedLayersToPlan, patchedLayersToSliceData, buildPerColorLayerColors } =
+    await loadViteModule<typeof import('../src/lib/patchedLayersToPlan.ts')>(
+        '/src/lib/patchedLayersToPlan.ts'
+    );
 
 const LAYER_HEIGHT = 0.12;
 const FIRST_LAYER_HEIGHT = 0.20;

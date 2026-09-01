@@ -2218,6 +2218,7 @@ export default function ThreeDView({
         heightDithering,
         ditherLineWidth,
         printableFeaturePixels,
+        perColorLayerColors,
         smoothMeshing,
         flatPaint,
         flatPaintFaceUp,

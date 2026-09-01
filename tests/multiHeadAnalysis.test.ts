@@ -1,16 +1,22 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { generateAutoLayers } from '../src/lib/autoPaint.ts';
-import {
+import { loadViteModule } from './helpers/viteModule.ts';
+import type { WindowResult, PrinterLayer } from '../src/lib/multiHeadAnalysis.ts';
+import type { Filament } from '../src/types/index.ts';
+
+// autoPaint + multiHeadAnalysis reach an extensionless-import graph, so load them
+// through Vite (matching the rest of the suite) rather than node's strip-types loader.
+const { generateAutoLayers } =
+    await loadViteModule<typeof import('../src/lib/autoPaint.ts')>('/src/lib/autoPaint.ts');
+const {
     analyzeMultiHeadWindows,
     selectBestWindows,
     buildLUT,
     buildColorStack,
     runMultiHeadLayerAnalysis,
-    type WindowResult,
-    type PrinterLayer,
-} from '../src/lib/multiHeadAnalysis.ts';
-import type { Filament } from '../src/types/index.ts';
+} = await loadViteModule<typeof import('../src/lib/multiHeadAnalysis.ts')>(
+    '/src/lib/multiHeadAnalysis.ts'
+);
 
 // ---------------------------------------------------------------------------
 // Shared fixture helpers
