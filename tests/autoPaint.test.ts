@@ -195,17 +195,38 @@ test('partial separation exposes only in-limit matches as distinct printable col
     );
 });
 
-test('color separation includes mappings exactly on the unique-match limit', async () => {
+test('color separation applies the realized CIEDE2000 hard limit', async () => {
     const { mapTargetsWithSeparation } = await loadAutoPaintModule();
     const result = mapTargetsWithSeparation(
         [
             {
                 height: 0.16,
-                lab: { L: 50, a: 0, b: 0 },
+                lab: { L: 20, a: 0, b: 0 },
+                rgb: { r: 48, g: 48, b: 48 },
+            },
+        ],
+        [{ L: 26, a: 0, b: 0, weight: 1 }],
+        5.9
+    );
+
+    assert.equal(result.report.uniquelyPreservedWithinThresholdCount, 1);
+    assert.equal(result.report.preservedTargetWeight, 1);
+    assert.ok(result.report.maximumPreservedDeltaE < 5.9);
+});
+
+test('color separation reports realized error for an in-limit mapping', async () => {
+    const { deltaE2000Lab, mapTargetsWithSeparation } = await loadAutoPaintModule();
+    const printable = { L: 50, a: 0, b: 0 };
+    const target = { L: 56, a: 0, b: 0, weight: 1 };
+    const result = mapTargetsWithSeparation(
+        [
+            {
+                height: 0.16,
+                lab: printable,
                 rgb: { r: 119, g: 119, b: 119 },
             },
         ],
-        [{ L: 56, a: 0, b: 0, weight: 1 }],
+        [target],
         6
     );
 
@@ -213,7 +234,7 @@ test('color separation includes mappings exactly on the unique-match limit', asy
     assert.equal(result.report.uniquelyPreservedWithinThresholdCount, 1);
     assert.equal(result.report.mappedWithinThresholdCount, 1);
     assert.equal(result.report.overThresholdColorCount, 0);
-    assert.equal(result.report.maximumDeltaE, 6);
+    assert.equal(result.report.maximumDeltaE, deltaE2000Lab(printable, target));
 });
 
 test('hard separation limit overrides anchor preference when a feasible mapping exists', async () => {
@@ -542,6 +563,77 @@ test('color separation returns a verified report without spending the repeat all
     assert.equal(result.colorSeparation?.assignedDistinctColorCount, 1);
     assert.equal(result.optimizerMetadata?.extraRepeatCount, 0);
     assert.equal(result.finalStack.settings.separationMaxDeltaE, 12);
+});
+
+test('hybrid candidate collection is bounded and keeps the snapped layer and neighbors', async () => {
+    const { collectHybridPrintableCandidateIndices, HYBRID_RERANK_MAX_CANDIDATES } =
+        await loadAutoPaintModule();
+
+    const indices = collectHybridPrintableCandidateIndices(
+        40,
+        20,
+        Array.from({ length: 40 }, (_, index) => index)
+    );
+
+    assert.ok(indices.length <= HYBRID_RERANK_MAX_CANDIDATES);
+    assert.deepEqual(indices.slice(0, 3), [20, 19, 21]);
+    assert.equal(new Set(indices).size, indices.length);
+    assert.ok(indices.every((index) => index >= 0 && index < 40));
+});
+
+test('hybrid reranking resolves equal costs by printable palette index', async () => {
+    const { selectHybridPrintableCandidateIndex } = await loadAutoPaintModule();
+    const target = { L: 50, a: 0, b: 0, weight: 1 };
+    const palette = [0.16, 0.24].map((height) => ({
+        height,
+        lab: { L: 50, a: 0, b: 0 },
+        rgb: { r: 119, g: 119, b: 119 },
+    }));
+
+    assert.equal(selectHybridPrintableCandidateIndex(palette, target, [1, 0]), 0);
+});
+
+test('final preview height cache preserves every shared final-stack target mapping', async () => {
+    const { createFinalStackTargetHeightCache } = await loadAutoPaintModule();
+    const cache = createFinalStackTargetHeightCache(
+        [
+            { targetColor: { rgb: [12, 34, 56] as const }, projectedHeight: 0.24 },
+            { targetColor: { rgb: [200, 100, 50] as const }, projectedHeight: 0.72 },
+        ],
+        0.16,
+        0.64
+    );
+
+    assert.equal(cache.get((12 << 16) | (34 << 8) | 56), 0.24);
+    assert.equal(cache.get((200 << 16) | (100 << 8) | 50), 0.64);
+    assert.equal(cache.size, 2);
+});
+
+test('hybrid mapping reranks the selected snapped neighbor with realized CIEDE2000', async () => {
+    const { mapTargetsToPrintablePalette } = await loadAutoPaintModule();
+    const target = {
+        L: 42.716051216730946,
+        a: 39.37686515739248,
+        b: -31.021854773404613,
+        weight: 1,
+    };
+    const palette = [
+        { L: 39.92894508410245, a: 30.65255194203928, b: -29.732559509575367 },
+        { L: 39.154633407760414, a: 33.1510234833695, b: -38.78032358828932 },
+        { L: 39.9947074838914, a: 37.89670528052375, b: -30.177012174390256 },
+        { L: 43.685429784841844, a: 35.23237000731751, b: -40.237742541357875 },
+        { L: 42.139889654889714, a: 29.888126576784998, b: -32.424046436324716 },
+    ].map((lab, index) => ({
+        height: 0.16 + index * 0.08,
+        lab,
+        rgb: { r: 128, g: 128, b: 128 },
+    }));
+
+    const mapped = mapTargetsToPrintablePalette(palette, [target]);
+
+    assert.equal(mapped[0].paletteIndex, 2);
+    assert.equal(mapped[0].mappedLab, palette[2].lab);
+    assert.equal(mapped[0].projectedHeight, palette[2].height);
 });
 
 test('Dead-on palette anchors win over an earlier uncalibrated color tie', async () => {
