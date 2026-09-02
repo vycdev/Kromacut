@@ -2063,7 +2063,7 @@ export function mapTargetsWithSeparation(
         row.length = distinct.length;
         const target = imageTargets[targetIndex];
         for (let candidate = 0; candidate < distinct.length; candidate++) {
-            row[candidate] = optimizerColorDistance(distinct[candidate].lab, target);
+            row[candidate] = realizedColorError(distinct[candidate].lab, target);
         }
     }
     const uncertaintyPenalties = workspace?.uncertaintyPenalties ?? [];
@@ -2198,6 +2198,83 @@ export function mapTargetsWithSeparation(
     };
 }
 
+/** Hard cap for the discrete post-projection neighborhood evaluated per target. */
+export const HYBRID_RERANK_MAX_CANDIDATES = 12;
+const HYBRID_GLOBAL_FIRST_STAGE_CANDIDATES = 4;
+
+/**
+ * Build a stable, deduplicated shortlist around the fast projection result.
+ * The selected snapped layer and its immediate printable neighbors always lead
+ * the list; relevant flat-zone and transition-boundary nodes fill the remainder.
+ */
+export function collectHybridPrintableCandidateIndices(
+    paletteLength: number,
+    generatedIndex: number,
+    relevantIndices: readonly number[]
+): number[] {
+    const candidateIndices: number[] = [];
+    const addCandidate = (index: number) => {
+        if (
+            candidateIndices.length < HYBRID_RERANK_MAX_CANDIDATES &&
+            index >= 0 &&
+            index < paletteLength &&
+            !candidateIndices.includes(index)
+        ) {
+            candidateIndices.push(index);
+        }
+    };
+    addCandidate(generatedIndex);
+    addCandidate(generatedIndex - 1);
+    addCandidate(generatedIndex + 1);
+    for (const index of relevantIndices) addCandidate(index);
+    return candidateIndices;
+}
+
+/** Choose the lowest-cost realized printable color with a stable index tie-break. */
+export function selectHybridPrintableCandidateIndex(
+    palette: readonly AchievableColor[],
+    target: Lab,
+    candidateIndices: readonly number[]
+): number {
+    let paletteIndex = candidateIndices[0] ?? 0;
+    let rerankedCost = Infinity;
+    for (const candidateIndex of candidateIndices) {
+        const candidateCost =
+            realizedColorError(palette[candidateIndex].lab, target) +
+            (1 - predictionConfidenceValue(palette[candidateIndex])) *
+                PREDICTION_UNCERTAINTY_PENALTY;
+        if (
+            candidateCost < rerankedCost - 1e-12 ||
+            (Math.abs(candidateCost - rerankedCost) <= 1e-12 && candidateIndex < paletteIndex)
+        ) {
+            rerankedCost = candidateCost;
+            paletteIndex = candidateIndex;
+        }
+    }
+    return paletteIndex;
+}
+
+/**
+ * Seed preview colors from the final-stack mappings produced by the shared
+ * optimizer mapper instead of independently re-projecting those source colors.
+ */
+export function createFinalStackTargetHeightCache(
+    targetMappings: readonly {
+        targetColor: { rgb: readonly [number, number, number] };
+        projectedHeight: number;
+    }[],
+    minimumHeight: number,
+    maximumHeight: number
+): Map<number, number> {
+    const cache = new Map<number, number>();
+    for (const mapping of targetMappings) {
+        const [r, g, b] = mapping.targetColor.rgb;
+        const key = ((r & 0xff) << 16) | ((g & 0xff) << 8) | (b & 0xff);
+        cache.set(key, Math.max(minimumHeight, Math.min(maximumHeight, mapping.projectedHeight)));
+    }
+    return cache;
+}
+
 export function mapTargetsToPrintablePalette(
     palette: AchievableColor[],
     imageTargets: WeightedLab[],
@@ -2215,8 +2292,14 @@ export function mapTargetsToPrintablePalette(
     // Collapse consecutive near-identical layers into flat-zone nodes (ΔE<0.5),
     // matching ThreeDView. Each node keeps its height range and an averaged Lab.
     const COLLAPSE_DE_SQ = 0.25; // 0.5^2
-    const nodes: Array<{ lab: Lab; minHeight: number; maxHeight: number; paletteIndex: number }> =
-        [];
+    const nodes: Array<{
+        lab: Lab;
+        minHeight: number;
+        maxHeight: number;
+        paletteIndex: number;
+        firstPaletteIndex: number;
+        lastPaletteIndex: number;
+    }> = [];
     let runStart = 0;
     for (let i = 1; i <= palette.length; i++) {
         let split = i === palette.length;
@@ -2254,6 +2337,8 @@ export function mapTargetsToPrintablePalette(
                 minHeight: palette[runStart].height,
                 maxHeight: palette[i - 1].height,
                 paletteIndex: representativeIndex,
+                firstPaletteIndex: runStart,
+                lastPaletteIndex: i - 1,
             });
             runStart = i;
         }
@@ -2264,6 +2349,7 @@ export function mapTargetsToPrintablePalette(
     const segments = nodes.slice(0, -1).map((A, ni) => {
         const B = nodes[ni + 1];
         return {
+            nodeIndex: ni,
             aL: A.lab.L,
             aa: A.lab.a,
             ab: A.lab.b,
@@ -2306,15 +2392,48 @@ export function mapTargetsToPrintablePalette(
         let minimumSelectionCost = Infinity;
         let nodeMatch = 0;
         let onSegment = false;
+        let segmentMatch = -1;
         let segmentHeight = nodes[0].minHeight;
         const projectedLab: Lab = { L: 0, a: 0, b: 0 };
+        const firstStageCandidateIndices: number[] = [];
+        const firstStageCandidateCosts: number[] = [];
+        let firstStageCandidateCount = 0;
+        let worstFirstStageCandidate = 0;
+        const isWorseFirstStageCandidate = (left: number, right: number) =>
+            firstStageCandidateCosts[left] > firstStageCandidateCosts[right] ||
+            (firstStageCandidateCosts[left] === firstStageCandidateCosts[right] &&
+                firstStageCandidateIndices[left] > firstStageCandidateIndices[right]);
 
         // Nearest flat-zone node by color.
         for (let ni = 0; ni < nodes.length; ni++) {
+            const candidateIndex = nodes[ni].paletteIndex;
             const selectionCost =
                 optimizerColorDistance(nodes[ni].lab, target) +
-                (1 - predictionConfidenceValue(palette[nodes[ni].paletteIndex])) *
+                (1 - predictionConfidenceValue(palette[candidateIndex])) *
                     PREDICTION_UNCERTAINTY_PENALTY;
+            if (firstStageCandidateCount < HYBRID_GLOBAL_FIRST_STAGE_CANDIDATES) {
+                firstStageCandidateIndices.push(candidateIndex);
+                firstStageCandidateCosts.push(selectionCost);
+                if (
+                    isWorseFirstStageCandidate(firstStageCandidateCount, worstFirstStageCandidate)
+                ) {
+                    worstFirstStageCandidate = firstStageCandidateCount;
+                }
+                firstStageCandidateCount++;
+            } else if (
+                selectionCost < firstStageCandidateCosts[worstFirstStageCandidate] ||
+                (selectionCost === firstStageCandidateCosts[worstFirstStageCandidate] &&
+                    candidateIndex < firstStageCandidateIndices[worstFirstStageCandidate])
+            ) {
+                firstStageCandidateIndices[worstFirstStageCandidate] = candidateIndex;
+                firstStageCandidateCosts[worstFirstStageCandidate] = selectionCost;
+                worstFirstStageCandidate = 0;
+                for (let position = 1; position < firstStageCandidateCount; position++) {
+                    if (isWorseFirstStageCandidate(position, worstFirstStageCandidate)) {
+                        worstFirstStageCandidate = position;
+                    }
+                }
+            }
             if (selectionCost < minimumSelectionCost) {
                 minimumSelectionCost = selectionCost;
                 nodeMatch = ni;
@@ -2323,7 +2442,8 @@ export function mapTargetsToPrintablePalette(
         }
 
         // Refine against the closest point on each transition segment.
-        for (const seg of segments) {
+        for (let segmentIndex = 0; segmentIndex < segments.length; segmentIndex++) {
+            const seg = segments[segmentIndex];
             const lengthSquared = seg.dL * seg.dL + seg.da * seg.da + seg.db * seg.db;
             if (lengthSquared < 0.01) continue;
             const t = Math.max(
@@ -2349,29 +2469,44 @@ export function mapTargetsToPrintablePalette(
             if (selectionCost < minimumSelectionCost) {
                 minimumSelectionCost = selectionCost;
                 onSegment = true;
+                segmentMatch = segmentIndex;
                 segmentHeight = projectedHeight;
             }
         }
 
-        if (!onSegment) {
-            // Flat-zone match: the printed surface is this filament's solid
-            // color across the whole zone (sub-position within it is relief).
-            const node = nodes[nodeMatch];
-            return {
-                target,
-                paletteIndex: node.paletteIndex,
-                mappedLab: node.lab,
-                projectedHeight: (node.minHeight + node.maxHeight) / 2,
-            };
-        }
+        // Keep the fast CIE76 projection as candidate generation, then rerank a
+        // bounded discrete neighborhood using the same realized CIEDE2000 and
+        // confidence signal as optimizer scoring. Globally close printable
+        // layers lead the supplemental candidates so the neighborhood is not
+        // trapped around one continuous projection.
+        const generatedIndex = onSegment
+            ? paletteIndexAtOrAboveHeight(segmentHeight)
+            : nodes[nodeMatch].paletteIndex;
+        const relevantIndices = firstStageCandidateIndices;
 
-        // Transition match: the printed color is the layer at that height.
-        const paletteIndex = paletteIndexAtOrAboveHeight(segmentHeight);
+        const addNodeCandidates = (nodeIndex: number) => {
+            const node = nodes[nodeIndex];
+            if (!node) return;
+            relevantIndices.push(node.paletteIndex, node.firstPaletteIndex, node.lastPaletteIndex);
+        };
+        addNodeCandidates(nodeMatch);
+        if (segmentMatch >= 0) {
+            const segment = segments[segmentMatch];
+            addNodeCandidates(segment.nodeIndex);
+            addNodeCandidates(segment.nodeIndex + 1);
+        }
+        const candidateIndices = collectHybridPrintableCandidateIndices(
+            palette.length,
+            generatedIndex,
+            relevantIndices
+        );
+
+        const paletteIndex = selectHybridPrintableCandidateIndex(palette, target, candidateIndices);
         return {
             target,
             paletteIndex,
             mappedLab: palette[paletteIndex].lab,
-            projectedHeight: segmentHeight,
+            projectedHeight: palette[paletteIndex].height,
         };
     });
 }

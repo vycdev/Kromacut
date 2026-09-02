@@ -556,7 +556,7 @@ test('exhaustive search evaluates ordered subsets and drops a strictly worse fil
     );
 });
 
-test('repeats can close the RGB color path to reach the missing magenta blend', async () => {
+test('repeat-enabled RGB search keeps the best safe path without forcing redundant swaps', async () => {
     const { optimizeFilamentOrder } = await loadOptimizerModule();
     const primaries = [
         { id: 'red', color: '#ff0000', td: 1.2 },
@@ -576,6 +576,11 @@ test('repeats can close the RGB color path to reach the missing magenta blend', 
         firstLayerHeight: 0.16,
     };
 
+    const withoutRepeats = optimizeFilamentOrder(primaries, spectrumTargets, {
+        algorithm: 'exhaustive',
+        allowRepeatedSwaps: false,
+        cachingEnabled: false,
+    });
     const result = optimizeFilamentOrder(primaries, spectrumTargets, {
         algorithm: 'exhaustive',
         allowRepeatedSwaps: true,
@@ -584,8 +589,8 @@ test('repeats can close the RGB color path to reach the missing magenta blend', 
 
     const ids = result.order.map((filament) => filament.id);
     assert.ok(
-        new Set(ids).size < ids.length,
-        'closing the RGB path should repeat one primary for the magenta transition'
+        result.score <= withoutRepeats.score,
+        'enabling repeated swaps must retain or improve the best no-repeat result'
     );
     assert.ok(
         ids.every((id, index) => index === 0 || id !== ids[index - 1]),

@@ -18,7 +18,11 @@ import {
     heightMapToLayerCounts,
     orientFlatPaintLayerCounts,
 } from '../lib/flatPaint';
-import { mapTargetsToPrintablePalette, type WeightedLab } from '../lib/autoPaint';
+import {
+    createFinalStackTargetHeightCache,
+    mapTargetsToPrintablePalette,
+    type WeightedLab,
+} from '../lib/autoPaint';
 import {
     clampProgress,
     layeredBuildScanProgress,
@@ -1137,24 +1141,18 @@ export default function ThreeDView({
                         // We deliberately do NOT snap to the layer grid here.
                         // The RGB cache is still valid because it stores the ideal
                         // continuous height; dithering happens spatially in Pass 2.
-                        // Separation assignments seed the cache so each color's
-                        // pixels all land on its assigned printable height.
-                        const colorHeightCache = new Map<number, number>(separationHeights);
-                        if (autoPaintFinalStack) {
-                            for (const mapping of autoPaintFinalStack.targetMappings) {
-                                const paletteEntry =
-                                    autoPaintFinalStack.palette[mapping.paletteIndex];
-                                if (!paletteEntry?.exactAnchorId) continue;
-                                const [r, g, b] = mapping.targetColor.rgb;
-                                const key = ((r & 0xff) << 16) | ((g & 0xff) << 8) | (b & 0xff);
-                                colorHeightCache.set(
-                                    key,
-                                    Math.max(
-                                        minModelH,
-                                        Math.min(maxModelH, mapping.projectedHeight)
-                                    )
-                                );
-                            }
+                        // Shared final-stack mappings seed every source color so
+                        // optimizer scoring and preview choose the same printable
+                        // layer. Separation assignments override the same keys.
+                        const colorHeightCache = autoPaintFinalStack
+                            ? createFinalStackTargetHeightCache(
+                                  autoPaintFinalStack.targetMappings,
+                                  minModelH,
+                                  maxModelH
+                              )
+                            : new Map<number, number>();
+                        for (const [key, height] of separationHeights) {
+                            colorHeightCache.set(key, height);
                         }
 
                         for (let py = minY; py < minY + boxH; py++) {

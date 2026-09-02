@@ -13,18 +13,18 @@ import { loadViteModule } from '../helpers/viteModule.ts';
 type AutoPaintModule = typeof import('../../src/lib/autoPaint.ts');
 
 const EXPECTED_RESULTS = {
-    mappingChecksum: 318940.70617037377,
-    mappingFingerprint: 'b35b9f78ce225970b86240366f8e00c6044bbd2f69c105e628592aa27748f39b',
-    separationChecksum: 2791727.266269258,
-    separationFingerprint: '5661f847d37eeca3f84416584d5575588f8391f686c24711c835530863e233da',
+    mappingChecksum: 318102.0000000021,
+    mappingFingerprint: 'cef19f725dcc5a4c129e16b920ef8869024a34007eecadc5c18bcc98b67f957a',
+    separationChecksum: 3976450.2013628585,
+    separationFingerprint: 'b0c383cadbd440f854d734508807cc83ce7ce02c51344d18eac5cb50561c8754',
     spatialChecksum: 808586.5285891531,
     colorOrderChecksum: 11453245440,
     exact: {
         iterations: 1956,
-        score: 46.875850346975874,
-        order: ['black', 'blue', 'red', 'white', 'yellow', 'green'],
+        score: 43.62063281489116,
+        order: ['blue', 'red', 'white', 'yellow', 'green', 'black'],
         layerCount: 20,
-        finalStackFingerprint: 'final-stack-v1-b48a2cc09419a9cd',
+        finalStackFingerprint: 'final-stack-v1-515ebd0d1f58e35c',
     },
 } as const;
 
