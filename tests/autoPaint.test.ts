@@ -636,6 +636,42 @@ test('hybrid mapping reranks the selected snapped neighbor with realized CIEDE20
     assert.equal(mapped[0].projectedHeight, palette[2].height);
 });
 
+test('hybrid mapping considers globally close flat zones outside the projected neighborhood', async () => {
+    const { deltaE2000Lab, mapTargetsToPrintablePalette, rgbToLab } = await loadAutoPaintModule();
+    const targetRgb = { r: 200, g: 158, b: 207 };
+    const paletteRgb = [
+        { r: 105, g: 240, b: 230 },
+        { r: 246, g: 36, b: 199 },
+        { r: 134, g: 54, b: 159 },
+        { r: 36, g: 66, b: 184 },
+        { r: 107, g: 219, b: 25 },
+        { r: 66, g: 78, b: 149 },
+        { r: 82, g: 249, b: 169 },
+        { r: 84, g: 218, b: 58 },
+        { r: 204, g: 180, b: 62 },
+        { r: 205, g: 36, b: 105 },
+        { r: 189, g: 28, b: 89 },
+        { r: 222, g: 71, b: 106 },
+        { r: 210, g: 2, b: 84 },
+        { r: 62, g: 52, b: 152 },
+        { r: 244, g: 108, b: 192 },
+        { r: 157, g: 130, b: 125 },
+    ];
+    const palette = paletteRgb.map((rgb, index) => ({
+        height: 0.16 + index * 0.08,
+        rgb,
+        lab: rgbToLab(rgb),
+    }));
+    const target = { ...rgbToLab(targetRgb), weight: 1 };
+
+    const mapped = mapTargetsToPrintablePalette(palette, [target]);
+
+    assert.equal(mapped[0].paletteIndex, 14);
+    assert.ok(
+        deltaE2000Lab(mapped[0].mappedLab, target) + 6 < deltaE2000Lab(palette[1].lab, target)
+    );
+});
+
 test('Dead-on palette anchors win over an earlier uncalibrated color tie', async () => {
     const { mapTargetsToPrintablePalette } = await loadAutoPaintModule();
     const target = { L: 40, a: 12, b: -18, weight: 1 };
