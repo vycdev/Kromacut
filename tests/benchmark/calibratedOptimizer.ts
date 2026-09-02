@@ -22,6 +22,7 @@ interface CalibratedOptimizerCase {
         failIfAnyColorIsMissed: boolean;
         optimizerAlgorithm: 'fast' | 'balanced' | 'thorough' | 'deep' | 'exact';
         transitionOpacity: number;
+        seed: number | null;
     };
     observedResult: {
         processedOpaqueColorCount: number;
@@ -154,6 +155,69 @@ function imageSwatches(path: string): Array<{ hex: string; count: number }> {
     return swatches.reverse().map(({ hex, count }) => ({ hex, count }));
 }
 
+function parseRunOptions(args: string[]): { reportOnly: boolean; seedOverride?: number } {
+    let reportOnly = false;
+    let seedOverride: number | undefined;
+    for (let index = 0; index < args.length; index++) {
+        const argument = args[index];
+        if (argument === '--report-only') {
+            reportOnly = true;
+            continue;
+        }
+        if (argument === '--seed') {
+            const rawSeed = args[++index];
+            if (rawSeed === undefined) throw new Error('--seed requires an unsigned integer');
+            const parsedSeed = Number(rawSeed);
+            if (!Number.isInteger(parsedSeed) || parsedSeed < 0 || parsedSeed > 0xffffffff) {
+                throw new Error(`Invalid calibrated optimizer seed: ${rawSeed}`);
+            }
+            seedOverride = parsedSeed;
+            continue;
+        }
+        throw new Error(`Unknown calibrated optimizer option: ${argument}`);
+    }
+    return { reportOnly, seedOverride };
+}
+
+function realizedQuality(
+    autoPaint: LoadedModules['autoPaint'],
+    result: ReturnType<LoadedModules['autoPaint']['generateAutoLayers']>,
+    swatches: Array<{ hex: string; count: number }>,
+    layerHeight: number,
+    firstLayerHeight: number
+): { weightedMean: number; p95: number; coverageAt6: number } {
+    const slices = autoPaint.autoPaintToSliceHeights(result, layerHeight, firstLayerHeight);
+    let totalHeight = 0;
+    const heights = slices.colorOrder.map((colorIndex, position) => {
+        totalHeight +=
+            position === 0
+                ? Math.max(slices.colorSliceHeights[colorIndex], firstLayerHeight)
+                : slices.colorSliceHeights[colorIndex];
+        return totalHeight;
+    });
+    const palette = slices.virtualSwatches.map((swatch, index) => {
+        const rgb = autoPaint.hexToRgb(swatch.hex);
+        return { height: heights[index], lab: autoPaint.rgbToLab(rgb), rgb };
+    });
+    const targets = swatches.map((swatch) => {
+        const lab = autoPaint.rgbToLab(autoPaint.hexToRgb(swatch.hex));
+        return { L: lab.L, a: lab.a, b: lab.b, weight: swatch.count };
+    });
+    const samples = autoPaint.mapTargetsToPrintablePalette(palette, targets).map((entry) => ({
+        value: autoPaint.deltaE2000Lab(entry.mappedLab, entry.target),
+        weight: entry.target.weight,
+    }));
+    const totalWeight = samples.reduce((sum, sample) => sum + sample.weight, 0);
+    const weightedMean =
+        samples.reduce((sum, sample) => sum + sample.value * sample.weight, 0) / totalWeight;
+    const p95 = autoPaint.weightedErrorPercentile(samples, 0.95);
+    const coverageAt6 =
+        samples
+            .filter((sample) => sample.value <= 6)
+            .reduce((sum, sample) => sum + sample.weight, 0) / totalWeight;
+    return { weightedMean, p95, coverageAt6 };
+}
+
 const caseName = process.argv[2] ?? 'k-logo';
 if (!/^[a-z0-9-]+$/.test(caseName)) {
     throw new Error(`Invalid calibrated optimizer case name: ${caseName}`);
@@ -162,6 +226,7 @@ const variantName = process.argv[3] ?? 'baseline';
 if (!/^[a-z0-9-]+$/.test(variantName) || !(variantName in VARIANT_OVERRIDES)) {
     throw new Error(`Invalid calibrated optimizer variant name: ${variantName}`);
 }
+const { reportOnly, seedOverride } = parseRunOptions(process.argv.slice(4));
 const fixtureRoot = resolve(
     dirname(fileURLToPath(import.meta.url)),
     '../assets/performance/8-colors-frontlit-2026-08-26'
@@ -176,7 +241,7 @@ const variantGoldens = JSON.parse(
 assert.equal(variantGoldens.schemaVersion, 1, 'Unsupported calibrated optimizer golden schema');
 const expectedVariantResult =
     variantName === 'baseline' ? undefined : variantGoldens.results[caseName]?.[variantName];
-if (variantName !== 'baseline' && !expectedVariantResult) {
+if (!reportOnly && variantName !== 'baseline' && !expectedVariantResult) {
     throw new Error(
         `Unsupported calibrated optimizer variant ${caseName}/${variantName}: add an explicit known-good result to optimizer-variant-goldens.json before benchmarking it`
     );
@@ -184,6 +249,7 @@ if (variantName !== 'baseline' && !expectedVariantResult) {
 const settings: CalibratedOptimizerSettings = {
     ...fixture.settings,
     ...VARIANT_OVERRIDES[variantName],
+    ...(seedOverride === undefined ? {} : { seed: seedOverride }),
 };
 const modules = await loadModules();
 const parsedProfiles = modules.profileManager.parseProfileFile(
@@ -227,6 +293,7 @@ const result = modules.autoPaint.generateAutoLayers(
         separationMaxDeltaE: settings.maximumColorErrorDeltaE,
         failOnSeparationError: settings.failIfAnyColorIsMissed,
         transitionOpacity: settings.transitionOpacity,
+        seed: settings.seed ?? undefined,
     },
     appearanceModel
 );
@@ -240,6 +307,13 @@ const colorByFilamentId = new Map(
 );
 const orderColors = result.filamentOrder.map((id) => colorByFilamentId.get(id));
 const separation = result.colorSeparation;
+const realizedError = realizedQuality(
+    modules.autoPaint,
+    result,
+    swatches,
+    settings.layerHeight,
+    Math.max(settings.layerHeight, settings.firstLayerHeight)
+);
 const expectedResult = fixture.replayResult ?? fixture.observedResult;
 
 try {
@@ -252,7 +326,10 @@ try {
     if (settings.preserveColorSeparation) {
         assert.ok(separation, 'Expected a preserve-separation report');
     }
-    if (variantName === 'baseline') {
+    if (reportOnly) {
+        // Controlled A/B runs deliberately bypass revision-specific goldens while
+        // retaining the structural sanity checks above.
+    } else if (variantName === 'baseline') {
         assert.equal(result.optimizerMetadata?.iterations, expectedResult.optimizerIterations);
         if (expectedResult.optimizerScore !== null) {
             assert.ok(
@@ -326,6 +403,7 @@ console.log(
         {
             fixture: `8-colors-frontlit-2026-08-26/${caseName}`,
             variant: variantName,
+            validationMode: reportOnly ? 'report-only' : 'golden',
             configuration: settings,
             evidence: {
                 proofRecords: profile.appearance?.proofs.length ?? 0,
@@ -359,6 +437,7 @@ console.log(
                 totalHeight: result.totalHeight,
                 finalStackFingerprint: result.finalStack.fingerprint,
                 separation,
+                realizedError,
             },
         },
         null,
