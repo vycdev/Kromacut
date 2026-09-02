@@ -14,4 +14,12 @@ Run `npm run benchmark:calibrated-series -- cats thorough 3` for sequential, unp
 
 The main number is `realizedError.weightedMean`. It replays the preview's Lab-space color-to-height projection and compares the virtual color at that printable height with the target color. Lower is better.
 
+For a controlled comparison between revisions, override the captured automatic seed with the same explicit value and bypass the revision-specific golden assertions:
+
+```sh
+npm run benchmark:calibrated -- desk-landscape baseline --seed 1263681357 --report-only
+```
+
+The benchmark passes the fixture or override seed through to the production optimizer and reports weighted mean, p95, and coverage at Delta E 6. Use the same case, settings, and seed on both revisions; multiple fixed seeds are preferable for stochastic search tiers.
+
 For Phase 3 and later, accept a change only when average realized error improves, no fixture regresses by more than 5%, and the 8-filament case stays within a 2-second budget on the comparison machine. Record the machine and the command when comparing reports.
