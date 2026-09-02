@@ -118,6 +118,72 @@ async function syntheticInput() {
     return { filaments, matrixCount: 1, samples };
 }
 
+test('grouped validation holds every source matrix out as an indivisible group', async () => {
+    const optics = await modulePromise;
+    const input = await syntheticInput();
+    const samples = input.samples.slice(0, 8).flatMap((sample) => [
+        { ...sample, id: `matrix-a:${sample.id}`, sourceMatrixId: 'matrix-a' },
+        { ...sample, id: `matrix-b:${sample.id}`, sourceMatrixId: 'matrix-b' },
+    ]);
+
+    const folds = optics.buildEffectiveOpticsValidationFolds(samples, 2);
+
+    assert.ok(folds);
+    assert.equal(folds.length, 2);
+    const foldBySample = new Map(
+        folds.flatMap((fold, foldIndex) => fold.map((sampleId) => [sampleId, foldIndex] as const))
+    );
+    assert.equal(new Set(samples.map((sample) => foldBySample.get(sample.id))).size, 2);
+    assert.equal(
+        new Set(
+            samples
+                .filter((sample) => sample.sourceMatrixId === 'matrix-a')
+                .map((sample) => foldBySample.get(sample.id))
+        ).size,
+        1
+    );
+    assert.equal(
+        new Set(
+            samples
+                .filter((sample) => sample.sourceMatrixId === 'matrix-b')
+                .map((sample) => foldBySample.get(sample.id))
+        ).size,
+        1
+    );
+});
+
+test('one-matrix validation keeps correlated terminal interaction recipes together', async () => {
+    const optics = await modulePromise;
+    const input = await syntheticInput();
+
+    const folds = optics.buildEffectiveOpticsValidationFolds(input.samples, 1);
+
+    assert.ok(folds);
+    assert.equal(folds.length, 4);
+    const foldBySample = new Map(
+        folds.flatMap((fold, foldIndex) => fold.map((sampleId) => [sampleId, foldIndex] as const))
+    );
+    const foldsByTerminalInteraction = new Map<string, Set<number | undefined>>();
+    for (const sample of input.samples) {
+        let substrate = sample.backingFilamentId;
+        let previous = '';
+        let interaction = '';
+        for (const filamentId of sample.recipeFilamentIds) {
+            if (filamentId === previous) continue;
+            interaction = `${filamentId}\0${substrate}`;
+            substrate = filamentId;
+            previous = filamentId;
+        }
+        const assigned = foldsByTerminalInteraction.get(interaction) ?? new Set();
+        assigned.add(foldBySample.get(sample.id));
+        foldsByTerminalInteraction.set(interaction, assigned);
+    }
+    assert.ok(foldsByTerminalInteraction.size > folds.length);
+    assert.ok(
+        [...foldsByTerminalInteraction.values()].every((assignedFolds) => assignedFolds.size === 1)
+    );
+});
+
 test('joint matrix fit improves predictions and moves every effective property toward stacked-PLA truth', async () => {
     const optics = await modulePromise;
     const input = await syntheticInput();
@@ -175,6 +241,44 @@ test('joint matrix fit is deterministic across input ordering and uses every sam
     assert.equal(forward.fingerprint, reversed.fingerprint);
     assert.deepEqual(forward, reversed);
     assert.equal(forward.sampleCount, input.samples.length);
+});
+
+test('conflicting matrix families retain the prior instead of leaking across validation', async () => {
+    const optics = await modulePromise;
+    const input = await syntheticInput();
+    const conflicting = optics.fitEffectiveOpticsFromMatrix({
+        ...input,
+        matrixCount: 2,
+        samples: input.samples.flatMap((sample) => [
+            { ...sample, id: `matrix-a:${sample.id}`, sourceMatrixId: 'matrix-a' },
+            {
+                ...sample,
+                id: `matrix-b:${sample.id}`,
+                sourceMatrixId: 'matrix-b',
+                measuredRgb: sample.measuredRgb.map((channel) => 255 - channel) as [
+                    number,
+                    number,
+                    number,
+                ],
+            },
+        ]),
+    });
+
+    assert.equal(conflicting.applied, false);
+    assert.equal(conflicting.gateReason, 'no-improvement');
+    assert.equal(conflicting.crossValidationSampleCount, input.samples.length * 2);
+});
+
+test('grouped validation rejects a fitted model with a materially worse tail', async () => {
+    const optics = await modulePromise;
+
+    assert.equal(
+        optics.groupedValidationSupportsFit(
+            { mean: 10, p90: 15, sampleCount: 64 },
+            { mean: 9, p90: 15.31, sampleCount: 64 }
+        ),
+        false
+    );
 });
 
 test('sparse matrix evidence remains on the existing HD and swatch priors', async () => {
