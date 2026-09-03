@@ -38,12 +38,16 @@ import {
 import {
     activeFrontlitCalibration,
     channelHds,
+    channelHdsForSubstrate,
     computeProfileConfidence,
+    frontlitOpticsSourceForSubstrate,
     type CalibrationRgb,
+    type FrontlitOpticsSource,
 } from './calibration';
 import { blendSrgbChannel } from './colorSpace';
 import {
     effectiveSubstrateHdMultiplier,
+    effectiveOpticsSupportsTransition,
     effectiveTransmission,
     resolveEffectiveFilamentOptics,
 } from './effectiveOptics';
@@ -90,6 +94,8 @@ export interface TransitionZone {
     transmissionExponent?: number;
     substrateFilamentId?: string;
     substrateHdMultiplier?: number;
+    /** Explicit evidence tier used to simulate this zone. */
+    opticsSource?: FrontlitOpticsSource | 'matrix-foundation' | 'matrix-supported';
     startHeight: number; // mm from Z=0
     endHeight: number; // mm from Z=0
     idealThickness: number; // Uncompressed zone thickness
@@ -146,6 +152,8 @@ export interface AutoPaintResult {
         converged: boolean; // Whether algorithm converged
         cacheHit: boolean; // Whether result came from cache
         extraRepeatCount: number; // Actual repeated occurrences used by the chosen stack
+        repeatTiersEvaluated: number;
+        minimizationEvaluations: number;
         optimality: 'exact' | 'best-found';
         singleRemovalMinimal: boolean;
         usedFilamentOccurrenceCount: number;
@@ -613,6 +621,11 @@ export function calculateIdealHeight(
                   substrateHdMultiplier: 1,
               }
             : {}),
+        opticsSource: effectiveOptics?.applied
+            ? 'matrix-foundation'
+            : activeFrontlitCalibration(firstFilament)
+              ? 'wedge-quick'
+              : 'swatch-heuristic',
         startHeight: 0,
         endHeight: foundationThickness,
         idealThickness: foundationThickness,
@@ -624,12 +637,13 @@ export function calculateIdealHeight(
     for (let i = 1; i < sortedFilaments.length; i++) {
         const filament = sortedFilaments[i];
         const resolvedOptics = resolveEffectiveFilamentOptics(effectiveOptics, filament);
-        const filamentRgb: RGB = {
+        const fittedFilamentRgb: RGB = {
             r: resolvedOptics.color[0],
             g: resolvedOptics.color[1],
             b: resolvedOptics.color[2],
         };
-        const transitionTd = channelHds(filament);
+        const nominalFilamentRgb = hexToRgb(filament.color);
+        const transitionTd = channelHdsForSubstrate(filament, sortedFilaments[i - 1].color);
         const effectiveTransitionTd: CalibrationRgb = [
             resolvedOptics.hdChannels[0],
             resolvedOptics.hdChannels[1],
@@ -642,6 +656,26 @@ export function calculateIdealHeight(
             substrateFilamentId
         );
 
+        const fittedTransitionThickness = calculateTransitionThickness(
+            currentBackgroundColor,
+            fittedFilamentRgb,
+            effectiveTransitionTd,
+            layerHeight,
+            transitionOpacity,
+            resolvedOptics.transmissionExponent,
+            substrateHdMultiplier
+        );
+        const useEffectiveTransition = effectiveOpticsSupportsTransition(
+            effectiveOptics,
+            filament.id,
+            substrateFilamentId,
+            fittedTransitionThickness
+        );
+        const filamentRgb = useEffectiveTransition ? fittedFilamentRgb : nominalFilamentRgb;
+        const modeledTransitionTd = useEffectiveTransition ? effectiveTransitionTd : transitionTd;
+        const modeledExponent = useEffectiveTransition ? resolvedOptics.transmissionExponent : 1;
+        const modeledSubstrateMultiplier = useEffectiveTransition ? substrateHdMultiplier : 1;
+
         // Calculate how thick this zone needs to be
         const transitionKey = [
             currentBackgroundColor.r,
@@ -650,10 +684,10 @@ export function calculateIdealHeight(
             filamentRgb.r,
             filamentRgb.g,
             filamentRgb.b,
-            ...effectiveTransitionTd,
-            resolvedOptics.transmissionExponent,
+            ...modeledTransitionTd,
+            modeledExponent,
             substrateFilamentId,
-            substrateHdMultiplier,
+            modeledSubstrateMultiplier,
             layerHeight,
             transitionOpacity,
         ].join(':');
@@ -662,11 +696,11 @@ export function calculateIdealHeight(
             transitionThickness = calculateTransitionThickness(
                 currentBackgroundColor,
                 filamentRgb,
-                effectiveTransitionTd,
+                modeledTransitionTd,
                 layerHeight,
                 transitionOpacity,
-                resolvedOptics.transmissionExponent,
-                substrateHdMultiplier
+                modeledExponent,
+                modeledSubstrateMultiplier
             );
             transitionThicknessCache?.set(transitionKey, transitionThickness);
         }
@@ -676,15 +710,18 @@ export function calculateIdealHeight(
             filamentColor: filament.color,
             filamentTd: filament.td,
             filamentTdChannels: transitionTd,
-            ...(effectiveOptics?.applied
+            ...(useEffectiveTransition
                 ? {
                       effectiveColor: filamentRgb,
-                      effectiveTdChannels: effectiveTransitionTd,
-                      transmissionExponent: resolvedOptics.transmissionExponent,
+                      effectiveTdChannels: modeledTransitionTd,
+                      transmissionExponent: modeledExponent,
                       substrateFilamentId,
-                      substrateHdMultiplier,
+                      substrateHdMultiplier: modeledSubstrateMultiplier,
                   }
                 : {}),
+            opticsSource: useEffectiveTransition
+                ? 'matrix-supported'
+                : frontlitOpticsSourceForSubstrate(filament, sortedFilaments[i - 1].color),
             startHeight: currentHeight,
             endHeight: currentHeight + transitionThickness,
             idealThickness: transitionThickness,
@@ -696,10 +733,10 @@ export function calculateIdealHeight(
         currentBackgroundColor = blendColors(
             currentBackgroundColor,
             filamentRgb,
-            effectiveTransitionTd,
+            modeledTransitionTd,
             transitionThickness,
-            resolvedOptics.transmissionExponent,
-            substrateHdMultiplier
+            modeledExponent,
+            modeledSubstrateMultiplier
         );
         currentHeight += transitionThickness;
     }
@@ -3169,6 +3206,8 @@ export function generateAutoLayers(
             converged: optimizerResult.converged,
             cacheHit: optimizerResult.cacheHit || false,
             extraRepeatCount: optimizerResult.extraRepeatCount ?? 0,
+            repeatTiersEvaluated: optimizerResult.repeatTiersEvaluated ?? 1,
+            minimizationEvaluations: optimizerResult.minimizationEvaluations ?? 0,
             optimality: optimizerResult.optimality ?? 'best-found',
             singleRemovalMinimal: optimizerResult.singleRemovalMinimal ?? false,
             usedFilamentOccurrenceCount:

@@ -846,7 +846,8 @@ export function FilamentCalibrationDialog({
             <div className="space-y-4">
                 <p className="text-sm text-muted-foreground">
                     Quick mode uses one base per filament. Accurate mode repeats the same read over
-                    multiple bases so Kromacut can measure RGB hiding distances directly.
+                    optional extra bases so Kromacut can refine a constrained RGB estimate without
+                    pretending a few visual thresholds directly measure three channels.
                 </p>
                 <div className="grid grid-cols-2 gap-2">
                     <Button
@@ -1252,9 +1253,11 @@ export function FilamentCalibrationDialog({
                                                 title="Reference (opaque)"
                                             />
                                             <span className="text-[11px] text-muted-foreground">
-                                                {calibration.channelSource === 'measured'
-                                                    ? 'measured RGB HDs'
-                                                    : 'heuristic RGB HDs'}
+                                                {calibration.channelSource === 'constrained'
+                                                    ? 'wedge-refined RGB estimate'
+                                                    : calibration.channelSource === 'measured'
+                                                      ? 'legacy multi-base RGB estimate'
+                                                      : 'quick RGB estimate'}
                                                 {jndSource === 'session-fit'
                                                     ? ' / session JND'
                                                     : ''}
@@ -1272,6 +1275,26 @@ export function FilamentCalibrationDialog({
                                             >
                                                 {getConfidenceLabel(calibration.confidence)}
                                             </div>
+                                            {calibration.fitDiagnostics && (
+                                                <div
+                                                    className="text-[10px] text-muted-foreground"
+                                                    title="Constrained channel-selectivity strength and the range that fits the quantized wedge reads"
+                                                >
+                                                    selectivity{' '}
+                                                    {calibration.fitDiagnostics.selectivityStrength.toFixed(
+                                                        2
+                                                    )}{' '}
+                                                    (
+                                                    {calibration.fitDiagnostics.selectivityRange[0].toFixed(
+                                                        2
+                                                    )}
+                                                    –
+                                                    {calibration.fitDiagnostics.selectivityRange[1].toFixed(
+                                                        2
+                                                    )}
+                                                    )
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 )}

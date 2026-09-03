@@ -6,7 +6,7 @@ import {
     type StackMatrixCalibrationV1,
 } from './appearanceProfile';
 import { blendColors, hexToRgb, rgbToHex, type RGB } from './autoPaint';
-import { channelHds } from './calibration';
+import { channelHds, channelHdsForSubstrate } from './calibration';
 import { rgbToLab, type Rgb } from './colorDifference';
 import { fingerprintJson } from './fingerprint';
 import { createProjectiveMapper, type MatrixPhotoPoint } from './stackMatrixPhotoAlignment';
@@ -135,10 +135,12 @@ function predictStackColor(
     let current = hexToRgb(filaments[backingIndex].color);
     let runStart = current;
     let runIndex = -1;
+    let substrateIndex = backingIndex;
     let runThickness = 0;
     for (const filamentIndex of stack) {
         if (filamentIndex !== runIndex) {
             runStart = current;
+            substrateIndex = runIndex >= 0 ? runIndex : backingIndex;
             runIndex = filamentIndex;
             runThickness = 0;
         }
@@ -147,7 +149,7 @@ function predictStackColor(
         current = blendColors(
             runStart,
             hexToRgb(filament.color),
-            channelHds(filament),
+            channelHdsForSubstrate(filament, filaments[substrateIndex].color),
             runThickness
         );
     }

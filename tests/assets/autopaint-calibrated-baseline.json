@@ -1,7 +1,7 @@
 {
   "standard": {
     "totalHeight": 2.4,
-    "idealHeight": 2.3681866826143154,
+    "idealHeight": 2.3591734416220924,
     "filamentOrder": [
       "plvjtmc",
       "azwg1yp",
@@ -41,12 +41,12 @@
         "filamentId": "98z555k",
         "filamentColor": "#ff5ec4",
         "startHeight": 1.12,
-        "endHeight": 1.52
+        "endHeight": 1.44
       },
       {
         "filamentId": "xyyxysq",
         "filamentColor": "#00b8c4",
-        "startHeight": 1.52,
+        "startHeight": 1.44,
         "endHeight": 1.76
       },
       {
@@ -64,8 +64,8 @@
     ]
   },
   "enhancedFast": {
-    "totalHeight": 1.6,
-    "idealHeight": 1.5680056836616967,
+    "totalHeight": 1.68,
+    "idealHeight": 1.648195748055951,
     "filamentOrder": [
       "plvjtmc",
       "p9c63ms",
@@ -109,7 +109,7 @@
         "filamentId": "vsn9q6u",
         "filamentColor": "#d83400",
         "startHeight": 1.36,
-        "endHeight": 1.6
+        "endHeight": 1.68
       }
     ]
   }

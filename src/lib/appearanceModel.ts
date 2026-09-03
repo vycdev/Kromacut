@@ -1953,6 +1953,18 @@ export interface AppearanceLocalPreferenceMatch {
     evidenceIds: readonly string[];
 }
 
+export interface AppearancePredictionContribution {
+    /** Evidence or empirical sample identifier. */
+    id: string;
+    /** Matrix LUT identifier for empirical samples. */
+    sourceId?: string;
+    /** Normalized contribution to this resolved prediction. */
+    weight: number;
+    colorDistance: number;
+    recipeDistance: number;
+    confidence: number;
+}
+
 export interface AppearanceLocalMatch {
     evidenceIds: readonly string[];
     correctionStrength: number;
@@ -1961,6 +1973,8 @@ export interface AppearanceLocalMatch {
     nearestMeasuredRecipeDistance: number;
     agreement: number;
     preferences: readonly AppearanceLocalPreferenceMatch[];
+    /** Present only when explicitly requested for a diagnostic explanation. */
+    contributions?: readonly AppearancePredictionContribution[];
 }
 
 interface LocalAppearanceResolution {
@@ -1972,7 +1986,8 @@ function resolveLocalEvidence(
     base: Lab,
     current: Lab,
     model: AppearanceRankModelV1,
-    prefixLayers: readonly AppearanceAnchorLayer[]
+    prefixLayers: readonly AppearanceAnchorLayer[],
+    includeContributions: boolean = false
 ): LocalAppearanceResolution | undefined {
     const neighbors = nearbyLocalEvidence(base, model, prefixLayers);
     if (neighbors.length === 0) return undefined;
@@ -2085,6 +2100,7 @@ function resolveLocalEvidence(
             left.evidenceSortKey.localeCompare(right.evidenceSortKey)
     );
     const preferences = preferenceEntries.map((entry) => entry.match);
+    const totalInfluence = neighbors.reduce((sum, neighbor) => sum + neighbor.influence, 0);
 
     return {
         lab: corrected,
@@ -2099,6 +2115,20 @@ function resolveLocalEvidence(
             nearestMeasuredRecipeDistance: 1 - maximumRecipeSimilarity,
             agreement,
             preferences,
+            ...(includeContributions
+                ? {
+                      contributions: neighbors.map((neighbor) => ({
+                          id: neighbor.evidence.id,
+                          weight:
+                              totalInfluence > 0
+                                  ? neighbor.influence / totalInfluence
+                                  : 1 / neighbors.length,
+                          colorDistance: neighbor.colorDistance,
+                          recipeDistance: 1 - neighbor.recipeSimilarity,
+                          confidence: neighbor.evidence.confidence,
+                      })),
+                  }
+                : {}),
         },
     };
 }
@@ -2117,6 +2147,8 @@ export interface EmpiricalLutMatch {
     agreement: number;
     crossValidationDeltaE: number;
     evidenceSampleCount: number;
+    /** Present only when explicitly requested for a diagnostic explanation. */
+    contributions?: readonly AppearancePredictionContribution[];
 }
 
 interface EmpiricalResolution {
@@ -2346,7 +2378,8 @@ function resolveEmpiricalLut(
     base: Lab,
     model: AppearanceRankModelV1,
     prefixLayers: readonly AppearanceAnchorLayer[],
-    substrateMatchCache?: EmpiricalSubstrateMatchCache
+    substrateMatchCache?: EmpiricalSubstrateMatchCache,
+    includeContributions: boolean = false
 ): EmpiricalResolution | undefined {
     const resolutions: EmpiricalResolution[] = [];
     const baseTuple: [number, number, number] = [base.L, base.a, base.b];
@@ -2387,6 +2420,23 @@ function resolveEmpiricalLut(
                         model.effectiveOptics?.crossValidationMeanDeltaE ??
                         20,
                     evidenceSampleCount: 1,
+                    ...(includeContributions
+                        ? {
+                              contributions: [
+                                  {
+                                      id: exact.id,
+                                      sourceId: lut.id,
+                                      weight: 1,
+                                      colorDistance: labTupleDistance(
+                                          baseTuple,
+                                          exact.predictedLab
+                                      ),
+                                      recipeDistance: 0,
+                                      confidence: exact.confidence,
+                                  },
+                              ],
+                          }
+                        : {}),
                 },
                 exactAnchorIds: [exact.exactAnchorId],
             });
@@ -2499,6 +2549,18 @@ function resolveEmpiricalLut(
                 agreement: Math.sqrt(Math.max(0, lut.agreementWeight * localAgreement)),
                 crossValidationDeltaE: weightedCrossValidationError / totalWeight,
                 evidenceSampleCount: neighbors.length,
+                ...(includeContributions
+                    ? {
+                          contributions: neighbors.map((neighbor, index) => ({
+                              id: neighbor.sample.id,
+                              sourceId: lut.id,
+                              weight: weightedNeighbors[index].weight / totalWeight,
+                              colorDistance: neighbor.predictedDistance,
+                              recipeDistance: neighbor.recipeDistance,
+                              confidence: neighbor.sample.confidence,
+                          })),
+                      }
+                    : {}),
             },
         });
     }
@@ -2544,6 +2606,14 @@ function resolveEmpiricalLut(
             (sum, contributor) => sum + contributor.match.agreement * contributor.match.confidence,
             0
         ) / totalWeight;
+    const combinedContributions = includeContributions
+        ? contributors.flatMap((contributor) =>
+              (contributor.match.contributions ?? []).map((contribution) => ({
+                  ...contribution,
+                  weight: (contribution.weight * contributor.match.confidence) / totalWeight,
+              }))
+          )
+        : undefined;
     return {
         lab: blended,
         match: {
@@ -2578,6 +2648,7 @@ function resolveEmpiricalLut(
             evidenceSampleCount: new Set(
                 contributors.flatMap((contributor) => contributor.match.sampleIds)
             ).size,
+            ...(combinedContributions ? { contributions: combinedContributions } : {}),
         },
         ...(exact.length > 0
             ? {
@@ -2599,10 +2670,16 @@ export interface ResolvedAppearancePrediction {
     localMatch?: AppearanceLocalMatch;
 }
 
+export interface AppearancePredictionResolutionOptions {
+    /** Include normalized empirical/local evidence weights for a diagnostic trace. */
+    includeContributions?: boolean;
+}
+
 export function resolveAppearanceRankModel(
     base: Lab,
     model: AppearanceRankModelV1,
-    prefixLayers?: readonly AppearanceAnchorLayer[]
+    prefixLayers?: readonly AppearanceAnchorLayer[],
+    options: AppearancePredictionResolutionOptions = {}
 ): ResolvedAppearancePrediction {
     const anchors = prefixLayers ? matchingExactAnchors(model, prefixLayers) : [];
     const paletteProofAnchor = anchors.find((anchor) => anchor.source === 'palette-proof');
@@ -2629,7 +2706,13 @@ export function resolveAppearanceRankModel(
         ? new Map()
         : undefined;
     const empirical = prefixLayers
-        ? resolveEmpiricalLut(base, model, prefixLayers, substrateMatchCache)
+        ? resolveEmpiricalLut(
+              base,
+              model,
+              prefixLayers,
+              substrateMatchCache,
+              options.includeContributions
+          )
         : undefined;
     let resolvedLab: Lab;
     let exactAnchor: AppearanceExactAnchorV1 | undefined;
@@ -2671,7 +2754,7 @@ export function resolveAppearanceRankModel(
     }
 
     const local = prefixLayers
-        ? resolveLocalEvidence(base, resolvedLab, model, prefixLayers)
+        ? resolveLocalEvidence(base, resolvedLab, model, prefixLayers, options.includeContributions)
         : undefined;
     if (!local) {
         return {

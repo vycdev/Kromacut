@@ -940,6 +940,101 @@ test('calibrated per-channel TDs tint blends without changing scalar TD behavior
     );
 });
 
+test('a one-layer Matrix interaction cannot extrapolate the legacy orange-over-white red shift', async () => {
+    const { calculateIdealHeight, generateAutoLayers } = await loadAutoPaintModule();
+    const white = { id: 'white', color: '#ffffff', td: 0.5 };
+    const orange = {
+        id: 'orange',
+        color: '#d83400',
+        td: 0.3947626,
+        calibration: {
+            opacityLayers: 6,
+            layerHeight: 0.08,
+            firstLayerHeight: 0.4,
+            td: [0.3947626, 0.1105588, 0.0696702] as [number, number, number],
+            tdSingleValue: 0.3947626,
+            jnd: 2,
+            baseColor: '#000000',
+            confidence: 0.9,
+            basis: 'frontlit' as const,
+            calibrationDate: '2026-08-30T00:00:00.000Z',
+            reads: [
+                { baseColor: '#000000', opacityLayers: 6, mergeLayers: 5 },
+                { baseColor: '#f7d000', opacityLayers: 3, mergeLayers: 2 },
+            ],
+            channelSource: 'measured' as const,
+            filamentColor: '#d83400',
+        },
+    };
+    const prior = generateAutoLayers(
+        [white, orange],
+        [
+            { hex: '#ffffff', count: 1 },
+            { hex: '#d83400', count: 1 },
+        ],
+        0.08,
+        0.4
+    ).finalStack.appearanceModel;
+    const effectiveOptics = {
+        schemaVersion: 1 as const,
+        modelVersion: 'matrix-effective-optics-v3' as const,
+        fingerprint: 'one-layer-orange-white',
+        applied: true,
+        gateReason: 'applied' as const,
+        matrixCount: 1,
+        sampleCount: 64,
+        baselineMeanDeltaE: 18,
+        fittedMeanDeltaE: 9,
+        crossValidationMeanDeltaE: 10,
+        crossValidationP90DeltaE: 14,
+        crossValidationSampleCount: 64,
+        confidence: 0.8,
+        filaments: [
+            {
+                filamentId: 'white',
+                priorHdChannels: [0.5, 0.5, 0.5] as const,
+                effectiveHdChannels: [0.5, 0.5, 0.5] as const,
+                priorOpaqueColor: [255, 255, 255] as const,
+                effectiveOpaqueColor: [250, 250, 250] as const,
+                transmissionExponent: 1,
+                sampleCount: 64,
+            },
+            {
+                filamentId: 'orange',
+                priorHdChannels: [0.3947626, 0.1105588, 0.0696702] as const,
+                effectiveHdChannels: [0.47, 0.111, 0.069] as const,
+                priorOpaqueColor: [216, 52, 0] as const,
+                effectiveOpaqueColor: [205, 52, 0] as const,
+                transmissionExponent: 1.21,
+                sampleCount: 64,
+            },
+        ],
+        substrateInteractions: [
+            {
+                foregroundFilamentId: 'orange',
+                substrateFilamentId: 'white',
+                hdMultiplier: 1.03,
+                sampleCount: 34,
+                maxObservedThickness: 0.08,
+            },
+        ],
+    };
+
+    const result = calculateIdealHeight([white, orange], 0.08, 0.4, undefined, 0.9, {
+        ...prior,
+        effectiveOptics,
+    });
+    const transition = result.zones[1];
+    assert.ok(transition.idealThickness > 0.08);
+    assert.equal(transition.effectiveTdChannels, undefined);
+    assert.equal(transition.transmissionExponent, undefined);
+    assert.equal(transition.opticsSource, 'wedge-quick');
+    assert.ok(
+        transition.filamentTdChannels![1] > 0.2,
+        `unsupported Matrix fit leaked its red-shifting green HD: ${transition.filamentTdChannels}`
+    );
+});
+
 test('legacy photo calibrations are ignored and blend like uncalibrated filaments', async () => {
     const { generateAutoLayers } = await loadAutoPaintModule();
     const filaments = [
@@ -1489,10 +1584,9 @@ test('auto-paint slice data never returns more than 500 layers', async () => {
     assert.equal(slices.colorSliceHeights.length, 500);
 });
 
-test('calibrated profiles produce identical output across the hiding-distance migration', async () => {
-    // Baseline captured immediately before the schema-v2 (hiding distance)
-    // migration with the same inputs: the calibrated path must be unaffected
-    // by removing the runtime frontlit scaling.
+test('legacy calibrated profiles produce deterministic output after the constrained-fit upgrade', async () => {
+    // The legacy profile keeps its stored shape, while runtime resolution safely
+    // upgrades its old free-channel wedge fit to the constrained model.
     const { generateAutoLayers } = await loadAutoPaintModule();
     const { readFileSync } = await import('node:fs');
     const profile = JSON.parse(
@@ -1626,7 +1720,7 @@ test('matrix-fitted optics drive the same optimizer palette and final preview wh
     const baseline = generateAutoLayers(filaments, swatches, 0.08, 0.16);
     const effectiveOptics = {
         schemaVersion: 1 as const,
-        modelVersion: 'matrix-effective-optics-v2' as const,
+        modelVersion: 'matrix-effective-optics-v3' as const,
         fingerprint: 'effective-optics-preview-test',
         applied: true,
         gateReason: 'applied' as const,
@@ -1673,12 +1767,14 @@ test('matrix-fitted optics drive the same optimizer palette and final preview wh
                 substrateFilamentId: 'black',
                 hdMultiplier: 1.24,
                 sampleCount: 20,
+                maxObservedThickness: 2,
             },
             {
                 foregroundFilamentId: 'white',
                 substrateFilamentId: 'green',
                 hdMultiplier: 0.76,
                 sampleCount: 20,
+                maxObservedThickness: 2,
             },
         ],
     };

@@ -23,6 +23,18 @@ import { deltaE2000 } from './colorDifference.ts';
 
 export type CalibrationRgb = [number, number, number];
 
+export type FrontlitChannelSource = 'heuristic' | 'constrained' | 'measured';
+
+export interface FrontlitCalibrationFitDiagnostics {
+    modelVersion: 'selectivity-v1';
+    quickSelectivityStrength: number;
+    selectivityStrength: number;
+    selectivityRange: [number, number];
+    opacityRmsLayers: number;
+    mergeReadCount: number;
+    mergeRmsLayers?: number;
+}
+
 export interface FrontlitCalibrationRead {
     baseColor: string;
     opacityLayers: number;
@@ -53,8 +65,12 @@ export interface FrontlitCalibration {
     calibrationDate: string;
     /** All opacity reads used by a multi-base fit. Absent means Phase-1 single read. */
     reads?: FrontlitCalibrationRead[];
-    /** Whether RGB TD ratios came from the color heuristic or a multi-base fit. */
-    channelSource?: 'heuristic' | 'measured';
+    /** How RGB HD ratios were obtained. `measured` is retained for legacy profiles. */
+    channelSource?: FrontlitChannelSource;
+    /** Versioned constrained wedge fit. Absent on legacy calibration records. */
+    fitModelVersion?: 'selectivity-v1';
+    /** Evidence and uncertainty retained for diagnostics and UI explanations. */
+    fitDiagnostics?: FrontlitCalibrationFitDiagnostics;
     /** Whether the JND was the default constant or fitted across the session. */
     jndSource?: 'default' | 'session-fit';
     /**
@@ -101,6 +117,28 @@ export interface FrontlitCalibrationSessionResult {
     residual: number;
 }
 
+export interface FrontlitCalibrationReadDiagnostics {
+    baseColor: string;
+    observedOpacityLayers: number;
+    predictedOpacityThreshold: number | null;
+    predictedOpacityLayers: number | null;
+    observedMergeLayers?: number;
+    predictedMergeLayers?: number;
+}
+
+export interface FrontlitCalibrationDiagnostics {
+    active: boolean;
+    channelSource: FrontlitChannelSource | 'none';
+    storedChannelSource?: FrontlitChannelSource;
+    quickTd: CalibrationRgb;
+    resolvedTd: CalibrationRgb;
+    selectivityStrength?: number;
+    selectivityRange?: [number, number];
+    opacityRmsLayers?: number;
+    mergeRmsLayers?: number;
+    reads: FrontlitCalibrationReadDiagnostics[];
+}
+
 // ============================================================================
 // Constants
 // ============================================================================
@@ -133,6 +171,9 @@ const FRONTLIT_TD_MAX = 12.0;
 const JND_FIT_MIN = 1.0;
 const JND_FIT_MAX = 3.0;
 const DEFAULT_PREDICT_MAX_LAYERS = 240;
+const QUICK_SELECTIVITY_STRENGTH = 0.5;
+const MAX_WEDGE_SELECTIVITY_STRENGTH = 1.25;
+const MAX_CALIBRATION_FIT_CACHE_ENTRIES = 128;
 
 const CONFIDENCE_THRESHOLD_EXCELLENT = 0.9;
 const CONFIDENCE_THRESHOLD_GOOD = 0.7;
@@ -249,7 +290,11 @@ export function sanitizeFrontlitCalibration(value: unknown): FrontlitCalibration
         sanitized.reads = reads as FrontlitCalibrationRead[];
         if (sanitized.reads.length === 0) return undefined;
     }
-    if (candidate.channelSource === 'heuristic' || candidate.channelSource === 'measured') {
+    if (
+        candidate.channelSource === 'heuristic' ||
+        candidate.channelSource === 'constrained' ||
+        candidate.channelSource === 'measured'
+    ) {
         sanitized.channelSource = candidate.channelSource;
     } else if (candidate.channelSource !== undefined) {
         return undefined;
@@ -258,6 +303,48 @@ export function sanitizeFrontlitCalibration(value: unknown): FrontlitCalibration
         sanitized.jndSource = candidate.jndSource;
     } else if (candidate.jndSource !== undefined) {
         return undefined;
+    }
+    if (candidate.fitModelVersion !== undefined) {
+        if (candidate.fitModelVersion !== 'selectivity-v1') return undefined;
+        sanitized.fitModelVersion = candidate.fitModelVersion;
+    }
+    if (candidate.fitDiagnostics !== undefined) {
+        if (!candidate.fitDiagnostics || typeof candidate.fitDiagnostics !== 'object') {
+            return undefined;
+        }
+        const diagnostics = candidate.fitDiagnostics as Record<string, unknown>;
+        const range = diagnostics.selectivityRange;
+        if (
+            diagnostics.modelVersion !== 'selectivity-v1' ||
+            typeof diagnostics.quickSelectivityStrength !== 'number' ||
+            !Number.isFinite(diagnostics.quickSelectivityStrength) ||
+            typeof diagnostics.selectivityStrength !== 'number' ||
+            !Number.isFinite(diagnostics.selectivityStrength) ||
+            !Array.isArray(range) ||
+            range.length !== 2 ||
+            range.some((entry) => typeof entry !== 'number' || !Number.isFinite(entry)) ||
+            typeof diagnostics.opacityRmsLayers !== 'number' ||
+            !Number.isFinite(diagnostics.opacityRmsLayers) ||
+            typeof diagnostics.mergeReadCount !== 'number' ||
+            !Number.isInteger(diagnostics.mergeReadCount) ||
+            diagnostics.mergeReadCount < 0 ||
+            (diagnostics.mergeRmsLayers !== undefined &&
+                (typeof diagnostics.mergeRmsLayers !== 'number' ||
+                    !Number.isFinite(diagnostics.mergeRmsLayers)))
+        ) {
+            return undefined;
+        }
+        sanitized.fitDiagnostics = {
+            modelVersion: 'selectivity-v1',
+            quickSelectivityStrength: diagnostics.quickSelectivityStrength,
+            selectivityStrength: diagnostics.selectivityStrength,
+            selectivityRange: [range[0] as number, range[1] as number],
+            opacityRmsLayers: diagnostics.opacityRmsLayers,
+            mergeReadCount: diagnostics.mergeReadCount,
+            ...(typeof diagnostics.mergeRmsLayers === 'number'
+                ? { mergeRmsLayers: diagnostics.mergeRmsLayers }
+                : {}),
+        };
     }
     if (candidate.filamentColor !== undefined) {
         if (typeof candidate.filamentColor !== 'string' || !hexToRgb(candidate.filamentColor)) {
@@ -404,9 +491,118 @@ interface ChannelFit {
     rmsLayers: number;
     prior: CalibrationRgb;
     tdSingleValue: number;
+    selectivityStrength: number;
+    selectivityRange: [number, number];
+    mergeReadCount: number;
+    mergeRmsLayers?: number;
 }
 
-function fitChannelTdsForReads(
+interface SelectivityCandidate {
+    scalar: number;
+    strength: number;
+    td: CalibrationRgb;
+    dataResidual: number;
+    adjustment: number;
+}
+
+const calibrationFitCache = new Map<string, ChannelFit | null>();
+
+function cachedChannelFit(
+    filamentColor: string,
+    reads: FrontlitCalibrationRead[],
+    layerHeight: number,
+    jnd: number,
+    maxLayers?: number,
+    residualMode: ReadResidualMode = 'interval'
+): ChannelFit | undefined {
+    const key = JSON.stringify([
+        filamentColor.toLowerCase(),
+        reads.map((read) => [
+            read.baseColor.toLowerCase(),
+            read.opacityLayers,
+            read.mergeLayers ?? null,
+        ]),
+        layerHeight,
+        jnd,
+        maxLayers ?? null,
+        residualMode,
+    ]);
+    if (calibrationFitCache.has(key)) return calibrationFitCache.get(key) ?? undefined;
+    const fit = fitChannelTdsForReadsUncached(
+        filamentColor,
+        reads,
+        layerHeight,
+        jnd,
+        maxLayers,
+        residualMode
+    );
+    if (calibrationFitCache.size >= MAX_CALIBRATION_FIT_CACHE_ENTRIES) {
+        const oldest = calibrationFitCache.keys().next().value;
+        if (oldest !== undefined) calibrationFitCache.delete(oldest);
+    }
+    calibrationFitCache.set(key, fit ?? null);
+    return fit;
+}
+
+function candidateIsBetter(left: SelectivityCandidate, right: SelectivityCandidate): boolean {
+    if (left.dataResidual + 1e-9 < right.dataResidual) return true;
+    if (right.dataResidual + 1e-9 < left.dataResidual) return false;
+    if (left.adjustment + 1e-9 < right.adjustment) return true;
+    if (right.adjustment + 1e-9 < left.adjustment) return false;
+    if (left.strength + 1e-9 < right.strength) return true;
+    if (right.strength + 1e-9 < left.strength) return false;
+    return left.scalar < right.scalar;
+}
+
+function predictLastDifferentLayer(
+    filamentRgb: CalibrationRgb,
+    td: CalibrationRgb,
+    read: FrontlitCalibrationRead,
+    layerHeight: number,
+    jnd: number,
+    maxLayers: number
+): number | undefined {
+    const base = hexToRgb(read.baseColor);
+    if (!base) return undefined;
+    let previous = blendOverBaseWithTds(filamentRgb, td, layerHeight, base);
+    let lastDifferent = 1;
+    for (let layer = 2; layer <= maxLayers; layer++) {
+        const current = blendOverBaseWithTds(filamentRgb, td, layer * layerHeight, base);
+        if (deltaE2000(previous, current) <= jnd) return lastDifferent;
+        lastDifferent = layer;
+        previous = current;
+    }
+    return maxLayers;
+}
+
+function mergeFitMetrics(
+    filamentRgb: CalibrationRgb,
+    td: CalibrationRgb,
+    reads: readonly FrontlitCalibrationRead[],
+    layerHeight: number,
+    jnd: number,
+    maxLayers?: number
+): { count: number; rms?: number } {
+    let squaredResidual = 0;
+    let count = 0;
+    for (const read of reads) {
+        if (read.mergeLayers === undefined) continue;
+        const predicted = predictLastDifferentLayer(
+            filamentRgb,
+            td,
+            read,
+            layerHeight,
+            jnd,
+            Math.max(maxLayers ?? 0, read.mergeLayers + 24, DEFAULT_PREDICT_MAX_LAYERS)
+        );
+        if (predicted === undefined) continue;
+        squaredResidual += (predicted - read.mergeLayers) ** 2;
+        count++;
+    }
+    return count > 0 ? { count, rms: Math.sqrt(squaredResidual / count) } : { count: 0 };
+}
+
+function fitChannelTdsForReadsUncached(
     filamentColor: string,
     reads: FrontlitCalibrationRead[],
     layerHeight: number,
@@ -419,30 +615,9 @@ function fitChannelTdsForReads(
 
     const anchorScalar = scalarTdFromRead(filamentColor, reads[0], layerHeight, jnd);
     if (!anchorScalar) return undefined;
-    const prior = deriveChannelTds(filamentColor, anchorScalar);
-    if (reads.length === 1) {
-        const dataResidual =
-            predictedReadResidual(
-                filamentRgb,
-                prior,
-                reads[0],
-                layerHeight,
-                jnd,
-                maxLayers,
-                residualMode
-            ) ** 2;
-        return {
-            td: prior,
-            residual: dataResidual,
-            dataResidual,
-            rmsLayers: Math.sqrt(dataResidual),
-            prior,
-            tdSingleValue: anchorScalar,
-        };
-    }
-
-    const regularizationWeight = reads.length <= 2 ? 0.08 : 0.035;
-    const score = (td: CalibrationRgb) => {
+    const prior = deriveChannelTds(filamentColor, anchorScalar, QUICK_SELECTIVITY_STRENGTH);
+    const evaluate = (scalar: number, strength: number): SelectivityCandidate => {
+        const td = deriveChannelTds(filamentColor, scalar, strength);
         let dataResidual = 0;
         for (const read of reads) {
             const r = predictedReadResidual(
@@ -456,70 +631,100 @@ function fitChannelTdsForReads(
             );
             dataResidual += r * r;
         }
-        const reg =
-            regularizationWeight *
-            td.reduce((sum, value, index) => {
-                const ratio = Math.log2(value / prior[index]);
-                return sum + ratio * ratio;
-            }, 0);
-        return { total: dataResidual + reg, dataResidual };
+        const scalarOffset = Math.log(scalar / anchorScalar);
+        const strengthOffset = strength - QUICK_SELECTIVITY_STRENGTH;
+        return {
+            scalar,
+            strength,
+            td,
+            dataResidual,
+            adjustment: scalarOffset * scalarOffset + strengthOffset * strengthOffset,
+        };
     };
 
-    let bestTd = prior;
-    let best = score(bestTd);
-    const coarseOffsets = [-1.2, -0.6, 0, 0.6, 1.2];
-    for (const r of coarseOffsets) {
-        for (const g of coarseOffsets) {
-            for (const b of coarseOffsets) {
-                const candidate: CalibrationRgb = [
-                    clamp(prior[0] * Math.exp(r), FRONTLIT_TD_MIN, FRONTLIT_TD_MAX),
-                    clamp(prior[1] * Math.exp(g), FRONTLIT_TD_MIN, FRONTLIT_TD_MAX),
-                    clamp(prior[2] * Math.exp(b), FRONTLIT_TD_MIN, FRONTLIT_TD_MAX),
-                ];
-                const candidateScore = score(candidate);
-                if (candidateScore.total < best.total) {
-                    bestTd = candidate;
-                    best = candidateScore;
-                }
-            }
+    let best = evaluate(anchorScalar, QUICK_SELECTIVITY_STRENGTH);
+    const feasibleStrengths: number[] = [];
+    const strengthSteps = reads.length === 1 ? [QUICK_SELECTIVITY_STRENGTH] : undefined;
+    const scalarOffsets = Array.from({ length: 33 }, (_, index) => -0.8 + index * 0.05);
+    const strengths =
+        strengthSteps ??
+        Array.from({ length: 26 }, (_, index) =>
+            Math.min(MAX_WEDGE_SELECTIVITY_STRENGTH, index * 0.05)
+        );
+    const coarseCandidates: SelectivityCandidate[] = [];
+    for (const strength of strengths) {
+        for (const scalarOffset of scalarOffsets) {
+            const scalar = clamp(
+                anchorScalar * Math.exp(scalarOffset),
+                FRONTLIT_TD_MIN,
+                FRONTLIT_TD_MAX
+            );
+            const candidate = evaluate(scalar, strength);
+            coarseCandidates.push(candidate);
+            if (candidateIsBetter(candidate, best)) best = candidate;
         }
     }
 
-    for (let step = 0.45; step >= 0.035; step *= 0.55) {
+    for (let step = 0.08; step >= 0.005; step *= 0.5) {
         let improved = true;
         let passes = 0;
         while (improved && passes < 6) {
             improved = false;
             passes++;
-            for (const r of [-step, 0, step]) {
-                for (const g of [-step, 0, step]) {
-                    for (const b of [-step, 0, step]) {
-                        if (r === 0 && g === 0 && b === 0) continue;
-                        const candidate: CalibrationRgb = [
-                            clamp(bestTd[0] * Math.exp(r), FRONTLIT_TD_MIN, FRONTLIT_TD_MAX),
-                            clamp(bestTd[1] * Math.exp(g), FRONTLIT_TD_MIN, FRONTLIT_TD_MAX),
-                            clamp(bestTd[2] * Math.exp(b), FRONTLIT_TD_MIN, FRONTLIT_TD_MAX),
-                        ];
-                        const candidateScore = score(candidate);
-                        if (candidateScore.total + 1e-9 < best.total) {
-                            bestTd = candidate;
-                            best = candidateScore;
-                            improved = true;
-                        }
+            for (const scalarOffset of [-step, 0, step]) {
+                for (const strengthOffset of reads.length === 1 ? [0] : [-step, 0, step]) {
+                    if (scalarOffset === 0 && strengthOffset === 0) continue;
+                    const candidate = evaluate(
+                        clamp(
+                            best.scalar * Math.exp(scalarOffset),
+                            FRONTLIT_TD_MIN,
+                            FRONTLIT_TD_MAX
+                        ),
+                        clamp(best.strength + strengthOffset, 0, MAX_WEDGE_SELECTIVITY_STRENGTH)
+                    );
+                    if (candidateIsBetter(candidate, best)) {
+                        best = candidate;
+                        improved = true;
                     }
                 }
             }
         }
     }
 
+    const feasibleLimit = best.dataResidual + 0.01;
+    for (const candidate of coarseCandidates) {
+        if (candidate.dataResidual <= feasibleLimit) feasibleStrengths.push(candidate.strength);
+    }
+    feasibleStrengths.push(best.strength);
+    const selectivityRange: [number, number] = [
+        Math.min(...feasibleStrengths),
+        Math.max(...feasibleStrengths),
+    ];
+    const merge = mergeFitMetrics(filamentRgb, best.td, reads, layerHeight, jnd, maxLayers);
+
     return {
-        td: bestTd,
-        residual: best.total,
+        td: best.td,
+        residual: best.dataResidual + best.adjustment,
         dataResidual: best.dataResidual,
         rmsLayers: Math.sqrt(best.dataResidual / reads.length),
         prior,
-        tdSingleValue: Math.max(...bestTd),
+        tdSingleValue: Math.max(...best.td),
+        selectivityStrength: best.strength,
+        selectivityRange,
+        mergeReadCount: merge.count,
+        ...(merge.rms !== undefined ? { mergeRmsLayers: merge.rms } : {}),
     };
+}
+
+function fitChannelTdsForReads(
+    filamentColor: string,
+    reads: FrontlitCalibrationRead[],
+    layerHeight: number,
+    jnd: number,
+    maxLayers?: number,
+    residualMode: ReadResidualMode = 'interval'
+): ChannelFit | undefined {
+    return cachedChannelFit(filamentColor, reads, layerHeight, jnd, maxLayers, residualMode);
 }
 
 /**
@@ -586,26 +791,236 @@ export function predictOpacityLayersForTds(
  * the eye reads — is anchored to `tdSingle`, so darker (more absorptive) channels
  * scale down from there.
  */
-export function deriveChannelTds(filamentColor: string, tdSingle: number): CalibrationRgb {
+export function deriveChannelTds(
+    filamentColor: string,
+    tdSingle: number,
+    selectivityStrength = 1
+): CalibrationRgb {
     const rgb = hexToRgb(filamentColor) ?? [128, 128, 128];
     const raw = rgb.map((c) => 1 + (c / 255) * 5.8) as CalibrationRgb;
     const anchor = Math.max(raw[0], raw[1], raw[2]);
-    const k = tdSingle / anchor;
-    return raw.map((value) => clamp(k * value, FRONTLIT_TD_MIN, FRONTLIT_TD_MAX)) as CalibrationRgb;
+    const strength = Math.max(0, selectivityStrength);
+    return raw.map((value) =>
+        clamp(tdSingle * Math.pow(value / anchor, strength), FRONTLIT_TD_MIN, FRONTLIT_TD_MAX)
+    ) as CalibrationRgb;
+}
+
+function resolveCalibrationChannelHds(
+    calibration: FrontlitCalibration,
+    filamentColor: string
+): CalibrationRgb {
+    if (calibration.fitModelVersion === 'selectivity-v1') return calibration.td;
+    if (calibration.channelSource !== 'measured' || !calibration.reads?.length) {
+        return calibration.td;
+    }
+    const reads =
+        calibration.reads && calibration.reads.length > 0
+            ? calibration.reads
+            : [
+                  {
+                      baseColor: calibration.baseColor,
+                      opacityLayers: calibration.opacityLayers,
+                  },
+              ];
+    const fit = fitChannelTdsForReads(
+        filamentColor,
+        reads,
+        calibration.layerHeight,
+        calibration.jnd
+    );
+    return fit?.td ?? calibration.td;
+}
+
+function quickCalibrationChannelHds(
+    calibration: FrontlitCalibration,
+    filamentColor: string
+): CalibrationRgb {
+    if (!calibration.reads?.length && calibration.fitModelVersion !== 'selectivity-v1') {
+        return calibration.td;
+    }
+    return deriveChannelTds(filamentColor, calibration.tdSingleValue, QUICK_SELECTIVITY_STRENGTH);
+}
+
+function sameHexColor(left: string, right: string): boolean {
+    const leftRgb = hexToRgb(left);
+    const rightRgb = hexToRgb(right);
+    return (
+        !!leftRgb &&
+        !!rightRgb &&
+        leftRgb[0] === rightRgb[0] &&
+        leftRgb[1] === rightRgb[1] &&
+        leftRgb[2] === rightRgb[2]
+    );
 }
 
 /**
- * Per-channel hiding distances for a filament: the measured triple when a valid
- * frontlit calibration exists, otherwise derived from the swatch color around
- * the scalar hiding distance. Every blend consumer should go through this so
- * calibrated and uncalibrated filaments share one channel model.
+ * Per-channel hiding distances for a filament: a constrained wedge estimate
+ * when a valid frontlit calibration exists, otherwise a swatch-derived estimate
+ * around the scalar hiding distance. Every blend consumer should go through this
+ * so calibrated and uncalibrated filaments share one channel model.
  */
 export function channelHds(filament: {
     color: string;
     td: number;
     calibration?: unknown;
 }): CalibrationRgb {
-    return activeFrontlitCalibration(filament)?.td ?? deriveChannelTds(filament.color, filament.td);
+    const calibration = activeFrontlitCalibration(filament);
+    return calibration
+        ? resolveCalibrationChannelHds(calibration, filament.color)
+        : deriveChannelTds(filament.color, filament.td);
+}
+
+/** Conservative channel prior used when stronger substrate evidence is unavailable. */
+export function quickFrontlitChannelHds(filament: {
+    color: string;
+    td: number;
+    calibration?: unknown;
+}): CalibrationRgb {
+    const calibration = activeFrontlitCalibration(filament);
+    return calibration
+        ? quickCalibrationChannelHds(calibration, filament.color)
+        : deriveChannelTds(filament.color, filament.td);
+}
+
+/**
+ * Resolve wedge optics for a known immediate substrate. Multi-base refinement is
+ * effective evidence, not a substrate-independent spectral measurement, so use
+ * it only for bases that were actually compared on the wedge. Other substrates
+ * retain the quick swatch-derived estimate until Palette Proof or Stack Matrix
+ * evidence supplies stronger local support.
+ */
+export function channelHdsForSubstrate(
+    filament: { color: string; td: number; calibration?: unknown },
+    substrateColor: string
+): CalibrationRgb {
+    const calibration = activeFrontlitCalibration(filament);
+    if (!calibration) {
+        return deriveChannelTds(filament.color, filament.td);
+    }
+    const reads = calibration.reads ?? [
+        { baseColor: calibration.baseColor, opacityLayers: calibration.opacityLayers },
+    ];
+    if (!calibration.reads?.length && calibration.fitModelVersion !== 'selectivity-v1') {
+        return resolveCalibrationChannelHds(calibration, filament.color);
+    }
+    return reads.some((read) => sameHexColor(read.baseColor, substrateColor))
+        ? resolveCalibrationChannelHds(calibration, filament.color)
+        : quickCalibrationChannelHds(calibration, filament.color);
+}
+
+export type FrontlitOpticsSource = 'swatch-heuristic' | 'wedge-quick' | 'wedge-constrained';
+
+/** Explain which non-Matrix optical tier is valid for an immediate substrate. */
+export function frontlitOpticsSourceForSubstrate(
+    filament: { color: string; td: number; calibration?: unknown },
+    substrateColor: string
+): FrontlitOpticsSource {
+    const calibration = activeFrontlitCalibration(filament);
+    if (!calibration) return 'swatch-heuristic';
+    const reads = calibration.reads ?? [
+        { baseColor: calibration.baseColor, opacityLayers: calibration.opacityLayers },
+    ];
+    const supportsSubstrate = reads.some((read) => sameHexColor(read.baseColor, substrateColor));
+    if (!supportsSubstrate || reads.length === 1) return 'wedge-quick';
+    return 'wedge-constrained';
+}
+
+/** Serializable calibration evidence and predictions for desktop diagnostic traces. */
+export function frontlitCalibrationDiagnostics(filament: {
+    color: string;
+    td: number;
+    calibration?: unknown;
+}): FrontlitCalibrationDiagnostics {
+    const calibration = activeFrontlitCalibration(filament);
+    if (!calibration) {
+        const td = deriveChannelTds(filament.color, filament.td);
+        return {
+            active: false,
+            channelSource: 'none',
+            quickTd: td,
+            resolvedTd: td,
+            reads: [],
+        };
+    }
+
+    const reads = calibration.reads ?? [
+        { baseColor: calibration.baseColor, opacityLayers: calibration.opacityLayers },
+    ];
+    const quickFit = fitChannelTdsForReads(
+        filament.color,
+        [reads[0]],
+        calibration.layerHeight,
+        calibration.jnd
+    );
+    const resolvedFit = fitChannelTdsForReads(
+        filament.color,
+        reads,
+        calibration.layerHeight,
+        calibration.jnd
+    );
+    const quickTd = quickFit?.td ?? quickCalibrationChannelHds(calibration, filament.color);
+    const resolvedTd = resolveCalibrationChannelHds(calibration, filament.color);
+    const filamentRgb = hexToRgb(filament.color);
+    const readDiagnostics: FrontlitCalibrationReadDiagnostics[] = reads.map((read) => {
+        const base = hexToRgb(read.baseColor);
+        const threshold =
+            filamentRgb && base
+                ? opacityLayerThreshold(
+                      filamentRgb,
+                      resolvedTd,
+                      calibration.layerHeight,
+                      calibration.jnd,
+                      base,
+                      Math.max(read.opacityLayers + 24, DEFAULT_PREDICT_MAX_LAYERS)
+                  )
+                : undefined;
+        const predictedMerge =
+            filamentRgb && read.mergeLayers !== undefined
+                ? predictLastDifferentLayer(
+                      filamentRgb,
+                      resolvedTd,
+                      read,
+                      calibration.layerHeight,
+                      calibration.jnd,
+                      Math.max(read.mergeLayers + 24, DEFAULT_PREDICT_MAX_LAYERS)
+                  )
+                : undefined;
+        return {
+            baseColor: read.baseColor,
+            observedOpacityLayers: read.opacityLayers,
+            predictedOpacityThreshold:
+                threshold === undefined ? null : Math.round(threshold * 1_000_000) / 1_000_000,
+            predictedOpacityLayers:
+                threshold === undefined ? null : Math.max(1, Math.ceil(threshold - 1e-9)),
+            ...(read.mergeLayers !== undefined ? { observedMergeLayers: read.mergeLayers } : {}),
+            ...(predictedMerge !== undefined ? { predictedMergeLayers: predictedMerge } : {}),
+        };
+    });
+
+    return {
+        active: true,
+        channelSource:
+            calibration.fitModelVersion === 'selectivity-v1' ||
+            (calibration.channelSource === 'measured' && reads.length > 0)
+                ? reads.length > 1
+                    ? 'constrained'
+                    : 'heuristic'
+                : (calibration.channelSource ?? (reads.length > 1 ? 'constrained' : 'heuristic')),
+        ...(calibration.channelSource ? { storedChannelSource: calibration.channelSource } : {}),
+        quickTd,
+        resolvedTd,
+        ...(resolvedFit
+            ? {
+                  selectivityStrength: resolvedFit.selectivityStrength,
+                  selectivityRange: resolvedFit.selectivityRange,
+                  opacityRmsLayers: resolvedFit.rmsLayers,
+                  ...(resolvedFit.mergeRmsLayers !== undefined
+                      ? { mergeRmsLayers: resolvedFit.mergeRmsLayers }
+                      : {}),
+              }
+            : {}),
+        reads: readDiagnostics,
+    };
 }
 
 function frontlitConfidence(opacityLayers: number, tdSingle: number, maxLayers?: number): number {
@@ -636,6 +1051,11 @@ function multiReadConfidence(
     }
     if (reads.length > 1) {
         confidence -= clamp(fit.rmsLayers * 0.16, 0, 0.35);
+        const selectivitySpan = fit.selectivityRange[1] - fit.selectivityRange[0];
+        confidence -= clamp((selectivitySpan / MAX_WEDGE_SELECTIVITY_STRENGTH) * 0.2, 0, 0.2);
+    }
+    if (fit.mergeRmsLayers !== undefined) {
+        confidence -= clamp(fit.mergeRmsLayers * 0.1, 0, 0.3);
     }
     return clamp(confidence, 0.1, 1);
 }
@@ -721,18 +1141,27 @@ export function computeFrontlitCalibration(
     if (!fit) {
         return { ok: false, error: 'Could not fit a calibration from these reads.' };
     }
-    const channelSource = reads.length > 1 ? 'measured' : 'heuristic';
+    const channelSource: FrontlitChannelSource = reads.length > 1 ? 'constrained' : 'heuristic';
     const td = fit.td;
     const tdSingleValue = fit.tdSingleValue;
-    const confidence =
+    let confidence =
         reads.length > 1
             ? multiReadConfidence(reads, fit, input.maxLayers)
             : frontlitConfidence(opacityLayers, tdSingleValue, input.maxLayers);
+    if (reads.length === 1 && fit.mergeRmsLayers !== undefined) {
+        confidence = clamp(confidence - fit.mergeRmsLayers * 0.1, 0.1, 1);
+    }
     let notes = input.notes;
     if (reads.length > 1 && fit.rmsLayers > 0.75) {
         notes = appendCalibrationNote(
             notes,
             `Multi-base reads disagree by about ${fit.rmsLayers.toFixed(1)} layers under the best fit.`
+        );
+    }
+    if (fit.mergeRmsLayers !== undefined && fit.mergeRmsLayers > 1) {
+        notes = appendCalibrationNote(
+            notes,
+            `The fitted transition misses adjacent-step merge reads by about ${fit.mergeRmsLayers.toFixed(1)} layers.`
         );
     }
 
@@ -754,6 +1183,16 @@ export function computeFrontlitCalibration(
                     ? reads
                     : undefined,
             channelSource,
+            fitModelVersion: 'selectivity-v1',
+            fitDiagnostics: {
+                modelVersion: 'selectivity-v1',
+                quickSelectivityStrength: QUICK_SELECTIVITY_STRENGTH,
+                selectivityStrength: fit.selectivityStrength,
+                selectivityRange: fit.selectivityRange,
+                opacityRmsLayers: fit.rmsLayers,
+                mergeReadCount: fit.mergeReadCount,
+                ...(fit.mergeRmsLayers !== undefined ? { mergeRmsLayers: fit.mergeRmsLayers } : {}),
+            },
             jndSource: input.jndSource ?? 'default',
             filamentColor,
             notes,

@@ -92,7 +92,51 @@ export interface OptimizerOptions {
     beamWidth?: number; // Number of partial stacks kept by beam search
     cachingEnabled?: boolean; // Enable result caching
     onProgress?: (iteration: number, total: number, bestScore: number) => void;
+    /** Bounded decision-level diagnostics. Never called for every scored candidate. */
+    onDiagnostic?: (event: OptimizerDiagnosticEvent) => void;
 }
+
+export type OptimizerDiagnosticEvent =
+    | {
+          type: 'configuration';
+          requestedAlgorithm: OptimizerAlgorithm;
+          resolvedAlgorithm: string;
+          seed: number;
+          requestedExtraRepeats: number;
+          filamentIds: string[];
+      }
+    | {
+          type: 'cache-hit';
+          order: string[];
+          score: number;
+          iterations: number;
+      }
+    | {
+          type: 'repeat-tier';
+          repeatLimit: number;
+          order: string[];
+          score: number;
+          iterations: number;
+          retained: boolean;
+          evaluation: SequenceScoreEvaluation;
+      }
+    | {
+          type: 'minimization';
+          beforeOrder: string[];
+          afterOrder: string[];
+          evaluations: number;
+          evaluation: SequenceScoreEvaluation;
+      }
+    | {
+          type: 'complete';
+          order: string[];
+          score: number;
+          iterations: number;
+          repeatTiersEvaluated: number;
+          extraRepeatCount: number;
+          optimality: 'exact' | 'best-found';
+          evaluation: SequenceScoreEvaluation;
+      };
 
 export interface OptimizerResult {
     order: Filament[]; // Best filament ordering found
@@ -1424,17 +1468,32 @@ export function optimizeFilamentOrder(
     const seed = opts.seed ?? stableHash32(defaultSeedInput);
     opts.seed = seed;
     const cacheKey = canonicalOptimizerInput(filaments, scoringContext, opts.algorithm, opts, seed);
+    const requestedRepeats = resolveMaxExtraRepeats(opts);
+
+    opts.onDiagnostic?.({
+        type: 'configuration',
+        requestedAlgorithm: opts.algorithm,
+        resolvedAlgorithm: resolved,
+        seed,
+        requestedExtraRepeats: requestedRepeats,
+        filamentIds: filaments.map((filament) => filament.id),
+    });
 
     if (opts.cachingEnabled) {
         const cached = globalCache.get(cacheKey);
         if (cached) {
             reportProgress(opts, 1, 1, cached.score);
+            opts.onDiagnostic?.({
+                type: 'cache-hit',
+                order: cached.order.map((filament) => filament.id),
+                score: cached.score,
+                iterations: cached.iterations,
+            });
             return { ...cached, cacheHit: true };
         }
     }
 
     const scoreSequence = createSequenceScorer(scoringContext);
-    const requestedRepeats = resolveMaxExtraRepeats(opts);
     let result: OptimizerResult;
     let repeatTiersEvaluated = 1;
 
@@ -1472,9 +1531,20 @@ export function optimizeFilamentOrder(
             candidate.separation = sequenceSeparationReport(candidate.order, scoringContext);
             candidate.extraRepeatCount = countExtraFilamentOccurrences(candidate.order);
             candidate.iterations = totalIterations;
-            if (!retained || isBetterCandidate(candidate, retained, scoreSequence)) {
+            const retainedCandidate =
+                !retained || isBetterCandidate(candidate, retained, scoreSequence);
+            if (retainedCandidate) {
                 retained = candidate;
             }
+            opts.onDiagnostic?.({
+                type: 'repeat-tier',
+                repeatLimit,
+                order: candidate.order.map((filament) => filament.id),
+                score: candidate.score,
+                iterations: candidate.iterations,
+                retained: retainedCandidate,
+                evaluation: scoreSequence.evaluate(candidate.order),
+            });
             if (repeatLimit === 0 && resolved === 'exact-base') exactBase = candidate;
             if (candidate.separation.satisfied) {
                 retained = candidate;
@@ -1490,9 +1560,17 @@ export function optimizeFilamentOrder(
     }
 
     if (scoringContext.preserveSeparation) {
+        const beforeOrder = result.order.map((filament) => filament.id);
         const minimized = minimizeBySingleRemoval(result, scoreSequence);
         result = minimized.result;
         result.minimizationEvaluations = minimized.evaluations;
+        opts.onDiagnostic?.({
+            type: 'minimization',
+            beforeOrder,
+            afterOrder: result.order.map((filament) => filament.id),
+            evaluations: minimized.evaluations,
+            evaluation: scoreSequence.evaluate(result.order),
+        });
     }
 
     const actualExtraRepeats = countExtraFilamentOccurrences(result.order);
@@ -1512,6 +1590,16 @@ export function optimizeFilamentOrder(
     // Tag the result with the resolved algorithm
     result.resolvedAlgorithm = resolved;
     reportProgress(opts, result.iterations, result.iterations, result.score);
+    opts.onDiagnostic?.({
+        type: 'complete',
+        order: result.order.map((filament) => filament.id),
+        score: result.score,
+        iterations: result.iterations,
+        repeatTiersEvaluated,
+        extraRepeatCount: actualExtraRepeats,
+        optimality: result.optimality,
+        evaluation: scoreSequence.evaluate(result.order),
+    });
 
     if (opts.cachingEnabled) {
         globalCache.set(cacheKey, result);

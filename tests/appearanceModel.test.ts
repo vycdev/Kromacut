@@ -424,6 +424,12 @@ test('every prediction reports ordered exact, interpolated, fitted, or simulated
         withMatrix,
         matrixLayers(['a', 'a', 'a'])
     );
+    const explainedInterpolation = model.resolveAppearanceRankModel(
+        { L: 50, a: 0, b: 0 },
+        withMatrix,
+        matrixLayers(['a', 'a', 'a']),
+        { includeContributions: true }
+    );
     const fitted = model.resolveAppearanceRankModel(
         { L: 50, a: 0, b: 0 },
         { ...identity, applied: true, gateReason: 'applied', confidence: 0.8, deltaL: 1 },
@@ -441,6 +447,16 @@ test('every prediction reports ordered exact, interpolated, fitted, or simulated
     assert.ok((interpolated.predictionConfidence.nearestMeasuredDeltaE ?? Infinity) < 2);
     assert.ok(interpolated.predictionConfidence.evidenceSampleCount >= 2);
     assert.equal(interpolated.predictionConfidence.crossValidationDeltaE, 2);
+    assert.equal(interpolated.empiricalMatch?.contributions, undefined);
+    assert.ok((explainedInterpolation.empiricalMatch?.contributions?.length ?? 0) >= 2);
+    assert.ok(
+        Math.abs(
+            (explainedInterpolation.empiricalMatch?.contributions ?? []).reduce(
+                (sum, contribution) => sum + contribution.weight,
+                0
+            ) - 1
+        ) < 1e-9
+    );
     assert.equal(fitted.predictionConfidence.method, 'fitted');
     assert.equal(simulated.predictionConfidence.method, 'simulated');
     assert.equal(simulated.predictionConfidence.nearestMeasuredDeltaE, null);

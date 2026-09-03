@@ -205,12 +205,16 @@ test('a lighter base lets a near-black filament calibrate (round-trip over white
     assert.ok(relErr < 0.2, `recovered ${result.calibration.tdSingleValue} vs ${tdTrue}`);
 });
 
-test('multi-base calibration fits measured per-channel TDs and stores reads', async () => {
-    const { computeFrontlitCalibration, OPACITY_JND, predictOpacityLayersForTds } =
-        await loadCalibration();
+test('multi-base calibration refines constrained selectivity and stores reads', async () => {
+    const {
+        computeFrontlitCalibration,
+        deriveChannelTds,
+        OPACITY_JND,
+        predictOpacityLayersForTds,
+    } = await loadCalibration();
     const layerHeight = 0.04;
     const color = '#ffd43b';
-    const trueTd: [number, number, number] = [0.42, 0.55, 0.18];
+    const trueTd = deriveChannelTds(color, 0.55, 0.9);
     const bases = ['#000000', '#2030ff', '#7a0030'];
     const reads = await Promise.all(
         bases.map(async (baseColor) => ({
@@ -236,7 +240,19 @@ test('multi-base calibration fits measured per-channel TDs and stores reads', as
 
     assert.ok(result.ok, 'multi-base calibration should fit');
     if (!result.ok) return;
-    assert.equal(result.calibration.channelSource, 'measured');
+    assert.equal(result.calibration.channelSource, 'constrained');
+    assert.equal(result.calibration.fitModelVersion, 'selectivity-v1');
+    assert.ok(result.calibration.fitDiagnostics);
+    assert.ok(
+        result.calibration.fitDiagnostics!.selectivityRange[0] <= 0.9 &&
+            result.calibration.fitDiagnostics!.selectivityRange[1] >= 0.9,
+        `feasible range ${result.calibration.fitDiagnostics!.selectivityRange.join('–')}`
+    );
+    assert.equal(
+        result.calibration.fitDiagnostics!.selectivityStrength,
+        0.5,
+        'quantized reads that the quick prior already explains must not force extra selectivity'
+    );
     assert.equal(result.calibration.reads?.length, reads.length);
     assert.equal(result.calibration.baseColor, reads[0].baseColor);
 
@@ -257,8 +273,49 @@ test('multi-base calibration fits measured per-channel TDs and stores reads', as
     }
 });
 
-test('session JND fit recovers an identifiable synthetic multi-filament session', async () => {
-    const { computeFrontlitCalibrationSession } = await loadCalibration();
+test('a second informative base moves selectivity away from the quick prior without free RGB fitting', async () => {
+    const {
+        computeFrontlitCalibration,
+        deriveChannelTds,
+        OPACITY_JND,
+        predictOpacityLayersForTds,
+    } = await loadCalibration();
+    const color = '#d83400';
+    const layerHeight = 0.04;
+    const trueStrength = 0.85;
+    const trueTd = deriveChannelTds(color, 0.5, trueStrength);
+    const reads = ['#000000', '#ffffff'].map((baseColor) => ({
+        baseColor,
+        opacityLayers: predictOpacityLayersForTds(
+            color,
+            trueTd,
+            layerHeight,
+            OPACITY_JND,
+            baseColor,
+            240
+        )!,
+    }));
+
+    const result = computeFrontlitCalibration({
+        filamentColor: color,
+        layerHeight,
+        firstLayerHeight: 0.2,
+        reads,
+        maxLayers: 240,
+    });
+    assert.ok(result.ok);
+    if (!result.ok) return;
+    const fit = result.calibration.fitDiagnostics!;
+    assert.ok(fit.selectivityStrength > fit.quickSelectivityStrength + 0.2);
+    assert.ok(
+        fit.selectivityRange[0] <= trueStrength && fit.selectivityRange[1] >= trueStrength,
+        `expected ${trueStrength} inside ${fit.selectivityRange.join('–')}`
+    );
+    assert.ok(fit.selectivityStrength <= trueStrength);
+});
+
+test('session JND fit does not claim certainty when constrained wedge reads remain ambiguous', async () => {
+    const { computeFrontlitCalibrationSession, deriveChannelTds } = await loadCalibration();
     const layerHeight = 0.035;
     const trueJnd = 1.1;
     const cases: Array<{
@@ -266,9 +323,21 @@ test('session JND fit recovers an identifiable synthetic multi-filament session'
         td: [number, number, number];
         bases: string[];
     }> = [
-        { color: '#ffd43b', td: [0.42, 0.55, 0.18], bases: ['#000000', '#2030ff', '#7a0030'] },
-        { color: '#2f7cff', td: [0.18, 0.32, 0.62], bases: ['#000000', '#ffea00', '#7a2000'] },
-        { color: '#f5f5f5', td: [0.46, 0.48, 0.5], bases: ['#000000', '#003060', '#602000'] },
+        {
+            color: '#ffd43b',
+            td: deriveChannelTds('#ffd43b', 0.55, 0.9),
+            bases: ['#000000', '#2030ff', '#7a0030'],
+        },
+        {
+            color: '#2f7cff',
+            td: deriveChannelTds('#2f7cff', 0.62, 1.05),
+            bases: ['#000000', '#ffea00', '#7a2000'],
+        },
+        {
+            color: '#f5f5f5',
+            td: deriveChannelTds('#f5f5f5', 0.5, 0.65),
+            bases: ['#000000', '#003060', '#602000'],
+        },
     ];
 
     const filaments = await Promise.all(
@@ -294,9 +363,108 @@ test('session JND fit recovers an identifiable synthetic multi-filament session'
     );
 
     const session = computeFrontlitCalibrationSession({ filaments, maxLayers: 140 });
-    assert.equal(session.jndSource, 'session-fit');
-    assert.ok(Math.abs(session.jnd - trueJnd) <= 0.25, `fit JND ${session.jnd}`);
+    assert.equal(session.jndSource, 'default');
     assert.ok(session.results.every((result) => result.ok));
+});
+
+test('unsupported orange-over-white uses the conservative quick curve instead of a red legacy fit', async () => {
+    const {
+        channelHdsForSubstrate,
+        frontlitCalibrationDiagnostics,
+        frontlitOpticsSourceForSubstrate,
+    } = await loadCalibration();
+    const { blendSrgbChannel } = await loadColorSpace();
+    const filament = {
+        id: 'orange',
+        color: '#d83400',
+        td: 0.3947626,
+        calibration: {
+            opacityLayers: 6,
+            layerHeight: 0.08,
+            firstLayerHeight: 0.4,
+            td: [0.3947626, 0.1105588, 0.0696702] as [number, number, number],
+            tdSingleValue: 0.3947626,
+            jnd: 2,
+            baseColor: '#000000',
+            confidence: 0.9,
+            basis: 'frontlit' as const,
+            calibrationDate: '2026-08-30T00:00:00.000Z',
+            reads: [
+                { baseColor: '#000000', opacityLayers: 6, mergeLayers: 5 },
+                { baseColor: '#f7d000', opacityLayers: 3, mergeLayers: 2 },
+            ],
+            channelSource: 'measured' as const,
+            jndSource: 'default' as const,
+            filamentColor: '#d83400',
+        },
+    };
+
+    const whiteTd = channelHdsForSubstrate(filament, '#ffffff');
+    const yellowTd = channelHdsForSubstrate(filament, '#f7d000');
+    assert.equal(frontlitOpticsSourceForSubstrate(filament, '#ffffff'), 'wedge-quick');
+    assert.equal(frontlitOpticsSourceForSubstrate(filament, '#f7d000'), 'wedge-constrained');
+    assert.ok(whiteTd[1] > 0.2, `unsupported white-base green HD was ${whiteTd[1]}`);
+    assert.ok(yellowTd[1] < whiteTd[1], 'measured yellow-base refinement should remain local');
+
+    const foreground = hexToRgb(filament.color);
+    const background = hexToRgb('#ffffff');
+    const thickness = 0.24;
+    const predicted = foreground.map((channel, index) =>
+        blendSrgbChannel(background[index], channel, Math.pow(10, -thickness / whiteTd[index]))
+    );
+    assert.ok(
+        predicted[1] >= 90,
+        `orange-over-white incorrectly collapsed toward red: ${predicted}`
+    );
+    assert.ok(predicted[2] >= 30, `unsupported fit removed the blue contribution: ${predicted}`);
+
+    const diagnostics = frontlitCalibrationDiagnostics(filament);
+    assert.equal(diagnostics.active, true);
+    assert.equal(diagnostics.storedChannelSource, 'measured');
+    assert.equal(diagnostics.channelSource, 'constrained');
+    assert.equal(diagnostics.reads.length, 2);
+    assert.notDeepEqual(diagnostics.quickTd, diagnostics.resolvedTd);
+    assert.ok(diagnostics.reads.every((read) => read.predictedOpacityLayers !== null));
+});
+
+test('merge reads validate the constrained curve and lower confidence without adding fit freedom', async () => {
+    const { computeFrontlitCalibration } = await loadCalibration();
+    const common = {
+        filamentColor: '#d83400',
+        layerHeight: 0.08,
+        firstLayerHeight: 0.4,
+        maxLayers: 24,
+    };
+    const opacityOnly = computeFrontlitCalibration({
+        ...common,
+        reads: [
+            { baseColor: '#000000', opacityLayers: 6 },
+            { baseColor: '#f7d000', opacityLayers: 3 },
+        ],
+    });
+    const contradicted = computeFrontlitCalibration({
+        ...common,
+        reads: [
+            { baseColor: '#000000', opacityLayers: 6, mergeLayers: 20 },
+            { baseColor: '#f7d000', opacityLayers: 3, mergeLayers: 20 },
+        ],
+    });
+    assert.ok(opacityOnly.ok && contradicted.ok);
+    if (!opacityOnly.ok || !contradicted.ok) return;
+    assert.deepEqual(contradicted.calibration.td, opacityOnly.calibration.td);
+    assert.equal(contradicted.calibration.fitDiagnostics?.mergeReadCount, 2);
+    assert.ok((contradicted.calibration.fitDiagnostics?.mergeRmsLayers ?? 0) > 1);
+    assert.ok(contradicted.calibration.confidence < opacityOnly.calibration.confidence);
+    assert.match(contradicted.calibration.notes ?? '', /transition misses/i);
+
+    const quickPlain = computeFrontlitCalibration({ ...common, opacityLayers: 6 });
+    const quickContradicted = computeFrontlitCalibration({
+        ...common,
+        reads: [{ baseColor: '#000000', opacityLayers: 6, mergeLayers: 20 }],
+    });
+    assert.ok(quickPlain.ok && quickContradicted.ok);
+    if (!quickPlain.ok || !quickContradicted.ok) return;
+    assert.ok(quickContradicted.calibration.confidence < quickPlain.calibration.confidence);
 });
 
 test('session JND fit falls back when the synthetic JND is outside the accepted band', async () => {

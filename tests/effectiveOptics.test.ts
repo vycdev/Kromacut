@@ -18,7 +18,7 @@ const filaments: Filament[] = [
 function truthModel(): AppearanceEffectiveOpticsModelV1 {
     return {
         schemaVersion: 1,
-        modelVersion: 'matrix-effective-optics-v2',
+        modelVersion: 'matrix-effective-optics-v3',
         fingerprint: 'synthetic-truth',
         applied: true,
         gateReason: 'applied',
@@ -65,18 +65,42 @@ function truthModel(): AppearanceEffectiveOpticsModelV1 {
                 substrateFilamentId: 'foundation',
                 hdMultiplier: 1.38,
                 sampleCount: 20,
+                maxObservedThickness: 0.32,
             },
             {
                 foregroundFilamentId: 'teal',
                 substrateFilamentId: 'rose',
                 hdMultiplier: 0.68,
                 sampleCount: 20,
+                maxObservedThickness: 0.32,
             },
             {
                 foregroundFilamentId: 'foundation',
                 substrateFilamentId: 'teal',
                 hdMultiplier: 1.22,
                 sampleCount: 20,
+                maxObservedThickness: 0.32,
+            },
+            {
+                foregroundFilamentId: 'foundation',
+                substrateFilamentId: 'rose',
+                hdMultiplier: 1,
+                sampleCount: 20,
+                maxObservedThickness: 0.32,
+            },
+            {
+                foregroundFilamentId: 'rose',
+                substrateFilamentId: 'teal',
+                hdMultiplier: 1,
+                sampleCount: 20,
+                maxObservedThickness: 0.32,
+            },
+            {
+                foregroundFilamentId: 'teal',
+                substrateFilamentId: 'foundation',
+                hdMultiplier: 1,
+                sampleCount: 20,
+                maxObservedThickness: 0.32,
             },
         ],
     };
@@ -218,6 +242,8 @@ test('joint matrix fit improves predictions and moves every effective property t
         (entry) => entry.foregroundFilamentId === 'teal' && entry.substrateFilamentId === 'rose'
     );
     assert.ok(roseOverFoundation && tealOverRose);
+    assert.equal(roseOverFoundation.maxObservedThickness, 0.32);
+    assert.equal(tealOverRose.maxObservedThickness, 0.24);
     assert.ok(
         Math.abs(roseOverFoundation.hdMultiplier - 1.38) < 0.38,
         `rose/foundation multiplier was ${roseOverFoundation.hdMultiplier}`
@@ -327,4 +353,42 @@ test('ordered substrate interaction only changes its matching material pair', as
     assert.equal(roseOverFoundation, 1.38);
     assert.equal(roseOverTeal, 1);
     assert.equal(reversePair, 1);
+});
+
+test('Matrix transition support is bounded by the thickest observed run for that pair', async () => {
+    const optics = await modulePromise;
+    const model = truthModel();
+
+    assert.equal(optics.effectiveOpticsSupportsTransition(model, 'rose', 'foundation', 0.32), true);
+    assert.equal(optics.effectiveOpticsSupportsTransition(model, 'rose', 'foundation', 0.4), false);
+    assert.equal(optics.effectiveOpticsSupportsTransition(model, 'rose', 'missing', 0.08), false);
+});
+
+test('all Matrix recipe consumers fall back to conservative prior optics beyond pair support', async () => {
+    const optics = await modulePromise;
+    const model = truthModel();
+    const rose = model.filaments.find((entry) => entry.filamentId === 'rose')!;
+    const foundation = model.filaments.find((entry) => entry.filamentId === 'foundation')!;
+    const limited = {
+        ...model,
+        substrateInteractions: model.substrateInteractions.map((interaction) =>
+            interaction.foregroundFilamentId === 'rose' &&
+            interaction.substrateFilamentId === 'foundation'
+                ? { ...interaction, maxObservedThickness: 0.08 }
+                : interaction
+        ),
+    };
+
+    const predicted = optics.predictEffectiveRecipeColor(limited, 'foundation', [
+        { filamentId: 'rose', thickness: 0.16 },
+    ]);
+    const expected = optics.blendEffectiveSrgb(
+        foundation.effectiveOpaqueColor,
+        rose.priorOpaqueColor,
+        rose.fallbackHdChannels ?? rose.priorHdChannels,
+        0.16,
+        1,
+        1
+    );
+    assert.deepEqual(predicted, expected);
 });

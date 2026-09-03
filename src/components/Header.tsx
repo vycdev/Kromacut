@@ -16,6 +16,8 @@ import {
     X,
     Monitor,
     MessageCircle,
+    FileJson,
+    FolderOpen,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Switch } from '@/components/ui/switch';
@@ -48,6 +50,12 @@ import logo from '../assets/logo.png';
 import redditIcon from '../assets/reddit.svg';
 import { landingPath } from '@/lib/routes';
 import { isTauri } from '@tauri-apps/api/core';
+import {
+    getAutoPaintDiagnosticsEnabled,
+    saveAutoPaintDiagnosticsEnabled,
+    subscribeToAutoPaintDiagnosticsEnabled,
+} from '@/lib/diagnosticPreferences';
+import { openAutoPaintDiagnosticsDirectory } from '@/lib/desktopDiagnostics';
 
 interface Props {
     docsOpen: boolean;
@@ -63,12 +71,17 @@ export const Header: React.FC<Props> = ({ docsOpen, onBackToApp, onOpenDocs }) =
     const [settingsOpen, setSettingsOpen] = React.useState(false);
     const [checkOnStartup, setCheckOnStartup] = React.useState(() => getUpdateCheckOnStartup());
     const [multiPlateEnabled, setMultiPlateEnabled] = React.useState(() => getMultiPlateEnabled());
+    const [diagnosticsEnabled, setDiagnosticsEnabled] = React.useState(() =>
+        getAutoPaintDiagnosticsEnabled()
+    );
+    const [diagnosticsError, setDiagnosticsError] = React.useState('');
     const [updateStatus, setUpdateStatus] = React.useState<UpdateCheckStatus>('idle');
     const [availableUpdate, setAvailableUpdate] = React.useState<VersionInfo | null>(null);
     const [updateError, setUpdateError] = React.useState('');
     const settingsTitleId = React.useId();
     const updateStartupSwitchId = React.useId();
     const multiPlateSwitchId = React.useId();
+    const diagnosticsSwitchId = React.useId();
     const isDesktopApp = isDesktopUpdateSupported();
     const settingsButtonRef = React.useRef<HTMLButtonElement>(null);
     const settingsDialogRef = React.useRef<HTMLDivElement>(null);
@@ -151,11 +164,17 @@ export const Header: React.FC<Props> = ({ docsOpen, onBackToApp, onOpenDocs }) =
     }, []);
 
     React.useEffect(() => {
+        if (!isDesktopApp) return;
+        return subscribeToAutoPaintDiagnosticsEnabled(setDiagnosticsEnabled);
+    }, [isDesktopApp]);
+
+    React.useEffect(() => {
         if (settingsOpen) return;
 
         setUpdateStatus('idle');
         setAvailableUpdate(null);
         setUpdateError('');
+        setDiagnosticsError('');
     }, [settingsOpen]);
 
     const setTheme = (nextThemeMode: ThemeMode) => {
@@ -174,6 +193,21 @@ export const Header: React.FC<Props> = ({ docsOpen, onBackToApp, onOpenDocs }) =
         // Enabling plays a full-screen unlock flourish; close settings first so it
         // plays over the app rather than on top of the open dialog.
         if (enabled) setSettingsOpen(false);
+    };
+
+    const setDiagnostics = (enabled: boolean) => {
+        saveAutoPaintDiagnosticsEnabled(enabled);
+        setDiagnosticsEnabled(enabled);
+    };
+
+    const handleOpenDiagnosticsDirectory = async () => {
+        setDiagnosticsError('');
+        try {
+            await openAutoPaintDiagnosticsDirectory();
+        } catch (error) {
+            console.error('Failed to open the diagnostics directory:', error);
+            setDiagnosticsError('Could not open the diagnostics folder.');
+        }
     };
 
     const handleCheckForUpdates = async () => {
@@ -413,6 +447,69 @@ export const Header: React.FC<Props> = ({ docsOpen, onBackToApp, onOpenDocs }) =
                                 </div>
                             </div>
                         </section>
+
+                        {isDesktopApp && (
+                            <section className="mt-5 space-y-3 border-t border-border pt-5">
+                                <div>
+                                    <div className="text-sm font-medium text-foreground">
+                                        Diagnostics
+                                    </div>
+                                    <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                                        Capture reproducible Auto-paint decisions for investigation.
+                                    </p>
+                                </div>
+
+                                <div className="rounded-md border border-border bg-background p-3">
+                                    <div className="flex items-start justify-between gap-4">
+                                        <label
+                                            htmlFor={diagnosticsSwitchId}
+                                            className="min-w-0 cursor-pointer"
+                                        >
+                                            <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                                                <FileJson className="h-4 w-4 text-primary" />
+                                                Record Auto-paint diagnostics
+                                            </div>
+                                            <div className="mt-1 text-xs leading-5 text-muted-foreground">
+                                                Writes one flushed JSONL file for each new
+                                                Auto-paint calculation. Files include the active
+                                                filament profile, calibration evidence, candidates,
+                                                and final result and may be large.
+                                            </div>
+                                        </label>
+                                        <Switch
+                                            id={diagnosticsSwitchId}
+                                            checked={diagnosticsEnabled}
+                                            onCheckedChange={setDiagnostics}
+                                            aria-label="Record Auto-paint diagnostics"
+                                        />
+                                    </div>
+                                    <div className="mt-3 flex items-center justify-between gap-3 border-t border-border pt-3">
+                                        <span className="text-xs text-muted-foreground">
+                                            Applies to new calculations only.
+                                        </span>
+                                        <Button
+                                            type="button"
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={handleOpenDiagnosticsDirectory}
+                                        >
+                                            <FolderOpen className="h-4 w-4" />
+                                            Open folder
+                                        </Button>
+                                    </div>
+                                </div>
+
+                                {diagnosticsError && (
+                                    <div
+                                        role="alert"
+                                        className="flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-foreground"
+                                    >
+                                        <AlertCircle className="h-4 w-4 flex-shrink-0 text-destructive" />
+                                        {diagnosticsError}
+                                    </div>
+                                )}
+                            </section>
+                        )}
 
                         {isDesktopApp && (
                             <section className="mt-5 space-y-3 border-t border-border pt-5">

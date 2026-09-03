@@ -95,6 +95,8 @@ export interface AppearanceEffectiveFilamentOpticsV1 {
     filamentId: string;
     /** Existing wedge/swatch calibration retained as the regularizing prior. */
     priorHdChannels: readonly [number, number, number];
+    /** Conservative wedge/swatch fallback for unsupported Matrix transitions. */
+    fallbackHdChannels?: readonly [number, number, number];
     effectiveHdChannels: readonly [number, number, number];
     priorOpaqueColor: readonly [number, number, number];
     effectiveOpaqueColor: readonly [number, number, number];
@@ -109,11 +111,13 @@ export interface AppearanceSubstrateInteractionV1 {
     /** Multiplies the foreground RGB-channel HDs for this ordered material pair. */
     hdMultiplier: number;
     sampleCount: number;
+    /** Thickest contiguous foreground run directly observed for this pair. */
+    maxObservedThickness?: number;
 }
 
 export interface AppearanceEffectiveOpticsModelV1 {
     schemaVersion: 1;
-    modelVersion: 'matrix-effective-optics-v2';
+    modelVersion: 'matrix-effective-optics-v3';
     fingerprint: string;
     applied: boolean;
     gateReason: 'applied' | 'no-compatible-matrix' | 'insufficient-samples' | 'no-improvement';

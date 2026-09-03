@@ -4,7 +4,7 @@ import type {
     AppearanceEffectiveOpticsModelV1,
     AppearanceSubstrateInteractionV1,
 } from '../types/appearance';
-import { channelHds } from './calibration';
+import { channelHds, quickFrontlitChannelHds } from './calibration';
 import { deltaE2000 } from './colorDifference';
 import { linearChannelToSrgb, srgbChannelToLinear } from './colorSpace';
 import { fingerprintJson } from './fingerprint';
@@ -79,7 +79,7 @@ interface ForwardStep {
     exponent: number;
 }
 
-const MODEL_VERSION = 'matrix-effective-optics-v2' as const;
+const MODEL_VERSION = 'matrix-effective-optics-v3' as const;
 const MIN_FIT_SAMPLES = 16;
 const FIT_ITERATIONS = 220;
 const CROSS_VALIDATION_FOLDS = 4;
@@ -270,7 +270,7 @@ function buildModel(
     );
     return {
         schemaVersion: 1,
-        fingerprint: fingerprintJson('matrix-effective-optics-v2', payload),
+        fingerprint: fingerprintJson('matrix-effective-optics-v3', payload),
         ...payload,
     };
 }
@@ -287,9 +287,11 @@ export function createPriorEffectiveOpticsModel(
         .map((filament): AppearanceEffectiveFilamentOpticsV1 => {
             const color = parseHexColor(filament.color);
             const hds = channelHds(filament);
+            const fallbackHds = quickFrontlitChannelHds(filament);
             return {
                 filamentId: filament.id,
                 priorHdChannels: [hds[0], hds[1], hds[2]],
+                fallbackHdChannels: [fallbackHds[0], fallbackHds[1], fallbackHds[2]],
                 effectiveHdChannels: [hds[0], hds[1], hds[2]],
                 priorOpaqueColor: color,
                 effectiveOpaqueColor: color,
@@ -445,12 +447,24 @@ function fitInputs(input: EffectiveOpticsFitInput) {
             };
         })
         .filter((observation): observation is FitObservation => observation !== null);
+    const interactionMaxThickness = new Map<string, number>();
+    for (const observation of observations) {
+        for (const run of observation.runs) {
+            if (run.filamentId === run.substrateFilamentId) continue;
+            const key = interactionKey(run.filamentId, run.substrateFilamentId);
+            interactionMaxThickness.set(
+                key,
+                Math.max(interactionMaxThickness.get(key) ?? 0, run.thickness)
+            );
+        }
+    }
     return {
         filaments,
         validSamples,
         observations,
         interactionKeys,
         interactionSupport,
+        interactionMaxThickness,
         filamentSupport,
     };
 }
@@ -829,6 +843,10 @@ export function fitEffectiveOpticsFromMatrix(
         const hds = channelHds(filament);
         return [hds[0], hds[1], hds[2]] as const;
     });
+    const fallbackHds = prepared.filaments.map((filament) => {
+        const hds = quickFrontlitChannelHds(filament);
+        return [hds[0], hds[1], hds[2]] as const;
+    });
     const priorColors = prepared.filaments.map((filament) =>
         toLinear(parseHexColor(filament.color))
     );
@@ -935,6 +953,7 @@ export function fitEffectiveOpticsFromMatrix(
             return {
                 filamentId: filament.id,
                 priorHdChannels: priorHds[filamentIndex],
+                fallbackHdChannels: fallbackHds[filamentIndex],
                 effectiveHdChannels: effectiveHds,
                 priorOpaqueColor: priorColor,
                 effectiveOpaqueColor: effectiveColor,
@@ -955,6 +974,9 @@ export function fitEffectiveOpticsFromMatrix(
                     Math.exp(parameters[interactionParameter(layout, interactionIndex)])
                 ),
                 sampleCount: prepared.interactionSupport.get(key) ?? 0,
+                maxObservedThickness: roundModelValue(
+                    prepared.interactionMaxThickness.get(key) ?? 0
+                ),
             };
         }
     );
@@ -1021,6 +1043,25 @@ export function effectiveSubstrateHdMultiplier(
                 entry.foregroundFilamentId === foregroundFilamentId &&
                 entry.substrateFilamentId === substrateFilamentId
         )?.hdMultiplier ?? 1
+    );
+}
+
+export function effectiveOpticsSupportsTransition(
+    model: AppearanceEffectiveOpticsModelV1 | undefined,
+    foregroundFilamentId: string,
+    substrateFilamentId: string | undefined,
+    thickness: number
+): boolean {
+    if (!model?.applied || !substrateFilamentId || !(thickness > 0)) return false;
+    const interaction = model.substrateInteractions.find(
+        (entry) =>
+            entry.foregroundFilamentId === foregroundFilamentId &&
+            entry.substrateFilamentId === substrateFilamentId
+    );
+    return (
+        !!interaction &&
+        interaction.sampleCount > 0 &&
+        (interaction.maxObservedThickness ?? 0) + 1e-6 >= thickness
     );
 }
 
@@ -1092,13 +1133,24 @@ export function predictEffectiveRecipeColor(
     for (const run of runs) {
         const foreground = resolvedModelFilament(model, run.filamentId);
         if (!foreground) return undefined;
+        if (run.filamentId === substrateFilamentId) continue;
+        const supported = effectiveOpticsSupportsTransition(
+            model,
+            run.filamentId,
+            substrateFilamentId,
+            run.thickness
+        );
         current = blendEffectiveSrgb(
             current,
-            foreground.effectiveOpaqueColor,
-            foreground.effectiveHdChannels,
+            supported ? foreground.effectiveOpaqueColor : foreground.priorOpaqueColor,
+            supported
+                ? foreground.effectiveHdChannels
+                : (foreground.fallbackHdChannels ?? foreground.priorHdChannels),
             run.thickness,
-            foreground.transmissionExponent,
-            effectiveSubstrateHdMultiplier(model, run.filamentId, substrateFilamentId)
+            supported ? foreground.transmissionExponent : 1,
+            supported
+                ? effectiveSubstrateHdMultiplier(model, run.filamentId, substrateFilamentId)
+                : 1
         );
         substrateFilamentId = run.filamentId;
     }
@@ -1140,12 +1192,24 @@ export function effectiveSuffixTransmission(
         const filament = model?.filaments.find((entry) => entry.filamentId === run.filamentId);
         if (!filament) return 1;
         const substrate = runIndex > 0 ? runs[runIndex - 1].filamentId : undefined;
-        const interaction = effectiveSubstrateHdMultiplier(model, run.filamentId, substrate);
+        const supported = effectiveOpticsSupportsTransition(
+            model,
+            run.filamentId,
+            substrate,
+            run.thickness
+        );
+        const interaction = supported
+            ? effectiveSubstrateHdMultiplier(model, run.filamentId, substrate)
+            : 1;
+        const hds = supported
+            ? filament.effectiveHdChannels
+            : (filament.fallbackHdChannels ?? filament.priorHdChannels);
+        const exponent = supported ? filament.transmissionExponent : 1;
         for (let channel = 0; channel < 3; channel++) {
             transmission[channel] *= effectiveTransmission(
                 run.thickness,
-                filament.effectiveHdChannels[channel],
-                filament.transmissionExponent,
+                hds[channel],
+                exponent,
                 interaction
             );
         }

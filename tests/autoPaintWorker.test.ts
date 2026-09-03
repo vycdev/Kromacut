@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { isCurrentAutoPaintWorkerResponse } from '../src/hooks/useAutoPaintWorker.ts';
+import {
+    isCurrentAutoPaintWorkerResponse,
+    shouldRecordAutoPaintDiagnosticProgress,
+} from '../src/hooks/useAutoPaintWorker.ts';
 import {
     APPEARANCE_RENDERER_VERSION,
     createEmptyAppearanceProfile,
@@ -17,6 +20,15 @@ test('auto-paint worker ignores progress and result messages from stale requests
     assert.equal(isCurrentAutoPaintWorkerResponse(7, 7), true);
     assert.equal(isCurrentAutoPaintWorkerResponse(6, 7), false);
     assert.equal(isCurrentAutoPaintWorkerResponse(8, 7), false);
+});
+
+test('auto-paint diagnostic progress is sampled by time or meaningful completion increments', () => {
+    const last = { at: 10_000, progress: 0.4 };
+
+    assert.equal(shouldRecordAutoPaintDiagnosticProgress(last, 0.449, 14_999), false);
+    assert.equal(shouldRecordAutoPaintDiagnosticProgress(last, 0.45, 10_100), true);
+    assert.equal(shouldRecordAutoPaintDiagnosticProgress(last, 0.401, 15_000), true);
+    assert.equal(shouldRecordAutoPaintDiagnosticProgress(last, 1, 10_001), true);
 });
 
 test('appearance evidence worker transport preserves the sanitized profile exactly', () => {

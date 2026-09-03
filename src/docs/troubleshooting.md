@@ -47,6 +47,8 @@ Common causes:
 
 Calibrate your filaments and check **Result Confidence** for clues.
 
+For a result that needs deeper investigation in the desktop app, enable **Record Auto-paint diagnostics** in **Settings**, rebuild it, and use **Open folder** to locate the resulting `.jsonl` trace. Enable recording before the calculation starts.
+
 ## The 3D Build Is Slow
 
 Large images, many colors, many layers, and smooth meshing all increase build time. Try:

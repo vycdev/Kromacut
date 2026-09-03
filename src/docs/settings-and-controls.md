@@ -93,4 +93,14 @@ In the desktop app, Kromacut can show an update notice when a newer version is a
 
 Open **Settings** to check for updates manually. The desktop settings also include **Check on startup**, which controls whether Kromacut checks for updates when the app opens. This is enabled by default, and manual checks still work when it is off.
 
+## Desktop Auto-paint Diagnostics
+
+The desktop app can record structured information about new Auto-paint calculations. Open **Settings** and enable **Record Auto-paint diagnostics** before starting a calculation. The setting does not restart or record a result that was already computed.
+
+Each calculation creates a separate `.jsonl` file in Kromacut's Auto-paint diagnostics folder. Use **Open folder** beside the setting to find the files. Every line is a complete JSON event, so progress, errors, and cancellations remain readable even when a calculation does not finish.
+
+A completed trace includes basic runtime information, the active filament and calibration snapshot, build and optimizer settings, bounded progress samples, appearance-fit status, progressive repeat-tier decisions, final physical layers, every final printable color candidate, target-to-candidate Delta E comparisons, prediction confidence, and the measurements that contributed to interpolated or locally fitted colors. It records processed palette colors and weights, not the uploaded source image. Calibration and profile data can still be sensitive, so review a trace before sharing it publicly.
+
+Recording is intended for investigations and may create large files. Leave it disabled for ordinary printing when you do not need a trace.
+
 Next: [Troubleshooting](troubleshooting).
