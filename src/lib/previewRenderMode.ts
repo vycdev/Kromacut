@@ -13,6 +13,9 @@ type PreviewMaterial = THREE.Material & {
     wireframe: boolean;
 };
 
+type ColorMaterial = THREE.Material & { color: THREE.Color };
+type MeshMaterial = THREE.Material | THREE.Material[];
+
 interface PreviewMaterialBaseline {
     transparent: boolean;
     opacity: number;
@@ -25,6 +28,8 @@ interface PreviewMaterialBaseline {
 
 interface PreviewMeshBaseline {
     renderOrder: number;
+    material: MeshMaterial;
+    colorAccurateMaterial?: MeshMaterial;
 }
 
 export interface PreviewMaterialBaselines {
@@ -32,8 +37,111 @@ export interface PreviewMaterialBaselines {
     meshes: WeakMap<THREE.Mesh, PreviewMeshBaseline>;
 }
 
-function isPreviewMaterial(material: THREE.Material): material is PreviewMaterial {
-    return 'wireframe' in material && 'colorWrite' in material;
+function isPreviewMaterial(
+    material: THREE.Material | null | undefined
+): material is PreviewMaterial {
+    return !!material && 'wireframe' in material && 'colorWrite' in material;
+}
+
+function isColorMaterial(material: THREE.Material | null | undefined): material is ColorMaterial {
+    return (
+        !!material &&
+        'color' in material &&
+        (material as ColorMaterial).color instanceof THREE.Color
+    );
+}
+
+function createColorAccurateMaterial(material: THREE.Material): THREE.Material {
+    if (!isColorMaterial(material)) return material;
+
+    const source = material as ColorMaterial & {
+        map?: THREE.Texture | null;
+        vertexColors?: boolean;
+    };
+    const accurate = new THREE.MeshBasicMaterial({
+        color: source.color,
+        map: source.map ?? null,
+        vertexColors: source.vertexColors ?? false,
+        transparent: material.transparent,
+        opacity: material.opacity,
+        depthWrite: material.depthWrite,
+        depthTest: material.depthTest,
+        colorWrite: material.colorWrite,
+        side: material.side,
+        alphaTest: material.alphaTest,
+        blending: material.blending,
+        blendSrc: material.blendSrc,
+        blendDst: material.blendDst,
+        blendEquation: material.blendEquation,
+        premultipliedAlpha: material.premultipliedAlpha,
+        dithering: material.dithering,
+        toneMapped: false,
+    });
+    accurate.name = material.name;
+    accurate.visible = material.visible;
+    accurate.userData = { ...material.userData, kromacutColorAccurate: true };
+    return accurate;
+}
+
+function mapMeshMaterial(
+    material: MeshMaterial,
+    transform: (entry: THREE.Material) => THREE.Material
+): MeshMaterial {
+    return Array.isArray(material) ? material.map(transform) : transform(material);
+}
+
+function materialsMatch(left: MeshMaterial, right: MeshMaterial): boolean {
+    if (Array.isArray(left) !== Array.isArray(right)) return false;
+    if (!Array.isArray(left) || !Array.isArray(right)) return left === right;
+    return (
+        left.length === right.length && left.every((material, index) => material === right[index])
+    );
+}
+
+function syncMaterialColors(source: MeshMaterial, target: MeshMaterial): boolean {
+    const sourceMaterials = Array.isArray(source) ? source : [source];
+    const targetMaterials = Array.isArray(target) ? target : [target];
+    let changed = false;
+
+    for (let index = 0; index < Math.min(sourceMaterials.length, targetMaterials.length); index++) {
+        const sourceMaterial = sourceMaterials[index];
+        const targetMaterial = targetMaterials[index];
+        if (!isColorMaterial(sourceMaterial) || !isColorMaterial(targetMaterial)) continue;
+        if (targetMaterial.color.equals(sourceMaterial.color)) continue;
+        targetMaterial.color.copy(sourceMaterial.color);
+        changed = true;
+    }
+
+    return changed;
+}
+
+function applyColorAccurateMeshMaterial(
+    mesh: THREE.Mesh,
+    baseline: PreviewMeshBaseline,
+    enabled: boolean
+): boolean {
+    if (enabled) {
+        baseline.colorAccurateMaterial ??= mapMeshMaterial(
+            baseline.material,
+            createColorAccurateMaterial
+        );
+
+        if (materialsMatch(mesh.material, baseline.colorAccurateMaterial)) return false;
+        syncMaterialColors(baseline.material, baseline.colorAccurateMaterial);
+        mesh.material = baseline.colorAccurateMaterial;
+        return true;
+    }
+
+    if (
+        !baseline.colorAccurateMaterial ||
+        !materialsMatch(mesh.material, baseline.colorAccurateMaterial)
+    ) {
+        return false;
+    }
+
+    syncMaterialColors(baseline.colorAccurateMaterial, baseline.material);
+    mesh.material = baseline.material;
+    return true;
 }
 
 function readBaseline(material: PreviewMaterial): PreviewMaterialBaseline {
@@ -76,15 +184,13 @@ function renderStateForMode(
                 side: THREE.DoubleSide,
                 wireframe: false,
             };
+        case 'color-accurate':
         case 'shaded':
             return baseline;
     }
 }
 
-function applyRenderState(
-    material: PreviewMaterial,
-    next: PreviewMaterialBaseline
-): boolean {
+function applyRenderState(material: PreviewMaterial, next: PreviewMaterialBaseline): boolean {
     const changed =
         material.transparent !== next.transparent ||
         material.opacity !== next.opacity ||
@@ -115,11 +221,14 @@ function applyMeshRenderOrder(
 ): boolean {
     let baseline = baselines.meshes.get(mesh);
     if (!baseline) {
-        baseline = { renderOrder: mesh.renderOrder };
+        baseline = { renderOrder: mesh.renderOrder, material: mesh.material };
         baselines.meshes.set(mesh, baseline);
     }
 
-    const nextRenderOrder = mode === 'shaded' ? baseline.renderOrder : 1000 + inspectionOrder;
+    const nextRenderOrder =
+        mode === 'transparent' || mode === 'wireframe'
+            ? 1000 + inspectionOrder
+            : baseline.renderOrder;
     if (mesh.renderOrder === nextRenderOrder) return false;
 
     mesh.renderOrder = nextRenderOrder;
@@ -168,6 +277,15 @@ export function applyPreviewRenderMode(
 
     for (let inspectionOrder = 0; inspectionOrder < meshes.length; inspectionOrder++) {
         const { mesh } = meshes[inspectionOrder];
+        let meshBaseline = baselines.meshes.get(mesh);
+        if (!meshBaseline) {
+            meshBaseline = { renderOrder: mesh.renderOrder, material: mesh.material };
+            baselines.meshes.set(mesh, meshBaseline);
+        }
+
+        changed =
+            applyColorAccurateMeshMaterial(mesh, meshBaseline, mode === 'color-accurate') ||
+            changed;
         changed = applyMeshRenderOrder(mesh, mode, baselines, inspectionOrder) || changed;
 
         const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
@@ -180,8 +298,7 @@ export function applyPreviewRenderMode(
                 baselines.materials.set(material, baseline);
             }
 
-            changed =
-                applyRenderState(material, renderStateForMode(mode, baseline)) || changed;
+            changed = applyRenderState(material, renderStateForMode(mode, baseline)) || changed;
         }
     }
 

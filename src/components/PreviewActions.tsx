@@ -27,6 +27,7 @@ import {
     Brush,
     Eraser,
     PaintBucket,
+    Palette,
     Pipette,
     Type,
 } from 'lucide-react';
@@ -123,22 +124,31 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
     const [draftColor, setDraftColor] = React.useState(touchUpColor);
     const shownTouchUpColor = colorPopoverOpen ? draftColor : touchUpColor;
     const PreviewModeIcon =
-        previewRenderMode === 'wireframe'
-            ? Grid3x3
-            : previewRenderMode === 'transparent'
-              ? Eye
-              : Box;
+        previewRenderMode === 'color-accurate'
+            ? Palette
+            : previewRenderMode === 'wireframe'
+              ? Grid3x3
+              : previewRenderMode === 'transparent'
+                ? Eye
+                : Box;
     const previewRenderModeLabel =
-        previewRenderMode === 'wireframe'
-            ? 'Wireframe'
-            : previewRenderMode === 'transparent'
-              ? 'Transparent'
-              : 'Shaded';
+        previewRenderMode === 'color-accurate'
+            ? 'Color accurate'
+            : previewRenderMode === 'wireframe'
+              ? 'Wireframe'
+              : previewRenderMode === 'transparent'
+                ? 'Transparent'
+                : 'Shaded';
     const previewModeOptions: Array<{
         value: PreviewRenderMode;
         label: string;
         icon: React.ReactNode;
     }> = [
+        {
+            value: 'color-accurate',
+            label: 'Color accurate',
+            icon: <Palette className="w-4 h-4" />,
+        },
         { value: 'shaded', label: 'Shaded', icon: <Box className="w-4 h-4" /> },
         { value: 'transparent', label: 'Transparent', icon: <Eye className="w-4 h-4" /> },
         { value: 'wireframe', label: 'Wireframe', icon: <Grid3x3 className="w-4 h-4" /> },

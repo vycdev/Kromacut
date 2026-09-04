@@ -21,7 +21,7 @@ export const AUTO_PAINT_TRANSITION_OPACITIES = [0.8, 0.9, 0.95] as const;
 export type AutoPaintTransitionOpacity = (typeof AUTO_PAINT_TRANSITION_OPACITIES)[number];
 
 /** Visual inspection style for the 3D preview. Never changes the printable model. */
-export type PreviewRenderMode = 'shaded' | 'transparent' | 'wireframe';
+export type PreviewRenderMode = 'color-accurate' | 'shaded' | 'transparent' | 'wireframe';
 
 /**
  * Auto-paint 3D preview color source: the estimated blended appearance, or the

@@ -3,7 +3,12 @@ import type { PreviewColorMode, PreviewRenderMode } from '../types';
 export const PREVIEW_RENDER_MODE_STORAGE_KEY = 'kromacut:3d-preview-mode';
 
 export function isPreviewRenderMode(value: unknown): value is PreviewRenderMode {
-    return value === 'shaded' || value === 'transparent' || value === 'wireframe';
+    return (
+        value === 'color-accurate' ||
+        value === 'shaded' ||
+        value === 'transparent' ||
+        value === 'wireframe'
+    );
 }
 
 export function loadPreviewRenderMode(): PreviewRenderMode {

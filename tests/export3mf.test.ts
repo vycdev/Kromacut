@@ -1416,6 +1416,7 @@ test('preview inspection modes leave STL and 3MF export data unchanged', async (
     const baselines = createPreviewMaterialBaselines();
 
     const previewModes = [
+        { label: 'color accurate', mode: 'color-accurate' },
         { label: 'transparent', mode: 'transparent' },
         { label: 'wireframe overlay', mode: 'wireframe' },
         { label: 'shaded', mode: 'shaded' },

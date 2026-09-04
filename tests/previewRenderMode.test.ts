@@ -6,6 +6,7 @@ import {
     createPreviewMaterialBaselines,
     TRANSPARENT_PREVIEW_OPACITY,
 } from '../src/lib/previewRenderMode.ts';
+import { applyPreviewColorMode } from '../src/lib/previewColorMode.ts';
 
 function createPreviewRoot() {
     const root = new THREE.Group();
@@ -80,6 +81,57 @@ test('preview render modes preserve material colors, geometry, visibility, and s
     assert.equal(normalMesh.renderOrder, 0);
     assert.equal(carrierMesh.renderOrder, 0);
     assert.equal(applyPreviewRenderMode(root, 'shaded', baselines), false);
+});
+
+test('color-accurate mode uses unlit, non-tone-mapped colors and restores the shaded material', () => {
+    const { root, normal, normalMesh } = createPreviewRoot();
+    const baselines = createPreviewMaterialBaselines();
+
+    assert.equal(applyPreviewRenderMode(root, 'color-accurate', baselines), true);
+    const accurate = normalMesh.material;
+    assert.ok(accurate instanceof THREE.MeshBasicMaterial);
+    assert.notEqual(accurate, normal);
+    assert.equal(accurate.toneMapped, false);
+    assert.equal(accurate.color.getHexString(), '2266aa');
+    assert.equal(normal.color.getHexString(), '2266aa');
+    assert.equal(normalMesh.renderOrder, 0);
+
+    assert.equal(applyPreviewRenderMode(root, 'color-accurate', baselines), false);
+    assert.equal(applyPreviewRenderMode(root, 'shaded', baselines), true);
+    assert.equal(normalMesh.material, normal);
+    assert.equal(normal.color.getHexString(), '2266aa');
+});
+
+test('color source changes made in color-accurate mode carry back to shaded mode', () => {
+    const root = new THREE.Group();
+    const material = new THREE.MeshStandardMaterial({ color: '#3050c0' });
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), material);
+    mesh.userData.kromacutPreviewVirtualHex = '#3050c0';
+    mesh.userData.kromacutPreviewFilamentHex = '#ff8800';
+    root.add(mesh);
+    const baselines = createPreviewMaterialBaselines();
+
+    applyPreviewRenderMode(root, 'color-accurate', baselines);
+    applyPreviewColorMode(root, 'physical');
+    assert.equal(
+        (mesh.material as unknown as THREE.MeshBasicMaterial).color.getHexString(),
+        'ff8800'
+    );
+    assert.equal(material.color.getHexString(), '3050c0');
+
+    applyPreviewRenderMode(root, 'shaded', baselines);
+    assert.equal(mesh.material, material);
+    assert.equal(material.color.getHexString(), 'ff8800');
+});
+
+test('inspection modes tolerate a transient mesh without a material', () => {
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1));
+    (mesh as unknown as { material: THREE.Material | undefined }).material = undefined;
+    const root = new THREE.Group().add(mesh);
+    const baselines = createPreviewMaterialBaselines();
+
+    assert.doesNotThrow(() => applyPreviewRenderMode(root, 'color-accurate', baselines));
+    assert.doesNotThrow(() => applyPreviewRenderMode(root, 'shaded', baselines));
 });
 
 test('inspection ordering remains unique for meshes at the same physical height', () => {

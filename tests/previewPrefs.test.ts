@@ -37,7 +37,7 @@ test('preview render mode defaults to shaded', () => {
     assert.equal(loadPreviewRenderMode(), 'shaded');
 });
 
-for (const mode of ['shaded', 'transparent', 'wireframe'] as const) {
+for (const mode of ['color-accurate', 'shaded', 'transparent', 'wireframe'] as const) {
     test(`preview render mode persists ${mode}`, () => {
         mockLocalStorage.clear();
         savePreviewRenderMode(mode);
@@ -50,6 +50,7 @@ test('invalid preview render modes fall back to shaded', () => {
     mockLocalStorage.clear();
     mockLocalStorage.setItem(PREVIEW_RENDER_MODE_STORAGE_KEY, 'overlay');
     assert.equal(loadPreviewRenderMode(), 'shaded');
+    assert.equal(isPreviewRenderMode('color-accurate'), true);
     assert.equal(isPreviewRenderMode('wireframe'), true);
     assert.equal(isPreviewRenderMode('overlay'), false);
 });
