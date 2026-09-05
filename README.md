@@ -359,7 +359,7 @@ See [TAURI.md](docs/TAURI.md) for complete documentation on development, buildin
 
 ## Star History
 
-[![Star History Chart](https://star-history.dera.page/svg?repos=vycdev/kromacut&type=date&legend=top-left)](https://star-history.dera.page/#vycdev/kromacut&type=date&legend=top-left)
+[![Star History Chart](https://api.star-history.com/svg?repos=vycdev/kromacut&type=date&legend=top-left)](https://www.star-history.com/#vycdev/kromacut&type=date&legend=top-left)
 
 ## Contributing
 
