@@ -86,6 +86,8 @@ interface FilamentCalibrationDialogProps {
     open: boolean;
     onClose: () => void;
     filaments: Filament[];
+    // New matrices follow the live 3D print grid, not the independent wedge defaults.
+    printLayerHeight: number;
     layerHeight: number;
     firstLayerHeight: number;
     paletteProofSnapshot?: FinalPrintableStackSnapshot;
@@ -189,6 +191,7 @@ export function FilamentCalibrationDialog({
     open,
     onClose,
     filaments,
+    printLayerHeight,
     layerHeight,
     firstLayerHeight,
     paletteProofSnapshot,
@@ -1376,7 +1379,7 @@ export function FilamentCalibrationDialog({
             </AlertDialogHeader>
             <StackMatrixCalibrationPanel
                 filaments={filaments}
-                layerHeight={layerHeight}
+                layerHeight={printLayerHeight}
                 firstLayerHeight={firstLayerHeight}
                 profile={paletteProofProfile}
                 profileDirty={paletteProofProfileDirty}

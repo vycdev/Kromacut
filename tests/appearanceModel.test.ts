@@ -377,10 +377,7 @@ test('every prediction reports ordered exact, interpolated, fitted, or simulated
     const foundationLayers = [
         { filamentId: 'foundation', filamentColor: '#ffffff', thickness: 0.4 },
     ];
-    const matrixLayers = (ids: readonly string[]) => [
-        ...foundationLayers,
-        ...layers(ids),
-    ];
+    const matrixLayers = (ids: readonly string[]) => [...foundationLayers, ...layers(ids)];
     const empiricalLut = {
         id: 'empirical-confidence',
         sourceMatrixId: 'matrix-confidence',
@@ -568,7 +565,7 @@ test('match quality participates in deterministic absolute color anchoring', asy
         context
     );
 
-    assert.equal(bestAvailable.modelVersion, 'lab-rank-local-v9');
+    assert.equal(bestAvailable.modelVersion, 'lab-rank-local-v10');
     assert.equal(bestAvailable.applied, true);
     assert.equal(close.applied, true);
     assert.equal(exact.applied, true);

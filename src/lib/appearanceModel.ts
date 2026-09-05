@@ -34,7 +34,10 @@ import {
     predictEffectiveAutoPaintColor,
     predictEffectiveRecipeColor,
     minimumOpaqueFoundationThickness,
+    resolveEffectiveTransitionOptics,
+    effectiveTransitionTransmissionRatio,
 } from './effectiveOptics';
+import { linearChannelToSrgb, srgbChannelToLinear } from './colorSpace';
 import { BoundedCache } from './boundedCache';
 import { fingerprintJson } from './fingerprint';
 
@@ -61,7 +64,7 @@ interface RankObservation {
     matchQuality: PaletteTargetMatchQuality;
 }
 
-const MODEL_VERSION = 'lab-rank-local-v9' as const;
+const MODEL_VERSION = 'lab-rank-local-v10' as const;
 const SOFTMAX_TEMPERATURE = 5;
 const TIE_LOGIT_PENALTY = 0.5;
 const EXACT_MATCH_SIGMA = 2;
@@ -79,6 +82,7 @@ const EMPIRICAL_MAX_RECIPE_DISTANCE = 0.6;
 const EMPIRICAL_MIN_COVERAGE_RADIUS = 5;
 const EMPIRICAL_MAX_COVERAGE_RADIUS = 30;
 const EMPIRICAL_MAX_SUBSTRATE_DELTA_E = 1;
+const EMPIRICAL_TRANSFER_CONFIDENCE_SCALE = 0.65;
 const MATRIX_RECENCY_HALF_LIFE_DAYS = 365;
 const MATRIX_AGREEMENT_SCALE_DELTA_E = 10;
 const LOCAL_RECIPE_LAYER_DEPTH = 8;
@@ -122,7 +126,7 @@ export function createIdentityAppearanceRankModel(
     return {
         schemaVersion: 1,
         modelVersion: MODEL_VERSION,
-        fingerprint: fingerprintJson('appearance-rank-model-v10', payload),
+        fingerprint: fingerprintJson('appearance-rank-model-v12', payload),
         contextFingerprint,
         applied: false,
         gateReason: 'insufficient-evidence',
@@ -187,7 +191,8 @@ function sameMatrixProcess(
     );
 }
 
-function compatibleStackMatrices(
+/** Shared by runtime fitting and offline validation so evidence eligibility cannot drift. */
+export function compatibleStackMatrices(
     appearance: AppearanceProfileV1 | undefined,
     context: AppearanceFitContext
 ): StackMatrixCalibrationV1[] {
@@ -1308,7 +1313,7 @@ export function fitAppearanceRankModel(
     return {
         schemaVersion: 1,
         modelVersion: MODEL_VERSION,
-        fingerprint: fingerprintJson('appearance-rank-model-v10', fingerprintPayload),
+        fingerprint: fingerprintJson('appearance-rank-model-v12', fingerprintPayload),
         contextFingerprint,
         applied,
         gateReason,
@@ -2206,12 +2211,261 @@ export interface EmpiricalLutMatch {
     evidenceSampleCount: number;
     /** Present only when explicitly requested for a diagnostic explanation. */
     contributions?: readonly AppearancePredictionContribution[];
+    /** Estimated use of a measured recipe, never an exact final-surface measurement. */
+    transfers?: readonly {
+        lutId: string;
+        mode: 'substrate' | 'same-material-continuation';
+        sourceHeightMm: number;
+        extraThicknessMm: number;
+        substrateDeltaE?: number;
+        outputDeltaE?: number;
+        foundationBasis?: 'fitted' | 'saved-prior';
+        foundationThicknessMm?: number;
+        requiredFoundationThicknessMm?: number;
+    }[];
 }
 
 interface EmpiricalResolution {
     lab: Lab;
     match: EmpiricalLutMatch;
     exactAnchorIds?: readonly string[];
+}
+
+function totalLayerThickness(layers: readonly AppearanceAnchorLayer[]): number {
+    return layers.reduce((sum, layer) => sum + layer.thickness, 0);
+}
+
+const opticsSwatchCache = new WeakMap<
+    AppearanceEffectiveOpticsModelV1,
+    ReadonlyMap<string, string>
+>();
+
+function layersMatchOpticsMaterials(
+    optics: AppearanceEffectiveOpticsModelV1,
+    layers: readonly AppearanceAnchorLayer[]
+): boolean {
+    let swatches = opticsSwatchCache.get(optics);
+    if (!swatches) {
+        swatches = new Map(
+            optics.filaments.map((filament) => [
+                filament.filamentId,
+                `#${filament.priorOpaqueColor
+                    .map((channel) => Math.round(channel).toString(16).padStart(2, '0'))
+                    .join('')}`,
+            ])
+        );
+        opticsSwatchCache.set(optics, swatches);
+    }
+    return layers.every(
+        (layer) =>
+            Number.isFinite(layer.thickness) &&
+            layer.thickness > 0 &&
+            swatches.get(layer.filamentId) === layer.filamentColor.toLowerCase()
+    );
+}
+
+/** Transport a measured residual in the same linear-light space as physical optics. */
+function transportMeasuredResidual(
+    base: Rgb,
+    reference: Rgb,
+    measured: Rgb,
+    transmission: readonly [number, number, number] = [1, 1, 1],
+    support = 1,
+    fallback: Rgb = base
+): Lab {
+    return rgbToLab(
+        base.map((channel, index) =>
+            linearChannelToSrgb(
+                srgbChannelToLinear(fallback[index]) +
+                    (srgbChannelToLinear(channel) -
+                        srgbChannelToLinear(fallback[index]) +
+                        (srgbChannelToLinear(measured[index]) -
+                            srgbChannelToLinear(reference[index])) *
+                            transmission[index]) *
+                        support
+            )
+        ) as Rgb
+    );
+}
+
+/**
+ * A narrowly scoped inference for an identical photographed recipe. This does
+ * not establish physical substrate equivalence: it only says that the current
+ * optics predict a <=1 DeltaE final difference after that particular recipe.
+ * Keep the ordinary substrate gate intact for all recipe interpolation.
+ */
+function estimatedEmpiricalSubstrateTransfer(
+    lut: AppearanceEmpiricalLutV1,
+    sample: AppearanceEmpiricalLutSampleV1,
+    model: AppearanceRankModelV1,
+    prefixLayers: readonly AppearanceAnchorLayer[]
+):
+    | {
+          lab: Lab;
+          substrateDeltaE: number;
+          outputDeltaE: number;
+          foundationBasis: 'fitted' | 'saved-prior';
+          foundationThicknessMm: number;
+          requiredFoundationThicknessMm: number;
+      }
+    | undefined {
+    const optics = model.effectiveOptics;
+    if (!optics || lut.foundationLayers.length === 0) return undefined;
+    if (!layersMatchOpticsMaterials(optics, prefixLayers)) return undefined;
+    const substrate = prefixLayers.slice(0, -lut.stackLayerCount);
+    const first = substrate[0];
+    const top = substrate.at(-1);
+    const backingColor = lut.foundationLayers[0].filamentColor.toLowerCase();
+    if (
+        !first ||
+        !top ||
+        top.filamentId !== lut.backingFilamentId ||
+        top.filamentColor.toLowerCase() !== backingColor ||
+        lut.foundationLayers.some(
+            (layer) =>
+                layer.filamentId !== lut.backingFilamentId ||
+                layer.filamentColor.toLowerCase() !== backingColor ||
+                !Number.isFinite(layer.thickness) ||
+                layer.thickness <= 0
+        ) ||
+        totalLayerThickness(lut.foundationLayers) + 1e-8 <
+            minimumOpaqueFoundationThickness(optics, lut.backingFilamentId)
+    ) {
+        return undefined;
+    }
+    let foundationThickness = 0;
+    for (const layer of substrate) {
+        if (layer.filamentId !== first.filamentId) break;
+        if (layer.filamentColor.toLowerCase() !== first.filamentColor.toLowerCase()) {
+            return undefined;
+        }
+        foundationThickness += layer.thickness;
+    }
+    const fittedFloor = minimumOpaqueFoundationThickness(optics, first.filamentId);
+    const foundationFilament = optics.filaments.find(
+        (filament) => filament.filamentId === first.filamentId
+    );
+    if (!foundationFilament) return undefined;
+    // The saved wedge/swatch prior is independent of the runtime Matrix fit.
+    // A refit must not erase that retained physical boundary for a previously
+    // printed foundation. This alternative authorizes an estimated identical-
+    // recipe transfer only; ordinary exact/interpolation gates stay unchanged.
+    const priorFloor = Math.max(...foundationFilament.priorHdChannels) * Math.log10(20);
+    const fittedSupported = optics.applied && foundationThickness + 1e-8 >= fittedFloor;
+    if (!fittedSupported && foundationThickness + 1e-8 < priorFloor) return undefined;
+    if (!Number.isFinite(priorFloor) || priorFloor <= 0) return undefined;
+    const foundationBasis = fittedSupported ? 'fitted' : 'saved-prior';
+    const recipe = prefixLayers.slice(-lut.stackLayerCount);
+    const reference = predictEffectiveRecipeColor(optics, lut.backingFilamentId, recipe);
+    const actual = predictEffectiveAutoPaintColor(optics, prefixLayers);
+    const measuredSubstrate = predictEffectiveRecipeColor(optics, lut.backingFilamentId, []);
+    const actualSubstrate = predictEffectiveAutoPaintColor(optics, substrate);
+    if (!reference || !actual || !measuredSubstrate || !actualSubstrate) return undefined;
+    if (
+        ![...reference, ...actual, ...measuredSubstrate, ...actualSubstrate].every(Number.isFinite)
+    ) {
+        return undefined;
+    }
+    const outputDeltaE = deltaE2000Lab(rgbToLab(reference), rgbToLab(actual));
+    if (outputDeltaE > EMPIRICAL_MAX_SUBSTRATE_DELTA_E) return undefined;
+    return {
+        lab: transportMeasuredResidual(
+            actual,
+            reference,
+            labToRgb(
+                { L: sample.measuredLab[0], a: sample.measuredLab[1], b: sample.measuredLab[2] },
+                false
+            )
+        ),
+        substrateDeltaE: deltaE2000Lab(rgbToLab(measuredSubstrate), rgbToLab(actualSubstrate)),
+        outputDeltaE,
+        foundationBasis,
+        foundationThicknessMm: foundationThickness,
+        requiredFoundationThicknessMm: fittedSupported ? fittedFloor : priorFloor,
+    };
+}
+
+/** Resolve a literal fixed-depth photographed recipe, with no recipe interpolation. */
+function resolveExactEmpiricalRecipe(
+    base: Lab,
+    lut: AppearanceEmpiricalLutV1,
+    sample: AppearanceEmpiricalLutSampleV1,
+    model: AppearanceRankModelV1,
+    prefixLayers: readonly AppearanceAnchorLayer[],
+    substrateMatchCache?: EmpiricalSubstrateMatchCache,
+    includeContributions = false
+): EmpiricalResolution | undefined {
+    if (!empiricalExactSampleMatches(lut, sample, model, prefixLayers)) return undefined;
+    const strict = cachedEmpiricalLutSubstrateMatch(lut, model, prefixLayers, substrateMatchCache);
+    const transfer = strict
+        ? undefined
+        : estimatedEmpiricalSubstrateTransfer(lut, sample, model, prefixLayers);
+    if (!strict && !transfer) return undefined;
+    const sampleBase = {
+        L: sample.predictedLab[0],
+        a: sample.predictedLab[1],
+        b: sample.predictedLab[2],
+    };
+    const nearestPredictedDistance = labTupleDistance(
+        [base.L, base.a, base.b],
+        sample.predictedLab
+    );
+    return {
+        lab: transfer?.lab ?? {
+            L: sample.measuredLab[0],
+            a: sample.measuredLab[1],
+            b: sample.measuredLab[2],
+        },
+        match: {
+            kind: strict ? 'exact' : 'interpolated',
+            lutId: lut.id,
+            lutIds: [lut.id],
+            sampleIds: [sample.id],
+            confidence: sample.confidence * (strict ? 1 : EMPIRICAL_TRANSFER_CONFIDENCE_SCALE),
+            nearestPredictedDistance,
+            nearestMeasuredDeltaE: deltaE2000Lab(base, sampleBase),
+            nearestRecipeDistance: 0,
+            agreement: lut.agreementWeight,
+            crossValidationDeltaE:
+                sample.crossValidationDeltaE ??
+                lut.crossValidationMeanDeltaE ??
+                model.effectiveOptics?.crossValidationMeanDeltaE ??
+                20,
+            evidenceSampleCount: 1,
+            ...(transfer
+                ? {
+                      transfers: [
+                          {
+                              lutId: lut.id,
+                              mode: 'substrate' as const,
+                              sourceHeightMm: totalLayerThickness(prefixLayers),
+                              extraThicknessMm: 0,
+                              substrateDeltaE: transfer.substrateDeltaE,
+                              outputDeltaE: transfer.outputDeltaE,
+                              foundationBasis: transfer.foundationBasis,
+                              foundationThicknessMm: transfer.foundationThicknessMm,
+                              requiredFoundationThicknessMm: transfer.requiredFoundationThicknessMm,
+                          },
+                      ],
+                  }
+                : {}),
+            ...(includeContributions
+                ? {
+                      contributions: [
+                          {
+                              id: sample.id,
+                              sourceId: lut.id,
+                              weight: 1,
+                              colorDistance: nearestPredictedDistance,
+                              recipeDistance: 0,
+                              confidence: sample.confidence,
+                          },
+                      ],
+                  }
+                : {}),
+        },
+        ...(strict ? { exactAnchorIds: [sample.exactAnchorId] } : {}),
+    };
 }
 
 interface NearestMeasuredEvidence {
@@ -2444,59 +2698,22 @@ function resolveEmpiricalLut(
     for (const lut of model.empiricalLuts ?? []) {
         const recipe = recipeWindow(lut, prefixLayers);
         if (!recipe) continue;
-        if (!cachedEmpiricalLutSubstrateMatch(lut, model, prefixLayers, substrateMatchCache)) {
-            continue;
-        }
         const index = empiricalLutIndex(lut);
         const exact = index.exactByRecipe.get(recipeKey(recipe));
         if (exact) {
-            if (!empiricalExactSampleMatches(lut, exact, model, prefixLayers)) continue;
-            resolutions.push({
-                lab: {
-                    L: exact.measuredLab[0],
-                    a: exact.measuredLab[1],
-                    b: exact.measuredLab[2],
-                },
-                match: {
-                    kind: 'exact',
-                    lutId: lut.id,
-                    lutIds: [lut.id],
-                    sampleIds: [exact.id],
-                    confidence: exact.confidence,
-                    nearestPredictedDistance: labTupleDistance(baseTuple, exact.predictedLab),
-                    nearestMeasuredDeltaE: deltaE2000Lab(base, {
-                        L: exact.predictedLab[0],
-                        a: exact.predictedLab[1],
-                        b: exact.predictedLab[2],
-                    }),
-                    nearestRecipeDistance: 0,
-                    agreement: lut.agreementWeight,
-                    crossValidationDeltaE:
-                        exact.crossValidationDeltaE ??
-                        lut.crossValidationMeanDeltaE ??
-                        model.effectiveOptics?.crossValidationMeanDeltaE ??
-                        20,
-                    evidenceSampleCount: 1,
-                    ...(includeContributions
-                        ? {
-                              contributions: [
-                                  {
-                                      id: exact.id,
-                                      sourceId: lut.id,
-                                      weight: 1,
-                                      colorDistance: labTupleDistance(
-                                          baseTuple,
-                                          exact.predictedLab
-                                      ),
-                                      recipeDistance: 0,
-                                      confidence: exact.confidence,
-                                  },
-                              ],
-                          }
-                        : {}),
-                },
-                exactAnchorIds: [exact.exactAnchorId],
-            });
+            const resolution = resolveExactEmpiricalRecipe(
+                base,
+                lut,
+                exact,
+                model,
+                prefixLayers,
+                substrateMatchCache,
+                includeContributions
+            );
+            if (resolution) resolutions.push(resolution);
+            continue;
+        }
+        if (!cachedEmpiricalLutSubstrateMatch(lut, model, prefixLayers, substrateMatchCache)) {
             continue;
         }
 
@@ -2615,6 +2832,13 @@ function resolveEmpiricalLut(
         });
     }
 
+    return combineEmpiricalResolutions(resolutions, includeContributions);
+}
+
+function combineEmpiricalResolutions(
+    resolutions: readonly EmpiricalResolution[],
+    includeContributions: boolean
+): EmpiricalResolution | undefined {
     const exact = resolutions.filter((resolution) => resolution.match.kind === 'exact');
     const contributors = (exact.length > 0 ? exact : resolutions)
         .filter((resolution) => resolution.match.confidence > 0)
@@ -2639,11 +2863,14 @@ function resolveEmpiricalLut(
         b += contributor.lab.b * weight;
     }
     const blended = rgbToLab(
-        labToRgb({
-            L: lightness / totalWeight,
-            a: a / totalWeight,
-            b: b / totalWeight,
-        })
+        labToRgb(
+            {
+                L: lightness / totalWeight,
+                a: a / totalWeight,
+                b: b / totalWeight,
+            },
+            false
+        )
     );
     const contributorDisagreement =
         contributors.reduce(
@@ -2699,6 +2926,13 @@ function resolveEmpiricalLut(
                 contributors.flatMap((contributor) => contributor.match.sampleIds)
             ).size,
             ...(combinedContributions ? { contributions: combinedContributions } : {}),
+            ...(contributors.some((contributor) => contributor.match.transfers?.length)
+                ? {
+                      transfers: contributors.flatMap(
+                          (contributor) => contributor.match.transfers ?? []
+                      ),
+                  }
+                : {}),
         },
         ...(exact.length > 0
             ? {
@@ -2718,6 +2952,139 @@ export interface ResolvedAppearancePrediction {
     exactAnchor?: AppearanceExactAnchorV1;
     empiricalMatch?: EmpiricalLutMatch;
     localMatch?: AppearanceLocalMatch;
+}
+
+/**
+ * Continue a photographed prefix only through more of its terminal material.
+ * Search at most one LUT recipe depth back, use the nearest supported prefix
+ * from each board, and never pull evidence backward from a later photograph.
+ * No recursive appearance resolution or nearest-neighbor scans occur here.
+ */
+function resolveMeasuredPrefixContinuation(
+    base: Lab,
+    model: AppearanceRankModelV1,
+    prefixLayers: readonly AppearanceAnchorLayer[],
+    includeContributions: boolean
+): EmpiricalResolution | undefined {
+    const optics = model.effectiveOptics;
+    const top = prefixLayers.at(-1);
+    if (!optics || !top || model.empiricalLuts.length === 0) return undefined;
+    if (!layersMatchOpticsMaterials(optics, prefixLayers)) return undefined;
+    let runStart = prefixLayers.length - 1;
+    while (
+        runStart > 0 &&
+        prefixLayers[runStart - 1].filamentId === top.filamentId &&
+        prefixLayers[runStart - 1].filamentColor.toLowerCase() === top.filamentColor.toLowerCase()
+    ) {
+        runStart--;
+    }
+    // A foundation is not a transmissive run, and a different next material is
+    // outside this deliberately local continuation rule.
+    if (runStart === 0 || runStart === prefixLayers.length - 1) return undefined;
+    const transition = resolveEffectiveTransitionOptics(
+        optics,
+        top.filamentId,
+        prefixLayers[runStart - 1].filamentId
+    );
+    if (!transition) return undefined;
+    const terminalThickness = totalLayerThickness(prefixLayers.slice(runStart));
+    let actual: Rgb | undefined;
+    let fallback: Rgb | undefined;
+    const resolutions: EmpiricalResolution[] = [];
+    for (const lut of model.empiricalLuts) {
+        const maximumExtra = lut.layerHeight * lut.stackLayerCount;
+        if (!Number.isFinite(maximumExtra) || maximumExtra <= 0) continue;
+        let extraThickness = 0;
+        for (let end = prefixLayers.length - 1; end > runStart; end--) {
+            extraThickness += prefixLayers[end].thickness;
+            if (extraThickness >= maximumExtra - 1e-10) break;
+            const sourceLayers = prefixLayers.slice(0, end);
+            const recipe = recipeWindow(lut, sourceLayers);
+            if (!recipe) continue;
+            const sample = empiricalLutIndex(lut).exactByRecipe.get(recipeKey(recipe));
+            if (!sample) continue;
+            const sourceRgb = predictEffectiveAutoPaintColor(optics, sourceLayers);
+            if (!sourceRgb || !sourceRgb.every(Number.isFinite)) continue;
+            const source = resolveExactEmpiricalRecipe(
+                rgbToLab(sourceRgb),
+                lut,
+                sample,
+                model,
+                sourceLayers,
+                undefined,
+                includeContributions
+            );
+            if (!source) continue;
+            // A corrected or explicitly judged source surface no longer
+            // authorizes carrying the untouched Matrix value forward.
+            if (
+                matchingExactAnchors(model, sourceLayers).some(
+                    (anchor) => anchor.source === 'palette-proof'
+                ) ||
+                (resolveLocalEvidence(rgbToLab(sourceRgb), source.lab, model, sourceLayers, false)
+                    ?.match.correctionStrength ?? 0) > 0
+            ) {
+                continue;
+            }
+            const sourceThickness = terminalThickness - extraThickness;
+            const transmission = effectiveTransitionTransmissionRatio(
+                transition,
+                sourceThickness,
+                terminalThickness
+            );
+            if (!transmission) continue;
+            actual ??= predictEffectiveAutoPaintColor(optics, prefixLayers);
+            if (!actual || !actual.every(Number.isFinite)) return undefined;
+            fallback ??= labToRgb(
+                model.applied ? transformLab(base, model.deltaL, model.logChromaScale) : base,
+                false
+            );
+            const progress = extraThickness / maximumExtra;
+            const support = 1 - progress * progress * (3 - 2 * progress);
+            const lab = transportMeasuredResidual(
+                actual,
+                sourceRgb,
+                labToRgb(source.lab, false),
+                transmission,
+                support,
+                fallback
+            );
+            resolutions.push({
+                lab,
+                match: {
+                    ...source.match,
+                    kind: 'interpolated',
+                    confidence:
+                        source.match.confidence * EMPIRICAL_TRANSFER_CONFIDENCE_SCALE * support,
+                    nearestPredictedDistance: labTupleDistance(
+                        [base.L, base.a, base.b],
+                        sample.predictedLab
+                    ),
+                    nearestMeasuredDeltaE: deltaE2000Lab(base, rgbToLab(sourceRgb)),
+                    nearestRecipeDistance: progress,
+                    transfers: [
+                        ...(source.match.transfers ?? []),
+                        {
+                            lutId: lut.id,
+                            mode: 'same-material-continuation',
+                            sourceHeightMm: totalLayerThickness(sourceLayers),
+                            extraThicknessMm: extraThickness,
+                        },
+                    ],
+                    ...(source.match.contributions
+                        ? {
+                              contributions: source.match.contributions.map((entry) => ({
+                                  ...entry,
+                                  recipeDistance: progress,
+                              })),
+                          }
+                        : {}),
+                },
+            });
+            break;
+        }
+    }
+    return combineEmpiricalResolutions(resolutions, includeContributions);
 }
 
 export interface AppearancePredictionResolutionOptions {
@@ -2755,7 +3122,7 @@ export function resolveAppearanceRankModel(
     const substrateMatchCache: EmpiricalSubstrateMatchCache | undefined = prefixLayers
         ? new Map()
         : undefined;
-    const empirical = prefixLayers
+    const directEmpirical = prefixLayers
         ? resolveEmpiricalLut(
               base,
               model,
@@ -2764,6 +3131,16 @@ export function resolveAppearanceRankModel(
               options.includeContributions
           )
         : undefined;
+    const empirical =
+        directEmpirical ??
+        (prefixLayers && anchors.length === 0
+            ? resolveMeasuredPrefixContinuation(
+                  base,
+                  model,
+                  prefixLayers,
+                  options.includeContributions ?? false
+              )
+            : undefined);
     let resolvedLab: Lab;
     let exactAnchor: AppearanceExactAnchorV1 | undefined;
     let empiricalMatch: EmpiricalLutMatch | undefined;

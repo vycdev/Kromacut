@@ -27,7 +27,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { downloadBlob } from '@/hooks/downloadBlob';
+import { saveBlobToFile } from '@/hooks/saveBlobToFile';
 import type { Filament } from '@/types';
 import type { AutoPaintProfile } from '@/lib/profileManager';
 import {
@@ -241,7 +241,9 @@ export default function StackMatrixCalibrationPanel({
         lightestStackMatrixFilamentId(filaments.slice(0, 8))
     );
     const [busy, setBusy] = useState(false);
-    const [generationPhase, setGenerationPhase] = useState<'planning' | 'exporting' | null>(null);
+    const [generationPhase, setGenerationPhase] = useState<
+        'planning' | 'exporting' | 'saving' | null
+    >(null);
     const [error, setError] = useState<string | null>(null);
     const [photo, setPhoto] = useState<LoadedPhoto | null>(null);
     const [photoZoom, setPhotoZoom] = useState(1);
@@ -495,12 +497,24 @@ export default function StackMatrixCalibrationPanel({
                 activePhotoOwnerRef.current.profileId !== requestProfileId
             )
                 return;
-            downloadBlob(blob, `kromacut-stack-matrix-${exported.samples.length}.3mf`);
+            setGenerationPhase('saving');
+            const savedPath = await saveBlobToFile(blob, {
+                defaultFileName: `kromacut-stack-matrix-${exported.samples.length}.3mf`,
+                extension: '3mf',
+                filterName: 'Stack Matrix 3MF',
+            });
+            if (
+                savedPath === null ||
+                !panelMountedRef.current ||
+                generationRequestRef.current !== requestGeneration ||
+                activePhotoOwnerRef.current.profileId !== requestProfileId
+            )
+                return;
             let persistenceWarning: string | null = null;
             try {
                 onUpsert?.(exported);
             } catch (caught) {
-                persistenceWarning = `3MF downloaded, but its plan is only available in this session: ${caught instanceof Error ? caught.message : 'profile storage failed'}`;
+                persistenceWarning = `3MF saved, but its plan is only available in this session: ${caught instanceof Error ? caught.message : 'profile storage failed'}`;
             }
             updateOwnerState(requestProfileId, (current) => ({
                 ...current,
@@ -567,12 +581,24 @@ export default function StackMatrixCalibrationPanel({
                 activePhotoOwnerRef.current.profileId !== requestProfileId
             )
                 return;
-            downloadBlob(blob, `kromacut-stack-matrix-${exported.samples.length}.3mf`);
+            setGenerationPhase('saving');
+            const savedPath = await saveBlobToFile(blob, {
+                defaultFileName: `kromacut-stack-matrix-${exported.samples.length}.3mf`,
+                extension: '3mf',
+                filterName: 'Stack Matrix 3MF',
+            });
+            if (
+                savedPath === null ||
+                !panelMountedRef.current ||
+                generationRequestRef.current !== requestGeneration ||
+                activePhotoOwnerRef.current.profileId !== requestProfileId
+            )
+                return;
             let persistenceWarning: string | null = null;
             try {
                 onUpsert?.(exported);
             } catch (caught) {
-                persistenceWarning = `3MF downloaded, but its refreshed export metadata was not saved: ${caught instanceof Error ? caught.message : 'profile storage failed'}`;
+                persistenceWarning = `3MF saved, but its refreshed export metadata was not saved: ${caught instanceof Error ? caught.message : 'profile storage failed'}`;
             }
             updateOwnerState(requestProfileId, (current) => ({
                 ...current,
@@ -1357,7 +1383,11 @@ export default function StackMatrixCalibrationPanel({
                                 <Download className="mr-1.5 h-4 w-4" />
                             )}
                             <span aria-live="polite">
-                                {busy ? 'Building 3MF…' : 'Download 3MF'}
+                                {generationPhase === 'saving'
+                                    ? 'Saving 3MF…'
+                                    : busy
+                                      ? 'Building 3MF…'
+                                      : 'Download 3MF'}
                             </span>
                         </Button>
                     </div>
@@ -2002,7 +2032,9 @@ export default function StackMatrixCalibrationPanel({
                             ? 'Planning recipes…'
                             : generationPhase === 'exporting'
                               ? 'Building 3MF…'
-                              : 'Create and download 3MF'}
+                              : generationPhase === 'saving'
+                                ? 'Saving 3MF…'
+                                : 'Create and download 3MF'}
                     </span>
                 </Button>
             </Card>

@@ -1,5 +1,18 @@
 # Auto-paint benchmark
 
+For diagnostics-only, training-isolated Matrix prediction checks, see
+[Offline Matrix end-to-end validation](appearance-validation.md). Run `npm run benchmark:appearance -- --help`
+for profile/desktop-trace inputs and reporting options. Unlike optimizer quality scores below, it
+compares predictions with withheld photographed measurements, not image targets.
+
+To prepare physical checks with full-profile predictions frozen before printing, see
+[Frozen diagnostic print strips](diagnostic-print.md). The separate `diagnostics:print` command
+exports numbered 3MF specimens, complete recipes, provenance and source snapshots without
+changing calibration or running the optimizer.
+
+To compare current-code predictions with an existing bundle, use the separate
+[post-print replay](diagnostic-print.md#replay-predictions-after-a-model-change) workflow.
+
 Run `npm run benchmark:autopaint > benchmark.json` to create a local JSON report. It is deliberately outside normal tests: it measures quality and cost across the saved profiles and image fixtures.
 
 Run `npm run benchmark:hotpaths` for a short, deterministic comparison of the transition mapper, preserve-separation mapper, six-filament Exact search, full-image spatial weighting, and large-palette order reconciliation. Treat its checksums, optimizer score/order, layer count, and final-stack fingerprint as correctness gates: timing improvements are acceptable only when those values remain identical.

@@ -364,6 +364,7 @@ interface AutoPaintTabProps {
     error?: string;
     printableFeatureSimulation?: PrintableFeatureSimulation;
     printableFeatureIsComputing?: boolean;
+    printLayerHeight: number;
     calibrationLayerHeight: number;
     setCalibrationLayerHeight: (v: number) => void;
     firstLayerHeight: number;
@@ -450,6 +451,7 @@ export default function AutoPaintTab({
     error,
     printableFeatureSimulation,
     printableFeatureIsComputing = false,
+    printLayerHeight,
     calibrationLayerHeight,
     firstLayerHeight,
     filteredCount,
@@ -1776,6 +1778,7 @@ export default function AutoPaintTab({
                 open={calibrationDialogOpen}
                 onClose={handleCloseCalibration}
                 filaments={filaments}
+                printLayerHeight={printLayerHeight}
                 layerHeight={calibrationLayerHeight}
                 firstLayerHeight={firstLayerHeight}
                 paletteProofSnapshot={autoPaintResult?.finalStack}

@@ -60,7 +60,6 @@ interface FitObservation {
     id: string;
     backingIndex: number;
     runs: RecipeRun[];
-    measuredLinear: [number, number, number];
     measuredRgb: [number, number, number];
     weight: number;
 }
@@ -90,7 +89,7 @@ interface ForwardStep {
     exponent: number;
 }
 
-const MODEL_VERSION = 'matrix-effective-optics-v3' as const;
+const MODEL_VERSION = 'matrix-effective-optics-v4' as const;
 const MIN_FIT_SAMPLES = 16;
 const FIT_ITERATIONS = 220;
 const CROSS_VALIDATION_FOLDS = 4;
@@ -282,7 +281,7 @@ function buildModel(
     );
     return {
         schemaVersion: 1,
-        fingerprint: fingerprintJson('matrix-effective-optics-v3', payload),
+        fingerprint: fingerprintJson(MODEL_VERSION, payload),
         ...payload,
     };
 }
@@ -457,7 +456,6 @@ function fitInputs(input: EffectiveOpticsFitInput) {
                 id: sample.id,
                 backingIndex,
                 runs,
-                measuredLinear: toLinear(measuredRgb),
                 measuredRgb,
                 weight: sample.weight,
             };
@@ -561,11 +559,45 @@ function forwardObservation(
     return { color: current, steps };
 }
 
+interface FitPriorWeights {
+    hd: number;
+    color: number;
+    exponent: number;
+    interaction: number;
+}
+
+function activeFitCounts(observations: readonly FitObservation[]) {
+    const filaments = new Set<number>();
+    const interactions = new Set<number>();
+    for (const observation of observations) {
+        filaments.add(observation.backingIndex);
+        for (const run of observation.runs) {
+            filaments.add(run.filamentIndex);
+            if (run.interactionIndex >= 0) interactions.add(run.interactionIndex);
+        }
+    }
+    return { filaments: filaments.size, interactions: interactions.size };
+}
+
+/** Match the mean data loss with mean penalties for each parameter family. */
+function fitPriorWeights(observations: readonly FitObservation[]): FitPriorWeights {
+    // Count training evidence only, not unused profile spools or held-out pairs.
+    const active = activeFitCounts(observations);
+    const filamentCount = Math.max(1, active.filaments);
+    return {
+        hd: HD_PRIOR_WEIGHT / (filamentCount * 3),
+        color: COLOR_PRIOR_WEIGHT / (filamentCount * 3),
+        exponent: EXPONENT_PRIOR_WEIGHT / filamentCount,
+        interaction: INTERACTION_PRIOR_WEIGHT / Math.max(1, active.interactions),
+    };
+}
+
 function objectiveAndGradient(
     observations: readonly FitObservation[],
     state: FitState,
     priorHds: readonly (readonly [number, number, number])[],
     priorColors: readonly (readonly [number, number, number])[],
+    priorWeights: FitPriorWeights,
     includeGradient: boolean
 ): { objective: number; gradient: Float64Array } {
     const { parameters, layout } = state;
@@ -577,14 +609,24 @@ function objectiveAndGradient(
         const outputGradient: [number, number, number] = [0, 0, 0];
         const sampleScale = observation.weight / Math.max(1e-9, totalWeight * 3);
         for (let channel = 0; channel < 3; channel++) {
-            const residual = forward.color[channel] - observation.measuredLinear[channel];
+            // Blend in linear light, but fit the photographed sRGB observations
+            // in their encoded space. A linear-light loss suppresses errors in
+            // dark channels before they can compete with the calibration prior.
+            const predictedLinear = Math.max(0, forward.color[channel]);
+            const residual =
+                linearChannelToSrgb(predictedLinear) / 255 - observation.measuredRgb[channel] / 255;
+            const lossDerivative =
+                predictedLinear <= 0.0031308
+                    ? 12.92
+                    : (1.055 / 2.4) * Math.pow(predictedLinear, 1 / 2.4 - 1);
             const absolute = Math.abs(residual);
             if (absolute <= HUBER_DELTA) {
                 objective += sampleScale * 0.5 * residual * residual;
-                outputGradient[channel] = sampleScale * residual;
+                outputGradient[channel] = sampleScale * residual * lossDerivative;
             } else {
                 objective += sampleScale * HUBER_DELTA * (absolute - 0.5 * HUBER_DELTA);
-                outputGradient[channel] = sampleScale * HUBER_DELTA * Math.sign(residual);
+                outputGradient[channel] =
+                    sampleScale * HUBER_DELTA * Math.sign(residual) * lossDerivative;
             }
         }
         if (!includeGradient) continue;
@@ -633,24 +675,24 @@ function objectiveAndGradient(
         for (let channel = 0; channel < 3; channel++) {
             const hdIndex = hdParameter(layout, filamentIndex, channel);
             const hdOffset = parameters[hdIndex];
-            objective += 0.5 * HD_PRIOR_WEIGHT * hdOffset * hdOffset;
-            gradient[hdIndex] += HD_PRIOR_WEIGHT * hdOffset;
+            objective += 0.5 * priorWeights.hd * hdOffset * hdOffset;
+            gradient[hdIndex] += priorWeights.hd * hdOffset;
 
             const colorIndex = colorParameter(layout, filamentIndex, channel);
             const colorOffset = parameters[colorIndex] - priorColors[filamentIndex][channel];
-            objective += 0.5 * COLOR_PRIOR_WEIGHT * colorOffset * colorOffset;
-            gradient[colorIndex] += COLOR_PRIOR_WEIGHT * colorOffset;
+            objective += 0.5 * priorWeights.color * colorOffset * colorOffset;
+            gradient[colorIndex] += priorWeights.color * colorOffset;
         }
         const exponentIndex = exponentParameter(layout, filamentIndex);
         const logExponent = parameters[exponentIndex];
-        objective += 0.5 * EXPONENT_PRIOR_WEIGHT * logExponent * logExponent;
-        gradient[exponentIndex] += EXPONENT_PRIOR_WEIGHT * logExponent;
+        objective += 0.5 * priorWeights.exponent * logExponent * logExponent;
+        gradient[exponentIndex] += priorWeights.exponent * logExponent;
     }
     for (let interactionIndex = 0; interactionIndex < state.interactionCount; interactionIndex++) {
         const parameterIndex = interactionParameter(layout, interactionIndex);
         const logScale = parameters[parameterIndex];
-        objective += 0.5 * INTERACTION_PRIOR_WEIGHT * logScale * logScale;
-        gradient[parameterIndex] += INTERACTION_PRIOR_WEIGHT * logScale;
+        objective += 0.5 * priorWeights.interaction * logScale * logScale;
+        gradient[parameterIndex] += priorWeights.interaction * logScale;
     }
     return { objective, gradient };
 }
@@ -680,6 +722,7 @@ function optimize(
     priorColors: readonly (readonly [number, number, number])[],
     iterations = FIT_ITERATIONS
 ): FitState {
+    const priorWeights = fitPriorWeights(observations);
     const state: FitState = {
         ...initial,
         parameters: new Float64Array(initial.parameters),
@@ -692,12 +735,20 @@ function optimize(
         state,
         priorHds,
         priorColors,
+        priorWeights,
         false
     ).objective;
     let staleIterations = 0;
 
     for (let iteration = 1; iteration <= iterations; iteration++) {
-        const { gradient } = objectiveAndGradient(observations, state, priorHds, priorColors, true);
+        const { gradient } = objectiveAndGradient(
+            observations,
+            state,
+            priorHds,
+            priorColors,
+            priorWeights,
+            true
+        );
         const learningRate = iteration > 180 ? 0.008 : iteration > 120 ? 0.018 : 0.04;
         const beta1Power = 1 - Math.pow(0.9, iteration);
         const beta2Power = 1 - Math.pow(0.999, iteration);
@@ -716,6 +767,7 @@ function optimize(
             state,
             priorHds,
             priorColors,
+            priorWeights,
             false
         ).objective;
         if (candidateObjective < bestObjective - 1e-10) {
@@ -820,11 +872,14 @@ function crossValidateFit(
 ): CrossValidationSummary | undefined {
     const baselineErrors: WeightedPredictionError[] = [];
     const fittedErrors: WeightedPredictionError[] = [];
-    const minimumTrainingSamples = Math.max(MIN_FIT_SAMPLES, initial.filamentCount * 3);
     for (const fold of folds) {
         const validationIds = new Set(fold);
         const training = observations.filter((observation) => !validationIds.has(observation.id));
         const validation = observations.filter((observation) => validationIds.has(observation.id));
+        const minimumTrainingSamples = Math.max(
+            MIN_FIT_SAMPLES,
+            activeFitCounts(training).filaments * 3
+        );
         if (training.length < minimumTrainingSamples || validation.length === 0) return undefined;
         const fitted = optimize(
             training,
@@ -868,7 +923,8 @@ export function fitEffectiveOpticsFromMatrix(
     );
     const initial = createInitialState(prepared.filaments, prepared.interactionKeys.length);
     const baselineMeanDeltaE = weightedMeanDeltaE(prepared.observations, initial, priorHds);
-    if (prepared.observations.length < Math.max(MIN_FIT_SAMPLES, prepared.filaments.length * 3)) {
+    const observedFilamentCount = activeFitCounts(prepared.observations).filaments;
+    if (prepared.observations.length < Math.max(MIN_FIT_SAMPLES, observedFilamentCount * 3)) {
         return createPriorEffectiveOpticsModel(
             prepared.filaments,
             'insufficient-samples',
@@ -1001,7 +1057,7 @@ export function fitEffectiveOpticsFromMatrix(
     );
     const sampleCoverage = Math.min(
         1,
-        prepared.observations.length / Math.max(32, prepared.filaments.length * 24)
+        prepared.observations.length / Math.max(32, observedFilamentCount * 24)
     );
     const crossValidationQuality = Math.exp(-crossValidation.fitted.mean / 18);
     const confidence = clamp(
@@ -1211,6 +1267,55 @@ export function effectiveTransitionTransmission(
                 optics.fallbackHdChannels[channel]
             )
     ) as [number, number, number];
+}
+
+/**
+ * Attenuation of a residual carried forward within the same physical run.
+ * Subtract optical depths before exponentiating: dividing two transmissions
+ * loses the residual when both have underflowed to zero. The fitted exponent
+ * stays tied to the original run, including when the interval crosses support.
+ */
+export function effectiveTransitionTransmissionRatio(
+    optics: EffectiveTransitionOptics,
+    startThickness: number,
+    endThickness: number
+): [number, number, number] | undefined {
+    if (
+        !Number.isFinite(startThickness) ||
+        !Number.isFinite(endThickness) ||
+        startThickness < 0 ||
+        endThickness < startThickness ||
+        !Number.isFinite(optics.maxFittedThickness) ||
+        optics.maxFittedThickness < 0 ||
+        ![
+            ...optics.hdChannels,
+            ...optics.fallbackHdChannels,
+            optics.transmissionExponent,
+            optics.substrateHdMultiplier,
+        ].every((value) => Number.isFinite(value) && value > 0)
+    ) {
+        return undefined;
+    }
+    if (endThickness === startThickness) return [1, 1, 1];
+    const startSupported = Math.min(startThickness, optics.maxFittedThickness);
+    const endSupported = Math.min(endThickness, optics.maxFittedThickness);
+    const extraFallback = endThickness - endSupported - (startThickness - startSupported);
+    return [0, 1, 2].map((channel) => {
+        const scale = optics.hdChannels[channel] * optics.substrateHdMultiplier;
+        const exponent = optics.transmissionExponent;
+        const fittedDepthDifference =
+            endSupported === startSupported
+                ? 0
+                : startSupported === 0
+                  ? Math.pow(endSupported / scale, exponent)
+                  : Math.pow(startSupported / scale, exponent) *
+                    Math.expm1(
+                        exponent * Math.log1p((endSupported - startSupported) / startSupported)
+                    );
+        const depthDifference =
+            fittedDepthDifference + Math.max(0, extraFallback) / optics.fallbackHdChannels[channel];
+        return Math.pow(0.1, Math.max(0, depthDifference));
+    }) as [number, number, number];
 }
 
 /** Thickness required by the opaque-foundation boundary condition (95% opacity). */

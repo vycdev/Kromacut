@@ -10,6 +10,8 @@
         "test": "node --no-warnings --experimental-strip-types tests/run-tests.ts",
         "test:autopaint:update": "node --no-warnings --experimental-strip-types scripts/generate-auto-paint-goldens.ts",
         "benchmark:autopaint": "node --no-warnings --experimental-strip-types tests/benchmark/autoPaintBench.ts",
+        "benchmark:appearance": "node --no-warnings --experimental-strip-types scripts/validate-appearance.ts",
+        "diagnostics:print": "node --no-warnings --experimental-strip-types scripts/prepare-diagnostic-print.ts",
         "benchmark:calibrated": "node --expose-gc --no-warnings --experimental-strip-types tests/benchmark/calibratedOptimizer.ts",
         "benchmark:calibrated-exact": "node --expose-gc --no-warnings --experimental-strip-types tests/benchmark/calibratedOptimizer.ts",
         "benchmark:calibrated-series": "node scripts/benchmark-calibrated-series.mjs",

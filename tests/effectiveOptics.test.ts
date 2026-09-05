@@ -142,6 +142,48 @@ async function syntheticInput() {
     return { filaments, matrixCount: 1, samples };
 }
 
+async function mutedSyntheticInput() {
+    const optics = await modulePromise;
+    const observedFilaments: Filament[] = [
+        { id: 'black', color: '#000000', td: 0.05 },
+        { id: 'orange', color: '#d83400', td: 0.4 },
+    ];
+    // Deliberately synthetic colors, not samples extracted from a user's photo.
+    // Both matrices obey the same simple linear-light, ordered-layer model;
+    // only its effective pigment colors/HDs disagree with the display swatches.
+    const truth = new Map([
+        ['black', { color: [0, 0, 0] as const, hd: 0.08 }],
+        ['orange', { color: [132, 82, 52] as const, hd: 0.5 }],
+    ]);
+    const samples = ['matrix-a', 'matrix-b'].flatMap((sourceMatrixId) =>
+        Array.from({ length: 32 }, (_, index) => {
+            const recipeFilamentIds = Array.from({ length: 5 }, (_, layer) =>
+                index & (1 << layer) ? 'orange' : 'black'
+            );
+            let measuredRgb: [number, number, number] = [0, 0, 0];
+            for (const filamentId of recipeFilamentIds) {
+                const properties = truth.get(filamentId)!;
+                measuredRgb = optics.blendEffectiveSrgb(
+                    measuredRgb,
+                    properties.color,
+                    [properties.hd, properties.hd, properties.hd],
+                    0.08
+                );
+            }
+            return {
+                id: `${sourceMatrixId}:${index.toString().padStart(2, '0')}`,
+                sourceMatrixId,
+                backingFilamentId: 'black',
+                recipeFilamentIds,
+                layerHeight: 0.08,
+                measuredRgb,
+                weight: 1,
+            };
+        })
+    );
+    return { filaments: observedFilaments, matrixCount: 2, samples };
+}
+
 test('grouped validation holds every source matrix out as an indivisible group', async () => {
     const optics = await modulePromise;
     const input = await syntheticInput();
@@ -267,6 +309,119 @@ test('joint matrix fit is deterministic across input ordering and uses every sam
     assert.equal(forward.fingerprint, reversed.fingerprint);
     assert.deepEqual(forward, reversed);
     assert.equal(forward.sampleCount, input.samples.length);
+});
+
+test('matrix fit learns muted dark colors instead of retaining a saturated swatch prior', async () => {
+    const optics = await modulePromise;
+    const input = await mutedSyntheticInput();
+    const fitted = optics.fitEffectiveOpticsFromMatrix(input);
+
+    assert.equal(fitted.applied, true);
+    assert.equal(fitted.crossValidationSampleCount, input.samples.length);
+    assert.ok(
+        fitted.fittedMeanDeltaE < fitted.baselineMeanDeltaE * 0.25,
+        `muted training error ${fitted.fittedMeanDeltaE} versus prior ${fitted.baselineMeanDeltaE}`
+    );
+    assert.ok(
+        fitted.crossValidationMeanDeltaE < fitted.baselineMeanDeltaE * 0.35,
+        `muted held-out matrix error ${fitted.crossValidationMeanDeltaE}`
+    );
+    // All five runs being orange is the thickest supported orange/black sample.
+    // Assert its channels as well as the aggregate: improving brighter samples
+    // must not conceal continued red/brown error on this diagnostic surface.
+    const expected = input.samples.find((sample) =>
+        sample.recipeFilamentIds.every((filamentId) => filamentId === 'orange')
+    )!.measuredRgb;
+    const prior = optics.predictEffectiveRecipeColor(
+        optics.createPriorEffectiveOpticsModel(input.filaments),
+        'black',
+        [{ filamentId: 'orange', thickness: 0.4 }]
+    );
+    const predicted = optics.predictEffectiveRecipeColor(fitted, 'black', [
+        { filamentId: 'orange', thickness: 0.4 },
+    ]);
+    assert.ok(prior && predicted);
+    const maximumChannelError = (rgb: readonly number[]) =>
+        Math.max(...rgb.map((value, channel) => Math.abs(value - expected[channel])));
+    assert.ok(
+        maximumChannelError(predicted) < maximumChannelError(prior) * 0.25,
+        `muted patch error ${maximumChannelError(predicted)} versus prior ${maximumChannelError(prior)}`
+    );
+    // A coarse encoded-space bound, not a claim of exact pigment/HD recovery:
+    // finite thin-layer measurements cannot uniquely identify every parameter.
+    for (let channel = 0; channel < 3; channel++) {
+        assert.ok(
+            Math.abs(predicted[channel] - expected[channel]) < 255 * 0.1,
+            `channel ${channel}: ${predicted[channel]} versus muted truth ${expected[channel]}`
+        );
+    }
+});
+
+test('unused profile filaments do not change the fitted predictions, support gate, or confidence', async () => {
+    const optics = await modulePromise;
+    const input = await syntheticInput();
+    const reference = optics.fitEffectiveOpticsFromMatrix(input);
+    assert.equal(reference.applied, true);
+    const observedIds = new Set(input.filaments.map((filament) => filament.id));
+
+    // A small addition catches regularization denominators; 32 unused spools
+    // also crosses the old all-profile sample/CV gate despite unchanged evidence.
+    for (const unusedCount of [2, 32]) {
+        const unusedFilaments: Filament[] = Array.from({ length: unusedCount }, (_, index) => ({
+            id: `${index % 2 ? 'a' : 'z'}-unused-${index}`,
+            color: index % 2 ? '#ee4411' : '#2244ee',
+            td: index % 2 ? 0.08 : 1.2,
+        }));
+        const padded = optics.fitEffectiveOpticsFromMatrix({
+            ...input,
+            filaments: [...unusedFilaments, ...input.filaments],
+        });
+        assert.equal(padded.applied, true, `${unusedCount} unused spools: ${padded.gateReason}`);
+        assert.equal(padded.gateReason, reference.gateReason);
+        assert.equal(padded.confidence, reference.confidence);
+        assert.equal(padded.crossValidationSampleCount, reference.crossValidationSampleCount);
+        assert.equal(padded.crossValidationMeanDeltaE, reference.crossValidationMeanDeltaE);
+        assert.equal(padded.crossValidationP90DeltaE, reference.crossValidationP90DeltaE);
+        assert.equal(padded.fittedMeanDeltaE, reference.fittedMeanDeltaE);
+        assert.deepEqual(
+            padded.filaments
+                .filter((filament) => observedIds.has(filament.filamentId))
+                .map((filament) => ({
+                    ...filament,
+                    substrateHdChannels: filament.substrateHdChannels?.filter((substrate) =>
+                        observedIds.has(substrate.substrateFilamentId)
+                    ),
+                })),
+            reference.filaments
+        );
+        assert.deepEqual(padded.substrateInteractions, reference.substrateInteractions);
+        for (const sample of input.samples) {
+            const layers = sample.recipeFilamentIds.map((filamentId) => ({
+                filamentId,
+                thickness: sample.layerHeight,
+            }));
+            assert.deepEqual(
+                optics.predictEffectiveRecipeColor(padded, sample.backingFilamentId, layers),
+                optics.predictEffectiveRecipeColor(reference, sample.backingFilamentId, layers),
+                `${unusedCount} unused spools changed ${sample.id}`
+            );
+        }
+        for (const filament of padded.filaments.filter(
+            (filament) => !observedIds.has(filament.filamentId)
+        )) {
+            assert.equal(filament.sampleCount, 0);
+            for (let channel = 0; channel < 3; channel++) {
+                assert.ok(
+                    Math.abs(
+                        filament.effectiveHdChannels[channel] - filament.priorHdChannels[channel]
+                    ) <= 5e-9,
+                    'an unused HD must stay at its prior, within serialized-model rounding'
+                );
+            }
+            assert.deepEqual(filament.effectiveOpaqueColor, filament.priorOpaqueColor);
+            assert.equal(filament.transmissionExponent, 1);
+        }
+    }
 });
 
 test('conflicting matrix families retain the prior instead of leaking across validation', async () => {
@@ -399,4 +554,114 @@ test('Matrix recipe consumers continue from the supported boundary with conserva
         1
     );
     assert.deepEqual(predicted, expected);
+});
+
+test('transition transmission ratios agree with quotients inside support and across fallback', async () => {
+    const optics = await modulePromise;
+    const transition = optics.resolveEffectiveTransitionOptics(truthModel(), 'rose', 'foundation')!;
+
+    for (const [start, end] of [
+        [0, 0.08],
+        [0.08, 0.24],
+        [0.24, 0.4],
+        [0.4, 0.56],
+    ]) {
+        const ratio = optics.effectiveTransitionTransmissionRatio(transition, start, end);
+        const before = optics.effectiveTransitionTransmission(transition, start);
+        const after = optics.effectiveTransitionTransmission(transition, end);
+        assert.ok(ratio);
+        for (let channel = 0; channel < 3; channel++) {
+            assert.ok(
+                Number.isFinite(ratio[channel]) && ratio[channel] >= 0 && ratio[channel] <= 1
+            );
+            assert.ok(
+                Math.abs(ratio[channel] - after[channel] / before[channel]) < 1e-12,
+                `channel ${channel}, ${start} -> ${end}: stable ratio must preserve the ordinary quotient`
+            );
+        }
+    }
+    const beforeBoundary = optics.effectiveTransitionTransmissionRatio(transition, 0.08, 0.32)!;
+    const afterBoundary = optics.effectiveTransitionTransmissionRatio(transition, 0.32, 0.56)!;
+    const combined = optics.effectiveTransitionTransmissionRatio(transition, 0.08, 0.56)!;
+    for (let channel = 0; channel < 3; channel++) {
+        assert.ok(
+            Math.abs(combined[channel] - beforeBoundary[channel] * afterBoundary[channel]) < 1e-12
+        );
+    }
+});
+
+test('transition ratios retain a finite forward correction after absolute transmission underflows', async () => {
+    const optics = await modulePromise;
+    const transition = {
+        ...optics.resolveEffectiveTransitionOptics(truthModel(), 'rose', 'foundation')!,
+        hdChannels: [0.03, 0.025, 0.02] as const,
+        transmissionExponent: 2,
+        substrateHdMultiplier: 1,
+        maxFittedThickness: 1,
+    };
+    const start = 0.56;
+    const end = 0.5601;
+    assert.deepEqual(optics.effectiveTransitionTransmission(transition, start), [0, 0, 0]);
+    assert.deepEqual(optics.effectiveTransitionTransmission(transition, end), [0, 0, 0]);
+    const ratio = optics.effectiveTransitionTransmissionRatio(transition, start, end);
+    assert.ok(ratio);
+    for (let channel = 0; channel < 3; channel++) {
+        // Difference of squares is stable here even though both absolute
+        // transmissions are zero: the short additional layer is not opaque.
+        const hd = transition.hdChannels[channel];
+        const expected = Math.pow(0.1, ((end - start) * (end + start)) / (hd * hd));
+        assert.ok(Number.isFinite(ratio[channel]) && ratio[channel] > 0 && ratio[channel] < 1);
+        assert.ok(Math.abs(ratio[channel] - expected) < 1e-12);
+    }
+    assert.deepEqual(
+        optics.effectiveTransitionTransmissionRatio(transition, start, start),
+        [1, 1, 1]
+    );
+});
+
+test('transition ratios remain stable when the unsupported fallback transmission underflows', async () => {
+    const optics = await modulePromise;
+    const transition = {
+        ...optics.resolveEffectiveTransitionOptics(truthModel(), 'rose', 'foundation')!,
+        maxFittedThickness: 0.08,
+        fallbackHdChannels: [0.05, 0.04, 0.025] as const,
+    };
+    const start = 40;
+    const end = 40.08;
+    assert.deepEqual(optics.effectiveTransitionTransmission(transition, start), [0, 0, 0]);
+    assert.deepEqual(optics.effectiveTransitionTransmission(transition, end), [0, 0, 0]);
+    const ratio = optics.effectiveTransitionTransmissionRatio(transition, start, end)!;
+    for (let channel = 0; channel < 3; channel++) {
+        assert.ok(Number.isFinite(ratio[channel]) && ratio[channel] > 0 && ratio[channel] < 1);
+        const expected = Math.pow(0.1, (end - start) / transition.fallbackHdChannels[channel]);
+        assert.ok(Math.abs(ratio[channel] - expected) < 1e-12);
+    }
+});
+
+test('transition transmission ratios reject backwards, nonfinite, and invalid optical inputs', async () => {
+    const optics = await modulePromise;
+    const transition = optics.resolveEffectiveTransitionOptics(truthModel(), 'rose', 'foundation')!;
+    for (const [start, end] of [
+        [0.16, 0.08],
+        [-0.08, 0],
+        [NaN, 0.08],
+        [0.08, Infinity],
+        [Infinity, Infinity],
+    ]) {
+        assert.equal(
+            optics.effectiveTransitionTransmissionRatio(transition, start, end),
+            undefined
+        );
+    }
+    for (const invalid of [
+        { ...transition, hdChannels: [0, 0.3, 0.3] as const },
+        { ...transition, fallbackHdChannels: [0.3, NaN, 0.3] as const },
+        { ...transition, maxFittedThickness: -0.08 },
+        { ...transition, maxFittedThickness: Infinity },
+        { ...transition, transmissionExponent: 0 },
+        { ...transition, substrateHdMultiplier: -1 },
+    ]) {
+        assert.equal(optics.effectiveTransitionTransmissionRatio(invalid, 0.08, 0.16), undefined);
+    }
+    assert.deepEqual(optics.effectiveTransitionTransmissionRatio(transition, 0, 0), [1, 1, 1]);
 });

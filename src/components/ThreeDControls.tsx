@@ -674,6 +674,7 @@ export default function ThreeDControls({
                     error={autoPaintError}
                     printableFeatureSimulation={printableFeatureSimulation}
                     printableFeatureIsComputing={isPrintableFeatureComputing}
+                    printLayerHeight={layerHeight}
                     calibrationLayerHeight={calibrationLayerHeight}
                     setCalibrationLayerHeight={setCalibrationLayerHeight}
                     firstLayerHeight={slicerFirstLayerHeight}

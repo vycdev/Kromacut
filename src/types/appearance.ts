@@ -122,7 +122,7 @@ export interface AppearanceSubstrateInteractionV1 {
 
 export interface AppearanceEffectiveOpticsModelV1 {
     schemaVersion: 1;
-    modelVersion: 'matrix-effective-optics-v3';
+    modelVersion: 'matrix-effective-optics-v3' | 'matrix-effective-optics-v4';
     fingerprint: string;
     applied: boolean;
     gateReason: 'applied' | 'no-compatible-matrix' | 'insufficient-samples' | 'no-improvement';
@@ -141,7 +141,7 @@ export interface AppearanceEffectiveOpticsModelV1 {
 
 export interface AppearanceRankModelV1 {
     schemaVersion: 1;
-    modelVersion: 'lab-rank-local-v9';
+    modelVersion: 'lab-rank-local-v9' | 'lab-rank-local-v10';
     fingerprint: string;
     contextFingerprint: string;
     applied: boolean;
