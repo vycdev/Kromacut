@@ -364,7 +364,7 @@ test('Matrix transition support is bounded by the thickest observed run for that
     assert.equal(optics.effectiveOpticsSupportsTransition(model, 'rose', 'missing', 0.08), false);
 });
 
-test('all Matrix recipe consumers fall back to conservative prior optics beyond pair support', async () => {
+test('Matrix recipe consumers continue from the supported boundary with conservative optics', async () => {
     const optics = await modulePromise;
     const model = truthModel();
     const rose = model.filaments.find((entry) => entry.filamentId === 'rose')!;
@@ -382,11 +382,19 @@ test('all Matrix recipe consumers fall back to conservative prior optics beyond 
     const predicted = optics.predictEffectiveRecipeColor(limited, 'foundation', [
         { filamentId: 'rose', thickness: 0.16 },
     ]);
-    const expected = optics.blendEffectiveSrgb(
+    const boundary = optics.blendEffectiveSrgb(
         foundation.effectiveOpaqueColor,
+        rose.effectiveOpaqueColor,
+        rose.effectiveHdChannels,
+        0.08,
+        rose.transmissionExponent,
+        optics.effectiveSubstrateHdMultiplier(limited, 'rose', 'foundation')
+    );
+    const expected = optics.blendEffectiveSrgb(
+        boundary,
         rose.priorOpaqueColor,
         rose.fallbackHdChannels ?? rose.priorHdChannels,
-        0.16,
+        0.08,
         1,
         1
     );

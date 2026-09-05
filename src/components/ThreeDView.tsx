@@ -23,26 +23,15 @@ import {
     mapTargetsToPrintablePalette,
     type WeightedLab,
 } from '../lib/autoPaint';
-import {
-    clampProgress,
-    layeredBuildScanProgress,
-    progressInSpan,
-} from '../lib/progress';
-import {
-    applyPreviewRenderMode,
-    createPreviewMaterialBaselines,
-} from '../lib/previewRenderMode';
+import { clampProgress, layeredBuildScanProgress, progressInSpan } from '../lib/progress';
+import { applyPreviewRenderMode, createPreviewMaterialBaselines } from '../lib/previewRenderMode';
 import { applyPreviewColorMode } from '../lib/previewColorMode';
 import {
     clearPreviewWireframeOverlay,
     rebuildPreviewWireframeOverlay as buildPreviewWireframeOverlay,
     syncPreviewWireframeOverlayVisibility as syncPreviewWireframeVisibility,
 } from '../lib/previewWireframe';
-import type {
-    PreviewColorMode,
-    PreviewRenderMode,
-    PrintableFeaturePixelSnapshot,
-} from '../types';
+import type { PreviewColorMode, PreviewRenderMode, PrintableFeaturePixelSnapshot } from '../types';
 import type { FinalPrintableStackSnapshot } from '../types/appearance';
 import { Layers } from 'lucide-react';
 import ProgressOverlay from './ProgressOverlay';
@@ -197,8 +186,7 @@ function getBuildOverlayStep(progress: number, layerCount: number, autoPaintEnab
         progress >= 1
             ? stepCount
             : Math.max(1, Math.min(stepCount, Math.floor(rawStepProgress) + 1));
-    const stepProgress =
-        progress >= 1 ? 1 : clampProgress(rawStepProgress - (stepIndex - 1));
+    const stepProgress = progress >= 1 ? 1 : clampProgress(rawStepProgress - (stepIndex - 1));
 
     if (stepCount === 1) {
         return {
@@ -240,7 +228,12 @@ function createFlatShadedGeometry(
     return geom;
 }
 
-function remapMeshZRange(mesh: MeshData, baseZ: number, topZ: number, heightScale: number): MeshData {
+function remapMeshZRange(
+    mesh: MeshData,
+    baseZ: number,
+    topZ: number,
+    heightScale: number
+): MeshData {
     const positions = new Float32Array(mesh.positions.length);
     let minZ = Infinity;
     let maxZ = -Infinity;
@@ -324,10 +317,7 @@ function updateE2EBuild(metrics: E2EBuildMetrics) {
     const next = { ...(window.__KROMACUT_E2E.lastBuild ?? {}), ...metrics };
     window.__KROMACUT_E2E.lastBuild = next;
     if (metrics.status === 'complete') {
-        window.__KROMACUT_E2E.buildHistory = [
-            ...(window.__KROMACUT_E2E.buildHistory ?? []),
-            next,
-        ];
+        window.__KROMACUT_E2E.buildHistory = [...(window.__KROMACUT_E2E.buildHistory ?? []), next];
     }
 }
 
@@ -493,7 +483,11 @@ export default function ThreeDView({
 
         if (previewRenderMode !== 'wireframe') {
             clearWireframeOverlay();
-            applyPreviewRenderMode(modelGroup, previewRenderMode, previewMaterialBaselinesRef.current);
+            applyPreviewRenderMode(
+                modelGroup,
+                previewRenderMode,
+                previewMaterialBaselinesRef.current
+            );
             requestRender();
             return;
         }
@@ -555,7 +549,11 @@ export default function ThreeDView({
         const now = performance.now();
         const stepProgress = clampProgress(value.stepProgress ?? 0);
 
-        if (stepProgress <= 0 || stepProgress >= 1 || now - buildOverlayLastUpdateRef.current > 60) {
+        if (
+            stepProgress <= 0 ||
+            stepProgress >= 1 ||
+            now - buildOverlayLastUpdateRef.current > 60
+        ) {
             buildOverlayLastUpdateRef.current = now;
             setBuildOverlayStep({
                 ...value,
@@ -917,13 +915,14 @@ export default function ThreeDView({
                         )
                     );
                 };
-                const meshProgressReporter = (buildLayerIndex: number) => (progress: MeshProgress) => {
-                    pushLayerDetail(
-                        buildLayerIndex,
-                        progress.label,
-                        progressInSpan(0.35, 0.55, progress.progress)
-                    );
-                };
+                const meshProgressReporter =
+                    (buildLayerIndex: number) => (progress: MeshProgress) => {
+                        pushLayerDetail(
+                            buildLayerIndex,
+                            progress.label,
+                            progressInSpan(0.35, 0.55, progress.progress)
+                        );
+                    };
 
                 if (autoPaintEnabled && autoPaintTotalHeight && autoPaintTotalHeight > 0) {
                     // === AUTO-PAINT MODE ===
@@ -941,6 +940,12 @@ export default function ThreeDView({
                     // Precompute pixel height map (same size as image crop)
                     // This avoids recomputing per-layer
                     const pixelHeightMap = new Float32Array(boxW * boxH);
+                    const minimumSurfaceHeight =
+                        autoPaintFinalStack?.palette.find(
+                            (entry) => entry.surfaceEligible !== false
+                        )?.height ??
+                        cumulativeHeights[0] ??
+                        0;
 
                     if (enhancedColorMatch) {
                         // === ENHANCED: Polyline projection in Lab color space ===
@@ -991,12 +996,22 @@ export default function ThreeDView({
                         // Pre-compute Lab + cumulative height for every virtual swatch
                         const swatchEntries: Array<{
                             lab: { L: number; a: number; b: number };
+                            rgb: { r: number; g: number; b: number };
                             height: number;
                         }> = [];
                         for (let si = 0; si < swatches.length; si++) {
+                            const entry = autoPaintFinalStack?.palette[si];
+                            if (entry?.surfaceEligible === false) continue;
                             const rgb = hexToRGB(swatches[si].hex);
                             swatchEntries.push({
-                                lab: toLab(rgb[0], rgb[1], rgb[2]),
+                                lab: entry
+                                    ? {
+                                          L: entry.predictedLab[0],
+                                          a: entry.predictedLab[1],
+                                          b: entry.predictedLab[2],
+                                      }
+                                    : toLab(rgb[0], rgb[1], rgb[2]),
+                                rgb: { r: rgb[0], g: rgb[1], b: rgb[2] },
                                 height: cumulativeHeights[si] || 0,
                             });
                         }
@@ -1083,7 +1098,10 @@ export default function ThreeDView({
                         let imgMinLum = 1,
                             imgMaxLum = 0;
                         const sepColors = preserveSeparation
-                            ? new Map<number, { lab: { L: number; a: number; b: number }; weight: number }>()
+                            ? new Map<
+                                  number,
+                                  { lab: { L: number; a: number; b: number }; weight: number }
+                              >()
                             : null;
                         for (let py = minY; py < minY + boxH; py++) {
                             for (let px = minX; px < minX + boxW; px++) {
@@ -1096,10 +1114,15 @@ export default function ThreeDView({
                                 if (lum < imgMinLum) imgMinLum = lum;
                                 if (lum > imgMaxLum) imgMaxLum = lum;
                                 if (sepColors) {
-                                    const key = ((pr0 & 0xff) << 16) | ((pg0 & 0xff) << 8) | (pb0 & 0xff);
+                                    const key =
+                                        ((pr0 & 0xff) << 16) | ((pg0 & 0xff) << 8) | (pb0 & 0xff);
                                     const existing = sepColors.get(key);
                                     if (existing) existing.weight++;
-                                    else sepColors.set(key, { lab: toLab(pr0, pg0, pb0), weight: 1 });
+                                    else
+                                        sepColors.set(key, {
+                                            lab: toLab(pr0, pg0, pb0),
+                                            weight: 1,
+                                        });
                                 }
                             }
                         }
@@ -1107,17 +1130,14 @@ export default function ThreeDView({
                         const imgLumRange = imgMaxLum - imgMinLum;
 
                         const maxModelH = cumulativeHeights[cumulativeHeights.length - 1] || 1;
-                        const minModelH = cumulativeHeights[0] || 0;
+                        const minModelH = minimumSurfaceHeight;
 
                         // Separation mode: assign each distinct image color to a
                         // DISTINCT printable color through the shared mapper, so no
                         // two image colors collapse onto the same surface color.
                         const separationHeights = new Map<number, number>();
                         if (sepColors && sepColors.size > 0) {
-                            const sepPalette = swatchEntries.map((entry, si) => {
-                                const [r, g, b] = hexToRGB(swatches[si].hex);
-                                return { height: entry.height, lab: entry.lab, rgb: { r, g, b } };
-                            });
+                            const sepPalette = swatchEntries;
                             const keys = [...sepColors.keys()];
                             const sepTargets: WeightedLab[] = keys.map((key) => {
                                 const c = sepColors.get(key)!;
@@ -1143,7 +1163,7 @@ export default function ThreeDView({
                         // continuous height; dithering happens spatially in Pass 2.
                         // Shared final-stack mappings seed every source color so
                         // optimizer scoring and preview choose the same printable
-                        // layer. Separation assignments override the same keys.
+                        // layer. Recomputed assignments only fill missing source colors.
                         const colorHeightCache = autoPaintFinalStack
                             ? createFinalStackTargetHeightCache(
                                   autoPaintFinalStack.targetMappings,
@@ -1152,7 +1172,7 @@ export default function ThreeDView({
                               )
                             : new Map<number, number>();
                         for (const [key, height] of separationHeights) {
-                            colorHeightCache.set(key, height);
+                            if (!colorHeightCache.has(key)) colorHeightCache.set(key, height);
                         }
 
                         for (let py = minY; py < minY + boxH; py++) {
@@ -1268,7 +1288,7 @@ export default function ThreeDView({
                                 let s =
                                     slicerFirstLayerHeight +
                                     Math.round(delta / layerHeight) * layerHeight;
-                                s = Math.max(slicerFirstLayerHeight, Math.min(maxModelH, s));
+                                s = Math.max(minModelH, Math.min(maxModelH, s));
                                 snappedMap[mi] = s;
                             }
 
@@ -1336,20 +1356,21 @@ export default function ThreeDView({
                             // Steinberg for smoother tone and finer detail.
                             // Offsets are scan-relative (dx along the serpentine
                             // direction, dy downward); weights are pre-divided by 42.
-                            const STUCKI_KERNEL: ReadonlyArray<readonly [number, number, number]> = [
-                                [1, 0, 8 / 42],
-                                [2, 0, 4 / 42],
-                                [-2, 1, 2 / 42],
-                                [-1, 1, 4 / 42],
-                                [0, 1, 8 / 42],
-                                [1, 1, 4 / 42],
-                                [2, 1, 2 / 42],
-                                [-2, 2, 1 / 42],
-                                [-1, 2, 2 / 42],
-                                [0, 2, 4 / 42],
-                                [1, 2, 2 / 42],
-                                [2, 2, 1 / 42],
-                            ];
+                            const STUCKI_KERNEL: ReadonlyArray<readonly [number, number, number]> =
+                                [
+                                    [1, 0, 8 / 42],
+                                    [2, 0, 4 / 42],
+                                    [-2, 1, 2 / 42],
+                                    [-1, 1, 4 / 42],
+                                    [0, 1, 8 / 42],
+                                    [1, 1, 4 / 42],
+                                    [2, 1, 2 / 42],
+                                    [-2, 2, 1 / 42],
+                                    [-1, 2, 2 / 42],
+                                    [0, 2, 4 / 42],
+                                    [1, 2, 2 / 42],
+                                    [2, 2, 1 / 42],
+                                ];
                             const errBuf = new Float64Array(bW * bH);
                             const blockSnapped = new Float32Array(bW * bH);
 
@@ -1380,10 +1401,7 @@ export default function ThreeDView({
                                             slicerFirstLayerHeight +
                                             Math.round(delta / layerHeight) * layerHeight;
                                     }
-                                    snapped = Math.max(
-                                        slicerFirstLayerHeight,
-                                        Math.min(maxModelH, snapped)
-                                    );
+                                    snapped = Math.max(minModelH, Math.min(maxModelH, snapped));
                                     blockSnapped[bi] = snapped;
 
                                     if (!blockHasEdge[bi]) {
@@ -1425,10 +1443,7 @@ export default function ThreeDView({
                                 let snapped =
                                     slicerFirstLayerHeight +
                                     Math.round(delta / layerHeight) * layerHeight;
-                                snapped = Math.max(
-                                    slicerFirstLayerHeight,
-                                    Math.min(maxModelH, snapped)
-                                );
+                                snapped = Math.max(minModelH, Math.min(maxModelH, snapped));
                                 pixelHeightMap[mi] = snapped;
                             }
                         }
@@ -1468,6 +1483,7 @@ export default function ThreeDView({
                                 const normalizedLum = (lum - minLum) / (maxLum - minLum);
 
                                 const firstLayerH = Math.max(
+                                    minimumSurfaceHeight,
                                     slicerFirstLayerHeight,
                                     colorSliceHeights[colorOrder[0]] || slicerFirstLayerHeight
                                 );
@@ -1481,7 +1497,7 @@ export default function ThreeDView({
                                     pixelHeight =
                                         slicerFirstLayerHeight +
                                         Math.round(delta / layerHeight) * layerHeight;
-                                    pixelHeight = Math.max(slicerFirstLayerHeight, pixelHeight);
+                                    pixelHeight = Math.max(minimumSurfaceHeight, pixelHeight);
                                 }
 
                                 pixelHeightMap[mapIdx] = pixelHeight;
@@ -2063,16 +2079,15 @@ export default function ThreeDView({
                             camera.far = sphere.radius * 20;
                         } else if (camera instanceof THREE.OrthographicCamera) {
                             const distance = sphere.radius * 2.5;
-                            const camPos = sphere.center
-                                .clone()
-                                .add(dir.multiplyScalar(distance));
+                            const camPos = sphere.center.clone().add(dir.multiplyScalar(distance));
                             camera.position.copy(camPos);
                             controls.target.copy(sphere.center);
                             camera.near = 0.01;
                             camera.far = sphere.radius * 20;
                             // Expand frustum to fit the sphere
                             const viewH = sphere.radius * 2.5;
-                            const aspect = (camera.right - camera.left) / (camera.top - camera.bottom);
+                            const aspect =
+                                (camera.right - camera.left) / (camera.top - camera.bottom);
                             camera.top = viewH / 2;
                             camera.bottom = -viewH / 2;
                             camera.left = -(viewH * aspect) / 2;
@@ -2270,8 +2285,8 @@ export default function ThreeDView({
                                                 : `Swap Layer ${hoveredSegment.segment.transitionLayer}`}
                                         </div>
                                         <div className="mt-1 text-[10px] text-muted-foreground">
-                                            Height:{' '}
-                                            {hoveredSegment.segment.startHeight.toFixed(2)} mm
+                                            Height: {hoveredSegment.segment.startHeight.toFixed(2)}{' '}
+                                            mm
                                         </div>
                                         <div className="mt-1 flex items-center gap-1.5 font-mono text-[11px] font-semibold">
                                             <span
@@ -2316,7 +2331,10 @@ export default function ThreeDView({
                                                         className="absolute inset-y-0 cursor-help transition-[filter] hover:brightness-110"
                                                         style={{
                                                             left: sliderCenterPercentCss(left),
-                                                            width: sliderSpanPercentCss(left, right),
+                                                            width: sliderSpanPercentCss(
+                                                                left,
+                                                                right
+                                                            ),
                                                             backgroundColor: segment.color,
                                                             filter: 'grayscale(1)',
                                                             opacity: 0.45,

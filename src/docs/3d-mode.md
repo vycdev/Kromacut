@@ -82,6 +82,8 @@ Templates are unofficial reference filament sets: colors come from [Bambu Lab's 
 
 **Max Height** limits the total printed model height in Auto-paint. Leave it on **Auto** for the physics-derived, layer-aligned height. If a value falls between valid first-layer and layer-height steps, Kromacut uses the next lower printable height so the generated model never exceeds your cap. Set a smaller value when the model is too tall, but watch for compressed transition zones.
 
+The foundation keeps the thickness required by its hiding-distance model for approximately 95% opacity in every RGB channel. Compression, color matching, and height dithering cannot shorten it below that layer-aligned minimum. Palette Proof also excludes thinner foundation prefixes from its candidates. If the height limit cannot fit an opaque foundation, increase **Max Height** or choose a filament with a shorter HD; Kromacut rejects that stack instead of predicting an opaque color from a translucent base.
+
 ## Printable Detail
 
 Set **Effective line width** to the extrusion width you expect to use in the slicer. Before Auto-paint maps image colors, Kromacut finds color regions that cannot contain a path that wide and predicts which printable neighboring color would claim each vulnerable location. When omission is enabled, the same resolved pixels are used for optimizer scoring and for the built height map, so the diagnostic and model describe the same geometry.

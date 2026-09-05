@@ -68,7 +68,13 @@ function realizedQuality(
     const heights = cumulativeHeights(slices.colorSliceHeights, slices.colorOrder);
     const palette = slices.virtualSwatches.map((swatch, index) => {
         const rgb = autoPaint.hexToRgb(swatch.hex);
-        return { height: heights[index], lab: autoPaint.rgbToLab(rgb), rgb };
+        const entry = result.finalStack.palette[index];
+        return {
+            height: heights[index],
+            surfaceEligible: entry.surfaceEligible,
+            lab: { L: entry.predictedLab[0], a: entry.predictedLab[1], b: entry.predictedLab[2] },
+            rgb,
+        };
     });
     const targets = imageSwatches.map((swatch) => {
         const lab = autoPaint.rgbToLab(autoPaint.hexToRgb(swatch.hex));

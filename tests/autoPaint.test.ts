@@ -402,7 +402,7 @@ test('color separation refuses to build when distinct acceptable matches are imp
     assert.throws(
         () =>
             generateAutoLayers(
-                [{ id: 'black', color: '#000000', td: 1 }],
+                [{ id: 'black', color: '#000000', td: 0.1 }],
                 [
                     { hex: '#000000', count: 1 },
                     { hex: '#ffffff', count: 1 },
@@ -426,7 +426,7 @@ test('color separation refuses to build when distinct acceptable matches are imp
 test('non-strict color separation builds by merging only the missed colors', async () => {
     const { generateAutoLayers } = await loadAutoPaintModule();
     const result = generateAutoLayers(
-        [{ id: 'black', color: '#000000', td: 1 }],
+        [{ id: 'black', color: '#000000', td: 0.1 }],
         [
             { hex: '#000000', count: 1 },
             { hex: '#ffffff', count: 1 },
@@ -471,7 +471,7 @@ test('non-strict separation removes filament zones used only by discarded colors
     const { generateAutoLayers } = await loadAutoPaintModule();
     const result = generateAutoLayers(
         [
-            { id: 'black', color: '#000000', td: 1 },
+            { id: 'black', color: '#000000', td: 0.1 },
             { id: 'red', color: '#ff0000', td: 1 },
             { id: 'white', color: '#ffffff', td: 1 },
         ],
@@ -516,7 +516,7 @@ test('non-strict color separation rejects a build when no source color survives 
     assert.throws(
         () =>
             generateAutoLayers(
-                [{ id: 'black', color: '#000000', td: 1 }],
+                [{ id: 'black', color: '#000000', td: 0.1 }],
                 [{ hex: '#ffffff', count: 1 }],
                 0.08,
                 0.16,
@@ -540,7 +540,7 @@ test('color separation returns a verified report without spending the repeat all
     const { generateAutoLayers } = await loadAutoPaintModule();
     const result = generateAutoLayers(
         [
-            { id: 'black', color: '#000000', td: 1 },
+            { id: 'black', color: '#000000', td: 0.1 },
             { id: 'white', color: '#ffffff', td: 1 },
         ],
         [{ hex: '#000000', count: 1 }],
@@ -1026,9 +1026,10 @@ test('a one-layer Matrix interaction cannot extrapolate the legacy orange-over-w
     });
     const transition = result.zones[1];
     assert.ok(transition.idealThickness > 0.08);
-    assert.equal(transition.effectiveTdChannels, undefined);
-    assert.equal(transition.transmissionExponent, undefined);
-    assert.equal(transition.opticsSource, 'wedge-quick');
+    assert.equal(transition.transitionOptics?.maxFittedThickness, 0.08);
+    assert.deepEqual(transition.transitionOptics?.color, [205, 52, 0]);
+    // The measured prefix remains usable, but cannot set the opaque endpoint.
+    assert.deepEqual(transition.transitionOptics?.fallbackColor, [216, 52, 0]);
     assert.ok(
         transition.filamentTdChannels![1] > 0.2,
         `unsupported Matrix fit leaked its red-shifting green HD: ${transition.filamentTdChannels}`
@@ -1171,8 +1172,8 @@ test('ideal-height zones include a foundation and remain contiguous when compres
     assert.equal(zones.length, 3, 'each filament should produce one zone');
     assertAlmostEqual(
         zones[0].actualThickness,
-        Math.max(baseThickness, 0.5 * 1.3),
-        'the foundation must be thick enough to be opaque'
+        0.7,
+        'the opaque foundation must snap upward to the physical layer grid'
     );
     assertAlmostEqual(zones[0].startHeight, 0);
     assertAlmostEqual(zones[zones.length - 1].endHeight, idealHeight);
@@ -1180,6 +1181,7 @@ test('ideal-height zones include a foundation and remain contiguous when compres
     const { compressedZones, compressionRatio } = compressZones(zones, idealHeight / 2);
     assertAlmostEqual(compressionRatio, 0.5);
     assert.equal(compressedZones.length, zones.length);
+    assert.equal(compressedZones[0].actualThickness, zones[0].actualThickness);
     assertAlmostEqual(
         compressedZones[compressedZones.length - 1].endHeight,
         idealHeight / 2,
@@ -1406,7 +1408,7 @@ test('auto-paint caps and optimizer palettes use the same discrete printable sta
     const firstLayerHeight = 0.2;
     const maxHeight = 0.35;
     const filaments = [
-        { id: 'black', color: '#000000', td: 1 },
+        { id: 'black', color: '#000000', td: 0.1 },
         { id: 'white', color: '#ffffff', td: 1.5 },
     ];
     const swatches = [

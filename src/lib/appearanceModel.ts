@@ -33,6 +33,7 @@ import {
     fitEffectiveOpticsFromMatrix,
     predictEffectiveAutoPaintColor,
     predictEffectiveRecipeColor,
+    minimumOpaqueFoundationThickness,
 } from './effectiveOptics';
 import { BoundedCache } from './boundedCache';
 import { fingerprintJson } from './fingerprint';
@@ -121,7 +122,7 @@ export function createIdentityAppearanceRankModel(
     return {
         schemaVersion: 1,
         modelVersion: MODEL_VERSION,
-        fingerprint: fingerprintJson('appearance-rank-model-v9', payload),
+        fingerprint: fingerprintJson('appearance-rank-model-v10', payload),
         contextFingerprint,
         applied: false,
         gateReason: 'insufficient-evidence',
@@ -870,32 +871,10 @@ function leaveOneOutEmpiricalError(
     samples: readonly AppearanceEmpiricalLutSampleV1[],
     coverageRadius: number
 ): number {
-    const neighbors: Array<{
-        sample: AppearanceEmpiricalLutSampleV1;
-        recipeDistance: number;
-        predictedDistance: number;
-    }> = [];
-    for (let index = 0; index < samples.length; index++) {
-        if (index === heldOutIndex) continue;
-        const sample = samples[index];
-        const candidate = {
-            sample,
-            recipeDistance: recipeDistance(heldOut.recipeFilamentIds, sample.recipeFilamentIds),
-            predictedDistance: labTupleDistance(heldOut.predictedLab, sample.predictedLab),
-        };
-        if (candidate.recipeDistance > EMPIRICAL_MAX_RECIPE_DISTANCE) continue;
-        const insertion = neighbors.findIndex(
-            (neighbor) =>
-                candidate.predictedDistance < neighbor.predictedDistance ||
-                (candidate.predictedDistance === neighbor.predictedDistance &&
-                    (candidate.recipeDistance < neighbor.recipeDistance ||
-                        (candidate.recipeDistance === neighbor.recipeDistance &&
-                            candidate.sample.id < neighbor.sample.id)))
-        );
-        if (insertion < 0) neighbors.push(candidate);
-        else neighbors.splice(insertion, 0, candidate);
-        if (neighbors.length > EMPIRICAL_NEIGHBOR_COUNT) neighbors.pop();
-    }
+    const neighbors = rankEmpiricalNeighbors(
+        selectEmpiricalRecipeNeighbors(samples, heldOut.recipeFilamentIds, heldOutIndex),
+        heldOut.predictedLab
+    );
 
     let predicted: Lab = {
         L: heldOut.predictedLab[0],
@@ -918,12 +897,11 @@ function leaveOneOutEmpiricalError(
             b += neighbor.sample.measuredLab[2] * weight;
         }
         if (Number.isFinite(totalWeight) && totalWeight > 0) {
-            predicted = rgbToLab(
-                labToRgb({
-                    L: lightness / totalWeight,
-                    a: a / totalWeight,
-                    b: b / totalWeight,
-                })
+            predicted = supportedEmpiricalColor(
+                predicted,
+                [lightness / totalWeight, a / totalWeight, b / totalWeight],
+                neighbors[0].predictedDistance,
+                coverageRadius
             );
         }
     }
@@ -1330,7 +1308,7 @@ export function fitAppearanceRankModel(
     return {
         schemaVersion: 1,
         modelVersion: MODEL_VERSION,
-        fingerprint: fingerprintJson('appearance-rank-model-v9', fingerprintPayload),
+        fingerprint: fingerprintJson('appearance-rank-model-v10', fingerprintPayload),
         contextFingerprint,
         applied,
         gateReason,
@@ -1521,7 +1499,7 @@ function empiricalLutSubstrateMatches(
     const foundationStart = recipeStart - lut.foundationLayers.length;
     if (lut.foundationLayers.length === 0 || recipeStart <= 0) return false;
     if (
-        foundationStart >= 0 &&
+        foundationStart === 0 &&
         layersMatchAt(prefixLayers, foundationStart, lut.foundationLayers)
     ) {
         return true;
@@ -1531,8 +1509,34 @@ function empiricalLutSubstrateMatches(
     const substrateTop = substrateLayers.at(-1);
     if (!substrateTop || substrateTop.filamentId !== lut.backingFilamentId) return false;
 
+    // A caller may represent the very same measured foundation as one run
+    // rather than individual layers. Preserve that evidence without treating
+    // a shorter, nominally same-colored foundation as equivalent.
+    const measuredFoundationColor = lut.foundationLayers[0].filamentColor;
+    if (
+        substrateLayers.every(
+            (layer) =>
+                layer.filamentId === lut.backingFilamentId &&
+                layer.filamentColor.toLowerCase() === measuredFoundationColor.toLowerCase()
+        ) &&
+        Math.abs(
+            substrateLayers.reduce((sum, layer) => sum + layer.thickness, 0) -
+                lut.foundationLayers.reduce((sum, layer) => sum + layer.thickness, 0)
+        ) <= 1e-8
+    ) {
+        return true;
+    }
+
     const optics = model.effectiveOptics;
     if (!optics) return false;
+    const first = substrateLayers[0];
+    let foundationThickness = 0;
+    for (const layer of substrateLayers) {
+        if (layer.filamentId !== first.filamentId) break;
+        foundationThickness += layer.thickness;
+    }
+    if (foundationThickness + 1e-8 < minimumOpaqueFoundationThickness(optics, first.filamentId))
+        return false;
     // A matrix foundation is one contiguous run of its selected backing. Its
     // calibrated interface is therefore the backing's opaque appearance; do
     // not walk a potentially hundreds-of-layers-long foundation on every
@@ -1616,6 +1620,69 @@ interface IndexedEmpiricalNeighbor {
     recipeDistance: number;
 }
 
+function selectEmpiricalRecipeNeighbors(
+    samples: readonly AppearanceEmpiricalLutSampleV1[],
+    recipe: readonly string[],
+    excludedIndex = -1
+): IndexedEmpiricalNeighbor[] {
+    const neighbors: IndexedEmpiricalNeighbor[] = [];
+    for (let index = 0; index < samples.length; index++) {
+        if (index === excludedIndex) continue;
+        const sample = samples[index];
+        const distance = recipeDistance(recipe, sample.recipeFilamentIds);
+        if (distance > EMPIRICAL_MAX_RECIPE_DISTANCE) continue;
+        const candidate = { sample, recipeDistance: distance };
+        const insertion = neighbors.findIndex(
+            (neighbor) =>
+                distance < neighbor.recipeDistance ||
+                (distance === neighbor.recipeDistance && sample.id < neighbor.sample.id)
+        );
+        if (insertion < 0) neighbors.push(candidate);
+        else neighbors.splice(insertion, 0, candidate);
+        if (neighbors.length > EMPIRICAL_NEIGHBOR_COUNT) neighbors.pop();
+    }
+    return neighbors;
+}
+
+function rankEmpiricalNeighbors(
+    neighbors: readonly IndexedEmpiricalNeighbor[],
+    base: readonly [number, number, number]
+) {
+    return neighbors
+        .map((neighbor) => ({
+            ...neighbor,
+            predictedDistance: labTupleDistance(base, neighbor.sample.predictedLab),
+        }))
+        .sort(
+            (left, right) =>
+                left.predictedDistance - right.predictedDistance ||
+                left.recipeDistance - right.recipeDistance ||
+                left.sample.id.localeCompare(right.sample.id)
+        );
+}
+
+/** Fade interpolation itself (not only its confidence) at the coverage boundary. */
+function supportedEmpiricalColor(
+    base: Lab,
+    estimate: readonly [number, number, number],
+    distance: number,
+    radius: number
+): Lab {
+    const support = Math.max(0, Math.min(1, 1 - distance / Math.max(1e-9, radius)));
+    if (support <= 0) return { ...base };
+    const strength = support * support * (3 - 2 * support);
+    return rgbToLab(
+        labToRgb(
+            {
+                L: base.L + strength * (estimate[0] - base.L),
+                a: base.a + strength * (estimate[1] - base.a),
+                b: base.b + strength * (estimate[2] - base.b),
+            },
+            false
+        )
+    );
+}
+
 interface EmpiricalNeighborLookup {
     neighbors: IndexedEmpiricalNeighbor[];
     nearest: IndexedEmpiricalNeighbor | undefined;
@@ -1652,7 +1719,7 @@ function empiricalNeighborLookup(
     const key = recipeKey(recipe);
     const cached = index.neighborLookups.get(key);
     if (cached) return cached;
-    const neighbors: IndexedEmpiricalNeighbor[] = [];
+    const neighbors = selectEmpiricalRecipeNeighbors(lut.samples, recipe);
     let nearest: IndexedEmpiricalNeighbor | undefined;
     for (const sample of lut.samples) {
         const distance = recipeDistance(recipe, sample.recipeFilamentIds);
@@ -1665,16 +1732,6 @@ function empiricalNeighborLookup(
         ) {
             nearest = candidate;
         }
-        if (distance > EMPIRICAL_MAX_RECIPE_DISTANCE) continue;
-        const insertion = neighbors.findIndex(
-            (neighbor) =>
-                candidate.recipeDistance < neighbor.recipeDistance ||
-                (candidate.recipeDistance === neighbor.recipeDistance &&
-                    candidate.sample.id < neighbor.sample.id)
-        );
-        if (insertion < 0) neighbors.push(candidate);
-        else neighbors.splice(insertion, 0, candidate);
-        if (neighbors.length > EMPIRICAL_NEIGHBOR_COUNT) neighbors.pop();
     }
     const lookup = { neighbors, nearest };
     index.neighborLookups.set(key, lookup);
@@ -2443,18 +2500,12 @@ function resolveEmpiricalLut(
             continue;
         }
 
-        const neighbors = nearbyEmpiricalSamples(lut, recipe)
-            .filter((neighbor) => empiricalSampleBelongsToLut(lut, neighbor.sample, model))
-            .map((neighbor) => ({
-                ...neighbor,
-                predictedDistance: labTupleDistance(baseTuple, neighbor.sample.predictedLab),
-            }))
-            .sort(
-                (left, right) =>
-                    left.predictedDistance - right.predictedDistance ||
-                    left.recipeDistance - right.recipeDistance ||
-                    left.sample.id.localeCompare(right.sample.id)
-            );
+        const neighbors = rankEmpiricalNeighbors(
+            nearbyEmpiricalSamples(lut, recipe).filter((neighbor) =>
+                empiricalSampleBelongsToLut(lut, neighbor.sample, model)
+            ),
+            baseTuple
+        );
         if (neighbors.length < 2) continue;
         const nearestPredictedDistance = neighbors[0].predictedDistance;
         if (nearestPredictedDistance > lut.coverageRadius) continue;
@@ -2498,12 +2549,11 @@ function resolveEmpiricalLut(
             weightedNeighbors.push({ correction, weight });
         }
         if (!Number.isFinite(totalWeight) || totalWeight <= 0) continue;
-        const interpolated = rgbToLab(
-            labToRgb({
-                L: lightness / totalWeight,
-                a: a / totalWeight,
-                b: b / totalWeight,
-            })
+        const interpolated = supportedEmpiricalColor(
+            base,
+            [lightness / totalWeight, a / totalWeight, b / totalWeight],
+            nearestPredictedDistance,
+            lut.coverageRadius
         );
         const correctionConsensus = [
             correctionLightness / totalWeight,

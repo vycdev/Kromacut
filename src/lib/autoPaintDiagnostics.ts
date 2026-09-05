@@ -58,6 +58,7 @@ export interface AutoPaintDiagnosticTimingV1 {
 
 interface DiagnosticPaletteEntryV1 {
     paletteIndex: number;
+    surfaceEligible: boolean;
     height: number;
     canonicalStackKey: string;
     basePredictedColor: string;
@@ -187,6 +188,7 @@ function buildPaletteDiagnostics(result: AutoPaintResult): DiagnosticPaletteEntr
 
         return {
             paletteIndex: index,
+            surfaceEligible: entry.surfaceEligible !== false,
             height: entry.height,
             canonicalStackKey: entry.canonicalStackKey,
             basePredictedColor: entry.basePredictedColor.hex,
@@ -219,6 +221,7 @@ function buildTargetDiagnostics(result: AutoPaintResult): DiagnosticTargetMappin
     return result.finalStack.targetMappings.map((mapping) => {
         const targetLab = tupleLab(mapping.targetLab);
         const candidates: DiagnosticTargetCandidateV1[] = result.finalStack.palette
+            .filter((entry) => entry.surfaceEligible !== false)
             .map((entry) => {
                 const candidateLab = tupleLab(entry.predictedLab);
                 const deltaE2000 = deltaE2000Lab(targetLab, candidateLab);
@@ -312,10 +315,13 @@ function buildObjectiveSummary(
         ),
         weightedPredictionUncertainty: roundMetric(uncertainty / normalizedTotal),
         selectedPrintableColorCount: selectedIndices.size,
-        availablePrintableColorCount: result.finalStack.palette.length,
+        availablePrintableColorCount: result.finalStack.palette.filter(
+            (entry) => entry.surfaceEligible !== false
+        ).length,
         unusedPrintableColorCount: Math.max(
             0,
-            result.finalStack.palette.length - selectedIndices.size
+            result.finalStack.palette.filter((entry) => entry.surfaceEligible !== false).length -
+                selectedIndices.size
         ),
     };
 }

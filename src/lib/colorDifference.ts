@@ -56,8 +56,8 @@ export function rgbToLab([r, g, b]: Rgb): Lab {
     };
 }
 
-/** Convert CIE Lab (D65) to a clamped 8-bit sRGB triplet. */
-export function labToRgb({ L, a, b }: Lab): Rgb {
+/** Convert CIE Lab (D65) to clamped sRGB. Preserve fractions for continuous model blending. */
+export function labToRgb({ L, a, b }: Lab, quantize = true): Rgb {
     const fy = (L + 16) / 116;
     const fx = a / 500 + fy;
     const fz = fy - b / 200;
@@ -78,7 +78,8 @@ export function labToRgb({ L, a, b }: Lab): Rgb {
     ];
     const encode = (value: number) => {
         const srgb = value <= 0.0031308 ? 12.92 * value : 1.055 * value ** (1 / 2.4) - 0.055;
-        return Math.round(Math.max(0, Math.min(1, srgb)) * 255);
+        const channel = Math.max(0, Math.min(1, srgb)) * 255;
+        return quantize ? Math.round(channel) : channel;
     };
     return [encode(linear[0]), encode(linear[1]), encode(linear[2])];
 }

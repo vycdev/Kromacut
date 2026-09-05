@@ -4,7 +4,7 @@ import type {
     AppearanceEffectiveOpticsModelV1,
     AppearanceSubstrateInteractionV1,
 } from '../types/appearance';
-import { channelHds, quickFrontlitChannelHds } from './calibration';
+import { channelHds, channelHdsForSubstrate, quickFrontlitChannelHds } from './calibration';
 import { deltaE2000 } from './colorDifference';
 import { linearChannelToSrgb, srgbChannelToLinear } from './colorSpace';
 import { fingerprintJson } from './fingerprint';
@@ -35,6 +35,17 @@ export interface ResolvedEffectiveFilamentOptics {
     color: readonly [number, number, number];
     hdChannels: readonly [number, number, number];
     transmissionExponent: number;
+}
+
+/** One contiguous run, including its conservative continuation beyond measured support. */
+export interface EffectiveTransitionOptics {
+    color: readonly [number, number, number];
+    hdChannels: readonly [number, number, number];
+    transmissionExponent: number;
+    substrateHdMultiplier: number;
+    maxFittedThickness: number;
+    fallbackColor: readonly [number, number, number];
+    fallbackHdChannels: readonly [number, number, number];
 }
 
 interface RecipeRun {
@@ -225,6 +236,7 @@ function modelFingerprintPayload(
 ) {
     return {
         modelVersion: MODEL_VERSION,
+        predictionPolicy: 'supported-prefix-continuation-v1',
         applied,
         gateReason,
         matrixCount,
@@ -292,6 +304,10 @@ export function createPriorEffectiveOpticsModel(
                 filamentId: filament.id,
                 priorHdChannels: [hds[0], hds[1], hds[2]],
                 fallbackHdChannels: [fallbackHds[0], fallbackHds[1], fallbackHds[2]],
+                substrateHdChannels: filaments.map((substrate) => ({
+                    substrateFilamentId: substrate.id,
+                    hdChannels: channelHdsForSubstrate(filament, substrate.color),
+                })),
                 effectiveHdChannels: [hds[0], hds[1], hds[2]],
                 priorOpaqueColor: color,
                 effectiveOpaqueColor: color,
@@ -953,6 +969,9 @@ export function fitEffectiveOpticsFromMatrix(
             return {
                 filamentId: filament.id,
                 priorHdChannels: priorHds[filamentIndex],
+                substrateHdChannels: priorModel.filaments.find(
+                    (entry) => entry.filamentId === filament.id
+                )?.substrateHdChannels,
                 fallbackHdChannels: fallbackHds[filamentIndex],
                 effectiveHdChannels: effectiveHds,
                 priorOpaqueColor: priorColor,
@@ -1110,6 +1129,103 @@ function resolvedModelFilament(
     return model.filaments.find((entry) => entry.filamentId === filamentId);
 }
 
+export function resolveEffectiveTransitionOptics(
+    model: AppearanceEffectiveOpticsModelV1,
+    foregroundFilamentId: string,
+    substrateFilamentId: string
+): EffectiveTransitionOptics | undefined {
+    const foreground = resolvedModelFilament(model, foregroundFilamentId);
+    if (!foreground) return undefined;
+    const interaction = model.applied
+        ? model.substrateInteractions.find(
+              (entry) =>
+                  entry.foregroundFilamentId === foregroundFilamentId &&
+                  entry.substrateFilamentId === substrateFilamentId &&
+                  entry.sampleCount > 0
+          )
+        : undefined;
+    const maxFittedThickness = Math.max(0, interaction?.maxObservedThickness ?? 0);
+    const fallbackHdChannels =
+        foreground.substrateHdChannels?.find(
+            (entry) => entry.substrateFilamentId === substrateFilamentId
+        )?.hdChannels ??
+        foreground.fallbackHdChannels ??
+        foreground.priorHdChannels;
+    return {
+        color:
+            maxFittedThickness > 0 ? foreground.effectiveOpaqueColor : foreground.priorOpaqueColor,
+        hdChannels: maxFittedThickness > 0 ? foreground.effectiveHdChannels : fallbackHdChannels,
+        transmissionExponent: maxFittedThickness > 0 ? foreground.transmissionExponent : 1,
+        substrateHdMultiplier: maxFittedThickness > 0 ? interaction!.hdMultiplier : 1,
+        maxFittedThickness,
+        fallbackColor: foreground.priorOpaqueColor,
+        fallbackHdChannels,
+    };
+}
+
+/**
+ * Predict from the run's original substrate, never by repeatedly applying a
+ * nonlinear fit to individual layers. Beyond support, continue from its last
+ * supported color using conservative attenuation toward the nominal swatch.
+ * This is continuous and does not extrapolate the fitted exponent or endpoint.
+ */
+export function blendEffectiveTransition(
+    background: readonly [number, number, number],
+    optics: EffectiveTransitionOptics,
+    thickness: number
+): [number, number, number] {
+    if (!(thickness > 0)) return [...background];
+    const supportedThickness = Math.min(thickness, optics.maxFittedThickness);
+    const boundary =
+        supportedThickness > 0
+            ? blendEffectiveSrgb(
+                  background,
+                  optics.color,
+                  optics.hdChannels,
+                  supportedThickness,
+                  optics.transmissionExponent,
+                  optics.substrateHdMultiplier
+              )
+            : ([...background] as [number, number, number]);
+    const remainder = thickness - supportedThickness;
+    return remainder > 0
+        ? blendEffectiveSrgb(boundary, optics.fallbackColor, optics.fallbackHdChannels, remainder)
+        : boundary;
+}
+
+export function effectiveTransitionTransmission(
+    optics: EffectiveTransitionOptics,
+    thickness: number
+): [number, number, number] {
+    const supported = Math.min(Math.max(0, thickness), optics.maxFittedThickness);
+    return [0, 1, 2].map(
+        (channel) =>
+            effectiveTransmission(
+                supported,
+                optics.hdChannels[channel],
+                optics.transmissionExponent,
+                optics.substrateHdMultiplier
+            ) *
+            effectiveTransmission(
+                Math.max(0, thickness - supported),
+                optics.fallbackHdChannels[channel]
+            )
+    ) as [number, number, number];
+}
+
+/** Thickness required by the opaque-foundation boundary condition (95% opacity). */
+export function minimumOpaqueFoundationThickness(
+    model: AppearanceEffectiveOpticsModelV1,
+    filamentId: string
+): number {
+    const filament = resolvedModelFilament(model, filamentId);
+    if (!filament) return Infinity;
+    return (
+        Math.max(...(model.applied ? filament.effectiveHdChannels : filament.priorHdChannels)) *
+        Math.pow(Math.log10(20), 1 / (model.applied ? filament.transmissionExponent : 1))
+    );
+}
+
 export function predictEffectiveRecipeColor(
     model: AppearanceEffectiveOpticsModelV1,
     backingFilamentId: string,
@@ -1134,24 +1250,12 @@ export function predictEffectiveRecipeColor(
         const foreground = resolvedModelFilament(model, run.filamentId);
         if (!foreground) return undefined;
         if (run.filamentId === substrateFilamentId) continue;
-        const supported = effectiveOpticsSupportsTransition(
+        const transition = resolveEffectiveTransitionOptics(
             model,
             run.filamentId,
-            substrateFilamentId,
-            run.thickness
-        );
-        current = blendEffectiveSrgb(
-            current,
-            supported ? foreground.effectiveOpaqueColor : foreground.priorOpaqueColor,
-            supported
-                ? foreground.effectiveHdChannels
-                : (foreground.fallbackHdChannels ?? foreground.priorHdChannels),
-            run.thickness,
-            supported ? foreground.transmissionExponent : 1,
-            supported
-                ? effectiveSubstrateHdMultiplier(model, run.filamentId, substrateFilamentId)
-                : 1
-        );
+            substrateFilamentId
+        )!;
+        current = blendEffectiveTransition(current, transition, run.thickness);
         substrateFilamentId = run.filamentId;
     }
     return current;
@@ -1191,27 +1295,11 @@ export function effectiveSuffixTransmission(
         const run = runs[runIndex];
         const filament = model?.filaments.find((entry) => entry.filamentId === run.filamentId);
         if (!filament) return 1;
-        const substrate = runIndex > 0 ? runs[runIndex - 1].filamentId : undefined;
-        const supported = effectiveOpticsSupportsTransition(
-            model,
-            run.filamentId,
-            substrate,
-            run.thickness
-        );
-        const interaction = supported
-            ? effectiveSubstrateHdMultiplier(model, run.filamentId, substrate)
-            : 1;
-        const hds = supported
-            ? filament.effectiveHdChannels
-            : (filament.fallbackHdChannels ?? filament.priorHdChannels);
-        const exponent = supported ? filament.transmissionExponent : 1;
+        const substrate = runIndex > 0 ? runs[runIndex - 1].filamentId : '';
+        const optics = resolveEffectiveTransitionOptics(model!, run.filamentId, substrate)!;
+        const runTransmission = effectiveTransitionTransmission(optics, run.thickness);
         for (let channel = 0; channel < 3; channel++) {
-            transmission[channel] *= effectiveTransmission(
-                run.thickness,
-                hds[channel],
-                exponent,
-                interaction
-            );
+            transmission[channel] *= runTransmission[channel];
         }
     }
     return Math.max(...transmission);

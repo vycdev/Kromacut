@@ -39,6 +39,7 @@ export type PaletteProofCandidateRole =
     | 'fallback';
 
 export interface PaletteProofPrefix {
+    surfaceEligible?: boolean;
     id: string;
     index: number;
     height: number;
@@ -205,6 +206,7 @@ export function enumerateFinalStackPrefixes(
             canonicalStackKey: entry.canonicalStackKey,
             predictedColor: entry.predictedColor,
             predictedLab: entry.predictedLab,
+            surfaceEligible: entry.surfaceEligible,
         };
     });
 }
@@ -401,6 +403,19 @@ export function selectPrefixCandidates(
     history?: PaletteProofCandidateHistory,
     selectionMode: PaletteProofCandidateSelectionMode = 'coverage'
 ): PaletteProofCandidate[] {
+    if (prefixes.some((prefix) => prefix.surfaceEligible === false)) {
+        const eligible = prefixes.filter((prefix) => prefix.surfaceEligible !== false);
+        const index = eligible.findIndex((prefix) => prefix.index === target.paletteIndex);
+        if (index < 0) return [];
+        return selectPrefixCandidates(
+            { ...target, paletteIndex: index },
+            eligible,
+            evidence,
+            requestedCount,
+            history,
+            selectionMode
+        );
+    }
     if (prefixes.length === 0) return [];
     if (target.paletteIndex < 0 || target.paletteIndex >= prefixes.length) {
         throw new Error(`Target ${target.id} maps outside the final stack prefix range`);
@@ -846,10 +861,7 @@ export function validatePaletteProofSpec(
     ) {
         errors.push('layout reinforcement clearance is inconsistent');
     }
-    if (
-        reinforcementLayers > 0 &&
-        spec.layout.gapMm < reinforcementClearanceMm * 2
-    ) {
+    if (reinforcementLayers > 0 && spec.layout.gapMm < reinforcementClearanceMm * 2) {
         errors.push('layout reinforcement clearance overlaps adjacent cells');
     }
     if (spec.layout.foundationPrefixKey !== (snapshot.palette[0]?.canonicalStackKey ?? null)) {

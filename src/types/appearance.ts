@@ -97,6 +97,11 @@ export interface AppearanceEffectiveFilamentOpticsV1 {
     priorHdChannels: readonly [number, number, number];
     /** Conservative wedge/swatch fallback for unsupported Matrix transitions. */
     fallbackHdChannels?: readonly [number, number, number];
+    /** Runtime wedge prior for each actual substrate, shared by every predictor. */
+    substrateHdChannels?: readonly {
+        substrateFilamentId: string;
+        hdChannels: readonly [number, number, number];
+    }[];
     effectiveHdChannels: readonly [number, number, number];
     priorOpaqueColor: readonly [number, number, number];
     effectiveOpaqueColor: readonly [number, number, number];
@@ -201,6 +206,8 @@ export interface TargetSampleContext {
 }
 
 export interface FinalStackLayerSnapshot {
+    /** False for a foundation prefix that has not reached its required opacity. */
+    surfaceEligible?: boolean;
     id: string;
     index: number;
     filamentId: string;
@@ -238,6 +245,10 @@ export interface FinalStackZoneSnapshot {
     transmissionExponent?: number;
     substrateFilamentId?: string;
     substrateHdMultiplier?: number;
+    maxFittedThickness?: number;
+    fallbackColor?: readonly [number, number, number];
+    fallbackHdChannels?: readonly [number, number, number];
+    minimumThickness?: number;
     startHeight: number;
     endHeight: number;
     idealThickness: number;
@@ -256,6 +267,7 @@ export interface FinalStackSwapSnapshot {
 }
 
 export interface FinalStackPaletteEntrySnapshot {
+    surfaceEligible?: boolean;
     id: string;
     index: number;
     layerId: string;

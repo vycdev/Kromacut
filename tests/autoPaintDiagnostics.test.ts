@@ -54,8 +54,19 @@ test('diagnostic result explains every final target against every printable cand
     assert.equal(trace.result.finalStack.fingerprint, result.finalStack.fingerprint);
     assert.equal(trace.analysis.printablePalette.length, result.finalStack.palette.length);
     assert.equal(trace.analysis.targetMappings.length, result.finalStack.targetMappings.length);
+    const eligibleCount = result.finalStack.palette.filter(
+        (entry) => entry.surfaceEligible !== false
+    ).length;
+    assert.ok(eligibleCount < result.finalStack.palette.length);
+    assert.equal(trace.analysis.objective.availablePrintableColorCount, eligibleCount);
     for (const mapping of trace.analysis.targetMappings) {
-        assert.equal(mapping.candidates.length, result.finalStack.palette.length);
+        assert.equal(mapping.candidates.length, eligibleCount);
+        assert.ok(
+            mapping.candidates.every(
+                (candidate) =>
+                    result.finalStack.palette[candidate.paletteIndex].surfaceEligible !== false
+            )
+        );
         assert.equal(mapping.candidates.filter((candidate) => candidate.selected).length, 1);
         assert.ok(mapping.selectedCandidateRankByDeltaE2000 >= 1);
         assert.ok(Number.isFinite(mapping.selectedDeltaE2000));

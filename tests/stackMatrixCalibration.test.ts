@@ -4,6 +4,7 @@ import JSZip from 'jszip';
 
 import { assertValidXml10Members } from './helpers/xml.ts';
 import { withViteTestServer } from './helpers/viteModule.ts';
+import { deltaE2000Lab } from '../src/lib/colorDifference.ts';
 
 type MatrixModule = typeof import('../src/lib/stackMatrixCalibration.ts');
 type ExportModule = typeof import('../src/lib/stackMatrixExport.ts');
@@ -651,6 +652,63 @@ test('completed Stack Matrix samples become measured anchors without global fit 
     assert.equal(resolved.predictionConfidence.nearestMeasuredDeltaE, 0);
 });
 
+test('conditional Matrix validation uses the deployed neighbor selection and support fade', async () => {
+    const [matrix, , profile, model] = await modules;
+    const planned = matrix.buildStackMatrixCalibration(
+        filaments,
+        options(64),
+        '2026-08-07T10:00:00.000Z'
+    );
+    const completed = matrix.completeStackMatrixCalibration(
+        planned,
+        planned.samples.map(
+            (sample, index) =>
+                [
+                    sample.predictedColor.rgb[0],
+                    Math.min(255, sample.predictedColor.rgb[1] + index + 1),
+                    sample.predictedColor.rgb[2],
+                ] as [number, number, number]
+        ),
+        'matrix.jpg',
+        false,
+        '2026-08-07T11:00:00.000Z'
+    );
+    const fitted = model.fitAppearanceRankModel(
+        profile.upsertStackMatrixCalibration(profile.createEmptyAppearanceProfile(), completed),
+        {
+            filamentProfileFingerprint: profile.fingerprintAppearanceFilaments(filaments),
+            layerHeight: 0.08,
+            firstLayerHeight: 0.2,
+            transitionOpacity: 0.9,
+            filaments,
+        }
+    );
+    const lut = fitted.empiricalLuts[0];
+    for (const heldOut of lut.samples) {
+        const withheld = {
+            ...model.createIdentityAppearanceRankModel(),
+            effectiveOptics: fitted.effectiveOptics,
+            empiricalLuts: [
+                { ...lut, samples: lut.samples.filter((sample) => sample.id !== heldOut.id) },
+            ],
+            exactAnchors: fitted.exactAnchors.filter(
+                (anchor) => anchor.id !== heldOut.exactAnchorId
+            ),
+        };
+        const resolved = model.resolveAppearanceRankModel(
+            { L: heldOut.predictedLab[0], a: heldOut.predictedLab[1], b: heldOut.predictedLab[2] },
+            withheld,
+            matrixPrefix(completed, heldOut.recipeFilamentIds)
+        );
+        const error = deltaE2000Lab(resolved.lab, {
+            L: heldOut.measuredLab[0],
+            a: heldOut.measuredLab[1],
+            b: heldOut.measuredLab[2],
+        });
+        assert.ok(Math.abs(error - heldOut.crossValidationDeltaE!) < 1e-8, heldOut.id);
+    }
+});
+
 test('all compatible Stack Matrix samples jointly refit physical optics without crossing process boundaries', async () => {
     const [matrix, , profile, model] = await modules;
     const planned = matrix.buildStackMatrixCalibration(
@@ -742,9 +800,7 @@ test('Stack Matrix LUT uses an exact photographed recipe only with its measured 
         }
     );
     const lut = fitted.empiricalLuts[0];
-    const sample = lut.samples.find(
-        (candidate) => new Set(candidate.recipeFilamentIds).size > 1
-    )!;
+    const sample = lut.samples.find((candidate) => new Set(candidate.recipeFilamentIds).size > 1)!;
     const bareRecipe = sample.recipeFilamentIds.map((filamentId) => ({
         filamentId,
         filamentColor: filaments.find((filament) => filament.id === filamentId)!.color,
@@ -856,6 +912,12 @@ test('Stack Matrix exact colors require their measured or optically equivalent b
         fitted,
         [...translucentBackingOverWrongSubstrate, ...bareRecipe]
     );
+    const thinNominalBacking = model.resolveAppearanceRankModel(
+        { L: sample.predictedLab[0], a: sample.predictedLab[1], b: sample.predictedLab[2] },
+        fitted,
+        [{ filamentId: 'backing', filamentColor: '#f4f2ea', thickness: 0.08 }, ...bareRecipe]
+    );
+    assert.equal(thinNominalBacking.empiricalMatch, undefined);
 
     assert.equal(anchor.suffixLayers.length, lut.stackLayerCount);
     assert.equal(lut.foundationLayers.length, completed.foundationLayerThicknesses.length);

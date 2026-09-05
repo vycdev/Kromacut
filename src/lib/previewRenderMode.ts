@@ -283,6 +283,19 @@ export function applyPreviewRenderMode(
             baselines.meshes.set(mesh, meshBaseline);
         }
 
+        // Inspection modes mutate the original material. Restore its captured
+        // state before the first accurate clone takes its own baseline.
+        if (mode === 'color-accurate' && !meshBaseline.colorAccurateMaterial) {
+            const originals = Array.isArray(meshBaseline.material)
+                ? meshBaseline.material
+                : [meshBaseline.material];
+            for (const material of originals) {
+                if (!isPreviewMaterial(material)) continue;
+                const baseline = baselines.materials.get(material);
+                if (baseline) changed = applyRenderState(material, baseline) || changed;
+            }
+        }
+
         changed =
             applyColorAccurateMeshMaterial(mesh, meshBaseline, mode === 'color-accurate') ||
             changed;
