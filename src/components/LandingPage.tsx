@@ -26,6 +26,9 @@ import kingOfHeartsSlicer from '../../content/community/king-of-hearts-slicer.jp
 import hopeKromacutPreview from '../../content/community/hope-kromacut-preview.jpg';
 import hopeSlicerPreview from '../../content/community/hope-slicer-preview.jpg';
 import hopeFinished from '../../content/community/hope-finished.jpg';
+import titanKromacutPreview from '../../content/community/titan-kromacut-preview.png';
+import titanSlicerPreview from '../../content/community/titan-slicer-preview.png';
+import titanFinished from '../../content/community/titan-finished.jpg';
 import redditIcon from '../assets/reddit.svg';
 import { APP_PATH, docsPath } from '@/lib/routes';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -96,6 +99,7 @@ interface ShowcaseItem {
     dimensions?: string;
     href?: string;
     image: string;
+    artwork?: { label: string; href: string };
     kind: string;
     note?: string;
     title: string;
@@ -166,30 +170,80 @@ const hopeShowcase: ShowcaseItem[] = [
     },
 ];
 
+const titanShowcase: ShowcaseItem[] = [
+    {
+        image: titanKromacutPreview,
+        alt: 'Kromacut Auto-paint prediction for the golden waves of the Titan poster',
+        title: 'Titan poster',
+        kind: 'Kromacut prediction',
+        creator: 'vycdev',
+        dimensions: '102.4 × 152.7 mm footprint',
+        note: 'Auto-paint with the eight-color calibrated filament profile.',
+    },
+    {
+        image: titanSlicerPreview,
+        alt: 'Creality Print slicer preview of the Titan poster with its filament change tower',
+        title: 'Titan poster',
+        kind: 'Slicer preview',
+        creator: 'vycdev',
+        note: 'Creality Hi, 0.4 mm nozzle and 0.08 mm layers. Slicer estimate: 2 h 58 min, 28.90 g including flushing and tower, six filament changes.',
+    },
+    {
+        image: titanFinished,
+        alt: 'Finished Titan layered print with golden yellow and orange wave reflections on a dark background',
+        title: 'Titan poster',
+        kind: 'Finished print',
+        creator: 'vycdev',
+        note: 'The completed print, photographed by its maker. Lighting and camera processing can affect the colors shown.',
+        artwork: { label: 'NASA/JPL — Titan, Visions of the Future', href: 'https://www.jpl.nasa.gov/images/titan-jpl-travel-poster/' },
+    },
+];
+
+const showcaseGroups = [...communityShowcase, ...titanShowcase, ...hopeShowcase].reduce<ShowcaseItem[][]>((groups, item) => {
+    const group = groups.find(entries => entries[0].title === item.title);
+    if (group) group.push(item);
+    else groups.push([item]);
+    return groups;
+}, []);
+
 function ExternalArrow() {
     return <ArrowRight aria-hidden="true" className="h-4 w-4" />;
 }
 
-function ShowcaseCard({ item }: { item: ShowcaseItem }) {
+function ShowcaseCard({ items }: { items: ShowcaseItem[] }) {
+    const project = items[0];
+    const artwork = items.find(item => item.artwork)?.artwork;
+    const sourceLinkClassName = 'inline-flex min-h-11 items-center gap-2 rounded-md text-sm font-semibold text-blue-700 underline underline-offset-4 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:text-blue-300';
     return (
-        <article className="flex h-full flex-col overflow-hidden rounded-xl border border-slate-200/90 bg-white/90 shadow-md shadow-slate-200/60 dark:border-border dark:bg-background/70 dark:shadow-sm dark:shadow-black/20">
-            <div className="aspect-[4/3] overflow-hidden bg-muted"><img src={item.image} alt={item.alt} loading="lazy" className="h-full w-full object-cover" /></div>
-            <div className="flex flex-1 flex-col gap-4 border-t border-border/70 p-5 sm:p-6">
+        <article className="overflow-hidden rounded-xl border border-slate-200/90 bg-white/90 shadow-md shadow-slate-200/60 dark:border-border dark:bg-background/70 dark:shadow-sm dark:shadow-black/20">
+            <header className="flex flex-col gap-4 border-b border-border/70 p-5 sm:p-6">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
-                        <h3 className="text-lg font-bold tracking-tight">{item.title}</h3>
-                        <p className="mt-1 text-sm text-muted-foreground">By <span className="font-semibold text-foreground">{item.creator}</span></p>
+                        <h3 className="text-xl font-bold tracking-tight">{project.title}</h3>
+                        <p className="mt-1 text-sm text-muted-foreground">By <span className="font-semibold text-foreground">{project.creator}</span></p>
                     </div>
-                    <span className="rounded-full border border-blue-500/25 bg-blue-500/10 px-2.5 py-1 text-xs font-bold text-blue-700 dark:text-blue-300">{item.kind}</span>
+                    <span className="rounded-full border border-blue-500/25 bg-blue-500/10 px-2.5 py-1 text-xs font-bold text-blue-700 dark:text-blue-300">{items.length} photos</span>
                 </div>
-                {item.dimensions && <p className="inline-flex items-center gap-2 text-sm font-semibold text-muted-foreground"><Ruler aria-hidden="true" className="h-4 w-4 shrink-0 text-blue-700 dark:text-blue-300" />{item.dimensions}</p>}
-                {item.note && <p className="text-sm leading-6 text-muted-foreground">{item.note}</p>}
-                {item.href && (
-                    <a href={item.href} target="_blank" rel="noopener noreferrer" className="mt-auto inline-flex min-h-11 items-center justify-center gap-2 self-start rounded-lg bg-blue-700 px-4 py-2.5 text-sm font-bold text-white shadow-sm shadow-blue-700/20 transition-colors hover:bg-blue-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background">
-                        View Reddit post <ExternalArrow />
-                    </a>
-                )}
+                {project.dimensions && <p className="inline-flex items-center gap-2 text-sm font-semibold text-muted-foreground"><Ruler aria-hidden="true" className="h-4 w-4 shrink-0 text-blue-700 dark:text-blue-300" />{project.dimensions}</p>}
+            </header>
+            <div className={`grid gap-6 p-5 sm:grid-cols-2 sm:p-6 ${items.length > 2 ? 'lg:grid-cols-3' : ''}`}>
+                {items.map((item, index) => (
+                    <figure key={item.image} className="min-w-0">
+                        <a href={item.image} target="_blank" rel="noopener noreferrer" aria-label={`Open ${item.title} ${item.kind.toLowerCase()} ${index + 1} at full size`} className="block h-72 overflow-hidden rounded-lg bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:h-80">
+                            <img src={item.image} alt={item.alt} loading="lazy" className="h-full w-full object-contain" />
+                        </a>
+                        <figcaption className="mt-4 space-y-3">
+                            <p className="text-sm font-bold text-blue-700 dark:text-blue-300">{item.kind}</p>
+                            {item.note && <p className="text-sm leading-6 text-muted-foreground">{item.note}</p>}
+                        </figcaption>
+                    </figure>
+                ))}
             </div>
+            <footer className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 border-t border-border/70 px-5 py-3 text-sm text-muted-foreground sm:px-6">
+                <p>Open any photo at full size.</p>
+                {project.href && <a href={project.href} target="_blank" rel="noopener noreferrer" className={sourceLinkClassName}>View Reddit post <ExternalArrow /></a>}
+                {artwork && <p>Original artwork: <a href={artwork.href} target="_blank" rel="noopener noreferrer" className={sourceLinkClassName}>{artwork.label}</a></p>}
+            </footer>
         </article>
     );
 }
@@ -432,21 +486,8 @@ export default function LandingPage() {
                         <h2 className="mt-4 text-3xl font-extrabold tracking-tight sm:text-5xl">Made by the Kromacut community.</h2>
                         <p className="mt-5 text-lg leading-8 text-muted-foreground">Finished prints and behind-the-scenes previews from people creating with Kromacut.</p>
                     </div>
-                    <div data-testid="community-gallery" className="mt-10 grid gap-5 sm:grid-cols-2">
-                        {communityShowcase.map((item) => <ShowcaseCard key={item.image} item={item} />)}
-                    </div>
-                    <div data-testid="hope-showcase" className="mt-14 border-t border-border/70 pt-10">
-                        <div className="max-w-3xl">
-                            <div className="flex flex-wrap items-center gap-3">
-                                <p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-700 dark:text-blue-300">Prediction vs. print</p>
-                                <span className="rounded-full border border-amber-500/25 bg-amber-500/10 px-2.5 py-1 text-xs font-bold text-amber-700 dark:text-amber-300">1 of 4 target colors close</span>
-                            </div>
-                            <h3 className="mt-4 text-2xl font-extrabold tracking-tight sm:text-3xl">Hope poster field test</h3>
-                            <p className="mt-4 text-base leading-7 text-muted-foreground">With no red filament available, Auto-paint predicted red from orange over pink. The print stayed orange, while the predicted cyan shifted toward purple-blue. Pale yellow was the closest match. The printed black followed the preview, but both missed the original image&apos;s very dark teal-blue target. Limited calibration coverage and a permissive color-error limit may both have contributed.</p>
-                        </div>
-                        <div className="mt-7 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-                            {hopeShowcase.map((item) => <ShowcaseCard key={item.image} item={item} />)}
-                        </div>
+                    <div data-testid="community-gallery" className="mt-10 grid grid-cols-1 gap-8">
+                        {showcaseGroups.map((items) => <ShowcaseCard key={items[0].title} items={items} />)}
                     </div>
                     <div className="mt-8 flex flex-col gap-4 rounded-xl border border-blue-500/20 bg-blue-500/5 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
                         <div>

@@ -1,6 +1,57 @@
 import { expect, test } from '@playwright/test';
 
 test.describe('landing page smoke @smoke', () => {
+    test('all showcase cards share headers, captions, image sizing and full-size links across screen sizes', async ({ page }, testInfo) => {
+        for (const width of [1440, 768, 390]) {
+            await page.setViewportSize({ width, height: 1000 });
+            await page.goto('/?landing=1');
+            const gallery = page.getByTestId('community-gallery');
+            expect(await gallery.evaluate(element => getComputedStyle(element).gridTemplateColumns.split(' ').length)).toBe(1);
+            const titan = gallery.locator('article').filter({ has: page.getByRole('heading', { name: 'Titan poster', exact: true }) });
+            await titan.first().scrollIntoViewIfNeeded();
+            await expect(gallery.locator('article')).toHaveCount(4);
+            expect(await gallery.locator('article').evaluateAll(cards => cards.map(card => card.querySelectorAll('img').length))).toEqual([2, 2, 3, 3]);
+            const cards = gallery.locator('article');
+            for (let index = 0; index < 4; index++) {
+                const card = cards.nth(index);
+                await expect(card.locator(':scope > header')).toHaveCount(1);
+                await expect(card.locator('header h3')).toHaveCount(1);
+                await expect(card.locator(':scope > footer')).toHaveCount(1);
+                await expect(card.locator('footer').getByText('Open any photo at full size.')).toHaveCount(1);
+                await expect(card.locator('figcaption')).toHaveCount(index < 2 ? 2 : 3);
+                await expect(card.locator('header').getByText(`${index < 2 ? 2 : 3} photos`, { exact: true })).toHaveCount(1);
+            }
+            await expect(titan.locator('header').getByText('102.4 × 152.7 mm footprint')).toHaveCount(1);
+            await expect(titan.locator('footer').getByRole('link', { name: /NASA\/JPL/ })).toHaveCount(1);
+            await expect(page.getByTestId('titan-showcase')).toHaveCount(0);
+            await expect(page.getByTestId('hope-showcase')).toHaveCount(0);
+            await expect(titan).toHaveCount(1);
+            await expect(titan.getByText('By vycdev', { exact: true })).toHaveCount(1);
+            await expect(titan.getByRole('link', { name: 'NASA/JPL — Titan, Visions of the Future' })).toHaveAttribute('href', 'https://www.jpl.nasa.gov/images/titan-jpl-travel-poster/');
+            expect(await titan.locator('img').evaluateAll(images => images.map(image => image.getAttribute('alt')))).toEqual([
+                'Kromacut Auto-paint prediction for the golden waves of the Titan poster',
+                'Creality Print slicer preview of the Titan poster with its filament change tower',
+                'Finished Titan layered print with golden yellow and orange wave reflections on a dark background',
+            ]);
+            const images = gallery.locator('img');
+            for (let index = 0; index < 10; index++) {
+                const image = images.nth(index);
+                await image.scrollIntoViewIfNeeded();
+                await expect.poll(() => image.evaluate(img => (img as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
+                await expect(image).toHaveCSS('object-fit', 'contain');
+                const fullSizeLink = gallery.getByRole('link', { name: /at full size/ }).nth(index);
+                await expect(fullSizeLink).toHaveAttribute('href', (await image.getAttribute('src'))!);
+                await expect(fullSizeLink).toHaveAttribute('target', '_blank');
+                await expect(fullSizeLink).toHaveCSS('height', width >= 640 ? '320px' : '288px');
+            }
+            expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+            const cardHeight = await titan.evaluate(card => card.getBoundingClientRect().height);
+            await page.setViewportSize({ width, height: Math.max(1000, Math.ceil(cardHeight) + 120) });
+            await titan.last().scrollIntoViewIfNeeded();
+            await titan.last().screenshot({ path: testInfo.outputPath(`titan-${width}.png`) });
+        }
+    });
+
     test('landing CTA opens the tool and direct /app loading works', async ({ page }) => {
         await page.addInitScript(() => localStorage.clear());
 
@@ -17,22 +68,20 @@ test.describe('landing page smoke @smoke', () => {
         const communityGallery = showcase.getByTestId('community-gallery');
         await expect(communityGallery.getByAltText(/Hobbits and Dragons/)).toHaveCount(2);
         await expect(communityGallery.getByAltText(/King of Hearts playing-card print/)).toHaveCount(2);
-        await expect(communityGallery.getByText('By vycdev')).toHaveCount(2);
-        await expect(communityGallery.getByText('47.72 \u00d7 66.53 \u00d7 3.2 mm')).toHaveCount(2);
+        await expect(communityGallery.getByText('By vycdev')).toHaveCount(3);
+        await expect(communityGallery.getByText('47.72 \u00d7 66.53 \u00d7 3.2 mm')).toHaveCount(1);
         const redditLinks = communityGallery.getByRole('link', { name: 'View Reddit post' });
-        await expect(redditLinks).toHaveCount(2);
+        await expect(redditLinks).toHaveCount(1);
         await expect(redditLinks.first()).toHaveAttribute('href', 'https://www.reddit.com/r/kromacut/comments/1vum7om/hobbits_and_dragons/');
-        const showcaseImageAlts = await communityGallery.locator('img').evaluateAll((images) => images.slice(-2).map((image) => image.getAttribute('alt')));
+        const showcaseImageAlts = await communityGallery.locator('img').evaluateAll((images) => images.slice(2, 4).map((image) => image.getAttribute('alt')));
         expect(showcaseImageAlts).toEqual([
             'Slicer preview of the multicolor King of Hearts playing-card print',
             'A multicolor layered King of Hearts playing-card print',
         ]);
-        const hopeShowcase = showcase.getByTestId('hope-showcase');
-        await expect(hopeShowcase.getByRole('heading', { name: 'Hope poster field test' })).toBeVisible();
-        await expect(hopeShowcase.getByText('1 of 4 target colors close')).toBeVisible();
+        const hopeShowcase = communityGallery.locator('article').filter({ has: page.getByRole('heading', { name: 'Hope poster', exact: true }) });
         await expect(hopeShowcase.getByAltText(/Hope poster/)).toHaveCount(3);
-        await expect(hopeShowcase.getByText('By vycdev')).toHaveCount(3);
-        await expect(hopeShowcase.getByText('72 \u00d7 108.4 \u00d7 3.04 mm')).toHaveCount(3);
+        await expect(hopeShowcase.getByText('By vycdev')).toHaveCount(1);
+        await expect(hopeShowcase.getByText('72 \u00d7 108.4 \u00d7 3.04 mm')).toHaveCount(1);
         await expect(showcase.getByRole('link', { name: 'Open a pull request' })).toHaveAttribute('href', 'https://github.com/vycdev/Kromacut/pulls');
 
         await page.getByTestId('landing-open-app').click();

@@ -34,6 +34,7 @@ import {
     buildProfileExportSnapshot,
 } from '../lib/profileManager';
 import { deduplicateName } from '../lib/nameUtils';
+import { saveBlobToFile } from './saveBlobToFile';
 import { persistProfilesBeforeCommit } from '../lib/profilePersistence';
 import { TEMPLATE_PROFILES, isTemplateProfileId } from '../data/supplierFilaments';
 
@@ -191,23 +192,26 @@ export function useProfileManager({ filaments, setFilaments }: UseProfileManager
         [profiles, activeProfileId]
     );
 
-    const handleExportProfile = useCallback(() => {
+    const handleExportProfile = useCallback(async () => {
         const active = [...profiles, ...TEMPLATE_PROFILES].find((p) => p.id === activeProfileId);
         const profile = buildProfileExportSnapshot(active, filaments, isDirty);
 
-        const blob = exportProfileBlob(profile);
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = profileFileName(profile.name);
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        URL.revokeObjectURL(url);
-        if (active && !isTemplateProfileId(active.id) && isDirty) {
-            setImportFeedback(
-                'Exported unsaved filament edits as a new profile without incompatible calibration evidence.'
-            );
+        try {
+            const saved = await saveBlobToFile(exportProfileBlob(profile), {
+                defaultFileName: profileFileName(profile.name),
+                extension: 'kfil',
+                filterName: 'Filament profile',
+            });
+            if (!saved) return;
+            setImportFeedback(null);
+            if (active && !isTemplateProfileId(active.id) && isDirty) {
+                setImportFeedback(
+                    'Exported unsaved filament edits as a new profile without incompatible calibration evidence.'
+                );
+            }
+        } catch (error) {
+            console.error('Filament profile export failed', error);
+            setImportFeedback('Could not export the filament profile. Please try saving again.');
         }
     }, [filaments, profiles, activeProfileId, isDirty]);
 

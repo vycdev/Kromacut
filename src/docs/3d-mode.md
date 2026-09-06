@@ -70,6 +70,7 @@ Auto-paint profiles store reusable filament sets.
 - **Rename selected profile** changes the selected profile name without changing its filaments.
 - **Import profile from file** loads a `.kfil`, legacy `.kapp`, or `.json` profile.
 - **Export current filaments as .kfil file** shares the current filament setup. If the loaded profile has unsaved filament edits, Kromacut exports those edits as a clearly named new profile without the old profile's incompatible appearance evidence.
+  On desktop, export opens a **Save As** dialog to choose the file name and location; the browser uses its normal download flow. Cancelling does not change your profile or calibration.
 - **Delete selected profile** removes the selected profile.
 
 ### Templates
