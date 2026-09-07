@@ -1,0 +1,887 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+
+import { loadViteModule } from './helpers/viteModule.ts';
+
+type OptimizerModule = typeof import('../src/lib/optimizer.ts');
+
+const filaments = [
+    { id: 'black', color: '#101010', td: 0.8 },
+    { id: 'blue', color: '#2557a7', td: 1.4 },
+    { id: 'red', color: '#bb4b3b', td: 1.8 },
+    { id: 'white', color: '#eeeeee', td: 2.2 },
+];
+const context = {
+    imageColors: [
+        { L: 16, a: 0, b: 0, weight: 0.2 },
+        { L: 38, a: 12, b: -34, weight: 0.25 },
+        { L: 51, a: 38, b: 26, weight: 0.3 },
+        { L: 91, a: 0, b: 0, weight: 0.25 },
+    ],
+    layerHeight: 0.08,
+    firstLayerHeight: 0.16,
+};
+let optimizerModule: Promise<OptimizerModule> | null = null;
+
+async function loadOptimizerModule(): Promise<OptimizerModule> {
+    optimizerModule ??= loadViteModule<OptimizerModule>('/src/lib/optimizer.ts');
+    return optimizerModule;
+}
+
+test('each optimizer produces the same result for the same seed', async (t) => {
+    const { optimizeFilamentOrder } = await loadOptimizerModule();
+    const algorithms = [
+        'exhaustive',
+        'simulated-annealing',
+        'fast',
+        'balanced',
+        'thorough',
+        'deep',
+        'exact',
+    ] as const;
+
+    for (const algorithm of algorithms) {
+        await t.test(algorithm, () => {
+            const options = {
+                algorithm,
+                seed: 0x4b524f4d,
+                cachingEnabled: false,
+                maxIterations: 30,
+                populationSize: 16,
+            };
+
+            const first = optimizeFilamentOrder(filaments, context, options);
+            const second = optimizeFilamentOrder(filaments, context, options);
+
+            assert.deepEqual(second, first);
+        });
+    }
+});
+
+test('sequence scoring retains only bounded scalar results without changing scores', async () => {
+    const { createSequenceScorer } = await loadOptimizerModule();
+    const uncached = createSequenceScorer(context, 0);
+    const bounded = createSequenceScorer(context, 2);
+    const sequences = [
+        [filaments[0]],
+        [filaments[1]],
+        [filaments[2]],
+        [filaments[0], filaments[3]],
+    ];
+
+    const expected = sequences.map((sequence) => uncached(sequence));
+    const actual = sequences.map((sequence) => bounded(sequence));
+
+    assert.deepEqual(actual, expected);
+    assert.equal(uncached.cacheSize(), 0);
+    assert.equal(bounded.cacheSize(), 2);
+    assert.equal(
+        bounded(sequences[0]),
+        expected[0],
+        'an evicted sequence must recompute identically'
+    );
+    assert.equal(bounded.cacheSize(), 2);
+});
+
+test('separation candidate comparison follows the explicit lexicographic priorities', async () => {
+    const { compareSeparationSequenceEvaluations } = await loadOptimizerModule();
+    const evaluation = (
+        preserved: number,
+        weight: number,
+        error: number,
+        printableLayerCount: number,
+        usedFilamentOccurrenceCount: number = printableLayerCount
+    ) => ({
+        score: 1,
+        printableLayerCount,
+        filamentOccurrenceCount: usedFilamentOccurrenceCount,
+        usedPrintableLayerCount: printableLayerCount,
+        usedFilamentOccurrenceCount,
+        usedHeight: printableLayerCount * 0.08,
+        separation: {
+            requestedColorCount: 4,
+            printableColorCount: 8,
+            assignedDistinctColorCount: preserved,
+            uniquelyPreservedWithinThresholdCount: preserved,
+            unacceptableColorCount: 4 - preserved,
+            mappedWithinThresholdCount: preserved,
+            overThresholdColorCount: 4 - preserved,
+            unmappedColorCount: 0,
+            reusedPrintableColorCount: 4 - preserved,
+            maximumDeltaE: 20,
+            maximumPreservedDeltaE: error,
+            preservedTargetWeight: weight,
+            preservedWeightedMeanDeltaE: error,
+            mergedColorCount: 4 - preserved,
+            maximumAllowedDeltaE: 10,
+            satisfied: preserved === 4,
+        },
+    });
+
+    assert.ok(
+        compareSeparationSequenceEvaluations(
+            evaluation(3, 0.3, 9, 100),
+            evaluation(2, 0.9, 1, 1),
+            8,
+            0
+        ) < 0,
+        'preserved color count must outrank every later metric'
+    );
+    assert.ok(
+        compareSeparationSequenceEvaluations(
+            evaluation(2, 0.8, 9, 100),
+            evaluation(2, 0.7, 1, 1),
+            8,
+            0
+        ) < 0,
+        'source coverage must break equal-cardinality ties'
+    );
+    assert.ok(
+        compareSeparationSequenceEvaluations(
+            evaluation(2, 0.8, 3, 100),
+            evaluation(2, 0.8, 4, 1),
+            8,
+            0
+        ) > 0,
+        'an in-limit numerical improvement must not justify a much larger physical stack'
+    );
+    assert.ok(
+        compareSeparationSequenceEvaluations(
+            evaluation(2, 0.8, 3, 100),
+            evaluation(2, 0.8, 3, 1),
+            1,
+            2
+        ) < 0,
+        'fewer repeats must outrank stack length'
+    );
+    assert.ok(
+        compareSeparationSequenceEvaluations(
+            evaluation(2, 0.8, 3, 10),
+            evaluation(2, 0.8, 3, 11),
+            1,
+            1
+        ) < 0,
+        'shorter printable stacks must break the final semantic tie'
+    );
+    assert.ok(
+        compareSeparationSequenceEvaluations(
+            evaluation(2, 0.8, 3, 10, 2),
+            evaluation(2, 0.8, 4, 10, 2),
+            1,
+            1
+        ) < 0,
+        'preserved error must break ties between equally compact stacks'
+    );
+});
+
+test('evidence-aware prefix caching is bounded and preserves exact sequence scores', async () => {
+    const { createSequenceScorer } = await loadOptimizerModule();
+    const appearanceModel = {
+        schemaVersion: 1 as const,
+        modelVersion: 'lab-rank-local-v9' as const,
+        fingerprint: 'optimizer-prefix-cache-test',
+        contextFingerprint: 'optimizer-prefix-cache-context',
+        applied: true,
+        gateReason: 'applied' as const,
+        deltaL: 2,
+        logChromaScale: 0.04,
+        confidence: 0.8,
+        observationCount: 20,
+        trainingObservationCount: 16,
+        trainingDistinctStackCount: 8,
+        noneCount: 0,
+        distinctStackCount: 10,
+        heldOutCount: 4,
+        heldOutDistinctStackCount: 4,
+        baselineAgreement: 0.5,
+        fittedAgreement: 0.8,
+        sourceProofIds: ['proof-a'],
+        comparedStackKeys: [],
+        exactAnchors: [],
+        localEvidence: [],
+        empiricalLuts: [],
+    };
+    const evidenceContext = { ...context, appearanceModel };
+    const uncached = createSequenceScorer(evidenceContext, 0, 0);
+    const bounded = createSequenceScorer(evidenceContext, 0, 3);
+    const sequences = [
+        [filaments[0], filaments[1]],
+        [filaments[0], filaments[1], filaments[2]],
+        [filaments[0], filaments[1], filaments[3]],
+        [filaments[0], filaments[2], filaments[3]],
+    ];
+
+    for (const sequence of [...sequences, ...sequences]) {
+        assert.equal(bounded(sequence), uncached(sequence));
+    }
+
+    assert.equal(uncached.appearanceCacheSize(), 0);
+    assert.ok(bounded.appearanceCacheSize() > 0);
+    assert.ok(bounded.appearanceCacheSize() <= 3);
+});
+
+test('optimizer progress is monotonic and completes for every algorithm', async (t) => {
+    const { optimizeFilamentOrder } = await loadOptimizerModule();
+    const algorithms = [
+        'exhaustive',
+        'simulated-annealing',
+        'fast',
+        'balanced',
+        'thorough',
+        'deep',
+        'exact',
+    ] as const;
+
+    for (const algorithm of algorithms) {
+        await t.test(algorithm, () => {
+            const samples: number[] = [];
+            optimizeFilamentOrder(filaments, context, {
+                algorithm,
+                seed: 42,
+                maxIterations: 30,
+                cachingEnabled: false,
+                onProgress: (iteration, total) => samples.push(total > 0 ? iteration / total : 0),
+            });
+
+            assert.ok(samples.length > 0);
+            assert.equal(samples.at(-1), 1);
+            assert.ok(
+                samples.every((sample, index) => index === 0 || sample >= samples[index - 1]),
+                'progress must never move backwards'
+            );
+        });
+    }
+
+    const exactRepeatSamples: number[] = [];
+    optimizeFilamentOrder(filaments, context, {
+        algorithm: 'exact',
+        allowRepeatedSwaps: true,
+        seed: 42,
+        maxIterations: 20,
+        cachingEnabled: false,
+        onProgress: (iteration, total) =>
+            exactRepeatSamples.push(total > 0 ? iteration / total : 0),
+    });
+    assert.ok(
+        exactRepeatSamples.length > 2,
+        'exact repeat refinement must report intermediate progress'
+    );
+    assert.equal(exactRepeatSamples.at(-1), 1);
+    assert.ok(
+        exactRepeatSamples.every(
+            (sample, index) => index === 0 || sample >= exactRepeatSamples[index - 1]
+        ),
+        'exact repeat refinement progress must never move backwards'
+    );
+});
+
+function withoutCacheState<T extends { cacheHit?: boolean }>(result: T): Omit<T, 'cacheHit'> {
+    const outcome = { ...result };
+    delete outcome.cacheHit;
+    return outcome as Omit<T, 'cacheHit'>;
+}
+
+test('cache keys include all weighted clusters and optimizer tuning', async () => {
+    const { clearOptimizerCache, getOptimizerCacheStats, optimizeFilamentOrder } =
+        await loadOptimizerModule();
+    clearOptimizerCache();
+
+    const manyClusters = {
+        ...context,
+        imageColors: Array.from({ length: 21 }, (_, index) => ({
+            L: 10 + index * 3,
+            a: index - 10,
+            b: 10 - index,
+            weight: index === 20 ? 0.01 : 1,
+        })),
+    };
+    const options = {
+        algorithm: 'simulated-annealing' as const,
+        seed: 12345,
+        maxIterations: 30,
+        temperature: 75,
+        cachingEnabled: true,
+    };
+
+    const first = optimizeFilamentOrder(filaments, manyClusters, options);
+    const cached = optimizeFilamentOrder(filaments, manyClusters, options);
+    assert.equal(first.cacheHit, undefined);
+    assert.equal(cached.cacheHit, true);
+    assert.equal(getOptimizerCacheStats().size, 1);
+
+    const regionWeightedClusters = {
+        ...manyClusters,
+        imageColors: manyClusters.imageColors.map((cluster, index) => ({
+            ...cluster,
+            weight: index === 20 ? 0.5 : cluster.weight,
+        })),
+    };
+    const changedWeight = optimizeFilamentOrder(filaments, regionWeightedClusters, options);
+    assert.equal(changedWeight.cacheHit, undefined, 'a changed spatial weight must miss cache');
+    assert.equal(getOptimizerCacheStats().size, 2);
+
+    const changedTemperature = optimizeFilamentOrder(filaments, manyClusters, {
+        ...options,
+        temperature: 76,
+    });
+    assert.equal(changedTemperature.cacheHit, undefined, 'a changed temperature must miss cache');
+    assert.equal(getOptimizerCacheStats().size, 3);
+
+    const calibratedFilaments = filaments.map((filament, index) =>
+        index === 2
+            ? {
+                  ...filament,
+                  calibration: {
+                      opacityLayers: 6,
+                      layerHeight: 0.1,
+                      firstLayerHeight: 0.2,
+                      td: [1.2, 1.8, 2.4] as [number, number, number],
+                      tdSingleValue: filament.td,
+                      jnd: 2,
+                      baseColor: '#000000',
+                      confidence: 1,
+                      basis: 'frontlit' as const,
+                      calibrationDate: '2026-01-01T00:00:00.000Z',
+                  },
+              }
+            : filament
+    );
+    const changedCalibration = optimizeFilamentOrder(calibratedFilaments, manyClusters, options);
+    assert.equal(
+        changedCalibration.cacheHit,
+        undefined,
+        'changed per-channel calibration TDs must miss cache'
+    );
+    assert.equal(getOptimizerCacheStats().size, 4);
+
+    const contextPreserveSeparation = optimizeFilamentOrder(
+        filaments,
+        { ...manyClusters, preserveSeparation: true },
+        options
+    );
+    assert.equal(
+        contextPreserveSeparation.cacheHit,
+        undefined,
+        'context preserve-separation mode must miss cache'
+    );
+    assert.equal(getOptimizerCacheStats().size, 5);
+
+    const changedSeparationThreshold = optimizeFilamentOrder(
+        filaments,
+        { ...manyClusters, preserveSeparation: true },
+        { ...options, separationMaxDeltaE: 12 }
+    );
+    assert.equal(
+        changedSeparationThreshold.cacheHit,
+        undefined,
+        'a changed separation threshold must miss cache'
+    );
+    assert.equal(getOptimizerCacheStats().size, 6);
+
+    const appearanceModel = {
+        schemaVersion: 1 as const,
+        modelVersion: 'lab-rank-local-v9' as const,
+        fingerprint: 'appearance-fit-a',
+        contextFingerprint: 'appearance-context',
+        applied: true,
+        gateReason: 'applied' as const,
+        deltaL: 2,
+        logChromaScale: 0,
+        confidence: 0.8,
+        observationCount: 20,
+        trainingObservationCount: 16,
+        trainingDistinctStackCount: 8,
+        noneCount: 0,
+        distinctStackCount: 10,
+        heldOutCount: 4,
+        heldOutDistinctStackCount: 4,
+        baselineAgreement: 0.5,
+        fittedAgreement: 0.8,
+        sourceProofIds: ['proof-a'],
+        comparedStackKeys: [],
+        exactAnchors: [],
+        localEvidence: [],
+        empiricalLuts: [],
+    };
+    const changedAppearance = optimizeFilamentOrder(
+        filaments,
+        { ...manyClusters, appearanceModel },
+        options
+    );
+    const cachedAppearance = optimizeFilamentOrder(
+        filaments,
+        { ...manyClusters, appearanceModel },
+        options
+    );
+    assert.equal(
+        changedAppearance.cacheHit,
+        undefined,
+        'a changed appearance model must miss cache'
+    );
+    assert.equal(cachedAppearance.cacheHit, true);
+    assert.equal(getOptimizerCacheStats().size, 7);
+});
+
+test('cache keys distinguish active and inactive calibrated swatch colors', async () => {
+    const { clearOptimizerCache, optimizeFilamentOrder } = await loadOptimizerModule();
+    clearOptimizerCache();
+
+    const calibration = {
+        opacityLayers: 5,
+        layerHeight: 0.1,
+        firstLayerHeight: 0.2,
+        td: [2, 2, 2] as [number, number, number],
+        tdSingleValue: 0.5,
+        jnd: 2,
+        baseColor: '#000000',
+        confidence: 1,
+        basis: 'frontlit' as const,
+        calibrationDate: '2026-07-02T00:00:00.000Z',
+    };
+    const activeFilaments = [
+        {
+            id: 'white',
+            color: '#ffffff',
+            td: 0.5,
+            calibration: { ...calibration, filamentColor: '#ffffff' },
+        },
+        { id: 'black', color: '#000000', td: 0.2 },
+    ];
+    const inactiveFilaments = [
+        {
+            id: 'white',
+            color: '#ffffff',
+            td: 0.5,
+            calibration: { ...calibration, filamentColor: '#000000' },
+        },
+        { id: 'black', color: '#000000', td: 0.2 },
+    ];
+    const grayContext = {
+        imageColors: [{ L: 73, a: 0, b: 0, weight: 1 }],
+        layerHeight: 0.1,
+        firstLayerHeight: 0.2,
+    };
+    const options = {
+        algorithm: 'balanced' as const,
+        seed: 1234,
+        cachingEnabled: true,
+    };
+
+    const active = optimizeFilamentOrder(activeFilaments, grayContext, options);
+    const inactive = optimizeFilamentOrder(inactiveFilaments, grayContext, options);
+    const inactiveUncached = optimizeFilamentOrder(inactiveFilaments, grayContext, {
+        ...options,
+        cachingEnabled: false,
+    });
+    const inactiveCached = optimizeFilamentOrder(inactiveFilaments, grayContext, options);
+
+    assert.equal(active.cacheHit, undefined);
+    assert.equal(inactive.cacheHit, undefined, 'inactive calibration state must miss cache');
+    assert.equal(inactiveCached.cacheHit, true);
+    assert.equal(inactive.score, inactiveUncached.score);
+    assert.notEqual(active.score, inactive.score);
+});
+
+test('default optimizer seeds are stable and cacheable', async () => {
+    const { clearOptimizerCache, optimizeFilamentOrder } = await loadOptimizerModule();
+    clearOptimizerCache();
+
+    const options = {
+        algorithm: 'simulated-annealing' as const,
+        maxIterations: 20,
+        cachingEnabled: true,
+    };
+    const first = optimizeFilamentOrder(filaments, context, options);
+    const second = optimizeFilamentOrder(filaments, context, options);
+
+    assert.equal(first.cacheHit, undefined);
+    assert.equal(second.cacheHit, true);
+    assert.deepEqual(withoutCacheState(second), withoutCacheState(first));
+});
+
+test('optimizer scores its selected order with the shared build-model scorer', async () => {
+    const { optimizeFilamentOrder, scoreFilamentSequence } = await loadOptimizerModule();
+    const result = optimizeFilamentOrder(filaments, context, {
+        algorithm: 'exhaustive',
+        seed: 99,
+        cachingEnabled: false,
+    });
+
+    assert.equal(result.score, scoreFilamentSequence(result.order, context));
+});
+
+test('the shared scorer evaluates the compressed stack when Max Height is set', async () => {
+    const { optimizeFilamentOrder, scoreFilamentSequence } = await loadOptimizerModule();
+    const compressedContext = { ...context, maxHeight: 0.24 };
+    const options = {
+        algorithm: 'exhaustive' as const,
+        seed: 99,
+        cachingEnabled: false,
+    };
+
+    const unconstrainedScore = scoreFilamentSequence(filaments, context);
+    const compressedScore = scoreFilamentSequence(filaments, compressedContext);
+    const result = optimizeFilamentOrder(filaments, compressedContext, options);
+
+    assert.notEqual(
+        compressedScore,
+        unconstrainedScore,
+        'compression must change the palette being scored'
+    );
+    assert.equal(result.score, scoreFilamentSequence(result.order, compressedContext));
+});
+
+test('exhaustive search evaluates ordered subsets and drops a strictly worse filament', async () => {
+    const { optimizeFilamentOrder } = await loadOptimizerModule();
+    const candidates = [
+        { id: 'black', color: '#000000', td: 0.8 },
+        { id: 'white', color: '#ffffff', td: 1.2 },
+        { id: 'near-white', color: '#fefefe', td: 1.2 },
+    ];
+    const target = {
+        imageColors: [{ L: 100, a: 0, b: 0, weight: 1 }],
+        layerHeight: 0.08,
+        firstLayerHeight: 0.16,
+    };
+
+    const result = optimizeFilamentOrder(candidates, target, {
+        algorithm: 'exhaustive',
+        cachingEnabled: false,
+    });
+
+    assert.equal(result.iterations, 15, 'three filaments have 15 ordered non-empty subsets');
+    assert.deepEqual(
+        result.order.map((filament) => filament.id),
+        ['white']
+    );
+});
+
+test('repeat-enabled RGB search keeps the best safe path without forcing redundant swaps', async () => {
+    const { optimizeFilamentOrder } = await loadOptimizerModule();
+    const primaries = [
+        { id: 'red', color: '#ff0000', td: 1.2 },
+        { id: 'green', color: '#00ff00', td: 1.2 },
+        { id: 'blue', color: '#0000ff', td: 1.2 },
+    ];
+    const spectrumTargets = {
+        imageColors: [
+            { L: 53, a: 80, b: 67, weight: 0.05 },
+            { L: 88, a: -86, b: 83, weight: 0.05 },
+            { L: 32, a: 79, b: -108, weight: 0.05 },
+            { L: 97, a: -22, b: 94, weight: 0.28 },
+            { L: 91, a: -48, b: -14, weight: 0.28 },
+            { L: 60, a: 98, b: -61, weight: 0.29 },
+        ],
+        layerHeight: 0.08,
+        firstLayerHeight: 0.16,
+    };
+
+    const withoutRepeats = optimizeFilamentOrder(primaries, spectrumTargets, {
+        algorithm: 'exhaustive',
+        allowRepeatedSwaps: false,
+        cachingEnabled: false,
+    });
+    const result = optimizeFilamentOrder(primaries, spectrumTargets, {
+        algorithm: 'exhaustive',
+        allowRepeatedSwaps: true,
+        cachingEnabled: false,
+    });
+
+    const ids = result.order.map((filament) => filament.id);
+    assert.ok(
+        result.score <= withoutRepeats.score,
+        'enabling repeated swaps must retain or improve the best no-repeat result'
+    );
+    assert.ok(
+        ids.every((id, index) => index === 0 || id !== ids[index - 1]),
+        'repeated stacks must not contain adjacent duplicate filaments'
+    );
+    assert.ok(ids.length <= primaries.length + 4);
+});
+
+test('variable-length optimizers preserve sequence safety invariants', async (t) => {
+    const { countExtraFilamentOccurrences, optimizeFilamentOrder } = await loadOptimizerModule();
+    const algorithms = [
+        'exhaustive',
+        'simulated-annealing',
+        'fast',
+        'balanced',
+        'thorough',
+        'deep',
+        'exact',
+    ] as const;
+
+    for (const allowRepeatedSwaps of [false, true]) {
+        for (const algorithm of algorithms) {
+            await t.test(`${algorithm} / repeats=${allowRepeatedSwaps}`, () => {
+                const result = optimizeFilamentOrder(filaments, context, {
+                    algorithm,
+                    allowRepeatedSwaps,
+                    seed: 20260621,
+                    maxIterations: 40,
+                    cachingEnabled: false,
+                });
+                const ids = result.order.map((filament) => filament.id);
+
+                assert.ok(ids.length >= 1);
+                assert.ok(ids.length <= filaments.length + (allowRepeatedSwaps ? 4 : 0));
+                assert.ok(ids.every((id, index) => index === 0 || id !== ids[index - 1]));
+                assert.ok(
+                    countExtraFilamentOccurrences(result.order) <= (allowRepeatedSwaps ? 4 : 0)
+                );
+                if (!allowRepeatedSwaps) {
+                    assert.equal(new Set(ids).size, ids.length);
+                }
+            });
+        }
+    }
+});
+
+test('maxExtraRepeats supports the full user-facing repeat-limit range', async () => {
+    const { countExtraFilamentOccurrences, isWithinTotalRepeatLimit, optimizeFilamentOrder } =
+        await loadOptimizerModule();
+
+    const omittedFilamentSequence = [filaments[0], filaments[1], filaments[0], filaments[1]];
+    assert.equal(countExtraFilamentOccurrences(omittedFilamentSequence), 2);
+    assert.equal(
+        isWithinTotalRepeatLimit(omittedFilamentSequence, 1),
+        false,
+        'omitted profile filaments must not create hidden repeat allowance'
+    );
+    assert.equal(isWithinTotalRepeatLimit(omittedFilamentSequence, 2), true);
+
+    for (const maxExtraRepeats of [0, 2, 4, 6, 8, 12]) {
+        const result = optimizeFilamentOrder(filaments, context, {
+            algorithm: 'balanced',
+            maxExtraRepeats,
+            seed: 20260624,
+            cachingEnabled: false,
+        });
+        const ids = result.order.map((filament) => filament.id);
+
+        assert.ok(ids.length <= filaments.length + maxExtraRepeats);
+        assert.ok(countExtraFilamentOccurrences(result.order) <= maxExtraRepeats);
+        assert.equal(result.extraRepeatCount, countExtraFilamentOccurrences(result.order));
+        assert.ok(ids.every((id, index) => index === 0 || id !== ids[index - 1]));
+        if (maxExtraRepeats === 0) {
+            assert.equal(new Set(ids).size, ids.length, 'Off must prohibit all repeated filaments');
+        }
+    }
+});
+
+test('color separation does not add repeated filament runs when the base sequence is sufficient', async () => {
+    const { optimizeFilamentOrder } = await loadOptimizerModule();
+    const progress: number[] = [];
+    const result = optimizeFilamentOrder(
+        filaments,
+        {
+            imageColors: [{ L: 5, a: 0, b: 0, weight: 1 }],
+            layerHeight: 0.08,
+            firstLayerHeight: 0.16,
+        },
+        {
+            algorithm: 'exact',
+            preserveSeparation: true,
+            maxExtraRepeats: 4,
+            seed: 20260813,
+            cachingEnabled: false,
+            onProgress: (iteration, total) => progress.push(total > 0 ? iteration / total : 0),
+        }
+    );
+
+    assert.equal(result.separation?.satisfied, true);
+    assert.equal(result.extraRepeatCount, 0, 'the no-repeat tier must be accepted first');
+    assert.equal(result.optimality, 'exact');
+    assert.equal(result.singleRemovalMinimal, true);
+    assert.equal(
+        new Set(result.order.map((filament) => filament.id)).size,
+        result.order.length,
+        'a successful base sequence must not contain repeated filament runs'
+    );
+    assert.ok(
+        Math.max(...progress.filter((value) => value < 1)) >= 0.49,
+        'the primary no-repeat search should occupy a visible portion of staged progress'
+    );
+});
+
+test('discarded separation targets do not retain their candidate filament runs', async () => {
+    const { optimizeFilamentOrder } = await loadOptimizerModule();
+    const result = optimizeFilamentOrder(
+        [
+            { id: 'black', color: '#000000', td: 1 },
+            { id: 'red', color: '#ff0000', td: 1 },
+            { id: 'white', color: '#ffffff', td: 10 },
+        ],
+        {
+            imageColors: [
+                { L: 10, a: 0, b: 0, weight: 0.75 },
+                { L: 88, a: -86, b: 83, weight: 0.25 },
+            ],
+            layerHeight: 0.08,
+            firstLayerHeight: 0.16,
+        },
+        {
+            algorithm: 'exact',
+            preserveSeparation: true,
+            separationMaxDeltaE: 10,
+            failOnSeparationError: false,
+            maxExtraRepeats: 0,
+            cachingEnabled: false,
+        }
+    );
+
+    assert.equal(result.separation?.uniquelyPreservedWithinThresholdCount, 1);
+    assert.equal(result.separation?.mergedColorCount, 1);
+    assert.deepEqual(
+        result.order.map((filament) => filament.id),
+        ['black'],
+        'a closer gray blend and the unmatched green target must not justify extra in-limit runs'
+    );
+    assert.equal(result.optimality, 'exact');
+    assert.equal(result.singleRemovalMinimal, true);
+});
+
+test('incomplete separation exhausts every configured repeat tier', async () => {
+    const { optimizeFilamentOrder } = await loadOptimizerModule();
+    const impossibleContext = {
+        imageColors: [
+            { L: 0, a: 0, b: 0, weight: 0.5 },
+            { L: 100, a: 0, b: 0, weight: 0.5 },
+        ],
+        layerHeight: 0.08,
+        firstLayerHeight: 0.16,
+    };
+    const options = {
+        algorithm: 'exhaustive' as const,
+        preserveSeparation: true,
+        separationMaxDeltaE: 1,
+        cachingEnabled: false,
+    };
+    const oneTier = optimizeFilamentOrder(
+        [{ id: 'black', color: '#000000', td: 1 }],
+        impossibleContext,
+        { ...options, maxExtraRepeats: 1 }
+    );
+    const twoTiers = optimizeFilamentOrder(
+        [{ id: 'black', color: '#000000', td: 1 }],
+        impossibleContext,
+        { ...options, maxExtraRepeats: 2 }
+    );
+
+    assert.equal(oneTier.separation?.satisfied, false);
+    assert.equal(twoTiers.separation?.satisfied, false);
+    assert.equal(oneTier.optimality, 'best-found');
+    assert.equal(twoTiers.optimality, 'best-found');
+    assert.equal(oneTier.repeatTiersEvaluated, 2);
+    assert.equal(
+        twoTiers.repeatTiersEvaluated,
+        3,
+        'an unsatisfied search must not stop before the final configured repeat tier'
+    );
+});
+
+test('fast uses a narrow beam while explicit exhaustive remains exact', async () => {
+    const { optimizeFilamentOrder } = await loadOptimizerModule();
+    const mediumProfile = [
+        ...filaments,
+        { id: 'green', color: '#42a85f', td: 1.6 },
+        { id: 'yellow', color: '#e7cd38', td: 1.7 },
+        { id: 'purple', color: '#7545a8', td: 1.9 },
+    ];
+
+    const fast = optimizeFilamentOrder(mediumProfile, context, {
+        algorithm: 'fast',
+        seed: 7,
+        cachingEnabled: false,
+    });
+    const exhaustive = optimizeFilamentOrder(mediumProfile, context, {
+        algorithm: 'exhaustive',
+        seed: 7,
+        cachingEnabled: false,
+    });
+
+    assert.equal(fast.resolvedAlgorithm, 'narrow-beam');
+    assert.equal(exhaustive.resolvedAlgorithm, 'exhaustive');
+    assert.equal(fast.optimality, 'best-found');
+    assert.equal(exhaustive.optimality, 'exact');
+    assert.equal(
+        exhaustive.iterations,
+        13_699,
+        'seven filaments have 13,699 ordered non-empty subsets'
+    );
+    assert.ok(fast.order.length <= mediumProfile.length);
+    assert.equal(new Set(fast.order.map((filament) => filament.id)).size, fast.order.length);
+});
+
+test('effort tiers are deterministic and preserve the previous tier best result', async () => {
+    const { getExactBaseOrderCount, normalizeOptimizerTier, optimizeFilamentOrder } =
+        await loadOptimizerModule();
+    const mediumProfile = [
+        ...filaments,
+        { id: 'green', color: '#42a85f', td: 1.6 },
+        { id: 'yellow', color: '#e7cd38', td: 1.7 },
+        { id: 'purple', color: '#7545a8', td: 1.9 },
+    ];
+
+    const options = { seed: 7, cachingEnabled: false, maxIterations: 30 };
+    const fast = optimizeFilamentOrder(mediumProfile, context, {
+        ...options,
+        algorithm: 'fast',
+    });
+    const balanced = optimizeFilamentOrder(mediumProfile, context, {
+        ...options,
+        algorithm: 'balanced',
+    });
+    const thorough = optimizeFilamentOrder(mediumProfile, context, {
+        ...options,
+        algorithm: 'thorough',
+    });
+    const deep = optimizeFilamentOrder(mediumProfile, context, {
+        ...options,
+        algorithm: 'deep',
+    });
+    const exact = optimizeFilamentOrder(mediumProfile, context, {
+        ...options,
+        algorithm: 'exact',
+    });
+    const deepAgain = optimizeFilamentOrder(mediumProfile, context, {
+        ...options,
+        algorithm: 'deep',
+    });
+
+    assert.equal(fast.resolvedAlgorithm, 'narrow-beam');
+    assert.equal(balanced.resolvedAlgorithm, 'beam');
+    assert.equal(thorough.resolvedAlgorithm, 'thorough-hybrid');
+    assert.equal(deep.resolvedAlgorithm, 'deep-hybrid');
+    assert.equal(exact.resolvedAlgorithm, 'exact-base');
+    assert.deepEqual(deepAgain, deep, 'same seed must reproduce the Deep tier');
+
+    const ids = deep.order.map((filament) => filament.id);
+    assert.ok(
+        ids.every((id, index) => index === 0 || id !== ids[index - 1]),
+        'no adjacent duplicates'
+    );
+    assert.equal(new Set(ids).size, ids.length, 'no repeats without allowRepeatedSwaps');
+
+    assert.ok(
+        balanced.score <= fast.score + 1e-9,
+        `balanced (${balanced.score}) must not be worse than fast (${fast.score})`
+    );
+    assert.ok(
+        thorough.score <= balanced.score + 1e-9,
+        `thorough (${thorough.score}) must not be worse than balanced (${balanced.score})`
+    );
+    assert.ok(
+        deep.score <= thorough.score + 1e-9,
+        `deep (${deep.score}) must not be worse than thorough (${thorough.score})`
+    );
+    assert.ok(
+        exact.score <= deep.score + 1e-9,
+        `exact (${exact.score}) must not be worse than deep (${deep.score})`
+    );
+
+    assert.equal(getExactBaseOrderCount(8), 109_600);
+    assert.equal(getExactBaseOrderCount(9), 986_409);
+    assert.equal(normalizeOptimizerTier('exhaustive'), 'exact');
+    assert.equal(normalizeOptimizerTier('genetic'), 'deep');
+});

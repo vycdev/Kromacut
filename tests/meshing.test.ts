@@ -68,12 +68,55 @@ function reportForMessage(report: MeshIntegrityReport) {
     );
 }
 
+function inspectCapWinding(mesh: MeshData) {
+    let minZ = Infinity;
+    let maxZ = -Infinity;
+    for (let offset = 2; offset < mesh.positions.length; offset += 3) {
+        minZ = Math.min(minZ, mesh.positions[offset]);
+        maxZ = Math.max(maxZ, mesh.positions[offset]);
+    }
+
+    let reversedTopCount = 0;
+    let reversedBottomCount = 0;
+    for (let offset = 0; offset + 2 < mesh.indices.length; offset += 3) {
+        const a = mesh.indices[offset] * 3;
+        const b = mesh.indices[offset + 1] * 3;
+        const c = mesh.indices[offset + 2] * 3;
+        const za = mesh.positions[a + 2];
+        const zb = mesh.positions[b + 2];
+        const zc = mesh.positions[c + 2];
+        const area2 =
+            (mesh.positions[b] - mesh.positions[a]) *
+                (mesh.positions[c + 1] - mesh.positions[a + 1]) -
+            (mesh.positions[b + 1] - mesh.positions[a + 1]) *
+                (mesh.positions[c] - mesh.positions[a]);
+        const isTop =
+            Math.abs(za - maxZ) <= 1e-7 &&
+            Math.abs(zb - maxZ) <= 1e-7 &&
+            Math.abs(zc - maxZ) <= 1e-7;
+        const isBottom =
+            Math.abs(za - minZ) <= 1e-7 &&
+            Math.abs(zb - minZ) <= 1e-7 &&
+            Math.abs(zc - minZ) <= 1e-7;
+
+        if (isTop && area2 < -1e-10) reversedTopCount++;
+        if (isBottom && area2 > 1e-10) reversedBottomCount++;
+    }
+
+    return { reversedTopCount, reversedBottomCount };
+}
+
 function assertHealthyMesh(label: string, mesh: MeshData) {
     const report = inspectMeshIntegrity(mesh);
+    const capWinding = inspectCapWinding(mesh);
 
     assert.ok(report.vertexCount > 0, `${label} should contain vertices`);
     assert.ok(report.triangleCount > 0, `${label} should contain triangles`);
     assert.equal(report.isValid, true, `${label} integrity failed:\n${reportForMessage(report)}`);
+    assert.deepEqual(capWinding, {
+        reversedTopCount: 0,
+        reversedBottomCount: 0,
+    });
 
     return report;
 }
@@ -86,10 +129,13 @@ function inspectRoundedExportTopology(mesh: MeshData): RoundedExportTopologyRepo
 
     const getExportVertex = (sourceIndex: number) => {
         const offset = sourceIndex * 3;
+        // Integer 3MF coordinate units, exactly like export3mf's toCoordUnits:
+        // degeneracy below must be tested with exact integer arithmetic, or
+        // faces the exporter drops would pass this simulation unnoticed.
         const point = [
-            Math.round(mesh.positions[offset] * 100000) / 100000,
-            Math.round(mesh.positions[offset + 1] * 100000) / 100000,
-            Math.round(mesh.positions[offset + 2] * 100000) / 100000,
+            Math.round(mesh.positions[offset] * 100000),
+            Math.round(mesh.positions[offset + 1] * 100000),
+            Math.round(mesh.positions[offset + 2] * 100000),
         ] as [number, number, number];
         const key = point.join(',');
         const existing = vertexMap.get(key);
@@ -473,6 +519,112 @@ test('smooth caps stay inside the bounded smoothing envelope', async () => {
         'smooth boundaries should be able to fill source-pixel stair notches'
     );
     assert.equal(countCapCentroidsOutsideExpandedMask(mesh, mask, 0.4, 0.5), 0);
+});
+
+test('smooth caps avoid reversed center-fan triangles after boundary movement', async () => {
+    const mask = maskFromRows(['#...', '##.#', '#.#.', '.#..', '#...', '#...', '#...', '#...']);
+    const mesh = await generateSmoothMesh(
+        mask.activePixels,
+        mask.width,
+        mask.height,
+        0.2,
+        0,
+        1,
+        1,
+        noYieldOptions
+    );
+
+    assertHealthyMesh('smooth moved-boundary cap mesh', mesh);
+});
+
+test('smooth caps avoid export-degenerate final ears after boundary movement', async () => {
+    const mask = maskFromRows([
+        '...#..',
+        '..#.#.',
+        '.#.#.#',
+        '.#.#..',
+        '..#.#.',
+        '.###..',
+        '#...#.',
+        '#..#..',
+        '####..',
+    ]);
+    const mesh = await generateSmoothMesh(
+        mask.activePixels,
+        mask.width,
+        mask.height,
+        0.2,
+        0,
+        0.4,
+        1,
+        noYieldOptions
+    );
+
+    assertHealthyMesh('smooth rounded-boundary cap mesh', mesh);
+    assert.deepEqual(inspectRoundedExportTopology(mesh), {
+        boundaryEdgeCount: 0,
+        overusedEdgeCount: 0,
+        skippedTriangleCount: 0,
+    });
+});
+
+test('smooth caps survive 3MF integer-precision export without dropped faces', async () => {
+    // Regression: cap degeneracy used to be checked on quantized-back floats
+    // against Number.EPSILON, while the 3MF exporter tests exact integer
+    // coordinate units. Faces with integer area exactly 0 but float area
+    // ~1e-12 passed the mesher and were then dropped by the exporter, leaving
+    // pinholes that slicers report as non-manifold/open edges. This noisy
+    // blob mask (mulberry32 seed 33 at 96px, pixel size 0.1) produced two
+    // such faces before the mesher switched to the exporter's integer grid.
+    const seed = 33;
+    const size = 96;
+    let state = seed >>> 0;
+    const rand = () => {
+        state |= 0;
+        state = (state + 0x6d2b79f5) | 0;
+        let t = Math.imul(state ^ (state >>> 15), 1 | state);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+
+    const activePixels = new Uint8Array(size * size);
+    const blobs = 3 + Math.floor(rand() * 5);
+    const centers = Array.from({ length: blobs }, () => ({
+        x: rand() * size,
+        y: rand() * size,
+        r: size * (0.1 + rand() * 0.25),
+    }));
+    for (let y = 0; y < size; y++) {
+        for (let x = 0; x < size; x++) {
+            for (const center of centers) {
+                if (Math.hypot(x - center.x, y - center.y) < center.r + (rand() - 0.5) * 3) {
+                    activePixels[y * size + x] = 1;
+                    break;
+                }
+            }
+        }
+    }
+    for (let i = 0; i < activePixels.length; i++) {
+        if (rand() < 0.02) activePixels[i] = activePixels[i] ? 0 : 1;
+    }
+
+    const mesh = await generateSmoothMesh(
+        activePixels,
+        size,
+        size,
+        0.12,
+        0.2,
+        0.1,
+        1,
+        noYieldOptions
+    );
+
+    assertHealthyMesh('smooth noisy-blob mesh', mesh);
+    assert.deepEqual(inspectRoundedExportTopology(mesh), {
+        boundaryEdgeCount: 0,
+        overusedEdgeCount: 0,
+        skippedTriangleCount: 0,
+    });
 });
 
 test('smooth metrics stay on the smooth algorithm without mesher substitution state', async () => {

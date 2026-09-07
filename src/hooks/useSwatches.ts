@@ -1,11 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { rgbToHsl } from '../lib/color';
+import { createCenterEdgeWeight } from '../lib/regionWeighting';
 
 // Manages swatch computation with cancellation & immediate override
 export interface SwatchEntry {
     hex: string;
     a: number;
     count: number;
+    centerWeight?: number;
+    edgeWeight?: number;
     isTransparent?: boolean;
 }
 
@@ -58,8 +61,15 @@ export function useSwatches(imageSrc: string | null) {
                 const w = img.naturalWidth;
                 const h = img.naturalHeight;
                 setImageDimensions({ width: w, height: h, opaqueWidth: w, opaqueHeight: h });
+                // Precompute the size-dependent weighting terms once so the
+                // per-pixel scan below stays a couple of multiplies per call.
+                const spatialWeightFor = createCenterEdgeWeight(w, h);
+                const spatialWeights = { center: 0, edge: 0 };
                 const TILE = 1024;
-                const map = new Map<number, number>();
+                const map = new Map<
+                    number,
+                    { count: number; centerWeight: number; edgeWeight: number }
+                >();
                 const tile = document.createElement('canvas');
                 const tctx = tile.getContext('2d', {
                     willReadFrequently: true,
@@ -101,14 +111,24 @@ export function useSwatches(imageSrc: string | null) {
                             const g = data[i + 1];
                             const b = data[i + 2];
                             const key = ((r << 24) | (g << 16) | (b << 8) | a) >>> 0;
-                            map.set(key, (map.get(key) || 0) + 1);
+                            spatialWeightFor(px, py, spatialWeights);
+                            const centerWeight = spatialWeights.center;
+                            const edgeWeight = spatialWeights.edge;
+                            const existing = map.get(key);
+                            if (existing) {
+                                existing.count++;
+                                existing.centerWeight += centerWeight;
+                                existing.edgeWeight += edgeWeight;
+                            } else {
+                                map.set(key, { count: 1, centerWeight, edgeWeight });
+                            }
                         }
                     }
                     await new Promise((r) => setTimeout(r, 0));
                     if (runId !== runRef.current || cancelled) return;
                 }
                 const top = Array.from(map.entries())
-                    .sort((a, b) => b[1] - a[1])
+                    .sort((a, b) => b[1].count - a[1].count)
                     .slice(0, Math.min(map.size, SWATCH_CAP))
                     .map((entry) => {
                         const key = entry[0];
@@ -123,7 +143,9 @@ export function useSwatches(imageSrc: string | null) {
                             hex,
                             a,
                             hsl: rgbToHsl(r, g, b),
-                            freq: entry[1],
+                            freq: entry[1].count,
+                            centerWeight: entry[1].centerWeight,
+                            edgeWeight: entry[1].edgeWeight,
                         };
                     });
                 top.sort((a, b) => {
@@ -145,6 +167,8 @@ export function useSwatches(imageSrc: string | null) {
                         hex: t.hex,
                         a: typeof t.a === 'number' ? t.a : 255,
                         count: t.freq,
+                        centerWeight: t.centerWeight,
+                        edgeWeight: t.edgeWeight,
                         isTransparent: typeof t.a === 'number' ? t.a === 0 : false,
                     }));
                     if (transparentCount > 0) {
@@ -153,6 +177,8 @@ export function useSwatches(imageSrc: string | null) {
                             hex: '#000000',
                             a: 0,
                             count: transparentCount,
+                            centerWeight: 0,
+                            edgeWeight: 0,
                             isTransparent: true,
                         });
                     }

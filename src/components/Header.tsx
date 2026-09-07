@@ -2,21 +2,22 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import {
     AlertCircle,
-    ArrowLeft,
     BookOpen,
     CheckCircle2,
+    ChevronRight,
     Download,
-    Image,
     Github,
     Heart,
     Loader2,
     Moon,
     Sun,
-    MessageCircle,
     RefreshCw,
     Settings,
     X,
     Monitor,
+    MessageCircle,
+    FileJson,
+    FolderOpen,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Switch } from '@/components/ui/switch';
@@ -40,40 +41,93 @@ import {
     saveUpdateCheckOnStartup,
     subscribeToUpdateCheckOnStartup,
 } from '@/lib/updatePreferences';
+import {
+    getMultiPlateEnabled,
+    saveMultiPlateEnabled,
+    subscribeToMultiPlateEnabled,
+} from '@/lib/experimentalFeatures';
 import logo from '../assets/logo.png';
+import redditIcon from '../assets/reddit.svg';
+import { landingPath } from '@/lib/routes';
+import { isTauri } from '@tauri-apps/api/core';
+import {
+    getAutoPaintDiagnosticsEnabled,
+    saveAutoPaintDiagnosticsEnabled,
+    subscribeToAutoPaintDiagnosticsEnabled,
+} from '@/lib/diagnosticPreferences';
+import { openAutoPaintDiagnosticsDirectory } from '@/lib/desktopDiagnostics';
 
 interface Props {
-    onLoadTest: () => void;
     docsOpen: boolean;
     onBackToApp: () => void;
-    onToggleDocs: () => void;
+    onOpenDocs: () => void;
 }
 
 const appVersion = __APP_VERSION__;
 type UpdateCheckStatus = 'idle' | 'checking' | 'available' | 'current' | 'error';
 
-export const Header: React.FC<Props> = ({ onLoadTest, docsOpen, onBackToApp, onToggleDocs }) => {
+export const Header: React.FC<Props> = ({ docsOpen, onBackToApp, onOpenDocs }) => {
     const [themeMode, setThemeMode] = React.useState<ThemeMode>(() => getStoredThemeMode());
     const [settingsOpen, setSettingsOpen] = React.useState(false);
     const [checkOnStartup, setCheckOnStartup] = React.useState(() => getUpdateCheckOnStartup());
+    const [multiPlateEnabled, setMultiPlateEnabled] = React.useState(() => getMultiPlateEnabled());
+    const [diagnosticsEnabled, setDiagnosticsEnabled] = React.useState(() =>
+        getAutoPaintDiagnosticsEnabled()
+    );
+    const [diagnosticsError, setDiagnosticsError] = React.useState('');
     const [updateStatus, setUpdateStatus] = React.useState<UpdateCheckStatus>('idle');
     const [availableUpdate, setAvailableUpdate] = React.useState<VersionInfo | null>(null);
     const [updateError, setUpdateError] = React.useState('');
     const settingsTitleId = React.useId();
     const updateStartupSwitchId = React.useId();
+    const multiPlateSwitchId = React.useId();
+    const diagnosticsSwitchId = React.useId();
     const isDesktopApp = isDesktopUpdateSupported();
+    const settingsButtonRef = React.useRef<HTMLButtonElement>(null);
+    const settingsDialogRef = React.useRef<HTMLDivElement>(null);
 
     React.useEffect(() => {
         if (!settingsOpen) return;
 
+        const previouslyFocused = document.activeElement as HTMLElement | null;
+        const settingsTrigger = settingsButtonRef.current;
+        const dialog = settingsDialogRef.current;
+        const getFocusable = () =>
+            Array.from(
+                dialog?.querySelectorAll<HTMLElement>(
+                    'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])'
+                ) ?? []
+            );
+        getFocusable()[0]?.focus();
+
         const handleKeyDown = (event: KeyboardEvent) => {
             if (event.key === 'Escape') {
                 setSettingsOpen(false);
+                return;
+            }
+            if (event.key !== 'Tab') return;
+
+            const focusable = getFocusable();
+            if (focusable.length === 0) {
+                event.preventDefault();
+                return;
+            }
+            const first = focusable[0];
+            const last = focusable[focusable.length - 1];
+            if (event.shiftKey && document.activeElement === first) {
+                event.preventDefault();
+                last.focus();
+            } else if (!event.shiftKey && document.activeElement === last) {
+                event.preventDefault();
+                first.focus();
             }
         };
 
         window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
+        return () => {
+            window.removeEventListener('keydown', handleKeyDown);
+            (previouslyFocused?.isConnected ? previouslyFocused : settingsTrigger)?.focus();
+        };
     }, [settingsOpen]);
 
     React.useEffect(() => {
@@ -106,11 +160,21 @@ export const Header: React.FC<Props> = ({ onLoadTest, docsOpen, onBackToApp, onT
     }, []);
 
     React.useEffect(() => {
+        return subscribeToMultiPlateEnabled(setMultiPlateEnabled);
+    }, []);
+
+    React.useEffect(() => {
+        if (!isDesktopApp) return;
+        return subscribeToAutoPaintDiagnosticsEnabled(setDiagnosticsEnabled);
+    }, [isDesktopApp]);
+
+    React.useEffect(() => {
         if (settingsOpen) return;
 
         setUpdateStatus('idle');
         setAvailableUpdate(null);
         setUpdateError('');
+        setDiagnosticsError('');
     }, [settingsOpen]);
 
     const setTheme = (nextThemeMode: ThemeMode) => {
@@ -121,6 +185,29 @@ export const Header: React.FC<Props> = ({ onLoadTest, docsOpen, onBackToApp, onT
     const setStartupUpdateChecks = (enabled: boolean) => {
         saveUpdateCheckOnStartup(enabled);
         setCheckOnStartup(enabled);
+    };
+
+    const setMultiPlate = (enabled: boolean) => {
+        saveMultiPlateEnabled(enabled);
+        setMultiPlateEnabled(enabled);
+        // Enabling plays a full-screen unlock flourish; close settings first so it
+        // plays over the app rather than on top of the open dialog.
+        if (enabled) setSettingsOpen(false);
+    };
+
+    const setDiagnostics = (enabled: boolean) => {
+        saveAutoPaintDiagnosticsEnabled(enabled);
+        setDiagnosticsEnabled(enabled);
+    };
+
+    const handleOpenDiagnosticsDirectory = async () => {
+        setDiagnosticsError('');
+        try {
+            await openAutoPaintDiagnosticsDirectory();
+        } catch (error) {
+            console.error('Failed to open the diagnostics directory:', error);
+            setDiagnosticsError('Could not open the diagnostics folder.');
+        }
     };
 
     const handleCheckForUpdates = async () => {
@@ -166,86 +253,22 @@ export const Header: React.FC<Props> = ({ onLoadTest, docsOpen, onBackToApp, onT
                         </span>
                     </button>
                 ) : (
-                    <>
+                    <a
+                        href={landingPath(isTauri())}
+                        className="flex items-center gap-2 rounded-md p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                        aria-label="Kromacut home"
+                        title="Back to Kromacut home"
+                    >
                         <img src={logo} alt="Kromacut" className="h-7 w-auto" />
                         <span className="font-extrabold text-base text-foreground tracking-wide ml-1 select-none max-md:hidden">
                             Kromacut
                         </span>
-                    </>
+                    </a>
                 )}
             </div>
             <div className="flex gap-2.5 items-center">
                 <Button
-                    size="sm"
-                    onClick={onToggleDocs}
-                    title={docsOpen ? 'Back to app' : 'Open docs'}
-                    className="bg-foreground hover:bg-foreground/90 text-background font-semibold transition-all duration-200 shadow-md hover:shadow-lg hover:scale-105 active:scale-95 gap-1.5 border border-foreground/20"
-                >
-                    {docsOpen ? (
-                        <ArrowLeft className="w-4 h-4" />
-                    ) : (
-                        <BookOpen className="w-4 h-4" />
-                    )}
-                    <span className="max-sm:hidden">{docsOpen ? 'Back to app' : 'Docs'}</span>
-                </Button>
-                <Button
-                    size="sm"
-                    onClick={onLoadTest}
-                    title="Load TD Test"
-                    className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold transition-all duration-200 shadow-md hover:shadow-lg hover:scale-105 active:scale-95 gap-1.5"
-                >
-                    <Image className="w-4 h-4" />
-                    <span className="max-sm:hidden">Load TD Test</span>
-                </Button>
-                <Button
-                    size="sm"
-                    asChild
-                    className="bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white font-semibold transition-all duration-200 shadow-md hover:shadow-lg hover:scale-105 active:scale-95 gap-1.5"
-                >
-                    <a
-                        href="https://discord.gg/nU63sFMcnX"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        aria-label="Discord"
-                        title="Discord"
-                    >
-                        <MessageCircle className="w-4 h-4" />
-                        <span className="max-sm:hidden">Discord</span>
-                    </a>
-                </Button>
-                <Button
-                    size="sm"
-                    asChild
-                    className="bg-gradient-to-r from-purple-500 to-violet-600 hover:from-purple-600 hover:to-violet-700 text-white font-semibold transition-all duration-200 shadow-md hover:shadow-lg hover:scale-105 active:scale-95 gap-1.5"
-                >
-                    <a
-                        href="https://github.com/vycdev/Kromacut"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        aria-label="GitHub"
-                        title="GitHub"
-                    >
-                        <Github className="w-4 h-4" />
-                        <span className="max-sm:hidden">GitHub</span>
-                    </a>
-                </Button>
-                <Button
-                    size="sm"
-                    className="bg-gradient-to-r from-rose-500 to-orange-500 hover:from-rose-600 hover:to-orange-600 text-white font-semibold transition-all duration-200 shadow-md hover:shadow-lg hover:scale-105 active:scale-95 gap-1.5"
-                    asChild
-                >
-                    <a
-                        href="https://www.patreon.com/cw/vycdev"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        aria-label="Support me"
-                        title="Support me"
-                    >
-                        <Heart className="w-4 h-4 fill-current" />
-                        <span className="max-sm:hidden">Support me</span>
-                    </a>
-                </Button>
-                <Button
+                    ref={settingsButtonRef}
                     size="icon"
                     onClick={() => setSettingsOpen(true)}
                     title="Open settings"
@@ -261,6 +284,7 @@ export const Header: React.FC<Props> = ({ onLoadTest, docsOpen, onBackToApp, onT
                     onClick={() => setSettingsOpen(false)}
                 >
                     <div
+                        ref={settingsDialogRef}
                         role="dialog"
                         aria-modal="true"
                         aria-labelledby={settingsTitleId}
@@ -268,7 +292,10 @@ export const Header: React.FC<Props> = ({ onLoadTest, docsOpen, onBackToApp, onT
                         onClick={(event) => event.stopPropagation()}
                     >
                         <div className="mb-5 flex items-center justify-between gap-4">
-                            <h2 id={settingsTitleId} className="text-lg font-semibold text-foreground">
+                            <h2
+                                id={settingsTitleId}
+                                className="text-lg font-semibold text-foreground"
+                            >
                                 Settings
                             </h2>
                             <Button
@@ -332,6 +359,158 @@ export const Header: React.FC<Props> = ({ onLoadTest, docsOpen, onBackToApp, onT
                             </div>
                         </section>
 
+                        <section className="mt-5 space-y-3 border-t border-border pt-5">
+                            <div>
+                                <div className="text-sm font-medium text-foreground">
+                                    Resources & community
+                                </div>
+                                <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                                    Guides, releases, and places to share what you make.
+                                </p>
+                            </div>
+                            <div className="space-y-2">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setSettingsOpen(false);
+                                        onOpenDocs();
+                                    }}
+                                    className="group flex w-full items-center gap-3 rounded-lg bg-muted/50 p-3 text-left transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                >
+                                    <span className="flex size-9 flex-shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                                        <BookOpen className="h-4 w-4" />
+                                    </span>
+                                    <span className="min-w-0 flex-1">
+                                        <span className="block text-sm font-semibold text-foreground">
+                                            Docs
+                                        </span>
+                                        <span className="mt-0.5 block text-xs text-muted-foreground">
+                                            Learn the workflow and print settings.
+                                        </span>
+                                    </span>
+                                    <ChevronRight className="h-4 w-4 flex-shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+                                </button>
+
+                                <div className="grid grid-cols-2 gap-1 rounded-lg border border-border bg-muted/30 p-1 min-[520px]:grid-cols-4">
+                                    <a
+                                        href="https://discord.gg/nU63sFMcnX"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        onClick={() => setSettingsOpen(false)}
+                                        className="flex items-center justify-center gap-2 rounded-md px-2 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-background hover:text-foreground hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                    >
+                                        <MessageCircle
+                                            aria-hidden="true"
+                                            className="h-4 w-4 flex-shrink-0 text-indigo-500"
+                                        />
+                                        Discord
+                                    </a>
+                                    <a
+                                        href="https://www.reddit.com/r/kromacut/"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        onClick={() => setSettingsOpen(false)}
+                                        aria-label="r/kromacut on Reddit"
+                                        className="flex items-center justify-center gap-2 rounded-md px-2 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-background hover:text-foreground hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                    >
+                                        <img
+                                            src={redditIcon}
+                                            alt=""
+                                            className="h-4 w-4 flex-shrink-0 dark:invert"
+                                        />
+                                        Reddit
+                                    </a>
+                                    <a
+                                        href="https://github.com/vycdev/Kromacut"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        onClick={() => setSettingsOpen(false)}
+                                        className="flex items-center justify-center gap-2 rounded-md px-2 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-background hover:text-foreground hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                    >
+                                        <Github
+                                            aria-hidden="true"
+                                            className="h-4 w-4 flex-shrink-0 text-foreground"
+                                        />
+                                        GitHub
+                                    </a>
+                                    <a
+                                        href="https://www.patreon.com/cw/vycdev"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        onClick={() => setSettingsOpen(false)}
+                                        aria-label="Support Me on Patreon"
+                                        className="flex items-center justify-center gap-2 rounded-md px-2 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-background hover:text-foreground hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                    >
+                                        <Heart className="h-4 w-4 flex-shrink-0 text-rose-400" />
+                                        Patreon
+                                    </a>
+                                </div>
+                            </div>
+                        </section>
+
+                        {isDesktopApp && (
+                            <section className="mt-5 space-y-3 border-t border-border pt-5">
+                                <div>
+                                    <div className="text-sm font-medium text-foreground">
+                                        Diagnostics
+                                    </div>
+                                    <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                                        Capture reproducible Auto-paint decisions for investigation.
+                                    </p>
+                                </div>
+
+                                <div className="rounded-md border border-border bg-background p-3">
+                                    <div className="flex items-start justify-between gap-4">
+                                        <label
+                                            htmlFor={diagnosticsSwitchId}
+                                            className="min-w-0 cursor-pointer"
+                                        >
+                                            <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                                                <FileJson className="h-4 w-4 text-primary" />
+                                                Record Auto-paint diagnostics
+                                            </div>
+                                            <div className="mt-1 text-xs leading-5 text-muted-foreground">
+                                                Writes one flushed JSONL file for each new
+                                                Auto-paint calculation. Files include the active
+                                                filament profile, calibration evidence, candidates,
+                                                and final result and may be large.
+                                            </div>
+                                        </label>
+                                        <Switch
+                                            id={diagnosticsSwitchId}
+                                            checked={diagnosticsEnabled}
+                                            onCheckedChange={setDiagnostics}
+                                            aria-label="Record Auto-paint diagnostics"
+                                        />
+                                    </div>
+                                    <div className="mt-3 flex items-center justify-between gap-3 border-t border-border pt-3">
+                                        <span className="text-xs text-muted-foreground">
+                                            Applies to new calculations only.
+                                        </span>
+                                        <Button
+                                            type="button"
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={handleOpenDiagnosticsDirectory}
+                                        >
+                                            <FolderOpen className="h-4 w-4" />
+                                            Open folder
+                                        </Button>
+                                    </div>
+                                </div>
+
+                                {diagnosticsError && (
+                                    <div
+                                        role="alert"
+                                        className="flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-foreground"
+                                    >
+                                        <AlertCircle className="h-4 w-4 flex-shrink-0 text-destructive" />
+                                        {diagnosticsError}
+                                    </div>
+                                )}
+                            </section>
+                        )}
+
                         {isDesktopApp && (
                             <section className="mt-5 space-y-3 border-t border-border pt-5">
                                 <div className="flex items-center justify-between gap-3">
@@ -384,7 +563,8 @@ export const Header: React.FC<Props> = ({ onLoadTest, docsOpen, onBackToApp, onT
                                                 <Download className="mt-0.5 h-4 w-4 flex-shrink-0 text-primary" />
                                                 <div className="min-w-0 flex-1">
                                                     <div className="text-sm font-medium text-foreground">
-                                                        Version {availableUpdate.version} is available
+                                                        Version {availableUpdate.version} is
+                                                        available
                                                     </div>
                                                     {availableUpdate.release_notes && (
                                                         <div className="mt-1 line-clamp-2 text-xs text-muted-foreground">
@@ -421,6 +601,32 @@ export const Header: React.FC<Props> = ({ onLoadTest, docsOpen, onBackToApp, onT
                                 </div>
                             </section>
                         )}
+
+                        <section className="mt-5 space-y-3 border-t border-border pt-5">
+                            <div className="text-sm font-medium text-foreground">Experimental</div>
+                            <div className="rounded-md border border-border bg-background p-3">
+                                <div className="flex items-center justify-between gap-4">
+                                    <label
+                                        htmlFor={multiPlateSwitchId}
+                                        className="min-w-0 cursor-pointer"
+                                    >
+                                        <div className="text-sm font-medium text-foreground">
+                                            Multi-plate mode
+                                        </div>
+                                        <div className="mt-1 text-xs text-muted-foreground">
+                                            Unfinished multi-plate workflow. No effect yet; may
+                                            change or break.
+                                        </div>
+                                    </label>
+                                    <Switch
+                                        id={multiPlateSwitchId}
+                                        checked={multiPlateEnabled}
+                                        onCheckedChange={setMultiPlate}
+                                        aria-label="Enable experimental multi-plate mode"
+                                    />
+                                </div>
+                            </div>
+                        </section>
 
                         <div className="mt-5 flex items-center justify-between border-t border-border pt-4 text-xs text-muted-foreground">
                             <span>Kromacut</span>

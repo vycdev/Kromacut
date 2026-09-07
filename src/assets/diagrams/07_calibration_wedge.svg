@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="460" viewBox="0 0 960 460">
+<rect x="0" y="0" width="960" height="460" fill="#18181b" stroke="none" rx="0" />
+<text x="480" y="42" font-size="17" fill="#e4e4e7" text-anchor="middle" font-weight="bold" font-family="Inter,ui-sans-serif,sans-serif">Reading the Calibration Wedge</text>
+<text x="480" y="62" font-size="10" fill="#71717a" text-anchor="middle" font-family="Inter,ui-sans-serif,sans-serif">Each tile prints patches of 1..N filament layers over a base, beside a rail of fully opaque filament.</text>
+<text x="480" y="78" font-size="10" fill="#71717a" text-anchor="middle" font-family="Inter,ui-sans-serif,sans-serif">You report one number per tile: the first patch that looks identical to the rail.</text>
+
+<!-- Reference rail -->
+<rect x="120" y="110" width="712" height="30" fill="#e67e22" stroke="#3f3f46" stroke-width="1" rx="4"/>
+<text x="840" y="122" font-size="10" fill="#71717a" text-anchor="start" font-family="Inter,ui-sans-serif,sans-serif">reference rail</text>
+<text x="840" y="135" font-size="10" fill="#71717a" text-anchor="start" font-family="Inter,ui-sans-serif,sans-serif">(fully opaque)</text>
+
+<!-- Orientation foot -->
+<rect x="92" y="156" width="20" height="52" fill="#3f3f46" rx="3"/>
+<text x="102" y="222" font-size="9" fill="#71717a" text-anchor="middle" font-family="Inter,ui-sans-serif,sans-serif">foot</text>
+
+<!-- Patches 1..12 -->
+<rect x="120" y="156" width="52" height="52" fill="#57300d" stroke="#3f3f46" stroke-width="1" rx="3"/>
+<rect x="180" y="156" width="52" height="52" fill="#8e4e15" stroke="#3f3f46" stroke-width="1" rx="3"/>
+<rect x="240" y="156" width="52" height="52" fill="#af601a" stroke="#3f3f46" stroke-width="1" rx="3"/>
+<rect x="300" y="156" width="52" height="52" fill="#c46b1d" stroke="#3f3f46" stroke-width="1" rx="3"/>
+<rect x="360" y="156" width="52" height="52" fill="#d1721f" stroke="#3f3f46" stroke-width="1" rx="3"/>
+<rect x="420" y="156" width="52" height="52" fill="#d97720" stroke="#3f3f46" stroke-width="1" rx="3"/>
+<rect x="480" y="156" width="52" height="52" fill="#de7a21" stroke="#3f3f46" stroke-width="1" rx="3"/>
+<rect x="540" y="156" width="52" height="52" fill="#e17b21" stroke="#f5a623" stroke-width="2" rx="3"/>
+<rect x="600" y="156" width="52" height="52" fill="#e37c22" stroke="#3f3f46" stroke-width="1" rx="3"/>
+<rect x="660" y="156" width="52" height="52" fill="#e47d22" stroke="#3f3f46" stroke-width="1" rx="3"/>
+<rect x="720" y="156" width="52" height="52" fill="#e57d22" stroke="#3f3f46" stroke-width="1" rx="3"/>
+<rect x="780" y="156" width="52" height="52" fill="#e57e22" stroke="#3f3f46" stroke-width="1" rx="3"/>
+<text x="146" y="222" font-size="10" fill="#71717a" text-anchor="middle" font-family="Inter,ui-sans-serif,sans-serif">1</text>
+<text x="206" y="222" font-size="10" fill="#71717a" text-anchor="middle" font-family="Inter,ui-sans-serif,sans-serif">2</text>
+<text x="266" y="222" font-size="10" fill="#71717a" text-anchor="middle" font-family="Inter,ui-sans-serif,sans-serif">3</text>
+<text x="326" y="222" font-size="10" fill="#71717a" text-anchor="middle" font-family="Inter,ui-sans-serif,sans-serif">4</text>
+<text x="386" y="222" font-size="10" fill="#71717a" text-anchor="middle" font-family="Inter,ui-sans-serif,sans-serif">5</text>
+<text x="446" y="222" font-size="10" fill="#71717a" text-anchor="middle" font-family="Inter,ui-sans-serif,sans-serif">6</text>
+<text x="506" y="222" font-size="10" fill="#71717a" text-anchor="middle" font-family="Inter,ui-sans-serif,sans-serif">7</text>
+<text x="566" y="222" font-size="10" fill="#f5a623" text-anchor="middle" font-weight="bold" font-family="Inter,ui-sans-serif,sans-serif">8</text>
+<text x="626" y="222" font-size="10" fill="#71717a" text-anchor="middle" font-family="Inter,ui-sans-serif,sans-serif">9</text>
+<text x="686" y="222" font-size="10" fill="#71717a" text-anchor="middle" font-family="Inter,ui-sans-serif,sans-serif">10</text>
+<text x="746" y="222" font-size="10" fill="#71717a" text-anchor="middle" font-family="Inter,ui-sans-serif,sans-serif">11</text>
+<text x="806" y="222" font-size="10" fill="#71717a" text-anchor="middle" font-family="Inter,ui-sans-serif,sans-serif">12</text>
+<text x="566" y="250" font-size="10" fill="#f5a623" text-anchor="middle" font-family="Inter,ui-sans-serif,sans-serif">first patch identical to the rail → report 8</text>
+
+<!-- Side view -->
+<text x="120" y="300" font-size="10" fill="#71717a" text-anchor="start" font-family="Inter,ui-sans-serif,sans-serif">side view (single-filament STL workflow)</text>
+<rect x="120" y="358" width="59.33" height="4" fill="#e67e22" stroke="#18181b" stroke-width="0.5"/>
+<rect x="179.33" y="354" width="59.33" height="8" fill="#e67e22" stroke="#18181b" stroke-width="0.5"/>
+<rect x="238.67" y="350" width="59.33" height="12" fill="#e67e22" stroke="#18181b" stroke-width="0.5"/>
+<rect x="298" y="346" width="59.33" height="16" fill="#e67e22" stroke="#18181b" stroke-width="0.5"/>
+<rect x="357.33" y="342" width="59.33" height="20" fill="#e67e22" stroke="#18181b" stroke-width="0.5"/>
+<rect x="416.67" y="338" width="59.33" height="24" fill="#e67e22" stroke="#18181b" stroke-width="0.5"/>
+<rect x="476" y="334" width="59.33" height="28" fill="#e67e22" stroke="#18181b" stroke-width="0.5"/>
+<rect x="535.33" y="330" width="59.33" height="32" fill="#e67e22" stroke="#18181b" stroke-width="0.5"/>
+<rect x="594.67" y="326" width="59.33" height="36" fill="#e67e22" stroke="#18181b" stroke-width="0.5"/>
+<rect x="654" y="322" width="59.33" height="40" fill="#e67e22" stroke="#18181b" stroke-width="0.5"/>
+<rect x="713.33" y="318" width="59.33" height="44" fill="#e67e22" stroke="#18181b" stroke-width="0.5"/>
+<rect x="772.67" y="314" width="59.33" height="48" fill="#e67e22" stroke="#18181b" stroke-width="0.5"/>
+<rect x="120" y="362" width="712" height="26" fill="#27272a" stroke="#3f3f46" stroke-width="1"/>
+<text x="476" y="379" font-size="9" fill="#71717a" text-anchor="middle" font-family="Inter,ui-sans-serif,sans-serif">base filament</text>
+<line x1="100" y1="362" x2="852" y2="362" stroke="#f5a623" stroke-width="1.2" stroke-dasharray="6,3"/>
+<text x="856" y="360" font-size="9" fill="#f5a623" text-anchor="start" font-family="Inter,ui-sans-serif,sans-serif">single swap:</text>
+<text x="856" y="372" font-size="9" fill="#f5a623" text-anchor="start" font-family="Inter,ui-sans-serif,sans-serif">base → color</text>
+
+<text x="480" y="452" font-size="10" fill="#71717a" text-anchor="middle" font-family="Inter,ui-sans-serif,sans-serif">Kromacut · frontlit calibration</text>
+</svg>

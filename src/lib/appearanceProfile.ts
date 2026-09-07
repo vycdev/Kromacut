@@ -1,0 +1,1568 @@
+import type { Filament } from '../types';
+import type {
+    CanonicalSrgbColor,
+    FinalPrintableStackSnapshot,
+    TargetSampleContext,
+} from '../types/appearance';
+import { fingerprintJson } from './fingerprint.ts';
+import type { PaletteProofCandidateRole, PaletteProofSpec } from './paletteProof';
+
+export const APPEARANCE_PROFILE_SCHEMA_VERSION = 1;
+export const APPEARANCE_RENDERER_VERSION = 'kromacut-palette-proof-v1';
+export const MAX_STORED_PALETTE_PROOFS = 50;
+export const MAX_STORED_VIEWING_SESSIONS = 100;
+export const MAX_STORED_TARGET_JUDGMENTS = 1_000;
+export const MAX_STORED_COMPLETED_STACK_MATRICES = 4;
+export const MAX_STORED_PLANNED_STACK_MATRICES = 4;
+export const MAX_STORED_STACK_MATRICES =
+    MAX_STORED_COMPLETED_STACK_MATRICES + MAX_STORED_PLANNED_STACK_MATRICES;
+export const MAX_STACK_MATRIX_SAMPLES = 2_025;
+
+const MAX_STACK_LAYERS = 500;
+const MAX_TEXT_LENGTH = 256;
+const completedEvidenceFingerprintCache = new WeakMap<AppearanceProfileV1, string>();
+const serializedAppearanceProfileCache = new WeakMap<AppearanceProfileV1, string>();
+let emptyCompletedEvidenceFingerprint: string | undefined;
+// These constants are part of the persisted Palette Proof v1 contract. Keep
+// them versioned here instead of resolving imports while sanitizing profile data.
+const PALETTE_PROOF_PATCH_SIZE_MM = 8;
+const PALETTE_PROOF_GAP_MM = 1;
+const PALETTE_PROOF_TOUCHING_GAP_MM = 0;
+const PALETTE_PROOF_MARGIN_MM = 2;
+const PALETTE_PROOF_NOTCH_SIZE_MM = 2;
+const PALETTE_PROOF_CORNER_RADIUS_MM = 1.2;
+const PALETTE_PROOF_MAX_CANDIDATES = 5;
+const PALETTE_PROOF_MAX_TARGETS = 10;
+const PALETTE_PROOF_MAX_REINFORCEMENT_LAYERS = 2;
+const PALETTE_PROOF_REINFORCEMENT_CLEARANCE_MM = 0.15;
+const UNKNOWN_PROCESS_FIELDS = [
+    'slicerName',
+    'slicerVersion',
+    'printerProfile',
+    'materialBatchIds',
+    'nozzleWidth',
+    'lineWidth',
+    'nozzleTemperature',
+    'flowRatio',
+    'printSpeed',
+    'coolingProfile',
+    'surfaceSettings',
+    'perimeterCount',
+    'topSurfacePattern',
+    'minimumLayerTime',
+    'slicerToolpathFingerprint',
+] as const;
+
+export interface AppearanceStackLayer {
+    filamentId: string;
+    filamentColor: string;
+    thickness: number;
+}
+
+export interface AppearanceProcessSnapshot {
+    paintMode: 'autopaint';
+    layerHeight: number;
+    firstLayerHeight: number;
+    transitionOpacity: number;
+    modelFingerprint: string;
+    filamentProfileFingerprint: string;
+    unknownFields: string[];
+}
+
+export interface StoredPaletteProofPrefix {
+    canonicalStackKey: string;
+    prefixIndex: number;
+    basePredictedColor?: CanonicalSrgbColor;
+    predictedColor: CanonicalSrgbColor;
+}
+
+export interface PaletteProofRecord {
+    schemaVersion: 1;
+    id: string;
+    snapshotFingerprint: string;
+    proof: PaletteProofSpec;
+    stack: AppearanceStackLayer[];
+    prefixes: StoredPaletteProofPrefix[];
+    process: AppearanceProcessSnapshot;
+    createdAt: string;
+    exportedAt: string;
+}
+
+export interface AppearanceViewingSession {
+    id: string;
+    proofId: string;
+    reuseScope: 'session-only';
+    status: 'draft' | 'complete';
+    colorContract: {
+        space: 'srgb';
+        encoding: 'uint8';
+        whitePoint: 'D65';
+        rendererVersion: typeof APPEARANCE_RENDERER_VERSION;
+    };
+    createdAt: string;
+    updatedAt: string;
+    completedAt?: string;
+}
+
+export type PaletteTargetMatchQuality = 'best-available' | 'close' | 'exact';
+
+export interface PaletteTargetJudgment {
+    id: string;
+    proofId: string;
+    column: number;
+    targetColor: CanonicalSrgbColor;
+    candidateCellIds: string[];
+    closestCellIds: string[];
+    response: 'closest' | 'none';
+    matchQuality?: PaletteTargetMatchQuality;
+    viewingSessionId: string;
+    createdAt: string;
+    updatedAt: string;
+}
+
+export interface StackMatrixFilamentV1 {
+    id: string;
+    color: string;
+    name: string;
+}
+
+export interface StackMatrixSampleV1 {
+    index: number;
+    row: number;
+    column: number;
+    stack: number[];
+    canonicalStackKey: string;
+    predictedColor: CanonicalSrgbColor;
+    measuredColor?: CanonicalSrgbColor;
+}
+
+export interface StackMatrixCalibrationV1 {
+    schemaVersion: 1;
+    id: string;
+    status: 'planned' | 'complete';
+    process: {
+        filamentProfileFingerprint: string;
+        layerHeight: number;
+        firstLayerHeight: number;
+        unknownFields: string[];
+    };
+    filaments: StackMatrixFilamentV1[];
+    backingFilamentIndex: number;
+    foundationLayerThicknesses: number[];
+    stackLayerCount: number;
+    grid: {
+        rows: number;
+        columns: number;
+        patchSize: number;
+        gap: number;
+    };
+    totalCombinationCount: number;
+    selection: 'exhaustive' | 'hd-gamut';
+    samples: StackMatrixSampleV1[];
+    cornerStacks: number[][];
+    createdAt: string;
+    exportedAt?: string;
+    completedAt?: string;
+    photoName?: string;
+    referenceCorrection?: boolean;
+    alignmentConfidence?: number;
+    alignmentMethod?: 'detected' | 'manual';
+    alignmentVerified?: boolean;
+}
+
+export interface AppearanceProfileV1 {
+    schemaVersion: 1;
+    proofs: PaletteProofRecord[];
+    viewingSessions: AppearanceViewingSession[];
+    targetJudgments: PaletteTargetJudgment[];
+    stackMatrices?: StackMatrixCalibrationV1[];
+}
+
+export type PaletteTargetResponse =
+    | {
+          response: 'closest';
+          closestCellIds: string[];
+          matchQuality?: PaletteTargetMatchQuality;
+      }
+    | { response: 'none' };
+
+export interface PaletteProofEvaluationState {
+    session?: AppearanceViewingSession;
+    judgments: PaletteTargetJudgment[];
+    answeredColumns: number;
+    totalColumns: number;
+    complete: boolean;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return !!value && typeof value === 'object' && !Array.isArray(value);
+}
+
+function boundedString(value: unknown, maximum = MAX_TEXT_LENGTH): string | null {
+    return typeof value === 'string' && value.length > 0 && value.length <= maximum ? value : null;
+}
+
+function finiteNumber(value: unknown, minimum: number, maximum: number): number | null {
+    return typeof value === 'number' &&
+        Number.isFinite(value) &&
+        value >= minimum &&
+        value <= maximum
+        ? value
+        : null;
+}
+
+function integer(value: unknown, minimum: number, maximum: number): number | null {
+    const number = finiteNumber(value, minimum, maximum);
+    return number !== null && Number.isInteger(number) ? number : null;
+}
+
+function isoTimestamp(value: unknown): string | null {
+    const text = boundedString(value, 64);
+    return text && Number.isFinite(Date.parse(text)) ? text : null;
+}
+
+function dedupeLast<T>(values: T[], keyOf: (value: T) => string): T[] {
+    const unique = new Map<string, T>();
+    for (const value of values) {
+        const key = keyOf(value);
+        unique.delete(key);
+        unique.set(key, value);
+    }
+    return [...unique.values()];
+}
+
+function sanitizeCanonicalColor(value: unknown): CanonicalSrgbColor | null {
+    if (!isRecord(value) || !Array.isArray(value.rgb) || value.rgb.length !== 3) return null;
+    const rgb = value.rgb.map((channel) => integer(channel, 0, 255));
+    if (rgb.some((channel) => channel === null)) return null;
+    const tuple = rgb as [number, number, number];
+    const hex = `#${tuple.map((channel) => channel.toString(16).padStart(2, '0')).join('')}`;
+    if (
+        value.space !== 'srgb' ||
+        value.encoding !== 'uint8' ||
+        value.whitePoint !== 'D65' ||
+        value.hex !== hex
+    ) {
+        return null;
+    }
+    return {
+        space: 'srgb',
+        encoding: 'uint8',
+        whitePoint: 'D65',
+        rgb: tuple,
+        hex,
+    };
+}
+
+function sanitizeLab(value: unknown): readonly [number, number, number] | null {
+    if (!Array.isArray(value) || value.length !== 3) return null;
+    const lab = value.map((channel) => finiteNumber(channel, -256, 256));
+    return lab.some((channel) => channel === null) ? null : (lab as [number, number, number]);
+}
+
+function sanitizeSampleContext(value: unknown): TargetSampleContext | null {
+    if (!isRecord(value)) return null;
+    if (
+        !['flat-interior', 'edge-limited', 'mixed', 'unknown'].includes(String(value.geometryClass))
+    ) {
+        return null;
+    }
+    const context: TargetSampleContext = {
+        geometryClass: value.geometryClass as TargetSampleContext['geometryClass'],
+    };
+    for (const key of ['interiorRadiusMm', 'flatInteriorWeight', 'edgeLimitedWeight'] as const) {
+        if (value[key] === undefined) continue;
+        const maximum = key === 'interiorRadiusMm' ? 10_000 : 1;
+        const number = finiteNumber(value[key], 0, maximum);
+        if (number === null) return null;
+        context[key] = number;
+    }
+    return context;
+}
+
+const CANDIDATE_ROLES: PaletteProofCandidateRole[] = [
+    'incumbent',
+    'previous-best',
+    'lower-neighbor',
+    'upper-neighbor',
+    'unseen-neighbor',
+    'unseen-alternative',
+    'base-alternative',
+    'spread',
+    'uncertain',
+    'discriminator',
+    'fallback',
+];
+
+function sanitizePaletteProofSpec(value: unknown): PaletteProofSpec | null {
+    if (!isRecord(value) || value.schemaVersion !== 1 || !isRecord(value.layout)) return null;
+    if (
+        typeof value.comparisonEnabled !== 'boolean' ||
+        !Array.isArray(value.targetPalette) ||
+        !Array.isArray(value.columns) ||
+        !Array.isArray(value.cells) ||
+        !Array.isArray(value.physicalPatches) ||
+        value.columns.length > PALETTE_PROOF_MAX_TARGETS ||
+        value.cells.length > PALETTE_PROOF_MAX_TARGETS * PALETTE_PROOF_MAX_CANDIDATES ||
+        value.physicalPatches.length > PALETTE_PROOF_MAX_TARGETS * PALETTE_PROOF_MAX_CANDIDATES
+    ) {
+        return null;
+    }
+
+    const id = boundedString(value.id, 128);
+    const snapshotFingerprint = boundedString(value.snapshotFingerprint, 128);
+    const targetColorMode =
+        value.targetColorMode === undefined
+            ? undefined
+            : value.targetColorMode === 'original' || value.targetColorMode === 'fitted'
+              ? value.targetColorMode
+              : null;
+    const targetSetMappingIds =
+        value.targetSetMappingIds === undefined
+            ? undefined
+            : Array.isArray(value.targetSetMappingIds)
+              ? value.targetSetMappingIds.map((targetId) => boundedString(targetId, 128))
+              : null;
+    const rowCount = integer(value.layout.rowCount, 0, PALETTE_PROOF_MAX_CANDIDATES);
+    const columnCount = integer(value.layout.columnCount, 0, PALETTE_PROOF_MAX_TARGETS);
+    const widthMm = finiteNumber(value.layout.widthMm, 0, 1_000);
+    const heightMm = finiteNumber(value.layout.heightMm, 0, 1_000);
+    const gapMm =
+        value.layout.gapMm === PALETTE_PROOF_TOUCHING_GAP_MM ||
+        value.layout.gapMm === PALETTE_PROOF_GAP_MM
+            ? value.layout.gapMm
+            : null;
+    const matrixOrientation =
+        value.layout.matrixOrientation === undefined
+            ? undefined
+            : value.layout.matrixOrientation === 'target-columns' ||
+                value.layout.matrixOrientation === 'target-rows'
+              ? value.layout.matrixOrientation
+              : null;
+    const hasReinforcementLayers = value.layout.reinforcementLayers !== undefined;
+    const hasReinforcementClearance = value.layout.reinforcementClearanceMm !== undefined;
+    const reinforcementLayers = hasReinforcementLayers
+        ? integer(value.layout.reinforcementLayers, 0, PALETTE_PROOF_MAX_REINFORCEMENT_LAYERS)
+        : undefined;
+    const reinforcementClearanceMm = hasReinforcementClearance
+        ? finiteNumber(value.layout.reinforcementClearanceMm, 0, PALETTE_PROOF_GAP_MM / 2)
+        : undefined;
+    if (
+        !id ||
+        !snapshotFingerprint ||
+        targetColorMode === null ||
+        targetSetMappingIds === null ||
+        (targetSetMappingIds !== undefined &&
+            (targetSetMappingIds.length === 0 ||
+                targetSetMappingIds.length > PALETTE_PROOF_MAX_TARGETS ||
+                targetSetMappingIds.some((targetId) => !targetId) ||
+                new Set(targetSetMappingIds).size !== targetSetMappingIds.length)) ||
+        rowCount === null ||
+        columnCount === null ||
+        widthMm === null ||
+        heightMm === null ||
+        gapMm === null ||
+        matrixOrientation === null ||
+        value.layout.kind !== 'target-column-matrix' ||
+        value.layout.patchSizeMm !== PALETTE_PROOF_PATCH_SIZE_MM ||
+        value.layout.marginMm !== PALETTE_PROOF_MARGIN_MM ||
+        value.layout.notchSizeMm !== PALETTE_PROOF_NOTCH_SIZE_MM ||
+        value.layout.cornerRadiusMm !== PALETTE_PROOF_CORNER_RADIUS_MM ||
+        hasReinforcementLayers !== hasReinforcementClearance ||
+        (hasReinforcementLayers &&
+            (reinforcementLayers == null ||
+                reinforcementClearanceMm == null ||
+                (reinforcementLayers === 0 && reinforcementClearanceMm !== 0) ||
+                (reinforcementLayers > 0 &&
+                    (reinforcementClearanceMm !== PALETTE_PROOF_REINFORCEMENT_CLEARANCE_MM ||
+                        gapMm < reinforcementClearanceMm * 2)))) ||
+        value.layout.orientationMarker !== 'top-left-notch' ||
+        value.columns.length !== columnCount ||
+        value.targetPalette.length !== columnCount
+    ) {
+        return null;
+    }
+    const sanitizedReinforcementLayers =
+        typeof reinforcementLayers === 'number' ? reinforcementLayers : undefined;
+    const sanitizedReinforcementClearance =
+        typeof reinforcementClearanceMm === 'number' ? reinforcementClearanceMm : undefined;
+
+    const foundationPrefixKey =
+        value.layout.foundationPrefixKey === null
+            ? null
+            : boundedString(value.layout.foundationPrefixKey, 128);
+    if (value.layout.foundationPrefixKey !== null && !foundationPrefixKey) return null;
+
+    const targetPalette = value.targetPalette.map(sanitizeCanonicalColor);
+    if (targetPalette.some((color) => color === null)) return null;
+
+    const columns: PaletteProofSpec['columns'][number][] = [];
+    for (const raw of value.columns) {
+        if (!isRecord(raw) || !Array.isArray(raw.cellIds)) return null;
+        const columnId = boundedString(raw.id, 64);
+        const column = integer(raw.column, 0, PALETTE_PROOF_MAX_TARGETS - 1);
+        const targetMappingId = boundedString(raw.targetMappingId, 128);
+        const targetColor = sanitizeCanonicalColor(raw.targetColor);
+        const targetLab = sanitizeLab(raw.targetLab);
+        const usageWeight = finiteNumber(raw.usageWeight, 0, 1);
+        const sampleContext = sanitizeSampleContext(raw.sampleContext);
+        const cellIds = raw.cellIds.map((cellId) => boundedString(cellId, 16));
+        if (
+            !columnId ||
+            column === null ||
+            !targetMappingId ||
+            !targetColor ||
+            !targetLab ||
+            usageWeight === null ||
+            !sampleContext ||
+            cellIds.length !== rowCount ||
+            cellIds.some((cellId) => !cellId)
+        ) {
+            return null;
+        }
+        columns.push({
+            id: columnId,
+            column,
+            targetMappingId,
+            targetColor,
+            targetLab,
+            usageWeight,
+            sampleContext,
+            cellIds: cellIds as string[],
+        });
+    }
+
+    const cells: PaletteProofSpec['cells'][number][] = [];
+    for (const raw of value.cells) {
+        if (!isRecord(raw)) return null;
+        const cellId = boundedString(raw.id, 16);
+        const row = integer(raw.row, 0, PALETTE_PROOF_MAX_CANDIDATES - 1);
+        const column = integer(raw.column, 0, PALETTE_PROOF_MAX_TARGETS - 1);
+        const targetMappingId = boundedString(raw.targetMappingId, 128);
+        const physicalPatchId = boundedString(raw.physicalPatchId, 64);
+        const canonicalStackKey = boundedString(raw.canonicalStackKey, 128);
+        const prefixIndex = integer(raw.prefixIndex, 0, MAX_STACK_LAYERS - 1);
+        if (
+            !cellId ||
+            row === null ||
+            column === null ||
+            !targetMappingId ||
+            !physicalPatchId ||
+            !canonicalStackKey ||
+            prefixIndex === null ||
+            !CANDIDATE_ROLES.includes(raw.candidateRole as PaletteProofCandidateRole)
+        ) {
+            return null;
+        }
+        const replacesRole =
+            raw.replacesRole === 'lower-neighbor' || raw.replacesRole === 'upper-neighbor'
+                ? raw.replacesRole
+                : undefined;
+        if (raw.replacesRole !== undefined && replacesRole === undefined) return null;
+        cells.push({
+            id: cellId,
+            row,
+            column,
+            targetMappingId,
+            candidateRole: raw.candidateRole as PaletteProofCandidateRole,
+            replacesRole,
+            physicalPatchId,
+            canonicalStackKey,
+            prefixIndex,
+        });
+    }
+
+    const physicalPatches: PaletteProofSpec['physicalPatches'][number][] = [];
+    for (const raw of value.physicalPatches) {
+        if (!isRecord(raw) || !isRecord(raw.placement)) return null;
+        const patchId = boundedString(raw.id, 64);
+        const canonicalStackKey = boundedString(raw.canonicalStackKey, 128);
+        const prefixIndex = integer(raw.prefixIndex, 0, MAX_STACK_LAYERS - 1);
+        if (!patchId || !canonicalStackKey || prefixIndex === null) return null;
+        let placement: PaletteProofSpec['physicalPatches'][number]['placement'];
+        if (raw.placement.kind === 'foundation-reference' && raw.placement.edge === 'bottom') {
+            placement = { kind: 'foundation-reference', edge: 'bottom' };
+        } else if (raw.placement.kind === 'matrix-cell') {
+            const row = integer(raw.placement.row, 0, PALETTE_PROOF_MAX_CANDIDATES - 1);
+            const column = integer(raw.placement.column, 0, PALETTE_PROOF_MAX_TARGETS - 1);
+            if (row === null || column === null) return null;
+            placement = { kind: 'matrix-cell', row, column };
+        } else {
+            return null;
+        }
+        physicalPatches.push({ id: patchId, canonicalStackKey, prefixIndex, placement });
+    }
+
+    const spec: PaletteProofSpec = {
+        schemaVersion: 1,
+        id,
+        snapshotFingerprint,
+        ...(targetColorMode === undefined ? {} : { targetColorMode }),
+        ...(targetSetMappingIds === undefined
+            ? {}
+            : { targetSetMappingIds: targetSetMappingIds as string[] }),
+        comparisonEnabled: value.comparisonEnabled,
+        layout: {
+            kind: 'target-column-matrix',
+            ...(matrixOrientation === undefined ? {} : { matrixOrientation }),
+            patchSizeMm: PALETTE_PROOF_PATCH_SIZE_MM,
+            gapMm,
+            marginMm: PALETTE_PROOF_MARGIN_MM,
+            notchSizeMm: PALETTE_PROOF_NOTCH_SIZE_MM,
+            cornerRadiusMm: PALETTE_PROOF_CORNER_RADIUS_MM,
+            rowCount,
+            columnCount,
+            widthMm,
+            heightMm,
+            ...(sanitizedReinforcementLayers === undefined
+                ? {}
+                : {
+                      reinforcementLayers: sanitizedReinforcementLayers,
+                      reinforcementClearanceMm: sanitizedReinforcementClearance,
+                  }),
+            foundationPrefixKey,
+            orientationMarker: 'top-left-notch',
+        },
+        targetPalette: targetPalette as CanonicalSrgbColor[],
+        columns,
+        cells,
+        physicalPatches,
+    };
+
+    const cellIds = new Set(spec.cells.map((cell) => cell.id));
+    const patchIds = new Set(spec.physicalPatches.map((patch) => patch.id));
+    const patchesById = new Map(spec.physicalPatches.map((patch) => [patch.id, patch]));
+    const targetRows = matrixOrientation === 'target-rows';
+    const horizontalCount = targetRows ? rowCount : columnCount;
+    const verticalCount = targetRows ? columnCount : rowCount;
+    const expectedWidth =
+        horizontalCount === 0
+            ? 0
+            : horizontalCount * PALETTE_PROOF_PATCH_SIZE_MM +
+              (horizontalCount - 1) * gapMm +
+              2 * PALETTE_PROOF_MARGIN_MM;
+    const expectedHeight =
+        verticalCount === 0
+            ? 0
+            : verticalCount * PALETTE_PROOF_PATCH_SIZE_MM +
+              (verticalCount - 1) * gapMm +
+              2 * PALETTE_PROOF_MARGIN_MM;
+    const maximumSelectedPrefixIndex = spec.cells.reduce(
+        (maximum, cell) => Math.max(maximum, cell.prefixIndex),
+        0
+    );
+    if (
+        cellIds.size !== spec.cells.length ||
+        patchIds.size !== spec.physicalPatches.length ||
+        spec.cells.length !== rowCount * columnCount ||
+        (spec.targetSetMappingIds !== undefined &&
+            spec.columns.some(
+                (column) => !spec.targetSetMappingIds!.includes(column.targetMappingId)
+            )) ||
+        widthMm !== expectedWidth ||
+        heightMm !== expectedHeight ||
+        spec.comparisonEnabled !== (rowCount >= 2 && columnCount > 0) ||
+        (sanitizedReinforcementLayers !== undefined &&
+            sanitizedReinforcementLayers > maximumSelectedPrefixIndex) ||
+        spec.columns.some(
+            (column, index) =>
+                column.column !== index ||
+                column.targetColor.hex !== spec.targetPalette[index]?.hex ||
+                column.cellIds.join('|') !==
+                    spec.cells
+                        .filter((cell) => cell.column === column.column)
+                        .sort((left, right) => left.row - right.row)
+                        .map((cell) => cell.id)
+                        .join('|')
+        ) ||
+        spec.cells.some((cell) => {
+            const patch = patchesById.get(cell.physicalPatchId);
+            return (
+                cell.column >= columnCount ||
+                cell.row >= rowCount ||
+                !patch ||
+                patch.canonicalStackKey !== cell.canonicalStackKey ||
+                patch.prefixIndex !== cell.prefixIndex
+            );
+        })
+    ) {
+        return null;
+    }
+    return spec;
+}
+
+export function fingerprintAppearanceFilaments(filaments: readonly Filament[]): string {
+    return fingerprintJson(
+        'filament-profile-v1',
+        filaments.map((filament) => ({
+            id: filament.id,
+            color: filament.color,
+            td: filament.td,
+            calibration: filament.calibration ?? null,
+        }))
+    );
+}
+
+export function createEmptyAppearanceProfile(): AppearanceProfileV1 {
+    return {
+        schemaVersion: APPEARANCE_PROFILE_SCHEMA_VERSION,
+        proofs: [],
+        viewingSessions: [],
+        targetJudgments: [],
+        stackMatrices: [],
+    };
+}
+
+export function upsertStackMatrixCalibration(
+    appearance: AppearanceProfileV1 | undefined,
+    record: StackMatrixCalibrationV1
+): AppearanceProfileV1 {
+    const current = appearance ?? createEmptyAppearanceProfile();
+    const previous = current.stackMatrices?.find((matrix) => matrix.id === record.id);
+    const nextRecord = previous ? { ...record, createdAt: previous.createdAt } : record;
+    return {
+        ...current,
+        stackMatrices: retainStackMatrixCalibrations([
+            ...(current.stackMatrices ?? []).filter((matrix) => matrix.id !== record.id),
+            nextRecord,
+        ]),
+    };
+}
+
+function retainStackMatrixCalibrations(
+    records: readonly StackMatrixCalibrationV1[]
+): StackMatrixCalibrationV1[] {
+    const completed = records
+        .filter((record) => record.status === 'complete')
+        .slice(-MAX_STORED_COMPLETED_STACK_MATRICES);
+    const planned = records
+        .filter((record) => record.status === 'planned')
+        .slice(-MAX_STORED_PLANNED_STACK_MATRICES);
+    const retainedIds = new Set([...completed, ...planned].map((record) => record.id));
+    return records.filter((record) => retainedIds.has(record.id));
+}
+
+export function deleteStackMatrixCalibration(
+    appearance: AppearanceProfileV1,
+    matrixId: string
+): AppearanceProfileV1 {
+    return {
+        ...appearance,
+        stackMatrices: (appearance.stackMatrices ?? []).filter((matrix) => matrix.id !== matrixId),
+    };
+}
+
+/**
+ * Fingerprints only the completed evidence consumed by appearance fitting.
+ * Draft result entry is persisted immediately without invalidating an active
+ * Auto-paint run; completing or reopening an evaluation changes this key.
+ */
+export function fingerprintCompletedAppearanceEvidence(
+    appearance: AppearanceProfileV1 | undefined
+): string {
+    if (!appearance) {
+        return (emptyCompletedEvidenceFingerprint ??= fingerprintJson(
+            'completed-appearance-evidence-v1',
+            {
+                proofs: [],
+                viewingSessions: [],
+                targetJudgments: [],
+                stackMatrices: [],
+            }
+        ));
+    }
+
+    const cached = completedEvidenceFingerprintCache.get(appearance);
+    if (cached) return cached;
+
+    const completedSessions = appearance.proofs
+        .map(
+            (proof) =>
+                [...appearance.viewingSessions]
+                    .filter((session) => session.proofId === proof.id)
+                    .sort((left, right) => right.createdAt.localeCompare(left.createdAt))[0]
+        )
+        .filter((session): session is AppearanceViewingSession => session?.status === 'complete')
+        .sort((left, right) => left.id.localeCompare(right.id));
+    const completedSessionIds = new Set(completedSessions.map((session) => session.id));
+    const completedProofIds = new Set(completedSessions.map((session) => session.proofId));
+
+    const proofs = appearance.proofs
+        .filter((proof) => completedProofIds.has(proof.id))
+        .map((proof) => ({
+            id: proof.id,
+            proof: { cells: proof.proof.cells },
+            stack: proof.stack,
+            prefixes: proof.prefixes,
+            process: proof.process,
+        }))
+        .sort((left, right) => left.id.localeCompare(right.id));
+    const viewingSessions = completedSessions.map((session) => ({
+        id: session.id,
+        proofId: session.proofId,
+        status: session.status,
+        createdAt: session.createdAt,
+    }));
+    const targetJudgments = appearance.targetJudgments
+        .filter((judgment) => completedSessionIds.has(judgment.viewingSessionId))
+        .map((judgment) => ({
+            id: judgment.id,
+            proofId: judgment.proofId,
+            targetColor: judgment.targetColor,
+            candidateCellIds: judgment.candidateCellIds,
+            closestCellIds: judgment.closestCellIds,
+            response: judgment.response,
+            ...(judgment.response === 'closest'
+                ? { matchQuality: judgment.matchQuality ?? 'best-available' }
+                : {}),
+            viewingSessionId: judgment.viewingSessionId,
+        }))
+        .sort((left, right) => left.id.localeCompare(right.id));
+
+    const stackMatrices = (appearance.stackMatrices ?? [])
+        .filter((matrix) => matrix.status === 'complete')
+        .map((matrix) => ({
+            id: matrix.id,
+            process: matrix.process,
+            filaments: matrix.filaments,
+            backingFilamentIndex: matrix.backingFilamentIndex,
+            foundationLayerThicknesses: matrix.foundationLayerThicknesses,
+            stackLayerCount: matrix.stackLayerCount,
+            samples: matrix.samples.map((sample) => ({
+                stack: sample.stack,
+                canonicalStackKey: sample.canonicalStackKey,
+                measuredColor: sample.measuredColor,
+            })),
+            completedAt: matrix.completedAt,
+        }))
+        .sort((left, right) => left.id.localeCompare(right.id));
+
+    const fingerprint = fingerprintJson('completed-appearance-evidence-v1', {
+        proofs,
+        viewingSessions,
+        targetJudgments,
+        stackMatrices,
+    });
+    // Appearance profiles are updated immutably. Remembering the completed-evidence
+    // key avoids repeatedly normalizing and hashing large Stack Matrix datasets when
+    // React remounts the 3D controls.
+    completedEvidenceFingerprintCache.set(appearance, fingerprint);
+    return fingerprint;
+}
+
+/**
+ * Serialize immutable, sanitized appearance evidence once for worker transport.
+ * Posting the resulting string avoids a synchronous recursive structured clone
+ * of the multi-megabyte calibration graph on the UI thread.
+ */
+export function serializeAppearanceProfile(
+    appearance: AppearanceProfileV1 | undefined
+): string | undefined {
+    if (!appearance) return undefined;
+    const cached = serializedAppearanceProfileCache.get(appearance);
+    if (cached !== undefined) return cached;
+    const serialized = JSON.stringify(appearance);
+    serializedAppearanceProfileCache.set(appearance, serialized);
+    return serialized;
+}
+
+export function buildPaletteProofRecord(
+    filaments: readonly Filament[],
+    snapshot: FinalPrintableStackSnapshot,
+    proof: PaletteProofSpec,
+    timestamp = new Date().toISOString()
+): PaletteProofRecord {
+    if (
+        proof.snapshotFingerprint !== snapshot.fingerprint ||
+        proof.layout.columnCount !== proof.columns.length ||
+        proof.targetPalette.length !== proof.columns.length
+    ) {
+        throw new Error('Palette Proof does not match the final printable stack');
+    }
+
+    const seen = new Set<string>();
+    const prefixes: StoredPaletteProofPrefix[] = [];
+    for (const cell of [...proof.cells].sort(
+        (left, right) => left.prefixIndex - right.prefixIndex
+    )) {
+        if (seen.has(cell.canonicalStackKey)) continue;
+        seen.add(cell.canonicalStackKey);
+        const paletteEntry = snapshot.palette[cell.prefixIndex];
+        if (!paletteEntry || paletteEntry.canonicalStackKey !== cell.canonicalStackKey) {
+            throw new Error(
+                `Palette Proof cell ${cell.id} does not resolve to its final stack prefix`
+            );
+        }
+        prefixes.push({
+            canonicalStackKey: cell.canonicalStackKey,
+            prefixIndex: cell.prefixIndex,
+            basePredictedColor: paletteEntry.basePredictedColor,
+            predictedColor: paletteEntry.predictedColor,
+        });
+    }
+    if (prefixes.length === 0) throw new Error('Palette Proof has no physical prefix candidates');
+    const maximumPrefixIndex = Math.max(...prefixes.map((prefix) => prefix.prefixIndex));
+
+    return {
+        schemaVersion: 1,
+        id: proof.id,
+        snapshotFingerprint: snapshot.fingerprint,
+        proof,
+        stack: snapshot.layers.slice(0, maximumPrefixIndex + 1).map((layer) => ({
+            filamentId: layer.filamentId,
+            filamentColor: layer.filamentColor,
+            thickness: layer.thickness,
+        })),
+        prefixes,
+        process: {
+            paintMode: 'autopaint',
+            layerHeight: snapshot.settings.layerHeight,
+            firstLayerHeight: snapshot.settings.firstLayerHeight,
+            transitionOpacity: snapshot.settings.transitionOpacity,
+            modelFingerprint: snapshot.modelFingerprint,
+            filamentProfileFingerprint: fingerprintAppearanceFilaments(filaments),
+            unknownFields: [...UNKNOWN_PROCESS_FIELDS],
+        },
+        createdAt: timestamp,
+        exportedAt: timestamp,
+    };
+}
+
+export function upsertPaletteProofRecord(
+    appearance: AppearanceProfileV1 | undefined,
+    record: PaletteProofRecord
+): AppearanceProfileV1 {
+    const current = appearance ?? createEmptyAppearanceProfile();
+    const previous = current.proofs.find((proof) => proof.id === record.id);
+    const nextRecord = previous ? { ...record, createdAt: previous.createdAt } : record;
+    const proofs = [...current.proofs.filter((proof) => proof.id !== record.id), nextRecord].slice(
+        -MAX_STORED_PALETTE_PROOFS
+    );
+    const proofIds = new Set(proofs.map((proof) => proof.id));
+    const viewingSessions = current.viewingSessions.filter((session) =>
+        proofIds.has(session.proofId)
+    );
+    const sessionIds = new Set(viewingSessions.map((session) => session.id));
+    return {
+        ...current,
+        proofs,
+        viewingSessions,
+        targetJudgments: current.targetJudgments.filter((judgment) =>
+            sessionIds.has(judgment.viewingSessionId)
+        ),
+    };
+}
+
+export function deletePaletteProof(
+    appearance: AppearanceProfileV1,
+    proofId: string
+): AppearanceProfileV1 {
+    if (!appearance.proofs.some((proof) => proof.id === proofId)) {
+        throw new Error('Palette Proof is not saved in the active profile');
+    }
+
+    return {
+        ...appearance,
+        proofs: appearance.proofs.filter((proof) => proof.id !== proofId),
+        viewingSessions: appearance.viewingSessions.filter(
+            (session) => session.proofId !== proofId
+        ),
+        targetJudgments: appearance.targetJudgments.filter(
+            (judgment) => judgment.proofId !== proofId
+        ),
+    };
+}
+
+function createSessionId(proofId: string, timestamp: string): string {
+    const random = globalThis.crypto?.randomUUID?.();
+    return random ?? fingerprintJson('viewing-session-v1', { proofId, timestamp });
+}
+
+function findEvaluationSession(
+    appearance: AppearanceProfileV1,
+    proofId: string
+): AppearanceViewingSession | undefined {
+    return [...appearance.viewingSessions]
+        .filter((session) => session.proofId === proofId)
+        .sort((left, right) => right.createdAt.localeCompare(left.createdAt))[0];
+}
+
+export function getPaletteProofEvaluationState(
+    appearance: AppearanceProfileV1 | undefined,
+    proofId: string
+): PaletteProofEvaluationState {
+    const proof = appearance?.proofs.find((candidate) => candidate.id === proofId);
+    const session = appearance ? findEvaluationSession(appearance, proofId) : undefined;
+    const judgments = session
+        ? appearance!.targetJudgments
+              .filter((judgment) => judgment.viewingSessionId === session.id)
+              .sort((left, right) => left.column - right.column)
+        : [];
+    const totalColumns = proof?.proof.columns.length ?? 0;
+    return {
+        session,
+        judgments,
+        answeredColumns: judgments.length,
+        totalColumns,
+        complete: session?.status === 'complete',
+    };
+}
+
+export function setPaletteTargetResponse(
+    appearance: AppearanceProfileV1 | undefined,
+    proofId: string,
+    columnIndex: number,
+    response: PaletteTargetResponse | null,
+    timestamp = new Date().toISOString()
+): AppearanceProfileV1 {
+    const current = appearance ?? createEmptyAppearanceProfile();
+    const proof = current.proofs.find((candidate) => candidate.id === proofId);
+    if (!proof) throw new Error('Palette Proof is not saved in the active profile');
+    const column = proof.proof.columns.find((candidate) => candidate.column === columnIndex);
+    if (!column) throw new Error(`Palette Proof column ${columnIndex + 1} does not exist`);
+
+    let session = findEvaluationSession(current, proofId);
+    if (session?.status === 'complete') {
+        throw new Error('Reopen the completed evaluation before editing its results');
+    }
+    if (!session) {
+        session = {
+            id: createSessionId(proofId, timestamp),
+            proofId,
+            reuseScope: 'session-only',
+            status: 'draft',
+            colorContract: {
+                space: 'srgb',
+                encoding: 'uint8',
+                whitePoint: 'D65',
+                rendererVersion: APPEARANCE_RENDERER_VERSION,
+            },
+            createdAt: timestamp,
+            updatedAt: timestamp,
+        };
+    }
+
+    const existingJudgment = current.targetJudgments.find(
+        (judgment) => judgment.viewingSessionId === session!.id && judgment.column === columnIndex
+    );
+    const otherJudgments = current.targetJudgments.filter(
+        (judgment) =>
+            !(judgment.viewingSessionId === session!.id && judgment.column === columnIndex)
+    );
+
+    let nextJudgments = otherJudgments;
+    if (response) {
+        const requestedClosestIds =
+            response.response === 'closest' ? new Set(response.closestCellIds) : undefined;
+        const closestCellIds =
+            response.response === 'closest'
+                ? column.cellIds.filter((cellId) => requestedClosestIds!.has(cellId))
+                : [];
+        if (response.response === 'closest' && closestCellIds.length === 0) {
+            throw new Error('Select at least one candidate or choose None');
+        }
+        const matchQuality =
+            response.response === 'closest'
+                ? (response.matchQuality ??
+                  (existingJudgment?.response === 'closest'
+                      ? existingJudgment.matchQuality
+                      : undefined) ??
+                  'best-available')
+                : undefined;
+        const judgment: PaletteTargetJudgment = {
+            id:
+                existingJudgment?.id ??
+                fingerprintJson('palette-target-judgment-v1', {
+                    proofId,
+                    viewingSessionId: session.id,
+                    column: columnIndex,
+                }),
+            proofId,
+            column: columnIndex,
+            targetColor: column.targetColor,
+            candidateCellIds: [...column.cellIds],
+            closestCellIds,
+            response: response.response,
+            ...(matchQuality ? { matchQuality } : {}),
+            viewingSessionId: session.id,
+            createdAt: existingJudgment?.createdAt ?? timestamp,
+            updatedAt: timestamp,
+        };
+        nextJudgments = [...otherJudgments, judgment].slice(-MAX_STORED_TARGET_JUDGMENTS);
+    }
+
+    const nextSession = { ...session, updatedAt: timestamp };
+    const viewingSessions = [
+        ...current.viewingSessions.filter((candidate) => candidate.id !== session.id),
+        nextSession,
+    ].slice(-MAX_STORED_VIEWING_SESSIONS);
+    const sessionIds = new Set(viewingSessions.map((candidate) => candidate.id));
+    return {
+        ...current,
+        viewingSessions,
+        targetJudgments: nextJudgments.filter((judgment) =>
+            sessionIds.has(judgment.viewingSessionId)
+        ),
+    };
+}
+
+export function completePaletteProofEvaluation(
+    appearance: AppearanceProfileV1,
+    proofId: string,
+    timestamp = new Date().toISOString()
+): AppearanceProfileV1 {
+    const state = getPaletteProofEvaluationState(appearance, proofId);
+    if (!state.session) throw new Error('Record proof results before completing the evaluation');
+    if (state.answeredColumns !== state.totalColumns || state.totalColumns === 0) {
+        throw new Error('Answer every target column before completing the evaluation');
+    }
+    const completed: AppearanceViewingSession = {
+        ...state.session,
+        status: 'complete',
+        updatedAt: timestamp,
+        completedAt: timestamp,
+    };
+    return {
+        ...appearance,
+        viewingSessions: appearance.viewingSessions.map((session) =>
+            session.id === completed.id ? completed : session
+        ),
+    };
+}
+
+export function reopenPaletteProofEvaluation(
+    appearance: AppearanceProfileV1,
+    proofId: string,
+    timestamp = new Date().toISOString()
+): AppearanceProfileV1 {
+    const state = getPaletteProofEvaluationState(appearance, proofId);
+    if (!state.session) throw new Error('Palette Proof has no evaluation to reopen');
+    const reopened: AppearanceViewingSession = {
+        ...state.session,
+        status: 'draft',
+        updatedAt: timestamp,
+    };
+    delete reopened.completedAt;
+    return {
+        ...appearance,
+        viewingSessions: appearance.viewingSessions.map((session) =>
+            session.id === reopened.id ? reopened : session
+        ),
+    };
+}
+
+function sanitizeStoredPrefix(value: unknown): StoredPaletteProofPrefix | null {
+    if (!isRecord(value)) return null;
+    const canonicalStackKey = boundedString(value.canonicalStackKey, 128);
+    const prefixIndex = integer(value.prefixIndex, 0, MAX_STACK_LAYERS - 1);
+    const predictedColor = sanitizeCanonicalColor(value.predictedColor);
+    const basePredictedColor =
+        value.basePredictedColor === undefined
+            ? undefined
+            : sanitizeCanonicalColor(value.basePredictedColor);
+    return canonicalStackKey &&
+        prefixIndex !== null &&
+        predictedColor &&
+        (value.basePredictedColor === undefined || basePredictedColor)
+        ? {
+              canonicalStackKey,
+              prefixIndex,
+              ...(basePredictedColor ? { basePredictedColor } : {}),
+              predictedColor,
+          }
+        : null;
+}
+
+function sanitizeAppearanceStack(value: unknown): AppearanceStackLayer[] | null {
+    if (!Array.isArray(value) || value.length === 0 || value.length > MAX_STACK_LAYERS) return null;
+    const stack: AppearanceStackLayer[] = [];
+    for (const raw of value) {
+        if (!isRecord(raw)) return null;
+        const filamentId = boundedString(raw.filamentId, 128);
+        const filamentColor = boundedString(raw.filamentColor, 16);
+        const thickness = finiteNumber(raw.thickness, 0.0001, 100);
+        if (
+            !filamentId ||
+            !filamentColor ||
+            !/^#[0-9a-f]{6}$/i.test(filamentColor) ||
+            thickness === null
+        ) {
+            return null;
+        }
+        stack.push({ filamentId, filamentColor, thickness });
+    }
+    return stack;
+}
+
+function sanitizePaletteProofRecord(value: unknown): PaletteProofRecord | null {
+    if (
+        !isRecord(value) ||
+        value.schemaVersion !== 1 ||
+        !Array.isArray(value.prefixes) ||
+        value.prefixes.length === 0
+    ) {
+        return null;
+    }
+    const id = boundedString(value.id, 128);
+    const snapshotFingerprint = boundedString(value.snapshotFingerprint, 128);
+    const proof = sanitizePaletteProofSpec(value.proof);
+    const createdAt = isoTimestamp(value.createdAt);
+    const exportedAt = isoTimestamp(value.exportedAt);
+    const stack = sanitizeAppearanceStack(value.stack);
+    if (
+        !id ||
+        !snapshotFingerprint ||
+        !proof ||
+        !stack ||
+        !createdAt ||
+        !exportedAt ||
+        id !== proof.id ||
+        snapshotFingerprint !== proof.snapshotFingerprint ||
+        value.prefixes.length > PALETTE_PROOF_MAX_TARGETS * PALETTE_PROOF_MAX_CANDIDATES ||
+        !isRecord(value.process)
+    ) {
+        return null;
+    }
+    const prefixes = value.prefixes.map(sanitizeStoredPrefix);
+    if (prefixes.some((prefix) => prefix === null)) return null;
+    const layerHeight = finiteNumber(value.process.layerHeight, 0.001, 100);
+    const firstLayerHeight = finiteNumber(value.process.firstLayerHeight, 0.001, 100);
+    const transitionOpacity = finiteNumber(value.process.transitionOpacity, 0, 1);
+    const modelFingerprint = boundedString(value.process.modelFingerprint, 128);
+    const filamentProfileFingerprint = boundedString(value.process.filamentProfileFingerprint, 128);
+    if (
+        value.process.paintMode !== 'autopaint' ||
+        layerHeight === null ||
+        firstLayerHeight === null ||
+        transitionOpacity === null ||
+        !modelFingerprint ||
+        !filamentProfileFingerprint ||
+        !Array.isArray(value.process.unknownFields) ||
+        value.process.unknownFields.length > UNKNOWN_PROCESS_FIELDS.length
+    ) {
+        return null;
+    }
+    const unknownFields = value.process.unknownFields.map((field) => boundedString(field, 64));
+    if (
+        unknownFields.some(
+            (field) =>
+                !field ||
+                !UNKNOWN_PROCESS_FIELDS.includes(field as (typeof UNKNOWN_PROCESS_FIELDS)[number])
+        )
+    ) {
+        return null;
+    }
+
+    const prefixRecords = prefixes as StoredPaletteProofPrefix[];
+    const keys = new Set(prefixRecords.map((prefix) => prefix.canonicalStackKey));
+    if (
+        keys.size !== prefixRecords.length ||
+        prefixRecords.some((prefix) => prefix.prefixIndex >= stack.length) ||
+        Math.max(...prefixRecords.map((prefix) => prefix.prefixIndex)) !== stack.length - 1 ||
+        proof.cells.some((cell) => !keys.has(cell.canonicalStackKey))
+    ) {
+        return null;
+    }
+    return {
+        schemaVersion: 1,
+        id,
+        snapshotFingerprint,
+        proof,
+        stack,
+        prefixes: prefixRecords,
+        process: {
+            paintMode: 'autopaint',
+            layerHeight,
+            firstLayerHeight,
+            transitionOpacity,
+            modelFingerprint,
+            filamentProfileFingerprint,
+            unknownFields: unknownFields as string[],
+        },
+        createdAt,
+        exportedAt,
+    };
+}
+
+function sanitizeViewingSession(value: unknown): AppearanceViewingSession | null {
+    if (!isRecord(value) || !isRecord(value.colorContract)) return null;
+    const id = boundedString(value.id, 128);
+    const proofId = boundedString(value.proofId, 128);
+    const createdAt = isoTimestamp(value.createdAt);
+    const updatedAt = isoTimestamp(value.updatedAt);
+    const completedAt =
+        value.completedAt === undefined ? undefined : isoTimestamp(value.completedAt);
+    if (
+        !id ||
+        !proofId ||
+        !createdAt ||
+        !updatedAt ||
+        (value.completedAt !== undefined && !completedAt) ||
+        value.reuseScope !== 'session-only' ||
+        (value.status !== 'draft' && value.status !== 'complete') ||
+        value.colorContract.space !== 'srgb' ||
+        value.colorContract.encoding !== 'uint8' ||
+        value.colorContract.whitePoint !== 'D65' ||
+        value.colorContract.rendererVersion !== APPEARANCE_RENDERER_VERSION
+    ) {
+        return null;
+    }
+    return {
+        id,
+        proofId,
+        reuseScope: 'session-only',
+        status: value.status,
+        colorContract: {
+            space: 'srgb',
+            encoding: 'uint8',
+            whitePoint: 'D65',
+            rendererVersion: APPEARANCE_RENDERER_VERSION,
+        },
+        createdAt,
+        updatedAt,
+        completedAt: completedAt ?? undefined,
+    };
+}
+
+function sanitizeTargetJudgment(value: unknown): PaletteTargetJudgment | null {
+    if (
+        !isRecord(value) ||
+        !Array.isArray(value.candidateCellIds) ||
+        !Array.isArray(value.closestCellIds) ||
+        value.candidateCellIds.length > PALETTE_PROOF_MAX_CANDIDATES ||
+        value.closestCellIds.length > PALETTE_PROOF_MAX_CANDIDATES
+    ) {
+        return null;
+    }
+    const id = boundedString(value.id, 128);
+    const proofId = boundedString(value.proofId, 128);
+    const viewingSessionId = boundedString(value.viewingSessionId, 128);
+    const column = integer(value.column, 0, PALETTE_PROOF_MAX_TARGETS - 1);
+    const targetColor = sanitizeCanonicalColor(value.targetColor);
+    const createdAt = isoTimestamp(value.createdAt);
+    const updatedAt = isoTimestamp(value.updatedAt);
+    const candidateCellIds = value.candidateCellIds.map((cellId) => boundedString(cellId, 16));
+    const closestCellIds = value.closestCellIds.map((cellId) => boundedString(cellId, 16));
+    const matchQuality =
+        value.matchQuality === undefined
+            ? 'best-available'
+            : value.matchQuality === 'best-available' ||
+                value.matchQuality === 'close' ||
+                value.matchQuality === 'exact'
+              ? value.matchQuality
+              : null;
+    if (
+        !id ||
+        !proofId ||
+        !viewingSessionId ||
+        column === null ||
+        !targetColor ||
+        !createdAt ||
+        !updatedAt ||
+        (value.response !== 'closest' && value.response !== 'none') ||
+        candidateCellIds.length === 0 ||
+        candidateCellIds.some((cellId) => !cellId) ||
+        closestCellIds.some((cellId) => !cellId) ||
+        new Set(candidateCellIds).size !== candidateCellIds.length ||
+        new Set(closestCellIds).size !== closestCellIds.length ||
+        (value.response === 'closest' && closestCellIds.length === 0) ||
+        (value.response === 'none' && closestCellIds.length !== 0) ||
+        (value.response === 'closest' && matchQuality === null) ||
+        (value.response === 'none' && value.matchQuality !== undefined) ||
+        closestCellIds.some((cellId) => !candidateCellIds.includes(cellId))
+    ) {
+        return null;
+    }
+    return {
+        id,
+        proofId,
+        column,
+        targetColor,
+        candidateCellIds: candidateCellIds as string[],
+        closestCellIds: closestCellIds as string[],
+        response: value.response,
+        ...(value.response === 'closest'
+            ? { matchQuality: matchQuality as PaletteTargetMatchQuality }
+            : {}),
+        viewingSessionId,
+        createdAt,
+        updatedAt,
+    };
+}
+
+function sanitizeStackMatrixFilament(value: unknown): StackMatrixFilamentV1 | null {
+    if (!isRecord(value)) return null;
+    const id = boundedString(value.id, 128);
+    const color = boundedString(value.color, 16);
+    const name = boundedString(value.name, 256);
+    return id && color && /^#[0-9a-f]{6}$/i.test(color) && name
+        ? { id, color: color.toLowerCase(), name }
+        : null;
+}
+
+function sanitizeStackMatrixCalibration(value: unknown): StackMatrixCalibrationV1 | null {
+    if (
+        !isRecord(value) ||
+        value.schemaVersion !== 1 ||
+        (value.status !== 'planned' && value.status !== 'complete') ||
+        !isRecord(value.process) ||
+        !isRecord(value.grid) ||
+        !Array.isArray(value.filaments) ||
+        !Array.isArray(value.foundationLayerThicknesses) ||
+        !Array.isArray(value.samples) ||
+        !Array.isArray(value.cornerStacks)
+    ) {
+        return null;
+    }
+    const id = boundedString(value.id, 128);
+    const createdAt = isoTimestamp(value.createdAt);
+    const exportedAt = value.exportedAt === undefined ? undefined : isoTimestamp(value.exportedAt);
+    const completedAt =
+        value.completedAt === undefined ? undefined : isoTimestamp(value.completedAt);
+    const photoName =
+        value.photoName === undefined ? undefined : boundedString(value.photoName, 256);
+    const alignmentConfidence =
+        value.alignmentConfidence === undefined
+            ? undefined
+            : finiteNumber(value.alignmentConfidence, 0, 1);
+    const alignmentMethod =
+        value.alignmentMethod === 'detected' || value.alignmentMethod === 'manual'
+            ? value.alignmentMethod
+            : undefined;
+    const filamentProfileFingerprint = boundedString(value.process.filamentProfileFingerprint, 128);
+    const layerHeight = finiteNumber(value.process.layerHeight, 0.001, 10);
+    const firstLayerHeight = finiteNumber(value.process.firstLayerHeight, 0, 10);
+    const stackLayerCount = integer(value.stackLayerCount, 2, 6);
+    const rows = integer(value.grid.rows, 1, 64);
+    const columns = integer(value.grid.columns, 1, 64);
+    const patchSize = finiteNumber(value.grid.patchSize, 1, 20);
+    const gap = finiteNumber(value.grid.gap, 0, 5);
+    const totalCombinationCount = integer(value.totalCombinationCount, 1, 10_000_000);
+    const backingFilamentIndex = integer(value.backingFilamentIndex, 0, 31);
+    if (
+        !id ||
+        !createdAt ||
+        (value.exportedAt !== undefined && !exportedAt) ||
+        (value.completedAt !== undefined && !completedAt) ||
+        (value.photoName !== undefined && !photoName) ||
+        (value.alignmentConfidence !== undefined && alignmentConfidence === null) ||
+        (value.alignmentMethod !== undefined && !alignmentMethod) ||
+        (value.alignmentVerified !== undefined && typeof value.alignmentVerified !== 'boolean') ||
+        !filamentProfileFingerprint ||
+        layerHeight === null ||
+        firstLayerHeight === null ||
+        stackLayerCount === null ||
+        rows === null ||
+        columns === null ||
+        patchSize === null ||
+        gap === null ||
+        totalCombinationCount === null ||
+        backingFilamentIndex === null ||
+        (value.selection !== 'exhaustive' && value.selection !== 'hd-gamut') ||
+        !Array.isArray(value.process.unknownFields) ||
+        value.process.unknownFields.length > UNKNOWN_PROCESS_FIELDS.length ||
+        value.filaments.length < 2 ||
+        value.filaments.length > 8 ||
+        value.foundationLayerThicknesses.length < 1 ||
+        value.foundationLayerThicknesses.length > MAX_STACK_LAYERS ||
+        value.samples.length < 1 ||
+        value.samples.length > MAX_STACK_MATRIX_SAMPLES ||
+        value.samples.length > rows * columns ||
+        value.cornerStacks.length !== 4
+    ) {
+        return null;
+    }
+    const unknownFields = value.process.unknownFields.map((field) => boundedString(field, 64));
+    if (
+        unknownFields.some(
+            (field) =>
+                !field ||
+                !UNKNOWN_PROCESS_FIELDS.includes(field as (typeof UNKNOWN_PROCESS_FIELDS)[number])
+        )
+    ) {
+        return null;
+    }
+    const filaments = value.filaments.map(sanitizeStackMatrixFilament);
+    if (
+        filaments.some((filament) => filament === null) ||
+        new Set(filaments.map((filament) => filament!.id)).size !== filaments.length ||
+        backingFilamentIndex >= filaments.length
+    ) {
+        return null;
+    }
+    const foundationLayerThicknesses = value.foundationLayerThicknesses.map((thickness) =>
+        finiteNumber(thickness, 0.001, 10)
+    );
+    if (foundationLayerThicknesses.some((thickness) => thickness === null)) return null;
+
+    const sanitizeStack = (raw: unknown): number[] | null => {
+        if (!Array.isArray(raw) || raw.length !== stackLayerCount) return null;
+        const stack = raw.map((index) => integer(index, 0, filaments.length - 1));
+        return stack.some((index) => index === null) ? null : (stack as number[]);
+    };
+    const cornerStacks = value.cornerStacks.map(sanitizeStack);
+    if (cornerStacks.some((stack) => stack === null)) return null;
+
+    const samples: StackMatrixSampleV1[] = [];
+    for (const raw of value.samples) {
+        if (!isRecord(raw)) return null;
+        const index = integer(raw.index, 0, MAX_STACK_MATRIX_SAMPLES - 1);
+        const row = integer(raw.row, 0, rows - 1);
+        const column = integer(raw.column, 0, columns - 1);
+        const stack = sanitizeStack(raw.stack);
+        const canonicalStackKey = boundedString(raw.canonicalStackKey, 128);
+        const predictedColor = sanitizeCanonicalColor(raw.predictedColor);
+        const measuredColor =
+            raw.measuredColor === undefined ? undefined : sanitizeCanonicalColor(raw.measuredColor);
+        if (
+            index === null ||
+            row === null ||
+            column === null ||
+            !stack ||
+            !canonicalStackKey ||
+            !predictedColor ||
+            (raw.measuredColor !== undefined && !measuredColor) ||
+            (value.status === 'complete' && !measuredColor)
+        ) {
+            return null;
+        }
+        samples.push({
+            index,
+            row,
+            column,
+            stack,
+            canonicalStackKey,
+            predictedColor,
+            ...(measuredColor ? { measuredColor } : {}),
+        });
+    }
+    if (
+        new Set(samples.map((sample) => sample.index)).size !== samples.length ||
+        new Set(samples.map((sample) => `${sample.row}:${sample.column}`)).size !==
+            samples.length ||
+        (value.status === 'complete' && !completedAt)
+    ) {
+        return null;
+    }
+    return {
+        schemaVersion: 1,
+        id,
+        status: value.status,
+        process: {
+            filamentProfileFingerprint,
+            layerHeight,
+            firstLayerHeight: Math.max(layerHeight, firstLayerHeight),
+            unknownFields: unknownFields as string[],
+        },
+        filaments: filaments as StackMatrixFilamentV1[],
+        backingFilamentIndex,
+        foundationLayerThicknesses: foundationLayerThicknesses as number[],
+        stackLayerCount,
+        grid: { rows, columns, patchSize, gap },
+        totalCombinationCount,
+        selection: value.selection,
+        samples,
+        cornerStacks: cornerStacks as number[][],
+        createdAt,
+        ...(exportedAt ? { exportedAt } : {}),
+        ...(completedAt ? { completedAt } : {}),
+        ...(photoName ? { photoName } : {}),
+        ...(typeof value.referenceCorrection === 'boolean'
+            ? { referenceCorrection: value.referenceCorrection }
+            : {}),
+        ...(alignmentConfidence !== undefined && alignmentConfidence !== null
+            ? { alignmentConfidence }
+            : {}),
+        ...(alignmentMethod ? { alignmentMethod } : {}),
+        ...(typeof value.alignmentVerified === 'boolean'
+            ? { alignmentVerified: value.alignmentVerified }
+            : {}),
+    };
+}
+
+export function sanitizeAppearanceProfile(value: unknown): AppearanceProfileV1 | undefined {
+    if (
+        !isRecord(value) ||
+        value.schemaVersion !== APPEARANCE_PROFILE_SCHEMA_VERSION ||
+        !Array.isArray(value.proofs) ||
+        !Array.isArray(value.viewingSessions) ||
+        !Array.isArray(value.targetJudgments)
+    ) {
+        return undefined;
+    }
+    const proofs = dedupeLast(
+        value.proofs
+            .slice(-MAX_STORED_PALETTE_PROOFS)
+            .map(sanitizePaletteProofRecord)
+            .filter((proof): proof is PaletteProofRecord => proof !== null),
+        (proof) => proof.id
+    );
+    const proofIds = new Set(proofs.map((proof) => proof.id));
+    const viewingSessions = dedupeLast(
+        value.viewingSessions
+            .slice(-MAX_STORED_VIEWING_SESSIONS)
+            .map(sanitizeViewingSession)
+            .filter(
+                (session): session is AppearanceViewingSession =>
+                    session !== null && proofIds.has(session.proofId)
+            ),
+        (session) => session.id
+    );
+    const sessionsById = new Map(viewingSessions.map((session) => [session.id, session]));
+    const proofsById = new Map(proofs.map((proof) => [proof.id, proof]));
+    const targetJudgments = dedupeLast(
+        value.targetJudgments
+            .slice(-MAX_STORED_TARGET_JUDGMENTS)
+            .map(sanitizeTargetJudgment)
+            .filter((judgment): judgment is PaletteTargetJudgment => {
+                if (!judgment) return false;
+                const session = sessionsById.get(judgment.viewingSessionId);
+                const proof = proofsById.get(judgment.proofId);
+                const column = proof?.proof.columns.find(
+                    (candidate) => candidate.column === judgment.column
+                );
+                return Boolean(
+                    session &&
+                    session.proofId === judgment.proofId &&
+                    column &&
+                    judgment.candidateCellIds.join('|') === column.cellIds.join('|') &&
+                    judgment.targetColor.hex === column.targetColor.hex
+                );
+            }),
+        (judgment) => `${judgment.viewingSessionId}:${judgment.column}`
+    );
+    const judgmentCounts = new Map<string, number>();
+    for (const judgment of targetJudgments) {
+        judgmentCounts.set(
+            judgment.viewingSessionId,
+            (judgmentCounts.get(judgment.viewingSessionId) ?? 0) + 1
+        );
+    }
+    const normalizedViewingSessions = viewingSessions.map((session) => {
+        const expected = proofsById.get(session.proofId)?.proof.columns.length ?? 0;
+        if (session.status !== 'complete' || (judgmentCounts.get(session.id) ?? 0) === expected) {
+            return session;
+        }
+        const draft: AppearanceViewingSession = { ...session, status: 'draft' };
+        delete draft.completedAt;
+        return draft;
+    });
+    const stackMatrices = Array.isArray(value.stackMatrices)
+        ? retainStackMatrixCalibrations(
+              dedupeLast(
+                  value.stackMatrices
+                      .slice(-MAX_STORED_STACK_MATRICES * 4)
+                      .map(sanitizeStackMatrixCalibration)
+                      .filter((matrix): matrix is StackMatrixCalibrationV1 => matrix !== null),
+                  (matrix) => matrix.id
+              )
+          )
+        : [];
+    return {
+        schemaVersion: 1,
+        proofs,
+        viewingSessions: normalizedViewingSessions,
+        targetJudgments,
+        stackMatrices,
+    };
+}

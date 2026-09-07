@@ -1,4 +1,4 @@
-import { Card } from '@/components/ui/card';
+import { CollapsibleCard, DirtyDot } from '@/components/CollapsibleCard';
 import type { SwapEntry } from '../hooks/useSwapPlan';
 
 interface PrintInstructionsProps {
@@ -11,6 +11,8 @@ interface PrintInstructionsProps {
     colorCount?: number;
     /** Flat Paint prints swap filaments per layer via AMS — no manual plan */
     flatPaint?: boolean;
+    /** Flat Paint is printed face-up without a transparent carrier. */
+    flatPaintFaceUp?: boolean;
 }
 
 export default function PrintInstructions({
@@ -22,16 +24,19 @@ export default function PrintInstructions({
     tooManyColors = false,
     colorCount = 0,
     flatPaint = false,
+    flatPaintFaceUp = false,
 }: PrintInstructionsProps) {
     return (
-        <Card className="p-4 border border-border/50 mt-6">
-            <div className="flex justify-between items-start mb-4">
-                <div>
-                    <h4 className="font-semibold text-foreground">Print Instructions</h4>
-                    <p className="text-xs text-muted-foreground mt-1">
-                        Generated swap plan for your printer
-                    </p>
-                </div>
+        <CollapsibleCard
+            id="print-instructions"
+            title="Print Instructions"
+            subtitle="Generated swap plan for your printer"
+            headingLevel={4}
+            className="mt-6"
+            collapsedSummary={
+                tooManyColors ? <DirtyDot title="Too many colors for a swap plan" /> : undefined
+            }
+            actions={
                 <button
                     type="button"
                     onClick={onCopy}
@@ -46,10 +51,8 @@ export default function PrintInstructions({
                 >
                     {copied ? '✓ Copied!' : 'Copy'}
                 </button>
-            </div>
-
-            <div className="h-px bg-border/50 mb-4" />
-
+            }
+        >
             <div className="space-y-4 text-sm">
                 {/* Recommended Settings */}
                 <div className="p-3 rounded-lg bg-primary/5 border border-primary/20">
@@ -88,16 +91,29 @@ export default function PrintInstructions({
                                 contains one object per filament. Assign each object to its filament
                                 in the slicer (AMS/toolchanger required).
                             </li>
-                            <li>
-                                Use <span className="font-semibold">clear filament</span> for the
-                                transparent carrier object — it prints first and becomes the smooth
-                                viewing face.
-                            </li>
-                            <li>
-                                Print as-is — the artwork is already mirrored for face-down
-                                printing. Do not mirror in the slicer.
-                            </li>
-                            <li>After printing, flip the piece over to view the image.</li>
+                            {flatPaintFaceUp ? (
+                                <>
+                                    <li>No clear or transparent carrier object is included.</li>
+                                    <li>
+                                        Print as-is and face-up. Do not mirror the model in the
+                                        slicer.
+                                    </li>
+                                    <li>The artwork is exposed on the top surface.</li>
+                                </>
+                            ) : (
+                                <>
+                                    <li>
+                                        Use <span className="font-semibold">clear filament</span>{' '}
+                                        for the transparent carrier object — it prints first and
+                                        becomes the smooth viewing face.
+                                    </li>
+                                    <li>
+                                        Print as-is — the artwork is already mirrored for face-down
+                                        printing. Do not mirror in the slicer.
+                                    </li>
+                                    <li>After printing, flip the piece over to view the image.</li>
+                                </>
+                            )}
                         </ul>
                     </div>
                 ) : (
@@ -200,6 +216,6 @@ export default function PrintInstructions({
                     </span>
                 </div>
             </div>
-        </Card>
+        </CollapsibleCard>
     );
 }

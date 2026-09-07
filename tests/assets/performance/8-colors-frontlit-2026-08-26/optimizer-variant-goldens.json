@@ -1,0 +1,121 @@
+{
+    "schemaVersion": 1,
+    "results": {
+        "cats": {
+            "separation-off": {
+                "score": 20.430224452427886,
+                "iterations": 281792,
+                "converged": true,
+                "extraRepeatCount": 4,
+                "orderColors": [
+                    "#000000",
+                    "#00b8c4",
+                    "#000000",
+                    "#f7d000",
+                    "#6300c5",
+                    "#d83400",
+                    "#04bb00",
+                    "#ffffff",
+                    "#f7d000",
+                    "#ffffff",
+                    "#04bb00",
+                    "#ff7eb4"
+                ],
+                "transitionZones": 12,
+                "physicalLayers": 68,
+                "totalHeight": 5.76,
+                "finalStackFingerprint": "final-stack-v1-76e42bdadff212d3"
+            },
+            "repeats-0": {
+                "score": 1045050617.1532701,
+                "iterations": 109600,
+                "converged": true,
+                "extraRepeatCount": 0,
+                "orderColors": [
+                    "#6300c5",
+                    "#d83400",
+                    "#00b8c4",
+                    "#000000",
+                    "#ffffff",
+                    "#04bb00",
+                    "#f7d000",
+                    "#ff7eb4"
+                ],
+                "transitionZones": 8,
+                "physicalLayers": 38,
+                "totalHeight": 3.36,
+                "finalStackFingerprint": "final-stack-v1-4906318df07b90fe",
+                "separation": {
+                    "requestedColorCount": 128,
+                    "printableColorCount": 35,
+                    "assignedDistinctColorCount": 33,
+                    "unacceptableColorCount": 95,
+                    "maximumDeltaE": 25.058208429972076,
+                    "maximumAllowedDeltaE": 20,
+                    "satisfied": false
+                }
+            },
+            "thorough": {
+                "score": 759002686.7182059,
+                "iterations": 138040,
+                "converged": true,
+                "extraRepeatCount": 4,
+                "orderColors": [
+                    "#6300c5",
+                    "#d83400",
+                    "#f7d000",
+                    "#ff7eb4",
+                    "#04bb00",
+                    "#f7d000",
+                    "#ffffff",
+                    "#00b8c4",
+                    "#ffffff",
+                    "#f7d000",
+                    "#000000",
+                    "#ffffff"
+                ],
+                "transitionZones": 12,
+                "physicalLayers": 70,
+                "totalHeight": 5.92,
+                "finalStackFingerprint": "final-stack-v1-a1034b048052de89",
+                "separation": {
+                    "requestedColorCount": 128,
+                    "printableColorCount": 65,
+                    "assignedDistinctColorCount": 59,
+                    "unacceptableColorCount": 69,
+                    "maximumDeltaE": 20.265274458109364,
+                    "maximumAllowedDeltaE": 20,
+                    "satisfied": false
+                }
+            }
+        },
+        "k-logo": {
+            "delta-e-40": {
+                "score": 45.856971508142884,
+                "iterations": 109600,
+                "converged": true,
+                "extraRepeatCount": 0,
+                "orderColors": [
+                    "#000000",
+                    "#6300c5",
+                    "#d83400",
+                    "#ffffff",
+                    "#f7d000"
+                ],
+                "transitionZones": 5,
+                "physicalLayers": 27,
+                "totalHeight": 2.48,
+                "finalStackFingerprint": "final-stack-v1-52071a5a0f005278",
+                "separation": {
+                    "requestedColorCount": 27,
+                    "printableColorCount": 27,
+                    "assignedDistinctColorCount": 27,
+                    "unacceptableColorCount": 0,
+                    "maximumDeltaE": 38.64618620378942,
+                    "maximumAllowedDeltaE": 40,
+                    "satisfied": true
+                }
+            }
+        }
+    }
+}

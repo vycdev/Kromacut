@@ -13,9 +13,13 @@ geometry, slicer behavior, and print instructions at the same time.
 
 ## Domain Notes
 
-- **Transmission Distance (TD):** Used by auto-paint to model light through thin filament layers
-  with Beer-Lambert-style optical simulation. TD is not just a display value; changing how it is
-  stored or rounded can change generated layer stacks.
+- **Hiding Distance (HD):** Used by auto-paint to model light through thin filament layers with
+  Beer-Lambert-style optical simulation. `filament.td` stores the frontlit hiding distance in mm
+  (introduced in profile schema v2; v3 adds appearance evidence); the field keeps its historical
+  `td` name for data compatibility. Conventional
+  backlit/lithophane Transmission Distance values are an *input format* only — converted ×0.1
+  (`FRONTLIT_TD_SCALE`) at entry or during the one-time v1→v2 migration, never stored. HD is not
+  just a display value; changing how it is stored or rounded can change generated layer stacks.
 - **Auto-paint layers:** Auto-paint chooses physical filament stacks for target image colors. The
   worker path exists so optimizer choices such as exhaustive, simulated annealing, and genetic
   search do not freeze the UI.

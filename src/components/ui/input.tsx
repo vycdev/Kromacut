@@ -19,15 +19,8 @@ const Input = React.forwardRef<HTMLInputElement, React.ComponentProps<'input'>>(
 );
 Input.displayName = 'Input';
 
-interface NumberInputProps extends React.ComponentProps<'input'> {
-    onValueChange?: (value: number) => void;
-}
-
-const NumberInput = React.forwardRef<HTMLInputElement, NumberInputProps>(
-    ({ className, value, onChange, onValueChange, ...props }, ref) => {
-        // Suppress unused warning for onValueChange until implemented
-        void onValueChange;
-
+const NumberInput = React.forwardRef<HTMLInputElement, React.ComponentProps<'input'>>(
+    ({ className, value, onChange, ...props }, ref) => {
         return (
             <input
                 type="number"

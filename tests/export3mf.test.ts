@@ -4,7 +4,6 @@ import { resolve } from 'node:path';
 import test, { type TestContext } from 'node:test';
 import JSZip from 'jszip';
 import * as THREE from 'three';
-import { createServer } from 'vite';
 import { exportObjectToStlBlob } from '../src/lib/exportStl.ts';
 import { generateGreedyMesh, generateSmoothMesh, type MeshData } from '../src/lib/meshing.ts';
 import {
@@ -17,12 +16,14 @@ import {
     type PngImage,
     type RasterMask,
 } from './imageFixtures.ts';
+import { loadViteModule } from './helpers/viteModule.ts';
 import { inspectMeshIntegrity, type MeshIntegrityReport } from './meshDiagnostics.ts';
 
 type Export3mfModule = typeof import('../src/lib/export3mf.ts');
 type Export3MFOptions = Parameters<Export3mfModule['exportObjectTo3MFBlob']>[1];
+type PreviewRenderModeModule = typeof import('../src/lib/previewRenderMode.ts');
 type MeshGenerator = typeof generateSmoothMesh;
-type OptimizerAlgorithm = 'exhaustive' | 'simulated-annealing' | 'genetic' | 'auto';
+type OptimizerAlgorithm = 'fast' | 'balanced' | 'thorough';
 
 interface AutoPaintSliceData {
     colorSliceHeights: number[];
@@ -40,9 +41,7 @@ interface AutoPaintModule {
         maxHeight?: number,
         enhancedColorMatch?: boolean,
         allowRepeatedSwaps?: boolean,
-        optimizerOptions?: { algorithm: OptimizerAlgorithm; seed?: number },
-        regionWeightingMode?: 'uniform' | 'center' | 'edge',
-        imageDimensions?: { width: number; height: number } | null
+        optimizerOptions?: { algorithm: OptimizerAlgorithm; seed?: number }
     ): unknown;
     autoPaintToSliceHeights(
         result: unknown,
@@ -103,6 +102,7 @@ interface FilamentProfileFixture {
 }
 
 let export3mfModule: Promise<Export3mfModule> | null = null;
+let previewRenderModeModule: Promise<PreviewRenderModeModule> | null = null;
 let autoPaintModule: Promise<AutoPaintModule> | null = null;
 const filamentProfilesRoot = resolve(testAssetsRoot, 'filament-profiles');
 
@@ -117,9 +117,12 @@ function loadFilamentProfileFixture(
 ): FilamentProfileFixture {
     const raw = JSON.parse(
         readFileSync(resolve(filamentProfilesRoot, fileName), 'utf8')
-    ) as Partial<FilamentProfileFixture>;
+    ) as Partial<FilamentProfileFixture> & { version?: number };
     const name = raw.name;
     const filaments = raw.filaments;
+    // .kapp fixtures are schema-v1 exports: uncalibrated tds are on the legacy
+    // backlit scale and convert to hiding distances (×0.1) like live imports.
+    const legacyTdScale = (raw.version ?? 1) < 2 ? 0.1 : 1;
 
     if (typeof name !== 'string') {
         assert.fail(`${fileName} should include a profile name`);
@@ -143,7 +146,7 @@ function loadFilamentProfileFixture(
             return {
                 id: filament.id,
                 color: normalizeFixtureHex(filament.color, `${fileName} filament ${index}`),
-                td: filament.td,
+                td: filament.td * legacyTdScale,
             };
         }),
     };
@@ -236,38 +239,18 @@ async function loadExport3mfModule(): Promise<Export3mfModule> {
     return export3mfModule;
 }
 
+async function loadPreviewRenderModeModule(): Promise<PreviewRenderModeModule> {
+    previewRenderModeModule ??= loadViteModule<PreviewRenderModeModule>(
+        '/src/lib/previewRenderMode.ts'
+    );
+
+    return previewRenderModeModule;
+}
+
 async function loadAutoPaintModule(): Promise<AutoPaintModule> {
     autoPaintModule ??= loadViteModule<AutoPaintModule>('/src/lib/autoPaint.ts');
 
     return autoPaintModule;
-}
-
-async function loadViteModule<T>(modulePath: string): Promise<T> {
-    const server = await createServer({
-        appType: 'custom',
-        cacheDir: 'dist/.vite-test-cache',
-        configFile: false,
-        logLevel: 'error',
-        optimizeDeps: {
-            noDiscovery: true,
-        },
-        resolve: {
-            alias: {
-                '@': resolve(process.cwd(), 'src'),
-            },
-        },
-        root: process.cwd(),
-        server: {
-            hmr: false,
-            middlewareMode: true,
-        },
-    });
-
-    try {
-        return (await server.ssrLoadModule(modulePath)) as T;
-    } finally {
-        await server.close();
-    }
 }
 
 function createSharedCubeGeometry() {
@@ -787,11 +770,9 @@ async function buildAutoPaintLogoRegressionStack(
         true,
         true,
         {
-            algorithm: 'auto',
+            algorithm: 'balanced',
             seed,
-        },
-        'uniform',
-        { width: image.width, height: image.height }
+        }
     );
     const sliceData = autoPaintToSliceHeights(autoPaintResult, layerHeight, firstLayerHeight);
     const cumulativeHeights = buildCumulativeHeights(
@@ -1408,6 +1389,120 @@ test('3MF export keeps generated meshes as separate layer objects', async () => 
         objects.map((object) => object.name),
         ['Layer 1 (#FF0000)', 'Layer 2 (#00FF00)']
     );
+});
+
+test('preview inspection modes leave STL and 3MF export data unchanged', async () => {
+    const { applyPreviewRenderMode, createPreviewMaterialBaselines } =
+        await loadPreviewRenderModeModule();
+    const root = new THREE.Group();
+    root.add(createLayerMesh(createSharedCubeGeometry(), 0x2266aa));
+    const carrier = createLayerMesh(createSharedCubeGeometry(), 0xeeddcc);
+    carrier.position.z = 1;
+    root.add(carrier);
+
+    const snapshot = async () => {
+        const archive = await exportArchiveXml(root);
+        const meshObjects = parseMeshObjects(archive.modelXml);
+        const stl = await parseSingleBinaryStlMesh(await exportObjectToStlBlob(root));
+        return {
+            materialColors: parseBaseMaterialColors(archive.modelXml),
+            objectCount: meshObjects.length,
+            objectTriangleCounts: meshObjects.map((object) => object.triangleCount),
+            stlTriangleCount: stl.triangleCount,
+        };
+    };
+
+    const expected = await snapshot();
+    const baselines = createPreviewMaterialBaselines();
+
+    const previewModes = [
+        { label: 'color accurate', mode: 'color-accurate' },
+        { label: 'transparent', mode: 'transparent' },
+        { label: 'wireframe overlay', mode: 'wireframe' },
+        { label: 'shaded', mode: 'shaded' },
+    ] as const;
+
+    for (const { label, mode } of previewModes) {
+        applyPreviewRenderMode(root, mode, baselines);
+        assert.deepEqual(await snapshot(), expected, `${label} must remain preview-only`);
+    }
+});
+
+test('3MF export streams generated model XML without FileReader', async () => {
+    const { exportObjectTo3MFBlob } = await loadExport3mfModule();
+    const previousFileReader = globalThis.FileReader;
+
+    class RejectingFileReader {
+        error = new DOMException('Generated blobs must not be re-read', 'NotReadableError');
+        onerror: ((event: { target: RejectingFileReader }) => void) | null = null;
+
+        readAsArrayBuffer() {
+            this.onerror?.({ target: this });
+        }
+    }
+
+    globalThis.FileReader = RejectingFileReader as unknown as typeof FileReader;
+    try {
+        const root = new THREE.Group();
+        root.add(createLayerMesh(createSharedCubeGeometry(), 0xff0000));
+
+        const blob = await exportObjectTo3MFBlob(root);
+        assert.ok(blob.size > 0);
+    } finally {
+        globalThis.FileReader = previousFileReader;
+    }
+});
+
+test('3MF export keeps generated model XML chunked for large models', () => {
+    const source = readFileSync(resolve(process.cwd(), 'src/lib/export3mf.ts'), 'utf8');
+
+    assert.doesNotMatch(source, /xmlParts\.join\(/);
+    assert.match(source, /encodeXmlChunks\(xmlParts\.splice\(0\)\)/);
+});
+
+test('3MF export never reads the preview-only color-mode userData tags', () => {
+    // The simulated/physical preview color toggle (ThreeDView) tags meshes with
+    // kromacutPreview*Hex keys read only by src/lib/previewColorMode.ts. Export
+    // must keep sourcing colors from kromacutFilamentHex/layerFilamentColors and
+    // the mesh's live material color, never these preview-only tags, so toggling
+    // the preview can never change exported geometry or colors.
+    const source = readFileSync(resolve(process.cwd(), 'src/lib/export3mf.ts'), 'utf8');
+
+    assert.doesNotMatch(source, /kromacutPreview/);
+});
+
+test('exported filament colors are unaffected by the preview color-mode toggle', async () => {
+    // Mirrors how App.tsx exports auto-paint models: a plain (non-grouped) mesh
+    // plus the per-layer `layerFilamentColors` option, which is how these meshes
+    // actually get their exported color (not from mesh.material.color).
+    const { applyPreviewColorMode } = await import('../src/lib/previewColorMode.ts');
+
+    const root = new THREE.Group();
+    const mesh = createLayerMesh(createSharedCubeGeometry(), 0x3050c0);
+    mesh.userData.kromacutPreviewVirtualHex = '#3050c0';
+    mesh.userData.kromacutPreviewFilamentHex = '#ff8800';
+    root.add(mesh);
+
+    const { exportObjectTo3MFBlob } = await loadExport3mfModule();
+    const exportOptions = { layerFilamentColors: ['#112233'] };
+
+    const simulatedBlob = await exportObjectTo3MFBlob(root, exportOptions);
+
+    applyPreviewColorMode(root, 'physical');
+    assert.equal((mesh.material as THREE.MeshBasicMaterial).color.getHexString(), 'ff8800');
+    const physicalBlob = await exportObjectTo3MFBlob(root, exportOptions);
+
+    const readModel = async (blob: Blob) =>
+        (await JSZip.loadAsync(await blob.arrayBuffer())).file('3D/3dmodel.model')?.async('string');
+    const simulatedModel = await readModel(simulatedBlob);
+    const physicalModel = await readModel(physicalBlob);
+
+    // Both exports use layerFilamentColors regardless of the preview toggle or
+    // the mesh's live (simulated vs. physical) material color.
+    assert.ok(simulatedModel?.includes('112233'));
+    assert.ok(physicalModel?.includes('112233'));
+    assert.ok(!simulatedModel?.includes('3050C0'));
+    assert.ok(!physicalModel?.includes('FF8800'));
 });
 
 test('exports include preview-hidden layers with their original filament colors', async () => {
