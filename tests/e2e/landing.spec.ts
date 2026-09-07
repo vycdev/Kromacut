@@ -9,10 +9,10 @@ test.describe('landing page smoke @smoke', () => {
             expect(await gallery.evaluate(element => getComputedStyle(element).gridTemplateColumns.split(' ').length)).toBe(1);
             const titan = gallery.locator('article').filter({ has: page.getByRole('heading', { name: 'Titan poster', exact: true }) });
             await titan.first().scrollIntoViewIfNeeded();
-            await expect(gallery.locator('article')).toHaveCount(4);
-            expect(await gallery.locator('article').evaluateAll(cards => cards.map(card => card.querySelectorAll('img').length))).toEqual([2, 2, 3, 3]);
+            await expect(gallery.locator('article')).toHaveCount(6);
+            expect(await gallery.locator('article').evaluateAll(cards => cards.map(card => card.querySelectorAll('img').length))).toEqual([2, 2, 3, 3, 3, 3]);
             const cards = gallery.locator('article');
-            for (let index = 0; index < 4; index++) {
+            for (let index = 0; index < 6; index++) {
                 const card = cards.nth(index);
                 await expect(card.locator(':scope > header')).toHaveCount(1);
                 await expect(card.locator('header h3')).toHaveCount(1);
@@ -34,7 +34,7 @@ test.describe('landing page smoke @smoke', () => {
                 'Finished Titan layered print with golden yellow and orange wave reflections on a dark background',
             ]);
             const images = gallery.locator('img');
-            for (let index = 0; index < 10; index++) {
+            for (let index = 0; index < 16; index++) {
                 const image = images.nth(index);
                 await image.scrollIntoViewIfNeeded();
                 await expect.poll(() => image.evaluate(img => (img as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
@@ -49,6 +49,29 @@ test.describe('landing page smoke @smoke', () => {
             await page.setViewportSize({ width, height: Math.max(1000, Math.ceil(cardHeight) + 120) });
             await titan.last().scrollIntoViewIfNeeded();
             await titan.last().screenshot({ path: testInfo.outputPath(`titan-${width}.png`) });
+            const batmanga = cards.filter({ has: page.getByRole('heading', { name: 'Batman: The Jiro Kuwata Batmanga', exact: true }) });
+            await expect(batmanga).toHaveCount(1);
+            await expect(batmanga.locator('header').getByText('65.8 × 100.0 mm footprint')).toHaveCount(1);
+            await expect(batmanga.locator('footer').getByRole('link', { name: /Jiro Kuwata \/ DC/ })).toHaveAttribute('href', 'https://m.media-amazon.com/images/I/81rOZq5ZgqL._AC_UF1000,1000_QL80_.jpg');
+            expect(await batmanga.locator('figcaption > p:first-child').allTextContents()).toEqual(['Kromacut prediction', 'Slicer preview', 'Finished print']);
+            const batmangaHeight = await batmanga.evaluate(card => card.getBoundingClientRect().height);
+            await page.setViewportSize({ width, height: Math.max(1000, Math.ceil(batmangaHeight) + 120) });
+            await batmanga.scrollIntoViewIfNeeded();
+            await batmanga.screenshot({ path: testInfo.outputPath(`batmanga-${width}.png`) });
+            const naruto = cards.filter({ has: page.getByRole('heading', { name: 'Naruto', exact: true }) });
+            await expect(naruto).toHaveCount(1);
+            await expect(naruto.locator('footer').getByRole('link', { name: 'Naruto artwork — source on Pinterest' })).toHaveAttribute('href', 'https://in.pinterest.com/pin/169870217190172931/');
+            await expect(naruto.locator('header').getByText('110.4 × 190.2 mm footprint')).toHaveCount(1);
+            expect(await naruto.locator('figcaption > p:first-child').allTextContents()).toEqual(['Kromacut prediction', 'Slicer preview', 'Finished print']);
+            expect(await naruto.locator('img').evaluateAll(images => images.map(image => image.getAttribute('alt')))).toEqual([
+                'Kromacut Auto-paint prediction of Naruto looking up at a blue sky',
+                'Creality Print slicer preview of the Naruto print with seven filament colors and a change tower',
+                'Finished Naruto layered print with yellow hair, orange clothing, and a lavender-blue sky',
+            ]);
+            const narutoHeight = await naruto.evaluate(card => card.getBoundingClientRect().height);
+            await page.setViewportSize({ width, height: Math.max(1000, Math.ceil(narutoHeight) + 120) });
+            await naruto.scrollIntoViewIfNeeded();
+            await naruto.screenshot({ path: testInfo.outputPath(`naruto-${width}.png`) });
         }
     });
 
@@ -68,7 +91,7 @@ test.describe('landing page smoke @smoke', () => {
         const communityGallery = showcase.getByTestId('community-gallery');
         await expect(communityGallery.getByAltText(/Hobbits and Dragons/)).toHaveCount(2);
         await expect(communityGallery.getByAltText(/King of Hearts playing-card print/)).toHaveCount(2);
-        await expect(communityGallery.getByText('By vycdev')).toHaveCount(3);
+        await expect(communityGallery.getByText('By vycdev')).toHaveCount(5);
         await expect(communityGallery.getByText('47.72 \u00d7 66.53 \u00d7 3.2 mm')).toHaveCount(1);
         const redditLinks = communityGallery.getByRole('link', { name: 'View Reddit post' });
         await expect(redditLinks).toHaveCount(1);

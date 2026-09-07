@@ -29,6 +29,12 @@ import hopeFinished from '../../content/community/hope-finished.jpg';
 import titanKromacutPreview from '../../content/community/titan-kromacut-preview.png';
 import titanSlicerPreview from '../../content/community/titan-slicer-preview.png';
 import titanFinished from '../../content/community/titan-finished.jpg';
+import batmangaKromacutPreview from '../../content/community/batmanga-kromacut-preview.png';
+import batmangaSlicerPreview from '../../content/community/batmanga-slicer-preview.png';
+import batmangaFinished from '../../content/community/batmanga-finished.jpg';
+import narutoKromacutPreview from '../../content/community/naruto-kromacut-preview.png';
+import narutoSlicerPreview from '../../content/community/naruto-slicer-preview.png';
+import narutoFinished from '../../content/community/naruto-finished.jpg';
 import redditIcon from '../assets/reddit.svg';
 import { APP_PATH, docsPath } from '@/lib/routes';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -199,7 +205,65 @@ const titanShowcase: ShowcaseItem[] = [
     },
 ];
 
-const showcaseGroups = [...communityShowcase, ...titanShowcase, ...hopeShowcase].reduce<ShowcaseItem[][]>((groups, item) => {
+const batmangaShowcase: ShowcaseItem[] = [
+    {
+        image: batmangaKromacutPreview,
+        alt: 'Kromacut Auto-paint prediction of the Batman Jiro Kuwata Batmanga cover',
+        title: 'Batman: The Jiro Kuwata Batmanga',
+        kind: 'Kromacut prediction',
+        creator: 'vycdev',
+        dimensions: '65.8 × 100.0 mm footprint',
+        note: 'Auto-paint with Deep optimization, enhanced matching, and Preserve color separation enabled.',
+    },
+    {
+        image: batmangaSlicerPreview,
+        alt: 'Creality Print slicer preview of the Batmanga cover and filament change tower',
+        title: 'Batman: The Jiro Kuwata Batmanga',
+        kind: 'Slicer preview',
+        creator: 'vycdev',
+        note: 'Creality Hi, 0.4 mm nozzle and 0.08 mm layers. Slicer estimate: 3 h 12 min, 21.30 g including flushing and tower, eight filament changes.',
+    },
+    {
+        image: batmangaFinished,
+        alt: 'Finished Batmanga layered print with a yellow Japanese title, tan background, and black-and-gray Batman figure',
+        title: 'Batman: The Jiro Kuwata Batmanga',
+        kind: 'Finished print',
+        creator: 'vycdev',
+        note: 'The completed print, photographed by its maker. The large title and silhouette remain distinct; small lettering and fine shading lose detail at this size.',
+        artwork: { label: 'Jiro Kuwata / DC — Batman: The Jiro Kuwata Batmanga, Book 1', href: 'https://m.media-amazon.com/images/I/81rOZq5ZgqL._AC_UF1000,1000_QL80_.jpg' },
+    },
+];
+
+const narutoShowcase: ShowcaseItem[] = [
+    {
+        image: narutoKromacutPreview,
+        alt: 'Kromacut Auto-paint prediction of Naruto looking up at a blue sky',
+        title: 'Naruto',
+        kind: 'Kromacut prediction',
+        creator: 'vycdev',
+        dimensions: '110.4 × 190.2 mm footprint',
+        note: 'Auto-paint with the eight-color calibrated filament profile, 0.15 mm pixels, and Smooth Meshing enabled.',
+    },
+    {
+        image: narutoSlicerPreview,
+        alt: 'Creality Print slicer preview of the Naruto print with seven filament colors and a change tower',
+        title: 'Naruto',
+        kind: 'Slicer preview',
+        creator: 'vycdev',
+        note: 'Creality Hi, 0.4 mm nozzle and 0.08 mm layers. Slicer estimate: 5 h 55 min, 72.10 g including flushing and tower, nine filament changes.',
+    },
+    {
+        image: narutoFinished,
+        alt: 'Finished Naruto layered print with yellow hair, orange clothing, and a lavender-blue sky',
+        title: 'Naruto',
+        kind: 'Finished print',
+        creator: 'vycdev',
+        note: 'The completed overnight print, photographed by its maker. Lighting and camera processing can affect the colors shown.',
+        artwork: { label: 'Naruto artwork — source on Pinterest', href: 'https://in.pinterest.com/pin/169870217190172931/' },
+    },
+];
+
+const showcaseGroups = [...communityShowcase, ...titanShowcase, ...hopeShowcase, ...batmangaShowcase, ...narutoShowcase].reduce<ShowcaseItem[][]>((groups, item) => {
     const group = groups.find(entries => entries[0].title === item.title);
     if (group) group.push(item);
     else groups.push([item]);
