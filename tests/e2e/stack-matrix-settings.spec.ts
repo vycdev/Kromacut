@@ -36,6 +36,57 @@ async function expectNewMatrixHeights(
     ).toBeVisible();
 }
 
+test('@smoke calibration reopening cancels the previous dialog close reset', async ({ page }) => {
+    await page.goto('/app');
+    await expect(page.getByTestId('image-file-input')).toBeAttached();
+    await page.getByRole('button', { name: '3D', exact: true }).click();
+    await page.getByRole('tab', { name: 'Auto-paint', exact: true }).click();
+    await page.getByTestId('autopaint-profile-import-input').setInputFiles(twoColorProfile);
+    await expect(page.getByText(/1 imported|1 overwritten/)).toBeVisible();
+    const dialog = await openStackMatrix(page);
+    await expect(dialog.getByRole('tab', { name: 'Stack Matrix', exact: true })).toHaveAttribute(
+        'aria-selected', 'true'
+    );
+
+    // Hold only the 300 ms close-reset timers. This exercises fast reopening
+    // deterministically without depending on CI speed or delaying the test's clicks.
+    await page.evaluate(() => {
+        const originalSetTimeout = window.setTimeout.bind(window);
+        const originalClearTimeout = window.clearTimeout.bind(window);
+        const pending = new Map<number, () => void>();
+        window.setTimeout = ((handler: TimerHandler, delay?: number, ...args: unknown[]) => {
+            if (delay !== 300 || typeof handler !== 'function') {
+                return originalSetTimeout(handler, delay, ...args);
+            }
+            const id = originalSetTimeout(() => {}, 60_000);
+            pending.set(id, () => handler(...args));
+            return id;
+        }) as typeof window.setTimeout;
+        window.clearTimeout = ((id?: number) => {
+            if (id !== undefined) pending.delete(id);
+            originalClearTimeout(id);
+        }) as typeof window.clearTimeout;
+        Object.assign(window, {
+            pendingCloseResets: () => pending.size,
+            flushCloseResets: () => {
+                for (const [id, callback] of pending) {
+                    originalClearTimeout(id);
+                    pending.delete(id);
+                    callback();
+                }
+            },
+        });
+    });
+    await dialog.getByRole('button', { name: 'Close calibration dialog', exact: true }).click();
+    expect(await page.evaluate(() => Reflect.get(window, 'pendingCloseResets')())).toBe(1);
+    await openStackMatrix(page);
+    await page.evaluate(() => Reflect.get(window, 'flushCloseResets')());
+    await expect(dialog.getByRole('tab', { name: 'Stack Matrix', exact: true })).toHaveAttribute(
+        'aria-selected', 'true'
+    );
+    await expect(dialog.getByRole('heading', { name: 'Stack Matrix', exact: true })).toBeVisible();
+});
+
 async function readMatrixDownload(download: Download) {
     expect(download.suggestedFilename()).toMatch(/^kromacut-stack-matrix-\d+\.3mf$/);
     const downloadPath = await download.path();

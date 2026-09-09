@@ -227,6 +227,7 @@ export function FilamentCalibrationDialog({
     const [baseChoices, setBaseChoices] = useState<Record<string, string[]>>({});
     const [printedPlan, setPrintedPlan] = useState<CalibrationPrintPlan | null>(null);
     const wasOpenRef = useRef(open);
+    const closeResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const darkestFilamentId = useMemo(() => {
         if (filaments.length === 0) return undefined;
@@ -440,15 +441,31 @@ export function FilamentCalibrationDialog({
         setCalibrationSurface('hiding-distance');
     }, [layerHeight]);
 
+    const cancelCloseReset = useCallback(() => {
+        if (closeResetTimerRef.current === null) return;
+        clearTimeout(closeResetTimerRef.current);
+        closeResetTimerRef.current = null;
+    }, []);
+
     useEffect(() => {
-        if (open && !wasOpenRef.current) reset();
+        if (open) {
+            // A previous close must not reset a newly reopened calibration session.
+            cancelCloseReset();
+            if (!wasOpenRef.current) reset();
+        }
         wasOpenRef.current = open;
-    }, [open, reset]);
+    }, [cancelCloseReset, open, reset]);
+
+    useEffect(() => cancelCloseReset, [cancelCloseReset]);
 
     const handleClose = useCallback(() => {
+        cancelCloseReset();
         onClose();
-        setTimeout(reset, 300);
-    }, [onClose, reset]);
+        closeResetTimerRef.current = setTimeout(() => {
+            closeResetTimerRef.current = null;
+            reset();
+        }, 300);
+    }, [cancelCloseReset, onClose, reset]);
 
     const toggleFilament = useCallback((id: string) => {
         setSelectedIds((prev) => {
