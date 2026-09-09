@@ -1907,7 +1907,7 @@ dependencies = [
 
 [[package]]
 name = "kromacut"
-version = "3.2.0"
+version = "4.0.0"
 dependencies = [
  "log",
  "reqwest 0.12.28",
