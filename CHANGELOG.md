@@ -2,7 +2,7 @@
 
 All notable changes to Kromacut are documented in this file.
 
-## v4.0.0 - unreleased
+## v4.0.0 - 2026-09-10
 
 ### Upgrade notes
 

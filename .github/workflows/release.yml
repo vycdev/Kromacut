@@ -98,7 +98,7 @@ jobs:
                       **macOS:**
                       1. Download the .dmg file for your Mac:
                          - Apple Silicon (M1/M2/M3): *_aarch64.dmg
-                         - Intel: *_x86_64.dmg
+                         - Intel: *_x64.dmg
                       2. Open the DMG and drag Kromacut to Applications
                       3. Remove quarantine (required for unsigned apps):
                          sudo xattr -d com.apple.quarantine /Applications/Kromacut.app
