@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ThreeDControlsStateShape } from '../types';
 
 const LAYER_WARNING_THRESHOLD = 64;
@@ -12,6 +12,7 @@ export interface BuildWarning {
 
 export interface UseBuildWarningOptions {
     imageSrc?: string | null;
+    initialState?: Partial<ThreeDControlsStateShape> | null;
 }
 
 const INITIAL_THREE_D_STATE: ThreeDControlsStateShape = {
@@ -25,16 +26,28 @@ const INITIAL_THREE_D_STATE: ThreeDControlsStateShape = {
     paintMode: 'manual',
 };
 
+export function createInitialThreeDState(
+    initialState?: Partial<ThreeDControlsStateShape> | null
+): ThreeDControlsStateShape {
+    return {
+        ...INITIAL_THREE_D_STATE,
+        ...(initialState ?? {}),
+    };
+}
+
 function clearLastBuiltMeshRef() {
     if (typeof window === 'undefined') return;
     (window as unknown as { __KROMACUT_LAST_MESH?: unknown }).__KROMACUT_LAST_MESH = undefined;
 }
 
-export function useBuildWarning({ imageSrc }: UseBuildWarningOptions) {
+export function useBuildWarning({ imageSrc, initialState }: UseBuildWarningOptions) {
     const [imageDimensions, setImageDimensions] = useState<{ w: number; h: number } | null>(null);
     const [buildWarning, setBuildWarning] = useState<BuildWarning | null>(null);
-    const [threeDState, setThreeDState] =
-        useState<ThreeDControlsStateShape>(INITIAL_THREE_D_STATE);
+    const [isBuildStarting, setIsBuildStarting] = useState(false);
+    const pendingBuildFrameRef = useRef<number | null>(null);
+    const [threeDState, setThreeDState] = useState<ThreeDControlsStateShape>(() =>
+        createInitialThreeDState(initialState)
+    );
     const [threeDBuildSignal, setThreeDBuildSignal] = useState(0);
     const [builtThreeDState, setBuiltThreeDState] = useState<ThreeDControlsStateShape | null>(
         null
@@ -44,6 +57,11 @@ export function useBuildWarning({ imageSrc }: UseBuildWarningOptions) {
 
     // Track image dimensions for build warning checks
     useEffect(() => {
+        if (pendingBuildFrameRef.current !== null) {
+            window.cancelAnimationFrame(pendingBuildFrameRef.current);
+            pendingBuildFrameRef.current = null;
+        }
+        setIsBuildStarting(false);
         setBuiltThreeDState(null);
         clearLastBuiltMeshRef();
         if (!imageSrc) {
@@ -72,6 +90,36 @@ export function useBuildWarning({ imageSrc }: UseBuildWarningOptions) {
         });
         setThreeDBuildSignal((n) => n + 1);
     }, []);
+
+    const scheduleThreeDState = useCallback(
+        (state: ThreeDControlsStateShape) => {
+            if (pendingBuildFrameRef.current !== null) {
+                window.cancelAnimationFrame(pendingBuildFrameRef.current);
+            }
+
+            setBuildWarning(null);
+            setIsBuildStarting(true);
+            // Let React close the warning and paint the preparation overlay before
+            // applying the complete build snapshot. A second frame prevents the
+            // snapshot render from sharing the overlay's first paint.
+            pendingBuildFrameRef.current = window.requestAnimationFrame(() => {
+                pendingBuildFrameRef.current = window.requestAnimationFrame(() => {
+                    pendingBuildFrameRef.current = null;
+                    applyThreeDState(state);
+                });
+            });
+        },
+        [applyThreeDState]
+    );
+
+    useEffect(
+        () => () => {
+            if (pendingBuildFrameRef.current !== null) {
+                window.cancelAnimationFrame(pendingBuildFrameRef.current);
+            }
+        },
+        []
+    );
 
     // Stable handler that checks for warnings before applying
     const handleThreeDStateChange = useCallback(
@@ -109,21 +157,24 @@ export function useBuildWarning({ imageSrc }: UseBuildWarningOptions) {
             if (warnings.length > 0) {
                 setBuildWarning({ warnings, pendingState: s });
             } else {
-                applyThreeDState(s);
+                scheduleThreeDState(s);
             }
         },
-        [imageDimensions, applyThreeDState]
+        [imageDimensions, scheduleThreeDState]
     );
 
     const confirmBuild = useCallback(() => {
         if (buildWarning) {
-            applyThreeDState(buildWarning.pendingState);
-            setBuildWarning(null);
+            scheduleThreeDState(buildWarning.pendingState);
         }
-    }, [buildWarning, applyThreeDState]);
+    }, [buildWarning, scheduleThreeDState]);
 
     const cancelBuild = useCallback(() => {
         setBuildWarning(null);
+    }, []);
+
+    const markBuildStarted = useCallback(() => {
+        setIsBuildStarting(false);
     }, []);
 
     return {
@@ -133,8 +184,10 @@ export function useBuildWarning({ imageSrc }: UseBuildWarningOptions) {
         builtThreeDState,
         builtFlatPaint,
         buildWarning,
+        isBuildStarting,
         handleThreeDStateChange,
         confirmBuild,
         cancelBuild,
+        markBuildStarted,
     };
 }

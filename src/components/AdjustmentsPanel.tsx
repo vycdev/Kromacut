@@ -1,18 +1,9 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
-import { Card } from '@/components/ui/card';
+import { CollapsibleCard, DirtyDot } from '@/components/CollapsibleCard';
 import { Check, RotateCcw } from 'lucide-react';
-
-export type SliderDef = {
-    key: string;
-    label: string;
-    min: number;
-    max: number;
-    step: number;
-    default: number;
-    unit?: string;
-};
+import type { SliderDef } from '@/components/sliderDefs';
 
 interface Props {
     defs: SliderDef[];
@@ -120,12 +111,14 @@ export const AdjustmentsPanel: React.FC<Props> = React.memo(
         }, [onBake, onCommit]);
 
         return (
-            <Card className="p-4 border border-border/50 space-y-4">
-                <div className="flex items-start justify-between gap-2">
-                    <div className="space-y-1">
-                        <h3 className="text-sm font-semibold text-foreground">Adjustments</h3>
-                        <p className="text-xs text-muted-foreground">Fine-tune image properties</p>
-                    </div>
+            <CollapsibleCard
+                id="adjustments"
+                title="Adjustments"
+                subtitle="Fine-tune image properties"
+                collapsedSummary={
+                    !allDefault ? <DirtyDot title="Adjustments modified" /> : undefined
+                }
+                actions={
                     <button
                         type="button"
                         onClick={handleResetAll}
@@ -136,8 +129,8 @@ export const AdjustmentsPanel: React.FC<Props> = React.memo(
                     >
                         <RotateCcw className="w-4 h-4" />
                     </button>
-                </div>
-                <div className="h-px bg-border/50" />
+                }
+            >
                 <div className="space-y-4">
                     {defs.map((s) => {
                         const displayVal = values[s.key];
@@ -188,7 +181,7 @@ export const AdjustmentsPanel: React.FC<Props> = React.memo(
                         );
                     })}
                 </div>
-                <div className="h-px bg-border/50" />
+                <div className="h-px bg-border/50 my-4" />
                 <Button
                     type="button"
                     onClick={handleBake}
@@ -199,7 +192,7 @@ export const AdjustmentsPanel: React.FC<Props> = React.memo(
                     <Check className="w-4 h-4" />
                     <span>Apply</span>
                 </Button>
-            </Card>
+            </CollapsibleCard>
         );
     }
 );

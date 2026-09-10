@@ -1,0 +1,116 @@
+{
+  "standard": {
+    "totalHeight": 2.4,
+    "idealHeight": 2.3591734416220924,
+    "filamentOrder": [
+      "plvjtmc",
+      "azwg1yp",
+      "vsn9q6u",
+      "upcjpfe",
+      "98z555k",
+      "xyyxysq",
+      "w8cncoa",
+      "p9c63ms"
+    ],
+    "layers": [
+      {
+        "filamentId": "plvjtmc",
+        "filamentColor": "#000000",
+        "startHeight": 0,
+        "endHeight": 0.16
+      },
+      {
+        "filamentId": "azwg1yp",
+        "filamentColor": "#6300c5",
+        "startHeight": 0.16,
+        "endHeight": 0.48
+      },
+      {
+        "filamentId": "vsn9q6u",
+        "filamentColor": "#d83400",
+        "startHeight": 0.48,
+        "endHeight": 0.88
+      },
+      {
+        "filamentId": "upcjpfe",
+        "filamentColor": "#04bb00",
+        "startHeight": 0.88,
+        "endHeight": 1.12
+      },
+      {
+        "filamentId": "98z555k",
+        "filamentColor": "#ff5ec4",
+        "startHeight": 1.12,
+        "endHeight": 1.44
+      },
+      {
+        "filamentId": "xyyxysq",
+        "filamentColor": "#00b8c4",
+        "startHeight": 1.44,
+        "endHeight": 1.76
+      },
+      {
+        "filamentId": "w8cncoa",
+        "filamentColor": "#f7d000",
+        "startHeight": 1.76,
+        "endHeight": 2.08
+      },
+      {
+        "filamentId": "p9c63ms",
+        "filamentColor": "#ffffff",
+        "startHeight": 2.08,
+        "endHeight": 2.4
+      }
+    ]
+  },
+  "enhancedFast": {
+    "totalHeight": 1.68,
+    "idealHeight": 1.648195748055951,
+    "filamentOrder": [
+      "plvjtmc",
+      "p9c63ms",
+      "xyyxysq",
+      "azwg1yp",
+      "w8cncoa",
+      "vsn9q6u"
+    ],
+    "layers": [
+      {
+        "filamentId": "plvjtmc",
+        "filamentColor": "#000000",
+        "startHeight": 0,
+        "endHeight": 0.16
+      },
+      {
+        "filamentId": "p9c63ms",
+        "filamentColor": "#ffffff",
+        "startHeight": 0.16,
+        "endHeight": 0.56
+      },
+      {
+        "filamentId": "xyyxysq",
+        "filamentColor": "#00b8c4",
+        "startHeight": 0.56,
+        "endHeight": 0.8
+      },
+      {
+        "filamentId": "azwg1yp",
+        "filamentColor": "#6300c5",
+        "startHeight": 0.8,
+        "endHeight": 1.04
+      },
+      {
+        "filamentId": "w8cncoa",
+        "filamentColor": "#f7d000",
+        "startHeight": 1.04,
+        "endHeight": 1.36
+      },
+      {
+        "filamentId": "vsn9q6u",
+        "filamentColor": "#d83400",
+        "startHeight": 1.36,
+        "endHeight": 1.68
+      }
+    ]
+  }
+}

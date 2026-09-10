@@ -1,5 +1,5 @@
 {
-  "version": "3.1.0",
+  "version": "4.0.0",
   "download_url": "https://github.com/vycdev/Kromacut/releases/latest",
-  "release_notes": "Kromacut 3.1.0 adds orthographic preview mode, experimental Flat Paint, desktop update settings, and next-best-color filament suggestions."
+  "release_notes": "Kromacut 4.0.0 adds Stack Matrix calibration, Palette Proofs, updated Auto-paint color prediction, 2D touch-up tools, and a new web experience. Back up filament profiles before upgrading: legacy photo-opacity calibrations require recalibration with the new wedge workflow. Regenerate Auto-paint results before printing and read the upgrade notes in the release changelog."
 }

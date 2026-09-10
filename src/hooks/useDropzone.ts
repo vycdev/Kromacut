@@ -41,5 +41,3 @@ export function useDropzone(options: {
 
     return { dragOver, onDragOver, onDragLeave, onDrop };
 }
-
-export default useDropzone;

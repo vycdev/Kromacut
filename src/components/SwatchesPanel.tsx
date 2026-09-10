@@ -3,6 +3,7 @@ import { RgbaColorPicker } from 'react-colorful';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
+import { CollapsibleCard } from '@/components/CollapsibleCard';
 import { X } from 'lucide-react';
 
 interface SwatchEntry {
@@ -57,13 +58,12 @@ export const SwatchesPanel: React.FC<Props> = ({
     const closeModal = () => setOpenSwatch(null);
 
     return (
-        <Card className="p-4 border border-border/50 space-y-4">
-            <div className="flex justify-between items-center">
-                <div>
-                    <h3 className="text-sm font-semibold text-foreground">Image colors</h3>
-                    <p className="text-xs text-muted-foreground mt-1">Detected color palette</p>
-                </div>
-                <div className="flex items-center gap-2">
+        <CollapsibleCard
+            id="image-colors"
+            title="Image colors"
+            subtitle="Detected color palette"
+            actions={
+                <>
                     <span
                         className="px-2 py-1 rounded-full bg-primary/10 text-primary text-xs font-semibold font-mono"
                         aria-hidden
@@ -76,9 +76,9 @@ export const SwatchesPanel: React.FC<Props> = ({
                             Updating…
                         </span>
                     )}
-                </div>
-            </div>
-            <div className="h-px bg-border/50" />
+                </>
+            }
+        >
             <div
                 className="grid gap-2 p-3 rounded-lg bg-muted/30"
                 style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(15px, 1fr))' }}
@@ -290,7 +290,7 @@ export const SwatchesPanel: React.FC<Props> = ({
                     </Card>
                 </div>
             )}
-        </Card>
+        </CollapsibleCard>
     );
 };
 

@@ -1,0 +1,49 @@
+{
+  "id": "c2e9e401-d1bf-49c8-9166-1bdc487ffd64",
+  "name": "8 Colors Calibrated New",
+  "version": 1,
+  "filaments": [
+    {
+      "id": "p9c63ms",
+      "color": "#ffffff",
+      "td": 6.4
+    },
+    {
+      "id": "plvjtmc",
+      "color": "#000000",
+      "td": 0.8
+    },
+    {
+      "id": "98z555k",
+      "color": "#ff5ec4",
+      "td": 5.6
+    },
+    {
+      "id": "w8cncoa",
+      "color": "#f7d000",
+      "td": 4.8
+    },
+    {
+      "id": "vsn9q6u",
+      "color": "#d83400",
+      "td": 5.6
+    },
+    {
+      "id": "azwg1yp",
+      "color": "#6300c5",
+      "td": 4
+    },
+    {
+      "id": "xyyxysq",
+      "color": "#00b8c4",
+      "td": 4
+    },
+    {
+      "id": "upcjpfe",
+      "color": "#04bb00",
+      "td": 4
+    }
+  ],
+  "createdAt": 1782329253358,
+  "updatedAt": 1782329253358
+}

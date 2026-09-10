@@ -7,6 +7,9 @@ export const SOCIAL_IMAGE_URL = `${SITE_URL}/android-chrome-512x512.png`;
 const HOME_TITLE = 'Kromacut - Free Image-to-3D Color Layer Print Generator';
 const HOME_DESCRIPTION =
     'Turn 2D images into color-layered 3D prints for free with Kromacut. Reduce palettes, plan filament swaps, preview layers, and export STL or 3MF models.';
+const APP_TITLE = 'Kromacut App - Image to 3D Print Tool';
+const APP_DESCRIPTION =
+    'Create color-layered 3D prints from images with Kromacut. The browser tool runs locally and exports STL or 3MF models.';
 
 function absoluteUrl(pathname: string): string {
     return new URL(pathname, SITE_URL).toString();
@@ -49,14 +52,17 @@ function applySeo({
     description,
     url,
     type = 'website',
+    robots = 'index,follow',
 }: {
     title: string;
     description: string;
     url: string;
     type?: string;
+    robots?: string;
 }) {
     document.title = title;
     setMeta('name', 'description', description);
+    setMeta('name', 'robots', robots);
     findOrCreateCanonical().href = url;
 
     setMeta('property', 'og:title', title);
@@ -78,6 +84,15 @@ export function applyHomeSeo() {
         title: HOME_TITLE,
         description: HOME_DESCRIPTION,
         url: absoluteUrl('/'),
+    });
+}
+
+export function applyAppSeo() {
+    applySeo({
+        title: APP_TITLE,
+        description: APP_DESCRIPTION,
+        url: absoluteUrl('/app'),
+        robots: 'noindex,nofollow',
     });
 }
 

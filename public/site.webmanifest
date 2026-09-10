@@ -2,7 +2,8 @@
     "name": "Kromacut",
     "short_name": "Kromacut",
     "description": "Turn 2D images into color-layered 3D prints for free and export STL or 3MF models.",
-    "start_url": "/",
+    "start_url": "/app",
+    "id": "/",
     "scope": "/",
     "icons": [
         {

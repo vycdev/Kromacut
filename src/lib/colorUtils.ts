@@ -2,6 +2,8 @@
  * Shared color utility functions.
  */
 
+import { FRONTLIT_TD_SCALE } from './calibration.ts';
+
 /**
  * Normalize a hex color to canonical `#RRGGBB` uppercase form.
  * Accepts values with or without the leading '#'; anything that is not a
@@ -11,6 +13,50 @@ export function normalizeHexColor(hex: string | undefined, fallback: string): st
     if (!hex) return fallback;
     const value = hex.startsWith('#') ? hex : `#${hex}`;
     return /^#[0-9a-f]{6}$/i.test(value) ? value.toUpperCase() : fallback;
+}
+
+/**
+ * Convert a CSS-ish color string to canonical `#RRGGBB` uppercase form.
+ * Accepts `#RGB`, `#RRGGBB` (with or without '#') and `hsl(H S% L%)` /
+ * `hsl(H, S%, L%)` strings (the shapes used by built-in palettes).
+ * Returns null for anything else.
+ */
+export function toHex6(color: string): string | null {
+    const str = color.trim();
+    const raw = str.replace(/^#/, '');
+    if (/^[0-9a-f]{3}$/i.test(raw)) {
+        return `#${raw[0]}${raw[0]}${raw[1]}${raw[1]}${raw[2]}${raw[2]}`.toUpperCase();
+    }
+    if (/^[0-9a-f]{6}$/i.test(raw)) {
+        return `#${raw}`.toUpperCase();
+    }
+    const hsl = str.match(
+        /^hsl\(\s*([\d.-]+)(?:deg)?(?:\s*,\s*|\s+)([\d.]+)%?(?:\s*,\s*|\s+)([\d.]+)%?\s*\)$/i
+    );
+    if (hsl) {
+        const h = Number(hsl[1]);
+        const s = Number(hsl[2]) / 100;
+        const l = Number(hsl[3]) / 100;
+        const c = (1 - Math.abs(2 * l - 1)) * s;
+        const hh = ((h % 360) + 360) % 360;
+        const x = c * (1 - Math.abs(((hh / 60) % 2) - 1));
+        let r1 = 0,
+            g1 = 0,
+            b1 = 0;
+        if (hh < 60) [r1, g1, b1] = [c, x, 0];
+        else if (hh < 120) [r1, g1, b1] = [x, c, 0];
+        else if (hh < 180) [r1, g1, b1] = [0, c, x];
+        else if (hh < 240) [r1, g1, b1] = [0, x, c];
+        else if (hh < 300) [r1, g1, b1] = [x, 0, c];
+        else [r1, g1, b1] = [c, 0, x];
+        const m = l - c / 2;
+        const toByte = (v: number) =>
+            Math.round(Math.max(0, Math.min(255, (v + m) * 255)))
+                .toString(16)
+                .padStart(2, '0');
+        return `#${toByte(r1)}${toByte(g1)}${toByte(b1)}`.toUpperCase();
+    }
+    return null;
 }
 
 /**
@@ -26,17 +72,19 @@ export function hexLuminance(hex: string): number {
 }
 
 /**
- * Estimate Transmission Distance (TD) from a hex color.
+ * Estimate the frontlit hiding distance (mm) from a hex color.
  *
- * TD is related to how much light passes through the filament:
- * - Darker / more opaque colors usually have lower TD
- * - Lighter / more translucent colors usually have higher TD
- * - Saturation and hue can shift TD slightly around the luminance baseline
+ * Hiding distance is the depth of material at which a filament visually hides
+ * what's beneath it:
+ * - Darker / more opaque colors hide sooner (smaller value)
+ * - Lighter / more translucent colors need more depth (larger value)
+ * - Saturation and hue shift the estimate slightly around the luminance baseline
  *
- * This heuristic is intentionally conservative and should be replaced by
+ * The heuristic shape is the historical backlit-TD estimate rescaled by
+ * FRONTLIT_TD_SCALE; it is intentionally conservative and should be replaced by
  * measured calibration data whenever possible.
  */
-export function estimateTDFromColor(hex: string): number {
+export function estimateHidingDistanceFromColor(hex: string): number {
     const h = hex.replace(/^#/, '');
     const r = parseInt(h.slice(0, 2), 16) / 255;
     const g = parseInt(h.slice(2, 4), 16) / 255;
@@ -100,9 +148,16 @@ export function estimateTDFromColor(hex: string): number {
         estimatedTD = 0.8 + luminance * 2.7; // Range: ~0.8-1.2mm
     }
 
-    // Clamp to realistic range for PLA filaments
+    // Clamp to realistic range for PLA filaments (still on the legacy TD scale)
     estimatedTD = Math.max(0.6, Math.min(8.5, estimatedTD));
 
-    // Round to 1 decimal place
-    return Math.round(estimatedTD * 10) / 10;
+    // Convert the legacy backlit-TD shape to a frontlit hiding distance and
+    // round to 2 decimals (values live in roughly 0.06–0.85 mm).
+    return Math.round(estimatedTD * FRONTLIT_TD_SCALE * 100) / 100;
+}
+
+/** Choose readable light or dark text for an RGB swatch. */
+export function swatchTextColor(rgb: readonly [number, number, number]): string {
+    const luminance = (0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2]) / 255;
+    return luminance > 0.55 ? '#111111' : '#ffffff';
 }

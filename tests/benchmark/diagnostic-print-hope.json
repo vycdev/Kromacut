@@ -1,0 +1,102 @@
+{
+    "schemaVersion": 1,
+    "layerHeight": 0.08,
+    "firstLayerHeight": 0.4,
+    "description": "Sept 5 HOPE: controlled thickness strips, not an optimizer or automatic calibration import.",
+    "traceMatches": [
+        { "stripId": "A-orange-print-backing", "patchNumber": 6, "targetColor": "#eb2123" },
+        { "stripId": "A-orange-print-backing", "patchNumber": 1, "targetColor": "#022336" },
+        { "stripId": "B-cyan-purple", "patchNumber": 4, "targetColor": "#739ba7" },
+        { "stripId": "C-white-print-backing", "patchNumber": 3, "targetColor": "#fbe29f" }
+    ],
+    "strips": [
+        {
+            "id": "A-orange-print-backing",
+            "title": "Orange on today's complete backing",
+            "purpose": "Start here: reproduce the brown orange. Patch 6 is today's 0.40 mm orange; patch 8 repeats it.",
+            "backing": [
+                { "color": "#6300c5", "layers": 3 },
+                { "color": "#00b8c4", "layers": 4 },
+                { "color": "#000000", "layers": 1 }
+            ],
+            "foreground": "#d83400",
+            "topLayers": [0, 1, 2, 3, 4, 5, 6, 5]
+        },
+        {
+            "id": "B-cyan-purple",
+            "title": "Cyan on today's purple foundation",
+            "purpose": "Start here: patch 4 reproduces today's blue region (0.24 mm cyan); patch 8 repeats it. Patch 5 is the thicker cyan underneath the black.",
+            "backing": [{ "color": "#6300c5", "layers": 3 }],
+            "foreground": "#00b8c4",
+            "topLayers": [0, 1, 2, 3, 4, 5, 6, 3]
+        },
+        {
+            "id": "C-white-print-backing",
+            "title": "White on today's complete backing",
+            "purpose": "Start here: compare one, two, three and four white layers. Patch 3 reproduces today's 0.16 mm white; patch 6 repeats it. This does not recreate the older print's different underlying stack.",
+            "backing": [
+                { "color": "#6300c5", "layers": 3 },
+                { "color": "#00b8c4", "layers": 4 },
+                { "color": "#000000", "layers": 1 },
+                { "color": "#d83400", "layers": 5 },
+                { "color": "#f7d000", "layers": 5 }
+            ],
+            "foreground": "#ffffff",
+            "topLayers": [0, 1, 2, 3, 4, 2]
+        },
+        {
+            "id": "D-orange-white",
+            "title": "Orange on model-opaque white",
+            "purpose": "Simple-backing control for the earlier orange-on-white prediction concern.",
+            "backing": [{ "color": "#ffffff", "layers": "opaque" }],
+            "foreground": "#d83400",
+            "topLayers": [0, 1, 2, 3, 4, 5, 6, 5]
+        },
+        {
+            "id": "E-orange-yellow",
+            "title": "Orange on model-opaque yellow",
+            "purpose": "Compare with the card observation. This is a controlled yellow backing, not a reconstruction of the unavailable card stack.",
+            "backing": [{ "color": "#f7d000", "layers": "opaque" }],
+            "foreground": "#d83400",
+            "topLayers": [0, 1, 2, 3, 4, 5, 6, 5]
+        },
+        {
+            "id": "F-orange-black",
+            "title": "Orange on model-opaque black",
+            "purpose": "Compare with A: distinguish opaque black from the thin black over cyan/purple in today's print.",
+            "backing": [{ "color": "#000000", "layers": "opaque" }],
+            "foreground": "#d83400",
+            "topLayers": [0, 1, 2, 3, 4, 5, 6, 5]
+        },
+        {
+            "id": "G-cyan-black",
+            "title": "Cyan on model-opaque black",
+            "purpose": "Simple-backing comparison for B's cyan-over-purple series.",
+            "backing": [{ "color": "#000000", "layers": "opaque" }],
+            "foreground": "#00b8c4",
+            "topLayers": [0, 1, 2, 3, 4, 5, 6, 3]
+        },
+        {
+            "id": "H-white-yellow",
+            "title": "White on model-opaque yellow",
+            "purpose": "Simple-backing control for C's white series; isolates thickness sensitivity without today's deeper stack.",
+            "backing": [{ "color": "#f7d000", "layers": "opaque" }],
+            "foreground": "#ffffff",
+            "topLayers": [0, 1, 2, 3, 4, 2]
+        }
+    ],
+    "knownReferences": [
+        {
+            "id": "I-known-orange",
+            "title": "Known Matrix orange recipe",
+            "foreground": "#d83400",
+            "substrate": "#ffffff"
+        },
+        {
+            "id": "J-known-cyan",
+            "title": "Known Matrix cyan recipe",
+            "foreground": "#00b8c4",
+            "substrate": "#6300c5"
+        }
+    ]
+}

@@ -1,25 +1,34 @@
 import React, { useEffect, useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Trash2, Wand2, FlaskConical, BadgeCheck } from 'lucide-react';
+import { Trash2, Wand2, BadgeCheck, ArrowRightLeft } from 'lucide-react';
 import { HexColorPicker } from 'react-colorful';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import type { Filament } from '../types';
-import { estimateTDFromColor } from '../lib/colorUtils';
-import { computeProfileConfidence, getConfidenceLabel, getConfidenceColor } from '../lib/calibration';
+import { estimateHidingDistanceFromColor } from '../lib/colorUtils';
+import { colorEditUpdateForFilament } from '../lib/filamentUpdates';
+import {
+    activeFrontlitCalibration,
+    channelHds,
+    computeProfileConfidence,
+    getConfidenceLabel,
+    getConfidenceColor,
+    FRONTLIT_TD_SCALE,
+} from '../lib/calibration';
+
+const HD_MIN = 0.01;
+const HD_MAX = 2;
 
 interface FilamentRowProps {
     filament: Filament;
     onUpdate: (id: string, updates: Partial<Omit<Filament, 'id'>>) => void;
     onRemove: (id: string) => void;
-    onCalibrate?: (id: string) => void; // Optional calibration callback
 }
 
 const FilamentRow = React.memo(function FilamentRow({
     filament,
     onUpdate,
     onRemove,
-    onCalibrate,
 }: FilamentRowProps) {
     // Local state for the input value to allow free typing
     const [localTd, setLocalTd] = useState<string>(filament.td.toString());
@@ -30,10 +39,11 @@ const FilamentRow = React.memo(function FilamentRow({
         filament.name ?? `Filament ${filament.color}`
     );
 
-    // Calculate confidence for this filament
-    const calibrationMatchesTd =
-        !!filament.calibration && Math.abs(filament.td - filament.calibration.tdSingleValue) < 0.05;
-    const activeCalibration = calibrationMatchesTd ? filament.calibration : undefined;
+    // Calculate confidence for this filament. A calibration only counts while
+    // the swatch still matches the color it was measured for; editing the color
+    // deactivates it (and channelHds falls back to color-derived HDs), so the
+    // badge and the optical model stay consistent.
+    const activeCalibration = activeFrontlitCalibration(filament);
 
     const confidence = computeProfileConfidence({
         calibration: activeCalibration,
@@ -42,6 +52,14 @@ const FilamentRow = React.memo(function FilamentRow({
     const confidenceLabel = getConfidenceLabel(confidence);
     const confidenceColorClass = getConfidenceColor(confidence);
     const isCalibrated = !!activeCalibration;
+
+    // Per-channel hiding distances: measured (calibrated) or derived from color.
+    const channels = channelHds(filament);
+    const channelText = `R ${channels[0].toFixed(2)} / G ${channels[1].toFixed(2)} / B ${channels[2].toFixed(2)} mm`;
+
+    // "Convert from TD" popover state (conventional backlit/lithophane value).
+    const [convertDraft, setConvertDraft] = useState('');
+    const [convertOpen, setConvertOpen] = useState(false);
 
     // Sync local TD state if prop changes externally
     useEffect(() => {
@@ -70,11 +88,11 @@ const FilamentRow = React.memo(function FilamentRow({
     useEffect(() => {
         const timer = setTimeout(() => {
             if (localColor !== filament.color) {
-                onUpdate(filament.id, { color: localColor });
+                onUpdate(filament.id, colorEditUpdateForFilament(filament, localColor));
             }
         }, 200);
         return () => clearTimeout(timer);
-    }, [localColor, filament.id, filament.color, onUpdate]);
+    }, [localColor, filament, onUpdate]);
 
     const handleNameBlur = () => {
         const trimmed = localName.trim();
@@ -93,9 +111,22 @@ const FilamentRow = React.memo(function FilamentRow({
             setLocalTd(filament.td.toString());
             return;
         }
-        val = Math.min(100, Math.max(0.1, val));
+        val = Math.min(HD_MAX, Math.max(HD_MIN, val));
         onUpdate(filament.id, { td: val, calibration: undefined });
         setLocalTd(val.toString());
+    };
+
+    const handleConvertFromTd = () => {
+        const val = parseFloat(convertDraft);
+        if (isNaN(val) || val <= 0) return;
+        const hd = Math.min(
+            HD_MAX,
+            Math.max(HD_MIN, Math.round(val * FRONTLIT_TD_SCALE * 100) / 100)
+        );
+        setLocalTd(hd.toString());
+        onUpdate(filament.id, { td: hd, calibration: undefined });
+        setConvertDraft('');
+        setConvertOpen(false);
     };
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -144,13 +175,16 @@ const FilamentRow = React.memo(function FilamentRow({
                 className="h-8 text-sm flex-1 min-w-0"
             />
 
-            {/* Transmission Distance Input */}
-            <div className="relative w-20 flex-shrink-0">
+            {/* Hiding Distance Input */}
+            <div
+                className="relative w-20 flex-shrink-0"
+                title={`Hiding distance (mm): depth at which this filament hides what's beneath it.\n${isCalibrated ? 'Measured' : 'Estimated from color'} per-channel: ${channelText}`}
+            >
                 <Input
                     type="number"
-                    min={0.1}
-                    max={100}
-                    step={0.1}
+                    min={HD_MIN}
+                    max={HD_MAX}
+                    step={0.01}
                     value={localTd}
                     onChange={(e) => setLocalTd(e.target.value)}
                     onBlur={handleBlur}
@@ -158,50 +192,81 @@ const FilamentRow = React.memo(function FilamentRow({
                     className="h-8 text-sm pr-8"
                 />
                 <div className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">
-                    TD
+                    HD
                 </div>
             </div>
 
-            {/* Auto-compute TD Button */}
+            {/* Convert from conventional (backlit/lithophane) TD */}
+            <Popover open={convertOpen} onOpenChange={setConvertOpen}>
+                <PopoverTrigger asChild>
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/10 cursor-pointer"
+                        title="Convert from TD (lithophane/backlit value)"
+                    >
+                        <ArrowRightLeft className="w-4 h-4" />
+                    </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-64 p-3" align="start">
+                    <div className="space-y-2">
+                        <h4 className="text-sm font-medium">Convert from TD</h4>
+                        <p className="text-[11px] text-muted-foreground">
+                            Enter a conventional Transmission Distance (spool sheet or lithophane
+                            TD test). It converts to a frontlit hiding distance (≈ TD × 0.1).
+                        </p>
+                        <div className="flex gap-2">
+                            <Input
+                                type="number"
+                                min={0.1}
+                                max={20}
+                                step={0.1}
+                                value={convertDraft}
+                                onChange={(e) => setConvertDraft(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') handleConvertFromTd();
+                                }}
+                                placeholder="e.g. 4.0"
+                                className="h-8 text-sm"
+                            />
+                            <Button size="sm" className="h-8" onClick={handleConvertFromTd}>
+                                Convert
+                            </Button>
+                        </div>
+                    </div>
+                </PopoverContent>
+            </Popover>
+
+            {/* Auto-estimate HD Button */}
             <Button
                 variant="ghost"
                 size="icon"
                 onClick={() => {
-                    const estimatedTd = estimateTDFromColor(localColor);
-                    setLocalTd(estimatedTd.toString());
-                    onUpdate(filament.id, { td: estimatedTd, calibration: undefined });
+                    const estimated = estimateHidingDistanceFromColor(localColor);
+                    setLocalTd(estimated.toString());
+                    onUpdate(filament.id, { td: estimated, calibration: undefined });
                 }}
                 className="h-8 w-8 text-muted-foreground hover:text-amber-600 hover:bg-amber-600/10 cursor-pointer"
-                title="Auto-estimate TD from color"
+                title="Auto-estimate hiding distance from color"
             >
                 <Wand2 className="w-4 h-4" />
             </Button>
 
-            {/* Calibration Button & Badge */}
-            {onCalibrate && (
-                <div className="flex items-center gap-1">
-                    {isCalibrated && (
-                        <div
-                            className={`flex h-8 items-center gap-1 px-2 rounded-md bg-muted/50 ${confidenceColorClass}`}
-                            title={`Confidence: ${confidenceLabel} (${(confidence * 100).toFixed(0)}%)`}
-                        >
-                            <BadgeCheck className="w-3 h-3" />
-                            <span className="text-[10px] font-medium">{confidenceLabel}</span>
-                        </div>
-                    )}
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => onCalibrate(filament.id)}
-                        className={`h-8 w-8 cursor-pointer ${
-                            isCalibrated
-                                ? 'text-muted-foreground hover:text-blue-600 hover:bg-blue-600/10'
-                                : 'text-muted-foreground hover:text-purple-600 hover:bg-purple-600/10'
-                        }`}
-                        title={isCalibrated ? 'Recalibrate filament' : 'Calibrate filament for accurate TD'}
-                    >
-                        <FlaskConical className="w-4 h-4" />
-                    </Button>
+            {/* Calibration status — fixed-width slot so rows stay aligned */}
+            {isCalibrated ? (
+                <div
+                    className={`flex h-8 w-[4.75rem] flex-shrink-0 items-center justify-center gap-1 rounded-md bg-muted/50 ${confidenceColorClass}`}
+                    title={`Calibrated · Confidence: ${confidenceLabel} (${(confidence * 100).toFixed(0)}%)\nMeasured HD per-channel: ${channelText}`}
+                >
+                    <BadgeCheck className="w-3 h-3 flex-shrink-0" />
+                    <span className="text-[10px] font-medium truncate">{confidenceLabel}</span>
+                </div>
+            ) : (
+                <div
+                    className="flex h-8 w-[4.75rem] flex-shrink-0 items-center justify-center rounded-md border border-dashed border-border/60 text-muted-foreground/70"
+                    title={`Not calibrated — hiding distance is estimated or entered manually.\nEstimated HD per-channel: ${channelText}`}
+                >
+                    <span className="text-[10px] font-medium">Estimate</span>
                 </div>
             )}
 

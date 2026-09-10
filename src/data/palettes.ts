@@ -1,8 +1,14 @@
+import { SUPPLIER_PALETTES } from './supplierFilaments.ts';
+
 export type Palette = {
     id: string;
     label: string;
     colors: string[];
     size: number;
+    /** Dropdown grouping; built-in generic palettes leave this unset. */
+    group?: 'supplier';
+    /** Optional display names parallel to `colors` (supplier filament names). */
+    colorNames?: string[];
 };
 
 export const PALETTES: Palette[] = [
@@ -309,3 +315,11 @@ export const PALETTES: Palette[] = [
         }),
     },
 ];
+
+/** All non-custom palettes: generic built-ins plus supplier color sets. */
+export const ALL_BUILTIN_PALETTES: Palette[] = [...PALETTES, ...SUPPLIER_PALETTES];
+
+/** Resolve a built-in (generic or supplier) palette by id. */
+export function findBuiltInPalette(id: string): Palette | undefined {
+    return ALL_BUILTIN_PALETTES.find((p) => p.id === id);
+}

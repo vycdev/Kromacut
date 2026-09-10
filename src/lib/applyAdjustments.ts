@@ -6,11 +6,6 @@ export interface Adjustments {
     [key: string]: number;
 }
 
-export interface AdjustmentContext {
-    width: number;
-    height: number;
-}
-
 const DEFAULTS: Record<string, number> = {
     exposure: 0,
     contrast: 0,

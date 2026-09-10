@@ -7,21 +7,23 @@ description: Short answers to common Kromacut questions.
 
 # FAQ
 
-## What Is Transmission Distance?
+## What Is Hiding Distance?
 
-Transmission Distance, or **TD**, describes how much light passes through a filament at a given thickness. Auto-paint uses TD to estimate how stacked filament layers will look.
+Hiding Distance, or **HD**, is the depth of material (in mm) at which a filament visually hides whatever is beneath it when viewed front-lit — the way finished prints are actually seen. Auto-paint uses HD to estimate how stacked filament layers will look.
 
-Lower TD usually means a darker or more opaque filament. Higher TD usually means a lighter or more translucent filament.
+Lower HD means a more opaque filament that covers in fewer layers. Higher HD means a more translucent filament that needs more depth.
+
+HD replaces the Transmission Distance (TD) shown in earlier versions. Conventional TD describes backlit transmission (as measured by lithophane TD test prints) and is roughly 10× the hiding distance; you can still enter a conventional TD via the convert button on a filament row and Kromacut converts it for you.
 
 ## Should I Use Manual Or Auto-paint?
 
 Use **Manual** when you want direct artistic control over color order and layer heights.
 
-Use **Auto-paint** when you have real filament colors and TD values and want Kromacut to plan the stack automatically.
+Use **Auto-paint** when you have real filament colors and hiding distance values and want Kromacut to plan the stack automatically.
 
 ## Do I Need To Calibrate Filaments?
 
-You can start with estimated TD values. You can also check whether the filament maker, seller, or community has published Transmission Distance values for the exact filament you own.
+You can start with estimated hiding distances. You can also check whether the filament maker, seller, or community has published Transmission Distance values for the exact filament you own — enter those through the convert button and Kromacut turns them into hiding distances.
 
 Calibration usually improves Auto-paint results, especially when published values are unavailable or the result still looks wrong. Calibration is most useful when:
 

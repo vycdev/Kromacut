@@ -1,12 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Card } from '@/components/ui/card';
+import { CollapsibleCard, DirtyDot } from '@/components/CollapsibleCard';
 import ThreeDColorRow from './ThreeDColorRow';
 import { Sortable, SortableContent, SortableOverlay } from '@/components/ui/sortable';
 import { Button } from '@/components/ui/button';
 import { Check, RotateCcw, Loader2 } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { autoPaintToSliceHeights } from '../lib/autoPaint';
 import {
+    autoPaintResultMatchesSliceGrid,
+    autoPaintToSliceHeights,
+    normalizeSeparationMaxDeltaE,
+} from '../lib/autoPaint';
+import {
+    arePrintSettingsDefault,
     loadPrintSettingsFromStorage,
     savePrintSettingsToStorage,
     DEFAULT_PRINT_SETTINGS,
@@ -16,17 +21,28 @@ import { useProfileManager } from '../hooks/useProfileManager';
 import { useColorSlicing } from '../hooks/useColorSlicing';
 import { useSwapPlan } from '../hooks/useSwapPlan';
 import { useAutoPaintWorker } from '../hooks/useAutoPaintWorker';
-import type { Swatch, ThreeDControlsStateShape } from '../types';
+import { usePrintableFeatureSimulation } from '../hooks/usePrintableFeatureSimulation';
+import type {
+    AutoPaintRepeatLimit,
+    AutoPaintTransitionOpacity,
+    Swatch,
+    ThreeDControlsStateShape,
+} from '../types';
 import PrintSettingsCard from './PrintSettingsCard';
 import PrintInstructions from './PrintInstructions';
 import AutoPaintTab from './AutoPaintTab';
 import type { ImageDimensions } from '../hooks/useSwatches';
+import { concealPrintableFeatureBuffers } from '../lib/printableFeatures.ts';
+import { shouldApplyInitialProfileFilaments } from '../lib/threeDWorkLifecycle';
 
 // Re-export types for backward compatibility
 export type { Filament, ThreeDControlsStateShape } from '../types';
 
 interface ThreeDControlsProps {
+    /** Whether the 3D workspace is visible and may run expensive background work. */
+    active?: boolean;
     swatches: Swatch[] | null;
+    imageSrc: string | null;
     imageDimensions: ImageDimensions | null;
     /** Snapshot of the settings used for the model currently built in the preview/export pane. */
     builtState?: ThreeDControlsStateShape | null;
@@ -43,19 +59,31 @@ interface ThreeDControlsProps {
      * when the user switches away from 3D mode and comes back later.
      */
     persisted?: ThreeDControlsStateShape | null;
+    /** Whether `persisted.filaments` belongs to an authoritative saved or in-session workspace. */
+    hasAutoPaintWorkingState?: boolean;
 }
 
 export default function ThreeDControls({
+    active = true,
     swatches,
+    imageSrc,
     imageDimensions,
     builtState = null,
     builtFlatPaint = false,
     onChange,
     onSettingsChange,
     persisted,
+    hasAutoPaintWorkingState = false,
 }: ThreeDControlsProps) {
     // --- Filaments ---
-    const { filaments, setFilaments, addFilament, addFilamentWithProps, removeFilament, updateFilament } = useFilaments({
+    const {
+        filaments,
+        setFilaments,
+        addFilament,
+        addFilamentWithProps,
+        removeFilament,
+        updateFilament,
+    } = useFilaments({
         initial: persisted?.filaments?.length ? persisted.filaments : undefined,
     });
 
@@ -64,7 +92,13 @@ export default function ThreeDControls({
 
     // Apply initial filaments from profile if available (one-time)
     const [appliedProfileInit] = useState(() => {
-        if (profileManager.initialFilaments && profileManager.initialFilaments.length > 0) {
+        if (
+            profileManager.initialFilaments &&
+            shouldApplyInitialProfileFilaments(
+                hasAutoPaintWorkingState,
+                profileManager.initialFilaments.length
+            )
+        ) {
             return profileManager.initialFilaments;
         }
         return null;
@@ -109,17 +143,40 @@ export default function ThreeDControls({
         persisted?.calibrationLayerHeight ?? initialPrintSettings.layerHeight
     );
     const [paintMode, setPaintMode] = useState<'manual' | 'autopaint'>(initialPaintMode);
-    const [autoPaintMaxHeight, setAutoPaintMaxHeight] = useState<number | undefined>(undefined);
-    const [enhancedColorMatch, setEnhancedColorMatch] = useState(persisted?.enhancedColorMatch ?? false);
-    const [allowRepeatedSwaps, setAllowRepeatedSwaps] = useState(persisted?.allowRepeatedSwaps ?? false);
-    const [heightDithering, setHeightDithering] = useState(persisted?.heightDithering ?? false);
+    const [autoPaintMaxHeight, setAutoPaintMaxHeight] = useState<number | undefined>(
+        persisted?.autoPaintMaxHeight
+    );
+    const [enhancedColorMatch, setEnhancedColorMatch] = useState(
+        persisted?.enhancedColorMatch ?? false
+    );
+    const initialPreserveSeparation = persisted?.preserveSeparation ?? false;
+    const [preserveSeparation, setPreserveSeparation] = useState(initialPreserveSeparation);
+    const [separationMaxDeltaE, setSeparationMaxDeltaE] = useState(() =>
+        normalizeSeparationMaxDeltaE(persisted?.separationMaxDeltaE)
+    );
+    const [failOnSeparationError, setFailOnSeparationError] = useState(
+        persisted?.failOnSeparationError !== false
+    );
+    const [maxRepeatedSwaps, setMaxRepeatedSwaps] = useState<AutoPaintRepeatLimit>(
+        persisted?.maxRepeatedSwaps ?? (persisted?.allowRepeatedSwaps ? 4 : 0)
+    );
+    const [transitionOpacity, setTransitionOpacity] = useState<AutoPaintTransitionOpacity>(
+        persisted?.transitionOpacity ?? 0.9
+    );
+    const [heightDithering, setHeightDithering] = useState(
+        initialPreserveSeparation ? false : (persisted?.heightDithering ?? false)
+    );
     const [ditherLineWidth, setDitherLineWidth] = useState(persisted?.ditherLineWidth ?? 0.42);
+    const [omitAtRiskPixels, setOmitAtRiskPixels] = useState(
+        persisted?.omitAtRiskPixels ?? false
+    );
     const [flatPaint, setFlatPaint] = useState(initialFlatPaint);
+    const [flatPaintFaceUp, setFlatPaintFaceUp] = useState(persisted?.flatPaintFaceUp ?? false);
 
     // --- Optimizer Options ---
-    const [optimizerAlgorithm, setOptimizerAlgorithm] = useState<'exhaustive' | 'simulated-annealing' | 'genetic' | 'auto'>(
-        persisted?.optimizerAlgorithm ?? 'auto'
-    );
+    const [optimizerAlgorithm, setOptimizerAlgorithm] = useState<
+        'fast' | 'balanced' | 'thorough' | 'deep' | 'exact'
+    >(persisted?.optimizerAlgorithm ?? 'balanced');
     const [optimizerSeed, setOptimizerSeed] = useState<number | undefined>(
         persisted?.optimizerSeed
     );
@@ -127,17 +184,25 @@ export default function ThreeDControls({
         persisted?.regionWeightingMode ?? 'uniform'
     );
 
-    useEffect(() => {
-        if (optimizerAlgorithm === 'exhaustive' && filaments.length > 8) {
-            setOptimizerAlgorithm('auto');
-        }
-    }, [filaments.length, optimizerAlgorithm]);
-
     const handleEnhancedColorMatchChange = useCallback((v: boolean) => {
         setEnhancedColorMatch(v);
         if (!v) {
-            setAllowRepeatedSwaps(false);
+            setPreserveSeparation(false);
             setHeightDithering(false);
+        }
+    }, []);
+
+    const handlePreserveSeparationChange = useCallback((enabled: boolean) => {
+        setPreserveSeparation(enabled);
+        if (enabled) {
+            setHeightDithering(false);
+        }
+    }, []);
+
+    const handleHeightDitheringChange = useCallback((enabled: boolean) => {
+        setHeightDithering(enabled);
+        if (enabled) {
+            setPreserveSeparation(false);
         }
     }, []);
 
@@ -160,21 +225,54 @@ export default function ThreeDControls({
         onSettingsChange?.({
             paintMode,
             filaments,
+            autoPaintMaxHeight,
+            calibrationLayerHeight,
             enhancedColorMatch,
-            allowRepeatedSwaps,
+            preserveSeparation,
+            separationMaxDeltaE,
+            failOnSeparationError,
+            maxRepeatedSwaps,
+            transitionOpacity,
             heightDithering,
             ditherLineWidth,
+            omitAtRiskPixels,
             flatPaint,
+            flatPaintFaceUp,
             optimizerAlgorithm,
             optimizerSeed,
             regionWeightingMode,
             smoothMeshing,
         });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [paintMode, filaments, enhancedColorMatch, allowRepeatedSwaps, heightDithering, ditherLineWidth, flatPaint, optimizerAlgorithm, optimizerSeed, regionWeightingMode, smoothMeshing]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [
+        paintMode,
+        filaments,
+        autoPaintMaxHeight,
+        calibrationLayerHeight,
+        enhancedColorMatch,
+        preserveSeparation,
+        separationMaxDeltaE,
+        failOnSeparationError,
+        maxRepeatedSwaps,
+        transitionOpacity,
+        heightDithering,
+        ditherLineWidth,
+        omitAtRiskPixels,
+        flatPaint,
+        flatPaintFaceUp,
+        optimizerAlgorithm,
+        optimizerSeed,
+        regionWeightingMode,
+        smoothMeshing,
+    ]);
 
     useEffect(() => {
-        savePrintSettingsToStorage({ layerHeight, slicerFirstLayerHeight, pixelSize, smoothMeshing });
+        savePrintSettingsToStorage({
+            layerHeight,
+            slicerFirstLayerHeight,
+            pixelSize,
+            smoothMeshing,
+        });
     }, [layerHeight, slicerFirstLayerHeight, pixelSize, smoothMeshing]);
 
     // --- Color Slicing ---
@@ -199,39 +297,75 @@ export default function ThreeDControls({
         setLayerHeight(DEFAULT_PRINT_SETTINGS.layerHeight);
         setSlicerFirstLayerHeight(DEFAULT_PRINT_SETTINGS.slicerFirstLayerHeight);
         setPixelSize(DEFAULT_PRINT_SETTINGS.pixelSize);
+        setSmoothMeshing(DEFAULT_PRINT_SETTINGS.smoothMeshing);
         resetHeightsToValues(
             DEFAULT_PRINT_SETTINGS.layerHeight,
             DEFAULT_PRINT_SETTINGS.slicerFirstLayerHeight
         );
     }, [resetHeightsToValues]);
 
+    // --- Printable-feature simulation (shared by scoring, preview, and geometry) ---
+    const {
+        simulation: printableFeatureSimulation,
+        printableSwatches,
+        isComputing: isPrintableFeatureComputing,
+        error: printableFeatureError,
+    } = usePrintableFeatureSimulation({
+        active,
+        enabled: paintMode === 'autopaint' && filaments.length > 0 && filtered.length > 0,
+        imageSrc,
+        sourceSwatches: filtered,
+        pixelSizeMm: pixelSize,
+        lineWidthMm: ditherLineWidth,
+        omitAtRiskPixels,
+    });
+
     // --- Auto-paint (runs in Web Worker to avoid blocking the UI) ---
     const {
         autoPaintResult,
-        isComputing: isAutoPaintComputing,
-        error: autoPaintError,
+        isComputing: isOptimizerComputing,
+        progress: optimizerProgress,
+        error: optimizerError,
     } = useAutoPaintWorker({
+        active,
         paintMode,
         filaments,
-        filtered,
+        filtered: printableFeatureSimulation ? printableSwatches : [],
         layerHeight,
         slicerFirstLayerHeight,
         autoPaintMaxHeight,
         enhancedColorMatch,
-        allowRepeatedSwaps,
+        preserveSeparation,
+        separationMaxDeltaE,
+        failOnSeparationError,
+        maxRepeatedSwaps,
+        transitionOpacity,
         optimizerAlgorithm,
         optimizerSeed,
         regionWeightingMode,
-        imageDimensions,
+        appearance:
+            profileManager.activeProfile && !profileManager.isDirty
+                ? profileManager.activeProfile.appearance
+                : undefined,
     });
+    const isAutoPaintComputing = isPrintableFeatureComputing || isOptimizerComputing;
+    const autoPaintProgress = isPrintableFeatureComputing ? 0 : optimizerProgress;
+    const autoPaintError = printableFeatureError ?? optimizerError;
+    const autoPaintProgressPercent = Math.round(Math.max(0, Math.min(1, autoPaintProgress)) * 100);
 
     const autoPaintSliceData = useMemo(() => {
         if (!autoPaintResult) return undefined;
+        if (
+            !autoPaintResultMatchesSliceGrid(autoPaintResult, layerHeight, slicerFirstLayerHeight)
+        ) {
+            return undefined;
+        }
         return autoPaintToSliceHeights(autoPaintResult, layerHeight, slicerFirstLayerHeight);
     }, [autoPaintResult, layerHeight, slicerFirstLayerHeight]);
 
     const modelSizeEstimate = useMemo(() => {
         if (!imageDimensions) return null;
+        if (paintMode === 'autopaint' && !autoPaintSliceData) return null;
         const widthPx = imageDimensions.opaqueWidth || imageDimensions.width;
         const heightPx = imageDimensions.opaqueHeight || imageDimensions.height;
         const estimateOrder =
@@ -242,12 +376,18 @@ export default function ThreeDControls({
             paintMode === 'autopaint' && autoPaintSliceData
                 ? autoPaintSliceData.colorSliceHeights
                 : colorSliceHeights;
+        const activeFlatLayerCount = estimateOrder.filter(
+            (swatchIndex) => (estimateHeights[swatchIndex] ?? 0) > 0
+        ).length;
         const depth =
             flatPaintActive && paintMode === 'autopaint'
-                ? Math.max(slicerFirstLayerHeight, layerHeight) +
-                  estimateOrder.filter((swatchIndex) => (estimateHeights[swatchIndex] ?? 0) > 0)
-                      .length *
-                      layerHeight
+                ? flatPaintFaceUp
+                    ? activeFlatLayerCount > 0
+                        ? Math.max(slicerFirstLayerHeight, layerHeight) +
+                          Math.max(0, activeFlatLayerCount - 1) * layerHeight
+                        : 0
+                    : Math.max(slicerFirstLayerHeight, layerHeight) +
+                      activeFlatLayerCount * layerHeight
                 : estimateOrder.reduce((total, swatchIndex, position) => {
                       const height = estimateHeights[swatchIndex] ?? 0;
                       return (
@@ -267,6 +407,7 @@ export default function ThreeDControls({
         colorSliceHeights,
         imageDimensions,
         flatPaintActive,
+        flatPaintFaceUp,
         layerHeight,
         paintMode,
         pixelSize,
@@ -282,10 +423,15 @@ export default function ThreeDControls({
     const instructionSlicerFirstLayerHeight =
         builtState?.slicerFirstLayerHeight ?? slicerFirstLayerHeight;
     const instructionFlatPaint = builtState ? builtFlatPaint : flatPaintActive;
+    const instructionFlatPaintFaceUp = builtState
+        ? !!builtState.flatPaintFaceUp
+        : flatPaintActive && flatPaintFaceUp;
     const instructionColorCount =
         instructionPaintMode === 'autopaint'
-            ? instructionAutoPaintResult?.layers.length ?? 0
+            ? (instructionAutoPaintResult?.layers.length ?? 0)
             : instructionColorOrder.length;
+    const instructionAvailable =
+        instructionPaintMode === 'manual' || instructionAutoPaintResult !== undefined;
     const isInstructionOverLimit = instructionColorCount > 64;
 
     // --- Swap Plan ---
@@ -299,13 +445,25 @@ export default function ThreeDControls({
         autoPaintResult: instructionAutoPaintResult,
         disabled: isInstructionOverLimit,
         flatPaint: instructionFlatPaint,
+        flatPaintFaceUp: instructionFlatPaintFaceUp,
     });
 
     // --- Apply handler ---
     const handleApply = useCallback(() => {
         if (!onChange) return;
 
-        if (paintMode === 'autopaint' && autoPaintSliceData && autoPaintResult) {
+        if (paintMode === 'autopaint') {
+            // Auto-paint is a hard mode boundary. A missing or rejected result
+            // must never fall through to the unrelated manual color heights.
+            if (
+                isAutoPaintComputing ||
+                autoPaintError ||
+                !printableFeatureSimulation ||
+                !autoPaintSliceData ||
+                !autoPaintResult
+            ) {
+                return;
+            }
             onChange({
                 layerHeight,
                 slicerFirstLayerHeight,
@@ -315,38 +473,53 @@ export default function ThreeDControls({
                 pixelSize,
                 filaments,
                 paintMode,
+                autoPaintMaxHeight,
                 enhancedColorMatch,
-                allowRepeatedSwaps,
+                preserveSeparation,
+                separationMaxDeltaE,
+                failOnSeparationError,
+                maxRepeatedSwaps,
+                transitionOpacity,
                 heightDithering,
                 ditherLineWidth,
+                omitAtRiskPixels,
                 flatPaint,
+                flatPaintFaceUp,
                 optimizerAlgorithm,
                 optimizerSeed,
                 regionWeightingMode,
                 autoPaintResult,
                 autoPaintSwatches: autoPaintSliceData.virtualSwatches,
                 autoPaintFilamentSwatches: autoPaintSliceData.filamentSwatches,
+                printableFeaturePixels: concealPrintableFeatureBuffers({
+                    width: printableFeatureSimulation.width,
+                    height: printableFeatureSimulation.height,
+                    data: printableFeatureSimulation.data,
+                    fingerprint: printableFeatureSimulation.fingerprint,
+                }),
                 calibrationLayerHeight,
                 smoothMeshing,
             });
-        } else {
-            onChange({
-                layerHeight,
-                slicerFirstLayerHeight,
-                colorSliceHeights,
-                colorOrder,
-                filteredSwatches: filtered,
-                pixelSize,
-                filaments,
-                paintMode,
-                flatPaint,
-                optimizerAlgorithm,
-                optimizerSeed,
-                regionWeightingMode,
-                calibrationLayerHeight,
-                smoothMeshing,
-            });
+            return;
         }
+
+        onChange({
+            layerHeight,
+            slicerFirstLayerHeight,
+            colorSliceHeights,
+            colorOrder,
+            filteredSwatches: filtered,
+            pixelSize,
+            filaments,
+            paintMode,
+            flatPaint,
+            flatPaintFaceUp,
+            optimizerAlgorithm,
+            optimizerSeed,
+            regionWeightingMode,
+            calibrationLayerHeight,
+            smoothMeshing,
+        });
     }, [
         onChange,
         layerHeight,
@@ -357,11 +530,18 @@ export default function ThreeDControls({
         pixelSize,
         filaments,
         paintMode,
+        autoPaintMaxHeight,
         enhancedColorMatch,
-        allowRepeatedSwaps,
+        preserveSeparation,
+        separationMaxDeltaE,
+        failOnSeparationError,
+        maxRepeatedSwaps,
+        transitionOpacity,
         heightDithering,
         ditherLineWidth,
+        omitAtRiskPixels,
         flatPaint,
+        flatPaintFaceUp,
         optimizerAlgorithm,
         optimizerSeed,
         regionWeightingMode,
@@ -369,7 +549,17 @@ export default function ThreeDControls({
         smoothMeshing,
         autoPaintResult,
         autoPaintSliceData,
+        printableFeatureSimulation,
+        autoPaintError,
+        isAutoPaintComputing,
     ]);
+
+    const autoPaintBuildUnavailable =
+        paintMode === 'autopaint' &&
+        (!!autoPaintError ||
+            !printableFeatureSimulation ||
+            !autoPaintResult ||
+            !autoPaintSliceData);
 
     return (
         <div className="space-y-4">
@@ -378,14 +568,18 @@ export default function ThreeDControls({
                 <Button
                     onClick={handleApply}
                     data-testid="build-3d-model"
-                    disabled={isAutoPaintComputing}
+                    disabled={isAutoPaintComputing || autoPaintBuildUnavailable}
                     className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold transition-all duration-200 shadow-md hover:shadow-lg active:scale-95 gap-1.5 disabled:opacity-60"
                 >
                     {isAutoPaintComputing ? (
                         <>
                             <Loader2 className="w-4 h-4 animate-spin" />
-                            <span>Computing...</span>
+                            <span>Computing... {autoPaintProgressPercent}%</span>
                         </>
+                    ) : autoPaintBuildUnavailable ? (
+                        <span>
+                            {autoPaintError ? 'Auto-paint failed' : 'Waiting for Auto-paint'}
+                        </span>
                     ) : (
                         <>
                             <Check className="w-4 h-4" />
@@ -407,11 +601,12 @@ export default function ThreeDControls({
                 onPixelSizeChange={setPixelSize}
                 onSmoothMeshingChange={handleSmoothMeshingChange}
                 onReset={handleResetPrintSettings}
-                allDefault={
-                    layerHeight === DEFAULT_PRINT_SETTINGS.layerHeight &&
-                    slicerFirstLayerHeight === DEFAULT_PRINT_SETTINGS.slicerFirstLayerHeight &&
-                    pixelSize === DEFAULT_PRINT_SETTINGS.pixelSize
-                }
+                allDefault={arePrintSettingsDefault({
+                    layerHeight,
+                    slicerFirstLayerHeight,
+                    pixelSize,
+                    smoothMeshing,
+                })}
             />
 
             {/* Paint Mode Tabs */}
@@ -455,26 +650,59 @@ export default function ThreeDControls({
                     handleDeleteProfile={profileManager.handleDeleteProfile}
                     handleExportProfile={profileManager.handleExportProfile}
                     handleImportFile={profileManager.handleImportFile}
+                    handleRegisterPaletteProof={profileManager.handleRegisterPaletteProof}
+                    handleSetPaletteTargetResponse={profileManager.handleSetPaletteTargetResponse}
+                    handleCompletePaletteProofEvaluation={
+                        profileManager.handleCompletePaletteProofEvaluation
+                    }
+                    handleReopenPaletteProofEvaluation={
+                        profileManager.handleReopenPaletteProofEvaluation
+                    }
+                    handleDeletePaletteProof={profileManager.handleDeletePaletteProof}
+                    handleUpsertStackMatrixCalibration={
+                        profileManager.handleUpsertStackMatrixCalibration
+                    }
+                    handleDeleteStackMatrixCalibration={
+                        profileManager.handleDeleteStackMatrixCalibration
+                    }
                     autoPaintMaxHeight={autoPaintMaxHeight}
                     setAutoPaintMaxHeight={setAutoPaintMaxHeight}
                     autoPaintResult={autoPaintResult}
                     autoPaintSliceData={autoPaintSliceData}
                     isComputing={isAutoPaintComputing}
+                    progress={autoPaintProgress}
                     error={autoPaintError}
+                    printableFeatureSimulation={printableFeatureSimulation}
+                    printableFeatureIsComputing={isPrintableFeatureComputing}
+                    printLayerHeight={layerHeight}
                     calibrationLayerHeight={calibrationLayerHeight}
                     setCalibrationLayerHeight={setCalibrationLayerHeight}
-                    filteredCount={filtered.length}
-                    imageSwatches={filtered}
+                    firstLayerHeight={slicerFirstLayerHeight}
+                    filteredCount={printableSwatches.length}
+                    imageSwatches={printableSwatches}
+                    paletteProofImageSrc={imageSrc}
                     enhancedColorMatch={enhancedColorMatch}
                     setEnhancedColorMatch={handleEnhancedColorMatchChange}
-                    allowRepeatedSwaps={allowRepeatedSwaps}
-                    setAllowRepeatedSwaps={setAllowRepeatedSwaps}
+                    preserveSeparation={preserveSeparation}
+                    setPreserveSeparation={handlePreserveSeparationChange}
+                    separationMaxDeltaE={separationMaxDeltaE}
+                    setSeparationMaxDeltaE={setSeparationMaxDeltaE}
+                    failOnSeparationError={failOnSeparationError}
+                    setFailOnSeparationError={setFailOnSeparationError}
+                    maxRepeatedSwaps={maxRepeatedSwaps}
+                    setMaxRepeatedSwaps={setMaxRepeatedSwaps}
+                    transitionOpacity={transitionOpacity}
+                    setTransitionOpacity={setTransitionOpacity}
                     heightDithering={heightDithering}
-                    setHeightDithering={setHeightDithering}
+                    setHeightDithering={handleHeightDitheringChange}
                     ditherLineWidth={ditherLineWidth}
                     setDitherLineWidth={setDitherLineWidth}
+                    omitAtRiskPixels={omitAtRiskPixels}
+                    setOmitAtRiskPixels={setOmitAtRiskPixels}
                     flatPaint={flatPaint}
                     setFlatPaint={handleFlatPaintChange}
+                    flatPaintFaceUp={flatPaintFaceUp}
+                    setFlatPaintFaceUp={setFlatPaintFaceUp}
                     optimizerAlgorithm={optimizerAlgorithm}
                     setOptimizerAlgorithm={setOptimizerAlgorithm}
                     optimizerSeed={optimizerSeed}
@@ -485,17 +713,18 @@ export default function ThreeDControls({
 
                 {/* Manual Tab */}
                 <TabsContent value="manual" forceMount className="data-[state=inactive]:hidden">
-                    <Card className="p-4 border border-border/50">
-                        <div className="flex justify-between items-center mb-4">
-                            <div>
-                                <h4 className="font-semibold text-foreground">
-                                    Color Slice Heights
-                                </h4>
-                                <p className="text-xs text-muted-foreground mt-1">
-                                    Drag to reorder, adjust sliders to customize
-                                </p>
-                            </div>
-                            <div className="flex items-center gap-2">
+                    <CollapsibleCard
+                        id="color-slice-heights"
+                        title="Color Slice Heights"
+                        subtitle="Drag to reorder, adjust sliders to customize"
+                        headingLevel={4}
+                        collapsedSummary={
+                            !isResetState ? (
+                                <DirtyDot title="Color heights or order modified" />
+                            ) : undefined
+                        }
+                        actions={
+                            <>
                                 <button
                                     type="button"
                                     onClick={handleResetHeights}
@@ -509,22 +738,25 @@ export default function ThreeDControls({
                                 <span className="px-2 py-1 rounded-full bg-primary/10 text-primary text-xs font-semibold">
                                     {filtered.length} colors
                                 </span>
-                            </div>
-                        </div>
-                        <div className="h-px bg-border/50 mb-4" />
+                            </>
+                        }
+                    >
                         <Sortable
                             value={displayOrder.map(String)}
                             onValueChange={handleColorOrderChange}
-                            orientation="vertical">
+                            orientation="vertical"
+                        >
                             <SortableContent asChild>
                                 <div className="space-y-2">
                                     {displayOrder.length > 64 ? (
                                         <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-md text-sm text-destructive-foreground">
-                                            <p className="font-semibold mb-2">Too many colors ({displayOrder.length})</p>
+                                            <p className="font-semibold mb-2">
+                                                Too many colors ({displayOrder.length})
+                                            </p>
                                             <p>
-                                                The image has more than 64 unique colors. Please reduce
-                                                the image to fewer colors in 2D mode using the quantization
-                                                tools before switching to 3D mode.
+                                                The image has more than 64 unique colors. Please
+                                                reduce the image to fewer colors in 2D mode using
+                                                the quantization tools before switching to 3D mode.
                                             </p>
                                         </div>
                                     ) : (
@@ -554,21 +786,37 @@ export default function ThreeDControls({
                                 <div className="rounded-lg bg-primary/10 h-11" />
                             </SortableOverlay>
                         </Sortable>
-                    </Card>
+                    </CollapsibleCard>
                 </TabsContent>
             </Tabs>
 
             {/* Print Instructions */}
-            <PrintInstructions
-                swapPlan={swapPlan}
-                layerHeight={instructionLayerHeight}
-                slicerFirstLayerHeight={instructionSlicerFirstLayerHeight}
-                copied={copied}
-                onCopy={copyToClipboard}
-                tooManyColors={isInstructionOverLimit}
-                colorCount={instructionColorCount}
-                flatPaint={instructionFlatPaint}
-            />
+            {instructionAvailable ? (
+                <PrintInstructions
+                    swapPlan={swapPlan}
+                    layerHeight={instructionLayerHeight}
+                    slicerFirstLayerHeight={instructionSlicerFirstLayerHeight}
+                    copied={copied}
+                    onCopy={copyToClipboard}
+                    tooManyColors={isInstructionOverLimit}
+                    colorCount={instructionColorCount}
+                    flatPaint={instructionFlatPaint}
+                    flatPaintFaceUp={instructionFlatPaintFaceUp}
+                />
+            ) : (
+                <CollapsibleCard
+                    id="print-instructions"
+                    title="Print Instructions"
+                    subtitle="No valid Auto-paint model"
+                    headingLevel={4}
+                    className="mt-6"
+                >
+                    <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">
+                        Auto-paint did not produce a valid stack. Resolve the error above before
+                        building or generating print instructions.
+                    </div>
+                </CollapsibleCard>
+            )}
         </div>
     );
 }

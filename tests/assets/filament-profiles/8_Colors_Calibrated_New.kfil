@@ -1,0 +1,287 @@
+{
+  "id": "c2e9e401-d1bf-49c8-9166-1bdc487ffd64",
+  "name": "8 Colors Calibrated New",
+  "version": 1,
+  "filaments": [
+    {
+      "id": "p9c63ms",
+      "color": "#ffffff",
+      "td": 0.5077096875055095,
+      "calibration": {
+        "opacityLayers": 7,
+        "layerHeight": 0.08,
+        "firstLayerHeight": 0.16,
+        "td": [
+          0.4908894086367234,
+          0.5077096875055095,
+          0.49943726291595697
+        ],
+        "tdSingleValue": 0.5077096875055095,
+        "jnd": 2,
+        "baseColor": "#000000",
+        "confidence": 0.9587611519194583,
+        "basis": "frontlit",
+        "calibrationDate": "2026-07-02T15:07:54.797Z",
+        "reads": [
+          {
+            "baseColor": "#000000",
+            "opacityLayers": 7,
+            "mergeLayers": 5
+          },
+          {
+            "baseColor": "#00b8c4",
+            "opacityLayers": 7,
+            "mergeLayers": 4
+          }
+        ],
+        "channelSource": "measured",
+        "jndSource": "default"
+      }
+    },
+    {
+      "id": "plvjtmc",
+      "color": "#000000",
+      "td": 0.05,
+      "calibration": {
+        "opacityLayers": 1,
+        "layerHeight": 0.08,
+        "firstLayerHeight": 0.16,
+        "td": [
+          0.05,
+          0.05,
+          0.05
+        ],
+        "tdSingleValue": 0.05,
+        "jnd": 2,
+        "baseColor": "#6300c5",
+        "confidence": 0.467990454631796,
+        "basis": "frontlit",
+        "calibrationDate": "2026-07-02T15:07:54.806Z",
+        "reads": [
+          {
+            "baseColor": "#6300c5",
+            "opacityLayers": 1
+          },
+          {
+            "baseColor": "#ffffff",
+            "opacityLayers": 1
+          }
+        ],
+        "channelSource": "measured",
+        "jndSource": "default"
+      }
+    },
+    {
+      "id": "98z555k",
+      "color": "#ff5ec4",
+      "td": 0.519286177194662,
+      "calibration": {
+        "opacityLayers": 7,
+        "layerHeight": 0.08,
+        "firstLayerHeight": 0.16,
+        "td": [
+          0.519286177194662,
+          0.23963829238245016,
+          0.41680651754298187
+        ],
+        "tdSingleValue": 0.519286177194662,
+        "jnd": 2,
+        "baseColor": "#000000",
+        "confidence": 0.96,
+        "basis": "frontlit",
+        "calibrationDate": "2026-07-02T15:07:54.819Z",
+        "reads": [
+          {
+            "baseColor": "#000000",
+            "opacityLayers": 7,
+            "mergeLayers": 5
+          },
+          {
+            "baseColor": "#ffffff",
+            "opacityLayers": 5,
+            "mergeLayers": 4
+          }
+        ],
+        "channelSource": "measured",
+        "jndSource": "default"
+      }
+    },
+    {
+      "id": "w8cncoa",
+      "color": "#f7d000",
+      "td": 0.44542466216175114,
+      "calibration": {
+        "opacityLayers": 6,
+        "layerHeight": 0.08,
+        "firstLayerHeight": 0.16,
+        "td": [
+          0.44542466216175114,
+          0.3595734312582509,
+          0.0673046271932013
+        ],
+        "tdSingleValue": 0.44542466216175114,
+        "jnd": 2,
+        "baseColor": "#000000",
+        "confidence": 0.7999999999999999,
+        "basis": "frontlit",
+        "calibrationDate": "2026-07-02T15:07:54.838Z",
+        "reads": [
+          {
+            "baseColor": "#000000",
+            "opacityLayers": 6,
+            "mergeLayers": 5
+          },
+          {
+            "baseColor": "#ffffff",
+            "opacityLayers": 4,
+            "mergeLayers": 3
+          }
+        ],
+        "channelSource": "measured",
+        "jndSource": "default"
+      }
+    },
+    {
+      "id": "vsn9q6u",
+      "color": "#d83400",
+      "td": 0.5646261641279794,
+      "calibration": {
+        "opacityLayers": 8,
+        "layerHeight": 0.08,
+        "firstLayerHeight": 0.16,
+        "td": [
+          0.5646261641279794,
+          0.13741866688897755,
+          0.10291354194296926
+        ],
+        "tdSingleValue": 0.5646261641279794,
+        "jnd": 2,
+        "baseColor": "#000000",
+        "confidence": 0.9557348503300864,
+        "basis": "frontlit",
+        "calibrationDate": "2026-07-02T15:07:54.855Z",
+        "reads": [
+          {
+            "baseColor": "#000000",
+            "opacityLayers": 8,
+            "mergeLayers": 5
+          },
+          {
+            "baseColor": "#f7d000",
+            "opacityLayers": 4,
+            "mergeLayers": 3
+          }
+        ],
+        "channelSource": "measured",
+        "jndSource": "default"
+      }
+    },
+    {
+      "id": "azwg1yp",
+      "color": "#6300c5",
+      "td": 0.3743629711219067,
+      "calibration": {
+        "opacityLayers": 4,
+        "layerHeight": 0.08,
+        "firstLayerHeight": 0.16,
+        "td": [
+          0.22211060078297443,
+          0.06830463482833873,
+          0.3743629711219067
+        ],
+        "tdSingleValue": 0.3743629711219067,
+        "jnd": 2,
+        "baseColor": "#000000",
+        "confidence": 0.7999999999999999,
+        "basis": "frontlit",
+        "calibrationDate": "2026-07-02T15:07:54.868Z",
+        "reads": [
+          {
+            "baseColor": "#000000",
+            "opacityLayers": 4,
+            "mergeLayers": 3
+          },
+          {
+            "baseColor": "#ffffff",
+            "opacityLayers": 5,
+            "mergeLayers": 4
+          }
+        ],
+        "channelSource": "measured",
+        "jndSource": "default"
+      }
+    },
+    {
+      "id": "xyyxysq",
+      "color": "#00b8c4",
+      "td": 0.3725880555637347,
+      "calibration": {
+        "opacityLayers": 5,
+        "layerHeight": 0.08,
+        "firstLayerHeight": 0.16,
+        "td": [
+          0.06826408547833909,
+          0.353955975762588,
+          0.3725880555637347
+        ],
+        "tdSingleValue": 0.3725880555637347,
+        "jnd": 2,
+        "baseColor": "#000000",
+        "confidence": 0.7999999999999999,
+        "basis": "frontlit",
+        "calibrationDate": "2026-07-02T15:07:54.880Z",
+        "reads": [
+          {
+            "baseColor": "#000000",
+            "opacityLayers": 5,
+            "mergeLayers": 4
+          },
+          {
+            "baseColor": "#ffffff",
+            "opacityLayers": 5,
+            "mergeLayers": 4
+          }
+        ],
+        "channelSource": "measured",
+        "jndSource": "default"
+      }
+    },
+    {
+      "id": "upcjpfe",
+      "color": "#04bb00",
+      "td": 0.37055468605919367,
+      "calibration": {
+        "opacityLayers": 5,
+        "layerHeight": 0.08,
+        "firstLayerHeight": 0.16,
+        "td": [
+          0.1553450909824613,
+          0.37055468605919367,
+          0.07053705952903433
+        ],
+        "tdSingleValue": 0.37055468605919367,
+        "jnd": 2,
+        "baseColor": "#000000",
+        "confidence": 0.7946766727762713,
+        "basis": "frontlit",
+        "calibrationDate": "2026-07-02T15:07:54.898Z",
+        "reads": [
+          {
+            "baseColor": "#000000",
+            "opacityLayers": 5,
+            "mergeLayers": 4
+          },
+          {
+            "baseColor": "#f7d000",
+            "opacityLayers": 4,
+            "mergeLayers": 4
+          }
+        ],
+        "channelSource": "measured",
+        "jndSource": "default"
+      }
+    }
+  ],
+  "createdAt": 1783004932247,
+  "updatedAt": 1783004932247
+}

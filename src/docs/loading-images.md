@@ -7,15 +7,11 @@ description: Import, crop, pan, zoom, and manage the source image.
 
 # Loading Images
 
-Kromacut starts with one image. You can use your own image or the built-in TD test image.
+Kromacut starts with one image. You can use your own image or the app logo it loads by default.
 
 ## Choose A Source
 
 Use any normal image file Kromacut can open in the web app or standalone desktop build. The preview toolbar includes a file upload button, and the preview area accepts drag and drop while you are in **2D** mode.
-
-The header also includes **Load TD Test**. It loads a small bundled image for experimenting with Transmission Distance and layer ordering.
-
-![TD test image](td-test.png 'Bundled TD test image')
 
 ## Preview Controls
 
@@ -32,6 +28,14 @@ The 2D preview is intentionally pixel-crisp so the reduced image shows exact col
 Click **Crop** to enter crop mode. Drag the crop rectangle or its handles, then click **Save crop**. Use **Cancel crop** if you do not want to keep the selection.
 
 Cropping is useful before color reduction because it removes background areas that would otherwise influence the palette.
+
+## Touch Up Pixels
+
+The 2D preview toolbar includes five hard-edged tools for direct pixel editing. All edits are palette-safe: they use exact colors without blending, so no stray gradient pixels sneak into your palette. **Brush** paints with the selected color, **Eraser** makes pixels transparent, and **Fill** replaces a contiguous region of one exact color. **Text** creates bold, hard-edged lettering: click the image and type directly in an on-canvas text box that appears at that spot. The **color picker** lets you sample a color directly from the image and switches to Brush.
+
+Set the Brush and Eraser size with a slider (1–64 image pixels), with a size-accurate cursor outline to guide you. For Text, the text box supports multiple lines (press Enter) and word-wraps at its width—drag the handle on its right edge to adjust the wrap width, and drag the move handle (arrows icon) above the box to reposition it. The size slider and color control update your text draft live. Apply your text with the check button or Ctrl+Enter, or discard it with the X button or Escape; clicking elsewhere on the image or switching tools also applies the current text. Choose your color from the current image palette, use a custom color input, or use the color picker tool to sample from the image.
+
+Each completed stroke, fill, or text placement is exactly one **Undo** or **Redo** step. Drawing is live and never blocks the app. Press **Escape** to leave the active tool; while editing, middle-drag still pans and the mouse wheel still zooms. Image adjustments remain non-destructive: touch-up edits apply to the underlying source, and the active adjustments reapply on top.
 
 ## Resize The Image
 

@@ -50,6 +50,7 @@ type PixelMask = Uint8Array | Uint8ClampedArray | boolean[];
 const SMOOTH_VERTEX_MAX_MOVE = 0.49;
 const SMOOTH_BOUNDARY_ITERATIONS = 10;
 const SMOOTH_BOUNDARY_STRENGTH = 0.75;
+const THREE_MF_COORD_SCALE = 100_000;
 
 function progressInUnitSpan(index: number, count: number, start: number, span: number) {
     const fraction = (Math.max(0, Math.floor(index)) + 1) / Math.max(1, count);
@@ -125,10 +126,259 @@ function meshLabel(mesher: 'greedy' | 'smooth', label: string) {
     return mesher === 'smooth' ? label.replace('mesh', 'smooth mesh') : label;
 }
 
+function triangleArea2(a: Vector2, b: Vector2, c: Vector2) {
+    return (
+        (b.x - a.x) * (c.y - a.y) -
+        (b.y - a.y) * (c.x - a.x)
+    );
+}
+
+function pointInsideTriangle(
+    point: Vector2,
+    a: Vector2,
+    b: Vector2,
+    c: Vector2,
+    areaEpsilon: number
+) {
+    return (
+        triangleArea2(a, b, point) >= -areaEpsilon &&
+        triangleArea2(b, c, point) >= -areaEpsilon &&
+        triangleArea2(c, a, point) >= -areaEpsilon
+    );
+}
+
+function triangulateBoundaryByEarClipping(
+    points: Vector2[],
+    roundedPoints: Vector2[],
+    areaEpsilon: number
+) {
+    const remaining = points.map((_, index) => index);
+    const faces: Array<[number, number, number]> = [];
+
+    while (remaining.length > 3) {
+        let clippedEar = false;
+
+        for (let offset = 0; offset < remaining.length; offset++) {
+            const previous = remaining[(offset - 1 + remaining.length) % remaining.length];
+            const current = remaining[offset];
+            const next = remaining[(offset + 1) % remaining.length];
+            const a = points[previous];
+            const b = points[current];
+            const c = points[next];
+            if (
+                triangleArea2(a, b, c) <= areaEpsilon ||
+                triangleArea2(
+                    roundedPoints[previous],
+                    roundedPoints[current],
+                    roundedPoints[next]
+                ) <= Number.EPSILON
+            ) {
+                continue;
+            }
+
+            let containsBoundaryVertex = false;
+            for (const candidate of remaining) {
+                if (candidate === previous || candidate === current || candidate === next) continue;
+                if (pointInsideTriangle(points[candidate], a, b, c, areaEpsilon)) {
+                    containsBoundaryVertex = true;
+                    break;
+                }
+            }
+            if (containsBoundaryVertex) continue;
+
+            if (remaining.length === 4) {
+                const finalTriangle = remaining.filter((_, index) => index !== offset);
+                if (
+                    triangleArea2(
+                        points[finalTriangle[0]],
+                        points[finalTriangle[1]],
+                        points[finalTriangle[2]]
+                    ) <= areaEpsilon ||
+                    triangleArea2(
+                        roundedPoints[finalTriangle[0]],
+                        roundedPoints[finalTriangle[1]],
+                        roundedPoints[finalTriangle[2]]
+                    ) <= Number.EPSILON
+                ) {
+                    continue;
+                }
+            }
+
+            faces.push([previous, current, next]);
+            remaining.splice(offset, 1);
+            clippedEar = true;
+            break;
+        }
+
+        if (!clippedEar) return null;
+    }
+
+    if (
+        remaining.length !== 3 ||
+        triangleArea2(points[remaining[0]], points[remaining[1]], points[remaining[2]]) <=
+            areaEpsilon ||
+        triangleArea2(
+            roundedPoints[remaining[0]],
+            roundedPoints[remaining[1]],
+            roundedPoints[remaining[2]]
+        ) <= Number.EPSILON
+    ) {
+        return null;
+    }
+
+    faces.push([remaining[0], remaining[1], remaining[2]]);
+    return faces;
+}
+
+/**
+ * Earcut may omit collinear boundary vertices. Restore those vertices so cap
+ * edges still pair exactly with wall edges, then validate both mesh and slicer precision.
+ */
+function triangulateBoundaryPreservingVertices(
+    points: Vector2[],
+    roundedPoints: Vector2[],
+    areaEpsilon: number
+) {
+    const fastFaces = ShapeUtils.triangulateShape(roundedPoints, []).map(
+        ([a, b, c]) => [a, b, c] as [number, number, number]
+    );
+    const boundaryEdgeKeys = new Set<string>();
+    const edgeKey = (a: number, b: number) => (a < b ? `${a}|${b}` : `${b}|${a}`);
+    for (let index = 0; index < points.length; index++) {
+        boundaryEdgeKeys.add(edgeKey(index, (index + 1) % points.length));
+    }
+    const triangulateFallback = () =>
+        triangulateBoundaryByEarClipping(points, roundedPoints, areaEpsilon);
+
+    const findBoundaryChain = (start: number, end: number) => {
+        const a = roundedPoints[start];
+        const b = roundedPoints[end];
+        const segmentX = b.x - a.x;
+        const segmentY = b.y - a.y;
+        const segmentLengthSquared = segmentX * segmentX + segmentY * segmentY;
+        // roundedPoints are exact integer coordinate units, so genuinely
+        // collinear chains have area exactly 0 and integer projections.
+        const collinearEpsilon = 0.5;
+
+        const collect = (step: 1 | -1) => {
+            const chain = [start];
+            let cursor = start;
+            for (let guard = 0; guard < points.length; guard++) {
+                cursor = (cursor + step + points.length) % points.length;
+                chain.push(cursor);
+                if (cursor === end) break;
+            }
+            if (chain[chain.length - 1] !== end || chain.length <= 2) return null;
+
+            let previousProjection = -Infinity;
+            for (const vertex of chain) {
+                const point = roundedPoints[vertex];
+                if (Math.abs(triangleArea2(a, point, b)) > collinearEpsilon) return null;
+                const projection =
+                    (point.x - a.x) * segmentX + (point.y - a.y) * segmentY;
+                if (
+                    projection < previousProjection - collinearEpsilon ||
+                    projection < -collinearEpsilon ||
+                    projection > segmentLengthSquared + collinearEpsilon
+                ) {
+                    return null;
+                }
+                previousProjection = projection;
+            }
+            return chain;
+        };
+
+        return collect(1) ?? collect(-1);
+    };
+
+    const edgeUses = new Map<string, { count: number; start: number; end: number }>();
+    for (const face of fastFaces) {
+        for (let offset = 0; offset < 3; offset++) {
+            const start = face[offset];
+            const end = face[(offset + 1) % 3];
+            const key = edgeKey(start, end);
+            const use = edgeUses.get(key);
+            if (use) use.count++;
+            else edgeUses.set(key, { count: 1, start, end });
+        }
+    }
+
+    const faces = fastFaces.slice();
+    for (const use of edgeUses.values()) {
+        if (use.count !== 1) continue;
+        if (boundaryEdgeKeys.has(edgeKey(use.start, use.end))) continue;
+        const chain = findBoundaryChain(use.start, use.end);
+        if (!chain) continue;
+
+        let targetFaceIndex = -1;
+        let targetEdgeOffset = -1;
+        let directedChain = chain;
+        for (let faceIndex = 0; faceIndex < faces.length && targetFaceIndex < 0; faceIndex++) {
+            const face = faces[faceIndex];
+            for (let offset = 0; offset < 3; offset++) {
+                const start = face[offset];
+                const end = face[(offset + 1) % 3];
+                if (start === use.start && end === use.end) {
+                    targetFaceIndex = faceIndex;
+                    targetEdgeOffset = offset;
+                    break;
+                }
+                if (start === use.end && end === use.start) {
+                    targetFaceIndex = faceIndex;
+                    targetEdgeOffset = offset;
+                    directedChain = chain.slice().reverse();
+                    break;
+                }
+            }
+        }
+        if (targetFaceIndex < 0) {
+            return triangulateFallback();
+        }
+
+        const targetFace = faces[targetFaceIndex];
+        const opposite = targetFace[(targetEdgeOffset + 2) % 3];
+        const replacements: Array<[number, number, number]> = [];
+        for (let index = 0; index + 1 < directedChain.length; index++) {
+            replacements.push([directedChain[index], directedChain[index + 1], opposite]);
+        }
+        faces.splice(targetFaceIndex, 1, ...replacements);
+    }
+
+    const finalEdgeCounts = new Map<string, number>();
+    for (const [a, b, c] of faces) {
+        if (
+            triangleArea2(points[a], points[b], points[c]) <= areaEpsilon ||
+            triangleArea2(roundedPoints[a], roundedPoints[b], roundedPoints[c]) <= Number.EPSILON
+        ) {
+            return triangulateFallback();
+        }
+        for (const [start, end] of [
+            [a, b],
+            [b, c],
+            [c, a],
+        ]) {
+            const key = edgeKey(start, end);
+            finalEdgeCounts.set(key, (finalEdgeCounts.get(key) ?? 0) + 1);
+        }
+    }
+    for (const [key, count] of finalEdgeCounts) {
+        if (count !== (boundaryEdgeKeys.has(key) ? 1 : 2)) {
+            return triangulateFallback();
+        }
+    }
+    for (const key of boundaryEdgeKeys) {
+        if (finalEdgeCounts.get(key) !== 1) {
+            return triangulateFallback();
+        }
+    }
+
+    return faces;
+}
+
 /**
  * Smooth meshing uses the same welded topology as greedy meshing, then moves only
- * shared boundary grid vertices inward at corners. That keeps runtime linear in
- * the grid scan and avoids contour triangulation stalls on dither-heavy images.
+ * shared boundary grid vertices inward at corners. This avoids tracing whole-mask
+ * contours; each welded rectangle cap is triangulated independently below.
  */
 function createGridVertexMapper(
     meshingPixels: PixelMask,
@@ -325,12 +575,6 @@ async function generateGridMesh(
         indices.push(v0, v1, v2);
         indices.push(v0, v2, v3);
     };
-    const addLooseVertex = (x: number, y: number, isTop: boolean) => {
-        const idx = vertCount++;
-        positions.push(x * pixelSize, y * pixelSize, isTop ? zTop : zBottom);
-        return idx;
-    };
-
     const rectangles: Rect[] = [];
     const visited = new Uint8Array(width * height);
     reportProgress({
@@ -492,25 +736,46 @@ async function generateGridMesh(
             bottomLoop[i] = getOrAddVertex(vx, vy, false);
         }
 
-        if (options.smoothBoundary) {
-            const centerX = x + w / 2;
-            const centerY = y + h / 2;
-            const topCenter = addLooseVertex(centerX, centerY, true);
-            const bottomCenter = addLooseVertex(centerX, centerY, false);
+        const facePoints = boundary.map(([vx, vy]) => {
+            if (!options.smoothBoundary) return new Vector2(vx, vy);
 
-            for (let i = 0; i < boundary.length; i++) {
-                const next = (i + 1) % boundary.length;
-                indices.push(topCenter, topLoop[i], topLoop[next]);
-                indices.push(bottomCenter, bottomLoop[next], bottomLoop[i]);
-            }
-        } else {
-            const facePoints = boundary.map(([vx, vy]) => new Vector2(vx, vy));
-            const faces = ShapeUtils.triangulateShape(facePoints, []);
+            const [mappedX, mappedY] = getGridVertexXY(vx, vy);
+            return new Vector2(
+                Math.fround(mappedX * pixelSize),
+                Math.fround(mappedY * pixelSize)
+            );
+        });
+        // Cap points in integer 3MF coordinate units — the exact grid the
+        // exporter serializes and welds on. Degeneracy checks on these
+        // integers agree with the exporter bit-for-bit, so every cap face the
+        // mesher accepts survives export. (Checking quantized-back floats
+        // against an epsilon lets through faces whose integer area is exactly
+        // zero; the exporter then drops them, leaving holes that slicers
+        // report as non-manifold edges.)
+        const roundedFacePoints = options.smoothBoundary
+            ? facePoints.map(
+                  (point) =>
+                      new Vector2(
+                          Math.round(point.x * THREE_MF_COORD_SCALE),
+                          Math.round(point.y * THREE_MF_COORD_SCALE)
+                      )
+              )
+            : facePoints;
+        const capAreaEpsilon = Math.max(Number.EPSILON, 1e-8 * pixelSize * pixelSize);
+        const faces = options.smoothBoundary
+            ? triangulateBoundaryPreservingVertices(
+                  facePoints,
+                  roundedFacePoints,
+                  capAreaEpsilon
+              )
+            : ShapeUtils.triangulateShape(facePoints, []);
+        if (!faces) {
+            throw new Error('Unable to triangulate a smoothed cap without breaking topology');
+        }
 
-            for (const [a, b, c] of faces) {
-                indices.push(topLoop[a], topLoop[b], topLoop[c]);
-                indices.push(bottomLoop[a], bottomLoop[c], bottomLoop[b]);
-            }
+        for (const [a, b, c] of faces) {
+            indices.push(topLoop[a], topLoop[b], topLoop[c]);
+            indices.push(bottomLoop[a], bottomLoop[c], bottomLoop[b]);
         }
 
         await maybeYield();

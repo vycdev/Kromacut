@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 import type { Filament } from '../types';
-import { estimateTDFromColor } from '../lib/colorUtils';
+import { estimateHidingDistanceFromColor } from '../lib/colorUtils';
 
 export interface UseFilamentsOptions {
     initial?: Filament[];
@@ -16,7 +16,7 @@ export function useFilaments(options: UseFilamentsOptions = {}) {
             {
                 id: Math.random().toString(36).substring(2, 9),
                 color: defaultColor,
-                td: estimateTDFromColor(defaultColor),
+                td: estimateHidingDistanceFromColor(defaultColor),
             },
         ]);
     }, []);

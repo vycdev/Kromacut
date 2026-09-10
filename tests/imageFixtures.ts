@@ -41,6 +41,11 @@ interface JpegLuminanceBlocks {
     blockWidth: number;
     blockHeight: number;
     values: Float32Array;
+    componentIds: number[];
+    componentBlocks: Map<
+        number,
+        { blockWidth: number; blockHeight: number; values: Float32Array }
+    >;
 }
 
 export const testAssetsRoot = resolve(dirname(fileURLToPath(import.meta.url)), 'assets');
@@ -446,6 +451,22 @@ function readJpegLuminanceBlocks(filePath: string): JpegLuminanceBlocks {
     const values = new Float32Array(blockWidth * blockHeight);
     values.fill(255);
 
+    const componentBlocks = new Map<
+        number,
+        { blockWidth: number; blockHeight: number; values: Float32Array }
+    >();
+    for (const component of components) {
+        const componentBlockWidth = mcusX * component.horizontalSampling;
+        const componentBlockHeight = mcusY * component.verticalSampling;
+        const componentValues = new Float32Array(componentBlockWidth * componentBlockHeight);
+        componentValues.fill(128);
+        componentBlocks.set(component.id, {
+            blockWidth: componentBlockWidth,
+            blockHeight: componentBlockHeight,
+            values: componentValues,
+        });
+    }
+
     const reader = new JpegBitReader(data, entropyOffset);
     const dcPredictors = new Map<number, number>();
     const luminanceComponentId = components[0].id;
@@ -482,15 +503,25 @@ function readJpegLuminanceBlocks(filePath: string): JpegLuminanceBlocks {
                         dcPredictors.set(component.id, dc);
                         skipJpegBlockAc(reader, acTable);
 
-                        if (component.id === luminanceComponentId) {
-                            const blockX = mcuX * maxHorizontalSampling + bx;
-                            const blockY = mcuY * maxVerticalSampling + by;
+                        const componentBlock = componentBlocks.get(component.id);
+                        assert.ok(componentBlock, `Missing block storage for component ${component.id}`);
+                        const blockX = mcuX * component.horizontalSampling + bx;
+                        const blockY = mcuY * component.verticalSampling + by;
+                        const average = Math.max(
+                            0,
+                            Math.min(255, (dc * quantizationTable[0]) / 8 + 128)
+                        );
 
+                        if (
+                            blockX < componentBlock.blockWidth &&
+                            blockY < componentBlock.blockHeight
+                        ) {
+                            componentBlock.values[blockY * componentBlock.blockWidth + blockX] =
+                                average;
+                        }
+
+                        if (component.id === luminanceComponentId) {
                             if (blockX < blockWidth && blockY < blockHeight) {
-                                const average = Math.max(
-                                    0,
-                                    Math.min(255, (dc * quantizationTable[0]) / 8 + 128)
-                                );
                                 values[blockY * blockWidth + blockX] = average;
                             }
                         }
@@ -502,9 +533,76 @@ function readJpegLuminanceBlocks(filePath: string): JpegLuminanceBlocks {
         }
     }
 
-    const result = { width, height, blockWidth, blockHeight, values };
+    const result = {
+        width,
+        height,
+        blockWidth,
+        blockHeight,
+        values,
+        componentIds: components.map((component) => component.id),
+        componentBlocks,
+    };
     jpegLuminanceBlockCache.set(filePath, result);
     return result;
+}
+
+/**
+ * Create a compact, stable color histogram from a baseline JPEG's DC blocks.
+ *
+ * The existing test decoder intentionally skips AC coefficients because mesh
+ * fixtures only need image structure. For auto-paint regression coverage we
+ * reuse those block averages: they preserve broad image colors while keeping
+ * the fixture fast to load and dependency-free.
+ */
+export function colorSwatchesFromJpegBlocks(
+    filePath: string,
+    maxColors: number = 4096
+): Array<{ hex: string; count: number }> {
+    const image = readJpegLuminanceBlocks(filePath);
+    const [luminanceId, cbId, crId] = image.componentIds;
+    const luminanceBlocks = image.componentBlocks.get(luminanceId);
+    const cbBlocks = cbId === undefined ? undefined : image.componentBlocks.get(cbId);
+    const crBlocks = crId === undefined ? undefined : image.componentBlocks.get(crId);
+    assert.ok(luminanceBlocks, 'JPEG fixture should include a luminance component');
+
+    const counts = new Map<string, number>();
+    const clampByte = (value: number) => Math.max(0, Math.min(255, Math.round(value)));
+    const quantize = (value: number) => Math.min(255, Math.round(value / 16) * 16);
+    const sample = (
+        component: { blockWidth: number; blockHeight: number; values: Float32Array },
+        x: number,
+        y: number
+    ) => {
+        const sourceX = Math.min(
+            component.blockWidth - 1,
+            Math.floor((x * component.blockWidth) / image.blockWidth)
+        );
+        const sourceY = Math.min(
+            component.blockHeight - 1,
+            Math.floor((y * component.blockHeight) / image.blockHeight)
+        );
+        return component.values[sourceY * component.blockWidth + sourceX];
+    };
+
+    for (let y = 0; y < image.blockHeight; y++) {
+        for (let x = 0; x < image.blockWidth; x++) {
+            const luminance = sample(luminanceBlocks, x, y);
+            const cb = cbBlocks ? sample(cbBlocks, x, y) : 128;
+            const cr = crBlocks ? sample(crBlocks, x, y) : 128;
+            const r = quantize(clampByte(luminance + 1.402 * (cr - 128)));
+            const g = quantize(clampByte(luminance - 0.344136 * (cb - 128) - 0.714136 * (cr - 128)));
+            const b = quantize(clampByte(luminance + 1.772 * (cb - 128)));
+            const hex = `#${[r, g, b]
+                .map((value) => value.toString(16).padStart(2, '0'))
+                .join('')}`;
+            counts.set(hex, (counts.get(hex) ?? 0) + 1);
+        }
+    }
+
+    return Array.from(counts.entries())
+        .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+        .slice(0, maxColors)
+        .map(([hex, count]) => ({ hex, count }));
 }
 
 export function maskFromPngAlpha(filePath: string, maxSide: number): RasterMask {

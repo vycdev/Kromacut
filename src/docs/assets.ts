@@ -1,9 +1,17 @@
 import logoImage from '@/assets/logo.png';
 import tdTestImage from '@/assets/tdTest.png';
+import diagramFrontlitHd from '@/assets/diagrams/06_frontlit_hiding_distance.svg';
+import diagramCalibrationWedge from '@/assets/diagrams/07_calibration_wedge.svg';
+import diagramOpacitySolve from '@/assets/diagrams/08_opacity_solve.svg';
+import diagramPaletteProof from '@/assets/diagrams/09_palette_proof.svg';
 
 const DOC_ASSETS: Record<string, string> = {
     'kromacut-logo.png': logoImage,
     'td-test.png': tdTestImage,
+    '06_frontlit_hiding_distance.svg': diagramFrontlitHd,
+    '07_calibration_wedge.svg': diagramCalibrationWedge,
+    '08_opacity_solve.svg': diagramOpacitySolve,
+    '09_palette_proof.svg': diagramPaletteProof,
 };
 
 export function resolveDocAsset(src: string): string | undefined {

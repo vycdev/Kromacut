@@ -1,13 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { resolve } from 'node:path';
 import * as THREE from 'three';
 import JSZip from 'jszip';
-import { createServer } from 'vite';
 import {
     buildFlatPaintLayout,
     heightMapToFlatPaintLayerCounts,
     heightMapToLayerCounts,
+    orientFlatPaintLayerCounts,
     FLAT_PAINT_CARRIER_GROUP,
     FLAT_PAINT_CARRIER_HEX,
     type FlatPaintLayout,
@@ -15,6 +14,7 @@ import {
 } from '../src/lib/flatPaint.ts';
 import { generateGreedyMesh, type MeshData } from '../src/lib/meshing.ts';
 import { exportObjectToStlBlob } from '../src/lib/exportStl.ts';
+import { loadViteModule } from './helpers/viteModule.ts';
 import { inspectMeshIntegrity, type MeshIntegrityReport } from './meshDiagnostics.ts';
 
 type Export3mfModule = typeof import('../src/lib/export3mf.ts');
@@ -25,34 +25,6 @@ async function loadExport3mfModule(): Promise<Export3mfModule> {
     export3mfModule ??= loadViteModule<Export3mfModule>('/src/lib/export3mf.ts');
 
     return export3mfModule;
-}
-
-async function loadViteModule<T>(modulePath: string): Promise<T> {
-    const server = await createServer({
-        appType: 'custom',
-        cacheDir: 'dist/.vite-test-cache',
-        configFile: false,
-        logLevel: 'error',
-        optimizeDeps: {
-            noDiscovery: true,
-        },
-        resolve: {
-            alias: {
-                '@': resolve(process.cwd(), 'src'),
-            },
-        },
-        root: process.cwd(),
-        server: {
-            hmr: false,
-            middlewareMode: true,
-        },
-    });
-
-    try {
-        return (await server.ssrLoadModule(modulePath)) as T;
-    } finally {
-        await server.close();
-    }
 }
 
 const noYieldOptions = {
@@ -173,6 +145,16 @@ test('heightMapToFlatPaintLayerCounts lets the carrier absorb the thick first la
     assert.deepEqual(Array.from(counts), [1, 1, 2, 3, 0]);
 });
 
+test('Flat Paint orientation mirrors only the face-down layout', () => {
+    const counts = Uint16Array.from([1, 2, 3, 4]);
+
+    assert.deepEqual(Array.from(orientFlatPaintLayerCounts(counts, 2, 2, 'face-up')), [3, 4, 1, 2]);
+    assert.deepEqual(
+        Array.from(orientFlatPaintLayerCounts(counts, 2, 2, 'face-down')),
+        [4, 3, 2, 1]
+    );
+});
+
 test('Flat Paint layout tiles every opaque pixel column without gaps or overlaps', () => {
     const layout = buildFixtureLayout();
 
@@ -265,6 +247,97 @@ test('Flat Paint layout reverses columns: visible blend at the plate, foundation
         { kind: 'face', previewHex: '#F0F0F0', filamentHex: '#FFFFFF', baseZ: 0.2, topZ: 0.3 },
         { kind: 'zone', previewHex: '#000000', filamentHex: '#000000', baseZ: 0.3, topZ: 0.5 },
     ]);
+});
+
+test('face-up Flat Paint removes the carrier and preserves normal stacks at the slab top', () => {
+    const layout = buildFlatPaintLayout({
+        ...FIXTURE,
+        orientation: 'face-up',
+        firstLayerThickness: 0.2,
+    });
+
+    assert.equal(layout.carrierThickness, 0);
+    assert.equal(Number(layout.totalHeight.toFixed(6)), 0.4);
+    assert.equal(
+        layout.parts.some((part) => part.kind === 'carrier'),
+        false
+    );
+    assert.equal(
+        layout.parts.some((part) => part.exportGroup === FLAT_PAINT_CARRIER_GROUP),
+        false
+    );
+
+    const simplifiedColumn = (pixel: number) =>
+        partsCoveringPixel(layout, pixel).map((part) => ({
+            kind: part.kind,
+            previewHex: part.previewHex,
+            filamentHex: part.filamentHex,
+            baseZ: Number(part.baseZ.toFixed(6)),
+            topZ: Number(part.topZ.toFixed(6)),
+        }));
+
+    assert.deepEqual(simplifiedColumn(0), [
+        {
+            kind: 'backing',
+            previewHex: '#000000',
+            filamentHex: '#000000',
+            baseZ: 0,
+            topZ: 0.3,
+        },
+        {
+            kind: 'face',
+            previewHex: '#101010',
+            filamentHex: '#000000',
+            baseZ: 0.3,
+            topZ: 0.4,
+        },
+    ]);
+    assert.deepEqual(simplifiedColumn(1), [
+        {
+            kind: 'backing',
+            previewHex: '#000000',
+            filamentHex: '#000000',
+            baseZ: 0,
+            topZ: 0.2,
+        },
+        {
+            kind: 'zone',
+            previewHex: '#000000',
+            filamentHex: '#000000',
+            baseZ: 0.2,
+            topZ: 0.3,
+        },
+        {
+            kind: 'face',
+            previewHex: '#808080',
+            filamentHex: '#000000',
+            baseZ: 0.3,
+            topZ: 0.4,
+        },
+    ]);
+    assert.deepEqual(simplifiedColumn(2), [
+        {
+            kind: 'zone',
+            previewHex: '#000000',
+            filamentHex: '#000000',
+            baseZ: 0,
+            topZ: 0.3,
+        },
+        {
+            kind: 'face',
+            previewHex: '#F0F0F0',
+            filamentHex: '#FFFFFF',
+            baseZ: 0.3,
+            topZ: 0.4,
+        },
+    ]);
+
+    for (let pixel = 0; pixel < FIXTURE.width * FIXTURE.height; pixel++) {
+        if (FIXTURE.layerCounts[pixel] === 0) continue;
+        const covering = partsCoveringPixel(layout, pixel);
+        assert.equal(covering[0].baseZ, 0);
+        assert.equal(Number(covering.at(-1)?.topZ.toFixed(6)), 0.4);
+    }
 });
 
 test('Flat Paint layout trims trailing stack layers no pixel reaches', () => {
@@ -360,8 +433,7 @@ test('Flat Paint part masks produce manifold greedy meshes', async () => {
     }
 });
 
-async function buildFixturePartMeshes() {
-    const layout = buildFixtureLayout();
+async function buildFixturePartMeshes(layout = buildFixtureLayout()) {
     const pixelSize = 0.1;
     const root = new THREE.Group();
 
@@ -573,5 +645,38 @@ test('3MF export merges Flat Paint parts into one object per filament', async ()
             0,
             `${object.name} should consist of closed shells (bad edges found)`
         );
+    }
+});
+
+test('face-up Flat Paint 3MF omits the transparent carrier object and material', async () => {
+    installFileReaderPolyfill();
+    const { exportObjectTo3MFBlob } = await loadExport3mfModule();
+    const layout = buildFlatPaintLayout({
+        ...FIXTURE,
+        orientation: 'face-up',
+        firstLayerThickness: 0.2,
+    });
+    const { root } = await buildFixturePartMeshes(layout);
+
+    const blob = await exportObjectTo3MFBlob(root);
+    const zip = await JSZip.loadAsync(await blob.arrayBuffer());
+    const modelFile = zip.file('3D/3dmodel.model');
+    assert.ok(modelFile, '3MF archive should contain a model file');
+
+    const modelXml = await modelFile.async('string');
+    const objects = parse3mfMeshObjects(modelXml);
+    const baseMaterials = Array.from(
+        modelXml.matchAll(/<base name="([0-9A-F]{6})"/g),
+        (match) => match[1]
+    );
+
+    assert.deepEqual(
+        objects.map((object) => object.name),
+        ['Flat Paint filament (#000000)', 'Flat Paint filament (#FFFFFF)']
+    );
+    assert.deepEqual(baseMaterials, ['000000', 'FFFFFF']);
+    assert.equal(modelXml.includes('transparent carrier'), false);
+    for (const object of objects) {
+        assert.equal(object.badEdgeCount, 0, `${object.name} should contain only closed shells`);
     }
 });

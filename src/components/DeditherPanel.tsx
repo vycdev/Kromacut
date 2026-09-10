@@ -2,7 +2,7 @@ import React, { useCallback, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Label } from '@/components/ui/label';
-import { Card } from '@/components/ui/card';
+import { CollapsibleCard, DirtyDot } from '@/components/CollapsibleCard';
 import { RotateCcw, Check, Loader } from 'lucide-react';
 import type { CanvasPreviewHandle } from './CanvasPreview';
 import { deditherRowProgress } from '../lib/progress';
@@ -218,12 +218,21 @@ export const DeditherPanel: React.FC<Props> = ({
     }, []);
 
     return (
-        <Card className="p-4 border border-border/50 space-y-4">
-            <div className="flex items-start justify-between gap-2">
-                <div className="space-y-1">
-                    <h3 className="text-sm font-semibold text-foreground">Dedither</h3>
-                    <p className="text-xs text-muted-foreground">Smooth dithered patterns</p>
-                </div>
+        <CollapsibleCard
+            id="dedither"
+            title="Dedither"
+            subtitle="Smooth dithered patterns"
+            collapsedSummary={
+                working ? (
+                    <Loader
+                        className="w-4 h-4 animate-spin text-muted-foreground"
+                        aria-label="Applying dedither"
+                    />
+                ) : !allDefault ? (
+                    <DirtyDot title="Dedither settings modified" />
+                ) : undefined
+            }
+            actions={
                 <button
                     type="button"
                     onClick={handleResetAll}
@@ -234,102 +243,102 @@ export const DeditherPanel: React.FC<Props> = ({
                 >
                     <RotateCcw className="w-4 h-4" />
                 </button>
-            </div>
-
-            <div className="h-px bg-border/50" />
-
-            <div className="space-y-2">
-                <div className="flex justify-between items-center text-sm gap-2">
-                    <Label htmlFor="weight-slider" className="font-medium">
-                        Weight
-                    </Label>
-                    <div className="flex items-center gap-2">
-                        <span className="px-2 py-1 rounded-full bg-primary/10 text-primary text-xs font-mono font-semibold">
-                            {weight}
-                        </span>
-                        <button
-                            type="button"
-                            onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                setWeight(DEFAULT_WEIGHT);
-                            }}
-                            disabled={weight === DEFAULT_WEIGHT}
-                            title="Reset weight to default"
-                            aria-label="Reset weight"
-                            className="h-5 w-5 flex-shrink-0 flex items-center justify-center rounded-md text-muted-foreground hover:text-amber-600 hover:bg-amber-600/15 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-muted-foreground select-none cursor-pointer"
-                        >
-                            <RotateCcw className="w-3.5 h-3.5" />
-                        </button>
+            }
+        >
+            <div className="space-y-4">
+                <div className="space-y-2">
+                    <div className="flex justify-between items-center text-sm gap-2">
+                        <Label htmlFor="weight-slider" className="font-medium">
+                            Weight
+                        </Label>
+                        <div className="flex items-center gap-2">
+                            <span className="px-2 py-1 rounded-full bg-primary/10 text-primary text-xs font-mono font-semibold">
+                                {weight}
+                            </span>
+                            <button
+                                type="button"
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    setWeight(DEFAULT_WEIGHT);
+                                }}
+                                disabled={weight === DEFAULT_WEIGHT}
+                                title="Reset weight to default"
+                                aria-label="Reset weight"
+                                className="h-5 w-5 flex-shrink-0 flex items-center justify-center rounded-md text-muted-foreground hover:text-amber-600 hover:bg-amber-600/15 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-muted-foreground select-none cursor-pointer"
+                            >
+                                <RotateCcw className="w-3.5 h-3.5" />
+                            </button>
+                        </div>
                     </div>
+                    <Slider
+                        id="weight-slider"
+                        data-testid="dedither-weight-slider"
+                        aria-label="Dedither weight"
+                        min={1}
+                        max={9}
+                        step={1}
+                        value={[weight]}
+                        onValueChange={(value) => setWeight(value[0])}
+                        className="w-full"
+                    />
                 </div>
-                <Slider
-                    id="weight-slider"
-                    data-testid="dedither-weight-slider"
-                    aria-label="Dedither weight"
-                    min={1}
-                    max={9}
-                    step={1}
-                    value={[weight]}
-                    onValueChange={(value) => setWeight(value[0])}
-                    className="w-full"
-                />
-            </div>
 
-            <div className="space-y-2">
-                <div className="flex justify-between items-center text-sm gap-2">
-                    <Label htmlFor="passes-slider" className="font-medium">
-                        Passes
-                    </Label>
-                    <div className="flex items-center gap-2">
-                        <span className="px-2 py-1 rounded-full bg-primary/10 text-primary text-xs font-mono font-semibold">
-                            {passes}
-                        </span>
-                        <button
-                            type="button"
-                            onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                setPasses(DEFAULT_PASSES);
-                            }}
-                            disabled={passes === DEFAULT_PASSES}
-                            title="Reset passes to default"
-                            aria-label="Reset passes"
-                            className="h-5 w-5 flex-shrink-0 flex items-center justify-center rounded-md text-muted-foreground hover:text-amber-600 hover:bg-amber-600/15 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-muted-foreground select-none cursor-pointer"
-                        >
-                            <RotateCcw className="w-3.5 h-3.5" />
-                        </button>
+                <div className="space-y-2">
+                    <div className="flex justify-between items-center text-sm gap-2">
+                        <Label htmlFor="passes-slider" className="font-medium">
+                            Passes
+                        </Label>
+                        <div className="flex items-center gap-2">
+                            <span className="px-2 py-1 rounded-full bg-primary/10 text-primary text-xs font-mono font-semibold">
+                                {passes}
+                            </span>
+                            <button
+                                type="button"
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    setPasses(DEFAULT_PASSES);
+                                }}
+                                disabled={passes === DEFAULT_PASSES}
+                                title="Reset passes to default"
+                                aria-label="Reset passes"
+                                className="h-5 w-5 flex-shrink-0 flex items-center justify-center rounded-md text-muted-foreground hover:text-amber-600 hover:bg-amber-600/15 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-muted-foreground select-none cursor-pointer"
+                            >
+                                <RotateCcw className="w-3.5 h-3.5" />
+                            </button>
+                        </div>
                     </div>
+                    <Slider
+                        id="passes-slider"
+                        data-testid="dedither-passes-slider"
+                        aria-label="Dedither passes"
+                        min={1}
+                        max={10}
+                        step={1}
+                        value={[passes]}
+                        onValueChange={(value) => setPasses(value[0])}
+                        className="w-full"
+                    />
                 </div>
-                <Slider
-                    id="passes-slider"
-                    data-testid="dedither-passes-slider"
-                    aria-label="Dedither passes"
-                    min={1}
-                    max={10}
-                    step={1}
-                    value={[passes]}
-                    onValueChange={(value) => setPasses(value[0])}
-                    className="w-full"
-                />
+
+                <div className="h-px bg-border/50" />
+
+                <Button
+                    onClick={handleApply}
+                    data-testid="dedither-apply"
+                    disabled={working}
+                    className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold disabled:bg-green-600/50 disabled:cursor-not-allowed transition-all duration-200 shadow-md hover:shadow-lg active:scale-95 gap-1.5"
+                >
+                    {working ? (
+                        <Loader className="w-4 h-4 animate-spin" />
+                    ) : (
+                        <Check className="w-4 h-4" />
+                    )}
+                    <span>{working ? 'Applying...' : 'Apply'}</span>
+                </Button>
             </div>
-
-            <div className="h-px bg-border/50" />
-
-            <Button
-                onClick={handleApply}
-                data-testid="dedither-apply"
-                disabled={working}
-                className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold disabled:bg-green-600/50 disabled:cursor-not-allowed transition-all duration-200 shadow-md hover:shadow-lg active:scale-95 gap-1.5"
-            >
-                {working ? (
-                    <Loader className="w-4 h-4 animate-spin" />
-                ) : (
-                    <Check className="w-4 h-4" />
-                )}
-                <span>{working ? 'Applying...' : 'Apply'}</span>
-            </Button>
-        </Card>
+        </CollapsibleCard>
     );
 };
 

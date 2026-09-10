@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Card } from '@/components/ui/card';
+import { CollapsibleCard, DirtyDot } from '@/components/CollapsibleCard';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { RotateCcw } from 'lucide-react';
@@ -127,14 +127,14 @@ export default function PrintSettingsCard({
     );
 
     return (
-        <Card className="p-4 border border-border/50">
-            <div className="flex items-start justify-between gap-2">
-                <div className="space-y-1">
-                    <h3 className="text-sm font-semibold text-foreground">3D Print Settings</h3>
-                    <p className="text-xs text-muted-foreground">
-                        Configure your printing parameters
-                    </p>
-                </div>
+        <CollapsibleCard
+            id="print-settings"
+            title="3D Print Settings"
+            subtitle="Configure your printing parameters"
+            collapsedSummary={
+                !allDefault ? <DirtyDot title="Print settings modified" /> : undefined
+            }
+            actions={
                 <button
                     type="button"
                     onClick={onReset}
@@ -145,8 +145,8 @@ export default function PrintSettingsCard({
                 >
                     <RotateCcw className="w-4 h-4" />
                 </button>
-            </div>
-            <div className="h-px bg-border/50 my-4" />
+            }
+        >
             <div className="space-y-4">
                 {/* Pixel size (XY scaling) */}
                 <div className="space-y-3">
@@ -205,7 +205,11 @@ export default function PrintSettingsCard({
                             type="text"
                             inputMode="decimal"
                             value={layerHeightInput.value}
-                            className={layerHeightInput.error ? 'border-red-500 focus-visible:ring-red-500' : ''}
+                            className={
+                                layerHeightInput.error
+                                    ? 'border-red-500 focus-visible:ring-red-500'
+                                    : ''
+                            }
                             onChange={(e) => layerHeightInput.onChange(e.target.value)}
                             onFocus={layerHeightInput.onFocus}
                             onBlur={layerHeightInput.onBlur}
@@ -232,13 +236,19 @@ export default function PrintSettingsCard({
                             type="text"
                             inputMode="decimal"
                             value={firstLayerHeightInput.value}
-                            className={firstLayerHeightInput.error ? 'border-red-500 focus-visible:ring-red-500' : ''}
+                            className={
+                                firstLayerHeightInput.error
+                                    ? 'border-red-500 focus-visible:ring-red-500'
+                                    : ''
+                            }
                             onChange={(e) => firstLayerHeightInput.onChange(e.target.value)}
                             onFocus={firstLayerHeightInput.onFocus}
                             onBlur={firstLayerHeightInput.onBlur}
                         />
                         {firstLayerHeightInput.error && (
-                            <span className="text-xs text-red-500">{firstLayerHeightInput.error}</span>
+                            <span className="text-xs text-red-500">
+                                {firstLayerHeightInput.error}
+                            </span>
                         )}
                     </label>
                 </div>
@@ -248,8 +258,8 @@ export default function PrintSettingsCard({
                     <div>
                         <span className="font-semibold text-foreground">Smooth Meshing</span>
                         <p className="text-xs text-muted-foreground">
-                            Smooth connected color boundary edges with fast welded topology.
-                            Turning this on disables Flat Paint.
+                            Smooth connected color boundary edges with fast welded topology. Turning
+                            this on disables Flat Paint.
                         </p>
                     </div>
                     <Switch
@@ -260,6 +270,6 @@ export default function PrintSettingsCard({
                     />
                 </div>
             </div>
-        </Card>
+        </CollapsibleCard>
     );
 }

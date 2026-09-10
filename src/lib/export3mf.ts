@@ -10,6 +10,11 @@ export interface Export3MFOptions {
     layerFilamentColors?: string[]; // Optional per-layer filament colors (hex) for export
     onProgress?: (progress: number) => void;
     onZipProgress?: (progress: { percent: number; currentFile?: string | null }) => void;
+    metadataFiles?: readonly {
+        name: string;
+        content: string;
+        contentType: string;
+    }[];
 }
 
 type TriangleIndexChunk = {
@@ -22,6 +27,54 @@ type ExportGeometrySource = {
     indices?: ArrayLike<number>;
     itemSize?: number;
 };
+
+function utf8ByteLength(value: string): number {
+    let length = 0;
+    for (let index = 0; index < value.length; index++) {
+        const code = value.charCodeAt(index);
+        if (code < 0x80) {
+            length += 1;
+        } else if (code < 0x800) {
+            length += 2;
+        } else if (
+            code >= 0xd800 &&
+            code <= 0xdbff &&
+            index + 1 < value.length &&
+            value.charCodeAt(index + 1) >= 0xdc00 &&
+            value.charCodeAt(index + 1) <= 0xdfff
+        ) {
+            length += 4;
+            index++;
+        } else {
+            // This also matches TextEncoder's replacement behavior for an
+            // unpaired UTF-16 surrogate.
+            length += 3;
+        }
+    }
+    return length;
+}
+
+/**
+ * Encodes XML chunks straight into one JSZip-supported byte buffer. This
+ * avoids both Blob/FileReader reads in desktop WebViews and Array.join's
+ * string-size limit without making temporary copies of every XML chunk.
+ */
+function encodeXmlChunks(chunks: string[]): Uint8Array {
+    const byteLength = chunks.reduce((total, chunk) => total + utf8ByteLength(chunk), 0);
+    const output = new Uint8Array(byteLength);
+    const encoder = new TextEncoder();
+    let offset = 0;
+
+    for (const chunk of chunks) {
+        const { read, written } = encoder.encodeInto(chunk, output.subarray(offset));
+        if (read !== chunk.length) {
+            throw new Error('Could not encode complete 3MF model XML');
+        }
+        offset += written;
+    }
+
+    return output;
+}
 
 /**
  * Meshes tagged with the same `userData.kromacutExportGroup` key are merged
@@ -63,14 +116,39 @@ export async function exportObjectTo3MFBlob(
     options?: Export3MFOptions
 ): Promise<Blob> {
     const zip = new JSZip();
+    const metadataFiles = options?.metadataFiles ?? [];
+    const metadataNames = new Set<string>();
+    for (const file of metadataFiles) {
+        if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(file.name)) {
+            throw new Error(`Invalid 3MF metadata filename: ${file.name}`);
+        }
+        if (
+            !/^[A-Za-z0-9][A-Za-z0-9.+-]{0,126}\/[A-Za-z0-9][A-Za-z0-9.+-]{0,126}$/.test(
+                file.contentType
+            )
+        ) {
+            throw new Error(`Invalid 3MF metadata content type: ${file.contentType}`);
+        }
+        if (metadataNames.has(file.name)) {
+            throw new Error(`Duplicate 3MF metadata filename: ${file.name}`);
+        }
+        metadataNames.add(file.name);
+    }
 
     // [Content_Types].xml
+    const metadataContentTypes = metadataFiles
+        .map(
+            (file) =>
+                ` <Override PartName="/Metadata/${file.name}" ContentType="${file.contentType}"/>`
+        )
+        .join('\n');
     const contentTypes = `<?xml version="1.0" encoding="UTF-8"?>
 <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
  <Default Extension="model" ContentType="application/vnd.ms-package.3dmanufacturing-3dmodel+xml"/>
  <Default Extension="png" ContentType="image/png"/>
  <Default Extension="config" ContentType="application/vnd.ms-package.3dmanufacturing-3dmodel+xml"/>
+${metadataContentTypes}${metadataContentTypes ? '\n' : ''}
 </Types>`;
     zip.file('[Content_Types].xml', contentTypes);
 
@@ -634,9 +712,11 @@ export async function exportObjectTo3MFBlob(
 
     flushXmlChunk();
 
-    const finalBlob = new Blob(xmlParts, { type: 'text/xml' });
-
-    zip.folder('3D')?.file('3dmodel.model', finalBlob);
+    // JSZip accepts Uint8Array directly. Encoding into it chunk-by-chunk
+    // avoids both the Tauri WebView FileReader failure for Blobs and
+    // Array.join's string-size limit for large models.
+    const modelXmlBytes = encodeXmlChunks(xmlParts.splice(0));
+    zip.folder('3D')?.file('3dmodel.model', modelXmlBytes, { binary: true });
 
     // Generate Metadata/model_settings.config
     // This is required for Bambu Studio / Orca Slicer / Creality Print to correctly identify
@@ -682,6 +762,10 @@ export async function exportObjectTo3MFBlob(
         'project_settings.config',
         JSON.stringify(projectSettings, null, 4)
     );
+
+    for (const file of metadataFiles) {
+        zip.folder('Metadata')?.file(file.name, file.content);
+    }
 
     reportProgress(exportZipProgress(0));
 

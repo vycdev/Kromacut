@@ -1,0 +1,1 @@
+tests/assets/performance/**/*.3mf filter=lfs diff=lfs merge=lfs -text

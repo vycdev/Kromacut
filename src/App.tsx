@@ -1,9 +1,17 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import ThreeDControls from './components/ThreeDControls';
-import type { ThreeDControlsStateShape } from './types';
+import {
+    AUTO_PAINT_REPEAT_LIMITS,
+    AUTO_PAINT_TRANSITION_OPACITIES,
+    type AutoPaintRepeatLimit,
+    type AutoPaintTransitionOpacity,
+    type PreviewColorMode,
+    type PreviewRenderMode,
+    type ThreeDControlsStateShape,
+    type TouchUpTool,
+} from './types';
 import ThreeDView from './components/ThreeDView';
 import logo from './assets/logo.png';
-import tdTestImg from './assets/tdTest.png';
 import CanvasPreview from './components/CanvasPreview';
 import type { CanvasPreviewHandle } from './components/CanvasPreview';
 import { SwatchesPanel } from './components/SwatchesPanel';
@@ -27,6 +35,12 @@ import { useAppHandlers, type ExportProgressStep } from './hooks/useAppHandlers'
 import { useProcessingState } from './hooks/useProcessingState';
 import { useBuildWarning } from './hooks/useBuildWarning';
 import { clampProgress } from './lib/progress';
+import {
+    scheduleAfterTwoAnimationFrames,
+    type CancelDeferredWork,
+} from './lib/threeDWorkLifecycle';
+import { normalizeOptimizerTier } from './lib/optimizer';
+import { normalizeSeparationMaxDeltaE } from './lib/autoPaint';
 import ResizableSplitter from './components/ResizableSplitter';
 import { ControlsPanel } from './components/ControlsPanel';
 import { usePaletteManager } from './hooks/usePaletteManager';
@@ -35,8 +49,24 @@ import ProgressOverlay from './components/ProgressOverlay';
 import DocsPage from './components/docs/DocsPage';
 import { defaultDocSlug } from './docs';
 import { loadCameraMode, saveCameraMode } from './lib/cameraPrefs';
+import {
+    loadPreviewColorMode,
+    loadPreviewRenderMode,
+    savePreviewColorMode,
+    savePreviewRenderMode,
+} from './lib/previewPrefs';
 import { buildDocsPath, parseDocsLocation } from './lib/docs/navigation';
-import { applyHomeSeo } from './lib/seo';
+import { applyAppSeo } from './lib/seo';
+import { appPath, markLaunched } from './lib/routes';
+import { isTauri } from '@tauri-apps/api/core';
+import {
+    migrateLegacyFilamentTd,
+    prewarmAutoPaintProfiles,
+    repairDuplicateFilamentIds,
+    sanitizeProfileFilament,
+} from './lib/profileManager';
+import PrintUnlockEffect from './components/PrintUnlockEffect';
+import { getMultiPlateEnabled, subscribeToMultiPlateEnabled } from './lib/experimentalFeatures';
 import {
     AlertDialog,
     AlertDialogContent,
@@ -73,15 +103,42 @@ type AutoPaintPersisted = Pick<
     ThreeDControlsStateShape,
     | 'filaments'
     | 'paintMode'
+    | 'autoPaintMaxHeight'
+    | 'calibrationLayerHeight'
     | 'optimizerAlgorithm'
     | 'optimizerSeed'
     | 'regionWeightingMode'
     | 'enhancedColorMatch'
+    | 'preserveSeparation'
+    | 'separationMaxDeltaE'
+    | 'failOnSeparationError'
     | 'allowRepeatedSwaps'
+    | 'maxRepeatedSwaps'
+    | 'transitionOpacity'
     | 'heightDithering'
     | 'ditherLineWidth'
+    | 'omitAtRiskPixels'
     | 'flatPaint'
+    | 'flatPaintFaceUp'
 >;
+
+// Schema v2: filament `td` values store frontlit hiding distances. State
+// persisted without this marker predates the change and carries uncalibrated
+// tds on the conventional backlit scale, which must be migrated once on load.
+const AUTOPAINT_SCHEMA_VERSION = 2;
+
+function isOneOf<T extends readonly number[]>(value: unknown, values: T): value is T[number] {
+    return typeof value === 'number' && values.includes(value as T[number]);
+}
+
+function normalizeRepeatLimit(value: unknown, legacyEnabled: unknown): AutoPaintRepeatLimit {
+    if (isOneOf(value, AUTO_PAINT_REPEAT_LIMITS)) return value;
+    return legacyEnabled === true ? 4 : 0;
+}
+
+function normalizeTransitionOpacity(value: unknown): AutoPaintTransitionOpacity {
+    return isOneOf(value, AUTO_PAINT_TRANSITION_OPACITIES) ? value : 0.9;
+}
 
 const loadAutoPaintPersisted = (): AutoPaintPersisted | null => {
     try {
@@ -90,6 +147,20 @@ const loadAutoPaintPersisted = (): AutoPaintPersisted | null => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const parsed = JSON.parse(raw) as any;
         if (!parsed || !Array.isArray(parsed.filaments)) return null;
+        const sanitized = parsed.filaments
+            .map((filament: unknown) => sanitizeProfileFilament(filament))
+            .filter(
+                (
+                    filament: ReturnType<typeof sanitizeProfileFilament>
+                ): filament is NonNullable<ReturnType<typeof sanitizeProfileFilament>> =>
+                    filament !== null
+            );
+        const persistedSchema = typeof parsed.schemaVersion === 'number' ? parsed.schemaVersion : 1;
+        const migratedFilaments =
+            persistedSchema >= AUTOPAINT_SCHEMA_VERSION
+                ? sanitized
+                : sanitized.map(migrateLegacyFilamentTd);
+        const filaments = repairDuplicateFilamentIds(migratedFilaments);
         // Migrate legacy `autoPaintEnabled` boolean → `paintMode`
         const paintMode: 'manual' | 'autopaint' =
             parsed.paintMode === 'autopaint' || parsed.paintMode === 'manual'
@@ -98,16 +169,37 @@ const loadAutoPaintPersisted = (): AutoPaintPersisted | null => {
                   ? 'autopaint'
                   : 'manual';
         return {
-            filaments: parsed.filaments,
+            filaments,
             paintMode,
-            optimizerAlgorithm: parsed.optimizerAlgorithm,
+            autoPaintMaxHeight:
+                typeof parsed.autoPaintMaxHeight === 'number' &&
+                Number.isFinite(parsed.autoPaintMaxHeight) &&
+                parsed.autoPaintMaxHeight > 0
+                    ? parsed.autoPaintMaxHeight
+                    : undefined,
+            calibrationLayerHeight:
+                typeof parsed.calibrationLayerHeight === 'number' &&
+                Number.isFinite(parsed.calibrationLayerHeight) &&
+                parsed.calibrationLayerHeight > 0
+                    ? parsed.calibrationLayerHeight
+                    : undefined,
+            optimizerAlgorithm: normalizeOptimizerTier(parsed.optimizerAlgorithm),
             optimizerSeed: parsed.optimizerSeed,
             regionWeightingMode: parsed.regionWeightingMode,
             enhancedColorMatch: parsed.enhancedColorMatch ?? false,
-            allowRepeatedSwaps: parsed.allowRepeatedSwaps ?? false,
+            preserveSeparation: parsed.preserveSeparation ?? false,
+            separationMaxDeltaE: normalizeSeparationMaxDeltaE(parsed.separationMaxDeltaE),
+            failOnSeparationError: parsed.failOnSeparationError !== false,
+            maxRepeatedSwaps: normalizeRepeatLimit(
+                parsed.maxRepeatedSwaps,
+                parsed.allowRepeatedSwaps
+            ),
+            transitionOpacity: normalizeTransitionOpacity(parsed.transitionOpacity),
             heightDithering: parsed.heightDithering ?? false,
             ditherLineWidth: parsed.ditherLineWidth,
+            omitAtRiskPixels: parsed.omitAtRiskPixels === true,
             flatPaint: parsed.flatPaint ?? false,
+            flatPaintFaceUp: parsed.flatPaintFaceUp === true,
         };
     } catch {
         return null;
@@ -116,13 +208,38 @@ const loadAutoPaintPersisted = (): AutoPaintPersisted | null => {
 
 const saveAutoPaintPersisted = (value: AutoPaintPersisted) => {
     try {
-        localStorage.setItem(AUTOPAINT_STORAGE_KEY, JSON.stringify(value));
+        localStorage.setItem(
+            AUTOPAINT_STORAGE_KEY,
+            JSON.stringify({ schemaVersion: AUTOPAINT_SCHEMA_VERSION, ...value })
+        );
     } catch {
         // ignore storage errors
     }
 };
 
 function App(): React.ReactElement | null {
+    const toolPath = appPath(isTauri());
+    // Multi-plate mode (issue #35) is still a stub. Per the plan, the flow diverges
+    // at *image upload*, not at app start — so until an image is uploaded the app
+    // must look and behave exactly like today. The experimental "Multi-plate mode"
+    // toggle in Settings arms the flag; the future upload decider will read it (via
+    // `getMultiPlateEnabled()`) inside the upload path to fork into multi-plate
+    // handling. The toggle persists (localStorage) like the other settings. Flipping
+    // it on plays a one-shot 3D-print flourish as feedback, then hands straight back
+    // to the untouched single-image UI; a persisted-on flag on a fresh load does not
+    // replay the flourish, so App only reacts to off→on transitions.
+    const multiPlateEnabledRef = useRef(getMultiPlateEnabled());
+    const [printing, setPrinting] = useState(false);
+
+    useEffect(() => {
+        return subscribeToMultiPlateEnabled((enabled) => {
+            if (enabled && !multiPlateEnabledRef.current) setPrinting(true); // flourish only on off→on
+            multiPlateEnabledRef.current = enabled;
+        });
+    }, []);
+
+    const handleEffectDone = useCallback(() => setPrinting(false), []);
+
     // dropzone state managed by hook below
     // `weight` is the algorithm parameter; `finalColors` is the postprocess target
     const [weight, setWeight] = useState<number>(128);
@@ -139,10 +256,21 @@ function App(): React.ReactElement | null {
         importInputRef: paletteImportInputRef,
         handleCreatePalette,
         handleUpdatePalette,
+        handleClonePalette,
         handleDeletePalette,
         handleExportPalette,
         handleImportFile: handleImportPaletteFile,
     } = usePaletteManager();
+
+    // Keep the postprocess color count in sync with the selected palette's
+    // enabled size. Edits, per-color toggles, clones, and imports all change
+    // the size without a re-selection, so the dropdown callback alone is not
+    // enough. Manual overrides persist until the palette or selection changes.
+    useEffect(() => {
+        if (selectedPalette === 'auto') return;
+        const pal = allPalettes.find((p) => p.id === selectedPalette);
+        if (pal && pal.size > 0) setFinalColors(pal.size);
+    }, [allPalettes, selectedPalette]);
     const { imageSrc, setImage, clearCurrent, undo, redo, canUndo, canRedo } = useImageHistory(
         logo,
         undefined
@@ -156,6 +284,11 @@ function App(): React.ReactElement | null {
     const [showCheckerboard, setShowCheckerboard] = useState<boolean>(false);
     const [isCropMode, setIsCropMode] = useState(false);
     const [hasValidCropSelection, setHasValidCropSelection] = useState(false);
+    // 2D touch-up tools are session-only; image changes still use shared history.
+    const [touchUpTool, setTouchUpTool] = useState<TouchUpTool | null>(null);
+    const [touchUpColor, setTouchUpColor] = useState('#000000');
+    const [touchUpBrushSize, setTouchUpBrushSize] = useState(4);
+    const [touchUpTextSize, setTouchUpTextSize] = useState(24);
     const {
         isQuantizing,
         setIsQuantizing,
@@ -201,8 +334,64 @@ function App(): React.ReactElement | null {
     const [adjustmentsEpoch, setAdjustmentsEpoch] = useState(0);
     // UI mode toggles (2D / 3D) - UI only for now
     const [mode, setMode] = useState<'2d' | '3d'>('2d');
+    const [hasMountedThreeDControls, setHasMountedThreeDControls] = useState(false);
+    const [, startThreeDControlsTransition] = useTransition();
+    const cancelThreeDMountRef = useRef<CancelDeferredWork | null>(null);
+    const handleModeChange = useCallback(
+        (nextMode: '2d' | '3d') => {
+            setMode(nextMode);
+            if (nextMode !== '3d') {
+                cancelThreeDMountRef.current?.();
+                cancelThreeDMountRef.current = null;
+                return;
+            }
+
+            if (!hasMountedThreeDControls && !cancelThreeDMountRef.current) {
+                cancelThreeDMountRef.current = scheduleAfterTwoAnimationFrames(() => {
+                    cancelThreeDMountRef.current = null;
+                    startThreeDControlsTransition(() => setHasMountedThreeDControls(true));
+                });
+            }
+        },
+        [hasMountedThreeDControls]
+    );
+    useEffect(
+        () => () => {
+            cancelThreeDMountRef.current?.();
+            cancelThreeDMountRef.current = null;
+        },
+        []
+    );
+    useEffect(() => {
+        let cancelled = false;
+        const prewarm = () => {
+            if (!cancelled) prewarmAutoPaintProfiles();
+        };
+
+        const idleWindow = window as unknown as {
+            requestIdleCallback?: Window['requestIdleCallback'];
+            cancelIdleCallback?: Window['cancelIdleCallback'];
+        };
+        if (idleWindow.requestIdleCallback && idleWindow.cancelIdleCallback) {
+            const idleId = idleWindow.requestIdleCallback(prewarm);
+            return () => {
+                cancelled = true;
+                idleWindow.cancelIdleCallback?.(idleId);
+            };
+        }
+
+        const timerId = globalThis.setTimeout(prewarm, 250);
+        return () => {
+            cancelled = true;
+            globalThis.clearTimeout(timerId);
+        };
+    }, []);
     const [docsOpen, setDocsOpen] = useState(() => parseDocsLocation(window.location) !== null);
     const [isOrtho, setIsOrtho] = useState(loadCameraMode);
+    const [previewRenderMode, setPreviewRenderMode] =
+        useState<PreviewRenderMode>(loadPreviewRenderMode);
+    const [previewColorMode, setPreviewColorMode] =
+        useState<PreviewColorMode>(loadPreviewColorMode);
     const [exportingSTL, setExportingSTL] = useState(false);
     const [exportProgress, setExportProgress] = useState(0); // 0..1
     const [exportStep, setExportStep] = useState<ExportProgressStep>({
@@ -211,6 +400,12 @@ function App(): React.ReactElement | null {
         stepIndex: 1,
         stepCount: 1,
     });
+    // Hydrate before the shared 3D state is created. Hydrating in an effect lets
+    // the persistence effect from the same initial commit overwrite saved values
+    // with defaults before React applies the hydrated state (especially on HMR).
+    const [autopaintHydrated] = useState(loadAutoPaintPersisted);
+    const autoPaintWorkingStateInitializedRef = useRef(autopaintHydrated !== null);
+
     // 3D printing shared state
     const {
         threeDState,
@@ -219,37 +414,15 @@ function App(): React.ReactElement | null {
         builtThreeDState,
         builtFlatPaint,
         buildWarning,
+        isBuildStarting,
         handleThreeDStateChange,
         confirmBuild,
         cancelBuild,
-    } = useBuildWarning({ imageSrc });
+        markBuildStarted,
+    } = useBuildWarning({ imageSrc, initialState: autopaintHydrated });
     const builtModelState = builtThreeDState ?? threeDState;
     const builtModelAutoPaint = builtModelState.paintMode === 'autopaint';
-
-    // Hydrate threeDState once with persisted autopaint data
-    const [autopaintHydrated] = useState(() => {
-        const persisted = loadAutoPaintPersisted();
-        return persisted;
-    });
-    useEffect(() => {
-        if (autopaintHydrated) {
-            setThreeDState((prev) => ({
-                ...prev,
-                filaments: autopaintHydrated.filaments ?? prev.filaments,
-                paintMode: autopaintHydrated.paintMode ?? prev.paintMode,
-                optimizerAlgorithm: autopaintHydrated.optimizerAlgorithm ?? prev.optimizerAlgorithm,
-                optimizerSeed: autopaintHydrated.optimizerSeed ?? prev.optimizerSeed,
-                regionWeightingMode:
-                    autopaintHydrated.regionWeightingMode ?? prev.regionWeightingMode,
-                enhancedColorMatch: autopaintHydrated.enhancedColorMatch ?? prev.enhancedColorMatch,
-                allowRepeatedSwaps: autopaintHydrated.allowRepeatedSwaps ?? prev.allowRepeatedSwaps,
-                heightDithering: autopaintHydrated.heightDithering ?? prev.heightDithering,
-                ditherLineWidth: autopaintHydrated.ditherLineWidth ?? prev.ditherLineWidth,
-                flatPaint: autopaintHydrated.flatPaint ?? prev.flatPaint,
-            }));
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    const builtModelValid = !builtModelAutoPaint || builtModelState.autoPaintResult !== undefined;
 
     const prevModeRef = useRef<typeof mode>(mode);
 
@@ -257,26 +430,42 @@ function App(): React.ReactElement | null {
         saveAutoPaintPersisted({
             filaments: threeDState.filaments,
             paintMode: threeDState.paintMode ?? 'manual',
+            autoPaintMaxHeight: threeDState.autoPaintMaxHeight,
+            calibrationLayerHeight: threeDState.calibrationLayerHeight,
             optimizerAlgorithm: threeDState.optimizerAlgorithm,
             optimizerSeed: threeDState.optimizerSeed,
             regionWeightingMode: threeDState.regionWeightingMode,
             enhancedColorMatch: threeDState.enhancedColorMatch,
-            allowRepeatedSwaps: threeDState.allowRepeatedSwaps,
+            preserveSeparation: threeDState.preserveSeparation,
+            separationMaxDeltaE: threeDState.separationMaxDeltaE,
+            failOnSeparationError: threeDState.failOnSeparationError,
+            maxRepeatedSwaps: threeDState.maxRepeatedSwaps,
+            transitionOpacity: threeDState.transitionOpacity,
             heightDithering: threeDState.heightDithering,
             ditherLineWidth: threeDState.ditherLineWidth,
+            omitAtRiskPixels: threeDState.omitAtRiskPixels,
             flatPaint: threeDState.flatPaint,
+            flatPaintFaceUp: threeDState.flatPaintFaceUp,
         });
     }, [
         threeDState.filaments,
         threeDState.paintMode,
+        threeDState.autoPaintMaxHeight,
+        threeDState.calibrationLayerHeight,
         threeDState.optimizerAlgorithm,
         threeDState.optimizerSeed,
         threeDState.regionWeightingMode,
         threeDState.enhancedColorMatch,
-        threeDState.allowRepeatedSwaps,
+        threeDState.preserveSeparation,
+        threeDState.separationMaxDeltaE,
+        threeDState.failOnSeparationError,
+        threeDState.maxRepeatedSwaps,
+        threeDState.transitionOpacity,
         threeDState.heightDithering,
         threeDState.ditherLineWidth,
+        threeDState.omitAtRiskPixels,
         threeDState.flatPaint,
+        threeDState.flatPaintFaceUp,
     ]);
 
     // No auto-build on tab switch — the user must click "Build 3D Model" / "Apply Changes".
@@ -305,23 +494,24 @@ function App(): React.ReactElement | null {
 
     useEffect(() => {
         if (!docsOpen) {
-            applyHomeSeo();
+            markLaunched();
+        }
+    }, [docsOpen]);
+
+    useEffect(() => {
+        if (!docsOpen) {
+            applyAppSeo();
         }
     }, [docsOpen]);
 
     const backToApp = () => {
         setDocsOpen(false);
         if (parseDocsLocation(window.location)) {
-            window.history.pushState(null, '', '/');
+            window.history.pushState(null, '', toolPath);
         }
     };
 
-    const toggleDocs = () => {
-        if (docsOpen) {
-            backToApp();
-            return;
-        }
-
+    const openDocs = () => {
         setDocsOpen(true);
         if (!parseDocsLocation(window.location)) {
             window.history.pushState(null, '', buildDocsPath(defaultDocSlug));
@@ -334,6 +524,7 @@ function App(): React.ReactElement | null {
             alert('Please upload an image file');
             return;
         }
+        setTouchUpTool(null);
         const url = URL.createObjectURL(file);
         invalidate();
         setImage(url, true);
@@ -342,6 +533,7 @@ function App(): React.ReactElement | null {
     // removed unused handlers (inline handlers used instead)
 
     const clear = () => {
+        setTouchUpTool(null);
         clearCurrent();
         if (inputRef.current) inputRef.current.value = '';
     };
@@ -407,6 +599,19 @@ function App(): React.ReactElement | null {
     // Layout splitter state
     const layoutRef = useRef<HTMLDivElement | null>(null);
 
+    const touchUpPaletteColors = useMemo(
+        () =>
+            Array.from(
+                new Set(swatches.filter((swatch) => swatch.a !== 0).map((swatch) => swatch.hex))
+            ),
+        [swatches]
+    );
+
+    const handleTouchUpToolChange = (nextTool: TouchUpTool | null) => {
+        if (!imageSrc) return;
+        setTouchUpTool(nextTool);
+    };
+
     const dropzone = useDropzone({ enabled: mode === '2d', onFile: handleFiles });
     const { onExportImage, onExportStl, onExport3MF, onSwatchApply, onSwatchDelete } =
         useAppHandlers({
@@ -423,10 +628,9 @@ function App(): React.ReactElement | null {
                 exportObjectTo3MFBlob(obj, {
                     layerHeight: builtModelState.layerHeight,
                     firstLayerHeight: builtModelState.slicerFirstLayerHeight,
-                    layerFilamentColors:
-                        builtModelAutoPaint
-                            ? builtModelState.autoPaintFilamentSwatches?.map((s) => s.hex)
-                            : undefined,
+                    layerFilamentColors: builtModelAutoPaint
+                        ? builtModelState.autoPaintFilamentSwatches?.map((s) => s.hex)
+                        : undefined,
                     onProgress,
                     onZipProgress,
                 }),
@@ -437,35 +641,23 @@ function App(): React.ReactElement | null {
     const processingActive = mode === '2d' && (isQuantizing || isDedithering);
 
     return (
-        <div className="box-border text-inherit font-sans flex flex-col flex-1 min-w-0 max-w-full min-h-0 h-screen w-full">
-            <Header
-                docsOpen={docsOpen}
-                onBackToApp={backToApp}
-                onToggleDocs={toggleDocs}
-                onLoadTest={() => {
-                    invalidate();
-                    setImage(tdTestImg, true);
-                    setMode('2d');
-                    if (parseDocsLocation(window.location)) {
-                        window.history.pushState(null, '', '/');
-                    }
-                    setDocsOpen(false);
-                }}
-            />
-            {docsOpen && (
-                <div className="flex flex-1 min-h-0 w-full">
-                    <DocsPage />
-                </div>
-            )}
-            <div
-                className={`${docsOpen ? 'hidden' : 'flex'} flex-1 min-h-0 w-full`}
-                ref={layoutRef}
-            >
+        <>
+            <div className="box-border text-inherit font-sans flex flex-col flex-1 min-w-0 max-w-full min-h-0 h-screen w-full">
+                <Header docsOpen={docsOpen} onBackToApp={backToApp} onOpenDocs={openDocs} />
+                {docsOpen && (
+                    <div className="flex flex-1 min-h-0 w-full">
+                        <DocsPage />
+                    </div>
+                )}
+                <div
+                    className={`${docsOpen ? 'hidden' : 'flex'} flex-1 min-h-0 w-full`}
+                    ref={layoutRef}
+                >
                     <ResizableSplitter defaultSize={30} minSize={20} maxSize={50}>
-                        <aside className="w-full bg-card border-r border-border flex flex-col min-h-0">
-                            <ModeTabs mode={mode} onChange={setMode} />
+                        <aside className="h-full w-full bg-card border-r border-border flex flex-col min-h-0">
+                            <ModeTabs mode={mode} onChange={handleModeChange} />
                             <div className="flex-1 overflow-y-auto overflow-x-auto p-4">
-                                {mode === '2d' ? (
+                                {mode === '2d' && (
                                     <>
                                         <input
                                             ref={inputRef}
@@ -485,17 +677,20 @@ function App(): React.ReactElement | null {
                                                 defs={SLIDER_DEFS}
                                                 initial={ADJUSTMENT_DEFAULTS}
                                                 onCommit={(vals) => {
+                                                    setTouchUpTool(null);
                                                     setAdjustments(vals);
                                                     // schedule a redraw
                                                     requestAnimationFrame(() =>
                                                         canvasPreviewRef.current?.redraw()
                                                     );
                                                 }}
-                                                onBake={async () => {
+                                                onBake={async (vals) => {
                                                     if (!canvasPreviewRef.current) return;
                                                     try {
                                                         const blob =
-                                                            await canvasPreviewRef.current.exportAdjustedImageBlob?.();
+                                                            await canvasPreviewRef.current.exportAdjustedImageBlob?.(
+                                                                vals
+                                                            );
                                                         if (!blob) return;
                                                         const url = URL.createObjectURL(blob);
                                                         invalidate();
@@ -597,6 +792,7 @@ function App(): React.ReactElement | null {
                                                 importInputRef={paletteImportInputRef}
                                                 onCreatePalette={handleCreatePalette}
                                                 onUpdatePalette={handleUpdatePalette}
+                                                onClonePalette={handleClonePalette}
                                                 onDeletePalette={handleDeletePalette}
                                                 onExportPalette={handleExportPalette}
                                                 onImportPaletteFile={handleImportPaletteFile}
@@ -610,18 +806,32 @@ function App(): React.ReactElement | null {
                                             />
                                         </div>
                                     </>
-                                ) : (
+                                )}
+                                {mode === '3d' && !hasMountedThreeDControls && (
+                                    <div className="flex min-h-32 items-center justify-center text-sm text-muted-foreground">
+                                        Preparing 3D controls…
+                                    </div>
+                                )}
+                                {hasMountedThreeDControls && (
+                                    <div className={mode === '3d' ? undefined : 'hidden'}>
                                     <ThreeDControls
+                                        active={mode === '3d'}
                                         swatches={swatches}
+                                        imageSrc={imageSrc}
                                         imageDimensions={imageDimensions}
                                         builtState={builtThreeDState}
                                         builtFlatPaint={builtFlatPaint}
                                         onChange={handleThreeDStateChange}
-                                        onSettingsChange={(partial) =>
-                                            setThreeDState((prev) => ({ ...prev, ...partial }))
-                                        }
+                                        onSettingsChange={(partial) => {
+                                            autoPaintWorkingStateInitializedRef.current = true;
+                                            setThreeDState((prev) => ({ ...prev, ...partial }));
+                                        }}
                                         persisted={threeDState}
+                                        hasAutoPaintWorkingState={
+                                            autoPaintWorkingStateInitializedRef.current
+                                        }
                                     />
+                                    </div>
                                 )}
                             </div>
                         </aside>
@@ -632,7 +842,15 @@ function App(): React.ReactElement | null {
                                 onDragOver={dropzone.onDragOver}
                                 onDragLeave={dropzone.onDragLeave}
                             >
-                                {mode === '2d' ? (
+                                {mode === '3d' && !hasMountedThreeDControls && (
+                                    <ProgressOverlay
+                                        title="Preparing 3D workspace"
+                                        stepLabel="Loading controls"
+                                        progress={0}
+                                        indeterminate
+                                    />
+                                )}
+                                {mode === '2d' && (
                                     <>
                                         <CanvasPreview
                                             ref={canvasPreviewRef}
@@ -641,6 +859,21 @@ function App(): React.ReactElement | null {
                                             showCheckerboard={showCheckerboard}
                                             adjustments={adjustments}
                                             onCropSelectionChange={setHasValidCropSelection}
+                                            touchUpTool={touchUpTool}
+                                            touchUpColor={touchUpColor}
+                                            touchUpBrushSize={touchUpBrushSize}
+                                            touchUpTextSize={touchUpTextSize}
+                                            onTouchUpCommit={(blob) => {
+                                                const url = URL.createObjectURL(blob);
+                                                invalidate();
+                                                setImage(url, true);
+                                                return url;
+                                            }}
+                                            onTouchUpPickColor={(hex) => {
+                                                setTouchUpColor(hex);
+                                                setTouchUpTool('brush');
+                                            }}
+                                            onTouchUpExit={() => setTouchUpTool(null)}
                                         />
                                         {processingActive && (
                                             <ProgressOverlay
@@ -657,10 +890,14 @@ function App(): React.ReactElement | null {
                                             />
                                         )}
                                     </>
-                                ) : (
+                                )}
+                                {hasMountedThreeDControls && (
+                                    <div
+                                        className={`absolute inset-0 ${mode === '3d' ? '' : 'hidden'}`}
+                                    >
                                     <>
                                         <ThreeDView
-                                            imageSrc={imageSrc}
+                                            imageSrc={builtModelValid ? imageSrc : null}
                                             baseSliceHeight={0}
                                             layerHeight={builtModelState.layerHeight}
                                             slicerFirstLayerHeight={
@@ -683,13 +920,36 @@ function App(): React.ReactElement | null {
                                             autoPaintFilamentOrder={
                                                 builtModelState.autoPaintResult?.filamentOrder
                                             }
+                                            autoPaintFinalStack={
+                                                builtModelState.autoPaintResult?.finalStack
+                                            }
                                             enhancedColorMatch={builtModelState.enhancedColorMatch}
+                                            preserveSeparation={builtModelState.preserveSeparation}
+                                            separationMaxDeltaE={
+                                                builtModelState.separationMaxDeltaE
+                                            }
                                             heightDithering={builtModelState.heightDithering}
                                             ditherLineWidth={builtModelState.ditherLineWidth}
+                                            printableFeaturePixels={
+                                                builtModelState.printableFeaturePixels
+                                            }
                                             smoothMeshing={builtModelState.smoothMeshing}
                                             isOrtho={isOrtho}
                                             flatPaint={builtFlatPaint}
+                                            flatPaintFaceUp={!!builtModelState.flatPaintFaceUp}
+                                            previewRenderMode={previewRenderMode}
+                                            previewColorMode={previewColorMode}
+                                            onBuildStarted={markBuildStarted}
+                                            active={mode === '3d'}
                                         />
+                                        {isBuildStarting && (
+                                            <ProgressOverlay
+                                                title="Preparing 3D model"
+                                                stepLabel="Starting build"
+                                                progress={0}
+                                                indeterminate
+                                            />
+                                        )}
                                         {exportingSTL && (
                                             <ProgressOverlay
                                                 title={exportStep.title}
@@ -702,6 +962,7 @@ function App(): React.ReactElement | null {
                                             />
                                         )}
                                     </>
+                                    </div>
                                 )}
                                 <PreviewActions
                                     mode={mode}
@@ -714,7 +975,11 @@ function App(): React.ReactElement | null {
                                     exportProgress={exportProgress}
                                     onUndo={undo}
                                     onRedo={redo}
-                                    onEnterCrop={() => imageSrc && setIsCropMode(true)}
+                                    onEnterCrop={() => {
+                                        if (!imageSrc) return;
+                                        setTouchUpTool(null);
+                                        setIsCropMode(true);
+                                    }}
                                     onSaveCrop={async () => {
                                         if (!canvasPreviewRef.current) return;
                                         const blob =
@@ -733,7 +998,28 @@ function App(): React.ReactElement | null {
                                     onExportStl={onExportStl}
                                     onExport3MF={onExport3MF}
                                     flatPaintModel={builtFlatPaint}
+                                    modelExportDisabled={!builtModelValid}
                                     isOrtho={isOrtho}
+                                    previewRenderMode={previewRenderMode}
+                                    onPreviewRenderModeChange={(next) => {
+                                        setPreviewRenderMode(next);
+                                        savePreviewRenderMode(next);
+                                    }}
+                                    autoPaintEnabled={builtModelAutoPaint}
+                                    previewColorMode={previewColorMode}
+                                    onPreviewColorModeChange={(next) => {
+                                        setPreviewColorMode(next);
+                                        savePreviewColorMode(next);
+                                    }}
+                                    touchUpTool={touchUpTool}
+                                    onTouchUpToolChange={handleTouchUpToolChange}
+                                    touchUpColor={touchUpColor}
+                                    onTouchUpColorChange={setTouchUpColor}
+                                    touchUpBrushSize={touchUpBrushSize}
+                                    onTouchUpBrushSizeChange={setTouchUpBrushSize}
+                                    touchUpTextSize={touchUpTextSize}
+                                    onTouchUpTextSizeChange={setTouchUpTextSize}
+                                    paletteColors={touchUpPaletteColors}
                                     onToggleCamera={() =>
                                         setIsOrtho((v) => {
                                             const next = !v;
@@ -745,38 +1031,42 @@ function App(): React.ReactElement | null {
                             </div>
                         </main>
                     </ResizableSplitter>
+                </div>
+
+                {/* Build warning dialog */}
+                <AlertDialog
+                    open={buildWarning !== null}
+                    onOpenChange={(open) => !open && cancelBuild()}
+                >
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>Performance Warning</AlertDialogTitle>
+                            <AlertDialogDescription asChild>
+                                <div className="space-y-2">
+                                    <p>Building the 3D model may be slow due to:</p>
+                                    <ul className="list-disc pl-5 space-y-1">
+                                        {buildWarning?.warnings.map((w, i) => (
+                                            <li key={i}>{w}</li>
+                                        ))}
+                                    </ul>
+                                    <p>Do you want to continue?</p>
+                                </div>
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={confirmBuild}>
+                                Build Anyway
+                            </AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
+
+                {/* Update checker for Tauri desktop app */}
+                <UpdateChecker />
             </div>
-
-            {/* Build warning dialog */}
-            <AlertDialog
-                open={buildWarning !== null}
-                onOpenChange={(open) => !open && cancelBuild()}
-            >
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Performance Warning</AlertDialogTitle>
-                        <AlertDialogDescription asChild>
-                            <div className="space-y-2">
-                                <p>Building the 3D model may be slow due to:</p>
-                                <ul className="list-disc pl-5 space-y-1">
-                                    {buildWarning?.warnings.map((w, i) => (
-                                        <li key={i}>{w}</li>
-                                    ))}
-                                </ul>
-                                <p>Do you want to continue?</p>
-                            </div>
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={confirmBuild}>Build Anyway</AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
-
-            {/* Update checker for Tauri desktop app */}
-            <UpdateChecker />
-        </div>
+            {printing && <PrintUnlockEffect onDone={handleEffectDone} />}
+        </>
     );
 }
 

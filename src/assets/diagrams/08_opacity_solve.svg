@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="460" viewBox="0 0 960 460">
+<rect x="0" y="0" width="960" height="460" fill="#18181b" stroke="none" rx="0" />
+<text x="480" y="42" font-size="17" fill="#e4e4e7" text-anchor="middle" font-weight="bold" font-family="Inter,ui-sans-serif,sans-serif">From One Read to a Hiding Distance</text>
+<text x="480" y="62" font-size="10" fill="#71717a" text-anchor="middle" font-family="Inter,ui-sans-serif,sans-serif">The difference between each patch and the opaque rail shrinks as layers stack.</text>
+<text x="480" y="78" font-size="10" fill="#71717a" text-anchor="middle" font-family="Inter,ui-sans-serif,sans-serif">Your read pins where that difference crosses one just-noticeable difference (JND).</text>
+
+<!-- Grid lines -->
+<line x1="140" y1="110" x2="860" y2="110" stroke="#27272a" stroke-width="1"/>
+<line x1="140" y1="193.3" x2="860" y2="193.3" stroke="#27272a" stroke-width="1"/>
+<line x1="140" y1="276.7" x2="860" y2="276.7" stroke="#27272a" stroke-width="1"/>
+
+<!-- Axes -->
+<line x1="140" y1="110" x2="140" y2="360" stroke="#3f3f46" stroke-width="1.5"/>
+<line x1="140" y1="360" x2="860" y2="360" stroke="#3f3f46" stroke-width="1.5"/>
+<text x="128" y="364" font-size="10" fill="#71717a" text-anchor="end" font-family="Inter,ui-sans-serif,sans-serif">0</text>
+<text x="128" y="322" font-size="10" fill="#71717a" text-anchor="end" font-family="Inter,ui-sans-serif,sans-serif">2</text>
+<text x="128" y="281" font-size="10" fill="#71717a" text-anchor="end" font-family="Inter,ui-sans-serif,sans-serif">4</text>
+<text x="128" y="197" font-size="10" fill="#71717a" text-anchor="end" font-family="Inter,ui-sans-serif,sans-serif">8</text>
+<text x="128" y="114" font-size="10" fill="#71717a" text-anchor="end" font-family="Inter,ui-sans-serif,sans-serif">12</text>
+<text x="140" y="378" font-size="10" fill="#71717a" text-anchor="middle" font-family="Inter,ui-sans-serif,sans-serif">0</text>
+<text x="260" y="378" font-size="10" fill="#71717a" text-anchor="middle" font-family="Inter,ui-sans-serif,sans-serif">2</text>
+<text x="380" y="378" font-size="10" fill="#71717a" text-anchor="middle" font-family="Inter,ui-sans-serif,sans-serif">4</text>
+<text x="500" y="378" font-size="10" fill="#71717a" text-anchor="middle" font-family="Inter,ui-sans-serif,sans-serif">6</text>
+<text x="620" y="378" font-size="10" fill="#f5a623" text-anchor="middle" font-weight="bold" font-family="Inter,ui-sans-serif,sans-serif">8</text>
+<text x="740" y="378" font-size="10" fill="#71717a" text-anchor="middle" font-family="Inter,ui-sans-serif,sans-serif">10</text>
+<text x="860" y="378" font-size="10" fill="#71717a" text-anchor="middle" font-family="Inter,ui-sans-serif,sans-serif">12</text>
+<text x="146" y="102" font-size="10" fill="#71717a" text-anchor="start" font-family="Inter,ui-sans-serif,sans-serif">ΔE00 difference from the opaque rail</text>
+<text x="500" y="418" font-size="10" fill="#71717a" text-anchor="middle" font-family="Inter,ui-sans-serif,sans-serif">wedge patch — layers of filament over the base</text>
+
+<!-- Difference curve -->
+<polyline points="302,110 320,134 350,169 380,199 410,224 440,245 470,263 500,278 530,291 560,302 590,311 620,318.5 680,330 740,339 800,345 860,349" fill="none" stroke="#e67e22" stroke-width="2.5"/>
+
+<!-- JND threshold -->
+<line x1="140" y1="318.3" x2="860" y2="318.3" stroke="#f5a623" stroke-width="1.5" stroke-dasharray="6,3"/>
+<text x="850" y="309" font-size="10" fill="#f5a623" text-anchor="end" font-family="Inter,ui-sans-serif,sans-serif">one JND (ΔE00 ≈ 2) — “looks identical”</text>
+
+<!-- Crossing point -->
+<circle cx="620" cy="318.3" r="5" fill="#f5a623"/>
+<line x1="620" y1="318.3" x2="620" y2="360" stroke="#71717a" stroke-width="1.2" stroke-dasharray="4,3"/>
+<text x="620" y="398" font-size="10" fill="#e4e4e7" text-anchor="middle" font-family="Inter,ui-sans-serif,sans-serif">your read: patch 8 → d* = 8 × layer height</text>
+
+<!-- Formula -->
+<text x="850" y="140" font-size="13" fill="#e4e4e7" text-anchor="end" font-weight="bold" font-family="Inter,ui-sans-serif,sans-serif">HD = −d* / log₁₀(T*)</text>
+<text x="850" y="158" font-size="10" fill="#71717a" text-anchor="end" font-family="Inter,ui-sans-serif,sans-serif">T* = the show-through that sits exactly one JND</text>
+<text x="850" y="172" font-size="10" fill="#71717a" text-anchor="end" font-family="Inter,ui-sans-serif,sans-serif">from opaque — solved from the colors alone</text>
+
+<text x="480" y="452" font-size="10" fill="#71717a" text-anchor="middle" font-family="Inter,ui-sans-serif,sans-serif">Kromacut · frontlit calibration</text>
+</svg>

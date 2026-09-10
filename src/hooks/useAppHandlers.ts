@@ -1,11 +1,9 @@
 import { useCallback } from 'react';
 import type { RefObject } from 'react';
-import { isTauri } from '@tauri-apps/api/core';
-import { message, save } from '@tauri-apps/plugin-dialog';
-import { open } from '@tauri-apps/plugin-fs';
 import type { CanvasPreviewHandle } from '../components/CanvasPreview';
 import type { SwatchEntry } from './useSwatches';
 import { clampProgress } from '../lib/progress';
+import { saveBlobToFile } from './saveBlobToFile';
 import type * as THREE from 'three';
 
 export interface UseAppHandlersParams {
@@ -39,12 +37,6 @@ export interface ExportProgressStep {
     stepIndex: number;
     stepCount: number;
     stepProgress?: number;
-}
-
-interface SaveBlobOptions {
-    defaultFileName: string;
-    extension: string;
-    filterName: string;
 }
 
 const DEFAULT_EXPORT_STEP: ExportProgressStep = {
@@ -95,63 +87,6 @@ function compressionStepLabel(percent: number) {
     return 'Compressing 3MF package';
 }
 
-async function writeBlobToTauriFile(filePath: string, blob: Blob) {
-    const file = await open(filePath, {
-        read: false,
-        write: true,
-        create: true,
-        truncate: true,
-    });
-    const reader = blob.stream().getReader();
-
-    try {
-        while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            await file.write(value);
-        }
-    } finally {
-        reader.releaseLock();
-        await file.close();
-    }
-}
-
-async function saveBlob(blob: Blob, options: SaveBlobOptions): Promise<string | null> {
-    if (isTauri()) {
-        const filePath = await save({
-            title: `Save ${options.filterName}`,
-            defaultPath: options.defaultFileName,
-            filters: [
-                {
-                    name: options.filterName,
-                    extensions: [options.extension],
-                },
-            ],
-        });
-
-        if (!filePath) {
-            return null;
-        }
-
-        await writeBlobToTauriFile(filePath, blob);
-        await message(`Saved to:\n${filePath}`, {
-            title: 'Kromacut',
-            kind: 'info',
-        });
-        return filePath;
-    }
-
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = options.defaultFileName;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-    return options.defaultFileName;
-}
-
 function exportFileName(extension: string) {
     const timestamp = new Date().toISOString().slice(0, 10);
     return `kromacut-${timestamp}.${extension}`;
@@ -181,7 +116,7 @@ export function useAppHandlers(params: UseAppHandlersParams) {
                 alert('No image available to download');
                 return;
             }
-            await saveBlob(blob, {
+            await saveBlobToFile(blob, {
                 defaultFileName: exportFileName('png'),
                 extension: 'png',
                 filterName: 'PNG image',
@@ -234,7 +169,7 @@ export function useAppHandlers(params: UseAppHandlersParams) {
                 stepProgress: 1,
             });
             setExportProgress(1);
-            await saveBlob(blob, {
+            await saveBlobToFile(blob, {
                 defaultFileName: exportFileName('stl'),
                 extension: 'stl',
                 filterName: 'STL model',
@@ -340,7 +275,7 @@ export function useAppHandlers(params: UseAppHandlersParams) {
                 stepProgress: 1,
             });
             setExportProgress(1);
-            await saveBlob(blob, {
+            await saveBlobToFile(blob, {
                 defaultFileName: exportFileName('3mf'),
                 extension: '3mf',
                 filterName: '3MF model',
