@@ -11,10 +11,10 @@ This page collects controls that affect the whole app or are easy to miss.
 
 ## Header Controls
 
-| Control       | What it does                                                               |
-| ------------- | -------------------------------------------------------------------------- |
-| Kromacut logo | Returns to the landing page from the web app.                              |
-| Settings      | Opens the settings dialog, including theme, resource, and update controls. |
+| Control       | What it does                                                                   |
+| ------------- | ------------------------------------------------------------------------------ |
+| Kromacut logo | Returns to the app while documentation is open; otherwise opens the home page. |
+| Settings      | Opens the settings dialog, including theme, resource, and update controls.     |
 
 The theme selector offers **System**, **Dark**, and **Light**. **System** follows the operating system or browser color-scheme preference and updates when that preference changes. The theme choice is saved for later sessions.
 
@@ -28,11 +28,23 @@ The vertical splitter between the controls panel and preview can be dragged. Mak
 
 Documentation pages use shareable `/docs/...` links. Opening one of those links takes you directly to the matching guide.
 
+On smaller screens, expand **Contents** to choose a guide or **On This Page** to jump to a section. Both close after selection to leave room for reading. Illustrations can be opened at full size by clicking them or focusing their link and pressing Enter.
+
+Most sidebar sections can be collapsed by their headings. Collapsing hides controls, not their effects: active adjustments, print settings and optimizer options still apply. Collapsed summaries and status dots help you spot active changes. Section open/closed state is remembered. Expanding a section does not reset it.
+
+**Undo / Redo** shares the image-editing history between 2D and 3D. It is not an undo stack for filament edits, calibration, layer heights or optimizer settings. Use each panel's own reset control where available, and rebuild after restoring an image state.
+
+## Experimental Multi-plate Mode
+
+The **Multi-plate mode** switch in Settings is an unfinished workflow. It remembers the preference and can play a preview animation, but currently does not split the image, create tiles, distribute objects across plates, or change exported geometry. Leave it off for normal printing. Do not use it as a way to fit an oversized model on your bed.
+
 ## Saved Print Settings
 
 Kromacut remembers print settings such as **Pixel Size (XY)**, **Layer Height**, **First Layer Height**, and **Smooth Meshing** in the browser.
 
 Use the reset button in **3D Print Settings** if you want to return to defaults.
+
+Remembered settings are local to the current browser/site or desktop app. They are not a backup of the artwork or a complete saved project, and separate browsers or the desktop app need not share them. Export important palettes and filament profiles before clearing app/browser data. Loading a profile restores its filaments and evidence, not an image or a ready-built mesh.
 
 ## Saved Auto-paint State
 
@@ -40,9 +52,11 @@ Auto-paint settings are preserved across sessions, including:
 
 - Filaments.
 - Paint mode.
+- Max Height and the calibration wedge's layer height.
 - Enhanced color matching.
-- Preserve color separation, including its saved hard unique-match ΔE limit, strict fail-fast preference, non-strict dropped-color merging, progressive repeated-run search, and physical-stack minimization.
+- Preserve color separation, its unique-match ΔE limit, and whether every color requires a unique match.
 - Total repeat limit (shared extra filament appearances across the stack).
+- Transition detail and height dithering.
 - Effective line width and the saved at-risk-color substitution preference for printable-detail simulation and height dithering.
 - Flat Paint and its face-up, no-clear-layer preference.
 - Optimizer algorithm and seed.
@@ -77,9 +91,9 @@ Use the **upload icon** in the Auto-paint profile toolbar to import a file. An o
 
 When importing, Kromacut checks each incoming profile against what you already have:
 
-- **Same ID** — overwrites the existing profile with the incoming one.
-- **Same filaments, different ID** — skipped as a duplicate.
-- **Same name, different content** — imported with a numeric suffix added to the name (e.g. `My Spools (2)`).
+- **Same ID:** normally overwrites the existing profile. If that would replace saved appearance evidence with a file containing no usable evidence, it imports a separate copy instead.
+- **Same content, different ID:** skipped only when both the filament data and appearance evidence match an existing profile.
+- **Same name, different content:** imported with a numeric suffix added to the name (e.g. `My Spools (2)`).
 
 A short summary of how many profiles were imported, overwritten, skipped, or renamed is shown after each import.
 

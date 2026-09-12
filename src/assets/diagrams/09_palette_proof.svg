@@ -1,68 +1,31 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="960" height="520" viewBox="0 0 960 520">
-<style>.proof-targets rect,.foundation-reference{rx:5px;ry:5px}.proof-patches rect{rx:0;ry:0}</style>
-<rect x="0" y="0" width="960" height="520" fill="#18181b"/>
-<text x="480" y="38" font-size="17" fill="#e4e4e7" text-anchor="middle" font-weight="bold" font-family="Inter,ui-sans-serif,sans-serif">Palette Proof Layout</text>
-<text x="480" y="58" font-size="10" fill="#a1a1aa" text-anchor="middle" font-family="Inter,ui-sans-serif,sans-serif">Each target is one printed row; its A-E candidates run left to right in both app views.</text>
-
-<text x="240" y="92" font-size="11" fill="#e4e4e7" text-anchor="middle" font-weight="bold" font-family="Inter,ui-sans-serif,sans-serif">Patch map</text>
-<text x="240" y="108" font-size="9" fill="#a1a1aa" text-anchor="middle" font-family="Inter,ui-sans-serif,sans-serif">T = target shown in Kromacut, A-E = physical candidates</text>
-
-<g font-size="9" fill="#a1a1aa" text-anchor="middle" font-family="Inter,ui-sans-serif,sans-serif">
-<text x="157" y="119">A</text><text x="191" y="119">B</text><text x="225" y="119">C</text><text x="259" y="119">D</text><text x="293" y="119">E</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 540" role="img" aria-labelledby="title desc">
+<title id="title">Palette Proof candidates are stopping heights on one stack</title>
+<desc id="desc">An illustrative proof map has two target rows and three candidates A through C. An F-marked candidate is the shared foundation margin, not an extra printed color. A side view of one target's candidates shows the same material order, with each candidate stopping at a different layer prefix. Horizontal layers use the same filament wherever they continue. Colors and heights are schematic.</desc>
+<rect width="960" height="540" rx="18" fill="#121923"/>
+<g font-family="system-ui, sans-serif" font-size="18" fill="#f1f5f9">
+<text x="32" y="44" font-size="26" font-weight="700">Candidates stop at different heights of the same stack</text>
+<text x="32" y="74" fill="#b3c2d4">A prefix includes the foundation and every preceding layer, in physical print order.</text>
+<rect x="32" y="100" width="414" height="339" rx="14" fill="#1b2736"/><text x="52" y="134" fill="#38bdf8" font-weight="700">Proof map: two example targets</text><text x="52" y="176" fill="#b3c2d4">Target</text>
+<g text-anchor="middle" fill="#b3c2d4"><text x="203" y="176">A</text><text x="275" y="176">B</text><text x="347" y="176">C</text></g>
+<rect x="52" y="192" width="70" height="58" rx="7" fill="#e5c581"/><rect x="52" y="260" width="70" height="58" rx="7" fill="#a78bfa"/>
+<g stroke="#121923" stroke-width="2">
+<rect x="167" y="192" width="72" height="58" fill="#ad854c"/><rect x="239" y="192" width="72" height="58" fill="#cda762"/><rect x="311" y="192" width="72" height="58" fill="#e3bc73"/>
+<rect x="167" y="260" width="72" height="58" fill="#293647"/><rect x="239" y="260" width="72" height="58" fill="#695a99"/><rect x="311" y="260" width="72" height="58" fill="#8d76be"/>
 </g>
-<path d="M144 124 H309 Q319 124 319 134 V403 Q319 413 309 413 H142 Q132 413 132 403 V136 H144 Z" fill="#27272a" stroke="#71717a" stroke-width="1.5"/>
-<path d="M144 124 V136 H132" fill="none" stroke="#f5a623" stroke-width="2"/>
-<g class="proof-targets" stroke="#71717a">
-<rect x="96" y="131" width="28" height="28" fill="#2cb9d1"/><rect x="96" y="165" width="28" height="28" fill="#f08cb8"/>
-<rect x="96" y="199" width="28" height="28" fill="#f1cc3e"/><rect x="96" y="233" width="28" height="28" fill="#7652c7"/>
-<rect x="96" y="267" width="28" height="28" fill="#e86432"/><rect x="96" y="301" width="28" height="28" fill="#43b96b"/>
-<rect x="96" y="335" width="28" height="28" fill="#d7dbe0"/><rect x="96" y="369" width="28" height="28" fill="#344356"/>
+<rect x="168" y="261" width="70" height="56" fill="none" stroke="#fbbf24" stroke-width="2" stroke-dasharray="6 4"/>
+<g text-anchor="middle" font-weight="700">
+<text x="87" y="228" fill="#121923">1</text><text x="87" y="296" fill="#121923">2</text><text x="203" y="228" fill="#121923">A1</text><text x="275" y="228" fill="#121923">B1</text><text x="347" y="228" fill="#121923">C1</text>
+<text x="203" y="296" fill="#fbbf24">A2 F</text><text x="275" y="296">B2</text><text x="347" y="296">C2</text>
 </g>
-<g font-size="8" fill="#e4e4e7" text-anchor="middle" font-family="Inter,ui-sans-serif,sans-serif">
-<text x="110" y="149">1</text><text x="110" y="183">2</text><text x="110" y="217">3</text><text x="110" y="251">4</text>
-<text x="110" y="285">5</text><text x="110" y="319">6</text><text x="110" y="353" fill="#18181b">7</text><text x="110" y="387">8</text>
+<text x="52" y="354" fill="#b3c2d4">Numbers = target rows</text><text x="52" y="383" fill="#b3c2d4">Letters = candidate columns</text><text x="52" y="412" fill="#fbbf24">F = compare the foundation margin</text>
+<rect x="464" y="100" width="464" height="339" rx="14" fill="#1b2736"/><text x="484" y="134" fill="#38bdf8" font-weight="700">Side view of one candidate row</text>
+<g stroke="#121923" stroke-width="2">
+<rect x="501" y="323" width="384" height="34" fill="#293647"/><rect x="525" y="289" width="336" height="34" fill="#38bdf8"/><rect x="637" y="255" width="224" height="34" fill="#a78bfa"/><rect x="749" y="221" width="112" height="34" fill="#fbbf24"/><rect x="749" y="187" width="112" height="34" fill="#e6bd78"/>
 </g>
-<g class="proof-patches" stroke="#18181b" stroke-width="1">
-<rect x="140" y="131" width="34" height="34" fill="#2164a8"/><rect x="174" y="131" width="34" height="34" fill="#2681b8"/><rect x="208" y="131" width="34" height="34" fill="#2a9ac7"/><rect x="242" y="131" width="34" height="34" fill="#2aafd0"/><rect x="276" y="131" width="34" height="34" fill="#30bbd3"/>
-<rect x="140" y="165" width="34" height="34" fill="#c56d9c"/><rect x="174" y="165" width="34" height="34" fill="#d37baa"/><rect x="208" y="165" width="34" height="34" fill="#df84b2"/><rect x="242" y="165" width="34" height="34" fill="#e78ab9"/><rect x="276" y="165" width="34" height="34" fill="#ef91bd"/>
-<rect x="140" y="199" width="34" height="34" fill="#ad9b35"/><rect x="174" y="199" width="34" height="34" fill="#c5ac37"/><rect x="208" y="199" width="34" height="34" fill="#dbc03a"/><rect x="242" y="199" width="34" height="34" fill="#e8ca3c"/><rect x="276" y="199" width="34" height="34" fill="#f2d043"/>
-<rect x="140" y="233" width="34" height="34" fill="#4d3294"/><rect x="174" y="233" width="34" height="34" fill="#5d3daa"/><rect x="208" y="233" width="34" height="34" fill="#6847b8"/><rect x="242" y="233" width="34" height="34" fill="#7250c1"/><rect x="276" y="233" width="34" height="34" fill="#7b58ca"/>
-<rect x="140" y="267" width="34" height="34" fill="#bd4728"/><rect x="174" y="267" width="34" height="34" fill="#ce522b"/><rect x="208" y="267" width="34" height="34" fill="#dc5a2f"/><rect x="242" y="267" width="34" height="34" fill="#e26031"/><rect x="276" y="267" width="34" height="34" fill="#ea6937"/>
-<rect x="140" y="301" width="34" height="34" fill="#268a4d"/><rect x="174" y="301" width="34" height="34" fill="#2e9d56"/><rect x="208" y="301" width="34" height="34" fill="#37aa5e"/><rect x="242" y="301" width="34" height="34" fill="#3db364"/><rect x="276" y="301" width="34" height="34" fill="#46bd6d"/>
-<rect x="140" y="335" width="34" height="34" fill="#9ca3ab"/><rect x="174" y="335" width="34" height="34" fill="#b6bbc1"/><rect x="208" y="335" width="34" height="34" fill="#cbd0d5"/><rect x="242" y="335" width="34" height="34" fill="#d9dde1"/><rect x="276" y="335" width="34" height="34" fill="#e4e7ea"/>
-<rect x="140" y="369" width="34" height="34" fill="#202a37"/><rect x="174" y="369" width="34" height="34" fill="#263242"/><rect x="208" y="369" width="34" height="34" fill="#2c3a4c"/><rect x="242" y="369" width="34" height="34" fill="#314052"/><rect x="276" y="369" width="34" height="34" fill="#38485c"/>
+<g text-anchor="middle" font-weight="700"><text x="581" y="274">A</text><text x="693" y="240">B</text><text x="805" y="172">C</text></g>
+<path d="M637 287V323M749 253V323" stroke="#f1f5f9" stroke-dasharray="4 4" opacity="0.6"/>
+<text x="484" y="387" fill="#b3c2d4">One filament per horizontal layer.</text><text x="484" y="415" fill="#b3c2d4">Later prefixes keep every layer below.</text>
+<rect x="32" y="457" width="896" height="52" rx="12" fill="#1b2736"/><text x="52" y="489" fill="#b3c2d4">Touching patches share a continuous foundation. Targets are not additional printed colors.</text>
+<text x="928" y="532" text-anchor="end" fill="#b3c2d4">Schematic layout, layers, and appearance; not to scale</text>
 </g>
-<g font-size="7" fill="#f4f4f5" text-anchor="middle" font-family="Inter,ui-sans-serif,sans-serif">
-<text x="157" y="151">A1 F</text><text x="191" y="151">B1</text><text x="225" y="151">C1</text><text x="259" y="151">D1</text><text x="293" y="151">E1</text>
-<text x="157" y="185">A2</text><text x="191" y="185">B2</text><text x="225" y="185">C2</text><text x="259" y="185">D2</text><text x="293" y="185">E2</text>
-<text x="157" y="219">A3</text><text x="191" y="219">B3</text><text x="225" y="219">C3</text><text x="259" y="219">D3</text><text x="293" y="219">E3</text>
-<text x="157" y="253">A4</text><text x="191" y="253">B4</text><text x="225" y="253">C4</text><text x="259" y="253">D4</text><text x="293" y="253">E4</text>
-<text x="157" y="287">A5</text><text x="191" y="287">B5</text><text x="225" y="287">C5</text><text x="259" y="287">D5</text><text x="293" y="287">E5</text>
-<text x="157" y="321">A6</text><text x="191" y="321">B6</text><text x="225" y="321">C6</text><text x="259" y="321">D6</text><text x="293" y="321">E6</text>
-<text x="157" y="355" fill="#18181b">A7</text><text x="191" y="355" fill="#18181b">B7</text><text x="225" y="355" fill="#18181b">C7</text><text x="259" y="355" fill="#18181b">D7</text><text x="293" y="355" fill="#18181b">E7</text>
-<text x="157" y="389">A8</text><text x="191" y="389">B8</text><text x="225" y="389">C8</text><text x="259" y="389">D8</text><text x="293" y="389">E8</text>
-</g>
-<rect class="foundation-reference" x="140" y="131" width="34" height="34" fill="none" stroke="#f5a623" stroke-width="2" stroke-dasharray="4 3"/>
-<text x="225" y="431" font-size="9" fill="#a1a1aa" text-anchor="middle" font-family="Inter,ui-sans-serif,sans-serif">44 mm wide x 68 mm high at the default layout</text>
-<text x="136" y="119" font-size="8" fill="#f5a623" text-anchor="start" font-family="Inter,ui-sans-serif,sans-serif">notch</text>
-
-<text x="700" y="92" font-size="11" fill="#e4e4e7" text-anchor="middle" font-weight="bold" font-family="Inter,ui-sans-serif,sans-serif">Cross-section</text>
-<text x="700" y="108" font-size="9" fill="#a1a1aa" text-anchor="middle" font-family="Inter,ui-sans-serif,sans-serif">Candidates stay exact while touching neighbors share layer regions</text>
-<rect x="520" y="342" width="360" height="26" fill="#2164a8" stroke="#71717a"/>
-<rect x="540" y="310" width="64" height="32" fill="#c56d9c" stroke="#18181b"/>
-<rect x="604" y="274" width="64" height="68" fill="#f2d043" stroke="#18181b"/>
-<rect x="668" y="238" width="64" height="104" fill="#7250c1" stroke="#18181b"/>
-<rect x="732" y="202" width="64" height="140" fill="#ea6937" stroke="#18181b"/>
-<rect x="796" y="166" width="64" height="176" fill="#46bd6d" stroke="#18181b"/>
-<g stroke="#e4e4e7" stroke-width="0.8" stroke-dasharray="4 3">
-<line x1="510" y1="310" x2="872" y2="310"/><line x1="510" y1="274" x2="872" y2="274"/><line x1="510" y1="238" x2="872" y2="238"/><line x1="510" y1="202" x2="872" y2="202"/><line x1="510" y1="166" x2="872" y2="166"/>
-</g>
-<g font-size="8" fill="#a1a1aa" text-anchor="end" font-family="Inter,ui-sans-serif,sans-serif">
-<text x="504" y="313">prefix 2</text><text x="504" y="277">prefix 3</text><text x="504" y="241">prefix 4</text><text x="504" y="205">prefix 5</text><text x="504" y="169">prefix 6</text>
-</g>
-<text x="700" y="385" font-size="9" fill="#a1a1aa" text-anchor="middle" font-family="Inter,ui-sans-serif,sans-serif">continuous first layer; touching active cells union on each later layer</text>
-<text x="700" y="418" font-size="9" fill="#e4e4e7" text-anchor="middle" font-family="Inter,ui-sans-serif,sans-serif">One physical filament is assigned to each horizontal layer.</text>
-<text x="700" y="435" font-size="9" fill="#e4e4e7" text-anchor="middle" font-family="Inter,ui-sans-serif,sans-serif">No arbitrary color combinations are fabricated.</text>
-
-<text x="480" y="493" font-size="10" fill="#71717a" text-anchor="middle" font-family="Inter,ui-sans-serif,sans-serif">Kromacut - camera-free appearance proof</text>
 </svg>

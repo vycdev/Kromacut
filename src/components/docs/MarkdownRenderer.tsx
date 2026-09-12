@@ -51,14 +51,22 @@ function renderInlineNodes(
                 );
             }
             return (
-                <img
+                <a
                     key={key}
-                    src={src}
-                    alt={node.alt}
-                    title={node.title}
-                    loading="lazy"
-                    className="my-4 max-h-80 rounded-md border border-border object-contain"
-                />
+                    href={src}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={`Open illustration at full size: ${node.alt || 'Documentation image'}`}
+                    className="my-5 block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                    <img
+                        src={src}
+                        alt={node.alt}
+                        title={node.title || 'Open illustration at full size'}
+                        loading="lazy"
+                        className="h-auto w-full rounded-lg border border-border object-contain"
+                    />
+                </a>
             );
         }
 

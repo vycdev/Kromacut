@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 540" role="img" aria-labelledby="title desc">
+  <title id="title">Place Stack Matrix handles at marker centers</title>
+  <desc id="desc">A six-by-six schematic board has a four-by-four recipe grid surrounded by a one-cell border. Markers 1, 2, 3, and 4 sit in the corner border cells. Handles belong in the centers of those cells, half a cell from the physical outside edge. The enlarged corner highlights the wrong outside corner and the correct marker center. Review every projected line before confirming alignment.</desc>
+  <defs>
+    <pattern id="grid" width="44" height="44" patternUnits="userSpaceOnUse"><rect width="44" height="44" fill="none" stroke="#121923" stroke-width="2"/></pattern>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 10 5 0 10Z" fill="#38bdf8"/></marker>
+  </defs>
+  <rect width="960" height="540" rx="18" fill="#121923"/>
+  <g font-family="system-ui, sans-serif" font-size="18" fill="#f1f5f9">
+    <text x="32" y="44" font-size="26" font-weight="700">The handle is a cell center, not the board corner</text>
+    <text x="32" y="74" fill="#b3c2d4">Use this record's printed corner key. Marker colors vary between boards.</text>
+    <rect x="32" y="98" width="386" height="338" rx="14" fill="#1b2736"/>
+    <text x="52" y="130" fill="#38bdf8" font-weight="700">Top edge</text>
+    <g transform="translate(96 152)">
+      <rect width="264" height="264" fill="#b3c2d4"/>
+      <rect x="44" y="44" width="176" height="176" fill="#56768d"/>
+      <path d="M44 88H220V132H44Z" fill="#997d9f"/>
+      <path d="M44 176H220V220H44Z" fill="#7ca291"/>
+      <path d="M88 44H132V88H88Z M132 132H176V176H132Z M176 88H220V132H176Z" fill="#bc9d67"/>
+      <path d="M176 44H220V88H176Z M44 132H88V176H44Z M88 176H132V220H88Z" fill="#958bc0"/>
+      <rect width="264" height="264" fill="url(#grid)"/>
+      <rect width="44" height="44" fill="#e0dfbc"/>
+      <rect x="220" width="44" height="44" fill="#d6e0d2"/>
+      <rect x="220" y="220" width="44" height="44" fill="#d3b646"/>
+      <rect y="220" width="44" height="44" fill="#72ab5a"/>
+      <rect width="264" height="264" fill="none" stroke="#38bdf8" stroke-width="3"/>
+      <g fill="#121923" stroke="#38bdf8" stroke-width="3">
+        <circle cx="22" cy="22" r="16"/><circle cx="242" cy="22" r="16"/>
+        <circle cx="242" cy="242" r="16"/><circle cx="22" cy="242" r="16"/>
+      </g>
+      <g fill="#f1f5f9" text-anchor="middle" font-weight="700">
+        <text x="22" y="29">1</text><text x="242" y="29">2</text>
+        <text x="242" y="249">3</text><text x="22" y="249">4</text>
+      </g>
+    </g>
+    <rect x="442" y="98" width="486" height="338" rx="14" fill="#1b2736"/>
+    <text x="462" y="130" fill="#38bdf8" font-weight="700">Top-left corner, enlarged</text>
+    <rect x="482" y="174" width="134" height="134" fill="#e0dfbc"/>
+    <rect x="616" y="174" width="134" height="134" fill="#b3c2d4"/>
+    <rect x="482" y="308" width="134" height="74" fill="#b3c2d4"/>
+    <rect x="616" y="308" width="134" height="74" fill="#56768d"/>
+    <path d="M482 383V174H750" stroke="#38bdf8" stroke-width="4" fill="none"/>
+    <path d="M616 174V382M482 308H750" stroke="#121923" stroke-width="3"/>
+    <path d="M473 165 491 183M491 165 473 183" stroke="#fbbf24" stroke-width="4"/>
+    <circle cx="549" cy="241" r="16" fill="#121923" stroke="#38bdf8" stroke-width="3"/>
+    <path d="M525 241H573M549 217V265" stroke="#38bdf8" stroke-width="2"/>
+    <text x="778" y="187" fill="#fbbf24">Not here</text>
+    <path d="M768 181H638L496 174" stroke="#fbbf24" stroke-width="2" fill="none"/>
+    <text x="778" y="252" fill="#38bdf8">Center</text>
+    <path d="M766 246H582" stroke="#38bdf8" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+    <text x="634" y="347" fill="#f1f5f9">Recipe grid</text>
+    <text x="462" y="416" fill="#b3c2d4">Outer edge sits half a cell beyond the center.</text>
+    <rect x="32" y="454" width="896" height="60" rx="12" fill="#1b2736" stroke="#38bdf8"/>
+    <text x="52" y="479" font-weight="700">Review the whole grid, not just the corners.</text>
+    <text x="52" y="503" fill="#b3c2d4">Then confirm adjusted / low-confidence alignment before saving the sampled colors.</text>
+    <text x="928" y="534" text-anchor="end" fill="#b3c2d4">Schematic board with an illustrative 4 × 4 recipe grid</text>
+  </g>
+</svg>

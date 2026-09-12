@@ -2,6 +2,12 @@
 
 All notable changes to Kromacut are documented in this file.
 
+## Unreleased
+
+### Added
+
+- **Illustrated feature guides** - Expanded the 3D and 2D documentation with control-by-control explanations, physical layer and color examples, calibration workflows, and full-size vector illustrations. The guides distinguish preview-only controls from image and geometry edits, describe settings that interact, and explain what must match the slicer. Mobile navigation collapses to leave room for reading. Documentation checks cover navigation, image assets, and responsive rendering.
+
 ## v4.0.0 - 2026-09-10
 
 ### Upgrade notes

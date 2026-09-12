@@ -9,7 +9,7 @@ description: The optics and math behind hiding-distance, Palette Proof, and Stac
 
 Kromacut has three complementary calibration tools. **Hiding Distance** measures the physical opacity of each filament. **Palette Proof** asks you to rank a small set of printed candidates for colors that matter to one job. **Stack Matrix** photographs many known physical recipes and records their observed colors. They all feed the same Auto-paint stack model, but they answer different questions.
 
-For the step-by-step wizard, see [3D mode](3d-mode).
+For the step-by-step controls, saving behavior, and print-setting compatibility, see [Calibration workflows](calibration-workflows). For the rest of the printing workspace, see [3D mode](3d-mode).
 
 ## Why Thin Layers Blend
 

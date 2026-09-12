@@ -19,6 +19,8 @@
         "profile:calibrated": "node scripts/profile-calibrated.mjs",
         "profile:compare": "node scripts/compare-calibrated-profiles.mjs",
         "test:e2e": "playwright test --grep @smoke",
+        "test:docs": "node --no-warnings --experimental-strip-types --test tests/docsContent.test.ts",
+        "test:e2e:docs": "playwright test --config playwright.docs.config.ts",
         "test:e2e:matrix": "playwright test --grep @matrix",
         "test:e2e:stress": "playwright test --grep @stress",
         "test:e2e:full": "playwright test --grep @full",

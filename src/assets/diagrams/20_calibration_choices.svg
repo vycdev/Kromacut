@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 540" role="img" aria-labelledby="title desc">
+  <title id="title">Choose the calibration evidence you need</title>
+  <desc id="desc">A wedge measures one filament's opacity. A Palette Proof compares artwork targets with printed candidates. A Stack Matrix photographs many known recipes. All inform predicted colors and stack choices, not printer extrusion settings. Drawings are schematic, not measured color predictions.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 10 5 0 10Z" fill="#b3c2d4"/></marker>
+  </defs>
+  <rect width="960" height="540" rx="18" fill="#121923"/>
+  <g font-family="system-ui, sans-serif" fill="#f1f5f9" font-size="18">
+    <text x="32" y="44" font-size="26" font-weight="700">Three tools, three different questions</text>
+    <text x="32" y="74" fill="#b3c2d4">Combine evidence where it helps. None of these tunes the printer.</text>
+    <rect x="32" y="104" width="280" height="274" rx="14" fill="#1b2736"/>
+    <rect x="340" y="104" width="280" height="274" rx="14" fill="#1b2736"/>
+    <rect x="648" y="104" width="280" height="274" rx="14" fill="#1b2736"/>
+    <text x="52" y="138" fill="#38bdf8" font-weight="700">Hiding Distance</text>
+    <text x="360" y="138" fill="#fbbf24" font-weight="700">Palette Proof</text>
+    <text x="668" y="138" fill="#a78bfa" font-weight="700">Stack Matrix</text>
+    <g stroke="#121923" stroke-width="2">
+      <path d="M56 240V220H98V209H140V198H182V187H224V176H266V250H56Z" fill="#38bdf8"/>
+      <path d="M56 250H266V267H56Z" fill="#090e15"/>
+      <path d="M56 169H266V185H56Z" fill="#84d9f4"/>
+    </g>
+    <text x="52" y="307" font-weight="650">When does the base hide?</text>
+    <text x="52" y="335" fill="#b3c2d4">Read a patch beside its rail.</text>
+    <text x="52" y="361" fill="#b3c2d4">Output: measured HD.</text>
+    <g stroke="#121923" stroke-width="2">
+      <rect x="361" y="168" width="42" height="42" rx="6" fill="#fbbf24"/>
+      <rect x="425" y="168" width="48" height="42" rx="6" fill="#aa8335"/>
+      <rect x="479" y="168" width="48" height="42" rx="6" fill="#e9b842"/>
+      <rect x="533" y="168" width="48" height="42" rx="6" fill="#f0cf73"/>
+      <rect x="361" y="221" width="42" height="42" rx="6" fill="#38bdf8"/>
+      <rect x="425" y="221" width="48" height="42" rx="6" fill="#287693"/>
+      <rect x="479" y="221" width="48" height="42" rx="6" fill="#3b96b5"/>
+      <rect x="533" y="221" width="48" height="42" rx="6" fill="#6dafc1"/>
+    </g>
+    <rect x="478" y="167" width="50" height="44" rx="7" fill="none" stroke="#f1f5f9" stroke-width="3"/>
+    <text x="360" y="307" font-weight="650">Which patch is closest?</text>
+    <text x="360" y="335" fill="#b3c2d4">Judge selected image colors.</text>
+    <text x="360" y="361" fill="#b3c2d4">Output: local evidence.</text>
+    <g stroke="#121923" stroke-width="2">
+      <path d="M671 168H719V213H671Z" fill="#637d9a"/><path d="M719 168H767V213H719Z" fill="#8ea093"/><path d="M767 168H815V213H767Z" fill="#b69c76"/><path d="M815 168H863V213H815Z" fill="#cfbd83"/>
+      <path d="M671 213H719V258H671Z" fill="#866e9b"/><path d="M719 213H767V258H719Z" fill="#a7819c"/><path d="M767 213H815V258H767Z" fill="#77a49d"/><path d="M815 213H863V258H815Z" fill="#6c78a1"/>
+    </g>
+    <path d="M880 194H905V228H880Z M880 206H867V216H880" fill="none" stroke="#a78bfa" stroke-width="3"/>
+    <text x="668" y="307" font-weight="650">What do recipes look like?</text>
+    <text x="668" y="335" fill="#b3c2d4">Photograph a known grid.</text>
+    <text x="668" y="361" fill="#b3c2d4">Output: measured colors.</text>
+    <path d="M172 381V406H480M788 381V406H480M480 381V431" fill="none" stroke="#b3c2d4" stroke-width="2" marker-end="url(#arrow)"/>
+    <rect x="170" y="442" width="620" height="58" rx="12" fill="#1b2736" stroke="#38bdf8"/>
+    <text x="480" y="477" text-anchor="middle" font-weight="650">Predicted colors → stack choice → heights and swap plan</text>
+    <text x="928" y="524" text-anchor="end" fill="#b3c2d4">Schematic colors, not measured predictions</text>
+  </g>
+</svg>

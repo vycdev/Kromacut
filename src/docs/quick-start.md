@@ -19,7 +19,7 @@ After loading, use the mouse wheel to zoom and drag the preview to pan. If the i
 
 In **2D**, use **Adjustments** before reducing colors. Exposure, contrast, highlights, shadows, whites, blacks, saturation, vibrance, hue, temperature, tint, and clarity can all change which colors the palette tools find.
 
-Click **Apply** in the Adjustments panel when you want to bake the current adjustments into the image.
+Click **Apply** in the Adjustments panel to bake the current adjustments into the image before reducing colors, building 3D geometry, or downloading it. Live adjustments alone are a preview, not an updated source image. See [Image adjustments](image-adjustments) for before/after examples and reset behavior.
 
 ## Resize If Needed
 
@@ -30,11 +30,11 @@ If the image is much larger than the detail you want to print, use **Resize Imag
 In **Quantization Settings**:
 
 1. Leave **Palette** on **Auto** unless you already have a specific palette in mind.
-2. Start with **Number of Colors** set to **16**. Lower it if you need fewer filament changes, or raise it if the preview needs more detail.
+2. Start with **Number of Colors** set to **16**. Lower it for fewer source color regions, or raise it if the preview needs more detail. In Auto-paint, this count is not the number of spools or swaps.
 3. Leave **Algorithm** on the default **K-means** option. It is the recommended starting algorithm for most images.
 4. Click **Apply**.
 
-Use the **Image colors** panel to inspect the result. Click a swatch to edit or delete that color.
+Use the **Image colors** panel to inspect the result. Click a swatch to edit it or delete it from the palette. Deleting remaps pixels to the remaining colors; use the Eraser or set alpha to zero (fully transparent) to remove pixels from the silhouette.
 
 ## Dedither Or Clean Up
 
@@ -73,4 +73,4 @@ Click **Build 3D Model**. When the model appears, use the **Layer Preview** slid
 
 Open the download menu and choose **Download STL** or **Download 3MF**. Then copy the **Print Instructions** so you have the start color, swap layers, and recommended slicer settings.
 
-Next: [Generating and exporting output](generating-exporting-output#before-you-export).
+Next: [3D mode](3d-mode), [Auto-paint](auto-paint), or [Generating and exporting output](generating-exporting-output#before-you-export).
