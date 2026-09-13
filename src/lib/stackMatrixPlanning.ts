@@ -2,6 +2,10 @@ import type { Filament } from '../types';
 import type { CanonicalSrgbColor } from '../types/appearance';
 import { fingerprintAppearanceFilaments, type StackMatrixCalibrationV1 } from './appearanceProfile';
 import { rgbToLab, type Lab } from './colorDifference';
+import {
+    createPriorEffectiveOpticsModel,
+    minimumOpaqueFoundationThickness,
+} from './effectiveOptics';
 
 type SelectionReason = 'coverage' | 'exploration' | 'reference';
 
@@ -48,6 +52,26 @@ export interface AdaptiveMatrixPlan {
     referenceSampleCount: number;
     unmeasuredSampleCount: number;
     estimatedSwapCycles: number;
+}
+
+/**
+ * Keep neighboring cells on new boards similar from the bottom layer upward.
+ * Compare the full physical stacks, including backing padding, so adjacent
+ * recipes can share contiguous printed regions. Comparing one layer at a time
+ * also avoids the precision loss of base-N numeric keys for deep recipes.
+ * This only reorders the supplied candidates; it does not change acquisition.
+ */
+export function orderStackMatrixCandidatesForLayout<T extends AdaptiveMatrixCandidate>(
+    candidates: readonly T[]
+): T[] {
+    return [...candidates].sort((left, right) => {
+        const sharedDepth = Math.min(left.stack.length, right.stack.length);
+        for (let layer = 0; layer < sharedDepth; layer++) {
+            const difference = left.stack[layer] - right.stack[layer];
+            if (difference !== 0) return difference;
+        }
+        return left.stack.length - right.stack.length;
+    });
 }
 
 function squaredDistance(left: Lab, right: Lab): number {
@@ -185,9 +209,43 @@ function maskCycles(masks: readonly number[], backingIndex: number): number {
 export function planAdaptiveStackMatrix(options: AdaptiveMatrixPlanOptions): AdaptiveMatrixPlan {
     const { filaments, backingIndex, layerCount, maximumSamples } = options;
     const history = compatibleHistory(options);
+    const priorOptics = createPriorEffectiveOpticsModel(filaments);
+    const opaqueBackingThickness = minimumOpaqueFoundationThickness(
+        priorOptics,
+        filaments[backingIndex].id
+    );
+    const foundationThickness = options.foundationLayerThicknesses.reduce(
+        (total, thickness) => total + thickness,
+        0
+    );
+    const physicalRecipeKey = (
+        stack: readonly number[],
+        recipe: readonly number[],
+        foundation: number,
+        layerHeight: number
+    ) => {
+        const key = recipeKey(recipe, filaments);
+        let backingLayers = 0;
+        while (backingLayers < stack.length && stack[backingLayers] === backingIndex)
+            backingLayers++;
+        const backingThickness = foundation + backingLayers * layerHeight;
+        // Padding can be ignored only after the physical backing is opaque.
+        // Otherwise the same useful recipe over a different translucent base
+        // remains an unmeasured stack, even when its filament sequence matches.
+        return backingThickness + 1e-8 >= opaqueBackingThickness
+            ? key
+            : JSON.stringify({
+                  recipe: key,
+                  backingThickness: Number(backingThickness.toFixed(8)),
+              });
+    };
     const currentIndexById = new Map(filaments.map((filament, index) => [filament.id, index]));
     const measurements = new Map<string, { recipe: number[]; measured: Lab; predicted: Lab }>();
     for (const matrix of history) {
+        const measuredFoundationThickness = matrix.foundationLayerThicknesses.reduce(
+            (total, thickness) => total + thickness,
+            0
+        );
         for (const sample of matrix.samples) {
             if (!sample.measuredColor) continue;
             const remapped = sample.stack.map((index) =>
@@ -197,7 +255,12 @@ export function planAdaptiveStackMatrix(options: AdaptiveMatrixPlanOptions): Ada
             // only through patches made entirely from its selected materials.
             if (remapped.some((index) => index === undefined)) continue;
             const recipe = normalizedRecipe(remapped as number[], backingIndex);
-            const key = recipeKey(recipe, filaments);
+            const key = physicalRecipeKey(
+                remapped as number[],
+                recipe,
+                measuredFoundationThickness,
+                matrix.process.layerHeight
+            );
             if (!measurements.has(key))
                 measurements.set(key, {
                     recipe,
@@ -236,11 +299,11 @@ export function planAdaptiveStackMatrix(options: AdaptiveMatrixPlanOptions): Ada
     const addRecipe = (input: readonly number[]): Candidate | undefined => {
         const recipe = normalizedRecipe(input, backingIndex);
         if (recipe.length < 1 || recipe.length > layerCount) return undefined;
-        const key = recipeKey(recipe, filaments);
+        const stack = [...Array<number>(layerCount - recipe.length).fill(backingIndex), ...recipe];
+        const key = physicalRecipeKey(stack, recipe, foundationThickness, options.layerHeight);
         const existing = byKey.get(key);
         if (existing) return existing;
         if (candidates.length >= poolLimit) return undefined;
-        const stack = [...Array<number>(layerCount - recipe.length).fill(backingIndex), ...recipe];
         const predictedColor = options.predictColor(stack);
         const lab = rgbToLab([...predictedColor.rgb]);
         let historyDistance = Infinity;
@@ -446,7 +509,7 @@ export function planAdaptiveStackMatrix(options: AdaptiveMatrixPlanOptions): Ada
         select(best, explore ? 'exploration' : 'coverage');
     }
     return {
-        candidates: selected.map(
+        candidates: orderStackMatrixCandidatesForLayout(selected).map(
             ({
                 stack,
                 recipeLayerCount,

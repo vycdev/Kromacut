@@ -106,7 +106,10 @@ async function readMatrixDownload(download: Download) {
     const modelGeometryHash = createHash('sha256')
         .update(model.replace(/ p:UUID="[^"]*"/g, ''))
         .digest('hex');
-    return { record, settings, modelGeometryHash };
+    const maximumZ = Math.max(
+        ...Array.from(model.matchAll(/<vertex\b[^>]*\bz="([^"]+)"/g), (match) => Number(match[1]))
+    );
+    return { record, settings, modelGeometryHash, maximumZ };
 }
 
 function expectExportHeights(
@@ -118,6 +121,11 @@ function expectExportHeights(
     expect(exported.record.process.firstLayerHeight).toBe(firstLayerHeight);
     expect(exported.settings.layer_height).toBe(String(layerHeight));
     expect(exported.settings.initial_layer_print_height).toBe(String(firstLayerHeight));
+    expect(exported.record.foundationLayerThicknesses).toEqual([firstLayerHeight]);
+    expect(exported.maximumZ).toBeCloseTo(
+        firstLayerHeight + exported.record.stackLayerCount * layerHeight,
+        6
+    );
 }
 
 test('@smoke @matrix New Stack Matrices use live print heights while saved matrices keep their frozen settings', async ({
@@ -227,8 +235,12 @@ test('@matrix adaptive thickness, swap budget, and completed history survive the
     const create = dialog.getByRole('button', { name: 'Create and download 3MF', exact: true });
     await dialog.getByLabel('Max color thickness (mm)', { exact: true }).fill('0.01');
     await expect(create).toBeDisabled();
+    await dialog.getByLabel('Max color thickness (mm)', { exact: true }).fill('0.40');
+    await expect(dialog.getByTestId('matrix-new-height-summary')).toHaveText(
+        '0.10 mm foundation + 0.40 mm color region = 0.50 mm total / 11 print layers'
+    );
     await dialog.getByLabel('Max color thickness (mm)', { exact: true }).fill('0.81');
-    await expect(dialog.getByText(/Up to 20 color layers \(0.8 mm\)/)).toBeVisible();
+    await expect(dialog.getByText(/Up to 20 color layers \(0\.80 mm\)/)).toBeVisible();
     await dialog.getByLabel('Maximum cells', { exact: true }).click();
     await page.getByRole('option', { name: '64 (8 × 8)', exact: true }).click();
     await dialog.getByLabel('Planned material-change budget', { exact: true }).click();
@@ -241,6 +253,9 @@ test('@matrix adaptive thickness, swap budget, and completed history survive the
     await create.click();
     const first = await readMatrixDownload(await firstDownload);
     expectExportHeights(first, 0.04, 0.1);
+    await expect(dialog.getByTestId('matrix-saved-height-summary')).toHaveText(
+        '0.10 mm foundation + 0.80 mm color region = 0.90 mm total / 21 print layers'
+    );
     expect(first.record.schemaVersion).toBe(2);
     expect(first.record.stackLayerCount).toBe(20);
     expect(first.record.planning?.maximumSwapCycles).toBe(80);

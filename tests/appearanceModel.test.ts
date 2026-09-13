@@ -108,6 +108,131 @@ test('flat adaptive Matrix samples resolve at their useful recipe depth above an
     );
 });
 
+test('thin Matrix foundations retain physical matches without entering an opaque-backing fit', async () => {
+    const { model, profile } = await modules;
+    for (const [backingHd, expectedFitSamples] of [
+        [0.8, 0],
+        [0.1, 2],
+        [0.05, 3],
+    ]) {
+        const filaments = adaptiveMatrixFilaments.map((filament, index) =>
+            index === 0 ? { ...filament, td: backingHd } : filament
+        );
+        const fingerprint = profile.fingerprintAppearanceFilaments(filaments);
+        const record = adaptiveStackMatrixFixture(fingerprint);
+        record.foundationLayerThicknesses = [0.1];
+        const fitted = model.fitAppearanceRankModel(
+            { ...profile.createEmptyAppearanceProfile(), stackMatrices: [record] },
+            {
+                filamentProfileFingerprint: fingerprint,
+                layerHeight: 0.04,
+                firstLayerHeight: 0.1,
+                transitionOpacity: 0.9,
+                filaments,
+            }
+        );
+        assert.equal(fitted.effectiveOptics?.sampleCount, expectedFitSamples);
+        assert.equal(fitted.effectiveOptics?.matrixCount, expectedFitSamples > 0 ? 1 : 0);
+        assert.equal(fitted.exactAnchors.length, record.samples.length);
+        const sample = record.samples[1]; // Full-depth recipe without extra backing padding.
+        const anchorId = `${record.id}:${sample.index}`;
+        const anchor = fitted.exactAnchors.find((entry) => entry.id === anchorId)!;
+        const foundation = {
+            filamentId: filaments[0].id,
+            filamentColor: filaments[0].color,
+            thickness: 0.1,
+        };
+        const base = { L: 50, a: 0, b: 0 };
+        for (const physicalFoundation of [
+            [foundation],
+            [
+                { ...foundation, thickness: 0.04 },
+                { ...foundation, thickness: 0.06 },
+            ],
+        ]) {
+            const actual = model.resolveAppearanceRankModel(base, fitted, [
+                ...physicalFoundation,
+                ...anchor.suffixLayers,
+            ]);
+            assert.equal(actual.exactAnchor?.id, anchorId);
+            assert.deepEqual([actual.lab.L, actual.lab.a, actual.lab.b], anchor.targetLab);
+        }
+        const thickArtwork = model.resolveAppearanceRankModel(base, fitted, [
+            { ...foundation, thickness: 1.5 },
+            ...anchor.suffixLayers,
+        ]);
+        if (backingHd === 0.05) {
+            assert.equal(thickArtwork.exactAnchor?.id, anchorId, 'thin opaque black can transfer');
+        } else {
+            assert.equal(thickArtwork.exactAnchor, undefined);
+            assert.equal(thickArtwork.empiricalMatch, undefined);
+        }
+    }
+});
+
+test('saved opaque Matrix foundations keep their original geometry and transferable evidence', async () => {
+    const { model, profile } = await modules;
+    const fingerprint = profile.fingerprintAppearanceFilaments(adaptiveMatrixFilaments);
+    const record = adaptiveStackMatrixFixture(fingerprint);
+    record.schemaVersion = 1;
+    record.samples = [record.samples[1]];
+    const original = JSON.stringify(record);
+    const fitted = model.fitAppearanceRankModel(
+        { ...profile.createEmptyAppearanceProfile(), stackMatrices: [record] },
+        {
+            filamentProfileFingerprint: fingerprint,
+            layerHeight: 0.04,
+            firstLayerHeight: 0.1,
+            transitionOpacity: 0.9,
+            filaments: adaptiveMatrixFilaments,
+        }
+    );
+    assert.equal(fitted.effectiveOptics?.sampleCount, 1);
+    const anchor = fitted.exactAnchors[0];
+    const actual = model.resolveAppearanceRankModel({ L: 50, a: 0, b: 0 }, fitted, [
+        {
+            filamentId: adaptiveMatrixFilaments[0].id,
+            filamentColor: adaptiveMatrixFilaments[0].color,
+            thickness: 0.2,
+        },
+        ...anchor.suffixLayers,
+    ]);
+    assert.equal(actual.exactAnchor?.id, anchor.id);
+    assert.equal(JSON.stringify(record), original);
+});
+
+test('Matrix agreement preserves translucent foundation thickness in replicate identity', async () => {
+    const { model, profile } = await modules;
+    const fingerprint = profile.fingerprintAppearanceFilaments(adaptiveMatrixFilaments);
+    const fit = (thicknesses: number[]) => {
+        const records = thicknesses.map((thickness, index) => {
+            const record = adaptiveStackMatrixFixture(fingerprint);
+            record.id = `foundation-replicate-${index}`;
+            record.foundationLayerThicknesses = [thickness];
+            record.samples = [record.samples[1]];
+            record.samples[0].measuredColor!.rgb = index === 2 ? [230, 220, 210] : [30, 20, 10];
+            return record;
+        });
+        return model.fitAppearanceRankModel(
+            { ...profile.createEmptyAppearanceProfile(), stackMatrices: records },
+            {
+                filamentProfileFingerprint: fingerprint,
+                layerHeight: 0.04,
+                firstLayerHeight: 0.1,
+                transitionOpacity: 0.9,
+                filaments: adaptiveMatrixFilaments,
+            }
+        );
+    };
+    assert.ok(fit([0.1, 0.1, 0.11]).empiricalLuts.every((lut) => lut.agreementWeight === 1));
+    assert.ok(
+        fit([0.2, 0.3, 0.4]).empiricalLuts.find(
+            (lut) => lut.sourceMatrixId === 'foundation-replicate-2'
+        )!.agreementWeight < 1,
+        'already-opaque foundations still contribute to the same replicate consensus'
+    );
+});
+
 test('adaptive Matrix continuation preserves every supported depth without repeated prefix copies', async () => {
     const { model, profile } = await modules;
     const fingerprint = profile.fingerprintAppearanceFilaments(adaptiveMatrixFilaments);

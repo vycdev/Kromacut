@@ -54,7 +54,7 @@ test('adaptive Matrix caps physical recipe thickness and pads every shorter reci
     assert.equal(record.selection, 'adaptive-gamut');
     assert.equal(record.process.layerHeight, 0.04);
     assert.equal(record.process.firstLayerHeight, 0.1);
-    assert.equal(record.foundationLayerThicknesses[0], 0.1);
+    assert.deepEqual(record.foundationLayerThicknesses, [0.1]);
     assert.equal(record.stackLayerCount, 20);
     assert.equal(record.planning?.maximumRecipeThickness, 0.83);
     assert.equal(record.totalCombinationCount, 3 ** 20);
@@ -184,19 +184,25 @@ test('incompatible, unreviewed and unverified history cannot affect adaptive acq
 
 test('history recipe identity survives a new thickness cap and material ordering', async () => {
     const [matrix] = await modules;
+    // Cross-thickness reuse requires a backing that is opaque at its selected
+    // first-layer height; translucent backing is covered separately.
+    const opaqueFilaments = [{ ...filaments[0], td: 0.05 }, ...filaments.slice(1)];
     const first = reviewed(
         matrix,
-        matrix.buildStackMatrixCalibration(filaments, {
+        matrix.buildStackMatrixCalibration(opaqueFilaments, {
             ...options,
             maximumRecipeThickness: 0.24,
             ownerProfileFingerprint: 'owner',
         })
     );
-    const record = matrix.buildStackMatrixCalibration([filaments[2], filaments[0], filaments[1]], {
-        ...options,
-        ownerProfileFingerprint: 'owner',
-        previousMatrices: [first],
-    });
+    const record = matrix.buildStackMatrixCalibration(
+        [opaqueFilaments[2], opaqueFilaments[0], opaqueFilaments[1]],
+        {
+            ...options,
+            ownerProfileFingerprint: 'owner',
+            previousMatrices: [first],
+        }
+    );
     assert.equal(record.planning?.compatibleHistoryCount, 1);
     assert.equal(record.planning?.measuredRecipeCount, first.samples.length);
     const old = new Set(recipeKeys(first));
@@ -270,16 +276,24 @@ test('full-owner history reuses only selected-material patches when narrowing ei
     assert.equal(unavailableLegacy.planning?.compatibleHistoryCount, 0);
 });
 
-test('adaptive padding rejects backing that cannot become opaque within the foundation limit', async () => {
+test('new Matrix foundations follow the first layer, independent of backing HD and color thickness', async () => {
     const [matrix] = await modules;
-    assert.throws(
-        () =>
-            matrix.buildStackMatrixCalibration(
-                [{ ...filaments[0], td: 12 }, ...filaments.slice(1)],
-                { ...options, layerHeight: 0.02 }
-            ),
-        /opaque thickness.*500-layer foundation limit/
-    );
+    for (const td of [0.01, 0.05, 0.45, 12]) {
+        const record = matrix.buildStackMatrixCalibration(
+            [{ ...filaments[0], td }, ...filaments.slice(1)],
+            { ...options, maximumRecipeThickness: 0.4 }
+        );
+        assert.deepEqual(record.foundationLayerThicknesses, [0.1]);
+        assert.equal(record.stackLayerCount, 10);
+        assert.equal(record.foundationLayerThicknesses.length + record.stackLayerCount, 11);
+        assert.equal(record.foundationLayerThicknesses[0] + record.stackLayerCount * 0.04, 0.5);
+    }
+    const thickerFirstLayer = matrix.buildStackMatrixCalibration(filaments, {
+        ...options,
+        firstLayerHeight: 0.16,
+        maximumRecipeThickness: 0.4,
+    });
+    assert.deepEqual(thickerFirstLayer.foundationLayerThicknesses, [0.16]);
 });
 
 test('deep eight-material planning uses a bounded pool and a safe combination count', async () => {

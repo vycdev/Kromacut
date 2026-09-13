@@ -6,6 +6,7 @@ import { assertValidXml10Members } from './helpers/xml.ts';
 import { withViteTestServer } from './helpers/viteModule.ts';
 import { deltaE2000Lab } from '../src/lib/colorDifference.ts';
 import { fingerprintJson } from '../src/lib/fingerprint.ts';
+import { adaptiveStackMatrixFixture } from './helpers/adaptiveStackMatrixFixture.ts';
 
 type MatrixModule = typeof import('../src/lib/stackMatrixCalibration.ts');
 type ExportModule = typeof import('../src/lib/stackMatrixExport.ts');
@@ -98,9 +99,7 @@ test('Stack Matrix enumerates every recipe when it fits and builds a printable f
     assert.equal(new Set(record.samples.map((sample) => sample.stack.join(','))).size, 27);
     assert.deepEqual(record.samples[0].stack, [0, 0, 0]);
     assert.deepEqual(record.samples.at(-1)?.stack, [2, 2, 2]);
-    assert.equal(record.foundationLayerThicknesses[0], 0.2);
-    assert.ok(record.foundationLayerThicknesses.slice(1).every((height) => height === 0.08));
-    assert.ok(record.foundationLayerThicknesses.reduce((sum, height) => sum + height, 0) >= 0.6);
+    assert.deepEqual(record.foundationLayerThicknesses, [0.2]);
     assert.equal(record.grid.patchSize, 5);
     assert.equal(record.grid.gap, 0);
 });
@@ -791,6 +790,59 @@ test('adaptive Stack Matrix 3MF keeps padded recipes flat, correctly colored, an
     }
 });
 
+test('a 0.40 mm Matrix with a 0.10 mm first layer exports exactly 0.50 mm of closed geometry', async () => {
+    const [matrix, exporter] = await modules;
+    const record = matrix.buildStackMatrixCalibration(filaments, {
+        layerHeight: 0.04,
+        firstLayerHeight: 0.1,
+        maximumRecipeThickness: 0.4,
+        maximumSamples: 32,
+        backingFilamentId: 'black',
+    });
+    assert.deepEqual(record.foundationLayerThicknesses, [0.1]);
+    assert.equal(record.stackLayerCount, 10);
+    const zip = await JSZip.loadAsync(
+        await (await exporter.generateStackMatrix3mf(record)).arrayBuffer()
+    );
+    const meshes = matrixMeshObjects(await zip.file('3D/3dmodel.model')!.async('string'));
+    assertClosedOutwardMatrixMeshes(meshes);
+    assert.equal(
+        Math.max(...meshes.flatMap((mesh) => mesh.vertices.map((vertex) => vertex[2]))),
+        0.5
+    );
+    assert.equal(Math.max(...meshes[0].vertices.map((vertex) => vertex[2])), 0.1);
+    const exported = JSON.parse(
+        await zip.file('Metadata/kromacut-stack-matrix.json')!.async('string')
+    );
+    assert.deepEqual(exported.foundationLayerThicknesses, [0.1]);
+    assert.deepEqual(exported.samples, record.samples);
+});
+
+test('saved thick Matrix foundations and ungrouped cell positions survive import and re-export unchanged', async () => {
+    const [, exporter, profile] = await modules;
+    const original = adaptiveStackMatrixFixture();
+    const appearance = { ...profile.createEmptyAppearanceProfile(), stackMatrices: [original] };
+    const restored = profile.sanitizeAppearanceProfile(structuredClone(appearance))!
+        .stackMatrices![0];
+    assert.deepEqual(restored, original);
+    assert.ok(restored.foundationLayerThicknesses.length > 1);
+    assert.deepEqual(
+        restored.samples.map((sample) => sample.recipeLayerCount),
+        [2, 20, 1]
+    );
+    const modelXml = async (record: typeof original) => {
+        const zip = await JSZip.loadAsync(
+            await (await exporter.generateStackMatrix3mf(record)).arrayBuffer()
+        );
+        return (await zip.file('3D/3dmodel.model')!.async('string')).replace(
+            / p:UUID="[^"]*"/g,
+            ''
+        );
+    };
+    assert.equal(await modelXml(restored), await modelXml(original));
+    assert.deepEqual(appearance.stackMatrices[0], original);
+});
+
 test('adaptive Stack Matrix 3MF coalesces padding and pure references without changing legacy cubes', async () => {
     const [matrix, exporter] = await modules;
     const adaptive = await paddedMatrixExportFixture(64);
@@ -947,9 +999,11 @@ test('conditional Matrix validation uses the deployed neighbor selection and sup
 
 test('all compatible Stack Matrix samples jointly refit physical optics without crossing process boundaries', async () => {
     const [matrix, , profile, model] = await modules;
+    // This fitter test requires an opaque base; new boards no longer add it
+    // automatically when their selected first layer would be translucent.
     const planned = matrix.buildStackMatrixCalibration(
         filaments,
-        options(64),
+        { ...options(64), firstLayerHeight: 0.6 },
         '2026-08-07T10:00:00.000Z'
     );
     const measuredColors = planned.samples.map(
@@ -974,7 +1028,7 @@ test('all compatible Stack Matrix samples jointly refit physical optics without 
     const context = {
         filamentProfileFingerprint: profile.fingerprintAppearanceFilaments(filaments),
         layerHeight: 0.08,
-        firstLayerHeight: 0.2,
+        firstLayerHeight: 0.6,
         transitionOpacity: 0.9,
         filaments,
     };

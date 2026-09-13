@@ -41,11 +41,15 @@ async function fixture(shiftOptics = false) {
         { id: 'white', color: '#f4f2ea', td: 0.5 },
         { id: 'orange', color: '#d83400', td: 0.3 },
     ];
+    // These synthetic observations start from opaque white, including the
+    // shifted-optics truth below. Request that foundation explicitly now that
+    // Matrix generation no longer adds hidden backing layers for opacity.
+    const firstLayerHeight = 1.2;
     const record = matrix.buildStackMatrixCalibration(
         filaments,
         {
             layerHeight: 0.08,
-            firstLayerHeight: 0.4,
+            firstLayerHeight,
             stackLayerCount: 4,
             maximumSamples: 128,
             backingFilamentId: 'white',
@@ -106,7 +110,7 @@ async function fixture(shiftOptics = false) {
         filaments,
         filamentProfileFingerprint: profile.fingerprintAppearanceFilaments(filaments),
         layerHeight: 0.08,
-        firstLayerHeight: 0.4,
+        firstLayerHeight,
         transitionOpacity: 0.9,
     };
     return { appearance, context, record };

@@ -236,12 +236,43 @@ function matrixSampleRecipe(
     return sample.stack.slice(matrixSamplePadding(record, sample));
 }
 
-function matrixRecipeKey(record: StackMatrixCalibrationV1, sample: StackMatrixSampleV1): string {
-    // Extra opaque backing changes geometry, not the measured useful recipe.
-    // Keep the backing identity: the same recipe over another substrate is not a replicate.
-    return [record.backingFilamentIndex, ...matrixSampleRecipe(record, sample)]
-        .map((filamentIndex) => record.filaments[filamentIndex].id)
-        .join('\0');
+function matrixSampleFoundationThickness(
+    record: StackMatrixCalibrationV1,
+    sample: StackMatrixSampleV1
+): number {
+    return (
+        record.foundationLayerThicknesses.reduce((sum, thickness) => sum + thickness, 0) +
+        matrixSamplePadding(record, sample) * record.process.layerHeight
+    );
+}
+
+function minimumSavedPriorFoundationThickness(
+    optics: AppearanceEffectiveOpticsModelV1,
+    filamentId: string
+): number {
+    const filament = optics.filaments.find((entry) => entry.filamentId === filamentId);
+    return filament ? Math.max(...filament.priorHdChannels) * Math.log10(20) : Infinity;
+}
+
+function matrixRecipeKey(
+    record: StackMatrixCalibrationV1,
+    sample: StackMatrixSampleV1,
+    prior: AppearanceEffectiveOpticsModelV1
+): string {
+    const backing = record.filaments[record.backingFilamentIndex];
+    const thickness = matrixSampleFoundationThickness(record, sample);
+    // Only opaque backing padding is optically neutral. Different translucent
+    // foundations cannot vote as repeated observations of the same recipe.
+    const foundation =
+        thickness + 1e-8 >= minimumSavedPriorFoundationThickness(prior, backing.id)
+            ? 'opaque'
+            : Math.round(thickness * 1e8) / 1e8;
+    return JSON.stringify([
+        foundation,
+        [record.backingFilamentIndex, ...matrixSampleRecipe(record, sample)].map(
+            (filamentIndex) => record.filaments[filamentIndex].id
+        ),
+    ]);
 }
 
 function median(values: readonly number[]): number {
@@ -263,6 +294,7 @@ function weightedCompatibleStackMatrices(
 ): WeightedCompatibleStackMatrix[] {
     const records = compatibleStackMatrices(appearance, context);
     if (records.length === 0) return [];
+    const prior = createPriorEffectiveOpticsModel(context.filaments ?? []);
 
     const newestTimestamp = Math.max(
         ...records.map((record) => Date.parse(record.completedAt ?? record.createdAt))
@@ -271,7 +303,7 @@ function weightedCompatibleStackMatrices(
     for (const record of records) {
         for (const sample of record.samples) {
             if (!sample.measuredColor) continue;
-            const key = matrixRecipeKey(record, sample);
+            const key = matrixRecipeKey(record, sample, prior);
             const measured = colorLab(sample.measuredColor.rgb);
             const group = recipeGroups.get(key) ?? [];
             group.push(measured);
@@ -299,7 +331,7 @@ function weightedCompatibleStackMatrices(
         const agreementDistances: number[] = [];
         for (const sample of record.samples) {
             if (!sample.measuredColor) continue;
-            const group = recipeGroups.get(matrixRecipeKey(record, sample)) ?? [];
+            const group = recipeGroups.get(matrixRecipeKey(record, sample, prior)) ?? [];
             if (group.length < 3) continue;
             const consensus: Lab = {
                 L: median(group.map((entry) => entry.L)),
@@ -331,32 +363,42 @@ function fitMatrixEffectiveOptics(
 ): AppearanceEffectiveOpticsModelV1 {
     const filaments = context.filaments ?? [];
     if (filaments.length === 0) return createPriorEffectiveOpticsModel();
+    const prior = createPriorEffectiveOpticsModel(filaments);
+    const samples = matrixEvidence.flatMap((evidence) => {
+        const matrix = evidence.record;
+        const backing = matrix.filaments[matrix.backingFilamentIndex];
+        if (!backing) return [];
+        return matrix.samples.flatMap((sample) => {
+            if (!sample.measuredColor) return [];
+            // The global fitter starts from an opaque backing color. Keep
+            // thinner observations as physical-context LUT evidence only;
+            // a fit must not authorize its own opacity boundary afterward.
+            if (
+                matrixSampleFoundationThickness(matrix, sample) + 1e-8 <
+                minimumSavedPriorFoundationThickness(prior, backing.id)
+            )
+                return [];
+            const recipeFilamentIds = matrixSampleRecipe(matrix, sample).map(
+                (filamentIndex) => matrix.filaments[filamentIndex]?.id
+            );
+            if (recipeFilamentIds.some((filamentId) => !filamentId)) return [];
+            return [
+                {
+                    id: `${matrix.id}:${sample.index}`,
+                    sourceMatrixId: matrix.id,
+                    backingFilamentId: backing.id,
+                    recipeFilamentIds: recipeFilamentIds as string[],
+                    layerHeight: matrix.process.layerHeight,
+                    measuredRgb: sample.measuredColor.rgb,
+                    weight: evidence.matrixWeight,
+                },
+            ];
+        });
+    });
     return fitEffectiveOpticsFromMatrix({
         filaments,
-        matrixCount: matrixEvidence.length,
-        samples: matrixEvidence.flatMap((evidence) => {
-            const matrix = evidence.record;
-            const backing = matrix.filaments[matrix.backingFilamentIndex];
-            if (!backing) return [];
-            return matrix.samples.flatMap((sample) => {
-                if (!sample.measuredColor) return [];
-                const recipeFilamentIds = matrixSampleRecipe(matrix, sample).map(
-                    (filamentIndex) => matrix.filaments[filamentIndex]?.id
-                );
-                if (recipeFilamentIds.some((filamentId) => !filamentId)) return [];
-                return [
-                    {
-                        id: `${matrix.id}:${sample.index}`,
-                        sourceMatrixId: matrix.id,
-                        backingFilamentId: backing.id,
-                        recipeFilamentIds: recipeFilamentIds as string[],
-                        layerHeight: matrix.process.layerHeight,
-                        measuredRgb: sample.measuredColor.rgb,
-                        weight: evidence.matrixWeight,
-                    },
-                ];
-            });
-        }),
+        matrixCount: new Set(samples.map((sample) => sample.sourceMatrixId)).size,
+        samples,
     });
 }
 
@@ -1550,9 +1592,9 @@ function layersMatchAt(
 }
 
 /**
- * Matrix recipes are photographed over an opaque backing. Preserve an exact
- * measured foundation when it is present, but also accept a differently
- * segmented foundation when it resolves to the same physical substrate. The
+ * Preserve an exact measured foundation, including a translucent one. Also
+ * accept a differently segmented foundation with the same total thickness.
+ * Cross-thickness transfers require an opaque measured foundation. The
  * top filament must match because the fitted optics include ordered
  * filament-over-substrate interactions.
  */
@@ -1595,6 +1637,11 @@ function empiricalLutSubstrateMatches(
 
     const optics = model.effectiveOptics;
     if (!optics) return false;
+    if (
+        totalLayerThickness(lut.foundationLayers) + 1e-8 <
+        minimumSavedPriorFoundationThickness(optics, lut.backingFilamentId)
+    )
+        return false;
     const first = substrateLayers[0];
     let foundationThickness = 0;
     for (const layer of substrateLayers) {
@@ -2399,7 +2446,10 @@ function estimatedEmpiricalSubstrateTransfer(
                 layer.thickness <= 0
         ) ||
         totalLayerThickness(lut.foundationLayers) + 1e-8 <
-            minimumOpaqueFoundationThickness(optics, lut.backingFilamentId)
+            Math.max(
+                minimumOpaqueFoundationThickness(optics, lut.backingFilamentId),
+                minimumSavedPriorFoundationThickness(optics, lut.backingFilamentId)
+            )
     ) {
         return undefined;
     }

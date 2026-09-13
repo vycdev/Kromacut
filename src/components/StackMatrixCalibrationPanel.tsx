@@ -136,6 +136,13 @@ function filamentLabel(filament: Filament): string {
     return filament.name || filament.brand || filament.color;
 }
 
+function formatMatrixThickness(thickness: number): string {
+    return thickness.toLocaleString('en-US', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 6,
+    });
+}
+
 function swatchLuminance(hex: string): number {
     const value = hex.replace(/^#/, '');
     const channels = [0, 2, 4].map((offset) =>
@@ -443,6 +450,8 @@ export default function StackMatrixCalibrationPanel({
     const backingFilament = selectedFilaments.find((filament) => filament.id === backingId);
     const maximumRecipeThickness = Number(maximumRecipeThicknessDraft);
     const stackLayerCount = Math.floor(maximumRecipeThickness / layerHeight + 1e-7);
+    const plannedFoundationHeight = Math.max(0.001, layerHeight, firstLayerHeight);
+    const plannedColorRegionHeight = stackLayerCount * layerHeight;
     const thicknessValid =
         maximumRecipeThicknessDraft.trim() !== '' &&
         Number.isFinite(maximumRecipeThickness) &&
@@ -1306,6 +1315,13 @@ export default function StackMatrixCalibrationPanel({
 
     if (!creatingNew && activeRecord) {
         const physicalSize = stackMatrixPhysicalSize(activeRecord);
+        const foundationHeight = activeRecord.foundationLayerThicknesses.reduce(
+            (sum, thickness) => sum + thickness,
+            0
+        );
+        const colorRegionHeight = activeRecord.stackLayerCount * activeRecord.process.layerHeight;
+        const totalPrintLayers =
+            activeRecord.foundationLayerThicknesses.length + activeRecord.stackLayerCount;
         const usedFilamentCount = new Set(activeRecord.samples.flatMap((sample) => sample.stack))
             .size;
         const fitScale = photo
@@ -1390,6 +1406,16 @@ export default function StackMatrixCalibrationPanel({
                                   ? 'adaptive coverage'
                                   : 'HD-selected gamut'}
                         </p>
+                        <p
+                            className="mt-1 text-xs text-muted-foreground"
+                            data-testid="matrix-saved-height-summary"
+                        >
+                            {formatMatrixThickness(foundationHeight)} mm foundation +{' '}
+                            {formatMatrixThickness(colorRegionHeight)} mm color region ={' '}
+                            {formatMatrixThickness(foundationHeight + colorRegionHeight)} mm total
+                            {' / '}
+                            {totalPrintLayers} print layers
+                        </p>
                         {activeRecord.planning && (
                             <p className="mt-1 text-xs text-muted-foreground">
                                 {(
@@ -1405,7 +1431,7 @@ export default function StackMatrixCalibrationPanel({
                                 {activeRecord.planning.unmeasuredSampleCount !== undefined &&
                                     ` ${activeRecord.planning.unmeasuredSampleCount} recipes not measured in compatible prior boards.`}
                                 {
-                                    ' Slicer may add changes. Flat top includes extra backing under shorter recipes.'
+                                    ' Slicer may add changes. Extra backing under shorter recipes stays inside the color region, keeping the top flat.'
                                 }
                             </p>
                         )}
@@ -1899,8 +1925,9 @@ export default function StackMatrixCalibrationPanel({
                     </h4>
                     <p className="mt-1 max-w-3xl text-xs text-muted-foreground">
                         Samples color recipes up to a thickness cap, prioritizing gaps in compatible
-                        previous measurements and exploring untested recipes. Extra backing under
-                        shorter recipes keeps every patch at the same height for photography.
+                        previous measurements and exploring untested recipes. Similar recipes are
+                        grouped for more continuous toolpaths. Extra backing under shorter recipes
+                        keeps every patch at the same height for photography.
                     </p>
                 </div>
                 {records.length > 0 && (
@@ -2010,7 +2037,7 @@ export default function StackMatrixCalibrationPanel({
                     </div>
                     <p id="matrix-thickness-help" className="text-xs text-muted-foreground">
                         {thicknessValid
-                            ? `Up to ${stackLayerCount} color layers (${Number((stackLayerCount * layerHeight).toFixed(6))} mm), excluding the opaque foundation. Rounded down to whole print layers.`
+                            ? `Up to ${stackLayerCount} color layers (${formatMatrixThickness(plannedColorRegionHeight)} mm), above a one-layer foundation. Rounded down to whole print layers; shorter recipes use backing within this color region.`
                             : `Enter ${layerHeight} to ${Number((layerHeight * MAX_STACK_MATRIX_RECIPE_LAYERS).toFixed(6))} mm (1–${MAX_STACK_MATRIX_RECIPE_LAYERS} print layers).`}
                     </p>
                     <div className="space-y-1.5">
@@ -2048,9 +2075,11 @@ export default function StackMatrixCalibrationPanel({
                         </p>
                     </div>
                     <div className="space-y-1.5">
-                        <Label className="text-xs">Opaque backing</Label>
+                        <Label htmlFor="matrix-backing-filament" className="text-xs">
+                            Backing filament
+                        </Label>
                         <Select value={backingId} onValueChange={setBackingId}>
-                            <SelectTrigger>
+                            <SelectTrigger id="matrix-backing-filament">
                                 <SelectValue>
                                     {backingFilament && (
                                         <span className="flex min-w-0 items-center gap-2">
@@ -2083,6 +2112,11 @@ export default function StackMatrixCalibrationPanel({
                                 ))}
                             </SelectContent>
                         </Select>
+                        <p className="text-xs text-muted-foreground">
+                            The foundation is one first layer, without automatic thickening. A thin
+                            layer is not guaranteed opaque: choose an opaque filament and use a
+                            consistent, flat backing beneath the board when photographing it.
+                        </p>
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                         <div className="rounded-md border border-border/60 bg-muted/20 px-3 py-2">
@@ -2112,6 +2146,20 @@ export default function StackMatrixCalibrationPanel({
                         Up to {estimatedWidth.toFixed(1)} × {estimatedHeight.toFixed(1)} mm /{' '}
                         {layerHeight.toFixed(2)} mm layers / face-up
                     </div>
+                    {thicknessValid && (
+                        <div
+                            className="mt-0.5 text-muted-foreground"
+                            data-testid="matrix-new-height-summary"
+                        >
+                            {formatMatrixThickness(plannedFoundationHeight)} mm foundation +{' '}
+                            {formatMatrixThickness(plannedColorRegionHeight)} mm color region ={' '}
+                            {formatMatrixThickness(
+                                plannedFoundationHeight + plannedColorRegionHeight
+                            )}
+                            {' mm total / '}
+                            {stackLayerCount + 1} print layers
+                        </div>
+                    )}
                     <div className="mt-0.5 text-muted-foreground">
                         {maximumSwapCycles === undefined
                             ? 'No planner material-change limit'

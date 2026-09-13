@@ -7,7 +7,7 @@ import {
     type StackMatrixCalibrationV1,
 } from './appearanceProfile';
 import { blendColors, hexToRgb, rgbToHex, type RGB } from './autoPaint';
-import { channelHds, channelHdsForSubstrate } from './calibration';
+import { channelHdsForSubstrate } from './calibration';
 import { rgbToLab, type Rgb } from './colorDifference';
 import { fingerprintJson } from './fingerprint';
 import { createProjectiveMapper, type MatrixPhotoPoint } from './stackMatrixPhotoAlignment';
@@ -40,8 +40,6 @@ export interface StackMatrixCompletionEvidence {
 export const STACK_MATRIX_PATCH_SIZE_MM = 5;
 export const STACK_MATRIX_GAP_MM = 0;
 
-const FOUNDATION_MINIMUM_MM = 0.6;
-const FOUNDATION_OPACITY_MULTIPLIER = 1.3;
 const MAX_MATRIX_FILAMENTS = 8;
 const MIN_HD_GAMUT_POOL_SIZE = 8_192;
 const HD_GAMUT_POOL_MULTIPLIER = 8;
@@ -83,23 +81,13 @@ function canonicalColor(rgb: RGB | Rgb): CanonicalSrgbColor {
 }
 
 export function matrixFoundationLayerThicknesses(
-    backing: Filament,
     layerHeight: number,
     firstLayerHeight: number
 ): number[] {
-    const regular = Math.max(0.001, layerHeight);
-    const first = Math.max(regular, firstLayerHeight);
-    const target = Math.max(
-        FOUNDATION_MINIMUM_MM,
-        Math.max(...channelHds(backing)) * FOUNDATION_OPACITY_MULTIPLIER
-    );
-    const layers = [roundHeight(first)];
-    let height = first;
-    while (height < target - 1e-9 && layers.length < 500) {
-        layers.push(roundHeight(regular));
-        height += regular;
-    }
-    return layers;
+    // A new board starts with exactly one printable first layer. Do not add
+    // structural or HD-derived layers: stored boards retain their own frozen
+    // foundation schedule, while opacity is handled when applying evidence.
+    return [roundHeight(Math.max(0.001, layerHeight, firstLayerHeight))];
 }
 
 function decodeCombination(value: number, base: number, length: number): number[] {
@@ -333,7 +321,6 @@ export function buildStackMatrixCalibration(
     const columns = Math.ceil(Math.sqrt(selected.length));
     const rows = Math.ceil(selected.length / columns);
     const foundationLayerThicknesses = matrixFoundationLayerThicknesses(
-        filaments[backingIndex],
         options.layerHeight,
         options.firstLayerHeight
     );
@@ -444,23 +431,9 @@ function buildAdaptiveStackMatrixCalibration(
     );
     const firstLayerHeight = roundHeight(Math.max(layerHeight, options.firstLayerHeight));
     const foundationLayerThicknesses = matrixFoundationLayerThicknesses(
-        filaments[backingIndex],
         layerHeight,
         firstLayerHeight
     );
-    const opaqueFoundationTarget = Math.max(
-        FOUNDATION_MINIMUM_MM,
-        Math.max(...channelHds(filaments[backingIndex])) * FOUNDATION_OPACITY_MULTIPLIER
-    );
-    if (
-        !Number.isFinite(opaqueFoundationTarget) ||
-        foundationLayerThicknesses.reduce((sum, thickness) => sum + thickness, 0) <
-            opaqueFoundationTarget - 1e-6
-    ) {
-        throw new Error(
-            'The backing cannot reach its estimated opaque thickness within the 500-layer foundation limit. Choose a more opaque backing filament or a larger regular layer height.'
-        );
-    }
     const filamentProfileFingerprint =
         options.ownerProfileFingerprint ?? fingerprintAppearanceFilaments(ownerFilaments);
     const planned = planAdaptiveStackMatrix({
