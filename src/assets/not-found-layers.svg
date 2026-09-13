@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="520" height="460" viewBox="0 -60 520 460" fill="none">
+  <defs>
+    <linearGradient id="plate" x1="115" y1="216" x2="371" y2="345" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#8b9eaf" stop-opacity=".16"/>
+      <stop offset="1" stop-color="#8b9eaf" stop-opacity=".04"/>
+    </linearGradient>
+    <linearGradient id="face" x1="0" y1="0" x2="300" y2="150" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#f4fcff"/>
+      <stop offset=".45" stop-color="#cce9f5"/>
+      <stop offset="1" stop-color="#a6bbc9"/>
+    </linearGradient>
+    <pattern id="lines" width="4" height="4" patternUnits="userSpaceOnUse">
+      <path d="M0 3.5H4" stroke="#284457" stroke-opacity=".16"/>
+    </pattern>
+    <g id="digits" fill-rule="evenodd" clip-rule="evenodd">
+      <path d="M0 0H24V55H62V0H86V132H62V79H0V0Z"/>
+      <path d="M108 0H204V132H108V0ZM132 24V108H180V24H132Z"/>
+      <path d="M226 0H250V55H288V0H312V132H288V79H226V0Z"/>
+    </g>
+  </defs>
+  <path d="M24 287 354 212 506 277 176 352Z" fill="url(#plate)" stroke="#8095a8" stroke-opacity=".32"/>
+  <g stroke="#8095a8" stroke-opacity=".12">
+    <path d="m54 300 330-75m-299 88 330-75m-300 88 330-75m-299 88 330-75"/>
+    <path d="m79 274 152 65m-97-77 152 65m-97-78 152 65m-97-77 152 65m-97-78 152 65"/>
+  </g>
+  <path d="m24 280 0 7 16 7m120 51 16 7 23-5m284-65 23-5v-7m-167-55 15-3 17 7" stroke="#93a8bb" stroke-opacity=".6" stroke-linecap="round"/>
+  <path d="m94 270 239-53 102 44-239 54Z" fill="#0a182a" fill-opacity=".12"/>
+  <g transform="translate(89 120) skewY(-12)">
+    <use href="#digits" transform="translate(12 36)" fill="#15283b"/>
+    <use href="#digits" transform="translate(10.5 31.5)" fill="#53cbaa"/>
+    <use href="#digits" transform="translate(9 27)" fill="#bfd96b"/>
+    <use href="#digits" transform="translate(7.5 22.5)" fill="#f5b661"/>
+    <use href="#digits" transform="translate(6 18)" fill="#e97ea8"/>
+    <use href="#digits" transform="translate(4.5 13.5)" fill="#a585ec"/>
+    <use href="#digits" transform="translate(3 9)" fill="#6698f1"/>
+    <use href="#digits" transform="translate(1.5 4.5)" fill="#5fcedd"/>
+    <use href="#digits" fill="url(#face)" stroke="#fff" stroke-opacity=".5"/>
+    <use href="#digits" fill="url(#lines)"/>
+  </g>
+  <!-- The plate's unit-square projection, elevated by 260 SVG units.
+       Corner anchors sit directly above the left, back, and right vertices;
+       each chip fills its corner and shares both edges with its two-arm guide. -->
+  <g transform="matrix(330 -75 152 65 24 27)">
+    <g stroke="#8095a8" stroke-opacity=".38" stroke-dasharray="3 5">
+      <path d="M0 .24V0H.12" vector-effect="non-scaling-stroke"/>
+      <path d="M.88 0H1V.18" vector-effect="non-scaling-stroke"/>
+      <path d="M.88 1H1V.76" vector-effect="non-scaling-stroke"/>
+    </g>
+    <rect width=".03030303" height=".06578947" fill="#67d2dd"/>
+    <rect x=".96969697" width=".03030303" height=".06578947" fill="#e990b7"/>
+    <rect x=".96969697" y=".93421053" width=".03030303" height=".06578947" fill="#ad8aeb"/>
+  </g>
+  <g transform="translate(220 365)">
+    <rect width="10" height="3" rx="1.5" fill="#5fcedd"/>
+    <rect x="15" width="10" height="3" rx="1.5" fill="#6698f1"/>
+    <rect x="30" width="10" height="3" rx="1.5" fill="#a585ec"/>
+    <rect x="45" width="10" height="3" rx="1.5" fill="#e97ea8"/>
+    <rect x="60" width="10" height="3" rx="1.5" fill="#f5b661"/>
+    <rect x="75" width="10" height="3" rx="1.5" fill="#bfd96b"/>
+  </g>
+</svg>

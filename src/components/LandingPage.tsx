@@ -4,6 +4,7 @@ import {
     Check,
     ChevronDown,
     Download,
+    FileText,
     Github,
     Heart,
     MessageCircle,
@@ -11,6 +12,7 @@ import {
     Moon,
     Play,
     Ruler,
+    ShieldCheck,
     Sun,
 } from 'lucide-react';
 import React from 'react';
@@ -37,6 +39,8 @@ import narutoSlicerPreview from '../../content/community/naruto-slicer-preview.p
 import narutoFinished from '../../content/community/naruto-finished.jpg';
 import redditIcon from '../assets/reddit.svg';
 import { APP_PATH, docsPath } from '@/lib/routes';
+import { useStickyMobileCta } from '@/hooks/useStickyMobileCta';
+import './landing-mobile-cta.css';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
     applyResolvedTheme,
@@ -391,6 +395,9 @@ function ThemePicker({ onChange, themeMode }: ThemePickerProps) {
 
 export default function LandingPage() {
     const [themeMode, setThemeMode] = React.useState<ThemeMode>(() => getStoredThemeMode());
+    const scrollRootRef = React.useRef<HTMLElement>(null);
+    const originalActionRef = React.useRef<HTMLAnchorElement>(null);
+    const showStickyCta = useStickyMobileCta(scrollRootRef, originalActionRef);
 
     React.useEffect(() => {
         applyThemeMode(themeMode);
@@ -412,7 +419,7 @@ export default function LandingPage() {
     };
 
     return (
-        <main data-testid="landing-page" className="h-full overflow-x-hidden overflow-y-auto bg-[#f6f8fc] text-foreground dark:bg-background">
+        <main ref={scrollRootRef} data-testid="landing-page" className="landing-page h-full overflow-x-hidden overflow-y-auto bg-[#f6f8fc] text-foreground dark:bg-background">
             <a
                 href="#workflow"
                 className="sr-only z-50 rounded-md bg-blue-700 px-4 py-2 font-semibold text-white focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-blue-700"
@@ -443,6 +450,7 @@ export default function LandingPage() {
                     <a
                         href={APP_PATH}
                         data-testid="landing-open-app"
+                        ref={originalActionRef}
                         className="group inline-flex min-h-11 items-center gap-2 rounded-lg bg-foreground px-3 py-2 text-sm font-bold text-background shadow-lg shadow-foreground/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-4 focus-visible:ring-offset-background motion-safe:transition-transform motion-safe:hover:-translate-y-0.5 motion-safe:active:translate-y-0 sm:px-4"
                     >
                         Open Kromacut <ExternalArrow />
@@ -580,8 +588,23 @@ export default function LandingPage() {
                     <a href={links.github} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center gap-2 rounded-md px-1 transition-colors motion-reduce:transition-none hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><Github aria-hidden="true" className="h-4 w-4" /> GitHub</a>
                     <a href={links.discord} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center gap-2 rounded-md px-1 transition-colors motion-reduce:transition-none hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><MessageCircle aria-hidden="true" className="h-4 w-4" /> Discord</a>
                     <a href={links.patreon} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center gap-2 rounded-md px-1 transition-colors motion-reduce:transition-none hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><Heart aria-hidden="true" className="h-4 w-4" /> Support Kromacut</a>
+                    <a href="/privacy" data-testid="landing-privacy-link" className="inline-flex min-h-11 items-center gap-2 rounded-md px-1 transition-colors motion-reduce:transition-none hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><ShieldCheck aria-hidden="true" className="h-4 w-4" /> Privacy</a>
+                    <a href="/terms" data-testid="landing-terms-link" className="inline-flex min-h-11 items-center gap-2 rounded-md px-1 transition-colors motion-reduce:transition-none hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><FileText aria-hidden="true" className="h-4 w-4" /> Terms</a>
                 </nav>
             </footer>
+            {showStickyCta && (
+                <div
+                    data-testid="landing-sticky-cta"
+                    className="landing-mobile-cta fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 px-4 pt-3 shadow-[0_-8px_24px_rgba(0,0,0,0.08)] backdrop-blur-md md:hidden"
+                >
+                    <a
+                        href={APP_PATH}
+                        className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-blue-700 px-5 py-3 font-bold text-white hover:bg-blue-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                    >
+                        Open Kromacut <ExternalArrow />
+                    </a>
+                </div>
+            )}
             <div className="sr-only"><ChevronDown aria-hidden="true" /><Play aria-hidden="true" /></div>
         </main>
     );

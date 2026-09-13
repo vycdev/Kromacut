@@ -87,6 +87,14 @@ Recalibrating a filament replaces its previous wedge result. To combine several 
 
 **Back** lets you revisit the wizard steps. Closing the dialog resets unsaved wedge selections and reads, so save usable results before leaving. If several complete multi-base reads trigger a session fit, wait for it to finish before saving; the pending calculation is not another measurement you need to enter.
 
+### Printed Example: Eight Filaments
+
+![Eight printed HD wedges with stepped patches beside opaque reference rails, ordered white, black, pink, yellow, orange, purple, cyan, and green from left to right.](hd-wedges-eight-colors-2026-09-13.jpg)
+
+This real calibration print was completed on 13 September 2026. The white and colored wedges use black backing; the black wedge uses white backing. The accompanying **8 Colors 0.2mm** profile records **0.04 mm wedge layers** and a **0.10 mm first layer**. A profile's name does not replace its recorded print settings.
+
+Use the photo to recognize the patch-and-rail layout and the progression toward opacity, not to copy Match numbers or sample calibrated colors. Camera exposure, white balance, lighting, and your display can change the apparent match. Read your own physical print beside its rail under consistent front lighting.
+
 ## Palette Proof: Compare Artwork Colors
 
 A proof prints several candidates from the current Auto-paint stack. A **prefix** means the foundation and every layer above it up to a chosen stopping height. Proofs compare printable stopping heights, not arbitrary independent mixtures of the spools.
@@ -146,17 +154,28 @@ Proof judgments can alter nearby predicted colors, stack rankings, and eventuall
 
 Save an unchanged named profile first. Set the intended **Layer Height** and **First Layer Height** in 3D print settings before selecting **New matrix**. The Hiding Distance wedge's layer-height field does not control matrices.
 
-| Control                           | Effect on the board                                                                                                                                              |
-| --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Filament swatches                 | Select 2–8 filaments in profile order. Only these materials supply recipe layers.                                                                                |
-| Recipe layers                     | Select 3, 4, 5, or 6 layers above the backing. More layers allow more combinations and a thicker color recipe.                                                   |
-| Maximum cells                     | Caps the number of recipes: 64, 144, 256, 400, 625, 1,024, 1,296, 1,600, or 2,025. A larger board samples more recipes but uses more bed area and printing time. |
-| Opaque backing                    | Chooses a selected filament for the foundation. It defaults to the lightest selected filament. Backing changes show-through and is part of the measurement.      |
-| Layer height / First layer height | Read-only confirmation of the live 3D settings for a new board.                                                                                                  |
-| Recipe / size / swap summary      | Shows how many combinations will be sampled, estimated footprint, and a minimum swap count. The slicer can add swaps.                                            |
-| Create and download 3MF           | Plans recipes, exports the board, then records the saved plan in the profile.                                                                                    |
+| Control                           | Effect on the board                                                                                                                                                                                         |
+| --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Filament swatches                 | Select 2–8 filaments in profile order. Only these materials supply recipe layers.                                                                                                                           |
+| Max color thickness (mm)          | Caps the useful color recipe above the opaque foundation. Rounded down to whole regular print layers, from 1 to 64 layers. At 0.04 mm, a 0.8 mm cap allows recipes up to 20 layers.                         |
+| Maximum cells                     | Caps the number of recipes: 64, 144, 256, 400, 625, 1,024, 1,296, 1,600, or 2,025. A larger board samples more recipes but uses more bed area and printing time.                                            |
+| Planned material-change budget    | Limits the planner's material-change estimate, including the corner references. Choose 40–640 changes or No planner limit. This is not a duration estimate or a guarantee of the slicer's final swap count. |
+| Opaque backing                    | Chooses a selected filament for the foundation. It defaults to the lightest selected filament. Backing changes show-through and is part of the measurement.                                                 |
+| Layer height / First layer height | Read-only confirmation of the live 3D settings for a new board.                                                                                                                                             |
+| Recipe / size / swap summary      | Shows the maximum cell count and footprint before planning. The saved board reports its actual selected cells, planned material changes, reference cells, and prior boards considered.                      |
+| Create and download 3MF           | Plans recipes, exports the board, then records the saved plan in the profile.                                                                                                                               |
 
-With N filaments and L recipe layers there are N^L possible orders. If they all fit, the board is exhaustive. Otherwise **HD-selected gamut** means the current HD model chooses a color-diverse subset, including pure-filament recipes. It is not an exhaustive measurement of every printable color. Cells are fixed at 5 mm and gapless, with an added marker border; for example, a 32 × 32 data grid occupies a 170 × 170 mm board.
+New boards use **adaptive coverage**: a bounded, repeatable search samples recipes across the allowed thickness range. It favors gaps in previously measured colors, untested depths and filament transitions, and exploratory recipes where predictions have little support or previously disagreed with measurements. Predicted novelty is not a promise that the printed color will be new. A few reference cells deliberately repeat so successive photographs can be compared.
+
+Only completed boards with compatible profile/material data, backing, print heights, and accepted photo alignment guide the next board. Downloading an unprinted plan does not make its colors measured. Keep your completed boards: choosing **New matrix** automatically considers eligible measurements. Changing the backing or print settings can start a separate coverage context.
+
+All patches still finish at one flat top surface. A shorter recipe sits on extra layers of the same backing filament, beneath the color layers. The backing must actually be opaque for this padding to be optically neutral; it is not an extra coating on top. The saved record preserves both the useful recipe and its backing padding.
+
+The thickness cap does not force every recipe to use that much color. The cell and material-change budgets can produce fewer cells than requested, and a tight change budget can leave some selected filaments unused; the saved plan warns when this happens. If even the reference patches exceed the change budget, increase the budget or reduce the thickness cap or filament selection. Deeper boards and CFS/AMS purges can remain slow even with few cells: inspect the final slicer estimate before printing.
+
+The saved summary counts selected recipes that have not been measured in compatible prior boards. If that count is zero, the plan only repeats existing measurements; you can skip printing it and try different limits or materials. This does not prove that every achievable color has been measured, because the search is bounded.
+
+Cells are fixed at 5 mm and gapless, with an added marker border; for example, a 32 × 32 data grid occupies a 170 × 170 mm board. Older saved boards retain their fixed recipe depth and **all combinations** or **HD-selected gamut** labels; re-downloading them does not convert them to the adaptive format.
 
 On desktop, cancelling Save As does not create a new saved plan. In the browser, the plan is recorded when the download starts. Check for storage-error messages, and keep the 3MF. A saved board freezes its layer heights, backing, and recipe map: later setting changes do not redesign it, and **Download 3MF** on that record exports the original board again.
 

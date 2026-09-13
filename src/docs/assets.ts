@@ -1,5 +1,6 @@
 import logoImage from '@/assets/logo.png';
 import tdTestImage from '@/assets/tdTest.png';
+import hdWedgesPhoto from '@/assets/hd-wedges-eight-colors-2026-09-13.jpg';
 
 // Keep diagrams as files, including small SVGs, so the static documentation and
 // the app can both link to the same built assets.
@@ -12,6 +13,7 @@ const diagrams = import.meta.glob('../assets/diagrams/*.svg', {
 const DOC_ASSETS: Record<string, string> = {
     'kromacut-logo.png': logoImage,
     'td-test.png': tdTestImage,
+    'hd-wedges-eight-colors-2026-09-13.jpg': hdWedgesPhoto,
     ...Object.fromEntries(
         Object.entries(diagrams).map(([path, url]) => [path.split('/').pop()!, String(url)])
     ),

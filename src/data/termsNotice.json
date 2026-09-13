@@ -1,0 +1,168 @@
+{
+    "title": "Terms & conditions",
+    "seoTitle": "Terms & conditions | Kromacut",
+    "description": "Terms for using Kromacut: open-source licensing, artwork rights, print checks, local backups, community support, and legal protections.",
+    "updated": "13 September 2026",
+    "intro": "Your content, your open-source rights, and the checks to make before printing.",
+    "sections": [
+        {
+            "id": "about-these-terms",
+            "title": "About Kromacut and these terms",
+            "paragraphs": [
+                "Kromacut is a personally operated, open-source tool that turns images into color-layered 3D models. The browser app and desktop releases are free to use. No Kromacut account or Patreon membership is required to edit images or export models.",
+                "These terms describe use of the Kromacut website and app, practical responsibilities when preparing prints, and the available support channels. The software license governs your rights to use, copy, modify, and redistribute the software; this page does not replace it or add restrictions to those rights."
+            ],
+            "links": []
+        },
+        {
+            "id": "software-license",
+            "title": "Open-source software license",
+            "paragraphs": [
+                "Kromacut's software is licensed under the GNU Affero General Public License, version 3 only (AGPL-3.0-only). You may use it for personal or commercial purposes. Copying, modifying, and redistributing the software must follow that license, including its applicable notice and corresponding-source requirements.",
+                "If you modify the software and let users interact with that modified version remotely over a network, the AGPL's network-source provision applies where its conditions are met. Read the full license for the exact requirements; this is only a summary.",
+                "Third-party libraries, fonts, and other separately licensed materials retain their own licenses and notices. If this page conflicts with the software license on a licensed right, the software license controls."
+            ],
+            "links": [
+                {
+                    "label": "Kromacut source code",
+                    "href": "https://github.com/vycdev/Kromacut"
+                },
+                {
+                    "label": "Kromacut license",
+                    "href": "https://github.com/vycdev/Kromacut/blob/main/LICENSE"
+                },
+                {
+                    "label": "GNU AGPL version 3",
+                    "href": "https://www.gnu.org/licenses/agpl-3.0.html"
+                }
+            ]
+        },
+        {
+            "id": "your-content",
+            "title": "Your artwork and exported models",
+            "paragraphs": [
+                "Kromacut does not claim ownership of the images, palettes, profiles, or models you bring to or create with the app. Processing a file locally does not grant the operator permission to publish or reuse it.",
+                "You are responsible for having the rights or permission needed for your images and for any prints or files you share or sell. Using Kromacut does not remove another person's copyright, trademark, privacy, or other rights. Artwork shown in examples or community posts is not automatically licensed for your reuse.",
+                "An exported model is not automatically subject to the AGPL just because Kromacut produced it. The license covers output only where its content makes it a work covered by that license. These terms add no separate fee or non-commercial-only restriction to your own prints; rights in the source artwork still matter."
+            ],
+            "links": []
+        },
+        {
+            "id": "before-printing",
+            "title": "Check every model before printing",
+            "paragraphs": [
+                "Kromacut's previews, color predictions, hiding-distance calculations, calibration results, and print instructions are aids to planning. They do not guarantee an exact physical color match, a successful print, or suitability for a particular purpose. Materials, lighting, calibration, printer setup, and slicer settings affect the result.",
+                "Inspect each exported STL or 3MF in your slicer. Check dimensions, geometry, orientation, layer heights, first-layer height, nozzle and extrusion settings, filament assignments, and swaps before starting the printer. Recheck after changing settings or updating the app, and use a small test print where appropriate.",
+                "Follow your printer and filament manufacturers' safety instructions. An export is not an engineering assessment or safety certification. Any safety-critical, load-bearing, medical, or other regulated use needs independent checks appropriate to that use."
+            ],
+            "links": [
+                {
+                    "label": "Generating and exporting output",
+                    "href": "/docs/generating-exporting-output"
+                },
+                {
+                    "label": "Calibration workflows",
+                    "href": "/docs/calibration-workflows"
+                }
+            ]
+        },
+        {
+            "id": "local-data-and-backups",
+            "title": "Local data and backups",
+            "paragraphs": [
+                "Kromacut processes artwork on your device and does not provide cloud project storage or a recovery service for your local files. Browser or app storage can be cleared, lost, or become unavailable.",
+                "Keep your original images and export backups of important palettes, filament profiles, and calibration history, especially before clearing storage, changing devices, or updating the app. Save exported models somewhere you can find again. The operator cannot remotely recover data held only on your device.",
+                "The privacy notice explains saved settings, website requests, email correspondence, and privacy choices. It is information about data handling, not a request for blanket consent."
+            ],
+            "links": [
+                {
+                    "label": "Privacy & local data",
+                    "href": "/privacy"
+                }
+            ]
+        },
+        {
+            "id": "community-support",
+            "title": "Help and community channels",
+            "paragraphs": [
+                "The main channels for Kromacut help are r/kromacut on Reddit and the Kromacut Discord server. Documentation is also available in the app and on this website. Unless separately agreed or required by law, community help does not come with a guaranteed response time, fix, or implementation date.",
+                "Follow the platform and community rules when participating. Reddit posts and shared Discord channels may be visible to other people; avoid posting sensitive information or files you do not want to share. Advice from other community members is their own and should be checked before printing.",
+                "Use the public email below for questions about these terms or a private concern. Privacy requests can use the contact described in the privacy notice."
+            ],
+            "links": [
+                {
+                    "label": "r/kromacut on Reddit",
+                    "href": "https://www.reddit.com/r/kromacut/"
+                },
+                {
+                    "label": "Kromacut Discord server",
+                    "href": "https://discord.gg/nU63sFMcnX"
+                },
+                {
+                    "label": "Browse documentation",
+                    "href": "/docs/overview"
+                }
+            ]
+        },
+        {
+            "id": "patreon-and-external-services",
+            "title": "Optional support and external services",
+            "paragraphs": [
+                "Supporting Kromacut through Patreon is optional and is not a condition of using the app. Patreon is a separate service. Review the specific membership or purchase description, billing arrangements, cancellation options, and applicable terms there before paying.",
+                "These terms do not cancel any separately promised Patreon benefit or any cancellation, refund, or other right that applies to a transaction. A contribution by itself does not create an additional promise of a particular Kromacut feature, release date, or support response time.",
+                "Links to hosting, release, community, and support services take you to sites operated by others. Their terms apply to your use of their services; Kromacut does not control their availability or practices."
+            ],
+            "links": [
+                {
+                    "label": "Support Kromacut on Patreon",
+                    "href": "https://www.patreon.com/cw/vycdev"
+                },
+                {
+                    "label": "Patreon refund information",
+                    "href": "https://support.patreon.com/hc/en-gb/articles/205032045-Patreon-s-refund-policy"
+                }
+            ]
+        },
+        {
+            "id": "availability-and-responsible-use",
+            "title": "Availability and responsible use",
+            "paragraphs": [
+                "The hosted website, downloads, and update information may be interrupted by maintenance, technical failures, or changes in external services. Unless separately agreed or required by law, there is no promise of uninterrupted hosting, compatibility with every device or slicer, or a particular future feature.",
+                "Do not deliberately disrupt or compromise the hosted website or community services, or access someone else's information without permission. This does not restrict lawful inspection, modification, or redistribution of the open-source software.",
+                "Releases may change features, file compatibility, and predictions. Read the release notes, keep backups, and verify regenerated results. Changes to hosting or this page do not revoke rights granted under the license for copies you already received."
+            ],
+            "links": [
+                {
+                    "label": "Releases and release notes",
+                    "href": "https://github.com/vycdev/Kromacut/releases"
+                }
+            ]
+        },
+        {
+            "id": "warranties-and-legal-rights",
+            "title": "Warranties, liability, and your legal rights",
+            "paragraphs": [
+                "To the extent permitted by applicable law, Kromacut is provided as is and as available, without an additional warranty of error-free operation, exact print results, or fitness for a particular purpose. The software license sets out its warranty and liability provisions, subject to applicable law and any separate written commitment.",
+                "Nothing in these terms excludes or limits liability where doing so would be unlawful, including liability for fraud, intentional misconduct, gross negligence, or death or personal injury where protected by law. The print-check and backup guidance does not remove responsibility that the law places on the operator.",
+                "Any mandatory consumer rights, guarantees, remedies, and data-protection rights that apply remain unaffected. These terms do not require arbitration, waive access to a competent court or authority, or require you to give up protections that apply where you live."
+            ],
+            "links": [
+                {
+                    "label": "EU guidance on fair contract terms",
+                    "href": "https://europa.eu/youreurope/citizens/consumers/unfair-treatment/unfair-contract-terms/index_en.htm"
+                }
+            ]
+        },
+        {
+            "id": "changes-to-these-terms",
+            "title": "Changes to these terms",
+            "paragraphs": [
+                "This page may be updated to reflect changes to Kromacut, its support arrangements, or applicable law. The date at the top identifies the revision. Material changes will be identified on this page, with any advance notice or agreement required by law.",
+                "Updates do not apply retroactively to remove rights you have already acquired, change the license of software copies already received, or override a separate agreement."
+            ],
+            "links": []
+        }
+    ],
+    "contactTitle": "Questions about these terms",
+    "contactDescription": "Reveal the public contact email below for questions about these terms. For everyday Kromacut help, Reddit and Discord are the main support channels. Revealing or copying the email sends nothing; sending a message involves the email services described in the privacy notice."
+}

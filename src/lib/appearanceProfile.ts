@@ -17,6 +17,7 @@ export const MAX_STORED_PLANNED_STACK_MATRICES = 4;
 export const MAX_STORED_STACK_MATRICES =
     MAX_STORED_COMPLETED_STACK_MATRICES + MAX_STORED_PLANNED_STACK_MATRICES;
 export const MAX_STACK_MATRIX_SAMPLES = 2_025;
+export const MAX_STACK_MATRIX_RECIPE_LAYERS = 64;
 
 const MAX_STACK_LAYERS = 500;
 const MAX_TEXT_LENGTH = 256;
@@ -131,13 +132,31 @@ export interface StackMatrixSampleV1 {
     row: number;
     column: number;
     stack: number[];
+    /** V2: useful color layers above the opaque backing padding. */
+    recipeLayerCount?: number;
+    /** V2: leading entries in stack that extend the opaque foundation. */
+    backingPaddingLayerCount?: number;
+    selectionReason?: 'coverage' | 'exploration' | 'reference';
     canonicalStackKey: string;
     predictedColor: CanonicalSrgbColor;
     measuredColor?: CanonicalSrgbColor;
 }
 
+export interface StackMatrixPlanningV2 {
+    maximumRecipeThickness: number;
+    candidateCount: number;
+    compatibleHistoryCount: number;
+    measuredRecipeCount: number;
+    referenceSampleCount: number;
+    /** Selected recipes absent from the compatible measured history. */
+    unmeasuredSampleCount?: number;
+    maximumSwapCycles?: number;
+    estimatedSwapCycles: number;
+    totalCombinationCountCapped?: boolean;
+}
+
 export interface StackMatrixCalibrationV1 {
-    schemaVersion: 1;
+    schemaVersion: 1 | 2;
     id: string;
     status: 'planned' | 'complete';
     process: {
@@ -157,7 +176,8 @@ export interface StackMatrixCalibrationV1 {
         gap: number;
     };
     totalCombinationCount: number;
-    selection: 'exhaustive' | 'hd-gamut';
+    selection: 'exhaustive' | 'hd-gamut' | 'adaptive-gamut';
+    planning?: StackMatrixPlanningV2;
     samples: StackMatrixSampleV1[];
     cornerStacks: number[][];
     createdAt: string;
@@ -730,6 +750,12 @@ export function fingerprintCompletedAppearanceEvidence(
             stackLayerCount: matrix.stackLayerCount,
             samples: matrix.samples.map((sample) => ({
                 stack: sample.stack,
+                ...(matrix.schemaVersion === 2
+                    ? {
+                          recipeLayerCount: sample.recipeLayerCount,
+                          backingPaddingLayerCount: sample.backingPaddingLayerCount,
+                      }
+                    : {}),
                 canonicalStackKey: sample.canonicalStackKey,
                 measuredColor: sample.measuredColor,
             })),
@@ -1300,10 +1326,59 @@ function sanitizeStackMatrixFilament(value: unknown): StackMatrixFilamentV1 | nu
         : null;
 }
 
+function sanitizeStackMatrixPlanning(value: unknown): StackMatrixPlanningV2 | null {
+    if (!isRecord(value)) return null;
+    const maximumRecipeThickness = finiteNumber(value.maximumRecipeThickness, 0.001, 640);
+    const candidateCount = integer(value.candidateCount, 1, Number.MAX_SAFE_INTEGER);
+    const compatibleHistoryCount = integer(
+        value.compatibleHistoryCount,
+        0,
+        Number.MAX_SAFE_INTEGER
+    );
+    const measuredRecipeCount = integer(value.measuredRecipeCount, 0, Number.MAX_SAFE_INTEGER);
+    const referenceSampleCount = integer(value.referenceSampleCount, 0, MAX_STACK_MATRIX_SAMPLES);
+    const unmeasuredSampleCount =
+        value.unmeasuredSampleCount === undefined
+            ? undefined
+            : integer(value.unmeasuredSampleCount, 0, MAX_STACK_MATRIX_SAMPLES);
+    const estimatedSwapCycles = integer(value.estimatedSwapCycles, 0, Number.MAX_SAFE_INTEGER);
+    const maximumSwapCycles =
+        value.maximumSwapCycles === undefined
+            ? undefined
+            : integer(value.maximumSwapCycles, 0, Number.MAX_SAFE_INTEGER);
+    if (
+        maximumRecipeThickness === null ||
+        candidateCount === null ||
+        compatibleHistoryCount === null ||
+        measuredRecipeCount === null ||
+        referenceSampleCount === null ||
+        unmeasuredSampleCount === null ||
+        estimatedSwapCycles === null ||
+        maximumSwapCycles === null ||
+        (maximumSwapCycles !== undefined && estimatedSwapCycles > maximumSwapCycles) ||
+        (value.totalCombinationCountCapped !== undefined &&
+            typeof value.totalCombinationCountCapped !== 'boolean')
+    )
+        return null;
+    return {
+        maximumRecipeThickness,
+        candidateCount,
+        compatibleHistoryCount,
+        measuredRecipeCount,
+        referenceSampleCount,
+        ...(unmeasuredSampleCount === undefined ? {} : { unmeasuredSampleCount }),
+        estimatedSwapCycles,
+        ...(maximumSwapCycles === undefined ? {} : { maximumSwapCycles }),
+        ...(typeof value.totalCombinationCountCapped === 'boolean'
+            ? { totalCombinationCountCapped: value.totalCombinationCountCapped }
+            : {}),
+    };
+}
+
 function sanitizeStackMatrixCalibration(value: unknown): StackMatrixCalibrationV1 | null {
     if (
         !isRecord(value) ||
-        value.schemaVersion !== 1 ||
+        (value.schemaVersion !== 1 && value.schemaVersion !== 2) ||
         (value.status !== 'planned' && value.status !== 'complete') ||
         !isRecord(value.process) ||
         !isRecord(value.grid) ||
@@ -1332,12 +1407,22 @@ function sanitizeStackMatrixCalibration(value: unknown): StackMatrixCalibrationV
     const filamentProfileFingerprint = boundedString(value.process.filamentProfileFingerprint, 128);
     const layerHeight = finiteNumber(value.process.layerHeight, 0.001, 10);
     const firstLayerHeight = finiteNumber(value.process.firstLayerHeight, 0, 10);
-    const stackLayerCount = integer(value.stackLayerCount, 2, 6);
+    const adaptive = value.schemaVersion === 2;
+    const stackLayerCount = integer(
+        value.stackLayerCount,
+        adaptive ? 1 : 2,
+        adaptive ? MAX_STACK_MATRIX_RECIPE_LAYERS : 6
+    );
+    const planning = adaptive ? sanitizeStackMatrixPlanning(value.planning) : undefined;
     const rows = integer(value.grid.rows, 1, 64);
     const columns = integer(value.grid.columns, 1, 64);
     const patchSize = finiteNumber(value.grid.patchSize, 1, 20);
     const gap = finiteNumber(value.grid.gap, 0, 5);
-    const totalCombinationCount = integer(value.totalCombinationCount, 1, 10_000_000);
+    const totalCombinationCount = integer(
+        value.totalCombinationCount,
+        1,
+        adaptive ? Number.MAX_SAFE_INTEGER : 10_000_000
+    );
     const backingFilamentIndex = integer(value.backingFilamentIndex, 0, 31);
     if (
         !id ||
@@ -1358,7 +1443,9 @@ function sanitizeStackMatrixCalibration(value: unknown): StackMatrixCalibrationV
         gap === null ||
         totalCombinationCount === null ||
         backingFilamentIndex === null ||
-        (value.selection !== 'exhaustive' && value.selection !== 'hd-gamut') ||
+        (adaptive
+            ? value.selection !== 'adaptive-gamut' || !planning
+            : value.selection !== 'exhaustive' && value.selection !== 'hd-gamut') ||
         !Array.isArray(value.process.unknownFields) ||
         value.process.unknownFields.length > UNKNOWN_PROCESS_FIELDS.length ||
         value.filaments.length < 2 ||
@@ -1372,6 +1459,18 @@ function sanitizeStackMatrixCalibration(value: unknown): StackMatrixCalibrationV
     ) {
         return null;
     }
+    if (
+        planning &&
+        (planning.maximumRecipeThickness + 1e-6 < stackLayerCount * layerHeight ||
+            planning.maximumRecipeThickness >= (stackLayerCount + 1) * layerHeight - 1e-9 ||
+            planning.candidateCount < value.samples.length ||
+            planning.referenceSampleCount > value.samples.length ||
+            (planning.unmeasuredSampleCount !== undefined &&
+                planning.unmeasuredSampleCount > value.samples.length) ||
+            (planning.totalCombinationCountCapped === true) !==
+                (totalCombinationCount === Number.MAX_SAFE_INTEGER))
+    )
+        return null;
     const unknownFields = value.process.unknownFields.map((field) => boundedString(field, 64));
     if (
         unknownFields.some(
@@ -1414,6 +1513,19 @@ function sanitizeStackMatrixCalibration(value: unknown): StackMatrixCalibrationV
         const predictedColor = sanitizeCanonicalColor(raw.predictedColor);
         const measuredColor =
             raw.measuredColor === undefined ? undefined : sanitizeCanonicalColor(raw.measuredColor);
+        const recipeLayerCount: number | null | undefined = adaptive
+            ? integer(raw.recipeLayerCount, 1, stackLayerCount)
+            : undefined;
+        const backingPaddingLayerCount: number | null | undefined = adaptive
+            ? integer(raw.backingPaddingLayerCount, 0, stackLayerCount - 1)
+            : undefined;
+        const selectionReason =
+            adaptive &&
+            (raw.selectionReason === 'coverage' ||
+                raw.selectionReason === 'exploration' ||
+                raw.selectionReason === 'reference')
+                ? raw.selectionReason
+                : undefined;
         if (
             index === null ||
             row === null ||
@@ -1421,6 +1533,14 @@ function sanitizeStackMatrixCalibration(value: unknown): StackMatrixCalibrationV
             !stack ||
             !canonicalStackKey ||
             !predictedColor ||
+            (adaptive &&
+                (recipeLayerCount == null ||
+                    backingPaddingLayerCount == null ||
+                    recipeLayerCount + backingPaddingLayerCount !== stackLayerCount ||
+                    !selectionReason ||
+                    stack
+                        .slice(0, backingPaddingLayerCount)
+                        .some((entry) => entry !== backingFilamentIndex))) ||
             (raw.measuredColor !== undefined && !measuredColor) ||
             (value.status === 'complete' && !measuredColor)
         ) {
@@ -1431,6 +1551,13 @@ function sanitizeStackMatrixCalibration(value: unknown): StackMatrixCalibrationV
             row,
             column,
             stack,
+            ...(adaptive
+                ? {
+                      recipeLayerCount: recipeLayerCount!,
+                      backingPaddingLayerCount: backingPaddingLayerCount!,
+                      selectionReason: selectionReason!,
+                  }
+                : {}),
             canonicalStackKey,
             predictedColor,
             ...(measuredColor ? { measuredColor } : {}),
@@ -1444,8 +1571,14 @@ function sanitizeStackMatrixCalibration(value: unknown): StackMatrixCalibrationV
     ) {
         return null;
     }
+    if (
+        planning &&
+        planning.referenceSampleCount !==
+            samples.filter((sample) => sample.selectionReason === 'reference').length
+    )
+        return null;
     return {
-        schemaVersion: 1,
+        schemaVersion: value.schemaVersion,
         id,
         status: value.status,
         process: {
@@ -1460,7 +1593,8 @@ function sanitizeStackMatrixCalibration(value: unknown): StackMatrixCalibrationV
         stackLayerCount,
         grid: { rows, columns, patchSize, gap },
         totalCombinationCount,
-        selection: value.selection,
+        selection: value.selection as StackMatrixCalibrationV1['selection'],
+        ...(planning ? { planning } : {}),
         samples,
         cornerStacks: cornerStacks as number[][],
         createdAt,

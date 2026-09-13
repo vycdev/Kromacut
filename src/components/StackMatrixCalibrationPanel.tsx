@@ -19,6 +19,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 import {
     Select,
     SelectContent,
@@ -40,6 +41,7 @@ import {
 } from '@/lib/stackMatrixPanelState';
 import {
     fingerprintAppearanceFilaments,
+    MAX_STACK_MATRIX_RECIPE_LAYERS,
     type StackMatrixCalibrationV1,
 } from '@/lib/appearanceProfile';
 import {
@@ -235,7 +237,10 @@ export default function StackMatrixCalibrationPanel({
     const [selectedIds, setSelectedIds] = useState<Set<string>>(
         () => new Set(filaments.slice(0, 8).map((filament) => filament.id))
     );
-    const [stackLayerCount, setStackLayerCount] = useState(5);
+    const [maximumRecipeThicknessDraft, setMaximumRecipeThicknessDraft] = useState(() =>
+        String(Math.min(0.8, layerHeight * MAX_STACK_MATRIX_RECIPE_LAYERS))
+    );
+    const [maximumSwapCycles, setMaximumSwapCycles] = useState<number | undefined>(160);
     const [maximumSamples, setMaximumSamples] = useState(256);
     const [backingId, setBackingId] = useState(() =>
         lightestStackMatrixFilamentId(filaments.slice(0, 8))
@@ -436,12 +441,18 @@ export default function StackMatrixCalibrationPanel({
         }
     }, [backingId, selectedFilaments]);
     const backingFilament = selectedFilaments.find((filament) => filament.id === backingId);
+    const maximumRecipeThickness = Number(maximumRecipeThicknessDraft);
+    const stackLayerCount = Math.floor(maximumRecipeThickness / layerHeight + 1e-7);
+    const thicknessValid =
+        maximumRecipeThicknessDraft.trim() !== '' &&
+        Number.isFinite(maximumRecipeThickness) &&
+        stackLayerCount >= 1 &&
+        stackLayerCount <= MAX_STACK_MATRIX_RECIPE_LAYERS &&
+        maximumRecipeThickness <= layerHeight * MAX_STACK_MATRIX_RECIPE_LAYERS + 1e-7;
     const combinationCount = selectedFilaments.length ** stackLayerCount;
-    const minimumFilamentSwaps = stackLayerCount * Math.max(0, selectedFilaments.length - 1);
-    const estimatedColumns = Math.ceil(Math.sqrt(Math.min(combinationCount, maximumSamples)));
-    const estimatedRows = Math.ceil(
-        Math.min(combinationCount, maximumSamples) / Math.max(1, estimatedColumns)
-    );
+    const estimatedSamples = thicknessValid ? Math.min(combinationCount, maximumSamples) : 0;
+    const estimatedColumns = Math.ceil(Math.sqrt(estimatedSamples));
+    const estimatedRows = Math.ceil(estimatedSamples / Math.max(1, estimatedColumns));
     const estimatedWidth =
         (estimatedColumns + 2) * STACK_MATRIX_PATCH_SIZE_MM +
         (estimatedColumns + 1) * STACK_MATRIX_GAP_MM;
@@ -453,6 +464,7 @@ export default function StackMatrixCalibrationPanel({
         !profileDirty &&
         onUpsert &&
         selectedFilaments.length >= 2 &&
+        thicknessValid &&
         backingFilament
     );
     const toggleFilament = (filamentId: string) => {
@@ -483,7 +495,9 @@ export default function StackMatrixCalibrationPanel({
                 options: {
                     layerHeight,
                     firstLayerHeight,
-                    stackLayerCount,
+                    maximumRecipeThickness,
+                    maximumSwapCycles,
+                    previousMatrices: records,
                     maximumSamples,
                     backingFilamentId: backingId,
                     ownerProfileFingerprint: profile
@@ -554,12 +568,14 @@ export default function StackMatrixCalibrationPanel({
         firstLayerHeight,
         layerHeight,
         maximumSamples,
+        maximumRecipeThickness,
+        maximumSwapCycles,
         onUpsert,
         profile,
         profileId,
+        records,
         runGenerationWorker,
         selectedFilaments,
-        stackLayerCount,
         updateOwnerState,
     ]);
 
@@ -1290,6 +1306,8 @@ export default function StackMatrixCalibrationPanel({
 
     if (!creatingNew && activeRecord) {
         const physicalSize = stackMatrixPhysicalSize(activeRecord);
+        const usedFilamentCount = new Set(activeRecord.samples.flatMap((sample) => sample.stack))
+            .size;
         const fitScale = photo
             ? Math.min(
                   photoViewportSize.width / photo.width,
@@ -1364,11 +1382,50 @@ export default function StackMatrixCalibrationPanel({
                         <p className="mt-1 text-xs text-muted-foreground">
                             {activeRecord.grid.columns} × {activeRecord.grid.rows} data cells /{' '}
                             {physicalSize.width.toFixed(1)} × {physicalSize.height.toFixed(1)} mm /{' '}
+                            {activeRecord.schemaVersion === 2 ? 'up to ' : ''}
                             {activeRecord.stackLayerCount} color layers /{' '}
                             {activeRecord.selection === 'exhaustive'
                                 ? 'all combinations'
-                                : 'HD-selected gamut'}
+                                : activeRecord.selection === 'adaptive-gamut'
+                                  ? 'adaptive coverage'
+                                  : 'HD-selected gamut'}
                         </p>
+                        {activeRecord.planning && (
+                            <p className="mt-1 text-xs text-muted-foreground">
+                                {(
+                                    activeRecord.stackLayerCount * activeRecord.process.layerHeight
+                                ).toFixed(2)}
+                                {' mm color-stack cap / '}
+                                {activeRecord.planning.estimatedSwapCycles} planned material changes
+                                {' / '}
+                                {activeRecord.planning.compatibleHistoryCount} prior boards
+                                considered
+                                {' / '}
+                                {activeRecord.planning.referenceSampleCount} reference cells.
+                                {activeRecord.planning.unmeasuredSampleCount !== undefined &&
+                                    ` ${activeRecord.planning.unmeasuredSampleCount} recipes not measured in compatible prior boards.`}
+                                {
+                                    ' Slicer may add changes. Flat top includes extra backing under shorter recipes.'
+                                }
+                            </p>
+                        )}
+                        {activeRecord.planning?.unmeasuredSampleCount === 0 && (
+                            <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">
+                                This plan only repeats measured recipes. A different thickness cap,
+                                filament selection, or larger budget may open new candidates; you do
+                                not need to print another reference-only board.
+                            </p>
+                        )}
+                        {activeRecord.planning &&
+                            usedFilamentCount < activeRecord.filaments.length && (
+                                <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">
+                                    This plan uses {usedFilamentCount} of{' '}
+                                    {activeRecord.filaments.length}
+                                    {
+                                        ' selected filaments. Unused filaments keep their existing evidence; this board does not measure them.'
+                                    }
+                                </p>
+                            )}
                     </div>
                     <div className="flex items-center gap-2">
                         {activeRecord.status === 'complete' && (
@@ -1841,9 +1898,9 @@ export default function StackMatrixCalibrationPanel({
                         New Stack Matrix
                     </h4>
                     <p className="mt-1 max-w-3xl text-xs text-muted-foreground">
-                        Prints every fixed-depth recipe that fits. If there are too many, Kromacut
-                        uses the current per-channel HD values to keep the most color-diverse
-                        recipes.
+                        Samples color recipes up to a thickness cap, prioritizing gaps in compatible
+                        previous measurements and exploring untested recipes. Extra backing under
+                        shorter recipes keeps every patch at the same height for photography.
                     </p>
                 </div>
                 {records.length > 0 && (
@@ -1908,32 +1965,36 @@ export default function StackMatrixCalibrationPanel({
                 </Card>
 
                 <Card className="space-y-3 p-4">
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-2 items-end gap-3">
                         <div className="space-y-1.5">
-                            <Label className="text-xs">Recipe layers</Label>
-                            <Select
-                                value={String(stackLayerCount)}
-                                onValueChange={(value) => setStackLayerCount(Number(value))}
-                            >
-                                <SelectTrigger>
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {[3, 4, 5, 6].map((count) => (
-                                        <SelectItem key={count} value={String(count)}>
-                                            {count}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                            <Label htmlFor="matrix-maximum-thickness" className="text-xs">
+                                Max color thickness (mm)
+                            </Label>
+                            <Input
+                                id="matrix-maximum-thickness"
+                                type="number"
+                                min={layerHeight}
+                                max={Number(
+                                    (layerHeight * MAX_STACK_MATRIX_RECIPE_LAYERS).toFixed(6)
+                                )}
+                                step={layerHeight}
+                                value={maximumRecipeThicknessDraft}
+                                onChange={(event) =>
+                                    setMaximumRecipeThicknessDraft(event.target.value)
+                                }
+                                aria-invalid={!thicknessValid}
+                                aria-describedby="matrix-thickness-help"
+                            />
                         </div>
                         <div className="space-y-1.5">
-                            <Label className="text-xs">Maximum cells</Label>
+                            <Label htmlFor="matrix-maximum-cells" className="text-xs">
+                                Maximum cells
+                            </Label>
                             <Select
                                 value={String(maximumSamples)}
                                 onValueChange={(value) => setMaximumSamples(Number(value))}
                             >
-                                <SelectTrigger>
+                                <SelectTrigger id="matrix-maximum-cells">
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -1946,6 +2007,45 @@ export default function StackMatrixCalibrationPanel({
                                 </SelectContent>
                             </Select>
                         </div>
+                    </div>
+                    <p id="matrix-thickness-help" className="text-xs text-muted-foreground">
+                        {thicknessValid
+                            ? `Up to ${stackLayerCount} color layers (${Number((stackLayerCount * layerHeight).toFixed(6))} mm), excluding the opaque foundation. Rounded down to whole print layers.`
+                            : `Enter ${layerHeight} to ${Number((layerHeight * MAX_STACK_MATRIX_RECIPE_LAYERS).toFixed(6))} mm (1–${MAX_STACK_MATRIX_RECIPE_LAYERS} print layers).`}
+                    </p>
+                    <div className="space-y-1.5">
+                        <Label htmlFor="matrix-swap-budget" className="text-xs">
+                            Planned material-change budget
+                        </Label>
+                        <Select
+                            value={
+                                maximumSwapCycles === undefined
+                                    ? 'unlimited'
+                                    : String(maximumSwapCycles)
+                            }
+                            onValueChange={(value) =>
+                                setMaximumSwapCycles(
+                                    value === 'unlimited' ? undefined : Number(value)
+                                )
+                            }
+                        >
+                            <SelectTrigger id="matrix-swap-budget">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {[40, 80, 160, 320, 640].map((count) => (
+                                    <SelectItem key={count} value={String(count)}>
+                                        {count} changes
+                                    </SelectItem>
+                                ))}
+                                <SelectItem value="unlimited">No planner limit</SelectItem>
+                            </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground">
+                            Includes reference markers. The planner may use fewer cells to fit; your
+                            slicer can add changes and purge time. Tight budgets can limit which
+                            selected filaments appear. Deeper boards can still be slow.
+                        </p>
                     </div>
                     <div className="space-y-1.5">
                         <Label className="text-xs">Opaque backing</Label>
@@ -2006,16 +2106,23 @@ export default function StackMatrixCalibrationPanel({
             <Card className="flex flex-wrap items-center justify-between gap-3 p-4">
                 <div className="text-xs">
                     <div className="font-medium text-foreground">
-                        {Math.min(combinationCount, maximumSamples).toLocaleString()} of{' '}
-                        {combinationCount.toLocaleString()} recipes
+                        Up to {estimatedSamples.toLocaleString()} recipe cells / adaptive coverage
                     </div>
                     <div className="mt-0.5 text-muted-foreground">
-                        About {estimatedWidth.toFixed(1)} × {estimatedHeight.toFixed(1)} mm /{' '}
+                        Up to {estimatedWidth.toFixed(1)} × {estimatedHeight.toFixed(1)} mm /{' '}
                         {layerHeight.toFixed(2)} mm layers / face-up
                     </div>
                     <div className="mt-0.5 text-muted-foreground">
-                        At least {minimumFilamentSwaps.toLocaleString()} filament swaps / slicer may
-                        add more
+                        {maximumSwapCycles === undefined
+                            ? 'No planner material-change limit'
+                            : `Budget: ${maximumSwapCycles} planned material changes`}
+                        {' / actual count shown after planning'}
+                    </div>
+                    <div className="mt-0.5 max-w-2xl text-muted-foreground">
+                        Previous completed measurements are considered when their profile,
+                        materials, backing, print settings, and photo alignment are compatible. A
+                        few references repeat intentionally; unprinted plans do not count as
+                        measured coverage.
                     </div>
                 </div>
                 <Button

@@ -4,19 +4,16 @@ import { docs, defaultDocSlug } from '@/docs';
 import type { DocLinkTarget, DocRecord, TocEntry } from '@/types/docs';
 import { applyDocSeo } from '@/lib/seo';
 import { buildDocsPath, parseDocsLocation } from '@/lib/docs/navigation';
+import NotFoundPage from '@/components/NotFoundPage';
 import MarkdownRenderer from './MarkdownRenderer';
 
-function getInitialTarget(): DocLinkTarget {
+function getInitialTarget(): DocLinkTarget | null {
     if (typeof window === 'undefined') return { docSlug: defaultDocSlug };
-    return parseDocsLocation(window.location) ?? { docSlug: defaultDocSlug };
+    return parseDocsLocation(window.location);
 }
 
-function findDoc(slug: string): DocRecord {
-    const doc = docs.find((entry) => entry.meta.slug === slug) ?? docs[0];
-    if (!doc) {
-        throw new Error('No documentation files were bundled.');
-    }
-    return doc;
+function findDoc(slug: string | undefined): DocRecord | undefined {
+    return docs.find((entry) => entry.meta.slug === slug);
 }
 
 function tocIndent(entry: TocEntry) {
@@ -59,9 +56,9 @@ const DOC_NAV_GROUPS = [
 
 export default function DocsPage() {
     const initialTarget = useMemo(getInitialTarget, []);
-    const [activeDocSlug, setActiveDocSlug] = useState(initialTarget.docSlug);
-    const [pendingHeading, setPendingHeading] = useState(initialTarget.headingSlug);
-    const [activeHeading, setActiveHeading] = useState(initialTarget.headingSlug);
+    const [activeDocSlug, setActiveDocSlug] = useState(initialTarget?.docSlug);
+    const [pendingHeading, setPendingHeading] = useState(initialTarget?.headingSlug);
+    const [activeHeading, setActiveHeading] = useState(initialTarget?.headingSlug);
     const [contentsOpen, setContentsOpen] = useState(false);
     const [headingsOpen, setHeadingsOpen] = useState(false);
     const scrollRef = useRef<HTMLElement | null>(null);
@@ -69,23 +66,20 @@ export default function DocsPage() {
     const activeDoc = findDoc(activeDocSlug);
 
     const navigate = useCallback((target: DocLinkTarget) => {
-        const nextDoc = findDoc(target.docSlug);
-        setActiveDocSlug(nextDoc.meta.slug);
+        setActiveDocSlug(target.docSlug);
         setPendingHeading(target.headingSlug);
         setActiveHeading(target.headingSlug);
         setContentsOpen(false);
         setHeadingsOpen(false);
-        window.history.pushState(null, '', buildDocsPath(nextDoc.meta.slug, target.headingSlug));
+        window.history.pushState(null, '', buildDocsPath(target.docSlug, target.headingSlug));
     }, []);
 
     useEffect(() => {
         const onLocationChange = () => {
             const target = parseDocsLocation(window.location);
-            if (!target) return;
-            const nextDoc = findDoc(target.docSlug);
-            setActiveDocSlug(nextDoc.meta.slug);
-            setPendingHeading(target.headingSlug);
-            setActiveHeading(target.headingSlug);
+            setActiveDocSlug(target?.docSlug);
+            setPendingHeading(target?.headingSlug);
+            setActiveHeading(target?.headingSlug);
             setContentsOpen(false);
             setHeadingsOpen(false);
         };
@@ -98,14 +92,14 @@ export default function DocsPage() {
     }, []);
 
     useEffect(() => {
-        applyDocSeo(activeDoc);
+        if (activeDoc) applyDocSeo(activeDoc);
     }, [activeDoc]);
 
     useEffect(() => {
         const scrollElement = scrollRef.current;
         if (!scrollElement) return;
 
-        window.setTimeout(() => {
+        const timeout = window.setTimeout(() => {
             if (pendingHeading) {
                 const heading = document.getElementById(pendingHeading);
                 if (heading) {
@@ -115,11 +109,12 @@ export default function DocsPage() {
             }
             scrollElement.scrollTo({ top: 0 });
         }, 0);
-    }, [activeDoc.meta.slug, pendingHeading]);
+        return () => window.clearTimeout(timeout);
+    }, [activeDoc?.meta.slug, pendingHeading]);
 
     useEffect(() => {
         const root = scrollRef.current;
-        if (!root || activeDoc.toc.length === 0) return;
+        if (!root || !activeDoc || activeDoc.toc.length === 0) return;
 
         const headings = activeDoc.toc
             .map((entry) => document.getElementById(entry.id))
@@ -145,6 +140,8 @@ export default function DocsPage() {
         headings.forEach((heading) => observer.observe(heading));
         return () => observer.disconnect();
     }, [activeDoc]);
+
+    if (!activeDoc) return <NotFoundPage embedded />;
 
     return (
         <div className="flex h-full min-h-0 w-full flex-col bg-background text-foreground lg:flex-row">

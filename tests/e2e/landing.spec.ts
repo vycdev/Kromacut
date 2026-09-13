@@ -82,6 +82,12 @@ test.describe('landing page smoke @smoke', () => {
         await expect(page.getByTestId('landing-page')).toBeVisible();
         await expect(page.getByRole('heading', { name: /Turn pixels into printable layers/i })).toBeVisible();
         await expect(page.getByTestId('landing-open-app')).toHaveAttribute('href', '/app');
+        await expect(page.getByTestId('landing-privacy-link')).toHaveAttribute('href', '/privacy');
+        await expect(page.getByTestId('landing-terms-link')).toHaveAttribute('href', '/terms');
+        await expect(page.getByRole('navigation', { name: 'Footer navigation' })
+            .getByRole('link', { name: 'Privacy', exact: true })).toHaveCount(1);
+        await expect(page.getByRole('navigation', { name: 'Footer navigation' })
+            .getByRole('link', { name: 'Terms', exact: true })).toHaveCount(1);
         const communityLinks = page.getByTestId('landing-community-links');
         await expect(communityLinks).toBeVisible();
         await expect(communityLinks.getByRole('link')).toHaveCount(4);

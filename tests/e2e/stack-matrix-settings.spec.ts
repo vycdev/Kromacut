@@ -45,7 +45,8 @@ test('@smoke calibration reopening cancels the previous dialog close reset', asy
     await expect(page.getByText(/1 imported|1 overwritten/)).toBeVisible();
     const dialog = await openStackMatrix(page);
     await expect(dialog.getByRole('tab', { name: 'Stack Matrix', exact: true })).toHaveAttribute(
-        'aria-selected', 'true'
+        'aria-selected',
+        'true'
     );
 
     // Hold only the 300 ms close-reset timers. This exercises fast reopening
@@ -82,7 +83,8 @@ test('@smoke calibration reopening cancels the previous dialog close reset', asy
     await openStackMatrix(page);
     await page.evaluate(() => Reflect.get(window, 'flushCloseResets')());
     await expect(dialog.getByRole('tab', { name: 'Stack Matrix', exact: true })).toHaveAttribute(
-        'aria-selected', 'true'
+        'aria-selected',
+        'true'
     );
     await expect(dialog.getByRole('heading', { name: 'Stack Matrix', exact: true })).toBeVisible();
 });
@@ -196,4 +198,96 @@ test('@smoke @matrix New Stack Matrices use live print heights while saved matri
                     .calibrationLayerHeight
         )
     ).toBe(0.12);
+});
+
+test('@matrix adaptive thickness, swap budget, and completed history survive the worker and saved-profile round trip', async ({
+    page,
+}, testInfo) => {
+    testInfo.setTimeout(3 * 60 * 1000);
+    await page.addInitScript(() => {
+        if (sessionStorage.getItem('adaptive-matrix-seeded')) return;
+        localStorage.clear();
+        localStorage.setItem(
+            'kromacut:3d-print-settings',
+            JSON.stringify({
+                layerHeight: 0.04,
+                slicerFirstLayerHeight: 0.1,
+                pixelSize: 0.1,
+            })
+        );
+        sessionStorage.setItem('adaptive-matrix-seeded', '1');
+    });
+    await page.goto('/app');
+    await expect(page.getByTestId('image-file-input')).toBeAttached();
+    await page.getByRole('button', { name: '3D', exact: true }).click();
+    await page.getByRole('tab', { name: 'Auto-paint', exact: true }).click();
+    await page.getByTestId('autopaint-profile-import-input').setInputFiles(twoColorProfile);
+    await expect(page.getByText(/1 imported|1 overwritten/)).toBeVisible();
+    const dialog = await openStackMatrix(page);
+    const create = dialog.getByRole('button', { name: 'Create and download 3MF', exact: true });
+    await dialog.getByLabel('Max color thickness (mm)', { exact: true }).fill('0.01');
+    await expect(create).toBeDisabled();
+    await dialog.getByLabel('Max color thickness (mm)', { exact: true }).fill('0.81');
+    await expect(dialog.getByText(/Up to 20 color layers \(0.8 mm\)/)).toBeVisible();
+    await dialog.getByLabel('Maximum cells', { exact: true }).click();
+    await page.getByRole('option', { name: '64 (8 × 8)', exact: true }).click();
+    await dialog.getByLabel('Planned material-change budget', { exact: true }).click();
+    await page.getByRole('option', { name: '80 changes', exact: true }).click();
+    await page.screenshot({
+        path: testInfo.outputPath('adaptive-matrix-plan.png'),
+        fullPage: true,
+    });
+    const firstDownload = page.waitForEvent('download');
+    await create.click();
+    const first = await readMatrixDownload(await firstDownload);
+    expectExportHeights(first, 0.04, 0.1);
+    expect(first.record.schemaVersion).toBe(2);
+    expect(first.record.stackLayerCount).toBe(20);
+    expect(first.record.planning?.maximumSwapCycles).toBe(80);
+    expect(first.record.planning?.estimatedSwapCycles).toBeLessThanOrEqual(80);
+    expect(first.record.planning?.compatibleHistoryCount).toBe(0);
+    expect(first.record.planning?.unmeasuredSampleCount).toBe(first.record.samples.length);
+    expect(first.record.samples.some((sample) => (sample.backingPaddingLayerCount ?? 0) > 0)).toBe(
+        true
+    );
+    expect(first.record.samples.every((sample) => sample.stack.length === 20)).toBe(true);
+
+    // Synthetic observations exist only in this isolated browser fixture. Verify
+    // real persistence/worker plumbing without pretending these are physical reads.
+    await page.evaluate((id) => {
+        const key = 'kromacut.autopaint.profiles';
+        const profiles = JSON.parse(localStorage.getItem(key) ?? '[]') as Array<{
+            appearance?: { stackMatrices?: StackMatrixCalibrationV1[] };
+        }>;
+        const record = profiles
+            .flatMap((profile) => profile.appearance?.stackMatrices ?? [])
+            .find((candidate) => candidate.id === id);
+        if (!record) throw new Error('Exported adaptive matrix did not persist');
+        record.status = 'complete';
+        record.completedAt = new Date().toISOString();
+        record.photoName = 'synthetic-browser-fixture.png';
+        record.alignmentMethod = 'manual';
+        record.alignmentConfidence = 1;
+        record.alignmentVerified = true;
+        for (const sample of record.samples) sample.measuredColor = sample.predictedColor;
+        localStorage.setItem(key, JSON.stringify(profiles));
+    }, first.record.id);
+    await page.reload();
+    await page.getByRole('button', { name: '3D', exact: true }).click();
+    await page.getByRole('tab', { name: 'Auto-paint', exact: true }).click();
+    await openStackMatrix(page);
+    await dialog.getByRole('button', { name: 'New matrix', exact: true }).click();
+    await dialog.getByLabel('Max color thickness (mm)', { exact: true }).fill('0.81');
+    await dialog.getByLabel('Maximum cells', { exact: true }).click();
+    await page.getByRole('option', { name: '64 (8 × 8)', exact: true }).click();
+    const secondDownload = page.waitForEvent('download');
+    await create.click();
+    const second = await readMatrixDownload(await secondDownload);
+    expect(second.record.planning?.compatibleHistoryCount).toBe(1);
+    const priorKeys = new Set(first.record.samples.map((sample) => sample.canonicalStackKey));
+    const newKeys = second.record.samples.filter(
+        (sample) => !priorKeys.has(sample.canonicalStackKey)
+    );
+    expect(newKeys.length).toBeGreaterThan(second.record.samples.length / 2);
+    expect(second.record.planning?.unmeasuredSampleCount).toBe(newKeys.length);
 });

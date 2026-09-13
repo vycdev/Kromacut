@@ -1,10 +1,12 @@
 export const LANDING_PATH = '/';
 export const APP_PATH = '/app';
 export const DOCS_PATH = '/docs';
+export const PRIVACY_PATH = '/privacy';
+export const TERMS_PATH = '/terms';
 
 export const HAS_LAUNCHED_STORAGE_KEY = 'kromacut.has-launched.v1';
 
-export type AppRoute = 'landing' | 'app' | 'docs';
+export type AppRoute = 'landing' | 'app' | 'docs' | 'privacy' | 'terms' | 'not-found';
 
 export function isDocsRoute(pathname: string): boolean {
     const normalized = pathname.replace(/\/+$/, '') || LANDING_PATH;
@@ -14,7 +16,16 @@ export function isDocsRoute(pathname: string): boolean {
 export function selectRoute(pathname: string, isTauri = false): AppRoute {
     if (isTauri) return 'app';
     if (isDocsRoute(pathname)) return 'docs';
-    return pathname.replace(/\/+$/, '') === APP_PATH ? 'app' : 'landing';
+    const normalized = pathname.replace(/\/+$/, '') || LANDING_PATH;
+    if (normalized === LANDING_PATH || normalized === '/index.html') return 'landing';
+    if (normalized === APP_PATH || normalized === '/app/index.html') return 'app';
+    if (normalized === PRIVACY_PATH || normalized === `${PRIVACY_PATH}/index.html`) {
+        return 'privacy';
+    }
+    if (normalized === TERMS_PATH || normalized === `${TERMS_PATH}/index.html`) {
+        return 'terms';
+    }
+    return 'not-found';
 }
 
 export function hasLandingBypass(search: string): boolean {

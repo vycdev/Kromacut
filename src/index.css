@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Oxanium:wght@200;300;400;500;600;700;800&family=Source+Code+Pro:wght@400;500;600;700&family=Source+Serif+4:wght@400;500;600;700&display=swap');
+@import './styles/fonts.css';
 @import 'tailwindcss';
 
 @custom-variant dark (&:is(.dark *));

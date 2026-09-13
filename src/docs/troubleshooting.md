@@ -9,6 +9,10 @@ description: Common issues and what to try first.
 
 Start here when a result looks wrong or a control is disabled.
 
+## A Link Shows Page Not Found
+
+The address may contain a typo or point to a page that no longer exists. Use **Open Kromacut** to reach the tool, **Go to homepage** to visit the landing page, or **Browse documentation** to find the current guide. An unknown documentation address is not automatically replaced with another guide.
+
 ## Build 3D Model Does Not Update The Preview
 
 3D settings are not applied until you click **Build 3D Model**. Change the settings you want, then build again.

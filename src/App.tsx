@@ -57,7 +57,7 @@ import {
 } from './lib/previewPrefs';
 import { buildDocsPath, parseDocsLocation } from './lib/docs/navigation';
 import { applyAppSeo } from './lib/seo';
-import { appPath, markLaunched } from './lib/routes';
+import { appPath, isDocsRoute, markLaunched } from './lib/routes';
 import { isTauri } from '@tauri-apps/api/core';
 import {
     migrateLegacyFilamentTd,
@@ -386,7 +386,7 @@ function App(): React.ReactElement | null {
             globalThis.clearTimeout(timerId);
         };
     }, []);
-    const [docsOpen, setDocsOpen] = useState(() => parseDocsLocation(window.location) !== null);
+    const [docsOpen, setDocsOpen] = useState(() => isDocsRoute(window.location.pathname));
     const [isOrtho, setIsOrtho] = useState(loadCameraMode);
     const [previewRenderMode, setPreviewRenderMode] =
         useState<PreviewRenderMode>(loadPreviewRenderMode);
@@ -481,8 +481,7 @@ function App(): React.ReactElement | null {
 
     useEffect(() => {
         const syncDocsLocation = () => {
-            const target = parseDocsLocation(window.location);
-            setDocsOpen(target !== null);
+            setDocsOpen(isDocsRoute(window.location.pathname));
         };
         window.addEventListener('hashchange', syncDocsLocation);
         window.addEventListener('popstate', syncDocsLocation);
@@ -506,7 +505,7 @@ function App(): React.ReactElement | null {
 
     const backToApp = () => {
         setDocsOpen(false);
-        if (parseDocsLocation(window.location)) {
+        if (isDocsRoute(window.location.pathname)) {
             window.history.pushState(null, '', toolPath);
         }
     };

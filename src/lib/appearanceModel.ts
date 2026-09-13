@@ -25,6 +25,7 @@ import {
     type PaletteProofRecord,
     type PaletteTargetMatchQuality,
     type StackMatrixCalibrationV1,
+    type StackMatrixSampleV1,
 } from './appearanceProfile';
 import { channelHds } from './calibration';
 import {
@@ -221,8 +222,26 @@ interface WeightedCompatibleStackMatrix {
     matrixWeight: number;
 }
 
-function matrixRecipeKey(record: StackMatrixCalibrationV1, stack: readonly number[]): string {
-    return stack.map((filamentIndex) => record.filaments[filamentIndex].id).join('\0');
+function matrixSamplePadding(
+    record: StackMatrixCalibrationV1,
+    sample: StackMatrixSampleV1
+): number {
+    return record.schemaVersion === 2 ? (sample.backingPaddingLayerCount ?? 0) : 0;
+}
+
+function matrixSampleRecipe(
+    record: StackMatrixCalibrationV1,
+    sample: StackMatrixSampleV1
+): number[] {
+    return sample.stack.slice(matrixSamplePadding(record, sample));
+}
+
+function matrixRecipeKey(record: StackMatrixCalibrationV1, sample: StackMatrixSampleV1): string {
+    // Extra opaque backing changes geometry, not the measured useful recipe.
+    // Keep the backing identity: the same recipe over another substrate is not a replicate.
+    return [record.backingFilamentIndex, ...matrixSampleRecipe(record, sample)]
+        .map((filamentIndex) => record.filaments[filamentIndex].id)
+        .join('\0');
 }
 
 function median(values: readonly number[]): number {
@@ -252,7 +271,7 @@ function weightedCompatibleStackMatrices(
     for (const record of records) {
         for (const sample of record.samples) {
             if (!sample.measuredColor) continue;
-            const key = matrixRecipeKey(record, sample.stack);
+            const key = matrixRecipeKey(record, sample);
             const measured = colorLab(sample.measuredColor.rgb);
             const group = recipeGroups.get(key) ?? [];
             group.push(measured);
@@ -280,7 +299,7 @@ function weightedCompatibleStackMatrices(
         const agreementDistances: number[] = [];
         for (const sample of record.samples) {
             if (!sample.measuredColor) continue;
-            const group = recipeGroups.get(matrixRecipeKey(record, sample.stack)) ?? [];
+            const group = recipeGroups.get(matrixRecipeKey(record, sample)) ?? [];
             if (group.length < 3) continue;
             const consensus: Lab = {
                 L: median(group.map((entry) => entry.L)),
@@ -321,7 +340,7 @@ function fitMatrixEffectiveOptics(
             if (!backing) return [];
             return matrix.samples.flatMap((sample) => {
                 if (!sample.measuredColor) return [];
-                const recipeFilamentIds = sample.stack.map(
+                const recipeFilamentIds = matrixSampleRecipe(matrix, sample).map(
                     (filamentIndex) => matrix.filaments[filamentIndex]?.id
                 );
                 if (recipeFilamentIds.some((filamentId) => !filamentId)) return [];
@@ -808,14 +827,16 @@ function collectExactAnchors(
         if (!backing) continue;
         for (const sample of matrix.samples) {
             if (!sample.measuredColor) continue;
-            const matrixLayers: AppearanceAnchorLayer[] = sample.stack.map((filamentIndex) => {
-                const filament = matrix.filaments[filamentIndex];
-                return {
-                    filamentId: filament.id,
-                    filamentColor: filament.color,
-                    thickness: matrix.process.layerHeight,
-                };
-            });
+            const matrixLayers: AppearanceAnchorLayer[] = matrixSampleRecipe(matrix, sample).map(
+                (filamentIndex) => {
+                    const filament = matrix.filaments[filamentIndex];
+                    return {
+                        filamentId: filament.id,
+                        filamentColor: filament.color,
+                        thickness: matrix.process.layerHeight,
+                    };
+                }
+            );
             // Matrix anchors are resolved through their empirical LUT, which
             // stores the common foundation once and validates it before using
             // this recipe. Do not copy a potentially hundreds-of-layers-long
@@ -966,63 +987,80 @@ function collectEmpiricalLuts(
         const matrix = evidence.record;
         const backing = matrix.filaments[matrix.backingFilamentIndex];
         if (!backing) return [];
-        const rawSamples = matrix.samples
-            .filter((sample) => Boolean(sample.measuredColor))
-            .map((sample): AppearanceEmpiricalLutSampleV1 => {
-                const effectivePrediction = effectiveOptics.applied
-                    ? predictEffectiveRecipeColor(
-                          effectiveOptics,
-                          backing.id,
-                          sample.stack.map((filamentIndex) => ({
-                              filamentId: matrix.filaments[filamentIndex].id,
-                              thickness: matrix.process.layerHeight,
-                          }))
-                      )
-                    : undefined;
-                const predicted = colorLab(effectivePrediction ?? sample.predictedColor.rgb);
-                const measured = colorLab(sample.measuredColor!.rgb);
+        // A flat-topped V2 board contains several useful recipe depths. Keep
+        // one conditional LUT per depth so short recipes can match artwork
+        // without requiring the board's extra opaque backing layers.
+        const samplesByPadding = new Map<number, StackMatrixSampleV1[]>();
+        for (const sample of matrix.samples) {
+            if (!sample.measuredColor) continue;
+            const padding = matrixSamplePadding(matrix, sample);
+            const group = samplesByPadding.get(padding) ?? [];
+            group.push(sample);
+            samplesByPadding.set(padding, group);
+        }
+        return [...samplesByPadding.entries()]
+            .sort(([left], [right]) => left - right)
+            .map(([padding, samples]): AppearanceEmpiricalLutV1 => {
+                const rawSamples = samples
+                    .map((sample): AppearanceEmpiricalLutSampleV1 => {
+                        const recipe = matrixSampleRecipe(matrix, sample);
+                        const effectivePrediction = effectiveOptics.applied
+                            ? predictEffectiveRecipeColor(
+                                  effectiveOptics,
+                                  backing.id,
+                                  recipe.map((filamentIndex) => ({
+                                      filamentId: matrix.filaments[filamentIndex].id,
+                                      thickness: matrix.process.layerHeight,
+                                  }))
+                              )
+                            : undefined;
+                        const predicted = colorLab(
+                            effectivePrediction ?? sample.predictedColor.rgb
+                        );
+                        const measured = colorLab(sample.measuredColor!.rgb);
+                        return {
+                            id: `${matrix.id}:${sample.index}`,
+                            sourceStackKey: sample.canonicalStackKey,
+                            recipeFilamentIds: recipe.map(
+                                (filamentIndex) => matrix.filaments[filamentIndex].id
+                            ),
+                            predictedLab: [predicted.L, predicted.a, predicted.b],
+                            measuredLab: [measured.L, measured.a, measured.b],
+                            confidence: evidence.matrixWeight,
+                            exactAnchorId: `${matrix.id}:${sample.index}`,
+                        };
+                    })
+                    .sort((left, right) => left.id.localeCompare(right.id));
+                const coverageRadius = empiricalCoverageRadius(rawSamples);
+                const crossValidation = withEmpiricalCrossValidation(rawSamples, coverageRadius);
                 return {
-                    id: `${matrix.id}:${sample.index}`,
-                    sourceStackKey: sample.canonicalStackKey,
-                    recipeFilamentIds: sample.stack.map(
-                        (filamentIndex) => matrix.filaments[filamentIndex].id
-                    ),
-                    predictedLab: [predicted.L, predicted.a, predicted.b],
-                    measuredLab: [measured.L, measured.a, measured.b],
-                    confidence: evidence.matrixWeight,
-                    exactAnchorId: `${matrix.id}:${sample.index}`,
+                    id: `empirical-lut:${matrix.id}${matrix.schemaVersion === 2 ? `:padding-${padding}` : ''}`,
+                    sourceMatrixId: matrix.id,
+                    observedAt: matrix.completedAt ?? matrix.createdAt,
+                    layerHeight: matrix.process.layerHeight,
+                    stackLayerCount: matrix.stackLayerCount - padding,
+                    backingFilamentId: backing.id,
+                    foundationLayers: [
+                        ...matrix.foundationLayerThicknesses,
+                        ...Array.from({ length: padding }, () => matrix.process.layerHeight),
+                    ].map((thickness) => ({
+                        filamentId: backing.id,
+                        filamentColor: backing.color,
+                        thickness,
+                    })),
+                    filamentIds: matrix.filaments.map((filament) => filament.id),
+                    alignmentWeight: evidence.alignmentWeight,
+                    coverageWeight: evidence.coverageWeight,
+                    recencyWeight: evidence.recencyWeight,
+                    agreementWeight: evidence.agreementWeight,
+                    matrixWeight: evidence.matrixWeight,
+                    coverageRadius,
+                    crossValidationMeanDeltaE: crossValidation.meanDeltaE,
+                    crossValidationP90DeltaE: crossValidation.p90DeltaE,
+                    crossValidationSampleCount: crossValidation.samples.length,
+                    samples: crossValidation.samples,
                 };
-            })
-            .sort((left, right) => left.id.localeCompare(right.id));
-        if (rawSamples.length === 0) return [];
-        const coverageRadius = empiricalCoverageRadius(rawSamples);
-        const crossValidation = withEmpiricalCrossValidation(rawSamples, coverageRadius);
-        return [
-            {
-                id: `empirical-lut:${matrix.id}`,
-                sourceMatrixId: matrix.id,
-                observedAt: matrix.completedAt ?? matrix.createdAt,
-                layerHeight: matrix.process.layerHeight,
-                stackLayerCount: matrix.stackLayerCount,
-                backingFilamentId: backing.id,
-                foundationLayers: matrix.foundationLayerThicknesses.map((thickness) => ({
-                    filamentId: backing.id,
-                    filamentColor: backing.color,
-                    thickness,
-                })),
-                filamentIds: matrix.filaments.map((filament) => filament.id),
-                alignmentWeight: evidence.alignmentWeight,
-                coverageWeight: evidence.coverageWeight,
-                recencyWeight: evidence.recencyWeight,
-                agreementWeight: evidence.agreementWeight,
-                matrixWeight: evidence.matrixWeight,
-                coverageRadius,
-                crossValidationMeanDeltaE: crossValidation.meanDeltaE,
-                crossValidationP90DeltaE: crossValidation.p90DeltaE,
-                crossValidationSampleCount: crossValidation.samples.length,
-                samples: crossValidation.samples,
-            },
-        ];
+            });
     });
 }
 
@@ -1451,6 +1489,29 @@ function recipeWindow(
     return window.map((layer) => layer.filamentId);
 }
 
+/**
+ * Both strict substrate matching and estimated identical-recipe transfer need
+ * the selected backing immediately below the recipe. Reject impossible windows
+ * before copying/scanning them, which matters when one board has many depths.
+ * Preserve the literal-foundation shortcut used by the strict matcher as well.
+ */
+function empiricalSubstrateCanMatch(
+    lut: AppearanceEmpiricalLutV1,
+    prefixLayers: readonly AppearanceAnchorLayer[],
+    end = prefixLayers.length
+): boolean {
+    const recipeStart = end - lut.stackLayerCount;
+    if (recipeStart <= 0 || lut.foundationLayers.length === 0) return false;
+    const substrateFilamentId = prefixLayers[recipeStart - 1].filamentId;
+    return (
+        substrateFilamentId === lut.backingFilamentId ||
+        (recipeStart === lut.foundationLayers.length &&
+            substrateFilamentId ===
+                lut.foundationLayers[lut.foundationLayers.length - 1].filamentId &&
+            layersMatchAt(prefixLayers, 0, lut.foundationLayers))
+    );
+}
+
 function empiricalSampleAnchor(
     lut: AppearanceEmpiricalLutV1,
     sample: AppearanceEmpiricalLutSampleV1,
@@ -1695,6 +1756,7 @@ interface EmpiricalNeighborLookup {
 
 interface EmpiricalLutIndex {
     exactByRecipe: Map<string, AppearanceEmpiricalLutSampleV1>;
+    firstFilamentsByLastFilament: Map<string, Set<string>>;
     neighborLookups: BoundedCache<string, EmpiricalNeighborLookup>;
 }
 
@@ -1705,12 +1767,20 @@ function empiricalLutIndex(lut: AppearanceEmpiricalLutV1): EmpiricalLutIndex {
     if (cached) return cached;
     const index = {
         exactByRecipe: new Map<string, AppearanceEmpiricalLutSampleV1>(),
+        firstFilamentsByLastFilament: new Map<string, Set<string>>(),
         neighborLookups: new BoundedCache<string, EmpiricalNeighborLookup>(
             EMPIRICAL_RECIPE_LOOKUP_CACHE_SIZE
         ),
     };
     for (const sample of lut.samples) {
         index.exactByRecipe.set(recipeKey(sample.recipeFilamentIds), sample);
+        const first = sample.recipeFilamentIds[0];
+        const last = sample.recipeFilamentIds.at(-1);
+        if (first !== undefined && last !== undefined) {
+            const starts = index.firstFilamentsByLastFilament.get(last) ?? new Set<string>();
+            starts.add(first);
+            index.firstFilamentsByLastFilament.set(last, starts);
+        }
     }
     empiricalLutIndexCache.set(lut, index);
     return index;
@@ -2492,6 +2562,7 @@ function nearestMeasuredEvidence(
           })
         | undefined;
     for (const lut of model.empiricalLuts ?? []) {
+        if (!empiricalSubstrateCanMatch(lut, prefixLayers)) continue;
         const recipe = recipeWindow(lut, prefixLayers);
         if (!recipe) continue;
         if (!cachedEmpiricalLutSubstrateMatch(lut, model, prefixLayers, substrateMatchCache)) {
@@ -2696,6 +2767,7 @@ function resolveEmpiricalLut(
     const baseTuple: [number, number, number] = [base.L, base.a, base.b];
 
     for (const lut of model.empiricalLuts ?? []) {
+        if (!empiricalSubstrateCanMatch(lut, prefixLayers)) continue;
         const recipe = recipeWindow(lut, prefixLayers);
         if (!recipe) continue;
         const index = empiricalLutIndex(lut);
@@ -2988,40 +3060,87 @@ function resolveMeasuredPrefixContinuation(
     );
     if (!transition) return undefined;
     const terminalThickness = totalLayerThickness(prefixLayers.slice(runStart));
+    const maximumLookback = model.empiricalLuts.reduce((maximum, lut) => {
+        const thickness = lut.layerHeight * lut.stackLayerCount;
+        return Number.isFinite(thickness) ? Math.max(maximum, thickness) : maximum;
+    }, 0);
+    const candidateEnds: Array<{ end: number; extraThickness: number }> = [];
+    let extraThickness = 0;
+    // Accumulate in the same reverse order as the per-LUT search so physical
+    // support boundaries and fractional continuation layers retain their exact
+    // semantics. Every depth can share this scan without truncating its support.
+    for (let end = prefixLayers.length - 1; end > runStart; end--) {
+        extraThickness += prefixLayers[end].thickness;
+        if (extraThickness >= maximumLookback - 1e-10) break;
+        candidateEnds.push({ end, extraThickness });
+    }
+    const sourcePrefixes = new Map<
+        number,
+        {
+            layers: readonly AppearanceAnchorLayer[];
+            rgb: Rgb;
+            lab: Lab;
+            substrateMatchCache: EmpiricalSubstrateMatchCache;
+            hasPaletteProofAnchor?: boolean;
+        } | null
+    >();
     let actual: Rgb | undefined;
     let fallback: Rgb | undefined;
     const resolutions: EmpiricalResolution[] = [];
     for (const lut of model.empiricalLuts) {
         const maximumExtra = lut.layerHeight * lut.stackLayerCount;
         if (!Number.isFinite(maximumExtra) || maximumExtra <= 0) continue;
-        let extraThickness = 0;
-        for (let end = prefixLayers.length - 1; end > runStart; end--) {
-            extraThickness += prefixLayers[end].thickness;
+        const index = empiricalLutIndex(lut);
+        const possibleStarts = index.firstFilamentsByLastFilament.get(top.filamentId);
+        if (!possibleStarts) continue;
+        for (const { end, extraThickness } of candidateEnds) {
             if (extraThickness >= maximumExtra - 1e-10) break;
-            const sourceLayers = prefixLayers.slice(0, end);
+            if (!empiricalSubstrateCanMatch(lut, prefixLayers, end)) continue;
+            // Continuation only accepts literal measured recipes. Endpoint
+            // rejection is exact, unlike the distance-based recipe neighbors
+            // used for ordinary interpolation, and needs no copied window.
+            if (!possibleStarts.has(prefixLayers[end - lut.stackLayerCount].filamentId)) continue;
+            const cachedPrefix = sourcePrefixes.get(end);
+            if (cachedPrefix === null) continue;
+            const sourceLayers = cachedPrefix?.layers ?? prefixLayers.slice(0, end);
             const recipe = recipeWindow(lut, sourceLayers);
             if (!recipe) continue;
-            const sample = empiricalLutIndex(lut).exactByRecipe.get(recipeKey(recipe));
+            const sample = index.exactByRecipe.get(recipeKey(recipe));
             if (!sample) continue;
-            const sourceRgb = predictEffectiveAutoPaintColor(optics, sourceLayers);
-            if (!sourceRgb || !sourceRgb.every(Number.isFinite)) continue;
+            let sourcePrefix = cachedPrefix;
+            if (!sourcePrefix) {
+                const rgb = predictEffectiveAutoPaintColor(optics, sourceLayers);
+                if (!rgb || !rgb.every(Number.isFinite)) {
+                    sourcePrefixes.set(end, null);
+                    continue;
+                }
+                sourcePrefix = {
+                    layers: sourceLayers,
+                    rgb,
+                    lab: rgbToLab(rgb),
+                    substrateMatchCache: new Map(),
+                };
+                sourcePrefixes.set(end, sourcePrefix);
+            }
+            const sourceRgb = sourcePrefix.rgb;
             const source = resolveExactEmpiricalRecipe(
-                rgbToLab(sourceRgb),
+                sourcePrefix.lab,
                 lut,
                 sample,
                 model,
                 sourceLayers,
-                undefined,
+                sourcePrefix.substrateMatchCache,
                 includeContributions
             );
             if (!source) continue;
             // A corrected or explicitly judged source surface no longer
             // authorizes carrying the untouched Matrix value forward.
+            sourcePrefix.hasPaletteProofAnchor ??= matchingExactAnchors(model, sourceLayers).some(
+                (anchor) => anchor.source === 'palette-proof'
+            );
             if (
-                matchingExactAnchors(model, sourceLayers).some(
-                    (anchor) => anchor.source === 'palette-proof'
-                ) ||
-                (resolveLocalEvidence(rgbToLab(sourceRgb), source.lab, model, sourceLayers, false)
+                sourcePrefix.hasPaletteProofAnchor ||
+                (resolveLocalEvidence(sourcePrefix.lab, source.lab, model, sourceLayers, false)
                     ?.match.correctionStrength ?? 0) > 0
             ) {
                 continue;
@@ -3060,7 +3179,7 @@ function resolveMeasuredPrefixContinuation(
                         [base.L, base.a, base.b],
                         sample.predictedLab
                     ),
-                    nearestMeasuredDeltaE: deltaE2000Lab(base, rgbToLab(sourceRgb)),
+                    nearestMeasuredDeltaE: deltaE2000Lab(base, sourcePrefix.lab),
                     nearestRecipeDistance: progress,
                     transfers: [
                         ...(source.match.transfers ?? []),

@@ -110,6 +110,9 @@ function resolveDocImage(src) {
     if (clean.includes('kromacut-logo.png')) {
         return findBuiltAsset('logo-') ?? clean;
     }
+    if (clean.includes('hd-wedges-eight-colors-2026-09-13.jpg')) {
+        return findBuiltAsset('hd-wedges-eight-colors-2026-09-13-') ?? clean;
+    }
     const diagramName = path.basename(clean);
     if (
         diagramName.endsWith('.svg') &&
@@ -418,8 +421,92 @@ function writeAppPage(template) {
     writeFileSync(path.join(outputDir, 'index.html'), updateAppHead(template));
 }
 
+function writeNotFoundPage(template) {
+    const title = 'Page not found | Kromacut';
+    const description =
+        "This page doesn't exist. Open Kromacut, return to the homepage, or browse the documentation.";
+    // GitHub Pages serves this at the original missing URL with HTTP 404.
+    // Do not boot the SPA: recovery must work without JavaScript, and a bad
+    // path must not be reinterpreted as a successful app/documentation page.
+    let html = template
+        .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '')
+        .replace(/<link\b[^>]*rel="modulepreload"[^>]*>/gi, '')
+        .replace(/<link\b[^>]*rel="canonical"[^>]*>/gi, '')
+        .replace('<html lang="en">', '<html lang="en" data-static-not-found>')
+        .replace(/<title>.*?<\/title>/, `<title>${escapeHtml(title)}</title>`);
+    html = updateMeta(html, 'name', 'description', description);
+    html = updateMeta(html, 'name', 'robots', 'noindex,follow');
+    html = updateMeta(html, 'property', 'og:title', title);
+    html = updateMeta(html, 'property', 'og:description', description);
+    html = updateMeta(html, 'property', 'og:url', `${siteUrl}/404.html`);
+    html = updateMeta(html, 'name', 'twitter:title', title);
+    html = updateMeta(html, 'name', 'twitter:description', description);
+
+    // Same theme preference contract as src/lib/theme.ts. No profile/storage
+    // writes or application code are needed to display this static document.
+    const themeScript = `<script>
+        (() => {
+            let mode = 'dark';
+            try {
+                const saved = localStorage.getItem('theme');
+                if (['light', 'dark', 'system'].includes(saved)) mode = saved;
+            } catch {}
+            const query = window.matchMedia('(prefers-color-scheme: dark)');
+            const apply = () => {
+                const dark = mode === 'dark' || (mode === 'system' && query.matches);
+                const root = document.documentElement;
+                root.classList.toggle('dark', dark);
+                root.dataset.themeResolved = dark ? 'dark' : 'light';
+                root.style.colorScheme = dark ? 'dark' : 'light';
+                const meta = document.querySelector('meta[name="theme-color"]');
+                if (meta) meta.content = dark ? '#0a0a0a' : '#ffffff';
+            };
+            apply();
+            if (mode === 'system') query.addEventListener('change', apply);
+        })();
+    </script>`;
+    html = html.replace('</head>', `${themeScript}\n    </head>`);
+    const logo = findBuiltAsset('logo-');
+    if (!logo) throw new Error('The built logo asset is required for the 404 page.');
+    // Reuse the app's small vector artwork without another network dependency.
+    const artwork = `data:image/svg+xml;base64,${readFileSync(path.join(rootDir, 'src/assets/not-found-layers.svg')).toString('base64')}`;
+    const arrowRight = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14m-7-7 7 7-7 7"/></svg>';
+    const arrowUpRight = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M7 7h10v10"/></svg>';
+    const book = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 7v14m-10-3V3h6a4 4 0 0 1 4 4 4 4 0 0 1 4-4h6v15h-6a4 4 0 0 0-4 3 4 4 0 0 0-4-3Z"/></svg>';
+    html = html.replace(
+        /<div id="root"><\/div>/,
+        `<div id="root">
+        <main class="not-found-page" data-testid="not-found-page" aria-labelledby="not-found-heading">
+            <div class="not-found-card">
+                <header class="not-found-header">
+                    <div class="not-found-brand"><img src="${logo}" alt="" width="36" height="36"><span>Kromacut</span></div>
+                    <span class="not-found-code" aria-label="Error 404">404</span>
+                </header>
+                <div class="not-found-content">
+                    <div class="not-found-copy">
+                        <p class="not-found-eyebrow">A little off the build plate</p>
+                        <h1 id="not-found-heading">This page doesn't exist</h1>
+                        <p class="not-found-description">The link may be outdated, or the address may contain a typo. Let's get you back to creating.</p>
+                        <div class="not-found-actions">
+                            <a class="not-found-primary" href="/app">Open Kromacut ${arrowRight}</a>
+                            <a class="not-found-secondary" href="/?landing=1">Go to homepage</a>
+                        </div>
+                    </div>
+                    <div class="not-found-art" data-testid="not-found-art" aria-hidden="true"><img src="${artwork}" alt="" width="520" height="460"></div>
+                </div>
+                <footer class="not-found-footer">
+                    <p>${book} Looking for a guide?</p>
+                    <a class="not-found-docs-link" href="/docs/overview">Browse documentation ${arrowUpRight}</a>
+                </footer>
+            </div>
+        </main>
+    </div>`
+    );
+    writeFileSync(path.join(distDir, '404.html'), html);
+}
+
 function writeSitemap(docs) {
-    const urls = ['/', ...docs.map((doc) => `/docs/${doc.slug}`)];
+    const urls = ['/', '/privacy', '/terms', ...docs.map((doc) => `/docs/${doc.slug}`)];
     const body = urls
         .map((url) => `    <url><loc>${siteUrl}${url === '/' ? '/' : url}</loc></url>`)
         .join('\n');
@@ -427,6 +514,78 @@ function writeSitemap(docs) {
         path.join(distDir, 'sitemap.xml'),
         `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${body}\n</urlset>\n`
     );
+}
+
+function writeLegalPage(template, kind) {
+    const notice = JSON.parse(readFileSync(path.join(rootDir, `src/data/${kind}Notice.json`), 'utf8'));
+    const logo = findBuiltAsset('logo-');
+    // Both lazy pages share the same legal-page shell. Locate its CSS by the
+    // selector rather than depending on Vite's shared-chunk filename.
+    const stylesheet = readdirSync(path.join(distDir, 'assets')).find(
+        (file) => file.endsWith('.css') &&
+            readFileSync(path.join(distDir, 'assets', file), 'utf8').includes('.privacy-page')
+    );
+    if (!logo || !stylesheet) throw new Error(`${kind} page assets are missing.`);
+
+    // Use the same factual copy as React. Keep the email entirely out of the
+    // static page; the interactive component reveals it only after activation.
+    const sections = notice.sections.map((section) => `<section aria-labelledby="${escapeHtml(section.id)}">
+        <h2 id="${escapeHtml(section.id)}">${escapeHtml(section.title)}</h2>
+        ${section.paragraphs.map((paragraph) => `<p>${escapeHtml(paragraph)}</p>`).join('')}
+        ${section.links.length ? `<ul class="privacy-sources">${section.links.map((link) =>
+            `<li><a href="${escapeHtml(link.href)}" rel="noreferrer">${escapeHtml(link.label)}</a></li>`
+        ).join('')}</ul>` : ''}
+    </section>`).join('');
+    const contents = `<nav class="privacy-contents" aria-label="On this page">
+        <p>On this page</p><ul>
+            ${notice.sections.map((section) => `<li><a href="#${escapeHtml(section.id)}">${escapeHtml(section.title)}</a></li>`).join('')}
+            <li><a href="#${kind}-contact-heading">${escapeHtml(notice.contactTitle)}</a></li>
+        </ul>
+    </nav>`;
+
+    let html = template
+        .replace(/<script\b[^>]*type="application\/ld\+json"[^>]*>[\s\S]*?<\/script>/gi, '')
+        .replace(/<link\b[^>]*rel="canonical"[^>]*>/gi, `<link rel="canonical" href="${siteUrl}/${kind}" />`)
+        .replace('<html lang="en">', `<html lang="en" data-${kind}-page>`)
+        .replace(/<title>.*?<\/title>/, `<title>${escapeHtml(notice.seoTitle)}</title>`)
+        .replace('</head>', `<link rel="stylesheet" href="/assets/${stylesheet}" />\n</head>`);
+    html = updateMeta(html, 'name', 'description', notice.description);
+    html = updateMeta(html, 'name', 'robots', 'index,follow');
+    html = updateMeta(html, 'property', 'og:title', notice.seoTitle);
+    html = updateMeta(html, 'property', 'og:description', notice.description);
+    html = updateMeta(html, 'property', 'og:url', `${siteUrl}/${kind}`);
+    html = updateMeta(html, 'name', 'twitter:title', notice.seoTitle);
+    html = updateMeta(html, 'name', 'twitter:description', notice.description);
+    html = html.replace(/<div id="root"><\/div>/, `<div id="root">
+        <main class="privacy-page" data-testid="${kind}-page" aria-labelledby="${kind}-heading">
+            <div class="privacy-shell">
+                <header class="privacy-header">
+                    <a class="privacy-brand" href="/?landing=1" aria-label="Kromacut homepage"><img src="${logo}" width="36" height="36" alt=""><span>Kromacut</span></a>
+                    <a class="privacy-app-link" href="/app">Open Kromacut</a>
+                </header>
+                <article class="privacy-article">
+                    <p class="privacy-eyebrow">${kind === 'privacy' ? 'Local-first. Clearly explained.' : 'Using Kromacut.'}</p>
+                    <h1 id="${kind}-heading">${escapeHtml(notice.title)}</h1>
+                    <p class="privacy-updated">Updated ${escapeHtml(notice.updated)}</p>
+                    <p class="privacy-intro">${escapeHtml(notice.intro)}</p>
+                    ${contents}
+                    ${sections}
+                    <section aria-labelledby="${kind}-contact-heading">
+                        <h2 id="${kind}-contact-heading">${escapeHtml(notice.contactTitle)}</h2>
+                        <p>${escapeHtml(notice.contactDescription)}</p>
+                        <noscript><p>Enable JavaScript to reveal the public contact email. It is not included in the static page to deter simple address scrapers.</p></noscript>
+                    </section>
+                </article>
+                <footer class="privacy-footer">
+                    <a href="/?landing=1">Go to homepage</a><a href="/docs/overview">Browse documentation</a>
+                    ${kind === 'privacy' ? '<a href="/terms">Terms &amp; conditions</a>' : '<a href="/privacy">Privacy &amp; local data</a>'}
+                </footer>
+            </div>
+        </main>
+    </div>`);
+    const outputDir = path.join(distDir, kind);
+    mkdirSync(outputDir, { recursive: true });
+    writeFileSync(path.join(outputDir, 'index.html'), html);
 }
 
 function writeRobots() {
@@ -440,7 +599,10 @@ function verifyGeneratedOutput(docs) {
     const requiredFiles = [
         'index.html',
         'app/index.html',
+        '404.html',
         'docs/index.html',
+        'privacy/index.html',
+        'terms/index.html',
         'robots.txt',
         'sitemap.xml',
         'site.webmanifest',
@@ -456,10 +618,25 @@ function verifyGeneratedOutput(docs) {
 
     const rootHtml = readFileSync(path.join(distDir, 'index.html'), 'utf8');
     const appHtml = readFileSync(path.join(distDir, 'app', 'index.html'), 'utf8');
+    const notFoundHtml = readFileSync(path.join(distDir, '404.html'), 'utf8');
     const sitemap = readFileSync(path.join(distDir, 'sitemap.xml'), 'utf8');
     const robots = readFileSync(path.join(distDir, 'robots.txt'), 'utf8');
     const manifest = JSON.parse(readFileSync(path.join(distDir, 'site.webmanifest'), 'utf8'));
     const version = JSON.parse(readFileSync(path.join(distDir, 'version.json'), 'utf8'));
+
+    for (const kind of ['privacy', 'terms']) {
+        assertGenerated(sitemap.includes(`<loc>https://kromacut.com/${kind}</loc>`), `${kind} page is missing from sitemap`);
+        const legalHtml = readFileSync(path.join(distDir, kind, 'index.html'), 'utf8');
+        assertGenerated(
+            legalHtml.includes(`data-testid="${kind}-page"`) &&
+                !legalHtml.includes('privacy-draft-notice') &&
+                !legalHtml.includes('privacy-review-heading') &&
+                legalHtml.includes('<meta name="robots" content="index,follow"') &&
+                legalHtml.includes(`<link rel="canonical" href="https://kromacut.com/${kind}"`) &&
+                !legalHtml.includes('mailto:'),
+            `${kind} page must be indexable and canonical without public review notes or a static email link`
+        );
+    }
 
     assertGenerated(
         rootHtml.includes('<link rel="canonical" href="https://kromacut.com/"'),
@@ -477,6 +654,17 @@ function verifyGeneratedOutput(docs) {
         appHtml.includes('<link rel="canonical" href="https://kromacut.com/app"'),
         '/app canonical URL is missing'
     );
+    assertGenerated(
+        notFoundHtml.includes('<meta name="robots" content="noindex,follow"') &&
+            notFoundHtml.includes('data-testid="not-found-page"'),
+        '404 must contain an index-excluded, usable static page'
+    );
+    assertGenerated(
+        !/<script\b[^>]*(?:type="module"|src=)/.test(notFoundHtml) &&
+            !notFoundHtml.includes('rel="canonical"'),
+        '404 must not boot the app or claim a successful-page canonical URL'
+    );
+    assertGenerated(!sitemap.includes('/404'), '404 must not appear in sitemap');
     assertGenerated(
         sitemap.includes('<loc>https://kromacut.com/</loc>'),
         'root is missing from sitemap'
@@ -537,6 +725,9 @@ const overviewDoc = docsBySlug.get('overview') ?? docs[0];
 docs.forEach((doc) => writeDocPage(template, doc, docs, docsBySlug));
 if (overviewDoc) writeDocPage(template, overviewDoc, docs, docsBySlug, '');
 writeAppPage(template);
+writeNotFoundPage(template);
+writeLegalPage(template, 'privacy');
+writeLegalPage(template, 'terms');
 writeSitemap(docs);
 writeRobots();
 verifyGeneratedOutput(docs);

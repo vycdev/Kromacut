@@ -1,0 +1,113 @@
+{
+  "downloaded": "2026-09-13",
+  "stylesheet": "https://fonts.googleapis.com/css2?family=Oxanium:wght@200..800&family=Source+Code+Pro:wght@400..700&family=Source+Serif+4:wght@400..700&display=swap",
+  "licenses": [
+    {
+      "family": "Oxanium",
+      "file": "oxanium-OFL.txt",
+      "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/oxanium/OFL.txt"
+    },
+    {
+      "family": "Source Code Pro",
+      "file": "sourcecodepro-OFL.txt",
+      "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/sourcecodepro/OFL.txt"
+    },
+    {
+      "family": "Source Serif 4",
+      "file": "sourceserif4-OFL.txt",
+      "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/sourceserif4/OFL.txt"
+    }
+  ],
+  "fonts": [
+    {
+      "url": "https://fonts.gstatic.com/s/oxanium/v21/RrQQboN_4yJ0JmiMe2zE0YBB.woff2",
+      "name": "oxanium-v21-latin-ext.woff2",
+      "sha256": "75b9254b2437310f3baa788ea6d005d35256cb3e98b2b723fea702f77cd31064",
+      "bytes": 7824
+    },
+    {
+      "url": "https://fonts.gstatic.com/s/oxanium/v21/RrQQboN_4yJ0JmiMe2LE0Q.woff2",
+      "name": "oxanium-v21-latin.woff2",
+      "sha256": "3aa555c528430aab19bb2693dc206bab557767d3082dba66400784c9cc90cfbb",
+      "bytes": 14044
+    },
+    {
+      "url": "https://fonts.gstatic.com/s/sourcecodepro/v31/HI_SiYsKILxRpg3hIP6sJ7fM7PqlMOvWjMY.woff2",
+      "name": "source-code-pro-v31-cyrillic-ext.woff2",
+      "sha256": "dd503d60c322511f5618af7d1dc4f2d7002a58f665b515c7d62ea6f5535ac669",
+      "bytes": 8808
+    },
+    {
+      "url": "https://fonts.gstatic.com/s/sourcecodepro/v31/HI_SiYsKILxRpg3hIP6sJ7fM7PqlOevWjMY.woff2",
+      "name": "source-code-pro-v31-cyrillic.woff2",
+      "sha256": "fd7699ecbd3ce9ae5db900abc491150d176e8b1530aee9a9268cb3023658a5b3",
+      "bytes": 14180
+    },
+    {
+      "url": "https://fonts.gstatic.com/s/sourcecodepro/v31/HI_SiYsKILxRpg3hIP6sJ7fM7PqlMevWjMY.woff2",
+      "name": "source-code-pro-v31-greek-ext.woff2",
+      "sha256": "01e467c83c24a9b8e2a866e9fe443d6d50d9db9403bf7b710bd10b37ae8c208d",
+      "bytes": 3096
+    },
+    {
+      "url": "https://fonts.gstatic.com/s/sourcecodepro/v31/HI_SiYsKILxRpg3hIP6sJ7fM7PqlPuvWjMY.woff2",
+      "name": "source-code-pro-v31-greek.woff2",
+      "sha256": "34dfcd3f61fc26a6ba2a7ee30eab6bc4bdc5d4872a8b49a90a17f1bf9e70553b",
+      "bytes": 10696
+    },
+    {
+      "url": "https://fonts.gstatic.com/s/sourcecodepro/v31/HI_SiYsKILxRpg3hIP6sJ7fM7PqlMuvWjMY.woff2",
+      "name": "source-code-pro-v31-vietnamese.woff2",
+      "sha256": "d8a28d78c1c6de660e1be91fdadc9b01268415407922ed3cf64909a0b02a6356",
+      "bytes": 8176
+    },
+    {
+      "url": "https://fonts.gstatic.com/s/sourcecodepro/v31/HI_SiYsKILxRpg3hIP6sJ7fM7PqlM-vWjMY.woff2",
+      "name": "source-code-pro-v31-latin-ext.woff2",
+      "sha256": "ab316ee7e4a28a149fe9f74a3e9173c3d14a11bb7d4df898dd2fe10da7b7fe24",
+      "bytes": 33568
+    },
+    {
+      "url": "https://fonts.gstatic.com/s/sourcecodepro/v31/HI_SiYsKILxRpg3hIP6sJ7fM7PqlPevW.woff2",
+      "name": "source-code-pro-v31-latin.woff2",
+      "sha256": "8b774aaa5137a38ef40f4ac9d36db9a5eee152b2f66589dfdc82ff007fc87135",
+      "bytes": 22044
+    },
+    {
+      "url": "https://fonts.gstatic.com/s/sourceserif4/v14/vEFF2_tTDB4M7-auWDN0ahZJW3IX2ih5nk3AucvUHf6kAHr4cXk.woff2",
+      "name": "source-serif-4-v14-cyrillic-ext.woff2",
+      "sha256": "f423aab1098e5b0dae59d200aadbb9433e687f505425c7e73d1f65ae2b59016e",
+      "bytes": 18064
+    },
+    {
+      "url": "https://fonts.gstatic.com/s/sourceserif4/v14/vEFF2_tTDB4M7-auWDN0ahZJW3IX2ih5nk3AucvUHf6kCXr4cXk.woff2",
+      "name": "source-serif-4-v14-cyrillic.woff2",
+      "sha256": "25e85aef8acff54f91ea7e85c9c2c260caf97101fdef194ed6b8b58bc34ce3eb",
+      "bytes": 36468
+    },
+    {
+      "url": "https://fonts.gstatic.com/s/sourceserif4/v14/vEFF2_tTDB4M7-auWDN0ahZJW3IX2ih5nk3AucvUHf6kDnr4cXk.woff2",
+      "name": "source-serif-4-v14-greek.woff2",
+      "sha256": "d84b0c5fda036126b6bb9205b144500fe08fec6d54d8bdd60645bc3e6577490b",
+      "bytes": 20228
+    },
+    {
+      "url": "https://fonts.gstatic.com/s/sourceserif4/v14/vEFF2_tTDB4M7-auWDN0ahZJW3IX2ih5nk3AucvUHf6kAnr4cXk.woff2",
+      "name": "source-serif-4-v14-vietnamese.woff2",
+      "sha256": "63b54e70d3bfb018162640bfb0015be46a2ec96f3c00d4170c8a02d0ff9d5abd",
+      "bytes": 13448
+    },
+    {
+      "url": "https://fonts.gstatic.com/s/sourceserif4/v14/vEFF2_tTDB4M7-auWDN0ahZJW3IX2ih5nk3AucvUHf6kA3r4cXk.woff2",
+      "name": "source-serif-4-v14-latin-ext.woff2",
+      "sha256": "41529a5b38008d9ea01e28ec18693a714a3216669ee477d83a5b9db999369625",
+      "bytes": 42040
+    },
+    {
+      "url": "https://fonts.gstatic.com/s/sourceserif4/v14/vEFF2_tTDB4M7-auWDN0ahZJW3IX2ih5nk3AucvUHf6kDXr4.woff2",
+      "name": "source-serif-4-v14-latin.woff2",
+      "sha256": "c1df4596be5029233ed2afbb8b2f6ea20784b3fb1aa5d6b5c6519ccd85eb3dfb",
+      "bytes": 50824
+    }
+  ]
+}

@@ -58,9 +58,17 @@ test('documentation images are local, accessible and available to both renderers
             const [, alt, src] = match;
             assert.ok(alt.trim().length > 10, `${doc.file}: explain the illustration in alt text`);
             if (!src.endsWith('.svg')) {
+                const rasterAssets: Record<string, string> = {
+                    'td-test.png': 'tdTest.png',
+                    'kromacut-logo.png': 'logo.png',
+                    'hd-wedges-eight-colors-2026-09-13.jpg':
+                        'hd-wedges-eight-colors-2026-09-13.jpg',
+                };
+                const asset = rasterAssets[src];
+                assert.ok(asset, `Unknown image: ${src}`);
                 assert.ok(
-                    ['td-test.png', 'kromacut-logo.png'].includes(src),
-                    `Unknown image: ${src}`
+                    existsSync(join(root, 'src/assets', asset)),
+                    `${doc.file}: missing ${src}`
                 );
                 continue;
             }

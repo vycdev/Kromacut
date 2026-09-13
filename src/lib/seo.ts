@@ -53,17 +53,23 @@ function applySeo({
     url,
     type = 'website',
     robots = 'index,follow',
+    canonical = true,
 }: {
     title: string;
     description: string;
     url: string;
     type?: string;
     robots?: string;
+    canonical?: boolean;
 }) {
     document.title = title;
     setMeta('name', 'description', description);
     setMeta('name', 'robots', robots);
-    findOrCreateCanonical().href = url;
+    if (canonical) {
+        findOrCreateCanonical().href = url;
+    } else {
+        document.querySelector('link[rel="canonical"]')?.remove();
+    }
 
     setMeta('property', 'og:title', title);
     setMeta('property', 'og:description', description);
@@ -93,6 +99,33 @@ export function applyAppSeo() {
         description: APP_DESCRIPTION,
         url: absoluteUrl('/app'),
         robots: 'noindex,nofollow',
+    });
+}
+
+export function applyNotFoundSeo() {
+    applySeo({
+        title: 'Page not found | Kromacut',
+        description:
+            "This page doesn't exist. Open Kromacut, return to the homepage, or browse the documentation.",
+        url: absoluteUrl('/404.html'),
+        robots: 'noindex,follow',
+        canonical: false,
+    });
+}
+
+export function applyPrivacySeo(title: string, description: string) {
+    applySeo({
+        title,
+        description,
+        url: absoluteUrl('/privacy'),
+    });
+}
+
+export function applyTermsSeo(title: string, description: string) {
+    applySeo({
+        title,
+        description,
+        url: absoluteUrl('/terms'),
     });
 }
 
