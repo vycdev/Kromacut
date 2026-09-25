@@ -72,6 +72,8 @@ Switching Quick/Accurate resets the base selection to the mode's recommendations
 
 Use the displayed **regular layer height**, **first-layer height**, and **swap after layer / Z** exactly. The first-layer height comes from the print settings; the wedge's own Layer height control is separate from the regular 3D model setting. Do not scale the model in Z. **Next: Enter Results** opens the reading step; downloading does not send anything to the printer.
 
+On desktop, both wedge formats open **Save As**; in the browser, they use the normal download behavior. Wait for the export to finish before changing settings or entering results. Cancelling Save As or a failed export leaves the previous successfully downloaded wedge plan unchanged; if saving fails, an error appears so you can retry.
+
 ### 3. Compare And Save
 
 View the printed wedge face-up under your intended front lighting. The tab marks the one-layer end. Compare each patch to the reference rail beside it, not to a phone photograph or an on-screen swatch.

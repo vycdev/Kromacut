@@ -60,7 +60,7 @@ All notable changes to Kromacut are documented in this file.
 
 ### Fixed
 
-- **Desktop file exports** - Filament-profile `.kfil` exports use Save As, handle cancellation without reporting success, and surface write errors. Large 3MF exports stream XML in bounded chunks to avoid desktop WebView read and string-size failures.
+- **Desktop file exports** - Filament-profile `.kfil` and Hiding Distance calibration STL/3MF exports use Save As, handle cancellation without reporting success, and surface write errors. Wedge exports show a busy state and retain the previous downloaded plan if saving is cancelled or fails; regression coverage checks both formats and browser downloads. Large 3MF exports stream XML in bounded chunks to avoid desktop WebView read and string-size failures.
 - **Profile and palette persistence** - Failed storage writes no longer report success or replace working state. Imports validate hiding distances and duplicate filament IDs; legacy stored ID collisions are repaired without dropping filament rows, while ambiguous appearance evidence is discarded.
 - **Remembered print settings** - Saved Auto-paint settings load before persistence can replace them with defaults. Unsaved filament edits remain authoritative, Max Height and wedge layer height are remembered, and Reset Print Settings also resets Smooth Meshing.
 - **Max Height and foundation opacity** - Height caps round down to printable boundaries; compression and trimming preserve the foundation's opacity minimum, and impossible foundations are rejected.

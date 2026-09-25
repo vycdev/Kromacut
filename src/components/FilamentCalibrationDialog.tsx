@@ -25,6 +25,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
     X,
     Download,
+    Loader2,
     Check,
     Minus,
     ArrowLeft,
@@ -37,7 +38,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { openDocsAt } from '@/lib/docs/navigation';
-import { downloadBlob } from '@/hooks/downloadBlob';
+import { saveBlobToFile } from '@/hooks/saveBlobToFile';
 import type { Filament, FinalPrintableStackSnapshot } from '../types';
 import type {
     PaletteProofRecord,
@@ -223,6 +224,8 @@ export function FilamentCalibrationDialog({
     const [reads, setReads] = useState<Record<string, string>>({});
     const [mergeReads, setMergeReads] = useState<Record<string, string>>({});
     const [isSaving, setIsSaving] = useState(false);
+    const [isDownloading, setIsDownloading] = useState(false);
+    const [downloadError, setDownloadError] = useState<string | null>(null);
     // filament id -> chosen base filament ids (defaults are auto-picked).
     const [baseChoices, setBaseChoices] = useState<Record<string, string[]>>({});
     const [printedPlan, setPrintedPlan] = useState<CalibrationPrintPlan | null>(null);
@@ -436,6 +439,8 @@ export function FilamentCalibrationDialog({
         setReads({});
         setMergeReads({});
         setIsSaving(false);
+        setIsDownloading(false);
+        setDownloadError(null);
         setBaseChoices({});
         setPrintedPlan(null);
         setCalibrationSurface('hiding-distance');
@@ -459,13 +464,14 @@ export function FilamentCalibrationDialog({
     useEffect(() => cancelCloseReset, [cancelCloseReset]);
 
     const handleClose = useCallback(() => {
+        if (isDownloading) return;
         cancelCloseReset();
         onClose();
         closeResetTimerRef.current = setTimeout(() => {
             closeResetTimerRef.current = null;
             reset();
         }, 300);
-    }, [cancelCloseReset, onClose, reset]);
+    }, [cancelCloseReset, isDownloading, onClose, reset]);
 
     const toggleFilament = useCallback((id: string) => {
         setSelectedIds((prev) => {
@@ -483,6 +489,7 @@ export function FilamentCalibrationDialog({
     }, [filaments]);
 
     const handleDownload = useCallback(async () => {
+        if (isDownloading) return;
         const plan = currentPrintPlan;
         const tiles: CalibrationTile[] = plan.targets.map(({ filament, base }) => ({
             filamentId: filament.id,
@@ -493,23 +500,40 @@ export function FilamentCalibrationDialog({
         }));
         if (tiles.length === 0) return;
 
-        if (format === 'stl') {
-            // The wedge geometry is identical for every filament, so one STL is
-            // printed once per filament (swapping the color above the base).
-            const blob = generateCalibrationStl(plan.printOptions);
-            downloadBlob(blob, `kromacut-calibration-${plan.maxLayers}layers.stl`);
-        } else {
-            // Slots follow the full profile order so they map to the user's machine.
-            const profileFilaments = filaments.map((f) => ({
-                id: f.id,
-                color: f.color,
-                name: filamentLabel(f),
-            }));
-            const blob = await generateCalibration3mf(tiles, plan.printOptions, profileFilaments);
-            downloadBlob(blob, `kromacut-calibration-${tiles.length}reads.3mf`);
+        setIsDownloading(true);
+        setDownloadError(null);
+        try {
+            let blob: Blob;
+            let fileName: string;
+            if (format === 'stl') {
+                // The wedge geometry is identical for every filament, so one STL is
+                // printed once per filament (swapping the color above the base).
+                blob = generateCalibrationStl(plan.printOptions);
+                fileName = `kromacut-calibration-${plan.maxLayers}layers.stl`;
+            } else {
+                // Slots follow the full profile order so they map to the user's machine.
+                const profileFilaments = filaments.map((f) => ({
+                    id: f.id,
+                    color: f.color,
+                    name: filamentLabel(f),
+                }));
+                blob = await generateCalibration3mf(tiles, plan.printOptions, profileFilaments);
+                fileName = `kromacut-calibration-${tiles.length}reads.3mf`;
+            }
+            const savedPath = await saveBlobToFile(blob, {
+                defaultFileName: fileName,
+                extension: format,
+                filterName: `HD calibration ${format.toUpperCase()}`,
+            });
+            // Only a completed save replaces the settings used to read the printed wedge.
+            if (savedPath !== null) setPrintedPlan(plan);
+        } catch (error) {
+            console.error('HD calibration export failed', error);
+            setDownloadError('Could not export the calibration print. Please try saving again.');
+        } finally {
+            setIsDownloading(false);
         }
-        setPrintedPlan(plan);
-    }, [currentPrintPlan, filaments, format]);
+    }, [currentPrintPlan, filaments, format, isDownloading]);
 
     const handleEnterMeasure = useCallback(() => {
         setStep('measure');
@@ -979,6 +1003,7 @@ export function FilamentCalibrationDialog({
                                 min="0.04"
                                 max="0.4"
                                 value={layerHeightDraft}
+                                disabled={isDownloading}
                                 onChange={(e) => setLayerHeightDraft(e.target.value)}
                                 onBlur={commitLayerHeight}
                                 onKeyDown={(e) => {
@@ -998,6 +1023,7 @@ export function FilamentCalibrationDialog({
                                 min={MIN_MAX_LAYERS}
                                 max={MAX_MAX_LAYERS}
                                 value={maxLayersDraft}
+                                disabled={isDownloading}
                                 onChange={(e) => setMaxLayersDraft(e.target.value)}
                                 onBlur={commitMaxLayers}
                                 onKeyDown={(e) => {
@@ -1019,6 +1045,7 @@ export function FilamentCalibrationDialog({
                                 variant="outline"
                                 size="sm"
                                 onClick={() => setFormat('stl')}
+                                disabled={isDownloading}
                                 className={cn(format === 'stl' && 'border-primary/60 bg-primary/5')}
                             >
                                 STL (any printer)
@@ -1027,6 +1054,7 @@ export function FilamentCalibrationDialog({
                                 variant="outline"
                                 size="sm"
                                 onClick={() => setFormat('3mf')}
+                                disabled={isDownloading}
                                 className={cn(format === '3mf' && 'border-primary/60 bg-primary/5')}
                             >
                                 3MF (multi-material)
@@ -1068,10 +1096,23 @@ export function FilamentCalibrationDialog({
                         </div>
                     )}
 
-                    <Button onClick={handleDownload} className="w-full gap-2">
-                        <Download className="h-4 w-4" />
-                        Download {format.toUpperCase()}
+                    <Button
+                        onClick={handleDownload}
+                        disabled={isDownloading}
+                        className="w-full gap-2"
+                    >
+                        {isDownloading ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                            <Download className="h-4 w-4" />
+                        )}
+                        {isDownloading ? 'Saving…' : `Download ${format.toUpperCase()}`}
                     </Button>
+                    {downloadError && (
+                        <p role="alert" className="text-sm text-destructive">
+                            {downloadError}
+                        </p>
+                    )}
                 </Card>
 
                 <Card className="space-y-2 bg-muted/20 p-4 text-sm">
@@ -1091,11 +1132,11 @@ export function FilamentCalibrationDialog({
                 </Card>
             </div>
             <AlertDialogFooter>
-                <Button variant="outline" onClick={() => setStep('base')}>
+                <Button variant="outline" onClick={() => setStep('base')} disabled={isDownloading}>
                     <ArrowLeft className="mr-1 h-4 w-4" />
                     Back
                 </Button>
-                <Button onClick={handleEnterMeasure}>
+                <Button onClick={handleEnterMeasure} disabled={isDownloading}>
                     Next: Enter Results
                     <ArrowRight className="ml-1 h-4 w-4" />
                 </Button>
@@ -1436,6 +1477,7 @@ export function FilamentCalibrationDialog({
                     onClick={handleClose}
                     className="absolute right-3 top-7 h-7 w-7 text-muted-foreground hover:text-foreground"
                     aria-label="Close calibration dialog"
+                    disabled={isDownloading}
                 >
                     <X className="h-4 w-4" />
                 </Button>
@@ -1451,15 +1493,27 @@ export function FilamentCalibrationDialog({
                         className="grid w-full grid-cols-3"
                         data-testid="calibration-surface-tabs"
                     >
-                        <TabsTrigger value="hiding-distance" className="gap-1.5">
+                        <TabsTrigger
+                            value="hiding-distance"
+                            className="gap-1.5"
+                            disabled={isDownloading}
+                        >
                             <FlaskConical className="h-4 w-4" />
                             Hiding Distance
                         </TabsTrigger>
-                        <TabsTrigger value="palette-proof" className="gap-1.5">
+                        <TabsTrigger
+                            value="palette-proof"
+                            className="gap-1.5"
+                            disabled={isDownloading}
+                        >
                             <Palette className="h-4 w-4" />
                             Palette Proof
                         </TabsTrigger>
-                        <TabsTrigger value="stack-matrix" className="gap-1.5">
+                        <TabsTrigger
+                            value="stack-matrix"
+                            className="gap-1.5"
+                            disabled={isDownloading}
+                        >
                             <Grid3X3 className="h-4 w-4" />
                             Stack Matrix
                         </TabsTrigger>
