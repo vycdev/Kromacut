@@ -16,7 +16,7 @@ The export workflow starts after your 2D image and 3D controls are ready.
 Check these items:
 
 1. In 2D mode, reduce the image to a practical number of colors.
-2. In 3D mode, choose the physical dimensions with **Pixel Size (XY)**. Match **Layer Height** and **First Layer Height** to your slicer. In Auto-paint, also match **Effective line width** to the planned extrusion width.
+2. In **3D Print Settings**, choose the physical dimensions with **Pixel Size (XY)**. Match **Layer Height** and **First Layer Height** to your slicer, and **Effective line width** to the planned extrusion width for Auto-paint's printable-detail checks and height dithering.
 3. Choose **Manual** or **Auto-paint**.
 4. Click **Build 3D Model**.
 5. Inspect the model and the **Layer Preview**.

@@ -1,0 +1,62 @@
+{
+  "3d-mode": {
+    "title": "3D Mode",
+    "description": "Physical dimensions, manual color stacks, meshing, and preview controls."
+  },
+  "auto-paint": {
+    "title": "Auto-paint Controls",
+    "description": "Filament inputs, printable detail, matching, height constraints, and confidence."
+  },
+  "calibration-theory": {
+    "title": "Calibration Theory",
+    "description": "The optics and math behind hiding-distance, Palette Proof, and Stack Matrix calibration."
+  },
+  "calibration-workflows": {
+    "title": "Calibration Workflows",
+    "description": "Choose a calibration tool, read its controls, and understand which measurements apply to your next print."
+  },
+  "dedithering-cleanup": {
+    "title": "Dedithering And Cleanup",
+    "description": "Exact-color neighborhood cleanup, with its effects on speckles, edges, transparency, and printable islands."
+  },
+  "faq": {
+    "title": "FAQ",
+    "description": "Short answers to common Kromacut questions."
+  },
+  "flat-paint": {
+    "title": "Flat Paint",
+    "description": "Stepped relief, face-down clear carriers, and exposed face-up slabs."
+  },
+  "generating-exporting-output": {
+    "title": "Generating And Exporting Output",
+    "description": "Build the model, inspect it, export files, and copy print instructions."
+  },
+  "image-adjustments": {
+    "title": "Image Adjustments",
+    "description": "Every tone and color slider, its effect on target colors, and when to bake the preview into the image."
+  },
+  "loading-images": {
+    "title": "Loading Images",
+    "description": "Import, crop, resize, and touch up image pixels before they become printed regions."
+  },
+  "overview": {
+    "title": "Overview",
+    "description": "What Kromacut does and how the main workflows fit together."
+  },
+  "quick-start": {
+    "title": "Quick Start",
+    "description": "A practical first run from image to export."
+  },
+  "reducing-colors": {
+    "title": "Reducing Colors",
+    "description": "Understand the two-stage reduction pipeline, fixed palettes, and the difference between recoloring and transparency."
+  },
+  "settings-and-controls": {
+    "title": "Settings And Controls",
+    "description": "Header actions, themes, persistence, palettes, profiles, and workspace controls."
+  },
+  "troubleshooting": {
+    "title": "Troubleshooting",
+    "description": "Common issues and what to try first."
+  }
+}

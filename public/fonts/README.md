@@ -23,3 +23,16 @@ replace these font licenses.
 are provenance, not runtime requests. Downloading replacements is a maintenance
 operation: preserve the license notices and update the CSS, filenames, and hashes
 together.
+
+## Additional writing systems
+
+`languages/` bundles Noto Sans, Noto Sans Devanagari, Noto Sans Bengali, Noto Sans JP,
+and Noto Sans SC (weights 400–700) for Ukrainian, Hindi, Bengali, Japanese, and
+Simplified Chinese. The Unicode-subset stylesheet loads only glyph ranges used on
+the current page. No external font service is contacted by the app.
+
+These unmodified WOFF2 subsets and their SIL Open Font License notices were obtained
+from the Google Fonts distribution. `languages/sources.json` records every upstream
+URL and SHA-256 hash. `scripts/vendor-language-fonts.mjs` is a maintenance-only
+importer; it is not part of the build or runtime. Upstream project information:
+[Noto font usage and licensing](https://notofonts.github.io/noto-docs/website/use/).

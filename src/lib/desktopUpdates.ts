@@ -1,9 +1,9 @@
 import { invoke, isTauri } from '@tauri-apps/api/core';
+import type { ReleaseNotesFields } from './localizedReleaseNotes';
 
-export interface VersionInfo {
+export interface VersionInfo extends ReleaseNotesFields {
     version: string;
     download_url?: string;
-    release_notes?: string;
 }
 
 export function isDesktopUpdateSupported(): boolean {

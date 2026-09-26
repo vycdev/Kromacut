@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import React, { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -24,6 +25,7 @@ export const ImageResizePanel: React.FC<Props> = ({
     disabled = false,
     onApply,
 }) => {
+    const { t } = useTranslation('workspace');
     const [percent, setPercent] = useState(DEFAULT_IMAGE_RESIZE_PERCENT);
     const [working, setWorking] = useState(false);
 
@@ -61,16 +63,16 @@ export const ImageResizePanel: React.FC<Props> = ({
     return (
         <CollapsibleCard
             id="resize-image"
-            title="Resize Image"
-            subtitle="Downscale pixel resolution"
+            title={t('imageResizePanel.resizeImage')}
+            subtitle={t('imageResizePanel.downscalePixelResolution')}
             collapsedSummary={
                 working ? (
                     <Loader
                         className="w-4 h-4 animate-spin text-muted-foreground"
-                        aria-label="Resizing image"
+                        aria-label={t('imageResizePanel.resizingImage')}
                     />
                 ) : !allDefault ? (
-                    <DirtyDot title="Resize percentage modified" />
+                    <DirtyDot title={t('imageResizePanel.resizePercentageModified')} />
                 ) : undefined
             }
             actions={
@@ -78,8 +80,8 @@ export const ImageResizePanel: React.FC<Props> = ({
                     type="button"
                     onClick={() => commitPercent(DEFAULT_IMAGE_RESIZE_PERCENT)}
                     disabled={allDefault || working}
-                    title="Reset resize percentage to default"
-                    aria-label="Reset resize percentage"
+                    title={t('imageResizePanel.resetResizePercentageToDefault')}
+                    aria-label={t('imageResizePanel.resetResizePercentage')}
                     className="h-7 w-7 flex-shrink-0 flex items-center justify-center rounded-md text-muted-foreground hover:text-amber-600 hover:bg-amber-600/15 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-muted-foreground select-none cursor-pointer"
                 >
                     <RotateCcw className="w-4 h-4" />
@@ -90,7 +92,7 @@ export const ImageResizePanel: React.FC<Props> = ({
                 <div className="space-y-3">
                     <div className="flex justify-between items-center gap-2">
                         <Label htmlFor="image-resize-percent-slider" className="font-medium">
-                            Scale
+                            {t('imageResizePanel.scale')}
                         </Label>
                         <span className="px-2 py-1 rounded-full bg-primary/10 text-primary text-xs font-mono font-semibold">
                             {percent}%
@@ -99,7 +101,7 @@ export const ImageResizePanel: React.FC<Props> = ({
                     <Slider
                         id="image-resize-percent-slider"
                         data-testid="image-resize-percent-slider"
-                        aria-label="Resize percentage"
+                        aria-label={t('imageResizePanel.resizePercentage')}
                         min={MIN_IMAGE_RESIZE_PERCENT}
                         max={MAX_IMAGE_RESIZE_PERCENT}
                         step={1}
@@ -112,18 +114,28 @@ export const ImageResizePanel: React.FC<Props> = ({
 
                 <div className="rounded-md border border-border/60 bg-background/60 px-3 py-2 text-xs">
                     <div className="flex items-center justify-between gap-2">
-                        <span className="text-muted-foreground">Current</span>
+                        <span className="text-muted-foreground">
+                            {t('imageResizePanel.current')}
+                        </span>
                         <span className="font-mono text-foreground">
                             {imageDimensions
-                                ? `${imageDimensions.width}x${imageDimensions.height} px`
-                                : 'No image'}
+                                ? t('imageResizePanel.dimensions', {
+                                      width: imageDimensions.width,
+                                      height: imageDimensions.height,
+                                  })
+                                : t('imageResizePanel.noImage')}
                         </span>
                     </div>
                     <div className="mt-1 flex items-center justify-between gap-2">
-                        <span className="text-muted-foreground">After resize</span>
+                        <span className="text-muted-foreground">
+                            {t('imageResizePanel.afterResize')}
+                        </span>
                         <span className="font-mono text-primary font-semibold">
                             {targetDimensions
-                                ? `${targetDimensions.width}x${targetDimensions.height} px`
+                                ? t('imageResizePanel.dimensions', {
+                                      width: targetDimensions.width,
+                                      height: targetDimensions.height,
+                                  })
                                 : '-'}
                         </span>
                     </div>
@@ -140,7 +152,9 @@ export const ImageResizePanel: React.FC<Props> = ({
                     ) : (
                         <Check className="w-4 h-4" />
                     )}
-                    <span>{working ? 'Resizing...' : 'Apply'}</span>
+                    <span>
+                        {working ? t('imageResizePanel.resizing') : t('imageResizePanel.apply')}
+                    </span>
                 </Button>
             </div>
         </CollapsibleCard>

@@ -1,3 +1,4 @@
+import { Trans, useTranslation } from 'react-i18next';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { docs, defaultDocSlug } from '@/docs';
@@ -6,6 +7,8 @@ import { applyDocSeo } from '@/lib/seo';
 import { buildDocsPath, parseDocsLocation } from '@/lib/docs/navigation';
 import NotFoundPage from '@/components/NotFoundPage';
 import MarkdownRenderer from './MarkdownRenderer';
+import { useLocalizedDoc } from '@/hooks/useLocalizedDoc';
+import { matchLanguage } from '@/lib/languagePreferences';
 
 function getInitialTarget(): DocLinkTarget | null {
     if (typeof window === 'undefined') return { docSlug: defaultDocSlug };
@@ -23,13 +26,13 @@ function tocIndent(entry: TocEntry) {
 const DOC_NAV_GROUPS = [
     {
         id: 'start-here',
-        label: 'Start Here',
+        label: 'docs.startHere',
         nested: false,
         slugs: ['overview', 'quick-start'],
     },
     {
         id: '3d-workflow',
-        label: '3D And Printing',
+        label: 'docs.printing',
         nested: true,
         slugs: [
             '3d-mode',
@@ -42,19 +45,20 @@ const DOC_NAV_GROUPS = [
     },
     {
         id: '2d-workflow',
-        label: '2D Image Preparation',
+        label: 'docs.preparation',
         nested: true,
         slugs: ['loading-images', 'image-adjustments', 'reducing-colors', 'dedithering-cleanup'],
     },
     {
         id: 'reference',
-        label: 'Reference',
+        label: 'docs.reference',
         nested: false,
         slugs: ['settings-and-controls', 'troubleshooting', 'faq'],
     },
 ] as const;
 
 export default function DocsPage() {
+    const { t, i18n } = useTranslation('public');
     const initialTarget = useMemo(getInitialTarget, []);
     const [activeDocSlug, setActiveDocSlug] = useState(initialTarget?.docSlug);
     const [pendingHeading, setPendingHeading] = useState(initialTarget?.headingSlug);
@@ -63,7 +67,24 @@ export default function DocsPage() {
     const [headingsOpen, setHeadingsOpen] = useState(false);
     const scrollRef = useRef<HTMLElement | null>(null);
 
-    const activeDoc = findDoc(activeDocSlug);
+    const canonical = findDoc(activeDocSlug);
+    const {
+        doc: activeDoc,
+        failed,
+        retry,
+    } = useLocalizedDoc(canonical, matchLanguage(i18n.resolvedLanguage) ?? 'en');
+    const localizedDocs = useMemo<DocRecord[]>(
+        () =>
+            docs.map((doc) => ({
+                ...doc,
+                meta: {
+                    ...doc.meta,
+                    title: t(`docsMeta:${doc.meta.slug}.title`),
+                    description: t(`docsMeta:${doc.meta.slug}.description`),
+                },
+            })),
+        [t]
+    );
 
     const navigate = useCallback((target: DocLinkTarget) => {
         setActiveDocSlug(target.docSlug);
@@ -141,16 +162,29 @@ export default function DocsPage() {
         return () => observer.disconnect();
     }, [activeDoc]);
 
-    if (!activeDoc) return <NotFoundPage embedded />;
+    if (!canonical) return <NotFoundPage embedded />;
+    if (!activeDoc)
+        return (
+            <main className="flex h-full flex-col items-center justify-center gap-4 p-6">
+                <p role={failed ? 'alert' : 'status'}>
+                    {t(failed ? 'docs.loadFailed' : 'docs.loading')}
+                </p>
+                {failed && (
+                    <button className="rounded-md border border-border px-4 py-2" onClick={retry}>
+                        {t('docs.retry')}
+                    </button>
+                )}
+            </main>
+        );
 
     return (
         <div className="flex h-full min-h-0 w-full flex-col bg-background text-foreground lg:flex-row">
             <nav
-                aria-label="Documentation"
+                aria-label={t('docs.label')}
                 className="max-h-48 flex-shrink-0 overflow-y-auto border-b border-border bg-card/70 px-4 py-2 lg:max-h-none lg:w-72 lg:border-b-0 lg:border-r lg:py-4"
             >
                 <h2 className="text-sm font-semibold text-foreground">
-                    <span className="hidden lg:block">Contents</span>
+                    <span className="hidden lg:block">{t('docs.contents')}</span>
                     <button
                         type="button"
                         aria-expanded={contentsOpen}
@@ -158,7 +192,7 @@ export default function DocsPage() {
                         onClick={() => setContentsOpen((open) => !open)}
                         className="flex min-h-11 w-full items-center justify-between rounded-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:hidden"
                     >
-                        Contents
+                        {t('docs.contents')}
                         <ChevronDown
                             aria-hidden="true"
                             className={`h-4 w-4 ${contentsOpen ? 'rotate-180' : ''}`}
@@ -170,12 +204,12 @@ export default function DocsPage() {
                     className={`${contentsOpen ? 'block' : 'hidden'} lg:block`}
                 >
                     <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                        User guide for turning images into printable color layers.
+                        {t('docs.description')}
                     </p>
                     <div className="mt-3 space-y-5">
                         {DOC_NAV_GROUPS.map((group) => {
                             const groupDocs = group.slugs
-                                .map((slug) => docs.find((doc) => doc.meta.slug === slug))
+                                .map((slug) => localizedDocs.find((doc) => doc.meta.slug === slug))
                                 .filter((doc): doc is DocRecord => doc !== undefined);
                             if (groupDocs.length === 0) return null;
 
@@ -185,7 +219,7 @@ export default function DocsPage() {
                                         id={`docs-nav-${group.id}`}
                                         className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground"
                                     >
-                                        {group.label}
+                                        {t(group.label)}
                                     </h3>
                                     <ul
                                         className={
@@ -255,9 +289,9 @@ export default function DocsPage() {
             </main>
 
             <aside className="max-h-44 flex-shrink-0 overflow-y-auto border-t border-border bg-card/70 px-4 py-2 lg:max-h-none lg:w-64 lg:border-l lg:border-t-0 lg:py-4">
-                <nav aria-label="Current document headings">
+                <nav aria-label={t('docs.currentHeadings')}>
                     <h2 className="text-sm font-semibold text-foreground">
-                        <span className="hidden lg:block">On This Page</span>
+                        <span className="hidden lg:block">{t('docs.onThisPage')}</span>
                         <button
                             type="button"
                             aria-expanded={headingsOpen}
@@ -265,7 +299,7 @@ export default function DocsPage() {
                             onClick={() => setHeadingsOpen((open) => !open)}
                             className="flex min-h-11 w-full items-center justify-between rounded-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:hidden"
                         >
-                            On This Page
+                            {t('docs.onThisPage')}
                             <ChevronDown
                                 aria-hidden="true"
                                 className={`h-4 w-4 ${headingsOpen ? 'rotate-180' : ''}`}
@@ -277,8 +311,12 @@ export default function DocsPage() {
                         className={`${headingsOpen ? 'block' : 'hidden'} lg:block`}
                     >
                         <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                            Headings inside{' '}
-                            <span className="font-semibold">{activeDoc.meta.title}</span>.
+                            <Trans
+                                t={t}
+                                i18nKey="docs.headingsInside"
+                                values={{ title: activeDoc.meta.title }}
+                                components={{ name: <span className="font-semibold" /> }}
+                            />
                         </p>
                         <div className="mt-3 space-y-1">
                             {activeDoc.toc.map((entry) => {

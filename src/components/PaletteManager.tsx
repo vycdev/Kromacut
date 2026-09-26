@@ -1,9 +1,11 @@
+import { useTranslation } from 'react-i18next';
+import { translateRuntimeMessage } from '../lib/runtimeMessages';
 import React, { useCallback, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Copy, Download, Eye, EyeOff, Pencil, Plus, Trash2, Upload, X } from 'lucide-react';
-import { HexColorPicker } from 'react-colorful';
+import { HexColorPicker } from '@/components/ui/localized-color-picker';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import type { CustomPalette } from '@/types';
 import type { MergedPalette } from '@/hooks/usePaletteManager';
@@ -81,6 +83,7 @@ export const PaletteManager: React.FC<PaletteManagerProps> = ({
     onExportPalette,
     onImportFile,
 }) => {
+    const { t } = useTranslation('workspace');
     const [dialogOpen, setDialogOpen] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editor, setEditor] = useState<EditorState>({
@@ -179,7 +182,7 @@ export const PaletteManager: React.FC<PaletteManagerProps> = ({
                     variant="ghost"
                     size="icon"
                     className="h-7 w-7 text-muted-foreground hover:text-primary cursor-pointer flex-shrink-0"
-                    title="Create new palette"
+                    title={t('paletteManager.createNewPalette')}
                     onClick={openCreate}
                 >
                     <Plus className="w-3.5 h-3.5" />
@@ -191,7 +194,7 @@ export const PaletteManager: React.FC<PaletteManagerProps> = ({
                         variant="ghost"
                         size="icon"
                         className="h-7 w-7 text-muted-foreground hover:text-primary cursor-pointer flex-shrink-0"
-                        title="Edit selected palette"
+                        title={t('paletteManager.editSelectedPalette')}
                         onClick={openEdit}
                     >
                         <Pencil className="w-3.5 h-3.5" />
@@ -203,7 +206,7 @@ export const PaletteManager: React.FC<PaletteManagerProps> = ({
                     variant="ghost"
                     size="icon"
                     className="h-7 w-7 text-muted-foreground hover:text-primary cursor-pointer flex-shrink-0"
-                    title="Clone selected palette into an editable custom palette"
+                    title={t('paletteManager.cloneSelectedPaletteIntoAnEditableCustomPalette')}
                     onClick={() => onClonePalette(selectedPalette)}
                     disabled={selectedPalette === 'auto'}
                 >
@@ -223,7 +226,7 @@ export const PaletteManager: React.FC<PaletteManagerProps> = ({
                     variant="ghost"
                     size="icon"
                     className="h-7 w-7 text-muted-foreground hover:text-primary cursor-pointer flex-shrink-0"
-                    title="Import palette from file"
+                    title={t('paletteManager.importPaletteFromFile')}
                     onClick={() => importInputRef.current?.click()}
                 >
                     <Upload className="w-3.5 h-3.5" />
@@ -235,7 +238,7 @@ export const PaletteManager: React.FC<PaletteManagerProps> = ({
                         variant="ghost"
                         size="icon"
                         className="h-7 w-7 text-muted-foreground hover:text-primary cursor-pointer flex-shrink-0"
-                        title="Export selected palette as .kpal file"
+                        title={t('paletteManager.exportSelectedPaletteAsKpalFile')}
                         onClick={() => onExportPalette(selectedPalette)}
                     >
                         <Download className="w-3.5 h-3.5" />
@@ -248,7 +251,7 @@ export const PaletteManager: React.FC<PaletteManagerProps> = ({
                         variant="ghost"
                         size="icon"
                         className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10 cursor-pointer flex-shrink-0"
-                        title="Delete selected palette"
+                        title={t('paletteManager.deleteSelectedPalette')}
                         onClick={() => onDeletePalette(selectedPalette)}
                     >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -259,7 +262,7 @@ export const PaletteManager: React.FC<PaletteManagerProps> = ({
             {/* Import feedback */}
             {importFeedback && (
                 <div className="mt-1.5 px-2 py-1 rounded text-[10px] bg-muted text-muted-foreground border border-border/50">
-                    {importFeedback}
+                    {translateRuntimeMessage(importFeedback)}
                 </div>
             )}
 
@@ -268,12 +271,14 @@ export const PaletteManager: React.FC<PaletteManagerProps> = ({
                 <AlertDialogContent className="max-w-md">
                     <AlertDialogHeader>
                         <AlertDialogTitle>
-                            {editingId ? 'Edit Palette' : 'Create New Palette'}
+                            {editingId
+                                ? t('paletteManager.editPalette')
+                                : t('paletteManager.createNewPalette2')}
                         </AlertDialogTitle>
                         <AlertDialogDescription>
                             {editingId
-                                ? 'Modify the palette name and colors.'
-                                : 'Define a name and add colors to your new palette.'}
+                                ? t('paletteManager.modifyThePaletteNameAndColors')
+                                : t('paletteManager.defineANameAndAddColorsToYourNew')}
                         </AlertDialogDescription>
                     </AlertDialogHeader>
 
@@ -281,11 +286,11 @@ export const PaletteManager: React.FC<PaletteManagerProps> = ({
                         {/* Name input */}
                         <div className="space-y-1.5">
                             <Label htmlFor="palette-name" className="text-xs font-medium">
-                                Palette Name
+                                {t('paletteManager.paletteName')}
                             </Label>
                             <Input
                                 id="palette-name"
-                                placeholder="My Palette"
+                                placeholder={t('paletteManager.myPalette')}
                                 value={editor.name}
                                 onChange={(e) =>
                                     setEditor((prev) => ({
@@ -302,8 +307,12 @@ export const PaletteManager: React.FC<PaletteManagerProps> = ({
                         <div className="space-y-1.5">
                             <div className="flex items-center justify-between">
                                 <Label className="text-xs font-medium">
-                                    Colors ({validCount}
-                                    {disabledCount > 0 ? `, ${disabledCount} disabled` : ''})
+                                    {disabledCount > 0
+                                        ? t('paletteManager.colorsWithDisabled', {
+                                              count: validCount,
+                                              disabled: disabledCount,
+                                          })
+                                        : t('paletteManager.colorCount', { count: validCount })}
                                 </Label>
                                 <Button
                                     variant="ghost"
@@ -312,7 +321,7 @@ export const PaletteManager: React.FC<PaletteManagerProps> = ({
                                     onClick={addColor}
                                 >
                                     <Plus className="w-3 h-3" />
-                                    Add
+                                    {t('paletteManager.add')}
                                 </Button>
                             </div>
                             <div className="max-h-52 overflow-y-auto space-y-1.5 pr-1">
@@ -331,13 +340,13 @@ export const PaletteManager: React.FC<PaletteManagerProps> = ({
                                                             ? color
                                                             : '#000000',
                                                     }}
-                                                    title="Pick color"
+                                                    title={t('paletteManager.pickColor')}
                                                 />
                                             </PopoverTrigger>
                                             <PopoverContent className="w-auto p-3" align="start">
                                                 <div className="space-y-3">
                                                     <h4 className="font-medium text-sm">
-                                                        Pick Color
+                                                        {t('paletteManager.pickColor2')}
                                                     </h4>
                                                     <HexColorPicker
                                                         color={
@@ -349,7 +358,7 @@ export const PaletteManager: React.FC<PaletteManagerProps> = ({
                                                     />
                                                     <div className="flex gap-2 items-center">
                                                         <span className="text-xs text-muted-foreground">
-                                                            Hex
+                                                            {t('paletteManager.hex')}
                                                         </span>
                                                         <Input
                                                             value={color}
@@ -376,11 +385,11 @@ export const PaletteManager: React.FC<PaletteManagerProps> = ({
                                         {/* Optional display name */}
                                         <Input
                                             value={name}
-                                            onChange={(e) =>
-                                                updateColorName(index, e.target.value)
-                                            }
-                                            placeholder="Name (optional)"
-                                            title="Optional color name, e.g. Pumpkin Orange"
+                                            onChange={(e) => updateColorName(index, e.target.value)}
+                                            placeholder={t('paletteManager.nameOptional')}
+                                            title={t(
+                                                'paletteManager.optionalColorNameEGPumpkinOrange'
+                                            )}
                                             className={`h-8 text-xs flex-1 min-w-0 ${
                                                 enabled ? '' : 'opacity-50'
                                             }`}
@@ -393,13 +402,19 @@ export const PaletteManager: React.FC<PaletteManagerProps> = ({
                                             aria-pressed={!enabled}
                                             aria-label={
                                                 enabled
-                                                    ? `Disable color ${index + 1}`
-                                                    : `Enable color ${index + 1}`
+                                                    ? t('paletteManager.disableColorNumber', {
+                                                          number: index + 1,
+                                                      })
+                                                    : t('paletteManager.enableColorNumber', {
+                                                          number: index + 1,
+                                                      })
                                             }
                                             title={
                                                 enabled
-                                                    ? 'Disable color (kept in palette, excluded from quantization)'
-                                                    : 'Enable color'
+                                                    ? t(
+                                                          'paletteManager.disableColorKeptInPaletteExcludedFromQuantization'
+                                                      )
+                                                    : t('paletteManager.enableColor')
                                             }
                                             onClick={() => toggleColor(index)}
                                             disabled={
@@ -431,13 +446,17 @@ export const PaletteManager: React.FC<PaletteManagerProps> = ({
                     </div>
 
                     <AlertDialogFooter>
-                        <AlertDialogCancel className="cursor-pointer">Cancel</AlertDialogCancel>
+                        <AlertDialogCancel className="cursor-pointer">
+                            {t('paletteManager.cancel')}
+                        </AlertDialogCancel>
                         <Button
                             onClick={handleSave}
                             disabled={!editor.name.trim() || enabledValidCount === 0}
                             className="cursor-pointer"
                         >
-                            {editingId ? 'Save Changes' : 'Create Palette'}
+                            {editingId
+                                ? t('paletteManager.saveChanges')
+                                : t('paletteManager.createPalette')}
                         </Button>
                     </AlertDialogFooter>
                 </AlertDialogContent>

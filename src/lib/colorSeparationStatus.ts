@@ -1,4 +1,5 @@
 import type { ColorSeparationReport } from './autoPaint';
+import { translateRuntimeMessage } from './runtimeMessages.ts';
 
 function formatReportedDeltaE(value: number): string {
     return Number.isFinite(value) ? Number(value.toFixed(3)).toString() : 'unavailable';
@@ -34,5 +35,5 @@ export function formatColorSeparationStatus(
             ? `${extraRepeatCount} additional filament ${extraRepeatCount === 1 ? 'run' : 'runs'} used`
             : 'no repeated filament runs needed'
     );
-    return parts.join(' · ');
+    return parts.map(translateRuntimeMessage).join(' · ');
 }

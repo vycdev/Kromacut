@@ -1,22 +1,18 @@
 import type { DocRecord } from '@/types/docs';
+import { i18n, translate } from './i18n';
+import { publicPath, stripLanguagePrefix } from './routes';
+import { SUPPORTED_LANGUAGES } from './languagePreferences';
 
 export const SITE_URL = 'https://kromacut.com';
 export const SITE_NAME = 'Kromacut';
 export const SOCIAL_IMAGE_URL = `${SITE_URL}/android-chrome-512x512.png`;
-
-const HOME_TITLE = 'Kromacut - Free Image-to-3D Color Layer Print Generator';
-const HOME_DESCRIPTION =
-    'Turn 2D images into color-layered 3D prints for free with Kromacut. Reduce palettes, plan filament swaps, preview layers, and export STL or 3MF models.';
-const APP_TITLE = 'Kromacut App - Image to 3D Print Tool';
-const APP_DESCRIPTION =
-    'Create color-layered 3D prints from images with Kromacut. The browser tool runs locally and exports STL or 3MF models.';
 
 function absoluteUrl(pathname: string): string {
     return new URL(pathname, SITE_URL).toString();
 }
 
 export function docPath(docSlug: string): string {
-    return `/docs/${encodeURIComponent(docSlug)}`;
+    return publicPath(`/docs/${encodeURIComponent(docSlug)}`);
 }
 
 export function docUrl(docSlug: string): string {
@@ -70,33 +66,87 @@ function applySeo({
     } else {
         document.querySelector('link[rel="canonical"]')?.remove();
     }
+    // In-app guide navigation does not reload the HTML. Keep every alternate tied
+    // to the current document, rather than the page that initially booted the app.
+    document.querySelectorAll('link[rel="alternate"][hreflang]').forEach((link) => link.remove());
+    document
+        .querySelectorAll('script[type="application/ld+json"]')
+        .forEach((script) => script.remove());
+    if (canonical && !robots.startsWith('noindex')) {
+        const route = stripLanguagePrefix(new URL(url).pathname);
+        for (const { code } of [...SUPPORTED_LANGUAGES, { code: 'x-default' }]) {
+            const alternate = document.createElement('link');
+            alternate.rel = 'alternate';
+            alternate.hreflang = code;
+            alternate.href = absoluteUrl(
+                publicPath(
+                    route,
+                    code === 'x-default'
+                        ? 'en'
+                        : (code as (typeof SUPPORTED_LANGUAGES)[number]['code'])
+                )
+            );
+            document.head.appendChild(alternate);
+        }
+    }
 
     setMeta('property', 'og:title', title);
     setMeta('property', 'og:description', description);
     setMeta('property', 'og:type', type);
     setMeta('property', 'og:url', url);
     setMeta('property', 'og:site_name', SITE_NAME);
+    const locales: Record<string, string> = {
+        en: 'en_US',
+        fr: 'fr_FR',
+        de: 'de_DE',
+        it: 'it_IT',
+        ro: 'ro_RO',
+        es: 'es_ES',
+        ja: 'ja_JP',
+        'zh-CN': 'zh_CN',
+        hi: 'hi_IN',
+        'pt-PT': 'pt_PT',
+        uk: 'uk_UA',
+        bn: 'bn_BD',
+    };
+    setMeta('property', 'og:locale', locales[i18n.resolvedLanguage ?? 'en'] ?? 'en_US');
     setMeta('property', 'og:image', SOCIAL_IMAGE_URL);
     setMeta('property', 'og:image:secure_url', SOCIAL_IMAGE_URL);
+    setMeta('property', 'og:image:alt', SITE_NAME);
 
     setMeta('name', 'twitter:card', 'summary');
     setMeta('name', 'twitter:title', title);
     setMeta('name', 'twitter:description', description);
     setMeta('name', 'twitter:image', SOCIAL_IMAGE_URL);
+    setMeta('name', 'twitter:image:alt', SITE_NAME);
 }
 
 export function applyHomeSeo() {
     applySeo({
-        title: HOME_TITLE,
-        description: HOME_DESCRIPTION,
-        url: absoluteUrl('/'),
+        title: translate('public:seo.homeTitle'),
+        description: translate('public:seo.homeDescription'),
+        url: absoluteUrl(publicPath('/')),
     });
+    const structured = document.createElement('script');
+    structured.type = 'application/ld+json';
+    structured.textContent = JSON.stringify({
+        '@context': 'https://schema.org',
+        '@type': 'SoftwareApplication',
+        name: SITE_NAME,
+        applicationCategory: 'DesignApplication',
+        operatingSystem: 'Web, Windows, macOS, Linux',
+        inLanguage: i18n.resolvedLanguage ?? 'en',
+        url: absoluteUrl(publicPath('/')),
+        description: translate('public:seo.homeDescription'),
+        offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+    });
+    document.head.appendChild(structured);
 }
 
 export function applyAppSeo() {
     applySeo({
-        title: APP_TITLE,
-        description: APP_DESCRIPTION,
+        title: translate('public:seo.appTitle'),
+        description: translate('public:seo.appDescription'),
         url: absoluteUrl('/app'),
         robots: 'noindex,nofollow',
     });
@@ -104,9 +154,8 @@ export function applyAppSeo() {
 
 export function applyNotFoundSeo() {
     applySeo({
-        title: 'Page not found | Kromacut',
-        description:
-            "This page doesn't exist. Open Kromacut, return to the homepage, or browse the documentation.",
+        title: translate('public:seo.notFoundTitle'),
+        description: translate('public:seo.notFoundDescription'),
         url: absoluteUrl('/404.html'),
         robots: 'noindex,follow',
         canonical: false,
@@ -117,7 +166,7 @@ export function applyPrivacySeo(title: string, description: string) {
     applySeo({
         title,
         description,
-        url: absoluteUrl('/privacy'),
+        url: absoluteUrl(publicPath('/privacy')),
     });
 }
 
@@ -125,16 +174,18 @@ export function applyTermsSeo(title: string, description: string) {
     applySeo({
         title,
         description,
-        url: absoluteUrl('/terms'),
+        url: absoluteUrl(publicPath('/terms')),
     });
 }
 
 export function docSeoTitle(doc: DocRecord): string {
-    return `${doc.meta.title} | Kromacut Docs`;
+    return translate('public:seo.docTitle', { title: doc.meta.title });
 }
 
 export function docSeoDescription(doc: DocRecord): string {
-    return doc.meta.description ?? `${doc.meta.title} documentation for Kromacut.`;
+    return (
+        doc.meta.description ?? translate('public:seo.docDescription', { title: doc.meta.title })
+    );
 }
 
 export function applyDocSeo(doc: DocRecord) {

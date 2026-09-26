@@ -1,16 +1,16 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 540" role="img" aria-labelledby="title desc">
-  <title id="title">Place Stack Matrix handles at marker centers</title>
-  <desc id="desc">A six-by-six schematic board has a four-by-four recipe grid surrounded by a one-cell border. Markers 1, 2, 3, and 4 sit in the corner border cells. Handles belong in the centers of those cells, half a cell from the physical outside edge. The enlarged corner highlights the wrong outside corner and the correct marker center. Review every projected line before confirming alignment.</desc>
+  <title id="title" data-i18n="title">Place Stack Matrix handles at marker centers</title>
+  <desc id="desc" data-i18n="description">A six-by-six schematic board has a four-by-four recipe grid surrounded by a one-cell border. Markers 1, 2, 3, and 4 sit in the corner border cells. Handles belong in the centers of those cells, half a cell from the physical outside edge. The enlarged corner highlights the wrong outside corner and the correct marker center. Review every projected line before confirming alignment.</desc>
   <defs>
     <pattern id="grid" width="44" height="44" patternUnits="userSpaceOnUse"><rect width="44" height="44" fill="none" stroke="#121923" stroke-width="2"/></pattern>
     <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 10 5 0 10Z" fill="#38bdf8"/></marker>
   </defs>
   <rect width="960" height="540" rx="18" fill="#121923"/>
   <g font-family="system-ui, sans-serif" font-size="18" fill="#f1f5f9">
-    <text x="32" y="44" font-size="26" font-weight="700">The handle is a cell center, not the board corner</text>
-    <text x="32" y="74" fill="#b3c2d4">Use this record's printed corner key. Marker colors vary between boards.</text>
+    <text x="32" y="44" font-size="26" font-weight="700" data-i18n="theHandleIsACellCenterNotThe">The handle is a cell center, not the board corner</text>
+    <text x="32" y="74" fill="#b3c2d4" data-i18n="useThisRecordSPrintedCornerKeyMarker">Use this record's printed corner key. Marker colors vary between boards.</text>
     <rect x="32" y="98" width="386" height="338" rx="14" fill="#1b2736"/>
-    <text x="52" y="130" fill="#38bdf8" font-weight="700">Top edge</text>
+    <text x="52" y="130" fill="#38bdf8" font-weight="700" data-i18n="topEdge">Top edge</text>
     <g transform="translate(96 152)">
       <rect width="264" height="264" fill="#b3c2d4"/>
       <rect x="44" y="44" width="176" height="176" fill="#56768d"/>
@@ -34,7 +34,7 @@
       </g>
     </g>
     <rect x="442" y="98" width="486" height="338" rx="14" fill="#1b2736"/>
-    <text x="462" y="130" fill="#38bdf8" font-weight="700">Top-left corner, enlarged</text>
+    <text x="462" y="130" fill="#38bdf8" font-weight="700" data-i18n="topLeftCornerEnlarged">Top-left corner, enlarged</text>
     <rect x="482" y="174" width="134" height="134" fill="#e0dfbc"/>
     <rect x="616" y="174" width="134" height="134" fill="#b3c2d4"/>
     <rect x="482" y="308" width="134" height="74" fill="#b3c2d4"/>
@@ -44,15 +44,15 @@
     <path d="M473 165 491 183M491 165 473 183" stroke="#fbbf24" stroke-width="4"/>
     <circle cx="549" cy="241" r="16" fill="#121923" stroke="#38bdf8" stroke-width="3"/>
     <path d="M525 241H573M549 217V265" stroke="#38bdf8" stroke-width="2"/>
-    <text x="778" y="187" fill="#fbbf24">Not here</text>
+    <text x="778" y="187" fill="#fbbf24" data-i18n="notHere">Not here</text>
     <path d="M768 181H638L496 174" stroke="#fbbf24" stroke-width="2" fill="none"/>
-    <text x="778" y="252" fill="#38bdf8">Center</text>
+    <text x="778" y="252" fill="#38bdf8" data-i18n="center">Center</text>
     <path d="M766 246H582" stroke="#38bdf8" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
-    <text x="634" y="347" fill="#f1f5f9">Recipe grid</text>
-    <text x="462" y="416" fill="#b3c2d4">Outer edge sits half a cell beyond the center.</text>
+    <text x="634" y="347" fill="#f1f5f9" data-i18n="recipeGrid">Recipe grid</text>
+    <text x="462" y="416" fill="#b3c2d4" data-i18n="outerEdgeSitsHalfACellBeyondThe">Outer edge sits half a cell beyond the center.</text>
     <rect x="32" y="454" width="896" height="60" rx="12" fill="#1b2736" stroke="#38bdf8"/>
-    <text x="52" y="479" font-weight="700">Review the whole grid, not just the corners.</text>
-    <text x="52" y="503" fill="#b3c2d4">Then confirm adjusted / low-confidence alignment before saving the sampled colors.</text>
-    <text x="928" y="534" text-anchor="end" fill="#b3c2d4">Schematic board with an illustrative 4 × 4 recipe grid</text>
+    <text x="52" y="479" font-weight="700" data-i18n="reviewTheWholeGridNotJustTheCorners">Review the whole grid, not just the corners.</text>
+    <text x="52" y="503" fill="#b3c2d4" data-i18n="thenConfirmAdjustedLowConfidenceAlignmentBeforeSaving">Then confirm adjusted / low-confidence alignment before saving the sampled colors.</text>
+    <text x="928" y="534" text-anchor="end" fill="#b3c2d4" data-i18n="schematicBoardWithAnIllustrative44Recipe">Schematic board with an illustrative 4 × 4 recipe grid</text>
   </g>
 </svg>

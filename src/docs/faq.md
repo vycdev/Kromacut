@@ -65,7 +65,7 @@ Yes. Export custom 2D palettes as `.kpal` files and Auto-paint filament profiles
 
 ## Does A Smaller Pixel Size Replace A Smaller Nozzle?
 
-No. Pixel Size sets the physical size of image pixels. It can make a stroke narrower than the extrusion path your nozzle can produce. Use **Effective line width** and the printable-detail preview in Auto-paint, and inspect the sliced result. See [3D mode](3d-mode).
+No. Pixel Size sets the physical size of image pixels. It can make a stroke narrower than the extrusion path your nozzle can produce. Set **Effective line width** in **3D Print Settings**, use the printable-detail preview in Auto-paint, and inspect the sliced result. See [3D mode](3d-mode).
 
 ## Does My Calibration Still Apply At A Different Layer Height?
 

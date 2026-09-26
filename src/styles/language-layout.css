@@ -1,0 +1,25 @@
+/* Keep language-specific CJK glyph forms and Indic shaping, including offline. */
+:root:lang(ja) {
+    --font-sans: Oxanium, 'Noto Sans JP', 'Noto Sans', ui-sans-serif, system-ui, sans-serif;
+}
+:root:lang(zh-CN) {
+    --font-sans: Oxanium, 'Noto Sans SC', 'Noto Sans', ui-sans-serif, system-ui, sans-serif;
+}
+:root:lang(hi) {
+    --font-sans: Oxanium, 'Noto Sans Devanagari', 'Noto Sans', ui-sans-serif, system-ui, sans-serif;
+}
+:root:lang(bn) {
+    --font-sans: Oxanium, 'Noto Sans Bengali', 'Noto Sans', ui-sans-serif, system-ui, sans-serif;
+}
+:root:lang(uk) {
+    --font-sans: Oxanium, 'Noto Sans', ui-sans-serif, system-ui, sans-serif;
+}
+:root:is(:lang(ja), :lang(zh-CN), :lang(hi), :lang(bn)) {
+    --font-mono: 'Source Code Pro', var(--font-sans);
+    --font-serif: 'Source Serif 4', var(--font-sans);
+}
+/* Expanded translations must wrap rather than force the page beyond its viewport. */
+:root:not(:lang(en)) .privacy-page a,
+:root:not(:lang(en)) .docs-markdown {
+    overflow-wrap: anywhere;
+}

@@ -1,4 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react';
+import { useTranslation } from 'react-i18next';
+import { translateRuntimeMessage } from './lib/runtimeMessages';
 import ThreeDControls from './components/ThreeDControls';
 import {
     AUTO_PAINT_REPEAT_LIMITS,
@@ -218,6 +220,7 @@ const saveAutoPaintPersisted = (value: AutoPaintPersisted) => {
 };
 
 function App(): React.ReactElement | null {
+    const { t } = useTranslation('common');
     const toolPath = appPath(isTauri());
     // Multi-plate mode (issue #35) is still a stub. Per the plan, the flow diverges
     // at *image upload*, not at app start — so until an image is uploaded the app
@@ -520,7 +523,7 @@ function App(): React.ReactElement | null {
     const handleFiles = (file?: File) => {
         if (!file) return;
         if (!file.type.startsWith('image/')) {
-            alert('Please upload an image file');
+            alert(t('app.uploadImage'));
             return;
         }
         setTouchUpTool(null);
@@ -584,7 +587,7 @@ function App(): React.ReactElement | null {
             setImage(url, true);
         } catch (error) {
             console.warn('Image resize failed', error);
-            alert('Image resize failed. See console for details.');
+            alert(t('app.resizeFailed'));
         } finally {
             if (sourceUrl) URL.revokeObjectURL(sourceUrl);
         }
@@ -808,28 +811,28 @@ function App(): React.ReactElement | null {
                                 )}
                                 {mode === '3d' && !hasMountedThreeDControls && (
                                     <div className="flex min-h-32 items-center justify-center text-sm text-muted-foreground">
-                                        Preparing 3D controls…
+                                        {t('app.preparingControls')}
                                     </div>
                                 )}
                                 {hasMountedThreeDControls && (
                                     <div className={mode === '3d' ? undefined : 'hidden'}>
-                                    <ThreeDControls
-                                        active={mode === '3d'}
-                                        swatches={swatches}
-                                        imageSrc={imageSrc}
-                                        imageDimensions={imageDimensions}
-                                        builtState={builtThreeDState}
-                                        builtFlatPaint={builtFlatPaint}
-                                        onChange={handleThreeDStateChange}
-                                        onSettingsChange={(partial) => {
-                                            autoPaintWorkingStateInitializedRef.current = true;
-                                            setThreeDState((prev) => ({ ...prev, ...partial }));
-                                        }}
-                                        persisted={threeDState}
-                                        hasAutoPaintWorkingState={
-                                            autoPaintWorkingStateInitializedRef.current
-                                        }
-                                    />
+                                        <ThreeDControls
+                                            active={mode === '3d'}
+                                            swatches={swatches}
+                                            imageSrc={imageSrc}
+                                            imageDimensions={imageDimensions}
+                                            builtState={builtThreeDState}
+                                            builtFlatPaint={builtFlatPaint}
+                                            onChange={handleThreeDStateChange}
+                                            onSettingsChange={(partial) => {
+                                                autoPaintWorkingStateInitializedRef.current = true;
+                                                setThreeDState((prev) => ({ ...prev, ...partial }));
+                                            }}
+                                            persisted={threeDState}
+                                            hasAutoPaintWorkingState={
+                                                autoPaintWorkingStateInitializedRef.current
+                                            }
+                                        />
                                     </div>
                                 )}
                             </div>
@@ -894,73 +897,79 @@ function App(): React.ReactElement | null {
                                     <div
                                         className={`absolute inset-0 ${mode === '3d' ? '' : 'hidden'}`}
                                     >
-                                    <>
-                                        <ThreeDView
-                                            imageSrc={builtModelValid ? imageSrc : null}
-                                            baseSliceHeight={0}
-                                            layerHeight={builtModelState.layerHeight}
-                                            slicerFirstLayerHeight={
-                                                builtModelState.slicerFirstLayerHeight
-                                            }
-                                            colorSliceHeights={builtModelState.colorSliceHeights}
-                                            colorOrder={builtModelState.colorOrder}
-                                            swatches={builtModelState.filteredSwatches}
-                                            filamentSwatches={
-                                                builtModelAutoPaint
-                                                    ? builtModelState.autoPaintFilamentSwatches
-                                                    : undefined
-                                            }
-                                            pixelSize={builtModelState.pixelSize}
-                                            rebuildSignal={threeDBuildSignal}
-                                            autoPaintEnabled={builtModelAutoPaint}
-                                            autoPaintTotalHeight={
-                                                builtModelState.autoPaintResult?.totalHeight
-                                            }
-                                            autoPaintFilamentOrder={
-                                                builtModelState.autoPaintResult?.filamentOrder
-                                            }
-                                            autoPaintFinalStack={
-                                                builtModelState.autoPaintResult?.finalStack
-                                            }
-                                            enhancedColorMatch={builtModelState.enhancedColorMatch}
-                                            preserveSeparation={builtModelState.preserveSeparation}
-                                            separationMaxDeltaE={
-                                                builtModelState.separationMaxDeltaE
-                                            }
-                                            heightDithering={builtModelState.heightDithering}
-                                            ditherLineWidth={builtModelState.ditherLineWidth}
-                                            printableFeaturePixels={
-                                                builtModelState.printableFeaturePixels
-                                            }
-                                            smoothMeshing={builtModelState.smoothMeshing}
-                                            isOrtho={isOrtho}
-                                            flatPaint={builtFlatPaint}
-                                            flatPaintFaceUp={!!builtModelState.flatPaintFaceUp}
-                                            previewRenderMode={previewRenderMode}
-                                            previewColorMode={previewColorMode}
-                                            onBuildStarted={markBuildStarted}
-                                            active={mode === '3d'}
-                                        />
-                                        {isBuildStarting && (
-                                            <ProgressOverlay
-                                                title="Preparing 3D model"
-                                                stepLabel="Starting build"
-                                                progress={0}
-                                                indeterminate
+                                        <>
+                                            <ThreeDView
+                                                imageSrc={builtModelValid ? imageSrc : null}
+                                                baseSliceHeight={0}
+                                                layerHeight={builtModelState.layerHeight}
+                                                slicerFirstLayerHeight={
+                                                    builtModelState.slicerFirstLayerHeight
+                                                }
+                                                colorSliceHeights={
+                                                    builtModelState.colorSliceHeights
+                                                }
+                                                colorOrder={builtModelState.colorOrder}
+                                                swatches={builtModelState.filteredSwatches}
+                                                filamentSwatches={
+                                                    builtModelAutoPaint
+                                                        ? builtModelState.autoPaintFilamentSwatches
+                                                        : undefined
+                                                }
+                                                pixelSize={builtModelState.pixelSize}
+                                                rebuildSignal={threeDBuildSignal}
+                                                autoPaintEnabled={builtModelAutoPaint}
+                                                autoPaintTotalHeight={
+                                                    builtModelState.autoPaintResult?.totalHeight
+                                                }
+                                                autoPaintFilamentOrder={
+                                                    builtModelState.autoPaintResult?.filamentOrder
+                                                }
+                                                autoPaintFinalStack={
+                                                    builtModelState.autoPaintResult?.finalStack
+                                                }
+                                                enhancedColorMatch={
+                                                    builtModelState.enhancedColorMatch
+                                                }
+                                                preserveSeparation={
+                                                    builtModelState.preserveSeparation
+                                                }
+                                                separationMaxDeltaE={
+                                                    builtModelState.separationMaxDeltaE
+                                                }
+                                                heightDithering={builtModelState.heightDithering}
+                                                ditherLineWidth={builtModelState.ditherLineWidth}
+                                                printableFeaturePixels={
+                                                    builtModelState.printableFeaturePixels
+                                                }
+                                                smoothMeshing={builtModelState.smoothMeshing}
+                                                isOrtho={isOrtho}
+                                                flatPaint={builtFlatPaint}
+                                                flatPaintFaceUp={!!builtModelState.flatPaintFaceUp}
+                                                previewRenderMode={previewRenderMode}
+                                                previewColorMode={previewColorMode}
+                                                onBuildStarted={markBuildStarted}
+                                                active={mode === '3d'}
                                             />
-                                        )}
-                                        {exportingSTL && (
-                                            <ProgressOverlay
-                                                title={exportStep.title}
-                                                stepLabel={exportStep.stepLabel}
-                                                stepIndex={exportStep.stepIndex}
-                                                stepCount={exportStep.stepCount}
-                                                stepProgress={exportStep.stepProgress}
-                                                progress={exportProgress}
-                                                indeterminate={exportProgress <= 0}
-                                            />
-                                        )}
-                                    </>
+                                            {isBuildStarting && (
+                                                <ProgressOverlay
+                                                    title="Preparing 3D model"
+                                                    stepLabel="Starting build"
+                                                    progress={0}
+                                                    indeterminate
+                                                />
+                                            )}
+                                            {exportingSTL && (
+                                                <ProgressOverlay
+                                                    title={exportStep.title}
+                                                    stepLabel={exportStep.stepLabel}
+                                                    stepIndex={exportStep.stepIndex}
+                                                    stepCount={exportStep.stepCount}
+                                                    stepProgress={exportStep.stepProgress}
+                                                    progress={exportProgress}
+                                                    indeterminate={exportProgress <= 0}
+                                                />
+                                            )}
+                                        </>
                                     </div>
                                 )}
                                 <PreviewActions
@@ -1039,23 +1048,23 @@ function App(): React.ReactElement | null {
                 >
                     <AlertDialogContent>
                         <AlertDialogHeader>
-                            <AlertDialogTitle>Performance Warning</AlertDialogTitle>
+                            <AlertDialogTitle>{t('app.performanceWarning')}</AlertDialogTitle>
                             <AlertDialogDescription asChild>
                                 <div className="space-y-2">
-                                    <p>Building the 3D model may be slow due to:</p>
+                                    <p>{t('app.slowBuild')}</p>
                                     <ul className="list-disc pl-5 space-y-1">
                                         {buildWarning?.warnings.map((w, i) => (
-                                            <li key={i}>{w}</li>
+                                            <li key={i}>{translateRuntimeMessage(w)}</li>
                                         ))}
                                     </ul>
-                                    <p>Do you want to continue?</p>
+                                    <p>{t('app.continue')}</p>
                                 </div>
                             </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogCancel>{t('app.cancel')}</AlertDialogCancel>
                             <AlertDialogAction onClick={confirmBuild}>
-                                Build Anyway
+                                {t('app.buildAnyway')}
                             </AlertDialogAction>
                         </AlertDialogFooter>
                     </AlertDialogContent>

@@ -1,11 +1,12 @@
 /**
  * Update Checker Component
- * 
+ *
  * Checks for new app updates when running in Tauri desktop app.
  * Displays a notification when a new version is available.
  */
 
 import { useEffect, useState } from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Download, X } from 'lucide-react';
@@ -15,16 +16,18 @@ import {
     openDesktopReleasesPage,
     type VersionInfo,
 } from '@/lib/desktopUpdates';
-import {
-    getUpdateCheckOnStartup,
-    subscribeToUpdateCheckOnStartup,
-} from '@/lib/updatePreferences';
+import { getUpdateCheckOnStartup, subscribeToUpdateCheckOnStartup } from '@/lib/updatePreferences';
+import { localizedReleaseNotes } from '@/lib/localizedReleaseNotes';
 
 export function UpdateChecker() {
+    const { t, i18n } = useTranslation('common');
     const [updateAvailable, setUpdateAvailable] = useState<VersionInfo | null>(null);
     const [dismissed, setDismissed] = useState(false);
     const [checking, setChecking] = useState(false);
     const [checkOnStartup, setCheckOnStartup] = useState(() => getUpdateCheckOnStartup());
+    const releaseNotes = updateAvailable
+        ? localizedReleaseNotes(updateAvailable, i18n.resolvedLanguage)
+        : null;
 
     useEffect(() => {
         if (!isDesktopUpdateSupported()) return;
@@ -73,7 +76,13 @@ export function UpdateChecker() {
         };
     }, [checkOnStartup]);
 
-    if (!isDesktopUpdateSupported() || !checkOnStartup || !updateAvailable || dismissed || checking) {
+    if (
+        !isDesktopUpdateSupported() ||
+        !checkOnStartup ||
+        !updateAvailable ||
+        dismissed ||
+        checking
+    ) {
         return null;
     }
 
@@ -97,23 +106,36 @@ export function UpdateChecker() {
                     <div className="flex-1 space-y-2">
                         <div className="flex items-start justify-between">
                             <h4 className="font-semibold text-sm text-foreground">
-                                Update Available
+                                {t('updates.notice')}
                             </h4>
                             <Button
                                 variant="ghost"
                                 size="icon"
                                 onClick={() => setDismissed(true)}
+                                aria-label={t('updates.dismiss')}
                                 className="h-5 w-5 -mt-1 -mr-1 text-muted-foreground hover:text-foreground"
                             >
                                 <X className="h-3 w-3" />
                             </Button>
                         </div>
                         <p className="text-xs text-muted-foreground">
-                            Version <span className="font-mono font-semibold text-foreground">{updateAvailable.version}</span> is now available!
+                            <Trans
+                                ns="common"
+                                i18nKey="updates.noticeDescription"
+                                values={{ version: updateAvailable.version }}
+                                components={{
+                                    version: (
+                                        <span className="font-mono font-semibold text-foreground" />
+                                    ),
+                                }}
+                            />
                         </p>
-                        {updateAvailable.release_notes && (
-                            <p className="text-xs text-muted-foreground line-clamp-2">
-                                {updateAvailable.release_notes}
+                        {releaseNotes && (
+                            <p
+                                lang={releaseNotes.language}
+                                className="text-xs text-muted-foreground line-clamp-2"
+                            >
+                                {releaseNotes.text}
                             </p>
                         )}
                         <div className="flex gap-2 pt-1">
@@ -122,7 +144,7 @@ export function UpdateChecker() {
                                 onClick={handleDownload}
                                 className="h-7 text-xs bg-primary hover:bg-primary/90"
                             >
-                                Download
+                                {t('updates.download')}
                             </Button>
                             <Button
                                 size="sm"
@@ -130,7 +152,7 @@ export function UpdateChecker() {
                                 onClick={() => setDismissed(true)}
                                 className="h-7 text-xs"
                             >
-                                Later
+                                {t('updates.later')}
                             </Button>
                         </div>
                     </div>

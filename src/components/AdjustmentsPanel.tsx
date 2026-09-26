@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
@@ -17,6 +18,7 @@ interface Props {
 // Memoize to avoid parent re-render noise when props are stable
 export const AdjustmentsPanel: React.FC<Props> = React.memo(
     ({ defs, initial, onCommit, onBake }) => {
+        const { t } = useTranslation('workspace');
         // Local state only; parent not updated per-drag
         const [values, setValues] = useState<Record<string, number>>(() => {
             const base: Record<string, number> = {};
@@ -113,18 +115,20 @@ export const AdjustmentsPanel: React.FC<Props> = React.memo(
         return (
             <CollapsibleCard
                 id="adjustments"
-                title="Adjustments"
-                subtitle="Fine-tune image properties"
+                title={t('adjustmentsPanel.adjustments')}
+                subtitle={t('adjustmentsPanel.fineTuneImageProperties')}
                 collapsedSummary={
-                    !allDefault ? <DirtyDot title="Adjustments modified" /> : undefined
+                    !allDefault ? (
+                        <DirtyDot title={t('adjustmentsPanel.adjustmentsModified')} />
+                    ) : undefined
                 }
                 actions={
                     <button
                         type="button"
                         onClick={handleResetAll}
                         disabled={allDefault}
-                        title="Reset all adjustments to default"
-                        aria-label="Reset all adjustments"
+                        title={t('adjustmentsPanel.resetAllAdjustmentsToDefault')}
+                        aria-label={t('adjustmentsPanel.resetAllAdjustments')}
                         className="h-7 w-7 flex-shrink-0 flex items-center justify-center rounded-md text-muted-foreground hover:text-amber-600 hover:bg-amber-600/15 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-muted-foreground select-none cursor-pointer"
                     >
                         <RotateCcw className="w-4 h-4" />
@@ -138,11 +142,17 @@ export const AdjustmentsPanel: React.FC<Props> = React.memo(
                         return (
                             <div key={s.key} className="space-y-2">
                                 <div className="flex justify-between items-center text-sm gap-2">
-                                    <span className="font-medium text-foreground">{s.label}</span>
+                                    <span className="font-medium text-foreground">
+                                        {t(s.labelKey)}
+                                    </span>
                                     <div className="flex items-center gap-2">
                                         <span className="px-2 py-1 rounded-full bg-primary/10 text-primary text-xs font-mono font-semibold">
                                             {displayVal}
-                                            {s.unit ? ` ${s.unit}` : ''}
+                                            {s.unitKey
+                                                ? ` ${t(s.unitKey)}`
+                                                : s.unit
+                                                  ? ` ${s.unit}`
+                                                  : ''}
                                         </span>
                                         <button
                                             type="button"
@@ -152,8 +162,12 @@ export const AdjustmentsPanel: React.FC<Props> = React.memo(
                                                 handleResetSingle(s.key, s.default);
                                             }}
                                             disabled={isDefault}
-                                            title={`Reset ${s.label} to default`}
-                                            aria-label={`Reset ${s.label}`}
+                                            title={t('adjustmentsPanel.resetSettingDefault', {
+                                                setting: t(s.labelKey),
+                                            })}
+                                            aria-label={t('adjustmentsPanel.resetSetting', {
+                                                setting: t(s.labelKey),
+                                            })}
                                             className="h-5 w-5 flex-shrink-0 flex items-center justify-center rounded-md text-muted-foreground hover:text-amber-600 hover:bg-amber-600/15 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-muted-foreground select-none cursor-pointer"
                                         >
                                             <RotateCcw className="w-3.5 h-3.5" />
@@ -186,11 +200,11 @@ export const AdjustmentsPanel: React.FC<Props> = React.memo(
                     type="button"
                     onClick={handleBake}
                     className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold transition-all duration-200 shadow-md hover:shadow-lg active:scale-95 gap-1.5"
-                    title="Apply (bake) adjustments to the image"
-                    aria-label="Apply adjustments"
+                    title={t('adjustmentsPanel.applyBakeAdjustmentsToTheImage')}
+                    aria-label={t('adjustmentsPanel.applyAdjustments')}
                 >
                     <Check className="w-4 h-4" />
-                    <span>Apply</span>
+                    <span>{t('adjustmentsPanel.apply')}</span>
                 </Button>
             </CollapsibleCard>
         );

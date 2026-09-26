@@ -1,28 +1,28 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 540" role="img" aria-labelledby="title desc">
-<title id="title">More filament thickness hides more of the base</title>
-<desc id="desc">Three schematic stacks have progressively more orange layers over a dark base. Their visible swatches approach the opaque filament color as thickness increases. Frontlit light enters and returns after reflection underneath. Colors are illustrative, not predictions for a particular spool.</desc>
+<title id="title" data-i18n="title">More filament thickness hides more of the base</title>
+<desc id="desc" data-i18n="description">Three schematic stacks have progressively more orange layers over a dark base. Their visible swatches approach the opaque filament color as thickness increases. Frontlit light enters and returns after reflection underneath. Colors are illustrative, not predictions for a particular spool.</desc>
 <rect width="960" height="540" rx="18" fill="#121923"/>
 <g font-family="system-ui, sans-serif" font-size="18" fill="#f1f5f9">
-<text x="32" y="44" font-size="26" font-weight="700">More thickness hides more of the base</text>
-<text x="32" y="74" fill="#b3c2d4">Frontlit viewing: light enters the surface, reflects underneath, and returns.</text>
+<text x="32" y="44" font-size="26" font-weight="700" data-i18n="moreThicknessHidesMoreOfTheBase">More thickness hides more of the base</text>
+<text x="32" y="74" fill="#b3c2d4" data-i18n="frontlitViewingLightEntersTheSurfaceReflectsUnderneath">Frontlit viewing: light enters the surface, reflects underneath, and returns.</text>
 <rect x="32" y="100" width="280" height="282" rx="14" fill="#1b2736"/>
 <rect x="340" y="100" width="280" height="282" rx="14" fill="#1b2736"/>
 <rect x="648" y="100" width="280" height="282" rx="14" fill="#1b2736"/>
 <g text-anchor="middle">
-<text x="172" y="133" font-weight="700">Thin</text><text x="480" y="133" font-weight="700">Thicker</text><text x="788" y="133" font-weight="700">Nearly opaque</text>
+<text x="172" y="133" font-weight="700" data-i18n="thin">Thin</text><text x="480" y="133" font-weight="700" data-i18n="thicker">Thicker</text><text x="788" y="133" font-weight="700" data-i18n="nearlyOpaque">Nearly opaque</text>
 <rect x="131" y="152" width="82" height="48" rx="9" fill="#805435"/><rect x="439" y="152" width="82" height="48" rx="9" fill="#bb813b"/><rect x="747" y="152" width="82" height="48" rx="9" fill="#e7ad46"/>
-<text x="172" y="226" fill="#b3c2d4">Visible color</text><text x="480" y="226" fill="#b3c2d4">Visible color</text><text x="788" y="226" fill="#b3c2d4">Visible color</text>
+<text x="172" y="226" fill="#b3c2d4" data-i18n="visibleColor">Visible color</text><text x="480" y="226" fill="#b3c2d4" data-i18n="visibleColor">Visible color</text><text x="788" y="226" fill="#b3c2d4" data-i18n="visibleColor">Visible color</text>
 </g>
 <g stroke="#121923" stroke-width="2" fill="#e7ad46">
 <rect x="70" y="310" width="204" height="32" fill="#090e15"/><rect x="70" y="294" width="204" height="16"/>
 <rect x="378" y="310" width="204" height="32" fill="#090e15"/><rect x="378" y="294" width="204" height="16"/><rect x="378" y="278" width="204" height="16"/><rect x="378" y="262" width="204" height="16"/>
 <rect x="686" y="310" width="204" height="32" fill="#090e15"/><rect x="686" y="294" width="204" height="16"/><rect x="686" y="278" width="204" height="16"/><rect x="686" y="262" width="204" height="16"/><rect x="686" y="246" width="204" height="16"/>
 </g>
-<g fill="#b3c2d4" text-anchor="middle"><text x="172" y="369">More base shows through</text><text x="480" y="369">Less base shows through</text><text x="788" y="369">Near the filament's color</text></g>
+<g fill="#b3c2d4" text-anchor="middle"><text x="172" y="369" data-i18n="moreBaseShowsThrough">More base shows through</text><text x="480" y="369" data-i18n="lessBaseShowsThrough">Less base shows through</text><text x="788" y="369" data-i18n="nearTheFilamentSColor">Near the filament's color</text></g>
 <rect x="32" y="402" width="896" height="108" rx="12" fill="#1b2736"/>
-<text x="52" y="435" font-weight="700" fill="#38bdf8">Modeled show-through: T = 10^(−thickness / HD)</text>
-<text x="52" y="465" fill="#b3c2d4">At thickness = HD, 10% remains in this model. Visual opacity needs a comparison.</text>
-<text x="52" y="493" fill="#b3c2d4">Higher HD → more thickness to hide the same base. Backlit TD is a different input scale.</text>
-<text x="928" y="532" text-anchor="end" fill="#b3c2d4">Schematic colors and layers, not measurements</text>
+<text x="52" y="435" font-weight="700" fill="#38bdf8" data-i18n="modeledShowThroughT10ThicknessHD">Modeled show-through: T = 10^(−thickness / HD)</text>
+<text x="52" y="465" fill="#b3c2d4" data-i18n="atThicknessHD10RemainsInThisModel">At thickness = HD, 10% remains in this model. Visual opacity needs a comparison.</text>
+<text x="52" y="493" fill="#b3c2d4" data-i18n="higherHDMoreThicknessToHideTheSame">Higher HD → more thickness to hide the same base. Backlit TD is a different input scale.</text>
+<text x="928" y="532" text-anchor="end" fill="#b3c2d4" data-i18n="schematicColorsAndLayersNotMeasurements">Schematic colors and layers, not measurements</text>
 </g>
 </svg>

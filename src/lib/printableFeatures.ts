@@ -1,6 +1,6 @@
 import { createCenterEdgeWeight } from './regionWeighting.ts';
 
-/** Why a source pixel changed in the line-width simulation. */
+/** Image-space detail warnings; neither value means the pixel must be removed. */
 export const PRINTABLE_FEATURE_NEIGHBOR_TAKEOVER = 1;
 export const PRINTABLE_FEATURE_NO_SUPPORT = 2;
 
@@ -22,6 +22,8 @@ export interface PrintableFeatureDiagnostics {
     printableColorCount: number;
     lostColorCount: number;
     omittedPixelCount: number;
+    eligibleSpeckPixelCount: number;
+    retainedRiskPixelCount: number;
     omitAtRiskPixels: boolean;
     effectiveDiameterPixels: number;
     lineWidthMm: number;
@@ -130,73 +132,112 @@ function distanceTransformLine(
     }
 }
 
-function computeBoundaryDistanceSquared(
+const COMPONENT_ENCLOSED = 1;
+const COMPONENT_HAS_CORE = 2;
+const COMPONENT_HAS_ROBUST_NEIGHBOR = 4;
+const COMPONENT_COMPACT = 8;
+const COMPONENT_ELIGIBLE_SPECK = 16;
+
+/** Packed columns avoid allocating an object for every speck in a noisy image. */
+interface ColorComponents {
+    count: number;
+    colors: Uint32Array;
+    flags: Uint8Array;
+    surrounding: Int32Array;
+}
+
+function regionsDiffer(data: Uint8ClampedArray, first: number, second: number): boolean {
+    const firstOpaque = data[first * 4 + 3] !== 0;
+    const secondOpaque = data[second * 4 + 3] !== 0;
+    return firstOpaque !== secondOpaque || (firstOpaque && !sameRgb(data, first, second));
+}
+
+/**
+ * Find cores against actual pixel edges, including positions between pixel centers.
+ * The half-pixel lattice contains each edge's endpoints and midpoint, so its EDT
+ * measures exact distance to the raster boundary at every sampled position. This
+ * preserves even-width and diagonal regions that a rounded pixel-center inset loses.
+ * Only the row pass is retained; column results update component flags directly.
+ */
+function markComponentCores(
     data: Uint8ClampedArray,
     width: number,
-    height: number
-): Float32Array {
-    const pixelCount = width * height;
-    const boundary = new Uint8Array(pixelCount);
-
-    for (let y = 0; y < height; y++) {
-        for (let x = 0; x < width; x++) {
-            const pixel = y * width + x;
-            const alpha = data[pixel * 4 + 3];
-            if (alpha === 0) {
-                boundary[pixel] = 1;
-                continue;
-            }
-
-            if (x === 0 || y === 0 || x === width - 1 || y === height - 1) {
-                boundary[pixel] = 1;
-                continue;
-            }
-
-            for (let dy = -1; dy <= 1 && boundary[pixel] === 0; dy++) {
-                for (let dx = -1; dx <= 1; dx++) {
-                    if (dx === 0 && dy === 0) continue;
-                    const neighbor = pixel + dy * width + dx;
-                    if (data[neighbor * 4 + 3] === 0 || !sameRgb(data, pixel, neighbor)) {
-                        boundary[pixel] = 1;
-                        break;
-                    }
-                }
-            }
+    height: number,
+    componentIds: Int32Array,
+    components: ColorComponents,
+    effectiveDiameterPixels: number
+): void {
+    if (components.count === 0) return;
+    if (effectiveDiameterPixels <= 1) {
+        for (let id = 0; id < components.count; id++) {
+            components.flags[id] |= COMPONENT_HAS_CORE;
         }
+        return;
     }
 
-    const maximumLineLength = Math.max(width, height);
+    const gridWidth = width * 2 + 1;
+    const gridHeight = height * 2 + 1;
+    const maximumLineLength = Math.max(gridWidth, gridHeight);
     const values = new Float64Array(maximumLineLength);
     const transformed = new Float64Array(maximumLineLength);
     const locations = new Int32Array(maximumLineLength);
     const intersections = new Float64Array(maximumLineLength + 1);
-    const rowPass = new Float32Array(pixelCount);
-    const result = new Float32Array(pixelCount);
+    const rowPass = new Float32Array(gridWidth * gridHeight);
 
-    for (let y = 0; y < height; y++) {
-        const row = y * width;
-        for (let x = 0; x < width; x++) {
-            values[x] = boundary[row + x] ? 0 : DISTANCE_INFINITY;
+    for (let y = 0; y < gridHeight; y++) {
+        values.fill(DISTANCE_INFINITY, 0, gridWidth);
+        if (y === 0 || y === gridHeight - 1) {
+            values.fill(0, 0, gridWidth);
+        } else {
+            values[0] = 0;
+            values[gridWidth - 1] = 0;
+            const sourceY = Math.floor(y / 2);
+            if (y % 2 === 0) {
+                // Horizontal boundary segments, including their endpoints.
+                const above = (sourceY - 1) * width;
+                const below = sourceY * width;
+                for (let x = 0; x < width; x++) {
+                    if (!regionsDiffer(data, above + x, below + x)) continue;
+                    values[x * 2] = 0;
+                    values[x * 2 + 1] = 0;
+                    values[x * 2 + 2] = 0;
+                }
+                // Endpoints of vertical segments arriving from either row.
+                for (let x = 1; x < width; x++) {
+                    if (
+                        regionsDiffer(data, above + x - 1, above + x) ||
+                        regionsDiffer(data, below + x - 1, below + x)
+                    ) {
+                        values[x * 2] = 0;
+                    }
+                }
+            } else {
+                const sourceRow = sourceY * width;
+                for (let x = 1; x < width; x++) {
+                    if (regionsDiffer(data, sourceRow + x - 1, sourceRow + x)) {
+                        values[x * 2] = 0;
+                    }
+                }
+            }
         }
-        distanceTransformLine(values, transformed, locations, intersections, width);
-        for (let x = 0; x < width; x++) rowPass[row + x] = transformed[x];
+        distanceTransformLine(values, transformed, locations, intersections, gridWidth);
+        const row = y * gridWidth;
+        for (let x = 0; x < gridWidth; x++) rowPass[row + x] = transformed[x];
     }
 
-    for (let x = 0; x < width; x++) {
-        for (let y = 0; y < height; y++) values[y] = rowPass[y * width + x];
-        distanceTransformLine(values, transformed, locations, intersections, height);
-        for (let y = 0; y < height; y++) result[y * width + x] = transformed[y];
+    // One lattice unit is half a pixel, so the radius in lattice units equals
+    // the requested line diameter in pixels. No integer inset rounding applies.
+    const requiredDistanceSquared = effectiveDiameterPixels * effectiveDiameterPixels;
+    for (let x = 1; x < gridWidth - 1; x++) {
+        for (let y = 0; y < gridHeight; y++) values[y] = rowPass[y * gridWidth + x];
+        distanceTransformLine(values, transformed, locations, intersections, gridHeight);
+        const sourceX = Math.floor(x / 2);
+        for (let y = 1; y < gridHeight - 1; y++) {
+            if (transformed[y] + 1e-9 < requiredDistanceSquared) continue;
+            const componentId = componentIds[Math.floor(y / 2) * width + sourceX];
+            if (componentId >= 0) components.flags[componentId] |= COMPONENT_HAS_CORE;
+        }
     }
-
-    return result;
-}
-
-function minimumCoreInset(effectiveDiameterPixels: number): number {
-    if (effectiveDiameterPixels <= 1) return 0;
-    // The simulation works on pixel centers. An exactly even-width feature has no
-    // centered raster sample, so treat that knife-edge case as vulnerable instead
-    // of promising detail that the slicer may discard after path quantization.
-    return Math.ceil((effectiveDiameterPixels - 1) / 2 - 1e-9);
 }
 
 function stableFingerprint(
@@ -213,21 +254,20 @@ function stableFingerprint(
     };
 
     for (const value of data) update(value);
-    const metadata = `${width}:${height}:${pixelSizeMm}:${lineWidthMm}:${omitAtRiskPixels ? 1 : 0}:v2`;
+    const metadata = `${width}:${height}:${pixelSizeMm}:${lineWidthMm}:${omitAtRiskPixels ? 1 : 0}:v3`;
     for (let index = 0; index < metadata.length; index++) update(metadata.charCodeAt(index));
     return `printable-v1-${hash.toString(16).padStart(8, '0')}`;
 }
 
 /**
- * Approximate the categorical regions a slicer can preserve with the selected line width.
- *
- * Pixels far enough inside their original color form printable cores. A deterministic
- * multi-source flood then lets the nearest printable core claim boundary and sub-line-width
- * pixels, modeling neighboring-color takeover. When omission is enabled, vulnerable source
- * colors are replaced by those neighboring colors before Auto-paint sees them; pixel positions
- * are never made transparent. An isolated component with no printable core keeps its original
- * color because there is no defensible nearby replacement. The operation never invents a blended
- * RGB value, which keeps Auto-paint's target space bounded and physically interpretable.
+ * Flag thin image-space regions and optionally remove only tiny isolated colors.
+ * RGB boundaries are not physical extrusion boundaries: stacked layers and variable-width
+ * slicer paths can preserve detail that has no full-width core in this image. Warnings
+ * therefore never imply removal. Whole 8-connected components with a core are preserved;
+ * long thin paths, junctions, transparency-adjacent detail and image-edge detail also remain.
+ * Cleanup is limited to colors whose every component is smaller than the selected line width
+ * in every direction and enclosed by one robust original neighbor component. Replacements
+ * use original categorical colors and never alter alpha or cascade into other replacements.
  */
 export function simulatePrintableFeatures(
     options: PrintableFeatureOptions
@@ -248,94 +288,156 @@ export function simulatePrintableFeatures(
         : 0.42;
     const effectiveDiameterPixels = lineWidthMm / pixelSizeMm;
     const omitAtRiskPixels = options.omitAtRiskPixels === true;
-    const requiredInset = minimumCoreInset(effectiveDiameterPixels);
-    const requiredInsetSquared = requiredInset * requiredInset;
     const pixelCount = width * height;
-    const boundaryDistanceSquared =
-        requiredInset > 0
-            ? computeBoundaryDistanceSquared(data, width, height)
-            : new Float32Array(pixelCount);
-    const owner = new Int32Array(pixelCount);
-    const floodDistance = new Int32Array(pixelCount);
+    const componentIds = new Int32Array(pixelCount);
+    componentIds.fill(-1);
+    const components: ColorComponents = {
+        count: 0,
+        colors: new Uint32Array(pixelCount),
+        flags: new Uint8Array(pixelCount),
+        surrounding: new Int32Array(pixelCount),
+    };
+    components.surrounding.fill(-1);
     const queue = new Int32Array(pixelCount);
-    owner.fill(-1);
-    floodDistance.fill(-1);
-
     const sourceColors = new Set<number>();
     let sourceOpaquePixelCount = 0;
-    let queueHead = 0;
-    let queueTail = 0;
+    const diameterSquared = effectiveDiameterPixels * effectiveDiameterPixels;
 
+    for (let start = 0; start < pixelCount; start++) {
+        if (data[start * 4 + 3] === 0 || componentIds[start] >= 0) continue;
+        const startX = start % width;
+        const startY = Math.floor(start / width);
+        const componentId = components.count++;
+        const color = rgbKey(data, start);
+        components.colors[componentId] = color;
+        sourceColors.add(color);
+        let minX = startX;
+        let maxX = startX;
+        let minY = startY;
+        let maxY = startY;
+        let enclosed = true;
+        let queueHead = 0;
+        let queueTail = 1;
+        queue[0] = start;
+        componentIds[start] = componentId;
+
+        while (queueHead < queueTail) {
+            const pixel = queue[queueHead++];
+            const x = pixel % width;
+            const y = Math.floor(pixel / width);
+            sourceOpaquePixelCount++;
+            minX = Math.min(minX, x);
+            maxX = Math.max(maxX, x);
+            minY = Math.min(minY, y);
+            maxY = Math.max(maxY, y);
+            if (x === 0 || y === 0 || x === width - 1 || y === height - 1) {
+                enclosed = false;
+            }
+
+            // Corner-touching pixels belong together, especially diagonal linework.
+            for (let dy = -1; dy <= 1; dy++) {
+                const neighborY = y + dy;
+                if (neighborY < 0 || neighborY >= height) continue;
+                for (let dx = -1; dx <= 1; dx++) {
+                    if (dx === 0 && dy === 0) continue;
+                    const neighborX = x + dx;
+                    if (neighborX < 0 || neighborX >= width) continue;
+                    const neighbor = neighborY * width + neighborX;
+                    if (data[neighbor * 4 + 3] === 0) {
+                        enclosed = false;
+                    } else if (componentIds[neighbor] < 0 && sameRgb(data, pixel, neighbor)) {
+                        componentIds[neighbor] = componentId;
+                        queue[queueTail++] = neighbor;
+                    }
+                }
+            }
+        }
+        const spanX = maxX - minX + 1;
+        const spanY = maxY - minY + 1;
+        components.flags[componentId] =
+            (enclosed ? COMPONENT_ENCLOSED : 0) |
+            (spanX * spanX + spanY * spanY + 1e-9 < diameterSquared ? COMPONENT_COMPACT : 0);
+    }
+
+    markComponentCores(data, width, height, componentIds, components, effectiveDiameterPixels);
+
+    // Examine original neighbors only. A replacement must not make another color
+    // eligible, and separate neighbors of the same RGB are still ambiguous.
     for (let pixel = 0; pixel < pixelCount; pixel++) {
-        if (data[pixel * 4 + 3] === 0) continue;
-        sourceOpaquePixelCount++;
-        sourceColors.add(rgbKey(data, pixel));
-        if (requiredInset === 0 || boundaryDistanceSquared[pixel] >= requiredInsetSquared) {
-            owner[pixel] = pixel;
-            floodDistance[pixel] = 0;
-            queue[queueTail++] = pixel;
+        const componentId = componentIds[pixel];
+        if (componentId < 0 || (components.flags[componentId] & COMPONENT_HAS_CORE) !== 0) continue;
+        const x = pixel % width;
+        const y = Math.floor(pixel / width);
+        for (let dy = -1; dy <= 1; dy++) {
+            const neighborY = y + dy;
+            if (neighborY < 0 || neighborY >= height) continue;
+            for (let dx = -1; dx <= 1; dx++) {
+                if (dx === 0 && dy === 0) continue;
+                const neighborX = x + dx;
+                if (neighborX < 0 || neighborX >= width) continue;
+                const neighborId = componentIds[neighborY * width + neighborX];
+                if (neighborId < 0 || neighborId === componentId) continue;
+                if ((components.flags[neighborId] & COMPONENT_HAS_CORE) !== 0) {
+                    components.flags[componentId] |= COMPONENT_HAS_ROBUST_NEIGHBOR;
+                }
+                if (components.surrounding[componentId] === -1) {
+                    components.surrounding[componentId] = neighborId;
+                } else if (components.surrounding[componentId] !== neighborId) {
+                    components.surrounding[componentId] = -2;
+                }
+            }
         }
     }
 
-    const visit = (from: number, neighbor: number) => {
-        if (data[neighbor * 4 + 3] === 0) return;
-        const candidateDistance = floodDistance[from] + 1;
-        if (floodDistance[neighbor] < 0) {
-            floodDistance[neighbor] = candidateDistance;
-            owner[neighbor] = owner[from];
-            queue[queueTail++] = neighbor;
-            return;
-        }
-        if (
-            floodDistance[neighbor] === candidateDistance &&
-            owner[neighbor] >= 0 &&
-            !sameRgb(data, owner[neighbor], neighbor) &&
-            sameRgb(data, owner[from], neighbor)
-        ) {
-            // On an equal-distance boundary, keep the original color if it has a
-            // printable core. No requeue is needed because distance is unchanged.
-            owner[neighbor] = owner[from];
-        }
-    };
-
-    while (queueHead < queueTail) {
-        const pixel = queue[queueHead++];
-        const x = pixel % width;
-        const y = Math.floor(pixel / width);
-        if (x > 0) visit(pixel, pixel - 1);
-        if (x + 1 < width) visit(pixel, pixel + 1);
-        if (y > 0) visit(pixel, pixel - width);
-        if (y + 1 < height) visit(pixel, pixel + width);
+    const protectedColors = new Set<number>();
+    for (let id = 0; id < components.count; id++) {
+        const flags = components.flags[id];
+        const surrounding = components.surrounding[id];
+        const eligibleSpeck =
+            (flags & COMPONENT_HAS_CORE) === 0 &&
+            (flags & COMPONENT_ENCLOSED) !== 0 &&
+            (flags & COMPONENT_COMPACT) !== 0 &&
+            surrounding >= 0 &&
+            (components.flags[surrounding] & COMPONENT_HAS_CORE) !== 0;
+        if (eligibleSpeck) components.flags[id] |= COMPONENT_ELIGIBLE_SPECK;
+        // This setting omits tiny isolated colors, not selected fragments of a
+        // color that also forms useful larger regions elsewhere in the image.
+        if (!eligibleSpeck) protectedColors.add(components.colors[id]);
     }
 
     const output = new Uint8ClampedArray(data);
     const changeMask = new Uint8Array(pixelCount);
     let reassignedPixelCount = 0;
     let unsupportedPixelCount = 0;
-    let printableOpaquePixelCount = 0;
+    let eligibleSpeckPixelCount = 0;
+    let omittedPixelCount = 0;
 
     for (let pixel = 0; pixel < pixelCount; pixel++) {
         const offset = pixel * 4;
         if (data[offset + 3] === 0) continue;
-        const sourceOwner = owner[pixel];
-        if (sourceOwner < 0) {
-            changeMask[pixel] = PRINTABLE_FEATURE_NO_SUPPORT;
-            unsupportedPixelCount++;
-            printableOpaquePixelCount++;
-            continue;
-        }
-
-        if (!sameRgb(data, pixel, sourceOwner)) {
+        const componentId = componentIds[pixel];
+        const flags = components.flags[componentId];
+        if ((flags & COMPONENT_HAS_CORE) !== 0) continue;
+        if ((flags & COMPONENT_HAS_ROBUST_NEIGHBOR) !== 0) {
             changeMask[pixel] = PRINTABLE_FEATURE_NEIGHBOR_TAKEOVER;
             reassignedPixelCount++;
-            if (omitAtRiskPixels) {
-                const ownerOffset = sourceOwner * 4;
-                output[offset] = data[ownerOffset];
-                output[offset + 1] = data[ownerOffset + 1];
-                output[offset + 2] = data[ownerOffset + 2];
-            }
+        } else {
+            changeMask[pixel] = PRINTABLE_FEATURE_NO_SUPPORT;
+            unsupportedPixelCount++;
         }
-        printableOpaquePixelCount++;
+        if (
+            (flags & COMPONENT_ELIGIBLE_SPECK) === 0 ||
+            protectedColors.has(components.colors[componentId])
+        )
+            continue;
+        eligibleSpeckPixelCount++;
+        if (omitAtRiskPixels) {
+            const replacement = components.colors[components.surrounding[componentId]];
+            output[offset] = (replacement >>> 16) & 0xff;
+            output[offset + 1] = (replacement >>> 8) & 0xff;
+            output[offset + 2] = replacement & 0xff;
+            omittedPixelCount++;
+        }
     }
 
     const spatialWeightFor = createCenterEdgeWeight(width, height);
@@ -380,7 +482,7 @@ export function simulatePrintableFeatures(
         colorStats,
         diagnostics: {
             sourceOpaquePixelCount,
-            printableOpaquePixelCount,
+            printableOpaquePixelCount: sourceOpaquePixelCount,
             reassignedPixelCount,
             unsupportedPixelCount,
             changedPixelCount,
@@ -389,7 +491,9 @@ export function simulatePrintableFeatures(
             sourceColorCount: sourceColors.size,
             printableColorCount: printableColors.size,
             lostColorCount,
-            omittedPixelCount: omitAtRiskPixels ? reassignedPixelCount : 0,
+            omittedPixelCount,
+            eligibleSpeckPixelCount,
+            retainedRiskPixelCount: changedPixelCount - omittedPixelCount,
             omitAtRiskPixels,
             effectiveDiameterPixels,
             lineWidthMm,

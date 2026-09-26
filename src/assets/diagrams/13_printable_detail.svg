@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 744" role="img" aria-labelledby="width-title width-desc">
-  <title id="width-title">A thin stripe: compare its width, then choose whether to keep it</title>
-  <desc id="width-desc">At 0.10 mm per pixel, a two-pixel purple stripe is 0.20 mm wide, narrower than the planned 0.40 mm extrusion width. The preview marks it amber as a warning, not as a new filament color. With Omit at-risk colors from matching off, the stripe remains a target in Auto-paint's input. With it on, this stripe is replaced by its suitable blue neighbor, leaving a blue region rather than a hole. These are input colors, not guaranteed print colors. The original 2D image is unchanged.</desc>
+  <title id="width-title" data-i18n="title">Width warnings preserve lines; optional cleanup only omits isolated color specks</title>
+  <desc id="width-desc" data-i18n="description">At 0.10 mm per pixel, a two-pixel purple stripe is 0.20 mm wide, narrower than the planned 0.40 mm extrusion width. The preview marks it amber as a warning, not as a new filament color. The stripe is kept whether Omit isolated color specks is off or on. With cleanup on, only a tiny enclosed pink speck is replaced by its surrounding wider blue region. Pink is used nowhere else in this example. These are input colors, not guaranteed print colors. The original 2D image is unchanged.</desc>
   <style>
     text{font-family:Arial,Helvetica,sans-serif;fill:#f1f5f9;font-size:20px}
     .title{font-size:26px;font-weight:700}
@@ -12,47 +12,49 @@
     .amber{fill:#fbbf24}
   </style>
   <rect width="960" height="744" rx="16" fill="#121923"/>
-  <text x="28" y="44" class="title">Why a thin detail may disappear</text>
-  <text x="28" y="78">Example: Pixel Size = 0.10 mm/pixel. Stripe = 2 pixels = 0.20 mm.</text>
+  <text x="28" y="44" class="title" data-i18n="aWidthWarningDoesNotEraseDetail">A width warning does not erase detail</text>
+  <text x="28" y="78" data-i18n="examplePixelSize010MmPixelStripe">Example: Pixel Size = 0.10 mm/pixel. Stripe = 2 pixels = 0.20 mm.</text>
 
   <rect x="24" y="104" width="440" height="244" rx="12" class="panel"/>
-  <text x="44" y="138" class="heading">1. Compare the widths</text>
-  <text x="44" y="180">Purple stripe</text>
+  <text x="44" y="138" class="heading" data-i18n="label1CompareTheWidths">1. Compare the widths</text>
+  <text x="44" y="180" data-i18n="purpleStripe">Purple stripe</text>
   <rect x="44" y="194" width="120" height="24" rx="3" class="purple"/>
   <text x="180" y="214" class="purple">0.20 mm</text>
-  <text x="44" y="258">Planned extrusion line</text>
+  <text x="44" y="258" data-i18n="plannedExtrusionLine">Planned extrusion line</text>
   <rect x="44" y="272" width="240" height="24" rx="3" class="cyan"/>
   <text x="300" y="292" class="cyan">0.40 mm</text>
-  <text x="44" y="328" class="note">The planned line is twice as wide as the stripe.</text>
+  <text x="44" y="328" class="note" data-i18n="thePlannedLineIsTwiceAsWideAs">The planned line is twice as wide as the stripe.</text>
 
   <rect x="496" y="104" width="440" height="244" rx="12" class="panel"/>
-  <text x="516" y="138" class="heading">2. Inspect the warning</text>
+  <text x="516" y="138" class="heading" data-i18n="label2InspectTheWarning">2. Inspect the warning</text>
   <rect x="516" y="166" width="132" height="132" fill="#35627b"/>
   <rect x="576" y="166" width="12" height="132" class="amber"/>
-  <text x="672" y="190" class="amber">Amber = warning</text>
-  <text x="672" y="220" class="note">Not a yellow filament.</text>
-  <text x="672" y="266">This stripe is at risk</text>
-  <text x="672" y="294">in the slicer.</text>
-  <text x="516" y="328" class="note">The overlay only highlights the problem.</text>
+  <text x="672" y="190" class="amber" data-i18n="amberWarning">Amber = warning</text>
+  <text x="672" y="220" class="note" data-i18n="notAYellowFilament">Not a yellow filament.</text>
+  <text x="672" y="266" data-i18n="checkTheActual">Check the actual</text>
+  <text x="672" y="294" data-i18n="slicedToolpaths">sliced toolpaths.</text>
+  <text x="516" y="328" class="note" data-i18n="aSourceColorCheckNotALayerSimulation">A source-color check, not a layer simulation.</text>
 
-  <text x="28" y="384" class="heading">3. Choose: “Omit at-risk colors from matching”</text>
-  <text x="28" y="414" class="note">Below: input to Auto-paint, not a prediction of the finished print.</text>
+  <text x="28" y="384" class="heading" data-i18n="label3OptionalCleanupOmitIsolatedColorSpecks">3. Optional cleanup: “Omit isolated color specks”</text>
+  <text x="28" y="414" class="note" data-i18n="belowInputToAutoPaintNotAPrediction">Below: input to Auto-paint, not a prediction of the finished print.</text>
   <rect x="24" y="434" width="440" height="216" rx="12" class="panel"/>
-  <text x="44" y="466" class="heading purple">OFF: keep the stripe</text>
+  <text x="44" y="466" class="heading purple" data-i18n="oFFKeepAllSourceDetail">OFF: keep all source detail</text>
   <rect x="44" y="478" width="132" height="132" fill="#35627b"/>
   <rect x="104" y="478" width="12" height="132" class="purple"/>
-  <text x="200" y="506">Purple stays as an</text>
-  <text x="200" y="534">image-color target.</text>
-  <text x="200" y="598" class="note">The slicer may still lose it.</text>
+  <rect x="68" y="538" width="12" height="12" fill="#ec4899"/>
+  <text x="200" y="506" data-i18n="thePurpleStripeAnd">The purple stripe and</text>
+  <text x="200" y="534" data-i18n="pinkSpeckBothStay">pink speck both stay.</text>
+  <text x="200" y="598" class="note" data-i18n="allInputColorsAreKept">All input colors are kept.</text>
 
   <rect x="496" y="434" width="440" height="216" rx="12" class="panel"/>
-  <text x="516" y="466" class="heading cyan">ON: use the nearby blue</text>
+  <text x="516" y="466" class="heading cyan" data-i18n="oNKeepLinesOmitOnlySpecks">ON: keep lines; omit only specks</text>
   <rect x="516" y="478" width="132" height="132" fill="#35627b"/>
-  <text x="672" y="494">The stripe is replaced</text>
-  <text x="672" y="522">with nearby blue.</text>
-  <text x="672" y="570">A blue region,</text>
-  <text x="672" y="598">not a hole.</text>
+  <rect x="576" y="478" width="12" height="132" class="purple"/>
+  <text x="672" y="506" data-i18n="theStripeStays">The stripe stays.</text>
+  <text x="672" y="534" data-i18n="onlyPinkIsReplaced">Only pink is replaced</text>
+  <text x="672" y="562" data-i18n="bySurroundingBlue">by surrounding blue.</text>
+  <text x="672" y="598" class="note" data-i18n="notAHole">Not a hole.</text>
 
-  <text x="28" y="686" class="note">Your 2D image stays unchanged. Schematic analysis, not exact slicer toolpaths.</text>
-  <text x="28" y="716" class="note">If no suitable printable neighbor exists, Kromacut keeps the detail.</text>
+  <text x="28" y="686" class="note" data-i18n="pinkOccursOnlyInThisTinyEnclosedSpeck">Pink occurs only in this tiny enclosed speck. Colors also used in lines or wide regions stay.</text>
+  <text x="28" y="716" class="note" data-i18n="your2DImageStaysUnchangedSourceColorWidths">Your 2D image stays unchanged. Source-color widths cannot guarantee printability.</text>
 </svg>

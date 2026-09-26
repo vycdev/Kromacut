@@ -1,17 +1,17 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="960" height="520" viewBox="0 0 960 520" role="img" aria-labelledby="swaps-title swaps-desc">
-<title id="swaps-title">A swap layer is the first layer of the next filament</title><desc id="swaps-desc">A stack with a 0.10 millimeter first layer and 0.04 millimeter regular layers switches to yellow before layer four. Layer tops and the material-change boundary have different Z heights.</desc>
+<title id="swaps-title" data-i18n="title">A swap layer is the first layer of the next filament</title><desc id="swaps-desc" data-i18n="description">A stack with a 0.10 millimeter first layer and 0.04 millimeter regular layers switches to yellow before layer four. Layer tops and the material-change boundary have different Z heights.</desc>
 <style>text{font-family:Arial,Helvetica,sans-serif;fill:#f1f5f9;font-size:20px}.muted{fill:#b3c2d4;font-size:18px}.heading{font-size:26px;font-weight:700}.label{font-weight:700}.panel{fill:#1b2736;stroke:#3c5065;stroke-width:2}</style>
 <rect width="960" height="520" rx="16" fill="#121923"/>
-<text x="32" y="44" class="heading">A swap layer is the first layer of the next filament</text>
-<rect x="32" y="78" width="425" height="344" rx="12" class="panel"/><text x="52" y="115" class="label">Side view • 0.10 first / 0.04 regular</text>
+<text x="32" y="44" class="heading" data-i18n="aSwapLayerIsTheFirstLayerOf">A swap layer is the first layer of the next filament</text>
+<rect x="32" y="78" width="425" height="344" rx="12" class="panel"/><text x="52" y="115" class="label" data-i18n="sideView010First004Regular">Side view • 0.10 first / 0.04 regular</text>
 <rect x="78" y="289" width="200" height="100" fill="#a78bfa"/><rect x="78" y="249" width="200" height="40" fill="#a78bfa" stroke="#121923"/><rect x="78" y="209" width="200" height="40" fill="#a78bfa" stroke="#121923"/><rect x="78" y="169" width="200" height="40" fill="#fbbf24" stroke="#121923"/>
-<g class="muted"><text x="300" y="178">Z 0.22 • layer 4</text><text x="300" y="218">Z 0.18 • layer 3</text><text x="300" y="258">Z 0.14 • layer 2</text><text x="300" y="298">Z 0.10 • layer 1</text><text x="300" y="392">Z 0.00 • plate</text></g>
-<text x="178" y="348" text-anchor="middle" style="fill:#121923">First layer</text>
+<g class="muted"><text x="300" y="178" data-i18n="z022Layer4">Z 0.22 • layer 4</text><text x="300" y="218" data-i18n="z018Layer3">Z 0.18 • layer 3</text><text x="300" y="258" data-i18n="z014Layer2">Z 0.14 • layer 2</text><text x="300" y="298" data-i18n="z010Layer1">Z 0.10 • layer 1</text><text x="300" y="392" data-i18n="z000Plate">Z 0.00 • plate</text></g>
+<text x="178" y="348" text-anchor="middle" style="fill:#121923" data-i18n="firstLayer">First layer</text>
 <path d="M64 209h227" stroke="#f1f5f9" stroke-width="3" stroke-dasharray="7 5"/>
 <rect x="485" y="78" width="443" height="344" rx="12" class="panel"/>
-<text x="507" y="115" class="label">Read the layer number first</text>
-<text x="507" y="163">Start with purple.</text><text x="507" y="202">Print layers 1, 2 and 3.</text><text x="507" y="241">Swap before printing layer 4.</text>
-<text x="507" y="298" class="muted">Boundary below yellow: 0.18 mm</text><text x="507" y="332" class="muted">Top of yellow layer: 0.22 mm</text><text x="507" y="388" class="muted">Both heights describe the same swap.</text>
-<text x="32" y="467" class="muted">Check where your slicer inserts the change. Do not scale the model in Z.</text>
-<text x="32" y="497" class="muted">Illustrative stack. Your actual instructions come from the built model.</text>
+<text x="507" y="115" class="label" data-i18n="readTheLayerNumberFirst">Read the layer number first</text>
+<text x="507" y="163" data-i18n="startWithPurple">Start with purple.</text><text x="507" y="202" data-i18n="printLayers12And3">Print layers 1, 2 and 3.</text><text x="507" y="241" data-i18n="swapBeforePrintingLayer4">Swap before printing layer 4.</text>
+<text x="507" y="298" class="muted" data-i18n="boundaryBelowYellow018Mm">Boundary below yellow: 0.18 mm</text><text x="507" y="332" class="muted" data-i18n="topOfYellowLayer022Mm">Top of yellow layer: 0.22 mm</text><text x="507" y="388" class="muted" data-i18n="bothHeightsDescribeTheSameSwap">Both heights describe the same swap.</text>
+<text x="32" y="467" class="muted" data-i18n="checkWhereYourSlicerInsertsTheChangeDo">Check where your slicer inserts the change. Do not scale the model in Z.</text>
+<text x="32" y="497" class="muted" data-i18n="illustrativeStackYourActualInstructionsComeFromThe">Illustrative stack. Your actual instructions come from the built model.</text>
 </svg>

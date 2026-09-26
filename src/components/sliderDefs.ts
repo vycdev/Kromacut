@@ -1,26 +1,27 @@
 export type SliderDef = {
     key: string;
-    label: string;
+    labelKey: string;
     min: number;
     max: number;
     step: number;
     default: number;
     unit?: string;
+    unitKey?: string;
 };
 
 export const SLIDER_DEFS: SliderDef[] = [
     {
         key: 'exposure',
-        label: 'Exposure',
+        labelKey: 'adjustments.exposure',
         min: -3,
         max: 3,
         step: 0.01,
         default: 0,
-        unit: 'stops',
+        unitKey: 'adjustments.stops',
     },
     {
         key: 'contrast',
-        label: 'Contrast',
+        labelKey: 'adjustments.contrast',
         min: -100,
         max: 100,
         step: 1,
@@ -29,7 +30,7 @@ export const SLIDER_DEFS: SliderDef[] = [
     },
     {
         key: 'highlights',
-        label: 'Highlights',
+        labelKey: 'adjustments.highlights',
         min: -100,
         max: 100,
         step: 1,
@@ -38,7 +39,7 @@ export const SLIDER_DEFS: SliderDef[] = [
     },
     {
         key: 'shadows',
-        label: 'Shadows',
+        labelKey: 'adjustments.shadows',
         min: -100,
         max: 100,
         step: 1,
@@ -47,7 +48,7 @@ export const SLIDER_DEFS: SliderDef[] = [
     },
     {
         key: 'whites',
-        label: 'Whites',
+        labelKey: 'adjustments.whites',
         min: -100,
         max: 100,
         step: 1,
@@ -56,7 +57,7 @@ export const SLIDER_DEFS: SliderDef[] = [
     },
     {
         key: 'blacks',
-        label: 'Blacks',
+        labelKey: 'adjustments.blacks',
         min: -100,
         max: 100,
         step: 1,
@@ -65,7 +66,7 @@ export const SLIDER_DEFS: SliderDef[] = [
     },
     {
         key: 'saturation',
-        label: 'Saturation',
+        labelKey: 'adjustments.saturation',
         min: -100,
         max: 100,
         step: 1,
@@ -74,7 +75,7 @@ export const SLIDER_DEFS: SliderDef[] = [
     },
     {
         key: 'vibrance',
-        label: 'Vibrance',
+        labelKey: 'adjustments.vibrance',
         min: -100,
         max: 100,
         step: 1,
@@ -83,16 +84,16 @@ export const SLIDER_DEFS: SliderDef[] = [
     },
     {
         key: 'hue',
-        label: 'Hue',
+        labelKey: 'adjustments.hue',
         min: -180,
         max: 180,
         step: 1,
         default: 0,
-        unit: 'deg',
+        unitKey: 'adjustments.degrees',
     },
     {
         key: 'temperature',
-        label: 'Temperature',
+        labelKey: 'adjustments.temperature',
         min: -100,
         max: 100,
         step: 1,
@@ -101,7 +102,7 @@ export const SLIDER_DEFS: SliderDef[] = [
     },
     {
         key: 'tint',
-        label: 'Tint',
+        labelKey: 'adjustments.tint',
         min: -100,
         max: 100,
         step: 1,
@@ -110,7 +111,7 @@ export const SLIDER_DEFS: SliderDef[] = [
     },
     {
         key: 'clarity',
-        label: 'Clarity',
+        labelKey: 'adjustments.clarity',
         min: -100,
         max: 100,
         step: 1,

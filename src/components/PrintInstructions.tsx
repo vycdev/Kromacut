@@ -1,3 +1,4 @@
+import { Trans, useTranslation } from 'react-i18next';
 import { CollapsibleCard, DirtyDot } from '@/components/CollapsibleCard';
 import type { SwapEntry } from '../hooks/useSwapPlan';
 
@@ -26,21 +27,24 @@ export default function PrintInstructions({
     flatPaint = false,
     flatPaintFaceUp = false,
 }: PrintInstructionsProps) {
+    const { t } = useTranslation('printing');
     return (
         <CollapsibleCard
             id="print-instructions"
-            title="Print Instructions"
-            subtitle="Generated swap plan for your printer"
+            title={t('printInstructions.printInstructions')}
+            subtitle={t('printInstructions.generatedSwapPlanForYourPrinter')}
             headingLevel={4}
             className="mt-6"
             collapsedSummary={
-                tooManyColors ? <DirtyDot title="Too many colors for a swap plan" /> : undefined
+                tooManyColors ? (
+                    <DirtyDot title={t('printInstructions.tooManyColorsForASwapPlan')} />
+                ) : undefined
             }
             actions={
                 <button
                     type="button"
                     onClick={onCopy}
-                    title="Copy print instructions to clipboard"
+                    title={t('printInstructions.copyPrintInstructionsToClipboard')}
                     aria-pressed={copied}
                     disabled={tooManyColors}
                     className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-200 ${
@@ -49,32 +53,54 @@ export default function PrintInstructions({
                             : 'bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed'
                     }`}
                 >
-                    {copied ? '✓ Copied!' : 'Copy'}
+                    {copied ? t('printInstructions.copied') : t('printInstructions.copy')}
                 </button>
             }
         >
             <div className="space-y-4 text-sm">
                 {/* Recommended Settings */}
                 <div className="p-3 rounded-lg bg-primary/5 border border-primary/20">
-                    <div className="font-semibold text-foreground mb-2">Recommended Settings</div>
+                    <div className="font-semibold text-foreground mb-2">
+                        {t('printInstructions.recommendedSettings')}
+                    </div>
                     <div className="space-y-1 text-muted-foreground text-xs">
                         <div>
-                            • Wall loops: <span className="text-foreground font-medium">1</span>
+                            <Trans
+                                ns="printing"
+                                i18nKey="printInstructions.wallLoops"
+                                components={{
+                                    value: <span className="text-foreground font-medium" />,
+                                }}
+                            />
                         </div>
                         <div>
-                            • Infill: <span className="text-foreground font-medium">100%</span>
+                            <Trans
+                                ns="printing"
+                                i18nKey="printInstructions.infill"
+                                components={{
+                                    value: <span className="text-foreground font-medium" />,
+                                }}
+                            />
                         </div>
                         <div>
-                            • Layer height:{' '}
-                            <span className="text-foreground font-mono">
-                                {layerHeight.toFixed(3)} mm
-                            </span>
+                            <Trans
+                                ns="printing"
+                                i18nKey="printInstructions.layerHeight"
+                                values={{ height: layerHeight.toFixed(3) }}
+                                components={{
+                                    value: <span className="text-foreground font-mono" />,
+                                }}
+                            />
                         </div>
                         <div>
-                            • First layer height:{' '}
-                            <span className="text-foreground font-mono">
-                                {slicerFirstLayerHeight.toFixed(3)} mm
-                            </span>
+                            <Trans
+                                ns="printing"
+                                i18nKey="printInstructions.firstLayerHeight"
+                                values={{ height: slicerFirstLayerHeight.toFixed(3) }}
+                                components={{
+                                    value: <span className="text-foreground font-mono" />,
+                                }}
+                            />
                         </div>
                     </div>
                 </div>
@@ -83,35 +109,49 @@ export default function PrintInstructions({
                 {flatPaint ? (
                     <div className="p-3 rounded-lg bg-accent/5 border border-border/50 space-y-2">
                         <div className="font-semibold text-foreground">
-                            Flat Paint multi-material print
+                            {t('printInstructions.flatPaintMultiMaterialPrint')}
                         </div>
                         <ul className="list-disc pl-4 space-y-1 text-muted-foreground text-xs">
                             <li>
-                                Export as <span className="font-semibold">3MF</span> — the model
-                                contains one object per filament. Assign each object to its filament
-                                in the slicer (AMS/toolchanger required).
+                                <Trans
+                                    ns="printing"
+                                    i18nKey="printInstructions.exportMultiMaterial"
+                                    components={{ format: <span className="font-semibold" /> }}
+                                />
                             </li>
                             {flatPaintFaceUp ? (
                                 <>
-                                    <li>No clear or transparent carrier object is included.</li>
                                     <li>
-                                        Print as-is and face-up. Do not mirror the model in the
-                                        slicer.
+                                        {t(
+                                            'printInstructions.noClearOrTransparentCarrierObjectIsIncluded'
+                                        )}
                                     </li>
-                                    <li>The artwork is exposed on the top surface.</li>
+                                    <li>{t('printInstructions.printAsIsAndFaceUpDoNotMirror')}</li>
+                                    <li>
+                                        {t('printInstructions.theArtworkIsExposedOnTheTopSurface')}
+                                    </li>
                                 </>
                             ) : (
                                 <>
                                     <li>
-                                        Use <span className="font-semibold">clear filament</span>{' '}
-                                        for the transparent carrier object — it prints first and
-                                        becomes the smooth viewing face.
+                                        <Trans
+                                            ns="printing"
+                                            i18nKey="printInstructions.transparentCarrier"
+                                            components={{
+                                                material: <span className="font-semibold" />,
+                                            }}
+                                        />
                                     </li>
                                     <li>
-                                        Print as-is — the artwork is already mirrored for face-down
-                                        printing. Do not mirror in the slicer.
+                                        {t(
+                                            'printInstructions.printAsIsTheArtworkIsAlreadyMirroredFor'
+                                        )}
                                     </li>
-                                    <li>After printing, flip the piece over to view the image.</li>
+                                    <li>
+                                        {t(
+                                            'printInstructions.afterPrintingFlipThePieceOverToViewThe'
+                                        )}
+                                    </li>
                                 </>
                             )}
                         </ul>
@@ -121,7 +161,7 @@ export default function PrintInstructions({
                         {/* Start Color */}
                         <div>
                             <div className="font-semibold text-foreground mb-3">
-                                Start with Color
+                                {t('printInstructions.startWithColor')}
                             </div>
                             {tooManyColors ? (
                                 <div className="text-muted-foreground text-sm p-3 rounded-lg bg-muted/30">
@@ -153,17 +193,15 @@ export default function PrintInstructions({
                         {/* Color Swap Plan */}
                         <div>
                             <div className="font-semibold text-foreground mb-2">
-                                Color Swap Plan
+                                {t('printInstructions.colorSwapPlan')}
                             </div>
                             {tooManyColors ? (
                                 <div className="text-amber-600 text-sm p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
-                                    Swap instructions are disabled for very large palettes (
-                                    {colorCount} colors). Reduce the image to 64 colors or fewer in
-                                    2D mode first.
+                                    {t('printInstructions.tooManyColors', { count: colorCount })}
                                 </div>
                             ) : swapPlan.length <= 1 ? (
                                 <div className="text-muted-foreground text-sm p-3 rounded-lg bg-accent/5 border border-border/50">
-                                    Only one color configured — no swaps needed.
+                                    {t('printInstructions.onlyOneColorConfiguredNoSwapsNeeded')}
                                 </div>
                             ) : (
                                 <ol className="space-y-2">
@@ -179,25 +217,43 @@ export default function PrintInstructions({
                                                 </span>
                                                 <div className="flex-1 flex flex-col gap-1.5">
                                                     <div className="flex items-center gap-2">
-                                                        <span>Swap to</span>
-                                                        <span
-                                                            className="inline-block w-4 h-4 rounded border border-border flex-shrink-0"
-                                                            style={{ background: entry.swatch.hex }}
+                                                        <Trans
+                                                            ns="printing"
+                                                            i18nKey="printInstructions.swapToColor"
+                                                            values={{ color: entry.swatch.hex }}
+                                                            components={{
+                                                                swatch: (
+                                                                    <span
+                                                                        className="inline-block w-4 h-4 rounded border border-border flex-shrink-0"
+                                                                        style={{
+                                                                            background:
+                                                                                entry.swatch.hex,
+                                                                        }}
+                                                                    />
+                                                                ),
+                                                                color: (
+                                                                    <span className="font-mono text-foreground" />
+                                                                ),
+                                                            }}
                                                         />
-                                                        <span className="font-mono text-foreground">
-                                                            {entry.swatch.hex}
-                                                        </span>
                                                     </div>
                                                     <div>
-                                                        at layer{' '}
-                                                        <span className="font-semibold text-foreground">
-                                                            {entry.layer}
-                                                        </span>{' '}
-                                                        (~
-                                                        <span className="font-mono text-foreground">
-                                                            {entry.height.toFixed(3)} mm
-                                                        </span>
-                                                        )
+                                                        <Trans
+                                                            ns="printing"
+                                                            i18nKey="printInstructions.atLayer"
+                                                            values={{
+                                                                layer: entry.layer,
+                                                                height: entry.height.toFixed(3),
+                                                            }}
+                                                            components={{
+                                                                layer: (
+                                                                    <span className="font-semibold text-foreground" />
+                                                                ),
+                                                                height: (
+                                                                    <span className="font-mono text-foreground" />
+                                                                ),
+                                                            }}
+                                                        />
                                                     </div>
                                                 </div>
                                             </li>
@@ -212,7 +268,9 @@ export default function PrintInstructions({
                 <div className="text-xs text-muted-foreground p-3 rounded-lg bg-accent/5 border border-border/50">
                     <span>ℹ️</span>{' '}
                     <span className="italic">
-                        Heights are approximate. Always confirm in your slicer before printing.
+                        {t(
+                            'printInstructions.heightsAreApproximateAlwaysConfirmInYourSlicerBefore'
+                        )}
                     </span>
                 </div>
             </div>

@@ -1,37 +1,37 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 540" role="img" aria-labelledby="title desc">
-  <title id="title">How Palette Proof judgments guide another round</title>
-  <desc id="desc">Best available supports a winner without claiming a color match. Close adds a soft correction and Dead on adds a strong anchor. Continue targets keeps winners and explores challengers. None supplies no winner and leads to untried alternatives. New targets gathers evidence about another part of the image. Example colors are schematic.</desc>
+  <title id="title" data-i18n="title">How Palette Proof judgments guide another round</title>
+  <desc id="desc" data-i18n="description">Best available supports a winner without claiming a color match. Close adds a soft correction and Dead on adds a strong anchor. Continue targets keeps winners and explores challengers. None supplies no winner and leads to untried alternatives. New targets gathers evidence about another part of the image. Example colors are schematic.</desc>
   <defs><marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 10 5 0 10Z" fill="#b3c2d4"/></marker></defs>
   <rect width="960" height="540" rx="18" fill="#121923"/>
   <g font-family="system-ui, sans-serif" font-size="18" fill="#f1f5f9">
-    <text x="32" y="44" font-size="26" font-weight="700">A proof is a comparison, not a pass/fail test</text>
-    <text x="32" y="74" fill="#b3c2d4">Judge the physical patches first. Then choose what to test next.</text>
+    <text x="32" y="44" font-size="26" font-weight="700" data-i18n="aProofIsAComparisonNotAPass">A proof is a comparison, not a pass/fail test</text>
+    <text x="32" y="74" fill="#b3c2d4" data-i18n="judgeThePhysicalPatchesFirstThenChooseWhat">Judge the physical patches first. Then choose what to test next.</text>
     <rect x="32" y="100" width="430" height="208" rx="14" fill="#1b2736"/>
-    <text x="52" y="134" fill="#38bdf8" font-weight="700">A patch is the closest</text>
+    <text x="52" y="134" fill="#38bdf8" font-weight="700" data-i18n="aPatchIsTheClosest">A patch is the closest</text>
     <rect x="52" y="152" width="76" height="36" rx="6" fill="#9d7338"/>
     <rect x="141" y="152" width="76" height="36" rx="6" fill="#c59643" stroke="#f1f5f9" stroke-width="3"/>
     <rect x="230" y="152" width="76" height="36" rx="6" fill="#d1b565"/>
-    <text x="179" y="177" text-anchor="middle" fill="#121923" font-weight="700">B1</text>
-    <text x="52" y="220"><tspan font-weight="700">Best available:</tspan><tspan fill="#b3c2d4"> preference only</tspan></text>
-    <text x="52" y="251"><tspan font-weight="700">Close:</tspan><tspan fill="#b3c2d4"> soft local color correction</tspan></text>
-    <text x="52" y="282"><tspan font-weight="700">Dead on:</tspan><tspan fill="#b3c2d4"> strongest local anchor</tspan></text>
+    <text x="179" y="177" text-anchor="middle" fill="#121923" font-weight="700" data-i18n="b1">B1</text>
+    <text x="52" y="220" data-i18n="bestAvailableEffect" data-i18n-rich="label"><tspan font-weight="700">Best available:</tspan><tspan fill="#b3c2d4"> preference only</tspan></text>
+    <text x="52" y="251" data-i18n="closeEffect" data-i18n-rich="label"><tspan font-weight="700">Close:</tspan><tspan fill="#b3c2d4"> soft local color correction</tspan></text>
+    <text x="52" y="282" data-i18n="deadOnEffect" data-i18n-rich="label"><tspan font-weight="700">Dead on:</tspan><tspan fill="#b3c2d4"> strongest local anchor</tspan></text>
     <rect x="532" y="100" width="396" height="208" rx="14" fill="#1b2736"/>
-    <text x="552" y="134" fill="#38bdf8" font-weight="700">Continue targets</text>
-    <text x="552" y="168" fill="#b3c2d4">Keep a previous best.</text>
-    <text x="552" y="197" fill="#b3c2d4">Test nearby untried challengers.</text>
-    <text x="552" y="226" fill="#b3c2d4">Allow an exploratory alternative.</text>
-    <text x="552" y="269" fill="#fbbf24">Ties can keep multiple winners.</text>
+    <text x="552" y="134" fill="#38bdf8" font-weight="700" data-i18n="continueTargets">Continue targets</text>
+    <text x="552" y="168" fill="#b3c2d4" data-i18n="keepAPreviousBest">Keep a previous best.</text>
+    <text x="552" y="197" fill="#b3c2d4" data-i18n="testNearbyUntriedChallengers">Test nearby untried challengers.</text>
+    <text x="552" y="226" fill="#b3c2d4" data-i18n="allowAnExploratoryAlternative">Allow an exploratory alternative.</text>
+    <text x="552" y="269" fill="#fbbf24" data-i18n="tiesCanKeepMultipleWinners">Ties can keep multiple winners.</text>
     <path d="M465 199H518" stroke="#b3c2d4" stroke-width="2" marker-end="url(#arrow)"/>
     <rect x="32" y="326" width="430" height="103" rx="14" fill="#1b2736"/>
-    <text x="52" y="361" fill="#fbbf24" font-weight="700">None: every candidate is poor</text>
-    <text x="52" y="395" fill="#b3c2d4">No winner and no invented correct color.</text>
+    <text x="52" y="361" fill="#fbbf24" font-weight="700" data-i18n="noneEveryCandidateIsPoor">None: every candidate is poor</text>
+    <text x="52" y="395" fill="#b3c2d4" data-i18n="noWinnerAndNoInventedCorrectColor">No winner and no invented correct color.</text>
     <rect x="532" y="326" width="396" height="103" rx="14" fill="#1b2736"/>
-    <text x="552" y="361" fill="#fbbf24" font-weight="700">Continue with exploration</text>
-    <text x="552" y="395" fill="#b3c2d4">Try untested physical candidates.</text>
+    <text x="552" y="361" fill="#fbbf24" font-weight="700" data-i18n="continueWithExploration">Continue with exploration</text>
+    <text x="552" y="395" fill="#b3c2d4" data-i18n="tryUntestedPhysicalCandidates">Try untested physical candidates.</text>
     <path d="M465 376H518" stroke="#b3c2d4" stroke-width="2" marker-end="url(#arrow)"/>
     <rect x="32" y="447" width="896" height="63" rx="12" fill="#1b2736" stroke="#a78bfa"/>
-    <text x="52" y="473" fill="#a78bfa" font-weight="700">New targets</text>
-    <text x="52" y="498" fill="#b3c2d4">Test different artwork colors. Fewer useful candidates can mean a smaller next coupon.</text>
-    <text x="928" y="530" text-anchor="end" fill="#b3c2d4">Schematic comparison, not a predicted print result</text>
+    <text x="52" y="473" fill="#a78bfa" font-weight="700" data-i18n="newTargets">New targets</text>
+    <text x="52" y="498" fill="#b3c2d4" data-i18n="testDifferentArtworkColorsFewerUsefulCandidatesCan">Test different artwork colors. Fewer useful candidates can mean a smaller next coupon.</text>
+    <text x="928" y="530" text-anchor="end" fill="#b3c2d4" data-i18n="schematicComparisonNotAPredictedPrintResult">Schematic comparison, not a predicted print result</text>
   </g>
 </svg>

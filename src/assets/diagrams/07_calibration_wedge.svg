@@ -1,13 +1,13 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 540" role="img" aria-labelledby="title desc">
-<title id="title">Read the first wedge patch that matches the reference rail</title>
-<desc id="desc">An illustrative eight-patch wedge has a tab at its one-layer end and an opaque rail beside all patches. Patch six is the first shown matching the rail. Max layers sets the last patch; layer height sets each thickness increment. A side view shows increasing thickness over a common base. The optional Merge read compares neighboring patches rather than the reference rail.</desc>
+<title id="title" data-i18n="title">Read the first wedge patch that matches the reference rail</title>
+<desc id="desc" data-i18n="description">An illustrative eight-patch wedge has a tab at its one-layer end and an opaque rail beside all patches. Patch six is the first shown matching the rail. Max layers sets the last patch; layer height sets each thickness increment. A side view shows increasing thickness over a common base. The optional Merge read compares neighboring patches rather than the reference rail.</desc>
 <defs><marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 10 5 0 10Z" fill="#38bdf8"/></marker></defs>
 <rect width="960" height="540" rx="18" fill="#121923"/>
 <g font-family="system-ui, sans-serif" font-size="18" fill="#f1f5f9">
-<text x="32" y="44" font-size="26" font-weight="700">Match compares a patch with the rail beside it</text>
-<text x="32" y="74" fill="#b3c2d4">Example only: 8 patches printed; the first rail match is patch 6.</text>
+<text x="32" y="44" font-size="26" font-weight="700" data-i18n="matchComparesAPatchWithTheRailBeside">Match compares a patch with the rail beside it</text>
+<text x="32" y="74" fill="#b3c2d4" data-i18n="exampleOnly8PatchesPrintedTheFirstRail">Example only: 8 patches printed; the first rail match is patch 6.</text>
 <rect x="32" y="98" width="896" height="221" rx="14" fill="#1b2736"/>
-<text x="110" y="125" fill="#b3c2d4">Opaque reference rail, made from the filament being measured</text>
+<text x="110" y="125" fill="#b3c2d4" data-i18n="opaqueReferenceRailMadeFromTheFilamentBeing">Opaque reference rail, made from the filament being measured</text>
 <rect x="110" y="139" width="712" height="31" rx="5" fill="#e7ad46"/><rect x="72" y="188" width="26" height="58" rx="4" fill="#b3c2d4"/>
 <g stroke="#121923" stroke-width="2">
 <rect x="110" y="186" width="82" height="60" rx="4" fill="#745037"/><rect x="200" y="186" width="82" height="60" rx="4" fill="#9a683c"/><rect x="290" y="186" width="82" height="60" rx="4" fill="#b77e3f"/><rect x="380" y="186" width="82" height="60" rx="4" fill="#cf9542"/>
@@ -17,13 +17,13 @@
 <g text-anchor="middle" font-weight="700">
 <text x="151" y="274">1</text><text x="241" y="274">2</text><text x="331" y="274">3</text><text x="421" y="274">4</text><text x="511" y="274">5</text><text x="601" y="274" fill="#38bdf8">6</text><text x="691" y="274">7</text><text x="781" y="274">8</text>
 </g>
-<text x="52" y="304" fill="#b3c2d4">Tab = start</text><text x="550" y="304" fill="#38bdf8">Match = 6</text><text x="746" y="304" fill="#fbbf24">Max = 8</text>
+<text x="52" y="304" fill="#b3c2d4" data-i18n="tabStart">Tab = start</text><text x="550" y="304" fill="#38bdf8" data-i18n="match6">Match = 6</text><text x="746" y="304" fill="#fbbf24" data-i18n="max8">Max = 8</text>
 <rect x="32" y="337" width="430" height="172" rx="14" fill="#1b2736"/>
-<text x="52" y="370" font-weight="700">Side view: one more layer per step</text>
+<text x="52" y="370" font-weight="700" data-i18n="sideViewOneMoreLayerPerStep">Side view: one more layer per step</text>
 <path d="M65 448V438H108V430H151V422H194V414H237V406H280V398H323V390H366V382H409V448Z" fill="#e7ad46" stroke="#121923" stroke-width="2"/><rect x="65" y="448" width="344" height="24" fill="#090e15"/>
-<text x="52" y="497" fill="#b3c2d4">Base below; layer height sets each rise.</text>
+<text x="52" y="497" fill="#b3c2d4" data-i18n="baseBelowLayerHeightSetsEachRise">Base below; layer height sets each rise.</text>
 <rect x="490" y="337" width="438" height="172" rx="14" fill="#1b2736"/>
-<text x="510" y="370" fill="#a78bfa" font-weight="700">Merge is optional, and different</text><text x="510" y="401" fill="#b3c2d4">Compare neighboring patches.</text><text x="510" y="430" fill="#b3c2d4">Enter the last patch still different</text><text x="510" y="459" fill="#b3c2d4">from the patch immediately before it.</text><text x="510" y="488" fill="#a78bfa">It checks the curve, not the rail match.</text>
-<text x="928" y="532" text-anchor="end" fill="#b3c2d4">Illustrative reads, colors, and exaggerated heights</text>
+<text x="510" y="370" fill="#a78bfa" font-weight="700" data-i18n="mergeIsOptionalAndDifferent">Merge is optional, and different</text><text x="510" y="401" fill="#b3c2d4" data-i18n="compareNeighboringPatches">Compare neighboring patches.</text><text x="510" y="430" fill="#b3c2d4" data-i18n="enterTheLastPatchStillDifferent">Enter the last patch still different</text><text x="510" y="459" fill="#b3c2d4" data-i18n="fromThePatchImmediatelyBeforeIt">from the patch immediately before it.</text><text x="510" y="488" fill="#a78bfa" data-i18n="itChecksTheCurveNotTheRailMatch">It checks the curve, not the rail match.</text>
+<text x="928" y="532" text-anchor="end" fill="#b3c2d4" data-i18n="illustrativeReadsColorsAndExaggeratedHeights">Illustrative reads, colors, and exaggerated heights</text>
 </g>
 </svg>

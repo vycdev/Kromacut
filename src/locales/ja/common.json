@@ -1,0 +1,76 @@
+{
+    "colorPicker": {
+        "hue": "色相",
+        "color": "色",
+        "alpha": "不透明度",
+        "saturationBrightness": "彩度{{saturation}}%、明度{{brightness}}%"
+    },
+    "language": {
+        "title": "言語",
+        "system": "システムの言語",
+        "loading": "言語を読み込み中…",
+        "failed": "この言語を読み込めませんでした。現在の言語を維持しています。"
+    },
+    "navigation": {
+        "backToApp": "アプリに戻る",
+        "home": "Kromacut ホーム",
+        "backHome": "Kromacut ホームに戻る",
+        "loading": "Kromacut を読み込み中"
+    },
+    "settings": {
+        "title": "設定",
+        "open": "設定を開く",
+        "close": "設定を閉じる",
+        "theme": "テーマ",
+        "system": "システム",
+        "dark": "ダーク",
+        "light": "ライト",
+        "resources": "資料とコミュニティ",
+        "resourcesDescription": "ガイド、リリース情報、作品を共有できる場所です。",
+        "docs": "ドキュメント",
+        "docsDescription": "操作の流れや印刷設定を確認できます。",
+        "reddit": "Reddit の r/kromacut",
+        "patreon": "Patreon で支援する",
+        "experimental": "試験的機能",
+        "multiPlate": "マルチプレートモード",
+        "multiPlateDescription": "開発途中のマルチプレート機能です。現時点では動作に影響しません。変更や不具合が生じる可能性があります。",
+        "multiPlateEnable": "試験的なマルチプレートモードを有効にする"
+    },
+    "diagnostics": {
+        "title": "診断",
+        "description": "調査のために、自動ペイントの判断過程を再現可能な形で記録します。",
+        "record": "自動ペイントの診断情報を記録",
+        "recordDescription": "自動ペイントの新しい計算ごとに、ディスクへ書き込み済みの JSONL ファイルを1つ作成します。使用中のフィラメントプロファイル、校正データ、候補、最終結果が含まれ、ファイルが大きくなる場合があります。",
+        "newCalculations": "新しく実行する計算にのみ適用されます。",
+        "openFolder": "フォルダーを開く",
+        "folderFailed": "診断フォルダーを開けませんでした。"
+    },
+    "updates": {
+        "title": "更新",
+        "checkTitle": "更新を確認",
+        "checking": "確認中",
+        "check": "確認",
+        "startup": "起動時に確認",
+        "startupDescription": "Kromacut の起動時にデスクトップ版の更新通知を表示します。",
+        "startupLabel": "起動時に更新を確認する",
+        "available": "バージョン {{version}} が利用できます",
+        "notice": "更新があります",
+        "noticeDescription": "バージョン <version>{{version}}</version> が利用可能になりました！",
+        "current": "Kromacut は最新です。",
+        "download": "ダウンロード",
+        "later": "後で",
+        "dismiss": "更新通知を閉じる",
+        "checkFailed": "更新を確認できませんでした。後でもう一度お試しください。",
+        "downloadFailed": "ダウンロードページを開けませんでした。"
+    },
+    "app": {
+        "uploadImage": "画像ファイルをアップロードしてください",
+        "resizeFailed": "画像のサイズ変更に失敗しました。詳細はコンソールを確認してください。",
+        "preparingControls": "3D 操作パネルを準備中…",
+        "performanceWarning": "処理負荷の警告",
+        "slowBuild": "次の理由により、3D モデルの生成に時間がかかる場合があります：",
+        "continue": "続行しますか？",
+        "cancel": "キャンセル",
+        "buildAnyway": "そのまま生成"
+    }
+}

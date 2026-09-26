@@ -1,0 +1,168 @@
+{
+  "title": "Termeni și condiții",
+  "seoTitle": "Termeni și condiții | Kromacut",
+  "description": "Condiții de utilizare Kromacut: licențiere open source, drepturi asupra imaginilor, verificări de imprimare, copii locale de siguranță, asistență comunitară și protecții legale.",
+  "updated": "13 septembrie 2026",
+  "intro": "Conținutul tău, drepturile tale open source și verificările de făcut înainte de imprimare.",
+  "sections": [
+    {
+      "id": "about-these-terms",
+      "title": "Despre Kromacut și aceste condiții",
+      "paragraphs": [
+        "Kromacut este un instrument open source administrat personal, care transformă imagini în modele 3D cu straturi de culoare. Aplicația din browser și versiunile desktop sunt gratuite. Nu este necesar un cont Kromacut sau un abonament Patreon pentru editarea imaginilor ori exportul modelelor.",
+        "Aceste condiții descriu utilizarea site-ului și aplicației Kromacut, responsabilitățile practice la pregătirea imprimărilor și canalele de asistență disponibile. Licența software stabilește drepturile de utilizare, copiere, modificare și redistribuire a software-ului; această pagină nu o înlocuiește și nu adaugă restricții acestor drepturi."
+      ],
+      "links": []
+    },
+    {
+      "id": "software-license",
+      "title": "Licență software open source",
+      "paragraphs": [
+        "Software-ul Kromacut este licențiat sub GNU Affero General Public License, exclusiv versiunea 3 (AGPL-3.0-only). Îl poți utiliza în scopuri personale sau comerciale. Copierea, modificarea și redistribuirea trebuie să respecte licența, inclusiv cerințele aplicabile privind notificările și codul-sursă corespunzător.",
+        "Dacă modifici software-ul și permiți utilizatorilor să interacționeze de la distanță prin rețea cu versiunea modificată, se aplică prevederea AGPL privind codul-sursă în rețea, când condițiile sale sunt îndeplinite. Citește licența integrală pentru cerințele exacte; acesta este doar un rezumat.",
+        "Bibliotecile terțe, fonturile și alte materiale licențiate separat își păstrează propriile licențe și notificări. Dacă această pagină intră în conflict cu licența software privind un drept acordat, prevalează licența software."
+      ],
+      "links": [
+        {
+          "label": "Codul-sursă Kromacut",
+          "href": "https://github.com/vycdev/Kromacut"
+        },
+        {
+          "label": "Licența Kromacut",
+          "href": "https://github.com/vycdev/Kromacut/blob/main/LICENSE"
+        },
+        {
+          "label": "GNU AGPL versiunea 3",
+          "href": "https://www.gnu.org/licenses/agpl-3.0.html"
+        }
+      ]
+    },
+    {
+      "id": "your-content",
+      "title": "Imaginile tale și modelele exportate",
+      "paragraphs": [
+        "Kromacut nu revendică proprietatea asupra imaginilor, paletelor, profilurilor sau modelelor pe care le aduci în aplicație ori le creezi cu ea. Procesarea locală a unui fișier nu îi acordă operatorului permisiunea de a-l publica sau reutiliza.",
+        "Ești responsabil să ai drepturile sau permisiunile necesare pentru imaginile tale și pentru orice imprimări ori fișiere pe care le distribui sau vinzi. Utilizarea Kromacut nu elimină drepturile de autor, mărcile, confidențialitatea sau alte drepturi ale altor persoane. Ilustrațiile din exemple ori postări comunitare nu sunt automat licențiate pentru reutilizarea ta.",
+        "Un model exportat nu intră automat sub AGPL doar pentru că a fost produs de Kromacut. Licența acoperă rezultatul doar când conținutul îl face o operă supusă acelei licențe. Aceste condiții nu adaugă taxe separate sau restricții de utilizare exclusiv necomercială imprimărilor tale; drepturile asupra ilustrației sursă rămân importante."
+      ],
+      "links": []
+    },
+    {
+      "id": "before-printing",
+      "title": "Verifică fiecare model înainte de imprimare",
+      "paragraphs": [
+        "Previzualizările, predicțiile de culoare, calculele distanței de acoperire, rezultatele calibrării și instrucțiunile de imprimare Kromacut sunt ajutoare pentru planificare. Nu garantează o potrivire fizică exactă a culorilor, o imprimare reușită sau adecvarea pentru un scop anume. Materialele, iluminarea, calibrarea, configurarea imprimantei și setările slicerului influențează rezultatul.",
+        "Inspectează fiecare STL sau 3MF exportat în slicer. Verifică dimensiunile, geometria, orientarea, înălțimile straturilor și ale primului strat, setările duzei și extrudării, atribuirile filamentelor și schimbările înainte de pornirea imprimantei. Reverifică după schimbarea setărilor sau actualizarea aplicației și folosește o mică imprimare de test când este cazul.",
+        "Respectă instrucțiunile de siguranță ale producătorilor imprimantei și filamentelor. Un export nu este o evaluare inginerească sau o certificare de siguranță. Orice utilizare critică pentru siguranță, portantă, medicală sau altfel reglementată necesită verificări independente adecvate."
+      ],
+      "links": [
+        {
+          "label": "Generarea și exportul rezultatului",
+          "href": "/docs/generating-exporting-output"
+        },
+        {
+          "label": "Fluxuri de calibrare",
+          "href": "/docs/calibration-workflows"
+        }
+      ]
+    },
+    {
+      "id": "local-data-and-backups",
+      "title": "Date locale și copii de siguranță",
+      "paragraphs": [
+        "Kromacut procesează imaginile pe dispozitivul tău și nu oferă stocare a proiectelor în cloud sau recuperare a fișierelor locale. Stocarea browserului ori aplicației poate fi golită, pierdută sau poate deveni indisponibilă.",
+        "Păstrează imaginile originale și exportă copii de siguranță ale paletelor importante, profilurilor de filamente și istoricului calibrărilor, mai ales înainte de golirea stocării, schimbarea dispozitivelor sau actualizarea aplicației. Salvează modelele exportate într-un loc ușor de regăsit. Operatorul nu poate recupera de la distanță date păstrate doar pe dispozitivul tău.",
+        "Informarea de confidențialitate explică setările salvate, cererile către site, corespondența prin email și opțiunile de confidențialitate. Este o informare despre gestionarea datelor, nu o solicitare de consimțământ general."
+      ],
+      "links": [
+        {
+          "label": "Confidențialitate și date locale",
+          "href": "/privacy"
+        }
+      ]
+    },
+    {
+      "id": "community-support",
+      "title": "Ajutor și canale ale comunității",
+      "paragraphs": [
+        "Canalele principale de ajutor pentru Kromacut sunt r/kromacut pe Reddit și serverul Discord Kromacut. Documentația este disponibilă și în aplicație și pe acest site. Dacă nu există un acord separat sau o obligație legală, ajutorul comunitar nu garantează un timp de răspuns, o remediere ori o dată de implementare.",
+        "Respectă regulile platformei și comunității când participi. Postările Reddit și canalele Discord partajate pot fi vizibile altor persoane; evită informațiile sensibile sau fișierele pe care nu vrei să le distribui. Sfaturile altor membri le aparțin și trebuie verificate înainte de imprimare.",
+        "Folosește emailul public de mai jos pentru întrebări despre aceste condiții sau o problemă privată. Cererile privind confidențialitatea pot folosi contactul descris în informarea de confidențialitate."
+      ],
+      "links": [
+        {
+          "label": "r/kromacut pe Reddit",
+          "href": "https://www.reddit.com/r/kromacut/"
+        },
+        {
+          "label": "Serverul Discord Kromacut",
+          "href": "https://discord.gg/nU63sFMcnX"
+        },
+        {
+          "label": "Răsfoiește documentația",
+          "href": "/docs/overview"
+        }
+      ]
+    },
+    {
+      "id": "patreon-and-external-services",
+      "title": "Susținere opțională și servicii externe",
+      "paragraphs": [
+        "Susținerea Kromacut prin Patreon este opțională și nu condiționează utilizarea aplicației. Patreon este un serviciu separat. Înainte de plată, verifică descrierea abonamentului sau achiziției, condițiile de facturare, opțiunile de anulare și termenii aplicabili.",
+        "Aceste condiții nu anulează beneficii Patreon promise separat sau drepturi de anulare, rambursare ori alte drepturi aplicabile unei tranzacții. O contribuție în sine nu creează o promisiune suplimentară privind o funcție Kromacut, o dată de lansare sau un timp de răspuns al asistenței.",
+        "Linkurile către găzduire, versiuni, comunitate și servicii de susținere te duc pe site-uri operate de alții. Utilizarea lor este supusă propriilor condiții; Kromacut nu controlează disponibilitatea sau practicile acestora."
+      ],
+      "links": [
+        {
+          "label": "Susține Kromacut pe Patreon",
+          "href": "https://www.patreon.com/cw/vycdev"
+        },
+        {
+          "label": "Informații despre rambursări Patreon",
+          "href": "https://support.patreon.com/hc/en-gb/articles/205032045-Patreon-s-refund-policy"
+        }
+      ]
+    },
+    {
+      "id": "availability-and-responsible-use",
+      "title": "Disponibilitate și utilizare responsabilă",
+      "paragraphs": [
+        "Site-ul găzduit, descărcările și informațiile despre actualizări pot fi întrerupte de mentenanță, defecțiuni tehnice sau schimbări ale serviciilor externe. Dacă nu există un acord separat sau o obligație legală, nu se promite găzduire neîntreruptă, compatibilitate cu orice dispozitiv sau slicer ori o anumită funcție viitoare.",
+        "Nu perturba sau compromite intenționat site-ul găzduit ori serviciile comunității și nu accesa informațiile altcuiva fără permisiune. Aceasta nu restricționează examinarea, modificarea sau redistribuirea legală a software-ului open source.",
+        "Versiunile pot schimba funcții, compatibilitatea fișierelor și predicțiile. Citește notele de versiune, păstrează copii de siguranță și verifică rezultatele regenerate. Schimbările de găzduire sau ale acestei pagini nu revocă drepturile acordate prin licență copiilor deja primite."
+      ],
+      "links": [
+        {
+          "label": "Versiuni și note de versiune",
+          "href": "https://github.com/vycdev/Kromacut/releases"
+        }
+      ]
+    },
+    {
+      "id": "warranties-and-legal-rights",
+      "title": "Garanții, răspundere și drepturile tale legale",
+      "paragraphs": [
+        "În măsura permisă de legea aplicabilă, Kromacut este furnizat ca atare și în limita disponibilității, fără o garanție suplimentară de funcționare fără erori, rezultate exacte de imprimare sau adecvare pentru un scop anume. Licența software stabilește prevederile privind garanția și răspunderea, sub rezerva legii aplicabile și a oricărui angajament scris separat.",
+        "Nimic din aceste condiții nu exclude sau limitează răspunderea când aceasta ar fi ilegală, inclusiv răspunderea pentru fraudă, conduită intenționată, neglijență gravă sau deces ori vătămare corporală protejate de lege. Recomandările privind verificarea imprimării și copiile de siguranță nu înlătură răspunderea impusă operatorului prin lege.",
+        "Orice drepturi obligatorii ale consumatorilor, garanții, căi de atac și drepturi de protecție a datelor aplicabile rămân neafectate. Aceste condiții nu impun arbitraj, renunțarea la accesul la o instanță sau autoritate competentă ori la protecțiile aplicabile acolo unde locuiești."
+      ],
+      "links": [
+        {
+          "label": "Ghid UE privind clauzele contractuale echitabile",
+          "href": "https://europa.eu/youreurope/citizens/consumers/unfair-treatment/unfair-contract-terms/index_en.htm"
+        }
+      ]
+    },
+    {
+      "id": "changes-to-these-terms",
+      "title": "Modificarea acestor condiții",
+      "paragraphs": [
+        "Această pagină poate fi actualizată pentru a reflecta schimbări ale Kromacut, ale asistenței sau ale legii aplicabile. Data de sus identifică revizuirea. Modificările semnificative vor fi indicate pe această pagină, cu orice notificare prealabilă sau acord cerut de lege.",
+        "Actualizările nu se aplică retroactiv pentru a elimina drepturi deja dobândite, a schimba licența copiilor software deja primite sau a înlocui un acord separat."
+      ],
+      "links": []
+    }
+  ],
+  "contactTitle": "Întrebări despre aceste condiții",
+  "contactDescription": "Afișează adresa publică de contact de mai jos pentru întrebări despre aceste condiții. Pentru ajutorul obișnuit cu Kromacut, Reddit și Discord sunt canalele principale. Afișarea sau copierea adresei nu trimite nimic; trimiterea unui mesaj implică serviciile de email descrise în informarea de confidențialitate."
+}

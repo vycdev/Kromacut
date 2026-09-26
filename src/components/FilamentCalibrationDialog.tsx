@@ -1,3 +1,6 @@
+import { Trans, useTranslation } from 'react-i18next';
+import { i18n, translate } from '@/lib/i18n';
+import { translateRuntimeMessage } from '@/lib/runtimeMessages';
 /**
  * Frontlit Filament Calibration Dialog
  *
@@ -131,7 +134,11 @@ const MAX_MAX_LAYERS = 40;
 const MAX_BASES_PER_FILAMENT = 3;
 
 function filamentLabel(filament: Filament): string {
-    return filament.name || filament.brand || `Filament ${filament.color}`;
+    return (
+        filament.name ||
+        filament.brand ||
+        translate('calibration:hd.filamentColor', { color: filament.color })
+    );
 }
 
 function luminance(hex: string): number {
@@ -141,6 +148,11 @@ function luminance(hex: string): number {
     const g = parseInt(h.slice(2, 4), 16);
     const b = parseInt(h.slice(4, 6), 16);
     return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+// Exported names remain stable across UI language changes.
+function exportFilamentLabel(filament: Filament): string {
+    return filament.name || filament.brand || `Filament ${filament.color}`;
 }
 
 function rgbCss(rgb: [number, number, number]): string {
@@ -185,7 +197,12 @@ function governingChannel(
 }
 
 function formatMm(value: number): string {
-    return `${value.toFixed(2)} mm`;
+    return translate('calibration:hd.millimeters', {
+        value: value.toLocaleString(i18n.resolvedLanguage, {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+        }),
+    });
 }
 
 export function FilamentCalibrationDialog({
@@ -208,6 +225,7 @@ export function FilamentCalibrationDialog({
     onDeleteStackMatrixCalibration,
     onApply,
 }: FilamentCalibrationDialogProps) {
+    const { t } = useTranslation('calibration');
     const [calibrationSurface, setCalibrationSurface] =
         useState<CalibrationSurface>('hiding-distance');
     const [step, setStep] = useState<Step>('select');
@@ -496,7 +514,7 @@ export function FilamentCalibrationDialog({
             color: filament.color,
             baseFilamentId: base.id,
             baseColor: base.color,
-            name: `${filamentLabel(filament)} over ${filamentLabel(base)}`,
+            name: `${exportFilamentLabel(filament)} over ${exportFilamentLabel(base)}`,
         }));
         if (tiles.length === 0) return;
 
@@ -515,7 +533,7 @@ export function FilamentCalibrationDialog({
                 const profileFilaments = filaments.map((f) => ({
                     id: f.id,
                     color: f.color,
-                    name: filamentLabel(f),
+                    name: exportFilamentLabel(f),
                 }));
                 blob = await generateCalibration3mf(tiles, plan.printOptions, profileFilaments);
                 fileName = `kromacut-calibration-${tiles.length}reads.3mf`;
@@ -523,7 +541,9 @@ export function FilamentCalibrationDialog({
             const savedPath = await saveBlobToFile(blob, {
                 defaultFileName: fileName,
                 extension: format,
-                filterName: `HD calibration ${format.toUpperCase()}`,
+                filterName: translate('calibration:hd.saveDialogFormat', {
+                    format: format.toUpperCase(),
+                }),
             });
             // Only a completed save replaces the settings used to read the printed wedge.
             if (savedPath !== null) setPrintedPlan(plan);
@@ -779,13 +799,12 @@ export function FilamentCalibrationDialog({
             <AlertDialogHeader>
                 <AlertDialogTitle className="flex items-center gap-2">
                     <FlaskConical className="h-5 w-5 text-primary" />
-                    Calibrate Filaments
+                    {t('hd.calibrateFilaments')}
                 </AlertDialogTitle>
             </AlertDialogHeader>
             <div className="space-y-4">
                 <p className="text-sm text-muted-foreground">
-                    Pick the filaments to calibrate. You&apos;ll print a small wedge for each over a
-                    base layer, then read back a single number — no camera, no color picking.
+                    {t('hd.pickTheFilamentsToCalibrateYouLlPrint')}
                 </p>
                 <button
                     type="button"
@@ -796,7 +815,7 @@ export function FilamentCalibrationDialog({
                     className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
                 >
                     <BookOpen className="h-4 w-4" />
-                    How calibration works
+                    {t('hd.howCalibrationWorks')}
                 </button>
                 {filaments.length > 0 && (
                     <button
@@ -819,10 +838,15 @@ export function FilamentCalibrationDialog({
                                     <Minus className="h-3.5 w-3.5" />
                                 ) : null}
                             </span>
-                            {selectedIds.size === filaments.length ? 'Deselect all' : 'Select all'}
+                            {selectedIds.size === filaments.length
+                                ? t('hd.deselectAll')
+                                : t('hd.selectAll')}
                         </span>
                         <span className="text-xs text-muted-foreground">
-                            {selectedIds.size} of {filaments.length}
+                            {t('hd.selectedFilamentCount', {
+                                value1: selectedIds.size,
+                                value2: filaments.length,
+                            })}
                         </span>
                     </button>
                 )}
@@ -861,8 +885,16 @@ export function FilamentCalibrationDialog({
                                         {filamentLabel(filament)}
                                     </span>
                                     <span className="block text-xs text-muted-foreground">
-                                        HD {filament.td.toFixed(2)} mm
-                                        {isCalibrated ? ' · calibrated' : ''}
+                                        {t('hd.hidingDistanceValue', {
+                                            value: filament.td.toLocaleString(
+                                                i18n.resolvedLanguage,
+                                                {
+                                                    minimumFractionDigits: 2,
+                                                    maximumFractionDigits: 2,
+                                                }
+                                            ),
+                                        })}
+                                        {isCalibrated ? t('hd.calibrated') : ''}
                                     </span>
                                 </span>
                             </button>
@@ -872,10 +904,10 @@ export function FilamentCalibrationDialog({
             </div>
             <AlertDialogFooter>
                 <Button variant="outline" onClick={handleClose}>
-                    Cancel
+                    {t('hd.cancel')}
                 </Button>
                 <Button onClick={() => setStep('base')} disabled={selectedIds.size === 0}>
-                    Next: Base
+                    {t('hd.nextBase')}
                     <ArrowRight className="ml-1 h-4 w-4" />
                 </Button>
             </AlertDialogFooter>
@@ -885,13 +917,11 @@ export function FilamentCalibrationDialog({
     const renderBase = () => (
         <>
             <AlertDialogHeader>
-                <AlertDialogTitle>Pick Base Layers</AlertDialogTitle>
+                <AlertDialogTitle>{t('hd.pickBaseLayers')}</AlertDialogTitle>
             </AlertDialogHeader>
             <div className="space-y-4">
                 <p className="text-sm text-muted-foreground">
-                    Quick mode uses one base per filament. Accurate mode repeats the same read over
-                    optional extra bases so Kromacut can refine a constrained RGB estimate without
-                    pretending a few visual thresholds directly measure three channels.
+                    {t('hd.quickModeUsesOneBasePerFilamentAccurate')}
                 </p>
                 <div className="grid grid-cols-2 gap-2">
                     <Button
@@ -903,7 +933,7 @@ export function FilamentCalibrationDialog({
                         }}
                         className={cn(mode === 'quick' && 'border-primary/60 bg-primary/5')}
                     >
-                        Quick
+                        {t('hd.quick')}
                     </Button>
                     <Button
                         variant="outline"
@@ -914,7 +944,7 @@ export function FilamentCalibrationDialog({
                         }}
                         className={cn(mode === 'accurate' && 'border-primary/60 bg-primary/5')}
                     >
-                        Accurate
+                        {t('hd.accurate')}
                     </Button>
                 </div>
                 <div className="max-h-[24rem] space-y-2 overflow-y-auto pr-1">
@@ -932,9 +962,9 @@ export function FilamentCalibrationDialog({
                                             {filamentLabel(filament)}
                                         </div>
                                         <div className="text-[11px] text-muted-foreground">
-                                            {mode === 'accurate'
-                                                ? `${baseIds.length} base reads selected`
-                                                : '1 base read selected'}
+                                            {t('hd.baseReadsSelected', {
+                                                count: mode === 'accurate' ? baseIds.length : 1,
+                                            })}
                                         </div>
                                     </div>
                                 </div>
@@ -977,10 +1007,10 @@ export function FilamentCalibrationDialog({
             <AlertDialogFooter>
                 <Button variant="outline" onClick={() => setStep('select')}>
                     <ArrowLeft className="mr-1 h-4 w-4" />
-                    Back
+                    {t('hd.back')}
                 </Button>
                 <Button onClick={() => setStep('print')}>
-                    Next: Print
+                    {t('hd.nextPrint')}
                     <ArrowRight className="ml-1 h-4 w-4" />
                 </Button>
             </AlertDialogFooter>
@@ -990,13 +1020,13 @@ export function FilamentCalibrationDialog({
     const renderPrint = () => (
         <>
             <AlertDialogHeader>
-                <AlertDialogTitle>Print the Calibration Wedge</AlertDialogTitle>
+                <AlertDialogTitle>{t('hd.printTheCalibrationWedge')}</AlertDialogTitle>
             </AlertDialogHeader>
             <div className="space-y-4">
                 <Card className="space-y-4 p-4">
                     <div className="grid gap-4 sm:grid-cols-2">
                         <div className="space-y-1.5">
-                            <Label className="text-xs">Layer height (mm)</Label>
+                            <Label className="text-xs">{t('hd.layerHeightMm')}</Label>
                             <Input
                                 type="number"
                                 step="0.01"
@@ -1012,11 +1042,11 @@ export function FilamentCalibrationDialog({
                                 className="h-8"
                             />
                             <p className="text-[11px] text-muted-foreground">
-                                Use the layer height you print your models at.
+                                {t('hd.useTheLayerHeightYouPrintYourModels')}
                             </p>
                         </div>
                         <div className="space-y-1.5">
-                            <Label className="text-xs">Max layers (wedge length)</Label>
+                            <Label className="text-xs">{t('hd.maxLayersWedgeLength')}</Label>
                             <Input
                                 type="number"
                                 step="1"
@@ -1032,14 +1062,13 @@ export function FilamentCalibrationDialog({
                                 className="h-8"
                             />
                             <p className="text-[11px] text-muted-foreground">
-                                The wedge runs 1…{maxLayers} layers. Raise it for very translucent
-                                filaments.
+                                {t('hd.theWedgeRuns1LayersRaiseItFor', { value1: maxLayers })}
                             </p>
                         </div>
                     </div>
 
                     <div className="space-y-1.5">
-                        <Label className="text-xs">Format</Label>
+                        <Label className="text-xs">{t('hd.format')}</Label>
                         <div className="flex gap-2">
                             <Button
                                 variant="outline"
@@ -1048,7 +1077,7 @@ export function FilamentCalibrationDialog({
                                 disabled={isDownloading}
                                 className={cn(format === 'stl' && 'border-primary/60 bg-primary/5')}
                             >
-                                STL (any printer)
+                                {t('hd.stlFormat')}
                             </Button>
                             <Button
                                 variant="outline"
@@ -1057,21 +1086,23 @@ export function FilamentCalibrationDialog({
                                 disabled={isDownloading}
                                 className={cn(format === '3mf' && 'border-primary/60 bg-primary/5')}
                             >
-                                3MF (multi-material)
+                                {t('hd.threeMfFormat')}
                             </Button>
                         </div>
                         <p className="text-[11px] text-muted-foreground">
                             {format === 'stl'
-                                ? 'One printable tile. Print one copy for each filament/base read using the matching swap line below.'
-                                : 'Colors + bases baked in for AMS / multi-material - all selected reads in one print.'}
+                                ? t('hd.onePrintableTilePrintOneCopyForEach')
+                                : t('hd.colorsBasesBakedInForAMSMultiMaterial')}
                         </p>
                     </div>
 
                     {format === 'stl' && (
                         <div className="space-y-2 rounded-md border border-border/60 bg-background/70 p-3 text-[12px]">
                             <p className="text-muted-foreground">
-                                Slice at layer height {formatMm(calibrationLayerHeight)} and first
-                                layer {formatMm(firstLayerPrintHeight)}.
+                                {t('hd.sliceAtLayerHeightAndFirstLayer', {
+                                    value1: formatMm(calibrationLayerHeight),
+                                    value2: formatMm(firstLayerPrintHeight),
+                                })}
                             </p>
                             <div className="max-h-32 space-y-1 overflow-y-auto pr-1">
                                 {calibrationTargets.map(({ key, filament, base }) => (
@@ -1084,11 +1115,19 @@ export function FilamentCalibrationDialog({
                                             style={{ backgroundColor: filament.color }}
                                         />
                                         <span className="min-w-0">
-                                            <span className="font-medium">
-                                                {filamentLabel(filament)}
-                                            </span>{' '}
-                                            over {filamentLabel(base)}: swap after layer{' '}
-                                            {printOptions.baseLayers} / Z {formatMm(swapZ)}.
+                                            <Trans
+                                                t={t}
+                                                i18nKey="hd.swapInstruction"
+                                                values={{
+                                                    filament: filamentLabel(filament),
+                                                    base: filamentLabel(base),
+                                                    layer: printOptions.baseLayers,
+                                                    height: formatMm(swapZ),
+                                                }}
+                                                components={{
+                                                    strong: <span className="font-medium" />,
+                                                }}
+                                            />
                                         </span>
                                     </div>
                                 ))}
@@ -1106,27 +1145,30 @@ export function FilamentCalibrationDialog({
                         ) : (
                             <Download className="h-4 w-4" />
                         )}
-                        {isDownloading ? 'Saving…' : `Download ${format.toUpperCase()}`}
+                        {isDownloading
+                            ? t('hd.saving')
+                            : t('hd.downloadFormat', { format: format.toUpperCase() })}
                     </Button>
                     {downloadError && (
                         <p role="alert" className="text-sm text-destructive">
-                            {downloadError}
+                            {translateRuntimeMessage(downloadError)}
                         </p>
                     )}
                 </Card>
 
                 <Card className="space-y-2 bg-muted/20 p-4 text-sm">
-                    <p className="font-semibold">How to read it back</p>
+                    <p className="font-semibold">{t('hd.howToReadItBack')}</p>
                     <ul className="list-disc space-y-1 pl-5 text-[13px] text-muted-foreground">
-                        <li>View the print flat under normal room light.</li>
+                        <li>{t('hd.viewThePrintFlatUnderNormalRoomLight')}</li>
+                        <li>{t('hd.thePatchesStepFrom1LayerTheTab', { value1: maxLayers })}</li>
                         <li>
-                            The patches step from 1 layer (the tab end) up to {maxLayers}, with an
-                            opaque reference rail running along the back edge.
-                        </li>
-                        <li>
-                            Find the{' '}
-                            <span className="font-medium text-foreground">first patch</span> that
-                            looks identical to the rail beside it — that&apos;s its opacity layer.
+                            <Trans
+                                t={t}
+                                i18nKey="hd.findFirstPatch"
+                                components={{
+                                    strong: <span className="font-medium text-foreground" />,
+                                }}
+                            />
                         </li>
                     </ul>
                 </Card>
@@ -1134,10 +1176,10 @@ export function FilamentCalibrationDialog({
             <AlertDialogFooter>
                 <Button variant="outline" onClick={() => setStep('base')} disabled={isDownloading}>
                     <ArrowLeft className="mr-1 h-4 w-4" />
-                    Back
+                    {t('hd.back')}
                 </Button>
                 <Button onClick={handleEnterMeasure} disabled={isDownloading}>
-                    Next: Enter Results
+                    {t('hd.nextEnterResults')}
                     <ArrowRight className="ml-1 h-4 w-4" />
                 </Button>
             </AlertDialogFooter>
@@ -1147,33 +1189,40 @@ export function FilamentCalibrationDialog({
     const renderMeasure = () => (
         <>
             <AlertDialogHeader>
-                <AlertDialogTitle>Enter Opacity Layers</AlertDialogTitle>
+                <AlertDialogTitle>{t('hd.enterOpacityLayers')}</AlertDialogTitle>
             </AlertDialogHeader>
             <div className="space-y-3">
                 <p className="text-sm text-muted-foreground">
-                    Enter the first patch number that matched the rail for each filament/base print.
-                    Fill in as many as you read — anything left blank is discarded on save and that
-                    filament keeps its current settings.
+                    {t('hd.enterTheFirstPatchNumberThatMatchedThe')}
                     {isFittingJnd && (
                         <span className="ml-1.5 text-[11px] text-primary">
-                            Fitting session JND…
+                            {t('hd.fittingSessionJND')}
                         </span>
                     )}
                 </p>
                 {readyCount > 0 && skippedCount > 0 && (
                     <p className="rounded-md border border-border/50 bg-muted/20 px-3 py-2 text-[11px] text-muted-foreground">
-                        Saving will calibrate {readyCount} filament
-                        {readyCount === 1 ? '' : 's'} and leave {skippedCount} unchanged.
+                        {t('hd.saveSummary', { count: readyCount, unchanged: skippedCount })}
                     </p>
                 )}
                 <div className="grid gap-1 rounded-md border border-border/50 bg-muted/20 px-3 py-2 text-[11px] text-muted-foreground sm:grid-cols-2">
                     <div>
-                        <span className="font-semibold text-foreground">Match:</span> first patch
-                        that matches the rail.
+                        <Trans
+                            t={t}
+                            i18nKey="hd.matchHelp"
+                            components={{
+                                strong: <span className="font-semibold text-foreground" />,
+                            }}
+                        />
                     </div>
                     <div>
-                        <span className="font-semibold text-foreground">Merge:</span> optional last
-                        patch still different from the previous patch.
+                        <Trans
+                            t={t}
+                            i18nKey="hd.mergeHelp"
+                            components={{
+                                strong: <span className="font-semibold text-foreground" />,
+                            }}
+                        />
                     </div>
                 </div>
                 <div className="max-h-[26rem] space-y-2.5 overflow-y-auto pr-1">
@@ -1196,10 +1245,12 @@ export function FilamentCalibrationDialog({
                                         </div>
                                     </div>
                                     <div className="text-right text-[11px] text-muted-foreground">
-                                        {targets.length} read{targets.length === 1 ? '' : 's'}
+                                        {t('hd.readCount', { count: targets.length })}
                                         {status !== 'ready' && (
                                             <div className="font-medium text-amber-600 dark:text-amber-400">
-                                                {status === 'empty' ? 'Not entered' : 'Won’t save'}
+                                                {status === 'empty'
+                                                    ? t('hd.notEntered')
+                                                    : t('hd.wonTSave')}
                                             </div>
                                         )}
                                     </div>
@@ -1207,9 +1258,9 @@ export function FilamentCalibrationDialog({
 
                                 <div className="mt-3 space-y-2">
                                     <div className="hidden grid-cols-[1fr_auto_auto] gap-2 px-2 text-[10px] font-medium uppercase tracking-wide text-muted-foreground sm:grid">
-                                        <span>Base</span>
-                                        <span className="w-[6.5rem]">Match rail</span>
-                                        <span className="w-[6.5rem]">Merge steps</span>
+                                        <span>{t('hd.base')}</span>
+                                        <span className="w-[6.5rem]">{t('hd.matchRail')}</span>
+                                        <span className="w-[6.5rem]">{t('hd.mergeSteps')}</span>
                                     </div>
                                     {targets.map((target) => {
                                         const opacityLayers = parseLayerInput(reads[target.key]);
@@ -1239,10 +1290,12 @@ export function FilamentCalibrationDialog({
                                                         style={{
                                                             backgroundColor: target.base.color,
                                                         }}
-                                                        title="Base"
+                                                        title={t('hd.base')}
                                                     />
                                                     <span className="min-w-0 truncate text-xs">
-                                                        over {filamentLabel(target.base)}
+                                                        {t('hd.printedOverBase', {
+                                                            value1: filamentLabel(target.base),
+                                                        })}
                                                     </span>
                                                 </div>
                                                 <div className="flex items-center gap-1.5">
@@ -1254,8 +1307,10 @@ export function FilamentCalibrationDialog({
                                                         onChange={(e) =>
                                                             setRead(target.key, e.target.value)
                                                         }
-                                                        placeholder="match"
-                                                        title="First patch that matches the reference rail"
+                                                        placeholder={t('hd.matchPlaceholder')}
+                                                        title={t(
+                                                            'hd.firstPatchThatMatchesTheReferenceRail'
+                                                        )}
                                                         className="h-8 w-20 text-sm"
                                                     />
                                                     <span className="text-[11px] text-muted-foreground">
@@ -1271,8 +1326,10 @@ export function FilamentCalibrationDialog({
                                                         onChange={(e) =>
                                                             setMergeRead(target.key, e.target.value)
                                                         }
-                                                        placeholder="merge"
-                                                        title="Optional: last patch that still looks different from the patch before it"
+                                                        placeholder={t('hd.mergePlaceholder')}
+                                                        title={t(
+                                                            'hd.optionalLastPatchThatStillLooksDifferentFrom'
+                                                        )}
                                                         className={cn(
                                                             'h-8 w-20 text-sm',
                                                             mergeAfterMatch &&
@@ -1281,8 +1338,12 @@ export function FilamentCalibrationDialog({
                                                     />
                                                     {mergeAfterMatch && (
                                                         <span
-                                                            title="Merge read is usually before or equal to the rail-match read"
-                                                            aria-label="Merge read is later than match read"
+                                                            title={t(
+                                                                'hd.mergeReadIsUsuallyBeforeOrEqualTo'
+                                                            )}
+                                                            aria-label={t(
+                                                                'hd.mergeReadIsLaterThanMatchRead'
+                                                            )}
                                                         >
                                                             <AlertTriangle className="h-3.5 w-3.5 flex-none text-amber-600" />
                                                         </span>
@@ -1293,7 +1354,7 @@ export function FilamentCalibrationDialog({
                                                             style={{
                                                                 backgroundColor: rgbCss(predicted),
                                                             }}
-                                                            title="Predicted at this read"
+                                                            title={t('hd.predictedAtThisRead')}
                                                         />
                                                     )}
                                                 </div>
@@ -1306,27 +1367,35 @@ export function FilamentCalibrationDialog({
                                     <div className="mt-2.5 flex items-center justify-between gap-3 rounded-lg border border-border/50 bg-muted/20 px-3 py-2">
                                         <div className="flex items-center gap-2">
                                             <span className="text-[11px] text-muted-foreground">
-                                                Fit
+                                                {t('hd.fit')}
                                             </span>
                                             <span
                                                 className="h-6 w-6 rounded border border-border/70"
                                                 style={{ backgroundColor: filament.color }}
-                                                title="Reference (opaque)"
+                                                title={t('hd.referenceOpaque')}
                                             />
                                             <span className="text-[11px] text-muted-foreground">
                                                 {calibration.channelSource === 'constrained'
-                                                    ? 'wedge-refined RGB estimate'
+                                                    ? t('hd.wedgeRefinedRGBEstimate')
                                                     : calibration.channelSource === 'measured'
-                                                      ? 'legacy multi-base RGB estimate'
-                                                      : 'quick RGB estimate'}
+                                                      ? t('hd.legacyMultiBaseRGBEstimate')
+                                                      : t('hd.quickRGBEstimate')}
                                                 {jndSource === 'session-fit'
-                                                    ? ' / session JND'
+                                                    ? t('hd.sessionJND')
                                                     : ''}
                                             </span>
                                         </div>
                                         <div className="text-right text-xs">
                                             <div className="font-semibold">
-                                                HD {calibration.tdSingleValue.toFixed(2)} mm
+                                                {t('hd.hidingDistanceValue', {
+                                                    value: calibration.tdSingleValue.toLocaleString(
+                                                        i18n.resolvedLanguage,
+                                                        {
+                                                            minimumFractionDigits: 2,
+                                                            maximumFractionDigits: 2,
+                                                        }
+                                                    ),
+                                                })}
                                             </div>
                                             <div
                                                 className={cn(
@@ -1334,26 +1403,28 @@ export function FilamentCalibrationDialog({
                                                     getConfidenceColor(calibration.confidence)
                                                 )}
                                             >
-                                                {getConfidenceLabel(calibration.confidence)}
+                                                {translateRuntimeMessage(
+                                                    getConfidenceLabel(calibration.confidence)
+                                                )}
                                             </div>
                                             {calibration.fitDiagnostics && (
                                                 <div
                                                     className="text-[10px] text-muted-foreground"
-                                                    title="Constrained channel-selectivity strength and the range that fits the quantized wedge reads"
+                                                    title={t(
+                                                        'hd.constrainedChannelSelectivityStrengthAndTheRangeThat'
+                                                    )}
                                                 >
-                                                    selectivity{' '}
-                                                    {calibration.fitDiagnostics.selectivityStrength.toFixed(
-                                                        2
-                                                    )}{' '}
-                                                    (
-                                                    {calibration.fitDiagnostics.selectivityRange[0].toFixed(
-                                                        2
-                                                    )}
-                                                    –
-                                                    {calibration.fitDiagnostics.selectivityRange[1].toFixed(
-                                                        2
-                                                    )}
-                                                    )
+                                                    {t('hd.selectivity', {
+                                                        value1: calibration.fitDiagnostics.selectivityStrength.toFixed(
+                                                            2
+                                                        ),
+                                                        value2: calibration.fitDiagnostics.selectivityRange[0].toFixed(
+                                                            2
+                                                        ),
+                                                        value3: calibration.fitDiagnostics.selectivityRange[1].toFixed(
+                                                            2
+                                                        ),
+                                                    })}
                                                 </div>
                                             )}
                                         </div>
@@ -1362,15 +1433,18 @@ export function FilamentCalibrationDialog({
 
                                 {errorText && (
                                     <p className="mt-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-[11px] text-amber-600 dark:text-amber-400">
-                                        {errorText}
+                                        {translateRuntimeMessage(errorText)}
                                     </p>
                                 )}
 
                                 {status === 'partial' && (
                                     <p className="mt-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-[11px] text-amber-600 dark:text-amber-400">
                                         {filled === 0
-                                            ? 'Enter a match rail patch number of 1 or higher to calibrate this filament. A merge step on its own is not enough.'
-                                            : `Read ${filled} of ${targets.length} bases. Fill in the rest to calibrate this filament, or clear it to skip it and keep its current settings.`}
+                                            ? t('hd.enterAMatchRailPatchNumberOf1')
+                                            : t('hd.partialReads', {
+                                                  filled,
+                                                  total: targets.length,
+                                              })}
                                     </p>
                                 )}
                             </Card>
@@ -1381,7 +1455,7 @@ export function FilamentCalibrationDialog({
             <AlertDialogFooter>
                 <Button variant="outline" onClick={() => setStep('print')}>
                     <ArrowLeft className="mr-1 h-4 w-4" />
-                    Back
+                    {t('hd.back')}
                 </Button>
                 <Button
                     onClick={handleSave}
@@ -1389,10 +1463,10 @@ export function FilamentCalibrationDialog({
                 >
                     <Check className="mr-1 h-4 w-4" />
                     {isSaving || sessionFitPending
-                        ? 'Fitting...'
+                        ? t('hd.fitting')
                         : skippedCount > 0 && readyCount > 0
-                          ? `Save ${readyCount} of ${computed.length}`
-                          : 'Save Calibration'}
+                          ? t('hd.saveCount', { ready: readyCount, total: computed.length })
+                          : t('hd.saveCalibration')}
                 </Button>
             </AlertDialogFooter>
         </>
@@ -1403,7 +1477,7 @@ export function FilamentCalibrationDialog({
             <AlertDialogHeader>
                 <AlertDialogTitle className="flex items-center gap-2">
                     <Palette className="h-5 w-5 text-primary" />
-                    Palette Proof
+                    {t('hd.paletteProof')}
                 </AlertDialogTitle>
             </AlertDialogHeader>
             <PaletteProofPanel
@@ -1421,7 +1495,7 @@ export function FilamentCalibrationDialog({
             />
             <AlertDialogFooter>
                 <Button variant="outline" onClick={handleClose}>
-                    Close
+                    {t('hd.close')}
                 </Button>
             </AlertDialogFooter>
         </>
@@ -1432,7 +1506,7 @@ export function FilamentCalibrationDialog({
             <AlertDialogHeader>
                 <AlertDialogTitle className="flex items-center gap-2">
                     <Grid3X3 className="h-5 w-5 text-primary" />
-                    Stack Matrix
+                    {t('hd.stackMatrix')}
                 </AlertDialogTitle>
             </AlertDialogHeader>
             <StackMatrixCalibrationPanel
@@ -1446,7 +1520,7 @@ export function FilamentCalibrationDialog({
             />
             <AlertDialogFooter>
                 <Button variant="outline" onClick={handleClose}>
-                    Close
+                    {t('hd.close')}
                 </Button>
             </AlertDialogFooter>
         </>
@@ -1468,15 +1542,14 @@ export function FilamentCalibrationDialog({
                 )}
             >
                 <AlertDialogDescription className="sr-only">
-                    Filament calibration tools for hiding distance, job-specific Palette Proofs, and
-                    photographed Stack Matrices.
+                    {t('hd.filamentCalibrationToolsForHidingDistanceJobSpecific')}
                 </AlertDialogDescription>
                 <Button
                     variant="ghost"
                     size="icon"
                     onClick={handleClose}
                     className="absolute right-3 top-7 h-7 w-7 text-muted-foreground hover:text-foreground"
-                    aria-label="Close calibration dialog"
+                    aria-label={t('hd.closeCalibrationDialog')}
                     disabled={isDownloading}
                 >
                     <X className="h-4 w-4" />
@@ -1499,7 +1572,7 @@ export function FilamentCalibrationDialog({
                             disabled={isDownloading}
                         >
                             <FlaskConical className="h-4 w-4" />
-                            Hiding Distance
+                            {t('hd.hidingDistance')}
                         </TabsTrigger>
                         <TabsTrigger
                             value="palette-proof"
@@ -1507,7 +1580,7 @@ export function FilamentCalibrationDialog({
                             disabled={isDownloading}
                         >
                             <Palette className="h-4 w-4" />
-                            Palette Proof
+                            {t('hd.paletteProof')}
                         </TabsTrigger>
                         <TabsTrigger
                             value="stack-matrix"
@@ -1515,7 +1588,7 @@ export function FilamentCalibrationDialog({
                             disabled={isDownloading}
                         >
                             <Grid3X3 className="h-4 w-4" />
-                            Stack Matrix
+                            {t('hd.stackMatrix')}
                         </TabsTrigger>
                     </TabsList>
                 </Tabs>

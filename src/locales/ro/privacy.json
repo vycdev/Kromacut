@@ -1,0 +1,157 @@
+{
+  "title": "Confidențialitate și date locale",
+  "seoTitle": "Confidențialitate și date locale | Kromacut",
+  "description": "Cum gestionează Kromacut fișierele locale, setările salvate, datele de găzduire și email, păstrarea datelor și drepturile tale de confidențialitate.",
+  "updated": "13 septembrie 2026",
+  "intro": "Imaginile tale sunt procesate pe dispozitivul tău. Kromacut nu le încarcă pe un server de procesare a imaginilor.",
+  "sections": [
+    {
+      "id": "on-your-device",
+      "title": "Ce rămâne pe dispozitivul tău",
+      "paragraphs": [
+        "Editarea imaginilor, reducerea paletei, calibrarea filamentelor, planificarea straturilor, previzualizările 3D și exporturile modelelor rulează local în browser sau în aplicația desktop. Nu există cont Kromacut sau stocare a proiectelor în cloud.",
+        "Deschiderea unei imagini permite aplicației să citească fișierul local. Modelele, paletele și profilurile de filamente exportate sunt salvate ca fișiere pe dispozitivul tău. Kromacut nu trimite automat aceste fișiere în altă parte."
+      ],
+      "links": []
+    },
+    {
+      "id": "saved-settings",
+      "title": "Setări salvate, cookie-uri și ștergerea datelor",
+      "paragraphs": [
+        "Aplicația folosește stocarea locală pentru a reține setările, temele, paletele, profilurile de filamente și istoricul calibrărilor. Aceste preferințe salvate nu au un termen de expirare definit de aplicație; rămân până când sunt șterse sau până când browserul ori dispozitivul golește stocarea aplicației.",
+        "Kromacut nu setează cookie-uri de publicitate sau analiză. Preferințele salvate folosesc stocarea locală a browserului, separată de cookie-uri și netrimisă automat cu cererile către site.",
+        "Înainte de a șterge datele site-ului sau aplicației, exportă profilurile și paletele pe care vrei să le păstrezi. Golirea stocării browserului poate elimina definitiv istoricul calibrărilor. Nu șterge fișierele exportate anterior pe dispozitiv."
+      ],
+      "links": []
+    },
+    {
+      "id": "network-requests",
+      "title": "Găzduirea site-ului și conexiuni",
+      "paragraphs": [
+        "Site-ul este găzduit pe GitHub Pages. Vizitarea lui trimite serviciului de găzduire informații obișnuite despre conexiune și cerere. GitHub precizează că Pages înregistrează adresele IP ale vizitatorilor în scopuri de securitate, inclusiv când aceștia nu sunt autentificați în GitHub.",
+        "Fonturile sunt incluse în Kromacut și servite de site sau de instalarea desktop. Deschiderea aplicației nu contactează Google Fonts. Kromacut nu include publicitate sau un SDK de analiză.",
+        "Furnizarea site-ului și a informațiilor publice despre actualizări servește interesului legitim de a face Kromacut disponibil și de a-i menține securitatea (articolul 6 alineatul (1) litera (f) din GDPR). GitHub stabilește și propriile scopuri de securitate și de prelucrare pentru servicii, conform declarației sale de confidențialitate."
+      ],
+      "links": [
+        {
+          "label": "Colectarea datelor de către GitHub Pages",
+          "href": "https://docs.github.com/en/pages/getting-started-with-github-pages/what-is-github-pages#data-collection"
+        },
+        {
+          "label": "Declarația de confidențialitate GitHub",
+          "href": "https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement"
+        }
+      ]
+    },
+    {
+      "id": "desktop-app",
+      "title": "Actualizări desktop și diagnostic",
+      "paragraphs": [
+        "Verificările actualizărilor desktop solicită fișierul public version.json de la kromacut.com. Verificările automate sunt activate implicit, rulează la pornire și la fiecare patru ore cât timp aplicația rămâne deschisă și pot fi dezactivate în Setări. Poți verifica în continuare manual.",
+        "Cererea de actualizare nu include imaginile, profilurile, setările sau versiunea instalată. Compararea versiunilor se face local, însă serviciul de găzduire primește informațiile obișnuite despre conexiune.",
+        "Înregistrarea opțională de diagnostic Auto-paint este dezactivată implicit și scrie fișiere locale. Acestea pot conține informații de execuție, date despre filamente și calibrare și culorile paletei, dar nu imaginea sursă. Rămân pe dispozitiv până le ștergi. Verifică fișierele de diagnostic înainte de a le distribui."
+      ],
+      "links": []
+    },
+    {
+      "id": "email-correspondence",
+      "title": "Când trimiți un email",
+      "paragraphs": [
+        "Kromacut este administrat personal. Operatorul decide cum este folosită și păstrată corespondența directă de asistență și confidențialitate. Dacă trimiți un email la adresa de mai jos, operatorul primește în Gmail adresa expeditorului, orice nume inclus, mesajul și atașamentele. Google prelucrează aceste informații și pentru a furniza și proteja serviciul său de email.",
+        "Corespondența de asistență este folosită pentru a-ți răspunde, a investiga problema semnalată și a oferi continuarea necesară. Temeiul legal este interesul legitim de a furniza asistența solicitată și de a întreține Kromacut (articolul 6 alineatul (1) litera (f) din GDPR), pus în balanță cu drepturile tale de confidențialitate. Gestionarea cererilor aplicabile privind confidențialitatea se bazează pe obligația legală de a respecta aceste drepturi (articolul 6 alineatul (1) litera (c)).",
+        "Contactarea operatorului este opțională și nu este necesară pentru utilizarea aplicației. Fără o adresă de răspuns sau suficiente informații despre problemă, poate fi imposibil să primești un răspuns. Trimite doar informații relevante; evită datele personale sensibile sau informațiile altor persoane, dacă nu sunt necesare."
+      ],
+      "links": [
+        {
+          "label": "Politica de confidențialitate Google",
+          "href": "https://policies.google.com/privacy?hl=en"
+        }
+      ]
+    },
+    {
+      "id": "email-retention",
+      "title": "Cât timp este păstrată corespondența",
+      "paragraphs": [
+        "Corespondența Kromacut este revizuită la fiecare șase luni. Mesajele și atașamentele sunt șterse când nu mai sunt necesare pentru o problemă nerezolvată, o continuare necesară sau un motiv legal. Aceasta este o revizuire manuală, nu o expirare automată de șase luni pentru fiecare email.",
+        "Când înregistrările sunt necesare pentru îndeplinirea unei obligații legale sau constatarea, exercitarea ori apărarea unui drept în justiție, sunt păstrate doar informațiile necesare pentru perioada legală aplicabilă sau cât timp cererea o impune. Pot fi păstrate evidențe minime ale cererilor de confidențialitate și ale răspunsurilor pentru a demonstra gestionarea lor; necesitatea păstrării este și ea revizuită.",
+        "Această regulă a căsuței poștale nu stabilește perioadele independente de păstrare ale GitHub sau Google. Informările lor de confidențialitate descriu păstrarea în funcție de scopurile serviciului și cerințele legale. Ștergerea din căsuța poștală nu garantează eliminarea imediată din copiile de siguranță sau evidențele de securitate ale furnizorilor."
+      ],
+      "links": [
+        {
+          "label": "Explicația Google privind păstrarea datelor",
+          "href": "https://policies.google.com/technologies/retention?hl=en"
+        }
+      ]
+    },
+    {
+      "id": "providers-and-transfers",
+      "title": "Furnizori și prelucrare internațională",
+      "paragraphs": [
+        "GitHub furnizează găzduirea site-ului; Google furnizează căsuța poștală de contact. Acești furnizori și prestatorii lor prelucrează informațiile implicate în aceste servicii. Acționează și ca operatori pentru scopuri stabilite independent, precum securitatea serviciilor și conformitatea legală. Corespondența relevantă poate fi dezvăluită unui consilier sau unei autorități când este necesar pentru o chestiune juridică sau respectarea legii.",
+        "GitHub și Google descriu prelucrări în afara Spațiului Economic European, inclusiv în Statele Unite. Garanțiile publicate includ decizii de adecvare aplicabile și clauze contractuale standard; ambele descriu participarea entităților lor americane la Cadrul UE-SUA privind confidențialitatea datelor. Linkurile de mai jos explică aranjamentele furnizorilor și cum poți obține informații despre ele. Poți adresa întrebări și la contactul de mai jos. Aceste aranjamente privesc găzduirea și corespondența, nu încărcarea automată a imaginilor tale."
+      ],
+      "links": [
+        {
+          "label": "Transferuri internaționale și garanții GitHub",
+          "href": "https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement#international-data-transfers"
+        },
+        {
+          "label": "Cadrele Google pentru transferuri",
+          "href": "https://policies.google.com/privacy/frameworks?hl=en"
+        }
+      ]
+    },
+    {
+      "id": "external-services",
+      "title": "Linkuri ale comunității și susținere pe Patreon",
+      "paragraphs": [
+        "Linkurile către comunitate, asistență și versiuni deschid site-uri externe. Informațiile pe care le publici acolo, precum o problemă publică sau un mesaj în comunitate, sunt gestionate conform practicilor de confidențialitate ale serviciului și pot fi vizibile altor persoane.",
+        "Butonul de susținere deschide Patreon, care are propriile practici de confidențialitate și plată. Dacă devii membru, Patreon poate pune la dispoziția creatorului informații despre susținător, inclusiv numele profilului, adresa de email, nivelul de membru, starea și suma. Acest lucru este separat de procesarea locală a imaginilor în Kromacut. Creator Privacy Promise de la Patreon descrie rolurile și obligațiile privind datele de membru folosite pentru furnizarea serviciilor aferente.",
+        "Pentru cereri de confidențialitate privind contul Patreon sau plățile, folosește canalele Patreon dedicate. Dacă întrebarea privește informații primite de creator, poți folosi și contactul de mai jos."
+      ],
+      "links": [
+        {
+          "label": "Politica de confidențialitate Patreon",
+          "href": "https://privacy.patreon.com/policies/en-US/"
+        },
+        {
+          "label": "Creator Privacy Promise de la Patreon",
+          "href": "https://support.patreon.com/hc/en-us/articles/360026912432-Data-Processing-Agreement-Creator-Privacy-Promise"
+        }
+      ]
+    },
+    {
+      "id": "your-rights",
+      "title": "Drepturile tale privind confidențialitatea",
+      "paragraphs": [
+        "Când se aplică GDPR, poți solicita acces la datele tale personale, rectificarea informațiilor inexacte, ștergerea sau restricționarea prelucrării, în condițiile acestor drepturi. Te poți opune prelucrării bazate pe interese legitime din motive legate de situația ta.",
+        "Portabilitatea se aplică atunci când prelucrarea este automatizată și bazată pe consimțământ sau contract. Când prelucrarea se bazează pe consimțământ, îl poți retrage fără a afecta legalitatea prelucrării anterioare. Kromacut nu folosește date personale pentru decizii automatizate cu efecte juridice sau similare semnificative asupra ta.",
+        "Trimite cererea la adresa de email de mai jos. Descrie ce ai nevoie și corespondența relevantă; nu este necesar un formular special. Cererile sunt în mod normal gratuite. Informații suplimentare de identificare sunt solicitate doar când sunt rezonabil necesare pentru a confirma că datele îți aparțin; nu trimite acte de identitate decât dacă ți se cer.",
+        "Vei primi un răspuns fără întârzieri nejustificate și în termen de o lună. Dacă complexitatea sau numărul cererilor necesită o prelungire, vei fi informat despre motive în prima lună; prelungirea poate fi de cel mult încă două luni. Dacă o cerere nu poate fi îndeplinită, răspunsul va explica motivul și opțiunile disponibile de plângere și cale de atac judiciară.",
+        "Operatorul nu poate accesa sau șterge de la distanță imaginile, setările ori fișierele exportate păstrate doar pe dispozitivul tău. Folosește comenzile locale descrise mai sus. Pentru informațiile controlate independent de un furnizor, canalele sale de confidențialitate sunt disponibile prin informările din linkuri."
+      ],
+      "links": [
+        {
+          "label": "Comitetul European pentru Protecția Datelor: drepturile tale",
+          "href": "https://www.edpb.europa.eu/sme/be-compliant/respect-individuals-rights_en"
+        }
+      ]
+    },
+    {
+      "id": "complaints-and-changes",
+      "title": "Plângeri și actualizări ale informării",
+      "paragraphs": [
+        "Ai dreptul să depui o plângere la o autoritate de supraveghere pentru protecția datelor, în special în țara UE în care locuiești, lucrezi sau crezi că a avut loc o încălcare. În România, aceasta este Autoritatea Națională de Supraveghere a Prelucrării Datelor cu Caracter Personal (ANSPDCP). Site-ul său explică procedura de depunere a plângerii.",
+        "Această informare va fi actualizată când practicile Kromacut privind datele se schimbă. Data de sus identifică ultima revizuire."
+      ],
+      "links": [
+        {
+          "label": "Informații ANSPDCP despre plângeri",
+          "href": "https://www.dataprotection.ro/?page=Plangeri_pagina_principala"
+        }
+      ]
+    }
+  ],
+  "contactTitle": "Întrebări privind confidențialitatea",
+  "contactDescription": "Pentru o întrebare sau cerere privind confidențialitatea, afișează adresa publică de contact de mai jos. Afișarea sau copierea adresei nu trimite nimic. Trimiterea unui email partajează mesajul și atașamentele cu operatorul și serviciile de email implicate, inclusiv Gmail."
+}

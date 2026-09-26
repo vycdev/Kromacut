@@ -20,9 +20,10 @@ function escapeHtml(value) {
 
 function slugify(value) {
     return value
+        .normalize('NFKD')
+        .replace(/[\u0300-\u036f]/g, '')
         .toLowerCase()
-        .trim()
-        .replace(/['"]/g, '')
+        .replace(/&/g, ' and ')
         .replace(/[^a-z0-9]+/g, '-')
         .replace(/^-+|-+$/g, '');
 }
@@ -69,11 +70,11 @@ function parseFrontmatter(raw) {
     };
 }
 
-function parseDocs() {
-    return readdirSync(docsDir)
+function parseDocs(directory = docsDir) {
+    return readdirSync(directory)
         .filter((file) => file.endsWith('.md'))
         .map((file) => {
-            const raw = readFileSync(path.join(docsDir, file), 'utf8');
+            const raw = readFileSync(path.join(directory, file), 'utf8');
             const { attributes, body } = parseFrontmatter(raw);
             const title = attributes.title ?? body.match(/^#\s+(.+)$/m)?.[1]?.trim() ?? 'Untitled';
             const slug = attributes.slug ?? slugify(title);
@@ -210,6 +211,7 @@ function renderMarkdown(doc, docsBySlug) {
     const slugger = createSlugger();
     const html = [];
     let index = 0;
+    let headingIndex = 0;
 
     while (index < lines.length) {
         const line = lines[index];
@@ -237,7 +239,7 @@ function renderMarkdown(doc, docsBySlug) {
             const depth = heading[1].length;
             const text = heading[2].trim();
             html.push(
-                `<h${depth} id="${slugger(text)}">${renderInline(text, doc.slug, docsBySlug)}</h${depth}>`
+                `<h${depth} id="${doc.anchorIds?.[headingIndex++] ?? slugger(text)}">${renderInline(text, doc.slug, docsBySlug)}</h${depth}>`
             );
             index++;
             continue;
@@ -421,7 +423,7 @@ function writeAppPage(template) {
     writeFileSync(path.join(outputDir, 'index.html'), updateAppHead(template));
 }
 
-function writeNotFoundPage(template) {
+function generateNotFoundPage(template) {
     const title = 'Page not found | Kromacut';
     const description =
         "This page doesn't exist. Open Kromacut, return to the homepage, or browse the documentation.";
@@ -470,9 +472,12 @@ function writeNotFoundPage(template) {
     if (!logo) throw new Error('The built logo asset is required for the 404 page.');
     // Reuse the app's small vector artwork without another network dependency.
     const artwork = `data:image/svg+xml;base64,${readFileSync(path.join(rootDir, 'src/assets/not-found-layers.svg')).toString('base64')}`;
-    const arrowRight = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14m-7-7 7 7-7 7"/></svg>';
-    const arrowUpRight = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M7 7h10v10"/></svg>';
-    const book = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 7v14m-10-3V3h6a4 4 0 0 1 4 4 4 4 0 0 1 4-4h6v15h-6a4 4 0 0 0-4 3 4 4 0 0 0-4-3Z"/></svg>';
+    const arrowRight =
+        '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14m-7-7 7 7-7 7"/></svg>';
+    const arrowUpRight =
+        '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M7 7h10v10"/></svg>';
+    const book =
+        '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 7v14m-10-3V3h6a4 4 0 0 1 4 4 4 4 0 0 1 4-4h6v15h-6a4 4 0 0 0-4 3 4 4 0 0 0-4-3Z"/></svg>';
     html = html.replace(
         /<div id="root"><\/div>/,
         `<div id="root">
@@ -485,8 +490,8 @@ function writeNotFoundPage(template) {
                 <div class="not-found-content">
                     <div class="not-found-copy">
                         <p class="not-found-eyebrow">A little off the build plate</p>
-                        <h1 id="not-found-heading">This page doesn't exist</h1>
-                        <p class="not-found-description">The link may be outdated, or the address may contain a typo. Let's get you back to creating.</p>
+                        <h1 id="not-found-heading">${escapeHtml("This page doesn't exist")}</h1>
+                        <p class="not-found-description">${escapeHtml("The link may be outdated, or the address may contain a typo. Let's get you back to creating.")}</p>
                         <div class="not-found-actions">
                             <a class="not-found-primary" href="/app">Open Kromacut ${arrowRight}</a>
                             <a class="not-found-secondary" href="/?landing=1">Go to homepage</a>
@@ -502,7 +507,11 @@ function writeNotFoundPage(template) {
         </main>
     </div>`
     );
-    writeFileSync(path.join(distDir, '404.html'), html);
+    return html;
+}
+
+function writeNotFoundPage(template) {
+    writeFileSync(path.join(distDir, '404.html'), generateNotFoundPage(template));
 }
 
 function writeSitemap(docs) {
@@ -516,26 +525,41 @@ function writeSitemap(docs) {
     );
 }
 
-function writeLegalPage(template, kind) {
-    const notice = JSON.parse(readFileSync(path.join(rootDir, `src/data/${kind}Notice.json`), 'utf8'));
+function generateLegalPage(
+    template,
+    kind,
+    notice = JSON.parse(readFileSync(path.join(rootDir, `src/data/${kind}Notice.json`), 'utf8'))
+) {
     const logo = findBuiltAsset('logo-');
     // Both lazy pages share the same legal-page shell. Locate its CSS by the
     // selector rather than depending on Vite's shared-chunk filename.
     const stylesheet = readdirSync(path.join(distDir, 'assets')).find(
-        (file) => file.endsWith('.css') &&
+        (file) =>
+            file.endsWith('.css') &&
             readFileSync(path.join(distDir, 'assets', file), 'utf8').includes('.privacy-page')
     );
     if (!logo || !stylesheet) throw new Error(`${kind} page assets are missing.`);
 
     // Use the same factual copy as React. Keep the email entirely out of the
     // static page; the interactive component reveals it only after activation.
-    const sections = notice.sections.map((section) => `<section aria-labelledby="${escapeHtml(section.id)}">
+    const sections = notice.sections
+        .map(
+            (section) => `<section aria-labelledby="${escapeHtml(section.id)}">
         <h2 id="${escapeHtml(section.id)}">${escapeHtml(section.title)}</h2>
         ${section.paragraphs.map((paragraph) => `<p>${escapeHtml(paragraph)}</p>`).join('')}
-        ${section.links.length ? `<ul class="privacy-sources">${section.links.map((link) =>
-            `<li><a href="${escapeHtml(link.href)}" rel="noreferrer">${escapeHtml(link.label)}</a></li>`
-        ).join('')}</ul>` : ''}
-    </section>`).join('');
+        ${
+            section.links.length
+                ? `<ul class="privacy-sources">${section.links
+                      .map(
+                          (link) =>
+                              `<li><a href="${escapeHtml(link.href)}" rel="noreferrer">${escapeHtml(link.label)}</a></li>`
+                      )
+                      .join('')}</ul>`
+                : ''
+        }
+    </section>`
+        )
+        .join('');
     const contents = `<nav class="privacy-contents" aria-label="On this page">
         <p>On this page</p><ul>
             ${notice.sections.map((section) => `<li><a href="#${escapeHtml(section.id)}">${escapeHtml(section.title)}</a></li>`).join('')}
@@ -545,7 +569,10 @@ function writeLegalPage(template, kind) {
 
     let html = template
         .replace(/<script\b[^>]*type="application\/ld\+json"[^>]*>[\s\S]*?<\/script>/gi, '')
-        .replace(/<link\b[^>]*rel="canonical"[^>]*>/gi, `<link rel="canonical" href="${siteUrl}/${kind}" />`)
+        .replace(
+            /<link\b[^>]*rel="canonical"[^>]*>/gi,
+            `<link rel="canonical" href="${siteUrl}/${kind}" />`
+        )
         .replace('<html lang="en">', `<html lang="en" data-${kind}-page>`)
         .replace(/<title>.*?<\/title>/, `<title>${escapeHtml(notice.seoTitle)}</title>`)
         .replace('</head>', `<link rel="stylesheet" href="/assets/${stylesheet}" />\n</head>`);
@@ -556,7 +583,9 @@ function writeLegalPage(template, kind) {
     html = updateMeta(html, 'property', 'og:url', `${siteUrl}/${kind}`);
     html = updateMeta(html, 'name', 'twitter:title', notice.seoTitle);
     html = updateMeta(html, 'name', 'twitter:description', notice.description);
-    html = html.replace(/<div id="root"><\/div>/, `<div id="root">
+    html = html.replace(
+        /<div id="root"><\/div>/,
+        `<div id="root">
         <main class="privacy-page" data-testid="${kind}-page" aria-labelledby="${kind}-heading">
             <div class="privacy-shell">
                 <header class="privacy-header">
@@ -582,7 +611,13 @@ function writeLegalPage(template, kind) {
                 </footer>
             </div>
         </main>
-    </div>`);
+    </div>`
+    );
+    return html;
+}
+
+function writeLegalPage(template, kind) {
+    const html = generateLegalPage(template, kind);
     const outputDir = path.join(distDir, kind);
     mkdirSync(outputDir, { recursive: true });
     writeFileSync(path.join(outputDir, 'index.html'), html);
@@ -625,7 +660,10 @@ function verifyGeneratedOutput(docs) {
     const version = JSON.parse(readFileSync(path.join(distDir, 'version.json'), 'utf8'));
 
     for (const kind of ['privacy', 'terms']) {
-        assertGenerated(sitemap.includes(`<loc>https://kromacut.com/${kind}</loc>`), `${kind} page is missing from sitemap`);
+        assertGenerated(
+            sitemap.includes(`<loc>https://kromacut.com/${kind}</loc>`),
+            `${kind} page is missing from sitemap`
+        );
         const legalHtml = readFileSync(path.join(distDir, kind, 'index.html'), 'utf8');
         assertGenerated(
             legalHtml.includes(`data-testid="${kind}-page"`) &&
@@ -731,3 +769,14 @@ writeLegalPage(template, 'terms');
 writeSitemap(docs);
 writeRobots();
 verifyGeneratedOutput(docs);
+
+export {
+    parseDocs,
+    generateDocPage,
+    generateLegalPage,
+    generateNotFoundPage,
+    updateMeta,
+    escapeHtml,
+    findBuiltAsset,
+    createSlugger,
+};

@@ -1,5 +1,6 @@
+import { useTranslation } from 'react-i18next';
 import React, { useState, useEffect } from 'react';
-import { RgbaColorPicker } from 'react-colorful';
+import { RgbaColorPicker } from '@/components/ui/localized-color-picker';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
@@ -27,6 +28,7 @@ export const SwatchesPanel: React.FC<Props> = ({
     onSwatchDelete,
     onSwatchApply,
 }) => {
+    const { t } = useTranslation('workspace');
     const [openSwatch, setOpenSwatch] = useState<SwatchEntry | null>(null);
     const [pickerColor, setPickerColor] = useState<string>('#000000');
     const [rgba, setRgba] = useState<{
@@ -60,20 +62,20 @@ export const SwatchesPanel: React.FC<Props> = ({
     return (
         <CollapsibleCard
             id="image-colors"
-            title="Image colors"
-            subtitle="Detected color palette"
+            title={t('swatchesPanel.imageColors')}
+            subtitle={t('swatchesPanel.detectedColorPalette')}
             actions={
                 <>
                     <span
                         className="px-2 py-1 rounded-full bg-primary/10 text-primary text-xs font-semibold font-mono"
                         aria-hidden
-                        title="Number of opaque color swatches (transparent excluded)"
+                        title={t('swatchesPanel.numberOfOpaqueColorSwatchesTransparentExcluded')}
                     >
                         {swatches.filter((s) => !s.isTransparent).length}
                     </span>
                     {loading && (
                         <span className="text-xs text-muted-foreground animate-pulse">
-                            Updating…
+                            {t('swatchesPanel.updating')}
                         </span>
                     )}
                 </>
@@ -86,7 +88,7 @@ export const SwatchesPanel: React.FC<Props> = ({
             >
                 {swatches.length === 0 ? (
                     <div className="col-span-full py-4 text-center text-sm text-muted-foreground">
-                        No swatches
+                        {t('swatchesPanel.noSwatches')}
                     </div>
                 ) : (
                     swatches.slice(0, cap).map((s) => {
@@ -112,9 +114,12 @@ export const SwatchesPanel: React.FC<Props> = ({
                                         setOpenSwatch(s);
                                     }
                                 }}
-                                title={`${s.hex}${
-                                    s.a === 0 ? ' (transparent)' : ''
-                                }  alpha:${s.a}  count:${s.count}`}
+                                title={t(
+                                    s.a === 0
+                                        ? 'swatchesPanel.transparentSwatchDetails'
+                                        : 'swatchesPanel.swatchDetails',
+                                    { color: s.hex, alpha: s.a, count: s.count }
+                                )}
                                 className="rounded border border-border/70 cursor-pointer hover:border-primary hover:shadow-md transition-all duration-200 hover:scale-110 select-none"
                                 style={{ aspectRatio: '1', ...swatchStyle }}
                             />
@@ -128,7 +133,7 @@ export const SwatchesPanel: React.FC<Props> = ({
                 <div
                     role="dialog"
                     aria-modal="true"
-                    aria-label="Edit swatch color"
+                    aria-label={t('swatchesPanel.editSwatchColor')}
                     onKeyDown={(e) => {
                         if (e.key === 'Escape') closeModal();
                     }}
@@ -139,14 +144,14 @@ export const SwatchesPanel: React.FC<Props> = ({
                         <div className="flex justify-between items-center p-6 border-b border-border/50">
                             <div>
                                 <h2 className="font-semibold text-foreground text-base">
-                                    Edit Color
+                                    {t('swatchesPanel.editColor')}
                                 </h2>
                                 <p className="text-xs text-muted-foreground mt-1">
-                                    Adjust the color and transparency
+                                    {t('swatchesPanel.adjustTheColorAndTransparency')}
                                 </p>
                             </div>
                             <button
-                                aria-label="Close"
+                                aria-label={t('swatchesPanel.close')}
                                 onClick={() => closeModal()}
                                 className="h-6 w-6 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded transition-colors select-none"
                             >
@@ -183,7 +188,7 @@ export const SwatchesPanel: React.FC<Props> = ({
                             {/* Hex input and Preview in a row */}
                             <div className="space-y-2">
                                 <label className="text-xs font-medium text-foreground">
-                                    Hex Value
+                                    {t('swatchesPanel.hexValue')}
                                 </label>
                                 <Input
                                     value={pickerColor}
@@ -240,7 +245,7 @@ export const SwatchesPanel: React.FC<Props> = ({
                                         closeModal();
                                     }}
                                 >
-                                    Delete
+                                    {t('swatchesPanel.delete')}
                                 </Button>
 
                                 <Button
@@ -283,7 +288,7 @@ export const SwatchesPanel: React.FC<Props> = ({
                                         closeModal();
                                     }}
                                 >
-                                    Apply
+                                    {t('swatchesPanel.apply')}
                                 </Button>
                             </div>
                         </div>

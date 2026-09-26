@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useEffect, type MouseEvent } from 'react';
 import { isTauri } from '@tauri-apps/api/core';
 import logo from '@/assets/logo.png';
@@ -7,8 +8,10 @@ import { appPath, docsPath, landingPath } from '@/lib/routes';
 import { applyNotFoundSeo, SITE_URL } from '@/lib/seo';
 import { applyThemeMode, getStoredThemeMode, subscribeToSystemTheme } from '@/lib/theme';
 import './not-found.css';
+import LanguageSetting from './LanguageSetting';
 
 export default function NotFoundPage({ embedded = false }: { embedded?: boolean }) {
+    const { t, i18n } = useTranslation('public');
     const desktop = isTauri();
     const Container = embedded ? 'section' : 'main';
 
@@ -42,7 +45,7 @@ export default function NotFoundPage({ embedded = false }: { embedded?: boolean 
             unsubscribe();
             window.removeEventListener('storage', syncTheme);
         };
-    }, []);
+    }, [i18n.resolvedLanguage]);
 
     return (
         <Container
@@ -56,25 +59,29 @@ export default function NotFoundPage({ embedded = false }: { embedded?: boolean 
                         <img src={logo} alt="" width="36" height="36" />
                         <span>Kromacut</span>
                     </div>
-                    <span className="not-found-code" aria-label="Error 404">404</span>
+                    <span className="not-found-code" aria-label={t('notFound.code')}>
+                        404
+                    </span>
                 </header>
                 <div className="not-found-content">
                     <div className="not-found-copy">
-                        <p className="not-found-eyebrow">A little off the build plate</p>
-                        <h1 id="not-found-heading">This page doesn't exist</h1>
-                        <p className="not-found-description">
-                            The link may be outdated, or the address may contain a typo.
-                            {' '}Let's get you back to creating.
-                        </p>
+                        <p className="not-found-eyebrow">{t('notFound.eyebrow')}</p>
+                        <h1 id="not-found-heading">{t('notFound.heading')}</h1>
+                        <p className="not-found-description">{t('notFound.description')}</p>
                         <div className="not-found-actions">
-                            <a className="not-found-primary" href={appPath(desktop)} onClick={recoverInApp}>
-                                Open Kromacut <ArrowRight aria-hidden="true" size={18} />
+                            <a
+                                className="not-found-primary"
+                                href={appPath(desktop)}
+                                onClick={recoverInApp}
+                            >
+                                {t('navigation.openApp')}
+                                <ArrowRight aria-hidden="true" size={18} />
                             </a>
                             <a
                                 className="not-found-secondary"
                                 href={desktop ? `${SITE_URL}/?landing=1` : landingPath(false)}
                             >
-                                Go to homepage
+                                {t('navigation.home')}
                             </a>
                         </div>
                     </div>
@@ -83,15 +90,24 @@ export default function NotFoundPage({ embedded = false }: { embedded?: boolean 
                     </div>
                 </div>
                 <footer className="not-found-footer">
-                    <p><BookOpen aria-hidden="true" size={18} /> Looking for a guide?</p>
+                    <p>
+                        <BookOpen aria-hidden="true" size={18} />
+                        {t('notFound.guide')}
+                    </p>
                     <a
                         className="not-found-docs-link"
                         href={docsPath('overview')}
                         onClick={recoverInApp}
                     >
-                        Browse documentation <ArrowUpRight aria-hidden="true" size={16} />
+                        {t('navigation.docs')}
+                        <ArrowUpRight aria-hidden="true" size={16} />
                     </a>
                 </footer>
+                {!embedded && (
+                    <div className="px-8 pb-6">
+                        <LanguageSetting compact />
+                    </div>
+                )}
             </div>
         </Container>
     );

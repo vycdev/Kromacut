@@ -1,4 +1,4 @@
-import notice from '@/data/privacyNotice.json';
+import notice from '@/data/privacyNotice.json' with { type: 'json' };
 import LegalPage from './LegalPage';
 
 export default function PrivacyPage() {

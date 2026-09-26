@@ -14,9 +14,13 @@ This page collects controls that affect the whole app or are easy to miss.
 | Control       | What it does                                                                   |
 | ------------- | ------------------------------------------------------------------------------ |
 | Kromacut logo | Returns to the app while documentation is open; otherwise opens the home page. |
-| Settings      | Opens the settings dialog, including theme, resource, and update controls.     |
+| Settings      | Opens the settings dialog, including language, theme, resource, and update controls. |
 
 The theme selector offers **System**, **Dark**, and **Light**. **System** follows the operating system or browser color-scheme preference and updates when that preference changes. The theme choice is saved for later sessions.
+
+The **Language** selector changes the interface, documentation, diagrams, and public pages. Choose **System language** to follow a supported browser or operating-system language, or select English, French, German, Italian, Romanian, Spanish, Japanese, Simplified Chinese, Hindi, European Portuguese, Ukrainian, or Bengali. Your choice is saved locally and does not change your artwork, filament profiles, print settings, or generated geometry. Translation resources and fonts are bundled with the desktop app; no online translation service receives your work.
+
+Public pages also offer a language selector. Translated documentation uses shareable language-prefixed links, such as `/ro/docs/overview`. Page names and section anchors remain stable across languages. File extensions, numeric model data, user-entered names, and original community artwork titles are not translated.
 
 The settings dialog includes links to the documentation, Discord, Reddit, GitHub, and Patreon, and shows the current Kromacut version.
 
@@ -40,9 +44,9 @@ The **Multi-plate mode** switch in Settings is an unfinished workflow. It rememb
 
 ## Saved Print Settings
 
-Kromacut remembers print settings such as **Pixel Size (XY)**, **Layer Height**, **First Layer Height**, and **Smooth Meshing** in the browser.
+Kromacut remembers print settings such as **Pixel Size (XY)**, **Layer Height**, **First Layer Height**, **Effective line width**, and **Smooth Meshing** in the browser.
 
-Use the reset button in **3D Print Settings** if you want to return to defaults.
+Use the reset button in **3D Print Settings** if you want to return to the section's defaults, including 0.42 mm for effective line width.
 
 Remembered settings are local to the current browser/site or desktop app. They are not a backup of the artwork or a complete saved project, and separate browsers or the desktop app need not share them. Export important palettes and filament profiles before clearing app/browser data. Loading a profile restores its filaments and evidence, not an image or a ready-built mesh.
 
@@ -57,7 +61,7 @@ Auto-paint settings are preserved across sessions, including:
 - Preserve color separation, its unique-match ΔE limit, and whether every color requires a unique match.
 - Total repeat limit (shared extra filament appearances across the stack).
 - Transition detail and height dithering.
-- Effective line width and the saved at-risk-color substitution preference for printable-detail simulation and height dithering.
+- Effective line width (edited in **3D Print Settings**) for width warnings, isolated-speck cleanup, and height dithering, plus the saved **Omit isolated color specks** preference. The cleanup preference does not remove every width warning or control height dithering.
 - Flat Paint and its face-up, no-clear-layer preference.
 - Optimizer algorithm and seed.
 - Region priority.
@@ -106,6 +110,8 @@ HueForge spool library exports (`.csv` or `.tsv`) can be imported directly. Use 
 In the desktop app, Kromacut can show an update notice when a newer version is available. The notice lets you open the download page or dismiss the reminder.
 
 Open **Settings** to check for updates manually. The desktop settings also include **Check on startup**, which controls whether Kromacut checks for updates when the app opens. This is enabled by default, and manual checks still work when it is off.
+
+On Linux, AppImages with embedded update information can be updated with compatible tools such as AppImageUpdate. These tools use the release's `.AppImage.zsync` file to download changed parts. Older AppImages without update information need a one-time manual download of a supporting release. The `.zsync` file is not an installer, and Kromacut's update notice does not install updates automatically.
 
 ## Desktop Auto-paint Diagnostics
 

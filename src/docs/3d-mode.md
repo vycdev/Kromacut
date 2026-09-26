@@ -13,13 +13,14 @@ Use **Manual** to choose color order and thickness yourself. Use **Auto-paint** 
 
 ## 3D Print Settings
 
-| Control                | Effect on the model                                                                   | What to check                                                                                           |
-| ---------------------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| **Pixel Size (XY)**    | Millimetres per image pixel in both horizontal directions.                            | The **Model** badge estimates physical width, height, and depth before building.                        |
-| **Layer Height**       | The regular vertical step used for heights and swaps.                                 | Match the slicer. Smaller layers give finer height choices, not narrower extrusion lines.               |
-| **First Layer Height** | The first step above the plate.                                                       | Match this separately. The first color must be at least the greater of regular and first-layer heights. |
-| **Smooth Meshing**     | Changes pixel-stepped boundaries to smoothed connected contours.                      | Changes exported geometry, not just lighting. It does not add image detail or iron the surface.         |
-| **Reset**              | Restores 0.1 mm/pixel, 0.12 mm regular layers, 0.2 mm first layer, and smoothing off. | Also resets manual thicknesses to minimums, preserving current color order.                             |
+| Control                  | Effect on the model                                                                                                 | What to check                                                                                                       |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| **Pixel Size (XY)**      | Millimetres per image pixel in both horizontal directions.                                                          | The **Model** badge estimates physical width, height, and depth before building.                                    |
+| **Layer Height**         | The regular vertical step used for heights and swaps.                                                               | Match the slicer. Smaller layers give finer height choices, not narrower extrusion lines.                           |
+| **First Layer Height**   | The first step above the plate.                                                                                     | Match this separately. The first color must be at least the greater of regular and first-layer heights.             |
+| **Effective line width** | The extrusion width used for Auto-paint's printable-detail checks and height dithering.                             | Match your slicer's intended line width, not nozzle diameter or Pixel Size. It does not change the printer profile. |
+| **Smooth Meshing**       | Changes pixel-stepped boundaries to smoothed connected contours.                                                    | Changes exported geometry, not just lighting. It does not add image detail or iron the surface.                     |
+| **Reset**                | Restores 0.1 mm/pixel, 0.12 mm regular layers, 0.2 mm first layer, 0.42 mm effective line width, and smoothing off. | Also resets manual thicknesses to minimums, preserving current color order.                                         |
 
 ### Pixel size is not nozzle size
 
@@ -29,9 +30,15 @@ A 1,000-pixel-wide image at **0.1 mm/pixel** produces a model about **100 mm** w
 
 _Schematic. XY size, image resolution, and extrusion width are separate controls._
 
-To keep a 100 mm width with 2,000 image pixels, use **0.05 mm/pixel**. More pixels can describe finer edges, but the printer still has an extrusion-width limit. Set [Effective line width](auto-paint#printable-detail) in Auto-paint to inspect that limitation.
+To keep a 100 mm width with 2,000 image pixels, use **0.05 mm/pixel**. More pixels can describe finer edges, but the printer still has an extrusion-width limit. Set **Effective line width** in **3D Print Settings**, then use Auto-paint's [printable-detail preview](auto-paint#printable-detail) to inspect that limitation.
 
 Increasing pixel size does not reduce pixel count or make the mesh inherently cheaper to generate. For a lighter build, resize or crop in [2D mode](loading-images), or simplify its palette.
+
+### Effective line width
+
+Copy the slicer's intended extrusion width into **Effective line width**. It accepts 0.1 to 2 mm. Resetting **3D Print Settings** restores it to 0.42 mm along with the section's other defaults. Editing this field does not change the printer profile.
+
+Auto-paint uses this width for its width-warning preview, optional isolated-color-speck cleanup, and height-dither block size. The controls for inspecting warnings or omitting isolated specks remain in [Auto-paint](auto-paint#printable-detail). Warnings do not mean that a feature will be removed or cannot print.
 
 ### Layer heights and valid boundaries
 
@@ -99,7 +106,7 @@ The cap shortens Auto-paint transitions on valid layer boundaries but cannot rem
 
 ## Printable Detail
 
-**Effective line width**, **Open preview**, and **Omit at-risk colors from matching** explain and optionally replace vulnerable small regions. See [Printable detail](auto-paint#printable-detail).
+Set **Effective line width** in **3D Print Settings**, then use **Open preview** in Auto-paint to inspect thin source-color regions. **Omit isolated color specks** optionally replaces colors used only in tiny enclosed specks, while preserving thin lines and connected detail. Warnings and actual omitted-pixel counts are shown separately. See [Printable detail](auto-paint#printable-detail).
 
 ## Enhanced Color Matching
 

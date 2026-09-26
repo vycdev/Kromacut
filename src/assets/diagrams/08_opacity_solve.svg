@@ -1,23 +1,23 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 540" role="img" aria-labelledby="title desc">
-<title id="title">A wedge read locates the visible opacity threshold</title>
-<desc id="desc">A schematic curve of patch-to-rail color difference falls as filament layers increase. The example first matching patch is six, where the difference reaches a just-noticeable threshold. Patch count times layer height gives thickness; the model combines thickness with filament and base colors to infer hiding distance. The graph is explanatory, not measured data.</desc>
+<title id="title" data-i18n="title">A wedge read locates the visible opacity threshold</title>
+<desc id="desc" data-i18n="description">A schematic curve of patch-to-rail color difference falls as filament layers increase. The example first matching patch is six, where the difference reaches a just-noticeable threshold. Patch count times layer height gives thickness; the model combines thickness with filament and base colors to infer hiding distance. The graph is explanatory, not measured data.</desc>
 <rect width="960" height="540" rx="18" fill="#121923"/>
 <g font-family="system-ui, sans-serif" font-size="18" fill="#f1f5f9">
-<text x="32" y="44" font-size="26" font-weight="700">Your read locates a visible threshold</text>
-<text x="32" y="74" fill="#b3c2d4">The difference from the opaque rail falls as filament thickness increases.</text>
-<rect x="32" y="98" width="570" height="365" rx="14" fill="#1b2736"/><text x="54" y="130" fill="#b3c2d4">Color difference from the rail (ΔE00)</text>
+<text x="32" y="44" font-size="26" font-weight="700" data-i18n="yourReadLocatesAVisibleThreshold">Your read locates a visible threshold</text>
+<text x="32" y="74" fill="#b3c2d4" data-i18n="theDifferenceFromTheOpaqueRailFallsAs">The difference from the opaque rail falls as filament thickness increases.</text>
+<rect x="32" y="98" width="570" height="365" rx="14" fill="#1b2736"/><text x="54" y="130" fill="#b3c2d4" data-i18n="colorDifferenceFromTheRailE00">Color difference from the rail (ΔE00)</text>
 <path d="M92 156V391H563" fill="none" stroke="#b3c2d4" stroke-width="2"/><path d="M92 212H563M92 270H563" stroke="#34485d"/>
 <path d="M92 162C145 218 175 245 226 275S350 322 428 338S515 363 563 369" fill="none" stroke="#38bdf8" stroke-width="4"/>
-<path d="M92 338H563" stroke="#fbbf24" stroke-width="2" stroke-dasharray="7 5"/><text x="290" y="301" fill="#fbbf24">JND: looks identical</text>
+<path d="M92 338H563" stroke="#fbbf24" stroke-width="2" stroke-dasharray="7 5"/><text x="290" y="301" fill="#fbbf24" data-i18n="jNDLooksIdentical">JND: looks identical</text>
 <circle cx="428" cy="338" r="7" fill="#fbbf24"/><path d="M428 347V391" stroke="#fbbf24" stroke-width="2" stroke-dasharray="5 5"/>
 <text x="90" y="417" fill="#b3c2d4">1</text><text x="224" y="417" fill="#b3c2d4">3</text><text x="428" y="417" text-anchor="middle" fill="#fbbf24" font-weight="700">6</text><text x="557" y="417" fill="#b3c2d4">8</text>
-<text x="318" y="445" text-anchor="middle" fill="#b3c2d4">Patch number / added layers</text>
+<text x="318" y="445" text-anchor="middle" fill="#b3c2d4" data-i18n="patchNumberAddedLayers">Patch number / added layers</text>
 <rect x="620" y="98" width="308" height="365" rx="14" fill="#1b2736"/>
-<text x="640" y="135" fill="#38bdf8" font-weight="700">Read → thickness → HD</text><text x="640" y="179">Example Match: 6</text><text x="640" y="213" fill="#b3c2d4">Thickness d* = 6 × height</text>
-<text x="640" y="260" font-weight="700">HD = −d* / log₁₀(T*)</text>
-<text x="640" y="301" fill="#b3c2d4">T* depends on the filament,</text><text x="640" y="329" fill="#b3c2d4">base, and visible threshold.</text>
-<text x="640" y="376" fill="#fbbf24">No visible base contrast?</text><text x="640" y="405" fill="#b3c2d4">There is no useful crossing</text><text x="640" y="433" fill="#b3c2d4">to measure with that base.</text>
-<text x="32" y="494" fill="#b3c2d4">The default JND is about 2 ΔE00. More informative base reads can refine the model.</text>
-<text x="928" y="528" text-anchor="end" fill="#b3c2d4">Schematic curve and example read, not measurement data</text>
+<text x="640" y="135" fill="#38bdf8" font-weight="700" data-i18n="readThicknessHD">Read → thickness → HD</text><text x="640" y="179" data-i18n="exampleMatch6">Example Match: 6</text><text x="640" y="213" fill="#b3c2d4" data-i18n="thicknessD6Height">Thickness d* = 6 × height</text>
+<text x="640" y="260" font-weight="700" data-i18n="hDDLogT">HD = −d* / log₁₀(T*)</text>
+<text x="640" y="301" fill="#b3c2d4" data-i18n="tDependsOnTheFilament">T* depends on the filament,</text><text x="640" y="329" fill="#b3c2d4" data-i18n="baseAndVisibleThreshold">base, and visible threshold.</text>
+<text x="640" y="376" fill="#fbbf24" data-i18n="noVisibleBaseContrast">No visible base contrast?</text><text x="640" y="405" fill="#b3c2d4" data-i18n="thereIsNoUsefulCrossing">There is no useful crossing</text><text x="640" y="433" fill="#b3c2d4" data-i18n="toMeasureWithThatBase">to measure with that base.</text>
+<text x="32" y="494" fill="#b3c2d4" data-i18n="theDefaultJNDIsAbout2E00More">The default JND is about 2 ΔE00. More informative base reads can refine the model.</text>
+<text x="928" y="528" text-anchor="end" fill="#b3c2d4" data-i18n="schematicCurveAndExampleReadNotMeasurementData">Schematic curve and example read, not measurement data</text>
 </g>
 </svg>

@@ -1,5 +1,5 @@
 import type { DocLinkTarget, DocRecord } from '../../types/docs.ts';
-import { DOCS_PATH as DOCS_PATH_PREFIX } from '../routes.ts';
+import { DOCS_PATH as DOCS_PATH_PREFIX, publicPath, stripLanguagePrefix } from '../routes.ts';
 
 function cleanDocSlug(value: string): string {
     return value
@@ -26,7 +26,7 @@ function safeDecodeURIComponent(value: string): string | null {
 export function buildDocsPath(docSlug: string, headingSlug?: string): string {
     const encodedDoc = encodeURIComponent(cleanDocSlug(docSlug));
     const encodedHeading = headingSlug ? `#${encodeURIComponent(headingSlug)}` : '';
-    return `${DOCS_PATH_PREFIX}/${encodedDoc}${encodedHeading}`;
+    return publicPath(`${DOCS_PATH_PREFIX}/${encodedDoc}${encodedHeading}`);
 }
 
 /**
@@ -41,7 +41,7 @@ export function openDocsAt(docSlug: string, headingSlug?: string): void {
 
 export function parseDocsPath(pathname: string, hash = ''): DocLinkTarget | null {
     if (pathname.includes('//')) return null;
-    const normalizedPath = pathname.replace(/\/$/, '') || '/';
+    const normalizedPath = stripLanguagePrefix(pathname).replace(/\/$/, '') || '/';
     if (normalizedPath !== DOCS_PATH_PREFIX && !normalizedPath.startsWith(`${DOCS_PATH_PREFIX}/`)) {
         return null;
     }

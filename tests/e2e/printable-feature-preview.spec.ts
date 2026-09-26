@@ -43,11 +43,7 @@ test('@smoke Printable detail paints the At-risk canvas on first open and reopen
         await openPreview.click();
         const dialog = page.getByRole('alertdialog');
         await expect(dialog).toBeVisible();
-        await expectPaintedCanvas(
-            dialog.getByRole('img', {
-                name: 'Overlay showing image details at risk of disappearing or being claimed by neighboring colors',
-            })
-        );
+        await expectPaintedCanvas(dialog.getByTestId('printable-detail-canvas'));
         await dialog.getByRole('button', { name: 'Close' }).click();
         await expect(dialog).toBeHidden();
     }

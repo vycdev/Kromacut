@@ -1,9 +1,11 @@
+import { useTranslation } from 'react-i18next';
 import { useEffect, useId, useRef, useState } from 'react';
 
 const buttonClassName =
     'inline-flex min-h-11 items-center justify-center rounded-lg border border-border bg-card px-4 py-2 text-sm font-semibold text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-wait disabled:opacity-60';
 
 export default function PublicContactEmail() {
+    const { t } = useTranslation('public');
     const detailsId = useId();
     const emailLinkRef = useRef<HTMLAnchorElement>(null);
     const [email, setEmail] = useState<string | null>(null);
@@ -35,11 +37,9 @@ export default function PublicContactEmail() {
         setCopyStatus('');
         try {
             await navigator.clipboard.writeText(email);
-            setCopyStatus('Email address copied.');
+            setCopyStatus('contact.copied');
         } catch {
-            setCopyStatus(
-                'Could not copy automatically. Select the email address above and copy it manually, or try Copy email address again.'
-            );
+            setCopyStatus('contact.copyFailed');
         } finally {
             setCopying(false);
         }
@@ -56,10 +56,10 @@ export default function PublicContactEmail() {
                         aria-controls={detailsId}
                         onClick={revealEmail}
                     >
-                        Reveal email address
+                        {t('contact.reveal')}
                     </button>
                     <p className="text-sm leading-6 text-muted-foreground">
-                        Reveal the email address, then open it in your email app or copy it.
+                        {t('contact.instructions')}
                     </p>
                 </>
             )}
@@ -81,19 +81,17 @@ export default function PublicContactEmail() {
                                 aria-busy={copying}
                                 onClick={copyEmail}
                             >
-                                Copy email address
+                                {t('contact.copy')}
                             </button>
                         </div>
                         <p role="status" aria-atomic="true" className="text-sm leading-6">
-                            {copyStatus}
+                            {copyStatus ? t(copyStatus) : ''}
                         </p>
                     </>
                 )}
             </div>
             <noscript>
-                <p className="text-sm leading-6 text-muted-foreground">
-                    JavaScript is needed to reveal this email address.
-                </p>
+                <p className="text-sm leading-6 text-muted-foreground">{t('contact.javascript')}</p>
             </noscript>
         </div>
     );

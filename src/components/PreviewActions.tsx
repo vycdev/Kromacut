@@ -1,5 +1,6 @@
+import { useTranslation } from 'react-i18next';
 import React from 'react';
-import { HexColorPicker } from 'react-colorful';
+import { HexColorPicker } from '@/components/ui/localized-color-picker';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Slider } from '@/components/ui/slider';
@@ -116,6 +117,7 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
     onTouchUpTextSizeChange,
     paletteColors = [],
 }) => {
+    const { t } = useTranslation('workspace');
     const [previewModeMenuOpen, setPreviewModeMenuOpen] = React.useState(false);
     // Local color while the picker popover is open: react-colorful fires
     // onChange continuously during drags, and pushing every sample into app
@@ -133,12 +135,12 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
                 : Box;
     const previewRenderModeLabel =
         previewRenderMode === 'color-accurate'
-            ? 'Color accurate'
+            ? t('previewActions.colorAccurate')
             : previewRenderMode === 'wireframe'
-              ? 'Wireframe'
+              ? t('previewActions.wireframe')
               : previewRenderMode === 'transparent'
-                ? 'Transparent'
-                : 'Shaded';
+                ? t('previewActions.transparent')
+                : t('previewActions.shaded');
     const previewModeOptions: Array<{
         value: PreviewRenderMode;
         label: string;
@@ -146,23 +148,43 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
     }> = [
         {
             value: 'color-accurate',
-            label: 'Color accurate',
+            label: t('previewActions.colorAccurate'),
             icon: <Palette className="w-4 h-4" />,
         },
-        { value: 'shaded', label: 'Shaded', icon: <Box className="w-4 h-4" /> },
-        { value: 'transparent', label: 'Transparent', icon: <Eye className="w-4 h-4" /> },
-        { value: 'wireframe', label: 'Wireframe', icon: <Grid3x3 className="w-4 h-4" /> },
+        { value: 'shaded', label: t('previewActions.shaded'), icon: <Box className="w-4 h-4" /> },
+        {
+            value: 'transparent',
+            label: t('previewActions.transparent'),
+            icon: <Eye className="w-4 h-4" />,
+        },
+        {
+            value: 'wireframe',
+            label: t('previewActions.wireframe'),
+            icon: <Grid3x3 className="w-4 h-4" />,
+        },
     ];
     const touchUpToolOptions: Array<{
         value: TouchUpTool;
         label: string;
         icon: React.ReactNode;
     }> = [
-        { value: 'brush', label: 'Brush', icon: <Brush className="w-4 h-4" /> },
-        { value: 'eraser', label: 'Eraser', icon: <Eraser className="w-4 h-4" /> },
-        { value: 'fill', label: 'Fill', icon: <PaintBucket className="w-4 h-4" /> },
-        { value: 'text', label: 'Text', icon: <Type className="w-4 h-4" /> },
-        { value: 'picker', label: 'Pick color from image', icon: <Pipette className="w-4 h-4" /> },
+        { value: 'brush', label: t('previewActions.brush'), icon: <Brush className="w-4 h-4" /> },
+        {
+            value: 'eraser',
+            label: t('previewActions.eraser'),
+            icon: <Eraser className="w-4 h-4" />,
+        },
+        {
+            value: 'fill',
+            label: t('previewActions.fill'),
+            icon: <PaintBucket className="w-4 h-4" />,
+        },
+        { value: 'text', label: t('previewActions.text'), icon: <Type className="w-4 h-4" /> },
+        {
+            value: 'picker',
+            label: t('previewActions.pickColorFromImage'),
+            icon: <Pipette className="w-4 h-4" />,
+        },
     ];
     const showTouchUpTools = mode === '2d' && !isCropMode && !!onTouchUpToolChange;
     const touchUpColorRelevant =
@@ -172,11 +194,11 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
         touchUpTool === 'picker';
     // Every tool's options row reads the same left-to-right: chip, size, hint.
     const touchUpHints: Record<TouchUpTool, string> = {
-        brush: 'Drag over the image to paint',
-        eraser: 'Drag over the image to erase',
-        fill: 'Click a color region to fill it',
-        text: 'Click the image and start typing',
-        picker: 'Click the image to pick a color',
+        brush: t('previewActions.dragOverTheImageToPaint'),
+        eraser: t('previewActions.dragOverTheImageToErase'),
+        fill: t('previewActions.clickAColorRegionToFillIt'),
+        text: t('previewActions.clickTheImageAndStartTyping'),
+        picker: t('previewActions.clickTheImageToPickAColor'),
     };
 
     return (
@@ -186,8 +208,12 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
                     <PopoverTrigger asChild>
                         <Button
                             size="icon"
-                            title={`3D preview view: ${previewRenderModeLabel}`}
-                            aria-label={`Choose 3D preview view (currently ${previewRenderModeLabel})`}
+                            title={t('previewActions.previewViewTitle', {
+                                mode: previewRenderModeLabel,
+                            })}
+                            aria-label={t('previewActions.choosePreviewView', {
+                                mode: previewRenderModeLabel,
+                            })}
                             data-testid="preview-render-mode-trigger"
                             className="bg-primary hover:bg-primary/80 text-primary-foreground"
                         >
@@ -195,7 +221,11 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
                         </Button>
                     </PopoverTrigger>
                     <PopoverContent align="start" className="w-44 p-1.5">
-                        <div role="radiogroup" aria-label="3D preview view" className="grid gap-1">
+                        <div
+                            role="radiogroup"
+                            aria-label={t('previewActions.3dPreviewView')}
+                            className="grid gap-1"
+                        >
                             {previewModeOptions.map(({ value, label, icon }) => {
                                 const selected = previewRenderMode === value;
                                 return (
@@ -237,13 +267,17 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
                     size="icon"
                     title={
                         previewColorMode === 'physical'
-                            ? 'Showing physical filament colors — switch to simulated colors'
-                            : 'Showing simulated colors — switch to physical filament colors'
+                            ? t(
+                                  'previewActions.showingPhysicalFilamentColorsSwitchToSimulatedColors'
+                              )
+                            : t(
+                                  'previewActions.showingSimulatedColorsSwitchToPhysicalFilamentColors'
+                              )
                     }
                     aria-label={
                         previewColorMode === 'physical'
-                            ? 'Switch preview to simulated colors'
-                            : 'Switch preview to physical filament colors'
+                            ? t('previewActions.switchPreviewToSimulatedColors')
+                            : t('previewActions.switchPreviewToPhysicalFilamentColors')
                     }
                     aria-pressed={previewColorMode === 'physical'}
                     data-testid="preview-color-mode-toggle"
@@ -265,10 +299,14 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
                 <Button
                     size="icon"
                     title={
-                        isOrtho ? 'Switch to perspective camera' : 'Switch to orthographic camera'
+                        isOrtho
+                            ? t('previewActions.switchToPerspectiveCamera')
+                            : t('previewActions.switchToOrthographicCamera')
                     }
                     aria-label={
-                        isOrtho ? 'Switch to perspective camera' : 'Switch to orthographic camera'
+                        isOrtho
+                            ? t('previewActions.switchToPerspectiveCamera')
+                            : t('previewActions.switchToOrthographicCamera')
                     }
                     onClick={onToggleCamera}
                     className="bg-primary hover:bg-primary/80 text-primary-foreground"
@@ -278,8 +316,8 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
             )}
             <Button
                 size="icon"
-                title="Undo"
-                aria-label="Undo"
+                title={t('previewActions.undo')}
+                aria-label={t('previewActions.undo')}
                 disabled={isCropMode || !canUndo}
                 onClick={onUndo}
                 className="bg-primary hover:bg-primary/80 text-primary-foreground disabled:opacity-50 disabled:cursor-not-allowed"
@@ -288,8 +326,8 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
             </Button>
             <Button
                 size="icon"
-                title="Redo"
-                aria-label="Redo"
+                title={t('previewActions.redo')}
+                aria-label={t('previewActions.redo')}
                 disabled={isCropMode || !canRedo}
                 onClick={onRedo}
                 className="bg-primary hover:bg-primary/80 text-primary-foreground disabled:opacity-50 disabled:cursor-not-allowed"
@@ -325,8 +363,8 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
                 (!isCropMode ? (
                     <Button
                         size="icon"
-                        title="Crop"
-                        aria-label="Crop"
+                        title={t('previewActions.crop')}
+                        aria-label={t('previewActions.crop')}
                         disabled={!imageAvailable}
                         onClick={onEnterCrop}
                         className="bg-primary hover:bg-primary/80 text-primary-foreground disabled:opacity-50 disabled:cursor-not-allowed"
@@ -337,8 +375,8 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
                     <>
                         <Button
                             size="icon"
-                            title="Save crop"
-                            aria-label="Save crop"
+                            title={t('previewActions.saveCrop')}
+                            aria-label={t('previewActions.saveCrop')}
                             disabled={!hasValidCropSelection}
                             onClick={onSaveCrop}
                             className="bg-primary hover:bg-primary/80 text-primary-foreground disabled:opacity-50 disabled:cursor-not-allowed"
@@ -347,8 +385,8 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
                         </Button>
                         <Button
                             size="icon"
-                            title="Cancel crop"
-                            aria-label="Cancel crop"
+                            title={t('previewActions.cancelCrop')}
+                            aria-label={t('previewActions.cancelCrop')}
                             onClick={onCancelCrop}
                             className="bg-destructive hover:bg-destructive/80 text-destructive-foreground"
                         >
@@ -361,8 +399,8 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
             {mode === '2d' ? (
                 <Button
                     size="icon"
-                    title="Download image"
-                    aria-label="Download image"
+                    title={t('previewActions.downloadImage')}
+                    aria-label={t('previewActions.downloadImage')}
                     disabled={!imageAvailable}
                     onClick={onExportImage}
                     className="bg-primary hover:bg-primary/80 text-primary-foreground disabled:opacity-50 disabled:cursor-not-allowed"
@@ -377,10 +415,12 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
                             data-testid="download-3d-model"
                             title={
                                 exportingSTL
-                                    ? `Exporting… ${Math.round(exportProgress * 100)}%`
-                                    : 'Download 3D Model'
+                                    ? t('previewActions.exportingProgress', {
+                                          percent: Math.round(exportProgress * 100),
+                                      })
+                                    : t('previewActions.download3dModel')
                             }
-                            aria-label="Download 3D Model"
+                            aria-label={t('previewActions.download3dModel')}
                             disabled={!imageAvailable || exportingSTL || modelExportDisabled}
                             className="bg-primary hover:bg-primary/80 text-primary-foreground disabled:opacity-50 disabled:cursor-not-allowed"
                         >
@@ -403,7 +443,7 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
                                 className="justify-start gap-2 h-9 px-2 font-normal"
                             >
                                 <FileBox className="w-4 h-4 text-muted-foreground" />
-                                <span>Download STL</span>
+                                <span>{t('previewActions.downloadStl')}</span>
                             </Button>
                         )}
                         <Button
@@ -414,7 +454,7 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
                             className="justify-start gap-2 h-9 px-2 font-normal"
                         >
                             <FileType className="w-4 h-4 text-muted-foreground" />
-                            <span>Download 3MF</span>
+                            <span>{t('previewActions.download3mf')}</span>
                         </Button>
                     </PopoverContent>
                 </Popover>
@@ -424,8 +464,8 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
                 <>
                     <Button
                         size="icon"
-                        title="Toggle checkerboard"
-                        aria-label="Toggle checkerboard"
+                        title={t('previewActions.toggleCheckerboard')}
+                        aria-label={t('previewActions.toggleCheckerboard')}
                         onClick={onToggleCheckerboard}
                         className="bg-primary hover:bg-primary/80 text-primary-foreground"
                     >
@@ -433,8 +473,8 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
                     </Button>
                     <Button
                         size="icon"
-                        title="Choose file"
-                        aria-label="Choose file"
+                        title={t('previewActions.chooseFile')}
+                        aria-label={t('previewActions.chooseFile')}
                         onClick={onPickFile}
                         className="bg-primary hover:bg-primary/80 text-primary-foreground disabled:opacity-50 disabled:cursor-not-allowed"
                     >
@@ -442,8 +482,8 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
                     </Button>
                     <Button
                         size="icon"
-                        title="Remove image"
-                        aria-label="Remove image"
+                        title={t('previewActions.removeImage')}
+                        aria-label={t('previewActions.removeImage')}
                         onClick={onClear}
                         disabled={!imageAvailable || isCropMode}
                         className="bg-destructive hover:bg-destructive/80 text-destructive-foreground disabled:opacity-50 disabled:cursor-not-allowed"
@@ -473,8 +513,8 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
                                 <PopoverTrigger asChild>
                                     <button
                                         type="button"
-                                        title="Change tool color"
-                                        aria-label="Change tool color"
+                                        title={t('previewActions.changeToolColor')}
+                                        aria-label={t('previewActions.changeToolColor')}
                                         data-testid="touchup-color-chip"
                                         className="w-8 h-8 rounded-full border-2 border-border shadow-sm flex-shrink-0 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-transform hover:scale-105 cursor-pointer"
                                         style={{ backgroundColor: shownTouchUpColor }}
@@ -486,7 +526,9 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
                                     onEscapeKeyDown={(e) => e.stopPropagation()}
                                 >
                                     <div className="space-y-3">
-                                        <h4 className="font-medium text-sm">Pick Color</h4>
+                                        <h4 className="font-medium text-sm">
+                                            {t('previewActions.pickColor')}
+                                        </h4>
                                         <HexColorPicker
                                             color={draftColor}
                                             onChange={setDraftColor}
@@ -494,7 +536,7 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
                                         {paletteColors.length > 0 && (
                                             <div className="space-y-1.5">
                                                 <span className="text-xs text-muted-foreground">
-                                                    Image colors
+                                                    {t('previewActions.imageColors')}
                                                 </span>
                                                 <div className="grid grid-cols-8 gap-1.5 max-h-24 overflow-y-auto pr-1">
                                                     {paletteColors.map((hex) => (
@@ -502,7 +544,10 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
                                                             key={hex}
                                                             type="button"
                                                             title={hex}
-                                                            aria-label={`Use color ${hex}`}
+                                                            aria-label={t(
+                                                                'previewActions.useColor',
+                                                                { color: hex }
+                                                            )}
                                                             onClick={() => setDraftColor(hex)}
                                                             className="w-5 h-5 rounded-full border border-border shadow-sm cursor-pointer transition-transform hover:scale-110"
                                                             style={{ backgroundColor: hex }}
@@ -513,7 +558,7 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
                                         )}
                                         <div className="flex gap-2 items-center">
                                             <span className="text-xs text-muted-foreground">
-                                                Hex
+                                                {t('previewActions.hex')}
                                             </span>
                                             <Input
                                                 value={draftColor}
@@ -527,8 +572,8 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
                         )}
                         {touchUpTool === 'eraser' && (
                             <div
-                                title="The eraser paints transparent pixels"
-                                aria-label="Eraser color: transparent"
+                                title={t('previewActions.theEraserPaintsTransparentPixels')}
+                                aria-label={t('previewActions.eraserColorTransparent')}
                                 className="w-8 h-8 rounded-full border-2 border-border shadow-sm flex-shrink-0"
                                 style={{
                                     background:
@@ -545,11 +590,11 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
                                         max={64}
                                         step={1}
                                         onValueChange={([v]) => onTouchUpBrushSizeChange(v)}
-                                        aria-label="Brush size"
+                                        aria-label={t('previewActions.brushSize')}
                                         className="w-28 cursor-pointer"
                                     />
                                     <div className="flex-shrink-0 px-2.5 py-1 rounded-full bg-primary/10 text-primary text-xs font-mono font-semibold whitespace-nowrap">
-                                        {touchUpBrushSize} px
+                                        {t('previewActions.pixelSize', { size: touchUpBrushSize })}
                                     </div>
                                 </>
                             )}
@@ -561,11 +606,11 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
                                     max={128}
                                     step={1}
                                     onValueChange={([v]) => onTouchUpTextSizeChange(v)}
-                                    aria-label="Text size"
+                                    aria-label={t('previewActions.textSize')}
                                     className="w-28 cursor-pointer"
                                 />
                                 <div className="flex-shrink-0 px-2.5 py-1 rounded-full bg-primary/10 text-primary text-xs font-mono font-semibold whitespace-nowrap">
-                                    {touchUpTextSize} px
+                                    {t('previewActions.pixelSize', { size: touchUpTextSize })}
                                 </div>
                             </>
                         )}

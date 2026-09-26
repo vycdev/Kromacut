@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import React from 'react';
 import { Button } from '@/components/ui/button';
 
@@ -7,6 +8,7 @@ interface Props {
 }
 
 export const ModeTabs: React.FC<Props> = ({ mode, onChange }) => {
+    const { t } = useTranslation('workspace');
     return (
         <div className="p-4 border-b border-border pr-[25px]" aria-hidden={false}>
             <div className="flex gap-2">
@@ -17,7 +19,7 @@ export const ModeTabs: React.FC<Props> = ({ mode, onChange }) => {
                     onClick={() => onChange('2d')}
                     aria-pressed={mode === '2d'}
                 >
-                    2D
+                    {t('modeTabs.2d')}
                 </Button>
                 <Button
                     variant={mode === '3d' ? 'default' : 'outline'}
@@ -26,7 +28,7 @@ export const ModeTabs: React.FC<Props> = ({ mode, onChange }) => {
                     onClick={() => onChange('3d')}
                     aria-pressed={mode === '3d'}
                 >
-                    3D
+                    {t('modeTabs.3d')}
                 </Button>
             </div>
         </div>

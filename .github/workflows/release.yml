@@ -61,15 +61,21 @@ jobs:
               if: matrix.platform == 'ubuntu-22.04'
               run: |
                   sudo apt-get update
-                  sudo apt-get install -y libwebkit2gtk-4.0-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+                  sudo apt-get install -y libwebkit2gtk-4.0-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf zsync
 
             - name: Install dependencies
               run: npm ci
+
+            - name: Test AppImage release validation
+              if: matrix.platform == 'ubuntu-22.04'
+              run: node --no-warnings --experimental-strip-types --test tests/appImageUpdates.test.ts
 
             - name: Build
               uses: tauri-apps/tauri-action@v0
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                  # linuxdeploy embeds this and generates the matching .zsync sidecar.
+                  LDAI_UPDATE_INFORMATION: ${{ matrix.platform == 'ubuntu-22.04' && format('gh-releases-zsync|{0}|{1}|latest|Kromacut_*_amd64.AppImage.zsync', github.repository_owner, github.event.repository.name) || '' }}
               with:
                   tagName: ${{ github.ref_name }}
                   releaseName: 'Kromacut ${{ github.ref_name }}'
@@ -79,6 +85,27 @@ jobs:
                   args: ${{ matrix.args }}
                   assetNamePattern: ${{ matrix.assetNamePattern }}
                   includeUpdaterJson: ${{ matrix.includeUpdaterJson }}
+
+            - name: Generate, validate and upload AppImage delta metadata
+              if: matrix.platform == 'ubuntu-22.04'
+              shell: bash
+              env:
+                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              run: |
+                  set -euo pipefail
+                  [[ "$GITHUB_REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9_.-]+)?$ ]]
+                  appimage="src-tauri/target/release/bundle/appimage/Kromacut_${GITHUB_REF_NAME#v}_amd64.AppImage"
+                  # appimagetool can put its sidecar in the working directory instead.
+                  # Generate beside the final artifact with an unambiguous release URL.
+                  zsyncmake -u "https://github.com/$GITHUB_REPOSITORY/releases/download/$GITHUB_REF_NAME/${appimage##*/}" \
+                    -o "$appimage.zsync" "$appimage"
+                  node scripts/check-appimage-update.mjs \
+                    src-tauri/target/release/bundle/appimage \
+                    "$GITHUB_REPOSITORY" "$GITHUB_REF_NAME"
+                  # tauri-action does not upload .zsync files itself.
+                  gh release upload "$GITHUB_REF_NAME" \
+                    "$appimage.zsync" \
+                    --repo "$GITHUB_REPOSITORY" --clobber
 
     release:
         needs: build
@@ -113,7 +140,8 @@ jobs:
                       **Linux:**
                       1. Download the .AppImage or .deb file
                       2. For AppImage: chmod +x Kromacut*.AppImage && ./Kromacut*.AppImage
-                      3. For Debian/Ubuntu: sudo dpkg -i kromacut*.deb`;
+                      3. For Debian/Ubuntu: sudo dpkg -i kromacut*.deb
+                      4. AppImages from this release include update information for compatible tools such as AppImageUpdate. The matching .AppImage.zsync asset enables delta downloads; it is not an installer. Older AppImages without update information need a one-time manual download. Kromacut's built-in update notification still opens the release page.`;
 
                       function getChangelogEntry(changelog, tagName) {
                           const heading = /^##\s+(.+?)\s*$/gm;
@@ -151,6 +179,18 @@ jobs:
                       });
                       const draftRelease = releases.find(r => r.draft && r.tag_name === tagName);
                       if (draftRelease) {
+                          const assets = await github.paginate(github.rest.repos.listReleaseAssets, {
+                              owner: context.repo.owner,
+                              repo: context.repo.repo,
+                              release_id: draftRelease.id,
+                              per_page: 100
+                          });
+                          const appImageName = `Kromacut_${tagName.replace(/^v/, '')}_amd64.AppImage`;
+                          for (const name of [appImageName, `${appImageName}.zsync`]) {
+                              if (!assets.some(asset => asset.name === name && asset.state === 'uploaded' && asset.size > 0)) {
+                                  throw new Error(`Refusing to publish without AppImage update asset: ${name}`);
+                              }
+                          }
                           await github.rest.repos.updateRelease({
                               owner: context.repo.owner,
                               repo: context.repo.repo,

@@ -1,0 +1,76 @@
+{
+  "colorPicker": {
+    "hue": "Farbton",
+    "color": "Farbe",
+    "alpha": "Deckkraft",
+    "saturationBrightness": "Sättigung {{saturation}} %, Helligkeit {{brightness}} %"
+  },
+  "language": {
+    "title": "Sprache",
+    "system": "Systemsprache",
+    "loading": "Sprache wird geladen…",
+    "failed": "Diese Sprache konnte nicht geladen werden. Die bisherige Sprache wurde beibehalten."
+  },
+  "navigation": {
+    "backToApp": "Zurück zur App",
+    "home": "Kromacut-Startseite",
+    "backHome": "Zurück zur Kromacut-Startseite",
+    "loading": "Kromacut wird geladen"
+  },
+  "settings": {
+    "title": "Einstellungen",
+    "open": "Einstellungen öffnen",
+    "close": "Einstellungen schließen",
+    "theme": "Darstellung",
+    "system": "System",
+    "dark": "Dunkel",
+    "light": "Hell",
+    "resources": "Ressourcen und Community",
+    "resourcesDescription": "Anleitungen, Veröffentlichungen und Orte zum Teilen deiner Werke.",
+    "docs": "Dokumentation",
+    "docsDescription": "Lerne den Arbeitsablauf und die Druckeinstellungen kennen.",
+    "reddit": "r/kromacut auf Reddit",
+    "patreon": "Unterstütze mich auf Patreon",
+    "experimental": "Experimentell",
+    "multiPlate": "Mehrplattenmodus",
+    "multiPlateDescription": "Unfertiger Arbeitsablauf für mehrere Druckplatten. Noch ohne Wirkung; kann sich ändern oder fehlerhaft sein.",
+    "multiPlateEnable": "Experimentellen Mehrplattenmodus aktivieren"
+  },
+  "diagnostics": {
+    "title": "Diagnose",
+    "description": "Reproduzierbare Auto-paint-Entscheidungen zur Untersuchung aufzeichnen.",
+    "record": "Auto-paint-Diagnosedaten aufzeichnen",
+    "recordDescription": "Schreibt für jede neue Auto-paint-Berechnung eine vollständig auf den Datenträger geschriebene JSONL-Datei. Die Dateien enthalten das aktive Filamentprofil, Kalibrierungsdaten, Kandidaten und das Endergebnis und können groß werden.",
+    "newCalculations": "Gilt nur für neue Berechnungen.",
+    "openFolder": "Ordner öffnen",
+    "folderFailed": "Der Diagnoseordner konnte nicht geöffnet werden."
+  },
+  "updates": {
+    "title": "Updates",
+    "checkTitle": "Nach Updates suchen",
+    "checking": "Suche läuft",
+    "check": "Suchen",
+    "startup": "Beim Start suchen",
+    "startupDescription": "Zeigt beim Öffnen von Kromacut Hinweise auf Desktop-Updates an.",
+    "startupLabel": "Beim Start nach Updates suchen",
+    "available": "Version {{version}} ist verfügbar",
+    "notice": "Update verfügbar",
+    "noticeDescription": "Version <version>{{version}}</version> ist jetzt verfügbar!",
+    "current": "Kromacut ist auf dem neuesten Stand.",
+    "download": "Herunterladen",
+    "later": "Später",
+    "dismiss": "Update-Hinweis schließen",
+    "checkFailed": "Die Suche nach Updates ist fehlgeschlagen. Versuche es später erneut.",
+    "downloadFailed": "Die Downloadseite konnte nicht geöffnet werden."
+  },
+  "app": {
+    "uploadImage": "Bitte lade eine Bilddatei hoch",
+    "resizeFailed": "Die Bildskalierung ist fehlgeschlagen. Einzelheiten stehen in der Konsole.",
+    "preparingControls": "3D-Steuerung wird vorbereitet…",
+    "performanceWarning": "Leistungswarnung",
+    "slowBuild": "Der Aufbau des 3D-Modells kann aus folgenden Gründen langsam sein:",
+    "continue": "Möchtest du fortfahren?",
+    "cancel": "Abbrechen",
+    "buildAnyway": "Trotzdem erstellen"
+  }
+}

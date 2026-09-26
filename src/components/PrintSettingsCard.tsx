@@ -1,6 +1,8 @@
+import { useTranslation } from 'react-i18next';
+import { translateRuntimeMessage } from '../lib/runtimeMessages';
 import { useEffect, useState } from 'react';
 import { CollapsibleCard, DirtyDot } from '@/components/CollapsibleCard';
-import { Input } from '@/components/ui/input';
+import { Input, NumberInput } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { RotateCcw } from 'lucide-react';
 
@@ -8,11 +10,13 @@ interface PrintSettingsCardProps {
     layerHeight: number;
     slicerFirstLayerHeight: number;
     pixelSize: number;
+    effectiveLineWidth: number;
     modelSizeEstimate?: { width: number; height: number; depth: number } | null;
     smoothMeshing: boolean;
     onLayerHeightChange: (v: number) => void;
     onSlicerFirstLayerHeightChange: (v: number) => void;
     onPixelSizeChange: (v: number) => void;
+    onEffectiveLineWidthChange: (v: number) => void;
     onSmoothMeshingChange: (v: boolean) => void;
     onReset: () => void;
     allDefault?: boolean;
@@ -100,15 +104,23 @@ export default function PrintSettingsCard({
     layerHeight,
     slicerFirstLayerHeight,
     pixelSize,
+    effectiveLineWidth,
     modelSizeEstimate,
     smoothMeshing,
     onLayerHeightChange,
     onSlicerFirstLayerHeightChange,
     onPixelSizeChange,
+    onEffectiveLineWidthChange,
     onSmoothMeshingChange,
     onReset,
     allDefault = false,
 }: PrintSettingsCardProps) {
+    const { t } = useTranslation('printing');
+    const [lineWidthDraft, setLineWidthDraft] = useState(() => effectiveLineWidth.toString());
+    useEffect(() => {
+        setLineWidthDraft(effectiveLineWidth.toString());
+    }, [effectiveLineWidth]);
+
     const pixelSizeInput = useDraftNumberInput(pixelSize, onPixelSizeChange, {
         min: 0.01,
         max: 10,
@@ -129,18 +141,20 @@ export default function PrintSettingsCard({
     return (
         <CollapsibleCard
             id="print-settings"
-            title="3D Print Settings"
-            subtitle="Configure your printing parameters"
+            title={t('printSettingsCard.3DPrintSettings')}
+            subtitle={t('printSettingsCard.configureYourPrintingParameters')}
             collapsedSummary={
-                !allDefault ? <DirtyDot title="Print settings modified" /> : undefined
+                !allDefault ? (
+                    <DirtyDot title={t('printSettingsCard.printSettingsModified')} />
+                ) : undefined
             }
             actions={
                 <button
                     type="button"
                     onClick={onReset}
                     disabled={allDefault}
-                    title="Reset print settings to default"
-                    aria-label="Reset print settings"
+                    title={t('printSettingsCard.resetPrintSettingsToDefault')}
+                    aria-label={t('printSettingsCard.resetPrintSettings')}
                     className="h-7 w-7 flex-shrink-0 flex items-center justify-center rounded-md text-muted-foreground hover:text-amber-600 hover:bg-amber-600/15 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-muted-foreground select-none cursor-pointer"
                 >
                     <RotateCcw className="w-4 h-4" />
@@ -152,7 +166,9 @@ export default function PrintSettingsCard({
                 <div className="space-y-3">
                     <label className="block space-y-3">
                         <div className="flex justify-between items-center">
-                            <span className="font-semibold text-foreground">Pixel Size (XY)</span>
+                            <span className="font-semibold text-foreground">
+                                {t('printSettingsCard.pixelSizeXY')}
+                            </span>
                             <span className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary font-medium">
                                 mm/pixel
                             </span>
@@ -175,18 +191,22 @@ export default function PrintSettingsCard({
                             {modelSizeEstimate && (
                                 <span
                                     className="inline-flex h-9 min-w-0 max-w-full flex-1 basis-44 items-center justify-start rounded-md border border-primary/20 bg-primary/10 px-3 text-xs font-semibold text-primary"
-                                    title="Estimated model size before building"
+                                    title={t('printSettingsCard.estimatedModelSizeBeforeBuilding')}
                                 >
                                     <span className="truncate">
-                                        Model: {formatModelDimension(modelSizeEstimate.width)}×
-                                        {formatModelDimension(modelSizeEstimate.height)}×
-                                        {formatModelDimension(modelSizeEstimate.depth)} mm
+                                        {t('printSettingsCard.modelDimensions', {
+                                            width: formatModelDimension(modelSizeEstimate.width),
+                                            height: formatModelDimension(modelSizeEstimate.height),
+                                            depth: formatModelDimension(modelSizeEstimate.depth),
+                                        })}
                                     </span>
                                 </span>
                             )}
                         </div>
                         {pixelSizeInput.error && (
-                            <span className="text-xs text-red-500">{pixelSizeInput.error}</span>
+                            <span className="text-xs text-red-500">
+                                {translateRuntimeMessage(pixelSizeInput.error)}
+                            </span>
                         )}
                     </label>
                 </div>
@@ -195,7 +215,9 @@ export default function PrintSettingsCard({
                 <div className="space-y-3">
                     <label className="block space-y-3">
                         <div className="flex justify-between items-center">
-                            <span className="font-semibold text-foreground">Layer Height</span>
+                            <span className="font-semibold text-foreground">
+                                {t('printSettingsCard.layerHeight')}
+                            </span>
                             <span className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary font-medium">
                                 mm
                             </span>
@@ -215,7 +237,9 @@ export default function PrintSettingsCard({
                             onBlur={layerHeightInput.onBlur}
                         />
                         {layerHeightInput.error && (
-                            <span className="text-xs text-red-500">{layerHeightInput.error}</span>
+                            <span className="text-xs text-red-500">
+                                {translateRuntimeMessage(layerHeightInput.error)}
+                            </span>
                         )}
                     </label>
                 </div>
@@ -225,7 +249,7 @@ export default function PrintSettingsCard({
                     <label className="block space-y-3">
                         <div className="flex justify-between items-center">
                             <span className="font-semibold text-foreground">
-                                First Layer Height
+                                {t('printSettingsCard.firstLayerHeight')}
                             </span>
                             <span className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary font-medium">
                                 mm
@@ -247,19 +271,62 @@ export default function PrintSettingsCard({
                         />
                         {firstLayerHeightInput.error && (
                             <span className="text-xs text-red-500">
-                                {firstLayerHeightInput.error}
+                                {translateRuntimeMessage(firstLayerHeightInput.error)}
                             </span>
                         )}
                     </label>
                 </div>
 
+                {/* Effective extrusion width */}
+                <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                        <label
+                            htmlFor="effective-line-width"
+                            className="font-semibold text-foreground"
+                        >
+                            {t('printSettingsCard.effectiveLineWidth')}
+                        </label>
+                        <span className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary font-medium">
+                            mm
+                        </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <NumberInput
+                            id="effective-line-width"
+                            data-testid="print-effective-line-width"
+                            min={0.1}
+                            max={2}
+                            step={0.01}
+                            value={lineWidthDraft}
+                            onChange={(event) => setLineWidthDraft(event.target.value)}
+                            onBlur={() => {
+                                const parsed = parseFloat(lineWidthDraft);
+                                if (Number.isNaN(parsed)) {
+                                    setLineWidthDraft(effectiveLineWidth.toString());
+                                    return;
+                                }
+                                const value = Math.max(0.1, Math.min(2, parsed));
+                                onEffectiveLineWidthChange(value);
+                                setLineWidthDraft(value.toString());
+                            }}
+                            onKeyDown={(event) => {
+                                if (event.key === 'Enter') event.currentTarget.blur();
+                            }}
+                            className="min-w-0 flex-1"
+                        />
+                    </div>
+                </div>
+
                 {/* Smooth Meshing */}
                 <div className="flex items-center justify-between gap-2">
                     <div>
-                        <span className="font-semibold text-foreground">Smooth Meshing</span>
+                        <span className="font-semibold text-foreground">
+                            {t('printSettingsCard.smoothMeshing')}
+                        </span>
                         <p className="text-xs text-muted-foreground">
-                            Smooth connected color boundary edges with fast welded topology. Turning
-                            this on disables Flat Paint.
+                            {t(
+                                'printSettingsCard.smoothConnectedColorBoundaryEdgesWithFastWeldedTopology'
+                            )}
                         </p>
                     </div>
                     <Switch

@@ -1,0 +1,1956 @@
+{
+  "06_frontlit_hiding_distance": {
+    "moreThicknessHidesMoreOfTheBase": {
+      "width": 916,
+      "fontSize": 26,
+      "fontWeight": 700
+    },
+    "frontlitViewingLightEntersTheSurfaceReflectsUnderneath": {
+      "width": 916,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "thin": {
+      "width": 256,
+      "fontSize": 18,
+      "fontWeight": 700
+    },
+    "thicker": {
+      "width": 256,
+      "fontSize": 18,
+      "fontWeight": 700
+    },
+    "nearlyOpaque": {
+      "width": 256,
+      "fontSize": 18,
+      "fontWeight": 700
+    },
+    "visibleColor": {
+      "width": 256,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "moreBaseShowsThrough": {
+      "width": 256,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "lessBaseShowsThrough": {
+      "width": 256,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "nearTheFilamentSColor": {
+      "width": 256,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "modeledShowThroughT10ThicknessHD": {
+      "width": 864,
+      "fontSize": 18,
+      "fontWeight": 700
+    },
+    "atThicknessHD10RemainsInThisModel": {
+      "width": 864,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "higherHDMoreThicknessToHideTheSame": {
+      "width": 864,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "schematicColorsAndLayersNotMeasurements": {
+      "width": 916,
+      "fontSize": 18,
+      "fontWeight": 400
+    }
+  },
+  "07_calibration_wedge": {
+    "matchComparesAPatchWithTheRailBeside": {
+      "width": 916,
+      "fontSize": 26,
+      "fontWeight": 700
+    },
+    "exampleOnly8PatchesPrintedTheFirstRail": {
+      "width": 916,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "opaqueReferenceRailMadeFromTheFilamentBeing": {
+      "width": 806,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "tabStart": {
+      "width": 490,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "match6": {
+      "width": 188,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "max8": {
+      "width": 170,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "sideViewOneMoreLayerPerStep": {
+      "width": 398,
+      "fontSize": 18,
+      "fontWeight": 700
+    },
+    "baseBelowLayerHeightSetsEachRise": {
+      "width": 398,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "mergeIsOptionalAndDifferent": {
+      "width": 406,
+      "fontSize": 18,
+      "fontWeight": 700
+    },
+    "compareNeighboringPatches": {
+      "width": 406,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "enterTheLastPatchStillDifferent": {
+      "width": 406,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "fromThePatchImmediatelyBeforeIt": {
+      "width": 406,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "itChecksTheCurveNotTheRailMatch": {
+      "width": 406,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "illustrativeReadsColorsAndExaggeratedHeights": {
+      "width": 916,
+      "fontSize": 18,
+      "fontWeight": 400
+    }
+  },
+  "08_opacity_solve": {
+    "yourReadLocatesAVisibleThreshold": {
+      "width": 916,
+      "fontSize": 26,
+      "fontWeight": 700
+    },
+    "theDifferenceFromTheOpaqueRailFallsAs": {
+      "width": 916,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "colorDifferenceFromTheRailE00": {
+      "width": 536,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "jNDLooksIdentical": {
+      "width": 300,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "patchNumberAddedLayers": {
+      "width": 544,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "readThicknessHD": {
+      "width": 276,
+      "fontSize": 18,
+      "fontWeight": 700
+    },
+    "exampleMatch6": {
+      "width": 276,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "thicknessD6Height": {
+      "width": 276,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "hDDLogT": {
+      "width": 276,
+      "fontSize": 18,
+      "fontWeight": 700
+    },
+    "tDependsOnTheFilament": {
+      "width": 276,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "baseAndVisibleThreshold": {
+      "width": 276,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "noVisibleBaseContrast": {
+      "width": 276,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "thereIsNoUsefulCrossing": {
+      "width": 276,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "toMeasureWithThatBase": {
+      "width": 276,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "theDefaultJNDIsAbout2E00More": {
+      "width": 916,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "schematicCurveAndExampleReadNotMeasurementData": {
+      "width": 916,
+      "fontSize": 18,
+      "fontWeight": 400
+    }
+  },
+  "09_palette_proof": {
+    "candidatesStopAtDifferentHeightsOfTheSame": {
+      "width": 916,
+      "fontSize": 26,
+      "fontWeight": 700
+    },
+    "aPrefixIncludesTheFoundationAndEveryPreceding": {
+      "width": 916,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "proofMapTwoExampleTargets": {
+      "width": 382,
+      "fontSize": 18,
+      "fontWeight": 700
+    },
+    "target": {
+      "width": 137.2,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "a": {
+      "width": 117.7,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "b": {
+      "width": 116.4,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "c": {
+      "width": 117.7,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "a1": {
+      "width": 106.1,
+      "fontSize": 18,
+      "fontWeight": 700
+    },
+    "b1": {
+      "width": 105,
+      "fontSize": 18,
+      "fontWeight": 700
+    },
+    "c1": {
+      "width": 106.1,
+      "fontSize": 18,
+      "fontWeight": 700
+    },
+    "a2F": {
+      "width": 106.1,
+      "fontSize": 18,
+      "fontWeight": 700
+    },
+    "b2": {
+      "width": 90.7,
+      "fontSize": 18,
+      "fontWeight": 700
+    },
+    "c2": {
+      "width": 106.1,
+      "fontSize": 18,
+      "fontWeight": 700
+    },
+    "numbersTargetRows": {
+      "width": 382,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "lettersCandidateColumns": {
+      "width": 382,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "fCompareTheFoundationMargin": {
+      "width": 382,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "sideViewOfOneCandidateRow": {
+      "width": 432,
+      "fontSize": 18,
+      "fontWeight": 700
+    },
+    "oneFilamentPerHorizontalLayer": {
+      "width": 432,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "laterPrefixesKeepEveryLayerBelow": {
+      "width": 432,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "touchingPatchesShareAContinuousFoundationTargetsAre": {
+      "width": 864,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "schematicLayoutLayersAndAppearanceNotToScale": {
+      "width": 916,
+      "fontSize": 18,
+      "fontWeight": 400
+    }
+  },
+  "10_physical_size": {
+    "threeDifferentKindsOfDetail": {
+      "width": 920,
+      "fontSize": 26,
+      "fontWeight": 700
+    },
+    "aOriginalSize": {
+      "width": 256,
+      "fontSize": 21,
+      "fontWeight": 700
+    },
+    "label4Pixels01Mm": {
+      "width": 256,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "label04MmWide": {
+      "width": 256,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "bLargerPixelSize": {
+      "width": 256,
+      "fontSize": 21,
+      "fontWeight": 700
+    },
+    "label4Pixels02Mm": {
+      "width": 256,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "label08MmWide": {
+      "width": 256,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "cMorePixels": {
+      "width": 256,
+      "fontSize": 21,
+      "fontWeight": 700
+    },
+    "label8Pixels005Mm": {
+      "width": 256,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "still04MmWide": {
+      "width": 256,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "schematicZoomANozzleSExtrusionWidthRemains": {
+      "width": 920,
+      "fontSize": 18,
+      "fontWeight": 400
+    }
+  },
+  "11_manual_layers": {
+    "aRowIsAThicknessNotATop": {
+      "width": 920,
+      "fontSize": 26,
+      "fontWeight": 700
+    },
+    "sideViewCumulativeStack": {
+      "width": 428,
+      "fontSize": 21,
+      "fontWeight": 700
+    },
+    "black": {
+      "width": 337,
+      "fontSize": 18,
+      "fontWeight": 600
+    },
+    "red": {
+      "width": 187,
+      "fontSize": 18,
+      "fontWeight": 600
+    },
+    "white": {
+      "width": 75,
+      "fontSize": 18,
+      "fontWeight": 600
+    },
+    "plateBlackRedWhite": {
+      "width": 421,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "exampleAt008MmLayers": {
+      "width": 404,
+      "fontSize": 21,
+      "fontWeight": 700
+    },
+    "runThickness": {
+      "width": 236,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "topHeight": {
+      "width": 160,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "black020Mm": {
+      "width": 404,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "red016Mm": {
+      "width": 404,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "white008Mm": {
+      "width": 404,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "firstLayer020Mm": {
+      "width": 404,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "laterSurfacesIncludeEarlierRuns": {
+      "width": 404,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "schematicIncreasingALowerRunLiftsLaterSurfaces": {
+      "width": 920,
+      "fontSize": 18,
+      "fontWeight": 400
+    }
+  },
+  "12_smooth_boundaries": {
+    "smoothContoursSameSourceDetail": {
+      "width": 920,
+      "fontSize": 26,
+      "fontWeight": 700
+    },
+    "smoothMeshingOff": {
+      "width": 408,
+      "fontSize": 21,
+      "fontWeight": 700
+    },
+    "smoothMeshingOn": {
+      "width": 408,
+      "fontSize": 21,
+      "fontWeight": 700
+    },
+    "squarePixelStepsRemain": {
+      "width": 408,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "connectedBoundariesAreSmoothed": {
+      "width": 408,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "schematicOutlineOnlyBothChoicesAlterExportedContours": {
+      "width": 920,
+      "fontSize": 18,
+      "fontWeight": 400
+    }
+  },
+  "13_printable_detail": {
+    "aWidthWarningDoesNotEraseDetail": {
+      "width": 920,
+      "fontSize": 26,
+      "fontWeight": 700
+    },
+    "examplePixelSize010MmPixelStripe": {
+      "width": 920,
+      "fontSize": 20,
+      "fontWeight": 400
+    },
+    "label1CompareTheWidths": {
+      "width": 408,
+      "fontSize": 22,
+      "fontWeight": 700
+    },
+    "purpleStripe": {
+      "width": 408,
+      "fontSize": 20,
+      "fontWeight": 400
+    },
+    "plannedExtrusionLine": {
+      "width": 408,
+      "fontSize": 20,
+      "fontWeight": 400
+    },
+    "thePlannedLineIsTwiceAsWideAs": {
+      "width": 408,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "label2InspectTheWarning": {
+      "width": 408,
+      "fontSize": 22,
+      "fontWeight": 700
+    },
+    "amberWarning": {
+      "width": 252,
+      "fontSize": 20,
+      "fontWeight": 400
+    },
+    "notAYellowFilament": {
+      "width": 252,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "checkTheActual": {
+      "width": 252,
+      "fontSize": 20,
+      "fontWeight": 400
+    },
+    "slicedToolpaths": {
+      "width": 252,
+      "fontSize": 20,
+      "fontWeight": 400
+    },
+    "aSourceColorCheckNotALayerSimulation": {
+      "width": 408,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "label3OptionalCleanupOmitIsolatedColorSpecks": {
+      "width": 920,
+      "fontSize": 22,
+      "fontWeight": 700
+    },
+    "belowInputToAutoPaintNotAPrediction": {
+      "width": 920,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "oFFKeepAllSourceDetail": {
+      "width": 408,
+      "fontSize": 22,
+      "fontWeight": 700
+    },
+    "thePurpleStripeAnd": {
+      "width": 252,
+      "fontSize": 20,
+      "fontWeight": 400
+    },
+    "pinkSpeckBothStay": {
+      "width": 252,
+      "fontSize": 20,
+      "fontWeight": 400
+    },
+    "allInputColorsAreKept": {
+      "width": 252,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "oNKeepLinesOmitOnlySpecks": {
+      "width": 408,
+      "fontSize": 22,
+      "fontWeight": 700
+    },
+    "theStripeStays": {
+      "width": 252,
+      "fontSize": 20,
+      "fontWeight": 400
+    },
+    "onlyPinkIsReplaced": {
+      "width": 252,
+      "fontSize": 20,
+      "fontWeight": 400
+    },
+    "bySurroundingBlue": {
+      "width": 252,
+      "fontSize": 20,
+      "fontWeight": 400
+    },
+    "notAHole": {
+      "width": 252,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "pinkOccursOnlyInThisTinyEnclosedSpeck": {
+      "width": 920,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "your2DImageStaysUnchangedSourceColorWidths": {
+      "width": 920,
+      "fontSize": 18,
+      "fontWeight": 400
+    }
+  },
+  "14_repeats_separation": {
+    "repeatsAndSeparationSolveDifferentProblems": {
+      "width": 920,
+      "fontSize": 26,
+      "fontWeight": 700
+    },
+    "sharedRepeatBudget": {
+      "width": 880,
+      "fontSize": 21,
+      "fontWeight": 700
+    },
+    "black": {
+      "width": 107,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "yellow": {
+      "width": 109,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "label1ExtraAppearance": {
+      "width": 194,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "distinctOutputs": {
+      "width": 408,
+      "fontSize": 21,
+      "fontWeight": 700
+    },
+    "partialPalette": {
+      "width": 408,
+      "fontSize": 21,
+      "fontWeight": 700
+    },
+    "targetAOutput1": {
+      "width": 408,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "targetBOutput2": {
+      "width": 408,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "targetCOutput3": {
+      "width": 408,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "targetCOutput2Merged": {
+      "width": 408,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "conceptualExamplesStrictModeRejectsAnIncompleteDistinct": {
+      "width": 920,
+      "fontSize": 18,
+      "fontWeight": 400
+    }
+  },
+  "15_transition_height": {
+    "aHeightCapSqueezesTransitionsNotTheFoundation": {
+      "width": 920,
+      "fontSize": 26,
+      "fontWeight": 700
+    },
+    "autoHeight": {
+      "width": 408,
+      "fontSize": 21,
+      "fontWeight": 700
+    },
+    "lowerMaxHeight": {
+      "width": 408,
+      "fontSize": 21,
+      "fontWeight": 700
+    },
+    "printableCap": {
+      "width": 360,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "opaqueFoundation": {
+      "width": 285,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "moreTransitionThickness": {
+      "width": 408,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "fewerIntermediateHeightChoices": {
+      "width": 408,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "schematicAnImpossiblyLowCapFailsInsteadOf": {
+      "width": 920,
+      "fontSize": 18,
+      "fontWeight": 400
+    }
+  },
+  "16_height_dithering": {
+    "whenFractionalHeightsArePresent": {
+      "width": 920,
+      "fontSize": 26,
+      "fontWeight": 700
+    },
+    "directHeightSnapping": {
+      "width": 408,
+      "fontSize": 21,
+      "fontWeight": 700
+    },
+    "distributeRoundingError": {
+      "width": 408,
+      "fontSize": 21,
+      "fontWeight": 700
+    },
+    "oneSnappedSurfaceHeight": {
+      "width": 408,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "fractionalHeightRoundsToOneLayer": {
+      "width": 408,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "nearbyLowHighHeightBlocks": {
+      "width": 408,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "possibleIntermediateToneAtADistance": {
+      "width": 408,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "schematicMechanismOnlyAlreadySnappedRegionsMayRemain": {
+      "width": 920,
+      "fontSize": 18,
+      "fontWeight": 400
+    }
+  },
+  "17_flat_paint_orientation": {
+    "sameArtworkThreePhysicalArrangements": {
+      "width": 920,
+      "fontSize": 26,
+      "fontWeight": 700
+    },
+    "normalRelief": {
+      "width": 256,
+      "fontSize": 21,
+      "fontWeight": 700
+    },
+    "faceDownCarrier": {
+      "width": 256,
+      "fontSize": 21,
+      "fontWeight": 700
+    },
+    "faceUpNoCarrier": {
+      "width": 256,
+      "fontSize": 21,
+      "fontWeight": 700
+    },
+    "viewFromAbove": {
+      "width": 240,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "foundationBehind": {
+      "width": 240,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "columnsStopAtTheirColor": {
+      "width": 256,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "viewThroughClearBottom": {
+      "width": 256,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "foundationFillsUnderneath": {
+      "width": 256,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "schematicCrossSectionsFlatPaintNeedsMultiMaterial": {
+      "width": 920,
+      "fontSize": 18,
+      "fontWeight": 400
+    }
+  },
+  "18_optimizer_choices": {
+    "chooseWhereMatchingEffortGoes": {
+      "width": 920,
+      "fontSize": 26,
+      "fontWeight": 700
+    },
+    "uniform": {
+      "width": 256,
+      "fontSize": 21,
+      "fontWeight": 700
+    },
+    "allPixelsCountEqually": {
+      "width": 256,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "centerWeighted": {
+      "width": 256,
+      "fontSize": 21,
+      "fontWeight": 700
+    },
+    "middleColorsMatterMore": {
+      "width": 256,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "edgeWeighted": {
+      "width": 256,
+      "fontSize": 21,
+      "fontWeight": 700
+    },
+    "outerColorsMatterMore": {
+      "width": 256,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "transitionDetailMorePotentialThicknessChoices": {
+      "width": 880,
+      "fontSize": 21,
+      "fontWeight": 700
+    },
+    "compact80": {
+      "width": 290,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "detailed90": {
+      "width": 290,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "maximum95": {
+      "width": 284,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "fastBalancedThoroughDeepMoreSearchWorkNot": {
+      "width": 920,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "schematicWeightingAndChoicesEarlyConvergenceAndMax": {
+      "width": 920,
+      "fontSize": 18,
+      "fontWeight": 400
+    }
+  },
+  "19_preview_only": {
+    "inspectingARangeDoesNotCropThePrint": {
+      "width": 920,
+      "fontSize": 26,
+      "fontWeight": 700
+    },
+    "layerPreviewSelectedRange": {
+      "width": 408,
+      "fontSize": 21,
+      "fontWeight": 700
+    },
+    "exportCompleteModel": {
+      "width": 408,
+      "fontSize": 21,
+      "fontWeight": 700
+    },
+    "outsideTheRangeHidden": {
+      "width": 408,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "allLayersAndMaterialsRemain": {
+      "width": 408,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "schematicCameraShadingWireframeAndPreviewColorsAre": {
+      "width": 920,
+      "fontSize": 18,
+      "fontWeight": 400
+    }
+  },
+  "20_calibration_choices": {
+    "threeToolsThreeDifferentQuestions": {
+      "width": 916,
+      "fontSize": 26,
+      "fontWeight": 700
+    },
+    "combineEvidenceWhereItHelpsNoneOfThese": {
+      "width": 916,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "hidingDistance": {
+      "width": 248,
+      "fontSize": 18,
+      "fontWeight": 700
+    },
+    "paletteProof": {
+      "width": 248,
+      "fontSize": 18,
+      "fontWeight": 700
+    },
+    "stackMatrix": {
+      "width": 248,
+      "fontSize": 18,
+      "fontWeight": 700
+    },
+    "whenDoesTheBaseHide": {
+      "width": 248,
+      "fontSize": 18,
+      "fontWeight": 650
+    },
+    "readAPatchBesideItsRail": {
+      "width": 248,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "outputMeasuredHD": {
+      "width": 248,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "whichPatchIsClosest": {
+      "width": 248,
+      "fontSize": 18,
+      "fontWeight": 650
+    },
+    "judgeSelectedImageColors": {
+      "width": 248,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "outputLocalEvidence": {
+      "width": 248,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "whatDoRecipesLookLike": {
+      "width": 248,
+      "fontSize": 18,
+      "fontWeight": 650
+    },
+    "photographAKnownGrid": {
+      "width": 248,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "outputMeasuredColors": {
+      "width": 248,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "predictedColorsStackChoiceHeightsAndSwapPlan": {
+      "width": 596,
+      "fontSize": 18,
+      "fontWeight": 650
+    },
+    "schematicColorsNotMeasuredPredictions": {
+      "width": 916,
+      "fontSize": 18,
+      "fontWeight": 400
+    }
+  },
+  "21_proof_rounds": {
+    "aProofIsAComparisonNotAPass": {
+      "width": 916,
+      "fontSize": 26,
+      "fontWeight": 700
+    },
+    "judgeThePhysicalPatchesFirstThenChooseWhat": {
+      "width": 916,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "aPatchIsTheClosest": {
+      "width": 398,
+      "fontSize": 18,
+      "fontWeight": 700
+    },
+    "b1": {
+      "width": 270,
+      "fontSize": 18,
+      "fontWeight": 700
+    },
+    "bestAvailableEffect": {
+      "width": 398,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "closeEffect": {
+      "width": 398,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "deadOnEffect": {
+      "width": 398,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "continueTargets": {
+      "width": 364,
+      "fontSize": 18,
+      "fontWeight": 700
+    },
+    "keepAPreviousBest": {
+      "width": 364,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "testNearbyUntriedChallengers": {
+      "width": 364,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "allowAnExploratoryAlternative": {
+      "width": 364,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "tiesCanKeepMultipleWinners": {
+      "width": 364,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "noneEveryCandidateIsPoor": {
+      "width": 398,
+      "fontSize": 18,
+      "fontWeight": 700
+    },
+    "noWinnerAndNoInventedCorrectColor": {
+      "width": 398,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "continueWithExploration": {
+      "width": 364,
+      "fontSize": 18,
+      "fontWeight": 700
+    },
+    "tryUntestedPhysicalCandidates": {
+      "width": 364,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "newTargets": {
+      "width": 864,
+      "fontSize": 18,
+      "fontWeight": 700
+    },
+    "testDifferentArtworkColorsFewerUsefulCandidatesCan": {
+      "width": 864,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "schematicComparisonNotAPredictedPrintResult": {
+      "width": 916,
+      "fontSize": 18,
+      "fontWeight": 400
+    }
+  },
+  "22_matrix_alignment": {
+    "theHandleIsACellCenterNotThe": {
+      "width": 916,
+      "fontSize": 26,
+      "fontWeight": 700
+    },
+    "useThisRecordSPrintedCornerKeyMarker": {
+      "width": 916,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "topEdge": {
+      "width": 354,
+      "fontSize": 18,
+      "fontWeight": 700
+    },
+    "topLeftCornerEnlarged": {
+      "width": 454,
+      "fontSize": 18,
+      "fontWeight": 700
+    },
+    "notHere": {
+      "width": 138,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "center": {
+      "width": 138,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "recipeGrid": {
+      "width": 104,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "outerEdgeSitsHalfACellBeyondThe": {
+      "width": 454,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "reviewTheWholeGridNotJustTheCorners": {
+      "width": 864,
+      "fontSize": 18,
+      "fontWeight": 700
+    },
+    "thenConfirmAdjustedLowConfidenceAlignmentBeforeSaving": {
+      "width": 864,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "schematicBoardWithAnIllustrative44Recipe": {
+      "width": 916,
+      "fontSize": 18,
+      "fontWeight": 400
+    }
+  },
+  "23_calibration_scope": {
+    "sameLayerCountDoesNotMeanTheSame": {
+      "width": 916,
+      "fontSize": 26,
+      "fontWeight": 700
+    },
+    "aFinerLayerGridChangesTheMaterialThickness": {
+      "width": 916,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "measuredMatrix008MmLayers": {
+      "width": 398,
+      "fontSize": 18,
+      "fontWeight": 700
+    },
+    "newModel004MmLayers": {
+      "width": 406,
+      "fontSize": 18,
+      "fontWeight": 700
+    },
+    "ofColor": {
+      "width": 109,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "label3RecipeLayersOpaqueBacking": {
+      "width": 380,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "label3ThinnerLayersBacking": {
+      "width": 388,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "photographedRecipeColor": {
+      "width": 380,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "notTheSameMeasuredRecipe": {
+      "width": 388,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "hDCanStillEstimateByThickness": {
+      "width": 398,
+      "fontSize": 18,
+      "fontWeight": 700
+    },
+    "thatDoesNotCertifyTheNewSetup": {
+      "width": 398,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "checkASmallPhysicalTest": {
+      "width": 398,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "matrixEvidenceHasAScope": {
+      "width": 406,
+      "fontSize": 18,
+      "fontWeight": 700
+    },
+    "matchRegularLayerHeightAndProfile": {
+      "width": 406,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "recipeAndBackingStillMatter": {
+      "width": 406,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "schematicThicknessesAndMaterialColorsNotOpticalPredictions": {
+      "width": 916,
+      "fontSize": 18,
+      "fontWeight": 400
+    }
+  },
+  "30_crop_resize_scale": {
+    "pixelsFramingAndPhysicalSize": {
+      "width": 920,
+      "fontSize": 26,
+      "fontWeight": 700
+    },
+    "startingExample1000800OpaquePixelsAt0": {
+      "width": 920,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "crop": {
+      "width": 248,
+      "fontSize": 20,
+      "fontWeight": 600
+    },
+    "resizeTo50": {
+      "width": 248,
+      "fontSize": 20,
+      "fontWeight": 600
+    },
+    "changePixelSize": {
+      "width": 248,
+      "fontSize": 20,
+      "fontWeight": 600
+    },
+    "keepA600600Region": {
+      "width": 248,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "label01MmPx6060Mm": {
+      "width": 248,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "discardOutsideTheBox": {
+      "width": 248,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "label500400Pixels": {
+      "width": 248,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "label01MmPx5040Mm": {
+      "width": 248,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "fewerSourcePixels": {
+      "width": 248,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "same500400Pixels": {
+      "width": 248,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "label02MmPx10080Mm": {
+      "width": 248,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "samePixelsLargerPrint": {
+      "width": 248,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "zoomChangesNoneOfTheseItOnlyChanges": {
+      "width": 920,
+      "fontSize": 20,
+      "fontWeight": 600
+    },
+    "transparentOuterMarginsAreExcludedFromThePrinted": {
+      "width": 920,
+      "fontSize": 18,
+      "fontWeight": 400
+    }
+  },
+  "31_pixel_tools": {
+    "smallPixelEditsBecomePhysicalFeatures": {
+      "width": 920,
+      "fontSize": 26,
+      "fontWeight": 700
+    },
+    "exactColorsHardEdgesAndImagePixelSizes": {
+      "width": 920,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "brush": {
+      "width": 173,
+      "fontSize": 20,
+      "fontWeight": 600
+    },
+    "addOrJoinPixels": {
+      "width": 173,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "label164PxDiameter": {
+      "width": 173,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "eraser": {
+      "width": 173,
+      "fontSize": 20,
+      "fontWeight": 600
+    },
+    "transparentCutout": {
+      "width": 173,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "canCreateHoles": {
+      "width": 173,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "fill": {
+      "width": 173,
+      "fontSize": 20,
+      "fontWeight": 600
+    },
+    "oneConnectedArea": {
+      "width": 173,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "noDiagonalJoins": {
+      "width": 173,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "text": {
+      "width": 173,
+      "fontSize": 20,
+      "fontWeight": 600
+    },
+    "becomesPixels": {
+      "width": 173,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "size6128Px": {
+      "width": 173,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "at01MmPxAOnePixel": {
+      "width": 920,
+      "fontSize": 20,
+      "fontWeight": 600
+    },
+    "pickerSamplesASourceColorCustomColorsMay": {
+      "width": 920,
+      "fontSize": 18,
+      "fontWeight": 400
+    }
+  },
+  "32_adjustment_controls": {
+    "twelveControlsForTheTargetImage": {
+      "width": 920,
+      "fontSize": 26,
+      "fontWeight": 700
+    },
+    "eachRowOfSwatchesNegativeZeroPositiveDirectional": {
+      "width": 920,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "exposure": {
+      "width": 262,
+      "fontSize": 20,
+      "fontWeight": 600
+    },
+    "contrast": {
+      "width": 262,
+      "fontSize": 20,
+      "fontWeight": 600
+    },
+    "highlights": {
+      "width": 262,
+      "fontSize": 20,
+      "fontWeight": 600
+    },
+    "shadows": {
+      "width": 262,
+      "fontSize": 20,
+      "fontWeight": 600
+    },
+    "whites": {
+      "width": 262,
+      "fontSize": 20,
+      "fontWeight": 600
+    },
+    "blacks": {
+      "width": 262,
+      "fontSize": 20,
+      "fontWeight": 600
+    },
+    "saturation": {
+      "width": 262,
+      "fontSize": 20,
+      "fontWeight": 600
+    },
+    "vibrance": {
+      "width": 262,
+      "fontSize": 20,
+      "fontWeight": 600
+    },
+    "hue": {
+      "width": 262,
+      "fontSize": 20,
+      "fontWeight": 600
+    },
+    "temperature": {
+      "width": 262,
+      "fontSize": 20,
+      "fontWeight": 600
+    },
+    "tint": {
+      "width": 262,
+      "fontSize": 20,
+      "fontWeight": 600
+    },
+    "clarity": {
+      "width": 262,
+      "fontSize": 20,
+      "fontWeight": 600
+    },
+    "toneRangeOverlapAndOtherActiveSlidersAffect": {
+      "width": 920,
+      "fontSize": 18,
+      "fontWeight": 400
+    }
+  },
+  "33_adjustment_bake": {
+    "previewFirstThenBakeTheImage": {
+      "width": 920,
+      "fontSize": 26,
+      "fontWeight": 700
+    },
+    "aVisibleAdjustmentIsNotYetAChange": {
+      "width": 920,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "workingImage": {
+      "width": 218,
+      "fontSize": 20,
+      "fontWeight": 600
+    },
+    "originalOrLastSavedEdit": {
+      "width": 218,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "livePreview": {
+      "width": 218,
+      "fontSize": 20,
+      "fontWeight": 600
+    },
+    "slidersChangeTheLook": {
+      "width": 218,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "newWorkingImage": {
+      "width": 218,
+      "fontSize": 20,
+      "fontWeight": 600
+    },
+    "appearanceIsBakedIn": {
+      "width": 218,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "slidersResetToZero": {
+      "width": 218,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "apply": {
+      "width": 456,
+      "fontSize": 20,
+      "fontWeight": 600
+    },
+    "quantization": {
+      "width": 179,
+      "fontSize": 20,
+      "fontWeight": 600
+    },
+    "pNGDownload": {
+      "width": 179,
+      "fontSize": 20,
+      "fontWeight": 600
+    },
+    "label3DGeneration": {
+      "width": 179,
+      "fontSize": 20,
+      "fontWeight": 600
+    },
+    "withoutApplyTheseStepsStillUseTheUnderlying": {
+      "width": 920,
+      "fontSize": 18,
+      "fontWeight": 400
+    }
+  },
+  "34_quantization_pipeline": {
+    "twoLimitsTwoDifferentJobs": {
+      "width": 920,
+      "fontSize": 26,
+      "fontWeight": 700
+    },
+    "exampleWeight128AutoTarget16TheResult": {
+      "width": 920,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "sourceImage": {
+      "width": 166,
+      "fontSize": 20,
+      "fontWeight": 600
+    },
+    "manyColors": {
+      "width": 166,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "bakedAdjustments": {
+      "width": 166,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "stage1Algorithm": {
+      "width": 280,
+      "fontSize": 20,
+      "fontWeight": 600
+    },
+    "weightUpTo128Colors": {
+      "width": 280,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "posterizeMedianCut": {
+      "width": 280,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "kMeansWuOctree": {
+      "width": 280,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "noneSkipsThisStage": {
+      "width": 280,
+      "fontSize": 20,
+      "fontWeight": 600
+    },
+    "weightIsNotAPercentage": {
+      "width": 280,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "stage2Auto": {
+      "width": 210,
+      "fontSize": 20,
+      "fontWeight": 600
+    },
+    "numberOfColors16": {
+      "width": 210,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "finalResult16Colors": {
+      "width": 210,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "oRFixedPalette": {
+      "width": 210,
+      "fontSize": 20,
+      "fontWeight": 600
+    },
+    "onlyEnabledColors": {
+      "width": 210,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "notEveryColorIsUsed": {
+      "width": 210,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "applyChangesTheImageUndoBeforeTestingAnother": {
+      "width": 920,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "transparentPixelsStayTransparentPartiallyTransparentPixelsBecome": {
+      "width": 920,
+      "fontSize": 18,
+      "fontWeight": 400
+    }
+  },
+  "35_swatch_operations": {
+    "recolorRemoveOrRemap": {
+      "width": 920,
+      "fontSize": 26,
+      "fontWeight": 700
+    },
+    "startingImageAmberBackgroundAndTwoDisconnectedPink": {
+      "width": 920,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "applyANewColor": {
+      "width": 248,
+      "fontSize": 20,
+      "fontWeight": 600
+    },
+    "allExactMatchesRecolored": {
+      "width": 248,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "disconnectedRegionsToo": {
+      "width": 248,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "applyAlpha0": {
+      "width": 248,
+      "fontSize": 20,
+      "fontWeight": 600
+    },
+    "matchingPixelsDisappear": {
+      "width": 248,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "checkerboardNoMaterial": {
+      "width": 248,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "deleteTheSwatch": {
+      "width": 248,
+      "fontSize": 20,
+      "fontWeight": 600
+    },
+    "mapToRemainingColors": {
+      "width": 248,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "noTransparentHoles": {
+      "width": 248,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "deleteRerunsTheSelectedQuantizerSoOtherImage": {
+      "width": 920,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "chooseNoneForDirectRemappingUseEraserOr": {
+      "width": 920,
+      "fontSize": 18,
+      "fontWeight": 400
+    }
+  },
+  "36_dedither_neighbors": {
+    "neighborSupportNotABlurRadius": {
+      "width": 920,
+      "fontSize": 26,
+      "fontWeight": 700
+    },
+    "aPixelChecksEightNeighborsIncludingDiagonalsExact": {
+      "width": 920,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "threeMatchingNeighbors": {
+      "width": 251.2,
+      "fontSize": 20,
+      "fontWeight": 600
+    },
+    "pinkCenter3Pink5Cyan": {
+      "width": 248,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "weight3": {
+      "width": 248,
+      "fontSize": 20,
+      "fontWeight": 600
+    },
+    "label33KeepTheCenter": {
+      "width": 248,
+      "fontSize": 20,
+      "fontWeight": 600
+    },
+    "sameColorSupportIsEnough": {
+      "width": 248,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "weight4": {
+      "width": 248,
+      "fontSize": 20,
+      "fontWeight": 600
+    },
+    "label34ChooseCyan": {
+      "width": 248,
+      "fontSize": 20,
+      "fontWeight": 600
+    },
+    "mostCommonDifferent": {
+      "width": 248,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "neighbor": {
+      "width": 248,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "pass1NewImagePass2NewImage": {
+      "width": 920,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "weight19Default4": {
+      "width": 304,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "passes110Default1": {
+      "width": 304,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "tiedChoicesCanVary": {
+      "width": 296,
+      "fontSize": 18,
+      "fontWeight": 400
+    }
+  },
+  "40_build_export_snapshot": {
+    "buildCapturesTheModelYouWillExport": {
+      "width": 916,
+      "fontSize": 26,
+      "fontWeight": 700
+    },
+    "label1Prepare": {
+      "width": 240,
+      "fontSize": 20,
+      "fontWeight": 700
+    },
+    "imagePrintSettings": {
+      "width": 240,
+      "fontSize": 20,
+      "fontWeight": 400
+    },
+    "filamentsCalibration": {
+      "width": 240,
+      "fontSize": 20,
+      "fontWeight": 400
+    },
+    "manualOrAutoPaint": {
+      "width": 240,
+      "fontSize": 20,
+      "fontWeight": 400
+    },
+    "build3DModel": {
+      "width": 208,
+      "fontSize": 20,
+      "fontWeight": 400
+    },
+    "label2InspectTheBuild": {
+      "width": 228,
+      "fontSize": 20,
+      "fontWeight": 700
+    },
+    "trimTheViewToInspect": {
+      "width": 236,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "notAnExportCrop": {
+      "width": 236,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "label3ExportSlice": {
+      "width": 236,
+      "fontSize": 20,
+      "fontWeight": 700
+    },
+    "completeBuiltGeometry": {
+      "width": 244,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "confirmRealSpools": {
+      "width": 244,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "settingsChangedBuildAgain": {
+      "width": 448,
+      "fontSize": 20,
+      "fontWeight": 400
+    },
+    "cameraShadingAndSimulatedPhysicalColorsOnlyChange": {
+      "width": 916,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "schematicLayersNotACalibratedColorPrediction": {
+      "width": 916,
+      "fontSize": 18,
+      "fontWeight": 400
+    }
+  },
+  "41_swap_layers": {
+    "aSwapLayerIsTheFirstLayerOf": {
+      "width": 916,
+      "fontSize": 26,
+      "fontWeight": 700
+    },
+    "sideView010First004Regular": {
+      "width": 393,
+      "fontSize": 20,
+      "fontWeight": 700
+    },
+    "z022Layer4": {
+      "width": 145,
+      "fontSize": 20,
+      "fontWeight": 400
+    },
+    "z018Layer3": {
+      "width": 145,
+      "fontSize": 20,
+      "fontWeight": 400
+    },
+    "z014Layer2": {
+      "width": 145,
+      "fontSize": 20,
+      "fontWeight": 400
+    },
+    "z010Layer1": {
+      "width": 145,
+      "fontSize": 20,
+      "fontWeight": 400
+    },
+    "z000Plate": {
+      "width": 145,
+      "fontSize": 20,
+      "fontWeight": 400
+    },
+    "firstLayer": {
+      "width": 176,
+      "fontSize": 20,
+      "fontWeight": 400
+    },
+    "readTheLayerNumberFirst": {
+      "width": 409,
+      "fontSize": 20,
+      "fontWeight": 700
+    },
+    "startWithPurple": {
+      "width": 409,
+      "fontSize": 20,
+      "fontWeight": 400
+    },
+    "printLayers12And3": {
+      "width": 409,
+      "fontSize": 20,
+      "fontWeight": 400
+    },
+    "swapBeforePrintingLayer4": {
+      "width": 409,
+      "fontSize": 20,
+      "fontWeight": 400
+    },
+    "boundaryBelowYellow018Mm": {
+      "width": 409,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "topOfYellowLayer022Mm": {
+      "width": 409,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "bothHeightsDescribeTheSameSwap": {
+      "width": 409,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "checkWhereYourSlicerInsertsTheChangeDo": {
+      "width": 916,
+      "fontSize": 18,
+      "fontWeight": 400
+    },
+    "illustrativeStackYourActualInstructionsComeFromThe": {
+      "width": 916,
+      "fontSize": 18,
+      "fontWeight": 400
+    }
+  }
+}

@@ -1,0 +1,62 @@
+{
+    "3d-mode": {
+        "title": "3Dモード",
+        "description": "物理寸法、手動の色積層、メッシュ、プレビュー操作。"
+    },
+    "auto-paint": {
+        "title": "自動ペイントの操作",
+        "description": "フィラメント入力、印刷可能な細部、色合わせ、高さ制約、信頼度。"
+    },
+    "calibration-theory": {
+        "title": "校正の理論",
+        "description": "遮蔽距離、配色見本、積層校正マトリクスの校正を支える光学と数学。"
+    },
+    "calibration-workflows": {
+        "title": "校正の手順",
+        "description": "校正ツールを選び、操作を確認し、次の印刷に使える測定を理解します。"
+    },
+    "dedithering-cleanup": {
+        "title": "ディザ除去とクリーンアップ",
+        "description": "同一色の近傍に基づく除去と、点、輪郭、透明度、孤立した印刷領域への影響。"
+    },
+    "faq": {
+        "title": "よくある質問",
+        "description": "Kromacutによく寄せられる質問への短い回答。"
+    },
+    "flat-paint": {
+        "title": "フラット印刷",
+        "description": "段状のレリーフ、裏向きの透明キャリア、表向きの露出した板。"
+    },
+    "generating-exporting-output": {
+        "title": "モデル生成と書き出し",
+        "description": "モデルを作成し、確認し、ファイルを書き出して印刷手順をコピーします。"
+    },
+    "image-adjustments": {
+        "title": "画像調整",
+        "description": "色調・色スライダーの働き、目標色への影響、プレビューを画像に適用するタイミング。"
+    },
+    "loading-images": {
+        "title": "画像の読み込み",
+        "description": "印刷領域になる前に画像を取り込み、切り抜き、サイズ変更し、ピクセルを修正します。"
+    },
+    "overview": {
+        "title": "概要",
+        "description": "Kromacutの機能と主な作業の流れのつながり。"
+    },
+    "quick-start": {
+        "title": "クイックスタート",
+        "description": "画像から書き出しまで、初回の実践ガイド。"
+    },
+    "reducing-colors": {
+        "title": "減色",
+        "description": "2段階の減色処理、固定パレット、色の置換と透明化の違いを理解します。"
+    },
+    "settings-and-controls": {
+        "title": "設定と操作",
+        "description": "ヘッダー操作、テーマ、保存、パレット、プロファイル、作業領域の操作。"
+    },
+    "troubleshooting": {
+        "title": "トラブルシューティング",
+        "description": "よくある問題と、最初に試すこと。"
+    }
+}

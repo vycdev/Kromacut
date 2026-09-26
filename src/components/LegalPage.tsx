@@ -1,8 +1,11 @@
+import { useTranslation } from 'react-i18next';
 import { useEffect } from 'react';
 import logo from '@/assets/logo.png';
 import { applyPrivacySeo, applyTermsSeo } from '@/lib/seo';
 import { applyThemeMode, getStoredThemeMode, subscribeToSystemTheme } from '@/lib/theme';
 import PublicContactEmail from './PublicContactEmail';
+import LanguageSetting from './LanguageSetting';
+import { publicPath } from '@/lib/routes';
 import './privacy-page.css';
 
 interface LegalNotice {
@@ -21,7 +24,16 @@ interface LegalNotice {
     contactDescription: string;
 }
 
-export default function LegalPage({ kind, notice }: { kind: 'privacy' | 'terms'; notice: LegalNotice }) {
+export default function LegalPage({
+    kind,
+    notice: englishNotice,
+}: {
+    kind: 'privacy' | 'terms';
+    notice: LegalNotice;
+}) {
+    const { t, i18n } = useTranslation('public');
+    const notice: LegalNotice =
+        i18n.getResourceBundle(i18n.resolvedLanguage ?? 'en', kind) ?? englishNotice;
     const headingId = `${kind}-heading`;
     const contactHeadingId = `${kind}-contact-heading`;
 
@@ -44,30 +56,38 @@ export default function LegalPage({ kind, notice }: { kind: 'privacy' | 'terms';
         <main className="privacy-page" data-testid={`${kind}-page`} aria-labelledby={headingId}>
             <div className="privacy-shell">
                 <header className="privacy-header">
-                    <a className="privacy-brand" href="/?landing=1" aria-label="Kromacut homepage">
+                    <a
+                        className="privacy-brand"
+                        href={`${publicPath('/')}?landing=1`}
+                        aria-label={t('navigation.homeLabel')}
+                    >
                         <img src={logo} width="36" height="36" alt="" />
                         <span>Kromacut</span>
                     </a>
                     <a className="privacy-app-link" href="/app">
-                        Open Kromacut
+                        {t('navigation.openApp')}
                     </a>
                 </header>
                 <article className="privacy-article">
                     <p className="privacy-eyebrow">
-                        {kind === 'privacy' ? 'Local-first. Clearly explained.' : 'Using Kromacut.'}
+                        {t(kind === 'privacy' ? 'legal.privacyEyebrow' : 'legal.termsEyebrow')}
                     </p>
                     <h1 id={headingId}>{notice.title}</h1>
-                    <p className="privacy-updated">Updated {notice.updated}</p>
+                    <p className="privacy-updated">
+                        {t('legal.updated', { date: notice.updated })}
+                    </p>
                     <p className="privacy-intro">{notice.intro}</p>
-                    <nav className="privacy-contents" aria-label="On this page">
-                        <p>On this page</p>
+                    <nav className="privacy-contents" aria-label={t('legal.contents')}>
+                        <p>{t('legal.contents')}</p>
                         <ul>
                             {notice.sections.map((section) => (
                                 <li key={section.id}>
                                     <a href={`#${section.id}`}>{section.title}</a>
                                 </li>
                             ))}
-                            <li><a href={`#${contactHeadingId}`}>{notice.contactTitle}</a></li>
+                            <li>
+                                <a href={`#${contactHeadingId}`}>{notice.contactTitle}</a>
+                            </li>
                         </ul>
                     </nav>
                     {notice.sections.map((section) => (
@@ -96,14 +116,15 @@ export default function LegalPage({ kind, notice }: { kind: 'privacy' | 'terms';
                     </section>
                 </article>
                 <footer className="privacy-footer">
-                    <a href="/?landing=1">Go to homepage</a>
-                    <a href="/docs/overview">Browse documentation</a>
+                    <a href={`${publicPath('/')}?landing=1`}>{t('navigation.home')}</a>
+                    <a href={publicPath('/docs/overview')}>{t('navigation.docs')}</a>
                     {kind === 'privacy' ? (
-                        <a href="/terms">Terms &amp; conditions</a>
+                        <a href={publicPath('/terms')}>{t('navigation.terms')}</a>
                     ) : (
-                        <a href="/privacy">Privacy &amp; local data</a>
+                        <a href={publicPath('/privacy')}>{t('navigation.privacy')}</a>
                     )}
                 </footer>
+                <LanguageSetting compact />
             </div>
         </main>
     );

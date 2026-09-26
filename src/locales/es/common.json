@@ -1,0 +1,76 @@
+{
+  "colorPicker": {
+    "hue": "Matiz",
+    "color": "Color",
+    "alpha": "Opacidad",
+    "saturationBrightness": "Saturación {{saturation}} %, brillo {{brightness}} %"
+  },
+  "language": {
+    "title": "Idioma",
+    "system": "Idioma del sistema",
+    "loading": "Cargando idioma…",
+    "failed": "No se pudo cargar este idioma. Se ha mantenido el idioma actual."
+  },
+  "navigation": {
+    "backToApp": "Volver a la aplicación",
+    "home": "Inicio de Kromacut",
+    "backHome": "Volver al inicio de Kromacut",
+    "loading": "Cargando Kromacut"
+  },
+  "settings": {
+    "title": "Ajustes",
+    "open": "Abrir ajustes",
+    "close": "Cerrar ajustes",
+    "theme": "Tema",
+    "system": "Sistema",
+    "dark": "Oscuro",
+    "light": "Claro",
+    "resources": "Recursos y comunidad",
+    "resourcesDescription": "Guías, versiones y espacios para compartir tus creaciones.",
+    "docs": "Documentación",
+    "docsDescription": "Descubre el flujo de trabajo y los ajustes de impresión.",
+    "reddit": "r/kromacut en Reddit",
+    "patreon": "Apóyame en Patreon",
+    "experimental": "Experimental",
+    "multiPlate": "Modo multiplaca",
+    "multiPlateDescription": "Flujo de trabajo multiplaca sin terminar. Aún no tiene efecto; puede cambiar o dejar de funcionar.",
+    "multiPlateEnable": "Activar el modo multiplaca experimental"
+  },
+  "diagnostics": {
+    "title": "Diagnóstico",
+    "description": "Registra las decisiones reproducibles de la pintura automática para investigarlas.",
+    "record": "Registrar el diagnóstico de la pintura automática",
+    "recordDescription": "Escribe y guarda progresivamente un archivo JSONL por cada nuevo cálculo de pintura automática. Los archivos incluyen el perfil de filamentos activo, las mediciones de calibración, los candidatos y el resultado final; pueden ser grandes.",
+    "newCalculations": "Solo se aplica a los cálculos nuevos.",
+    "openFolder": "Abrir carpeta",
+    "folderFailed": "No se pudo abrir la carpeta de diagnóstico."
+  },
+  "updates": {
+    "title": "Actualizaciones",
+    "checkTitle": "Buscar actualizaciones",
+    "checking": "Buscando",
+    "check": "Buscar",
+    "startup": "Comprobar al iniciar",
+    "startupDescription": "Muestra avisos de actualización de la aplicación de escritorio al abrir Kromacut.",
+    "startupLabel": "Buscar actualizaciones al iniciar",
+    "available": "La versión {{version}} está disponible",
+    "notice": "Actualización disponible",
+    "noticeDescription": "¡La versión <version>{{version}}</version> ya está disponible!",
+    "current": "Kromacut está actualizado.",
+    "download": "Descargar",
+    "later": "Más tarde",
+    "dismiss": "Cerrar el aviso de actualización",
+    "checkFailed": "No se pudieron buscar actualizaciones. Inténtalo de nuevo más tarde.",
+    "downloadFailed": "No se pudo abrir la página de descarga."
+  },
+  "app": {
+    "uploadImage": "Importa un archivo de imagen",
+    "resizeFailed": "No se pudo cambiar el tamaño de la imagen. Consulta la consola para obtener más detalles.",
+    "preparingControls": "Preparando los controles 3D…",
+    "performanceWarning": "Aviso de rendimiento",
+    "slowBuild": "La creación del modelo 3D puede ser lenta por estos motivos:",
+    "continue": "¿Quieres continuar?",
+    "cancel": "Cancelar",
+    "buildAnyway": "Crear de todos modos"
+  }
+}

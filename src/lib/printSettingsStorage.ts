@@ -4,6 +4,9 @@
 
 export const PRINT_SETTINGS_STORAGE_KEY = 'kromacut:3d-print-settings';
 
+// The control lives in Print Settings; its value retains the existing Auto-paint storage key.
+export const DEFAULT_EFFECTIVE_LINE_WIDTH = 0.42;
+
 export const DEFAULT_PRINT_SETTINGS = {
     layerHeight: 0.12,
     slicerFirstLayerHeight: 0.2,

@@ -9,7 +9,7 @@ description: Filament inputs, printable detail, matching, height constraints, an
 
 Auto-paint predicts thin filament layers over one another and chooses printable heights for the prepared image. Several visible colors can come from different thicknesses of one physical filament. Twenty image colors therefore do not necessarily need twenty spools.
 
-Set [physical size and layer heights](3d-mode#3d-print-settings), add filaments you can actually load, wait for calculation, then **Build 3D Model**. Inputs recalculate automatically; displayed geometry updates only when you build.
+Set [physical size, layer heights, and effective line width](3d-mode#3d-print-settings), add filaments you can actually load, wait for calculation, then **Build 3D Model**. Inputs recalculate automatically; displayed geometry updates only when you build.
 
 ## Filament Inputs
 
@@ -70,30 +70,30 @@ Compression can remove useful intermediate colors. It is not uniform scaling of 
 
 ## Printable Detail
 
-**Effective line width** is the slicer's intended extrusion width, not nozzle diameter or Pixel Size. It accepts 0.1 to 2 mm; **Reset** restores 0.42 mm. Copy your real width setting. Editing this field does not change the printer profile.
+Set [**Effective line width** in **3D Print Settings**](3d-mode#effective-line-width) to the slicer's intended extrusion width, not nozzle diameter or Pixel Size. Auto-paint's width-warning preview and optional isolated-speck cleanup use that same setting; their controls remain here.
 
-Think of a **two-pixel purple stripe** on a blue background. At **0.10 mm/pixel**, the stripe is **0.20 mm wide**. If your planned extrusion line is **0.40 mm wide**, that stripe is narrower than the line. Kromacut flags it as **at risk**: the slicer may not preserve it as a separate purple region.
+Think of a **two-pixel purple stripe** on a blue background. At **0.10 mm/pixel**, the stripe is **0.20 mm wide**. If your planned extrusion line is **0.40 mm wide**, that stripe is narrower than the line. Kromacut can flag it as **at risk**, but keeps the stripe even with cleanup on. A thin visible image region can be part of a much wider underlying material layer, and slicer toolpaths can preserve detail that this image-only check flags.
 
-![A two-pixel purple stripe at 0.10 mm/pixel is narrower than a 0.40 mm extrusion line. Amber marks the risk, not a filament color. Off keeps the purple target in Auto-paint's input; on replaces it with surrounding blue, not a hole.](13_printable_detail.svg)
+![A two-pixel purple stripe is narrower than the planned extrusion width. Amber is a width warning, not a filament color. Isolated-speck cleanup keeps the stripe and only replaces a tiny enclosed pink speck with blue.](13_printable_detail.svg)
 
 _This is a width estimate, not an exact slicer toolpath. The colored bars compare widths; the squares show the example image._
 
-For this example, **Omit at-risk colors from matching** gives you two choices:
+**Omit isolated color specks** gives you two choices:
 
-- **Off:** keep the purple stripe as a target in Auto-paint's input. Color matching and slicing can still lose the distinction.
-- **On:** replace the stripe with the surrounding blue before Auto-paint chooses colors and builds the model. This removes the separate purple target, **not the material underneath it**. It does not make a hole or repaint your original 2D image.
+- **Off:** keep all source pixels in Auto-paint's input, including every highlighted region.
+- **On:** replace only colors used exclusively in tiny, compact, enclosed specks with their surrounding wider color before matching and model generation. A speck's full extent must be smaller than the effective line width, and it must have one unambiguous surrounding color with a wider region. If that source color is also used in a line or larger region anywhere in the image, it is kept everywhere.
 
-If you want to preserve the detail, increase the model's XY size, widen the stripe in 2D, or use a finer extrusion width that your printer and slicer can actually produce. Turning omission off by itself does not make the stripe printable.
+Thin lines, diagonal connections, branches attached to wider regions, image-edge detail, and specks beside transparency or multiple colors are kept. Cleanup never turns a pixel into a hole or edits your original 2D image. It is deliberately cautious and may leave unwanted speckles; use [2D cleanup](dedithering-cleanup) for broader image editing.
 
 Use **Open preview** to inspect:
 
-- **At risk:** amber marks possible neighbor takeover; pink marks isolated pixels without a defensible printable neighbor. Other pixels are dimmed.
-- **Printable:** the pixels Auto-paint receives. With omission off, at-risk colors remain in matching and geometry.
-- **Affected / reassigned / source colors disappear:** the vulnerable fraction, actual substitutions, and colors entirely removed by substitution.
+- **At risk:** amber marks thin source-color regions near wider colors; pink marks thin regions without a wider neighbor. Other pixels are dimmed. These are warnings, not a prediction that the detail cannot print.
+- **Result:** the pixels Auto-paint receives after the optional cleanup. This is not a slicer preview or a printability guarantee.
+- **Flagged / eligible / omitted:** the width-warning fraction, pixels meeting the isolated-speck rules, and the actual number replaced. **Flagged pixels kept** explicitly counts warnings that do not change the image.
 
-With omission on, Auto-paint uses the substituted image to count target colors and plan the stack. That can change its choices in other regions too. Isolated details without a suitable printable neighbor keep their source color rather than becoming holes.
+When eligible speck colors are omitted, Auto-paint uses the cleaned image to count target colors and plan the stack. Removing an entire target color can change matching choices elsewhere, so inspect the rebuilt result. A nonzero warning percentage with **0 pixels omitted** means cleanup has kept all source detail.
 
-After changing the toggle, let Auto-paint finish calculating and click **Build 3D Model** again. The analysis is a conservative width estimate, not a simulation of a particular slicer's walls, infill, or variable-width extrusion.
+After changing the toggle, let Auto-paint finish calculating and click **Build 3D Model** again. The analysis measures connected source-color regions, not physical material layers, walls, infill, or variable-width extrusion. Always check the sliced toolpaths. If detail really is lost there, increase the model's XY size, widen it in 2D, or choose a finer extrusion width that your printer and slicer support.
 
 ## Enhanced Color Matching
 
@@ -137,7 +137,7 @@ _Schematic mechanism, not a guaranteed before-and-after result. Different top he
 
 Many current Auto-paint mappings already select a discrete printable layer before this step. Those already-snapped regions have no fractional-height error to distribute and may remain unchanged when dithering is enabled. Use the rebuilt preview and slicer to check whether this particular image actually gains height variation; enabling the toggle does not guarantee more tones or visible dots.
 
-Dot size follows **Effective line width** relative to **Pixel Size**, rounded to a whole-pixel block size. This is approximate, not an exact minimum-width guarantee. Edge regions avoid the same dithering treatment to reduce boundary artifacts. Check the slicer for tiny islands and extra travel.
+Dot size follows **Effective line width** in **3D Print Settings** relative to **Pixel Size**, rounded to a whole-pixel block size. This is approximate, not an exact minimum-width guarantee. Edge regions avoid the same dithering treatment to reduce boundary artifacts. Check the slicer for tiny islands and extra travel.
 
 Where fractional-height error is available, redistribution can help broad tones while making tiny graphics noisy or geometry heavier. It cannot add missing gamut or validate unsupported calibration. When it creates many small regions, combining it with Flat Paint can be especially expensive because those regions share each full-footprint layer.
 
