@@ -15,8 +15,8 @@ The `version.json` file should be hosted at `https://kromacut.com/version.json` 
 
 ```json
 {
-    "version": "2.2.0",
-    "download_url": "https://github.com/vycdev/Kromacut/releases/latest",
+    "version": "4.1.0",
+    "download_url": "https://github.com/vycdev/Kromacut/releases/tag/v4.1.0",
     "release_notes": "Bug fixes and performance improvements"
 }
 ```
@@ -55,11 +55,18 @@ an explicit `lang="en"` on the note; no bundled note from another release is sub
 
 The version number is managed in multiple places and should be kept in sync:
 
-1. `package.json` - `version` field
-2. `src-tauri/tauri.conf.json` - `version` field
-3. `src-tauri/Cargo.toml` - `version` field under `[package]`
+1. `package.json` and both application entries in `package-lock.json`
+2. `src-tauri/tauri.conf.json`
+3. `src-tauri/Cargo.toml` under `[package]` and the `kromacut` entry in `src-tauri/Cargo.lock`
+4. `public/version.json`, its version-specific download link, and a dated `CHANGELOG.md` entry
 
-When releasing a new version, update all three files.
+`node scripts/check-release-notes.mjs` validates these alongside localized note coverage. It runs
+as part of the normal build. In release CI it also requires the exact matching version tag; a
+manual dispatch from a branch cannot publish a release with mismatched installers.
+
+Pages only deploys a feed that names the latest published stable desktop release. A main-branch
+version bump waits until the native release workflow finishes and publishes its installers;
+that completion triggers deployment from the release commit. See [the release sequence](TAURI.md#website-and-update-feed-ordering).
 
 ## Disabling Update Checks
 
@@ -67,11 +74,16 @@ Update checks only run in the Tauri desktop environment. The web version is unaf
 
 ## Testing
 
-To test the update checker locally:
+Run the native update-response tests and the release-metadata/deployment-guard regressions:
 
-1. Change the version in `public/version.json` to a higher version
-2. Build and run the Tauri app: `npm run tauri:dev`
-3. The update notification should appear after a few seconds
+```bash
+cargo test --manifest-path src-tauri/Cargo.toml --lib --locked
+node --no-warnings --experimental-strip-types --test tests/releaseMetadata.test.ts tests/pagesReleaseGate.test.ts tests/i18n.test.ts
+```
+
+The guard tests simulate missing, draft, superseded, and successfully published releases without
+publishing anything. Keep synthetic version numbers in test fixtures; do not deploy a higher
+`version.json` as a way to test an update notification.
 
 ## Privacy
 

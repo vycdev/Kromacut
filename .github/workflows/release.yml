@@ -52,6 +52,12 @@ jobs:
                   node-version: '22'
                   cache: 'npm'
 
+            - name: Validate release metadata
+              env:
+                  KROMACUT_RELEASE_TAG: ${{ github.ref_name }}
+                  KROMACUT_RELEASE_REF: ${{ github.ref }}
+              run: node scripts/check-release-notes.mjs
+
             - name: Install Rust stable
               uses: dtolnay/rust-toolchain@stable
               with:

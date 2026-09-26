@@ -4,8 +4,9 @@ on:
     push:
         branches:
             - main
-        tags:
-            - 'v*'
+    workflow_run:
+        workflows: ['Release Native App']
+        types: [completed]
     workflow_dispatch:
 
 permissions:
@@ -13,18 +14,72 @@ permissions:
     pages: write
     id-token: write
 
+concurrency:
+    group: github-pages
+    cancel-in-progress: false
+
 jobs:
-    build_and_deploy:
+    release_ready:
+        if: >-
+            github.event_name != 'workflow_run' ||
+            (github.event.workflow_run.conclusion == 'success' &&
+             github.event.workflow_run.head_repository.full_name == github.repository)
         runs-on: ubuntu-latest
+        permissions:
+            contents: read
+        outputs:
+            ready: ${{ steps.release.outputs.ready }}
+            version: ${{ steps.release.outputs.version }}
+            source_ref: ${{ steps.release.outputs.source_ref }}
+        steps:
+            - name: Checkout deployment source
+              uses: actions/checkout@v4
+              with:
+                  ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+                  persist-credentials: false
+
+            - name: Wait for a published desktop release
+              id: release
+              uses: actions/github-script@v7
+              with:
+                  script: |
+                      const fs = require('node:fs');
+                      const { version } = JSON.parse(fs.readFileSync('public/version.json', 'utf8'));
+                      if (!/^\d+\.\d+\.\d+$/.test(version)) {
+                          throw new Error('Pages requires a stable release version');
+                      }
+                      core.setOutput('version', version);
+                      core.setOutput('source_ref', context.payload.workflow_run?.head_sha || context.sha);
+                      let latest;
+                      try {
+                          latest = (await github.rest.repos.getLatestRelease(context.repo)).data;
+                      } catch (error) {
+                          if (error.status !== 404) throw error;
+                      }
+                      const ready = Boolean(latest && !latest.draft && !latest.prerelease && latest.tag_name === `v${version}`);
+                      core.setOutput('ready', String(ready));
+                      if (!ready) {
+                          core.notice(`Skipping Pages: v${version} is not the latest published desktop release. A successful native release will trigger another deployment check.`);
+                      }
+
+    build_and_deploy:
+        needs: release_ready
+        if: needs.release_ready.outputs.ready == 'true'
+        runs-on: ubuntu-latest
+        permissions:
+            contents: read
         steps:
             - name: Checkout
               uses: actions/checkout@v4
+              with:
+                  ref: ${{ needs.release_ready.outputs.source_ref }}
+                  persist-credentials: false
 
             - name: Setup Node.js
               uses: actions/setup-node@v4
               with:
-                  node-version: "22"
-                  cache: "npm"
+                  node-version: '22'
+                  cache: 'npm'
 
             - name: Install dependencies
               run: npm ci
@@ -41,8 +96,23 @@ jobs:
                   path: ./dist
 
     deploy:
-        needs: build_and_deploy
+        needs: [release_ready, build_and_deploy]
         runs-on: ubuntu-latest
+        environment:
+            name: github-pages
+            url: ${{ steps.deployment.outputs.page_url }}
         steps:
+            - name: Recheck release before publishing the update feed
+              uses: actions/github-script@v7
+              env:
+                  EXPECTED_RELEASE_VERSION: ${{ needs.release_ready.outputs.version }}
+              with:
+                  script: |
+                      const { data: latest } = await github.rest.repos.getLatestRelease(context.repo);
+                      if (latest.draft || latest.prerelease || latest.tag_name !== `v${process.env.EXPECTED_RELEASE_VERSION}`) {
+                          throw new Error('The latest release changed during the build; refusing to deploy a stale update feed.');
+                      }
+
             - name: Deploy to GitHub Pages
+              id: deployment
               uses: actions/deploy-pages@v4

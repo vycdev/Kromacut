@@ -4,8 +4,18 @@ All notable changes to Kromacut are documented in this file.
 
 ## Unreleased
 
+## v4.1.0 - 2026-09-26
+
+### Upgrade notes
+
+- **Existing profiles and calibration records remain compatible.** Saved Stack Matrices retain their original dimensions and recipes; the one-layer foundation and grouped layout apply to newly generated matrices. Back up important profiles as usual.
+- **Printable-detail cleanup is now more conservative.** The saved omission preference remains enabled if you previously enabled it, but now removes only eligible isolated color specks. Rebuild and check the slicer preview to see the updated result.
+- **Language changes do not change print data.** Select a language in Settings or on public pages; artwork, filament profiles, physical dimensions, and generated geometry remain unchanged.
+- **Linux delta updates start with this AppImage.** Older AppImages without embedded update information need a one-time manual download. Compatible external update tools can then use the matching `.zsync` asset; the in-app update notice still opens the release page. AnyLinux packaging is not part of this release.
+
 ### Added
 
+- **Release consistency checks** - Builds validate app, native, lockfile, and update-feed versions together with dated changelog entries and translated release notes. Native release jobs reject mismatched tags and branch dispatches before building. Website deployment waits for the matching published desktop release, then uses the release commit so update notices do not advertise unavailable installers. Regression coverage checks version drift, incomplete metadata, and deployment gating.
 - **Linux AppImage delta updates** - Release builds embed stable-channel update information and publish a matching `.AppImage.zsync` asset for compatible tools such as AppImageUpdate. Release checks validate the embedded location, target filename/URL, size, checksum, and sidecar structure before publication. Older AppImages without update information require a one-time manual download; the in-app update notification remains download-page based. Other package formats and Linux compatibility targets are unchanged.
 - **Twelve-language interface and guides** - Added i18next language selection using the existing shared Select controls in Settings and on public pages for English, French, German, Italian, Romanian, Spanish, Japanese, Simplified Chinese, Hindi, European Portuguese, Ukrainian, and Bengali. Compact public-page selectors match footer-link styling, with the landing selector aligned within the responsive footer navigation. The choice is saved locally, can follow the system language, and updates without resetting artwork, profiles, print settings, or built geometry. App controls, accessibility labels, errors, print instructions, all fifteen guides and their diagrams, landing pages, Privacy, and Terms have localized resources. Language-prefixed public links preserve stable document anchors and provide translated static HTML, metadata, sitemap entries, and language alternatives. Browser install descriptions keep the same installed app identity, and the desktop update feed carries translated release notes while retaining compatibility with older clients. Locally bundled script-appropriate fonts also travel inside full-size translated SVGs. Coverage checks reject missing resources, altered guide structure, stale diagram measurements, and untranslated UI literals; browser, native, and export regressions check language switching, mobile layouts, desktop save dialogs, and unchanged physical output. Unknown diagnostic text is preserved rather than reinterpreted through generic UI templates.
 - **Terms and conditions page** - Added `/terms` with landing-footer navigation, reciprocal Privacy links, canonical metadata, a sitemap entry, and readable static HTML. The terms explain AGPL software rights, artwork and export responsibilities, print checks, local backups, Reddit/Discord help, optional Patreon support, and legally bounded warranty wording. Shared legal-page presentation preserves accessible email reveal/copy controls and mobile layouts, with route and browser regression coverage.
@@ -22,6 +32,7 @@ All notable changes to Kromacut are documented in this file.
 
 ### Fixed
 
+- **Desktop Hiding Distance downloads** - Restored calibration STL/3MF downloads in the desktop app using Save As. Wedge exports show a busy state, report write failures, and retain the previous downloaded plan when saving is cancelled or fails. Regression coverage checks both formats and browser downloads.
 - **Over-aggressive printable-detail cleanup** - Width checks now account for pixel boundaries and preserve connected regions with a wide core, avoiding whole-pixel rounding and diagonal false positives. Auto-paint's At-risk/Result preview distinguishes warnings from actual removals. The renamed **Omit isolated color specks** option only replaces colors used exclusively in tiny compact specks enclosed by one wider color; thin linework, connected detail, and ambiguous regions stay intact. Matching, preview, and export share the same cleanup without editing the 2D source. Regression coverage checks detail conservation, saved line-width settings, and browser behavior. This remains an image-only estimate, not a model of physical material layers or slicer toolpaths.
 
 ## v4.0.0 - 2026-09-10
@@ -67,7 +78,7 @@ All notable changes to Kromacut are documented in this file.
 
 ### Fixed
 
-- **Desktop file exports** - Filament-profile `.kfil` and Hiding Distance calibration STL/3MF exports use Save As, handle cancellation without reporting success, and surface write errors. Wedge exports show a busy state and retain the previous downloaded plan if saving is cancelled or fails; regression coverage checks both formats and browser downloads. Large 3MF exports stream XML in bounded chunks to avoid desktop WebView read and string-size failures.
+- **Desktop file exports** - Filament-profile `.kfil` exports use Save As, handle cancellation without reporting success, and surface write errors. Large 3MF exports stream XML in bounded chunks to avoid desktop WebView read and string-size failures.
 - **Profile and palette persistence** - Failed storage writes no longer report success or replace working state. Imports validate hiding distances and duplicate filament IDs; legacy stored ID collisions are repaired without dropping filament rows, while ambiguous appearance evidence is discarded.
 - **Remembered print settings** - Saved Auto-paint settings load before persistence can replace them with defaults. Unsaved filament edits remain authoritative, Max Height and wedge layer height are remembered, and Reset Print Settings also resets Smooth Meshing.
 - **Max Height and foundation opacity** - Height caps round down to printable boundaries; compression and trimming preserve the foundation's opacity minimum, and impossible foundations are rejected.

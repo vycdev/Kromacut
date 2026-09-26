@@ -36,19 +36,20 @@ Main config file: `src-tauri/tauri.conf.json`
 
 When releasing a new version:
 
-1. Update `package.json` version.
-2. Update `src-tauri/tauri.conf.json` version.
-3. Commit and tag the release.
-
-Example:
-
-```bash
-git add package.json src-tauri/tauri.conf.json
-git commit -m "Bump version to vX.Y.Z"
-git tag vX.Y.Z
-git push origin main
-git push origin vX.Y.Z
-```
+1. Synchronize the version in `package.json`, both root entries in `package-lock.json`,
+   `src-tauri/tauri.conf.json`, the package in `src-tauri/Cargo.toml`, the `kromacut` package in
+   `src-tauri/Cargo.lock`, and `public/version.json`. Do not upgrade dependencies as a side effect.
+2. Move the completed `CHANGELOG.md` entries into a dated `vX.Y.Z` section, retaining an empty
+   `Unreleased` section for future work. Preserve previously published release entries.
+3. Update the feed's English summary and every `release_notes_localized` translation together.
+   Point `download_url` to the exact `/releases/tag/vX.Y.Z` page, not `/releases/latest`.
+4. Run `node scripts/check-release-notes.mjs`, lint, the relevant regression tests, and
+   `npm run test:e2e:i18n:build`. The latter builds and checks localized production routes.
+5. Commit the reviewed release-preparation files and merge them to `main` before creating the tag.
+   Leave private audit notes, local calibration data, and temporary files out of the commit.
+6. After release approval, tag that reviewed commit as `vX.Y.Z` and push the tag. The native
+   workflow validates the tag, manifest/lockfile versions, feed, and changelog before building.
+   Manual workflow runs must select the version tag, not a branch.
 
 The GitHub Actions workflow will automatically build native applications for:
 
@@ -56,7 +57,25 @@ The GitHub Actions workflow will automatically build native applications for:
 - **Windows**: x64 NSIS setup installer, plus an offline NSIS setup installer with the WebView2 offline installer embedded
 - **Linux**: AppImage and .deb package
 
-All artifacts are attached to the GitHub release.
+All artifacts are attached to a draft GitHub release. The publication job waits for all native
+builds and the AppImage metadata checks before publishing it. Check that every platform completed
+successfully and that the published downloads match the version; local web tests alone do not
+verify all native installers.
+
+### Website and update-feed ordering
+
+Pages deployment checks that `public/version.json` matches the latest published stable desktop
+release. Merging a version bump before the installers are ready therefore skips deployment and
+leaves the existing site and update feed live. Successful completion of **Release Native App**
+triggers another check, then builds Pages from that native workflow's exact source commit. A
+final check prevents publishing an obsolete feed if the latest release changed during the build.
+Main-branch pushes and manual Pages runs still support web-only updates with the current version.
+
+The Pages workflow must already exist on the default branch for GitHub's
+[`workflow_run` trigger](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#workflow_run)
+to work. Merge the workflow changes before tagging the first release that uses this ordering.
+If native publication or Pages deployment fails, inspect the failed job before rerunning it;
+do not announce the new version by manually bypassing the publication check.
 
 ## Distribution Notes
 
