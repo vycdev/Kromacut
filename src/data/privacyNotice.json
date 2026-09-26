@@ -1,0 +1,157 @@
+{
+    "title": "Privacy & local data",
+    "seoTitle": "Privacy & local data | Kromacut",
+    "description": "How Kromacut handles local files, saved settings, hosting and email data, retention, and your privacy rights.",
+    "updated": "13 September 2026",
+    "intro": "Your images are processed on your device. Kromacut does not upload them to an image-processing server.",
+    "sections": [
+        {
+            "id": "on-your-device",
+            "title": "What stays on your device",
+            "paragraphs": [
+                "Image editing, palette reduction, filament calibration, layer planning, 3D previews, and model exports run locally in your browser or desktop app. There is no Kromacut account or cloud project storage.",
+                "Opening an image lets the app read that file locally. Exported models, palettes, and filament profiles are saved as files on your device. Kromacut does not automatically send those files elsewhere."
+            ],
+            "links": []
+        },
+        {
+            "id": "saved-settings",
+            "title": "Saved settings, cookies, and clearing data",
+            "paragraphs": [
+                "The app uses local storage to remember settings, themes, palettes, filament profiles, and calibration history. These saved preferences have no app-defined expiry; they remain until deleted or until your browser or device clears the app's storage.",
+                "Kromacut does not set advertising or analytics cookies. Its saved preferences use browser local storage, which is separate from cookies and is not automatically sent with website requests.",
+                "Before clearing site or app data, export any profiles and palettes you want to keep. Clearing browser storage can permanently remove saved calibration history. It does not delete files you previously exported to your device."
+            ],
+            "links": []
+        },
+        {
+            "id": "network-requests",
+            "title": "Website hosting and connections",
+            "paragraphs": [
+                "The website is hosted on GitHub Pages. Visiting the site sends normal connection and request information to the hosting service. GitHub states that Pages records visitor IP addresses for security, including when visitors are not signed in to GitHub.",
+                "Fonts are bundled with Kromacut and served from the website or desktop installation. Opening the app does not contact Google Fonts. Kromacut does not include advertising or an analytics SDK.",
+                "Delivering the site and public update information serves the legitimate interest of making Kromacut available and maintaining its security (GDPR Article 6(1)(f)). GitHub also determines its own security and service-processing purposes, as explained in its privacy statement."
+            ],
+            "links": [
+                {
+                    "label": "GitHub Pages data collection",
+                    "href": "https://docs.github.com/en/pages/getting-started-with-github-pages/what-is-github-pages#data-collection"
+                },
+                {
+                    "label": "GitHub privacy statement",
+                    "href": "https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement"
+                }
+            ]
+        },
+        {
+            "id": "desktop-app",
+            "title": "Desktop updates and diagnostics",
+            "paragraphs": [
+                "Desktop update checks request the public version.json file from kromacut.com. Automatic checks are enabled by default, run on startup and every four hours while the app remains open, and can be disabled in Settings. You can still check manually.",
+                "The update request does not include your artwork, profiles, settings, or installed version. Version comparison happens locally, but the hosting service still receives normal connection information.",
+                "Optional Auto-paint diagnostic recording is off by default and writes local files. These can contain runtime information, filament and calibration data, and palette colors, but not the source image. They remain on your device until you delete them. Review diagnostic files before choosing to share them."
+            ],
+            "links": []
+        },
+        {
+            "id": "email-correspondence",
+            "title": "When you send an email",
+            "paragraphs": [
+                "Kromacut is personally operated. Its operator decides how direct support and privacy correspondence is used and retained. If you email the contact address below, the operator receives your sender address, any name you include, message, and attachments in Gmail. Google also processes this information to provide and protect its email service.",
+                "Support correspondence is used to answer you, investigate the issue you raise, and provide necessary follow-up. The legal basis is the legitimate interest in providing requested support and maintaining Kromacut (GDPR Article 6(1)(f)), balanced against your privacy rights. Handling applicable privacy requests relies on the legal obligation to respect those rights (Article 6(1)(c)).",
+                "Contacting the operator is optional and is not required to use the app. Without a reply address or enough information about an issue, it may not be possible to answer it. Send only relevant information; avoid sensitive personal data or other people's information unless necessary."
+            ],
+            "links": [
+                {
+                    "label": "Google privacy policy",
+                    "href": "https://policies.google.com/privacy?hl=en"
+                }
+            ]
+        },
+        {
+            "id": "email-retention",
+            "title": "How long correspondence is kept",
+            "paragraphs": [
+                "Kromacut correspondence is reviewed every six months. Messages and attachments are deleted when they are no longer needed for an unresolved issue, necessary follow-up, or a legal reason. This is a manual review, not an automatic six-month expiry for every email.",
+                "Where records are needed to meet a legal obligation or establish, exercise, or defend a legal claim, only the necessary information is kept for the applicable legal period or while the claim requires it. Minimal records of privacy requests and responses may be kept to demonstrate how the request was handled; their continued need is reviewed too.",
+                "This mailbox rule does not set GitHub's or Google's independent retention periods. Their privacy notices describe retention according to service purposes and legal needs. Deletion from the mailbox is not a guarantee of immediate removal from provider backups or security records."
+            ],
+            "links": [
+                {
+                    "label": "Google data-retention explanation",
+                    "href": "https://policies.google.com/technologies/retention?hl=en"
+                }
+            ]
+        },
+        {
+            "id": "providers-and-transfers",
+            "title": "Providers and international processing",
+            "paragraphs": [
+                "GitHub provides website hosting; Google provides the contact mailbox. These providers and their service providers process the information involved in those services. They also act as controllers for purposes they determine themselves, such as service security and legal compliance. Relevant correspondence may additionally be disclosed to an adviser or authority where necessary to handle a legal matter or comply with law.",
+                "GitHub and Google describe processing outside the European Economic Area, including in the United States. Their published safeguards include applicable adequacy decisions and standard contractual clauses; both describe participation by their US entities in the EU-US Data Privacy Framework. The links below explain the relevant provider arrangements and how to obtain information about them. You can also ask privacy questions using the contact below. These arrangements concern hosting and correspondence, not automatic uploads of your artwork."
+            ],
+            "links": [
+                {
+                    "label": "GitHub international transfers and safeguards",
+                    "href": "https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement#international-data-transfers"
+                },
+                {
+                    "label": "Google transfer frameworks",
+                    "href": "https://policies.google.com/privacy/frameworks?hl=en"
+                }
+            ]
+        },
+        {
+            "id": "external-services",
+            "title": "Community links and Patreon support",
+            "paragraphs": [
+                "Community, support, and release links open external websites when you follow them. Information you post there, such as a public issue or community message, is handled under that service's privacy practices and may be visible to other people.",
+                "The support button opens Patreon, with its own privacy and payment practices. If you become a member, Patreon can make supporter information available to the creator, including your profile name, email address, membership tier, status, and amount. This is separate from local image processing in Kromacut. Patreon's Creator Privacy Promise describes the roles and duties for membership data used to provide membership services.",
+                "For Patreon account or payment privacy requests, use Patreon's privacy channels. If your question concerns information received by the creator, you can also use the contact below."
+            ],
+            "links": [
+                {
+                    "label": "Patreon privacy policy",
+                    "href": "https://privacy.patreon.com/policies/en-US/"
+                },
+                {
+                    "label": "Patreon Creator Privacy Promise",
+                    "href": "https://support.patreon.com/hc/en-us/articles/360026912432-Data-Processing-Agreement-Creator-Privacy-Promise"
+                }
+            ]
+        },
+        {
+            "id": "your-rights",
+            "title": "Your privacy rights",
+            "paragraphs": [
+                "Where the GDPR applies, you can request access to your personal data, correction of inaccurate information, deletion, or restriction of processing, subject to the conditions of those rights. You can object to processing based on legitimate interests for reasons relating to your situation.",
+                "Portability applies where processing is automated and based on consent or a contract. Where processing relies on consent, you can withdraw it without affecting the lawfulness of earlier processing. Kromacut does not use personal data to make automated decisions with legal or similarly significant effects about you.",
+                "Email the contact below to make a request. Describe what you need and the relevant correspondence; no special form is required. Requests are normally free. Additional identity information is requested only where reasonably needed to confirm that the data belongs to you; do not send identity documents unless asked.",
+                "You will receive a response without undue delay and within one month. If complexity or the number of requests requires an extension, you will be told why within that first month; the extension can be up to two further months. If a request cannot be fulfilled, the response will explain why and the available complaint and judicial-remedy options.",
+                "The operator cannot remotely access or erase artwork, settings, or exported files held only on your device. Use the local controls described above for those files. For information a provider controls independently, its privacy channels are available through the linked notices."
+            ],
+            "links": [
+                {
+                    "label": "European Data Protection Board: your rights",
+                    "href": "https://www.edpb.europa.eu/sme/be-compliant/respect-individuals-rights_en"
+                }
+            ]
+        },
+        {
+            "id": "complaints-and-changes",
+            "title": "Complaints and notice updates",
+            "paragraphs": [
+                "You have the right to complain to a data-protection supervisory authority, in particular in the EU country where you live, work, or believe an infringement occurred. In Romania, this is the National Supervisory Authority for Personal Data Processing (ANSPDCP). Its website explains how to submit a complaint.",
+                "This notice will be updated when Kromacut's data practices change. The date at the top identifies the latest revision."
+            ],
+            "links": [
+                {
+                    "label": "ANSPDCP complaint information",
+                    "href": "https://www.dataprotection.ro/?page=Plangeri_pagina_principala"
+                }
+            ]
+        }
+    ],
+    "contactTitle": "Privacy questions",
+    "contactDescription": "For a privacy question or request, reveal the public contact email below. Revealing or copying the address sends nothing. Sending an email shares your message and any attachments with the operator and the email services involved, including Gmail."
+}

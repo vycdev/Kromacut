@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import React, { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { NumberInput } from '@/components/ui/input';
@@ -82,6 +83,7 @@ export const ControlsPanel: React.FC<Props> = ({
     onExportPalette,
     onImportPaletteFile,
 }) => {
+    const { t } = useTranslation('workspace');
     // Local state for relaxed typing
     const [localColors, setLocalColors] = useState(finalColors);
     const [localWeight, setLocalWeight] = useState(weight);
@@ -107,26 +109,26 @@ export const ControlsPanel: React.FC<Props> = ({
     return (
         <CollapsibleCard
             id="quantization"
-            title="Quantization Settings"
-            subtitle="Configure palette and reduce colors"
-                collapsedSummary={
-                    applying ? (
-                        <Loader
-                            className="w-4 h-4 animate-spin text-muted-foreground"
-                            aria-label="Applying quantization"
-                        />
-                    ) : !allDefault ? (
-                        <DirtyDot title="Quantization settings modified" />
-                    ) : undefined
-                }
+            title={t('controlsPanel.quantizationSettings')}
+            subtitle={t('controlsPanel.configurePaletteAndReduceColors')}
+            collapsedSummary={
+                applying ? (
+                    <Loader
+                        className="w-4 h-4 animate-spin text-muted-foreground"
+                        aria-label={t('controlsPanel.applyingQuantization')}
+                    />
+                ) : !allDefault ? (
+                    <DirtyDot title={t('controlsPanel.quantizationSettingsModified')} />
+                ) : undefined
+            }
             actions={
                 onReset && (
                     <button
                         type="button"
                         onClick={onReset}
                         disabled={allDefault}
-                        title="Reset quantization settings to default"
-                        aria-label="Reset quantization settings"
+                        title={t('controlsPanel.resetQuantizationSettingsToDefault')}
+                        aria-label={t('controlsPanel.resetQuantizationSettings')}
                         className="h-7 w-7 flex-shrink-0 flex items-center justify-center rounded-md text-muted-foreground hover:text-amber-600 hover:bg-amber-600/15 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-muted-foreground select-none cursor-pointer"
                     >
                         <RotateCcw className="w-4 h-4" />
@@ -138,7 +140,7 @@ export const ControlsPanel: React.FC<Props> = ({
                 <div className="space-y-4">
                     <div className="space-y-2">
                         <Label htmlFor="palette-select" className="font-medium">
-                            Palette
+                            {t('controlsPanel.palette')}
                         </Label>
                         <Select
                             value={selectedPalette}
@@ -150,14 +152,18 @@ export const ControlsPanel: React.FC<Props> = ({
                             }}
                         >
                             <SelectTrigger id="palette-select">
-                                <SelectValue placeholder="Select a palette" />
+                                <SelectValue placeholder={t('controlsPanel.selectAPalette')} />
                             </SelectTrigger>
                             <SelectContent className="max-h-48 w-[var(--radix-select-trigger-width)] overflow-y-auto">
                                 {PALETTES.map((p) => (
                                     <SelectItem key={p.id} value={p.id}>
                                         <div className="flex items-center gap-2">
                                             <span>
-                                                {p.id === 'auto' ? 'Auto' : `${p.size} colors`}
+                                                {p.id === 'auto'
+                                                    ? t('controlsPanel.auto')
+                                                    : t('controlsPanel.colorCount', {
+                                                          count: p.size,
+                                                      })}
                                             </span>
                                             {p.id !== 'auto' && (
                                                 <div className="flex gap-1">
@@ -188,13 +194,12 @@ export const ControlsPanel: React.FC<Props> = ({
                                 {SUPPLIER_PALETTES.length > 0 && (
                                     <>
                                         <div className="px-2 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider select-none border-t border-border/50 mt-1 pt-2">
-                                            Supplier Palettes
+                                            {t('controlsPanel.supplierPalettes')}
                                         </div>
                                         <div className="px-2 pb-1.5 text-[9px] leading-snug whitespace-normal text-muted-foreground/70 select-none">
-                                            Unofficial reference palettes of filament color names
-                                            and hex values. Not affiliated with, endorsed by, or
-                                            sponsored by any manufacturer; names identify the
-                                            referenced products only.
+                                            {t(
+                                                'controlsPanel.unofficialReferencePalettesOfFilamentColorNamesAndHex'
+                                            )}
                                         </div>
                                         {SUPPLIER_PALETTES.map((p) => (
                                             <SelectItem key={p.id} value={p.id}>
@@ -236,7 +241,7 @@ export const ControlsPanel: React.FC<Props> = ({
                                 {customEntries.length > 0 && (
                                     <>
                                         <div className="px-2 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider select-none border-t border-border/50 mt-1 pt-2">
-                                            Custom Palettes
+                                            {t('controlsPanel.customPalettes')}
                                         </div>
                                         {customEntries.map((cp) => (
                                             <SelectItem key={cp.id} value={cp.id}>
@@ -299,7 +304,7 @@ export const ControlsPanel: React.FC<Props> = ({
                     <div className="space-y-2">
                         <div className="flex justify-between items-center">
                             <Label htmlFor="final-colors" className="font-medium">
-                                Number of Colors
+                                {t('controlsPanel.numberOfColors')}
                             </Label>
                         </div>
                         <NumberInput
@@ -313,7 +318,7 @@ export const ControlsPanel: React.FC<Props> = ({
                             disabled={selectedPalette !== 'auto'}
                             title={
                                 selectedPalette !== 'auto'
-                                    ? 'Determined by the selected palette'
+                                    ? t('controlsPanel.determinedByTheSelectedPalette')
                                     : undefined
                             }
                             onChange={(e) => {
@@ -333,7 +338,7 @@ export const ControlsPanel: React.FC<Props> = ({
                     <div className="space-y-2">
                         <div className="flex justify-between items-center">
                             <Label htmlFor="weight" className="font-medium">
-                                Algorithm Weight
+                                {t('controlsPanel.algorithmWeight')}
                             </Label>
                         </div>
                         <NumberInput
@@ -357,19 +362,25 @@ export const ControlsPanel: React.FC<Props> = ({
                     </div>
                     <div className="space-y-2">
                         <Label htmlFor="algorithm" className="font-medium">
-                            Algorithm
+                            {t('controlsPanel.algorithm')}
                         </Label>
                         <Select value={algorithm} onValueChange={setAlgorithm}>
                             <SelectTrigger>
-                                <SelectValue placeholder="Select algorithm" />
+                                <SelectValue placeholder={t('controlsPanel.selectAlgorithm')} />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="none">None (postprocess only)</SelectItem>
-                                <SelectItem value="posterize">Posterize</SelectItem>
-                                <SelectItem value="median-cut">Median-cut</SelectItem>
-                                <SelectItem value="kmeans">K-means</SelectItem>
-                                <SelectItem value="wu">Wu</SelectItem>
-                                <SelectItem value="octree">Octree</SelectItem>
+                                <SelectItem value="none">
+                                    {t('controlsPanel.nonePostprocessOnly')}
+                                </SelectItem>
+                                <SelectItem value="posterize">
+                                    {t('controlsPanel.posterize')}
+                                </SelectItem>
+                                <SelectItem value="median-cut">
+                                    {t('controlsPanel.medianCut')}
+                                </SelectItem>
+                                <SelectItem value="kmeans">{t('controlsPanel.kMeans')}</SelectItem>
+                                <SelectItem value="wu">{t('controlsPanel.wu')}</SelectItem>
+                                <SelectItem value="octree">{t('controlsPanel.octree')}</SelectItem>
                             </SelectContent>
                         </Select>
                     </div>
@@ -385,7 +396,7 @@ export const ControlsPanel: React.FC<Props> = ({
                     ) : (
                         <Check className="w-4 h-4" />
                     )}
-                    <span>{applying ? 'Applying...' : 'Apply'}</span>
+                    <span>{applying ? t('controlsPanel.applying') : t('controlsPanel.apply')}</span>
                 </Button>
             </div>
         </CollapsibleCard>

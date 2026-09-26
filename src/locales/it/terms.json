@@ -1,0 +1,168 @@
+{
+  "title": "Termini e condizioni",
+  "seoTitle": "Termini e condizioni | Kromacut",
+  "description": "Condizioni per usare Kromacut: licenza open source, diritti sulle immagini, controlli di stampa, backup locali, assistenza della community e tutele legali.",
+  "updated": "13 settembre 2026",
+  "intro": "I tuoi contenuti, i tuoi diritti open source e i controlli da fare prima di stampare.",
+  "sections": [
+    {
+      "id": "about-these-terms",
+      "title": "Informazioni su Kromacut e queste condizioni",
+      "paragraphs": [
+        "Kromacut è uno strumento open source gestito personalmente che trasforma immagini in modelli 3D a strati colore. L’app browser e le versioni desktop sono gratuite. Non servono un account Kromacut né un abbonamento Patreon per modificare immagini o esportare modelli.",
+        "Queste condizioni descrivono l’uso del sito e dell’app Kromacut, le responsabilità pratiche nella preparazione delle stampe e i canali di assistenza disponibili. La licenza software disciplina i diritti di usare, copiare, modificare e ridistribuire il software; questa pagina non la sostituisce né aggiunge limitazioni a tali diritti."
+      ],
+      "links": []
+    },
+    {
+      "id": "software-license",
+      "title": "Licenza software open source",
+      "paragraphs": [
+        "Il software Kromacut è concesso sotto la GNU Affero General Public License, esclusivamente versione 3 (AGPL-3.0-only). Puoi usarlo per scopi personali o commerciali. Copia, modifica e ridistribuzione devono rispettare la licenza, inclusi gli obblighi applicabili di avviso e fornitura del codice sorgente corrispondente.",
+        "Se modifichi il software e permetti agli utenti di interagire con la versione modificata da remoto tramite rete, si applica la disposizione AGPL sul codice sorgente via rete quando ne ricorrono le condizioni. Leggi la licenza completa per i requisiti esatti; questa è solo una sintesi.",
+        "Librerie di terzi, caratteri e altri materiali con licenza separata mantengono le proprie licenze e avvisi. In caso di conflitto tra questa pagina e la licenza software su un diritto concesso, prevale la licenza software."
+      ],
+      "links": [
+        {
+          "label": "Codice sorgente Kromacut",
+          "href": "https://github.com/vycdev/Kromacut"
+        },
+        {
+          "label": "Licenza Kromacut",
+          "href": "https://github.com/vycdev/Kromacut/blob/main/LICENSE"
+        },
+        {
+          "label": "GNU AGPL versione 3",
+          "href": "https://www.gnu.org/licenses/agpl-3.0.html"
+        }
+      ]
+    },
+    {
+      "id": "your-content",
+      "title": "Le tue immagini e i modelli esportati",
+      "paragraphs": [
+        "Kromacut non rivendica la proprietà di immagini, tavolozze, profili o modelli che importi o crei con l’app. L’elaborazione locale di un file non autorizza il gestore a pubblicarlo o riutilizzarlo.",
+        "Sei responsabile di possedere i diritti o permessi necessari per le immagini e per stampe o file che condividi o vendi. Usare Kromacut non annulla diritti d’autore, marchi, privacy o altri diritti altrui. Le opere mostrate negli esempi o nei post della community non sono automaticamente autorizzate al riutilizzo.",
+        "Un modello esportato non è automaticamente soggetto all’AGPL solo perché prodotto da Kromacut. La licenza copre i risultati soltanto quando il loro contenuto li rende opere soggette a essa. Queste condizioni non aggiungono tariffe separate né vincoli che limitino le tue stampe al solo uso non commerciale; restano rilevanti i diritti sulle immagini sorgente."
+      ],
+      "links": []
+    },
+    {
+      "id": "before-printing",
+      "title": "Controlla ogni modello prima di stampare",
+      "paragraphs": [
+        "Anteprime, previsioni colore, calcoli della distanza di copertura, risultati di calibrazione e istruzioni di stampa di Kromacut sono aiuti alla pianificazione. Non garantiscono una corrispondenza fisica esatta dei colori, una stampa riuscita o l’idoneità a uno scopo specifico. Materiali, illuminazione, calibrazione, configurazione della stampante e impostazioni dello slicer influiscono sul risultato.",
+        "Esamina ogni STL o 3MF esportato nello slicer. Prima di avviare la stampante, controlla dimensioni, geometria, orientamento, altezze degli strati e del primo strato, impostazioni di ugello ed estrusione, assegnazioni e cambi di filamento. Ricontrolla dopo modifiche alle impostazioni o aggiornamenti dell’app ed esegui una piccola stampa di prova quando opportuno.",
+        "Segui le istruzioni di sicurezza dei produttori di stampante e filamenti. Un’esportazione non è una valutazione ingegneristica né una certificazione di sicurezza. Qualsiasi uso critico per la sicurezza, strutturale, medico o altrimenti regolamentato richiede verifiche indipendenti appropriate."
+      ],
+      "links": [
+        {
+          "label": "Generazione ed esportazione",
+          "href": "/docs/generating-exporting-output"
+        },
+        {
+          "label": "Flussi di calibrazione",
+          "href": "/docs/calibration-workflows"
+        }
+      ]
+    },
+    {
+      "id": "local-data-and-backups",
+      "title": "Dati locali e backup",
+      "paragraphs": [
+        "Kromacut elabora le immagini sul tuo dispositivo e non fornisce archiviazione dei progetti nel cloud né recupero dei file locali. L’archiviazione del browser o dell’app può essere cancellata, persa o diventare inaccessibile.",
+        "Conserva le immagini originali ed esporta copie di sicurezza di tavolozze importanti, profili filamenti e cronologia delle calibrazioni, soprattutto prima di cancellare lo spazio, cambiare dispositivo o aggiornare l’app. Salva i modelli esportati in un luogo ritrovabile. Il gestore non può recuperare da remoto dati presenti solo sul tuo dispositivo.",
+        "L’informativa privacy spiega impostazioni salvate, richieste al sito, corrispondenza email e scelte sulla privacy. Informa sul trattamento dei dati, non richiede un consenso generale."
+      ],
+      "links": [
+        {
+          "label": "Privacy e dati locali",
+          "href": "/privacy"
+        }
+      ]
+    },
+    {
+      "id": "community-support",
+      "title": "Aiuto e canali della community",
+      "paragraphs": [
+        "I principali canali di aiuto sono r/kromacut su Reddit e il server Discord di Kromacut. La documentazione è disponibile anche nell’app e su questo sito. Salvo accordi separati o obblighi di legge, l’aiuto della community non garantisce tempi di risposta, correzioni o date di implementazione.",
+        "Rispetta le regole della piattaforma e della community. Post Reddit e canali Discord condivisi possono essere visibili ad altri; evita informazioni sensibili o file che non vuoi condividere. I consigli degli altri membri sono personali e vanno verificati prima di stampare.",
+        "Usa l’email pubblica qui sotto per domande su queste condizioni o questioni private. Per richieste sulla privacy puoi usare il contatto indicato nell’informativa."
+      ],
+      "links": [
+        {
+          "label": "r/kromacut su Reddit",
+          "href": "https://www.reddit.com/r/kromacut/"
+        },
+        {
+          "label": "Server Discord di Kromacut",
+          "href": "https://discord.gg/nU63sFMcnX"
+        },
+        {
+          "label": "Consulta la documentazione",
+          "href": "/docs/overview"
+        }
+      ]
+    },
+    {
+      "id": "patreon-and-external-services",
+      "title": "Sostegno facoltativo e servizi esterni",
+      "paragraphs": [
+        "Sostenere Kromacut tramite Patreon è facoltativo e non è una condizione per usare l’app. Patreon è un servizio separato. Prima di pagare, esamina la descrizione specifica dell’abbonamento o acquisto, la fatturazione, le opzioni di annullamento e le condizioni applicabili.",
+        "Queste condizioni non annullano benefici Patreon promessi separatamente né diritti di annullamento, rimborso o altri diritti applicabili a una transazione. Un contributo, da solo, non crea ulteriori promesse su funzionalità, date di rilascio o tempi di risposta dell’assistenza Kromacut.",
+        "I link a servizi di hosting, versioni, community e sostegno portano a siti gestiti da terzi. Al loro utilizzo si applicano le rispettive condizioni; Kromacut non ne controlla disponibilità o pratiche."
+      ],
+      "links": [
+        {
+          "label": "Sostieni Kromacut su Patreon",
+          "href": "https://www.patreon.com/cw/vycdev"
+        },
+        {
+          "label": "Informazioni sui rimborsi Patreon",
+          "href": "https://support.patreon.com/hc/en-gb/articles/205032045-Patreon-s-refund-policy"
+        }
+      ]
+    },
+    {
+      "id": "availability-and-responsible-use",
+      "title": "Disponibilità e uso responsabile",
+      "paragraphs": [
+        "Il sito ospitato, i download e le informazioni sugli aggiornamenti possono essere interrotti da manutenzione, guasti tecnici o cambiamenti nei servizi esterni. Salvo accordi separati o obblighi di legge, non sono garantiti hosting ininterrotto, compatibilità con ogni dispositivo o slicer, né specifiche funzionalità future.",
+        "Non interrompere o compromettere intenzionalmente il sito ospitato o i servizi della community e non accedere senza permesso alle informazioni altrui. Questo non limita l’esame, la modifica o la ridistribuzione leciti del software open source.",
+        "Le versioni possono modificare funzionalità, compatibilità dei file e previsioni. Leggi le note di rilascio, conserva backup e verifica i risultati rigenerati. Modifiche all’hosting o a questa pagina non revocano i diritti concessi dalla licenza sulle copie già ricevute."
+      ],
+      "links": [
+        {
+          "label": "Versioni e note di rilascio",
+          "href": "https://github.com/vycdev/Kromacut/releases"
+        }
+      ]
+    },
+    {
+      "id": "warranties-and-legal-rights",
+      "title": "Garanzie, responsabilità e diritti legali",
+      "paragraphs": [
+        "Nei limiti consentiti dalla legge applicabile, Kromacut è fornito così com’è e come disponibile, senza ulteriori garanzie di funzionamento privo di errori, risultati di stampa esatti o idoneità a uno scopo particolare. La licenza software stabilisce le proprie disposizioni su garanzia e responsabilità, fatti salvi la legge applicabile e impegni scritti separati.",
+        "Nulla in queste condizioni esclude o limita responsabilità quando sarebbe illegale, incluse quelle per frode, condotta intenzionale, colpa grave, morte o lesioni personali tutelate dalla legge. Le indicazioni su controlli di stampa e backup non eliminano responsabilità attribuite dalla legge al gestore.",
+        "Restano salvi tutti i diritti inderogabili dei consumatori, le garanzie, i rimedi e i diritti di protezione dei dati applicabili. Queste condizioni non impongono arbitrati, rinunce all’accesso a un tribunale o autorità competente né rinunce alle tutele del luogo in cui vivi."
+      ],
+      "links": [
+        {
+          "label": "Guida UE sulle clausole contrattuali eque",
+          "href": "https://europa.eu/youreurope/citizens/consumers/unfair-treatment/unfair-contract-terms/index_en.htm"
+        }
+      ]
+    },
+    {
+      "id": "changes-to-these-terms",
+      "title": "Modifiche a queste condizioni",
+      "paragraphs": [
+        "Questa pagina può essere aggiornata per riflettere modifiche a Kromacut, alle modalità di assistenza o alla legge applicabile. La data in alto identifica la revisione. Le modifiche sostanziali saranno indicate su questa pagina, con il preavviso o consenso eventualmente richiesto dalla legge.",
+        "Gli aggiornamenti non si applicano retroattivamente per eliminare diritti già acquisiti, cambiare la licenza delle copie software già ricevute o prevalere su un accordo separato."
+      ],
+      "links": []
+    }
+  ],
+  "contactTitle": "Domande su queste condizioni",
+  "contactDescription": "Mostra l’email pubblica qui sotto per domande su queste condizioni. Per l’aiuto quotidiano con Kromacut, Reddit e Discord sono i canali principali. Mostrare o copiare l’email non invia nulla; l’invio di un messaggio coinvolge i servizi email descritti nell’informativa privacy."
+}

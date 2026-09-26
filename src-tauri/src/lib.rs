@@ -15,6 +15,8 @@ struct VersionInfo {
     version: String,
     download_url: Option<String>,
     release_notes: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    release_notes_localized: Option<HashMap<String, String>>,
 }
 
 #[derive(Debug, Serialize)]
@@ -255,7 +257,9 @@ pub fn run() {
 
 #[cfg(test)]
 mod tests {
-    use super::{append_diagnostic_entries, create_diagnostic_file, is_different_version};
+    use super::{
+        append_diagnostic_entries, create_diagnostic_file, is_different_version, VersionInfo,
+    };
     use std::fs::{create_dir_all, read_to_string, remove_dir_all, File};
     use std::io::Cursor;
 
@@ -278,6 +282,36 @@ mod tests {
     fn ignores_exact_version_matches() {
         assert!(!is_different_version("2.6.0", "2.6.0"));
         assert!(!is_different_version(" v2.6.0 ", "2.6.0"));
+    }
+
+    #[test]
+    fn version_info_preserves_localized_release_notes() {
+        let feed = include_str!("../../public/version.json");
+        let version: VersionInfo = serde_json::from_str(feed).unwrap();
+        let notes = version.release_notes_localized.as_ref().unwrap();
+        assert_eq!(notes.len(), 12);
+        assert_eq!(notes.get("en"), version.release_notes.as_ref());
+        assert_ne!(notes.get("ja"), notes.get("en"));
+        let serialized = serde_json::to_value(version).unwrap();
+        let original: serde_json::Value = serde_json::from_str(feed).unwrap();
+        assert_eq!(
+            serialized["release_notes_localized"],
+            original["release_notes_localized"]
+        );
+    }
+
+    #[test]
+    fn version_info_accepts_legacy_release_notes() {
+        let version: VersionInfo =
+            serde_json::from_str(r#"{"version":"1.0.0","release_notes":"Legacy release notes"}"#)
+                .unwrap();
+        assert!(version.release_notes_localized.is_none());
+        assert_eq!(
+            version.release_notes.as_deref(),
+            Some("Legacy release notes")
+        );
+        let serialized = serde_json::to_value(version).unwrap();
+        assert!(serialized.get("release_notes_localized").is_none());
     }
 
     #[test]

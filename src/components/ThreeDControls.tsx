@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { CollapsibleCard, DirtyDot } from '@/components/CollapsibleCard';
 import ThreeDColorRow from './ThreeDColorRow';
@@ -15,6 +16,7 @@ import {
     loadPrintSettingsFromStorage,
     savePrintSettingsToStorage,
     DEFAULT_PRINT_SETTINGS,
+    DEFAULT_EFFECTIVE_LINE_WIDTH,
 } from '../lib/printSettingsStorage';
 import { useFilaments } from '../hooks/useFilaments';
 import { useProfileManager } from '../hooks/useProfileManager';
@@ -75,6 +77,7 @@ export default function ThreeDControls({
     persisted,
     hasAutoPaintWorkingState = false,
 }: ThreeDControlsProps) {
+    const { t } = useTranslation('printing');
     // --- Filaments ---
     const {
         filaments,
@@ -166,10 +169,10 @@ export default function ThreeDControls({
     const [heightDithering, setHeightDithering] = useState(
         initialPreserveSeparation ? false : (persisted?.heightDithering ?? false)
     );
-    const [ditherLineWidth, setDitherLineWidth] = useState(persisted?.ditherLineWidth ?? 0.42);
-    const [omitAtRiskPixels, setOmitAtRiskPixels] = useState(
-        persisted?.omitAtRiskPixels ?? false
+    const [ditherLineWidth, setDitherLineWidth] = useState(
+        persisted?.ditherLineWidth ?? DEFAULT_EFFECTIVE_LINE_WIDTH
     );
+    const [omitAtRiskPixels, setOmitAtRiskPixels] = useState(persisted?.omitAtRiskPixels ?? false);
     const [flatPaint, setFlatPaint] = useState(initialFlatPaint);
     const [flatPaintFaceUp, setFlatPaintFaceUp] = useState(persisted?.flatPaintFaceUp ?? false);
 
@@ -298,6 +301,7 @@ export default function ThreeDControls({
         setSlicerFirstLayerHeight(DEFAULT_PRINT_SETTINGS.slicerFirstLayerHeight);
         setPixelSize(DEFAULT_PRINT_SETTINGS.pixelSize);
         setSmoothMeshing(DEFAULT_PRINT_SETTINGS.smoothMeshing);
+        setDitherLineWidth(DEFAULT_EFFECTIVE_LINE_WIDTH);
         resetHeightsToValues(
             DEFAULT_PRINT_SETTINGS.layerHeight,
             DEFAULT_PRINT_SETTINGS.slicerFirstLayerHeight
@@ -574,16 +578,22 @@ export default function ThreeDControls({
                     {isAutoPaintComputing ? (
                         <>
                             <Loader2 className="w-4 h-4 animate-spin" />
-                            <span>Computing... {autoPaintProgressPercent}%</span>
+                            <span>
+                                {t('threeDControls.computing', {
+                                    percentage: autoPaintProgressPercent,
+                                })}
+                            </span>
                         </>
                     ) : autoPaintBuildUnavailable ? (
                         <span>
-                            {autoPaintError ? 'Auto-paint failed' : 'Waiting for Auto-paint'}
+                            {autoPaintError
+                                ? t('threeDControls.autoPaintFailed')
+                                : t('threeDControls.waitingForAutoPaint')}
                         </span>
                     ) : (
                         <>
                             <Check className="w-4 h-4" />
-                            <span>Build 3D Model</span>
+                            <span>{t('threeDControls.build3DModel')}</span>
                         </>
                     )}
                 </Button>
@@ -594,19 +604,24 @@ export default function ThreeDControls({
                 layerHeight={layerHeight}
                 slicerFirstLayerHeight={slicerFirstLayerHeight}
                 pixelSize={pixelSize}
+                effectiveLineWidth={ditherLineWidth}
                 modelSizeEstimate={modelSizeEstimate}
                 smoothMeshing={effectiveSmoothMeshing}
                 onLayerHeightChange={setLayerHeight}
                 onSlicerFirstLayerHeightChange={setSlicerFirstLayerHeight}
                 onPixelSizeChange={setPixelSize}
+                onEffectiveLineWidthChange={setDitherLineWidth}
                 onSmoothMeshingChange={handleSmoothMeshingChange}
                 onReset={handleResetPrintSettings}
-                allDefault={arePrintSettingsDefault({
-                    layerHeight,
-                    slicerFirstLayerHeight,
-                    pixelSize,
-                    smoothMeshing,
-                })}
+                allDefault={
+                    ditherLineWidth === DEFAULT_EFFECTIVE_LINE_WIDTH &&
+                    arePrintSettingsDefault({
+                        layerHeight,
+                        slicerFirstLayerHeight,
+                        pixelSize,
+                        smoothMeshing,
+                    })
+                }
             />
 
             {/* Paint Mode Tabs */}
@@ -616,10 +631,10 @@ export default function ThreeDControls({
             >
                 <TabsList className="w-full">
                     <TabsTrigger value="manual" className="flex-1">
-                        Manual
+                        {t('threeDControls.manual')}
                     </TabsTrigger>
                     <TabsTrigger value="autopaint" className="flex-1">
-                        Auto-paint
+                        {t('threeDControls.autoPaint')}
                     </TabsTrigger>
                 </TabsList>
 
@@ -695,8 +710,6 @@ export default function ThreeDControls({
                     setTransitionOpacity={setTransitionOpacity}
                     heightDithering={heightDithering}
                     setHeightDithering={handleHeightDitheringChange}
-                    ditherLineWidth={ditherLineWidth}
-                    setDitherLineWidth={setDitherLineWidth}
                     omitAtRiskPixels={omitAtRiskPixels}
                     setOmitAtRiskPixels={setOmitAtRiskPixels}
                     flatPaint={flatPaint}
@@ -715,12 +728,12 @@ export default function ThreeDControls({
                 <TabsContent value="manual" forceMount className="data-[state=inactive]:hidden">
                     <CollapsibleCard
                         id="color-slice-heights"
-                        title="Color Slice Heights"
-                        subtitle="Drag to reorder, adjust sliders to customize"
+                        title={t('threeDControls.colorSliceHeights')}
+                        subtitle={t('threeDControls.dragToReorderAdjustSlidersToCustomize')}
                         headingLevel={4}
                         collapsedSummary={
                             !isResetState ? (
-                                <DirtyDot title="Color heights or order modified" />
+                                <DirtyDot title={t('threeDControls.colorHeightsOrOrderModified')} />
                             ) : undefined
                         }
                         actions={
@@ -729,14 +742,14 @@ export default function ThreeDControls({
                                     type="button"
                                     onClick={handleResetHeights}
                                     disabled={isResetState}
-                                    title="Reset all heights and sort by luminance"
-                                    aria-label="Reset all heights and sorting"
+                                    title={t('threeDControls.resetAllHeightsAndSortByLuminance')}
+                                    aria-label={t('threeDControls.resetAllHeightsAndSorting')}
                                     className="h-7 w-7 flex-shrink-0 flex items-center justify-center rounded-md text-muted-foreground hover:text-amber-600 hover:bg-amber-600/15 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-muted-foreground select-none cursor-pointer"
                                 >
                                     <RotateCcw className="w-4 h-4" />
                                 </button>
                                 <span className="px-2 py-1 rounded-full bg-primary/10 text-primary text-xs font-semibold">
-                                    {filtered.length} colors
+                                    {t('threeDControls.colorCount', { count: filtered.length })}
                                 </span>
                             </>
                         }
@@ -751,12 +764,14 @@ export default function ThreeDControls({
                                     {displayOrder.length > 64 ? (
                                         <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-md text-sm text-destructive-foreground">
                                             <p className="font-semibold mb-2">
-                                                Too many colors ({displayOrder.length})
+                                                {t('threeDControls.tooManyColors', {
+                                                    count: displayOrder.length,
+                                                })}
                                             </p>
                                             <p>
-                                                The image has more than 64 unique colors. Please
-                                                reduce the image to fewer colors in 2D mode using
-                                                the quantization tools before switching to 3D mode.
+                                                {t(
+                                                    'threeDControls.theImageHasMoreThan64UniqueColorsPlease'
+                                                )}
                                             </p>
                                         </div>
                                     ) : (
@@ -806,14 +821,13 @@ export default function ThreeDControls({
             ) : (
                 <CollapsibleCard
                     id="print-instructions"
-                    title="Print Instructions"
-                    subtitle="No valid Auto-paint model"
+                    title={t('threeDControls.printInstructions')}
+                    subtitle={t('threeDControls.noValidAutoPaintModel')}
                     headingLevel={4}
                     className="mt-6"
                 >
                     <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">
-                        Auto-paint did not produce a valid stack. Resolve the error above before
-                        building or generating print instructions.
+                        {t('threeDControls.autoPaintDidNotProduceAValidStackResolve')}
                     </div>
                 </CollapsibleCard>
             )}

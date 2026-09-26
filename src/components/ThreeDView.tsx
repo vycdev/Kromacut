@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next';
+import { translateRuntimeMessage } from '../lib/runtimeMessages';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { PointerEvent } from 'react';
 import * as THREE from 'three';
@@ -382,6 +384,7 @@ export default function ThreeDView({
     onBuildStarted,
     active = true,
 }: ThreeDViewProps) {
+    const { t } = useTranslation('printing');
     const mountRef = useRef<HTMLDivElement | null>(null);
     const [isBuilding, setIsBuilding] = useState(false);
     const [activeBuildSmoothMeshing, setActiveBuildSmoothMeshing] = useState(smoothMeshing);
@@ -2242,8 +2245,12 @@ export default function ThreeDView({
         <div className="w-full h-full relative" ref={mountRef}>
             {isBuilding && (
                 <ProgressOverlay
-                    title={activeBuildSmoothMeshing ? 'Generating smooth mesh' : 'Generating mesh'}
-                    stepLabel={currentBuildOverlayStep.stepLabel}
+                    title={
+                        activeBuildSmoothMeshing
+                            ? t('threeDView.generatingSmoothMesh')
+                            : t('threeDView.generatingMesh')
+                    }
+                    stepLabel={translateRuntimeMessage(currentBuildOverlayStep.stepLabel)}
                     stepIndex={currentBuildOverlayStep.stepIndex}
                     stepCount={currentBuildOverlayStep.stepCount}
                     stepProgress={currentBuildOverlayStep.stepProgress}
@@ -2255,8 +2262,11 @@ export default function ThreeDView({
                     className="absolute top-2 left-2 px-2 py-1 rounded-full bg-primary/10 text-primary text-xs font-mono font-semibold z-10"
                     aria-hidden
                 >
-                    Model: {modelDimensions.width.toFixed(1)}×{modelDimensions.height.toFixed(1)}×
-                    {modelDimensions.depth.toFixed(1)} mm
+                    {t('threeDView.modelDimensions', {
+                        width: modelDimensions.width.toFixed(1),
+                        height: modelDimensions.height.toFixed(1),
+                        depth: modelDimensions.depth.toFixed(1),
+                    })}
                 </div>
             )}
             {/* Layer Preview Slider */}
@@ -2267,7 +2277,7 @@ export default function ThreeDView({
                         <div className="flex-1 space-y-0.5">
                             <div className="flex items-center justify-between text-[11px] leading-none">
                                 <span className="text-muted-foreground font-medium">
-                                    Layer Preview
+                                    {t('threeDView.layerPreview')}
                                 </span>
                                 <span className="text-foreground font-mono font-semibold">
                                     {previewHeightLabel}
@@ -2281,12 +2291,17 @@ export default function ThreeDView({
                                     >
                                         <div className="text-xs font-semibold leading-tight">
                                             {hoveredSegment.segment.isBase
-                                                ? 'Start Layer 1'
-                                                : `Swap Layer ${hoveredSegment.segment.transitionLayer}`}
+                                                ? t('threeDView.startLayer1')
+                                                : t('threeDView.swapLayer', {
+                                                      layer: hoveredSegment.segment.transitionLayer,
+                                                  })}
                                         </div>
                                         <div className="mt-1 text-[10px] text-muted-foreground">
-                                            Height: {hoveredSegment.segment.startHeight.toFixed(2)}{' '}
-                                            mm
+                                            {t('threeDView.height', {
+                                                height: hoveredSegment.segment.startHeight.toFixed(
+                                                    2
+                                                ),
+                                            })}
                                         </div>
                                         <div className="mt-1 flex items-center gap-1.5 font-mono text-[11px] font-semibold">
                                             <span
@@ -2339,13 +2354,18 @@ export default function ThreeDView({
                                                             filter: 'grayscale(1)',
                                                             opacity: 0.45,
                                                         }}
-                                                        title={`${
+                                                        title={t(
                                                             segment.isBase
-                                                                ? 'Start'
-                                                                : `Swap at layer ${segment.transitionLayer}`
-                                                        }: ${segment.color} (${segment.startHeight.toFixed(
-                                                            2
-                                                        )} mm)`}
+                                                                ? 'threeDView.startSegment'
+                                                                : 'threeDView.swapSegment',
+                                                            {
+                                                                layer: segment.transitionLayer,
+                                                                color: segment.color,
+                                                                height: segment.startHeight.toFixed(
+                                                                    2
+                                                                ),
+                                                            }
+                                                        )}
                                                         onPointerEnter={(event) =>
                                                             updateHoveredSegment(segment, event)
                                                         }
@@ -2440,18 +2460,22 @@ export default function ThreeDView({
                                         <SliderPrimitive.Range className="pointer-events-none absolute h-full rounded-full bg-transparent ring-1 ring-primary/70" />
                                     </SliderPrimitive.Track>
                                     <SliderPrimitive.Thumb
-                                        aria-label="Preview bottom layer cutoff"
+                                        aria-label={t('threeDView.previewBottomLayerCutoff')}
                                         className="block h-3.5 w-3.5 rounded-full border border-primary/70 bg-background shadow transition-colors hover:shadow-md focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-2"
                                     />
                                     <SliderPrimitive.Thumb
-                                        aria-label="Preview top layer cutoff"
+                                        aria-label={t('threeDView.previewTopLayerCutoff')}
                                         className="block h-3.5 w-3.5 rounded-full border border-primary/70 bg-background shadow transition-colors hover:shadow-md focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-2"
                                     />
                                 </SliderPrimitive.Root>
                             </div>
                             <div className="flex justify-between text-[8px] leading-none text-muted-foreground">
-                                <span>Base (0)</span>
-                                <span>Top ({maxModelHeight.toFixed(2)})</span>
+                                <span>{t('threeDView.base0')}</span>
+                                <span>
+                                    {t('threeDView.topHeight', {
+                                        height: maxModelHeight.toFixed(2),
+                                    })}
+                                </span>
                             </div>
                         </div>
                     </div>

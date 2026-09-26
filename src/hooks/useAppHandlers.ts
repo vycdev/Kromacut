@@ -1,4 +1,5 @@
 import { useCallback } from 'react';
+import { translate } from '../lib/i18n';
 import type { RefObject } from 'react';
 import type { CanvasPreviewHandle } from '../components/CanvasPreview';
 import type { SwatchEntry } from './useSwatches';
@@ -113,7 +114,7 @@ export function useAppHandlers(params: UseAppHandlersParams) {
         try {
             const blob = await canvasPreviewRef.current.exportImageBlob();
             if (!blob) {
-                alert('No image available to download');
+                alert(translate('messages:files.noImage'));
                 return;
             }
             await saveBlobToFile(blob, {
@@ -123,7 +124,7 @@ export function useAppHandlers(params: UseAppHandlersParams) {
             });
         } catch (err) {
             console.warn('Image export failed', err);
-            alert('Image export failed. See console for details.');
+            alert(translate('messages:files.imageFailed'));
         }
     }, [canvasPreviewRef]);
 
@@ -134,7 +135,7 @@ export function useAppHandlers(params: UseAppHandlersParams) {
         }
         const threeObject = (window as KromacutWindow).__KROMACUT_LAST_MESH;
         if (!threeObject) {
-            alert('3D model not ready yet');
+            alert(translate('messages:files.modelNotReady'));
             return;
         }
         setExportingSTL(true);
@@ -176,7 +177,7 @@ export function useAppHandlers(params: UseAppHandlersParams) {
             });
         } catch (err) {
             console.warn('STL export failed', err);
-            alert('STL export failed. See console for details.');
+            alert(translate('messages:files.stlFailed'));
         } finally {
             await keepOverlayVisibleSince(overlayStartedAt);
             setExportingSTL(false);
@@ -194,7 +195,7 @@ export function useAppHandlers(params: UseAppHandlersParams) {
         }
         const threeObject = (window as KromacutWindow).__KROMACUT_LAST_MESH;
         if (!threeObject) {
-            alert('3D model not ready yet');
+            alert(translate('messages:files.modelNotReady'));
             return;
         }
         setExportingSTL(true);
@@ -262,10 +263,8 @@ export function useAppHandlers(params: UseAppHandlersParams) {
                     updateZipStep(0);
                 }
             });
-            const blob = await exportObjectTo3MFBlob(
-                threeObject,
-                progressReporter,
-                (meta) => updateZipStep(meta.percent)
+            const blob = await exportObjectTo3MFBlob(threeObject, progressReporter, (meta) =>
+                updateZipStep(meta.percent)
             );
             setExportStep?.({
                 title: 'Exporting 3MF',
@@ -282,7 +281,7 @@ export function useAppHandlers(params: UseAppHandlersParams) {
             });
         } catch (err) {
             console.warn('3MF export failed', err);
-            alert('3MF export failed. See console for details.');
+            alert(translate('messages:files.threeMfFailed'));
         } finally {
             await keepOverlayVisibleSince(overlayStartedAt);
             setExportingSTL(false);

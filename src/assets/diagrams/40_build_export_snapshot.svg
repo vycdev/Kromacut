@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="520" viewBox="0 0 960 520" role="img" aria-labelledby="snapshot-title snapshot-desc">
+<title id="snapshot-title" data-i18n="title">Build captures the model you will export</title><desc id="snapshot-desc" data-i18n="description">Changed print settings need another build. Viewing only part of a built stack does not crop the export.</desc>
+<style>text{font-family:Arial,Helvetica,sans-serif;fill:#f1f5f9;font-size:20px}.muted{fill:#b3c2d4;font-size:18px}.heading{font-size:26px;font-weight:700}.label{font-weight:700}.panel{fill:#1b2736;stroke:#3c5065;stroke-width:2}</style>
+<rect width="960" height="520" rx="16" fill="#121923"/>
+<text x="32" y="44" class="heading" data-i18n="buildCapturesTheModelYouWillExport">Build captures the model you will export</text>
+<rect x="32" y="75" width="272" height="285" rx="12" class="panel"/><text x="52" y="110" class="label" data-i18n="label1Prepare">1. Prepare</text>
+<text x="52" y="150" data-i18n="imagePrintSettings">Image + print settings</text><text x="52" y="185" data-i18n="filamentsCalibration">Filaments + calibration</text><text x="52" y="220" data-i18n="manualOrAutoPaint">Manual or Auto-paint</text>
+<rect x="52" y="261" width="232" height="60" rx="8" fill="#126641"/><text x="168" y="298" text-anchor="middle" data-i18n="build3DModel">Build 3D Model</text>
+<path d="M314 211h28m-9-9 9 9-9 9" fill="none" stroke="#38bdf8" stroke-width="3"/>
+<rect x="352" y="75" width="260" height="285" rx="12" class="panel"/><text x="372" y="110" class="label" data-i18n="label2InspectTheBuild">2. Inspect the build</text>
+<rect x="399" y="258" width="167" height="28" fill="#a78bfa"/><rect x="426" y="230" width="140" height="28" fill="#38bdf8"/><rect x="493" y="202" width="73" height="28" fill="#fbbf24"/>
+<path d="M389 244h189" stroke="#f1f5f9" stroke-dasharray="6 5" stroke-width="2"/>
+<text x="482" y="157" class="muted" text-anchor="middle" data-i18n="trimTheViewToInspect">Trim the view to inspect</text><text x="482" y="325" class="muted" text-anchor="middle" data-i18n="notAnExportCrop">Not an export crop</text>
+<path d="M622 211h28m-9-9 9 9-9 9" fill="none" stroke="#38bdf8" stroke-width="3"/>
+<rect x="660" y="75" width="268" height="285" rx="12" class="panel"/><text x="680" y="110" class="label" data-i18n="label3ExportSlice">3. Export + slice</text>
+<rect x="711" y="258" width="167" height="28" fill="#a78bfa"/><rect x="738" y="230" width="140" height="28" fill="#38bdf8"/><rect x="805" y="202" width="73" height="28" fill="#fbbf24"/>
+<text x="794" y="157" class="muted" text-anchor="middle" data-i18n="completeBuiltGeometry">Complete built geometry</text><text x="794" y="325" class="muted" text-anchor="middle" data-i18n="confirmRealSpools">Confirm real spools</text>
+<path d="M480 380v27H168v-38m-8 10 8-10 8 10" fill="none" stroke="#fbbf24" stroke-width="3"/>
+<text x="500" y="408" fill="#fbbf24" data-i18n="settingsChangedBuildAgain">Settings changed? Build again.</text>
+<text x="32" y="470" class="muted" data-i18n="cameraShadingAndSimulatedPhysicalColorsOnlyChange">Camera, shading and Simulated / Physical colors only change the view.</text>
+<text x="32" y="498" class="muted" data-i18n="schematicLayersNotACalibratedColorPrediction">Schematic layers, not a calibrated color prediction.</text>
+</svg>

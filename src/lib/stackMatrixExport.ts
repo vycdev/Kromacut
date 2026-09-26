@@ -82,9 +82,10 @@ function uuid(): string {
     });
 }
 
-function meshXml(mesh: Mesh): string {
+async function meshXml(mesh: Mesh, yieldIfNeeded?: () => Promise<void>): Promise<string> {
     const vertices: string[] = ['<vertices>'];
     for (let index = 0; index < mesh.vertices.length; index += 3) {
+        if (yieldIfNeeded && index > 0 && index % 24_576 === 0) await yieldIfNeeded();
         vertices.push(
             `<vertex x="${mesh.vertices[index].toFixed(6)}" y="${mesh.vertices[index + 1].toFixed(6)}" z="${mesh.vertices[index + 2].toFixed(6)}"/>`
         );
@@ -92,6 +93,7 @@ function meshXml(mesh: Mesh): string {
     vertices.push('</vertices>');
     const triangles: string[] = ['<triangles>'];
     for (let index = 0; index < mesh.triangles.length; index += 3) {
+        if (yieldIfNeeded && index > 0 && index % 24_576 === 0) await yieldIfNeeded();
         triangles.push(
             `<triangle v1="${mesh.triangles[index]}" v2="${mesh.triangles[index + 1]}" v3="${mesh.triangles[index + 2]}"/>`
         );
@@ -123,6 +125,31 @@ function appendRecipe(
     foundationHeight: number
 ) {
     const { x, y } = cellOrigin(record, row, column);
+    if (record.schemaVersion === 2) {
+        // Adaptive boards can be much deeper than legacy wedges. In particular,
+        // backing padding is one contiguous run, not dozens of separate cubes.
+        // X/Y parity still separates every neighboring cell in a mesh object;
+        // repeated runs of the same material in one cell have another material
+        // between them. Coalescing only vertical runs therefore keeps each shell
+        // closed and prevents coincident faces within a mesh object.
+        for (let start = 0; start < stack.length; ) {
+            const filamentIndex = stack[start];
+            let end = start + 1;
+            while (end < stack.length && stack[end] === filamentIndex) end++;
+            const group = ((column & 1) << 2) | ((row & 1) << 1) | (start & 1);
+            appendBox(
+                meshes[filamentIndex][group],
+                x,
+                y,
+                foundationHeight + start * record.process.layerHeight,
+                record.grid.patchSize,
+                record.grid.patchSize,
+                (end - start) * record.process.layerHeight
+            );
+            start = end;
+        }
+        return;
+    }
     stack.forEach((filamentIndex, layerIndex) => {
         // Cubes in one parity group are separated by at least one complete voxel in
         // x, y, or z. This keeps every mesh object closed and manifold while the
@@ -141,6 +168,15 @@ function appendRecipe(
 }
 
 export async function generateStackMatrix3mf(record: StackMatrixCalibrationV1): Promise<Blob> {
+    let lastYield = performance.now();
+    const yieldIfNeeded =
+        record.schemaVersion === 2
+            ? async () => {
+                  if (performance.now() - lastYield < 12) return;
+                  await new Promise<void>((resolve) => setTimeout(resolve, 0));
+                  lastYield = performance.now();
+              }
+            : undefined;
     const recipeMeshes = record.filaments.map(() =>
         Array.from({ length: RECIPE_MESH_GROUP_COUNT }, emptyMesh)
     );
@@ -169,6 +205,7 @@ export async function generateStackMatrix3mf(record: StackMatrixCalibrationV1): 
             sample.column + 1,
             foundationHeight
         );
+        if (yieldIfNeeded && sample.index % 32 === 0) await yieldIfNeeded();
     }
     const markerPositions = [
         [0, 0],
@@ -204,11 +241,13 @@ export async function generateStackMatrix3mf(record: StackMatrixCalibrationV1): 
     const partObjectIds: number[] = [];
     const objects: string[] = [];
     const partSettings: string[] = [];
-    meshParts.forEach((part) => {
+    for (const part of meshParts) {
+        if (yieldIfNeeded) await yieldIfNeeded();
         const objectId = nextObjectId++;
         partObjectIds.push(objectId);
+        const geometryXml = await meshXml(part.mesh, yieldIfNeeded);
         objects.push(
-            `<object id="${objectId}" p:UUID="${uuid()}" type="model" pid="${materialId}" pindex="${part.filamentIndex}" name="${escapeXmlAttribute(part.name)}">${meshXml(part.mesh)}</object>`
+            `<object id="${objectId}" p:UUID="${uuid()}" type="model" pid="${materialId}" pindex="${part.filamentIndex}" name="${escapeXmlAttribute(part.name)}">${geometryXml}</object>`
         );
         partSettings.push(
             `  <part id="${objectId}" subtype="normal_part">\n` +
@@ -216,7 +255,7 @@ export async function generateStackMatrix3mf(record: StackMatrixCalibrationV1): 
                 `   <metadata key="extruder" value="${part.filamentIndex + 1}"/>\n` +
                 `  </part>\n`
         );
-    });
+    }
     const parentId = nextObjectId++;
     objects.push(
         `<object id="${parentId}" p:UUID="${uuid()}" type="model" name="Kromacut Stack Matrix"><components>` +

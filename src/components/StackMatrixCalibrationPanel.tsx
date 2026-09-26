@@ -1,3 +1,6 @@
+import { useTranslation } from 'react-i18next';
+import { i18n, translate } from '@/lib/i18n';
+import { translateRuntimeMessage } from '@/lib/runtimeMessages';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     AlertTriangle,
@@ -19,6 +22,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 import {
     Select,
     SelectContent,
@@ -40,6 +44,7 @@ import {
 } from '@/lib/stackMatrixPanelState';
 import {
     fingerprintAppearanceFilaments,
+    MAX_STACK_MATRIX_RECIPE_LAYERS,
     type StackMatrixCalibrationV1,
 } from '@/lib/appearanceProfile';
 import {
@@ -114,12 +119,17 @@ interface PendingMatrixGeneration {
 }
 
 const SAMPLE_CHOICES = [64, 144, 256, 400, 625, 1024, 1296, 1600, 2025];
-const POINT_LABELS = ['Top-left', 'Top-right', 'Bottom-right', 'Bottom-left'];
+const POINT_LABEL_KEYS = [
+    'matrix.topLeft',
+    'matrix.topRight',
+    'matrix.bottomRight',
+    'matrix.bottomLeft',
+];
 const CORNER_MARKER_LAYOUT = [
-    { cornerIndex: 0, number: 1, label: 'Top-left', rightAligned: false },
-    { cornerIndex: 1, number: 2, label: 'Top-right', rightAligned: true },
-    { cornerIndex: 3, number: 4, label: 'Bottom-left', rightAligned: false },
-    { cornerIndex: 2, number: 3, label: 'Bottom-right', rightAligned: true },
+    { cornerIndex: 0, number: 1, labelKey: 'matrix.topLeft', rightAligned: false },
+    { cornerIndex: 1, number: 2, labelKey: 'matrix.topRight', rightAligned: true },
+    { cornerIndex: 3, number: 4, labelKey: 'matrix.bottomLeft', rightAligned: false },
+    { cornerIndex: 2, number: 3, labelKey: 'matrix.bottomRight', rightAligned: true },
 ] as const;
 let nextMatrixWorkerRequestId = 1;
 
@@ -132,6 +142,13 @@ function isImageFile(file: Pick<File, 'name' | 'type'>): boolean {
 
 function filamentLabel(filament: Filament): string {
     return filament.name || filament.brand || filament.color;
+}
+
+function formatMatrixThickness(thickness: number): string {
+    return thickness.toLocaleString(i18n.resolvedLanguage, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 6,
+    });
 }
 
 function swatchLuminance(hex: string): number {
@@ -160,13 +177,21 @@ function cornerMarkerColor(record: StackMatrixCalibrationV1, cornerIndex: number
 }
 
 function recordLabel(record: StackMatrixCalibrationV1): string {
-    const date = new Date(record.createdAt).toLocaleString([], {
+    const date = new Date(record.createdAt).toLocaleString(i18n.resolvedLanguage, {
         month: 'short',
         day: 'numeric',
         hour: 'numeric',
         minute: '2-digit',
     });
-    return `${record.samples.length} cells / ${date} / ${record.status === 'complete' ? 'Calibrated' : 'Awaiting photo'}`;
+    return translate('calibration:matrix.recordLabel', {
+        count: record.samples.length,
+        date,
+        status: translate(
+            record.status === 'complete'
+                ? 'calibration:matrix.calibrated'
+                : 'calibration:matrix.awaitingPhoto'
+        ),
+    });
 }
 
 function copyPoints(points: readonly MatrixPhotoPoint[]): MatrixPhotoPoint[] {
@@ -219,6 +244,7 @@ export default function StackMatrixCalibrationPanel({
     onUpsert,
     onDelete,
 }: StackMatrixCalibrationPanelProps) {
+    const { t } = useTranslation('calibration');
     const records = useMemo(
         () => profile?.appearance?.stackMatrices ?? [],
         [profile?.appearance?.stackMatrices]
@@ -235,7 +261,10 @@ export default function StackMatrixCalibrationPanel({
     const [selectedIds, setSelectedIds] = useState<Set<string>>(
         () => new Set(filaments.slice(0, 8).map((filament) => filament.id))
     );
-    const [stackLayerCount, setStackLayerCount] = useState(5);
+    const [maximumRecipeThicknessDraft, setMaximumRecipeThicknessDraft] = useState(() =>
+        String(Math.min(0.8, layerHeight * MAX_STACK_MATRIX_RECIPE_LAYERS))
+    );
+    const [maximumSwapCycles, setMaximumSwapCycles] = useState<number | undefined>(160);
     const [maximumSamples, setMaximumSamples] = useState(256);
     const [backingId, setBackingId] = useState(() =>
         lightestStackMatrixFilamentId(filaments.slice(0, 8))
@@ -436,12 +465,20 @@ export default function StackMatrixCalibrationPanel({
         }
     }, [backingId, selectedFilaments]);
     const backingFilament = selectedFilaments.find((filament) => filament.id === backingId);
+    const maximumRecipeThickness = Number(maximumRecipeThicknessDraft);
+    const stackLayerCount = Math.floor(maximumRecipeThickness / layerHeight + 1e-7);
+    const plannedFoundationHeight = Math.max(0.001, layerHeight, firstLayerHeight);
+    const plannedColorRegionHeight = stackLayerCount * layerHeight;
+    const thicknessValid =
+        maximumRecipeThicknessDraft.trim() !== '' &&
+        Number.isFinite(maximumRecipeThickness) &&
+        stackLayerCount >= 1 &&
+        stackLayerCount <= MAX_STACK_MATRIX_RECIPE_LAYERS &&
+        maximumRecipeThickness <= layerHeight * MAX_STACK_MATRIX_RECIPE_LAYERS + 1e-7;
     const combinationCount = selectedFilaments.length ** stackLayerCount;
-    const minimumFilamentSwaps = stackLayerCount * Math.max(0, selectedFilaments.length - 1);
-    const estimatedColumns = Math.ceil(Math.sqrt(Math.min(combinationCount, maximumSamples)));
-    const estimatedRows = Math.ceil(
-        Math.min(combinationCount, maximumSamples) / Math.max(1, estimatedColumns)
-    );
+    const estimatedSamples = thicknessValid ? Math.min(combinationCount, maximumSamples) : 0;
+    const estimatedColumns = Math.ceil(Math.sqrt(estimatedSamples));
+    const estimatedRows = Math.ceil(estimatedSamples / Math.max(1, estimatedColumns));
     const estimatedWidth =
         (estimatedColumns + 2) * STACK_MATRIX_PATCH_SIZE_MM +
         (estimatedColumns + 1) * STACK_MATRIX_GAP_MM;
@@ -453,6 +490,7 @@ export default function StackMatrixCalibrationPanel({
         !profileDirty &&
         onUpsert &&
         selectedFilaments.length >= 2 &&
+        thicknessValid &&
         backingFilament
     );
     const toggleFilament = (filamentId: string) => {
@@ -483,7 +521,9 @@ export default function StackMatrixCalibrationPanel({
                 options: {
                     layerHeight,
                     firstLayerHeight,
-                    stackLayerCount,
+                    maximumRecipeThickness,
+                    maximumSwapCycles,
+                    previousMatrices: records,
                     maximumSamples,
                     backingFilamentId: backingId,
                     ownerProfileFingerprint: profile
@@ -501,7 +541,7 @@ export default function StackMatrixCalibrationPanel({
             const savedPath = await saveBlobToFile(blob, {
                 defaultFileName: `kromacut-stack-matrix-${exported.samples.length}.3mf`,
                 extension: '3mf',
-                filterName: 'Stack Matrix 3MF',
+                filterName: translate('calibration:matrix.saveDialogFormat'),
             });
             if (
                 savedPath === null ||
@@ -554,12 +594,14 @@ export default function StackMatrixCalibrationPanel({
         firstLayerHeight,
         layerHeight,
         maximumSamples,
+        maximumRecipeThickness,
+        maximumSwapCycles,
         onUpsert,
         profile,
         profileId,
+        records,
         runGenerationWorker,
         selectedFilaments,
-        stackLayerCount,
         updateOwnerState,
     ]);
 
@@ -585,7 +627,7 @@ export default function StackMatrixCalibrationPanel({
             const savedPath = await saveBlobToFile(blob, {
                 defaultFileName: `kromacut-stack-matrix-${exported.samples.length}.3mf`,
                 extension: '3mf',
-                filterName: 'Stack Matrix 3MF',
+                filterName: translate('calibration:matrix.saveDialogFormat'),
             });
             if (
                 savedPath === null ||
@@ -1290,6 +1332,15 @@ export default function StackMatrixCalibrationPanel({
 
     if (!creatingNew && activeRecord) {
         const physicalSize = stackMatrixPhysicalSize(activeRecord);
+        const foundationHeight = activeRecord.foundationLayerThicknesses.reduce(
+            (sum, thickness) => sum + thickness,
+            0
+        );
+        const colorRegionHeight = activeRecord.stackLayerCount * activeRecord.process.layerHeight;
+        const totalPrintLayers =
+            activeRecord.foundationLayerThicknesses.length + activeRecord.stackLayerCount;
+        const usedFilamentCount = new Set(activeRecord.samples.flatMap((sample) => sample.stack))
+            .size;
         const fitScale = photo
             ? Math.min(
                   photoViewportSize.width / photo.width,
@@ -1339,14 +1390,14 @@ export default function StackMatrixCalibrationPanel({
                         disabled={busy}
                     >
                         <Plus className="mr-1.5 h-4 w-4" />
-                        New matrix
+                        {t('matrix.newMatrix')}
                     </Button>
                     <Button
                         variant="outline"
                         size="icon"
                         onClick={handleDelete}
                         disabled={busy}
-                        aria-label="Delete Stack Matrix"
+                        aria-label={t('matrix.deleteStackMatrix')}
                     >
                         <Trash2 className="h-4 w-4" />
                     </Button>
@@ -1356,24 +1407,80 @@ export default function StackMatrixCalibrationPanel({
                     <div>
                         <div className="flex items-center gap-2 text-sm font-semibold">
                             <Grid3X3 className="h-4 w-4 text-primary" />
-                            {activeRecord.samples.length}{' '}
-                            {activeRecord.status === 'complete'
-                                ? 'measured recipes'
-                                : 'recipe cells'}
+                            {t(
+                                activeRecord.status === 'complete'
+                                    ? 'matrix.measuredRecipes'
+                                    : 'matrix.recipeCells',
+                                { count: activeRecord.samples.length }
+                            )}
                         </div>
                         <p className="mt-1 text-xs text-muted-foreground">
-                            {activeRecord.grid.columns} × {activeRecord.grid.rows} data cells /{' '}
-                            {physicalSize.width.toFixed(1)} × {physicalSize.height.toFixed(1)} mm /{' '}
-                            {activeRecord.stackLayerCount} color layers /{' '}
-                            {activeRecord.selection === 'exhaustive'
-                                ? 'all combinations'
-                                : 'HD-selected gamut'}
+                            {t('matrix.dataCellsMmColorLayers', {
+                                value1: activeRecord.grid.columns,
+                                value2: activeRecord.grid.rows,
+                                value3: physicalSize.width.toFixed(1),
+                                value4: physicalSize.height.toFixed(1),
+                                value5: activeRecord.schemaVersion === 2 ? t('matrix.upTo') : '',
+                                value6: activeRecord.stackLayerCount,
+                                value7:
+                                    activeRecord.selection === 'exhaustive'
+                                        ? t('matrix.allCombinations')
+                                        : activeRecord.selection === 'adaptive-gamut'
+                                          ? t('matrix.adaptiveCoverage')
+                                          : t('matrix.hdSelectedGamut'),
+                            })}
                         </p>
+                        <p
+                            className="mt-1 text-xs text-muted-foreground"
+                            data-testid="matrix-saved-height-summary"
+                        >
+                            {t('matrix.mmFoundationMmColorRegionMmTotalPrint', {
+                                value1: formatMatrixThickness(foundationHeight),
+                                value2: formatMatrixThickness(colorRegionHeight),
+                                value3: formatMatrixThickness(foundationHeight + colorRegionHeight),
+                                value4: totalPrintLayers,
+                            })}
+                        </p>
+                        {activeRecord.planning && (
+                            <p className="mt-1 text-xs text-muted-foreground">
+                                {t('matrix.mmColorStackCapPlannedMaterialChangesPrior', {
+                                    value1: (
+                                        activeRecord.stackLayerCount *
+                                        activeRecord.process.layerHeight
+                                    ).toFixed(2),
+                                    value2: activeRecord.planning.estimatedSwapCycles,
+                                    value3: activeRecord.planning.compatibleHistoryCount,
+                                    value4: activeRecord.planning.referenceSampleCount,
+                                    value5:
+                                        activeRecord.planning.unmeasuredSampleCount !== undefined
+                                            ? t('matrix.unmeasuredRecipes', {
+                                                  count: activeRecord.planning
+                                                      .unmeasuredSampleCount,
+                                              })
+                                            : '',
+                                })}
+                            </p>
+                        )}
+                        {activeRecord.planning?.unmeasuredSampleCount === 0 && (
+                            <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">
+                                {t('matrix.thisPlanOnlyRepeatsMeasuredRecipesADifferent')}
+                            </p>
+                        )}
+                        {activeRecord.planning &&
+                            usedFilamentCount < activeRecord.filaments.length && (
+                                <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">
+                                    {t('matrix.thisPlanUsesOfSelectedFilamentsUnusedFilaments', {
+                                        value1: usedFilamentCount,
+                                        value2: activeRecord.filaments.length,
+                                    })}
+                                </p>
+                            )}
                     </div>
                     <div className="flex items-center gap-2">
                         {activeRecord.status === 'complete' && (
                             <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600">
-                                <Check className="h-4 w-4" /> Calibrated
+                                <Check className="h-4 w-4" />
+                                {t('matrix.calibrated')}
                             </span>
                         )}
                         <Button variant="outline" onClick={handleDownloadAgain} disabled={busy}>
@@ -1384,10 +1491,10 @@ export default function StackMatrixCalibrationPanel({
                             )}
                             <span aria-live="polite">
                                 {generationPhase === 'saving'
-                                    ? 'Saving 3MF…'
+                                    ? t('matrix.saving3MF')
                                     : busy
-                                      ? 'Building 3MF…'
-                                      : 'Download 3MF'}
+                                      ? t('matrix.building3MF')
+                                      : t('matrix.download3MF')}
                             </span>
                         </Button>
                     </div>
@@ -1396,7 +1503,7 @@ export default function StackMatrixCalibrationPanel({
                 <div className="grid gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(18rem,0.65fr)]">
                     <Card
                         className={`p-4 transition-colors ${photoDragActive ? 'border-primary bg-primary/5 ring-1 ring-primary' : ''}`}
-                        aria-label="Stack Matrix photo drop zone"
+                        aria-label={t('matrix.stackMatrixPhotoDropZone')}
                         onDragEnter={handlePhotoDragEnter}
                         onDragOver={handlePhotoDragOver}
                         onDragLeave={handlePhotoDragLeave}
@@ -1405,10 +1512,10 @@ export default function StackMatrixCalibrationPanel({
                         <div className="flex flex-wrap items-center justify-between gap-3">
                             <div>
                                 <h5 className="text-sm font-semibold">
-                                    Photograph the printed matrix
+                                    {t('matrix.photographThePrintedMatrix')}
                                 </h5>
                                 <p className="mt-1 text-xs text-muted-foreground">
-                                    Use diffuse front lighting and avoid glare.
+                                    {t('matrix.useDiffuseFrontLightingAndAvoidGlare')}
                                 </p>
                             </div>
                             <div className="flex flex-wrap items-center justify-end gap-2">
@@ -1422,8 +1529,8 @@ export default function StackMatrixCalibrationPanel({
                                                 onClick={() =>
                                                     handleRotatePhoto('counterclockwise')
                                                 }
-                                                aria-label="Rotate photo left 90 degrees"
-                                                title="Rotate photo left 90°"
+                                                aria-label={t('matrix.rotatePhotoLeft90Degrees')}
+                                                title={t('matrix.rotatePhotoLeft90')}
                                             >
                                                 <RotateCcw className="h-4 w-4" />
                                             </Button>
@@ -1432,8 +1539,8 @@ export default function StackMatrixCalibrationPanel({
                                                 size="icon"
                                                 className="h-8 w-8"
                                                 onClick={() => handleRotatePhoto('clockwise')}
-                                                aria-label="Rotate photo right 90 degrees"
-                                                title="Rotate photo right 90°"
+                                                aria-label={t('matrix.rotatePhotoRight90Degrees')}
+                                                title={t('matrix.rotatePhotoRight90')}
                                             >
                                                 <RotateCw className="h-4 w-4" />
                                             </Button>
@@ -1449,8 +1556,8 @@ export default function StackMatrixCalibrationPanel({
                                                     )
                                                 }
                                                 disabled={photoZoom <= 1}
-                                                aria-label="Zoom photo out"
-                                                title="Zoom out"
+                                                aria-label={t('matrix.zoomPhotoOut')}
+                                                title={t('matrix.zoomOut')}
                                             >
                                                 <ZoomOut className="h-4 w-4" />
                                             </Button>
@@ -1459,8 +1566,8 @@ export default function StackMatrixCalibrationPanel({
                                                 className="h-8 min-w-12 px-1.5 text-[11px] tabular-nums"
                                                 onClick={() => setPhotoZoom(1)}
                                                 disabled={photoZoom === 1}
-                                                aria-label="Reset photo zoom to 100 percent"
-                                                title="Reset zoom"
+                                                aria-label={t('matrix.resetPhotoZoomTo100Percent')}
+                                                title={t('matrix.resetZoom')}
                                             >
                                                 {Math.round(photoZoom * 100)}%
                                             </Button>
@@ -1474,8 +1581,8 @@ export default function StackMatrixCalibrationPanel({
                                                     )
                                                 }
                                                 disabled={photoZoom >= 4}
-                                                aria-label="Zoom photo in"
-                                                title="Zoom in"
+                                                aria-label={t('matrix.zoomPhotoIn')}
+                                                title={t('matrix.zoomIn')}
                                             >
                                                 <ZoomIn className="h-4 w-4" />
                                             </Button>
@@ -1486,7 +1593,8 @@ export default function StackMatrixCalibrationPanel({
                                     variant="outline"
                                     onClick={() => fileInputRef.current?.click()}
                                 >
-                                    <Camera className="mr-1.5 h-4 w-4" /> Choose photo
+                                    <Camera className="mr-1.5 h-4 w-4" />
+                                    {t('matrix.choosePhoto')}
                                 </Button>
                             </div>
                             <input
@@ -1502,17 +1610,19 @@ export default function StackMatrixCalibrationPanel({
                         </div>
                         <div
                             className="mt-3 rounded-md border border-border/70 bg-muted/20 p-3"
-                            aria-label="Printed matrix corner orientation key"
+                            aria-label={t('matrix.printedMatrixCornerOrientationKey')}
                         >
                             <div className="mb-2 flex items-center justify-between gap-3">
                                 <div>
-                                    <p className="text-xs font-semibold">Printed corner key</p>
+                                    <p className="text-xs font-semibold">
+                                        {t('matrix.printedCornerKey')}
+                                    </p>
                                     <p className="mt-0.5 text-[11px] text-muted-foreground">
-                                        Rotate the print until its corner colors match this layout.
+                                        {t('matrix.rotateThePrintUntilItsCornerColorsMatch')}
                                     </p>
                                 </div>
                                 <span className="whitespace-nowrap rounded-full border border-border bg-background px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                                    ↑ Top edge
+                                    {t('matrix.topEdge')}
                                 </span>
                             </div>
                             <div className="grid grid-cols-2 gap-2">
@@ -1531,13 +1641,16 @@ export default function StackMatrixCalibrationPanel({
                                             <span
                                                 className="grid h-8 w-8 flex-none place-items-center rounded-md border border-black/25 text-xs font-bold shadow-sm"
                                                 style={{ backgroundColor: color, color: textColor }}
-                                                title={`${marker.label} marker: ${color}`}
+                                                title={t('matrix.marker', {
+                                                    value1: t(marker.labelKey),
+                                                    value2: color,
+                                                })}
                                             >
                                                 {marker.number}
                                             </span>
                                             <span className="min-w-0">
                                                 <span className="block text-xs font-medium">
-                                                    {marker.label}
+                                                    {t(marker.labelKey)}
                                                 </span>
                                                 <span className="block font-mono text-[10px] uppercase text-muted-foreground">
                                                     {color}
@@ -1552,23 +1665,21 @@ export default function StackMatrixCalibrationPanel({
                             <Move className="mt-0.5 h-5 w-5 flex-none text-primary" />
                             <div>
                                 <p className="text-sm font-semibold">
-                                    Align the handles with the printed marker centers
+                                    {t('matrix.alignTheHandlesWithThePrintedMarkerCenters')}
                                 </p>
                                 <p className="mt-0.5 text-xs text-muted-foreground">
-                                    Put each handle in the center of its colored marker cell, just
-                                    diagonally outside the dense recipe grid—not on the last recipe
-                                    cell or the physical board corner. The blue outline should
-                                    extend half a cell beyond every handle.
+                                    {t('matrix.putEachHandleInTheCenterOfIts')}
                                 </p>
                                 {photo && draggingCorner !== null && (
                                     <p className="mt-2 text-sm font-medium text-primary">
-                                        Adjusting {POINT_LABELS[draggingCorner].toLowerCase()}{' '}
-                                        marker
+                                        {t('matrix.adjustingMarker', {
+                                            value1: t(POINT_LABEL_KEYS[draggingCorner]),
+                                        })}
                                     </p>
                                 )}
                                 {photo && draggingCorner === null && corners.length === 4 && (
                                     <p className="mt-2 text-sm font-medium text-emerald-600">
-                                        Four marker centers ready for review
+                                        {t('matrix.fourMarkerCentersReadyForReview')}
                                     </p>
                                 )}
                             </div>
@@ -1627,7 +1738,7 @@ export default function StackMatrixCalibrationPanel({
                                                         className="block h-44 w-44 rounded-full"
                                                     />
                                                     <span className="absolute bottom-2 left-1/2 -translate-x-1/2 rounded-full bg-black/75 px-2 py-0.5 text-[10px] font-medium text-white">
-                                                        {POINT_LABELS[draggingCorner]}
+                                                        {t(POINT_LABEL_KEYS[draggingCorner])}
                                                     </span>
                                                 </div>
                                             )}
@@ -1636,9 +1747,7 @@ export default function StackMatrixCalibrationPanel({
                                 </div>
                                 <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
                                     <Crosshair className="h-3.5 w-3.5 flex-none text-primary" />
-                                    100% fits the full photo. Zoom in and scroll the workspace for
-                                    precise placement; the magnifier crosshair is the sampled
-                                    center.
+                                    {t('matrix.100FitsTheFullPhotoZoomInAnd')}
                                 </div>
                             </div>
                         ) : (
@@ -1648,8 +1757,8 @@ export default function StackMatrixCalibrationPanel({
                                 onClick={() => fileInputRef.current?.click()}
                             >
                                 {photoDragActive
-                                    ? 'Drop the photo here'
-                                    : 'Upload or drop a photo of this exact matrix'}
+                                    ? t('matrix.dropThePhotoHere')
+                                    : t('matrix.uploadOrDropAPhotoOfThisExact')}
                             </button>
                         )}
                     </Card>
@@ -1658,10 +1767,11 @@ export default function StackMatrixCalibrationPanel({
                         <div>
                             <div className="flex items-start justify-between gap-3">
                                 <div>
-                                    <h5 className="text-sm font-semibold">Matrix alignment</h5>
+                                    <h5 className="text-sm font-semibold">
+                                        {t('matrix.matrixAlignment')}
+                                    </h5>
                                     <p className="mt-1 text-xs text-muted-foreground">
-                                        Match the projected grid to the printed cells, then verify
-                                        that the corrected preview is square.
+                                        {t('matrix.matchTheProjectedGridToThePrintedCells')}
                                     </p>
                                 </div>
                                 {photo && cornerEstimate && (
@@ -1669,11 +1779,11 @@ export default function StackMatrixCalibrationPanel({
                                         className={`shrink-0 rounded-full border px-2 py-1 text-[10px] font-medium ${cornerEstimate.method === 'detected' && cornerEstimate.confidence >= 0.55 ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-600' : 'border-amber-500/40 bg-amber-500/10 text-amber-600'}`}
                                     >
                                         {alignmentAdjusted
-                                            ? 'Adjusted'
+                                            ? t('matrix.adjusted')
                                             : cornerEstimate.method === 'detected' &&
                                                 cornerEstimate.confidence >= 0.55
-                                              ? 'Auto-detected'
-                                              : 'Review alignment'}
+                                              ? t('matrix.autoDetected')
+                                              : t('matrix.reviewAlignment')}
                                     </span>
                                 )}
                             </div>
@@ -1684,7 +1794,8 @@ export default function StackMatrixCalibrationPanel({
                                     onClick={handleDetectAgain}
                                     disabled={!photo}
                                 >
-                                    <ScanSearch className="mr-1.5 h-3.5 w-3.5" /> Detect again
+                                    <ScanSearch className="mr-1.5 h-3.5 w-3.5" />
+                                    {t('matrix.detectAgain')}
                                 </Button>
                                 <Button
                                     variant="outline"
@@ -1692,17 +1803,18 @@ export default function StackMatrixCalibrationPanel({
                                     onClick={handleResetAlignment}
                                     disabled={!photo || initialCornersRef.current.length !== 4}
                                 >
-                                    <RotateCcw className="mr-1.5 h-3.5 w-3.5" /> Reset
+                                    <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
+                                    {t('matrix.reset')}
                                 </Button>
                             </div>
                         </div>
                         <div className="flex items-center justify-between gap-3 rounded-md border border-border/60 p-3">
                             <div>
                                 <Label htmlFor="matrix-template-grid" className="text-xs">
-                                    Show template grid
+                                    {t('matrix.showTemplateGrid')}
                                 </Label>
                                 <p className="mt-0.5 text-[11px] text-muted-foreground">
-                                    Exact cell boundaries projected onto the photo
+                                    {t('matrix.exactCellBoundariesProjectedOntoThePhoto')}
                                 </p>
                             </div>
                             <Switch
@@ -1716,11 +1828,12 @@ export default function StackMatrixCalibrationPanel({
                             <div className="flex items-center justify-between gap-3 rounded-md border border-amber-500/40 bg-amber-500/5 p-3">
                                 <div>
                                     <Label htmlFor="matrix-alignment-confirmed" className="text-xs">
-                                        I verified every grid line and marker center
+                                        {t('matrix.iVerifiedEveryGridLineAndMarkerCenter')}
                                     </Label>
                                     <p className="mt-0.5 text-[11px] text-muted-foreground">
-                                        Required for adjusted or low-confidence alignment before
-                                        these samples become exact calibration evidence.
+                                        {t(
+                                            'matrix.requiredForAdjustedOrLowConfidenceAlignmentBefore'
+                                        )}
                                     </p>
                                 </div>
                                 <Switch
@@ -1740,24 +1853,23 @@ export default function StackMatrixCalibrationPanel({
                                 </div>
                                 <div className="mt-1.5 flex items-center justify-between gap-2">
                                     <p className="text-[11px] font-medium">
-                                        Perspective-corrected preview
+                                        {t('matrix.perspectiveCorrectedPreview')}
                                     </p>
                                     <p className="text-[10px] text-muted-foreground">
-                                        Cells should look square
+                                        {t('matrix.cellsShouldLookSquare')}
                                     </p>
                                 </div>
                             </div>
                         )}
                         <div className="border-t border-border/60 pt-4">
-                            <h5 className="text-sm font-semibold">Photo processing</h5>
+                            <h5 className="text-sm font-semibold">{t('matrix.photoProcessing')}</h5>
                             <p className="mt-1 text-xs text-muted-foreground">
-                                Raw sampling keeps the camera’s color cast. Reference correction
-                                uses the four known marker recipes to reduce lighting bias.
+                                {t('matrix.rawSamplingKeepsTheCameraSColorCast')}
                             </p>
                         </div>
                         <div className="flex items-center justify-between gap-3 rounded-md border border-border/60 p-3">
                             <Label htmlFor="matrix-reference-correction" className="text-xs">
-                                Reference marker correction
+                                {t('matrix.referenceMarkerCorrection')}
                             </Label>
                             <Switch
                                 id="matrix-reference-correction"
@@ -1772,7 +1884,10 @@ export default function StackMatrixCalibrationPanel({
                                         ref={lutPreviewCanvasRef}
                                         className="block h-auto w-full"
                                         style={{ imageRendering: 'pixelated' }}
-                                        aria-label={`Extracted LUT preview with ${measuredColors.length} sampled cells`}
+                                        aria-label={t(
+                                            'matrix.extractedLUTPreviewWithSampledCells',
+                                            { count: measuredColors.length }
+                                        )}
                                         onPointerMove={(event) => {
                                             const bounds =
                                                 event.currentTarget.getBoundingClientRect();
@@ -1793,19 +1908,22 @@ export default function StackMatrixCalibrationPanel({
                                             const index = row * activeRecord.grid.columns + column;
                                             const color = measuredColors[index];
                                             event.currentTarget.title = color
-                                                ? `Cell ${index + 1}: rgb(${color.join(', ')})`
-                                                : 'Unused matrix cell';
+                                                ? t('matrix.cellColor', {
+                                                      index: index + 1,
+                                                      color: color.join(', '),
+                                                  })
+                                                : t('matrix.unusedCell');
                                         }}
                                     />
                                 </div>
                                 <p className="mt-1.5 text-[11px] text-muted-foreground">
-                                    Extracted LUT preview
+                                    {t('matrix.extractedLUTPreview')}
                                 </p>
                             </div>
                         )}
                         {error && (
                             <p className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
-                                {error}
+                                {translateRuntimeMessage(error)}
                             </p>
                         )}
                         <Button
@@ -1817,14 +1935,14 @@ export default function StackMatrixCalibrationPanel({
                             title={
                                 alignmentReady
                                     ? undefined
-                                    : 'Verify the projected grid alignment before saving'
+                                    : t('matrix.verifyTheProjectedGridAlignmentBeforeSaving')
                             }
                             className="w-full"
                         >
                             <Check className="mr-1.5 h-4 w-4" />
                             {activeRecord.status === 'complete'
-                                ? 'Replace calibration'
-                                : 'Save calibration'}
+                                ? t('matrix.replaceCalibration')
+                                : t('matrix.saveCalibration')}
                         </Button>
                     </Card>
                 </div>
@@ -1838,12 +1956,10 @@ export default function StackMatrixCalibrationPanel({
                 <div>
                     <h4 className="flex items-center gap-2 text-sm font-semibold">
                         <Grid3X3 className="h-4 w-4 text-primary" />
-                        New Stack Matrix
+                        {t('matrix.newStackMatrix')}
                     </h4>
                     <p className="mt-1 max-w-3xl text-xs text-muted-foreground">
-                        Prints every fixed-depth recipe that fits. If there are too many, Kromacut
-                        uses the current per-channel HD values to keep the most color-diverse
-                        recipes.
+                        {t('matrix.samplesColorRecipesUpToAThicknessCap')}
                     </p>
                 </div>
                 {records.length > 0 && (
@@ -1856,7 +1972,7 @@ export default function StackMatrixCalibrationPanel({
                             }))
                         }
                     >
-                        Back to saved matrices
+                        {t('matrix.backToSavedMatrices')}
                     </Button>
                 )}
             </div>
@@ -1865,8 +1981,8 @@ export default function StackMatrixCalibrationPanel({
                 <div className="flex gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
                     <AlertTriangle className="mt-0.5 h-4 w-4 flex-none" />
                     {!profile
-                        ? 'Save a named filament profile before creating a Stack Matrix.'
-                        : 'Save or overwrite the edited filament profile first; matrix evidence belongs to an exact profile.'}
+                        ? t('matrix.saveANamedFilamentProfileBeforeCreatingA')
+                        : t('matrix.saveOrOverwriteTheEditedFilamentProfileFirst')}
                 </div>
             ) : null}
 
@@ -1874,13 +1990,13 @@ export default function StackMatrixCalibrationPanel({
                 <Card className="p-4">
                     <div className="mb-3 flex items-center justify-between">
                         <div>
-                            <h5 className="text-sm font-semibold">Filaments</h5>
+                            <h5 className="text-sm font-semibold">{t('matrix.filaments')}</h5>
                             <p className="text-xs text-muted-foreground">
-                                Choose 2–8 in profile order.
+                                {t('matrix.choose28InProfileOrder')}
                             </p>
                         </div>
                         <span className="text-xs text-muted-foreground">
-                            {selectedFilaments.length} selected
+                            {t('matrix.selected', { count: selectedFilaments.length })}
                         </span>
                     </div>
                     <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
@@ -1908,49 +2024,103 @@ export default function StackMatrixCalibrationPanel({
                 </Card>
 
                 <Card className="space-y-3 p-4">
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-2 items-end gap-3">
                         <div className="space-y-1.5">
-                            <Label className="text-xs">Recipe layers</Label>
-                            <Select
-                                value={String(stackLayerCount)}
-                                onValueChange={(value) => setStackLayerCount(Number(value))}
-                            >
-                                <SelectTrigger>
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {[3, 4, 5, 6].map((count) => (
-                                        <SelectItem key={count} value={String(count)}>
-                                            {count}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                            <Label htmlFor="matrix-maximum-thickness" className="text-xs">
+                                {t('matrix.maxColorThicknessMm')}
+                            </Label>
+                            <Input
+                                id="matrix-maximum-thickness"
+                                type="number"
+                                min={layerHeight}
+                                max={Number(
+                                    (layerHeight * MAX_STACK_MATRIX_RECIPE_LAYERS).toFixed(6)
+                                )}
+                                step={layerHeight}
+                                value={maximumRecipeThicknessDraft}
+                                onChange={(event) =>
+                                    setMaximumRecipeThicknessDraft(event.target.value)
+                                }
+                                aria-invalid={!thicknessValid}
+                                aria-describedby="matrix-thickness-help"
+                            />
                         </div>
                         <div className="space-y-1.5">
-                            <Label className="text-xs">Maximum cells</Label>
+                            <Label htmlFor="matrix-maximum-cells" className="text-xs">
+                                {t('matrix.maximumCells')}
+                            </Label>
                             <Select
                                 value={String(maximumSamples)}
                                 onValueChange={(value) => setMaximumSamples(Number(value))}
                             >
-                                <SelectTrigger>
+                                <SelectTrigger id="matrix-maximum-cells">
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
                                     {SAMPLE_CHOICES.map((count) => (
                                         <SelectItem key={count} value={String(count)}>
-                                            {count.toLocaleString()} ({Math.sqrt(count)} ×{' '}
-                                            {Math.sqrt(count)})
+                                            {count.toLocaleString(i18n.resolvedLanguage)} (
+                                            {Math.sqrt(count)} × {Math.sqrt(count)})
                                         </SelectItem>
                                     ))}
                                 </SelectContent>
                             </Select>
                         </div>
                     </div>
+                    <p id="matrix-thickness-help" className="text-xs text-muted-foreground">
+                        {thicknessValid
+                            ? t('matrix.upToColorLayersMmAboveAOne', {
+                                  value1: stackLayerCount,
+                                  value2: formatMatrixThickness(plannedColorRegionHeight),
+                              })
+                            : t('matrix.enterToMm1PrintLayers', {
+                                  value1: layerHeight,
+                                  value2: Number(
+                                      (layerHeight * MAX_STACK_MATRIX_RECIPE_LAYERS).toFixed(6)
+                                  ),
+                                  value3: MAX_STACK_MATRIX_RECIPE_LAYERS,
+                              })}
+                    </p>
                     <div className="space-y-1.5">
-                        <Label className="text-xs">Opaque backing</Label>
+                        <Label htmlFor="matrix-swap-budget" className="text-xs">
+                            {t('matrix.plannedMaterialChangeBudget')}
+                        </Label>
+                        <Select
+                            value={
+                                maximumSwapCycles === undefined
+                                    ? 'unlimited'
+                                    : String(maximumSwapCycles)
+                            }
+                            onValueChange={(value) =>
+                                setMaximumSwapCycles(
+                                    value === 'unlimited' ? undefined : Number(value)
+                                )
+                            }
+                        >
+                            <SelectTrigger id="matrix-swap-budget">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {[40, 80, 160, 320, 640].map((count) => (
+                                    <SelectItem key={count} value={String(count)}>
+                                        {t('matrix.changes', { count })}
+                                    </SelectItem>
+                                ))}
+                                <SelectItem value="unlimited">
+                                    {t('matrix.noPlannerLimit')}
+                                </SelectItem>
+                            </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground">
+                            {t('matrix.includesReferenceMarkersThePlannerMayUseFewer')}
+                        </p>
+                    </div>
+                    <div className="space-y-1.5">
+                        <Label htmlFor="matrix-backing-filament" className="text-xs">
+                            {t('matrix.backingFilament')}
+                        </Label>
                         <Select value={backingId} onValueChange={setBackingId}>
-                            <SelectTrigger>
+                            <SelectTrigger id="matrix-backing-filament">
                                 <SelectValue>
                                     {backingFilament && (
                                         <span className="flex min-w-0 items-center gap-2">
@@ -1983,17 +2153,22 @@ export default function StackMatrixCalibrationPanel({
                                 ))}
                             </SelectContent>
                         </Select>
+                        <p className="text-xs text-muted-foreground">
+                            {t('matrix.theFoundationIsOneFirstLayerWithoutAutomatic')}
+                        </p>
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                         <div className="rounded-md border border-border/60 bg-muted/20 px-3 py-2">
-                            <div className="text-[11px] text-muted-foreground">Layer height</div>
+                            <div className="text-[11px] text-muted-foreground">
+                                {t('matrix.layerHeight')}
+                            </div>
                             <div className="mt-0.5 text-sm font-medium tabular-nums">
                                 {layerHeight.toFixed(2)} mm
                             </div>
                         </div>
                         <div className="rounded-md border border-border/60 bg-muted/20 px-3 py-2">
                             <div className="text-[11px] text-muted-foreground">
-                                First layer height
+                                {t('matrix.firstLayerHeight')}
                             </div>
                             <div className="mt-0.5 text-sm font-medium tabular-nums">
                                 {firstLayerHeight.toFixed(2)} mm
@@ -2006,16 +2181,42 @@ export default function StackMatrixCalibrationPanel({
             <Card className="flex flex-wrap items-center justify-between gap-3 p-4">
                 <div className="text-xs">
                     <div className="font-medium text-foreground">
-                        {Math.min(combinationCount, maximumSamples).toLocaleString()} of{' '}
-                        {combinationCount.toLocaleString()} recipes
+                        {t('matrix.upToRecipeCellsAdaptiveCoverage', {
+                            value1: estimatedSamples.toLocaleString(i18n.resolvedLanguage),
+                        })}
                     </div>
                     <div className="mt-0.5 text-muted-foreground">
-                        About {estimatedWidth.toFixed(1)} × {estimatedHeight.toFixed(1)} mm /{' '}
-                        {layerHeight.toFixed(2)} mm layers / face-up
+                        {t('matrix.upToMmMmLayersFaceUp', {
+                            value1: estimatedWidth.toFixed(1),
+                            value2: estimatedHeight.toFixed(1),
+                            value3: layerHeight.toFixed(2),
+                        })}
                     </div>
+                    {thicknessValid && (
+                        <div
+                            className="mt-0.5 text-muted-foreground"
+                            data-testid="matrix-new-height-summary"
+                        >
+                            {t('matrix.mmFoundationMmColorRegionMmTotalPrint2', {
+                                value1: formatMatrixThickness(plannedFoundationHeight),
+                                value2: formatMatrixThickness(plannedColorRegionHeight),
+                                value3: formatMatrixThickness(
+                                    plannedFoundationHeight + plannedColorRegionHeight
+                                ),
+                                value4: stackLayerCount + 1,
+                            })}
+                        </div>
+                    )}
                     <div className="mt-0.5 text-muted-foreground">
-                        At least {minimumFilamentSwaps.toLocaleString()} filament swaps / slicer may
-                        add more
+                        {maximumSwapCycles === undefined
+                            ? t('matrix.noPlannerMaterialChangeLimit')
+                            : t('matrix.budgetPlannedMaterialChanges', {
+                                  value1: maximumSwapCycles,
+                              })}
+                        {t('matrix.actualCountAfterPlanning')}
+                    </div>
+                    <div className="mt-0.5 max-w-2xl text-muted-foreground">
+                        {t('matrix.previousCompletedMeasurementsAreConsideredWhenTheirProfile')}
                     </div>
                 </div>
                 <Button
@@ -2029,18 +2230,18 @@ export default function StackMatrixCalibrationPanel({
                     )}
                     <span aria-live="polite">
                         {generationPhase === 'planning'
-                            ? 'Planning recipes…'
+                            ? t('matrix.planningRecipes')
                             : generationPhase === 'exporting'
-                              ? 'Building 3MF…'
+                              ? t('matrix.building3MF')
                               : generationPhase === 'saving'
-                                ? 'Saving 3MF…'
-                                : 'Create and download 3MF'}
+                                ? t('matrix.saving3MF')
+                                : t('matrix.createAndDownload3MF')}
                     </span>
                 </Button>
             </Card>
             {error && (
                 <p className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
-                    {error}
+                    {translateRuntimeMessage(error)}
                 </p>
             )}
         </div>

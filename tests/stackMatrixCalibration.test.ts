@@ -5,6 +5,8 @@ import JSZip from 'jszip';
 import { assertValidXml10Members } from './helpers/xml.ts';
 import { withViteTestServer } from './helpers/viteModule.ts';
 import { deltaE2000Lab } from '../src/lib/colorDifference.ts';
+import { fingerprintJson } from '../src/lib/fingerprint.ts';
+import { adaptiveStackMatrixFixture } from './helpers/adaptiveStackMatrixFixture.ts';
 
 type MatrixModule = typeof import('../src/lib/stackMatrixCalibration.ts');
 type ExportModule = typeof import('../src/lib/stackMatrixExport.ts');
@@ -97,9 +99,7 @@ test('Stack Matrix enumerates every recipe when it fits and builds a printable f
     assert.equal(new Set(record.samples.map((sample) => sample.stack.join(','))).size, 27);
     assert.deepEqual(record.samples[0].stack, [0, 0, 0]);
     assert.deepEqual(record.samples.at(-1)?.stack, [2, 2, 2]);
-    assert.equal(record.foundationLayerThicknesses[0], 0.2);
-    assert.ok(record.foundationLayerThicknesses.slice(1).every((height) => height === 0.08));
-    assert.ok(record.foundationLayerThicknesses.reduce((sum, height) => sum + height, 0) >= 0.6);
+    assert.deepEqual(record.foundationLayerThicknesses, [0.2]);
     assert.equal(record.grid.patchSize, 5);
     assert.equal(record.grid.gap, 0);
 });
@@ -590,6 +590,294 @@ test('Stack Matrix 3MF sanitizes arbitrary names in every XML member', async () 
     assert.ok(members['Metadata/model_settings.config'].includes(safeName));
 });
 
+function matrixMeshObjects(model: string) {
+    return [...model.matchAll(/<object\b([^>]*)><mesh>([\s\S]*?)<\/mesh><\/object>/g)].map(
+        (object) => ({
+            material: Number(object[1].match(/pindex="(\d+)"/)?.[1]),
+            vertices: [
+                ...object[2].matchAll(/<vertex x="([^"]+)" y="([^"]+)" z="([^"]+)"\/>/g),
+            ].map((match) => [Number(match[1]), Number(match[2]), Number(match[3])]),
+            triangles: [
+                ...object[2].matchAll(/<triangle v1="(\d+)" v2="(\d+)" v3="(\d+)"\/>/g),
+            ].map((match) => [Number(match[1]), Number(match[2]), Number(match[3])]),
+        })
+    );
+}
+
+function assertClosedOutwardMatrixMeshes(meshes: ReturnType<typeof matrixMeshObjects>) {
+    for (const mesh of meshes) {
+        const coordinateTriangles = new Set<string>();
+        const edges = new Map<string, { count: number; direction: number }>();
+        for (const triangle of mesh.triangles) {
+            const coordinates = triangle.map((index) => mesh.vertices[index].join(','));
+            const key = [...coordinates].sort().join('|');
+            assert.equal(coordinateTriangles.has(key), false, 'no duplicate triangles per object');
+            coordinateTriangles.add(key);
+            for (const [left, right] of [
+                [coordinates[0], coordinates[1]],
+                [coordinates[1], coordinates[2]],
+                [coordinates[2], coordinates[0]],
+            ]) {
+                const forward = left < right;
+                const edgeKey = forward ? `${left}|${right}` : `${right}|${left}`;
+                const edge = edges.get(edgeKey) ?? { count: 0, direction: 0 };
+                edge.count++;
+                edge.direction += forward ? 1 : -1;
+                edges.set(edgeKey, edge);
+            }
+            // Exported shells are cuboids. Check every face's winding against
+            // its own center, not just the combined signed volume of an object.
+            const boxStart = Math.floor(triangle[0] / 8) * 8;
+            assert.ok(triangle.every((index) => index >= boxStart && index < boxStart + 8));
+            const box = mesh.vertices.slice(boxStart, boxStart + 8);
+            const center = [0, 1, 2].map(
+                (axis) => box.reduce((sum, vertex) => sum + vertex[axis], 0) / 8
+            );
+            const [a, b, c] = triangle.map((index) => mesh.vertices[index]);
+            const ab = b.map((value, axis) => value - a[axis]);
+            const ac = c.map((value, axis) => value - a[axis]);
+            const normal = [
+                ab[1] * ac[2] - ab[2] * ac[1],
+                ab[2] * ac[0] - ab[0] * ac[2],
+                ab[0] * ac[1] - ab[1] * ac[0],
+            ];
+            assert.ok(
+                normal.reduce((sum, value, axis) => sum + value * (a[axis] - center[axis]), 0) > 0,
+                'each triangle has nonzero area and faces out of its cuboid'
+            );
+        }
+        assert.ok(mesh.triangles.length > 0);
+        assert.ok([...edges.values()].every((edge) => edge.count === 2 && edge.direction === 0));
+    }
+}
+
+async function paddedMatrixExportFixture(depth: number) {
+    const [matrix] = await modules;
+    const record = matrix.buildStackMatrixCalibration(
+        filaments,
+        { ...options(8), layerHeight: 0.04 },
+        '2026-08-07T10:00:00.000Z'
+    );
+    const recipes = [
+        [1],
+        [1, 2, 1, 1, 2],
+        Array.from({ length: depth }, (_, index) => 1 + (index % 2)),
+        [2, 1, 2, 2],
+    ];
+    record.schemaVersion = 2;
+    record.stackLayerCount = depth;
+    record.selection = 'adaptive-gamut';
+    record.grid = { ...record.grid, rows: 2, columns: 2 };
+    record.planning = {
+        maximumRecipeThickness: depth * 0.04,
+        candidateCount: 4,
+        compatibleHistoryCount: 0,
+        measuredRecipeCount: 0,
+        referenceSampleCount: 0,
+        estimatedSwapCycles: depth * (filaments.length - 1),
+        totalCombinationCountCapped: true,
+    };
+    record.totalCombinationCount = Number.MAX_SAFE_INTEGER;
+    const template = record.samples[0];
+    record.samples = recipes.map((recipe, index) => {
+        const backingPaddingLayerCount = depth - recipe.length;
+        const stack = [...Array<number>(backingPaddingLayerCount).fill(0), ...recipe];
+        return {
+            ...template,
+            index,
+            row: Math.floor(index / 2),
+            column: index % 2,
+            stack,
+            backingPaddingLayerCount,
+            recipeLayerCount: recipe.length,
+            selectionReason: 'coverage' as const,
+            canonicalStackKey: fingerprintJson(
+                'stack-v1',
+                matrixPrefix(
+                    record,
+                    stack.map((filamentIndex) => filaments[filamentIndex].id)
+                )
+            ),
+        };
+    });
+    record.cornerStacks = record.cornerStacks.map((stack) => Array<number>(depth).fill(stack[0]));
+    return record;
+}
+
+test('adaptive Stack Matrix 3MF keeps padded recipes flat, correctly colored, and manifold at 64 layers', async () => {
+    const [matrix, exporter] = await modules;
+    for (const depth of [12, 64]) {
+        const record = await paddedMatrixExportFixture(depth);
+        const blob = await exporter.generateStackMatrix3mf(record);
+        const zip = await JSZip.loadAsync(await blob.arrayBuffer());
+        const model = await zip.file('3D/3dmodel.model')!.async('string');
+        const metadata = JSON.parse(
+            await zip.file('Metadata/kromacut-stack-matrix.json')!.async('string')
+        );
+        assert.deepEqual(
+            metadata,
+            record,
+            'immutable plan retains physical padding and recipe depth'
+        );
+        const meshes = matrixMeshObjects(model);
+        assertClosedOutwardMatrixMeshes(meshes);
+        assert.ok(meshes.length <= 1 + filaments.length * 8);
+        const foundationHeight = record.foundationLayerThicknesses.reduce(
+            (sum, value) => sum + value,
+            0
+        );
+        const expectedTop = Number((foundationHeight + depth * 0.04).toFixed(6));
+        const size = matrix.stackMatrixPhysicalSize(record);
+        const positions = [
+            ...record.samples.map((sample) => ({
+                row: sample.row + 1,
+                column: sample.column + 1,
+                stack: sample.stack,
+            })),
+            ...record.cornerStacks.map((stack, index) => ({
+                row: index >= 2 ? record.grid.rows + 1 : 0,
+                column: index === 1 || index === 2 ? record.grid.columns + 1 : 0,
+                stack,
+            })),
+        ];
+        for (const position of positions) {
+            const x = position.column * record.grid.patchSize - size.width / 2;
+            const y =
+                (record.grid.rows + 1 - position.row) * record.grid.patchSize - size.height / 2;
+            const runs: { bottom: number; top: number; material: number }[] = [];
+            for (const mesh of meshes) {
+                for (let index = 0; index < mesh.vertices.length; index += 8) {
+                    const box = mesh.vertices.slice(index, index + 8);
+                    if (
+                        Math.min(...box.map((vertex) => vertex[0])) !== x ||
+                        Math.min(...box.map((vertex) => vertex[1])) !== y ||
+                        Math.max(...box.map((vertex) => vertex[0])) !== x + record.grid.patchSize ||
+                        Math.max(...box.map((vertex) => vertex[1])) !== y + record.grid.patchSize
+                    )
+                        continue;
+                    runs.push({
+                        bottom: Math.min(...box.map((vertex) => vertex[2])),
+                        top: Math.max(...box.map((vertex) => vertex[2])),
+                        material: mesh.material,
+                    });
+                }
+            }
+            runs.sort((left, right) => left.bottom - right.bottom);
+            assert.equal(runs[0].bottom, Number(foundationHeight.toFixed(6)));
+            assert.equal(
+                runs.at(-1)!.top,
+                expectedTop,
+                'samples and corner markers share one top plane'
+            );
+            for (let index = 1; index < runs.length; index++) {
+                assert.equal(
+                    runs[index].bottom,
+                    runs[index - 1].top,
+                    'no gaps or overlapping runs'
+                );
+            }
+            position.stack.forEach((material, layer) => {
+                const z = foundationHeight + (layer + 0.5) * 0.04;
+                const covering = runs.filter((run) => z > run.bottom && z < run.top);
+                assert.equal(covering.length, 1);
+                assert.equal(
+                    covering[0].material,
+                    material,
+                    'backing stays below the intended recipe'
+                );
+            });
+        }
+    }
+});
+
+test('a 0.40 mm Matrix with a 0.10 mm first layer exports exactly 0.50 mm of closed geometry', async () => {
+    const [matrix, exporter] = await modules;
+    const record = matrix.buildStackMatrixCalibration(filaments, {
+        layerHeight: 0.04,
+        firstLayerHeight: 0.1,
+        maximumRecipeThickness: 0.4,
+        maximumSamples: 32,
+        backingFilamentId: 'black',
+    });
+    assert.deepEqual(record.foundationLayerThicknesses, [0.1]);
+    assert.equal(record.stackLayerCount, 10);
+    const zip = await JSZip.loadAsync(
+        await (await exporter.generateStackMatrix3mf(record)).arrayBuffer()
+    );
+    const meshes = matrixMeshObjects(await zip.file('3D/3dmodel.model')!.async('string'));
+    assertClosedOutwardMatrixMeshes(meshes);
+    assert.equal(
+        Math.max(...meshes.flatMap((mesh) => mesh.vertices.map((vertex) => vertex[2]))),
+        0.5
+    );
+    assert.equal(Math.max(...meshes[0].vertices.map((vertex) => vertex[2])), 0.1);
+    const exported = JSON.parse(
+        await zip.file('Metadata/kromacut-stack-matrix.json')!.async('string')
+    );
+    assert.deepEqual(exported.foundationLayerThicknesses, [0.1]);
+    assert.deepEqual(exported.samples, record.samples);
+});
+
+test('saved thick Matrix foundations and ungrouped cell positions survive import and re-export unchanged', async () => {
+    const [, exporter, profile] = await modules;
+    const original = adaptiveStackMatrixFixture();
+    const appearance = { ...profile.createEmptyAppearanceProfile(), stackMatrices: [original] };
+    const restored = profile.sanitizeAppearanceProfile(structuredClone(appearance))!
+        .stackMatrices![0];
+    assert.deepEqual(restored, original);
+    assert.ok(restored.foundationLayerThicknesses.length > 1);
+    assert.deepEqual(
+        restored.samples.map((sample) => sample.recipeLayerCount),
+        [2, 20, 1]
+    );
+    const modelXml = async (record: typeof original) => {
+        const zip = await JSZip.loadAsync(
+            await (await exporter.generateStackMatrix3mf(record)).arrayBuffer()
+        );
+        return (await zip.file('3D/3dmodel.model')!.async('string')).replace(
+            / p:UUID="[^"]*"/g,
+            ''
+        );
+    };
+    assert.equal(await modelXml(restored), await modelXml(original));
+    assert.deepEqual(appearance.stackMatrices[0], original);
+});
+
+test('adaptive Stack Matrix 3MF coalesces padding and pure references without changing legacy cubes', async () => {
+    const [matrix, exporter] = await modules;
+    const adaptive = await paddedMatrixExportFixture(64);
+    const expectedRuns = adaptive.samples.reduce(
+        (sum, sample) =>
+            sum +
+            sample.stack.filter((value, index) => index === 0 || value !== sample.stack[index - 1])
+                .length,
+        0
+    );
+    const zip = await JSZip.loadAsync(
+        await (await exporter.generateStackMatrix3mf(adaptive)).arrayBuffer()
+    );
+    const adaptiveMeshes = matrixMeshObjects(await zip.file('3D/3dmodel.model')!.async('string'));
+    assert.equal(
+        adaptiveMeshes.reduce((sum, mesh) => sum + mesh.vertices.length / 8, 0),
+        1 + expectedRuns + adaptive.cornerStacks.length,
+        'one foundation plus one cuboid per contiguous vertical material run'
+    );
+
+    const legacy = matrix.buildStackMatrixCalibration(filaments, options(8));
+    assert.equal(legacy.schemaVersion, 1);
+    const legacyZip = await JSZip.loadAsync(
+        await (await exporter.generateStackMatrix3mf(legacy)).arrayBuffer()
+    );
+    const legacyMeshes = matrixMeshObjects(
+        await legacyZip.file('3D/3dmodel.model')!.async('string')
+    );
+    assert.equal(
+        legacyMeshes.reduce((sum, mesh) => sum + mesh.vertices.length / 8, 0),
+        1 + (legacy.samples.length + legacy.cornerStacks.length) * legacy.stackLayerCount,
+        'legacy export retains one cuboid per physical recipe layer'
+    );
+});
+
 test('completed Stack Matrix samples become measured anchors without global fit observations', async () => {
     const [matrix, , profile, model] = await modules;
     const planned = matrix.buildStackMatrixCalibration(
@@ -711,9 +999,11 @@ test('conditional Matrix validation uses the deployed neighbor selection and sup
 
 test('all compatible Stack Matrix samples jointly refit physical optics without crossing process boundaries', async () => {
     const [matrix, , profile, model] = await modules;
+    // This fitter test requires an opaque base; new boards no longer add it
+    // automatically when their selected first layer would be translucent.
     const planned = matrix.buildStackMatrixCalibration(
         filaments,
-        options(64),
+        { ...options(64), firstLayerHeight: 0.6 },
         '2026-08-07T10:00:00.000Z'
     );
     const measuredColors = planned.samples.map(
@@ -738,7 +1028,7 @@ test('all compatible Stack Matrix samples jointly refit physical optics without 
     const context = {
         filamentProfileFingerprint: profile.fingerprintAppearanceFilaments(filaments),
         layerHeight: 0.08,
-        firstLayerHeight: 0.2,
+        firstLayerHeight: 0.6,
         transitionOpacity: 0.9,
         filaments,
     };

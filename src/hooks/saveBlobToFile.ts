@@ -1,6 +1,8 @@
 import { isTauri } from '@tauri-apps/api/core';
 import { message, save } from '@tauri-apps/plugin-dialog';
 import { open } from '@tauri-apps/plugin-fs';
+import { translate } from '../lib/i18n';
+import { translateRuntimeMessage } from '../lib/runtimeMessages';
 
 export interface SaveBlobOptions {
     defaultFileName: string;
@@ -29,17 +31,16 @@ async function writeBlobToTauriFile(filePath: string, blob: Blob) {
     }
 }
 
-export async function saveBlobToFile(
-    blob: Blob,
-    options: SaveBlobOptions
-): Promise<string | null> {
+export async function saveBlobToFile(blob: Blob, options: SaveBlobOptions): Promise<string | null> {
     if (isTauri()) {
         const filePath = await save({
-            title: `Save ${options.filterName}`,
+            title: translate('messages:files.save', {
+                format: translateRuntimeMessage(options.filterName),
+            }),
             defaultPath: options.defaultFileName,
             filters: [
                 {
-                    name: options.filterName,
+                    name: translateRuntimeMessage(options.filterName),
                     extensions: [options.extension],
                 },
             ],
@@ -48,7 +49,7 @@ export async function saveBlobToFile(
         if (!filePath) return null;
 
         await writeBlobToTauriFile(filePath, blob);
-        await message(`Saved to:\n${filePath}`, {
+        await message(translate('messages:files.saved', { path: filePath }), {
             title: 'Kromacut',
             kind: 'info',
         });

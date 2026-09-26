@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next';
+import { translateRuntimeMessage } from '../lib/runtimeMessages';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { clampProgress, progressBarIndicatorClass } from '../lib/progress';
 
@@ -93,9 +95,7 @@ function updateEtaState(state: EtaState, progress: number, timestamp: number) {
 
     const sampleRate = progressDelta / elapsedMs;
     state.smoothedRate =
-        state.smoothedRate === undefined
-            ? sampleRate
-            : state.smoothedRate * 0.7 + sampleRate * 0.3;
+        state.smoothedRate === undefined ? sampleRate : state.smoothedRate * 0.7 + sampleRate * 0.3;
 
     const rawEtaMs = estimateFromRate(progress, state.smoothedRate);
     if (rawEtaMs !== undefined) {
@@ -122,6 +122,7 @@ export default function ProgressOverlay({
     progress,
     indeterminate = false,
 }: ProgressOverlayProps) {
+    const { t } = useTranslation('workspace');
     const startedAtRef = useRef(Date.now());
     const titleRef = useRef(title);
     const etaStateRef = useRef<EtaState>({
@@ -140,7 +141,12 @@ export default function ProgressOverlay({
     const elapsedMs = Math.max(0, now - startedAtRef.current);
     const safeStepCount = Math.max(1, Math.floor(stepCount));
     const safeStepIndex = Math.max(1, Math.min(safeStepCount, Math.floor(stepIndex)));
-    const stepValue = `${safeStepIndex} of ${safeStepCount}`;
+    const stepValue = t('progressOverlay.stepOfTotal', {
+        step: safeStepIndex,
+        total: safeStepCount,
+    });
+    const displayTitle = translateRuntimeMessage(title);
+    const displayStepLabel = translateRuntimeMessage(stepLabel);
     const etaMs = useMemo(() => {
         if (!showPercent) {
             return undefined;
@@ -190,7 +196,7 @@ export default function ProgressOverlay({
                     <div className="flex items-start justify-between gap-4">
                         <div className="min-w-0">
                             <div className="truncate text-base font-semibold leading-tight text-foreground">
-                                {title}
+                                {displayTitle}
                             </div>
                         </div>
                         <div className="shrink-0 text-xl font-bold leading-none tabular-nums text-foreground">
@@ -199,13 +205,13 @@ export default function ProgressOverlay({
                     </div>
 
                     <div className="mt-4 truncate text-xs font-medium text-muted-foreground">
-                        {stepLabel}
+                        {displayStepLabel}
                     </div>
 
                     <div
                         className="mt-2.5 h-2 w-full overflow-hidden rounded-full bg-muted/80"
                         role="progressbar"
-                        aria-label={`${title}: overall progress`}
+                        aria-label={t('progressOverlay.overallProgress', { title: displayTitle })}
                         aria-valuemin={0}
                         aria-valuemax={100}
                         aria-valuenow={showPercent ? progressPct : undefined}
@@ -222,7 +228,10 @@ export default function ProgressOverlay({
                         <div
                             className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-muted/50"
                             role="progressbar"
-                            aria-label={`${title}: ${stepLabel}`}
+                            aria-label={t('progressOverlay.stepProgress', {
+                                title: displayTitle,
+                                step: displayStepLabel,
+                            })}
                             aria-valuemin={0}
                             aria-valuemax={100}
                             aria-valuenow={stepProgressPct}
@@ -237,19 +246,27 @@ export default function ProgressOverlay({
 
                 <div className="grid grid-cols-3 border-t border-border/45 bg-muted/15 px-4 py-3">
                     <div className="min-w-0 pr-3">
-                        <div className="text-[10px] font-semibold text-muted-foreground">Elapsed</div>
+                        <div className="text-[10px] font-semibold text-muted-foreground">
+                            {t('progressOverlay.elapsed')}
+                        </div>
                         <div className="mt-1.5 truncate text-lg font-bold leading-none tabular-nums text-foreground">
                             {formatDuration(elapsedMs, 'elapsed')}
                         </div>
                     </div>
                     <div className="min-w-0 border-l border-border/60 px-3">
-                        <div className="text-[10px] font-semibold text-muted-foreground">ETA</div>
+                        <div className="text-[10px] font-semibold text-muted-foreground">
+                            {t('progressOverlay.eta')}
+                        </div>
                         <div className="mt-1.5 truncate text-lg font-bold leading-none tabular-nums text-foreground">
-                            {showPercent ? etaLabel : 'estimating'}
+                            {etaLabel === 'estimating' || etaLabel === 'finishing'
+                                ? t(`progressOverlay.${etaLabel}`)
+                                : etaLabel}
                         </div>
                     </div>
                     <div className="min-w-0 border-l border-border/60 pl-3">
-                        <div className="text-[10px] font-semibold text-muted-foreground">Step</div>
+                        <div className="text-[10px] font-semibold text-muted-foreground">
+                            {t('progressOverlay.step')}
+                        </div>
                         <div className="mt-1.5 truncate text-lg font-bold leading-none tabular-nums text-foreground">
                             {stepValue}
                         </div>

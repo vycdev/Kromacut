@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 540" role="img" aria-labelledby="title desc">
+  <title id="title" data-i18n="title">A measured layer recipe belongs to its physical thickness</title>
+  <desc id="desc" data-i18n="description">Three 0.08 millimeter layers make 0.24 millimeters of color material. Three 0.04 millimeter layers make 0.12 millimeters. A matrix measurement of the first is not reused as the second. Wedge hiding distance can still estimate behavior by thickness, while exact appearance evidence needs compatible layers, filaments, and backing. Layer thicknesses are schematic and colors are not measurements.</desc>
+  <rect width="960" height="540" rx="18" fill="#121923"/>
+  <g font-family="system-ui, sans-serif" font-size="18" fill="#f1f5f9">
+    <text x="32" y="44" font-size="26" font-weight="700" data-i18n="sameLayerCountDoesNotMeanTheSame">Same layer count does not mean the same color recipe</text>
+    <text x="32" y="74" fill="#b3c2d4" data-i18n="aFinerLayerGridChangesTheMaterialThickness">A finer layer grid changes the material thickness represented by each step.</text>
+    <rect x="32" y="98" width="430" height="277" rx="14" fill="#1b2736"/>
+    <rect x="490" y="98" width="438" height="277" rx="14" fill="#1b2736"/>
+    <text x="52" y="135" fill="#38bdf8" font-weight="700" data-i18n="measuredMatrix008MmLayers">Measured matrix: 0.08 mm layers</text>
+    <text x="510" y="135" fill="#fbbf24" font-weight="700" data-i18n="newModel004MmLayers">New model: 0.04 mm layers</text>
+    <g stroke="#121923" stroke-width="2">
+      <rect x="70" y="260" width="230" height="42" fill="#d6dde4"/>
+      <rect x="70" y="228" width="230" height="32" fill="#38bdf8"/>
+      <rect x="70" y="196" width="230" height="32" fill="#a78bfa"/>
+      <rect x="70" y="164" width="230" height="32" fill="#fbbf24"/>
+      <rect x="528" y="260" width="230" height="42" fill="#d6dde4"/>
+      <rect x="528" y="244" width="230" height="16" fill="#38bdf8"/>
+      <rect x="528" y="228" width="230" height="16" fill="#a78bfa"/>
+      <rect x="528" y="212" width="230" height="16" fill="#fbbf24"/>
+    </g>
+    <path d="M311 165H327V259H311" fill="none" stroke="#38bdf8" stroke-width="2"/>
+    <text x="341" y="207" fill="#38bdf8">0.24 mm</text>
+    <text x="341" y="232" fill="#b3c2d4" data-i18n="ofColor">of color</text>
+    <path d="M769 213H785V259H769" fill="none" stroke="#fbbf24" stroke-width="2"/>
+    <text x="798" y="227" fill="#fbbf24">0.12 mm</text>
+    <text x="798" y="252" fill="#b3c2d4" data-i18n="ofColor">of color</text>
+    <text x="70" y="328" fill="#b3c2d4" data-i18n="label3RecipeLayersOpaqueBacking">3 recipe layers + opaque backing</text>
+    <text x="528" y="328" fill="#b3c2d4" data-i18n="label3ThinnerLayersBacking">3 thinner layers + backing</text>
+    <text x="70" y="355" fill="#38bdf8" data-i18n="photographedRecipeColor">Photographed recipe color</text>
+    <text x="528" y="355" fill="#fbbf24" data-i18n="notTheSameMeasuredRecipe">Not the same measured recipe</text>
+    <rect x="32" y="395" width="430" height="112" rx="12" fill="#1b2736"/>
+    <rect x="490" y="395" width="438" height="112" rx="12" fill="#1b2736"/>
+    <text x="52" y="429" fill="#38bdf8" font-weight="700" data-i18n="hDCanStillEstimateByThickness">HD can still estimate by thickness</text>
+    <text x="52" y="459" fill="#b3c2d4" data-i18n="thatDoesNotCertifyTheNewSetup">That does not certify the new setup.</text>
+    <text x="52" y="485" fill="#b3c2d4" data-i18n="checkASmallPhysicalTest">Check a small physical test.</text>
+    <text x="510" y="429" fill="#fbbf24" font-weight="700" data-i18n="matrixEvidenceHasAScope">Matrix evidence has a scope</text>
+    <text x="510" y="459" fill="#b3c2d4" data-i18n="matchRegularLayerHeightAndProfile">Match regular layer height and profile.</text>
+    <text x="510" y="485" fill="#b3c2d4" data-i18n="recipeAndBackingStillMatter">Recipe and backing still matter.</text>
+    <text x="928" y="532" text-anchor="end" fill="#b3c2d4" data-i18n="schematicThicknessesAndMaterialColorsNotOpticalPredictions">Schematic thicknesses and material colors, not optical predictions</text>
+  </g>
+</svg>

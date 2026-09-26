@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
+import { translateRuntimeMessage } from '../lib/runtimeMessages';
 import type { Swatch } from '../types';
 import type { AutoPaintResult } from '../lib/autoPaint';
 
@@ -164,7 +165,7 @@ export function useSwapPlan({
                 lines.push('- After printing, flip the piece over: the image side is the bottom.');
             }
             appendFooter();
-            return lines.join('\n');
+            return lines.map(translateRuntimeMessage).join('\n');
         }
 
         if (swapPlan.length) {
@@ -192,7 +193,7 @@ export function useSwapPlan({
             }
         }
         appendFooter();
-        return lines.join('\n');
+        return lines.map(translateRuntimeMessage).join('\n');
     };
 
     // Clipboard copy with fallback and brief copied feedback

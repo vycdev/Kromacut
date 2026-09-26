@@ -1,0 +1,62 @@
+{
+  "3d-mode": {
+    "title": "Modalità 3D",
+    "description": "Dimensioni fisiche, pile di colori manuali, mesh e controlli dell’anteprima."
+  },
+  "auto-paint": {
+    "title": "Controlli Auto-paint",
+    "description": "Dati dei filamenti, dettagli stampabili, corrispondenza, limiti di altezza e affidabilità."
+  },
+  "calibration-theory": {
+    "title": "Teoria della calibrazione",
+    "description": "Ottica e matematica della calibrazione di distanza di copertura, Palette Proof e Stack Matrix."
+  },
+  "calibration-workflows": {
+    "title": "Flussi di calibrazione",
+    "description": "Scegli uno strumento di calibrazione, impara i controlli e scopri quali misure valgono per la prossima stampa."
+  },
+  "dedithering-cleanup": {
+    "title": "Rimozione dithering e pulizia",
+    "description": "Pulizia dei vicini per colore esatto e relativi effetti su puntini, bordi, trasparenza e isole stampabili."
+  },
+  "faq": {
+    "title": "Domande frequenti",
+    "description": "Risposte brevi alle domande comuni su Kromacut."
+  },
+  "flat-paint": {
+    "title": "Flat Paint",
+    "description": "Rilievo a gradini, supporti trasparenti a faccia in giù e lastre esposte a faccia in su."
+  },
+  "generating-exporting-output": {
+    "title": "Generazione ed esportazione",
+    "description": "Genera il modello, controllalo, esporta i file e copia le istruzioni di stampa."
+  },
+  "image-adjustments": {
+    "title": "Regolazioni dell’immagine",
+    "description": "Ogni cursore di tono e colore, il suo effetto sui colori obiettivo e quando applicare definitivamente l’anteprima all’immagine."
+  },
+  "loading-images": {
+    "title": "Caricamento delle immagini",
+    "description": "Importa, ritaglia, ridimensiona e ritocca i pixel dell’immagine prima che diventino regioni stampate."
+  },
+  "overview": {
+    "title": "Panoramica",
+    "description": "Cosa fa Kromacut e come si collegano i principali flussi di lavoro."
+  },
+  "quick-start": {
+    "title": "Guida rapida",
+    "description": "Un primo percorso pratico dall’immagine all’esportazione."
+  },
+  "reducing-colors": {
+    "title": "Riduzione dei colori",
+    "description": "Comprendi la riduzione in due fasi, le tavolozze fisse e la differenza tra ricolorazione e trasparenza."
+  },
+  "settings-and-controls": {
+    "title": "Impostazioni e controlli",
+    "description": "Azioni dell’intestazione, temi, salvataggio, tavolozze, profili e controlli dell’area di lavoro."
+  },
+  "troubleshooting": {
+    "title": "Risoluzione dei problemi",
+    "description": "Problemi comuni e prime soluzioni da provare."
+  }
+}

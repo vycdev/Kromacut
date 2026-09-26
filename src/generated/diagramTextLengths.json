@@ -1,0 +1,878 @@
+{
+  "fr": {
+    "06_frontlit_hiding_distance": {},
+    "07_calibration_wedge": {},
+    "08_opacity_solve": {},
+    "09_palette_proof": {
+      "candidatesStopAtDifferentHeightsOfTheSame": 916,
+      "touchingPatchesShareAContinuousFoundationTargetsAre": 864
+    },
+    "10_physical_size": {},
+    "11_manual_layers": {},
+    "12_smooth_boundaries": {},
+    "13_printable_detail": {
+      "thePlannedLineIsTwiceAsWideAs": 408,
+      "aSourceColorCheckNotALayerSimulation": 408,
+      "allInputColorsAreKept": 252
+    },
+    "14_repeats_separation": {
+      "label1ExtraAppearance": 194
+    },
+    "15_transition_height": {},
+    "16_height_dithering": {},
+    "17_flat_paint_orientation": {
+      "faceUpNoCarrier": 256,
+      "columnsStopAtTheirColor": 256,
+      "viewThroughClearBottom": 256,
+      "foundationFillsUnderneath": 256
+    },
+    "18_optimizer_choices": {
+      "allPixelsCountEqually": 256,
+      "middleColorsMatterMore": 256,
+      "outerColorsMatterMore": 256
+    },
+    "19_preview_only": {},
+    "20_calibration_choices": {
+      "whenDoesTheBaseHide": 248,
+      "readAPatchBesideItsRail": 248,
+      "whichPatchIsClosest": 248,
+      "outputLocalEvidence": 248,
+      "whatDoRecipesLookLike": 248,
+      "photographAKnownGrid": 248,
+      "predictedColorsStackChoiceHeightsAndSwapPlan": 596
+    },
+    "21_proof_rounds": {},
+    "22_matrix_alignment": {
+      "recipeGrid": 104
+    },
+    "23_calibration_scope": {
+      "hDCanStillEstimateByThickness": 398
+    },
+    "30_crop_resize_scale": {
+      "keepA600600Region": 248,
+      "discardOutsideTheBox": 248,
+      "samePixelsLargerPrint": 248
+    },
+    "31_pixel_tools": {
+      "addOrJoinPixels": 173,
+      "transparentCutout": 173,
+      "noDiagonalJoins": 173,
+      "pickerSamplesASourceColorCustomColorsMay": 920
+    },
+    "32_adjustment_controls": {},
+    "33_adjustment_bake": {
+      "originalOrLastSavedEdit": 218,
+      "slidersChangeTheLook": 218,
+      "newWorkingImage": 218,
+      "appearanceIsBakedIn": 218,
+      "pNGDownload": 179
+    },
+    "34_quantization_pipeline": {
+      "manyColors": 166,
+      "weightIsNotAPercentage": 280,
+      "finalResult16Colors": 210,
+      "onlyEnabledColors": 210,
+      "notEveryColorIsUsed": 210
+    },
+    "35_swatch_operations": {
+      "applyANewColor": 248,
+      "allExactMatchesRecolored": 248,
+      "matchingPixelsDisappear": 248,
+      "mapToRemainingColors": 248
+    },
+    "36_dedither_neighbors": {
+      "sameColorSupportIsEnough": 248
+    },
+    "40_build_export_snapshot": {
+      "imagePrintSettings": 240,
+      "manualOrAutoPaint": 240,
+      "trimTheViewToInspect": 236,
+      "notAnExportCrop": 236
+    },
+    "41_swap_layers": {
+      "z022Layer4": 145,
+      "z018Layer3": 145,
+      "z014Layer2": 145,
+      "z010Layer1": 145
+    }
+  },
+  "de": {
+    "06_frontlit_hiding_distance": {
+      "lessBaseShowsThrough": 256,
+      "higherHDMoreThicknessToHideTheSame": 864
+    },
+    "07_calibration_wedge": {
+      "baseBelowLayerHeightSetsEachRise": 398,
+      "mergeIsOptionalAndDifferent": 406
+    },
+    "08_opacity_solve": {
+      "baseAndVisibleThreshold": 276,
+      "toMeasureWithThatBase": 276
+    },
+    "09_palette_proof": {},
+    "10_physical_size": {},
+    "11_manual_layers": {
+      "laterSurfacesIncludeEarlierRuns": 404
+    },
+    "12_smooth_boundaries": {},
+    "13_printable_detail": {
+      "thePlannedLineIsTwiceAsWideAs": 408,
+      "aSourceColorCheckNotALayerSimulation": 408,
+      "allInputColorsAreKept": 252,
+      "oNKeepLinesOmitOnlySpecks": 408,
+      "pinkOccursOnlyInThisTinyEnclosedSpeck": 920
+    },
+    "14_repeats_separation": {
+      "label1ExtraAppearance": 194
+    },
+    "15_transition_height": {},
+    "16_height_dithering": {
+      "fractionalHeightRoundsToOneLayer": 408
+    },
+    "17_flat_paint_orientation": {
+      "faceUpNoCarrier": 256,
+      "viewThroughClearBottom": 256
+    },
+    "18_optimizer_choices": {
+      "middleColorsMatterMore": 256,
+      "schematicWeightingAndChoicesEarlyConvergenceAndMax": 920
+    },
+    "19_preview_only": {},
+    "20_calibration_choices": {
+      "whenDoesTheBaseHide": 248,
+      "readAPatchBesideItsRail": 248,
+      "whichPatchIsClosest": 248,
+      "judgeSelectedImageColors": 248,
+      "photographAKnownGrid": 248,
+      "outputMeasuredColors": 248,
+      "predictedColorsStackChoiceHeightsAndSwapPlan": 596
+    },
+    "21_proof_rounds": {
+      "tiesCanKeepMultipleWinners": 364,
+      "noWinnerAndNoInventedCorrectColor": 398,
+      "tryUntestedPhysicalCandidates": 364
+    },
+    "22_matrix_alignment": {
+      "recipeGrid": 104
+    },
+    "23_calibration_scope": {
+      "hDCanStillEstimateByThickness": 398,
+      "matchRegularLayerHeightAndProfile": 406
+    },
+    "30_crop_resize_scale": {
+      "keepA600600Region": 248,
+      "discardOutsideTheBox": 248
+    },
+    "31_pixel_tools": {
+      "addOrJoinPixels": 173,
+      "label164PxDiameter": 173,
+      "transparentCutout": 173,
+      "canCreateHoles": 173,
+      "oneConnectedArea": 173,
+      "pickerSamplesASourceColorCustomColorsMay": 920
+    },
+    "32_adjustment_controls": {},
+    "33_adjustment_bake": {
+      "slidersChangeTheLook": 218,
+      "appearanceIsBakedIn": 218,
+      "slidersResetToZero": 218
+    },
+    "34_quantization_pipeline": {
+      "bakedAdjustments": 166,
+      "noneSkipsThisStage": 280,
+      "notEveryColorIsUsed": 210
+    },
+    "35_swatch_operations": {
+      "allExactMatchesRecolored": 248,
+      "mapToRemainingColors": 248
+    },
+    "36_dedither_neighbors": {
+      "sameColorSupportIsEnough": 248,
+      "tiedChoicesCanVary": 296
+    },
+    "40_build_export_snapshot": {
+      "imagePrintSettings": 240,
+      "trimTheViewToInspect": 236,
+      "completeBuiltGeometry": 244
+    },
+    "41_swap_layers": {
+      "z022Layer4": 145,
+      "z018Layer3": 145,
+      "z014Layer2": 145,
+      "z010Layer1": 145,
+      "z000Plate": 145
+    }
+  },
+  "it": {
+    "06_frontlit_hiding_distance": {
+      "higherHDMoreThicknessToHideTheSame": 864
+    },
+    "07_calibration_wedge": {
+      "sideViewOneMoreLayerPerStep": 398,
+      "baseBelowLayerHeightSetsEachRise": 398,
+      "itChecksTheCurveNotTheRailMatch": 406
+    },
+    "08_opacity_solve": {
+      "noVisibleBaseContrast": 276
+    },
+    "09_palette_proof": {
+      "proofMapTwoExampleTargets": 382,
+      "touchingPatchesShareAContinuousFoundationTargetsAre": 864
+    },
+    "10_physical_size": {},
+    "11_manual_layers": {
+      "laterSurfacesIncludeEarlierRuns": 404
+    },
+    "12_smooth_boundaries": {
+      "schematicOutlineOnlyBothChoicesAlterExportedContours": 920
+    },
+    "13_printable_detail": {
+      "aSourceColorCheckNotALayerSimulation": 408,
+      "oFFKeepAllSourceDetail": 408,
+      "allInputColorsAreKept": 252,
+      "oNKeepLinesOmitOnlySpecks": 408,
+      "pinkOccursOnlyInThisTinyEnclosedSpeck": 920
+    },
+    "14_repeats_separation": {},
+    "15_transition_height": {},
+    "16_height_dithering": {
+      "distributeRoundingError": 408
+    },
+    "17_flat_paint_orientation": {
+      "faceUpNoCarrier": 256,
+      "columnsStopAtTheirColor": 256,
+      "viewThroughClearBottom": 256
+    },
+    "18_optimizer_choices": {
+      "allPixelsCountEqually": 256,
+      "middleColorsMatterMore": 256
+    },
+    "19_preview_only": {
+      "layerPreviewSelectedRange": 408
+    },
+    "20_calibration_choices": {
+      "whenDoesTheBaseHide": 248,
+      "readAPatchBesideItsRail": 248,
+      "whichPatchIsClosest": 248,
+      "judgeSelectedImageColors": 248,
+      "whatDoRecipesLookLike": 248
+    },
+    "21_proof_rounds": {
+      "tiesCanKeepMultipleWinners": 364,
+      "noWinnerAndNoInventedCorrectColor": 398,
+      "testDifferentArtworkColorsFewerUsefulCandidatesCan": 864
+    },
+    "22_matrix_alignment": {
+      "recipeGrid": 104
+    },
+    "23_calibration_scope": {},
+    "30_crop_resize_scale": {
+      "keepA600600Region": 248,
+      "samePixelsLargerPrint": 248
+    },
+    "31_pixel_tools": {
+      "addOrJoinPixels": 173,
+      "oneConnectedArea": 173,
+      "size6128Px": 173,
+      "pickerSamplesASourceColorCustomColorsMay": 920
+    },
+    "32_adjustment_controls": {},
+    "33_adjustment_bake": {
+      "originalOrLastSavedEdit": 218,
+      "livePreview": 218,
+      "slidersChangeTheLook": 218,
+      "newWorkingImage": 218,
+      "appearanceIsBakedIn": 218
+    },
+    "34_quantization_pipeline": {
+      "sourceImage": 166,
+      "bakedAdjustments": 166,
+      "finalResult16Colors": 210,
+      "oRFixedPalette": 210,
+      "notEveryColorIsUsed": 210
+    },
+    "35_swatch_operations": {
+      "allExactMatchesRecolored": 248,
+      "matchingPixelsDisappear": 248,
+      "checkerboardNoMaterial": 248
+    },
+    "36_dedither_neighbors": {
+      "sameColorSupportIsEnough": 248,
+      "pass1NewImagePass2NewImage": 920,
+      "tiedChoicesCanVary": 296
+    },
+    "40_build_export_snapshot": {
+      "imagePrintSettings": 240,
+      "trimTheViewToInspect": 236,
+      "completeBuiltGeometry": 244
+    },
+    "41_swap_layers": {
+      "sideView010First004Regular": 393,
+      "z022Layer4": 145,
+      "z018Layer3": 145,
+      "z014Layer2": 145,
+      "z010Layer1": 145,
+      "bothHeightsDescribeTheSameSwap": 409
+    }
+  },
+  "ro": {
+    "06_frontlit_hiding_distance": {
+      "nearTheFilamentSColor": 256
+    },
+    "07_calibration_wedge": {
+      "sideViewOneMoreLayerPerStep": 398,
+      "baseBelowLayerHeightSetsEachRise": 398
+    },
+    "08_opacity_solve": {},
+    "09_palette_proof": {
+      "laterPrefixesKeepEveryLayerBelow": 432
+    },
+    "10_physical_size": {},
+    "11_manual_layers": {
+      "topHeight": 160,
+      "laterSurfacesIncludeEarlierRuns": 404
+    },
+    "12_smooth_boundaries": {},
+    "13_printable_detail": {
+      "thePlannedLineIsTwiceAsWideAs": 408,
+      "amberWarning": 252,
+      "aSourceColorCheckNotALayerSimulation": 408,
+      "oFFKeepAllSourceDetail": 408,
+      "allInputColorsAreKept": 252,
+      "oNKeepLinesOmitOnlySpecks": 408
+    },
+    "14_repeats_separation": {
+      "label1ExtraAppearance": 194
+    },
+    "15_transition_height": {},
+    "16_height_dithering": {},
+    "17_flat_paint_orientation": {
+      "columnsStopAtTheirColor": 256,
+      "viewThroughClearBottom": 256,
+      "foundationFillsUnderneath": 256
+    },
+    "18_optimizer_choices": {
+      "allPixelsCountEqually": 256,
+      "middleColorsMatterMore": 256,
+      "outerColorsMatterMore": 256
+    },
+    "19_preview_only": {
+      "layerPreviewSelectedRange": 408
+    },
+    "20_calibration_choices": {
+      "whichPatchIsClosest": 248,
+      "judgeSelectedImageColors": 248,
+      "photographAKnownGrid": 248
+    },
+    "21_proof_rounds": {
+      "testNearbyUntriedChallengers": 364,
+      "noWinnerAndNoInventedCorrectColor": 398
+    },
+    "22_matrix_alignment": {
+      "recipeGrid": 104,
+      "outerEdgeSitsHalfACellBeyondThe": 454
+    },
+    "23_calibration_scope": {},
+    "30_crop_resize_scale": {
+      "changePixelSize": 248,
+      "keepA600600Region": 248,
+      "samePixelsLargerPrint": 248
+    },
+    "31_pixel_tools": {
+      "addOrJoinPixels": 173,
+      "label164PxDiameter": 173,
+      "noDiagonalJoins": 173,
+      "size6128Px": 173
+    },
+    "32_adjustment_controls": {},
+    "33_adjustment_bake": {
+      "originalOrLastSavedEdit": 218,
+      "slidersChangeTheLook": 218,
+      "newWorkingImage": 218,
+      "appearanceIsBakedIn": 218
+    },
+    "34_quantization_pipeline": {
+      "bakedAdjustments": 166,
+      "noneSkipsThisStage": 280,
+      "notEveryColorIsUsed": 210
+    },
+    "35_swatch_operations": {
+      "allExactMatchesRecolored": 248,
+      "disconnectedRegionsToo": 248,
+      "mapToRemainingColors": 248
+    },
+    "36_dedither_neighbors": {
+      "threeMatchingNeighbors": 251.2,
+      "sameColorSupportIsEnough": 248
+    },
+    "40_build_export_snapshot": {
+      "imagePrintSettings": 240,
+      "build3DModel": 208,
+      "label2InspectTheBuild": 228,
+      "trimTheViewToInspect": 236,
+      "completeBuiltGeometry": 244
+    },
+    "41_swap_layers": {
+      "sideView010First004Regular": 393,
+      "z022Layer4": 145,
+      "z018Layer3": 145,
+      "z014Layer2": 145,
+      "z010Layer1": 145
+    }
+  },
+  "es": {
+    "06_frontlit_hiding_distance": {},
+    "07_calibration_wedge": {},
+    "08_opacity_solve": {
+      "noVisibleBaseContrast": 276
+    },
+    "09_palette_proof": {
+      "touchingPatchesShareAContinuousFoundationTargetsAre": 864
+    },
+    "10_physical_size": {},
+    "11_manual_layers": {},
+    "12_smooth_boundaries": {
+      "schematicOutlineOnlyBothChoicesAlterExportedContours": 920
+    },
+    "13_printable_detail": {
+      "thePlannedLineIsTwiceAsWideAs": 408,
+      "checkTheActual": 252,
+      "aSourceColorCheckNotALayerSimulation": 408,
+      "allInputColorsAreKept": 252,
+      "oNKeepLinesOmitOnlySpecks": 408
+    },
+    "14_repeats_separation": {},
+    "15_transition_height": {},
+    "16_height_dithering": {},
+    "17_flat_paint_orientation": {
+      "columnsStopAtTheirColor": 256,
+      "viewThroughClearBottom": 256
+    },
+    "18_optimizer_choices": {
+      "allPixelsCountEqually": 256,
+      "middleColorsMatterMore": 256,
+      "outerColorsMatterMore": 256
+    },
+    "19_preview_only": {
+      "schematicCameraShadingWireframeAndPreviewColorsAre": 920
+    },
+    "20_calibration_choices": {
+      "readAPatchBesideItsRail": 248,
+      "whichPatchIsClosest": 248,
+      "judgeSelectedImageColors": 248,
+      "photographAKnownGrid": 248
+    },
+    "21_proof_rounds": {},
+    "22_matrix_alignment": {
+      "outerEdgeSitsHalfACellBeyondThe": 454,
+      "thenConfirmAdjustedLowConfidenceAlignmentBeforeSaving": 864
+    },
+    "23_calibration_scope": {},
+    "30_crop_resize_scale": {
+      "keepA600600Region": 248,
+      "same500400Pixels": 248,
+      "samePixelsLargerPrint": 248
+    },
+    "31_pixel_tools": {
+      "addOrJoinPixels": 173,
+      "transparentCutout": 173,
+      "canCreateHoles": 173,
+      "noDiagonalJoins": 173,
+      "becomesPixels": 173,
+      "pickerSamplesASourceColorCustomColorsMay": 920
+    },
+    "32_adjustment_controls": {},
+    "33_adjustment_bake": {
+      "originalOrLastSavedEdit": 218,
+      "slidersChangeTheLook": 218,
+      "newWorkingImage": 218,
+      "appearanceIsBakedIn": 218,
+      "slidersResetToZero": 218
+    },
+    "34_quantization_pipeline": {
+      "finalResult16Colors": 210,
+      "notEveryColorIsUsed": 210
+    },
+    "35_swatch_operations": {
+      "allExactMatchesRecolored": 248,
+      "disconnectedRegionsToo": 248,
+      "matchingPixelsDisappear": 248,
+      "mapToRemainingColors": 248
+    },
+    "36_dedither_neighbors": {
+      "sameColorSupportIsEnough": 248
+    },
+    "40_build_export_snapshot": {
+      "imagePrintSettings": 240,
+      "manualOrAutoPaint": 240
+    },
+    "41_swap_layers": {
+      "sideView010First004Regular": 393
+    }
+  },
+  "ja": {
+    "06_frontlit_hiding_distance": {},
+    "07_calibration_wedge": {},
+    "08_opacity_solve": {
+      "baseAndVisibleThreshold": 276,
+      "noVisibleBaseContrast": 276
+    },
+    "09_palette_proof": {},
+    "10_physical_size": {},
+    "11_manual_layers": {},
+    "12_smooth_boundaries": {},
+    "13_printable_detail": {
+      "notAYellowFilament": 252,
+      "slicedToolpaths": 252,
+      "aSourceColorCheckNotALayerSimulation": 408
+    },
+    "14_repeats_separation": {},
+    "15_transition_height": {},
+    "16_height_dithering": {},
+    "17_flat_paint_orientation": {},
+    "18_optimizer_choices": {},
+    "19_preview_only": {},
+    "20_calibration_choices": {
+      "readAPatchBesideItsRail": 248,
+      "judgeSelectedImageColors": 248
+    },
+    "21_proof_rounds": {},
+    "22_matrix_alignment": {},
+    "23_calibration_scope": {},
+    "30_crop_resize_scale": {},
+    "31_pixel_tools": {
+      "addOrJoinPixels": 173,
+      "pickerSamplesASourceColorCustomColorsMay": 920
+    },
+    "32_adjustment_controls": {},
+    "33_adjustment_bake": {
+      "originalOrLastSavedEdit": 218
+    },
+    "34_quantization_pipeline": {
+      "notEveryColorIsUsed": 210
+    },
+    "35_swatch_operations": {},
+    "36_dedither_neighbors": {
+      "pinkCenter3Pink5Cyan": 248,
+      "tiedChoicesCanVary": 296
+    },
+    "40_build_export_snapshot": {},
+    "41_swap_layers": {
+      "z000Plate": 145
+    }
+  },
+  "zh-CN": {
+    "06_frontlit_hiding_distance": {},
+    "07_calibration_wedge": {},
+    "08_opacity_solve": {},
+    "09_palette_proof": {},
+    "10_physical_size": {},
+    "11_manual_layers": {},
+    "12_smooth_boundaries": {},
+    "13_printable_detail": {},
+    "14_repeats_separation": {},
+    "15_transition_height": {},
+    "16_height_dithering": {},
+    "17_flat_paint_orientation": {},
+    "18_optimizer_choices": {},
+    "19_preview_only": {},
+    "20_calibration_choices": {},
+    "21_proof_rounds": {},
+    "22_matrix_alignment": {},
+    "23_calibration_scope": {},
+    "30_crop_resize_scale": {},
+    "31_pixel_tools": {},
+    "32_adjustment_controls": {},
+    "33_adjustment_bake": {},
+    "34_quantization_pipeline": {},
+    "35_swatch_operations": {},
+    "36_dedither_neighbors": {},
+    "40_build_export_snapshot": {},
+    "41_swap_layers": {}
+  },
+  "hi": {
+    "06_frontlit_hiding_distance": {},
+    "07_calibration_wedge": {},
+    "08_opacity_solve": {},
+    "09_palette_proof": {},
+    "10_physical_size": {},
+    "11_manual_layers": {},
+    "12_smooth_boundaries": {},
+    "13_printable_detail": {},
+    "14_repeats_separation": {},
+    "15_transition_height": {},
+    "16_height_dithering": {},
+    "17_flat_paint_orientation": {},
+    "18_optimizer_choices": {},
+    "19_preview_only": {},
+    "20_calibration_choices": {},
+    "21_proof_rounds": {},
+    "22_matrix_alignment": {},
+    "23_calibration_scope": {},
+    "30_crop_resize_scale": {},
+    "31_pixel_tools": {},
+    "32_adjustment_controls": {},
+    "33_adjustment_bake": {},
+    "34_quantization_pipeline": {},
+    "35_swatch_operations": {},
+    "36_dedither_neighbors": {},
+    "40_build_export_snapshot": {},
+    "41_swap_layers": {}
+  },
+  "pt-PT": {
+    "06_frontlit_hiding_distance": {},
+    "07_calibration_wedge": {
+      "baseBelowLayerHeightSetsEachRise": 398,
+      "itChecksTheCurveNotTheRailMatch": 406
+    },
+    "08_opacity_solve": {},
+    "09_palette_proof": {
+      "laterPrefixesKeepEveryLayerBelow": 432
+    },
+    "10_physical_size": {},
+    "11_manual_layers": {
+      "laterSurfacesIncludeEarlierRuns": 404
+    },
+    "12_smooth_boundaries": {
+      "schematicOutlineOnlyBothChoicesAlterExportedContours": 920
+    },
+    "13_printable_detail": {
+      "aSourceColorCheckNotALayerSimulation": 408,
+      "allInputColorsAreKept": 252,
+      "oNKeepLinesOmitOnlySpecks": 408,
+      "pinkOccursOnlyInThisTinyEnclosedSpeck": 920
+    },
+    "14_repeats_separation": {},
+    "15_transition_height": {},
+    "16_height_dithering": {
+      "fractionalHeightRoundsToOneLayer": 408
+    },
+    "17_flat_paint_orientation": {
+      "faceDownCarrier": 256,
+      "faceUpNoCarrier": 256,
+      "viewThroughClearBottom": 256,
+      "foundationFillsUnderneath": 256
+    },
+    "18_optimizer_choices": {
+      "allPixelsCountEqually": 256,
+      "middleColorsMatterMore": 256,
+      "outerColorsMatterMore": 256
+    },
+    "19_preview_only": {},
+    "20_calibration_choices": {
+      "readAPatchBesideItsRail": 248,
+      "whichPatchIsClosest": 248,
+      "judgeSelectedImageColors": 248,
+      "photographAKnownGrid": 248
+    },
+    "21_proof_rounds": {
+      "tiesCanKeepMultipleWinners": 364
+    },
+    "22_matrix_alignment": {},
+    "23_calibration_scope": {},
+    "30_crop_resize_scale": {
+      "keepA600600Region": 248,
+      "samePixelsLargerPrint": 248
+    },
+    "31_pixel_tools": {
+      "addOrJoinPixels": 173,
+      "transparentCutout": 173,
+      "noDiagonalJoins": 173,
+      "pickerSamplesASourceColorCustomColorsMay": 920
+    },
+    "32_adjustment_controls": {},
+    "33_adjustment_bake": {
+      "originalOrLastSavedEdit": 218,
+      "livePreview": 218,
+      "slidersChangeTheLook": 218,
+      "newWorkingImage": 218,
+      "appearanceIsBakedIn": 218,
+      "pNGDownload": 179
+    },
+    "34_quantization_pipeline": {
+      "sourceImage": 166,
+      "bakedAdjustments": 166,
+      "finalResult16Colors": 210,
+      "notEveryColorIsUsed": 210
+    },
+    "35_swatch_operations": {
+      "allExactMatchesRecolored": 248,
+      "matchingPixelsDisappear": 248,
+      "mapToRemainingColors": 248
+    },
+    "36_dedither_neighbors": {
+      "sameColorSupportIsEnough": 248,
+      "pass1NewImagePass2NewImage": 920
+    },
+    "40_build_export_snapshot": {
+      "imagePrintSettings": 240,
+      "manualOrAutoPaint": 240,
+      "trimTheViewToInspect": 236
+    },
+    "41_swap_layers": {
+      "sideView010First004Regular": 393,
+      "z022Layer4": 145,
+      "z018Layer3": 145,
+      "z014Layer2": 145,
+      "z010Layer1": 145
+    }
+  },
+  "uk": {
+    "06_frontlit_hiding_distance": {
+      "nearTheFilamentSColor": 256,
+      "atThicknessHD10RemainsInThisModel": 864,
+      "higherHDMoreThicknessToHideTheSame": 864
+    },
+    "07_calibration_wedge": {
+      "sideViewOneMoreLayerPerStep": 398,
+      "baseBelowLayerHeightSetsEachRise": 398,
+      "enterTheLastPatchStillDifferent": 406
+    },
+    "08_opacity_solve": {
+      "noVisibleBaseContrast": 276,
+      "toMeasureWithThatBase": 276
+    },
+    "09_palette_proof": {},
+    "10_physical_size": {},
+    "11_manual_layers": {},
+    "12_smooth_boundaries": {
+      "schematicOutlineOnlyBothChoicesAlterExportedContours": 920
+    },
+    "13_printable_detail": {
+      "amberWarning": 252,
+      "aSourceColorCheckNotALayerSimulation": 408,
+      "pinkSpeckBothStay": 252,
+      "allInputColorsAreKept": 252,
+      "oNKeepLinesOmitOnlySpecks": 408,
+      "onlyPinkIsReplaced": 252,
+      "pinkOccursOnlyInThisTinyEnclosedSpeck": 920
+    },
+    "14_repeats_separation": {},
+    "15_transition_height": {},
+    "16_height_dithering": {
+      "fractionalHeightRoundsToOneLayer": 408
+    },
+    "17_flat_paint_orientation": {
+      "columnsStopAtTheirColor": 256,
+      "viewThroughClearBottom": 256,
+      "foundationFillsUnderneath": 256
+    },
+    "18_optimizer_choices": {
+      "allPixelsCountEqually": 256,
+      "outerColorsMatterMore": 256
+    },
+    "19_preview_only": {},
+    "20_calibration_choices": {
+      "whenDoesTheBaseHide": 248,
+      "readAPatchBesideItsRail": 248,
+      "judgeSelectedImageColors": 248,
+      "photographAKnownGrid": 248,
+      "outputMeasuredColors": 248
+    },
+    "21_proof_rounds": {
+      "testNearbyUntriedChallengers": 364,
+      "tiesCanKeepMultipleWinners": 364,
+      "noWinnerAndNoInventedCorrectColor": 398,
+      "tryUntestedPhysicalCandidates": 364,
+      "testDifferentArtworkColorsFewerUsefulCandidatesCan": 864
+    },
+    "22_matrix_alignment": {
+      "recipeGrid": 104,
+      "thenConfirmAdjustedLowConfidenceAlignmentBeforeSaving": 864
+    },
+    "23_calibration_scope": {},
+    "30_crop_resize_scale": {
+      "samePixelsLargerPrint": 248
+    },
+    "31_pixel_tools": {
+      "addOrJoinPixels": 173,
+      "canCreateHoles": 173,
+      "oneConnectedArea": 173,
+      "noDiagonalJoins": 173,
+      "becomesPixels": 173,
+      "pickerSamplesASourceColorCustomColorsMay": 920
+    },
+    "32_adjustment_controls": {
+      "toneRangeOverlapAndOtherActiveSlidersAffect": 920
+    },
+    "33_adjustment_bake": {
+      "originalOrLastSavedEdit": 218,
+      "slidersChangeTheLook": 218,
+      "newWorkingImage": 218,
+      "appearanceIsBakedIn": 218,
+      "slidersResetToZero": 218,
+      "pNGDownload": 179
+    },
+    "34_quantization_pipeline": {
+      "sourceImage": 166,
+      "bakedAdjustments": 166,
+      "finalResult16Colors": 210,
+      "oRFixedPalette": 210,
+      "onlyEnabledColors": 210,
+      "notEveryColorIsUsed": 210,
+      "applyChangesTheImageUndoBeforeTestingAnother": 920
+    },
+    "35_swatch_operations": {
+      "applyANewColor": 248,
+      "allExactMatchesRecolored": 248,
+      "checkerboardNoMaterial": 248,
+      "mapToRemainingColors": 248,
+      "deleteRerunsTheSelectedQuantizerSoOtherImage": 920
+    },
+    "36_dedither_neighbors": {
+      "threeMatchingNeighbors": 251.2,
+      "pinkCenter3Pink5Cyan": 248,
+      "sameColorSupportIsEnough": 248,
+      "label34ChooseCyan": 248,
+      "pass1NewImagePass2NewImage": 920
+    },
+    "40_build_export_snapshot": {
+      "imagePrintSettings": 240,
+      "filamentsCalibration": 240,
+      "build3DModel": 208,
+      "label2InspectTheBuild": 228,
+      "trimTheViewToInspect": 236,
+      "completeBuiltGeometry": 244,
+      "confirmRealSpools": 244
+    },
+    "41_swap_layers": {
+      "sideView010First004Regular": 393,
+      "z000Plate": 145
+    }
+  },
+  "bn": {
+    "06_frontlit_hiding_distance": {},
+    "07_calibration_wedge": {},
+    "08_opacity_solve": {},
+    "09_palette_proof": {},
+    "10_physical_size": {},
+    "11_manual_layers": {},
+    "12_smooth_boundaries": {},
+    "13_printable_detail": {},
+    "14_repeats_separation": {},
+    "15_transition_height": {},
+    "16_height_dithering": {},
+    "17_flat_paint_orientation": {},
+    "18_optimizer_choices": {},
+    "19_preview_only": {},
+    "20_calibration_choices": {},
+    "21_proof_rounds": {},
+    "22_matrix_alignment": {},
+    "23_calibration_scope": {},
+    "30_crop_resize_scale": {},
+    "31_pixel_tools": {
+      "addOrJoinPixels": 173
+    },
+    "32_adjustment_controls": {},
+    "33_adjustment_bake": {
+      "originalOrLastSavedEdit": 218
+    },
+    "34_quantization_pipeline": {},
+    "35_swatch_operations": {},
+    "36_dedither_neighbors": {
+      "pinkCenter3Pink5Cyan": 248
+    },
+    "40_build_export_snapshot": {},
+    "41_swap_layers": {}
+  }
+}

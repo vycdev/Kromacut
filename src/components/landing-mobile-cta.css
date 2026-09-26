@@ -1,0 +1,12 @@
+/* Reserve space even before the shortcut appears, so showing it never shifts
+   the scroll position. Footer links and keyboard/anchor targets can clear it. */
+@media (max-width: 767px) {
+    .landing-page {
+        padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px));
+        scroll-padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px));
+    }
+}
+
+.landing-mobile-cta {
+    padding-bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px));
+}

@@ -1,0 +1,76 @@
+{
+  "colorPicker": {
+    "hue": "Hue",
+    "color": "Color",
+    "alpha": "Opacity",
+    "saturationBrightness": "Saturation {{saturation}}%, Brightness {{brightness}}%"
+  },
+    "language": {
+        "title": "Language",
+        "system": "System language",
+        "loading": "Loading language…",
+        "failed": "Could not load this language. Your current language has been kept."
+    },
+    "navigation": {
+        "backToApp": "Back to app",
+        "home": "Kromacut home",
+        "backHome": "Back to Kromacut home",
+        "loading": "Loading Kromacut"
+    },
+    "settings": {
+        "title": "Settings",
+        "open": "Open settings",
+        "close": "Close settings",
+        "theme": "Theme",
+        "system": "System",
+        "dark": "Dark",
+        "light": "Light",
+        "resources": "Resources & community",
+        "resourcesDescription": "Guides, releases, and places to share what you make.",
+        "docs": "Docs",
+        "docsDescription": "Learn the workflow and print settings.",
+        "reddit": "r/kromacut on Reddit",
+        "patreon": "Support Me on Patreon",
+        "experimental": "Experimental",
+        "multiPlate": "Multi-plate mode",
+        "multiPlateDescription": "Unfinished multi-plate workflow. No effect yet; may change or break.",
+        "multiPlateEnable": "Enable experimental multi-plate mode"
+    },
+    "diagnostics": {
+        "title": "Diagnostics",
+        "description": "Capture reproducible Auto-paint decisions for investigation.",
+        "record": "Record Auto-paint diagnostics",
+        "recordDescription": "Writes one flushed JSONL file for each new Auto-paint calculation. Files include the active filament profile, calibration evidence, candidates, and final result and may be large.",
+        "newCalculations": "Applies to new calculations only.",
+        "openFolder": "Open folder",
+        "folderFailed": "Could not open the diagnostics folder."
+    },
+    "updates": {
+        "title": "Updates",
+        "checkTitle": "Check for updates",
+        "checking": "Checking",
+        "check": "Check",
+        "startup": "Check on startup",
+        "startupDescription": "Shows desktop update notices when Kromacut opens.",
+        "startupLabel": "Check for updates on startup",
+        "available": "Version {{version}} is available",
+        "notice": "Update Available",
+        "noticeDescription": "Version <version>{{version}}</version> is now available!",
+        "current": "Kromacut is up to date.",
+        "download": "Download",
+        "later": "Later",
+        "dismiss": "Dismiss update notification",
+        "checkFailed": "Could not check for updates. Try again later.",
+        "downloadFailed": "Could not open the download page."
+    },
+    "app": {
+        "uploadImage": "Please upload an image file",
+        "resizeFailed": "Image resize failed. See console for details.",
+        "preparingControls": "Preparing 3D controls…",
+        "performanceWarning": "Performance Warning",
+        "slowBuild": "Building the 3D model may be slow due to:",
+        "continue": "Do you want to continue?",
+        "cancel": "Cancel",
+        "buildAnyway": "Build Anyway"
+    }
+}

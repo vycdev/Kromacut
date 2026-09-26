@@ -1,3 +1,6 @@
+import { useTranslation } from 'react-i18next';
+import { i18n, translate } from '@/lib/i18n';
+import { translateRuntimeMessage } from '@/lib/runtimeMessages';
 import { useEffect, useMemo, useState } from 'react';
 import {
     AlertTriangle,
@@ -91,36 +94,33 @@ type ProofGeneration =
       };
 
 function candidateRoleLabel(role: PaletteProofCandidateRole): string {
-    if (role === 'previous-best') return 'previous best';
-    if (role === 'unseen-neighbor') return 'local challenger';
-    if (role === 'unseen-alternative') return 'exploratory';
-    return role.replaceAll('-', ' ');
+    return translate(`calibration:proof.candidateRoles.${role}`);
 }
 
 const MATCH_QUALITY_OPTIONS: readonly {
     value: PaletteTargetMatchQuality;
-    label: string;
-    title: string;
+    labelKey: string;
+    titleKey: string;
 }[] = [
     {
         value: 'best-available',
-        label: 'Best available',
-        title: 'Closest option, but not necessarily an accurate color match',
+        labelKey: 'proof.qualityBestAvailable',
+        titleKey: 'proof.qualityBestAvailableHelp',
     },
     {
         value: 'close',
-        label: 'Close',
-        title: 'The selected patch is close enough to provide a soft color anchor',
+        labelKey: 'proof.qualityClose',
+        titleKey: 'proof.qualityCloseHelp',
     },
     {
         value: 'exact',
-        label: 'Dead on',
-        title: 'The selected patch accurately matches the target color',
+        labelKey: 'proof.qualityExact',
+        titleKey: 'proof.qualityExactHelp',
     },
 ];
 
 function proofTimestamp(record: PaletteProofRecord): string {
-    return new Date(record.exportedAt).toLocaleString(undefined, {
+    return new Date(record.exportedAt).toLocaleString(i18n.resolvedLanguage, {
         month: 'short',
         day: 'numeric',
         hour: 'numeric',
@@ -141,6 +141,7 @@ export default function PaletteProofPanel({
     onReopenEvaluation,
     onDeleteProof,
 }: PaletteProofPanelProps) {
+    const { t } = useTranslation('calibration');
     const [requestedTargetCount, setRequestedTargetCount] = useState(PALETTE_PROOF_DEFAULT_TARGETS);
     const [requestedCandidateCount, setRequestedCandidateCount] = useState(
         PALETTE_PROOF_MAX_CANDIDATES
@@ -367,7 +368,7 @@ export default function PaletteProofPanel({
             const result = await saveBlobToFile(blob, {
                 defaultFileName: `kromacut-palette-proof-${selectedSpec.id.slice(-8)}.3mf`,
                 extension: '3mf',
-                filterName: 'Palette Proof 3MF',
+                filterName: translate('calibration:proof.saveDialogFormat'),
             });
             setSaved(result !== null);
             if (result !== null && !selectedRecord && onRegisterProof) {
@@ -535,17 +536,16 @@ export default function PaletteProofPanel({
                         variant="ghost"
                         className="h-8 w-8 shrink-0"
                         onClick={() => setIsSelectingTargets(false)}
-                        aria-label="Back to Palette Proof"
+                        aria-label={t('proof.backToPaletteProof')}
                     >
                         <ArrowLeft className="h-4 w-4" />
                     </Button>
                     <div className="min-w-0">
                         <h4 className="text-xs font-semibold text-foreground">
-                            Choose target colors
+                            {t('proof.chooseTargetColors')}
                         </h4>
                         <p className="text-[10px] text-muted-foreground">
-                            Click regions in the processed image to tell Kromacut which colors
-                            matter most.
+                            {t('proof.clickRegionsInTheProcessedImageToTell')}
                         </p>
                     </div>
                 </div>
@@ -554,7 +554,7 @@ export default function PaletteProofPanel({
                     <div
                         className="grid grid-cols-2 gap-1 rounded-md bg-muted/40 p-1"
                         role="group"
-                        aria-label="Palette Proof target color source"
+                        aria-label={t('proof.paletteProofTargetColorSource')}
                         data-testid="palette-proof-target-color-mode"
                     >
                         <Button
@@ -565,7 +565,7 @@ export default function PaletteProofPanel({
                             aria-pressed={targetColorMode === 'original'}
                             onClick={() => handleTargetColorModeChange('original')}
                         >
-                            Original image
+                            {t('proof.originalImage')}
                         </Button>
                         <Button
                             type="button"
@@ -575,18 +575,18 @@ export default function PaletteProofPanel({
                             aria-pressed={targetColorMode === 'fitted'}
                             onClick={() => handleTargetColorModeChange('fitted')}
                         >
-                            Fitted / achievable
+                            {t('proof.fittedAchievable')}
                         </Button>
                     </div>
                     <p className="text-[9px] text-muted-foreground">
                         {targetColorMode === 'fitted'
-                            ? 'Uses the exact fitted colors from the current Auto-paint preview.'
-                            : 'Uses the processed image colors before appearance fitting.'}
+                            ? t('proof.usesTheExactFittedColorsFromTheCurrent')
+                            : t('proof.usesTheProcessedImageColorsBeforeAppearanceFitting')}
                     </p>
                 </div>
 
                 <label className="block space-y-1 text-[10px] font-medium text-muted-foreground">
-                    Total proof targets
+                    {t('proof.totalProofTargets')}
                     <Select
                         value={String(targetCount)}
                         onValueChange={(value) => {
@@ -598,7 +598,7 @@ export default function PaletteProofPanel({
                     >
                         <SelectTrigger
                             className="mt-1 h-8 text-xs text-foreground"
-                            aria-label="Palette Proof target count"
+                            aria-label={t('proof.paletteProofTargetCount')}
                         >
                             <SelectValue />
                         </SelectTrigger>
@@ -633,7 +633,7 @@ export default function PaletteProofPanel({
                                 setPrioritizedTargetIds([]);
                             }}
                         >
-                            Clear selections
+                            {t('proof.clearSelections')}
                         </Button>
                     )}
                     <Button
@@ -643,10 +643,13 @@ export default function PaletteProofPanel({
                         onClick={() => setIsSelectingTargets(false)}
                     >
                         {prioritizedTargetIds.length === 0
-                            ? 'Use smart targets'
+                            ? t('proof.useSmartTargets')
                             : automaticTargetCount === 0
-                              ? `Use ${prioritizedTargetIds.length} chosen`
-                              : `Use ${prioritizedTargetIds.length} chosen + ${automaticTargetCount} smart`}
+                              ? t('proof.useChosen', { value1: prioritizedTargetIds.length })
+                              : t('proof.useChosenSmart', {
+                                    value1: prioritizedTargetIds.length,
+                                    value2: automaticTargetCount,
+                                })}
                     </Button>
                 </div>
             </section>
@@ -661,7 +664,7 @@ export default function PaletteProofPanel({
                     !embedded && 'mt-4 border-t border-border/50 pt-3'
                 )}
             >
-                {currentProofState.error}
+                {translateRuntimeMessage(currentProofState.error)}
             </div>
         );
     }
@@ -674,8 +677,7 @@ export default function PaletteProofPanel({
                     !embedded && 'mt-4'
                 )}
             >
-                Generate an Auto-paint result to create a Palette Proof. Saved proofs from the
-                active filament profile will also appear here.
+                {t('proof.generateAnAutoPaintResultToCreateA')}
             </div>
         );
     }
@@ -691,24 +693,34 @@ export default function PaletteProofPanel({
             const chronologicalRound = group.records.findIndex((entry) => entry.id === record.id);
             const evaluationState = getPaletteProofEvaluationState(profile?.appearance, record.id);
             const roundLabel =
-                chronologicalRound === 0 ? 'Initial' : `Continuation ${chronologicalRound}`;
+                chronologicalRound === 0
+                    ? t('proof.initial')
+                    : t('proof.continuation', { round: chronologicalRound });
             const status = evaluationState.complete
-                ? 'Complete'
+                ? t('proof.complete')
                 : `${evaluationState.answeredColumns}/${evaluationState.totalColumns}`;
             return {
                 id: record.id,
-                label: `Set ${group.number} / ${roundLabel} / ${proofTimestamp(record)} / ${status}`,
+                label: t('proof.savedRecordLabel', {
+                    set: group.number,
+                    round: roundLabel,
+                    date: proofTimestamp(record),
+                    status,
+                }),
             };
         });
         if (currentSpec && !currentRecord && matchingCurrentGroup?.key === group.key) {
             items.unshift({
                 id: currentSpec.id,
-                label: `Set ${group.number} / Continuation ${group.records.length} / not saved`,
+                label: t('proof.unsavedContinuationLabel', {
+                    set: group.number,
+                    round: group.records.length,
+                }),
             });
         }
         return {
             key: group.key,
-            label: `Target set ${group.number} / ${items.length} ${items.length === 1 ? 'round' : 'rounds'}`,
+            label: t('proof.targetSetRounds', { set: group.number, count: items.length }),
             items,
         };
     });
@@ -716,11 +728,17 @@ export default function PaletteProofPanel({
         const groupNumber = savedProofGroups.length + 1;
         selectorGroups.unshift({
             key: currentTargetSetKey ?? currentSpec.id,
-            label: `Target set ${groupNumber} / new`,
+            label: t('proof.newTargetSetLabel', { set: groupNumber }),
             items: [
                 {
                     id: currentSpec.id,
-                    label: `Set ${groupNumber} / ${savedProofGroups.length === 0 ? 'Initial' : 'New targets'} / not saved`,
+                    label: t('proof.unsavedRecordLabel', {
+                        set: groupNumber,
+                        round:
+                            savedProofGroups.length === 0
+                                ? t('proof.initial')
+                                : t('proof.newTargets'),
+                    }),
                 },
             ],
         });
@@ -810,12 +828,21 @@ export default function PaletteProofPanel({
             <div className="flex flex-wrap items-start gap-2">
                 <div className="min-w-0 flex-1 max-[480px]:basis-full">
                     {showTitle && (
-                        <h4 className="text-xs font-semibold text-foreground">Palette Proof</h4>
+                        <h4 className="text-xs font-semibold text-foreground">
+                            {t('proof.paletteProof')}
+                        </h4>
                     )}
                     <p className="text-[10px] text-muted-foreground tabular-nums">
-                        {selectedSpec.layout.widthMm} x {selectedSpec.layout.heightMm} mm /{' '}
-                        {selectedSpec.layout.columnCount} targets / {selectedSpec.layout.rowCount}{' '}
-                        candidates
+                        {t('proof.boardSummary', {
+                            width: selectedSpec.layout.widthMm,
+                            height: selectedSpec.layout.heightMm,
+                            targets: t('proof.targetCount', {
+                                count: selectedSpec.layout.columnCount,
+                            }),
+                            candidates: t('proof.candidateCount', {
+                                count: selectedSpec.layout.rowCount,
+                            }),
+                        })}
                     </p>
                 </div>
                 <Button
@@ -827,10 +854,10 @@ export default function PaletteProofPanel({
                     data-testid="download-palette-proof"
                     title={
                         selectedSnapshot
-                            ? 'Download Palette Proof 3MF'
-                            : "Rebuild this proof's source Auto-paint result to download it again"
+                            ? t('proof.downloadPaletteProof3MF')
+                            : t('proof.rebuildThisProofSSourceAutoPaintResult')
                     }
-                    aria-label="Download Palette Proof 3MF"
+                    aria-label={t('proof.downloadPaletteProof3MF')}
                 >
                     {isExporting ? (
                         <Loader2 className="h-3.5 w-3.5 animate-spin min-[481px]:mr-1.5" />
@@ -838,7 +865,7 @@ export default function PaletteProofPanel({
                         <Download className="h-3.5 w-3.5 min-[481px]:mr-1.5" />
                     )}
                     <span className="max-[480px]:sr-only">
-                        {isExporting ? 'Building...' : 'Download 3MF'}
+                        {isExporting ? t('proof.building') : t('proof.download3MF')}
                     </span>
                 </Button>
                 {selectedRecord && (
@@ -848,8 +875,8 @@ export default function PaletteProofPanel({
                         className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive"
                         disabled={!canTrack || !onDeleteProof}
                         onClick={() => setPendingDeleteProofId(selectedRecord.id)}
-                        title="Delete Palette Proof"
-                        aria-label="Delete Palette Proof"
+                        title={t('proof.deletePaletteProof')}
+                        aria-label={t('proof.deletePaletteProof')}
                     >
                         <Trash2 className="h-3.5 w-3.5" />
                     </Button>
@@ -862,8 +889,11 @@ export default function PaletteProofPanel({
                     role="alert"
                 >
                     <p className="min-w-0 flex-1 text-[10px] text-foreground">
-                        Delete this {evaluation?.complete ? 'completed' : 'incomplete'} proof and
-                        all of its results? This removes it from appearance calibration.
+                        {t(
+                            evaluation?.complete
+                                ? 'proof.deleteCompletedProof'
+                                : 'proof.deleteIncompleteProof'
+                        )}
                     </p>
                     <Button
                         size="sm"
@@ -871,7 +901,7 @@ export default function PaletteProofPanel({
                         className="h-7 px-2 text-xs"
                         onClick={() => setPendingDeleteProofId(null)}
                     >
-                        Cancel
+                        {t('proof.cancel')}
                     </Button>
                     <Button
                         size="sm"
@@ -879,7 +909,7 @@ export default function PaletteProofPanel({
                         className="h-7 px-2 text-xs"
                         onClick={handleDeleteProof}
                     >
-                        Delete proof
+                        {t('proof.deleteProof')}
                     </Button>
                 </div>
             )}
@@ -898,7 +928,10 @@ export default function PaletteProofPanel({
                         setPendingDeleteProofId(null);
                     }}
                 >
-                    <SelectTrigger className="h-8 text-xs" aria-label="Palette Proof record">
+                    <SelectTrigger
+                        className="h-8 text-xs"
+                        aria-label={t('proof.paletteProofRecord')}
+                    >
                         <SelectValue />
                     </SelectTrigger>
                     <SelectContent className="max-h-[min(24rem,var(--radix-select-content-available-height))] overscroll-contain">
@@ -925,7 +958,7 @@ export default function PaletteProofPanel({
             {canEditCurrentProof && targetCountOptions.length > 0 && (
                 <div className="grid grid-cols-2 gap-2" data-testid="palette-proof-size-controls">
                     <label className="space-y-1 text-[10px] font-medium text-muted-foreground">
-                        Targets
+                        {t('proof.targets')}
                         <Select
                             value={String(targetCount)}
                             onValueChange={(value) => {
@@ -940,7 +973,7 @@ export default function PaletteProofPanel({
                         >
                             <SelectTrigger
                                 className="mt-1 h-8 text-xs text-foreground"
-                                aria-label="Palette Proof target count"
+                                aria-label={t('proof.paletteProofTargetCount')}
                             >
                                 <SelectValue />
                             </SelectTrigger>
@@ -958,7 +991,7 @@ export default function PaletteProofPanel({
                         </Select>
                     </label>
                     <label className="space-y-1 text-[10px] font-medium text-muted-foreground">
-                        Candidates
+                        {t('proof.candidates')}
                         <Select
                             value={String(candidateCount)}
                             onValueChange={(value) => {
@@ -969,7 +1002,7 @@ export default function PaletteProofPanel({
                         >
                             <SelectTrigger
                                 className="mt-1 h-8 text-xs text-foreground"
-                                aria-label="Palette Proof candidate count"
+                                aria-label={t('proof.paletteProofCandidateCount')}
                             >
                                 <SelectValue />
                             </SelectTrigger>
@@ -1003,12 +1036,22 @@ export default function PaletteProofPanel({
                     <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                     <p>
                         {continuationSkippedTargetNumbers.length > 0 &&
-                            `Continuing ${currentSpec?.layout.columnCount ?? 0} of ${proofGeneration.mode === 'continue' ? proofGeneration.targetSetMappingIds.length : 0} targets. Exhausted target${continuationSkippedTargetNumbers.length === 1 ? '' : 's'} ${continuationSkippedTargetNumbers.join(', ')} ${continuationSkippedTargetNumbers.length === 1 ? 'was' : 'were'} skipped. `}
+                            t('proof.continuationSkipped', {
+                                count: continuationSkippedTargetNumbers.length,
+                                continued: currentSpec?.layout.columnCount ?? 0,
+                                total:
+                                    proofGeneration.mode === 'continue'
+                                        ? proofGeneration.targetSetMappingIds.length
+                                        : 0,
+                                targets: continuationSkippedTargetNumbers.join(', '),
+                            })}
                         {continuationCandidateCountReduced
-                            ? `The proof was reduced to ${currentSpec?.layout.rowCount ?? 0} candidates per target; unrelated filler cells were omitted.`
+                            ? t('proof.theProofWasReducedToCandidatesPerTarget', {
+                                  value1: currentSpec?.layout.rowCount ?? 0,
+                              })
                             : continuationHasExploratoryCandidate
-                              ? 'This round keeps the previous best, nearby challengers, and at most one exploratory stack per target.'
-                              : 'This round keeps the previous best and tests only nearby untried challengers.'}
+                              ? t('proof.thisRoundKeepsThePreviousBestNearbyChallengers')
+                              : t('proof.thisRoundKeepsThePreviousBestAndTests')}
                     </p>
                 </div>
             )}
@@ -1020,18 +1063,23 @@ export default function PaletteProofPanel({
                 >
                     <ImageIcon className="h-4 w-4 shrink-0 text-primary" />
                     <div className="min-w-0 flex-1">
-                        <p className="text-[10px] font-medium text-foreground">Target selection</p>
+                        <p className="text-[10px] font-medium text-foreground">
+                            {t('proof.targetSelection')}
+                        </p>
                         <p className="truncate text-[9px] text-muted-foreground">
                             {targetColorMode === 'fitted'
-                                ? 'Fitted / achievable'
-                                : 'Original image'}
+                                ? t('proof.fittedAchievable')
+                                : t('proof.originalImage')}
                             {' · '}
                             {prioritizedTargetIds.length > 0
-                                ? `${prioritizedTargetIds.length} chosen / ${Math.max(
-                                      0,
-                                      targetCount - prioritizedTargetIds.length
-                                  )} smart`
-                                : `${targetCount} smart targets`}
+                                ? t('proof.chosenSmart', {
+                                      value1: prioritizedTargetIds.length,
+                                      value2: Math.max(
+                                          0,
+                                          targetCount - prioritizedTargetIds.length
+                                      ),
+                                  })
+                                : t('proof.smartTargets', { value1: targetCount })}
                         </p>
                     </div>
                     <Button
@@ -1042,7 +1090,7 @@ export default function PaletteProofPanel({
                         disabled={!imageSrc}
                         onClick={() => setIsSelectingTargets(true)}
                     >
-                        Choose from image
+                        {t('proof.chooseFromImage')}
                     </Button>
                 </div>
             )}
@@ -1050,10 +1098,10 @@ export default function PaletteProofPanel({
             <Tabs value={view} onValueChange={(value) => setView(value as PanelView)}>
                 <TabsList className="grid h-8 w-full grid-cols-2">
                     <TabsTrigger value="proof" className="h-6 text-xs">
-                        Proof map
+                        {t('proof.proofMap')}
                     </TabsTrigger>
                     <TabsTrigger value="results" className="h-6 text-xs">
-                        Results
+                        {t('proof.results')}
                         {evaluation && (
                             <span className="ml-1 tabular-nums text-[9px] text-muted-foreground">
                                 {evaluation.answeredColumns}/{evaluation.totalColumns}
@@ -1078,14 +1126,19 @@ export default function PaletteProofPanel({
                                             backgroundColor: column.targetColor.hex,
                                             color: swatchTextColor(column.targetColor.rgb),
                                         }}
-                                        title={`Target ${column.column + 1}: ${column.targetColor.hex.toUpperCase()}`}
-                                        aria-label={`Target ${column.column + 1}`}
+                                        title={t('proof.target3', {
+                                            value1: column.column + 1,
+                                            value2: column.targetColor.hex.toUpperCase(),
+                                        })}
+                                        aria-label={t('proof.target', {
+                                            value1: column.column + 1,
+                                        })}
                                     >
                                         {column.column + 1}
                                     </div>
                                     <div className="min-w-0">
                                         <p className="text-[10px] font-medium">
-                                            Target {column.column + 1}
+                                            {t('proof.target', { value1: column.column + 1 })}
                                         </p>
                                         <p className="truncate text-[9px] uppercase text-muted-foreground">
                                             {column.targetColor.hex}
@@ -1117,13 +1170,16 @@ export default function PaletteProofPanel({
                                                 }}
                                                 title={
                                                     cell
-                                                        ? `${cell.id}: prefix ${cell.prefixIndex + 1}, ${candidateRoleLabel(
-                                                              cell.candidateRole
-                                                          )}${
-                                                              isFoundation
-                                                                  ? ' (foundation margin)'
-                                                                  : ''
-                                                          }`
+                                                        ? t('proof.prefix', {
+                                                              value1: cell.id,
+                                                              value2: cell.prefixIndex + 1,
+                                                              value3: candidateRoleLabel(
+                                                                  cell.candidateRole
+                                                              ),
+                                                              value4: isFoundation
+                                                                  ? t('proof.foundationMargin')
+                                                                  : '',
+                                                          })
                                                         : undefined
                                                 }
                                                 aria-label={cell?.id}
@@ -1137,26 +1193,30 @@ export default function PaletteProofPanel({
                         ))}
                     </div>
                     <div className="flex min-h-4 items-center text-[9px] text-muted-foreground">
-                        <span>F = shared foundation reference</span>
+                        <span>{t('proof.fSharedFoundationReference')}</span>
                         {saved && (
                             <span className="ml-auto text-green-600 dark:text-green-400">
-                                Saved
+                                {t('proof.saved')}
                             </span>
                         )}
                     </div>
                     {!profile && (
                         <p className="text-[10px] text-amber-600 dark:text-amber-400">
-                            Save a named filament profile to retain this proof and its results.
+                            {t('proof.saveANamedFilamentProfileToRetainThis')}
                         </p>
                     )}
                     {profileDirty && (
                         <p className="text-[10px] text-amber-600 dark:text-amber-400">
-                            Save or overwrite filament edits before tracking proof results.
+                            {t('proof.saveOrOverwriteFilamentEditsBeforeTrackingProof')}
                         </p>
                     )}
                     {selectedRecord && !isSelectedCurrent && (
                         <p className="text-[10px] text-muted-foreground">
-                            Saved proof from {new Date(selectedRecord.exportedAt).toLocaleString()}.
+                            {t('proof.savedProofFrom', {
+                                value1: new Date(selectedRecord.exportedAt).toLocaleString(
+                                    i18n.resolvedLanguage
+                                ),
+                            })}
                         </p>
                     )}
                 </TabsContent>
@@ -1164,26 +1224,29 @@ export default function PaletteProofPanel({
                 <TabsContent value="results" className="mt-3 space-y-3">
                     {!selectedRecord ? (
                         <div className="rounded-md border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
-                            Download the current 3MF to save this proof before recording results.
+                            {t('proof.downloadTheCurrent3MFToSaveThisProof')}
                         </div>
                     ) : (
                         <>
                             <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
                                 <span className="tabular-nums">
-                                    {evaluation?.answeredColumns ?? 0}/
-                                    {evaluation?.totalColumns ?? 0} targets answered
+                                    {t('proof.targetsAnswered', {
+                                        answered: evaluation?.answeredColumns ?? 0,
+                                        count: evaluation?.totalColumns ?? 0,
+                                    })}
                                 </span>
                                 {evaluation?.complete && (
                                     <span className="ml-auto inline-flex items-center gap-1 text-green-600 dark:text-green-400">
-                                        <Check className="h-3 w-3" /> Complete
+                                        <Check className="h-3 w-3" />
+                                        {t('proof.complete')}
                                     </span>
                                 )}
                             </div>
 
                             <div className="hidden grid-cols-[5.5rem_minmax(0,1fr)_7.5rem] gap-2 border-t border-border/70 px-0 py-1.5 text-[9px] font-medium uppercase tracking-wide text-muted-foreground sm:grid">
-                                <span>Target</span>
-                                <span>Candidates</span>
-                                <span>Match quality</span>
+                                <span>{t('proof.targetHeading')}</span>
+                                <span>{t('proof.candidates')}</span>
+                                <span>{t('proof.matchQuality')}</span>
                             </div>
                             <div className="divide-y divide-border/70 border-b border-border/70">
                                 {selectedRecord.proof.columns.map((column) => {
@@ -1211,13 +1274,17 @@ export default function PaletteProofPanel({
                                                             column.targetColor.rgb
                                                         ),
                                                     }}
-                                                    aria-label={`Target ${column.column + 1}`}
+                                                    aria-label={t('proof.target', {
+                                                        value1: column.column + 1,
+                                                    })}
                                                 >
                                                     {column.column + 1}
                                                 </div>
                                                 <div className="min-w-0 flex-1">
                                                     <p className="text-[10px] font-medium">
-                                                        Target {column.column + 1}
+                                                        {t('proof.target', {
+                                                            value1: column.column + 1,
+                                                        })}
                                                     </p>
                                                     <p className="truncate text-[9px] uppercase text-muted-foreground">
                                                         {column.targetColor.hex}
@@ -1271,12 +1338,17 @@ export default function PaletteProofPanel({
                                                                 aria-pressed={selected}
                                                                 aria-label={`${cellId}${
                                                                     isFoundation
-                                                                        ? ', foundation reference'
+                                                                        ? t(
+                                                                              'proof.foundationReference'
+                                                                          )
                                                                         : ''
                                                                 }`}
                                                                 title={`${cellId}: ${
-                                                                    cell?.candidateRole ??
-                                                                    'candidate'
+                                                                    cell
+                                                                        ? candidateRoleLabel(
+                                                                              cell.candidateRole
+                                                                          )
+                                                                        : t('proof.candidate')
                                                                 }`}
                                                             >
                                                                 {isFoundation
@@ -1302,7 +1374,7 @@ export default function PaletteProofPanel({
                                                         )}
                                                         aria-pressed={judgment?.response === 'none'}
                                                     >
-                                                        None
+                                                        {t('proof.none')}
                                                     </button>
                                                 </div>
                                             </div>
@@ -1325,8 +1397,18 @@ export default function PaletteProofPanel({
                                                         >
                                                             <SelectTrigger
                                                                 className="h-10 w-full px-2.5 py-0 text-[10px] font-medium shadow-none disabled:opacity-100"
-                                                                aria-label={`Match quality for Target ${column.column + 1}`}
-                                                                title={`Match: ${selectedMatchQualityOption.label}. ${selectedMatchQualityOption.title}`}
+                                                                aria-label={t(
+                                                                    'proof.matchQualityForTarget',
+                                                                    { value1: column.column + 1 }
+                                                                )}
+                                                                title={t('proof.match', {
+                                                                    value1: t(
+                                                                        selectedMatchQualityOption.labelKey
+                                                                    ),
+                                                                    value2: t(
+                                                                        selectedMatchQualityOption.titleKey
+                                                                    ),
+                                                                })}
                                                             >
                                                                 <SelectValue />
                                                             </SelectTrigger>
@@ -1340,9 +1422,11 @@ export default function PaletteProofPanel({
                                                                             key={option.value}
                                                                             value={option.value}
                                                                             className="text-xs"
-                                                                            title={option.title}
+                                                                            title={t(
+                                                                                option.titleKey
+                                                                            )}
                                                                         >
-                                                                            {option.label}
+                                                                            {t(option.labelKey)}
                                                                         </SelectItem>
                                                                     )
                                                                 )}
@@ -1365,9 +1449,7 @@ export default function PaletteProofPanel({
 
                             <div className="flex flex-wrap items-center gap-2">
                                 <p className="text-[9px] text-muted-foreground">
-                                    Pick the visibly closest patch, then describe the match as Best
-                                    available, Close, or Dead on. Select ties together; use None
-                                    only when every candidate is clearly a poor match.
+                                    {t('proof.pickTheVisiblyClosestPatchThenDescribeThe')}
                                 </p>
                                 {evaluation?.complete ? (
                                     <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
@@ -1383,7 +1465,7 @@ export default function PaletteProofPanel({
                                             }
                                         >
                                             <Pencil className="mr-1.5 h-3.5 w-3.5" />
-                                            Edit results
+                                            {t('proof.editResults')}
                                         </Button>
                                         {selectedProofMatchesCurrentProcess && (
                                             <>
@@ -1396,16 +1478,31 @@ export default function PaletteProofPanel({
                                                     title={
                                                         canContinueTargets
                                                             ? exhaustedTargetNumbers.length > 0
-                                                                ? `Continue ${continuableSelectedTargetIds.length} of ${selectedTargetSetMappingIds.length} targets; exhausted targets ${exhaustedTargetNumbers.join(', ')} will be skipped`
-                                                                : 'Keep these targets and test nearby untried challengers'
-                                                            : 'No selected target has a nearby untried challenger'
+                                                                ? t(
+                                                                      'proof.continueOfTargetsExhaustedTargetsWillBeSkipped',
+                                                                      {
+                                                                          value1: continuableSelectedTargetIds.length,
+                                                                          value2: selectedTargetSetMappingIds.length,
+                                                                          value3: exhaustedTargetNumbers.join(
+                                                                              ', '
+                                                                          ),
+                                                                      }
+                                                                  )
+                                                                : t(
+                                                                      'proof.keepTheseTargetsAndTestNearbyUntriedChallengers'
+                                                                  )
+                                                            : t(
+                                                                  'proof.noSelectedTargetHasANearbyUntriedChallenger'
+                                                              )
                                                     }
                                                 >
                                                     <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
                                                     {canContinueTargets &&
                                                     exhaustedTargetNumbers.length > 0
-                                                        ? `Continue ${continuableSelectedTargetIds.length} target${continuableSelectedTargetIds.length === 1 ? '' : 's'}`
-                                                        : 'Continue targets'}
+                                                        ? t('proof.continueTargetCount', {
+                                                              count: continuableSelectedTargetIds.length,
+                                                          })
+                                                        : t('proof.continueTargets')}
                                                 </Button>
                                                 <Button
                                                     size="sm"
@@ -1414,12 +1511,16 @@ export default function PaletteProofPanel({
                                                     onClick={handleNewTargets}
                                                     title={
                                                         canStartNewTargets
-                                                            ? 'Prioritize image targets outside this proof'
-                                                            : 'No untested image targets remain outside this proof'
+                                                            ? t(
+                                                                  'proof.prioritizeImageTargetsOutsideThisProof'
+                                                              )
+                                                            : t(
+                                                                  'proof.noUntestedImageTargetsRemainOutsideThisProof'
+                                                              )
                                                     }
                                                 >
                                                     <Plus className="mr-1.5 h-3.5 w-3.5" />
-                                                    New targets
+                                                    {t('proof.newTargets')}
                                                 </Button>
                                             </>
                                         )}
@@ -1442,7 +1543,7 @@ export default function PaletteProofPanel({
                                         }
                                     >
                                         <Check className="mr-1.5 h-3.5 w-3.5" />
-                                        Complete results
+                                        {t('proof.completeResults')}
                                     </Button>
                                 )}
                             </div>
@@ -1451,11 +1552,19 @@ export default function PaletteProofPanel({
                 </TabsContent>
             </Tabs>
 
-            {exportError && <p className="text-[10px] text-destructive">{exportError}</p>}
-            {actionError && <p className="text-[10px] text-destructive">{actionError}</p>}
+            {exportError && (
+                <p className="text-[10px] text-destructive">
+                    {translateRuntimeMessage(exportError)}
+                </p>
+            )}
+            {actionError && (
+                <p className="text-[10px] text-destructive">
+                    {translateRuntimeMessage(actionError)}
+                </p>
+            )}
             {!selectedSpec.comparisonEnabled && (
                 <p className="text-[10px] text-muted-foreground">
-                    At least two printable prefixes are required.
+                    {t('proof.atLeastTwoPrintablePrefixesAreRequired')}
                 </p>
             )}
         </section>

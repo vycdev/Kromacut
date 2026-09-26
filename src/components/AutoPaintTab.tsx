@@ -1,3 +1,5 @@
+import { Trans, useTranslation } from 'react-i18next';
+import { translateRuntimeMessage } from '../lib/runtimeMessages';
 import React from 'react';
 import { CollapsibleCard, DirtyDot } from '@/components/CollapsibleCard';
 import { NumberInput, Input } from '@/components/ui/input';
@@ -93,12 +95,13 @@ function ColorSeparationStatus({ result }: { result: AutoPaintResult }) {
                     : 'text-amber-600 dark:text-amber-400'
             }`}
         >
-            {formatColorSeparationStatus(report, extraRepeatCount)}
+            {translateRuntimeMessage(formatColorSeparationStatus(report, extraRepeatCount))}
         </p>
     );
 }
 
 function AppearanceModelStat({ result }: { result: AutoPaintResult }) {
+    const { t } = useTranslation('printing');
     const model = result.finalStack.appearanceModel;
     const effectiveOptics = model.effectiveOptics;
     const physicalFitApplied = effectiveOptics?.applied ?? false;
@@ -154,29 +157,29 @@ function AppearanceModelStat({ result }: { result: AutoPaintResult }) {
     }
     const evidenceNeeds = [
         model.trainingObservationCount < 8
-            ? `${8 - model.trainingObservationCount} more training choices`
+            ? t('autoPaintTab.moreTrainingChoices', { count: 8 - model.trainingObservationCount })
             : null,
         model.trainingDistinctStackCount < 8
-            ? `${8 - model.trainingDistinctStackCount} more training stacks`
+            ? t('autoPaintTab.moreTrainingStacks', { count: 8 - model.trainingDistinctStackCount })
             : null,
     ].filter((need): need is string => need !== null);
     const gateDetail =
         model.gateReason === 'insufficient-evidence'
             ? evidenceNeeds.join(' / ')
             : model.gateReason === 'insufficient-heldout'
-              ? 'Complete another proof for validation'
+              ? t('autoPaintTab.completeValidationProof')
               : model.gateReason === 'no-training-improvement'
-                ? 'Base model already ranks these choices'
+                ? t('autoPaintTab.baseModelRanksChoices')
                 : model.gateReason === 'heldout-below-threshold'
-                  ? 'Held-out agreement is below 70%'
+                  ? t('autoPaintTab.heldOutAgreementLow')
                   : model.gateReason === 'heldout-no-improvement'
-                    ? 'Held-out gain is below 10 points'
+                    ? t('autoPaintTab.heldOutGainLow')
                     : null;
 
     return (
         <div className="rounded border border-border/50 bg-background/40 px-2 py-1.5 text-[10px]">
             <div className="flex items-center justify-between gap-2">
-                <span className="font-semibold">Appearance model</span>
+                <span className="font-semibold">{t('autoPaintTab.appearanceModel')}</span>
                 <span
                     className={
                         model.applied || physicalFitApplied
@@ -191,44 +194,58 @@ function AppearanceModelStat({ result }: { result: AutoPaintResult }) {
                     }
                 >
                     {physicalFitApplied
-                        ? `Matrix physical fit (${((effectiveOptics?.confidence ?? 0) * 100).toFixed(0)}%)`
+                        ? t('autoPaintTab.matrixPhysicalFit', {
+                              percentage: ((effectiveOptics?.confidence ?? 0) * 100).toFixed(0),
+                          })
                         : model.applied
                           ? localEvidenceCount > 0
-                              ? `Global + local fit (${(model.confidence * 100).toFixed(0)}%)`
-                              : `Fitted estimate (${(model.confidence * 100).toFixed(0)}%)`
+                              ? t('autoPaintTab.globalLocalFit', {
+                                    percentage: (model.confidence * 100).toFixed(0),
+                                })
+                              : t('autoPaintTab.fittedEstimate', {
+                                    percentage: (model.confidence * 100).toFixed(0),
+                                })
                           : localEvidenceCount > 0
                             ? exactAnchorCount > 0 || matrixLutSampleCount > 0
-                                ? 'Measured + local evidence active'
-                                : 'Local Palette Proof evidence active'
+                                ? t('autoPaintTab.measuredLocalEvidenceActive')
+                                : t('autoPaintTab.localPaletteProofEvidenceActive')
                             : exactAnchorCount > 0 || matrixLutSampleCount > 0
                               ? matrixAnchorCount > 0 && proofAnchorCount === 0
-                                  ? 'Stack Matrix LUT active'
-                                  : 'Measured anchors active'
+                                  ? t('autoPaintTab.stackMatrixLUTActive')
+                                  : t('autoPaintTab.measuredAnchorsActive')
                               : model.observationCount > 0 || model.noneCount > 0
-                                ? 'Evidence gathered, fit gated'
-                                : 'Estimated only'}
+                                ? t('autoPaintTab.evidenceGatheredFitGated')
+                                : t('autoPaintTab.estimatedOnly')}
                 </span>
             </div>
             <div className="mt-0.5 text-muted-foreground">
-                {model.sourceProofIds.length} evidence sets {' / '}
-                {model.distinctStackCount} physically compared stacks {' / '}
-                {proofAnchorCount} dead-on anchors {' / '}
-                {localEvidenceCount} local neighborhoods {' / '}
-                {matrixLutSampleCount} matrix LUT recipes {' / '}
-                {model.noneCount} no matches
+                {t('autoPaintTab.evidenceSets', { count: model.sourceProofIds.length })} {' / '}
+                {t('autoPaintTab.comparedStacks', { count: model.distinctStackCount })} {' / '}
+                {t('autoPaintTab.exactAnchors', { count: proofAnchorCount })} {' / '}
+                {t('autoPaintTab.localNeighborhoods', { count: localEvidenceCount })} {' / '}
+                {t('autoPaintTab.matrixRecipes', { count: matrixLutSampleCount })} {' / '}
+                {t('autoPaintTab.noMatches', { count: model.noneCount })}
             </div>
             {effectiveOptics && effectiveOptics.sampleCount > 0 && (
                 <div className="mt-0.5 text-muted-foreground">
-                    {effectiveOptics.sampleCount} physical fit samples {' / '}
-                    {effectiveOptics.substrateInteractions.length} substrate pairs
+                    {t('autoPaintTab.physicalFitSamples', { count: effectiveOptics.sampleCount })}{' '}
+                    {' / '}
+                    {t('autoPaintTab.substratePairs', {
+                        count: effectiveOptics.substrateInteractions.length,
+                    })}
                     {physicalFitApplied && (
                         <>
-                            {' / '}mean ΔE {effectiveOptics.baselineMeanDeltaE.toFixed(1)} →{' '}
-                            {effectiveOptics.fittedMeanDeltaE.toFixed(1)}
+                            {' / '}
+                            {t('autoPaintTab.meanDeltaEChange', {
+                                before: effectiveOptics.baselineMeanDeltaE.toFixed(1),
+                                after: effectiveOptics.fittedMeanDeltaE.toFixed(1),
+                            })}
                             {effectiveOptics.crossValidationSampleCount > 0 && (
                                 <>
-                                    {' / '}held-out ΔE{' '}
-                                    {effectiveOptics.crossValidationMeanDeltaE.toFixed(1)}
+                                    {' / '}
+                                    {t('autoPaintTab.heldOutDeltaE', {
+                                        value: effectiveOptics.crossValidationMeanDeltaE.toFixed(1),
+                                    })}
                                 </>
                             )}
                         </>
@@ -237,27 +254,32 @@ function AppearanceModelStat({ result }: { result: AutoPaintResult }) {
             )}
             {averagePredictionConfidence !== null && minimumPredictionConfidence !== null && (
                 <div className="mt-0.5 text-muted-foreground">
-                    Prediction confidence {(averagePredictionConfidence * 100).toFixed(0)}% avg
-                    {' / '}
-                    {(minimumPredictionConfidence * 100).toFixed(0)}% lowest
+                    {t('autoPaintTab.predictionConfidence', {
+                        average: (averagePredictionConfidence * 100).toFixed(0),
+                        lowest: (minimumPredictionConfidence * 100).toFixed(0),
+                    })}
                     {[...predictionMethods.entries()].map(([method, count]) => (
                         <span key={method}>
                             {' / '}
-                            {count} {method}
+                            {t(`autoPaintTab.predictionMethod.${method}`, { count })}
                         </span>
                     ))}
                 </div>
             )}
             <div className="mt-0.5 text-muted-foreground">
-                {model.trainingObservationCount} training choices {' / '}
-                {model.trainingDistinctStackCount} training stacks {' / '}
-                {model.heldOutCount} held-out choices {' / '}
-                {model.heldOutDistinctStackCount} held-out stacks
+                {t('autoPaintTab.trainingChoices', { count: model.trainingObservationCount })}{' '}
+                {' / '}
+                {t('autoPaintTab.trainingStacks', { count: model.trainingDistinctStackCount })}{' '}
+                {' / '}
+                {t('autoPaintTab.heldOutChoices', { count: model.heldOutCount })} {' / '}
+                {t('autoPaintTab.heldOutStacks', { count: model.heldOutDistinctStackCount })}
             </div>
             {(model.applied || physicalFitApplied || localEvidenceCount > 0) && (
                 <div className="mt-0.5 text-muted-foreground">
-                    {(comparedCoverage * 100).toFixed(0)}% compared {' / '}
-                    {(localCoverage * 100).toFixed(0)}% local current-palette coverage
+                    {t('autoPaintTab.evidenceCoverage', {
+                        compared: (comparedCoverage * 100).toFixed(0),
+                        local: (localCoverage * 100).toFixed(0),
+                    })}
                 </div>
             )}
             {gateDetail && (model.observationCount > 0 || model.noneCount > 0) && (
@@ -271,36 +293,37 @@ type OptimizerTierValue = 'fast' | 'balanced' | 'thorough' | 'deep' | 'exact';
 
 interface OptimizerTierMeta {
     value: OptimizerTierValue;
-    label: string;
+    labelKey: string;
 }
 
 const OPTIMIZER_TIERS: readonly OptimizerTierMeta[] = [
     {
         value: 'fast',
-        label: 'Fast',
+        labelKey: 'autoPaintTab.tierFast',
     },
     {
         value: 'balanced',
-        label: 'Balanced',
+        labelKey: 'autoPaintTab.tierBalanced',
     },
     {
         value: 'thorough',
-        label: 'Thorough',
+        labelKey: 'autoPaintTab.tierThorough',
     },
     {
         value: 'deep',
-        label: 'Deep',
+        labelKey: 'autoPaintTab.tierDeep',
     },
     {
         value: 'exact',
-        label: 'Exact base order',
+        labelKey: 'autoPaintTab.tierExact',
     },
 ];
 
-function formatBaseOrderCount(count: number): string {
-    if (count >= 1_000_000_000) return `${(count / 1_000_000_000).toFixed(1)}B`;
-    if (count >= 1_000_000) return `${(count / 1_000_000).toFixed(1)}M`;
-    return count.toLocaleString();
+function formatBaseOrderCount(count: number, locale: string): string {
+    return new Intl.NumberFormat(locale, {
+        notation: count >= 1_000_000 ? 'compact' : 'standard',
+        maximumFractionDigits: count >= 1_000_000 ? 1 : 0,
+    }).format(count);
 }
 
 interface AutoPaintSliceData {
@@ -389,8 +412,6 @@ interface AutoPaintTabProps {
     setTransitionOpacity: (v: AutoPaintTransitionOpacity) => void;
     heightDithering: boolean;
     setHeightDithering: (v: boolean) => void;
-    ditherLineWidth: number;
-    setDitherLineWidth: (v: number) => void;
     omitAtRiskPixels: boolean;
     setOmitAtRiskPixels: (v: boolean) => void;
 
@@ -471,8 +492,6 @@ export default function AutoPaintTab({
     setTransitionOpacity,
     heightDithering,
     setHeightDithering,
-    ditherLineWidth,
-    setDitherLineWidth,
     omitAtRiskPixels,
     setOmitAtRiskPixels,
     flatPaint,
@@ -486,6 +505,7 @@ export default function AutoPaintTab({
     regionWeightingMode,
     setRegionWeightingMode,
 }: AutoPaintTabProps) {
+    const { t, i18n } = useTranslation('printing');
     const activeProfile = React.useMemo(
         () => profiles.find((profile) => profile.id === activeProfileId),
         [activeProfileId, profiles]
@@ -502,9 +522,6 @@ export default function AutoPaintTab({
     React.useEffect(() => {
         resetNextBestSuggestion();
     }, [filaments, imageSwatches, resetNextBestSuggestion]);
-    const [localDitherLineWidth, setLocalDitherLineWidth] = React.useState(
-        ditherLineWidth.toString()
-    );
     const [localSeparationMaxDeltaE, setLocalSeparationMaxDeltaE] = React.useState(
         separationMaxDeltaE.toString()
     );
@@ -547,10 +564,6 @@ export default function AutoPaintTab({
     );
 
     React.useEffect(() => {
-        setLocalDitherLineWidth(ditherLineWidth.toString());
-    }, [ditherLineWidth]);
-
-    React.useEffect(() => {
         setLocalOptimizerSeed(optimizerSeed?.toString() ?? '');
     }, [optimizerSeed]);
 
@@ -558,18 +571,24 @@ export default function AutoPaintTab({
         <TabsContent value="autopaint" forceMount className="data-[state=inactive]:hidden">
             <CollapsibleCard
                 id="autopaint"
-                title="Auto-paint"
+                title={t('autoPaintTab.autoPaint')}
                 collapsedSummary={
                     <>
                         {isComputing && (
                             <Loader2
                                 className="w-4 h-4 animate-spin text-muted-foreground"
-                                aria-label="Computing auto-paint layers"
+                                aria-label={t('autoPaintTab.computingAutoPaintLayers')}
                             />
                         )}
-                        {error && !isComputing && <DirtyDot title={`Auto-paint error: ${error}`} />}
+                        {error && !isComputing && (
+                            <DirtyDot
+                                title={t('autoPaintTab.errorTitle', {
+                                    error: translateRuntimeMessage(error),
+                                })}
+                            />
+                        )}
                         {activeProfileId && isDirty && (
-                            <DirtyDot title="Filament profile has unsaved changes" />
+                            <DirtyDot title={t('autoPaintTab.filamentProfileHasUnsavedChanges')} />
                         )}
                     </>
                 }
@@ -577,22 +596,24 @@ export default function AutoPaintTab({
                 {/* Profiles Section */}
                 <div className="space-y-2 mb-4">
                     <div className="flex items-center gap-2">
-                        <span className="text-xs font-semibold text-foreground">Profiles</span>
+                        <span className="text-xs font-semibold text-foreground">
+                            {t('autoPaintTab.profiles')}
+                        </span>
                         {activeProfileId && isDirty && (
                             <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 border border-amber-500/20">
-                                Unsaved changes
+                                {t('autoPaintTab.unsavedChanges')}
                             </span>
                         )}
                     </div>
                     <div className="flex items-center gap-1.5">
                         <Select value={activeProfileId ?? ''} onValueChange={handleLoadProfile}>
                             <SelectTrigger className="h-8 text-xs flex-1">
-                                <SelectValue placeholder="Unsaved Configuration" />
+                                <SelectValue placeholder={t('autoPaintTab.unsavedConfiguration')} />
                             </SelectTrigger>
                             <SelectContent className="w-[var(--radix-select-trigger-width)]">
                                 {profiles.length === 0 ? (
                                     <div className="px-2 py-1.5 text-xs text-muted-foreground">
-                                        No saved profiles
+                                        {t('autoPaintTab.noSavedProfiles')}
                                     </div>
                                 ) : (
                                     profiles.map((p) => (
@@ -622,13 +643,12 @@ export default function AutoPaintTab({
                                 {TEMPLATE_PROFILES.length > 0 && (
                                     <>
                                         <div className="px-2 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider select-none border-t border-border/50 mt-1 pt-2">
-                                            Templates
+                                            {t('autoPaintTab.templates')}
                                         </div>
                                         <div className="px-2 pb-1.5 text-[9px] leading-snug whitespace-normal text-muted-foreground/70 select-none">
-                                            Unofficial reference filament sets based on supplier
-                                            color charts. Not affiliated with, endorsed by, or
-                                            sponsored by any manufacturer; names identify the
-                                            referenced products only.
+                                            {t(
+                                                'autoPaintTab.unofficialReferenceFilamentSetsBasedOnSupplierColorCharts'
+                                            )}
                                         </div>
                                         {TEMPLATE_PROFILES.map((p) => (
                                             <SelectItem key={p.id} value={p.id} className="text-xs">
@@ -665,8 +685,8 @@ export default function AutoPaintTab({
                             className="h-8 w-8 text-muted-foreground hover:text-primary cursor-pointer flex-shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
                             title={
                                 isTemplateActive
-                                    ? 'Templates are read-only — use Save as new profile'
-                                    : 'Save changes to current profile'
+                                    ? t('autoPaintTab.templatesAreReadOnlyUseSaveAsNewProfile')
+                                    : t('autoPaintTab.saveChangesToCurrentProfile')
                             }
                             disabled={!activeProfileId || !isDirty || isTemplateActive}
                             onClick={handleOverwriteProfile}
@@ -681,16 +701,18 @@ export default function AutoPaintTab({
                                     variant="ghost"
                                     size="icon"
                                     className="h-8 w-8 text-muted-foreground hover:text-primary cursor-pointer flex-shrink-0"
-                                    title="Save as new profile"
+                                    title={t('autoPaintTab.saveAsNewProfile')}
                                 >
                                     <FilePlus className="w-4 h-4" />
                                 </Button>
                             </PopoverTrigger>
                             <PopoverContent className="w-64 p-3" align="end">
                                 <div className="space-y-2">
-                                    <h4 className="text-xs font-semibold">Save New Profile</h4>
+                                    <h4 className="text-xs font-semibold">
+                                        {t('autoPaintTab.saveNewProfile')}
+                                    </h4>
                                     <Input
-                                        placeholder="Profile name..."
+                                        placeholder={t('autoPaintTab.profileName')}
                                         value={saveProfileName}
                                         onChange={(e) => setSaveProfileName(e.target.value)}
                                         onKeyDown={(e) => {
@@ -707,7 +729,7 @@ export default function AutoPaintTab({
                                         disabled={!saveProfileName.trim()}
                                         className="w-full h-7 text-xs cursor-pointer"
                                     >
-                                        Save
+                                        {t('autoPaintTab.save')}
                                     </Button>
                                 </div>
                             </PopoverContent>
@@ -722,8 +744,8 @@ export default function AutoPaintTab({
                                     className="h-8 w-8 text-muted-foreground hover:text-primary cursor-pointer flex-shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
                                     title={
                                         isTemplateActive
-                                            ? 'Templates cannot be renamed'
-                                            : 'Rename selected profile'
+                                            ? t('autoPaintTab.templatesCannotBeRenamed')
+                                            : t('autoPaintTab.renameSelectedProfile')
                                     }
                                     disabled={!activeProfileId || isTemplateActive}
                                 >
@@ -732,9 +754,11 @@ export default function AutoPaintTab({
                             </PopoverTrigger>
                             <PopoverContent className="w-64 p-3" align="end">
                                 <div className="space-y-2">
-                                    <h4 className="text-xs font-semibold">Rename Profile</h4>
+                                    <h4 className="text-xs font-semibold">
+                                        {t('autoPaintTab.renameProfile')}
+                                    </h4>
                                     <Input
-                                        placeholder="Profile name..."
+                                        placeholder={t('autoPaintTab.profileName')}
                                         value={renameProfileName}
                                         onChange={(e) => setRenameProfileName(e.target.value)}
                                         onKeyDown={(e) => {
@@ -751,7 +775,7 @@ export default function AutoPaintTab({
                                         disabled={!renameProfileName.trim()}
                                         className="w-full h-7 text-xs cursor-pointer"
                                     >
-                                        Rename
+                                        {t('autoPaintTab.rename')}
                                     </Button>
                                 </div>
                             </PopoverContent>
@@ -772,7 +796,7 @@ export default function AutoPaintTab({
                             variant="ghost"
                             size="icon"
                             className="h-8 w-8 text-muted-foreground hover:text-primary cursor-pointer flex-shrink-0"
-                            title="Import profile from file"
+                            title={t('autoPaintTab.importProfileFromFile')}
                             onClick={() => importInputRef.current?.click()}
                         >
                             <Upload className="w-4 h-4" />
@@ -783,7 +807,7 @@ export default function AutoPaintTab({
                             variant="ghost"
                             size="icon"
                             className="h-8 w-8 text-muted-foreground hover:text-primary cursor-pointer flex-shrink-0"
-                            title="Export current filaments as .kfil file"
+                            title={t('autoPaintTab.exportCurrentFilamentsAsKfilFile')}
                             onClick={handleExportProfile}
                             disabled={filaments.length === 0}
                         >
@@ -799,8 +823,8 @@ export default function AutoPaintTab({
                             className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 cursor-pointer flex-shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
                             title={
                                 isTemplateActive
-                                    ? 'Templates cannot be deleted'
-                                    : 'Delete selected profile'
+                                    ? t('autoPaintTab.templatesCannotBeDeleted')
+                                    : t('autoPaintTab.deleteSelectedProfile')
                             }
                             disabled={!activeProfileId || isTemplateActive}
                             onClick={() => activeProfileId && handleDeleteProfile(activeProfileId)}
@@ -812,16 +836,16 @@ export default function AutoPaintTab({
                     {/* Import feedback */}
                     {importFeedback && (
                         <div className="text-[10px] px-2 py-1 rounded bg-primary/10 text-primary border border-primary/20">
-                            {importFeedback}
+                            {translateRuntimeMessage(importFeedback)}
                         </div>
                     )}
 
                     {/* Persistent template notice — estimates need calibration */}
                     {isTemplateActive && (
                         <div className="text-[10px] px-2 py-1 rounded bg-amber-500/10 text-amber-600 border border-amber-500/20">
-                            Template hiding distances are estimated from color — calibrate before
-                            printing. Colors are the supplier's advertised values. Use "Save as new
-                            profile" to keep an editable copy.
+                            {t(
+                                'autoPaintTab.templateHidingDistancesAreEstimatedFromColorCalibrateBefore'
+                            )}
                         </div>
                     )}
                 </div>
@@ -829,7 +853,7 @@ export default function AutoPaintTab({
                 <div className="space-y-3">
                     {filaments.length === 0 ? (
                         <div className="text-center py-4 text-xs text-muted-foreground bg-muted/20 rounded-lg border border-dashed border-border">
-                            No filaments added
+                            {t('autoPaintTab.noFilamentsAdded')}
                         </div>
                     ) : (
                         <div className="space-y-2">
@@ -857,7 +881,7 @@ export default function AutoPaintTab({
                             className="w-full text-xs gap-1.5 h-8 border-dashed border-border hover:border-primary/50 hover:bg-primary/5 text-muted-foreground hover:text-primary cursor-pointer"
                         >
                             <Plus className="w-3.5 h-3.5" />
-                            Add Filament
+                            {t('autoPaintTab.addFilament')}
                         </Button>
 
                         {filaments.length > 0 && (
@@ -868,7 +892,7 @@ export default function AutoPaintTab({
                                 className="w-full text-xs gap-1.5 h-8 cursor-pointer"
                             >
                                 <FlaskConical className="w-3.5 h-3.5" />
-                                Calibrate
+                                {t('autoPaintTab.calibrate')}
                             </Button>
                         )}
                     </div>
@@ -878,7 +902,7 @@ export default function AutoPaintTab({
                         <div className="space-y-2 pt-2">
                             <div className="flex items-center justify-between">
                                 <label className="text-xs font-medium text-foreground">
-                                    Max Height
+                                    {t('autoPaintTab.maxHeight')}
                                 </label>
                                 <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
                                     mm
@@ -890,7 +914,10 @@ export default function AutoPaintTab({
                                     max={20}
                                     step={0.1}
                                     value={autoPaintMaxHeight ?? ''}
-                                    placeholder={autoPaintResult?.totalHeight?.toFixed(1) ?? 'Auto'}
+                                    placeholder={
+                                        autoPaintResult?.totalHeight?.toFixed(1) ??
+                                        t('autoPaintTab.auto')
+                                    }
                                     onChange={(e) => {
                                         const v = e.target.value;
                                         if (v === '' || v === undefined) {
@@ -916,22 +943,27 @@ export default function AutoPaintTab({
                                     size="sm"
                                     onClick={() => setAutoPaintMaxHeight(undefined)}
                                     className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground"
-                                    title="Use automatic height"
+                                    title={t('autoPaintTab.useAutomaticHeight')}
                                 >
-                                    Auto
+                                    {t('autoPaintTab.auto')}
                                 </Button>
                             </div>
                             {autoPaintResult && (
                                 <div className="text-[10px] text-muted-foreground">
-                                    Height: {autoPaintResult.totalHeight.toFixed(2)}mm
+                                    {t('autoPaintTab.height', {
+                                        height: autoPaintResult.totalHeight.toFixed(2),
+                                    })}
                                     {autoPaintMaxHeight === undefined && (
-                                        <span className="ml-1 text-primary">(auto)</span>
+                                        <span className="ml-1 text-primary">
+                                            {t('autoPaintTab.auto2')}
+                                        </span>
                                     )}
                                     {autoPaintMaxHeight !== undefined &&
                                         autoPaintMaxHeight < autoPaintResult.autoHeight && (
                                             <span className="ml-2 text-amber-600">
-                                                ⚠️ compressed below auto (
-                                                {autoPaintResult.autoHeight.toFixed(1)}mm)
+                                                {t('autoPaintTab.compressedBelowAuto', {
+                                                    height: autoPaintResult.autoHeight.toFixed(1),
+                                                })}
                                             </span>
                                         )}
                                 </div>
@@ -942,8 +974,8 @@ export default function AutoPaintTab({
                                         <span className="flex items-center gap-1.5">
                                             <Loader2 className="w-3 h-3 animate-spin" />
                                             {printableFeatureIsComputing
-                                                ? 'Analyzing printable detail…'
-                                                : 'Optimizing filament order…'}
+                                                ? t('autoPaintTab.analyzingPrintableDetail')
+                                                : t('autoPaintTab.optimizingFilamentOrder')}
                                         </span>
                                         <span className="tabular-nums">
                                             {!printableFeatureIsComputing &&
@@ -967,10 +999,9 @@ export default function AutoPaintTab({
                                     role="alert"
                                     className="space-y-1 text-[10px] text-destructive"
                                 >
-                                    <p>{error}</p>
+                                    <p>{translateRuntimeMessage(error)}</p>
                                     <p>
-                                        No new Auto-paint model was created. The preview may still
-                                        show the previous build.
+                                        {t('autoPaintTab.noNewAutoPaintModelWasCreatedThePreview')}
                                     </p>
                                 </div>
                             )}
@@ -981,63 +1012,29 @@ export default function AutoPaintTab({
                     {filaments.length > 0 && (
                         <div className="space-y-3 pt-2">
                             <div className="h-px bg-border/50" />
-                            <div className="flex items-center gap-2">
-                                <Label
-                                    htmlFor="effective-line-width"
-                                    className="text-xs font-medium text-foreground whitespace-nowrap"
-                                >
-                                    Effective line width
-                                </Label>
-                                <NumberInput
-                                    id="effective-line-width"
-                                    data-testid="autopaint-effective-line-width"
-                                    min={0.1}
-                                    max={2}
-                                    step={0.01}
-                                    value={localDitherLineWidth}
-                                    onChange={(event) =>
-                                        setLocalDitherLineWidth(event.target.value)
-                                    }
-                                    onBlur={() => {
-                                        let value = parseFloat(localDitherLineWidth);
-                                        if (Number.isNaN(value)) {
-                                            setLocalDitherLineWidth(ditherLineWidth.toString());
-                                            return;
-                                        }
-                                        value = Math.max(0.1, Math.min(2, value));
-                                        setDitherLineWidth(value);
-                                        setLocalDitherLineWidth(value.toString());
-                                    }}
-                                    onKeyDown={(event) => {
-                                        if (event.key === 'Enter') event.currentTarget.blur();
-                                    }}
-                                    className="ml-auto h-7 w-20 text-xs"
-                                />
-                                <span className="text-[10px] text-muted-foreground">mm</span>
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => setDitherLineWidth(0.42)}
-                                    className="h-7 px-1.5 text-[10px] text-muted-foreground hover:text-foreground"
-                                    title="Reset to default (0.42mm)"
-                                >
-                                    Reset
-                                </Button>
-                            </div>
                             <div className="flex items-center justify-between gap-3">
                                 <Label
                                     htmlFor="omit-at-risk-pixels"
                                     className="cursor-pointer text-xs font-medium text-foreground"
                                 >
-                                    Omit at-risk colors from matching
+                                    {t('autoPaintTab.omitIsolatedColorSpecks')}
                                 </Label>
                                 <Switch
                                     id="omit-at-risk-pixels"
                                     data-testid="autopaint-omit-at-risk-pixels"
+                                    aria-describedby="omit-color-specks-description"
                                     checked={omitAtRiskPixels}
                                     onCheckedChange={setOmitAtRiskPixels}
                                 />
                             </div>
+                            <p
+                                id="omit-color-specks-description"
+                                className="text-[10px] text-muted-foreground"
+                            >
+                                {t(
+                                    'autoPaintTab.onlyReplacesColorsUsedExclusivelyInTinyEnclosedSpecks'
+                                )}
+                            </p>
                             <PrintableFeaturePreview
                                 simulation={printableFeatureSimulation}
                                 isComputing={printableFeatureIsComputing}
@@ -1054,7 +1051,7 @@ export default function AutoPaintTab({
                                     htmlFor="enhanced-color-match"
                                     className="text-xs font-medium text-foreground cursor-pointer"
                                 >
-                                    Enhanced color matching
+                                    {t('autoPaintTab.enhancedColorMatching')}
                                 </Label>
                                 <Switch
                                     id="enhanced-color-match"
@@ -1071,7 +1068,7 @@ export default function AutoPaintTab({
                                         htmlFor="repeated-swaps"
                                         className="text-xs font-medium text-foreground whitespace-nowrap"
                                     >
-                                        Total repeat limit
+                                        {t('autoPaintTab.totalRepeatLimit')}
                                     </Label>
                                     <Select
                                         value={maxRepeatedSwaps.toString()}
@@ -1090,22 +1087,22 @@ export default function AutoPaintTab({
                                         </SelectTrigger>
                                         <SelectContent>
                                             <SelectItem value="0" className="text-xs">
-                                                Off
+                                                {t('autoPaintTab.off')}
                                             </SelectItem>
                                             <SelectItem value="2" className="text-xs">
-                                                Up to 2 extra appearances
+                                                {t('autoPaintTab.upTo2ExtraAppearances')}
                                             </SelectItem>
                                             <SelectItem value="4" className="text-xs">
-                                                Up to 4 extra appearances
+                                                {t('autoPaintTab.upTo4ExtraAppearances')}
                                             </SelectItem>
                                             <SelectItem value="6" className="text-xs">
-                                                Up to 6 extra appearances
+                                                {t('autoPaintTab.upTo6ExtraAppearances')}
                                             </SelectItem>
                                             <SelectItem value="8" className="text-xs">
-                                                Up to 8 extra appearances
+                                                {t('autoPaintTab.upTo8ExtraAppearances')}
                                             </SelectItem>
                                             <SelectItem value="12" className="text-xs">
-                                                Up to 12 extra appearances
+                                                {t('autoPaintTab.upTo12ExtraAppearances')}
                                             </SelectItem>
                                         </SelectContent>
                                     </Select>
@@ -1117,7 +1114,7 @@ export default function AutoPaintTab({
                                         htmlFor="preserve-separation"
                                         className="text-xs font-medium text-foreground cursor-pointer"
                                     >
-                                        Preserve color separation
+                                        {t('autoPaintTab.preserveColorSeparation')}
                                     </Label>
                                     <Switch
                                         id="preserve-separation"
@@ -1134,13 +1131,17 @@ export default function AutoPaintTab({
                                                 htmlFor="separation-max-delta-e"
                                                 className="text-[11px] font-medium text-foreground"
                                             >
-                                                Unique-match limit (ΔE)
+                                                {t('autoPaintTab.uniqueMatchLimitE')}
                                             </Label>
                                             <NumberInput
                                                 id="separation-max-delta-e"
                                                 data-testid="autopaint-separation-max-delta-e"
-                                                aria-label="Unique-match color error limit"
-                                                title="Hard color-error limit for preserving an image color as its own printable surface color."
+                                                aria-label={t(
+                                                    'autoPaintTab.uniqueMatchColorErrorLimit'
+                                                )}
+                                                title={t(
+                                                    'autoPaintTab.hardColorErrorLimitForPreservingAnImageColor'
+                                                )}
                                                 min={MIN_SEPARATION_MAX_DELTA_E}
                                                 max={MAX_SEPARATION_MAX_DELTA_E}
                                                 step={0.1}
@@ -1174,7 +1175,7 @@ export default function AutoPaintTab({
                                                 htmlFor="fail-on-separation-error"
                                                 className="text-[11px] font-medium text-foreground cursor-pointer"
                                             >
-                                                Require a unique match for every color
+                                                {t('autoPaintTab.requireAUniqueMatchForEveryColor')}
                                             </Label>
                                             <Switch
                                                 id="fail-on-separation-error"
@@ -1184,9 +1185,9 @@ export default function AutoPaintTab({
                                             />
                                         </div>
                                         <p className="leading-relaxed">
-                                            Colors without a unique match inside the limit are
-                                            dropped and merged into preserved colors. Requiring
-                                            every color rejects the result instead.
+                                            {t(
+                                                'autoPaintTab.colorsWithoutAUniqueMatchInsideTheLimitAre'
+                                            )}
                                         </p>
                                         {autoPaintResult && (
                                             <ColorSeparationStatus result={autoPaintResult} />
@@ -1200,7 +1201,7 @@ export default function AutoPaintTab({
                                         htmlFor="height-dithering"
                                         className="text-xs font-medium text-foreground cursor-pointer"
                                     >
-                                        Height dithering
+                                        {t('autoPaintTab.heightDithering')}
                                     </Label>
                                     <Switch
                                         id="height-dithering"
@@ -1223,7 +1224,7 @@ export default function AutoPaintTab({
                                     htmlFor="flat-paint"
                                     className="text-xs font-medium text-foreground cursor-pointer"
                                 >
-                                    Flat Paint
+                                    {t('autoPaintTab.flatPaint')}
                                 </Label>
                                 <Switch
                                     id="flat-paint"
@@ -1240,7 +1241,7 @@ export default function AutoPaintTab({
                                         htmlFor="flat-paint-face-up"
                                         className="text-xs font-medium text-foreground cursor-pointer"
                                     >
-                                        Face-up, no clear layer
+                                        {t('autoPaintTab.faceUpNoClearLayer')}
                                     </Label>
                                     <Switch
                                         id="flat-paint-face-up"
@@ -1261,7 +1262,7 @@ export default function AutoPaintTab({
                         >
                             <div className="h-px bg-border/50" />
                             <Label className="text-xs font-semibold text-foreground">
-                                Optimizer Settings
+                                {t('autoPaintTab.optimizerSettings')}
                             </Label>
                             <div className="space-y-2">
                                 <div className="flex items-center gap-2">
@@ -1269,7 +1270,7 @@ export default function AutoPaintTab({
                                         htmlFor="optimizer-algorithm"
                                         className="w-28 shrink-0 text-xs text-muted-foreground whitespace-nowrap"
                                     >
-                                        Algorithm
+                                        {t('autoPaintTab.algorithm')}
                                     </Label>
                                     <Select
                                         value={optimizerAlgorithm}
@@ -1289,7 +1290,7 @@ export default function AutoPaintTab({
                                                     value={tier.value}
                                                     className="text-xs"
                                                 >
-                                                    {tier.label}
+                                                    {t(tier.labelKey)}
                                                 </SelectItem>
                                             ))}
                                         </SelectContent>
@@ -1303,9 +1304,12 @@ export default function AutoPaintTab({
                                                 : 'border-border/50 bg-muted/30 text-muted-foreground'
                                         }`}
                                     >
-                                        Exact base order will score about{' '}
-                                        {formatBaseOrderCount(exactBaseOrderCount)} base orders
-                                        before repeat refinement.
+                                        {t('autoPaintTab.exactSearchEstimate', {
+                                            orders: formatBaseOrderCount(
+                                                exactBaseOrderCount,
+                                                i18n.resolvedLanguage ?? 'en'
+                                            ),
+                                        })}
                                     </div>
                                 )}
                                 <div className="flex items-center gap-2">
@@ -1313,7 +1317,7 @@ export default function AutoPaintTab({
                                         htmlFor="region-weighting"
                                         className="w-28 shrink-0 text-xs text-muted-foreground whitespace-nowrap"
                                     >
-                                        Region priority
+                                        {t('autoPaintTab.regionPriority')}
                                     </Label>
                                     <Select
                                         value={regionWeightingMode}
@@ -1328,13 +1332,13 @@ export default function AutoPaintTab({
                                         </SelectTrigger>
                                         <SelectContent>
                                             <SelectItem value="uniform" className="text-xs">
-                                                Uniform (all equal)
+                                                {t('autoPaintTab.uniformAllEqual')}
                                             </SelectItem>
                                             <SelectItem value="center" className="text-xs">
-                                                Center-weighted
+                                                {t('autoPaintTab.centerWeighted')}
                                             </SelectItem>
                                             <SelectItem value="edge" className="text-xs">
-                                                Edge-weighted
+                                                {t('autoPaintTab.edgeWeighted')}
                                             </SelectItem>
                                         </SelectContent>
                                     </Select>
@@ -1344,7 +1348,7 @@ export default function AutoPaintTab({
                                         htmlFor="transition-opacity"
                                         className="w-28 shrink-0 text-xs text-muted-foreground whitespace-nowrap"
                                     >
-                                        Transition detail
+                                        {t('autoPaintTab.transitionDetail')}
                                     </Label>
                                     <Select
                                         value={transitionOpacity.toString()}
@@ -1363,13 +1367,13 @@ export default function AutoPaintTab({
                                         </SelectTrigger>
                                         <SelectContent>
                                             <SelectItem value="0.8" className="text-xs">
-                                                Compact (80% opacity)
+                                                {t('autoPaintTab.compact80Opacity')}
                                             </SelectItem>
                                             <SelectItem value="0.9" className="text-xs">
-                                                Detailed (90% opacity)
+                                                {t('autoPaintTab.detailed90Opacity')}
                                             </SelectItem>
                                             <SelectItem value="0.95" className="text-xs">
-                                                Maximum (95% opacity)
+                                                {t('autoPaintTab.maximum95Opacity')}
                                             </SelectItem>
                                         </SelectContent>
                                     </Select>
@@ -1379,12 +1383,12 @@ export default function AutoPaintTab({
                                         htmlFor="optimizer-seed"
                                         className="w-28 shrink-0 text-xs text-muted-foreground whitespace-nowrap"
                                     >
-                                        Seed (optional)
+                                        {t('autoPaintTab.seedOptional')}
                                     </Label>
                                     <Input
                                         id="optimizer-seed"
                                         type="text"
-                                        placeholder="Automatic"
+                                        placeholder={t('autoPaintTab.automatic')}
                                         value={localOptimizerSeed}
                                         onChange={(e) => setLocalOptimizerSeed(e.target.value)}
                                         onBlur={() => {
@@ -1424,19 +1428,25 @@ export default function AutoPaintTab({
                             <div className="space-y-2">
                                 <div className="flex items-center gap-2">
                                     <span className="text-xs font-semibold text-foreground">
-                                        Transition Zones
+                                        {t('autoPaintTab.transitionZones')}
                                     </span>
                                     <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
-                                        {autoPaintResult.transitionZones.length} zones
+                                        {t('autoPaintTab.zoneCount', {
+                                            count: autoPaintResult.transitionZones.length,
+                                        })}
                                     </span>
                                 </div>
                                 <div className="text-[10px] text-muted-foreground space-y-0.5">
                                     <div>
-                                        Total height: {autoPaintResult.totalHeight.toFixed(2)}mm
+                                        {t('autoPaintTab.totalHeight', {
+                                            height: autoPaintResult.totalHeight.toFixed(2),
+                                        })}
                                         {autoPaintSliceData && (
                                             <span className="ml-2 text-muted-foreground/70">
-                                                ({autoPaintSliceData.virtualSwatches.length}{' '}
-                                                physical layers)
+                                                {t('autoPaintTab.physicalLayers', {
+                                                    count: autoPaintSliceData.virtualSwatches
+                                                        .length,
+                                                })}
                                             </span>
                                         )}
                                     </div>
@@ -1460,9 +1470,11 @@ export default function AutoPaintTab({
                                         )}
                                     </div>
                                     <div className="flex justify-between text-[9px] text-muted-foreground/70">
-                                        <span>0 mm (plate)</span>
+                                        <span>{t('autoPaintTab.0MmPlate')}</span>
                                         <span>
-                                            {autoPaintResult.totalHeight.toFixed(2)} mm (top)
+                                            {t('autoPaintTab.topHeight', {
+                                                height: autoPaintResult.totalHeight.toFixed(2),
+                                            })}
                                         </span>
                                     </div>
                                 </div>
@@ -1484,7 +1496,12 @@ export default function AutoPaintTab({
                                                     }`}
                                                     title={
                                                         isCompressed
-                                                            ? `Compressed to fit Max Height — ideal thickness ${zone.idealThickness.toFixed(2)} mm`
+                                                            ? t('autoPaintTab.compressedZone', {
+                                                                  thickness:
+                                                                      zone.idealThickness.toFixed(
+                                                                          2
+                                                                      ),
+                                                              })
                                                             : undefined
                                                     }
                                                 >
@@ -1499,7 +1516,7 @@ export default function AutoPaintTab({
                                                     </span>
                                                     {isCompressed && (
                                                         <span className="text-[9px] px-1 py-0.5 rounded bg-amber-500/20 text-amber-600 font-medium">
-                                                            compressed
+                                                            {t('autoPaintTab.compressed')}
                                                         </span>
                                                     )}
                                                     <span className="ml-auto text-[10px] text-muted-foreground tabular-nums">
@@ -1521,14 +1538,14 @@ export default function AutoPaintTab({
                     {/* Warning when no filaments */}
                     {filaments.length === 0 && (
                         <div className="mt-3 p-2 rounded-md bg-amber-500/10 border border-amber-500/20 text-amber-600 text-[10px]">
-                            Add at least one filament to generate auto-paint layers
+                            {t('autoPaintTab.addAtLeastOneFilamentToGenerateAutoPaint')}
                         </div>
                     )}
 
                     {/* Warning when no image colors */}
                     {filaments.length > 0 && filteredCount === 0 && (
                         <div className="mt-3 p-2 rounded-md bg-amber-500/10 border border-amber-500/20 text-amber-600 text-[10px]">
-                            Load an image to generate auto-paint layers
+                            {t('autoPaintTab.loadAnImageToGenerateAutoPaintLayers')}
                         </div>
                     )}
 
@@ -1537,12 +1554,18 @@ export default function AutoPaintTab({
                         <div className="mt-4 p-3 rounded-md border border-border/50 bg-muted/30 space-y-2">
                             <AppearanceModelStat result={autoPaintResult} />
                             <div className="flex items-center justify-between">
-                                <span className="text-xs font-semibold">Result Confidence</span>
+                                <span className="text-xs font-semibold">
+                                    {t('autoPaintTab.resultConfidence')}
+                                </span>
                                 <span
                                     className={`text-sm font-bold ${getConfidenceColor(autoPaintResult.confidence)}`}
                                 >
-                                    {getConfidenceLabel(autoPaintResult.confidence)} (
-                                    {(autoPaintResult.confidence * 100).toFixed(0)}%)
+                                    {t('autoPaintTab.confidenceValue', {
+                                        confidence: translateRuntimeMessage(
+                                            getConfidenceLabel(autoPaintResult.confidence)
+                                        ),
+                                        percentage: (autoPaintResult.confidence * 100).toFixed(0),
+                                    })}
                                 </span>
                             </div>
                             <div className={getConfidenceColor(autoPaintResult.confidence)}>
@@ -1557,21 +1580,21 @@ export default function AutoPaintTab({
                             </div>
                             <div className="grid grid-cols-3 gap-2 text-[10px]">
                                 <ConfidenceStat
-                                    label="Calibration"
+                                    label={t('autoPaintTab.calibration')}
                                     value={autoPaintResult.confidenceFactors.calibrationQuality}
                                 />
                                 <ConfidenceStat
-                                    label="Coverage"
+                                    label={t('autoPaintTab.coverage')}
                                     value={autoPaintResult.confidenceFactors.filamentCoverage}
                                 />
                                 <ConfidenceStat
-                                    label="Compression"
+                                    label={t('autoPaintTab.compression')}
                                     value={autoPaintResult.confidenceFactors.compressionImpact}
                                 />
                             </div>
                             {autoPaintResult.confidence < 0.7 && (
                                 <p className="text-[10px] text-amber-600 dark:text-amber-400">
-                                    Tip: calibrate your filaments for better accuracy.
+                                    {t('autoPaintTab.tipCalibrateYourFilamentsForBetterAccuracy')}
                                 </p>
                             )}
                             {/* Optimizer Metadata */}
@@ -1580,12 +1603,12 @@ export default function AutoPaintTab({
                                     <div className="h-px bg-border/50" />
                                     <div className="flex items-center gap-1.5">
                                         <span className="text-xs font-semibold text-foreground">
-                                            Optimizer Performance
+                                            {t('autoPaintTab.optimizerPerformance')}
                                         </span>
                                         <span className="ml-auto flex items-center gap-1.5 text-[9px] text-muted-foreground">
                                             {autoPaintResult.optimizerMetadata.cacheHit && (
                                                 <span className="px-1.5 py-0.5 rounded border border-border/60 bg-background/50">
-                                                    Cache hit
+                                                    {t('autoPaintTab.cacheHit')}
                                                 </span>
                                             )}
                                             <span
@@ -1593,22 +1616,28 @@ export default function AutoPaintTab({
                                                 title={
                                                     autoPaintResult.optimizerMetadata.optimality ===
                                                     'exact'
-                                                        ? 'Every candidate in the applicable exact search space was compared.'
-                                                        : 'Heuristic search result; a better combined order may still exist.'
+                                                        ? t(
+                                                              'autoPaintTab.everyCandidateInTheApplicableExactSearchSpaceWas'
+                                                          )
+                                                        : t(
+                                                              'autoPaintTab.heuristicSearchResultABetterCombinedOrderMayStill'
+                                                          )
                                                 }
                                             >
                                                 {autoPaintResult.optimizerMetadata.optimality ===
                                                 'exact'
-                                                    ? 'Exact optimum'
-                                                    : 'Best found'}
+                                                    ? t('autoPaintTab.exactOptimum')
+                                                    : t('autoPaintTab.bestFound')}
                                             </span>
                                             {autoPaintResult.optimizerMetadata
                                                 .singleRemovalMinimal && (
                                                 <span
                                                     className="px-1.5 py-0.5 rounded border border-border/60 bg-background/50"
-                                                    title="Removing any one filament occurrence worsens preserved colors, coverage, or the selected physical-complexity objective."
+                                                    title={t(
+                                                        'autoPaintTab.removingAnyOneFilamentOccurrenceWorsensPreservedColorsCoverage'
+                                                    )}
                                                 >
-                                                    No removable run
+                                                    {t('autoPaintTab.noRemovableRun')}
                                                 </span>
                                             )}
                                         </span>
@@ -1616,18 +1645,24 @@ export default function AutoPaintTab({
                                     <div className="grid grid-cols-3 gap-2 text-[10px]">
                                         <div className="text-center p-2 rounded bg-background">
                                             <div className="text-muted-foreground mb-1">
-                                                Algorithm
+                                                {t('autoPaintTab.algorithm')}
                                             </div>
                                             <div className="font-semibold text-foreground capitalize">
-                                                {autoPaintResult.optimizerMetadata.algorithm.replace(
-                                                    /-/g,
-                                                    ' '
+                                                {t(
+                                                    `autoPaintTab.algorithms.${autoPaintResult.optimizerMetadata.algorithm}`,
+                                                    {
+                                                        defaultValue:
+                                                            autoPaintResult.optimizerMetadata.algorithm.replace(
+                                                                /-/g,
+                                                                ' '
+                                                            ),
+                                                    }
                                                 )}
                                             </div>
                                         </div>
                                         <div className="text-center p-2 rounded bg-background">
                                             <div className="text-muted-foreground mb-1">
-                                                Quality Score
+                                                {t('autoPaintTab.qualityScore')}
                                             </div>
                                             <div
                                                 className={`font-semibold ${
@@ -1639,28 +1674,32 @@ export default function AutoPaintTab({
                                                 title={
                                                     autoPaintResult.colorSeparation?.satisfied ===
                                                     false
-                                                        ? 'Some source colors had no distinct printable match inside the hard limit and were merged into preserved colors.'
-                                                        : 'Lower is better.'
+                                                        ? t(
+                                                              'autoPaintTab.someSourceColorsHadNoDistinctPrintableMatchInside'
+                                                          )
+                                                        : t('autoPaintTab.lowerIsBetter')
                                                 }
                                             >
                                                 {autoPaintResult.colorSeparation?.satisfied ===
                                                 false
-                                                    ? 'Partial palette'
+                                                    ? t('autoPaintTab.partialPalette')
                                                     : Number.isFinite(
                                                             autoPaintResult.optimizerMetadata.score
                                                         )
                                                       ? autoPaintResult.optimizerMetadata.score.toFixed(
                                                             2
                                                         )
-                                                      : 'Unavailable'}
+                                                      : t('autoPaintTab.unavailable')}
                                             </div>
                                         </div>
                                         <div className="text-center p-2 rounded bg-background">
                                             <div className="text-muted-foreground mb-1">
-                                                Iterations
+                                                {t('autoPaintTab.iterations')}
                                             </div>
                                             <div className="font-semibold text-foreground">
-                                                {autoPaintResult.optimizerMetadata.iterations.toLocaleString()}
+                                                {autoPaintResult.optimizerMetadata.iterations.toLocaleString(
+                                                    i18n.resolvedLanguage
+                                                )}
                                             </div>
                                         </div>
                                     </div>
@@ -1683,8 +1722,8 @@ export default function AutoPaintTab({
                                     <Loader2 className="w-3 h-3 mr-1.5 animate-spin" />
                                 )}
                                 {isNextBestComputing
-                                    ? 'Finding suggestion...'
-                                    : 'Suggest next filament'}
+                                    ? t('autoPaintTab.findingSuggestion')
+                                    : t('autoPaintTab.suggestNextFilament')}
                             </Button>
                             {nextBestResult?.candidate && (
                                 <div className="p-2.5 rounded-md border border-border/50 bg-muted/30 space-y-1.5">
@@ -1700,39 +1739,87 @@ export default function AutoPaintTab({
                                         </span>
                                         <span
                                             className="text-xs font-semibold cursor-default"
-                                            title="Estimated reduction in blend-aware average color error (ΔE) across the image if this filament is added. Higher is better, but this is a rough estimate, not a confidence rating."
+                                            title={t(
+                                                'autoPaintTab.estimatedReductionInBlendAwareAverageColorErrorE'
+                                            )}
                                         >
-                                            Est. ΔE{' '}
-                                            <span className="text-sm font-bold text-green-600 dark:text-green-400">
-                                                +
-                                                {nextBestResult.candidate.improvementPct.toFixed(1)}
-                                                %
-                                            </span>
+                                            <Trans
+                                                ns="printing"
+                                                i18nKey="autoPaintTab.estimatedImprovement"
+                                                values={{
+                                                    percentage:
+                                                        nextBestResult.candidate.improvementPct.toFixed(
+                                                            1
+                                                        ),
+                                                }}
+                                                components={{
+                                                    value: (
+                                                        <span className="text-sm font-bold text-green-600 dark:text-green-400" />
+                                                    ),
+                                                }}
+                                            />
                                         </span>
                                     </div>
                                     <div className="grid grid-cols-3 gap-1.5 text-[10px] text-muted-foreground">
-                                        <span title="Recommended starting hiding distance (mm), borrowed from the nearest existing filament by color distance (ΔE).">
-                                            HD:{' '}
-                                            <span className="font-semibold text-foreground">
-                                                {nextBestResult.candidate.td.toFixed(2)}
-                                            </span>
+                                        <span
+                                            title={t(
+                                                'autoPaintTab.recommendedStartingHidingDistanceMmBorrowedFromTheNearest'
+                                            )}
+                                        >
+                                            <Trans
+                                                ns="printing"
+                                                i18nKey="autoPaintTab.suggestedHd"
+                                                values={{
+                                                    value: nextBestResult.candidate.td.toFixed(2),
+                                                }}
+                                                components={{
+                                                    value: (
+                                                        <span className="font-semibold text-foreground" />
+                                                    ),
+                                                }}
+                                            />
                                         </span>
-                                        <span title="Percentage of image pixels whose blend-aware color error would improve with this filament added.">
-                                            Captures:{' '}
-                                            <span className="font-semibold text-foreground">
-                                                {(
-                                                    (nextBestResult.candidate.pixelsCaptured /
-                                                        nextBestResult.totalPixels) *
-                                                    100
-                                                ).toFixed(1)}
-                                                %
-                                            </span>
+                                        <span
+                                            title={t(
+                                                'autoPaintTab.percentageOfImagePixelsWhoseBlendAwareColorError'
+                                            )}
+                                        >
+                                            <Trans
+                                                ns="printing"
+                                                i18nKey="autoPaintTab.capturesPixels"
+                                                values={{
+                                                    percentage: (
+                                                        (nextBestResult.candidate.pixelsCaptured /
+                                                            nextBestResult.totalPixels) *
+                                                        100
+                                                    ).toFixed(1),
+                                                }}
+                                                components={{
+                                                    value: (
+                                                        <span className="font-semibold text-foreground" />
+                                                    ),
+                                                }}
+                                            />
                                         </span>
-                                        <span title="How far this color sits from existing filaments in perceptual color space (0–1). Higher means it fills a more distinct gap; lower means it overlaps with colors already covered.">
-                                            Isolation:{' '}
-                                            <span className="font-semibold text-foreground">
-                                                {nextBestResult.candidate.isolationScore.toFixed(2)}
-                                            </span>
+                                        <span
+                                            title={t(
+                                                'autoPaintTab.howFarThisColorSitsFromExistingFilamentsIn'
+                                            )}
+                                        >
+                                            <Trans
+                                                ns="printing"
+                                                i18nKey="autoPaintTab.isolationValue"
+                                                values={{
+                                                    value: nextBestResult.candidate.isolationScore.toFixed(
+                                                        2
+                                                    ),
+                                                }}
+                                                components={{
+                                                    value: (
+                                                        <span className="font-semibold text-foreground" />
+                                                    ),
+                                                }}
+                                            />
                                         </span>
                                     </div>
                                     <Button
@@ -1754,18 +1841,20 @@ export default function AutoPaintTab({
                                         }}
                                     >
                                         <Plus className="w-3 h-3 mr-1.5" />
-                                        Add to filaments
+                                        {t('autoPaintTab.addToFilaments')}
                                     </Button>
                                 </div>
                             )}
                             {nextBestResult && !nextBestResult.candidate && (
                                 <p className="text-[10px] text-muted-foreground text-center">
-                                    Current filament set already covers all image colors well.
+                                    {t(
+                                        'autoPaintTab.currentFilamentSetAlreadyCoversAllImageColorsWell'
+                                    )}
                                 </p>
                             )}
                             {nextBestError && (
                                 <p className="text-[10px] text-destructive text-center">
-                                    {nextBestError}
+                                    {translateRuntimeMessage(nextBestError)}
                                 </p>
                             )}
                         </div>

@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import React, {
     useEffect,
     useImperativeHandle,
@@ -98,6 +99,7 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
         },
         ref
     ) => {
+        const { t } = useTranslation('workspace');
         const canvasRef = useRef<HTMLCanvasElement | null>(null);
         const previewContainerRef = useRef<HTMLDivElement | null>(null);
         const imgRef = useRef<HTMLImageElement | null>(null);
@@ -710,8 +712,10 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
             const measureCtx = scratch.getContext('2d');
             if (!measureCtx) return;
             measureCtx.font = font;
-            const lines = wrapTextLines(draft.text, draft.width, (s) =>
-                measureCtx.measureText(s).width
+            const lines = wrapTextLines(
+                draft.text,
+                draft.width,
+                (s) => measureCtx.measureText(s).width
             );
             scratch.width = Math.max(1, Math.ceil(draft.width) + 2);
             scratch.height = Math.max(1, lines.length * lineHeight + 2);
@@ -774,10 +778,7 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
 
         // Dragging the move handle repositions the box; dragging the right
         // edge changes its wrap width. Both are in image-pixel space.
-        const startTextDraftDrag = (
-            e: React.PointerEvent,
-            mode: 'move' | 'resize'
-        ) => {
+        const startTextDraftDrag = (e: React.PointerEvent, mode: 'move' | 'resize') => {
             const draft = textDraftRef.current;
             if (!draft || e.button !== 0) return;
             e.preventDefault();
@@ -801,25 +802,17 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
                         return {
                             ...current,
                             x: Math.round(
-                                Math.max(
-                                    -current.width + 8,
-                                    Math.min(iw - 8, start.x + dxImg)
-                                )
+                                Math.max(-current.width + 8, Math.min(iw - 8, start.x + dxImg))
                             ),
                             y: Math.round(
-                                Math.max(
-                                    -touchUpFontSize,
-                                    Math.min(ih - 4, start.y + dyImg)
-                                )
+                                Math.max(-touchUpFontSize, Math.min(ih - 4, start.y + dyImg))
                             ),
                         };
                     }
                     const minWidth = Math.max(16, touchUpFontSize * 2);
                     return {
                         ...current,
-                        width: Math.round(
-                            Math.max(minWidth, Math.min(iw, start.width + dxImg))
-                        ),
+                        width: Math.round(Math.max(minWidth, Math.min(iw, start.width + dxImg))),
                     };
                 });
             };
@@ -1339,8 +1332,8 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
                         <div className="absolute -top-8 left-0 flex items-center gap-0.5 rounded-md border border-border/40 bg-card p-0.5 shadow-md select-none">
                             <button
                                 type="button"
-                                title="Drag to move the text"
-                                aria-label="Move text"
+                                title={t('canvasPreview.dragToMoveTheText')}
+                                aria-label={t('canvasPreview.moveText')}
                                 onPointerDown={(e) => startTextDraftDrag(e, 'move')}
                                 className="h-6 w-6 flex items-center justify-center rounded cursor-move text-muted-foreground hover:bg-accent hover:text-foreground"
                             >
@@ -1348,8 +1341,8 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
                             </button>
                             <button
                                 type="button"
-                                title="Apply text (Ctrl+Enter)"
-                                aria-label="Apply text"
+                                title={t('canvasPreview.applyTextCtrlEnter')}
+                                aria-label={t('canvasPreview.applyText')}
                                 data-testid="touchup-text-apply"
                                 onClick={commitTextDraft}
                                 className="h-6 w-6 flex items-center justify-center rounded cursor-pointer text-primary hover:bg-accent"
@@ -1358,8 +1351,8 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
                             </button>
                             <button
                                 type="button"
-                                title="Discard text (Esc)"
-                                aria-label="Discard text"
+                                title={t('canvasPreview.discardTextEsc')}
+                                aria-label={t('canvasPreview.discardText')}
                                 onClick={() => setTextDraft(null)}
                                 className="h-6 w-6 flex items-center justify-center rounded cursor-pointer text-muted-foreground hover:bg-accent hover:text-destructive"
                             >
@@ -1381,8 +1374,8 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
                                     commitTextDraft();
                                 }
                             }}
-                            placeholder="Type…"
-                            aria-label="Text to place on the image"
+                            placeholder={t('canvasPreview.type')}
+                            aria-label={t('canvasPreview.textToPlaceOnTheImage')}
                             spellCheck={false}
                             className="block w-full resize-none overflow-hidden bg-transparent outline-none border border-dashed border-white/80 mix-blend-normal placeholder:text-white/40"
                             style={{
@@ -1397,8 +1390,8 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
                             }}
                         />
                         <div
-                            title="Drag to change the wrap width"
-                            aria-label="Resize text box"
+                            title={t('canvasPreview.dragToChangeTheWrapWidth')}
+                            aria-label={t('canvasPreview.resizeTextBox')}
                             onPointerDown={(e) => startTextDraftDrag(e, 'resize')}
                             className="absolute top-0 -right-1.5 h-full w-1.5 cursor-ew-resize rounded bg-primary/70 hover:bg-primary"
                         />
@@ -1414,7 +1407,10 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
                             const img = imgRef.current!;
                             const iw = originalCanvasRef.current?.width || img.naturalWidth;
                             const ih = originalCanvasRef.current?.height || img.naturalHeight;
-                            let text = `Image: ${iw}×${ih}`;
+                            let text = t('canvasPreview.imageDimensions', {
+                                width: iw,
+                                height: ih,
+                            });
                             if (isCropMode && selection) {
                                 const layout = computeImageLayout();
                                 if (layout) {
@@ -1434,7 +1430,12 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
 
                                     const outW = Math.max(1, Math.round(swClamped));
                                     const outH = Math.max(1, Math.round(shClamped));
-                                    text += ` • Crop: ${outW}×${outH}`;
+                                    text = t('canvasPreview.imageAndCropDimensions', {
+                                        width: iw,
+                                        height: ih,
+                                        cropWidth: outW,
+                                        cropHeight: outH,
+                                    });
                                 }
                             }
                             return text;

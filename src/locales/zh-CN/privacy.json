@@ -1,0 +1,157 @@
+{
+    "title": "隐私与本地数据",
+    "seoTitle": "隐私与本地数据 | Kromacut",
+    "description": "Kromacut如何处理本地文件、保存的设置、托管与邮件数据、保留期限，以及您的隐私权利。",
+    "updated": "2026年9月13日",
+    "intro": "您的图像在设备上处理。Kromacut不会将图像上传到图像处理服务器。",
+    "sections": [
+        {
+            "id": "on-your-device",
+            "title": "哪些内容留在设备上",
+            "paragraphs": [
+                "图像编辑、调色板精简、耗材校准、层规划、3D预览及模型导出均在浏览器或桌面应用中本地运行。没有Kromacut账户或云端项目存储。",
+                "打开图像仅让应用在本地读取该文件。导出的模型、调色板和耗材配置以文件形式保存在您的设备上。Kromacut不会自动将这些文件发送到其他地方。"
+            ],
+            "links": []
+        },
+        {
+            "id": "saved-settings",
+            "title": "保存设置、Cookie与清除数据",
+            "paragraphs": [
+                "应用使用本地存储记住设置、主题、调色板、耗材配置和校准历史。这些偏好没有应用设定的到期时间；除非删除，或浏览器、设备清除应用存储，否则会一直保留。",
+                "Kromacut不设置广告或分析Cookie。保存偏好使用浏览器本地存储，它与Cookie分开，不会随网站请求自动发送。",
+                "清除网站或应用数据前，请导出需要保留的配置和调色板。清除浏览器存储可能永久删除校准历史，但不会删除此前导出到设备的文件。"
+            ],
+            "links": []
+        },
+        {
+            "id": "network-requests",
+            "title": "网站托管与连接",
+            "paragraphs": [
+                "网站托管于GitHub Pages。访问网站会向托管服务发送常规连接及请求信息。GitHub说明Pages会出于安全目的记录访问者IP地址，包括未登录GitHub的访问者。",
+                "字体与Kromacut捆绑，从网站或桌面安装目录提供。打开应用不会连接Google Fonts。Kromacut不包含广告或分析SDK。",
+                "提供网站及公开更新信息，基于让Kromacut可用并维护其安全性的合法利益（GDPR第6条第1款(f)项）。GitHub也会自行决定安全及服务处理目的，详情见其隐私声明。"
+            ],
+            "links": [
+                {
+                    "label": "GitHub Pages数据收集",
+                    "href": "https://docs.github.com/en/pages/getting-started-with-github-pages/what-is-github-pages#data-collection"
+                },
+                {
+                    "label": "GitHub隐私声明",
+                    "href": "https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement"
+                }
+            ]
+        },
+        {
+            "id": "desktop-app",
+            "title": "桌面更新与诊断",
+            "paragraphs": [
+                "桌面版更新检查会从kromacut.com请求公开的version.json文件。自动检查默认开启，在启动时及应用保持打开期间每四小时运行一次，可在设置中关闭。您仍可手动检查。",
+                "更新请求不包含您的作品、配置、设置或已安装版本。版本比较在本地进行，但托管服务仍会收到常规连接信息。",
+                "可选的自动配色诊断记录默认关闭，只写入本地文件。这些文件可能包含运行信息、耗材和校准数据及调色板颜色，但不包含源图像。文件保留在设备上，直至您删除。决定分享前请检查诊断文件。"
+            ],
+            "links": []
+        },
+        {
+            "id": "email-correspondence",
+            "title": "发送电子邮件时",
+            "paragraphs": [
+                "Kromacut由个人运营。运营者决定如何使用和保留直接支持及隐私通信。若您向下方地址发邮件，运营者会在Gmail收到发件地址、您提供的姓名、正文及附件。Google也会处理这些信息，以提供并保护其邮件服务。",
+                "支持通信用于回复您、调查您提出的问题并提供必要跟进。法律依据是在兼顾您隐私权利的前提下，提供所请求支持并维护Kromacut的合法利益（GDPR第6条第1款(f)项）。处理适用的隐私请求则基于尊重这些权利的法律义务（第6条第1款(c)项）。",
+                "联系运营者是自愿的，使用应用并不要求联系。没有回复地址或足够的问题信息时，可能无法答复。请仅发送相关信息；除非必要，避免发送敏感个人数据或他人的信息。"
+            ],
+            "links": [
+                {
+                    "label": "Google隐私政策",
+                    "href": "https://policies.google.com/privacy?hl=en"
+                }
+            ]
+        },
+        {
+            "id": "email-retention",
+            "title": "通信保留多久",
+            "paragraphs": [
+                "Kromacut通信每六个月审查一次。当邮件及附件不再为未解决问题、必要跟进或法律原因所需时，会予以删除。这是人工审查，并非每封邮件在六个月后自动过期。",
+                "若记录为履行法律义务或确立、行使、维护法律主张所必需，则仅在适用法定期间或主张所需期间保留必要信息。可能保留最少的隐私请求及回复记录，以证明请求如何处理；也会审查是否仍有保留必要。",
+                "此邮箱规则不决定GitHub或Google独立的保留期限。其隐私通知按服务目的和法律需要说明保留规则。从邮箱删除不保证服务商备份或安全记录中的信息立即删除。"
+            ],
+            "links": [
+                {
+                    "label": "Google数据保留说明",
+                    "href": "https://policies.google.com/technologies/retention?hl=en"
+                }
+            ]
+        },
+        {
+            "id": "providers-and-transfers",
+            "title": "服务商与国际处理",
+            "paragraphs": [
+                "GitHub提供网站托管，Google提供联系邮箱。这些服务商及其服务提供者会处理相应服务涉及的信息。他们也会就自行决定的目的（例如服务安全和法律合规）担任数据控制者。为处理法律事项或遵守法律而必要时，相关通信也可能披露给顾问或主管机关。",
+                "GitHub和Google说明会在欧洲经济区外（包括美国）处理数据。其公布的保障措施包括适用的充分性决定及标准合同条款；双方均说明其美国实体参与欧盟—美国数据隐私框架。下方链接解释有关安排及信息获取方式。您也可通过下方联系方式提出隐私问题。这些安排涉及托管及通信，不涉及自动上传您的作品。"
+            ],
+            "links": [
+                {
+                    "label": "GitHub国际传输与保障措施",
+                    "href": "https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement#international-data-transfers"
+                },
+                {
+                    "label": "Google传输框架",
+                    "href": "https://policies.google.com/privacy/frameworks?hl=en"
+                }
+            ]
+        },
+        {
+            "id": "external-services",
+            "title": "社区链接与Patreon支持",
+            "paragraphs": [
+                "点击社区、支持或发布链接会打开外部网站。您在那里发布的信息（例如公开问题或社区消息）由该服务的隐私规则处理，且可能被他人看到。",
+                "支持按钮会打开Patreon，其拥有独立隐私与支付规则。成为会员后，Patreon可能向创作者提供支持者信息，包括个人资料名称、邮箱、会员等级、状态和金额。这与Kromacut的本地图像处理无关。Patreon的Creator Privacy Promise说明了提供会员服务所用会员数据的相关角色与义务。",
+                "有关Patreon账户或支付的隐私请求，请使用Patreon的隐私渠道。若问题涉及创作者收到的信息，也可使用下方联系方式。"
+            ],
+            "links": [
+                {
+                    "label": "Patreon隐私政策",
+                    "href": "https://privacy.patreon.com/policies/en-US/"
+                },
+                {
+                    "label": "Patreon创作者隐私承诺",
+                    "href": "https://support.patreon.com/hc/en-us/articles/360026912432-Data-Processing-Agreement-Creator-Privacy-Promise"
+                }
+            ]
+        },
+        {
+            "id": "your-rights",
+            "title": "您的隐私权利",
+            "paragraphs": [
+                "在GDPR适用时，您可在相应权利的条件下请求访问个人数据、更正不准确信息、删除数据或限制处理。您可因与自身情况有关的理由，反对基于合法利益的处理。",
+                "数据可携带权适用于基于同意或合同的自动化处理。当处理依赖同意时，您可撤回同意，而不影响先前处理的合法性。Kromacut不会使用个人数据作出对您具有法律效力或类似重大影响的自动化决定。",
+                "请向下方邮箱发送请求，说明需求及相关通信；无需专用表格。请求通常免费。仅在合理需要确认数据属于您时，才会要求额外身份信息；未被要求时请勿发送身份证明文件。",
+                "您会在没有不当延误的情况下于一个月内收到答复。若复杂性或请求数量需要延期，会在首个月内告知原因，最多再延长两个月。若无法满足请求，答复会说明原因及可用的投诉和司法救济途径。",
+                "运营者无法远程访问或删除仅保存在您设备上的作品、设置或导出文件。请使用上文的本地控制处理这些文件。对于服务商独立控制的信息，可通过所链接通知使用其隐私渠道。"
+            ],
+            "links": [
+                {
+                    "label": "欧洲数据保护委员会：您的权利",
+                    "href": "https://www.edpb.europa.eu/sme/be-compliant/respect-individuals-rights_en"
+                }
+            ]
+        },
+        {
+            "id": "complaints-and-changes",
+            "title": "投诉与通知更新",
+            "paragraphs": [
+                "您有权向数据保护监管机构投诉，尤其是您居住、工作或认为侵权发生所在欧盟国家的机构。在罗马尼亚，该机构为国家个人数据处理监督局（ANSPDCP）。其网站说明了投诉方式。",
+                "Kromacut的数据处理方式变化时，本通知会更新。顶部日期标明最新修订。"
+            ],
+            "links": [
+                {
+                    "label": "ANSPDCP投诉信息",
+                    "href": "https://www.dataprotection.ro/?page=Plangeri_pagina_principala"
+                }
+            ]
+        }
+    ],
+    "contactTitle": "隐私问题",
+    "contactDescription": "如有隐私问题或请求，请显示下方公开联系邮箱。显示或复制地址不会发送任何信息。发送邮件会将正文及附件分享给运营者，以及包括Gmail在内的相关邮件服务。"
+}

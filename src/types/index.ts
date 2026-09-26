@@ -75,7 +75,7 @@ export interface Filament {
     brand?: string;
 }
 
-/** The exact line-width-filtered pixels used by a built Auto-paint model. */
+/** The exact pixels after optional isolated-speck cleanup used by a built Auto-paint model. */
 export interface PrintableFeaturePixelSnapshot {
     width: number;
     height: number;
@@ -113,7 +113,7 @@ export interface ThreeDControlsStateShape {
     heightDithering?: boolean;
     /** Effective extrusion width for printable-detail simulation and height-dither blocks. */
     ditherLineWidth?: number;
-    /** Replace at-risk source colors with nearby printable colors before matching. */
+    /** Legacy key: omit only colors confined to compact, unambiguously enclosed specks. */
     omitAtRiskPixels?: boolean;
     /** Flat Paint: build a uniform multi-material slab (auto-paint only). */
     flatPaint?: boolean;

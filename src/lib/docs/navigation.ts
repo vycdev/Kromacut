@@ -1,5 +1,5 @@
-import type { DocLinkTarget, DocRecord } from '@/types/docs';
-import { DOCS_PATH as DOCS_PATH_PREFIX } from '@/lib/routes';
+import type { DocLinkTarget, DocRecord } from '../../types/docs.ts';
+import { DOCS_PATH as DOCS_PATH_PREFIX, publicPath, stripLanguagePrefix } from '../routes.ts';
 
 function cleanDocSlug(value: string): string {
     return value
@@ -26,7 +26,7 @@ function safeDecodeURIComponent(value: string): string | null {
 export function buildDocsPath(docSlug: string, headingSlug?: string): string {
     const encodedDoc = encodeURIComponent(cleanDocSlug(docSlug));
     const encodedHeading = headingSlug ? `#${encodeURIComponent(headingSlug)}` : '';
-    return `${DOCS_PATH_PREFIX}/${encodedDoc}${encodedHeading}`;
+    return publicPath(`${DOCS_PATH_PREFIX}/${encodedDoc}${encodedHeading}`);
 }
 
 /**
@@ -40,21 +40,34 @@ export function openDocsAt(docSlug: string, headingSlug?: string): void {
 }
 
 export function parseDocsPath(pathname: string, hash = ''): DocLinkTarget | null {
-    const normalizedPath = pathname.replace(/\/+$/, '') || '/';
+    if (pathname.includes('//')) return null;
+    const normalizedPath = stripLanguagePrefix(pathname).replace(/\/$/, '') || '/';
     if (normalizedPath !== DOCS_PATH_PREFIX && !normalizedPath.startsWith(`${DOCS_PATH_PREFIX}/`)) {
         return null;
     }
 
-    const rawDocSlug = normalizedPath.slice(DOCS_PATH_PREFIX.length).replace(/^\/+/, '');
+    const rawDocPath = normalizedPath.slice(DOCS_PATH_PREFIX.length + 1);
+    const segments = rawDocPath ? rawDocPath.split('/') : [];
+    if (
+        segments.some((segment) => !segment) ||
+        segments.length > 2 ||
+        (segments.length === 2 && segments[1] !== 'index.html')
+    ) {
+        return null;
+    }
+
+    // Static hosting also exposes each generated guide as slug.html and
+    // slug/index.html. These are aliases, not arbitrary nested docs routes.
+    const rawDocSlug = segments[0] === 'index.html' && segments.length === 1 ? '' : segments[0];
     const decodedDocSlug = rawDocSlug ? safeDecodeURIComponent(rawDocSlug) : 'overview';
     if (decodedDocSlug === null) return null;
+    const docSlug =
+        segments.length < 2 ? decodedDocSlug.replace(/\.(?:html|md)$/i, '') : decodedDocSlug;
+    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/i.test(docSlug)) return null;
 
     const rawHeading = hash.replace(/^#/, '');
     const decodedHeading = rawHeading ? safeDecodeURIComponent(rawHeading) : undefined;
     if (decodedHeading === null) return null;
-
-    const docSlug = cleanDocSlug(decodedDocSlug);
-    if (!docSlug) return null;
 
     return {
         docSlug,
@@ -62,7 +75,9 @@ export function parseDocsPath(pathname: string, hash = ''): DocLinkTarget | null
     };
 }
 
-export function parseDocsLocation(location: Pick<Location, 'pathname' | 'hash'>): DocLinkTarget | null {
+export function parseDocsLocation(
+    location: Pick<Location, 'pathname' | 'hash'>
+): DocLinkTarget | null {
     return parseDocsPath(location.pathname, location.hash);
 }
 

@@ -1,4 +1,6 @@
 import { createElement } from 'react';
+import { useTranslation } from 'react-i18next';
+import { translate } from '@/lib/i18n';
 import type {
     DocLinkTarget,
     MarkdownBlock,
@@ -51,14 +53,24 @@ function renderInlineNodes(
                 );
             }
             return (
-                <img
+                <a
                     key={key}
-                    src={src}
-                    alt={node.alt}
-                    title={node.title}
-                    loading="lazy"
-                    className="my-4 max-h-80 rounded-md border border-border object-contain"
-                />
+                    href={src}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={translate('public:docs.openIllustration', {
+                        title: node.alt || translate('public:docs.image'),
+                    })}
+                    className="my-5 block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                    <img
+                        src={src}
+                        alt={node.alt}
+                        title={node.title || translate('public:docs.fullSize')}
+                        loading="lazy"
+                        className="h-auto w-full rounded-lg border border-border object-contain"
+                    />
+                </a>
             );
         }
 
@@ -138,7 +150,7 @@ function renderHeading(
                     props.onNavigate(target);
                 }}
                 className="ml-2 text-primary opacity-0 transition-opacity hover:text-primary/80 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background group-hover:opacity-70"
-                aria-label={`Link to ${block.text}`}
+                aria-label={translate('public:docs.headingLink', { title: block.text })}
             >
                 #
             </a>
@@ -232,6 +244,7 @@ function renderBlock(block: MarkdownBlock, props: MarkdownRendererProps, key: st
 }
 
 export default function MarkdownRenderer(props: MarkdownRendererProps) {
+    useTranslation('public');
     return (
         <article
             aria-label={props.doc.meta.title}

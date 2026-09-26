@@ -1,0 +1,62 @@
+{
+  "3d-mode": {
+    "title": "3D-Modus",
+    "description": "Physische Abmessungen, manuelle Farbstapel, Netzerzeugung und Vorschausteuerung."
+  },
+  "auto-paint": {
+    "title": "Auto-paint-Steuerung",
+    "description": "Filamentdaten, druckbare Details, Farbabstimmung, Höhenbegrenzungen und Zuverlässigkeit."
+  },
+  "calibration-theory": {
+    "title": "Kalibrierungstheorie",
+    "description": "Optik und Mathematik hinter Deckdistanz-, Palette-Proof- und Stack-Matrix-Kalibrierung."
+  },
+  "calibration-workflows": {
+    "title": "Kalibrierabläufe",
+    "description": "Kalibrierwerkzeug auswählen, Steuerelemente verstehen und erkennen, welche Messungen für den nächsten Druck gelten."
+  },
+  "dedithering-cleanup": {
+    "title": "Rasterglättung und Bereinigung",
+    "description": "Nachbarschaftsbereinigung nach exakter Farbe und ihre Auswirkungen auf Punkte, Kanten, Transparenz und druckbare Inseln."
+  },
+  "faq": {
+    "title": "Häufige Fragen",
+    "description": "Kurze Antworten auf häufige Fragen zu Kromacut."
+  },
+  "flat-paint": {
+    "title": "Flat Paint",
+    "description": "Stufenrelief, transparente Träger mit Bildseite unten und offene Platten mit Bildseite oben."
+  },
+  "generating-exporting-output": {
+    "title": "Ergebnisse erzeugen und exportieren",
+    "description": "Modell erstellen, prüfen, Dateien exportieren und Druckanweisungen kopieren."
+  },
+  "image-adjustments": {
+    "title": "Bildanpassungen",
+    "description": "Alle Ton- und Farbregler, ihr Einfluss auf Zielfarben und wann die Vorschau ins Bild übernommen werden sollte."
+  },
+  "loading-images": {
+    "title": "Bilder laden",
+    "description": "Bildpixel importieren, zuschneiden, skalieren und retuschieren, bevor sie zu Druckbereichen werden."
+  },
+  "overview": {
+    "title": "Überblick",
+    "description": "Was Kromacut leistet und wie die wichtigsten Abläufe zusammenhängen."
+  },
+  "quick-start": {
+    "title": "Schnellstart",
+    "description": "Ein praktischer erster Durchlauf vom Bild bis zum Export."
+  },
+  "reducing-colors": {
+    "title": "Farben reduzieren",
+    "description": "Zweistufige Farbreduktion, feste Paletten und den Unterschied zwischen Umfärbung und Transparenz verstehen."
+  },
+  "settings-and-controls": {
+    "title": "Einstellungen und Steuerung",
+    "description": "Kopfzeilenaktionen, Designs, Speicherung, Paletten, Profile und Arbeitsbereichssteuerung."
+  },
+  "troubleshooting": {
+    "title": "Fehlerbehebung",
+    "description": "Häufige Probleme und erste Lösungsversuche."
+  }
+}

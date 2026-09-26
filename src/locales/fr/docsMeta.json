@@ -1,0 +1,17 @@
+{
+ "3d-mode":{"title":"Mode 3D","description":"Dimensions physiques, empilements de couleurs manuels, maillage et commandes d’aperçu."},
+ "auto-paint":{"title":"Commandes de peinture automatique","description":"Filaments, détails imprimables, correspondance des couleurs, contraintes de hauteur et confiance."},
+ "calibration-theory":{"title":"Théorie de l’étalonnage","description":"L’optique et les mathématiques de l’étalonnage par distance de masquage, épreuve de palette et matrice d’empilements."},
+ "calibration-workflows":{"title":"Méthodes d’étalonnage","description":"Choisir un outil d’étalonnage, comprendre ses commandes et déterminer quelles mesures s’appliquent à votre prochaine impression."},
+ "dedithering-cleanup":{"title":"Détramage et nettoyage","description":"Nettoyage du voisinage par couleurs exactes et effets sur les points isolés, les bords, la transparence et les îlots imprimables."},
+ "faq":{"title":"FAQ","description":"Réponses courtes aux questions fréquentes sur Kromacut."},
+ "flat-paint":{"title":"Peinture à plat","description":"Relief en paliers, supports transparents face vers le bas et plaques exposées face vers le haut."},
+ "generating-exporting-output":{"title":"Génération et export","description":"Générer le modèle, l’examiner, exporter les fichiers et copier les instructions d’impression."},
+ "image-adjustments":{"title":"Réglages d’image","description":"Tous les curseurs de tonalité et de couleur, leur effet sur les couleurs cibles et le moment où appliquer l’aperçu à l’image."},
+ "loading-images":{"title":"Chargement des images","description":"Importer, recadrer, redimensionner et retoucher les pixels avant leur conversion en zones imprimées."},
+ "overview":{"title":"Présentation","description":"Le rôle de Kromacut et l’articulation des principaux parcours de création."},
+ "quick-start":{"title":"Démarrage rapide","description":"Une première utilisation pratique, de l’image à l’export."},
+ "reducing-colors":{"title":"Réduction des couleurs","description":"Comprendre la réduction en deux étapes, les palettes fixes et la différence entre recoloration et transparence."},
+ "settings-and-controls":{"title":"Paramètres et commandes","description":"Actions de l’en-tête, thèmes, sauvegarde, palettes, profils et commandes de l’espace de travail."},
+ "troubleshooting":{"title":"Dépannage","description":"Problèmes courants et premières pistes de résolution."}
+}

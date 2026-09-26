@@ -1,0 +1,76 @@
+{
+    "colorPicker": {
+        "hue": "色相",
+        "color": "颜色",
+        "alpha": "不透明度",
+        "saturationBrightness": "饱和度{{saturation}}%，明度{{brightness}}%"
+    },
+    "language": {
+        "title": "语言",
+        "system": "系统语言",
+        "loading": "正在加载语言…",
+        "failed": "无法加载此语言，已保留当前语言。"
+    },
+    "navigation": {
+        "backToApp": "返回应用",
+        "home": "Kromacut 首页",
+        "backHome": "返回 Kromacut 首页",
+        "loading": "正在加载 Kromacut"
+    },
+    "settings": {
+        "title": "设置",
+        "open": "打开设置",
+        "close": "关闭设置",
+        "theme": "主题",
+        "system": "跟随系统",
+        "dark": "深色",
+        "light": "浅色",
+        "resources": "资源与社区",
+        "resourcesDescription": "查看指南和版本发布，分享你的作品。",
+        "docs": "文档",
+        "docsDescription": "了解操作流程和打印设置。",
+        "reddit": "Reddit 上的 r/kromacut",
+        "patreon": "在 Patreon 上支持我",
+        "experimental": "实验性功能",
+        "multiPlate": "多打印板模式",
+        "multiPlateDescription": "尚未完成的多打印板流程。目前不会产生任何效果，后续可能变更或出现故障。",
+        "multiPlateEnable": "启用实验性多打印板模式"
+    },
+    "diagnostics": {
+        "title": "诊断",
+        "description": "记录可重现的自动配色决策，以便排查问题。",
+        "record": "记录自动配色诊断信息",
+        "recordDescription": "每次新的自动配色计算都会写入一个 JSONL 文件，并及时刷新到磁盘。文件包含当前耗材配置、校准依据、候选方案和最终结果，体积可能较大。",
+        "newCalculations": "仅适用于新发起的计算。",
+        "openFolder": "打开文件夹",
+        "folderFailed": "无法打开诊断文件夹。"
+    },
+    "updates": {
+        "title": "更新",
+        "checkTitle": "检查更新",
+        "checking": "正在检查",
+        "check": "检查",
+        "startup": "启动时检查",
+        "startupDescription": "打开 Kromacut 时显示桌面版更新通知。",
+        "startupLabel": "启动时检查更新",
+        "available": "版本 {{version}} 已可用",
+        "notice": "有可用更新",
+        "noticeDescription": "版本 <version>{{version}}</version> 现已可用！",
+        "current": "Kromacut 已是最新版本。",
+        "download": "下载",
+        "later": "稍后",
+        "dismiss": "关闭更新通知",
+        "checkFailed": "无法检查更新，请稍后重试。",
+        "downloadFailed": "无法打开下载页面。"
+    },
+    "app": {
+        "uploadImage": "请上传图片文件",
+        "resizeFailed": "图片缩放失败，请查看控制台了解详情。",
+        "preparingControls": "正在准备 3D 控件…",
+        "performanceWarning": "性能警告",
+        "slowBuild": "以下情况可能导致 3D 模型生成缓慢：",
+        "continue": "是否继续？",
+        "cancel": "取消",
+        "buildAnyway": "仍然生成"
+    }
+}

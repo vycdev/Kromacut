@@ -13,6 +13,7 @@ import {
 } from './appearanceProfile';
 import {
     createPriorEffectiveOpticsModel,
+    minimumOpaqueFoundationThickness,
     predictEffectiveAutoPaintColor,
     predictEffectiveRecipeColor,
     resolveEffectiveTransitionOptics,
@@ -36,7 +37,7 @@ interface Observation {
     matrixId: string;
     sampleIndex: number;
     recipeKey: string;
-    /** Coalesced runs for duplicate grouping, interaction holdouts and reporting. */
+    /** Coalesced physical runs for interaction holdouts and reporting. */
     layers: AppearanceAnchorLayer[];
     /** Actual Matrix layers, including the foundation, for deployed appearance lookup. */
     physicalLayers: AppearanceAnchorLayer[];
@@ -64,7 +65,11 @@ function requirePrediction(rgb: [number, number, number] | undefined): [number, 
     return rgb;
 }
 
-function observation(matrix: StackMatrixCalibrationV1, sampleIndex: number): Observation {
+function observation(
+    matrix: StackMatrixCalibrationV1,
+    sampleIndex: number,
+    opaqueFoundationThresholds: ReadonlyMap<string, number>
+): Observation {
     const sample = matrix.samples[sampleIndex];
     const backing = matrix.filaments[matrix.backingFilamentIndex];
     const layers: AppearanceAnchorLayer[] = [];
@@ -88,11 +93,40 @@ function observation(matrix: StackMatrixCalibrationV1, sampleIndex: number): Obs
     const interactions = layers
         .slice(1)
         .map((layer, index) => JSON.stringify([layers[index].filamentId, layer.filamentId]));
+    // Legacy boards can contain the same useful recipe as a padded V2 board.
+    // Group both versions by their optical recipe once the original backing
+    // plus its leading same-filament layers meet the saved prior's opacity
+    // boundary. Never use a full-data fit to decide validation grouping.
+    let recipeStart = 0;
+    while (
+        recipeStart < sample.stack.length &&
+        sample.stack[recipeStart] === matrix.backingFilamentIndex
+    )
+        recipeStart++;
+    const backingThickness =
+        matrix.foundationLayerThicknesses.reduce((sum, height) => sum + height, 0) +
+        recipeStart * matrix.process.layerHeight;
+    const opaqueBacking =
+        backingThickness + 1e-8 >= (opaqueFoundationThresholds.get(backing.id) ?? Infinity);
+    const recipeKey = opaqueBacking
+        ? JSON.stringify([
+              'opaque-recipe',
+              [backing.id, backing.color.toLowerCase()],
+              matrix.process.layerHeight,
+              sample.stack
+                  .slice(recipeStart)
+                  .map((index) => [
+                      matrix.filaments[index].id,
+                      matrix.filaments[index].color.toLowerCase(),
+                  ]),
+          ])
+        : // A translucent foundation remains part of the recipe identity.
+          JSON.stringify(layers.map((layer) => [layer.filamentId, layer.thickness]));
     return {
         id: `${matrix.id}:${sample.index}`,
         matrixId: matrix.id,
         sampleIndex: sample.index,
-        recipeKey: JSON.stringify(layers.map((layer) => [layer.filamentId, layer.thickness])),
+        recipeKey,
         layers,
         physicalLayers,
         interactions: [...new Set(interactions)],
@@ -103,6 +137,7 @@ function observation(matrix: StackMatrixCalibrationV1, sampleIndex: number): Obs
 
 function boardGroups(
     matrices: readonly StackMatrixCalibrationV1[],
+    opaqueFoundationThresholds: ReadonlyMap<string, number>,
     sessions?: Readonly<Record<string, string>>
 ) {
     if (sessions && matrices.some((matrix) => !sessions[matrix.id]?.trim())) {
@@ -122,7 +157,11 @@ function boardGroups(
             matrix.samples
                 .filter((sample) => sample.measuredColor)
                 .map((sample) => {
-                    const item = observation({ ...matrix, samples: [sample] }, 0);
+                    const item = observation(
+                        { ...matrix, samples: [sample] },
+                        0,
+                        opaqueFoundationThresholds
+                    );
                     return [item.recipeKey, sample.measuredColor!.rgb];
                 })
                 .sort((a, b) => compare(JSON.stringify(a), JSON.stringify(b)))
@@ -169,16 +208,23 @@ export function planAppearanceValidation(
         (matrix) =>
             matrix.referenceCorrection !== true && matrix.samples.some((s) => s.measuredColor)
     );
+    const prior = createPriorEffectiveOpticsModel(context.filaments);
+    const opaqueFoundationThresholds = new Map(
+        context.filaments.map((filament) => [
+            filament.id,
+            minimumOpaqueFoundationThickness(prior, filament.id),
+        ])
+    );
     const observations = matrices
         .flatMap((matrix) =>
             matrix.samples.flatMap((sample, index) =>
-                sample.measuredColor ? [observation(matrix, index)] : []
+                sample.measuredColor ? [observation(matrix, index, opaqueFoundationThresholds)] : []
             )
         )
         .sort((a, b) => compare(a.id, b.id));
     if (new Set(observations.map((s) => s.id)).size !== observations.length)
         throw new Error('Duplicate Matrix/sample IDs');
-    const boards = boardGroups(matrices, options.sessions);
+    const boards = boardGroups(matrices, opaqueFoundationThresholds, options.sessions);
     const folds: AppearanceValidationFold[] = [];
     const skipped: { scenario: AppearanceValidationScenario; reason: string }[] = [];
     for (const scenario of scenarios) {

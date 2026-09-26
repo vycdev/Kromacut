@@ -5,6 +5,10 @@ import { resolve } from 'node:path';
 import { withViteTestServer } from './helpers/viteModule.ts';
 import type { AppearanceProfileV1 } from '../src/lib/appearanceProfile.ts';
 import type { AppearanceFitContext } from '../src/lib/appearanceModel.ts';
+import {
+    adaptiveMatrixFilaments,
+    adaptiveStackMatrixFixture,
+} from './helpers/adaptiveStackMatrixFixture.ts';
 
 const modules = withViteTestServer(
     async (server) =>
@@ -37,11 +41,15 @@ async function fixture(shiftOptics = false) {
         { id: 'white', color: '#f4f2ea', td: 0.5 },
         { id: 'orange', color: '#d83400', td: 0.3 },
     ];
+    // These synthetic observations start from opaque white, including the
+    // shifted-optics truth below. Request that foundation explicitly now that
+    // Matrix generation no longer adds hidden backing layers for opacity.
+    const firstLayerHeight = 1.2;
     const record = matrix.buildStackMatrixCalibration(
         filaments,
         {
             layerHeight: 0.08,
-            firstLayerHeight: 0.4,
+            firstLayerHeight,
             stackLayerCount: 4,
             maximumSamples: 128,
             backingFilamentId: 'white',
@@ -102,7 +110,7 @@ async function fixture(shiftOptics = false) {
         filaments,
         filamentProfileFingerprint: profile.fingerprintAppearanceFilaments(filaments),
         layerHeight: 0.08,
-        firstLayerHeight: 0.4,
+        firstLayerHeight,
         transitionOpacity: 0.9,
     };
     return { appearance, context, record };
@@ -134,6 +142,156 @@ test('recipe folds keep physical duplicates together and do not depend on array 
             .folds,
         plan.folds
     );
+});
+
+test('adaptive recipe holdouts group equal useful recipes across thickness caps without losing physical layers', async () => {
+    const [validation, , profile] = await modules;
+    const fingerprint = profile.fingerprintAppearanceFilaments(adaptiveMatrixFilaments);
+    const shallow = adaptiveStackMatrixFixture(fingerprint);
+    const deep = structuredClone(shallow);
+    deep.id = 'adaptive-deep';
+    deep.stackLayerCount += 10;
+    deep.planning!.maximumRecipeThickness = 1.2;
+    for (const sample of deep.samples) {
+        sample.stack.unshift(...Array.from({ length: 10 }, () => 0));
+        sample.backingPaddingLayerCount! += 10;
+    }
+    deep.cornerStacks = deep.cornerStacks.map((stack) =>
+        Array.from({ length: 30 }, () => stack[0])
+    );
+    const differentBacking = structuredClone(shallow);
+    differentBacking.id = 'adaptive-white-backing';
+    differentBacking.backingFilamentIndex = 2;
+    differentBacking.samples = [differentBacking.samples[0]];
+    differentBacking.samples[0].stack.fill(
+        2,
+        0,
+        differentBacking.samples[0].backingPaddingLayerCount
+    );
+    const appearance: AppearanceProfileV1 = {
+        ...profile.createEmptyAppearanceProfile(),
+        stackMatrices: [shallow, deep, differentBacking],
+    };
+    const context: AppearanceFitContext = {
+        filaments: adaptiveMatrixFilaments,
+        filamentProfileFingerprint: fingerprint,
+        layerHeight: 0.04,
+        firstLayerHeight: 0.1,
+        transitionOpacity: 0.9,
+    };
+    const plan = validation.planAppearanceValidation(appearance, context, {
+        scenarios: ['recipe'],
+        folds: 3,
+    });
+    const shallowId = `${shallow.id}:0`;
+    const deepId = `${deep.id}:0`;
+    const originalObservation = plan.observations.find((sample) => sample.id === shallowId)!;
+    const deepObservation = plan.observations.find((sample) => sample.id === deepId)!;
+    assert.equal(originalObservation.recipeKey, deepObservation.recipeKey);
+    assert.notEqual(
+        originalObservation.recipeKey,
+        plan.observations.find((sample) => sample.matrixId === differentBacking.id)!.recipeKey
+    );
+    assert.equal(
+        originalObservation.physicalLayers.length,
+        shallow.foundationLayerThicknesses.length + 20
+    );
+    assert.equal(
+        deepObservation.physicalLayers.length,
+        deep.foundationLayerThicknesses.length + 30
+    );
+    assert.notDeepEqual(originalObservation.layers, deepObservation.layers);
+    const heldOut = plan.folds.find((fold) => fold.validationIds.includes(shallowId))!;
+    assert.ok(heldOut.validationIds.includes(deepId));
+    assert.ok(!heldOut.trainingIds.includes(shallowId));
+    assert.ok(!heldOut.trainingIds.includes(deepId));
+    for (const fold of plan.folds) {
+        const validationKeys = new Set(
+            plan.observations
+                .filter((sample) => fold.validationIds.includes(sample.id))
+                .map((sample) => sample.recipeKey)
+        );
+        assert.ok(
+            plan.observations
+                .filter((sample) => fold.trainingIds.includes(sample.id))
+                .every((sample) => !validationKeys.has(sample.recipeKey))
+        );
+    }
+});
+
+test('mixed legacy and adaptive recipe holdouts remove cross-version duplicates only above the same opaque backing', async () => {
+    const [validation, , profile] = await modules;
+    const fingerprint = profile.fingerprintAppearanceFilaments(adaptiveMatrixFilaments);
+    const adaptive = adaptiveStackMatrixFixture(fingerprint);
+    const legacy = structuredClone(adaptive);
+    legacy.id = 'legacy-three-layers';
+    legacy.schemaVersion = 1;
+    legacy.selection = 'exhaustive';
+    legacy.stackLayerCount = 3;
+    legacy.totalCombinationCount = 27;
+    delete legacy.planning;
+    legacy.samples = [{ ...legacy.samples[0], stack: [0, 1, 1] }];
+    delete legacy.samples[0].recipeLayerCount;
+    delete legacy.samples[0].backingPaddingLayerCount;
+    delete legacy.samples[0].selectionReason;
+    legacy.cornerStacks = legacy.cornerStacks.map((stack) => stack.slice(-3));
+
+    const translucent = structuredClone(legacy);
+    translucent.id = 'legacy-translucent-backing';
+    translucent.foundationLayerThicknesses = [0.1];
+    translucent.stackLayerCount = 2;
+    translucent.samples[0].stack = [1, 1];
+    translucent.cornerStacks = translucent.cornerStacks.map((stack) => stack.slice(-2));
+    const differentBacking = structuredClone(legacy);
+    differentBacking.id = 'legacy-opaque-white-backing';
+    differentBacking.backingFilamentIndex = 2;
+    differentBacking.foundationLayerThicknesses = [1.2];
+    differentBacking.samples[0].stack = [2, 1, 1];
+
+    const appearance: AppearanceProfileV1 = {
+        ...profile.createEmptyAppearanceProfile(),
+        stackMatrices: [adaptive, legacy, translucent, differentBacking],
+    };
+    const before = JSON.stringify(appearance);
+    const context: AppearanceFitContext = {
+        filaments: adaptiveMatrixFilaments,
+        filamentProfileFingerprint: fingerprint,
+        layerHeight: 0.04,
+        firstLayerHeight: 0.1,
+        transitionOpacity: 0.9,
+    };
+    const plan = validation.planAppearanceValidation(appearance, context, {
+        scenarios: ['recipe'],
+        folds: 3,
+    });
+    const observationFor = (matrixId: string) =>
+        plan.observations.find((sample) => sample.id === `${matrixId}:0`)!;
+    const adaptiveObservation = observationFor(adaptive.id);
+    assert.equal(adaptiveObservation.recipeKey, observationFor(legacy.id).recipeKey);
+    assert.notEqual(adaptiveObservation.recipeKey, observationFor(translucent.id).recipeKey);
+    assert.notEqual(adaptiveObservation.recipeKey, observationFor(differentBacking.id).recipeKey);
+    assert.equal(
+        observationFor(legacy.id).physicalLayers.length,
+        legacy.foundationLayerThicknesses.length + 3
+    );
+    assert.equal(
+        adaptiveObservation.physicalLayers.length,
+        adaptive.foundationLayerThicknesses.length + 20
+    );
+    const heldOut = plan.folds.find((fold) => fold.validationIds.includes(adaptiveObservation.id))!;
+    assert.ok(heldOut.validationIds.includes(`${legacy.id}:0`));
+    assert.ok(!heldOut.trainingIds.includes(`${legacy.id}:0`));
+    assert.equal(
+        JSON.stringify(appearance),
+        before,
+        'stored records and geometry remain unchanged'
+    );
+    const training = validation.appearanceValidationTrainingProfile(
+        plan.matrices,
+        heldOut.trainingIds,
+        context
+    );
+    assert.ok(!training.stackMatrices?.some((matrix) => matrix.id === legacy.id));
 });
 
 test('unseen-pair folds purge that pair from intermediate runs as well as terminal runs', async () => {

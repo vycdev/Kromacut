@@ -1,9 +1,11 @@
+import { Trans, useTranslation } from 'react-i18next';
 import {
     ArrowRight,
     BookOpen,
     Check,
     ChevronDown,
     Download,
+    FileText,
     Github,
     Heart,
     MessageCircle,
@@ -11,6 +13,7 @@ import {
     Moon,
     Play,
     Ruler,
+    ShieldCheck,
     Sun,
 } from 'lucide-react';
 import React from 'react';
@@ -36,7 +39,10 @@ import narutoKromacutPreview from '../../content/community/naruto-kromacut-previ
 import narutoSlicerPreview from '../../content/community/naruto-slicer-preview.png';
 import narutoFinished from '../../content/community/naruto-finished.jpg';
 import redditIcon from '../assets/reddit.svg';
-import { APP_PATH, docsPath } from '@/lib/routes';
+import { APP_PATH, docsPath, publicPath } from '@/lib/routes';
+import LanguageSetting from './LanguageSetting';
+import { useStickyMobileCta } from '@/hooks/useStickyMobileCta';
+import './landing-mobile-cta.css';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
     applyResolvedTheme,
@@ -59,40 +65,40 @@ const links = {
 const workflow = [
     {
         number: '01',
-        title: 'Import an image',
-        description: 'Drop in artwork, a photo, or a pixel design and keep the original safely editable.',
+        title: 'landing.importAnImage',
+        description: 'landing.dropInArtworkAPhotoOrAPixelDesignAnd',
         image: fuji2d,
-        alt: 'A colorful 2D image ready to be imported into Kromacut',
+        alt: 'landing.aColorful2DImageReadyToBeImportedIntoKromacut',
         imagePosition: '95% 50%',
         imageScale: 1.65,
         imageFit: 'cover',
     },
     {
         number: '02',
-        title: 'Reduce & paint colors',
-        description: 'Tune a compact palette manually or let Auto-paint match the filaments you actually own.',
+        title: 'landing.reducePaintColors',
+        description: 'landing.tuneACompactPaletteManuallyOrLetAutoPaintMatch',
         image: sliced,
-        alt: 'A color-layered image preview showing separate printable colors',
+        alt: 'landing.aColorLayeredImagePreviewShowingSeparatePrintableColors',
         imagePosition: '50% 48%',
         imageScale: 1.08,
         imageFit: 'cover',
     },
     {
         number: '03',
-        title: 'Preview every layer',
-        description: 'Inspect the stack in 3D, check transitions, and see exactly where filament swaps happen.',
+        title: 'landing.previewEveryLayer',
+        description: 'landing.inspectTheStackIn3DCheckTransitionsAndSeeExactly',
         image: fuji3d,
-        alt: 'Kromacut 3D preview of a stacked color-layer print',
+        alt: 'landing.kromacut3DPreviewOfAStackedColorLayerPrint',
         imagePosition: '95% 50%',
         imageScale: 1.65,
         imageFit: 'cover',
     },
     {
         number: '04',
-        title: 'Export and print',
-        description: 'Download a slicer-ready STL or 3MF with the print plan you need to finish the job.',
+        title: 'landing.exportAndPrint',
+        description: 'landing.downloadASlicerReadySTLOr3MFWithThePrint',
         image: printed,
-        alt: 'A finished colorful layered print made from a Kromacut workflow',
+        alt: 'landing.aFinishedColorfulLayeredPrintMadeFromAKromacutWorkflow',
         imagePosition: '55% 50%',
         imageScale: 1,
         imageFit: 'contain',
@@ -114,33 +120,33 @@ interface ShowcaseItem {
 const communityShowcase: ShowcaseItem[] = [
     {
         image: hobbitsAndDragonsOne,
-        alt: 'A colorful Hobbits and Dragons layered 3D print',
+        alt: 'landing.aColorfulHobbitsAndDragonsLayered3DPrint',
         title: 'Hobbits and Dragons',
-        kind: 'Finished print',
+        kind: 'landing.finishedPrint',
         creator: 'u/ominaex25',
         href: 'https://www.reddit.com/r/kromacut/comments/1vum7om/hobbits_and_dragons/',
     },
     {
         image: hobbitsAndDragonsTwo,
-        alt: 'A second view of the Hobbits and Dragons layered 3D print',
+        alt: 'landing.aSecondViewOfTheHobbitsAndDragonsLayered3D',
         title: 'Hobbits and Dragons',
-        kind: 'Finished print',
+        kind: 'landing.finishedPrint',
         creator: 'u/ominaex25',
         href: 'https://www.reddit.com/r/kromacut/comments/1vum7om/hobbits_and_dragons/',
     },
     {
         image: kingOfHeartsSlicer,
-        alt: 'Slicer preview of the multicolor King of Hearts playing-card print',
+        alt: 'landing.slicerPreviewOfTheMulticolorKingOfHeartsPlayingCard',
         title: 'King of Hearts',
-        kind: 'Slicer preview',
+        kind: 'landing.slicerPreview',
         creator: 'vycdev',
         dimensions: '47.72 \u00d7 66.53 \u00d7 3.2 mm',
     },
     {
         image: kingOfHearts,
-        alt: 'A multicolor layered King of Hearts playing-card print',
+        alt: 'landing.aMulticolorLayeredKingOfHeartsPlayingCardPrint',
         title: 'King of Hearts',
-        kind: 'Finished print',
+        kind: 'landing.finishedPrint',
         creator: 'vycdev',
         dimensions: '47.72 \u00d7 66.53 \u00d7 3.2 mm',
     },
@@ -149,122 +155,134 @@ const communityShowcase: ShowcaseItem[] = [
 const hopeShowcase: ShowcaseItem[] = [
     {
         image: hopeKromacutPreview,
-        alt: 'Kromacut Auto-paint prediction for a layered Hope poster print',
+        alt: 'landing.kromacutAutoPaintPredictionForALayeredHopePosterPrint',
         title: 'Hope poster',
-        kind: 'Kromacut prediction',
+        kind: 'landing.kromacutPrediction',
         creator: 'vycdev',
         dimensions: '72 \u00d7 108.4 \u00d7 3.04 mm',
-        note: 'Auto-paint prediction using the available calibrated filament profile.',
+        note: 'landing.autoPaintPredictionUsingTheAvailableCalibratedFilamentProfile',
     },
     {
         image: hopeSlicerPreview,
-        alt: 'Slicer preview of the layered Hope poster print',
+        alt: 'landing.slicerPreviewOfTheLayeredHopePosterPrint',
         title: 'Hope poster',
-        kind: 'Slicer preview',
+        kind: 'landing.slicerPreview',
         creator: 'vycdev',
         dimensions: '72 \u00d7 108.4 \u00d7 3.04 mm',
-        note: 'The physical layer plan prepared for printing without a red filament.',
+        note: 'landing.thePhysicalLayerPlanPreparedForPrintingWithoutARed',
     },
     {
         image: hopeFinished,
-        alt: 'Finished layered Hope poster print showing orange and purple-blue color shifts',
+        alt: 'landing.finishedLayeredHopePosterPrintShowingOrangeAndPurpleBlue',
         title: 'Hope poster',
-        kind: 'Finished print',
+        kind: 'landing.finishedPrint',
         creator: 'vycdev',
         dimensions: '72 \u00d7 108.4 \u00d7 3.04 mm',
-        note: 'Pale yellow matched most closely; red printed orange, cyan leaned purple-blue, and black reproduced the preview but missed the target\'s dark teal.',
+        note: 'landing.paleYellowMatchedMostCloselyRedPrintedOrangeCyanLeaned',
     },
 ];
 
 const titanShowcase: ShowcaseItem[] = [
     {
         image: titanKromacutPreview,
-        alt: 'Kromacut Auto-paint prediction for the golden waves of the Titan poster',
+        alt: 'landing.kromacutAutoPaintPredictionForTheGoldenWavesOfThe',
         title: 'Titan poster',
-        kind: 'Kromacut prediction',
+        kind: 'landing.kromacutPrediction',
         creator: 'vycdev',
-        dimensions: '102.4 × 152.7 mm footprint',
-        note: 'Auto-paint with the eight-color calibrated filament profile.',
+        dimensions: 'landing.text10241527MmFootprint',
+        note: 'landing.autoPaintWithTheEightColorCalibratedFilamentProfile',
     },
     {
         image: titanSlicerPreview,
-        alt: 'Creality Print slicer preview of the Titan poster with its filament change tower',
+        alt: 'landing.crealityPrintSlicerPreviewOfTheTitanPosterWithIts',
         title: 'Titan poster',
-        kind: 'Slicer preview',
+        kind: 'landing.slicerPreview',
         creator: 'vycdev',
-        note: 'Creality Hi, 0.4 mm nozzle and 0.08 mm layers. Slicer estimate: 2 h 58 min, 28.90 g including flushing and tower, six filament changes.',
+        note: 'landing.crealityHi04MmNozzleAnd008Mm',
     },
     {
         image: titanFinished,
-        alt: 'Finished Titan layered print with golden yellow and orange wave reflections on a dark background',
+        alt: 'landing.finishedTitanLayeredPrintWithGoldenYellowAndOrangeWave',
         title: 'Titan poster',
-        kind: 'Finished print',
+        kind: 'landing.finishedPrint',
         creator: 'vycdev',
-        note: 'The completed print, photographed by its maker. Lighting and camera processing can affect the colors shown.',
-        artwork: { label: 'NASA/JPL — Titan, Visions of the Future', href: 'https://www.jpl.nasa.gov/images/titan-jpl-travel-poster/' },
+        note: 'landing.theCompletedPrintPhotographedByItsMakerLightingAndCamera',
+        artwork: {
+            label: 'NASA/JPL — Titan, Visions of the Future',
+            href: 'https://www.jpl.nasa.gov/images/titan-jpl-travel-poster/',
+        },
     },
 ];
 
 const batmangaShowcase: ShowcaseItem[] = [
     {
         image: batmangaKromacutPreview,
-        alt: 'Kromacut Auto-paint prediction of the Batman Jiro Kuwata Batmanga cover',
+        alt: 'landing.kromacutAutoPaintPredictionOfTheBatmanJiroKuwataBatmanga',
         title: 'Batman: The Jiro Kuwata Batmanga',
-        kind: 'Kromacut prediction',
+        kind: 'landing.kromacutPrediction',
         creator: 'vycdev',
-        dimensions: '65.8 × 100.0 mm footprint',
-        note: 'Auto-paint with Deep optimization, enhanced matching, and Preserve color separation enabled.',
+        dimensions: 'landing.text6581000MmFootprint',
+        note: 'landing.autoPaintWithDeepOptimizationEnhancedMatchingAndPreserveColor',
     },
     {
         image: batmangaSlicerPreview,
-        alt: 'Creality Print slicer preview of the Batmanga cover and filament change tower',
+        alt: 'landing.crealityPrintSlicerPreviewOfTheBatmangaCoverAndFilament',
         title: 'Batman: The Jiro Kuwata Batmanga',
-        kind: 'Slicer preview',
+        kind: 'landing.slicerPreview',
         creator: 'vycdev',
-        note: 'Creality Hi, 0.4 mm nozzle and 0.08 mm layers. Slicer estimate: 3 h 12 min, 21.30 g including flushing and tower, eight filament changes.',
+        note: 'landing.crealityHi04MmNozzleAnd008Mm2',
     },
     {
         image: batmangaFinished,
-        alt: 'Finished Batmanga layered print with a yellow Japanese title, tan background, and black-and-gray Batman figure',
+        alt: 'landing.finishedBatmangaLayeredPrintWithAYellowJapaneseTitleTan',
         title: 'Batman: The Jiro Kuwata Batmanga',
-        kind: 'Finished print',
+        kind: 'landing.finishedPrint',
         creator: 'vycdev',
-        note: 'The completed print, photographed by its maker. The large title and silhouette remain distinct; small lettering and fine shading lose detail at this size.',
-        artwork: { label: 'Jiro Kuwata / DC — Batman: The Jiro Kuwata Batmanga, Book 1', href: 'https://m.media-amazon.com/images/I/81rOZq5ZgqL._AC_UF1000,1000_QL80_.jpg' },
+        note: 'landing.theCompletedPrintPhotographedByItsMakerTheLargeTitle',
+        artwork: {
+            label: 'Jiro Kuwata / DC — Batman: The Jiro Kuwata Batmanga, Book 1',
+            href: 'https://m.media-amazon.com/images/I/81rOZq5ZgqL._AC_UF1000,1000_QL80_.jpg',
+        },
     },
 ];
 
 const narutoShowcase: ShowcaseItem[] = [
     {
         image: narutoKromacutPreview,
-        alt: 'Kromacut Auto-paint prediction of Naruto looking up at a blue sky',
+        alt: 'landing.kromacutAutoPaintPredictionOfNarutoLookingUpAtA',
         title: 'Naruto',
-        kind: 'Kromacut prediction',
+        kind: 'landing.kromacutPrediction',
         creator: 'vycdev',
-        dimensions: '110.4 × 190.2 mm footprint',
-        note: 'Auto-paint with the eight-color calibrated filament profile, 0.15 mm pixels, and Smooth Meshing enabled.',
+        dimensions: 'landing.text11041902MmFootprint',
+        note: 'landing.autoPaintWithTheEightColorCalibratedFilamentProfile0',
     },
     {
         image: narutoSlicerPreview,
-        alt: 'Creality Print slicer preview of the Naruto print with seven filament colors and a change tower',
+        alt: 'landing.crealityPrintSlicerPreviewOfTheNarutoPrintWithSeven',
         title: 'Naruto',
-        kind: 'Slicer preview',
+        kind: 'landing.slicerPreview',
         creator: 'vycdev',
-        note: 'Creality Hi, 0.4 mm nozzle and 0.08 mm layers. Slicer estimate: 5 h 55 min, 72.10 g including flushing and tower, nine filament changes.',
+        note: 'landing.crealityHi04MmNozzleAnd008Mm3',
     },
     {
         image: narutoFinished,
-        alt: 'Finished Naruto layered print with yellow hair, orange clothing, and a lavender-blue sky',
+        alt: 'landing.finishedNarutoLayeredPrintWithYellowHairOrangeClothingAnd',
         title: 'Naruto',
-        kind: 'Finished print',
+        kind: 'landing.finishedPrint',
         creator: 'vycdev',
-        note: 'The completed overnight print, photographed by its maker. Lighting and camera processing can affect the colors shown.',
-        artwork: { label: 'Naruto artwork — source on Pinterest', href: 'https://in.pinterest.com/pin/169870217190172931/' },
+        note: 'landing.theCompletedOvernightPrintPhotographedByItsMakerLightingAnd',
+        artwork: { label: 'Naruto', href: 'https://in.pinterest.com/pin/169870217190172931/' },
     },
 ];
 
-const showcaseGroups = [...communityShowcase, ...titanShowcase, ...hopeShowcase, ...batmangaShowcase, ...narutoShowcase].reduce<ShowcaseItem[][]>((groups, item) => {
-    const group = groups.find(entries => entries[0].title === item.title);
+const showcaseGroups = [
+    ...communityShowcase,
+    ...titanShowcase,
+    ...hopeShowcase,
+    ...batmangaShowcase,
+    ...narutoShowcase,
+].reduce<ShowcaseItem[][]>((groups, item) => {
+    const group = groups.find((entries) => entries[0].title === item.title);
     if (group) group.push(item);
     else groups.push([item]);
     return groups;
@@ -275,38 +293,112 @@ function ExternalArrow() {
 }
 
 function ShowcaseCard({ items }: { items: ShowcaseItem[] }) {
+    const { t } = useTranslation('public');
     const project = items[0];
-    const artwork = items.find(item => item.artwork)?.artwork;
-    const sourceLinkClassName = 'inline-flex min-h-11 items-center gap-2 rounded-md text-sm font-semibold text-blue-700 underline underline-offset-4 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:text-blue-300';
+    const artwork = items.find((item) => item.artwork)?.artwork;
+    const sourceLinkClassName =
+        'inline-flex min-h-11 items-center gap-2 rounded-md text-sm font-semibold text-blue-700 underline underline-offset-4 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:text-blue-300';
     return (
         <article className="overflow-hidden rounded-xl border border-slate-200/90 bg-white/90 shadow-md shadow-slate-200/60 dark:border-border dark:bg-background/70 dark:shadow-sm dark:shadow-black/20">
             <header className="flex flex-col gap-4 border-b border-border/70 p-5 sm:p-6">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
                         <h3 className="text-xl font-bold tracking-tight">{project.title}</h3>
-                        <p className="mt-1 text-sm text-muted-foreground">By <span className="font-semibold text-foreground">{project.creator}</span></p>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                            <Trans
+                                t={t}
+                                i18nKey="landing.creator"
+                                values={{ creator: project.creator }}
+                                components={{
+                                    name: <span className="font-semibold text-foreground" />,
+                                }}
+                            />
+                        </p>
                     </div>
-                    <span className="rounded-full border border-blue-500/25 bg-blue-500/10 px-2.5 py-1 text-xs font-bold text-blue-700 dark:text-blue-300">{items.length} photos</span>
+                    <span className="rounded-full border border-blue-500/25 bg-blue-500/10 px-2.5 py-1 text-xs font-bold text-blue-700 dark:text-blue-300">
+                        {t('landing.photos', { count: items.length })}
+                    </span>
                 </div>
-                {project.dimensions && <p className="inline-flex items-center gap-2 text-sm font-semibold text-muted-foreground"><Ruler aria-hidden="true" className="h-4 w-4 shrink-0 text-blue-700 dark:text-blue-300" />{project.dimensions}</p>}
+                {project.dimensions && (
+                    <p className="inline-flex items-center gap-2 text-sm font-semibold text-muted-foreground">
+                        <Ruler
+                            aria-hidden="true"
+                            className="h-4 w-4 shrink-0 text-blue-700 dark:text-blue-300"
+                        />
+                        {project.dimensions.startsWith('landing.')
+                            ? t(project.dimensions)
+                            : project.dimensions}
+                    </p>
+                )}
             </header>
-            <div className={`grid gap-6 p-5 sm:grid-cols-2 sm:p-6 ${items.length > 2 ? 'lg:grid-cols-3' : ''}`}>
+            <div
+                className={`grid gap-6 p-5 sm:grid-cols-2 sm:p-6 ${items.length > 2 ? 'lg:grid-cols-3' : ''}`}
+            >
                 {items.map((item, index) => (
                     <figure key={item.image} className="min-w-0">
-                        <a href={item.image} target="_blank" rel="noopener noreferrer" aria-label={`Open ${item.title} ${item.kind.toLowerCase()} ${index + 1} at full size`} className="block h-72 overflow-hidden rounded-lg bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:h-80">
-                            <img src={item.image} alt={item.alt} loading="lazy" className="h-full w-full object-contain" />
+                        <a
+                            href={item.image}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            aria-label={t('landing.openPhoto', {
+                                title: item.title,
+                                kind: t(item.kind),
+                                index: index + 1,
+                            })}
+                            className="block h-72 overflow-hidden rounded-lg bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:h-80"
+                        >
+                            <img
+                                src={item.image}
+                                alt={t(item.alt)}
+                                loading="lazy"
+                                className="h-full w-full object-contain"
+                            />
                         </a>
                         <figcaption className="mt-4 space-y-3">
-                            <p className="text-sm font-bold text-blue-700 dark:text-blue-300">{item.kind}</p>
-                            {item.note && <p className="text-sm leading-6 text-muted-foreground">{item.note}</p>}
+                            <p className="text-sm font-bold text-blue-700 dark:text-blue-300">
+                                {t(item.kind)}
+                            </p>
+                            {item.note && (
+                                <p className="text-sm leading-6 text-muted-foreground">
+                                    {t(item.note)}
+                                </p>
+                            )}
                         </figcaption>
                     </figure>
                 ))}
             </div>
             <footer className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 border-t border-border/70 px-5 py-3 text-sm text-muted-foreground sm:px-6">
-                <p>Open any photo at full size.</p>
-                {project.href && <a href={project.href} target="_blank" rel="noopener noreferrer" className={sourceLinkClassName}>View Reddit post <ExternalArrow /></a>}
-                {artwork && <p>Original artwork: <a href={artwork.href} target="_blank" rel="noopener noreferrer" className={sourceLinkClassName}>{artwork.label}</a></p>}
+                <p>{t('landing.openAnyPhotoAtFullSize')}</p>
+                {project.href && (
+                    <a
+                        href={project.href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={sourceLinkClassName}
+                    >
+                        {t('landing.viewRedditPost')}
+                        <ExternalArrow />
+                    </a>
+                )}
+                {artwork && (
+                    <p>
+                        <Trans
+                            t={t}
+                            i18nKey="landing.originalArtwork"
+                            values={{ title: artwork.label }}
+                            components={{
+                                source: (
+                                    <a
+                                        href={artwork.href}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className={sourceLinkClassName}
+                                    />
+                                ),
+                            }}
+                        />
+                    </p>
+                )}
             </footer>
         </article>
     );
@@ -319,22 +411,61 @@ interface CommunityLinksProps {
     testId?: string;
 }
 
-function CommunityLinks({ children, className, labelClassName = 'sr-only', testId }: CommunityLinksProps) {
-    const linkClassName = 'inline-flex min-h-11 items-center justify-center gap-2 rounded-md px-3 text-sm font-semibold text-muted-foreground transition-colors hover:bg-muted/70 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
+function CommunityLinks({
+    children,
+    className,
+    labelClassName = 'sr-only',
+    testId,
+}: CommunityLinksProps) {
+    const { t } = useTranslation('public');
+    const linkClassName =
+        'inline-flex min-h-11 items-center justify-center gap-2 rounded-md px-3 text-sm font-semibold text-muted-foreground transition-colors hover:bg-muted/70 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
 
     return (
-        <nav data-testid={testId} aria-label="Community links" className={className}>
-            <a href={links.github} target="_blank" rel="noopener noreferrer" aria-label="Kromacut on GitHub" title="GitHub" className={linkClassName}>
-                <Github aria-hidden="true" className="h-4 w-4" /><span className={labelClassName}>GitHub</span>
+        <nav data-testid={testId} aria-label={t('landing.communityLinks')} className={className}>
+            <a
+                href={links.github}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={t('landing.kromacutOnGitHub')}
+                title="GitHub"
+                className={linkClassName}
+            >
+                <Github aria-hidden="true" className="h-4 w-4" />
+                <span className={labelClassName}>GitHub</span>
             </a>
-            <a href={links.discord} target="_blank" rel="noopener noreferrer" aria-label="Join Kromacut on Discord" title="Discord" className={linkClassName}>
-                <MessageCircle aria-hidden="true" className="h-4 w-4 text-indigo-400" /><span className={labelClassName}>Discord</span>
+            <a
+                href={links.discord}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={t('landing.joinKromacutOnDiscord')}
+                title="Discord"
+                className={linkClassName}
+            >
+                <MessageCircle aria-hidden="true" className="h-4 w-4 text-indigo-400" />
+                <span className={labelClassName}>Discord</span>
             </a>
-            <a href={links.reddit} target="_blank" rel="noopener noreferrer" aria-label="r/kromacut on Reddit" title="Reddit" className={linkClassName}>
-                <img src={redditIcon} alt="" className="h-4 w-4 dark:invert" /><span className={labelClassName}>Reddit</span>
+            <a
+                href={links.reddit}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={t('landing.rKromacutOnReddit')}
+                title="Reddit"
+                className={linkClassName}
+            >
+                <img src={redditIcon} alt="" className="h-4 w-4 dark:invert" />
+                <span className={labelClassName}>Reddit</span>
             </a>
-            <a href={links.patreon} target="_blank" rel="noopener noreferrer" aria-label="Support Kromacut on Patreon" title="Patreon" className={linkClassName}>
-                <Heart aria-hidden="true" className="h-4 w-4 text-rose-400" /><span className={labelClassName}>Support</span>
+            <a
+                href={links.patreon}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={t('landing.supportKromacutOnPatreon')}
+                title="Patreon"
+                className={linkClassName}
+            >
+                <Heart aria-hidden="true" className="h-4 w-4 text-rose-400" />
+                <span className={labelClassName}>{t('landing.support')}</span>
             </a>
             {children}
         </nav>
@@ -347,12 +478,13 @@ interface ThemePickerProps {
 }
 
 function ThemePicker({ onChange, themeMode }: ThemePickerProps) {
+    const { t } = useTranslation('public');
     const [open, setOpen] = React.useState(false);
     const ThemeIcon = themeMode === 'system' ? Monitor : themeMode === 'dark' ? Moon : Sun;
     const options: Array<{ icon: typeof Monitor; label: string; value: ThemeMode }> = [
-        { icon: Monitor, label: 'System', value: 'system' },
-        { icon: Moon, label: 'Dark', value: 'dark' },
-        { icon: Sun, label: 'Light', value: 'light' },
+        { icon: Monitor, label: t('landing.system'), value: 'system' },
+        { icon: Moon, label: t('landing.dark'), value: 'dark' },
+        { icon: Sun, label: t('landing.light'), value: 'light' },
     ];
 
     return (
@@ -360,15 +492,17 @@ function ThemePicker({ onChange, themeMode }: ThemePickerProps) {
             <PopoverTrigger asChild>
                 <button
                     type="button"
-                    aria-label={`Theme: ${themeMode}`}
-                    title="Change theme"
+                    aria-label={t('landing.themeLabel', { theme: t(`landing.${themeMode}`) })}
+                    title={t('landing.changeTheme')}
                     className="inline-flex min-h-11 items-center justify-center rounded-md px-3 text-muted-foreground transition-colors hover:bg-muted/70 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                     <ThemeIcon aria-hidden="true" className="h-4 w-4" />
                 </button>
             </PopoverTrigger>
             <PopoverContent align="end" className="w-44 p-1.5">
-                <div className="px-2 pb-1.5 pt-1 text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">Theme</div>
+                <div className="px-2 pb-1.5 pt-1 text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                    {t('landing.theme')}
+                </div>
                 {options.map(({ icon: Icon, label, value }) => (
                     <button
                         key={value}
@@ -390,7 +524,11 @@ function ThemePicker({ onChange, themeMode }: ThemePickerProps) {
 }
 
 export default function LandingPage() {
+    const { t } = useTranslation('public');
     const [themeMode, setThemeMode] = React.useState<ThemeMode>(() => getStoredThemeMode());
+    const scrollRootRef = React.useRef<HTMLElement>(null);
+    const originalActionRef = React.useRef<HTMLAnchorElement>(null);
+    const showStickyCta = useStickyMobileCta(scrollRootRef, originalActionRef);
 
     React.useEffect(() => {
         applyThemeMode(themeMode);
@@ -412,52 +550,116 @@ export default function LandingPage() {
     };
 
     return (
-        <main data-testid="landing-page" className="h-full overflow-x-hidden overflow-y-auto bg-[#f6f8fc] text-foreground dark:bg-background">
+        <main
+            ref={scrollRootRef}
+            data-testid="landing-page"
+            className="landing-page h-full overflow-x-hidden overflow-y-auto bg-[#f6f8fc] text-foreground dark:bg-background"
+        >
             <a
                 href="#workflow"
                 className="sr-only z-50 rounded-md bg-blue-700 px-4 py-2 font-semibold text-white focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-blue-700"
             >
-                Skip to workflow
+                {t('landing.skipToWorkflow')}
             </a>
 
             <div data-testid="landing-hero" className="relative isolate flex min-h-screen flex-col">
-                <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-full overflow-hidden">
+                <div
+                    aria-hidden="true"
+                    className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-full overflow-hidden"
+                >
                     <div className="absolute left-[8%] top-[-13rem] h-[34rem] w-[34rem] rounded-full bg-primary/20 blur-[100px]" />
                     <div className="absolute right-[-8rem] top-[8rem] h-[28rem] w-[28rem] rounded-full bg-fuchsia-500/10 blur-[100px]" />
                     <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(71,85,105,0.12)_1px,transparent_1px),linear-gradient(to_bottom,rgba(71,85,105,0.12)_1px,transparent_1px)] bg-[size:3rem_3rem] [mask-image:linear-gradient(to_bottom,black,transparent_88%)] dark:bg-[linear-gradient(to_right,rgba(148,163,184,0.06)_1px,transparent_1px),linear-gradient(to_bottom,rgba(148,163,184,0.06)_1px,transparent_1px)]" />
                 </div>
 
                 <header className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 border-b border-slate-200/80 bg-white/55 px-5 py-5 backdrop-blur-xl sm:gap-6 sm:px-8 lg:px-10 dark:border-transparent dark:bg-transparent">
-                    <a href={APP_PATH} className="flex items-center gap-3 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-4 focus-visible:ring-offset-background">
+                    <a
+                        href={APP_PATH}
+                        className="flex items-center gap-3 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-4 focus-visible:ring-offset-background"
+                    >
                         <img src={logo} alt="" className="h-9 w-auto sm:h-10" />
-                        <span className="hidden font-sans text-lg font-extrabold tracking-[0.12em] min-[390px]:inline">KROMACUT</span>
+                        <span className="hidden font-sans text-lg font-extrabold tracking-[0.12em] min-[390px]:inline">
+                            KROMACUT
+                        </span>
                     </a>
-                    <nav aria-label="Main navigation" className="hidden items-center gap-7 text-sm font-semibold text-muted-foreground md:flex">
-                        <a href="#workflow" className="inline-flex min-h-11 items-center rounded-md px-2 transition-colors motion-reduce:transition-none hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">How it works</a>
-                        <a href={docsPath('overview')} className="inline-flex min-h-11 items-center rounded-md px-2 transition-colors motion-reduce:transition-none hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">Docs</a>
-                        <a href={links.releases} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center rounded-md px-2 transition-colors motion-reduce:transition-none hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">Releases</a>
+                    <nav
+                        aria-label={t('landing.mainNavigation')}
+                        className="hidden items-center gap-7 text-sm font-semibold text-muted-foreground md:flex"
+                    >
+                        <a
+                            href="#workflow"
+                            className="inline-flex min-h-11 items-center rounded-md px-2 transition-colors motion-reduce:transition-none hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                            {t('landing.howItWorks')}
+                        </a>
+                        <a
+                            href={docsPath('overview')}
+                            className="inline-flex min-h-11 items-center rounded-md px-2 transition-colors motion-reduce:transition-none hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                            {t('landing.docs')}
+                        </a>
+                        <a
+                            href={links.releases}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex min-h-11 items-center rounded-md px-2 transition-colors motion-reduce:transition-none hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                            {t('landing.releases')}
+                        </a>
                     </nav>
-                    <CommunityLinks testId="landing-community-links" className="hidden items-center gap-1 lg:flex" labelClassName="hidden xl:inline">
+                    <CommunityLinks
+                        testId="landing-community-links"
+                        className="hidden items-center gap-1 lg:flex"
+                        labelClassName="hidden xl:inline"
+                    >
                         <ThemePicker themeMode={themeMode} onChange={setTheme} />
                     </CommunityLinks>
                     <a
                         href={APP_PATH}
                         data-testid="landing-open-app"
+                        ref={originalActionRef}
                         className="group inline-flex min-h-11 items-center gap-2 rounded-lg bg-foreground px-3 py-2 text-sm font-bold text-background shadow-lg shadow-foreground/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-4 focus-visible:ring-offset-background motion-safe:transition-transform motion-safe:hover:-translate-y-0.5 motion-safe:active:translate-y-0 sm:px-4"
                     >
-                        Open Kromacut <ExternalArrow />
+                        {t('landing.openKromacut')}
+                        <ExternalArrow />
                     </a>
                     <div className="order-last w-full border-t border-border/70 pt-2 md:hidden">
-                        <nav aria-label="Mobile navigation" className="flex items-center justify-center gap-1 text-xs font-semibold text-muted-foreground">
-                            <a href="#workflow" className="inline-flex min-h-11 items-center rounded-md px-3 transition-colors hover:bg-muted/70 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">How it works</a>
-                            <a href={docsPath('overview')} className="inline-flex min-h-11 items-center rounded-md px-3 transition-colors hover:bg-muted/70 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">Docs</a>
-                            <a href={links.releases} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center rounded-md px-3 transition-colors hover:bg-muted/70 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">Releases</a>
+                        <nav
+                            aria-label={t('landing.mobileNavigation')}
+                            className="flex items-center justify-center gap-1 text-xs font-semibold text-muted-foreground"
+                        >
+                            <a
+                                href="#workflow"
+                                className="inline-flex min-h-11 items-center rounded-md px-3 transition-colors hover:bg-muted/70 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            >
+                                {t('landing.howItWorks')}
+                            </a>
+                            <a
+                                href={docsPath('overview')}
+                                className="inline-flex min-h-11 items-center rounded-md px-3 transition-colors hover:bg-muted/70 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            >
+                                {t('landing.docs')}
+                            </a>
+                            <a
+                                href={links.releases}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex min-h-11 items-center rounded-md px-3 transition-colors hover:bg-muted/70 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            >
+                                {t('landing.releases')}
+                            </a>
                         </nav>
-                        <CommunityLinks testId="landing-mobile-community-links" className="mt-1 flex items-center justify-center gap-1 border-t border-border/50 pt-1">
+                        <CommunityLinks
+                            testId="landing-mobile-community-links"
+                            className="mt-1 flex items-center justify-center gap-1 border-t border-border/50 pt-1"
+                        >
                             <ThemePicker themeMode={themeMode} onChange={setTheme} />
                         </CommunityLinks>
                     </div>
-                    <CommunityLinks testId="landing-tablet-community-links" className="order-last hidden w-full items-center justify-center gap-1 border-t border-border/70 pt-3 md:flex lg:hidden">
+                    <CommunityLinks
+                        testId="landing-tablet-community-links"
+                        className="order-last hidden w-full items-center justify-center gap-1 border-t border-border/70 pt-3 md:flex lg:hidden"
+                    >
                         <ThemePicker themeMode={themeMode} onChange={setTheme} />
                     </CommunityLinks>
                 </header>
@@ -466,60 +668,144 @@ export default function LandingPage() {
                     <div className="max-w-2xl">
                         <div className="mb-6 flex items-center gap-3 text-xs font-bold uppercase tracking-[0.18em] text-primary">
                             <span aria-hidden="true" className="h-px w-8 bg-primary/70" />
-                            Open source · browser first
+                            {t('landing.openSourceBrowserFirst')}
                         </div>
                         <h1 className="max-w-2xl text-balance font-sans text-5xl font-extrabold leading-[0.95] tracking-[-0.045em] sm:text-6xl lg:text-7xl">
-                            Turn pixels into <span className="bg-gradient-to-r from-blue-700 via-violet-600 to-fuchsia-600 bg-clip-text text-transparent dark:from-primary dark:via-violet-400 dark:to-fuchsia-400">printable layers.</span>
+                            <Trans
+                                t={t}
+                                i18nKey="landing.heroTitle"
+                                components={{
+                                    accent: (
+                                        <span className="bg-gradient-to-r from-blue-700 via-violet-600 to-fuchsia-600 bg-clip-text text-transparent dark:from-primary dark:via-violet-400 dark:to-fuchsia-400" />
+                                    ),
+                                }}
+                            />
                         </h1>
                         <p className="mt-7 max-w-xl text-lg leading-8 text-muted-foreground sm:text-xl">
-                            Kromacut transforms 2D images into stacked, color-layered 3D prints. Prepare your palette, match real filament, preview the result, and export a model ready for your slicer.
+                            {t('landing.kromacutTransforms2DImagesIntoStackedColorLayered3DPrints')}
                         </p>
                         <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:items-center">
-                            <a href={APP_PATH} className="group inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-blue-700 px-5 py-3 font-bold text-white shadow-xl shadow-blue-700/20 hover:bg-blue-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-4 focus-visible:ring-offset-background motion-safe:transition motion-safe:hover:-translate-y-0.5 motion-safe:active:translate-y-0 motion-reduce:transition-none">
-                                Start creating <ExternalArrow />
+                            <a
+                                href={APP_PATH}
+                                className="group inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-blue-700 px-5 py-3 font-bold text-white shadow-xl shadow-blue-700/20 hover:bg-blue-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-4 focus-visible:ring-offset-background motion-safe:transition motion-safe:hover:-translate-y-0.5 motion-safe:active:translate-y-0 motion-reduce:transition-none"
+                            >
+                                {t('landing.startCreating')}
+                                <ExternalArrow />
                             </a>
-                            <a href={docsPath('quick-start')} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg border border-border bg-card/60 px-5 py-3 font-bold text-foreground transition-colors motion-reduce:transition-none hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-4 focus-visible:ring-offset-background">
-                                <BookOpen aria-hidden="true" className="h-4 w-4" /> Read the quick start
+                            <a
+                                href={docsPath('quick-start')}
+                                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg border border-border bg-card/60 px-5 py-3 font-bold text-foreground transition-colors motion-reduce:transition-none hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-4 focus-visible:ring-offset-background"
+                            >
+                                <BookOpen aria-hidden="true" className="h-4 w-4" />
+                                {t('landing.readTheQuickStart')}
                             </a>
                         </div>
                         <div className="mt-8 flex flex-wrap gap-x-5 gap-y-3 text-sm text-muted-foreground">
-                            {['Free to use', 'Browser + desktop', 'STL + 3MF export'].map((item) => (
-                                <span key={item} className="inline-flex items-center gap-2"><Check aria-hidden="true" className="h-4 w-4 text-emerald-400" />{item}</span>
+                            {[
+                                t('landing.freeToUse'),
+                                t('landing.browserDesktop'),
+                                t('landing.sTL3MFExport'),
+                            ].map((item) => (
+                                <span key={item} className="inline-flex items-center gap-2">
+                                    <Check
+                                        aria-hidden="true"
+                                        className="h-4 w-4 text-emerald-400"
+                                    />
+                                    {item}
+                                </span>
                             ))}
                         </div>
                     </div>
 
                     <div className="relative mx-auto w-full max-w-2xl lg:ml-auto">
-                        <div aria-hidden="true" className="absolute inset-0 rounded-[2rem] bg-primary/10 blur-3xl sm:-inset-8" />
+                        <div
+                            aria-hidden="true"
+                            className="absolute inset-0 rounded-[2rem] bg-primary/10 blur-3xl sm:-inset-8"
+                        />
                         <div className="relative overflow-hidden rounded-2xl border border-slate-200/90 bg-white/90 p-2 shadow-2xl shadow-slate-300/60 backdrop-blur dark:border-white/10 dark:bg-card/80 dark:shadow-black/30">
                             <div className="flex items-center justify-between border-b border-border px-3 py-2.5 text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
-                                <span>3D layer preview</span>
-                                <span className="inline-flex items-center gap-1.5 text-emerald-400"><span className="h-1.5 w-1.5 rounded-full bg-emerald-400" /> ready to print</span>
+                                <span>{t('landing.text3DLayerPreview')}</span>
+                                <span className="inline-flex items-center gap-1.5 text-emerald-400">
+                                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                                    {t('landing.readyToPrint')}
+                                </span>
                             </div>
                             <div className="relative aspect-[1.22] overflow-hidden rounded-xl bg-black/20">
-                                <img src={fuji3d} alt="Color-layered 3D print preview" className="h-full w-full object-cover object-[95%_center]" fetchPriority="high" />
+                                <img
+                                    src={fuji3d}
+                                    alt={t('landing.colorLayered3DPrintPreview')}
+                                    className="h-full w-full object-cover object-[95%_center]"
+                                    fetchPriority="high"
+                                />
                             </div>
                         </div>
                         <div className="absolute -bottom-5 -left-4 hidden items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-xl shadow-slate-300/50 sm:flex dark:border-border dark:bg-card dark:shadow-black/30">
-                            <div className="flex -space-x-1.5">{['#191d3d', '#5867d9', '#d64996', '#f5bd5a'].map((color) => <span key={color} className="h-7 w-7 rounded-full border-2 border-card" style={{ backgroundColor: color }} />)}</div>
-                            <div><div className="text-xs font-bold">Palette mapped</div><div className="text-[11px] text-muted-foreground">4 printable colors</div></div>
+                            <div className="flex -space-x-1.5">
+                                {['#191d3d', '#5867d9', '#d64996', '#f5bd5a'].map((color) => (
+                                    <span
+                                        key={color}
+                                        className="h-7 w-7 rounded-full border-2 border-card"
+                                        style={{ backgroundColor: color }}
+                                    />
+                                ))}
+                            </div>
+                            <div>
+                                <div className="text-xs font-bold">
+                                    {t('landing.paletteMapped')}
+                                </div>
+                                <div className="text-[11px] text-muted-foreground">
+                                    {t('landing.text4PrintableColors')}
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </section>
             </div>
 
-            <section id="workflow" tabIndex={-1} className="scroll-mt-8 border-y border-slate-200/90 bg-white/65 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring dark:border-border/70 dark:bg-card/30">
+            <section
+                id="workflow"
+                tabIndex={-1}
+                className="scroll-mt-8 border-y border-slate-200/90 bg-white/65 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring dark:border-border/70 dark:bg-card/30"
+            >
                 <div className="mx-auto max-w-7xl px-5 py-20 sm:px-8 lg:px-10 lg:py-28">
                     <div className="max-w-2xl">
-                        <p className="text-xs font-bold uppercase tracking-[0.2em] text-blue-700 dark:text-blue-300">From image to object</p>
-                        <h2 className="mt-4 text-3xl font-extrabold tracking-tight sm:text-5xl">A simple workflow, with serious control.</h2>
-                        <p className="mt-5 text-lg leading-8 text-muted-foreground">Go from a flat image to a layered print without leaving your browser. Keep the creative decisions yours, while Kromacut handles the geometry and print planning.</p>
+                        <p className="text-xs font-bold uppercase tracking-[0.2em] text-blue-700 dark:text-blue-300">
+                            {t('landing.fromImageToObject')}
+                        </p>
+                        <h2 className="mt-4 text-3xl font-extrabold tracking-tight sm:text-5xl">
+                            {t('landing.aSimpleWorkflowWithSeriousControl')}
+                        </h2>
+                        <p className="mt-5 text-lg leading-8 text-muted-foreground">
+                            {t('landing.goFromAFlatImageToALayeredPrintWithout')}
+                        </p>
                     </div>
                     <div className="mt-14 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
                         {workflow.map((step) => (
-                            <article key={step.number} className="group overflow-hidden rounded-xl border border-slate-200/90 bg-white/90 shadow-md shadow-slate-200/60 transition-transform motion-safe:hover:-translate-y-1 motion-reduce:transition-none dark:border-border dark:bg-background/70 dark:shadow-sm dark:shadow-black/20">
-                                <div className="aspect-[4/3] overflow-hidden border-b border-border bg-muted"><img src={step.image} alt={step.alt} loading="lazy" className={`h-full w-full ${step.imageFit === 'contain' ? 'object-contain' : 'object-cover'}`} style={{ objectPosition: step.imagePosition, transform: `scale(${step.imageScale})` }} /></div>
-                                <div className="p-5"><div className="font-mono text-xs font-bold text-blue-700 dark:text-blue-300">{step.number}</div><h3 className="mt-3 text-lg font-bold">{step.title}</h3><p className="mt-2 text-sm leading-6 text-muted-foreground">{step.description}</p></div>
+                            <article
+                                key={step.number}
+                                className="group overflow-hidden rounded-xl border border-slate-200/90 bg-white/90 shadow-md shadow-slate-200/60 transition-transform motion-safe:hover:-translate-y-1 motion-reduce:transition-none dark:border-border dark:bg-background/70 dark:shadow-sm dark:shadow-black/20"
+                            >
+                                <div className="aspect-[4/3] overflow-hidden border-b border-border bg-muted">
+                                    <img
+                                        src={step.image}
+                                        alt={t(step.alt)}
+                                        loading="lazy"
+                                        className={`h-full w-full ${step.imageFit === 'contain' ? 'object-contain' : 'object-cover'}`}
+                                        style={{
+                                            objectPosition: step.imagePosition,
+                                            transform: `scale(${step.imageScale})`,
+                                        }}
+                                    />
+                                </div>
+                                <div className="p-5">
+                                    <div className="font-mono text-xs font-bold text-blue-700 dark:text-blue-300">
+                                        {step.number}
+                                    </div>
+                                    <h3 className="mt-3 text-lg font-bold">{t(step.title)}</h3>
+                                    <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                                        {t(step.description)}
+                                    </p>
+                                </div>
                             </article>
                         ))}
                     </div>
@@ -528,38 +814,104 @@ export default function LandingPage() {
 
             <section className="mx-auto grid max-w-7xl items-center gap-12 px-5 py-20 sm:px-8 md:py-28 lg:grid-cols-[1.05fr_0.95fr] lg:px-10">
                 <div className="relative grid grid-cols-2 items-center gap-3">
-                    <div className="aspect-[4/3] overflow-hidden rounded-xl border border-border shadow-xl"><img src={fuji2d} alt="Original 2D artwork" loading="lazy" className="h-full w-full object-cover object-[95%_50%]" style={{ transform: 'translateY(-2%) scale(1.55)' }} /></div>
-                    <div className="aspect-[4/3] overflow-hidden rounded-xl border border-primary/40 bg-muted shadow-xl shadow-primary/10"><img src={printed} alt="Finished Kromacut print" loading="lazy" className="h-full w-full object-contain object-center" /></div>
-                    <div className="absolute left-1/2 top-1/2 hidden -translate-x-1/2 -translate-y-1/2 rounded-full border border-border bg-background p-3 text-primary shadow-lg sm:block"><ArrowRight aria-hidden="true" className="h-5 w-5" /></div>
+                    <div className="aspect-[4/3] overflow-hidden rounded-xl border border-border shadow-xl">
+                        <img
+                            src={fuji2d}
+                            alt={t('landing.original2DArtwork')}
+                            loading="lazy"
+                            className="h-full w-full object-cover object-[95%_50%]"
+                            style={{ transform: 'translateY(-2%) scale(1.55)' }}
+                        />
+                    </div>
+                    <div className="aspect-[4/3] overflow-hidden rounded-xl border border-primary/40 bg-muted shadow-xl shadow-primary/10">
+                        <img
+                            src={printed}
+                            alt={t('landing.finishedKromacutPrint')}
+                            loading="lazy"
+                            className="h-full w-full object-contain object-center"
+                        />
+                    </div>
+                    <div className="absolute left-1/2 top-1/2 hidden -translate-x-1/2 -translate-y-1/2 rounded-full border border-border bg-background p-3 text-primary shadow-lg sm:block">
+                        <ArrowRight aria-hidden="true" className="h-5 w-5" />
+                    </div>
                 </div>
                 <div className="max-w-xl">
-                    <p className="text-xs font-bold uppercase tracking-[0.2em] text-blue-700 dark:text-blue-300">Built for real prints</p>
-                    <h2 className="mt-4 text-3xl font-extrabold tracking-tight sm:text-5xl">Your filament. Your palette. Your model.</h2>
-                    <p className="mt-5 text-lg leading-8 text-muted-foreground">Use manual slicing when you want pixel-level control, or let Auto-paint search for a color stack from your calibrated filament profile. Either way, inspect every layer before you export.</p>
+                    <p className="text-xs font-bold uppercase tracking-[0.2em] text-blue-700 dark:text-blue-300">
+                        {t('landing.builtForRealPrints')}
+                    </p>
+                    <h2 className="mt-4 text-3xl font-extrabold tracking-tight sm:text-5xl">
+                        {t('landing.yourFilamentYourPaletteYourModel')}
+                    </h2>
+                    <p className="mt-5 text-lg leading-8 text-muted-foreground">
+                        {t('landing.useManualSlicingWhenYouWantPixelLevelControlOr')}
+                    </p>
                     <ul className="mt-7 space-y-3 text-sm text-foreground">
-                        {['Non-destructive image adjustments', 'Three.js layer-by-layer 3D preview', 'Calibrated Auto-paint with deterministic search', 'Slicer-friendly STL and multi-material 3MF'].map((item) => <li key={item} className="flex items-start gap-3"><Check aria-hidden="true" className="mt-0.5 h-4 w-4 flex-shrink-0 text-emerald-400" />{item}</li>)}
+                        {[
+                            t('landing.nonDestructiveImageAdjustments'),
+                            t('landing.threeJsLayerByLayer3DPreview'),
+                            t('landing.calibratedAutoPaintWithDeterministicSearch'),
+                            t('landing.slicerFriendlySTLAndMultiMaterial3MF'),
+                        ].map((item) => (
+                            <li key={item} className="flex items-start gap-3">
+                                <Check
+                                    aria-hidden="true"
+                                    className="mt-0.5 h-4 w-4 flex-shrink-0 text-emerald-400"
+                                />
+                                {item}
+                            </li>
+                        ))}
                     </ul>
-                    <a href={APP_PATH} className="mt-9 inline-flex items-center gap-2 font-bold text-blue-700 underline decoration-blue-700/30 underline-offset-4 transition-colors motion-reduce:transition-none hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:text-blue-300 dark:decoration-blue-300/30">Open the tool <ExternalArrow /></a>
+                    <a
+                        href={APP_PATH}
+                        className="mt-9 inline-flex items-center gap-2 font-bold text-blue-700 underline decoration-blue-700/30 underline-offset-4 transition-colors motion-reduce:transition-none hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:text-blue-300 dark:decoration-blue-300/30"
+                    >
+                        {t('landing.openTheTool')}
+                        <ExternalArrow />
+                    </a>
                 </div>
             </section>
 
-            <section data-testid="community-showcase" className="border-y border-slate-200/90 bg-white/65 dark:border-border/70 dark:bg-card/30">
+            <section
+                data-testid="community-showcase"
+                className="border-y border-slate-200/90 bg-white/65 dark:border-border/70 dark:bg-card/30"
+            >
                 <div className="mx-auto max-w-7xl px-5 py-20 sm:px-8 lg:px-10 lg:py-24">
                     <div className="max-w-2xl">
-                        <p className="text-xs font-bold uppercase tracking-[0.2em] text-blue-700 dark:text-blue-300">Community showcase</p>
-                        <h2 className="mt-4 text-3xl font-extrabold tracking-tight sm:text-5xl">Made by the Kromacut community.</h2>
-                        <p className="mt-5 text-lg leading-8 text-muted-foreground">Finished prints and behind-the-scenes previews from people creating with Kromacut.</p>
+                        <p className="text-xs font-bold uppercase tracking-[0.2em] text-blue-700 dark:text-blue-300">
+                            {t('landing.communityShowcase')}
+                        </p>
+                        <h2 className="mt-4 text-3xl font-extrabold tracking-tight sm:text-5xl">
+                            {t('landing.madeByTheKromacutCommunity')}
+                        </h2>
+                        <p className="mt-5 text-lg leading-8 text-muted-foreground">
+                            {t(
+                                'landing.finishedPrintsAndBehindTheScenesPreviewsFromPeopleCreating'
+                            )}
+                        </p>
                     </div>
                     <div data-testid="community-gallery" className="mt-10 grid grid-cols-1 gap-8">
-                        {showcaseGroups.map((items) => <ShowcaseCard key={items[0].title} items={items} />)}
+                        {showcaseGroups.map((items) => (
+                            <ShowcaseCard key={items[0].title} items={items} />
+                        ))}
                     </div>
                     <div className="mt-8 flex flex-col gap-4 rounded-xl border border-blue-500/20 bg-blue-500/5 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
                         <div>
-                            <p className="font-bold">Want to showcase your work or contribute to Kromacut?</p>
-                            <p className="mt-1 text-sm leading-6 text-muted-foreground">Share what you made, improve the project, or help the community discover what Kromacut can do.</p>
+                            <p className="font-bold">
+                                {t('landing.wantToShowcaseYourWorkOrContributeToKromacut')}
+                            </p>
+                            <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                                {t('landing.shareWhatYouMadeImproveTheProjectOrHelpThe')}
+                            </p>
                         </div>
-                        <a href={`${links.github}/pulls`} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 self-start rounded-lg border border-border bg-background px-4 py-2.5 text-sm font-bold transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:self-auto">
-                            <Github aria-hidden="true" className="h-4 w-4" /> Open a pull request <ExternalArrow />
+                        <a
+                            href={`${links.github}/pulls`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 self-start rounded-lg border border-border bg-background px-4 py-2.5 text-sm font-bold transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:self-auto"
+                        >
+                            <Github aria-hidden="true" className="h-4 w-4" />
+                            {t('landing.openAPullRequest')}
+                            <ExternalArrow />
                         </a>
                     </div>
                 </div>
@@ -567,22 +919,139 @@ export default function LandingPage() {
 
             <section className="border-t border-slate-200/90 bg-slate-100/80 dark:border-border/70 dark:bg-muted/20">
                 <div className="mx-auto flex max-w-7xl flex-col items-start justify-between gap-8 px-5 py-14 sm:px-8 md:flex-row md:items-center lg:px-10">
-                    <div><p className="text-2xl font-extrabold tracking-tight sm:text-3xl">Ready to make a flat image physical?</p><p className="mt-2 text-muted-foreground">Start with an image. Finish with a print.</p></div>
-                    <div className="flex flex-wrap gap-3"><a href={APP_PATH} className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-blue-700 px-5 py-2.5 font-bold text-white shadow-lg shadow-blue-700/20 hover:bg-blue-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring motion-safe:transition motion-safe:hover:-translate-y-0.5 motion-reduce:transition-none">Open Kromacut <ExternalArrow /></a><a href={links.releases} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-border bg-background px-5 py-2.5 font-bold transition-colors motion-reduce:transition-none hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><Download aria-hidden="true" className="h-4 w-4" /> Desktop releases</a></div>
+                    <div>
+                        <p className="text-2xl font-extrabold tracking-tight sm:text-3xl">
+                            {t('landing.readyToMakeAFlatImagePhysical')}
+                        </p>
+                        <p className="mt-2 text-muted-foreground">
+                            {t('landing.startWithAnImageFinishWithAPrint')}
+                        </p>
+                    </div>
+                    <div className="flex flex-wrap gap-3">
+                        <a
+                            href={APP_PATH}
+                            className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-blue-700 px-5 py-2.5 font-bold text-white shadow-lg shadow-blue-700/20 hover:bg-blue-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring motion-safe:transition motion-safe:hover:-translate-y-0.5 motion-reduce:transition-none"
+                        >
+                            {t('landing.openKromacut')}
+                            <ExternalArrow />
+                        </a>
+                        <a
+                            href={links.releases}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-border bg-background px-5 py-2.5 font-bold transition-colors motion-reduce:transition-none hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                            <Download aria-hidden="true" className="h-4 w-4" />
+                            {t('landing.desktopReleases')}
+                        </a>
+                    </div>
                 </div>
             </section>
 
-            <footer className="mx-auto flex max-w-7xl flex-col gap-8 px-5 py-10 sm:px-8 md:flex-row md:items-end md:justify-between lg:px-10">
-                <div><a href={APP_PATH} className="inline-flex items-center gap-3 font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><img src={logo} alt="" className="h-8 w-auto" /> Kromacut</a><p className="mt-3 max-w-sm text-sm leading-6 text-muted-foreground">Open-source tools for turning images into color-layered 3D prints.</p></div>
-                <nav aria-label="Footer navigation" className="grid grid-cols-2 gap-x-10 gap-y-3 text-sm text-muted-foreground sm:flex sm:flex-wrap sm:justify-end sm:gap-x-6">
-                    <a href={docsPath('overview')} className="inline-flex min-h-11 items-center gap-2 rounded-md px-1 transition-colors motion-reduce:transition-none hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><BookOpen aria-hidden="true" className="h-4 w-4" /> Docs</a>
-                    <a href={links.releases} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center gap-2 rounded-md px-1 transition-colors motion-reduce:transition-none hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><Download aria-hidden="true" className="h-4 w-4" /> Releases</a>
-                    <a href={links.github} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center gap-2 rounded-md px-1 transition-colors motion-reduce:transition-none hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><Github aria-hidden="true" className="h-4 w-4" /> GitHub</a>
-                    <a href={links.discord} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center gap-2 rounded-md px-1 transition-colors motion-reduce:transition-none hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><MessageCircle aria-hidden="true" className="h-4 w-4" /> Discord</a>
-                    <a href={links.patreon} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center gap-2 rounded-md px-1 transition-colors motion-reduce:transition-none hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><Heart aria-hidden="true" className="h-4 w-4" /> Support Kromacut</a>
+            <footer className="mx-auto grid max-w-7xl gap-8 px-5 py-10 sm:px-8 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)] lg:gap-x-12 lg:px-10">
+                <div>
+                    <a
+                        href={APP_PATH}
+                        className="inline-flex min-h-11 items-center gap-3 font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                        <img src={logo} alt="" className="h-8 w-auto" /> Kromacut
+                    </a>
+                    <p className="mt-3 max-w-sm text-sm leading-6 text-muted-foreground">
+                        {t('landing.openSourceToolsForTurningImagesIntoColorLayered3D')}
+                    </p>
+                </div>
+                <nav
+                    aria-label={t('landing.footerNavigation')}
+                    className="flex min-w-0 flex-col gap-3 text-sm text-muted-foreground"
+                >
+                    <div
+                        data-testid="landing-footer-community"
+                        className="flex flex-wrap items-center gap-x-6 gap-y-3 lg:justify-end"
+                    >
+                        <a
+                            href={docsPath('overview')}
+                            className="inline-flex min-h-11 items-center gap-2 rounded-md px-1 transition-colors motion-reduce:transition-none hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                            <BookOpen aria-hidden="true" className="h-4 w-4" />
+                            {t('landing.docs')}
+                        </a>
+                        <a
+                            href={links.releases}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex min-h-11 items-center gap-2 rounded-md px-1 transition-colors motion-reduce:transition-none hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                            <Download aria-hidden="true" className="h-4 w-4" />
+                            {t('landing.releases')}
+                        </a>
+                        <a
+                            href={links.github}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex min-h-11 items-center gap-2 rounded-md px-1 transition-colors motion-reduce:transition-none hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                            <Github aria-hidden="true" className="h-4 w-4" /> GitHub
+                        </a>
+                        <a
+                            href={links.discord}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex min-h-11 items-center gap-2 rounded-md px-1 transition-colors motion-reduce:transition-none hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                            <MessageCircle aria-hidden="true" className="h-4 w-4" /> Discord
+                        </a>
+                        <a
+                            href={links.patreon}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex min-h-11 items-center gap-2 rounded-md px-1 transition-colors motion-reduce:transition-none hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                            <Heart aria-hidden="true" className="h-4 w-4" />
+                            {t('landing.supportKromacut')}
+                        </a>
+                    </div>
+                    <div
+                        data-testid="landing-footer-utility"
+                        className="flex flex-wrap items-center gap-x-6 gap-y-3 lg:justify-end"
+                    >
+                        <a
+                            href={publicPath('/privacy')}
+                            data-testid="landing-privacy-link"
+                            className="inline-flex min-h-11 items-center gap-2 rounded-md px-1 transition-colors motion-reduce:transition-none hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                            <ShieldCheck aria-hidden="true" className="h-4 w-4" />
+                            {t('landing.privacy')}
+                        </a>
+                        <a
+                            href={publicPath('/terms')}
+                            data-testid="landing-terms-link"
+                            className="inline-flex min-h-11 items-center gap-2 rounded-md px-1 transition-colors motion-reduce:transition-none hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                            <FileText aria-hidden="true" className="h-4 w-4" />
+                            {t('landing.terms')}
+                        </a>
+                        <LanguageSetting compact />
+                    </div>
                 </nav>
             </footer>
-            <div className="sr-only"><ChevronDown aria-hidden="true" /><Play aria-hidden="true" /></div>
+            {showStickyCta && (
+                <div
+                    data-testid="landing-sticky-cta"
+                    className="landing-mobile-cta fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 px-4 pt-3 shadow-[0_-8px_24px_rgba(0,0,0,0.08)] backdrop-blur-md md:hidden"
+                >
+                    <a
+                        href={APP_PATH}
+                        className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-blue-700 px-5 py-3 font-bold text-white hover:bg-blue-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                    >
+                        {t('landing.openKromacut')}
+                        <ExternalArrow />
+                    </a>
+                </div>
+            )}
+            <div className="sr-only">
+                <ChevronDown aria-hidden="true" />
+                <Play aria-hidden="true" />
+            </div>
         </main>
     );
 }

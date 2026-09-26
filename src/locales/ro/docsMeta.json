@@ -1,0 +1,62 @@
+{
+  "3d-mode": {
+    "title": "Modul 3D",
+    "description": "Dimensiuni fizice, succesiuni manuale de culori, geometrie și comenzi de previzualizare."
+  },
+  "auto-paint": {
+    "title": "Comenzi Auto-paint",
+    "description": "Datele filamentelor, detalii imprimabile, potrivire, limite de înălțime și încredere."
+  },
+  "calibration-theory": {
+    "title": "Teoria calibrării",
+    "description": "Optica și matematica din spatele calibrării distanței de acoperire, Palette Proof și Stack Matrix."
+  },
+  "calibration-workflows": {
+    "title": "Fluxuri de calibrare",
+    "description": "Alege un instrument de calibrare, înțelege comenzile sale și află ce măsurători se aplică următoarei imprimări."
+  },
+  "dedithering-cleanup": {
+    "title": "Eliminarea ditheringului și curățarea",
+    "description": "Curățare în vecinătate după culoarea exactă, cu efecte asupra punctelor, marginilor, transparenței și insulelor imprimabile."
+  },
+  "faq": {
+    "title": "Întrebări frecvente",
+    "description": "Răspunsuri scurte la întrebările frecvente despre Kromacut."
+  },
+  "flat-paint": {
+    "title": "Flat Paint",
+    "description": "Relief în trepte, suporturi transparente cu fața în jos și plăci expuse cu fața în sus."
+  },
+  "generating-exporting-output": {
+    "title": "Generarea și exportul rezultatului",
+    "description": "Generează modelul, inspectează-l, exportă fișiere și copiază instrucțiunile de imprimare."
+  },
+  "image-adjustments": {
+    "title": "Ajustările imaginii",
+    "description": "Fiecare glisor de ton și culoare, efectul asupra culorilor țintă și când să aplici definitiv previzualizarea imaginii."
+  },
+  "loading-images": {
+    "title": "Încărcarea imaginilor",
+    "description": "Importă, decupează, redimensionează și retușează pixelii imaginii înainte de a deveni regiuni imprimate."
+  },
+  "overview": {
+    "title": "Prezentare generală",
+    "description": "Ce face Kromacut și cum se leagă fluxurile principale de lucru."
+  },
+  "quick-start": {
+    "title": "Ghid rapid",
+    "description": "O primă utilizare practică, de la imagine la export."
+  },
+  "reducing-colors": {
+    "title": "Reducerea culorilor",
+    "description": "Înțelege reducerea în două etape, paletele fixe și diferența dintre recolorare și transparență."
+  },
+  "settings-and-controls": {
+    "title": "Setări și comenzi",
+    "description": "Acțiuni din antet, teme, persistență, palete, profiluri și comenzi ale spațiului de lucru."
+  },
+  "troubleshooting": {
+    "title": "Depanare",
+    "description": "Probleme frecvente și ce să încerci mai întâi."
+  }
+}

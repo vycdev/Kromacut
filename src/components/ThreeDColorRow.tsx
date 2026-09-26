@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import React, { useState, useEffect } from 'react';
 import { Slider } from '@/components/ui/slider';
 import { GripVertical } from 'lucide-react';
@@ -14,6 +15,7 @@ type Props = {
 };
 
 function ThreeDColorRowInner({ fi, hex, value, layerHeight, minHeight, onChange }: Props) {
+    const { t } = useTranslation('printing');
     const [tempValue, setTempValue] = useState<number>(value);
 
     // Sync tempValue when the value prop changes (e.g., when layerHeight changes)
@@ -38,8 +40,8 @@ function ThreeDColorRowInner({ fi, hex, value, layerHeight, minHeight, onChange 
                         variant="ghost"
                         size="icon"
                         className="h-5 w-5 flex-shrink-0 text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
-                        aria-label="Reorder color - drag handle"
-                        title="Drag to reorder"
+                        aria-label={t('threeDColorRow.reorderColorDragHandle')}
+                        title={t('threeDColorRow.dragToReorder')}
                     >
                         <GripVertical className="h-4 w-4" />
                     </Button>
@@ -50,7 +52,7 @@ function ThreeDColorRowInner({ fi, hex, value, layerHeight, minHeight, onChange 
                     className="flex-shrink-0 w-8 h-6 border-2 border-border rounded-md shadow-sm transition-all duration-200 hover:shadow-md hover:border-primary/50 ring-1 ring-black/10"
                     style={{ background: hex }}
                     title={hex}
-                    aria-label={`Color swatch: ${hex}`}
+                    aria-label={t('threeDColorRow.colorSwatch', { hex })}
                 />
 
                 {/* Height slider - interactive area */}

@@ -3,20 +3,28 @@ import type { CanonicalSrgbColor, AppearanceAnchorLayer } from '../types/appeara
 import {
     fingerprintAppearanceFilaments,
     MAX_STACK_MATRIX_SAMPLES,
+    MAX_STACK_MATRIX_RECIPE_LAYERS,
     type StackMatrixCalibrationV1,
 } from './appearanceProfile';
 import { blendColors, hexToRgb, rgbToHex, type RGB } from './autoPaint';
-import { channelHds, channelHdsForSubstrate } from './calibration';
+import { channelHdsForSubstrate } from './calibration';
 import { rgbToLab, type Rgb } from './colorDifference';
 import { fingerprintJson } from './fingerprint';
 import { createProjectiveMapper, type MatrixPhotoPoint } from './stackMatrixPhotoAlignment';
+import { planAdaptiveStackMatrix } from './stackMatrixPlanning';
 
 export type { MatrixPhotoPoint } from './stackMatrixPhotoAlignment';
 
 export interface StackMatrixBuildOptions {
     layerHeight: number;
     firstLayerHeight: number;
-    stackLayerCount: number;
+    /** Legacy fixed-depth planner. Omitted when a physical recipe cap is supplied. */
+    stackLayerCount?: number;
+    /** Maximum recipe thickness in mm; does not change the regular print layer height. */
+    maximumRecipeThickness?: number;
+    /** Conservative whole-board material-change bound, including corner references. */
+    maximumSwapCycles?: number;
+    previousMatrices?: readonly StackMatrixCalibrationV1[];
     maximumSamples: number;
     backingFilamentId: string;
     /** Fingerprint of the complete named profile that owns this subset matrix. */
@@ -32,8 +40,6 @@ export interface StackMatrixCompletionEvidence {
 export const STACK_MATRIX_PATCH_SIZE_MM = 5;
 export const STACK_MATRIX_GAP_MM = 0;
 
-const FOUNDATION_MINIMUM_MM = 0.6;
-const FOUNDATION_OPACITY_MULTIPLIER = 1.3;
 const MAX_MATRIX_FILAMENTS = 8;
 const MIN_HD_GAMUT_POOL_SIZE = 8_192;
 const HD_GAMUT_POOL_MULTIPLIER = 8;
@@ -75,23 +81,13 @@ function canonicalColor(rgb: RGB | Rgb): CanonicalSrgbColor {
 }
 
 export function matrixFoundationLayerThicknesses(
-    backing: Filament,
     layerHeight: number,
     firstLayerHeight: number
 ): number[] {
-    const regular = Math.max(0.001, layerHeight);
-    const first = Math.max(regular, firstLayerHeight);
-    const target = Math.max(
-        FOUNDATION_MINIMUM_MM,
-        Math.max(...channelHds(backing)) * FOUNDATION_OPACITY_MULTIPLIER
-    );
-    const layers = [roundHeight(first)];
-    let height = first;
-    while (height < target - 1e-9 && layers.length < 500) {
-        layers.push(roundHeight(regular));
-        height += regular;
-    }
-    return layers;
+    // A new board starts with exactly one printable first layer. Do not add
+    // structural or HD-derived layers: stored boards retain their own frozen
+    // foundation schedule, while opacity is handled when applying evidence.
+    return [roundHeight(Math.max(0.001, layerHeight, firstLayerHeight))];
 }
 
 function decodeCombination(value: number, base: number, length: number): number[] {
@@ -280,7 +276,16 @@ export function buildStackMatrixCalibration(
         (filament) => filament.id === options.backingFilamentId
     );
     if (backingIndex < 0) throw new Error('The Stack Matrix backing filament is not selected');
-    const stackLayerCount = Math.max(2, Math.min(6, Math.round(options.stackLayerCount)));
+    if (options.maximumRecipeThickness !== undefined) {
+        return buildAdaptiveStackMatrixCalibration(
+            filaments,
+            inputFilaments,
+            backingIndex,
+            options,
+            timestamp
+        );
+    }
+    const stackLayerCount = Math.max(2, Math.min(6, Math.round(options.stackLayerCount ?? 3)));
     const maximumSamples = Math.max(
         filaments.length,
         Math.min(MAX_STACK_MATRIX_SAMPLES, Math.round(options.maximumSamples))
@@ -316,7 +321,6 @@ export function buildStackMatrixCalibration(
     const columns = Math.ceil(Math.sqrt(selected.length));
     const rows = Math.ceil(selected.length / columns);
     const foundationLayerThicknesses = matrixFoundationLayerThicknesses(
-        filaments[backingIndex],
         options.layerHeight,
         options.firstLayerHeight
     );
@@ -376,6 +380,135 @@ export function buildStackMatrixCalibration(
         selection: selected.length === totalCombinationCount ? 'exhaustive' : 'hd-gamut',
         samples,
         cornerStacks: markerIndices.map(pureStack),
+        createdAt: timestamp,
+    };
+}
+
+function buildAdaptiveStackMatrixCalibration(
+    filaments: readonly Filament[],
+    ownerFilaments: readonly Filament[],
+    backingIndex: number,
+    options: StackMatrixBuildOptions,
+    timestamp: string
+): StackMatrixCalibrationV1 {
+    const maximumRecipeThickness = options.maximumRecipeThickness!;
+    if (
+        !Number.isFinite(options.layerHeight) ||
+        options.layerHeight < 0.001 ||
+        options.layerHeight > 10 ||
+        !Number.isFinite(options.firstLayerHeight) ||
+        options.firstLayerHeight < 0 ||
+        options.firstLayerHeight > 10
+    ) {
+        throw new Error('Choose valid regular and first-layer heights for the Stack Matrix.');
+    }
+    const layerHeight = roundHeight(options.layerHeight);
+    const stackLayerCount = Math.floor((maximumRecipeThickness + 1e-9) / layerHeight);
+    if (
+        !Number.isFinite(maximumRecipeThickness) ||
+        stackLayerCount < 1 ||
+        stackLayerCount > MAX_STACK_MATRIX_RECIPE_LAYERS ||
+        maximumRecipeThickness > MAX_STACK_MATRIX_RECIPE_LAYERS * layerHeight + 1e-9
+    ) {
+        throw new Error(
+            `Choose a maximum recipe thickness between one and ${MAX_STACK_MATRIX_RECIPE_LAYERS} regular print layers.`
+        );
+    }
+    if (!Number.isFinite(options.maximumSamples) || options.maximumSamples < 1) {
+        throw new Error('Choose a positive Stack Matrix patch count.');
+    }
+    if (
+        options.maximumSwapCycles !== undefined &&
+        (!Number.isSafeInteger(options.maximumSwapCycles) || options.maximumSwapCycles < 0)
+    ) {
+        throw new Error(
+            'Choose a whole-number swap-cycle budget of zero or more, or leave it unlimited.'
+        );
+    }
+    const maximumSamples = Math.max(
+        filaments.length,
+        Math.min(MAX_STACK_MATRIX_SAMPLES, Math.round(options.maximumSamples))
+    );
+    const firstLayerHeight = roundHeight(Math.max(layerHeight, options.firstLayerHeight));
+    const foundationLayerThicknesses = matrixFoundationLayerThicknesses(
+        layerHeight,
+        firstLayerHeight
+    );
+    const filamentProfileFingerprint =
+        options.ownerProfileFingerprint ?? fingerprintAppearanceFilaments(ownerFilaments);
+    const planned = planAdaptiveStackMatrix({
+        filaments,
+        backingIndex,
+        layerCount: stackLayerCount,
+        layerHeight,
+        firstLayerHeight,
+        foundationLayerThicknesses,
+        ownerProfileFingerprint: filamentProfileFingerprint,
+        maximumSamples,
+        maximumSwapCycles: options.maximumSwapCycles,
+        previousMatrices: options.previousMatrices,
+        predictColor: (stack) => predictStackColor(filaments, backingIndex, stack, layerHeight),
+    });
+    const columns = Math.ceil(Math.sqrt(planned.candidates.length));
+    const rows = Math.ceil(planned.candidates.length / columns);
+    let totalCombinationCount = 1;
+    let totalCombinationCountCapped = false;
+    // Padding aliases recipes with leading backing. Count unique full-depth
+    // physical stacks, not the same stack repeatedly at different recipe depths.
+    for (let layer = 0; layer < stackLayerCount; layer++) {
+        if (totalCombinationCount > Number.MAX_SAFE_INTEGER / filaments.length) {
+            totalCombinationCount = Number.MAX_SAFE_INTEGER;
+            totalCombinationCountCapped = true;
+            break;
+        }
+        totalCombinationCount *= filaments.length;
+    }
+    return {
+        schemaVersion: 2,
+        id: `stack-matrix-${uuid()}`,
+        status: 'planned',
+        process: { filamentProfileFingerprint, layerHeight, firstLayerHeight, unknownFields: [] },
+        filaments: filaments.map((filament) => ({
+            id: filament.id,
+            color: filament.color.toLowerCase(),
+            name: filament.name || filament.brand || filament.color,
+        })),
+        backingFilamentIndex: backingIndex,
+        foundationLayerThicknesses,
+        stackLayerCount,
+        grid: { rows, columns, patchSize: STACK_MATRIX_PATCH_SIZE_MM, gap: STACK_MATRIX_GAP_MM },
+        totalCombinationCount,
+        selection: 'adaptive-gamut',
+        samples: planned.candidates.map((candidate, index) => ({
+            ...candidate,
+            index,
+            row: Math.floor(index / columns),
+            column: index % columns,
+            canonicalStackKey: fingerprintJson(
+                'stack-v1',
+                stackLayers(
+                    filaments,
+                    backingIndex,
+                    foundationLayerThicknesses,
+                    candidate.stack,
+                    layerHeight
+                )
+            ),
+        })),
+        cornerStacks: planned.cornerStacks,
+        planning: {
+            maximumRecipeThickness,
+            candidateCount: planned.candidateCount,
+            compatibleHistoryCount: planned.compatibleHistoryCount,
+            measuredRecipeCount: planned.measuredRecipeCount,
+            referenceSampleCount: planned.referenceSampleCount,
+            unmeasuredSampleCount: planned.unmeasuredSampleCount,
+            ...(options.maximumSwapCycles !== undefined
+                ? { maximumSwapCycles: options.maximumSwapCycles }
+                : {}),
+            estimatedSwapCycles: planned.estimatedSwapCycles,
+            ...(totalCombinationCountCapped ? { totalCombinationCountCapped: true } : {}),
+        },
         createdAt: timestamp,
     };
 }

@@ -1,3 +1,6 @@
+import { useTranslation } from 'react-i18next';
+import { i18n } from '@/lib/i18n';
+import { translateRuntimeMessage } from '@/lib/runtimeMessages';
 import { useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
 import { Check, X } from 'lucide-react';
 import { swatchTextColor } from '../lib/colorUtils';
@@ -26,7 +29,10 @@ interface PaletteProofImageTargetPickerProps {
 function formatUsagePercent(usageWeight: number): string {
     const percent = usageWeight * 100;
     if (percent === 0) return '0%';
-    return percent >= 10 ? `${Math.round(percent)}%` : `${percent.toFixed(1)}%`;
+    return new Intl.NumberFormat(i18n.resolvedLanguage, {
+        style: 'percent',
+        maximumFractionDigits: percent >= 10 ? 0 : 1,
+    }).format(usageWeight);
 }
 
 export default function PaletteProofImageTargetPicker({
@@ -37,6 +43,7 @@ export default function PaletteProofImageTargetPicker({
     maximumSelected,
     onToggleTarget,
 }: PaletteProofImageTargetPickerProps) {
+    const { t } = useTranslation('calibration');
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
     const sourcePixelsRef = useRef<ImageData | null>(null);
     const [imageSize, setImageSize] = useState({ width: 0, height: 0 });
@@ -194,33 +201,39 @@ export default function PaletteProofImageTargetPicker({
                         className="block h-auto max-h-[52vh] w-auto max-w-full cursor-crosshair rounded-sm [image-rendering:pixelated]"
                         onClick={handleCanvasClick}
                         role="img"
-                        aria-label="Processed image target selector. Click an image region to select or deselect its color."
+                        aria-label={t('picker.processedImageTargetSelectorClickAnImageRegion')}
                         data-testid="palette-proof-target-image"
                     />
                 )}
                 {imageSize.width === 0 && !loadError && (
-                    <p className="text-xs text-muted-foreground">Loading processed image...</p>
+                    <p className="text-xs text-muted-foreground">
+                        {t('picker.loadingProcessedImage')}
+                    </p>
                 )}
-                {loadError && <p className="text-xs text-destructive">{loadError}</p>}
+                {loadError && (
+                    <p className="text-xs text-destructive">{translateRuntimeMessage(loadError)}</p>
+                )}
             </div>
             <p className="text-[9px] text-muted-foreground">
                 {selectedTargetIds.length > 0
-                    ? 'Selected colors stay bright; all other image colors are dimmed.'
-                    : `Click any region to select that ${
-                          targetColorMode === 'fitted' ? 'fitted achievable' : 'processed image'
-                      } color everywhere it appears.`}
+                    ? t('picker.selectedColorsStayBrightAllOtherImageColors')
+                    : t(
+                          targetColorMode === 'fitted'
+                              ? 'picker.selectFittedRegion'
+                              : 'picker.selectImageRegion'
+                      )}
             </p>
             <div className="space-y-1">
                 <p className="text-[9px] font-medium text-foreground">
-                    Choose by color
+                    {t('picker.chooseByColor')}
                     <span className="ml-1 font-normal text-muted-foreground">
-                        (keyboard accessible)
+                        {t('picker.keyboardAccessible')}
                     </span>
                 </p>
                 <div
                     className="grid max-h-24 grid-cols-[repeat(auto-fill,minmax(5.5rem,1fr))] gap-1 overflow-y-auto rounded-md border border-border/70 bg-muted/20 p-1"
                     role="group"
-                    aria-label="Available image target colors"
+                    aria-label={t('picker.availableImageTargetColors')}
                 >
                     {selectableTargets.map((target) => {
                         const selected = selectedTargetIds.includes(target.id);
@@ -236,7 +249,13 @@ export default function PaletteProofImageTargetPicker({
                                     color: swatchTextColor(target.targetColor.rgb),
                                 }}
                                 onClick={() => toggleTarget(target)}
-                                aria-label={`${selected ? 'Remove' : 'Select'} image color ${hex}, ${formatUsagePercent(target.usageWeight)} usage`}
+                                aria-label={t(
+                                    selected ? 'picker.removeColor' : 'picker.selectColor',
+                                    {
+                                        color: hex,
+                                        usage: formatUsagePercent(target.usageWeight),
+                                    }
+                                )}
                                 aria-pressed={selected}
                                 disabled={disabled}
                                 data-available-target-id={target.id}
@@ -257,7 +276,7 @@ export default function PaletteProofImageTargetPicker({
             >
                 {selectedTargets.length === 0 ? (
                     <span className="text-[10px] text-muted-foreground">
-                        No image colors selected. All targets will be selected automatically.
+                        {t('picker.noImageColorsSelectedAllTargetsWillBe')}
                     </span>
                 ) : (
                     selectedTargets.map((target) => (
@@ -270,7 +289,9 @@ export default function PaletteProofImageTargetPicker({
                                 color: swatchTextColor(target.targetColor.rgb),
                             }}
                             onClick={() => onToggleTarget(target.id)}
-                            aria-label={`Remove selected ${target.targetColor.hex.toUpperCase()}`}
+                            aria-label={t('picker.removeSelected', {
+                                color: target.targetColor.hex.toUpperCase(),
+                            })}
                             data-selected-target-id={target.id}
                         >
                             <Check className="h-3 w-3" />
@@ -284,7 +305,9 @@ export default function PaletteProofImageTargetPicker({
                 )}
             </div>
             {selectionMessage && (
-                <p className="text-[9px] text-muted-foreground">{selectionMessage}</p>
+                <p className="text-[9px] text-muted-foreground">
+                    {translateRuntimeMessage(selectionMessage)}
+                </p>
             )}
         </div>
     );

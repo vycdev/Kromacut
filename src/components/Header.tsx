@@ -1,4 +1,6 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
+import LanguageSetting from './LanguageSetting';
 import { Button } from '@/components/ui/button';
 import {
     AlertCircle,
@@ -56,6 +58,7 @@ import {
     subscribeToAutoPaintDiagnosticsEnabled,
 } from '@/lib/diagnosticPreferences';
 import { openAutoPaintDiagnosticsDirectory } from '@/lib/desktopDiagnostics';
+import { localizedReleaseNotes } from '@/lib/localizedReleaseNotes';
 
 interface Props {
     docsOpen: boolean;
@@ -67,6 +70,7 @@ const appVersion = __APP_VERSION__;
 type UpdateCheckStatus = 'idle' | 'checking' | 'available' | 'current' | 'error';
 
 export const Header: React.FC<Props> = ({ docsOpen, onBackToApp, onOpenDocs }) => {
+    const { t, i18n } = useTranslation('common');
     const [themeMode, setThemeMode] = React.useState<ThemeMode>(() => getStoredThemeMode());
     const [settingsOpen, setSettingsOpen] = React.useState(false);
     const [checkOnStartup, setCheckOnStartup] = React.useState(() => getUpdateCheckOnStartup());
@@ -77,6 +81,9 @@ export const Header: React.FC<Props> = ({ docsOpen, onBackToApp, onOpenDocs }) =
     const [diagnosticsError, setDiagnosticsError] = React.useState('');
     const [updateStatus, setUpdateStatus] = React.useState<UpdateCheckStatus>('idle');
     const [availableUpdate, setAvailableUpdate] = React.useState<VersionInfo | null>(null);
+    const releaseNotes = availableUpdate
+        ? localizedReleaseNotes(availableUpdate, i18n.resolvedLanguage)
+        : null;
     const [updateError, setUpdateError] = React.useState('');
     const settingsTitleId = React.useId();
     const updateStartupSwitchId = React.useId();
@@ -95,12 +102,14 @@ export const Header: React.FC<Props> = ({ docsOpen, onBackToApp, onOpenDocs }) =
         const getFocusable = () =>
             Array.from(
                 dialog?.querySelectorAll<HTMLElement>(
-                    'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])'
+                    'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
                 ) ?? []
             );
         getFocusable()[0]?.focus();
 
         const handleKeyDown = (event: KeyboardEvent) => {
+            // Nested shared controls handle Escape/Tab before the settings dialog.
+            if (event.defaultPrevented) return;
             if (event.key === 'Escape') {
                 setSettingsOpen(false);
                 return;
@@ -206,7 +215,7 @@ export const Header: React.FC<Props> = ({ docsOpen, onBackToApp, onOpenDocs }) =
             await openAutoPaintDiagnosticsDirectory();
         } catch (error) {
             console.error('Failed to open the diagnostics directory:', error);
-            setDiagnosticsError('Could not open the diagnostics folder.');
+            setDiagnosticsError('diagnostics.folderFailed');
         }
     };
 
@@ -221,7 +230,7 @@ export const Header: React.FC<Props> = ({ docsOpen, onBackToApp, onOpenDocs }) =
             setUpdateStatus(updateInfo ? 'available' : 'current');
         } catch (error) {
             console.error('Failed to check for updates:', error);
-            setUpdateError('Could not check for updates. Try again later.');
+            setUpdateError('updates.checkFailed');
             setUpdateStatus('error');
         }
     };
@@ -231,7 +240,7 @@ export const Header: React.FC<Props> = ({ docsOpen, onBackToApp, onOpenDocs }) =
             await openDesktopReleasesPage();
         } catch (error) {
             console.error('Failed to open releases page:', error);
-            setUpdateError('Could not open the download page.');
+            setUpdateError('updates.downloadFailed');
             setUpdateStatus('error');
         }
     };
@@ -244,8 +253,8 @@ export const Header: React.FC<Props> = ({ docsOpen, onBackToApp, onOpenDocs }) =
                         type="button"
                         onClick={onBackToApp}
                         className="-ml-1 flex cursor-pointer items-center gap-2 rounded-md p-1 text-left transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-                        aria-label="Back to app"
-                        title="Back to app"
+                        aria-label={t('navigation.backToApp')}
+                        title={t('navigation.backToApp')}
                     >
                         <img src={logo} alt="" className="h-7 w-auto" />
                         <span className="font-extrabold text-base text-foreground tracking-wide ml-1 select-none max-md:hidden">
@@ -256,8 +265,8 @@ export const Header: React.FC<Props> = ({ docsOpen, onBackToApp, onOpenDocs }) =
                     <a
                         href={landingPath(isTauri())}
                         className="flex items-center gap-2 rounded-md p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-                        aria-label="Kromacut home"
-                        title="Back to Kromacut home"
+                        aria-label={t('navigation.home')}
+                        title={t('navigation.backHome')}
                     >
                         <img src={logo} alt="Kromacut" className="h-7 w-auto" />
                         <span className="font-extrabold text-base text-foreground tracking-wide ml-1 select-none max-md:hidden">
@@ -271,8 +280,8 @@ export const Header: React.FC<Props> = ({ docsOpen, onBackToApp, onOpenDocs }) =
                     ref={settingsButtonRef}
                     size="icon"
                     onClick={() => setSettingsOpen(true)}
-                    title="Open settings"
-                    aria-label="Open settings"
+                    title={t('settings.open')}
+                    aria-label={t('settings.open')}
                     className="h-8 w-8 bg-secondary hover:bg-secondary/80 text-secondary-foreground font-semibold transition-all duration-200 shadow-md hover:shadow-lg hover:scale-105 active:scale-95 shadow-black/20 dark:shadow-white/30 dark:border dark:border-white/20"
                 >
                     <Settings className="w-4 h-4" />
@@ -296,15 +305,15 @@ export const Header: React.FC<Props> = ({ docsOpen, onBackToApp, onOpenDocs }) =
                                 id={settingsTitleId}
                                 className="text-lg font-semibold text-foreground"
                             >
-                                Settings
+                                {t('settings.title')}
                             </h2>
                             <Button
                                 type="button"
                                 size="icon"
                                 variant="ghost"
                                 onClick={() => setSettingsOpen(false)}
-                                aria-label="Close settings"
-                                title="Close settings"
+                                aria-label={t('settings.close')}
+                                title={t('settings.close')}
                                 className="h-8 w-8"
                             >
                                 <X className="w-4 h-4" />
@@ -312,7 +321,9 @@ export const Header: React.FC<Props> = ({ docsOpen, onBackToApp, onOpenDocs }) =
                         </div>
 
                         <section className="space-y-3">
-                            <div className="text-sm font-medium text-foreground">Theme</div>
+                            <div className="text-sm font-medium text-foreground">
+                                {t('settings.theme')}
+                            </div>
                             <div className="grid gap-2 sm:grid-cols-3">
                                 <button
                                     type="button"
@@ -326,7 +337,7 @@ export const Header: React.FC<Props> = ({ docsOpen, onBackToApp, onOpenDocs }) =
                                     )}
                                 >
                                     <Monitor className="w-4 h-4" />
-                                    System
+                                    {t('settings.system')}
                                 </button>
                                 <button
                                     type="button"
@@ -340,7 +351,7 @@ export const Header: React.FC<Props> = ({ docsOpen, onBackToApp, onOpenDocs }) =
                                     )}
                                 >
                                     <Moon className="w-4 h-4" />
-                                    Dark
+                                    {t('settings.dark')}
                                 </button>
                                 <button
                                     type="button"
@@ -354,18 +365,20 @@ export const Header: React.FC<Props> = ({ docsOpen, onBackToApp, onOpenDocs }) =
                                     )}
                                 >
                                     <Sun className="w-4 h-4" />
-                                    Light
+                                    {t('settings.light')}
                                 </button>
                             </div>
                         </section>
 
+                        <LanguageSetting />
+
                         <section className="mt-5 space-y-3 border-t border-border pt-5">
                             <div>
                                 <div className="text-sm font-medium text-foreground">
-                                    Resources & community
+                                    {t('settings.resources')}
                                 </div>
                                 <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                                    Guides, releases, and places to share what you make.
+                                    {t('settings.resourcesDescription')}
                                 </p>
                             </div>
                             <div className="space-y-2">
@@ -382,10 +395,10 @@ export const Header: React.FC<Props> = ({ docsOpen, onBackToApp, onOpenDocs }) =
                                     </span>
                                     <span className="min-w-0 flex-1">
                                         <span className="block text-sm font-semibold text-foreground">
-                                            Docs
+                                            {t('settings.docs')}
                                         </span>
                                         <span className="mt-0.5 block text-xs text-muted-foreground">
-                                            Learn the workflow and print settings.
+                                            {t('settings.docsDescription')}
                                         </span>
                                     </span>
                                     <ChevronRight className="h-4 w-4 flex-shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
@@ -410,7 +423,7 @@ export const Header: React.FC<Props> = ({ docsOpen, onBackToApp, onOpenDocs }) =
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         onClick={() => setSettingsOpen(false)}
-                                        aria-label="r/kromacut on Reddit"
+                                        aria-label={t('settings.reddit')}
                                         className="flex items-center justify-center gap-2 rounded-md px-2 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-background hover:text-foreground hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                                     >
                                         <img
@@ -438,7 +451,7 @@ export const Header: React.FC<Props> = ({ docsOpen, onBackToApp, onOpenDocs }) =
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         onClick={() => setSettingsOpen(false)}
-                                        aria-label="Support Me on Patreon"
+                                        aria-label={t('settings.patreon')}
                                         className="flex items-center justify-center gap-2 rounded-md px-2 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-background hover:text-foreground hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                                     >
                                         <Heart className="h-4 w-4 flex-shrink-0 text-rose-400" />
@@ -452,10 +465,10 @@ export const Header: React.FC<Props> = ({ docsOpen, onBackToApp, onOpenDocs }) =
                             <section className="mt-5 space-y-3 border-t border-border pt-5">
                                 <div>
                                     <div className="text-sm font-medium text-foreground">
-                                        Diagnostics
+                                        {t('diagnostics.title')}
                                     </div>
                                     <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                                        Capture reproducible Auto-paint decisions for investigation.
+                                        {t('diagnostics.description')}
                                     </p>
                                 </div>
 
@@ -467,25 +480,22 @@ export const Header: React.FC<Props> = ({ docsOpen, onBackToApp, onOpenDocs }) =
                                         >
                                             <div className="flex items-center gap-2 text-sm font-medium text-foreground">
                                                 <FileJson className="h-4 w-4 text-primary" />
-                                                Record Auto-paint diagnostics
+                                                {t('diagnostics.record')}
                                             </div>
                                             <div className="mt-1 text-xs leading-5 text-muted-foreground">
-                                                Writes one flushed JSONL file for each new
-                                                Auto-paint calculation. Files include the active
-                                                filament profile, calibration evidence, candidates,
-                                                and final result and may be large.
+                                                {t('diagnostics.recordDescription')}
                                             </div>
                                         </label>
                                         <Switch
                                             id={diagnosticsSwitchId}
                                             checked={diagnosticsEnabled}
                                             onCheckedChange={setDiagnostics}
-                                            aria-label="Record Auto-paint diagnostics"
+                                            aria-label={t('diagnostics.record')}
                                         />
                                     </div>
                                     <div className="mt-3 flex items-center justify-between gap-3 border-t border-border pt-3">
                                         <span className="text-xs text-muted-foreground">
-                                            Applies to new calculations only.
+                                            {t('diagnostics.newCalculations')}
                                         </span>
                                         <Button
                                             type="button"
@@ -494,7 +504,7 @@ export const Header: React.FC<Props> = ({ docsOpen, onBackToApp, onOpenDocs }) =
                                             onClick={handleOpenDiagnosticsDirectory}
                                         >
                                             <FolderOpen className="h-4 w-4" />
-                                            Open folder
+                                            {t('diagnostics.openFolder')}
                                         </Button>
                                     </div>
                                 </div>
@@ -505,7 +515,7 @@ export const Header: React.FC<Props> = ({ docsOpen, onBackToApp, onOpenDocs }) =
                                         className="flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-foreground"
                                     >
                                         <AlertCircle className="h-4 w-4 flex-shrink-0 text-destructive" />
-                                        {diagnosticsError}
+                                        {t(diagnosticsError)}
                                     </div>
                                 )}
                             </section>
@@ -515,7 +525,7 @@ export const Header: React.FC<Props> = ({ docsOpen, onBackToApp, onOpenDocs }) =
                             <section className="mt-5 space-y-3 border-t border-border pt-5">
                                 <div className="flex items-center justify-between gap-3">
                                     <div className="text-sm font-medium text-foreground">
-                                        Updates
+                                        {t('updates.title')}
                                     </div>
                                     <Button
                                         type="button"
@@ -523,14 +533,16 @@ export const Header: React.FC<Props> = ({ docsOpen, onBackToApp, onOpenDocs }) =
                                         variant="outline"
                                         onClick={handleCheckForUpdates}
                                         disabled={updateStatus === 'checking'}
-                                        title="Check for updates"
+                                        title={t('updates.checkTitle')}
                                     >
                                         {updateStatus === 'checking' ? (
                                             <Loader2 className="w-4 h-4 animate-spin" />
                                         ) : (
                                             <RefreshCw className="w-4 h-4" />
                                         )}
-                                        {updateStatus === 'checking' ? 'Checking' : 'Check'}
+                                        {updateStatus === 'checking'
+                                            ? t('updates.checking')
+                                            : t('updates.check')}
                                     </Button>
                                 </div>
 
@@ -541,17 +553,17 @@ export const Header: React.FC<Props> = ({ docsOpen, onBackToApp, onOpenDocs }) =
                                             className="min-w-0 cursor-pointer"
                                         >
                                             <div className="text-sm font-medium text-foreground">
-                                                Check on startup
+                                                {t('updates.startup')}
                                             </div>
                                             <div className="mt-1 text-xs text-muted-foreground">
-                                                Shows desktop update notices when Kromacut opens.
+                                                {t('updates.startupDescription')}
                                             </div>
                                         </label>
                                         <Switch
                                             id={updateStartupSwitchId}
                                             checked={checkOnStartup}
                                             onCheckedChange={setStartupUpdateChecks}
-                                            aria-label="Check for updates on startup"
+                                            aria-label={t('updates.startupLabel')}
                                         />
                                     </div>
                                 </div>
@@ -563,12 +575,16 @@ export const Header: React.FC<Props> = ({ docsOpen, onBackToApp, onOpenDocs }) =
                                                 <Download className="mt-0.5 h-4 w-4 flex-shrink-0 text-primary" />
                                                 <div className="min-w-0 flex-1">
                                                     <div className="text-sm font-medium text-foreground">
-                                                        Version {availableUpdate.version} is
-                                                        available
+                                                        {t('updates.available', {
+                                                            version: availableUpdate.version,
+                                                        })}
                                                     </div>
-                                                    {availableUpdate.release_notes && (
-                                                        <div className="mt-1 line-clamp-2 text-xs text-muted-foreground">
-                                                            {availableUpdate.release_notes}
+                                                    {releaseNotes && (
+                                                        <div
+                                                            lang={releaseNotes.language}
+                                                            className="mt-1 line-clamp-2 text-xs text-muted-foreground"
+                                                        >
+                                                            {releaseNotes.text}
                                                         </div>
                                                     )}
                                                 </div>
@@ -579,7 +595,7 @@ export const Header: React.FC<Props> = ({ docsOpen, onBackToApp, onOpenDocs }) =
                                                     className="h-8 flex-shrink-0"
                                                 >
                                                     <Download className="w-4 h-4" />
-                                                    Download
+                                                    {t('updates.download')}
                                                 </Button>
                                             </div>
                                         </div>
@@ -588,14 +604,14 @@ export const Header: React.FC<Props> = ({ docsOpen, onBackToApp, onOpenDocs }) =
                                     {updateStatus === 'current' && (
                                         <div className="flex items-center gap-2 rounded-md border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-foreground">
                                             <CheckCircle2 className="h-4 w-4 flex-shrink-0 text-emerald-500" />
-                                            Kromacut is up to date.
+                                            {t('updates.current')}
                                         </div>
                                     )}
 
                                     {updateStatus === 'error' && (
                                         <div className="flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-foreground">
                                             <AlertCircle className="h-4 w-4 flex-shrink-0 text-destructive" />
-                                            {updateError}
+                                            {t(updateError)}
                                         </div>
                                     )}
                                 </div>
@@ -603,7 +619,9 @@ export const Header: React.FC<Props> = ({ docsOpen, onBackToApp, onOpenDocs }) =
                         )}
 
                         <section className="mt-5 space-y-3 border-t border-border pt-5">
-                            <div className="text-sm font-medium text-foreground">Experimental</div>
+                            <div className="text-sm font-medium text-foreground">
+                                {t('settings.experimental')}
+                            </div>
                             <div className="rounded-md border border-border bg-background p-3">
                                 <div className="flex items-center justify-between gap-4">
                                     <label
@@ -611,18 +629,17 @@ export const Header: React.FC<Props> = ({ docsOpen, onBackToApp, onOpenDocs }) =
                                         className="min-w-0 cursor-pointer"
                                     >
                                         <div className="text-sm font-medium text-foreground">
-                                            Multi-plate mode
+                                            {t('settings.multiPlate')}
                                         </div>
                                         <div className="mt-1 text-xs text-muted-foreground">
-                                            Unfinished multi-plate workflow. No effect yet; may
-                                            change or break.
+                                            {t('settings.multiPlateDescription')}
                                         </div>
                                     </label>
                                     <Switch
                                         id={multiPlateSwitchId}
                                         checked={multiPlateEnabled}
                                         onCheckedChange={setMultiPlate}
-                                        aria-label="Enable experimental multi-plate mode"
+                                        aria-label={t('settings.multiPlateEnable')}
                                     />
                                 </div>
                             </div>

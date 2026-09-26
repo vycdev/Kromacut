@@ -4,6 +4,7 @@ import test from 'node:test';
 import type { Filament } from '../src/types/index.ts';
 import { buildPaletteProofSnapshot } from './helpers/paletteProofFixture.ts';
 import { loadViteModule } from './helpers/viteModule.ts';
+import { adaptiveStackMatrixFixture } from './helpers/adaptiveStackMatrixFixture.ts';
 
 type AppearanceProfileModule = typeof import('../src/lib/appearanceProfile.ts');
 type PaletteProofModule = typeof import('../src/lib/paletteProof.ts');
@@ -28,6 +29,159 @@ const filaments: Filament[] = [
     { id: 'filament-2', color: '#ffffff', td: 0.4 },
     { id: 'filament-3', color: '#00ffff', td: 0.3 },
 ];
+
+test('adaptive Matrix records preserve useful depth, opaque padding, and planning metadata', async () => {
+    const { createEmptyAppearanceProfile, sanitizeAppearanceProfile } =
+        await loadAppearanceProfile();
+    const record = adaptiveStackMatrixFixture();
+    const appearance = { ...createEmptyAppearanceProfile(), stackMatrices: [record] };
+    assert.deepEqual(sanitizeAppearanceProfile(structuredClone(appearance)), appearance);
+
+    const tallest = structuredClone(record);
+    tallest.stackLayerCount = 64;
+    tallest.planning!.maximumRecipeThickness = 2.56;
+    tallest.totalCombinationCount = Number.MAX_SAFE_INTEGER;
+    tallest.planning!.totalCombinationCountCapped = true;
+    for (const sample of tallest.samples) {
+        sample.stack.unshift(...Array.from({ length: 44 }, () => 0));
+        sample.backingPaddingLayerCount! += 44;
+    }
+    tallest.cornerStacks = tallest.cornerStacks.map((stack) =>
+        Array.from({ length: 64 }, () => stack[0])
+    );
+    assert.deepEqual(
+        sanitizeAppearanceProfile({ ...appearance, stackMatrices: [tallest] })?.stackMatrices,
+        [tallest]
+    );
+    const shallowest = structuredClone(record);
+    shallowest.stackLayerCount = 1;
+    shallowest.planning!.maximumRecipeThickness = 0.04;
+    shallowest.totalCombinationCount = 3;
+    for (const sample of shallowest.samples) {
+        sample.stack = sample.stack.slice(-1);
+        sample.recipeLayerCount = 1;
+        sample.backingPaddingLayerCount = 0;
+    }
+    shallowest.cornerStacks = shallowest.cornerStacks.map((stack) => stack.slice(-1));
+    assert.deepEqual(
+        sanitizeAppearanceProfile({ ...appearance, stackMatrices: [shallowest] })?.stackMatrices,
+        [shallowest]
+    );
+});
+
+test('adaptive Matrix import rejects inconsistent padding and invalid planner contracts', async () => {
+    const { createEmptyAppearanceProfile, sanitizeAppearanceProfile } =
+        await loadAppearanceProfile();
+    const mutations: Array<(record: ReturnType<typeof adaptiveStackMatrixFixture>) => void> = [
+        (record) => {
+            delete record.planning;
+        },
+        (record) => {
+            delete record.samples[0].recipeLayerCount;
+        },
+        (record) => {
+            delete record.samples[0].selectionReason;
+        },
+        (record) => {
+            record.samples[0].backingPaddingLayerCount = 17;
+        },
+        (record) => {
+            record.samples[0].stack[0] = 1;
+        },
+        (record) => {
+            record.planning!.maximumRecipeThickness = 0.4;
+        },
+        (record) => {
+            record.planning!.maximumRecipeThickness = 0.84;
+        },
+        (record) => {
+            record.planning!.estimatedSwapCycles = 101;
+        },
+        (record) => {
+            record.planning!.referenceSampleCount = 0;
+        },
+        (record) => {
+            record.planning!.unmeasuredSampleCount = -1;
+        },
+        (record) => {
+            record.planning!.unmeasuredSampleCount = record.samples.length + 1;
+        },
+        (record) => {
+            record.planning!.totalCombinationCountCapped = true;
+        },
+        (record) => {
+            record.totalCombinationCount = Number.MAX_SAFE_INTEGER;
+        },
+        (record) => {
+            record.stackLayerCount = 65;
+        },
+        (record) => {
+            record.selection = 'hd-gamut';
+        },
+        (record) => {
+            record.schemaVersion = 1;
+        },
+    ];
+    for (const mutate of mutations) {
+        const record = adaptiveStackMatrixFixture();
+        mutate(record);
+        assert.deepEqual(
+            sanitizeAppearanceProfile({
+                ...createEmptyAppearanceProfile(),
+                stackMatrices: [record],
+            })?.stackMatrices,
+            []
+        );
+    }
+});
+
+test('legacy Matrix imports and evidence fingerprints keep their original metadata shape', async () => {
+    const {
+        createEmptyAppearanceProfile,
+        sanitizeAppearanceProfile,
+        fingerprintCompletedAppearanceEvidence,
+    } = await loadAppearanceProfile();
+    const record = adaptiveStackMatrixFixture();
+    record.schemaVersion = 1;
+    record.selection = 'exhaustive';
+    record.stackLayerCount = 3;
+    record.totalCombinationCount = 27;
+    delete record.planning;
+    record.cornerStacks = record.cornerStacks.map((stack) => stack.slice(-3));
+    record.samples = record.samples.map((sample) => {
+        const legacy = { ...sample, stack: sample.stack.slice(-3) };
+        delete legacy.recipeLayerCount;
+        delete legacy.backingPaddingLayerCount;
+        delete legacy.selectionReason;
+        return legacy;
+    });
+    const appearance = { ...createEmptyAppearanceProfile(), stackMatrices: [record] };
+    const sanitized = sanitizeAppearanceProfile(structuredClone(appearance));
+    assert.deepEqual(sanitized, appearance);
+    assert.equal(
+        fingerprintCompletedAppearanceEvidence(sanitized),
+        fingerprintCompletedAppearanceEvidence(appearance)
+    );
+    const invalid = structuredClone(appearance);
+    invalid.stackMatrices[0].selection = 'adaptive-gamut';
+    assert.deepEqual(sanitizeAppearanceProfile(invalid)?.stackMatrices, []);
+});
+
+test('completed adaptive Matrix evidence fingerprints distinguish physical recipe boundaries', async () => {
+    const { createEmptyAppearanceProfile, fingerprintCompletedAppearanceEvidence } =
+        await loadAppearanceProfile();
+    const appearance = {
+        ...createEmptyAppearanceProfile(),
+        stackMatrices: [adaptiveStackMatrixFixture()],
+    };
+    const changed = structuredClone(appearance);
+    changed.stackMatrices[0].samples[0].backingPaddingLayerCount = 17;
+    changed.stackMatrices[0].samples[0].recipeLayerCount = 3;
+    assert.notEqual(
+        fingerprintCompletedAppearanceEvidence(appearance),
+        fingerprintCompletedAppearanceEvidence(changed)
+    );
+});
 
 test('proof records freeze only reachable prefixes and the active process fingerprint', async () => {
     const { buildPaletteProofRecord, fingerprintAppearanceFilaments } =

@@ -1,4 +1,5 @@
-@import url('https://fonts.googleapis.com/css2?family=Oxanium:wght@200;300;400;500;600;700;800&family=Source+Code+Pro:wght@400;500;600;700&family=Source+Serif+4:wght@400;500;600;700&display=swap');
+@import './styles/fonts.css';
+@import './styles/language-fonts.css';
 @import 'tailwindcss';
 
 @custom-variant dark (&:is(.dark *));
@@ -45,7 +46,9 @@
     --sidebar-accent-foreground: oklch(0.3791 0.1378 265.5222);
     --sidebar-border: oklch(0.9276 0.0058 264.5313);
     --sidebar-ring: oklch(0.6231 0.188 259.8145);
-    --font-sans: Oxanium, ui-sans-serif, system-ui, sans-serif;
+    --font-sans:
+        Oxanium, 'Noto Sans', 'Noto Sans Devanagari', 'Noto Sans Bengali', 'Noto Sans SC',
+        'Noto Sans JP', ui-sans-serif, system-ui, sans-serif;
     --font-serif: Source Serif 4, serif;
     --font-mono: Source Code Pro, ui-monospace, monospace;
     --radius: 0.75rem;
@@ -100,7 +103,9 @@
     --sidebar-accent-foreground: oklch(0.8823 0.0571 254.1284);
     --sidebar-border: oklch(0.2478 0 0);
     --sidebar-ring: oklch(0.6231 0.188 259.8145);
-    --font-sans: Oxanium, ui-sans-serif, system-ui, sans-serif;
+    --font-sans:
+        Oxanium, 'Noto Sans', 'Noto Sans Devanagari', 'Noto Sans Bengali', 'Noto Sans SC',
+        'Noto Sans JP', ui-sans-serif, system-ui, sans-serif;
     --font-serif: Source Serif 4, serif;
     --font-mono: Source Code Pro, ui-monospace, monospace;
     --radius: 0.75rem;
@@ -490,11 +495,7 @@ input[type='number'] {
     box-shadow: 0 0 26px rgba(255, 120, 0, 0.55);
     /* Repeating light bands read as FDM layer lines over a filament gradient. */
     background:
-        repeating-linear-gradient(
-            0deg,
-            rgba(255, 255, 255, 0.16) 0 2px,
-            transparent 2px 6px
-        ),
+        repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.16) 0 2px, transparent 2px 6px),
         linear-gradient(180deg, #ff9a4d, #ff6a00);
     /* Reveal rises at a constant rate so it stays locked to the nozzle's climb
      * (feat35-head, also linear); an eased curve here finishes the fill visually
@@ -537,7 +538,7 @@ input[type='number'] {
     align-items: center;
     gap: 3px;
     white-space: nowrap;
-    font-family: 'Oxanium', sans-serif;
+    font-family: var(--font-sans);
     animation: feat35-caption 2.6s ease-out both;
 }
 

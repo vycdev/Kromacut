@@ -1,7 +1,7 @@
 {
     "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
     "productName": "Kromacut",
-    "version": "4.0.0",
+    "version": "4.1.0",
     "identifier": "com.kromacut.lithophane",
     "build": {
         "frontendDist": "../dist",
@@ -23,7 +23,7 @@
             }
         ],
         "security": {
-            "csp": "default-src 'self'; connect-src 'self' https://kromacut.com; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; worker-src 'self' blob:"
+            "csp": "default-src 'self'; connect-src 'self' https://kromacut.com; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; worker-src 'self' blob:"
         }
     },
     "bundle": {

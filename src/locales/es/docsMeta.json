@@ -1,0 +1,17 @@
+{
+ "3d-mode":{"title":"Modo 3D","description":"Dimensiones físicas, apilamientos manuales de color, mallas y controles de vista previa."},
+ "auto-paint":{"title":"Controles de pintura automática","description":"Filamentos, detalles imprimibles, correspondencia de colores, límites de altura y confianza."},
+ "calibration-theory":{"title":"Teoría de calibración","description":"La óptica y las matemáticas de la calibración por distancia de ocultación, prueba de paleta y matriz de apilamientos."},
+ "calibration-workflows":{"title":"Flujos de calibración","description":"Elige una herramienta de calibración, conoce sus controles y comprende qué mediciones se aplican a tu próxima impresión."},
+ "dedithering-cleanup":{"title":"Eliminación de tramado y limpieza","description":"Limpieza del vecindario por colores exactos y sus efectos sobre motas, bordes, transparencia e islas imprimibles."},
+ "faq":{"title":"Preguntas frecuentes","description":"Respuestas breves a las preguntas habituales sobre Kromacut."},
+ "flat-paint":{"title":"Pintura plana","description":"Relieve escalonado, soportes transparentes boca abajo y placas expuestas boca arriba."},
+ "generating-exporting-output":{"title":"Generación y exportación","description":"Genera el modelo, revísalo, exporta los archivos y copia las instrucciones de impresión."},
+ "image-adjustments":{"title":"Ajustes de imagen","description":"Todos los controles de tono y color, su efecto en los colores objetivo y cuándo aplicar la vista previa a la imagen."},
+ "loading-images":{"title":"Cargar imágenes","description":"Importa, recorta, redimensiona y retoca los píxeles antes de que se conviertan en zonas impresas."},
+ "overview":{"title":"Visión general","description":"Qué hace Kromacut y cómo encajan sus principales flujos de trabajo."},
+ "quick-start":{"title":"Inicio rápido","description":"Un primer recorrido práctico de la imagen a la exportación."},
+ "reducing-colors":{"title":"Reducir colores","description":"Comprende la reducción en dos etapas, las paletas fijas y la diferencia entre recolorear y dar transparencia."},
+ "settings-and-controls":{"title":"Ajustes y controles","description":"Acciones de la cabecera, temas, persistencia, paletas, perfiles y controles del espacio de trabajo."},
+ "troubleshooting":{"title":"Solución de problemas","description":"Problemas habituales y qué probar primero."}
+}

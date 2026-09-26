@@ -1,0 +1,76 @@
+{
+  "colorPicker": {
+    "hue": "Nuanță",
+    "color": "Culoare",
+    "alpha": "Opacitate",
+    "saturationBrightness": "Saturație {{saturation}}%, Luminozitate {{brightness}}%"
+  },
+  "language": {
+    "title": "Limbă",
+    "system": "Limba sistemului",
+    "loading": "Se încarcă limba…",
+    "failed": "Această limbă nu a putut fi încărcată. Limba curentă a fost păstrată."
+  },
+  "navigation": {
+    "backToApp": "Înapoi la aplicație",
+    "home": "Pagina principală Kromacut",
+    "backHome": "Înapoi la pagina principală Kromacut",
+    "loading": "Se încarcă Kromacut"
+  },
+  "settings": {
+    "title": "Setări",
+    "open": "Deschide setările",
+    "close": "Închide setările",
+    "theme": "Temă",
+    "system": "Sistem",
+    "dark": "Întunecată",
+    "light": "Luminoasă",
+    "resources": "Resurse și comunitate",
+    "resourcesDescription": "Ghiduri, versiuni și locuri în care îți poți împărtăși creațiile.",
+    "docs": "Documentație",
+    "docsDescription": "Descoperă fluxul de lucru și setările de imprimare.",
+    "reddit": "r/kromacut pe Reddit",
+    "patreon": "Susține-mă pe Patreon",
+    "experimental": "Experimental",
+    "multiPlate": "Mod cu mai multe plăci",
+    "multiPlateDescription": "Flux de lucru neterminat pentru mai multe plăci. Nu are încă efect; se poate modifica sau poate funcționa incorect.",
+    "multiPlateEnable": "Activează modul experimental cu mai multe plăci"
+  },
+  "diagnostics": {
+    "title": "Diagnosticare",
+    "description": "Înregistrează deciziile reproductibile ale Auto-paint pentru analiză.",
+    "record": "Înregistrează datele de diagnosticare Auto-paint",
+    "recordDescription": "Scrie integral pe disc câte un fișier JSONL pentru fiecare calcul Auto-paint nou. Fișierele includ profilul activ de filamente, datele de calibrare, candidații și rezultatul final și pot fi mari.",
+    "newCalculations": "Se aplică numai calculelor noi.",
+    "openFolder": "Deschide folderul",
+    "folderFailed": "Folderul de diagnosticare nu a putut fi deschis."
+  },
+  "updates": {
+    "title": "Actualizări",
+    "checkTitle": "Caută actualizări",
+    "checking": "Se verifică",
+    "check": "Verifică",
+    "startup": "Verifică la pornire",
+    "startupDescription": "Afișează notificări despre actualizările aplicației desktop la deschiderea Kromacut.",
+    "startupLabel": "Caută actualizări la pornire",
+    "available": "Versiunea {{version}} este disponibilă",
+    "notice": "Actualizare disponibilă",
+    "noticeDescription": "Versiunea <version>{{version}}</version> este acum disponibilă!",
+    "current": "Kromacut este la zi.",
+    "download": "Descarcă",
+    "later": "Mai târziu",
+    "dismiss": "Închide notificarea de actualizare",
+    "checkFailed": "Actualizările nu au putut fi verificate. Încearcă din nou mai târziu.",
+    "downloadFailed": "Pagina de descărcare nu a putut fi deschisă."
+  },
+  "app": {
+    "uploadImage": "Încarcă un fișier imagine",
+    "resizeFailed": "Redimensionarea imaginii a eșuat. Consultă consola pentru detalii.",
+    "preparingControls": "Se pregătesc comenzile 3D…",
+    "performanceWarning": "Avertisment privind performanța",
+    "slowBuild": "Generarea modelului 3D poate fi lentă din următoarele motive:",
+    "continue": "Vrei să continui?",
+    "cancel": "Anulează",
+    "buildAnyway": "Generează oricum"
+  }
+}

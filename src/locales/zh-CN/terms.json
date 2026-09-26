@@ -1,0 +1,168 @@
+{
+    "title": "使用条款",
+    "seoTitle": "使用条款 | Kromacut",
+    "description": "Kromacut使用条款：开源许可、作品权利、打印检查、本地备份、社区支持和法律保护。",
+    "updated": "2026年9月13日",
+    "intro": "您的内容、开源权利，以及打印前应完成的检查。",
+    "sections": [
+        {
+            "id": "about-these-terms",
+            "title": "关于Kromacut及本条款",
+            "paragraphs": [
+                "Kromacut是由个人运营的开源工具，可将图像转换为彩色分层3D模型。浏览器应用与桌面版本均可免费使用。编辑图像或导出模型无需Kromacut账户或Patreon会员资格。",
+                "本条款说明Kromacut网站和应用的使用、准备打印时的实际责任及可用支持渠道。软件许可规定您使用、复制、修改和再分发软件的权利；本页不取代该许可，也不对这些权利增加限制。"
+            ],
+            "links": []
+        },
+        {
+            "id": "software-license",
+            "title": "开源软件许可",
+            "paragraphs": [
+                "Kromacut软件仅采用GNU Affero通用公共许可证第3版（AGPL-3.0-only）。您可用于个人或商业用途。复制、修改和再分发软件必须遵守该许可，包括适用的声明及对应源代码要求。",
+                "若您修改软件并允许用户通过网络远程与修改版本交互，在满足条件时，AGPL的网络源代码条款适用。准确要求请阅读完整许可；此处仅为概述。",
+                "第三方库、字体及其他单独授权材料保留各自许可和声明。若本页就许可权利与软件许可冲突，以软件许可为准。"
+            ],
+            "links": [
+                {
+                    "label": "Kromacut源代码",
+                    "href": "https://github.com/vycdev/Kromacut"
+                },
+                {
+                    "label": "Kromacut许可",
+                    "href": "https://github.com/vycdev/Kromacut/blob/main/LICENSE"
+                },
+                {
+                    "label": "GNU AGPL第3版",
+                    "href": "https://www.gnu.org/licenses/agpl-3.0.html"
+                }
+            ]
+        },
+        {
+            "id": "your-content",
+            "title": "您的作品与导出模型",
+            "paragraphs": [
+                "Kromacut不主张您带入应用或在应用中创建的图像、调色板、配置或模型的所有权。本地处理文件并不授予运营者发布或重复使用该文件的权限。",
+                "您须负责取得图像及所分享或出售的打印件、文件所需的权利或许可。使用Kromacut不会消除他人的版权、商标、隐私或其他权利。示例和社区帖子中的作品并不自动授权您重复使用。",
+                "导出模型不会仅因由Kromacut生成就自动受AGPL约束。只有输出内容构成该许可涵盖的作品时，许可才涵盖输出。本条款不为您自己的打印件增加额外费用或仅限非商业用途的限制；原作品的权利仍需尊重。"
+            ],
+            "links": []
+        },
+        {
+            "id": "before-printing",
+            "title": "打印前检查每个模型",
+            "paragraphs": [
+                "Kromacut的预览、颜色预测、遮盖距离计算、校准结果及打印说明仅辅助规划，不保证实体颜色精确匹配、打印成功或适用于特定目的。材料、照明、校准、打印机及切片设置都会影响结果。",
+                "请在切片软件中检查每个导出的STL或3MF。启动打印机前，核对尺寸、几何体、方向、层高、首层高度、喷嘴与挤出设置、耗材分配及换料。更改设置或更新应用后请再次检查，适当时先做小型测试打印。",
+                "请遵循打印机与耗材制造商的安全说明。导出文件不构成工程评估或安全认证。任何安全关键、承重、医疗或其他受监管用途，都需要与用途相适应的独立检查。"
+            ],
+            "links": [
+                {
+                    "label": "生成与导出",
+                    "href": "/docs/generating-exporting-output"
+                },
+                {
+                    "label": "校准流程",
+                    "href": "/docs/calibration-workflows"
+                }
+            ]
+        },
+        {
+            "id": "local-data-and-backups",
+            "title": "本地数据与备份",
+            "paragraphs": [
+                "Kromacut在您的设备上处理作品，不提供云端项目存储或本地文件恢复服务。浏览器或应用存储可能被清除、丢失或无法访问。",
+                "请保留原始图像，并导出重要调色板、耗材配置和校准历史的备份，尤其是在清除存储、更换设备或更新应用前。将导出模型保存在便于再次查找的位置。运营者无法远程恢复仅保存在您设备上的数据。",
+                "隐私通知说明保存的设置、网站请求、邮件通信和隐私选择。它是数据处理说明，不是要求您作出笼统同意。"
+            ],
+            "links": [
+                {
+                    "label": "隐私与本地数据",
+                    "href": "/privacy"
+                }
+            ]
+        },
+        {
+            "id": "community-support",
+            "title": "帮助与社区渠道",
+            "paragraphs": [
+                "Kromacut主要帮助渠道为Reddit的r/kromacut和Kromacut Discord服务器。应用及本网站也提供文档。除非另有约定或法律要求，社区帮助不保证回复时间、修复或实现日期。",
+                "参与时请遵守平台及社区规则。Reddit帖子及共享Discord频道可能对他人可见；请勿发布敏感信息或不想分享的文件。其他社区成员的建议仅代表其本人，打印前应加以核实。",
+                "有关本条款的问题或私人事项，请使用下方公开邮箱。隐私请求可使用隐私通知中的联系方式。"
+            ],
+            "links": [
+                {
+                    "label": "Reddit上的r/kromacut",
+                    "href": "https://www.reddit.com/r/kromacut/"
+                },
+                {
+                    "label": "Kromacut Discord服务器",
+                    "href": "https://discord.gg/nU63sFMcnX"
+                },
+                {
+                    "label": "浏览文档",
+                    "href": "/docs/overview"
+                }
+            ]
+        },
+        {
+            "id": "patreon-and-external-services",
+            "title": "可选支持与外部服务",
+            "paragraphs": [
+                "通过Patreon支持Kromacut是自愿行为，不是使用应用的条件。Patreon是独立服务。付款前请查看具体会员或购买说明、账单安排、取消方式及适用条款。",
+                "本条款不取消另行承诺的Patreon权益，也不取消交易适用的取消、退款或其他权利。单纯捐助不产生关于Kromacut特定功能、发布日期或支持回复时间的额外承诺。",
+                "托管、发布、社区和支持服务链接会带您前往他人运营的网站。使用其服务适用其条款；Kromacut不控制其可用性或做法。"
+            ],
+            "links": [
+                {
+                    "label": "在Patreon支持Kromacut",
+                    "href": "https://www.patreon.com/cw/vycdev"
+                },
+                {
+                    "label": "Patreon退款信息",
+                    "href": "https://support.patreon.com/hc/en-gb/articles/205032045-Patreon-s-refund-policy"
+                }
+            ]
+        },
+        {
+            "id": "availability-and-responsible-use",
+            "title": "可用性与负责任使用",
+            "paragraphs": [
+                "托管网站、下载及更新信息可能因维护、技术故障或外部服务变化而中断。除非另有约定或法律要求，不保证托管不中断、兼容所有设备或切片软件，或提供特定未来功能。",
+                "请勿故意干扰或危害托管网站及社区服务，也不得未经允许访问他人的信息。这不限制对开源软件的合法检查、修改或再分发。",
+                "新版本可能更改功能、文件兼容性及预测。请阅读发布说明、保留备份并验证重新生成的结果。托管或本页的更改不会撤销已获得软件副本的许可权利。"
+            ],
+            "links": [
+                {
+                    "label": "发布版本与说明",
+                    "href": "https://github.com/vycdev/Kromacut/releases"
+                }
+            ]
+        },
+        {
+            "id": "warranties-and-legal-rights",
+            "title": "保证、责任与您的法律权利",
+            "paragraphs": [
+                "在适用法律允许的范围内，Kromacut按现状及可用状态提供，不额外保证无错误运行、精确打印结果或适合特定用途。软件许可规定其保证和责任条款，并受适用法律及另行书面承诺约束。",
+                "若排除或限制责任属于违法，本条款不作此排除或限制，包括欺诈、故意不当行为、重大过失，以及法律保护的死亡或人身伤害责任。打印检查和备份建议不免除法律赋予运营者的责任。",
+                "适用的强制性消费者权利、保证、救济及数据保护权利均不受影响。本条款不要求仲裁、不放弃向有管辖权法院或机关寻求救济，也不要求放弃居住地适用的保护。"
+            ],
+            "links": [
+                {
+                    "label": "欧盟公平合同条款指引",
+                    "href": "https://europa.eu/youreurope/citizens/consumers/unfair-treatment/unfair-contract-terms/index_en.htm"
+                }
+            ]
+        },
+        {
+            "id": "changes-to-these-terms",
+            "title": "本条款的变更",
+            "paragraphs": [
+                "本页可能更新，以反映Kromacut、支持安排或适用法律的变化。顶部日期标明修订版本。重大变更会在本页说明，并按法律要求提供提前通知或取得同意。",
+                "更新不会追溯撤销您已取得的权利、改变已收到软件副本的许可，或推翻另行协议。"
+            ],
+            "links": []
+        }
+    ],
+    "contactTitle": "关于本条款的问题",
+    "contactDescription": "如对本条款有疑问，请显示下方公开联系邮箱。日常Kromacut帮助主要通过Reddit和Discord。显示或复制邮箱不会发送任何内容；发信会涉及隐私通知中说明的邮件服务。"
+}

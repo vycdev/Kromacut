@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import React, { useCallback, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
@@ -27,6 +28,7 @@ export const DeditherPanel: React.FC<Props> = ({
     onProgress,
     onStepChange,
 }) => {
+    const { t } = useTranslation('workspace');
     const [weight, setWeight] = useState<number>(4);
     const [passes, setPasses] = useState<number>(1);
     const [working, setWorking] = useState(false);
@@ -220,16 +222,16 @@ export const DeditherPanel: React.FC<Props> = ({
     return (
         <CollapsibleCard
             id="dedither"
-            title="Dedither"
-            subtitle="Smooth dithered patterns"
+            title={t('deditherPanel.dedither')}
+            subtitle={t('deditherPanel.smoothDitheredPatterns')}
             collapsedSummary={
                 working ? (
                     <Loader
                         className="w-4 h-4 animate-spin text-muted-foreground"
-                        aria-label="Applying dedither"
+                        aria-label={t('deditherPanel.applyingDedither')}
                     />
                 ) : !allDefault ? (
-                    <DirtyDot title="Dedither settings modified" />
+                    <DirtyDot title={t('deditherPanel.deditherSettingsModified')} />
                 ) : undefined
             }
             actions={
@@ -237,8 +239,8 @@ export const DeditherPanel: React.FC<Props> = ({
                     type="button"
                     onClick={handleResetAll}
                     disabled={allDefault}
-                    title="Reset all dedither settings to default"
-                    aria-label="Reset all dedither settings"
+                    title={t('deditherPanel.resetAllDeditherSettingsToDefault')}
+                    aria-label={t('deditherPanel.resetAllDeditherSettings')}
                     className="h-7 w-7 flex-shrink-0 flex items-center justify-center rounded-md text-muted-foreground hover:text-amber-600 hover:bg-amber-600/15 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-muted-foreground select-none cursor-pointer"
                 >
                     <RotateCcw className="w-4 h-4" />
@@ -249,7 +251,7 @@ export const DeditherPanel: React.FC<Props> = ({
                 <div className="space-y-2">
                     <div className="flex justify-between items-center text-sm gap-2">
                         <Label htmlFor="weight-slider" className="font-medium">
-                            Weight
+                            {t('deditherPanel.weight')}
                         </Label>
                         <div className="flex items-center gap-2">
                             <span className="px-2 py-1 rounded-full bg-primary/10 text-primary text-xs font-mono font-semibold">
@@ -263,8 +265,8 @@ export const DeditherPanel: React.FC<Props> = ({
                                     setWeight(DEFAULT_WEIGHT);
                                 }}
                                 disabled={weight === DEFAULT_WEIGHT}
-                                title="Reset weight to default"
-                                aria-label="Reset weight"
+                                title={t('deditherPanel.resetWeightToDefault')}
+                                aria-label={t('deditherPanel.resetWeight')}
                                 className="h-5 w-5 flex-shrink-0 flex items-center justify-center rounded-md text-muted-foreground hover:text-amber-600 hover:bg-amber-600/15 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-muted-foreground select-none cursor-pointer"
                             >
                                 <RotateCcw className="w-3.5 h-3.5" />
@@ -274,7 +276,7 @@ export const DeditherPanel: React.FC<Props> = ({
                     <Slider
                         id="weight-slider"
                         data-testid="dedither-weight-slider"
-                        aria-label="Dedither weight"
+                        aria-label={t('deditherPanel.deditherWeight')}
                         min={1}
                         max={9}
                         step={1}
@@ -287,7 +289,7 @@ export const DeditherPanel: React.FC<Props> = ({
                 <div className="space-y-2">
                     <div className="flex justify-between items-center text-sm gap-2">
                         <Label htmlFor="passes-slider" className="font-medium">
-                            Passes
+                            {t('deditherPanel.passes')}
                         </Label>
                         <div className="flex items-center gap-2">
                             <span className="px-2 py-1 rounded-full bg-primary/10 text-primary text-xs font-mono font-semibold">
@@ -301,8 +303,8 @@ export const DeditherPanel: React.FC<Props> = ({
                                     setPasses(DEFAULT_PASSES);
                                 }}
                                 disabled={passes === DEFAULT_PASSES}
-                                title="Reset passes to default"
-                                aria-label="Reset passes"
+                                title={t('deditherPanel.resetPassesToDefault')}
+                                aria-label={t('deditherPanel.resetPasses')}
                                 className="h-5 w-5 flex-shrink-0 flex items-center justify-center rounded-md text-muted-foreground hover:text-amber-600 hover:bg-amber-600/15 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-muted-foreground select-none cursor-pointer"
                             >
                                 <RotateCcw className="w-3.5 h-3.5" />
@@ -312,7 +314,7 @@ export const DeditherPanel: React.FC<Props> = ({
                     <Slider
                         id="passes-slider"
                         data-testid="dedither-passes-slider"
-                        aria-label="Dedither passes"
+                        aria-label={t('deditherPanel.deditherPasses')}
                         min={1}
                         max={10}
                         step={1}
@@ -335,7 +337,7 @@ export const DeditherPanel: React.FC<Props> = ({
                     ) : (
                         <Check className="w-4 h-4" />
                     )}
-                    <span>{working ? 'Applying...' : 'Apply'}</span>
+                    <span>{working ? t('deditherPanel.applying') : t('deditherPanel.apply')}</span>
                 </Button>
             </div>
         </CollapsibleCard>

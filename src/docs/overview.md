@@ -25,14 +25,34 @@ Most projects follow the same path:
 
 Kromacut has two printing workflows in 3D mode.
 
-| Workflow   | Use it when                                            | What you control                                                                  |
-| ---------- | ------------------------------------------------------ | --------------------------------------------------------------------------------- |
-| Manual     | You want direct control over each image color.         | Color order, per-color slice heights, print settings, and swaps.                  |
+| Workflow   | Use it when                                            | What you control                                                            |
+| ---------- | ------------------------------------------------------ | --------------------------------------------------------------------------- |
+| Manual     | You want direct control over each image color.         | Color order, per-color slice heights, print settings, and swaps.            |
 | Auto-paint | You want Kromacut to plan the physical filament stack. | Filament colors, hiding distance values, max height, and optimizer options. |
 
 Manual mode starts from the image colors shown in the **Image colors** panel. Auto-paint starts from your real filaments and their **hiding distance (HD)** values, then generates printable layers for the image.
 
 ## What You See In The App
+
+Use 2D to prepare the artwork and 3D to plan the physical layers. The guides below follow that distinction.
+
+## Illustrated Guides
+
+Start with the task you want to do. Each guide explains the controls, their interactions, and the consequence for the physical print. Diagrams are schematic examples, not calibrated color predictions. Click or keyboard-activate an illustration to open it at full size.
+
+| Task                                                               | Guide                                                          |
+| ------------------------------------------------------------------ | -------------------------------------------------------------- |
+| Set dimensions, layer heights and manual color order               | [3D mode](3d-mode)                                             |
+| Choose filaments, optimize blends and inspect printable detail     | [Auto-paint](auto-paint)                                       |
+| Make a flat face-up or face-down multi-material slab               | [Flat Paint](flat-paint)                                       |
+| Measure HD, compare Palette Proofs or photograph a Stack Matrix    | [Calibration workflows](calibration-workflows)                 |
+| Prepare the silhouette and touch up pixels                         | [Loading images](loading-images)                               |
+| Tune tones and colors, then bake the result                        | [Image adjustments](image-adjustments)                         |
+| Reduce colors and manage palettes                                  | [Reducing colors](reducing-colors)                             |
+| Remove speckles without confusing 2D cleanup with height dithering | [Dedithering and cleanup](dedithering-cleanup)                 |
+| Check the finished stack and transfer it to a slicer               | [Generating and exporting output](generating-exporting-output) |
+
+## Workspace Layout
 
 The workspace has three main areas:
 

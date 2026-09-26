@@ -14,6 +14,10 @@ import {
 } from '../src/lib/colorDifference.ts';
 import { buildPaletteProofSnapshot } from './helpers/paletteProofFixture.ts';
 import { withViteTestServer } from './helpers/viteModule.ts';
+import {
+    adaptiveMatrixFilaments,
+    adaptiveStackMatrixFixture,
+} from './helpers/adaptiveStackMatrixFixture.ts';
 
 type AppearanceModelModule = typeof import('../src/lib/appearanceModel.ts');
 type AppearanceProfileModule = typeof import('../src/lib/appearanceProfile.ts');
@@ -43,6 +47,384 @@ async function loadModules(): Promise<{
 }
 
 const modules = loadModules();
+
+test('flat adaptive Matrix samples resolve at their useful recipe depth above an opaque foundation', async () => {
+    const { model, profile } = await modules;
+    const fingerprint = profile.fingerprintAppearanceFilaments(adaptiveMatrixFilaments);
+    const record = adaptiveStackMatrixFixture(fingerprint);
+    const fitted = model.fitAppearanceRankModel(
+        { ...profile.createEmptyAppearanceProfile(), stackMatrices: [record] },
+        {
+            filamentProfileFingerprint: fingerprint,
+            layerHeight: 0.04,
+            firstLayerHeight: 0.1,
+            transitionOpacity: 0.9,
+            filaments: adaptiveMatrixFilaments,
+        }
+    );
+    assert.deepEqual(
+        fitted.empiricalLuts.map((lut) => lut.stackLayerCount).sort((a, b) => a - b),
+        [1, 2, 20]
+    );
+    assert.equal(fitted.exactAnchors.length, record.samples.length);
+    const sample = record.samples[0];
+    const anchorId = `${record.id}:${sample.index}`;
+    const anchor = fitted.exactAnchors.find((entry) => entry.id === anchorId)!;
+    const lut = fitted.empiricalLuts.find((entry) => entry.stackLayerCount === 2)!;
+    assert.equal(anchor.suffixLayers.length, 2);
+    assert.deepEqual(lut.samples[0].recipeFilamentIds, ['red', 'red']);
+    assert.equal(lut.foundationLayers.length, record.foundationLayerThicknesses.length + 18);
+    const backing = adaptiveMatrixFilaments[0];
+    const foundation = record.foundationLayerThicknesses.map((thickness) => ({
+        filamentId: backing.id,
+        filamentColor: backing.color,
+        thickness,
+    }));
+    const shortArtwork = [...foundation, ...anchor.suffixLayers];
+    const base = { L: 50, a: 0, b: 0 };
+    const shortResult = model.resolveAppearanceRankModel(base, fitted, shortArtwork);
+    assert.equal(shortResult.exactAnchor?.id, anchorId);
+    assert.equal(shortResult.predictionConfidence.method, 'exact');
+    assert.deepEqual([shortResult.lab.L, shortResult.lab.a, shortResult.lab.b], anchor.targetLab);
+
+    const physicalBoard = [...lut.foundationLayers, ...anchor.suffixLayers];
+    const boardResult = model.resolveAppearanceRankModel(base, fitted, physicalBoard);
+    assert.equal(boardResult.exactAnchor?.id, anchorId);
+    assert.deepEqual(boardResult.lab, shortResult.lab);
+
+    const tooThin = [{ ...foundation[0], thickness: 0.04 }, ...anchor.suffixLayers];
+    assert.equal(model.resolveAppearanceRankModel(base, fitted, tooThin).exactAnchor, undefined);
+    const wrongBacking = [
+        ...foundation.map((layer) => ({
+            ...layer,
+            filamentId: 'white',
+            filamentColor: '#eeeeee',
+        })),
+        ...anchor.suffixLayers,
+    ];
+    assert.equal(
+        model.resolveAppearanceRankModel(base, fitted, wrongBacking).exactAnchor,
+        undefined
+    );
+});
+
+test('thin Matrix foundations retain physical matches without entering an opaque-backing fit', async () => {
+    const { model, profile } = await modules;
+    for (const [backingHd, expectedFitSamples] of [
+        [0.8, 0],
+        [0.1, 2],
+        [0.05, 3],
+    ]) {
+        const filaments = adaptiveMatrixFilaments.map((filament, index) =>
+            index === 0 ? { ...filament, td: backingHd } : filament
+        );
+        const fingerprint = profile.fingerprintAppearanceFilaments(filaments);
+        const record = adaptiveStackMatrixFixture(fingerprint);
+        record.foundationLayerThicknesses = [0.1];
+        const fitted = model.fitAppearanceRankModel(
+            { ...profile.createEmptyAppearanceProfile(), stackMatrices: [record] },
+            {
+                filamentProfileFingerprint: fingerprint,
+                layerHeight: 0.04,
+                firstLayerHeight: 0.1,
+                transitionOpacity: 0.9,
+                filaments,
+            }
+        );
+        assert.equal(fitted.effectiveOptics?.sampleCount, expectedFitSamples);
+        assert.equal(fitted.effectiveOptics?.matrixCount, expectedFitSamples > 0 ? 1 : 0);
+        assert.equal(fitted.exactAnchors.length, record.samples.length);
+        const sample = record.samples[1]; // Full-depth recipe without extra backing padding.
+        const anchorId = `${record.id}:${sample.index}`;
+        const anchor = fitted.exactAnchors.find((entry) => entry.id === anchorId)!;
+        const foundation = {
+            filamentId: filaments[0].id,
+            filamentColor: filaments[0].color,
+            thickness: 0.1,
+        };
+        const base = { L: 50, a: 0, b: 0 };
+        for (const physicalFoundation of [
+            [foundation],
+            [
+                { ...foundation, thickness: 0.04 },
+                { ...foundation, thickness: 0.06 },
+            ],
+        ]) {
+            const actual = model.resolveAppearanceRankModel(base, fitted, [
+                ...physicalFoundation,
+                ...anchor.suffixLayers,
+            ]);
+            assert.equal(actual.exactAnchor?.id, anchorId);
+            assert.deepEqual([actual.lab.L, actual.lab.a, actual.lab.b], anchor.targetLab);
+        }
+        const thickArtwork = model.resolveAppearanceRankModel(base, fitted, [
+            { ...foundation, thickness: 1.5 },
+            ...anchor.suffixLayers,
+        ]);
+        if (backingHd === 0.05) {
+            assert.equal(thickArtwork.exactAnchor?.id, anchorId, 'thin opaque black can transfer');
+        } else {
+            assert.equal(thickArtwork.exactAnchor, undefined);
+            assert.equal(thickArtwork.empiricalMatch, undefined);
+        }
+    }
+});
+
+test('saved opaque Matrix foundations keep their original geometry and transferable evidence', async () => {
+    const { model, profile } = await modules;
+    const fingerprint = profile.fingerprintAppearanceFilaments(adaptiveMatrixFilaments);
+    const record = adaptiveStackMatrixFixture(fingerprint);
+    record.schemaVersion = 1;
+    record.samples = [record.samples[1]];
+    const original = JSON.stringify(record);
+    const fitted = model.fitAppearanceRankModel(
+        { ...profile.createEmptyAppearanceProfile(), stackMatrices: [record] },
+        {
+            filamentProfileFingerprint: fingerprint,
+            layerHeight: 0.04,
+            firstLayerHeight: 0.1,
+            transitionOpacity: 0.9,
+            filaments: adaptiveMatrixFilaments,
+        }
+    );
+    assert.equal(fitted.effectiveOptics?.sampleCount, 1);
+    const anchor = fitted.exactAnchors[0];
+    const actual = model.resolveAppearanceRankModel({ L: 50, a: 0, b: 0 }, fitted, [
+        {
+            filamentId: adaptiveMatrixFilaments[0].id,
+            filamentColor: adaptiveMatrixFilaments[0].color,
+            thickness: 0.2,
+        },
+        ...anchor.suffixLayers,
+    ]);
+    assert.equal(actual.exactAnchor?.id, anchor.id);
+    assert.equal(JSON.stringify(record), original);
+});
+
+test('Matrix agreement preserves translucent foundation thickness in replicate identity', async () => {
+    const { model, profile } = await modules;
+    const fingerprint = profile.fingerprintAppearanceFilaments(adaptiveMatrixFilaments);
+    const fit = (thicknesses: number[]) => {
+        const records = thicknesses.map((thickness, index) => {
+            const record = adaptiveStackMatrixFixture(fingerprint);
+            record.id = `foundation-replicate-${index}`;
+            record.foundationLayerThicknesses = [thickness];
+            record.samples = [record.samples[1]];
+            record.samples[0].measuredColor!.rgb = index === 2 ? [230, 220, 210] : [30, 20, 10];
+            return record;
+        });
+        return model.fitAppearanceRankModel(
+            { ...profile.createEmptyAppearanceProfile(), stackMatrices: records },
+            {
+                filamentProfileFingerprint: fingerprint,
+                layerHeight: 0.04,
+                firstLayerHeight: 0.1,
+                transitionOpacity: 0.9,
+                filaments: adaptiveMatrixFilaments,
+            }
+        );
+    };
+    assert.ok(fit([0.1, 0.1, 0.11]).empiricalLuts.every((lut) => lut.agreementWeight === 1));
+    assert.ok(
+        fit([0.2, 0.3, 0.4]).empiricalLuts.find(
+            (lut) => lut.sourceMatrixId === 'foundation-replicate-2'
+        )!.agreementWeight < 1,
+        'already-opaque foundations still contribute to the same replicate consensus'
+    );
+});
+
+test('adaptive Matrix continuation preserves every supported depth without repeated prefix copies', async () => {
+    const { model, profile } = await modules;
+    const fingerprint = profile.fingerprintAppearanceFilaments(adaptiveMatrixFilaments);
+    const record = adaptiveStackMatrixFixture(fingerprint);
+    const depth = 64;
+    const template = record.samples[0];
+    record.stackLayerCount = depth;
+    record.grid = { ...record.grid, rows: 8, columns: 8 };
+    record.totalCombinationCount = Number.MAX_SAFE_INTEGER;
+    record.planning = {
+        maximumRecipeThickness: 2.56,
+        candidateCount: depth,
+        compatibleHistoryCount: 0,
+        measuredRecipeCount: 0,
+        referenceSampleCount: 0,
+        estimatedSwapCycles: 128,
+        totalCombinationCountCapped: true,
+    };
+    record.samples = Array.from({ length: depth }, (_, index) => {
+        const recipeLayerCount = index + 1;
+        const backingPaddingLayerCount = depth - recipeLayerCount;
+        const rgb: [number, number, number] = [80 + recipeLayerCount, 70, 60];
+        return {
+            ...template,
+            index,
+            row: Math.floor(index / 8),
+            column: index % 8,
+            stack: [
+                ...Array<number>(backingPaddingLayerCount).fill(0),
+                ...Array<number>(recipeLayerCount).fill(1),
+            ],
+            recipeLayerCount,
+            backingPaddingLayerCount,
+            selectionReason: 'coverage' as const,
+            canonicalStackKey: `depth-${recipeLayerCount}`,
+            measuredColor: {
+                ...template.measuredColor!,
+                rgb,
+                hex: `#${rgb.map((value) => value.toString(16).padStart(2, '0')).join('')}`,
+            },
+        };
+    });
+    record.cornerStacks = record.cornerStacks.map((stack) => Array<number>(depth).fill(stack[0]));
+    const fitted = model.fitAppearanceRankModel(
+        { ...profile.createEmptyAppearanceProfile(), stackMatrices: [record] },
+        {
+            filamentProfileFingerprint: fingerprint,
+            layerHeight: 0.04,
+            firstLayerHeight: 0.1,
+            transitionOpacity: 0.9,
+            filaments: adaptiveMatrixFilaments,
+        }
+    );
+    assert.equal(fitted.empiricalLuts.length, depth);
+    const layer = (filamentId: string, thickness = 0.04) => ({
+        filamentId,
+        filamentColor: adaptiveMatrixFilaments.find((entry) => entry.id === filamentId)!.color,
+        thickness,
+    });
+    const foundation = record.foundationLayerThicknesses.map((thickness) =>
+        layer('backing', thickness)
+    );
+    const prefix = (count: number) => [
+        ...foundation,
+        ...Array.from({ length: count }, () => layer('red')),
+    ];
+    // These color/confidence baselines were captured before the shared-scan
+    // optimization. Deliberately different measurements at every depth make a
+    // skipped contributor, changed fade, or wrong source selection observable.
+    const cases = [
+        {
+            name: 'direct measurement wins',
+            layers: prefix(64),
+            lab: [38.963063423373924, 30.30770847408734, 20.549719036718038],
+            method: 'exact',
+            confidence: 0.695507,
+            samples: 1,
+            firstSourceDepth: undefined,
+        },
+        {
+            name: 'all eligible continuation depths',
+            layers: prefix(65),
+            lab: [47.691189398405, 52.184646286055624, 24.79013425751314],
+            method: 'interpolated',
+            confidence: 0.379132,
+            samples: 32,
+            firstSourceDepth: 33,
+        },
+        {
+            name: 'depth-specific support fade',
+            layers: prefix(96),
+            lab: [49.96498289933501, 31.32989055797547, 13.332839086913628],
+            method: 'interpolated',
+            confidence: 0.337379,
+            samples: 16,
+            firstSourceDepth: 49,
+        },
+        {
+            name: 'support limit',
+            layers: prefix(128),
+            lab: [50, 10, 5],
+            method: 'simulated',
+            confidence: 0.117806,
+            samples: 0,
+            firstSourceDepth: undefined,
+        },
+        {
+            name: 'fractional continuation segmentation',
+            layers: [...prefix(64), layer('red', 0.02), layer('red', 0.02)],
+            lab: [47.691189398405, 52.184646286055624, 24.79013425751314],
+            method: 'interpolated',
+            confidence: 0.379132,
+            samples: 32,
+            firstSourceDepth: 33,
+        },
+        {
+            name: 'different terminal material',
+            layers: [...prefix(64), layer('white')],
+            lab: [50, 10, 5],
+            method: 'simulated',
+            confidence: 0.117806,
+            samples: 0,
+            firstSourceDepth: undefined,
+        },
+        {
+            name: 'tiny continuation',
+            layers: [...prefix(64), layer('red', 0.000001)],
+            lab: [47.22158069155759, 51.03211106683847, 24.511311700307825],
+            method: 'interpolated',
+            confidence: 0.378271,
+            samples: 32,
+            firstSourceDepth: 33,
+        },
+        {
+            name: 'changed material swatch',
+            layers: prefix(65).map((entry, index) =>
+                index === foundation.length ? { ...entry, filamentColor: '#ff0000' } : entry
+            ),
+            lab: [50, 10, 5],
+            method: 'simulated',
+            confidence: 0.117806,
+            samples: 0,
+            firstSourceDepth: undefined,
+        },
+    ];
+    for (const scenario of cases) {
+        let prefixCopies = 0;
+        const trackedLayers = new Proxy(scenario.layers, {
+            get(target, key, receiver) {
+                if (key === 'slice') {
+                    return (start?: number, end?: number) => {
+                        prefixCopies++;
+                        return target.slice(start, end);
+                    };
+                }
+                return Reflect.get(target, key, receiver);
+            },
+        });
+        const result = model.resolveAppearanceRankModel(
+            { L: 50, a: 10, b: 5 },
+            fitted,
+            trackedLayers,
+            { includeContributions: true }
+        );
+        for (const [index, value] of [result.lab.L, result.lab.a, result.lab.b].entries()) {
+            assert.ok(Math.abs(value - scenario.lab[index]) < 1e-8, scenario.name);
+        }
+        assert.equal(result.predictionConfidence.method, scenario.method, scenario.name);
+        assert.equal(result.predictionConfidence.confidence, scenario.confidence, scenario.name);
+        assert.equal(result.empiricalMatch?.sampleIds.length ?? 0, scenario.samples, scenario.name);
+        const sourceDepths = (result.empiricalMatch?.transfers ?? [])
+            .filter((transfer) => transfer.mode === 'same-material-continuation')
+            .map((transfer) => Math.round((transfer.sourceHeightMm - 0.66) / 0.04))
+            .sort((left, right) => left - right);
+        assert.deepEqual(
+            sourceDepths,
+            scenario.firstSourceDepth === undefined
+                ? []
+                : Array.from(
+                      { length: depth - scenario.firstSourceDepth + 1 },
+                      (_, index) => scenario.firstSourceDepth! + index
+                  ),
+            scenario.name
+        );
+        if (scenario.name === 'all eligible continuation depths') {
+            assert.ok(
+                prefixCopies <= depth * 2,
+                `only eligible source windows should copy the prefix, received ${prefixCopies}`
+            );
+        }
+    }
+});
 
 test('CIEDE2000 lightness lower bound never exceeds the full distance', () => {
     const labs = [

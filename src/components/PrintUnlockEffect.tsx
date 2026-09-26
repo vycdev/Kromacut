@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import React, { useEffect } from 'react';
 
 const DURATION_MS = 2600;
@@ -18,6 +19,7 @@ function prefersReducedMotion(): boolean {
  * unmount it. Bows out immediately for anyone who prefers reduced motion.
  */
 function PrintUnlockEffect({ onDone }: { onDone: () => void }): React.ReactElement | null {
+    const { t } = useTranslation('workspace');
     const reduced = prefersReducedMotion();
 
     useEffect(() => {
@@ -35,8 +37,12 @@ function PrintUnlockEffect({ onDone }: { onDone: () => void }): React.ReactEleme
                     <div className="feat35-tip" />
                 </div>
                 <div className="feat35-caption">
-                    <span className="feat35-caption-main">MULTI-PLATE ONLINE</span>
-                    <span className="feat35-caption-sub">experimental feature</span>
+                    <span className="feat35-caption-main">
+                        {t('printUnlockEffect.multiPlateOnline')}
+                    </span>
+                    <span className="feat35-caption-sub">
+                        {t('printUnlockEffect.experimentalFeature')}
+                    </span>
                 </div>
             </div>
         </div>

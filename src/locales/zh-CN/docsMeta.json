@@ -1,0 +1,62 @@
+{
+    "3d-mode": {
+        "title": "3D模式",
+        "description": "实体尺寸、手动颜色叠层、网格及预览控制。"
+    },
+    "auto-paint": {
+        "title": "自动配色控制",
+        "description": "耗材输入、可打印细节、匹配、高度约束及置信度。"
+    },
+    "calibration-theory": {
+        "title": "校准理论",
+        "description": "遮盖距离、配色校样及叠层校准矩阵背后的光学与数学。"
+    },
+    "calibration-workflows": {
+        "title": "校准流程",
+        "description": "选择校准工具、了解其控制项，并确定哪些测量适用于下一次打印。"
+    },
+    "dedithering-cleanup": {
+        "title": "去抖动与清理",
+        "description": "基于精确颜色邻域的清理，以及对杂点、边缘、透明度和可打印孤岛的影响。"
+    },
+    "faq": {
+        "title": "常见问题",
+        "description": "Kromacut常见问题的简短解答。"
+    },
+    "flat-paint": {
+        "title": "平面打印模式",
+        "description": "阶梯浮雕、正面朝下的透明承载层及正面朝上的裸露平板。"
+    },
+    "generating-exporting-output": {
+        "title": "生成与导出",
+        "description": "构建并检查模型、导出文件以及复制打印说明。"
+    },
+    "image-adjustments": {
+        "title": "图像调整",
+        "description": "每个色调及颜色滑块的作用、对目标颜色的影响，以及何时将预览应用到图像。"
+    },
+    "loading-images": {
+        "title": "加载图像",
+        "description": "在像素转为打印区域前，导入、裁剪、调整尺寸并修整图像。"
+    },
+    "overview": {
+        "title": "概述",
+        "description": "Kromacut的功能及主要工作流程如何衔接。"
+    },
+    "quick-start": {
+        "title": "快速入门",
+        "description": "从图像到导出的首次实操指南。"
+    },
+    "reducing-colors": {
+        "title": "减少颜色",
+        "description": "了解两阶段减色流程、固定调色板，以及重新着色和透明化的区别。"
+    },
+    "settings-and-controls": {
+        "title": "设置与控制",
+        "description": "顶部操作、主题、持久化、调色板、配置及工作区控制。"
+    },
+    "troubleshooting": {
+        "title": "故障排查",
+        "description": "常见问题及优先尝试的解决方法。"
+    }
+}

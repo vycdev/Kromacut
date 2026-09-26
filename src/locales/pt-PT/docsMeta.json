@@ -1,0 +1,17 @@
+{
+ "3d-mode":{"title":"Modo 3D","description":"Dimensões físicas, empilhamentos manuais de cor, malhas e controlos de pré-visualização."},
+ "auto-paint":{"title":"Controlos de pintura automática","description":"Filamentos, detalhes imprimíveis, correspondência de cores, limites de altura e confiança."},
+ "calibration-theory":{"title":"Teoria da calibração","description":"A ótica e a matemática da calibração por distância de ocultação, prova de paleta e matriz de empilhamentos."},
+ "calibration-workflows":{"title":"Fluxos de calibração","description":"Escolha uma ferramenta de calibração, conheça os controlos e perceba que medições se aplicam à próxima impressão."},
+ "dedithering-cleanup":{"title":"Remoção de pontilhamento e limpeza","description":"Limpeza da vizinhança por cores exatas e os seus efeitos em pontos isolados, contornos, transparência e ilhas imprimíveis."},
+ "faq":{"title":"Perguntas frequentes","description":"Respostas breves às perguntas comuns sobre o Kromacut."},
+ "flat-paint":{"title":"Pintura plana","description":"Relevo escalonado, suportes transparentes com a face para baixo e placas expostas com a face para cima."},
+ "generating-exporting-output":{"title":"Geração e exportação","description":"Gere o modelo, verifique-o, exporte ficheiros e copie as instruções de impressão."},
+ "image-adjustments":{"title":"Ajustes de imagem","description":"Todos os controlos de tom e cor, o efeito nas cores-alvo e quando incorporar a pré-visualização na imagem."},
+ "loading-images":{"title":"Carregar imagens","description":"Importe, recorte, redimensione e retoque os píxeis antes de se tornarem regiões impressas."},
+ "overview":{"title":"Visão geral","description":"O que faz o Kromacut e como se articulam os principais fluxos de trabalho."},
+ "quick-start":{"title":"Início rápido","description":"Uma primeira utilização prática, da imagem à exportação."},
+ "reducing-colors":{"title":"Redução de cores","description":"Compreenda a redução em duas etapas, as paletas fixas e a diferença entre recolorir e tornar transparente."},
+ "settings-and-controls":{"title":"Definições e controlos","description":"Ações do cabeçalho, temas, persistência, paletas, perfis e controlos da área de trabalho."},
+ "troubleshooting":{"title":"Resolução de problemas","description":"Problemas comuns e o que experimentar primeiro."}
+}

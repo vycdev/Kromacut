@@ -1,4 +1,6 @@
 import type { FinalPrintableStackSnapshot } from '../types/appearance';
+import { translateRuntimeMessage } from './runtimeMessages.ts';
+import { translate } from './i18n.ts';
 import { exportObjectTo3MFBlob } from './export3mf';
 import { buildPaletteProofGeometry, disposePaletteProofGeometry } from './paletteProofGeometry';
 import type { PaletteProofSpec } from './paletteProof';
@@ -109,19 +111,20 @@ export function buildPaletteProofPrintInstructions(
         for (const cellId of column.cellIds) {
             const cell = spec.cells.find((candidate) => candidate.id === cellId);
             if (!cell) continue;
-            const location =
+            const location = translateRuntimeMessage(
                 cell.physicalPatchId === 'foundation-reference'
                     ? 'foundation margin'
-                    : `matrix cell ${cell.id}`;
+                    : `matrix cell ${cell.id}`
+            );
             lines.push(
-                `- ${cell.id}: ${location}, prefix ${cell.prefixIndex + 1}, ${cell.candidateRole}`
+                `- ${cell.id}: ${location}, prefix ${cell.prefixIndex + 1}, ${translate(`calibration:proof.candidateRoles.${cell.candidateRole}`)}`
             );
         }
     }
 
     lines.push('');
     lines.push('View the printed top surface under the lighting used for normal evaluation.');
-    return lines.join('\n');
+    return lines.map(translateRuntimeMessage).join('\n');
 }
 
 export async function exportPaletteProof3MF(
