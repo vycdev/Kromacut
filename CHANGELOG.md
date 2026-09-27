@@ -4,6 +4,10 @@ All notable changes to Kromacut are documented in this file.
 
 ## Unreleased
 
+### Fixed
+
+- **Height dithering in 3D Auto-paint** - Restored fractional height targets before error diffusion, so enabling Height Dithering can produce neighboring-layer patterns in both preview and exports. Dithering stays local to the selected printable layer, preserves exact calibrated matches and protected boundaries, and leaves ordinary matching unchanged when disabled. Added regression coverage for fractional targets, calibration safeguards, effective line width, and rebuilt STL/3MF geometry.
+
 ## v4.1.0 - 2026-09-26
 
 ### Upgrade notes
