@@ -135,7 +135,7 @@ Höhen-Dithering kann Rundungsfehler auf kleine Blöcke mit benachbarten druckba
 
 _Schematischer Mechanismus, kein garantiertes Vorher-nachher-Ergebnis. Unterschiedliche Oberhöhen bedeuten keine zusätzlichen Spulenfarben._
 
-Viele aktuelle Auto-paint-Zuordnungen wählen bereits vor diesem Schritt eine diskrete druckbare Schicht. Diese bereits eingerasteten Bereiche haben keinen Zwischenhöhenfehler zu verteilen und können bei aktiviertem Dithering unverändert bleiben. Prüfe an der neu erstellten Vorschau und im Slicer, ob gerade dieses Bild tatsächlich zusätzliche Höhenvariation erhält. Das Aktivieren garantiert weder mehr Tonwerte noch sichtbare Punkte.
+Bei aktiviertem Dithering sucht Auto-paint eine Zwischenhöhe zwischen der ausgewählten und einer direkt benachbarten druckbaren Schicht, wenn deren Mischung die vorhergesagte Farbübereinstimmung verbessert. Exakte Farbtreffer und kalibrierte Zielzuordnungen behalten ihre Höhe; Bereiche ohne sinnvolle benachbarte Mischung bleiben unverändert. Erstelle das Modell nach einer Änderung neu und vergleiche Vorschau und Slicer-Ergebnis. Ohne Dithering gilt wieder die normale diskrete Zuordnung.
 
 Die Punktgröße richtet sich nach **Effektive Linienbreite** in den **3D-Druckeinstellungen** im Verhältnis zur **Pixelgröße**, gerundet auf eine ganzzahlige Pixelblockgröße. Das ist eine Näherung, keine exakte Mindestbreitengarantie. Randbereiche werden anders behandelt, um Grenzartefakte zu verringern. Prüfe im Slicer auf winzige Inseln und zusätzliche Leerfahrten.
 

@@ -13,6 +13,7 @@ import {
     type MeshProgress,
 } from '../lib/meshing';
 import { LAYER_ACTIVATION_EPSILON } from '../lib/layerActivation';
+import { quantizeHeightMap } from '../lib/heightDithering';
 import { normalizeHexColor as normalizeHexColorValue } from '../lib/colorUtils';
 import {
     buildFlatPaintLayout,
@@ -1160,18 +1161,20 @@ export default function ThreeDView({
                             });
                         }
 
-                        // --- Pass 1: Compute continuous (un-snapped) heights ---
-                        // We deliberately do NOT snap to the layer grid here.
-                        // The RGB cache is still valid because it stores the ideal
-                        // continuous height; dithering happens spatially in Pass 2.
-                        // Shared final-stack mappings seed every source color so
-                        // optimizer scoring and preview choose the same printable
-                        // layer. Recomputed assignments only fill missing source colors.
+                        // --- Pass 1: Compute per-color height targets ---
+                        // Keep fractional targets until spatial dithering in Pass 2.
+                        // Without dithering, preserve the shared mapper's discrete
+                        // choices. With dithering, recover fractional targets only
+                        // between adjacent layers around those choices. Otherwise
+                        // this cache bypasses projection and makes dithering a no-op.
                         const colorHeightCache = autoPaintFinalStack
                             ? createFinalStackTargetHeightCache(
                                   autoPaintFinalStack.targetMappings,
                                   minModelH,
-                                  maxModelH
+                                  maxModelH,
+                                  heightDithering && !preserveSeparation
+                                      ? { palette: autoPaintFinalStack.palette, layerHeight }
+                                      : undefined
                               )
                             : new Map<number, number>();
                         for (const [key, height] of separationHeights) {
@@ -1269,187 +1272,15 @@ export default function ThreeDView({
                             );
                         }
 
-                        // --- Pass 2: Quantize heights (with optional dithering) ---
-                        // The continuous height map has sub-layer precision, but
-                        // the 3D model must use discrete layer heights.  When
-                        // heightDithering is ON, block-aware Stucki error
-                        // diffusion produces dots sized to the printer's line width
-                        // so the dither pattern is actually printable.  Edges
-                        // between different quantized heights are protected from
-                        // dithering to avoid staircase artifacts that expose wrong
-                        // colors.  When OFF, simple rounding is used.
-                        if (layerHeight > 0 && heightDithering) {
-                            // --- Step 2a: Snap everything to the grid first ---
-                            const snappedMap = new Float32Array(boxW * boxH);
-                            for (let mi = 0; mi < boxW * boxH; mi++) {
-                                const h = pixelHeightMap[mi];
-                                if (h <= 0) {
-                                    snappedMap[mi] = 0;
-                                    continue;
-                                }
-                                const delta = Math.max(0, h - slicerFirstLayerHeight);
-                                let s =
-                                    slicerFirstLayerHeight +
-                                    Math.round(delta / layerHeight) * layerHeight;
-                                s = Math.max(minModelH, Math.min(maxModelH, s));
-                                snappedMap[mi] = s;
-                            }
-
-                            // --- Step 2b: Identify edge pixels ---
-                            // A pixel is on an edge if any of its 4-connected
-                            // neighbors has a different snapped height.  Dithering
-                            // these would create jagged staircases that expose the
-                            // wrong filament color, so we leave them at their
-                            // nearest-round height.
-                            const isEdge = new Uint8Array(boxW * boxH);
-                            for (let y = 0; y < boxH; y++) {
-                                for (let x = 0; x < boxW; x++) {
-                                    const mi = y * boxW + x;
-                                    const sh = snappedMap[mi];
-                                    if (sh <= 0) continue;
-                                    if (
-                                        (x > 0 &&
-                                            snappedMap[mi - 1] > 0 &&
-                                            snappedMap[mi - 1] !== sh) ||
-                                        (x < boxW - 1 &&
-                                            snappedMap[mi + 1] > 0 &&
-                                            snappedMap[mi + 1] !== sh) ||
-                                        (y > 0 &&
-                                            snappedMap[mi - boxW] > 0 &&
-                                            snappedMap[mi - boxW] !== sh) ||
-                                        (y < boxH - 1 &&
-                                            snappedMap[mi + boxW] > 0 &&
-                                            snappedMap[mi + boxW] !== sh)
-                                    ) {
-                                        isEdge[mi] = 1;
-                                    }
-                                }
-                            }
-
-                            // --- Step 2c: Block-aware Stucki error diffusion ---
-                            // The block size ensures dither dots are at least as
-                            // wide as the printer's line width (in pixels).
-                            const blockSize = Math.max(1, Math.round(ditherLineWidth / pixelSize));
-                            const bW = Math.ceil(boxW / blockSize);
-                            const bH = Math.ceil(boxH / blockSize);
-
-                            // Compute average continuous height per block
-                            const blockAvg = new Float64Array(bW * bH);
-                            const blockCnt = new Uint32Array(bW * bH);
-                            const blockHasEdge = new Uint8Array(bW * bH);
-                            for (let y = 0; y < boxH; y++) {
-                                for (let x = 0; x < boxW; x++) {
-                                    const mi = y * boxW + x;
-                                    const h = pixelHeightMap[mi]; // still continuous
-                                    if (h <= 0) continue;
-                                    const bx = Math.floor(x / blockSize);
-                                    const by = Math.floor(y / blockSize);
-                                    const bi = by * bW + bx;
-                                    blockAvg[bi] += h;
-                                    blockCnt[bi]++;
-                                    if (isEdge[mi]) blockHasEdge[bi] = 1;
-                                }
-                            }
-                            for (let bi = 0; bi < bW * bH; bi++) {
-                                if (blockCnt[bi] > 0) blockAvg[bi] /= blockCnt[bi];
-                            }
-
-                            // Dither at block level using the Stucki kernel: a
-                            // wider, error-conserving diffusion than Floyd-
-                            // Steinberg for smoother tone and finer detail.
-                            // Offsets are scan-relative (dx along the serpentine
-                            // direction, dy downward); weights are pre-divided by 42.
-                            const STUCKI_KERNEL: ReadonlyArray<readonly [number, number, number]> =
-                                [
-                                    [1, 0, 8 / 42],
-                                    [2, 0, 4 / 42],
-                                    [-2, 1, 2 / 42],
-                                    [-1, 1, 4 / 42],
-                                    [0, 1, 8 / 42],
-                                    [1, 1, 4 / 42],
-                                    [2, 1, 2 / 42],
-                                    [-2, 2, 1 / 42],
-                                    [-1, 2, 2 / 42],
-                                    [0, 2, 4 / 42],
-                                    [1, 2, 2 / 42],
-                                    [2, 2, 1 / 42],
-                                ];
-                            const errBuf = new Float64Array(bW * bH);
-                            const blockSnapped = new Float32Array(bW * bH);
-
-                            for (let by = 0; by < bH; by++) {
-                                const ltr = by % 2 === 0;
-                                for (let bxi = 0; bxi < bW; bxi++) {
-                                    const bx = ltr ? bxi : bW - 1 - bxi;
-                                    const bi = by * bW + bx;
-                                    if (blockCnt[bi] === 0) continue;
-
-                                    let snapped: number;
-                                    if (blockHasEdge[bi]) {
-                                        // Edge block: no dithering, use simple snap
-                                        const delta = Math.max(
-                                            0,
-                                            blockAvg[bi] - slicerFirstLayerHeight
-                                        );
-                                        snapped =
-                                            slicerFirstLayerHeight +
-                                            Math.round(delta / layerHeight) * layerHeight;
-                                    } else {
-                                        const adjusted = blockAvg[bi] + errBuf[bi];
-                                        const delta = Math.max(
-                                            0,
-                                            adjusted - slicerFirstLayerHeight
-                                        );
-                                        snapped =
-                                            slicerFirstLayerHeight +
-                                            Math.round(delta / layerHeight) * layerHeight;
-                                    }
-                                    snapped = Math.max(minModelH, Math.min(maxModelH, snapped));
-                                    blockSnapped[bi] = snapped;
-
-                                    if (!blockHasEdge[bi]) {
-                                        const err = blockAvg[bi] + errBuf[bi] - snapped;
-                                        const dir = ltr ? 1 : -1;
-                                        for (let k = 0; k < STUCKI_KERNEL.length; k++) {
-                                            const [dx, dy, weight] = STUCKI_KERNEL[k];
-                                            const tx = bx + dir * dx;
-                                            const ty = by + dy;
-                                            if (tx < 0 || tx >= bW || ty >= bH) continue;
-                                            errBuf[ty * bW + tx] += err * weight;
-                                        }
-                                    }
-                                }
-                            }
-
-                            // Write block-level results back to pixel map
-                            for (let y = 0; y < boxH; y++) {
-                                for (let x = 0; x < boxW; x++) {
-                                    const mi = y * boxW + x;
-                                    if (pixelHeightMap[mi] <= 0) continue;
-                                    const bx = Math.floor(x / blockSize);
-                                    const by = Math.floor(y / blockSize);
-                                    const bi = by * bW + bx;
-                                    if (blockHasEdge[bi]) {
-                                        // Edge blocks: use per-pixel snap
-                                        pixelHeightMap[mi] = snappedMap[mi];
-                                    } else {
-                                        pixelHeightMap[mi] = blockSnapped[bi];
-                                    }
-                                }
-                            }
-                        } else if (layerHeight > 0) {
-                            // Simple grid snap without error diffusion
-                            for (let mi = 0; mi < boxW * boxH; mi++) {
-                                const h = pixelHeightMap[mi];
-                                if (h <= 0) continue;
-                                const delta = Math.max(0, h - slicerFirstLayerHeight);
-                                let snapped =
-                                    slicerFirstLayerHeight +
-                                    Math.round(delta / layerHeight) * layerHeight;
-                                snapped = Math.max(minModelH, Math.min(maxModelH, snapped));
-                                pixelHeightMap[mi] = snapped;
-                            }
-                        }
+                        quantizeHeightMap(pixelHeightMap, boxW, boxH, {
+                            layerHeight,
+                            slicerFirstLayerHeight,
+                            minModelH,
+                            maxModelH,
+                            heightDithering: heightDithering && !preserveSeparation,
+                            ditherLineWidth,
+                            pixelSize,
+                        });
                     } else {
                         // === STANDARD: Luminance-based mapping ===
                         // First, find the luminance range of the image

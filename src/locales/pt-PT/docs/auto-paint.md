@@ -135,7 +135,7 @@ Pode distribuir erro de arredondamento por blocos pequenos de alturas vizinhas q
 
 _Mecanismo esquemático, não antes/depois garantido. Topos diferentes não significam cores de bobina extra._
 
-Muitos mapeamentos atuais já escolhem uma camada discreta antes disto. Essas regiões não têm erro fracionário e podem manter-se iguais. Verifique vista regenerada e laminador para saber se esta imagem ganha variação; ativar não garante tons adicionais nem pontos visíveis.
+Com o dithering ativado, a pintura automática procura uma altura intermédia entre a camada selecionada e uma camada imprimível adjacente quando a mistura melhora a correspondência prevista. As correspondências exatas e as dos alvos calibrados mantêm a altura selecionada; as regiões sem uma mistura vizinha útil permanecem inalteradas. Regenere o modelo depois de alterar a opção e compare a pré-visualização com o resultado no laminador. Desativar o dithering repõe a correspondência discreta habitual.
 
 O tamanho do ponto segue **Largura de linha efetiva** nas **Definições de impressão 3D** em relação ao **Tamanho do píxel**, arredondado a blocos inteiros. É aproximado, não garantia exata de largura mínima. Regiões de bordo evitam o mesmo tratamento para reduzir artefactos. Verifique ilhas pequenas e deslocações extra.
 

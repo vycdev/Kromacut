@@ -135,7 +135,7 @@ Puede distribuir el error de redondeo en bloques pequeños a alturas imprimibles
 
 _Mecanismo esquemático, no un antes/después garantizado. Distintos topes no significan más colores de bobina._
 
-Muchas asignaciones actuales ya eligen una capa discreta antes de este paso. Esas regiones no tienen error fraccionario que distribuir y pueden no cambiar al activar el tramado. Comprueba en la vista regenerada y el laminador si esta imagen concreta gana variación; activar la opción no garantiza más tonos ni puntos visibles.
+Con el tramado activado, Auto-paint busca una altura intermedia entre la capa seleccionada y una capa imprimible adyacente cuando su mezcla mejora la coincidencia prevista. Las coincidencias exactas y las de objetivos calibrados conservan la altura seleccionada; las regiones sin una mezcla vecina útil no cambian. Regenera el modelo después de modificar la opción y compara la vista previa con el resultado del laminador. Desactivar el tramado restaura la asignación discreta habitual.
 
 El tamaño del punto sigue el **Ancho de línea efectivo** de **Ajustes de impresión 3D** respecto al **Tamaño de píxel**, redondeado a un bloque entero. Es aproximado, no una garantía exacta de anchura mínima. Los bordes evitan el mismo tratamiento para reducir artefactos. Revisa islas diminutas y desplazamientos extra en el laminador.
 

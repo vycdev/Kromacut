@@ -135,7 +135,7 @@ Le tramage de hauteur peut répartir l’erreur d’arrondi sur de petits blocs 
 
 _Mécanisme schématique, pas un résultat avant/après garanti. Des hauteurs de sommet différentes ne signifient pas des couleurs de bobines supplémentaires._
 
-De nombreuses associations actuelles de peinture automatique choisissent déjà une couche imprimable discrète avant cette étape. Ces zones déjà alignées n’ont aucune erreur de hauteur fractionnaire à répartir et peuvent rester inchangées avec le tramage. Utilisez l’aperçu régénéré et le logiciel de découpe pour vérifier si cette image gagne réellement des variations de hauteur ; activer l’option ne garantit ni davantage de tons ni des points visibles.
+Lorsque le tramage est activé, la peinture automatique cherche une hauteur intermédiaire entre la couche choisie et une couche imprimable voisine si leur mélange améliore la correspondance prédite. Les correspondances exactes et les cibles calibrées conservent leur hauteur ; les zones sans mélange voisin utile restent inchangées. Régénérez le modèle après avoir modifié l’option, puis comparez l’aperçu et le résultat dans le logiciel de découpe. Désactiver le tramage rétablit la correspondance discrète habituelle.
 
 La taille des points suit la **Largeur de ligne effective** des **Paramètres d’impression 3D** par rapport à la **Taille du pixel**, arrondie à un bloc de pixels entiers. C’est une approximation, pas une garantie exacte de largeur minimale. Les zones de bord évitent le même traitement de tramage pour réduire les artefacts de frontière. Vérifiez les petits îlots et déplacements supplémentaires dans le logiciel de découpe.
 
