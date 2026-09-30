@@ -20,7 +20,7 @@ Click a thumbnail to watch on YouTube.
 
 [Turn Any Image into a Multicolor 3D Print | Kromacut Tutorial](https://youtu.be/NnaTVuJ2Sps) - Follow the image-to-print workflow.
 
-[<img src="https://i.ytimg.com/vi/NnaTVuJ2Sps/maxresdefault.jpg" alt="Watch the Kromacut tutorial on YouTube" width="560" />](https://youtu.be/NnaTVuJ2Sps)
+[<img src="content/tutorial-thumbnail.png" alt="Watch the Kromacut tutorial on YouTube" width="560" />](https://youtu.be/NnaTVuJ2Sps)
 
 ### Original introduction
 
