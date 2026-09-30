@@ -34,34 +34,36 @@ For current controls and settings, use the [written quick start](https://kromacu
 
 <table>
   <tr>
-    <td align="center" valign="top" width="33%">
+    <td align="center" valign="top" width="50%">
       <strong>Titan</strong><br>
       <a href="content/community/titan-finished.jpg"><img src="content/community/titan-finished.jpg" alt="Finished Titan layered print with golden yellow and orange wave reflections on a dark background" width="260" /></a><br>
       <sub>vycdev | <a href="https://www.jpl.nasa.gov/images/titan-jpl-travel-poster/">NASA/JPL artwork</a></sub>
     </td>
-    <td align="center" valign="top" width="33%">
+    <td align="center" valign="top" width="50%">
       <strong>Hobbits and Dragons</strong><br>
       <a href="content/community/hobbits-and-dragons-1.jpg"><img src="content/community/hobbits-and-dragons-1.jpg" alt="A colorful Hobbits and Dragons layered 3D print" width="260" /></a><br>
       <sub><a href="https://www.reddit.com/r/kromacut/comments/1vum7om/hobbits_and_dragons/">u/ominaex25</a></sub>
     </td>
-    <td align="center" valign="top" width="33%">
+  </tr>
+  <tr>
+    <td align="center" valign="top" width="50%">
       <strong>King of Hearts</strong><br>
       <a href="content/community/king-of-hearts.jpg"><img src="content/community/king-of-hearts.jpg" alt="A multicolor layered King of Hearts playing-card print" width="260" /></a><br>
       <sub>vycdev</sub>
     </td>
-  </tr>
-  <tr>
-    <td align="center" valign="top" width="33%">
+    <td align="center" valign="top" width="50%">
       <strong>Hope poster</strong><br>
       <a href="content/community/hope-finished.jpg"><img src="content/community/hope-finished.jpg" alt="Finished layered Hope poster print showing orange and purple-blue color shifts" width="260" /></a><br>
       <sub>vycdev</sub>
     </td>
-    <td align="center" valign="top" width="33%">
+  </tr>
+  <tr>
+    <td align="center" valign="top" width="50%">
       <strong>Batmanga</strong><br>
       <a href="content/community/batmanga-finished.jpg"><img src="content/community/batmanga-finished.jpg" alt="Finished Batmanga layered print with a yellow Japanese title, tan background, and black-and-gray Batman figure" width="260" /></a><br>
       <sub>vycdev | <a href="https://m.media-amazon.com/images/I/81rOZq5ZgqL._AC_UF1000,1000_QL80_.jpg">Jiro Kuwata / DC artwork</a></sub>
     </td>
-    <td align="center" valign="top" width="33%">
+    <td align="center" valign="top" width="50%">
       <strong>Naruto</strong><br>
       <a href="content/community/naruto-finished.jpg"><img src="content/community/naruto-finished.jpg" alt="Finished Naruto layered print with yellow hair, orange clothing, and a lavender-blue sky" width="260" /></a><br>
       <sub>vycdev | <a href="https://in.pinterest.com/pin/169870217190172931/">Artwork source</a></sub>
