@@ -4,6 +4,14 @@ All notable changes to Kromacut are documented in this file.
 
 ## Unreleased
 
+### Added
+
+- **README video guides** - Linked the Kromacut tutorial and original introduction video in a dedicated section near the top of the README.
+
+### Changed
+
+- **README organization** - Added section navigation, consolidated the getting-started workflows, and linked the illustrated guides for detailed controls and calibration. Separated desktop installation from development instructions and clarified the calibration entry point, profile backups, Node.js prerequisites, and when to rebuild before export.
+
 ### Fixed
 
 - **Height dithering in 3D Auto-paint** - Restored fractional height targets before error diffusion, so enabling Height Dithering can produce neighboring-layer patterns in both preview and exports. Dithering stays local to the selected printable layer, preserves exact calibrated matches and protected boundaries, and leaves ordinary matching unchanged when disabled. Added regression coverage for fractional targets, calibration safeguards, effective line width, and rebuilt STL/3MF geometry.
