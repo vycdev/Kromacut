@@ -32,7 +32,7 @@ For current controls and settings, use the [written quick start](https://kromacu
 
 ## Examples
 
-Projects from the [landing-page community showcase](https://kromacut.com/). Click an image to open the full-size view.
+Projects from the [landing-page community showcase](https://kromacut.com/).
 
 ### Titan: from preview to finished print
 
