@@ -12,8 +12,19 @@ Turn a 2D image into a stacked, color-layered 3D print. Kromacut is a free, open
 
 ## Video guides
 
-- **Tutorial:** [Turn Any Image into a Multicolor 3D Print | Kromacut Tutorial](https://youtu.be/NnaTVuJ2Sps) — Follow the image-to-print workflow.
-- **Original introduction:** [I Recreated the Industry’s Most Advanced 3D Printing App… For Free](https://youtu.be/nTcZJ2gG7zo) — Meet the project and the idea behind Kromacut.
+Click a thumbnail to watch on YouTube.
+
+### Tutorial
+
+[Turn Any Image into a Multicolor 3D Print | Kromacut Tutorial](https://youtu.be/NnaTVuJ2Sps) ? Follow the image-to-print workflow.
+
+[<img src="https://i.ytimg.com/vi/NnaTVuJ2Sps/maxresdefault.jpg" alt="Watch the Kromacut tutorial on YouTube" width="560" />](https://youtu.be/NnaTVuJ2Sps)
+
+### Original introduction
+
+[I Recreated the Industry?s Most Advanced 3D Printing App? For Free](https://youtu.be/nTcZJ2gG7zo) ? Meet the project and the idea behind Kromacut.
+
+[<img src="https://i.ytimg.com/vi/nTcZJ2gG7zo/maxresdefault.jpg" alt="Watch the original Kromacut introduction on YouTube" width="560" />](https://youtu.be/nTcZJ2gG7zo)
 
 For current controls and settings, use the [written quick start](https://kromacut.com/docs/quick-start) alongside the videos.
 

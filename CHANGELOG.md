@@ -6,7 +6,7 @@ All notable changes to Kromacut are documented in this file.
 
 ### Added
 
-- **README video guides** - Linked the Kromacut tutorial and original introduction video in a dedicated section near the top of the README.
+- **README video guides** - Linked the Kromacut tutorial and original introduction video with clickable YouTube thumbnails and separate labeled sections near the top of the README.
 
 ### Changed
 
