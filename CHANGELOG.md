@@ -4,6 +4,10 @@ All notable changes to Kromacut are documented in this file.
 
 ## Unreleased
 
+### Added
+
+- **Desktop file associations** - Desktop packages register `.kfil` and legacy `.kapp` filament profiles and `.kpal` palettes with Kromacut file icons. Opening a file launches Kromacut or delivers it to the existing window, imports through the normal validation/migration and calibration-preservation rules, and selects the resulting saved item, including existing content duplicates. External imports wait until an open palette editor or calibration dialog is finished or cancelled. Profile opening protects unsaved filament edits, including newly applied calibration measurements, with a confirmation dialog; unreadable, invalid, oversized, or unpersistable imports report an error. Linux packages include MIME definitions, file-forwarding launchers, document icons, and cache refresh scripts; portable AppImages require desktop integration. Added native queue, import, packaging, and browser regression coverage, including imports queued during editing.
+
 ### Fixed
 
 - **Height dithering in 3D Auto-paint** - Restored fractional height targets before error diffusion, so enabling Height Dithering can produce neighboring-layer patterns in both preview and exports. Dithering stays local to the selected printable layer, preserves exact calibrated matches and protected boundaries, and leaves ordinary matching unchanged when disabled. Added regression coverage for fractional targets, calibration safeguards, effective line width, and rebuilt STL/3MF geometry.

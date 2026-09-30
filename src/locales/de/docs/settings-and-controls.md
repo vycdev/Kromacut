@@ -123,4 +123,14 @@ Eine vollständige Aufzeichnung enthält grundlegende Laufzeitinformationen, den
 
 Die Aufzeichnung dient Untersuchungen und kann große Dateien erzeugen. Lass sie für normales Drucken deaktiviert, wenn du keine Aufzeichnung benötigst.
 
+## Dateien vom Desktop öffnen
+
+Desktop-Installationen verknüpfen `.kfil`-Dateien und ältere `.kapp`-Dateien mit Filamentprofilen sowie `.kpal`-Dateien mit Paletten. Doppelklicken Sie auf eine Datei, um sie in Kromacut zu importieren und auszuwählen. Läuft die App bereits, wird das vorhandene Fenster verwendet. Die üblichen Regeln für Validierung, Migration, Duplikate und den Erhalt von Kalibrierungen gelten weiterhin.
+
+Vom Desktop geöffnete Dateien warten, solange der Paletteneditor oder der Kalibrierungsdialog geöffnet ist. Schließe die Bearbeitung ab oder brich sie ab, um die wartenden Importe fortzusetzen.
+
+Vor dem Ersetzen ungespeicherter Filamentänderungen bietet Kromacut **Änderungen behalten** oder **Profil öffnen** an. Behalten Sie die Änderungen, um sie zuerst zu speichern; beim Öffnen des Profils werden sie verworfen. So geöffnete Dateien müssen kleiner als 32 MiB sein. Allgemeine JSON-Dateien, Bilder und Modelle behalten ihre üblichen Importabläufe.
+
+Unter Linux benötigen portable AppImages eine Desktop-Integration für Dateiverknüpfungen. Ist Kromacut nicht als Standard ausgewählt, verwenden Sie **Öffnen mit** im Dateimanager.
+
 Weiter: [Fehlerbehebung](troubleshooting).

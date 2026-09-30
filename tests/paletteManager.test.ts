@@ -17,6 +17,26 @@ import { toHex6 } from '../src/lib/colorUtils.ts';
 import { deduplicateName } from '../src/lib/nameUtils.ts';
 import type { CustomPalette } from '../src/types/index.ts';
 
+test('OS-opened palette duplicates resolve to the saved palette with names and disabled colors intact', () => {
+    const saved = createCustomPalette(
+        'Saved palette',
+        ['#ff0000', '#0000ff'],
+        [1],
+        ['Red', 'Blue']
+    );
+    const result = importCustomPalettes(
+        [saved],
+        [{ ...saved, id: 'duplicate-id', name: 'File palette' }]
+    );
+    assert.equal(result.imported.length, 0);
+    assert.equal(result.resolved[0], saved);
+    assert.equal(result.palettes.length, 1);
+    const overwritten = importCustomPalettes([saved], [{ ...saved, name: 'Updated palette' }]);
+    assert.equal(overwritten.resolved[0], overwritten.imported[0]);
+    assert.deepEqual(overwritten.resolved[0].disabledColors, [1]);
+    assert.deepEqual(overwritten.resolved[0].colorNames, ['Red', 'Blue']);
+});
+
 function makePalette(overrides: Partial<CustomPalette> = {}): CustomPalette {
     return {
         id: 'palette-1',
@@ -198,9 +218,7 @@ test('updateCustomPalette clears the disabled field when all colors would be dis
 
 test('import treats identical colors with different disabled sets as distinct content', () => {
     const existing = [makePalette()];
-    const incoming = [
-        makePalette({ id: 'palette-2', name: 'Partly Off', disabledColors: [1] }),
-    ];
+    const incoming = [makePalette({ id: 'palette-2', name: 'Partly Off', disabledColors: [1] })];
     const result = importCustomPalettes(existing, incoming);
     assert.equal(result.imported.length, 1);
     assert.equal(result.skipped.length, 0);
@@ -209,9 +227,7 @@ test('import treats identical colors with different disabled sets as distinct co
 
 test('import skips palettes matching both colors and disabled set', () => {
     const existing = [makePalette({ disabledColors: [1] })];
-    const incoming = [
-        makePalette({ id: 'palette-2', name: 'Duplicate', disabledColors: [1] }),
-    ];
+    const incoming = [makePalette({ id: 'palette-2', name: 'Duplicate', disabledColors: [1] })];
     const result = importCustomPalettes(existing, incoming);
     assert.equal(result.imported.length, 0);
     assert.equal(result.skipped.length, 1);

@@ -383,55 +383,60 @@ export function useProfileManager({ filaments, setFilaments }: UseProfileManager
         [activeProfile, activeProfileId, isDirty, profiles]
     );
 
+    const importText = useCallback(
+        (content: string, fileName: string, selectExisting = false): boolean => {
+            const text = content.replace(/^\uFEFF/, '');
+            const isCSV = /\.(csv|tsv)$/i.test(fileName);
+            const profileName = fileName.replace(/\.(csv|tsv)$/i, '') || 'HueForge Import';
+            const incoming = isCSV ? parseHueForgeCSV(text, profileName) : parseProfileFile(text);
+            if (!incoming) {
+                setImportFeedback('Invalid profile file');
+                return false;
+            }
+            const result = importProfiles(profiles, incoming, RESERVED_PROFILE_IDS);
+            if (result.imported.length > 0) {
+                if (!saveProfilesToStorage(result.profiles)) {
+                    setImportFeedback(
+                        'Import could not be saved. Existing profiles were left unchanged; free browser storage and try again.'
+                    );
+                    return false;
+                }
+                setProfiles(result.profiles);
+            }
+
+            // Build feedback message
+            const parts: string[] = [];
+            if (result.imported.length > 0) parts.push(`${result.imported.length} imported`);
+            if (result.overwritten.length > 0)
+                parts.push(`${result.overwritten.length} overwritten`);
+            if (result.skipped.length > 0)
+                parts.push(`${result.skipped.length} skipped (duplicates)`);
+            if (result.renamed.length > 0) parts.push(`${result.renamed.length} renamed`);
+            setImportFeedback(parts.join(', ') || 'No profiles found');
+
+            // Auto-load the first imported profile
+            const first = (selectExisting ? result.resolved : result.imported)[0];
+            if (first) {
+                setActiveProfileId(first.id);
+                saveLastProfileId(first.id);
+                setFilaments(first.filaments.map((f) => ({ ...f })));
+            }
+            return result.resolved.length > 0;
+        },
+        [profiles, setFilaments]
+    );
+
     const handleImportFile = useCallback(
         (e: React.ChangeEvent<HTMLInputElement>) => {
             const file = e.target.files?.[0];
             if (!file) return;
             const reader = new FileReader();
-            reader.onload = () => {
-                const content = reader.result as string;
-                const isCSV = /\.(csv|tsv)$/i.test(file.name);
-                const profileName = file.name.replace(/\.(csv|tsv)$/i, '') || 'HueForge Import';
-                const incoming = isCSV
-                    ? parseHueForgeCSV(content, profileName)
-                    : parseProfileFile(content);
-                if (!incoming) {
-                    console.error('Invalid profile file');
-                    return;
-                }
-                const result = importProfiles(profiles, incoming, RESERVED_PROFILE_IDS);
-                if (result.imported.length > 0) {
-                    if (!saveProfilesToStorage(result.profiles)) {
-                        setImportFeedback(
-                            'Import could not be saved. Existing profiles were left unchanged; free browser storage and try again.'
-                        );
-                        return;
-                    }
-                    setProfiles(result.profiles);
-                }
-
-                // Build feedback message
-                const parts: string[] = [];
-                if (result.imported.length > 0) parts.push(`${result.imported.length} imported`);
-                if (result.overwritten.length > 0)
-                    parts.push(`${result.overwritten.length} overwritten`);
-                if (result.skipped.length > 0)
-                    parts.push(`${result.skipped.length} skipped (duplicates)`);
-                if (result.renamed.length > 0) parts.push(`${result.renamed.length} renamed`);
-                setImportFeedback(parts.join(', ') || 'No profiles found');
-
-                // Auto-load the first imported profile
-                if (result.imported.length > 0) {
-                    const first = result.imported[0];
-                    setActiveProfileId(first.id);
-                    saveLastProfileId(first.id);
-                    setFilaments(first.filaments.map((f) => ({ ...f })));
-                }
-            };
+            reader.onload = () => importText(reader.result as string, file.name);
+            reader.onerror = () => setImportFeedback('Invalid profile file');
             reader.readAsText(file);
             e.target.value = '';
         },
-        [profiles, setFilaments]
+        [importText]
     );
 
     // Clear import feedback after a few seconds
@@ -487,6 +492,7 @@ export function useProfileManager({ filaments, setFilaments }: UseProfileManager
         handleDeleteProfile,
         handleExportProfile,
         handleImportFile,
+        importText,
         handleRegisterPaletteProof,
         handleSetPaletteTargetResponse,
         handleCompletePaletteProofEvaluation,

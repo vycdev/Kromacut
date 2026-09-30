@@ -1,10 +1,21 @@
 {
-  "colorPicker": {
-    "hue": "Hue",
-    "color": "Color",
-    "alpha": "Opacity",
-    "saturationBrightness": "Saturation {{saturation}}%, Brightness {{brightness}}%"
-  },
+    "desktopFiles": {
+        "invalidProfile": "Invalid profile file",
+        "failedTitle": "Could not open file",
+        "failedDescription": "Could not open “{{name}}”. Check that it is a readable Kromacut file under 32 MiB and that local storage has space.",
+        "unavailable": "File opening is temporarily unavailable. Restart Kromacut and try again.",
+        "unsavedTitle": "Unsaved filament edits",
+        "unsavedDescription": "Opening “{{name}}” will replace your unsaved filament edits. Keep your edits to save them first, or open the profile to discard them.",
+        "keepEdits": "Keep edits",
+        "openProfile": "Open profile",
+        "close": "Close"
+    },
+    "colorPicker": {
+        "hue": "Hue",
+        "color": "Color",
+        "alpha": "Opacity",
+        "saturationBrightness": "Saturation {{saturation}}%, Brightness {{brightness}}%"
+    },
     "language": {
         "title": "Language",
         "system": "System language",

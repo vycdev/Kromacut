@@ -123,4 +123,14 @@ Una traza completa incluye información básica de ejecución, instantánea de f
 
 El registro está pensado para investigar y puede crear archivos grandes. Déjalo desactivado en impresión normal cuando no necesites una traza.
 
+## Abrir archivos desde el escritorio
+
+Las instalaciones de escritorio asocian los archivos `.kfil` y los antiguos `.kapp` con perfiles de filamentos, y los archivos `.kpal` con paletas. Haz doble clic en un archivo para importarlo y seleccionarlo en Kromacut. Si la aplicación ya está abierta, se utiliza su ventana existente. Se aplican las reglas habituales de validación, migración, duplicados y conservación de la calibración.
+
+Los archivos abiertos desde el escritorio quedan en espera mientras esté abierto el editor de paletas o el cuadro de calibración. Termina o cancela esa sesión para continuar con las importaciones pendientes.
+
+Antes de reemplazar cambios de filamentos sin guardar, Kromacut ofrece **Conservar cambios** o **Abrir perfil**. Conserva los cambios para guardarlos primero; abrir el perfil los descarta. Los archivos abiertos así deben tener menos de 32 MiB. Los archivos JSON genéricos, imágenes y modelos mantienen sus flujos habituales de importación.
+
+En Linux, las AppImage portátiles requieren integración con el escritorio para asociar archivos. Si Kromacut no es la aplicación predeterminada, utiliza **Abrir con** en el gestor de archivos.
+
 Siguiente: [Solución de problemas](troubleshooting).

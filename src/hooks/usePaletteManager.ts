@@ -190,44 +190,52 @@ export function usePaletteManager() {
         [customPalettes]
     );
 
+    const importText = useCallback(
+        (content: string, selectExisting = false): boolean => {
+            const incoming = parseCustomPaletteFile(content.replace(/^\uFEFF/, ''));
+            if (!incoming) {
+                setImportFeedback('Invalid palette file');
+                return false;
+            }
+            const result = importCustomPalettes(customPalettes, incoming, RESERVED_PALETTE_IDS);
+            if (result.imported.length > 0) {
+                if (!saveCustomPalettes(result.palettes)) {
+                    setImportFeedback(paletteStorageFailure('The palette import'));
+                    return false;
+                }
+                setCustomPalettes(result.palettes);
+            }
+
+            const parts: string[] = [];
+            if (result.imported.length > 0) parts.push(`${result.imported.length} imported`);
+            if (result.overwritten.length > 0)
+                parts.push(`${result.overwritten.length} overwritten`);
+            if (result.skipped.length > 0)
+                parts.push(`${result.skipped.length} skipped (duplicates)`);
+            if (result.renamed.length > 0) parts.push(`${result.renamed.length} renamed`);
+            setImportFeedback(parts.join(', ') || 'No palettes found');
+
+            // Auto-select the first imported palette
+            const first = (selectExisting ? result.resolved : result.imported)[0];
+            if (first) {
+                setSelectedPalette(first.id);
+            }
+            return result.resolved.length > 0;
+        },
+        [customPalettes, setSelectedPalette]
+    );
+
     const handleImportFile = useCallback(
         (e: React.ChangeEvent<HTMLInputElement>) => {
             const file = e.target.files?.[0];
             if (!file) return;
             const reader = new FileReader();
-            reader.onload = () => {
-                const incoming = parseCustomPaletteFile(reader.result as string);
-                if (!incoming) {
-                    setImportFeedback('Invalid palette file');
-                    return;
-                }
-                const result = importCustomPalettes(customPalettes, incoming, RESERVED_PALETTE_IDS);
-                if (result.imported.length > 0) {
-                    if (!saveCustomPalettes(result.palettes)) {
-                        setImportFeedback(paletteStorageFailure('The palette import'));
-                        return;
-                    }
-                    setCustomPalettes(result.palettes);
-                }
-
-                const parts: string[] = [];
-                if (result.imported.length > 0) parts.push(`${result.imported.length} imported`);
-                if (result.overwritten.length > 0)
-                    parts.push(`${result.overwritten.length} overwritten`);
-                if (result.skipped.length > 0)
-                    parts.push(`${result.skipped.length} skipped (duplicates)`);
-                if (result.renamed.length > 0) parts.push(`${result.renamed.length} renamed`);
-                setImportFeedback(parts.join(', ') || 'No palettes found');
-
-                // Auto-select the first imported palette
-                if (result.imported.length > 0) {
-                    setSelectedPalette(result.imported[0].id);
-                }
-            };
+            reader.onload = () => importText(reader.result as string);
+            reader.onerror = () => setImportFeedback('Invalid palette file');
             reader.readAsText(file);
             e.target.value = '';
         },
-        [customPalettes, setSelectedPalette]
+        [importText]
     );
 
     // Clear import feedback after a few seconds
@@ -260,5 +268,6 @@ export function usePaletteManager() {
         handleDeletePalette,
         handleExportPalette,
         handleImportFile,
+        importText,
     };
 }

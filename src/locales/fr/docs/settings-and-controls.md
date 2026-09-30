@@ -123,4 +123,14 @@ Une trace complète contient les informations de base d’exécution, l’instan
 
 L’enregistrement sert aux investigations et peut créer de gros fichiers. Laissez-le désactivé pour les impressions ordinaires lorsque vous n’avez pas besoin d’une trace.
 
+## Ouvrir des fichiers depuis le bureau
+
+Les installations de bureau associent les fichiers `.kfil` et les anciens `.kapp` aux profils de filaments, et les fichiers `.kpal` aux palettes. Double-cliquez sur un fichier pour l’importer et le sélectionner dans Kromacut. Si l’application est déjà ouverte, le fichier est traité dans sa fenêtre existante. Les règles habituelles de validation, migration, doublons et préservation du calibrage s’appliquent.
+
+Les fichiers ouverts depuis le bureau attendent tant que l’éditeur de palettes ou la boîte de dialogue d’étalonnage est ouvert. Terminez ou annulez cette session pour poursuivre les importations en attente.
+
+Avant de remplacer des modifications de filaments non enregistrées, Kromacut propose **Conserver les modifications** ou **Ouvrir le profil**. Conservez-les pour les enregistrer d’abord ; ouvrir le profil les abandonne. Les fichiers ouverts ainsi doivent faire moins de 32 Mio. Les fichiers JSON génériques, images et modèles conservent leurs procédures d’importation habituelles.
+
+Sous Linux, les AppImages portables nécessitent une intégration au bureau pour les associations de fichiers. Si Kromacut n’est pas l’application par défaut, utilisez **Ouvrir avec** dans votre gestionnaire de fichiers.
+
 Suite : [Dépannage](troubleshooting).

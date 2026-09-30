@@ -46,6 +46,8 @@ import { normalizeSeparationMaxDeltaE } from './lib/autoPaint';
 import ResizableSplitter from './components/ResizableSplitter';
 import { ControlsPanel } from './components/ControlsPanel';
 import { usePaletteManager } from './hooks/usePaletteManager';
+import { useDesktopFileOpen } from './hooks/useDesktopFileOpen';
+import { DesktopFileDialog } from './components/DesktopFileDialog';
 import { UpdateChecker } from './components/UpdateChecker';
 import ProgressOverlay from './components/ProgressOverlay';
 import DocsPage from './components/docs/DocsPage';
@@ -263,7 +265,17 @@ function App(): React.ReactElement | null {
         handleDeletePalette,
         handleExportPalette,
         handleImportFile: handleImportPaletteFile,
+        importText: importPaletteText,
     } = usePaletteManager();
+    const [paletteEditorOpen, setPaletteEditorOpen] = useState(false);
+    const [calibrationDialogOpen, setCalibrationDialogOpen] = useState(false);
+    const { file: queuedDesktopFile, finish: finishDesktopFile } = useDesktopFileOpen();
+    // OS file opens can arrive through an active modal. Keep the request queued
+    // until its draft is saved or dismissed, before changing either workspace.
+    const desktopFile = paletteEditorOpen || calibrationDialogOpen ? null : queuedDesktopFile;
+    const handledPaletteFile = useRef<number | null>(null);
+    const [failedPaletteFileId, setFailedPaletteFileId] = useState<number | null>(null);
+    const [completedPaletteFileId, setCompletedPaletteFileId] = useState<number | null>(null);
 
     // Keep the postprocess color count in sync with the selected palette's
     // enabled size. Edits, per-color toggles, clones, and imports all change
@@ -390,6 +402,28 @@ function App(): React.ReactElement | null {
         };
     }, []);
     const [docsOpen, setDocsOpen] = useState(() => isDocsRoute(window.location.pathname));
+    useEffect(() => {
+        if (!desktopFile || desktopFile.content === null) return;
+        setDocsOpen(false);
+        if (isDocsRoute(window.location.pathname)) window.history.pushState(null, '', toolPath);
+        if (desktopFile.kind === 'profile') {
+            handleModeChange('3d');
+        } else if (handledPaletteFile.current !== desktopFile.id) {
+            handledPaletteFile.current = desktopFile.id;
+            handleModeChange('2d');
+            try {
+                if (importPaletteText(desktopFile.content, true))
+                    setCompletedPaletteFileId(desktopFile.id);
+                else setFailedPaletteFileId(desktopFile.id);
+            } catch (error) {
+                console.error('Could not import the opened palette', error);
+                setFailedPaletteFileId(desktopFile.id);
+            }
+        }
+    }, [desktopFile, handleModeChange, importPaletteText, toolPath]);
+    useEffect(() => {
+        if (completedPaletteFileId !== null) finishDesktopFile(completedPaletteFileId);
+    }, [completedPaletteFileId, finishDesktopFile]);
     const [isOrtho, setIsOrtho] = useState(loadCameraMode);
     const [previewRenderMode, setPreviewRenderMode] =
         useState<PreviewRenderMode>(loadPreviewRenderMode);
@@ -798,6 +832,8 @@ function App(): React.ReactElement | null {
                                                 onDeletePalette={handleDeletePalette}
                                                 onExportPalette={handleExportPalette}
                                                 onImportPaletteFile={handleImportPaletteFile}
+                                                paletteEditorOpen={paletteEditorOpen}
+                                                onPaletteEditorOpenChange={setPaletteEditorOpen}
                                             />
                                             <SwatchesPanel
                                                 swatches={swatches}
@@ -832,6 +868,15 @@ function App(): React.ReactElement | null {
                                             hasAutoPaintWorkingState={
                                                 autoPaintWorkingStateInitializedRef.current
                                             }
+                                            desktopProfileFile={
+                                                desktopFile?.kind === 'profile' &&
+                                                desktopFile.content !== null
+                                                    ? desktopFile
+                                                    : null
+                                            }
+                                            onDesktopFileFinished={finishDesktopFile}
+                                            calibrationDialogOpen={calibrationDialogOpen}
+                                            onCalibrationDialogOpenChange={setCalibrationDialogOpen}
                                         />
                                     </div>
                                 )}
@@ -1072,6 +1117,16 @@ function App(): React.ReactElement | null {
 
                 {/* Update checker for Tauri desktop app */}
                 <UpdateChecker />
+                {desktopFile &&
+                    (desktopFile.content === null || failedPaletteFileId === desktopFile.id) && (
+                        <DesktopFileDialog
+                            name={desktopFile.name}
+                            onDismiss={() => {
+                                setFailedPaletteFileId(null);
+                                finishDesktopFile(desktopFile.id);
+                            }}
+                        />
+                    )}
             </div>
             {printing && <PrintUnlockEffect onDone={handleEffectDone} />}
         </>

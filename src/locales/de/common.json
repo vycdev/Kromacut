@@ -1,4 +1,15 @@
 {
+  "desktopFiles": {
+    "invalidProfile": "Ungültige Profildatei",
+    "failedTitle": "Datei konnte nicht geöffnet werden",
+    "failedDescription": "„{{name}}“ konnte nicht geöffnet werden. Prüfen Sie, ob es eine lesbare Kromacut-Datei unter 32 MiB ist und genügend lokaler Speicher verfügbar ist.",
+    "unavailable": "Das Öffnen von Dateien ist vorübergehend nicht verfügbar. Starten Sie Kromacut neu und versuchen Sie es erneut.",
+    "unsavedTitle": "Ungespeicherte Filamentänderungen",
+    "unsavedDescription": "Beim Öffnen von „{{name}}“ werden Ihre ungespeicherten Filamentänderungen ersetzt. Behalten Sie die Änderungen, um sie zuerst zu speichern, oder öffnen Sie das Profil, um sie zu verwerfen.",
+    "keepEdits": "Änderungen behalten",
+    "openProfile": "Profil öffnen",
+    "close": "Schließen"
+  },
   "colorPicker": {
     "hue": "Farbton",
     "color": "Farbe",
