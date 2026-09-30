@@ -6,6 +6,8 @@ Turn a 2D image into a stacked, color-layered 3D print. Kromacut is a free, open
 
 [![Release](https://img.shields.io/github/v/release/vycdev/kromacut?cacheSeconds=3600)](https://github.com/vycdev/Kromacut/releases/latest) [![Total downloads](https://img.shields.io/github/downloads/vycdev/Kromacut/total?label=total%20downloads&cacheSeconds=3600)](https://github.com/vycdev/Kromacut/releases) [![Latest downloads](https://img.shields.io/github/downloads/vycdev/Kromacut/latest/total?cacheSeconds=3600)](https://github.com/vycdev/Kromacut/releases/latest) [![Repo size](https://img.shields.io/github/repo-size/vycdev/kromacut?cacheSeconds=3600)](https://github.com/vycdev/Kromacut)
 
+[![Patreon](https://img.shields.io/badge/Patreon-Support-orange?logo=patreon&logoColor=white)](https://www.patreon.com/cw/vycdev) [![Discord](https://img.shields.io/badge/Discord-Join%20Chat-5865F2?logo=discord&logoColor=white)](https://discord.gg/nU63sFMcnX) [![Reddit](https://img.shields.io/badge/Reddit-r%2Fkromacut-FF4500?logo=reddit&logoColor=white)](https://www.reddit.com/r/kromacut/) [![YouTube](https://img.shields.io/badge/YouTube-@vycdev-red?logo=youtube&logoColor=white)](https://www.youtube.com/@vycdev)
+
 **[Open the app](https://kromacut.com/app)** · [Website](https://kromacut.com/) · [User documentation](https://kromacut.com/docs/overview) · [Desktop downloads](https://github.com/vycdev/Kromacut/releases)
 
 [Video guides](#video-guides) · [Examples](#examples) · [Features](#features) · [Documentation](#documentation) · [Desktop app](#native-desktop-app-tauri) · [Development](#development) · [Contributing](#contributing)
@@ -158,8 +160,6 @@ Contributions are welcome. Open an [issue](https://github.com/vycdev/Kromacut/is
 Read [AGENTS.md](AGENTS.md) for repository guidance. Changes to geometry or exports should include focused regression coverage; user-facing workflow changes should also update the guides in `src/docs`.
 
 ## Community and support
-
-[![Patreon](https://img.shields.io/badge/Patreon-Support-orange?logo=patreon&logoColor=white)](https://www.patreon.com/cw/vycdev) [![Discord](https://img.shields.io/badge/Discord-Join%20Chat-5865F2?logo=discord&logoColor=white)](https://discord.gg/nU63sFMcnX) [![Reddit](https://img.shields.io/badge/Reddit-r%2Fkromacut-FF4500?logo=reddit&logoColor=white)](https://www.reddit.com/r/kromacut/) [![YouTube](https://img.shields.io/badge/YouTube-@vycdev-red?logo=youtube&logoColor=white)](https://www.youtube.com/@vycdev)
 
 Share prints and get help on Discord or Reddit, follow development on YouTube, or support the project on Patreon.
 
