@@ -8,9 +8,9 @@ Turn a 2D image into a stacked, color-layered 3D print. Kromacut is a free, open
 
 [![Patreon](https://img.shields.io/badge/Patreon-Support-orange?logo=patreon&logoColor=white)](https://www.patreon.com/cw/vycdev) [![Discord](https://img.shields.io/badge/Discord-Join%20Chat-5865F2?logo=discord&logoColor=white)](https://discord.gg/nU63sFMcnX) [![Reddit](https://img.shields.io/badge/Reddit-r%2Fkromacut-FF4500?logo=reddit&logoColor=white)](https://www.reddit.com/r/kromacut/) [![YouTube](https://img.shields.io/badge/YouTube-@vycdev-red?logo=youtube&logoColor=white)](https://www.youtube.com/@vycdev)
 
-**[Open the app](https://kromacut.com/app)** · [Website](https://kromacut.com/) · [User documentation](https://kromacut.com/docs/overview) · [Desktop downloads](https://github.com/vycdev/Kromacut/releases)
+**[Open the app](https://kromacut.com/app)** | [Website](https://kromacut.com/) | [User documentation](https://kromacut.com/docs/overview) | [Desktop downloads](https://github.com/vycdev/Kromacut/releases)
 
-[Video guides](#video-guides) · [Examples](#examples) · [Features](#features) · [Documentation](#documentation) · [Desktop app](#native-desktop-app-tauri) · [Development](#development) · [Contributing](#contributing)
+[Video guides](#video-guides) | [Examples](#examples) | [Features](#features) | [Documentation](#documentation) | [Desktop app](#native-desktop-app-tauri) | [Development](#development) | [Contributing](#contributing)
 
 ## Video guides
 
@@ -18,13 +18,13 @@ Click a thumbnail to watch on YouTube.
 
 ### Tutorial
 
-[Turn Any Image into a Multicolor 3D Print | Kromacut Tutorial](https://youtu.be/NnaTVuJ2Sps) — Follow the image-to-print workflow.
+[Turn Any Image into a Multicolor 3D Print | Kromacut Tutorial](https://youtu.be/NnaTVuJ2Sps) - Follow the image-to-print workflow.
 
 [<img src="https://i.ytimg.com/vi/NnaTVuJ2Sps/maxresdefault.jpg" alt="Watch the Kromacut tutorial on YouTube" width="560" />](https://youtu.be/NnaTVuJ2Sps)
 
 ### Original introduction
 
-[I Recreated the Industry’s Most Advanced 3D Printing App… For Free](https://youtu.be/nTcZJ2gG7zo) — Meet the project and the idea behind Kromacut.
+[I Recreated the Industry's Most Advanced 3D Printing App... For Free](https://youtu.be/nTcZJ2gG7zo) - Meet the project and the idea behind Kromacut.
 
 [<img src="https://i.ytimg.com/vi/nTcZJ2gG7zo/maxresdefault.jpg" alt="Watch the original Kromacut introduction on YouTube" width="560" />](https://youtu.be/nTcZJ2gG7zo)
 
