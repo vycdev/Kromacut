@@ -34,9 +34,7 @@ function toPalette(cp: CustomPalette): Palette & { custom: true; totalColors: nu
         size: enabled.length,
         custom: true,
         totalColors: cp.colors.length,
-        ...(cp.colorNames
-            ? { colorNames: cp.colorNames.filter((_, i) => !disabled.has(i)) }
-            : {}),
+        ...(cp.colorNames ? { colorNames: cp.colorNames.filter((_, i) => !disabled.has(i)) } : {}),
     };
 }
 
@@ -49,9 +47,16 @@ const paletteStorageFailure = (action: string) =>
     `${action} could not be saved. Existing palettes were left unchanged; free browser storage and try again.`;
 
 export function usePaletteManager() {
-    const [customPalettes, setCustomPalettes] = useState<CustomPalette[]>(() =>
+    const [customPalettes, setCustomPalettesState] = useState<CustomPalette[]>(() =>
         loadCustomPalettes(RESERVED_PALETTE_IDS)
     );
+    const customPalettesRef = useRef(customPalettes);
+    // Successful writes update the import snapshot synchronously, before React renders.
+    // A delayed FileReader must merge with every palette saved since its read began.
+    const setCustomPalettes = useCallback((updated: CustomPalette[]) => {
+        customPalettesRef.current = updated;
+        setCustomPalettesState(updated);
+    }, []);
     const [importFeedback, setImportFeedback] = useState<string | null>(null);
     const importInputRef = useRef<HTMLInputElement>(null);
 
@@ -95,7 +100,7 @@ export function usePaletteManager() {
             // Auto-select the new palette
             setSelectedPalette(newPal.id);
         },
-        [customPalettes, setSelectedPalette]
+        [customPalettes, setCustomPalettes, setSelectedPalette]
     );
 
     const handleUpdatePalette = useCallback(
@@ -116,7 +121,7 @@ export function usePaletteManager() {
             setCustomPalettes(updated);
             setImportFeedback(null);
         },
-        [customPalettes]
+        [customPalettes, setCustomPalettes]
     );
 
     const handleClonePalette = useCallback(
@@ -152,7 +157,7 @@ export function usePaletteManager() {
             setSelectedPalette(clone.id);
             setImportFeedback(`Cloned as "${clone.name}"`);
         },
-        [customPalettes, setSelectedPalette]
+        [customPalettes, setCustomPalettes, setSelectedPalette]
     );
 
     const handleDeletePalette = useCallback(
@@ -168,7 +173,7 @@ export function usePaletteManager() {
                 setSelectedPalette('auto');
             }
         },
-        [customPalettes, selectedPalette, setSelectedPalette]
+        [customPalettes, selectedPalette, setCustomPalettes, setSelectedPalette]
     );
 
     // ---- Import / Export ----
@@ -197,7 +202,11 @@ export function usePaletteManager() {
                 setImportFeedback('Invalid palette file');
                 return false;
             }
-            const result = importCustomPalettes(customPalettes, incoming, RESERVED_PALETTE_IDS);
+            const result = importCustomPalettes(
+                customPalettesRef.current,
+                incoming,
+                RESERVED_PALETTE_IDS
+            );
             if (result.imported.length > 0) {
                 if (!saveCustomPalettes(result.palettes)) {
                     setImportFeedback(paletteStorageFailure('The palette import'));
@@ -222,7 +231,7 @@ export function usePaletteManager() {
             }
             return result.resolved.length > 0;
         },
-        [customPalettes, setSelectedPalette]
+        [setCustomPalettes, setSelectedPalette]
     );
 
     const handleImportFile = useCallback(

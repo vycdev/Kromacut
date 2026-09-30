@@ -45,6 +45,7 @@ type MockDesktop = Window & {
         signal: () => void;
         calls: string[];
         failWrites?: boolean;
+        releaseRead?: () => void;
     };
 };
 
@@ -128,6 +129,93 @@ async function expectPendingFiles(page: Page, count: number) {
                 requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
             })
     );
+}
+
+for (const kind of ['profile', 'palette'] as const) {
+    test(`@smoke a pending manual ${kind} import preserves a desktop import completed during its read`, async ({
+        page,
+    }) => {
+        const initial = kind === 'profile' ? currentFile : paletteFile('Original palette');
+        const incoming: DesktopOpenedFile =
+            kind === 'profile'
+                ? {
+                      ...currentFile,
+                      content: JSON.stringify({
+                          ...JSON.parse(currentFile.content!),
+                          id: 'incoming-profile',
+                          name: 'Incoming spools',
+                          filaments: [{ id: 'white', color: '#ffffff', td: 0.8 }],
+                      }),
+                  }
+                : paletteFile('Second palette');
+        const manual = {
+            name: `Pending manual.${kind === 'profile' ? 'kfil' : 'kpal'}`,
+            content: JSON.stringify({
+                id: 'manual-import',
+                name: 'Manual import',
+                version: kind === 'profile' ? 3 : 2,
+                createdAt: 1,
+                updatedAt: 1,
+                ...(kind === 'profile'
+                    ? { filaments: [{ id: 'cyan', color: '#00ffff', td: 0.4 }] }
+                    : { colors: ['#ffffff', '#000000'] }),
+            }),
+        };
+        const savedItems = () => (kind === 'profile' ? profiles(page) : savedPalettes(page));
+        await mockDesktop(page, [initial]);
+        await expect.poll(async () => (await savedItems()).length).toBe(1);
+
+        // Retain the real reader/callback, but release it only after the desktop import commits.
+        await page.evaluate((fileName) => {
+            const state = (window as unknown as MockDesktop).fileOpenTest;
+            const readAsText = FileReader.prototype.readAsText;
+            FileReader.prototype.readAsText = function (file, encoding) {
+                if ((file as File).name !== fileName) {
+                    readAsText.call(this, file, encoding);
+                    return;
+                }
+                FileReader.prototype.readAsText = readAsText;
+                state.releaseRead = () => {
+                    delete state.releaseRead;
+                    readAsText.call(this, file, encoding);
+                };
+            };
+        }, manual.name);
+        const input = page.getByTestId(
+            kind === 'profile' ? 'autopaint-profile-import-input' : 'palette-import-input'
+        );
+        await input.setInputFiles({
+            name: manual.name,
+            mimeType: 'application/json',
+            buffer: Buffer.from(manual.content),
+        });
+        await expect
+            .poll(() =>
+                page.evaluate(() =>
+                    Boolean((window as unknown as MockDesktop).fileOpenTest.releaseRead)
+                )
+            )
+            .toBe(true);
+
+        await openFiles(page, [incoming]);
+        await expect.poll(async () => (await savedItems()).length).toBe(2);
+        const beforeReadFinished = await savedItems();
+        await page.evaluate(() => (window as unknown as MockDesktop).fileOpenTest.releaseRead!());
+        await expect.poll(async () => (await savedItems()).length).toBe(3);
+        const after = await savedItems();
+        expect(after.slice(0, 2)).toEqual(beforeReadFinished);
+        expect(after[2].id).toBe('manual-import');
+        if (kind === 'profile') {
+            await expect
+                .poll(() =>
+                    page.evaluate(() => localStorage.getItem('kromacut.autopaint.lastProfileId'))
+                )
+                .toBe('manual-import');
+            expect((await workingFilaments(page))[0].color).toBe('#00ffff');
+        } else {
+            await expect(page.locator('#palette-select')).toContainText('Manual import');
+        }
+    });
 }
 
 test('@smoke desktop imports wait for calibration and protect the resulting unsaved measurements', async ({

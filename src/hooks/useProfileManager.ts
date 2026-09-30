@@ -80,7 +80,14 @@ export function useProfileManager({
         };
     });
 
-    const [profiles, setProfiles] = useState<AutoPaintProfile[]>(initialState.profiles);
+    const [profiles, setProfilesState] = useState<AutoPaintProfile[]>(initialState.profiles);
+    const profilesRef = useRef(profiles);
+    // Successful writes update the import snapshot synchronously, before React renders.
+    // A delayed FileReader must merge with every profile saved since its read began.
+    const setProfiles = useCallback((updated: AutoPaintProfile[]) => {
+        profilesRef.current = updated;
+        setProfilesState(updated);
+    }, []);
     const [activeProfileId, setActiveProfileId] = useState<string | null>(
         initialState.activeProfileId
     );
@@ -124,7 +131,7 @@ export function useProfileManager({
                 setImportFeedback(PROFILE_STORAGE_FAILURE_MESSAGE);
             }
         },
-        [filaments, profiles, setShowSaveNewPopover]
+        [filaments, profiles, setProfiles, setShowSaveNewPopover]
     );
 
     // Save (overwrite): updates existing profile in-place (templates are read-only)
@@ -139,7 +146,7 @@ export function useProfileManager({
         ) {
             setImportFeedback(PROFILE_STORAGE_FAILURE_MESSAGE);
         }
-    }, [activeProfileId, filaments, profiles]);
+    }, [activeProfileId, filaments, profiles, setProfiles]);
 
     const handleRenameProfile = useCallback(
         (name: string) => {
@@ -159,7 +166,7 @@ export function useProfileManager({
                 setImportFeedback(PROFILE_STORAGE_FAILURE_MESSAGE);
             }
         },
-        [activeProfileId, profiles, setShowRenamePopover]
+        [activeProfileId, profiles, setProfiles, setShowRenamePopover]
     );
 
     const handleLoadProfile = useCallback(
@@ -199,7 +206,7 @@ export function useProfileManager({
                 setImportFeedback(PROFILE_STORAGE_FAILURE_MESSAGE);
             }
         },
-        [profiles, activeProfileId]
+        [profiles, activeProfileId, setProfiles]
     );
 
     const handleExportProfile = useCallback(async () => {
@@ -251,7 +258,7 @@ export function useProfileManager({
             setProfiles(updated);
             return record;
         },
-        [activeProfile, activeProfileId, isDirty, profiles]
+        [activeProfile, activeProfileId, isDirty, profiles, setProfiles]
     );
 
     const handleSetPaletteTargetResponse = useCallback(
@@ -278,7 +285,7 @@ export function useProfileManager({
             }
             setProfiles(updated);
         },
-        [activeProfile, activeProfileId, isDirty, profiles]
+        [activeProfile, activeProfileId, isDirty, profiles, setProfiles]
     );
 
     const handleCompletePaletteProofEvaluation = useCallback(
@@ -300,7 +307,7 @@ export function useProfileManager({
             }
             setProfiles(updated);
         },
-        [activeProfile, activeProfileId, isDirty, profiles]
+        [activeProfile, activeProfileId, isDirty, profiles, setProfiles]
     );
 
     const handleReopenPaletteProofEvaluation = useCallback(
@@ -322,7 +329,7 @@ export function useProfileManager({
             }
             setProfiles(updated);
         },
-        [activeProfile, activeProfileId, isDirty, profiles]
+        [activeProfile, activeProfileId, isDirty, profiles, setProfiles]
     );
 
     const handleDeletePaletteProof = useCallback(
@@ -344,7 +351,7 @@ export function useProfileManager({
             }
             setProfiles(updated);
         },
-        [activeProfile, activeProfileId, isDirty, profiles]
+        [activeProfile, activeProfileId, isDirty, profiles, setProfiles]
     );
 
     const handleUpsertStackMatrixCalibration = useCallback(
@@ -368,7 +375,7 @@ export function useProfileManager({
             }
             setProfiles(updated);
         },
-        [activeProfile, activeProfileId, isDirty, profiles]
+        [activeProfile, activeProfileId, isDirty, profiles, setProfiles]
     );
 
     const handleDeleteStackMatrixCalibration = useCallback(
@@ -390,7 +397,7 @@ export function useProfileManager({
             }
             setProfiles(updated);
         },
-        [activeProfile, activeProfileId, isDirty, profiles]
+        [activeProfile, activeProfileId, isDirty, profiles, setProfiles]
     );
 
     const importText = useCallback(
@@ -403,7 +410,7 @@ export function useProfileManager({
                 setImportFeedback('Invalid profile file');
                 return false;
             }
-            const result = importProfiles(profiles, incoming, RESERVED_PROFILE_IDS);
+            const result = importProfiles(profilesRef.current, incoming, RESERVED_PROFILE_IDS);
             if (result.imported.length > 0) {
                 if (!saveProfilesToStorage(result.profiles)) {
                     setImportFeedback(
@@ -433,7 +440,7 @@ export function useProfileManager({
             }
             return result.resolved.length > 0;
         },
-        [profiles, setFilaments]
+        [setProfiles, setFilaments]
     );
 
     const handleImportFile = useCallback(
