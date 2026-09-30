@@ -16,13 +16,13 @@ Click a thumbnail to watch on YouTube.
 
 ### Tutorial
 
-[Turn Any Image into a Multicolor 3D Print | Kromacut Tutorial](https://youtu.be/NnaTVuJ2Sps) ? Follow the image-to-print workflow.
+[Turn Any Image into a Multicolor 3D Print | Kromacut Tutorial](https://youtu.be/NnaTVuJ2Sps) — Follow the image-to-print workflow.
 
 [<img src="https://i.ytimg.com/vi/NnaTVuJ2Sps/maxresdefault.jpg" alt="Watch the Kromacut tutorial on YouTube" width="560" />](https://youtu.be/NnaTVuJ2Sps)
 
 ### Original introduction
 
-[I Recreated the Industry?s Most Advanced 3D Printing App? For Free](https://youtu.be/nTcZJ2gG7zo) ? Meet the project and the idea behind Kromacut.
+[I Recreated the Industry’s Most Advanced 3D Printing App… For Free](https://youtu.be/nTcZJ2gG7zo) — Meet the project and the idea behind Kromacut.
 
 [<img src="https://i.ytimg.com/vi/nTcZJ2gG7zo/maxresdefault.jpg" alt="Watch the original Kromacut introduction on YouTube" width="560" />](https://youtu.be/nTcZJ2gG7zo)
 
@@ -30,13 +30,29 @@ For current controls and settings, use the [written quick start](https://kromacu
 
 ## Examples
 
-From source image to finished print:
+Projects from the [landing-page community showcase](https://kromacut.com/). Click an image to open the full-size view.
 
-| 2D input | 3D preview |
+### Titan: from preview to finished print
+
+| Kromacut prediction | Slicer preview | Finished print |
+| --- | --- | --- |
+| [<img src="content/community/titan-kromacut-preview.png" alt="Kromacut Auto-paint prediction for the golden waves of the Titan poster" width="280" />](content/community/titan-kromacut-preview.png) | [<img src="content/community/titan-slicer-preview.png" alt="Creality Print slicer preview of the Titan poster with its filament change tower" width="280" />](content/community/titan-slicer-preview.png) | [<img src="content/community/titan-finished.jpg" alt="Finished Titan layered print with golden yellow and orange wave reflections on a dark background" width="280" />](content/community/titan-finished.jpg) |
+
+Print and previews by **vycdev**. Original artwork: [NASA/JPL - Titan, Visions of the Future](https://www.jpl.nasa.gov/images/titan-jpl-travel-poster/).
+
+Preview colors are predictions; filament, calibration, lighting, and camera processing affect the finished result.
+
+### More finished prints
+
+| Hobbits and Dragons | King of Hearts | Hope poster |
+| --- | --- | --- |
+| [<img src="content/community/hobbits-and-dragons-1.jpg" alt="A colorful Hobbits and Dragons layered 3D print" width="280" />](content/community/hobbits-and-dragons-1.jpg) | [<img src="content/community/king-of-hearts.jpg" alt="A multicolor layered King of Hearts playing-card print" width="280" />](content/community/king-of-hearts.jpg) | [<img src="content/community/hope-finished.jpg" alt="Finished layered Hope poster print showing orange and purple-blue color shifts" width="280" />](content/community/hope-finished.jpg) |
+| By [u/ominaex25](https://www.reddit.com/r/kromacut/comments/1vum7om/hobbits_and_dragons/) | By **vycdev** | By **vycdev** |
+
+| Batman: The Jiro Kuwata Batmanga | Naruto |
 | --- | --- |
-| <img src="content/fuji2d_new.png" alt="Fuji source image" width="600" /> | <img src="content/fuji3d_new.png" alt="Fuji stacked 3D preview" width="600" /> |
-| **Sliced by color** | **Real print** |
-| <img src="content/fuji3dsliced.png" alt="Fuji model sliced by color" width="600" /> | <img src="content/printed.jpg" alt="Finished Fuji print" width="600" /> |
+| [<img src="content/community/batmanga-finished.jpg" alt="Finished Batmanga layered print with a yellow Japanese title, tan background, and black-and-gray Batman figure" width="280" />](content/community/batmanga-finished.jpg) | [<img src="content/community/naruto-finished.jpg" alt="Finished Naruto layered print with yellow hair, orange clothing, and a lavender-blue sky" width="280" />](content/community/naruto-finished.jpg) |
+| By **vycdev**. Artwork: [Jiro Kuwata / DC - Batmanga, Book 1](https://m.media-amazon.com/images/I/81rOZq5ZgqL._AC_UF1000,1000_QL80_.jpg). | By **vycdev**. Artwork: [Naruto](https://in.pinterest.com/pin/169870217190172931/). |
 
 ## Features
 
