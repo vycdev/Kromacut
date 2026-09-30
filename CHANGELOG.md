@@ -10,7 +10,7 @@ All notable changes to Kromacut are documented in this file.
 
 ### Changed
 
-- **README organization** - Added section navigation and concise feature descriptions, with detailed usage, calibration, and print instructions linked through documentation. Separated desktop downloads from development setup, removed the obsolete TD test-image example, and refreshed the examples with landing-page showcase images and creator/artwork credits.
+- **README organization** - Added section navigation and concise feature descriptions, with detailed usage, calibration, and print instructions linked through documentation. Separated desktop downloads from development setup, removed the obsolete TD test-image example, and refreshed the examples as a single grid of six finished prints from the landing-page showcase, with compact creator/artwork annotations.
 
 ### Fixed
 
