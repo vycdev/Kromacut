@@ -127,7 +127,7 @@ Recording is intended for investigations and may create large files. Leave it di
 
 Desktop installations associate `.kfil` and legacy `.kapp` files with filament profiles, and `.kpal` files with palettes. Double-click a file to import and select it in Kromacut. If the app is already running, the file opens in its existing window. Normal validation, migration, duplicate handling, and calibration-preservation rules apply.
 
-Files opened from your desktop wait while a palette editor or calibration dialog is open. Finish or cancel that session to continue the queued imports.
+Files opened from your desktop wait while a palette editor, calibration dialog, or profile Rename or Save New form is open. Finish or cancel that session to continue the queued imports; typed names and the profile being edited stay unchanged until then.
 
 Before replacing unsaved filament edits, Kromacut offers **Keep edits** or **Open profile**. Keep your edits to save them first; opening the profile discards those edits. Files opened this way must be smaller than 32 MiB. Generic JSON, images, and models retain their usual import workflows.
 

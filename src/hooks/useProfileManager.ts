@@ -49,9 +49,21 @@ export interface UseProfileManagerOptions {
     filaments: Filament[];
     /** Setter to replace the filament list when loading a profile. */
     setFilaments: (filaments: Filament[]) => void;
+    /** App-owned editor state also defers incoming desktop files. */
+    showSaveNewPopover: boolean;
+    setShowSaveNewPopover: (open: boolean) => void;
+    showRenamePopover: boolean;
+    setShowRenamePopover: (open: boolean) => void;
 }
 
-export function useProfileManager({ filaments, setFilaments }: UseProfileManagerOptions) {
+export function useProfileManager({
+    filaments,
+    setFilaments,
+    showSaveNewPopover,
+    setShowSaveNewPopover,
+    showRenamePopover,
+    setShowRenamePopover,
+}: UseProfileManagerOptions) {
     const [initialState] = useState(() => {
         const loadedProfiles = loadProfiles();
         const lastId = loadLastProfileId();
@@ -72,9 +84,7 @@ export function useProfileManager({ filaments, setFilaments }: UseProfileManager
     const [activeProfileId, setActiveProfileId] = useState<string | null>(
         initialState.activeProfileId
     );
-    const [showSaveNewPopover, setShowSaveNewPopover] = useState(false);
     const [saveProfileName, setSaveProfileName] = useState('');
-    const [showRenamePopover, setShowRenamePopover] = useState(false);
     const [renameProfileName, setRenameProfileName] = useState('');
     const [importFeedback, setImportFeedback] = useState<string | null>(null);
     const importInputRef = useRef<HTMLInputElement>(null);
@@ -114,7 +124,7 @@ export function useProfileManager({ filaments, setFilaments }: UseProfileManager
                 setImportFeedback(PROFILE_STORAGE_FAILURE_MESSAGE);
             }
         },
-        [filaments, profiles]
+        [filaments, profiles, setShowSaveNewPopover]
     );
 
     // Save (overwrite): updates existing profile in-place (templates are read-only)
@@ -149,7 +159,7 @@ export function useProfileManager({ filaments, setFilaments }: UseProfileManager
                 setImportFeedback(PROFILE_STORAGE_FAILURE_MESSAGE);
             }
         },
-        [activeProfileId, profiles]
+        [activeProfileId, profiles, setShowRenamePopover]
     );
 
     const handleLoadProfile = useCallback(

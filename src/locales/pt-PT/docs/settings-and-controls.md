@@ -127,7 +127,7 @@ O registo destina-se a investigação e pode criar ficheiros grandes. Deixe desl
 
 As instalações de ambiente de trabalho associam os ficheiros `.kfil` e os antigos `.kapp` a perfis de filamentos, e os ficheiros `.kpal` a paletas. Faça duplo clique num ficheiro para o importar e selecionar no Kromacut. Se a aplicação já estiver aberta, é utilizada a janela existente. Aplicam-se as regras habituais de validação, migração, duplicados e preservação da calibração.
 
-Os ficheiros abertos a partir do ambiente de trabalho ficam em espera enquanto o editor de paletas ou a caixa de diálogo de calibração estiver aberto. Conclua ou cancele essa sessão para continuar as importações pendentes.
+Os ficheiros abertos a partir do ambiente de trabalho ficam em espera enquanto o editor de paletas, a caixa de diálogo de calibração ou o formulário para mudar o nome ou guardar um novo perfil estiver aberto. Conclua ou cancele essa sessão para continuar as importações pendentes; os nomes introduzidos e o perfil em edição mantêm-se inalterados até lá.
 
 Antes de substituir alterações aos filamentos por guardar, o Kromacut apresenta **Manter alterações** ou **Abrir perfil**. Mantenha as alterações para as guardar primeiro; abrir o perfil descarta-as. Os ficheiros abertos desta forma devem ter menos de 32 MiB. Os ficheiros JSON genéricos, imagens e modelos mantêm os procedimentos habituais de importação.
 

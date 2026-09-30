@@ -127,7 +127,7 @@ La registrazione è per indagini e può produrre file grandi. Lasciala spenta pe
 
 Le installazioni desktop associano i file `.kfil` e i precedenti `.kapp` ai profili dei filamenti, e i file `.kpal` alle tavolozze. Fai doppio clic su un file per importarlo e selezionarlo in Kromacut. Se l’app è già aperta, viene usata la finestra esistente. Si applicano le normali regole di convalida, migrazione, gestione dei duplicati e conservazione della calibrazione.
 
-I file aperti dal desktop restano in attesa mentre è aperto l’editor delle tavolozze o la finestra di calibrazione. Completa o annulla la sessione per proseguire con le importazioni in attesa.
+I file aperti dal desktop restano in attesa mentre è aperto l’editor delle tavolozze, la finestra di calibrazione o il modulo per rinominare o salvare un nuovo profilo. Completa o annulla la sessione per proseguire con le importazioni in attesa; i nomi digitati e il profilo in modifica restano invariati fino ad allora.
 
 Prima di sostituire modifiche ai filamenti non salvate, Kromacut offre **Mantieni le modifiche** o **Apri profilo**. Mantieni le modifiche per salvarle prima; aprire il profilo le scarta. I file aperti in questo modo devono essere inferiori a 32 MiB. File JSON generici, immagini e modelli mantengono i consueti flussi di importazione.
 

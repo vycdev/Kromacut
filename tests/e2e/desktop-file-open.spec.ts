@@ -260,6 +260,96 @@ test('@smoke cancelling a palette editor resumes a mixed profile/palette queue w
     expect(after[0]).toEqual(before[0]);
 });
 
+for (const editor of ['Rename', 'Save New'] as const) {
+    for (const outcome of ['save', 'cancel'] as const) {
+        test(`@smoke desktop imports wait for profile ${editor} to ${outcome} its draft`, async ({
+            page,
+        }) => {
+            await mockDesktop(page, [currentFile]);
+            await expect
+                .poll(() =>
+                    page.evaluate(() => localStorage.getItem('kromacut.autopaint.lastProfileId'))
+                )
+                .toBe('new-profile');
+            await page
+                .getByRole('button', {
+                    name: editor === 'Rename' ? 'Rename selected profile' : 'Save as new profile',
+                    exact: true,
+                })
+                .click();
+            const draft = page.getByPlaceholder('Profile name...', { exact: true });
+            const draftName = `${editor} original spools`;
+            await draft.fill(draftName);
+            const originalProfiles = await profiles(page);
+            const originalFilaments = await workingFilaments(page);
+            const replacement = {
+                ...currentFile,
+                content: JSON.stringify({
+                    ...originalProfiles[0],
+                    id: 'incoming-profile',
+                    name: 'Incoming spools',
+                    filaments: [{ id: 'white', color: '#ffffff', td: 0.8 }],
+                }),
+            };
+            // Cover a profile replacement and a palette workspace switch arriving first.
+            const queuedPalette = paletteFile('After profile editor');
+            await openFiles(
+                page,
+                editor === 'Rename' ? [replacement, queuedPalette] : [queuedPalette, replacement]
+            );
+            await expectPendingFiles(page, 1);
+            await expect(draft).toHaveValue(draftName);
+            expect(await profiles(page)).toEqual(originalProfiles);
+            expect(await savedPalettes(page)).toEqual([]);
+            expect(await workingFilaments(page)).toEqual(originalFilaments);
+            expect(
+                await page.evaluate(() => localStorage.getItem('kromacut.autopaint.lastProfileId'))
+            ).toBe('new-profile');
+
+            if (editor === 'Save New' && outcome === 'save') {
+                await page.evaluate(() => {
+                    (window as unknown as MockDesktop).fileOpenTest.failWrites = true;
+                });
+                await draft.press('Enter');
+                await expect(page.getByText(/Profile changes could not be saved/)).toBeVisible();
+                await expect(draft).toHaveValue(draftName);
+                expect(await profiles(page)).toEqual(originalProfiles);
+                expect(await savedPalettes(page)).toEqual([]);
+                await page.evaluate(() => {
+                    (window as unknown as MockDesktop).fileOpenTest.failWrites = false;
+                });
+            }
+
+            await draft.press(outcome === 'save' ? 'Enter' : 'Escape');
+            await expect(draft).not.toBeVisible();
+            await expect
+                .poll(() =>
+                    page.evaluate(() => localStorage.getItem('kromacut.autopaint.lastProfileId'))
+                )
+                .toBe('incoming-profile');
+            const after = await profiles(page);
+            const original = after.find((profile: { id: string }) => profile.id === 'new-profile');
+            expect(original.filaments).toEqual(originalProfiles[0].filaments);
+            expect(original.name).toBe(
+                editor === 'Rename' && outcome === 'save' ? draftName : 'New spools'
+            );
+            if (editor === 'Save New' && outcome === 'save') {
+                const copy = after.find((profile: { name: string }) => profile.name === draftName);
+                expect(copy.filaments).toEqual(originalProfiles[0].filaments);
+                expect(copy.id).not.toBe('new-profile');
+                expect(after).toHaveLength(3);
+            } else {
+                expect(after).toHaveLength(2);
+            }
+            expect(
+                (await savedPalettes(page)).map((palette: { name: string }) => palette.name)
+            ).toEqual(['After profile editor']);
+            expect((await workingFilaments(page))[0].id).toBe('white');
+            await expectPendingFiles(page, 0);
+        });
+    }
+}
+
 test('@smoke desktop startup imports legacy profiles; warm batches import/select profiles and palettes', async ({
     page,
 }) => {

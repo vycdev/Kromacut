@@ -69,6 +69,10 @@ interface ThreeDControlsProps {
     onDesktopFileFinished?: (id: number) => void;
     calibrationDialogOpen: boolean;
     onCalibrationDialogOpenChange: (open: boolean) => void;
+    profileSaveNewOpen: boolean;
+    onProfileSaveNewOpenChange: (open: boolean) => void;
+    profileRenameOpen: boolean;
+    onProfileRenameOpenChange: (open: boolean) => void;
 }
 
 export default function ThreeDControls({
@@ -86,6 +90,10 @@ export default function ThreeDControls({
     onDesktopFileFinished,
     calibrationDialogOpen,
     onCalibrationDialogOpenChange,
+    profileSaveNewOpen,
+    onProfileSaveNewOpenChange,
+    profileRenameOpen,
+    onProfileRenameOpenChange,
 }: ThreeDControlsProps) {
     const { t } = useTranslation('printing');
     // --- Filaments ---
@@ -101,7 +109,14 @@ export default function ThreeDControls({
     });
 
     // --- Profiles ---
-    const profileManager = useProfileManager({ filaments, setFilaments });
+    const profileManager = useProfileManager({
+        filaments,
+        setFilaments,
+        showSaveNewPopover: profileSaveNewOpen,
+        setShowSaveNewPopover: onProfileSaveNewOpenChange,
+        showRenamePopover: profileRenameOpen,
+        setShowRenamePopover: onProfileRenameOpenChange,
+    });
     const [profileReady, setProfileReady] = useState(false);
 
     // Apply initial filaments from profile if available (one-time)

@@ -269,10 +269,15 @@ function App(): React.ReactElement | null {
     } = usePaletteManager();
     const [paletteEditorOpen, setPaletteEditorOpen] = useState(false);
     const [calibrationDialogOpen, setCalibrationDialogOpen] = useState(false);
+    const [profileSaveNewOpen, setProfileSaveNewOpen] = useState(false);
+    const [profileRenameOpen, setProfileRenameOpen] = useState(false);
     const { file: queuedDesktopFile, finish: finishDesktopFile } = useDesktopFileOpen();
-    // OS file opens can arrive through an active modal. Keep the request queued
+    // OS file opens can arrive through an active editor. Keep the request queued
     // until its draft is saved or dismissed, before changing either workspace.
-    const desktopFile = paletteEditorOpen || calibrationDialogOpen ? null : queuedDesktopFile;
+    const desktopFile =
+        paletteEditorOpen || calibrationDialogOpen || profileSaveNewOpen || profileRenameOpen
+            ? null
+            : queuedDesktopFile;
     const handledPaletteFile = useRef<number | null>(null);
     const [failedPaletteFileId, setFailedPaletteFileId] = useState<number | null>(null);
     const [completedPaletteFileId, setCompletedPaletteFileId] = useState<number | null>(null);
@@ -877,6 +882,10 @@ function App(): React.ReactElement | null {
                                             onDesktopFileFinished={finishDesktopFile}
                                             calibrationDialogOpen={calibrationDialogOpen}
                                             onCalibrationDialogOpenChange={setCalibrationDialogOpen}
+                                            profileSaveNewOpen={profileSaveNewOpen}
+                                            onProfileSaveNewOpenChange={setProfileSaveNewOpen}
+                                            profileRenameOpen={profileRenameOpen}
+                                            onProfileRenameOpenChange={setProfileRenameOpen}
                                         />
                                     </div>
                                 )}

@@ -127,7 +127,7 @@ El registro está pensado para investigar y puede crear archivos grandes. Déjal
 
 Las instalaciones de escritorio asocian los archivos `.kfil` y los antiguos `.kapp` con perfiles de filamentos, y los archivos `.kpal` con paletas. Haz doble clic en un archivo para importarlo y seleccionarlo en Kromacut. Si la aplicación ya está abierta, se utiliza su ventana existente. Se aplican las reglas habituales de validación, migración, duplicados y conservación de la calibración.
 
-Los archivos abiertos desde el escritorio quedan en espera mientras esté abierto el editor de paletas o el cuadro de calibración. Termina o cancela esa sesión para continuar con las importaciones pendientes.
+Los archivos abiertos desde el escritorio quedan en espera mientras esté abierto el editor de paletas, el cuadro de calibración o el formulario para renombrar o guardar un perfil nuevo. Termina o cancela esa sesión para continuar con las importaciones pendientes; los nombres escritos y el perfil que estás editando permanecen sin cambios hasta entonces.
 
 Antes de reemplazar cambios de filamentos sin guardar, Kromacut ofrece **Conservar cambios** o **Abrir perfil**. Conserva los cambios para guardarlos primero; abrir el perfil los descarta. Los archivos abiertos así deben tener menos de 32 MiB. Los archivos JSON genéricos, imágenes y modelos mantienen sus flujos habituales de importación.
 
