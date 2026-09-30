@@ -10,7 +10,7 @@ All notable changes to Kromacut are documented in this file.
 
 ### Changed
 
-- **README organization** - Added section navigation, consolidated the getting-started workflows, and linked the illustrated guides for detailed controls and calibration. Separated desktop installation from development instructions and clarified the calibration entry point, profile backups, Node.js prerequisites, and when to rebuild before export.
+- **README organization** - Added section navigation, consolidated the getting-started workflows, and linked the illustrated guides for detailed controls and calibration. Separated desktop installation from development instructions and clarified the calibration entry point, profile backups, Node.js prerequisites, and when to rebuild before export. Removed the obsolete TD test-image example.
 
 ### Fixed
 

@@ -27,15 +27,6 @@ From source image to finished print:
 | **Sliced by color** | **Real print** |
 | <img src="content/fuji3dsliced.png" alt="Fuji model sliced by color" width="600" /> | <img src="content/printed.jpg" alt="Finished Fuji print" width="600" /> |
 
-<details>
-<summary>Try the included TD test image</summary>
-
-Download [tdTest.png](src/assets/tdTest.png), then upload it to experiment with Manual color ordering and per-color heights. It is a source image for experimentation, not a measurement of your filament's hiding distance.
-
-<img src="src/assets/tdTest.png" alt="Transmission Distance test image for manual layer experiments" width="600" />
-
-</details>
-
 ## Features
 
 - **Image preparation:** Drag-and-drop upload, non-destructive adjustments, resizing, color reduction, dedithering, and pixel touch-up tools.
