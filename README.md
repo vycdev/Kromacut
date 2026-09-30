@@ -97,7 +97,7 @@ Layer-by-layer inspection reveals the stack from foundation to top. Simulated an
 
 Binary STL and color-aware 3MF exports connect the model to compatible slicers. Auto-paint 3MFs preserve physical filament colors rather than assigning a material to every predicted shade. Standard layered prints include plain-text instructions with starting colors and filament swap layers.
 
-### Flat Paint (experimental)
+### Flat Paint
 
 Face-up and face-down layouts turn layered artwork into a uniform-thickness slab for bookmarks, coasters, and other flat pieces. Flat Paint supports suitable multi-material workflows and exports as 3MF.
 
