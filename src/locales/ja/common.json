@@ -1,4 +1,15 @@
 {
+    "desktopFiles": {
+        "invalidProfile": "無効なプロファイルファイル",
+        "failedTitle": "ファイルを開けませんでした",
+        "failedDescription": "「{{name}}」を開けませんでした。32 MiB 未満の読み取り可能な Kromacut ファイルであることと、ローカルストレージに空き容量があることを確認してください。",
+        "unavailable": "ファイルを開く機能は一時的に利用できません。Kromacut を再起動して、もう一度お試しください。",
+        "unsavedTitle": "未保存のフィラメント編集",
+        "unsavedDescription": "「{{name}}」を開くと、未保存のフィラメント編集が置き換えられます。先に保存する場合は編集を保持し、破棄する場合はプロファイルを開いてください。",
+        "keepEdits": "編集を保持",
+        "openProfile": "プロファイルを開く",
+        "close": "閉じる"
+    },
     "colorPicker": {
         "hue": "色相",
         "color": "色",

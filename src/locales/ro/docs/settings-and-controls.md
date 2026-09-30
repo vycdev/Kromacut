@@ -123,4 +123,16 @@ O înregistrare completă include informații de bază despre rulare, instantane
 
 Înregistrarea este destinată investigațiilor și poate crea fișiere mari. Las-o dezactivată pentru imprimarea obișnuită când nu ai nevoie de o înregistrare.
 
+## Deschiderea fișierelor de pe desktop
+
+Instalările desktop asociază fișierele `.kfil` și vechile `.kapp` cu profilurile de filamente, iar fișierele `.kpal` cu paletele. Fă dublu clic pe un fișier pentru a-l importa și selecta în Kromacut. Dacă aplicația rulează deja, fișierul este deschis în fereastra existentă. Se aplică regulile obișnuite de validare, migrare, gestionare a duplicatelor și păstrare a calibrării.
+
+Fișierele deschise de pe desktop așteaptă cât timp editorul de palete, dialogul de calibrare sau formularul de redenumire ori salvare a unui profil nou este deschis. Finalizează sau anulează sesiunea pentru a continua importurile din coadă; numele introduse și profilul editat rămân neschimbate până atunci.
+
+Importurile așteaptă și cât timp editezi numele sau câmpul HD al unui filament ori cât timp selectorul său de culoare sau panoul **Convertește din TD** este deschis. Părăsește câmpul sau închide selectorul ori panoul pentru a relua importurile din coadă; modificările nesalvate ale filamentelor necesită în continuare alegerea ta înainte ca alt profil să le înlocuiască.
+
+Înainte de a înlocui modificările nesalvate ale filamentelor, Kromacut oferă **Păstrează modificările** sau **Deschide profilul**. Păstrează modificările pentru a le salva mai întâi; deschiderea profilului renunță la ele. Fișierele deschise astfel trebuie să fie mai mici de 32 MiB. Fișierele JSON generice, imaginile și modelele păstrează fluxurile obișnuite de import.
+
+Pe Linux, fișierele AppImage portabile necesită integrare cu desktopul pentru asocierea fișierelor. Dacă sistemul nu a selectat Kromacut ca aplicație implicită, folosește **Deschide cu** în managerul de fișiere.
+
 În continuare: [Depanare](troubleshooting).

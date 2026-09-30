@@ -1,4 +1,15 @@
 {
+  "desktopFiles": {
+    "invalidProfile": "Fișier de profil invalid",
+    "failedTitle": "Fișierul nu a putut fi deschis",
+    "failedDescription": "Fișierul „{{name}}” nu a putut fi deschis. Verifică dacă este un fișier Kromacut care poate fi citit, mai mic de 32 MiB, și dacă există spațiu în stocarea locală.",
+    "unavailable": "Deschiderea fișierelor este temporar indisponibilă. Repornește Kromacut și încearcă din nou.",
+    "unsavedTitle": "Modificări nesalvate ale filamentelor",
+    "unsavedDescription": "Deschiderea fișierului „{{name}}” va înlocui modificările nesalvate ale filamentelor. Păstrează modificările pentru a le salva mai întâi sau deschide profilul pentru a renunța la ele.",
+    "keepEdits": "Păstrează modificările",
+    "openProfile": "Deschide profilul",
+    "close": "Închide"
+  },
   "colorPicker": {
     "hue": "Nuanță",
     "color": "Culoare",

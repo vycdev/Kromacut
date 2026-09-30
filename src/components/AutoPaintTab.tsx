@@ -334,12 +334,15 @@ interface AutoPaintSliceData {
 }
 
 interface AutoPaintTabProps {
+    calibrationDialogOpen: boolean;
+    onCalibrationDialogOpenChange: (open: boolean) => void;
     // Filament state
     filaments: Filament[];
     addFilament: () => void;
     addFilamentWithProps: (props: { color: string; td: number; name: string }) => void;
     removeFilament: (id: string) => void;
     updateFilament: (id: string, updates: Partial<Omit<Filament, 'id'>>) => void;
+    onFilamentEditingChange: (id: string, editing: boolean) => void;
 
     // Profile state
     profiles: AutoPaintProfile[];
@@ -431,11 +434,14 @@ interface AutoPaintTabProps {
 }
 
 export default function AutoPaintTab({
+    calibrationDialogOpen,
+    onCalibrationDialogOpenChange,
     filaments,
     addFilament,
     addFilamentWithProps,
     removeFilament,
     updateFilament,
+    onFilamentEditingChange,
     profiles,
     activeProfileId,
     isDirty,
@@ -537,19 +543,16 @@ export default function AutoPaintTab({
     );
     const exactBaseOrderIsLarge = exactBaseOrderCount >= 1_000_000 || filaments.length >= 9;
 
-    // Calibration dialog state
-    const [calibrationDialogOpen, setCalibrationDialogOpen] = React.useState(false);
-
     // Built-in templates are read-only: no overwrite, rename, or delete
     const isTemplateActive = activeProfileId !== null && isTemplateProfileId(activeProfileId);
 
     const handleOpenCalibration = React.useCallback(() => {
-        setCalibrationDialogOpen(true);
-    }, []);
+        onCalibrationDialogOpenChange(true);
+    }, [onCalibrationDialogOpenChange]);
 
     const handleCloseCalibration = React.useCallback(() => {
-        setCalibrationDialogOpen(false);
-    }, []);
+        onCalibrationDialogOpenChange(false);
+    }, [onCalibrationDialogOpenChange]);
 
     const handleApplyCalibration = React.useCallback(
         (updates: CalibrationApplyUpdate[]) => {
@@ -863,6 +866,7 @@ export default function AutoPaintTab({
                                     filament={f}
                                     onUpdate={updateFilament}
                                     onRemove={removeFilament}
+                                    onEditingChange={onFilamentEditingChange}
                                 />
                             ))}
                         </div>

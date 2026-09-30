@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleDocumentTypes</key>
+  <array>
+    <dict>
+      <key>CFBundleTypeName</key><string>Kromacut filament profile</string>
+      <key>CFBundleTypeExtensions</key><array><string>kfil</string><string>kapp</string></array>
+      <key>CFBundleTypeRole</key><string>Editor</string>
+      <key>CFBundleTypeIconFile</key><string>kromacut-document.icns</string>
+      <key>LSHandlerRank</key><string>Owner</string>
+      <key>LSItemContentTypes</key><array><string>com.kromacut.filament-profile</string></array>
+    </dict>
+    <dict>
+      <key>CFBundleTypeName</key><string>Kromacut color palette</string>
+      <key>CFBundleTypeExtensions</key><array><string>kpal</string></array>
+      <key>CFBundleTypeRole</key><string>Editor</string>
+      <key>CFBundleTypeIconFile</key><string>kromacut-document.icns</string>
+      <key>LSHandlerRank</key><string>Owner</string>
+      <key>LSItemContentTypes</key><array><string>com.kromacut.palette</string></array>
+    </dict>
+  </array>
+</dict>
+</plist>

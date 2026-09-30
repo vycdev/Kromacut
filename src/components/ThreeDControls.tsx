@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CollapsibleCard, DirtyDot } from '@/components/CollapsibleCard';
 import ThreeDColorRow from './ThreeDColorRow';
 import { Sortable, SortableContent, SortableOverlay } from '@/components/ui/sortable';
@@ -36,6 +36,8 @@ import AutoPaintTab from './AutoPaintTab';
 import type { ImageDimensions } from '../hooks/useSwatches';
 import { concealPrintableFeatureBuffers } from '../lib/printableFeatures.ts';
 import { shouldApplyInitialProfileFilaments } from '../lib/threeDWorkLifecycle';
+import type { DesktopFileRequest } from '../lib/desktopFileInbox';
+import { DesktopProfileImport } from './DesktopProfileImport';
 
 // Re-export types for backward compatibility
 export type { Filament, ThreeDControlsStateShape } from '../types';
@@ -63,6 +65,15 @@ interface ThreeDControlsProps {
     persisted?: ThreeDControlsStateShape | null;
     /** Whether `persisted.filaments` belongs to an authoritative saved or in-session workspace. */
     hasAutoPaintWorkingState?: boolean;
+    desktopProfileFile?: DesktopFileRequest | null;
+    onDesktopFileFinished?: (id: number) => void;
+    calibrationDialogOpen: boolean;
+    onCalibrationDialogOpenChange: (open: boolean) => void;
+    profileSaveNewOpen: boolean;
+    onProfileSaveNewOpenChange: (open: boolean) => void;
+    profileRenameOpen: boolean;
+    onProfileRenameOpenChange: (open: boolean) => void;
+    onFilamentEditingChange: (editing: boolean) => void;
 }
 
 export default function ThreeDControls({
@@ -76,6 +87,15 @@ export default function ThreeDControls({
     onSettingsChange,
     persisted,
     hasAutoPaintWorkingState = false,
+    desktopProfileFile = null,
+    onDesktopFileFinished,
+    calibrationDialogOpen,
+    onCalibrationDialogOpenChange,
+    profileSaveNewOpen,
+    onProfileSaveNewOpenChange,
+    profileRenameOpen,
+    onProfileRenameOpenChange,
+    onFilamentEditingChange,
 }: ThreeDControlsProps) {
     const { t } = useTranslation('printing');
     // --- Filaments ---
@@ -91,7 +111,26 @@ export default function ThreeDControls({
     });
 
     // --- Profiles ---
-    const profileManager = useProfileManager({ filaments, setFilaments });
+    const profileManager = useProfileManager({
+        filaments,
+        setFilaments,
+        showSaveNewPopover: profileSaveNewOpen,
+        setShowSaveNewPopover: onProfileSaveNewOpenChange,
+        showRenamePopover: profileRenameOpen,
+        setShowRenamePopover: onProfileRenameOpenChange,
+    });
+    const [profileReady, setProfileReady] = useState(false);
+    const editingFilaments = useRef(new Set<string>());
+    const handleFilamentEditingChange = useCallback(
+        (id: string, editing: boolean) => {
+            if (editingFilaments.current.has(id) === editing) return;
+            if (editing) editingFilaments.current.add(id);
+            else editingFilaments.current.delete(id);
+            onFilamentEditingChange(editingFilaments.current.size > 0);
+        },
+        [onFilamentEditingChange]
+    );
+    useEffect(() => () => onFilamentEditingChange(false), [onFilamentEditingChange]);
 
     // Apply initial filaments from profile if available (one-time)
     const [appliedProfileInit] = useState(() => {
@@ -110,6 +149,7 @@ export default function ThreeDControls({
         if (appliedProfileInit) {
             setFilaments(appliedProfileInit);
         }
+        setProfileReady(true);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
@@ -567,6 +607,18 @@ export default function ThreeDControls({
 
     return (
         <div className="space-y-4">
+            {profileReady && onDesktopFileFinished && (
+                <DesktopProfileImport
+                    file={desktopProfileFile}
+                    hasUnsavedChanges={
+                        profileManager.isDirty ||
+                        (!profileManager.activeProfileId && filaments.length > 0)
+                    }
+                    importText={profileManager.importText}
+                    onImported={() => setPaintMode('autopaint')}
+                    onFinished={onDesktopFileFinished}
+                />
+            )}
             {/* Apply button */}
             <div className="sticky -top-4 z-20 -mx-4 -mt-4 px-4 pt-4 pb-2 bg-card border-b border-border flex justify-end">
                 <Button
@@ -640,6 +692,9 @@ export default function ThreeDControls({
 
                 {/* Auto-paint Tab */}
                 <AutoPaintTab
+                    onFilamentEditingChange={handleFilamentEditingChange}
+                    calibrationDialogOpen={calibrationDialogOpen}
+                    onCalibrationDialogOpenChange={onCalibrationDialogOpenChange}
                     filaments={filaments}
                     addFilament={addFilament}
                     addFilamentWithProps={addFilamentWithProps}

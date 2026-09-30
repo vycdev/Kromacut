@@ -1,0 +1,11 @@
+{
+    "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
+    "bundle": {
+        "macOS": {
+            "files": {
+                "Resources/kromacut-document.icns": "icons/icon.icns"
+            },
+            "infoPlist": "macos/Info.plist"
+        }
+    }
+}
