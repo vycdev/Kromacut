@@ -46,6 +46,8 @@ type MockDesktop = Window & {
         calls: string[];
         failWrites?: boolean;
         releaseRead?: () => void;
+        holdNextWrite?: boolean;
+        releaseWrite?: () => void;
     };
 };
 
@@ -75,7 +77,10 @@ async function mockDesktop(page: Page, initial: DesktopOpenedFile[], entryPath =
                 callbacks.set(id, callback);
                 return id;
             },
-            async invoke(command: string, args: { event?: string; handler?: number } = {}) {
+            async invoke(
+                command: string,
+                args: { event?: string; handler?: number; data?: Uint8Array } = {}
+            ) {
                 desktop.fileOpenTest.calls.push(command);
                 if (command === 'plugin:event|listen') {
                     if (args.event === 'kromacut-opened-files') {
@@ -92,6 +97,23 @@ async function mockDesktop(page: Page, initial: DesktopOpenedFile[], entryPath =
                     return desktop.fileOpenTest.pending.shift() ?? null;
                 if (command === 'get_app_version') return '4.1.0';
                 if (command === 'check_for_updates') return null;
+                if (command === 'plugin:dialog|save') return 'C:\\mock\\proof.3mf';
+                if (command === 'plugin:fs|open') return 91;
+                if (command === 'plugin:fs|write') {
+                    const state = desktop.fileOpenTest;
+                    if (state.holdNextWrite) {
+                        state.holdNextWrite = false;
+                        await new Promise<void>((resolve) => {
+                            state.releaseWrite = () => {
+                                delete state.releaseWrite;
+                                resolve();
+                            };
+                        });
+                    }
+                    return args.data!.byteLength;
+                }
+                if (command === 'plugin:resources|close') return;
+                if (command === 'plugin:dialog|message') return 'Ok';
                 throw new Error(`Unexpected desktop command: ${command}`);
             },
         };
@@ -217,6 +239,413 @@ for (const kind of ['profile', 'palette'] as const) {
         }
     });
 }
+
+for (const source of ['desktop', 'manual'] as const) {
+    test(`@smoke ${source} profile batches select the final saved version after duplicate resolution`, async ({
+        page,
+    }) => {
+        await mockDesktop(page, [currentFile]);
+        await expect.poll(async () => (await profiles(page)).length).toBe(1);
+        const original = (await profiles(page))[0];
+        const updated = {
+            ...original,
+            name: 'Updated spools',
+            filaments: [{ id: 'white', color: '#ffffff', td: 0.8 }],
+        };
+        const batch = {
+            ...currentFile,
+            content: JSON.stringify([
+                { ...original, id: 'duplicate-alias', name: 'Same original spools' },
+                updated,
+            ]),
+        };
+        if (source === 'desktop') {
+            await openFiles(page, [batch]);
+        } else {
+            await page.getByTestId('autopaint-profile-import-input').setInputFiles({
+                name: batch.name,
+                mimeType: 'application/json',
+                buffer: Buffer.from(batch.content),
+            });
+        }
+        await expect.poll(async () => (await profiles(page))[0].name).toBe(updated.name);
+        await expect.poll(() => workingFilaments(page)).toEqual(updated.filaments);
+        await expect(page.getByText('Unsaved changes', { exact: true })).not.toBeVisible();
+        expect((await profiles(page)).length).toBe(1);
+        expect(
+            await page.evaluate(() => localStorage.getItem('kromacut.autopaint.lastProfileId'))
+        ).toBe(original.id);
+    });
+}
+
+for (const ownerChange of ['unchanged', 'renamed', 'replaced', 'deleted'] as const) {
+    test(`@smoke a late proof save preserves desktop imports when its original owner is ${ownerChange}`, async ({
+        page,
+    }) => {
+        const firstFile = {
+            ...legacyFile,
+            content: readFileSync('tests/assets/filament-profiles/4_Colors.kapp', 'utf8'),
+        };
+        await mockDesktop(page, [firstFile]);
+        await expect.poll(async () => (await profiles(page)).length).toBe(1);
+        const owner = (await profiles(page))[0];
+        await page.getByRole('button', { name: '2D', exact: true }).click();
+        await page.getByTestId('image-file-input').setInputFiles('tests/assets/1024x1024p.png');
+        await expect(page.locator('body')).toContainText('Image: 1024', { timeout: 60_000 });
+        await page.getByRole('button', { name: '3D', exact: true }).click();
+        await page.getByRole('tab', { name: 'Auto-paint', exact: true }).click();
+        await expect(page.getByTestId('build-3d-model')).toBeEnabled({ timeout: 90_000 });
+        await page.getByRole('button', { name: 'Calibrate', exact: true }).click();
+        const dialog = page.getByRole('alertdialog');
+        await dialog.getByRole('tab', { name: 'Palette Proof', exact: true }).click();
+        await expect(page.getByTestId('download-palette-proof')).toBeEnabled();
+        await page.evaluate(() => {
+            (window as unknown as MockDesktop).fileOpenTest.holdNextWrite = true;
+        });
+        await page.getByTestId('download-palette-proof').click();
+        await expect
+            .poll(() =>
+                page.evaluate(() =>
+                    Boolean((window as unknown as MockDesktop).fileOpenTest.releaseWrite)
+                )
+            )
+            .toBe(true);
+
+        const incoming = {
+            ...currentFile,
+            content: JSON.stringify({
+                ...JSON.parse(currentFile.content!),
+                id: ownerChange === 'replaced' ? owner.id : 'incoming-profile',
+                name: 'Incoming spools',
+                filaments: [{ id: 'white', color: '#ffffff', td: 0.8 }],
+            }),
+        };
+        // Cover an already queued open, plus edits/deletion after the exporting dialog closes.
+        if (ownerChange === 'unchanged' || ownerChange === 'replaced') {
+            await openFiles(page, [incoming]);
+            await expectPendingFiles(page, 0);
+            expect(await profiles(page)).toEqual([owner]);
+        }
+        await dialog.getByRole('button', { name: 'Close calibration dialog', exact: true }).click();
+        if (ownerChange === 'renamed') {
+            await page
+                .getByRole('button', { name: 'Rename selected profile', exact: true })
+                .click();
+            const name = page.getByPlaceholder('Profile name...', { exact: true });
+            await name.fill('Renamed proof owner');
+            await name.press('Enter');
+            await expect(name).not.toBeVisible();
+            await openFiles(page, [incoming]);
+        } else if (ownerChange === 'deleted') {
+            await page
+                .getByRole('button', { name: 'Delete selected profile', exact: true })
+                .click();
+            await expect.poll(() => profiles(page)).toEqual([]);
+            await openFiles(page, [incoming]);
+            await page
+                .getByRole('alertdialog')
+                .getByRole('button', { name: 'Open profile', exact: true })
+                .click();
+        }
+        const incomingId = ownerChange === 'replaced' ? owner.id : 'incoming-profile';
+        await expect
+            .poll(() =>
+                page.evaluate(() => localStorage.getItem('kromacut.autopaint.lastProfileId'))
+            )
+            .toBe(incomingId);
+        const beforeSaveFinished = await profiles(page);
+        const incomingProfile = beforeSaveFinished.find(
+            (profile: { id: string }) => profile.id === incomingId
+        );
+        await page.evaluate(() => (window as unknown as MockDesktop).fileOpenTest.releaseWrite!());
+        await expect
+            .poll(() =>
+                page.evaluate(() =>
+                    (window as unknown as MockDesktop).fileOpenTest.calls.includes(
+                        'plugin:dialog|message'
+                    )
+                )
+            )
+            .toBe(true);
+        await expectPendingFiles(page, 0);
+        const after = await profiles(page);
+        expect(after.find((profile: { id: string }) => profile.id === incomingId)).toEqual(
+            incomingProfile
+        );
+        expect(after.length).toBe(beforeSaveFinished.length);
+        if (ownerChange === 'unchanged' || ownerChange === 'renamed') {
+            const finalOwner = after.find((profile: { id: string }) => profile.id === owner.id);
+            expect(finalOwner.filaments).toEqual(owner.filaments);
+            expect(finalOwner.name).toBe(
+                ownerChange === 'renamed' ? 'Renamed proof owner' : owner.name
+            );
+            expect(finalOwner.appearance.proofs).toHaveLength(1);
+        } else {
+            expect(after).toEqual(beforeSaveFinished);
+        }
+        expect(
+            await page.evaluate(() => localStorage.getItem('kromacut.autopaint.lastProfileId'))
+        ).toBe(incomingId);
+        expect((await workingFilaments(page))[0].color).toBe('#ffffff');
+    });
+}
+
+for (const field of ['name', 'hiding distance'] as const) {
+    test(`@smoke desktop imports wait for a focused filament ${field} draft before protecting its edits`, async ({
+        page,
+    }) => {
+        await mockDesktop(page, [currentFile]);
+        await expect.poll(async () => (await profiles(page)).length).toBe(1);
+        const originalProfiles = await profiles(page);
+        const originalFilaments = await workingFilaments(page);
+        const replacement = {
+            ...currentFile,
+            content: JSON.stringify({
+                ...originalProfiles[0],
+                id: 'incoming-profile',
+                name: 'Incoming spools',
+                filaments: [{ id: 'white', color: '#ffffff', td: 0.8 }],
+            }),
+        };
+        const row = page.getByPlaceholder('Name', { exact: true }).first().locator('..');
+        const draft =
+            field === 'name'
+                ? row.getByPlaceholder('Name', { exact: true })
+                : row.getByRole('spinbutton');
+        const draftValue = field === 'name' ? 'My pink spool' : '0.73';
+        await draft.fill(draftValue);
+
+        const queuedPalette = paletteFile('After filament draft');
+        // A palette arriving first must not hide an uncommitted row draft either.
+        await openFiles(
+            page,
+            field === 'name' ? [queuedPalette, replacement] : [replacement, queuedPalette]
+        );
+        await expectPendingFiles(page, 1);
+        await expect(draft).toBeFocused();
+        await expect(draft).toHaveValue(draftValue);
+        await expect(page.getByRole('alertdialog')).not.toBeVisible();
+        expect(await profiles(page)).toEqual(originalProfiles);
+        expect(await savedPalettes(page)).toEqual([]);
+        expect(await workingFilaments(page)).toEqual(originalFilaments);
+
+        // Commit by keyboard or by switching paint tabs; both must precede the dirty-state check.
+        if (field === 'name') await draft.press('Enter');
+        else await page.getByRole('tab', { name: 'Manual', exact: true }).click();
+        const dialog = page.getByRole('alertdialog');
+        await expect(dialog).toContainText('Unsaved filament edits');
+        const committedFilaments = await workingFilaments(page);
+        expect(committedFilaments[0][field === 'name' ? 'name' : 'td']).toBe(
+            field === 'name' ? draftValue : 0.73
+        );
+        expect(await profiles(page)).toEqual(originalProfiles);
+        await dialog.getByRole('button', { name: 'Keep edits', exact: true }).click();
+        await expect
+            .poll(async () =>
+                (await savedPalettes(page)).map((palette: { name: string }) => palette.name)
+            )
+            .toEqual(['After filament draft']);
+        expect(await workingFilaments(page)).toEqual(committedFilaments);
+        expect(await profiles(page)).toEqual(originalProfiles);
+
+        await openFiles(page, [replacement]);
+        await expect(dialog).toContainText('Unsaved filament edits');
+        await dialog.getByRole('button', { name: 'Open profile', exact: true }).click();
+        await expect
+            .poll(() =>
+                page.evaluate(() => localStorage.getItem('kromacut.autopaint.lastProfileId'))
+            )
+            .toBe('incoming-profile');
+        expect((await workingFilaments(page))[0]).toEqual({
+            id: 'white',
+            color: '#ffffff',
+            td: 0.8,
+        });
+    });
+}
+
+for (const outcome of ['unchanged focus', 'row removal'] as const) {
+    test(`@smoke desktop imports resume when filament editing ends by ${outcome}`, async ({
+        page,
+    }) => {
+        await mockDesktop(page, [currentFile]);
+        await expect.poll(async () => (await profiles(page)).length).toBe(1);
+        const original = (await profiles(page))[0];
+        const replacement = {
+            ...currentFile,
+            content: JSON.stringify({
+                ...original,
+                id: 'incoming-profile',
+                name: 'Incoming spools',
+                filaments: [{ id: 'white', color: '#ffffff', td: 0.8 }],
+            }),
+        };
+        const name = page.getByPlaceholder('Name', { exact: true }).first();
+        const row = name.locator('..');
+        if (outcome === 'row removal') await name.fill('Draft spool');
+        else await name.click();
+        await openFiles(page, [replacement]);
+        await expectPendingFiles(page, 0);
+        await expect(name).toBeFocused();
+        await expect(page.getByRole('alertdialog')).not.toBeVisible();
+        expect(await profiles(page)).toEqual([original]);
+
+        if (outcome === 'row removal') {
+            // Invoke the handler without an earlier pointer-down blur, isolating row cleanup.
+            await row
+                .getByTitle('Remove filament', { exact: true })
+                .evaluate((button: HTMLButtonElement) => button.click());
+            const dialog = page.getByRole('alertdialog');
+            await expect(dialog).toContainText('Unsaved filament edits');
+            expect(await workingFilaments(page)).toEqual([]);
+            await dialog.getByRole('button', { name: 'Keep edits', exact: true }).click();
+            await expect(dialog).not.toBeVisible();
+            expect(await profiles(page)).toEqual([original]);
+            expect(await workingFilaments(page)).toEqual([]);
+        } else {
+            await name.press('Enter');
+            await expect
+                .poll(() =>
+                    page.evaluate(() => localStorage.getItem('kromacut.autopaint.lastProfileId'))
+                )
+                .toBe('incoming-profile');
+            await expect(page.getByRole('alertdialog')).not.toBeVisible();
+            expect((await workingFilaments(page))[0].color).toBe('#ffffff');
+        }
+    });
+}
+
+for (const outcome of ['convert', 'dismiss'] as const) {
+    test(`@smoke desktop imports wait for a filament TD conversion draft to ${outcome}`, async ({
+        page,
+    }) => {
+        await mockDesktop(page, [currentFile]);
+        await expect.poll(async () => (await profiles(page)).length).toBe(1);
+        const original = (await profiles(page))[0];
+        const replacement = {
+            ...currentFile,
+            content: JSON.stringify({
+                ...original,
+                id: 'incoming-profile',
+                name: 'Incoming spools',
+                filaments: [{ id: 'white', color: '#ffffff', td: 0.8 }],
+            }),
+        };
+        await page
+            .getByTitle('Convert from TD (lithophane/backlit value)', { exact: true })
+            .first()
+            .click();
+        const draft = page.getByPlaceholder('e.g. 4.0', { exact: true });
+        await draft.fill('7.3');
+        await openFiles(page, [replacement]);
+        await expectPendingFiles(page, 0);
+        await expect(draft).toHaveValue('7.3');
+        await expect(page.getByRole('alertdialog')).not.toBeVisible();
+        expect(await profiles(page)).toEqual([original]);
+        expect((await workingFilaments(page))[0].td).toBe(0.5);
+
+        if (outcome === 'convert') {
+            await draft.press('Enter');
+            const dialog = page.getByRole('alertdialog');
+            await expect(dialog).toContainText('Unsaved filament edits');
+            expect((await workingFilaments(page))[0].td).toBe(0.73);
+            await dialog.getByRole('button', { name: 'Keep edits', exact: true }).click();
+            await expect(dialog).not.toBeVisible();
+            expect(await profiles(page)).toEqual([original]);
+            expect((await workingFilaments(page))[0].td).toBe(0.73);
+        } else {
+            // A discarded local conversion has no committed edit to protect and must not block.
+            await draft.press('Escape');
+            await expect
+                .poll(() =>
+                    page.evaluate(() => localStorage.getItem('kromacut.autopaint.lastProfileId'))
+                )
+                .toBe('incoming-profile');
+            await expect(page.getByRole('alertdialog')).not.toBeVisible();
+            expect((await profiles(page)).length).toBe(2);
+            expect((await workingFilaments(page))[0].color).toBe('#ffffff');
+        }
+    });
+}
+
+test('@smoke desktop imports wait for an open filament color picker before protecting its edits', async ({
+    page,
+}) => {
+    await mockDesktop(page, [currentFile]);
+    await expect.poll(async () => (await profiles(page)).length).toBe(1);
+    const original = (await profiles(page))[0];
+    const replacement = {
+        ...currentFile,
+        content: JSON.stringify({
+            ...original,
+            id: 'incoming-profile',
+            name: 'Incoming spools',
+            filaments: [{ id: 'white', color: '#ffffff', td: 0.8 }],
+        }),
+    };
+    await page.getByTitle('Change filament color', { exact: true }).first().click();
+    const picker = page.getByRole('dialog');
+    const hex = picker.getByRole('textbox');
+    await hex.fill('#123456');
+    await expect.poll(async () => (await workingFilaments(page))[0].color).toBe('#123456');
+    await openFiles(page, [replacement]);
+    await expectPendingFiles(page, 0);
+    await expect(picker).toContainText('Pick Color');
+    await expect(hex).toHaveValue('#123456');
+    await expect(page.getByRole('alertdialog')).not.toBeVisible();
+    expect(await profiles(page)).toEqual([original]);
+
+    await hex.press('Escape');
+    const dialog = page.getByRole('alertdialog');
+    await expect(dialog).toContainText('Unsaved filament edits');
+    await dialog.getByRole('button', { name: 'Keep edits', exact: true }).click();
+    await expect(dialog).not.toBeVisible();
+    expect(await profiles(page)).toEqual([original]);
+    expect((await workingFilaments(page))[0].color).toBe('#123456');
+});
+
+test('@smoke desktop imports wait for a closed filament color picker debounce to commit', async ({
+    page,
+}) => {
+    await page.clock.install({ time: new Date('2026-09-30T12:00:00Z') });
+    await mockDesktop(page, [currentFile]);
+    await expect.poll(async () => (await profiles(page)).length).toBe(1);
+    const original = (await profiles(page))[0];
+    const replacement = {
+        ...currentFile,
+        content: JSON.stringify({
+            ...original,
+            id: 'incoming-profile',
+            name: 'Incoming spools',
+            filaments: [{ id: 'white', color: '#ffffff', td: 0.8 }],
+        }),
+    };
+    await page.clock.pauseAt(new Date('2026-09-30T13:00:00Z'));
+    await page.getByTitle('Change filament color', { exact: true }).first().click();
+    const hex = page.getByRole('dialog').getByRole('textbox');
+    await hex.fill('#123456');
+    await hex.press('Escape');
+    await openFiles(page, [replacement]);
+    await page.clock.runFor(199);
+    await expect(page.getByRole('dialog')).not.toBeVisible();
+    await expect(page.getByRole('alertdialog')).not.toBeVisible();
+    expect(await profiles(page)).toEqual([original]);
+    expect((await workingFilaments(page))[0].color).toBe(original.filaments[0].color);
+    expect(
+        await page.evaluate(() => localStorage.getItem('kromacut.autopaint.lastProfileId'))
+    ).toBe(original.id);
+
+    await page.clock.runFor(1);
+    const dialog = page.getByRole('alertdialog');
+    await expect(dialog).toContainText('Unsaved filament edits');
+    expect((await workingFilaments(page))[0].color).toBe('#123456');
+    await page.clock.resume();
+    await dialog.getByRole('button', { name: 'Open profile', exact: true }).click();
+    await expect
+        .poll(() => page.evaluate(() => localStorage.getItem('kromacut.autopaint.lastProfileId')))
+        .toBe('incoming-profile');
+    expect((await workingFilaments(page))[0].color).toBe('#ffffff');
+});
 
 test('@smoke desktop imports wait for calibration and protect the resulting unsaved measurements', async ({
     page,

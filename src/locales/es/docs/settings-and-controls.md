@@ -129,6 +129,8 @@ Las instalaciones de escritorio asocian los archivos `.kfil` y los antiguos `.ka
 
 Los archivos abiertos desde el escritorio quedan en espera mientras esté abierto el editor de paletas, el cuadro de calibración o el formulario para renombrar o guardar un perfil nuevo. Termina o cancela esa sesión para continuar con las importaciones pendientes; los nombres escritos y el perfil que estás editando permanecen sin cambios hasta entonces.
 
+Las importaciones también esperan mientras editas el nombre o el campo HD de un filamento, o mientras su selector de color o el panel **Convertir desde TD** está abierto. Sal del campo o cierra el selector o el panel para reanudar las importaciones pendientes; los cambios de filamentos sin guardar siguen requiriendo tu decisión antes de que otro perfil los sustituya.
+
 Antes de reemplazar cambios de filamentos sin guardar, Kromacut ofrece **Conservar cambios** o **Abrir perfil**. Conserva los cambios para guardarlos primero; abrir el perfil los descarta. Los archivos abiertos así deben tener menos de 32 MiB. Los archivos JSON genéricos, imágenes y modelos mantienen sus flujos habituales de importación.
 
 En Linux, las AppImage portátiles requieren integración con el escritorio para asociar archivos. Si Kromacut no es la aplicación predeterminada, utiliza **Abrir con** en el gestor de archivos.

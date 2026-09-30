@@ -342,6 +342,7 @@ interface AutoPaintTabProps {
     addFilamentWithProps: (props: { color: string; td: number; name: string }) => void;
     removeFilament: (id: string) => void;
     updateFilament: (id: string, updates: Partial<Omit<Filament, 'id'>>) => void;
+    onFilamentEditingChange: (id: string, editing: boolean) => void;
 
     // Profile state
     profiles: AutoPaintProfile[];
@@ -440,6 +441,7 @@ export default function AutoPaintTab({
     addFilamentWithProps,
     removeFilament,
     updateFilament,
+    onFilamentEditingChange,
     profiles,
     activeProfileId,
     isDirty,
@@ -864,6 +866,7 @@ export default function AutoPaintTab({
                                     filament={f}
                                     onUpdate={updateFilament}
                                     onRemove={removeFilament}
+                                    onEditingChange={onFilamentEditingChange}
                                 />
                             ))}
                         </div>

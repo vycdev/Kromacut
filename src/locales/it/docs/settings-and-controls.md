@@ -129,6 +129,8 @@ Le installazioni desktop associano i file `.kfil` e i precedenti `.kapp` ai prof
 
 I file aperti dal desktop restano in attesa mentre è aperto l’editor delle tavolozze, la finestra di calibrazione o il modulo per rinominare o salvare un nuovo profilo. Completa o annulla la sessione per proseguire con le importazioni in attesa; i nomi digitati e il profilo in modifica restano invariati fino ad allora.
 
+Le importazioni attendono anche mentre modifichi il nome o il campo HD di un filamento, oppure mentre il suo selettore di colore o il pannello **Converti da TD** è aperto. Esci dal campo o chiudi il selettore o il pannello per riprendere le importazioni in attesa; le modifiche ai filamenti non salvate richiedono comunque la tua scelta prima che un altro profilo le sostituisca.
+
 Prima di sostituire modifiche ai filamenti non salvate, Kromacut offre **Mantieni le modifiche** o **Apri profilo**. Mantieni le modifiche per salvarle prima; aprire il profilo le scarta. I file aperti in questo modo devono essere inferiori a 32 MiB. File JSON generici, immagini e modelli mantengono i consueti flussi di importazione.
 
 Su Linux, le AppImage portabili richiedono l’integrazione desktop per le associazioni dei file. Se Kromacut non è l’app predefinita, usa **Apri con** nel gestore dei file.

@@ -271,11 +271,16 @@ function App(): React.ReactElement | null {
     const [calibrationDialogOpen, setCalibrationDialogOpen] = useState(false);
     const [profileSaveNewOpen, setProfileSaveNewOpen] = useState(false);
     const [profileRenameOpen, setProfileRenameOpen] = useState(false);
+    const [filamentEditing, setFilamentEditing] = useState(false);
     const { file: queuedDesktopFile, finish: finishDesktopFile } = useDesktopFileOpen();
     // OS file opens can arrive through an active editor. Keep the request queued
     // until its draft is saved or dismissed, before changing either workspace.
     const desktopFile =
-        paletteEditorOpen || calibrationDialogOpen || profileSaveNewOpen || profileRenameOpen
+        paletteEditorOpen ||
+        calibrationDialogOpen ||
+        profileSaveNewOpen ||
+        profileRenameOpen ||
+        filamentEditing
             ? null
             : queuedDesktopFile;
     const handledPaletteFile = useRef<number | null>(null);
@@ -886,6 +891,7 @@ function App(): React.ReactElement | null {
                                             onProfileSaveNewOpenChange={setProfileSaveNewOpen}
                                             profileRenameOpen={profileRenameOpen}
                                             onProfileRenameOpenChange={setProfileRenameOpen}
+                                            onFilamentEditingChange={setFilamentEditing}
                                         />
                                     </div>
                                 )}

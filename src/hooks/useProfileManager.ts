@@ -242,8 +242,17 @@ export function useProfileManager({
                     'Save or overwrite the edited filament profile before tracking a Palette Proof'
                 );
             }
-            const record = buildPaletteProofRecord(activeProfile.filaments, snapshot, proof);
-            const updated = profiles.map((profile) =>
+            // Export can finish after its dialog closes and another profile is imported.
+            // Keep the captured owner, but merge into its latest saved data and list.
+            const owner = profilesRef.current.find((profile) => profile.id === activeProfileId);
+            if (!owner) {
+                throw new Error('Save a named filament profile before tracking a Palette Proof');
+            }
+            if (!profileFilamentsEqual(owner.filaments, activeProfile.filaments)) {
+                throw new Error('Palette Proof does not match the final printable stack');
+            }
+            const record = buildPaletteProofRecord(owner.filaments, snapshot, proof);
+            const updated = profilesRef.current.map((profile) =>
                 profile.id === activeProfileId
                     ? {
                           ...profile,
@@ -258,7 +267,7 @@ export function useProfileManager({
             setProfiles(updated);
             return record;
         },
-        [activeProfile, activeProfileId, isDirty, profiles, setProfiles]
+        [activeProfile, activeProfileId, isDirty, setProfiles]
     );
 
     const handleSetPaletteTargetResponse = useCallback(
@@ -431,8 +440,10 @@ export function useProfileManager({
             if (result.renamed.length > 0) parts.push(`${result.renamed.length} renamed`);
             setImportFeedback(parts.join(', ') || 'No profiles found');
 
-            // Auto-load the first imported profile
-            const first = (selectExisting ? result.resolved : result.imported)[0];
+            // A later entry in a batch may overwrite the first accepted profile.
+            // Select its final saved version, not the earlier resolved object.
+            const firstId = (selectExisting ? result.resolved : result.imported)[0]?.id;
+            const first = result.profiles.find((profile) => profile.id === firstId);
             if (first) {
                 setActiveProfileId(first.id);
                 saveLastProfileId(first.id);

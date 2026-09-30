@@ -129,6 +129,8 @@ Les installations de bureau associent les fichiers `.kfil` et les anciens `.kapp
 
 Les fichiers ouverts depuis le bureau attendent tant que l’éditeur de palettes, la boîte de dialogue d’étalonnage ou un formulaire pour renommer ou enregistrer un nouveau profil est ouvert. Terminez ou annulez cette session pour poursuivre les importations en attente ; les noms saisis et le profil en cours de modification restent inchangés jusque-là.
 
+Les importations attendent également pendant la modification du nom ou du champ HD d’un filament, ou tant que son sélecteur de couleur ou le panneau **Convertir depuis TD** est ouvert. Quittez le champ ou fermez le sélecteur ou le panneau pour reprendre les importations en attente ; les modifications de filaments non enregistrées nécessitent toujours votre choix avant d’être remplacées par un autre profil.
+
 Avant de remplacer des modifications de filaments non enregistrées, Kromacut propose **Conserver les modifications** ou **Ouvrir le profil**. Conservez-les pour les enregistrer d’abord ; ouvrir le profil les abandonne. Les fichiers ouverts ainsi doivent faire moins de 32 Mio. Les fichiers JSON génériques, images et modèles conservent leurs procédures d’importation habituelles.
 
 Sous Linux, les AppImages portables nécessitent une intégration au bureau pour les associations de fichiers. Si Kromacut n’est pas l’application par défaut, utilisez **Ouvrir avec** dans votre gestionnaire de fichiers.

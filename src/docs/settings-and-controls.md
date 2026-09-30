@@ -129,6 +129,8 @@ Desktop installations associate `.kfil` and legacy `.kapp` files with filament p
 
 Files opened from your desktop wait while a palette editor, calibration dialog, or profile Rename or Save New form is open. Finish or cancel that session to continue the queued imports; typed names and the profile being edited stay unchanged until then.
 
+Imports also wait while you edit a filament name or HD field, or while its color picker or **Convert from TD** popover is open. Leave the field or close the picker or popover to resume the queued imports; unsaved filament changes still require your choice before another profile replaces them.
+
 Before replacing unsaved filament edits, Kromacut offers **Keep edits** or **Open profile**. Keep your edits to save them first; opening the profile discards those edits. Files opened this way must be smaller than 32 MiB. Generic JSON, images, and models retain their usual import workflows.
 
 On Linux, portable AppImages require desktop integration for file associations. If your system has not selected Kromacut as the default, use **Open with** in your file manager.

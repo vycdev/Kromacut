@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CollapsibleCard, DirtyDot } from '@/components/CollapsibleCard';
 import ThreeDColorRow from './ThreeDColorRow';
 import { Sortable, SortableContent, SortableOverlay } from '@/components/ui/sortable';
@@ -73,6 +73,7 @@ interface ThreeDControlsProps {
     onProfileSaveNewOpenChange: (open: boolean) => void;
     profileRenameOpen: boolean;
     onProfileRenameOpenChange: (open: boolean) => void;
+    onFilamentEditingChange: (editing: boolean) => void;
 }
 
 export default function ThreeDControls({
@@ -94,6 +95,7 @@ export default function ThreeDControls({
     onProfileSaveNewOpenChange,
     profileRenameOpen,
     onProfileRenameOpenChange,
+    onFilamentEditingChange,
 }: ThreeDControlsProps) {
     const { t } = useTranslation('printing');
     // --- Filaments ---
@@ -118,6 +120,17 @@ export default function ThreeDControls({
         setShowRenamePopover: onProfileRenameOpenChange,
     });
     const [profileReady, setProfileReady] = useState(false);
+    const editingFilaments = useRef(new Set<string>());
+    const handleFilamentEditingChange = useCallback(
+        (id: string, editing: boolean) => {
+            if (editingFilaments.current.has(id) === editing) return;
+            if (editing) editingFilaments.current.add(id);
+            else editingFilaments.current.delete(id);
+            onFilamentEditingChange(editingFilaments.current.size > 0);
+        },
+        [onFilamentEditingChange]
+    );
+    useEffect(() => () => onFilamentEditingChange(false), [onFilamentEditingChange]);
 
     // Apply initial filaments from profile if available (one-time)
     const [appliedProfileInit] = useState(() => {
@@ -679,6 +692,7 @@ export default function ThreeDControls({
 
                 {/* Auto-paint Tab */}
                 <AutoPaintTab
+                    onFilamentEditingChange={handleFilamentEditingChange}
                     calibrationDialogOpen={calibrationDialogOpen}
                     onCalibrationDialogOpenChange={onCalibrationDialogOpenChange}
                     filaments={filaments}
