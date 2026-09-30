@@ -8,7 +8,7 @@ Turn a 2D image into a stacked, color-layered 3D print. Kromacut is a free, open
 
 **[Open the app](https://kromacut.com/app)** · [Website](https://kromacut.com/) · [User documentation](https://kromacut.com/docs/overview) · [Desktop downloads](https://github.com/vycdev/Kromacut/releases)
 
-[Video guides](#video-guides) · [Examples](#examples) · [Features](#features) · [How to use](#how-to-use) · [Printing and export](#printing-and-export) · [Documentation](#documentation) · [Desktop app](#native-desktop-app-tauri) · [Development](#development) · [Contributing](#contributing)
+[Video guides](#video-guides) · [Examples](#examples) · [Features](#features) · [Documentation](#documentation) · [Desktop app](#native-desktop-app-tauri) · [Development](#development) · [Contributing](#contributing)
 
 ## Video guides
 
@@ -56,80 +56,35 @@ Preview colors are predictions; filament, calibration, lighting, and camera proc
 
 ## Features
 
-- **Image preparation:** Drag-and-drop upload, non-destructive adjustments, resizing, color reduction, dedithering, and pixel touch-up tools.
-- **Manual layer control:** Edit palette colors, reorder them, and set per-color heights.
-- **Auto-paint:** Plan physical filament stacks from your real filament colors and hiding distances, with five deterministic optimizer effort tiers and region weighting.
-- **Filament calibration and profiles:** Measure hiding distance with printed wedges, compare Palette Proofs, photograph Stack Matrices, and save or share filament profiles.
-- **2D and 3D previews:** Inspect the stack layer by layer and compare simulated blends with physical filament colors.
-- **Printable exports:** Download STL or color-aware 3MF files and copy a print plan with filament swap layers.
-- **Flat Paint (experimental):** Make a flat face-up or face-down slab for multi-material printing via 3MF.
+### Image preparation
 
-## How to use
-
-1. **Load an image** with the upload button or drag it into the 2D preview.
-2. **Prepare it in 2D.** Apply any image adjustments, resize if needed, and reduce colors in Quantization Settings. Start with K-means and an Auto palette; use Dedither if isolated speckles remain.
-3. **Switch to 3D.** Set Pixel Size (XY), Layer Height, and First Layer Height to match your intended print and slicer settings.
-4. **Choose Auto-paint or Manual** using the workflows below.
-5. **Click Build 3D Model** and inspect the result with the Layer Preview slider.
-6. **Export** from the download menu, copy the Print Instructions, and check the sliced model before printing.
-
-After changing the image or 3D settings, click **Build 3D Model** again before exporting. Auto-paint recalculates its stack automatically, but the displayed geometry and export stay tied to the last build.
+Non-destructive image adjustments, cropping, resizing, color reduction, and dedithering turn artwork into a compact palette. Brush, Eraser, Fill, Text, and color-picking tools support pixel touch-ups, while custom and supplier palettes provide reusable color sets.
 
 ### Auto-paint
 
-Use Auto-paint when you want Kromacut to plan the filament stack:
-
-1. Add the filaments you actually own, or load a saved profile.
-2. Set each filament's color and **Hiding Distance (HD)**. Open **Calibrate → Hiding Distance** to measure HD with a printed wedge, or start with an estimate. **Convert from TD** accepts conventional backlit TD values.
-3. Leave **Max Height** on **Auto** initially. Enable **Enhanced color matching** to search for a better filament order; **Balanced** is a practical starting tier.
-4. Wait for calculation, inspect the transition zones and confidence details, then build the model.
-
-Profiles are saved locally and can be exported as `.kfil` files. Imports also accept legacy `.kapp`, `.json`, and HueForge spool `.csv`/`.tsv` files. Save changes to your named profile before exporting a backup so its Palette Proof and Stack Matrix evidence is included.
-
-See the [Auto-paint guide](https://kromacut.com/docs/auto-paint) for optimizer tiers, repeated swaps, color separation, height dithering, region weighting, and filament suggestions. The [calibration workflows guide](https://kromacut.com/docs/calibration-workflows) covers wedges, Palette Proofs, and Stack Matrices.
+Auto-paint plans physical layer stacks from the filaments you own, using their colors and Hiding Distance (HD) to predict thin-layer blends. Five deterministic search effort options, repeated filament swaps, region weighting, color separation, and height dithering offer control over the result.
 
 ### Manual mode
 
-Use Manual when you want direct control over the image colors:
+Direct control over palette colors, stack order, and per-color heights supports simple layered designs and carefully tuned color transitions.
 
-1. Reduce the image to the palette you want to work with.
-2. Edit swatches in **Image colors** as needed.
-3. In **3D → Manual**, drag colors into print order and adjust each color's slice height.
-4. Build the model, inspect the layers, and export with the copied swap plan.
+### Filament calibration and profiles
 
-See the [3D mode guide](https://kromacut.com/docs/3d-mode) for dimensions, layer snapping, manual heights, and preview controls.
+Printed wedges measure frontlit hiding distance. Palette Proofs compare candidate stacks for artwork colors, while photographed Stack Matrices record measured recipe colors. Reusable `.kfil` profiles keep filament settings and calibration evidence together, with profile sharing and HueForge spool-library import.
 
-## Printing and export
+### 3D preview
 
-- Default regular layer height: **0.12 mm**. Default first-layer height: **0.20 mm**.
-- Match both layer heights in Kromacut and your slicer so the color-swap layer numbers agree.
-- Set the intended physical size with **Pixel Size (XY)** before building.
-- Use the **Layer Preview** slider to inspect transitions. Trimming the preview does not trim the exported model.
-- Keep the export at **100% Z scale** with constant layer height. To change layer height, update it in Kromacut and rebuild.
-- Preview colors are predictions; filament, calibration, printing conditions, and lighting affect the finished result.
+Layer-by-layer inspection reveals the stack from foundation to top. Simulated and Physical color modes compare predicted blends with real filament assignments; **Color accurate**, **Shaded**, **Transparent**, and **Wireframe** views offer different ways to inspect the model.
 
-| Format | Use it for |
-| --- | --- |
-| **STL** | A widely supported geometry file. Add filament swaps in your slicer using the Print Instructions. |
-| **3MF** | Color-aware output with physical filament assignments for compatible slicers. Review those assignments and your printer settings. |
+### STL and 3MF export
 
-Flat Paint exports use **3MF only**. See the [Flat Paint guide](https://kromacut.com/docs/flat-paint) for face-up and face-down layouts.
+Binary STL and color-aware 3MF exports connect the model to compatible slicers. Auto-paint 3MFs preserve physical filament colors rather than assigning a material to every predicted shade. Standard layered prints include plain-text instructions with starting colors and filament swap layers.
 
-### 3MF export (preview)
+### Flat Paint (experimental)
 
-3MF preserves physical filament colors rather than assigning a new material to every simulated blend. It is a model file, not ready-to-run G-code: choose your printer and filament profiles, review the slicer settings, and slice it before printing.
+Face-up and face-down layouts turn layered artwork into a uniform-thickness slab for bookmarks, coasters, and other flat pieces. Flat Paint supports suitable multi-material workflows and exports as 3MF.
 
-<img src="content/3mf_export.png" alt="Kromacut 3MF export opened in a slicer" width="600" />
-
-Read [Generating and exporting output](https://kromacut.com/docs/generating-exporting-output) for build behavior, swap-layer interpretation, slicer setup, and saving files. Report export problems in [GitHub Issues](https://github.com/vycdev/Kromacut/issues).
-
-## Hiding Distance (HD) and Transmission Distance (TD)
-
-Thin filament layers can blend into intermediate shades, as popularized by [HueForge](https://shop.thehueforge.com/blogs/news/what-is-hueforge). Auto-paint estimates these blends from your filament colors and **Hiding Distance (HD)**: the depth at which a filament hides the material beneath it under front lighting.
-
-Conventional backlit/lithophane **Transmission Distance (TD)** is a different input, roughly **10× HD**. Use **Convert from TD** on the filament row to convert it; do not convert an existing HD value again.
-
-Printed wedge calibration measures frontlit HD. Palette Proofs and Stack Matrices provide additional evidence about actual printed stacks. See [Calibration theory](https://kromacut.com/docs/calibration-theory) for the optical model and [Calibration workflows](https://kromacut.com/docs/calibration-workflows) for practical steps.
+The [documentation](#documentation) covers settings, calibration, and printing workflows in detail.
 
 ## Documentation
 
@@ -160,15 +115,7 @@ Download a pre-built app from [GitHub Releases](https://github.com/vycdev/Kromac
 
 The desktop app can check for new versions and open the release download page. See [Update checker documentation](docs/UPDATE_CHECKER.md) for details.
 
-**macOS “Kromacut is damaged” error:** Unsigned builds may need their quarantine attribute removed after installation:
-
-```bash
-sudo xattr -d com.apple.quarantine /Applications/Kromacut.app
-```
-
-**Windows SmartScreen warning:** For the unsigned installer, choose **More info → Run anyway**. Windows builds use Microsoft Edge WebView2; the standard installer includes its bootstrapper, while the offline installer includes the runtime installer.
-
-See the [desktop distribution notes](docs/TAURI.md#distribution-notes) for platform details.
+For installation help and platform requirements, see [Troubleshooting](https://kromacut.com/docs/troubleshooting) and the [desktop distribution notes](docs/TAURI.md#distribution-notes).
 
 ## Development
 
