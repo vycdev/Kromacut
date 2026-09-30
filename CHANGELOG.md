@@ -6,11 +6,11 @@ All notable changes to Kromacut are documented in this file.
 
 ### Added
 
-- **README video guides** - Linked the Kromacut tutorial and original introduction video with clickable YouTube thumbnails and separate labeled sections near the top of the README.
+- **README video guides** - Linked the Kromacut tutorial and project introduction in side-by-side video cards with thumbnail previews.
 
 ### Changed
 
-- **README organization** - Added section navigation and concise feature descriptions, with detailed usage, calibration, and print instructions linked through documentation. Separated desktop downloads from development setup, removed the obsolete TD test-image example, and refreshed the examples as a single grid of six finished prints from the landing-page showcase, with compact creator/artwork annotations.
+- **README organization** - Reworked the README into a concise product overview with a two-column grid of six finished prints, shorter feature descriptions, and direct documentation and download links. Kept community badges in the header, removed the obsolete TD test-image example, and separated desktop downloads from development setup.
 
 ### Fixed
 
