@@ -46,7 +46,7 @@ O previzualizare Auto-paint poate arăta zeci de culori amestecate produse din d
 
 STL nu conține culori de filament sau atribuiri automate de role. Folosește planul de schimbări copiat cu comenzile de schimbare a culorii din slicer. Un 3MF este tot un model, nu G-code gata de rulare: alege imprimanta, duza, profilurile de filament, temperaturile și vitezele proprii, apoi feliază-l.
 
-Pentru modelele **Flat Paint**, meniul de descărcare oferă doar 3MF: modelul conține câte un obiect pentru fiecare filament fizic și, în aranjamentul implicit cu fața în jos, un obiect de suport transparent. Aranjamentul opțional cu fața în sus omite suportul. Un STL necolorat cu geometrie unică al oricăreia dintre aceste plăci ar fi inutil. Flat Paint dezactivează **Geometrie netezită**, deoarece aranjamentul de placă plană nu folosește contururi de limită netezite.
+Pentru modelele **Flat Paint**, meniul de descărcare oferă doar 3MF: modelul conține câte un obiect pentru fiecare filament fizic și, în aranjamentul implicit cu fața în jos, un obiect de suport transparent. Aranjamentul opțional cu fața în sus omite suportul. Un STL necolorat cu geometrie unică al oricăreia dintre aceste plăci ar fi inutil. Ambele orientări acceptă toate intensitățile pentru **Geometrie netezită**. Reconstruiește modelul după schimbarea intensității pentru a o aplica previzualizării și geometriei exportate.
 
 ## Instrucțiuni de imprimare
 

@@ -93,7 +93,7 @@ _Comparaison schématique de contours, pas une simulation de découpe._
 
 Utilisez-le pour des contours courbes ou diagonaux trop crénelés. Laissez-le désactivé pour un pixel art volontaire ou des bords suivant exactement la grille. Aucun choix ne répare des détails trop petits pour être imprimés ni n’invente une résolution source manquante.
 
-Le maillage lissé est inactif en [Peinture à plat](flat-paint). L’activer désactive la peinture à plat, qui utilise à la place une plaque couvrant toute l’emprise.
+Le maillage lissé fonctionne aussi avec la [Peinture à plat](flat-paint). Les deux orientations conservent une plaque plane et des frontières communes entre couleurs ; choisissez une intensité et reconstruisez pour l’appliquer.
 
 ## Peinture automatique
 

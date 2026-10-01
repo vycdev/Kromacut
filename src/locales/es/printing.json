@@ -267,7 +267,6 @@
     "smoothingMedium": "Medio",
     "smoothingAggressive": "Intenso",
     "smoothingHelp": "Suaviza los contornos del modelo en la vista previa y las exportaciones. Medio conserva el suavizado original. Reconstruye para aplicar.",
-    "smoothConnectedColorBoundaryEdgesWithFastWeldedTopology": "Suaviza los bordes conectados entre colores con una topología soldada rápida. Al activar esta opción se desactiva la pintura plana.",
     "modelDimensions": "Modelo: {{width}}×{{height}}×{{depth}} mm"
   },
   "printInstructions": {

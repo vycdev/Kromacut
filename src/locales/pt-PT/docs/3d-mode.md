@@ -93,7 +93,7 @@ _Comparação esquemática, não simulação do laminador._
 
 Use para curvas ou diagonais demasiado escalonadas. Deixe desligada para arte de píxeis intencional ou bordos de grelha exatos. Nenhuma escolha repara detalhes demasiado pequenos nem inventa resolução ausente.
 
-A suavização está inativa na [Pintura plana](flat-paint). Ativá-la desliga Pintura plana, que usa construção de placa completa.
+Malha suavizada também funciona com [Pintura plana](flat-paint). Ambas as orientações mantêm uma placa plana e limites partilhados entre cores; escolha uma intensidade e gere novamente para a aplicar.
 
 ## Pintura automática
 

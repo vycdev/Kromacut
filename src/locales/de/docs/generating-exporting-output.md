@@ -46,7 +46,7 @@ Eine Auto-paint-Vorschau kann Dutzende Mischfarben aus nur wenigen tatsächliche
 
 STL enthält keine Filamentfarben oder automatischen Spulenzuweisungen. Verwende den kopierten Wechselplan mit den Farbwechselfunktionen des Slicers. Auch eine 3MF-Datei ist weiterhin ein Modell und kein direkt ausführbarer G-Code: Wähle Drucker, Düse, Filamentprofile, Temperaturen und Geschwindigkeiten selbst und slice das Modell anschließend.
 
-Bei **Flat Paint** bietet das Downloadmenü nur 3MF an: Das Modell enthält je ein Objekt pro tatsächlichem Filament sowie in der Standardanordnung mit Bildseite unten ein transparentes Trägerobjekt. Die optionale Anordnung mit Bildseite oben lässt diesen Träger weg. Eine farblose STL mit nur einer Geometrie wäre bei beiden flachen Platten nutzlos. Flat Paint deaktiviert **Glatte Vernetzung**, da die flache Plattenanordnung keine geglätteten Grenzkonturen verwendet.
+Bei **Flat Paint** bietet das Downloadmenü nur 3MF an: Das Modell enthält je ein Objekt pro tatsächlichem Filament sowie in der Standardanordnung mit Bildseite unten ein transparentes Trägerobjekt. Die optionale Anordnung mit Bildseite oben lässt diesen Träger weg. Eine farblose STL mit nur einer Geometrie wäre bei beiden flachen Platten nutzlos. Beide Ausrichtungen unterstützen alle Stärken der **Glatten Vernetzung**. Baue das Modell nach einer Änderung der Stärke neu, um sie auf die Vorschau und die exportierte Geometrie anzuwenden.
 
 ## Druckanweisungen
 

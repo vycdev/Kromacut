@@ -55,7 +55,7 @@ Check the **Appearance model** row separately. A high summary score does not gua
 
 ## A Toggle Turned Another Toggle Off
 
-Two pairs are intentionally exclusive: **Smooth Meshing** and **Flat Paint**, and **Preserve color separation** and **Height dithering**. The first pair chooses different geometry layouts; the second chooses different ways to assign source colors to printable heights. See [Flat Paint](flat-paint) and [Auto-paint](auto-paint).
+**Preserve color separation** and **Height dithering** are intentionally exclusive because they assign source colors to printable heights differently. **Smooth Meshing** and **Flat Paint** can be used together; rebuild after changing either setting. See [Flat Paint](flat-paint) and [Auto-paint](auto-paint).
 
 ## Color Separation Cannot Find A Result
 

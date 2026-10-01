@@ -267,7 +267,6 @@
     "smoothingMedium": "Moyen",
     "smoothingAggressive": "Intensif",
     "smoothingHelp": "Adoucit les contours du modèle dans l’aperçu et les exports. Moyen reproduit le lissage d’origine. Reconstruisez pour appliquer.",
-    "smoothConnectedColorBoundaryEdgesWithFastWeldedTopology": "Lisse les frontières de couleurs connectées avec une topologie soudée rapide. Cette option désactive la peinture à plat.",
     "modelDimensions": "Modèle : {{width}}×{{height}}×{{depth}} mm"
   },
   "printInstructions": {

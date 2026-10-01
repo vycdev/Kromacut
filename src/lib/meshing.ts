@@ -28,7 +28,7 @@ export interface MeshProgress {
     progress: number;
 }
 
-interface MeshYieldOptions {
+export interface MeshYieldOptions {
     yieldIntervalMs?: number;
     onYield?: () => Promise<void>;
     onProgress?: (progress: MeshProgress) => void;
@@ -243,7 +243,7 @@ function triangulateBoundaryByEarClipping(
  * Earcut may omit collinear boundary vertices. Restore those vertices so cap
  * edges still pair exactly with wall edges, then validate both mesh and slicer precision.
  */
-function triangulateBoundaryPreservingVertices(
+export function triangulateBoundaryPreservingVertices(
     points: Vector2[],
     roundedPoints: Vector2[],
     areaEpsilon: number
@@ -399,9 +399,6 @@ function createGridVertexMapper(
         return (x: number, y: number): [number, number] => [x, y];
     }
 
-    const { maxMove, iterations, relaxation, finalRelaxation } =
-        SMOOTH_PRESETS[strength === 'none' ? 'medium' : strength];
-
     const stride = width + 1;
     const getCell = (x: number, y: number) =>
         x >= 0 && y >= 0 && x < width && y < height && meshingPixels[y * width + x] ? 1 : 0;
@@ -436,6 +433,22 @@ function createGridVertexMapper(
         }
     }
 
+    return createBoundaryVertexMapper(boundaryNeighbors, width, height, strength);
+}
+
+type GridVertexMapper = (x: number, y: number) => [number, number];
+
+/** Chunk the shared rule without changing the order of any vertex calculations. */
+function* relaxBoundaryVertices(
+    boundaryNeighbors: Map<number, Set<number>>,
+    width: number,
+    height: number,
+    strength: SmoothMeshingStrength,
+    pinJunctions: boolean
+): Generator<number, GridVertexMapper> {
+    const { maxMove, iterations, relaxation, finalRelaxation } =
+        SMOOTH_PRESETS[strength === 'none' ? 'medium' : strength];
+    const stride = width + 1;
     const clampToBounds = ([x, y]: [number, number]): [number, number] => [
         Math.max(0, Math.min(width, x)),
         Math.max(0, Math.min(height, y)),
@@ -460,54 +473,119 @@ function createGridVertexMapper(
 
     let positions = new Map<number, [number, number]>();
     const origins = new Map<number, [number, number]>();
+    const movableNeighbors = pinJunctions ? new Map<number, Set<number>>() : boundaryNeighbors;
+    const chunkSize = 256;
+    let processed = 0;
 
-    for (const key of boundaryNeighbors.keys()) {
-        const x = key % stride;
-        const y = Math.floor(key / stride);
-        origins.set(key, [x, y]);
-        positions.set(key, [x, y]);
+    for (const [key, neighbors] of boundaryNeighbors) {
+        // Pinned junctions always use their original grid coordinates. Keep
+        // them out of every subsequent pass, especially on dense label grids.
+        if (!pinJunctions || neighbors.size === 2) {
+            const x = key % stride;
+            const y = Math.floor(key / stride);
+            origins.set(key, [x, y]);
+            positions.set(key, [x, y]);
+            if (pinJunctions) movableNeighbors.set(key, neighbors);
+        }
+        if (++processed % chunkSize === 0) yield (processed / boundaryNeighbors.size) * 0.1;
     }
+    yield 0.1;
 
     for (let iteration = 0; iteration < iterations; iteration++) {
         const nextPositions = new Map<number, [number, number]>();
         const iterationRelaxation = iteration === iterations - 1 ? finalRelaxation : relaxation;
+        processed = 0;
 
-        for (const [key, neighbors] of boundaryNeighbors) {
+        for (const [key, neighbors] of movableNeighbors) {
             const origin = origins.get(key)!;
             const current = positions.get(key)!;
 
             if (neighbors.size < 2) {
                 nextPositions.set(key, current);
-                continue;
+            } else {
+                let averageX = 0;
+                let averageY = 0;
+                for (const neighbor of neighbors) {
+                    const neighborPosition = positions.get(neighbor) ?? [
+                        neighbor % stride,
+                        Math.floor(neighbor / stride),
+                    ];
+                    averageX += neighborPosition[0];
+                    averageY += neighborPosition[1];
+                }
+                averageX /= neighbors.size;
+                averageY /= neighbors.size;
+
+                const candidate = clampMove(origin[0], origin[1], [
+                    current[0] + (averageX - current[0]) * iterationRelaxation,
+                    current[1] + (averageY - current[1]) * iterationRelaxation,
+                ]);
+
+                nextPositions.set(key, candidate);
             }
-
-            let averageX = 0;
-            let averageY = 0;
-            for (const neighbor of neighbors) {
-                const neighborPosition = positions.get(neighbor)!;
-                averageX += neighborPosition[0];
-                averageY += neighborPosition[1];
+            if (++processed % chunkSize === 0) {
+                yield 0.1 + ((iteration + processed / movableNeighbors.size) / iterations) * 0.9;
             }
-            averageX /= neighbors.size;
-            averageY /= neighbors.size;
-
-            const candidate = clampMove(origin[0], origin[1], [
-                current[0] + (averageX - current[0]) * iterationRelaxation,
-                current[1] + (averageY - current[1]) * iterationRelaxation,
-            ]);
-
-            nextPositions.set(key, candidate);
         }
 
         // The next pass only reads this map. Reuse it directly rather than
         // clearing and copying every boundary position after each iteration.
         positions = nextPositions;
+        yield 0.1 + ((iteration + 1) / iterations) * 0.9;
     }
 
     return (x: number, y: number): [number, number] => {
         const key = y * stride + x;
         return positions.get(key) ?? [x, y];
     };
+}
+
+/** Ordinary smooth meshes keep their synchronous mapper and original geometry. */
+export function createBoundaryVertexMapper(
+    boundaryNeighbors: Map<number, Set<number>>,
+    width: number,
+    height: number,
+    strength: SmoothMeshingStrength,
+    pinJunctions = false
+): GridVertexMapper {
+    const work = relaxBoundaryVertices(boundaryNeighbors, width, height, strength, pinJunctions);
+    let step = work.next();
+    while (!step.done) step = work.next();
+    return step.value;
+}
+
+/** Flat Paint can yield during both graph initialization and every relaxation pass. */
+export async function createBoundaryVertexMapperAsync(
+    boundaryNeighbors: Map<number, Set<number>>,
+    width: number,
+    height: number,
+    strength: SmoothMeshingStrength,
+    pinJunctions = false,
+    options: MeshYieldOptions = {}
+): Promise<GridVertexMapper> {
+    const work = relaxBoundaryVertices(boundaryNeighbors, width, height, strength, pinJunctions);
+    const yieldIntervalMs = options.yieldIntervalMs ?? 8;
+    const yieldControl =
+        options.onYield ??
+        (() =>
+            new Promise<void>((resolve) => {
+                requestAnimationFrame(() => resolve());
+            }));
+    let lastYield = performance.now();
+    let step = work.next();
+    while (!step.done) {
+        options.onProgress?.({
+            phase: 'smoothing',
+            label: 'Generating smooth mesh',
+            progress: step.value,
+        });
+        if (performance.now() - lastYield >= yieldIntervalMs) {
+            await yieldControl();
+            lastYield = performance.now();
+        }
+        step = work.next();
+    }
+    return step.value;
 }
 
 async function generateGridMesh(

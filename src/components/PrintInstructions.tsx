@@ -75,7 +75,7 @@ export default function PrintInstructions({
                     <div className="space-y-1 text-muted-foreground text-xs">
                         <div data-testid="print-instructions-smoothing">
                             {t('printSettingsCard.smoothMeshing')}:{' '}
-                            {t(strengthKeys[flatPaint ? 'none' : smoothMeshingStrength])}
+                            {t(strengthKeys[smoothMeshingStrength])}
                         </div>
                         <div>
                             <Trans

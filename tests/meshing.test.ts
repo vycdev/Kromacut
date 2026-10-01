@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import test, { type TestContext } from 'node:test';
 import { generateGreedyMesh, generateSmoothMesh, type MeshData } from '../src/lib/meshing.ts';
 import {
@@ -59,6 +60,26 @@ test('None matches greedy geometry and Medium preserves the original smooth defa
         assert.deepEqual(actual.positions, expected.positions);
         assert.deepEqual(actual.indices, expected.indices);
         assert.equal(actual.metrics?.mesher, expected.metrics?.mesher);
+    }
+});
+
+test('ordinary smooth presets retain their geometry from develop before Flat Paint support', async () => {
+    const mask = Uint8Array.from([1, 1, 0, 0, 1, 1, 1, 0, 1, 1, 1, 1, 0, 0, 1, 1]);
+    const hashes = {
+        minimal: '278cd589d74af4ecde59021ceaa71ef3505caad9b248ac9816e4a4a44580b35f',
+        medium: '8f65c3b012e34ea7dcf9ef7362cead7fc943e49ebd48f141aedc4cf17ed8676f',
+        aggressive: '40879acb71f0ebb53df900b51b0475d6b6819aa4168968138174fdaf0740832c',
+    };
+    for (const strength of ['minimal', 'medium', 'aggressive'] as const) {
+        const mesh = await generateSmoothMesh(mask, 4, 4, 0.08, 0.2, 0.1, 1, {
+            ...noYieldOptions,
+            strength,
+        });
+        const hash = createHash('sha256')
+            .update(Buffer.from(mesh.positions.buffer))
+            .update(JSON.stringify(mesh.indices))
+            .digest('hex');
+        assert.equal(hash, hashes[strength]);
     }
 });
 

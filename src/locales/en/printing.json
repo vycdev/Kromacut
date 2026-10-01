@@ -245,7 +245,6 @@
         "smoothingMedium": "Medium",
         "smoothingAggressive": "Aggressive",
         "smoothingHelp": "Softens model outlines in preview and exports. Medium matches the original smoothing. Rebuild to apply.",
-        "smoothConnectedColorBoundaryEdgesWithFastWeldedTopology": "Smooth connected color boundary edges with fast welded topology. Turning this on disables Flat Paint.",
         "modelDimensions": "Model: {{width}}×{{height}}×{{depth}} mm"
     },
     "printInstructions": {

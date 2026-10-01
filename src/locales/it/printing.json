@@ -267,7 +267,6 @@
     "smoothingMedium": "Media",
     "smoothingAggressive": "Intensa",
     "smoothingHelp": "Ammorbidisce i contorni del modello nell’anteprima e nelle esportazioni. Media mantiene la levigatura originale. Ricostruisci per applicare.",
-    "smoothConnectedColorBoundaryEdgesWithFastWeldedTopology": "Leviga i bordi connessi delle aree di colore con una topologia saldata veloce. L'attivazione disabilita Flat Paint.",
     "modelDimensions": "Modello: {{width}}×{{height}}×{{depth}} mm"
   },
   "printInstructions": {

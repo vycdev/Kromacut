@@ -55,7 +55,7 @@ Comprueba por separado **Modelo de apariencia**. Una puntuación global alta no 
 
 ## Una opción ha desactivado otra
 
-Dos pares son excluyentes: **Malla suavizada** y **Pintura plana**, y **Conservar separación de colores** y **Tramado de altura**. El primero elige disposiciones geométricas distintas; el segundo, maneras distintas de asignar colores originales a alturas imprimibles. Consulta [Pintura plana](flat-paint) y [Pintura automática](auto-paint).
+**Conservar separación de colores** y **Tramado de altura** siguen siendo excluyentes porque asignan los colores originales a las alturas imprimibles de forma distinta. **Malla suavizada** y **Pintura plana** pueden usarse juntas; reconstruye después de cambiar cualquiera de los ajustes. Consulta [Pintura plana](flat-paint) y [Pintura automática](auto-paint).
 
 ## La separación de colores no encuentra resultado
 

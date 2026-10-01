@@ -47,7 +47,7 @@ Diese Anordnungen haben unterschiedliche Geometrie. Klicke nach dem Umschalten e
 | Flat Paint, Standard | Unterseite durch transparenten Träger | Gespiegelte, umgekehrte Spalten mit Grundmaterial dahinter. | Objekte je Filament und zusätzlicher Träger. |
 | Flat Paint, Bildseite oben | Freiliegende flache Oberseite | Normale Reihenfolge mit Grundmaterial unter kürzeren Spalten. | Objekte je Filament, kein Träger. |
 
-Flat Paint und **Glatte Vernetzung** funktionieren nicht gleichzeitig. Die Platte verwendet nebeneinanderliegende Bereiche über der gesamten Grundfläche statt geglätteter Konturen. Das Aktivieren der glatten Vernetzung deaktiviert Flat Paint. Wähle beim Wechsel die gewünschte Anordnung und erstelle das Modell neu.
+**Glatte Vernetzung** funktioniert mit beiden Flat-Paint-Ausrichtungen. Wähle eine Stärke und baue das Modell neu. Die Glättung mildert Außenkontur und gemeinsame Farbgrenzen, während Platte, Schichthöhen und Materialstapel erhalten bleiben. Kleine gemeinsame Verbindungen schließen diagonale Eckkontakte ohne Überlappung. Druckanweisungen und 3MF halten die verwendete Stärke fest.
 
 ## Exportieren und prüfen
 

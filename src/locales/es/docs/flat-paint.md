@@ -47,7 +47,7 @@ Estas disposiciones tienen geometrías distintas. Vuelve a pulsar **Generar mode
 | Pintura plana predeterminada | Parte inferior a través del soporte | Columnas reflejadas e invertidas con fundación detrás. | Objetos por filamento y soporte. |
 | Pintura plana boca arriba | Parte superior plana expuesta | Orden normal con fundación bajo columnas cortas. | Objetos por filamento; sin soporte. |
 
-Pintura plana y **Malla suavizada** no funcionan juntas. La placa usa regiones contiguas que cubren toda la superficie en vez de contornos suavizados. Activar Malla suavizada desactiva Pintura plana; elige la disposición y regenera al cambiar.
+**Malla suavizada** funciona con ambas orientaciones de Pintura plana. Elige una intensidad y reconstruye. El suavizado ablanda la silueta exterior y los límites compartidos entre colores, conservando la placa plana, las alturas de capa y las pilas de materiales. Pequeñas uniones compartidas cierran los contactos diagonales sin solapamientos. Las instrucciones de impresión y el 3MF registran la intensidad utilizada.
 
 ## Exportar y comprobar
 

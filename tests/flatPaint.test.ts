@@ -13,6 +13,8 @@ import {
     type FlatPaintPart,
 } from '../src/lib/flatPaint.ts';
 import { generateGreedyMesh, type MeshData } from '../src/lib/meshing.ts';
+import { createFlatPaintMesher } from '../src/lib/flatPaintMeshing.ts';
+import type { SmoothMeshingStrength } from '../src/types/index.ts';
 import { exportObjectToStlBlob } from '../src/lib/exportStl.ts';
 import { loadViteModule } from './helpers/viteModule.ts';
 import { inspectMeshIntegrity, type MeshIntegrityReport } from './meshDiagnostics.ts';
@@ -192,10 +194,12 @@ test('Flat Paint layout reverses columns: visible blend at the plate, foundation
 
     const expectColumn = (
         pixel: number,
-        expected: Array<Pick<FlatPaintPart, 'kind' | 'previewHex' | 'filamentHex'> & {
-            baseZ: number;
-            topZ: number;
-        }>
+        expected: Array<
+            Pick<FlatPaintPart, 'kind' | 'previewHex' | 'filamentHex'> & {
+                baseZ: number;
+                topZ: number;
+            }
+        >
     ) => {
         const covering = partsCoveringPixel(layout, pixel).map((part) => ({
             kind: part.kind,
@@ -433,21 +437,42 @@ test('Flat Paint part masks produce manifold greedy meshes', async () => {
     }
 });
 
-async function buildFixturePartMeshes(layout = buildFixtureLayout()) {
+async function buildFixturePartMeshes(
+    layout = buildFixtureLayout(),
+    strength: SmoothMeshingStrength = 'none',
+    layerCounts = FIXTURE.layerCounts
+) {
     const pixelSize = 0.1;
     const root = new THREE.Group();
+    const meshMask = await createFlatPaintMesher(
+        layerCounts,
+        FIXTURE.width,
+        FIXTURE.height,
+        pixelSize,
+        strength,
+        noYieldOptions
+    );
 
     for (const part of layout.parts) {
-        const meshData = await generateGreedyMesh(
-            part.mask,
-            FIXTURE.width,
-            FIXTURE.height,
-            part.topZ - part.baseZ,
-            part.baseZ,
-            pixelSize,
-            1,
-            noYieldOptions
-        );
+        const meshData =
+            strength === 'none'
+                ? await generateGreedyMesh(
+                      part.mask,
+                      FIXTURE.width,
+                      FIXTURE.height,
+                      part.topZ - part.baseZ,
+                      part.baseZ,
+                      pixelSize,
+                      1,
+                      noYieldOptions
+                  )
+                : await meshMask(part.mask, noYieldOptions);
+        if (strength !== 'none') {
+            for (let i = 2; i < meshData.positions.length; i += 3) {
+                meshData.positions[i] =
+                    part.baseZ + meshData.positions[i] * (part.topZ - part.baseZ);
+            }
+        }
         const geometry = new THREE.BufferGeometry();
         geometry.setAttribute('position', new THREE.BufferAttribute(meshData.positions, 3));
         geometry.setIndex(meshData.indices);
@@ -459,7 +484,7 @@ async function buildFixturePartMeshes(layout = buildFixtureLayout()) {
             height: FIXTURE.height,
             pixelSize,
             topZ: part.topZ,
-            compactHeightfield: true,
+            compactHeightfield: strength === 'none',
         };
 
         const mesh = new THREE.Mesh(
@@ -607,10 +632,7 @@ test('3MF export merges Flat Paint parts into one object per filament', async ()
 
     // Base materials hold physical filament colors. The clear carrier has its
     // own material slot so slicers do not merge it with a real white filament.
-    const baseMaterials = Array.from(
-        modelXml.matchAll(/<base name="([0-9A-F]{6})"/g),
-        (m) => m[1]
-    );
+    const baseMaterials = Array.from(modelXml.matchAll(/<base name="([0-9A-F]{6})"/g), (m) => m[1]);
     assert.deepEqual(baseMaterials, ['D8FFF8', '000000', 'FFFFFF']);
     assert.deepEqual(
         objects.map((object) => object.materialIndex),
@@ -678,5 +700,74 @@ test('face-up Flat Paint 3MF omits the transparent carrier object and material',
     assert.equal(modelXml.includes('transparent carrier'), false);
     for (const object of objects) {
         assert.equal(object.badEdgeCount, 0, `${object.name} should contain only closed shells`);
+    }
+});
+
+test('smooth Flat Paint exports closed filament shells at every strength and orientation', async (t) => {
+    installFileReaderPolyfill();
+    const { exportObjectTo3MFBlob } = await loadExport3mfModule();
+    for (const orientation of ['face-up', 'face-down'] as const) {
+        for (const strength of ['minimal', 'medium', 'aggressive'] as const) {
+            await t.test(`${orientation}, ${strength}`, async () => {
+                // Repeated diagonal classes exercise the shared corner tessellation.
+                const layerCounts = Uint16Array.from([1, 2, 3, 2, 1, 2]);
+                const layout = buildFlatPaintLayout({
+                    ...FIXTURE,
+                    layerCounts,
+                    orientation,
+                    firstLayerThickness: 0.2,
+                });
+                const { root } = await buildFixturePartMeshes(layout, strength, layerCounts);
+                const blob = await exportObjectTo3MFBlob(root, { smoothMeshingStrength: strength });
+                const zip = await JSZip.loadAsync(await blob.arrayBuffer());
+                const xml = await zip.file('3D/3dmodel.model')!.async('string');
+                const objects = parse3mfMeshObjects(xml);
+                assert.equal(objects.length, new Set(layout.parts.map((p) => p.exportGroup)).size);
+                assert.equal(xml.includes('transparent carrier'), orientation === 'face-down');
+                assert.ok(
+                    xml.includes(
+                        `<metadata name="Kromacut:SmoothMeshingStrength">${strength}</metadata>`
+                    )
+                );
+                for (const object of objects) assert.equal(object.badEdgeCount, 0, object.name);
+                const expectedTriangles = root.children.reduce(
+                    (sum, child) => sum + (child as THREE.Mesh).geometry.getIndex()!.count / 3,
+                    0
+                );
+                assert.equal(
+                    objects.reduce((sum, object) => sum + object.triangleCount, 0),
+                    expectedTriangles,
+                    '3MF rounding must not discard cap or wall triangles'
+                );
+                // Even direct STL export must keep the smooth source
+                // geometry rather than rebuilding a pixel-aligned slab.
+                const stl = new DataView(await (await exportObjectToStlBlob(root)).arrayBuffer());
+                assert.equal(stl.getUint32(80, true), expectedTriangles);
+                let offset = 84;
+                for (const child of root.children) {
+                    const geometry = (child as THREE.Mesh).geometry;
+                    const positions = geometry.getAttribute('position').array;
+                    for (const vertexIndex of geometry.getIndex()!.array) {
+                        if ((offset - 84) % 50 === 0) offset += 12;
+                        for (let axis = 0; axis < 3; axis++) {
+                            assert.equal(
+                                stl.getFloat32(offset, true),
+                                positions[vertexIndex * 3 + axis]
+                            );
+                            offset += 4;
+                        }
+                        if ((offset - 84) % 50 === 48) offset += 2;
+                    }
+                }
+                assert.equal(offset, stl.byteLength);
+                for (const child of root.children) {
+                    const mesh = child as THREE.Mesh;
+                    assertHealthyMesh('smooth slab part', {
+                        positions: mesh.geometry.getAttribute('position').array as Float32Array,
+                        indices: [...mesh.geometry.getIndex()!.array],
+                    });
+                }
+            });
+        }
     }
 });

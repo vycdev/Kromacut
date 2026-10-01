@@ -245,7 +245,6 @@
         "smoothingMedium": "मध्यम",
         "smoothingAggressive": "तीव्र",
         "smoothingHelp": "पूर्वावलोकन और निर्यात में मॉडल की रूपरेखा को चिकना करता है। मध्यम पुराने चिकनेपन को बनाए रखता है। लागू करने के लिए फिर से बनाएँ।",
-        "smoothConnectedColorBoundaryEdgesWithFastWeldedTopology": "तेज़ वेल्डेड टोपोलॉजी से जुड़े रंग सीमांत किनारे चिकने करें। इसे चालू करने से समतल प्रिंट मोड बंद होता है।",
         "modelDimensions": "मॉडल: {{width}}×{{height}}×{{depth}} mm"
     },
     "printInstructions": {

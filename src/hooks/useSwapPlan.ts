@@ -142,7 +142,7 @@ export function useSwapPlan({
         lines.push('---------------------');
         lines.push(`Layer height: ${layerHeight.toFixed(3)} mm`);
         lines.push(`First layer height: ${slicerFirstLayerHeight.toFixed(3)} mm`);
-        const strength = flatPaint ? 'none' : smoothMeshingStrength;
+        const strength = smoothMeshingStrength;
         const strengthKeys = {
             none: 'printSettingsCard.smoothingNone',
             minimal: 'printSettingsCard.smoothingMinimal',

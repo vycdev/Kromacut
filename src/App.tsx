@@ -674,9 +674,7 @@ function App(): React.ReactElement | null {
                 exportObjectTo3MFBlob(obj, {
                     layerHeight: builtModelState.layerHeight,
                     firstLayerHeight: builtModelState.slicerFirstLayerHeight,
-                    smoothMeshingStrength: builtFlatPaint
-                        ? 'none'
-                        : builtModelState.smoothMeshingStrength,
+                    smoothMeshingStrength: builtModelState.smoothMeshingStrength,
                     layerFilamentColors: builtModelAutoPaint
                         ? builtModelState.autoPaintFilamentSwatches?.map((s) => s.hex)
                         : undefined,

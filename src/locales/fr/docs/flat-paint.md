@@ -47,7 +47,7 @@ Ces dispositions ont des géométries différentes. Cliquez de nouveau sur **Gé
 | Peinture à plat, par défaut | Dessous, à travers le support transparent | Colonnes inversées et en miroir, fondation derrière. | Objets par filament, plus support. |
 | Peinture à plat, face vers le haut | Dessus plat exposé | Ordre normal, fondation sous les colonnes plus courtes. | Objets par filament ; sans support. |
 
-La peinture à plat et le **Maillage lissé** ne fonctionnent pas ensemble. La plaque utilise des zones côte à côte couvrant toute l’emprise plutôt que des contours lissés. Activer le maillage lissé désactive la peinture à plat ; choisissez la disposition souhaitée et régénérez lors d’un changement.
+**Maillage lissé** fonctionne dans les deux orientations de la peinture à plat. Choisissez une intensité et reconstruisez. Le lissage adoucit le contour extérieur et les frontières communes entre couleurs, tout en conservant la plaque plane, les hauteurs de couche et les empilements de matériaux. De petites jonctions communes ferment les contacts diagonaux sans chevauchement. Les instructions d’impression et le 3MF indiquent l’intensité utilisée.
 
 ## Exporter et vérifier
 
