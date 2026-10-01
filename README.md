@@ -131,7 +131,7 @@ Bug reports, feature suggestions, and pull requests are welcome. Use [GitHub Iss
 
 Read [AGENTS.md](AGENTS.md) for repository guidance and testing expectations. The [Changelog](CHANGELOG.md) tracks releases and upcoming changes.
 
-<details>
+<details open>
 <summary>Star history</summary>
 
 [![Star History Chart](https://api.star-history.com/svg?repos=vycdev/kromacut&type=date&legend=top-left)](https://www.star-history.com/#vycdev/kromacut&type=date&legend=top-left)
