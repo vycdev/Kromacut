@@ -1,3 +1,4 @@
+import type { SmoothMeshingStrength } from '../types';
 import { useTranslation } from 'react-i18next';
 import { translateRuntimeMessage } from '../lib/runtimeMessages';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -64,7 +65,7 @@ interface ThreeDViewProps {
     heightDithering?: boolean; // Stucki error diffusion on height map
     ditherLineWidth?: number; // Effective extrusion width; also sets minimum dither-dot size
     printableFeaturePixels?: PrintableFeaturePixelSnapshot; // exact filtered pixels used for Auto-paint
-    smoothMeshing?: boolean; // Smooth connected boundaries using welded grid topology
+    smoothMeshingStrength?: SmoothMeshingStrength; // Smooth connected boundaries using welded grid topology
     isOrtho?: boolean;
     flatPaint?: boolean; // Build a uniform Flat Paint slab (auto-paint only)
     flatPaintFaceUp?: boolean; // Expose the artwork on top without a transparent carrier
@@ -286,7 +287,7 @@ interface E2EBuildMetrics {
         pixelSize: number;
         layerHeight: number;
         slicerFirstLayerHeight: number;
-        smoothMeshing: boolean;
+        smoothMeshingStrength: SmoothMeshingStrength;
         autoPaintEnabled: boolean;
         enhancedColorMatch: boolean;
         heightDithering: boolean;
@@ -376,7 +377,7 @@ export default function ThreeDView({
     heightDithering = false,
     ditherLineWidth = 0.42,
     printableFeaturePixels,
-    smoothMeshing = false,
+    smoothMeshingStrength = 'none',
     isOrtho = false,
     flatPaint = false,
     flatPaintFaceUp = false,
@@ -388,7 +389,8 @@ export default function ThreeDView({
     const { t } = useTranslation('printing');
     const mountRef = useRef<HTMLDivElement | null>(null);
     const [isBuilding, setIsBuilding] = useState(false);
-    const [activeBuildSmoothMeshing, setActiveBuildSmoothMeshing] = useState(smoothMeshing);
+    const [activeBuildSmoothMeshingStrength, setActiveBuildSmoothMeshingStrength] =
+        useState(smoothMeshingStrength);
     const [buildProgress, setBuildProgress] = useState(0);
     const [buildOverlayStep, setBuildOverlayStep] = useState<BuildOverlayStep | null>(null);
     const [modelDimensions, setModelDimensions] = useState<{
@@ -785,7 +787,8 @@ export default function ThreeDView({
             return;
         }
 
-        const buildSmoothMeshing = smoothMeshing && !flatPaint;
+        const buildSmoothMeshingStrength = flatPaint ? 'none' : smoothMeshingStrength;
+        const buildSmoothMeshing = buildSmoothMeshingStrength !== 'none';
 
         // Stable key of inputs to avoid duplicate builds when references unchanged
         const paramsKey = JSON.stringify({
@@ -812,7 +815,7 @@ export default function ThreeDView({
             heightDithering,
             ditherLineWidth,
             printableFeatureFingerprint: printableFeaturePixels?.fingerprint,
-            smoothMeshing,
+            smoothMeshingStrength,
             flatPaint,
             flatPaintFaceUp,
         });
@@ -825,7 +828,7 @@ export default function ThreeDView({
         // Debounce rapid changes (e.g., dragging slider)
         if (debounceTimerRef.current !== null) window.clearTimeout(debounceTimerRef.current);
         const token = ++buildTokenRef.current;
-        setActiveBuildSmoothMeshing(buildSmoothMeshing);
+        setActiveBuildSmoothMeshingStrength(buildSmoothMeshingStrength);
         debounceTimerRef.current = window.setTimeout(() => {
             debounceTimerRef.current = null;
             const buildStartedAt = performance.now();
@@ -841,7 +844,7 @@ export default function ThreeDView({
                     pixelSize,
                     layerHeight,
                     slicerFirstLayerHeight,
-                    smoothMeshing: buildSmoothMeshing,
+                    smoothMeshingStrength: buildSmoothMeshingStrength,
                     autoPaintEnabled,
                     enhancedColorMatch,
                     heightDithering,
@@ -1577,6 +1580,7 @@ export default function ThreeDView({
                                 buildSmoothMeshing ? generateSmoothMesh : generateGreedyMesh
                             )(activePixels, boxW, boxH, thickness, baseZ, pixelSize, heightScale, {
                                 yieldIntervalMs: 8,
+                                strength: buildSmoothMeshingStrength,
                                 onProgress: meshProgressReporter(buildLayerIndex),
                             });
                             meshBuildMetrics.push({
@@ -1753,6 +1757,7 @@ export default function ThreeDView({
                             buildSmoothMeshing ? generateSmoothMesh : generateGreedyMesh
                         )(activePixels, boxW, boxH, thickness, baseZ, pixelSize, heightScale, {
                             yieldIntervalMs: 8,
+                            strength: buildSmoothMeshingStrength,
                             onProgress: meshProgressReporter(buildLayerIndex),
                         });
                         meshBuildMetrics.push({
@@ -1884,7 +1889,7 @@ export default function ThreeDView({
                         pixelSize,
                         layerHeight,
                         slicerFirstLayerHeight,
-                        smoothMeshing: buildSmoothMeshing,
+                        smoothMeshingStrength: buildSmoothMeshingStrength,
                         autoPaintEnabled,
                         enhancedColorMatch,
                         heightDithering,
@@ -2044,7 +2049,7 @@ export default function ThreeDView({
         heightDithering,
         ditherLineWidth,
         printableFeaturePixels,
-        smoothMeshing,
+        smoothMeshingStrength,
         flatPaint,
         flatPaintFaceUp,
         cameraRef,
@@ -2077,7 +2082,7 @@ export default function ThreeDView({
             {isBuilding && (
                 <ProgressOverlay
                     title={
-                        activeBuildSmoothMeshing
+                        activeBuildSmoothMeshingStrength !== 'none'
                             ? t('threeDView.generatingSmoothMesh')
                             : t('threeDView.generatingMesh')
                     }

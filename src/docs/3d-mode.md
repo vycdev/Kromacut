@@ -74,7 +74,16 @@ Manual controls and swap instructions support **64 colors**. Reduce larger palet
 
 ## Smooth Meshing
 
-With smoothing off, outlines follow the square pixel grid. With it on, connected boundaries are smoothed into welded geometry. The difference is exported, not a preview filter.
+Choose a smoothing strength for the physical model. The selected strength applies to the 3D preview, STL, and 3MF when you click **Build 3D Model**.
+
+| Strength | Use it for |
+| --- | --- |
+| **None** | Pixel art, exact square-grid edges, or the fastest generation. Matches the previous disabled setting. |
+| **Minimal** | A light cleanup of jagged corners while retaining more pixel detail. |
+| **Medium** | The familiar result from the previous enabled setting. |
+| **Aggressive** | Stronger smoothing along curved or diagonal outlines. Keeps the same bounded movement as Medium, with no extra smoothing passes. |
+
+All smoothing presets keep boundary movement below half a source pixel and preserve welded caps and walls. Smoothing changes exported geometry; it does not add image detail or repair unprintably small features. Rebuild and inspect the slicer preview after changing the strength. Existing saved on/off settings load as Medium/None.
 
 ![Pixel-stepped and smoothed diagonal contours compared against the same source grid.](12_smooth_boundaries.svg)
 
@@ -82,7 +91,7 @@ _Schematic contour comparison, not a slicer simulation._
 
 Use it for curved or diagonal outlines that look too stair-stepped. Leave it off for deliberate pixel art or exact grid edges. Neither choice repairs unprintably small details or invents missing source resolution.
 
-Smooth Meshing is inactive during [Flat Paint](flat-paint). Turning Smooth Meshing on disables Flat Paint; Flat Paint uses its full-footprint slab construction instead.
+Smooth Meshing is inactive during [Flat Paint](flat-paint). Selecting any strength other than None disables Flat Paint; Flat Paint uses its full-footprint slab construction instead.
 
 ## Auto-paint
 

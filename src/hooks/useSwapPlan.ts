@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { translateRuntimeMessage } from '../lib/runtimeMessages';
-import type { Swatch } from '../types';
+import type { Swatch, SmoothMeshingStrength } from '../types';
 import type { AutoPaintResult } from '../lib/autoPaint';
 
 export type SwapEntry =
@@ -20,6 +21,7 @@ export interface UseSwapPlanOptions {
     flatPaint?: boolean;
     /** Flat Paint is printed face-up without a transparent carrier. */
     flatPaintFaceUp?: boolean;
+    smoothMeshingStrength?: SmoothMeshingStrength;
 }
 
 export function useSwapPlan({
@@ -33,7 +35,9 @@ export function useSwapPlan({
     disabled = false,
     flatPaint = false,
     flatPaintFaceUp = false,
+    smoothMeshingStrength = 'none',
 }: UseSwapPlanOptions) {
+    const { t } = useTranslation('printing');
     const swapPlan = useMemo(() => {
         if (disabled || flatPaint) {
             return [] as SwapEntry[];
@@ -138,6 +142,14 @@ export function useSwapPlan({
         lines.push('---------------------');
         lines.push(`Layer height: ${layerHeight.toFixed(3)} mm`);
         lines.push(`First layer height: ${slicerFirstLayerHeight.toFixed(3)} mm`);
+        const strength = flatPaint ? 'none' : smoothMeshingStrength;
+        const strengthKeys = {
+            none: 'printSettingsCard.smoothingNone',
+            minimal: 'printSettingsCard.smoothingMinimal',
+            medium: 'printSettingsCard.smoothingMedium',
+            aggressive: 'printSettingsCard.smoothingAggressive',
+        };
+        lines.push(`${t('printSettingsCard.smoothMeshing')}: ${t(strengthKeys[strength])}`);
         lines.push('Recommended: Layer loops: 1; Infill: 100%');
         lines.push('');
 

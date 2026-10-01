@@ -284,6 +284,11 @@
     "firstLayerHeight": "Висота першого шару",
     "effectiveLineWidth": "Ефективна ширина лінії",
     "smoothMeshing": "Згладжена сітка",
+    "smoothingNone": "Без згладжування",
+    "smoothingMinimal": "Мінімальне",
+    "smoothingMedium": "Середнє",
+    "smoothingAggressive": "Інтенсивне",
+    "smoothingHelp": "Згладжує контури моделі в перегляді та експорті. Середнє зберігає попереднє згладжування. Перебудуйте для застосування.",
     "smoothConnectedColorBoundaryEdgesWithFastWeldedTopology": "Згладжує з’єднані межі кольорів за допомогою швидкого зварювання топології. Увімкнення вимикає Flat Paint.",
     "modelDimensions": "Модель: {{width}}×{{height}}×{{depth}} mm"
   },

@@ -262,6 +262,11 @@
     "firstLayerHeight": "Înălțimea primului strat",
     "effectiveLineWidth": "Lățimea efectivă a liniei",
     "smoothMeshing": "Geometrie netezită",
+    "smoothingNone": "Fără",
+    "smoothingMinimal": "Minimă",
+    "smoothingMedium": "Medie",
+    "smoothingAggressive": "Intensă",
+    "smoothingHelp": "Netezește contururile modelului în previzualizare și exporturi. Medie păstrează netezirea originală. Reconstruiește pentru aplicare.",
     "smoothConnectedColorBoundaryEdgesWithFastWeldedTopology": "Netezește muchiile conectate dintre culori folosind o topologie sudată rapidă. Activarea dezactivează Flat Paint.",
     "modelDimensions": "Model: {{width}}×{{height}}×{{depth}} mm"
   },

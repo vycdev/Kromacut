@@ -240,6 +240,11 @@
         "firstLayerHeight": "首层高度",
         "effectiveLineWidth": "有效线宽",
         "smoothMeshing": "平滑网格",
+        "smoothingNone": "无",
+        "smoothingMinimal": "轻度",
+        "smoothingMedium": "中度",
+        "smoothingAggressive": "强度",
+        "smoothingHelp": "平滑预览和导出模型的轮廓。中度保留原有的平滑效果。重新构建后应用。",
         "smoothConnectedColorBoundaryEdgesWithFastWeldedTopology": "通过快速焊接拓扑平滑相连的颜色边界。启用此项会关闭平面打印模式。",
         "modelDimensions": "模型：{{width}}×{{height}}×{{depth}} mm"
     },

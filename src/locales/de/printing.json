@@ -240,6 +240,11 @@
     "firstLayerHeight": "Höhe der ersten Schicht",
     "effectiveLineWidth": "Effektive Linienbreite",
     "smoothMeshing": "Geglättetes Netz",
+    "smoothingNone": "Keine",
+    "smoothingMinimal": "Minimal",
+    "smoothingMedium": "Mittel",
+    "smoothingAggressive": "Stark",
+    "smoothingHelp": "Glättet Modellkonturen in Vorschau und Exporten. Mittel entspricht der bisherigen Glättung. Zum Anwenden neu erstellen.",
     "smoothConnectedColorBoundaryEdgesWithFastWeldedTopology": "Zusammenhängende Farbkanten mit einer schnellen, verschweißten Topologie glätten. Die Aktivierung deaktiviert Flat Paint.",
     "modelDimensions": "Modell: {{width}}×{{height}}×{{depth}} mm"
   },

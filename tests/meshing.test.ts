@@ -26,7 +26,75 @@ const noYieldOptions = {
 const meshers: Array<{ name: string; generate: MeshGenerator }> = [
     { name: 'greedy', generate: generateGreedyMesh },
     { name: 'smooth', generate: generateSmoothMesh },
+    ...(['minimal', 'aggressive'] as const).map((strength) => ({
+        name: `smooth ${strength}`,
+        generate: (...args: Parameters<typeof generateSmoothMesh>) => {
+            const [pixels, width, height, thickness, zOffset, pixelSize, heightScale, options] =
+                args;
+            return generateSmoothMesh(
+                pixels,
+                width,
+                height,
+                thickness,
+                zOffset,
+                pixelSize,
+                heightScale,
+                { ...options, strength }
+            );
+        },
+    })),
 ];
+
+test('None matches greedy geometry and Medium preserves the original smooth default', async () => {
+    const mask = maskFromRows(['##..', '###.', '####', '..##']);
+    for (const [strength, generate] of [
+        ['none', generateGreedyMesh],
+        ['medium', generateSmoothMesh],
+    ] as const) {
+        const expected = await generate(mask.activePixels, 4, 4, 0.08, 0.2, 0.1, 1, noYieldOptions);
+        const actual = await generateSmoothMesh(mask.activePixels, 4, 4, 0.08, 0.2, 0.1, 1, {
+            ...noYieldOptions,
+            strength,
+        });
+        assert.deepEqual(actual.positions, expected.positions);
+        assert.deepEqual(actual.indices, expected.indices);
+        assert.equal(actual.metrics?.mesher, expected.metrics?.mesher);
+    }
+});
+
+test('all smoothing strengths keep every 3x3 footprint manifold after export rounding', async () => {
+    for (let bits = 1; bits < 512; bits++) {
+        const pixels = Uint8Array.from({ length: 9 }, (_, i) => (bits >>> i) & 1);
+        for (const strength of ['minimal', 'medium', 'aggressive'] as const) {
+            const mesh = await generateSmoothMesh(
+                pixels,
+                3,
+                3,
+                0.08,
+                0.2,
+                bits % 2 ? 0.01 : 0.4,
+                1,
+                { ...noYieldOptions, strength }
+            );
+            assertHealthyMesh(`${strength} footprint ${bits}`, mesh);
+            const pixelSize = bits % 2 ? 0.01 : 0.4;
+            const maxMove = strength === 'minimal' ? 0.2 : 0.49;
+            for (let i = 0; i < mesh.positions.length; i += 3) {
+                const x = mesh.positions[i] / pixelSize;
+                const y = mesh.positions[i + 1] / pixelSize;
+                assert.ok(
+                    Math.hypot(x - Math.round(x), y - Math.round(y)) <= maxMove + 1e-6,
+                    `${strength} exceeded its movement envelope`
+                );
+            }
+            assert.deepEqual(inspectRoundedExportTopology(mesh), {
+                boundaryEdgeCount: 0,
+                overusedEdgeCount: 0,
+                skippedTriangleCount: 0,
+            });
+        }
+    }
+});
 
 function maskFromRows(rows: string[]): RasterMask {
     const width = rows[0].length;
@@ -475,156 +543,190 @@ test('large issue JPG fixture masks stay slicer-safe across meshers', async (t: 
     }
 });
 
-test('smooth 1024px logo stays slicer-safe after 3MF export rounding', async () => {
-    const logoMask = maskFromPngAlpha(logoFixturePath, 128);
-    const mesh = await generateSmoothMesh(
-        logoMask.activePixels,
-        logoMask.width,
-        logoMask.height,
-        0.08,
-        0,
-        0.4,
-        1,
-        noYieldOptions
-    );
+test('smooth 1024px logo stays slicer-safe after 3MF export rounding', async (t: TestContext) => {
+    for (const strength of ['minimal', 'medium', 'aggressive'] as const) {
+        await t.test(strength, async () => {
+            const logoMask = maskFromPngAlpha(logoFixturePath, 128);
+            const mesh = await generateSmoothMesh(
+                logoMask.activePixels,
+                logoMask.width,
+                logoMask.height,
+                0.08,
+                0,
+                0.4,
+                1,
+                { ...noYieldOptions, strength }
+            );
 
-    assertHealthyMesh('smooth export-rounded logo source mesh', mesh);
-    assert.equal(hasFractionalXY(mesh, 0.4), true, 'smooth logo should contain smoothed vertices');
+            assertHealthyMesh('smooth export-rounded logo source mesh', mesh);
+            assert.equal(
+                hasFractionalXY(mesh, 0.4),
+                true,
+                'smooth logo should contain smoothed vertices'
+            );
 
-    const report = inspectRoundedExportTopology(mesh);
-    assert.deepEqual(report, {
-        boundaryEdgeCount: 0,
-        overusedEdgeCount: 0,
-        skippedTriangleCount: 0,
-    });
+            const report = inspectRoundedExportTopology(mesh);
+            assert.deepEqual(report, {
+                boundaryEdgeCount: 0,
+                overusedEdgeCount: 0,
+                skippedTriangleCount: 0,
+            });
+        });
+    }
 });
 
-test('smooth caps stay inside the bounded smoothing envelope', async () => {
-    const mask = maskFromRows(['######', '#....#', '#.##.#', '#.##.#', '#....#', '######']);
-    const mesh = await generateSmoothMesh(
-        mask.activePixels,
-        mask.width,
-        mask.height,
-        0.08,
-        0,
-        0.4,
-        1,
-        noYieldOptions
-    );
+test('smooth caps stay inside the bounded smoothing envelope', async (t: TestContext) => {
+    for (const strength of ['minimal', 'medium', 'aggressive'] as const) {
+        await t.test(strength, async () => {
+            const mask = maskFromRows(['######', '#....#', '#.##.#', '#.##.#', '#....#', '######']);
+            const mesh = await generateSmoothMesh(
+                mask.activePixels,
+                mask.width,
+                mask.height,
+                0.08,
+                0,
+                0.4,
+                1,
+                { ...noYieldOptions, strength }
+            );
 
-    assertHealthyMesh('smooth concave footprint mesh', mesh);
-    assert.equal(hasFractionalXY(mesh, 0.4), true, 'concave footprint should still be smoothed');
-    assert.ok(
-        countCapCentroidsOutsideMask(mesh, mask, 0.4) > 0,
-        'smooth boundaries should be able to fill source-pixel stair notches'
-    );
-    assert.equal(countCapCentroidsOutsideExpandedMask(mesh, mask, 0.4, 0.5), 0);
+            assertHealthyMesh('smooth concave footprint mesh', mesh);
+            assert.equal(
+                hasFractionalXY(mesh, 0.4),
+                true,
+                'concave footprint should still be smoothed'
+            );
+            assert.ok(
+                countCapCentroidsOutsideMask(mesh, mask, 0.4) > 0,
+                'smooth boundaries should be able to fill source-pixel stair notches'
+            );
+            assert.equal(countCapCentroidsOutsideExpandedMask(mesh, mask, 0.4, 0.5), 0);
+        });
+    }
 });
 
-test('smooth caps avoid reversed center-fan triangles after boundary movement', async () => {
-    const mask = maskFromRows(['#...', '##.#', '#.#.', '.#..', '#...', '#...', '#...', '#...']);
-    const mesh = await generateSmoothMesh(
-        mask.activePixels,
-        mask.width,
-        mask.height,
-        0.2,
-        0,
-        1,
-        1,
-        noYieldOptions
-    );
+test('smooth caps avoid reversed center-fan triangles after boundary movement', async (t: TestContext) => {
+    for (const strength of ['minimal', 'medium', 'aggressive'] as const) {
+        await t.test(strength, async () => {
+            const mask = maskFromRows([
+                '#...',
+                '##.#',
+                '#.#.',
+                '.#..',
+                '#...',
+                '#...',
+                '#...',
+                '#...',
+            ]);
+            const mesh = await generateSmoothMesh(
+                mask.activePixels,
+                mask.width,
+                mask.height,
+                0.2,
+                0,
+                1,
+                1,
+                { ...noYieldOptions, strength }
+            );
 
-    assertHealthyMesh('smooth moved-boundary cap mesh', mesh);
+            assertHealthyMesh('smooth moved-boundary cap mesh', mesh);
+        });
+    }
 });
 
-test('smooth caps avoid export-degenerate final ears after boundary movement', async () => {
-    const mask = maskFromRows([
-        '...#..',
-        '..#.#.',
-        '.#.#.#',
-        '.#.#..',
-        '..#.#.',
-        '.###..',
-        '#...#.',
-        '#..#..',
-        '####..',
-    ]);
-    const mesh = await generateSmoothMesh(
-        mask.activePixels,
-        mask.width,
-        mask.height,
-        0.2,
-        0,
-        0.4,
-        1,
-        noYieldOptions
-    );
+test('smooth caps avoid export-degenerate final ears after boundary movement', async (t: TestContext) => {
+    for (const strength of ['minimal', 'medium', 'aggressive'] as const) {
+        await t.test(strength, async () => {
+            const mask = maskFromRows([
+                '...#..',
+                '..#.#.',
+                '.#.#.#',
+                '.#.#..',
+                '..#.#.',
+                '.###..',
+                '#...#.',
+                '#..#..',
+                '####..',
+            ]);
+            const mesh = await generateSmoothMesh(
+                mask.activePixels,
+                mask.width,
+                mask.height,
+                0.2,
+                0,
+                0.4,
+                1,
+                { ...noYieldOptions, strength }
+            );
 
-    assertHealthyMesh('smooth rounded-boundary cap mesh', mesh);
-    assert.deepEqual(inspectRoundedExportTopology(mesh), {
-        boundaryEdgeCount: 0,
-        overusedEdgeCount: 0,
-        skippedTriangleCount: 0,
-    });
+            assertHealthyMesh('smooth rounded-boundary cap mesh', mesh);
+            assert.deepEqual(inspectRoundedExportTopology(mesh), {
+                boundaryEdgeCount: 0,
+                overusedEdgeCount: 0,
+                skippedTriangleCount: 0,
+            });
+        });
+    }
 });
 
-test('smooth caps survive 3MF integer-precision export without dropped faces', async () => {
-    // Regression: cap degeneracy used to be checked on quantized-back floats
-    // against Number.EPSILON, while the 3MF exporter tests exact integer
-    // coordinate units. Faces with integer area exactly 0 but float area
-    // ~1e-12 passed the mesher and were then dropped by the exporter, leaving
-    // pinholes that slicers report as non-manifold/open edges. This noisy
-    // blob mask (mulberry32 seed 33 at 96px, pixel size 0.1) produced two
-    // such faces before the mesher switched to the exporter's integer grid.
-    const seed = 33;
-    const size = 96;
-    let state = seed >>> 0;
-    const rand = () => {
-        state |= 0;
-        state = (state + 0x6d2b79f5) | 0;
-        let t = Math.imul(state ^ (state >>> 15), 1 | state);
-        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-    };
+test('smooth caps survive 3MF integer-precision export without dropped faces', async (t: TestContext) => {
+    for (const strength of ['minimal', 'medium', 'aggressive'] as const) {
+        await t.test(strength, async () => {
+            // Regression: cap degeneracy used to be checked on quantized-back floats
+            // against Number.EPSILON, while the 3MF exporter tests exact integer
+            // coordinate units. Faces with integer area exactly 0 but float area
+            // ~1e-12 passed the mesher and were then dropped by the exporter, leaving
+            // pinholes that slicers report as non-manifold/open edges. This noisy
+            // blob mask (mulberry32 seed 33 at 96px, pixel size 0.1) produced two
+            // such faces before the mesher switched to the exporter's integer grid.
+            const seed = 33;
+            const size = 96;
+            let state = seed >>> 0;
+            const rand = () => {
+                state |= 0;
+                state = (state + 0x6d2b79f5) | 0;
+                let t = Math.imul(state ^ (state >>> 15), 1 | state);
+                t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+                return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+            };
 
-    const activePixels = new Uint8Array(size * size);
-    const blobs = 3 + Math.floor(rand() * 5);
-    const centers = Array.from({ length: blobs }, () => ({
-        x: rand() * size,
-        y: rand() * size,
-        r: size * (0.1 + rand() * 0.25),
-    }));
-    for (let y = 0; y < size; y++) {
-        for (let x = 0; x < size; x++) {
-            for (const center of centers) {
-                if (Math.hypot(x - center.x, y - center.y) < center.r + (rand() - 0.5) * 3) {
-                    activePixels[y * size + x] = 1;
-                    break;
+            const activePixels = new Uint8Array(size * size);
+            const blobs = 3 + Math.floor(rand() * 5);
+            const centers = Array.from({ length: blobs }, () => ({
+                x: rand() * size,
+                y: rand() * size,
+                r: size * (0.1 + rand() * 0.25),
+            }));
+            for (let y = 0; y < size; y++) {
+                for (let x = 0; x < size; x++) {
+                    for (const center of centers) {
+                        if (
+                            Math.hypot(x - center.x, y - center.y) <
+                            center.r + (rand() - 0.5) * 3
+                        ) {
+                            activePixels[y * size + x] = 1;
+                            break;
+                        }
+                    }
                 }
             }
-        }
-    }
-    for (let i = 0; i < activePixels.length; i++) {
-        if (rand() < 0.02) activePixels[i] = activePixels[i] ? 0 : 1;
-    }
+            for (let i = 0; i < activePixels.length; i++) {
+                if (rand() < 0.02) activePixels[i] = activePixels[i] ? 0 : 1;
+            }
 
-    const mesh = await generateSmoothMesh(
-        activePixels,
-        size,
-        size,
-        0.12,
-        0.2,
-        0.1,
-        1,
-        noYieldOptions
-    );
+            const mesh = await generateSmoothMesh(activePixels, size, size, 0.12, 0.2, 0.1, 1, {
+                ...noYieldOptions,
+                strength,
+            });
 
-    assertHealthyMesh('smooth noisy-blob mesh', mesh);
-    assert.deepEqual(inspectRoundedExportTopology(mesh), {
-        boundaryEdgeCount: 0,
-        overusedEdgeCount: 0,
-        skippedTriangleCount: 0,
-    });
+            assertHealthyMesh('smooth noisy-blob mesh', mesh);
+            assert.deepEqual(inspectRoundedExportTopology(mesh), {
+                boundaryEdgeCount: 0,
+                overusedEdgeCount: 0,
+                skippedTriangleCount: 0,
+            });
+        });
+    }
 });
 
 test('smooth metrics stay on the smooth algorithm without mesher substitution state', async () => {
