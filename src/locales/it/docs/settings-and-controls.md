@@ -22,7 +22,7 @@ Il tema offre **Sistema**, **Scuro** e **Chiaro**. Sistema segue le preferenze c
 
 Anche le pagine pubbliche hanno il selettore. La documentazione tradotta usa collegamenti condivisibili con prefisso, come `/ro/docs/overview`. Nomi di pagina e ancore restano stabili tra lingue. Estensioni, numeri del modello, nomi inseriti dall’utente e titoli originali delle opere comunitarie non vengono tradotti.
 
-Le impostazioni includono documentazione, Discord, Reddit, GitHub, Patreon e versione corrente.
+Le impostazioni includono documentazione, Discord, Reddit, GitHub, Patreon e versione corrente. Anche **Privacy e dati locali** e **Termini e condizioni** sono disponibili qui e si aprono nel browser nella lingua selezionata.
 
 ## Modalità dell’area di lavoro
 

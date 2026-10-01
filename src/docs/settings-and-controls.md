@@ -22,7 +22,7 @@ The **Language** selector changes the interface, documentation, diagrams, and pu
 
 Public pages also offer a language selector. Translated documentation uses shareable language-prefixed links, such as `/ro/docs/overview`. Page names and section anchors remain stable across languages. File extensions, numeric model data, user-entered names, and original community artwork titles are not translated.
 
-The settings dialog includes links to the documentation, Discord, Reddit, GitHub, and Patreon, and shows the current Kromacut version.
+The settings dialog includes links to the documentation, Discord, Reddit, GitHub, and Patreon, and shows the current Kromacut version. **Privacy & local data** and **Terms & conditions** are also available here and open in your browser in the selected language.
 
 ## Workspace Modes
 

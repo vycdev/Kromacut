@@ -22,7 +22,7 @@ Le sélecteur **Langue** modifie l’interface, la documentation, les schémas e
 
 Les pages publiques proposent aussi un sélecteur de langue. La documentation traduite utilise des liens partageables préfixés par la langue, comme `/ro/docs/overview`. Les noms de pages et les ancres de section restent stables d’une langue à l’autre. Les extensions de fichiers, données numériques des modèles, noms saisis par l’utilisateur et titres originaux des œuvres communautaires ne sont pas traduits.
 
-La boîte des paramètres contient des liens vers la documentation, Discord, Reddit, GitHub et Patreon, et affiche la version actuelle de Kromacut.
+La boîte des paramètres contient des liens vers la documentation, Discord, Reddit, GitHub et Patreon, et affiche la version actuelle de Kromacut. **Confidentialité et données locales** et **Conditions d’utilisation** sont également accessibles ici et s’ouvrent dans votre navigateur dans la langue sélectionnée.
 
 ## Modes de l’espace de travail
 

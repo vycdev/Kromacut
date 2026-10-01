@@ -22,7 +22,7 @@ O seletor **Idioma** altera interface, documentação, diagramas e páginas púb
 
 As páginas públicas também têm seletor. A documentação traduzida usa ligações partilháveis com prefixo, como `/ro/docs/overview`. Os nomes de páginas e âncoras mantêm-se entre idiomas. Extensões, dados numéricos, nomes introduzidos pelo utilizador e títulos originais de obras comunitárias não são traduzidos.
 
-O diálogo contém ligações para documentação, Discord, Reddit, GitHub e Patreon e mostra a versão atual.
+O diálogo contém ligações para documentação, Discord, Reddit, GitHub e Patreon e mostra a versão atual. **Privacidade e dados locais** e **Termos e condições** também estão disponíveis aqui e abrem no navegador no idioma selecionado.
 
 ## Modos da área de trabalho
 

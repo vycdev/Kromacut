@@ -38,6 +38,7 @@
     "light": "Chiaro",
     "resources": "Risorse e community",
     "resourcesDescription": "Guide, versioni e spazi in cui condividere le tue creazioni.",
+    "openLinkFailed": "Impossibile aprire questa pagina. Riprova.",
     "docs": "Documentazione",
     "docsDescription": "Scopri il flusso di lavoro e le impostazioni di stampa.",
     "reddit": "r/kromacut su Reddit",

@@ -57,12 +57,20 @@ export default defineConfig({
     define: {
         __APP_VERSION__: JSON.stringify(packageJson.version),
     },
+    server: {
+        watch: {
+            // Tauri watches native sources itself. Cargo outputs can be locked while linking.
+            ignored: ['**/src-tauri/**'],
+        },
+    },
     resolve: {
         alias: {
             '@': path.resolve(__dirname, './src'),
         },
     },
     optimizeDeps: {
+        // Start from the app, not generated HTML in native build output or test reports.
+        entries: ['index.html'],
         include: ['three'],
         // Treat three example controls as source to avoid stale optimized deps
         exclude: [

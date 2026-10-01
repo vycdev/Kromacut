@@ -22,7 +22,7 @@ Die Auswahl **Sprache** ändert Oberfläche, Dokumentation, Diagramme und öffen
 
 Auch öffentliche Seiten bieten eine Sprachauswahl. Übersetzte Dokumentation verwendet teilbare Links mit Sprachpräfix, etwa `/ro/docs/overview`. Seitennamen und Abschnittsanker bleiben über die Sprachen hinweg stabil. Dateiendungen, numerische Modelldaten, selbst eingegebene Namen und Originaltitel von Community-Kunstwerken werden nicht übersetzt.
 
-Der Einstellungsdialog enthält Links zur Dokumentation, zu Discord, Reddit, GitHub und Patreon und zeigt die aktuelle Kromacut-Version.
+Der Einstellungsdialog enthält Links zur Dokumentation, zu Discord, Reddit, GitHub und Patreon und zeigt die aktuelle Kromacut-Version. **Datenschutz und lokale Daten** und **Nutzungsbedingungen** sind ebenfalls hier verfügbar und öffnen sich in deinem Browser in der gewählten Sprache.
 
 ## Arbeitsbereichsmodi
 

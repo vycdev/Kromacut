@@ -38,6 +38,7 @@
     "light": "Hell",
     "resources": "Ressourcen und Community",
     "resourcesDescription": "Anleitungen, Veröffentlichungen und Orte zum Teilen deiner Werke.",
+    "openLinkFailed": "Diese Seite konnte nicht geöffnet werden. Versuche es erneut.",
     "docs": "Dokumentation",
     "docsDescription": "Lerne den Arbeitsablauf und die Druckeinstellungen kennen.",
     "reddit": "r/kromacut auf Reddit",

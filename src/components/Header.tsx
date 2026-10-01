@@ -20,6 +20,7 @@ import {
     MessageCircle,
     FileJson,
     FolderOpen,
+    ExternalLink,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Switch } from '@/components/ui/switch';
@@ -50,8 +51,8 @@ import {
 } from '@/lib/experimentalFeatures';
 import logo from '../assets/logo.png';
 import redditIcon from '../assets/reddit.svg';
-import { landingPath } from '@/lib/routes';
-import { isTauri } from '@tauri-apps/api/core';
+import { landingPath, publicPath } from '@/lib/routes';
+import { invoke, isTauri } from '@tauri-apps/api/core';
 import {
     getAutoPaintDiagnosticsEnabled,
     saveAutoPaintDiagnosticsEnabled,
@@ -68,6 +69,10 @@ interface Props {
 
 const appVersion = __APP_VERSION__;
 type UpdateCheckStatus = 'idle' | 'checking' | 'available' | 'current' | 'error';
+const legalLinks = [
+    { path: '/privacy', labelKey: 'public:navigation.privacy' },
+    { path: '/terms', labelKey: 'public:navigation.terms' },
+] as const;
 
 export const Header: React.FC<Props> = ({ docsOpen, onBackToApp, onOpenDocs }) => {
     const { t, i18n } = useTranslation('common');
@@ -79,6 +84,7 @@ export const Header: React.FC<Props> = ({ docsOpen, onBackToApp, onOpenDocs }) =
         getAutoPaintDiagnosticsEnabled()
     );
     const [diagnosticsError, setDiagnosticsError] = React.useState('');
+    const [legalLinkFailed, setLegalLinkFailed] = React.useState(false);
     const [updateStatus, setUpdateStatus] = React.useState<UpdateCheckStatus>('idle');
     const [availableUpdate, setAvailableUpdate] = React.useState<VersionInfo | null>(null);
     const releaseNotes = availableUpdate
@@ -242,6 +248,25 @@ export const Header: React.FC<Props> = ({ docsOpen, onBackToApp, onOpenDocs }) =
             console.error('Failed to open releases page:', error);
             setUpdateError('updates.downloadFailed');
             setUpdateStatus('error');
+        }
+    };
+
+    const handleLegalLinkClick = async (
+        event: React.MouseEvent<HTMLAnchorElement>,
+        path: string
+    ) => {
+        if (!isDesktopApp) {
+            setSettingsOpen(false);
+            return;
+        }
+        event.preventDefault();
+        setLegalLinkFailed(false);
+        try {
+            await invoke('open_legal_page', { path });
+            setSettingsOpen(false);
+        } catch (error) {
+            console.error('Failed to open legal page:', error);
+            setLegalLinkFailed(true);
         }
     };
 
@@ -458,6 +483,43 @@ export const Header: React.FC<Props> = ({ docsOpen, onBackToApp, onOpenDocs }) =
                                         Patreon
                                     </a>
                                 </div>
+                                <div className="grid gap-1 min-[520px]:grid-cols-2">
+                                    {legalLinks.map((link) => {
+                                        const path = publicPath(link.path);
+                                        return (
+                                            <a
+                                                key={link.path}
+                                                href={
+                                                    isDesktopApp
+                                                        ? `https://kromacut.com${path}`
+                                                        : path
+                                                }
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                onClick={(event) =>
+                                                    handleLegalLinkClick(event, path)
+                                                }
+                                                onAuxClick={(event) => {
+                                                    if (event.button === 1) {
+                                                        void handleLegalLinkClick(event, path);
+                                                    }
+                                                }}
+                                                className="flex items-center justify-between gap-2 rounded-md px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                            >
+                                                <span>{t(link.labelKey)}</span>
+                                                <ExternalLink
+                                                    aria-hidden="true"
+                                                    className="h-4 w-4 flex-shrink-0"
+                                                />
+                                            </a>
+                                        );
+                                    })}
+                                </div>
+                                {legalLinkFailed && (
+                                    <p role="alert" className="text-sm text-destructive">
+                                        {t('settings.openLinkFailed')}
+                                    </p>
+                                )}
                             </div>
                         </section>
 

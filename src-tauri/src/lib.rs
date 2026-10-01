@@ -213,6 +213,27 @@ fn open_releases_page() -> Result<(), String> {
     open_external_url(RELEASES_URL)
 }
 
+fn legal_page_url(path: &str) -> Result<String, String> {
+    let segments: Vec<_> = path.strip_prefix('/').unwrap_or("").split('/').collect();
+    let supported = match segments.as_slice() {
+        ["privacy" | "terms"] => true,
+        [language, "privacy" | "terms"] => matches!(
+            *language,
+            "fr" | "de" | "it" | "ro" | "es" | "ja" | "zh-CN" | "hi" | "pt-PT" | "uk" | "bn"
+        ),
+        _ => false,
+    };
+    if !supported {
+        return Err("Unsupported legal page".to_string());
+    }
+    Ok(format!("https://kromacut.com{path}"))
+}
+
+#[tauri::command]
+fn open_legal_page(path: String) -> Result<(), String> {
+    open_external_url(&legal_page_url(&path)?)
+}
+
 fn open_external_url(url: &str) -> Result<(), String> {
     #[cfg(target_os = "windows")]
     let result = Command::new("cmd").args(["/C", "start", "", url]).spawn();
@@ -225,7 +246,7 @@ fn open_external_url(url: &str) -> Result<(), String> {
 
     result
         .map(|_| ())
-        .map_err(|e| format!("Failed to open releases page: {}", e))
+        .map_err(|e| format!("Failed to open web page: {}", e))
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -246,6 +267,7 @@ pub fn run() {
             check_for_updates,
             get_app_version,
             open_releases_page,
+            open_legal_page,
             take_opened_file,
             begin_auto_paint_diagnostic,
             append_auto_paint_diagnostic,
@@ -287,6 +309,38 @@ mod tests {
     };
     use std::fs::{create_dir_all, read_to_string, remove_dir_all, File};
     use std::io::Cursor;
+
+    #[test]
+    fn legal_page_urls_only_allow_published_notices() {
+        for language in [
+            "", "fr", "de", "it", "ro", "es", "ja", "zh-CN", "hi", "pt-PT", "uk", "bn",
+        ] {
+            for page in ["privacy", "terms"] {
+                let path = if language.is_empty() {
+                    format!("/{page}")
+                } else {
+                    format!("/{language}/{page}")
+                };
+                assert_eq!(
+                    super::legal_page_url(&path).unwrap(),
+                    format!("https://kromacut.com{path}")
+                );
+            }
+        }
+        for path in [
+            "https://example.com/privacy",
+            "//example.com/privacy",
+            "/app",
+            "/xx/privacy",
+            "/ro/../privacy",
+            "/privacy?next=example.com",
+            "/privacy&calc",
+            "privacy",
+            "/terms/",
+        ] {
+            assert!(super::legal_page_url(path).is_err(), "{path}");
+        }
+    }
 
     fn diagnostic_test_directory(name: &str) -> std::path::PathBuf {
         std::env::temp_dir().join(format!(

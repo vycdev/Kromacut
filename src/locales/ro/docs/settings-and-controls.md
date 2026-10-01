@@ -22,7 +22,7 @@ Selectorul **Limbă** schimbă interfața, documentația, diagramele și paginil
 
 Paginile publice oferă și ele un selector de limbă. Documentația tradusă folosește linkuri partajabile cu prefix de limbă, precum `/ro/docs/overview`. Numele paginilor și ancorele secțiunilor rămân stabile între limbi. Extensiile fișierelor, datele numerice ale modelului, numele introduse de utilizator și titlurile originale ale lucrărilor comunității nu sunt traduse.
 
-Dialogul de setări include legături către documentație, Discord, Reddit, GitHub și Patreon și afișează versiunea curentă Kromacut.
+Dialogul de setări include legături către documentație, Discord, Reddit, GitHub și Patreon și afișează versiunea curentă Kromacut. **Confidențialitate și date locale** și **Termeni și condiții** sunt disponibile tot aici și se deschid în browser în limba selectată.
 
 ## Modurile spațiului de lucru
 

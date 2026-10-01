@@ -38,6 +38,7 @@
         "light": "浅色",
         "resources": "资源与社区",
         "resourcesDescription": "查看指南和版本发布，分享你的作品。",
+        "openLinkFailed": "无法打开此页面，请重试。",
         "docs": "文档",
         "docsDescription": "了解操作流程和打印设置。",
         "reddit": "Reddit 上的 r/kromacut",

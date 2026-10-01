@@ -22,7 +22,7 @@ El selector **Idioma** cambia interfaz, documentación, diagramas y páginas pú
 
 Las páginas públicas también ofrecen selector de idioma. La documentación traducida usa enlaces compartibles con prefijo de idioma, como `/ro/docs/overview`. Los nombres de página y anclas de sección permanecen estables entre idiomas. No se traducen extensiones, datos numéricos del modelo, nombres introducidos por el usuario ni títulos originales de obras comunitarias.
 
-El diálogo incluye enlaces a documentación, Discord, Reddit, GitHub y Patreon, y muestra la versión actual de Kromacut.
+El diálogo incluye enlaces a documentación, Discord, Reddit, GitHub y Patreon, y muestra la versión actual de Kromacut. **Privacidad y datos locales** y **Términos y condiciones** también están disponibles aquí y se abren en el navegador en el idioma seleccionado.
 
 ## Modos del espacio de trabajo
 

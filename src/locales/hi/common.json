@@ -38,6 +38,7 @@
         "light": "लाइट",
         "resources": "संसाधन और समुदाय",
         "resourcesDescription": "गाइड, नए संस्करण और अपनी रचनाएँ साझा करने की जगहें।",
+        "openLinkFailed": "यह पेज नहीं खुल सका। दोबारा कोशिश करें।",
         "docs": "दस्तावेज़",
         "docsDescription": "काम करने का तरीका और प्रिंट सेटिंग्स जानें।",
         "reddit": "Reddit पर r/kromacut",
