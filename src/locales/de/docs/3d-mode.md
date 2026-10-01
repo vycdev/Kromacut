@@ -93,7 +93,7 @@ _Schematischer Konturvergleich, keine Slicer-Simulation._
 
 Nutze die Funktion für gekrümmte oder diagonale Konturen, die zu treppenförmig wirken. Lass sie bei absichtlicher Pixelkunst oder exakten Rasterkanten ausgeschaltet. Keine der beiden Optionen repariert unbedruckbar kleine Details oder erfindet fehlende Quellauflösung.
 
-Während [Flat Paint](flat-paint) ist die glatte Vernetzung inaktiv. Ihr Aktivieren deaktiviert Flat Paint; Flat Paint verwendet stattdessen seine Plattenkonstruktion über der gesamten Grundfläche.
+Glatte Vernetzung funktioniert auch mit [Flat Paint](flat-paint). Beide Ausrichtungen behalten eine flache Platte und gemeinsame Farbgrenzen; wähle eine Stärke und baue das Modell neu.
 
 ## Auto-paint
 

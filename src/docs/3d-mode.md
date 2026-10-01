@@ -91,7 +91,7 @@ _Schematic contour comparison, not a slicer simulation._
 
 Use it for curved or diagonal outlines that look too stair-stepped. Leave it off for deliberate pixel art or exact grid edges. Neither choice repairs unprintably small details or invents missing source resolution.
 
-Smooth Meshing is inactive during [Flat Paint](flat-paint). Selecting any strength other than None disables Flat Paint; Flat Paint uses its full-footprint slab construction instead.
+Smooth Meshing also works with [Flat Paint](flat-paint). Both orientations keep a flat slab and shared color boundaries; choose a strength and rebuild to apply it.
 
 ## Auto-paint
 

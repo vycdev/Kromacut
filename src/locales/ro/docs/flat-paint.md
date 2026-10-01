@@ -47,7 +47,7 @@ Aceste aranjamente au geometrii diferite. Folosește din nou **Generează modelu
 | Flat Paint, implicit | Partea de jos, prin suportul transparent | Coloane oglindite și inversate, cu fundația în spate. | Obiecte pentru fiecare filament, plus suport. |
 | Flat Paint, fața în sus | Suprafață superioară plană expusă | Ordine normală, cu fundație sub coloanele mai scurte. | Obiecte pentru fiecare filament, fără suport. |
 
-Flat Paint și **Geometrie netezită** nu funcționează simultan. Placa folosește regiuni alăturate care umplu amprenta, nu contururi netezite. Activarea geometriei netezite dezactivează Flat Paint; alege aranjamentul dorit și regenerează la schimbare.
+**Geometrie netezită** funcționează în ambele orientări Flat Paint. Alege o intensitate și reconstruiește modelul. Netezirea atenuează conturul exterior și granițele comune dintre culori, păstrând placa plană, înălțimile straturilor și stivele de materiale. Contactele diagonale folosesc îmbinări comune mici pentru a închide regiunile fără suprapuneri. Instrucțiunile de imprimare și 3MF înregistrează intensitatea folosită.
 
 ## Exportă și verifică
 

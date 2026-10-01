@@ -141,8 +141,7 @@ test('@smoke smoothing strengths apply on Build, persist, and export healthy geo
     expect(meshesByStrength.get('Minimal')).not.toEqual(meshesByStrength.get('None'));
     expect(meshesByStrength.get('Medium')).not.toEqual(meshesByStrength.get('Minimal'));
     expect(meshesByStrength.get('Aggressive')).not.toEqual(meshesByStrength.get('Medium'));
-    // Switching workspaces retains the selected preset. Flat Paint temporarily
-    // displays None, then restores it; selecting a smoothing preset exits Flat Paint.
+    // Flat Paint retains the selected strength in both viewing orientations.
     await page.getByRole('button', { name: '2D', exact: true }).click();
     await page.getByRole('button', { name: '3D', exact: true }).click();
     await expect(page.getByTestId('print-smooth-meshing')).toHaveText('Aggressive');
@@ -153,31 +152,93 @@ test('@smoke smoothing strengths apply on Build, persist, and export healthy geo
     await expect(page.getByText(/1 imported|1 overwritten/)).toBeVisible();
     const flatPaint = page.getByTestId('autopaint-flat-paint');
     await flatPaint.click();
-    await expect(page.getByTestId('print-smooth-meshing')).toHaveText('None');
+    await expect(page.getByTestId('print-smooth-meshing')).toHaveText('Aggressive');
     await expect(page.getByTestId('print-instructions-smoothing')).toContainText('Aggressive');
     await flatPaint.click();
     await expect(page.getByTestId('print-smooth-meshing')).toHaveText('Aggressive');
     await flatPaint.click();
     await selectStrength(page, 'Minimal');
-    await expect(flatPaint).toHaveAttribute('data-state', 'unchecked');
+    await expect(flatPaint).toHaveAttribute('data-state', 'checked');
     await page.waitForTimeout(500);
     await expect(page.getByTestId('build-3d-model')).toBeEnabled();
-    const before = await historyCount();
-    await page.getByTestId('build-3d-model').click();
-    await page.waitForFunction(
-        (n) =>
-            (window as unknown as { __KROMACUT_E2E: { buildHistory: unknown[] } }).__KROMACUT_E2E
-                .buildHistory.length > n,
-        before
-    );
-    await expect(page.getByTestId('print-instructions-smoothing')).toContainText('Minimal');
-    const autoPaintZip = await JSZip.loadAsync(await download(page, '3mf'));
-    expect(await autoPaintZip.file('3D/3dmodel.model')!.async('string')).toContain(
-        '<metadata name="Kromacut:SmoothMeshingStrength">minimal</metadata>'
-    );
+    for (const faceUp of [false, true]) {
+        if (faceUp) await page.getByTestId('autopaint-flat-paint-face-up').click();
+        for (const label of ['None', 'Minimal', 'Medium', 'Aggressive']) {
+            const before = await historyCount();
+            await selectStrength(page, label);
+            await expect(flatPaint).toHaveAttribute('data-state', 'checked');
+            await page.getByTestId('build-3d-model').click();
+            await page.waitForFunction(
+                (n) =>
+                    (window as unknown as { __KROMACUT_E2E: { buildHistory: unknown[] } })
+                        .__KROMACUT_E2E.buildHistory.length > n,
+                before
+            );
+            const built = await page.evaluate(
+                () =>
+                    (
+                        window as unknown as {
+                            __KROMACUT_E2E: {
+                                lastBuild: {
+                                    status: string;
+                                    settings: {
+                                        flatPaint: boolean;
+                                        flatPaintFaceUp: boolean;
+                                        smoothMeshingStrength: string;
+                                    };
+                                };
+                            };
+                        }
+                    ).__KROMACUT_E2E.lastBuild
+            );
+            expect(built.status).toBe('complete');
+            expect(built.settings.flatPaint).toBe(true);
+            expect(built.settings.flatPaintFaceUp).toBe(faceUp);
+            expect(built.settings.smoothMeshingStrength).toBe(label.toLowerCase());
+            await expect(page.getByTestId('print-instructions-smoothing')).toContainText(label);
+            const zip = await JSZip.loadAsync(await download(page, '3mf'));
+            const xml = await zip.file('3D/3dmodel.model')!.async('string');
+            expect(xml).toContain(
+                `<metadata name="Kromacut:SmoothMeshingStrength">${label.toLowerCase()}</metadata>`
+            );
+            expect(xml.includes('transparent carrier')).toBe(!faceUp);
+            const meshes = xml.match(/<mesh>[\s\S]*?<\/mesh>/g)!;
+            expect(meshes.length).toBeGreaterThan(0);
+            for (const mesh of meshes) {
+                // Filament objects contain independent closed member shells;
+                // preserve vertex identities at contacts between those shells.
+                const edges = new Map<string, number>();
+                const triangles = [
+                    ...mesh.matchAll(/<triangle v1="(\d+)" v2="(\d+)" v3="(\d+)"[^>]*\/>/g),
+                ];
+                expect(triangles.length).toBeGreaterThan(0);
+                for (const triangle of triangles) {
+                    const [a, b, c] = triangle.slice(1).map(Number);
+                    for (const [start, end] of [
+                        [a, b],
+                        [b, c],
+                        [c, a],
+                    ]) {
+                        const key = start < end ? `${start}/${end}` : `${end}/${start}`;
+                        edges.set(key, (edges.get(key) ?? 0) + 1);
+                    }
+                }
+                expect([...edges.values()].every((count) => count === 2)).toBe(true);
+            }
+        }
+    }
+    await expect(page.getByText('Exporting 3MF', { exact: true })).toBeHidden();
+    await page.screenshot({ path: test.info().outputPath('smooth-flat-paint.png') });
+    await selectStrength(page, 'Minimal');
     await page.reload();
     await page.getByRole('button', { name: '3D', exact: true }).click();
     await expect(page.getByTestId('print-smooth-meshing')).toHaveText('Minimal');
+    await page.getByRole('tab', { name: 'Auto-paint', exact: true }).click();
+    await expect(flatPaint).toHaveAttribute('data-state', 'checked');
+    await expect(page.getByTestId('autopaint-flat-paint-face-up')).toHaveAttribute(
+        'data-state',
+        'checked'
+    );
     await page.getByRole('button', { name: 'Reset print settings', exact: true }).click();
     await expect(page.getByTestId('print-smooth-meshing')).toHaveText('None');
     expect(errors).toEqual([]);

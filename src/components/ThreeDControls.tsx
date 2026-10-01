@@ -253,13 +253,9 @@ export default function ThreeDControls({
     }, []);
 
     const flatPaintActive = paintMode === 'autopaint' && flatPaint;
-    const effectiveSmoothMeshingStrength = flatPaintActive ? 'none' : smoothMeshingStrength;
 
     const handleSmoothMeshingStrengthChange = useCallback((strength: SmoothMeshingStrength) => {
         setSmoothMeshingStrength(strength);
-        if (strength !== 'none') {
-            setFlatPaint(false);
-        }
     }, []);
 
     const handleFlatPaintChange = useCallback((enabled: boolean) => {
@@ -493,7 +489,7 @@ export default function ThreeDControls({
         disabled: isInstructionOverLimit,
         flatPaint: instructionFlatPaint,
         flatPaintFaceUp: instructionFlatPaintFaceUp,
-        smoothMeshingStrength: builtState?.smoothMeshingStrength ?? effectiveSmoothMeshingStrength,
+        smoothMeshingStrength: builtState?.smoothMeshingStrength ?? smoothMeshingStrength,
     });
 
     // --- Apply handler ---
@@ -662,7 +658,7 @@ export default function ThreeDControls({
                 pixelSize={pixelSize}
                 effectiveLineWidth={ditherLineWidth}
                 modelSizeEstimate={modelSizeEstimate}
-                smoothMeshingStrength={effectiveSmoothMeshingStrength}
+                smoothMeshingStrength={smoothMeshingStrength}
                 onLayerHeightChange={setLayerHeight}
                 onSlicerFirstLayerHeightChange={setSlicerFirstLayerHeight}
                 onPixelSizeChange={setPixelSize}
@@ -877,7 +873,7 @@ export default function ThreeDControls({
                     flatPaint={instructionFlatPaint}
                     flatPaintFaceUp={instructionFlatPaintFaceUp}
                     smoothMeshingStrength={
-                        builtState?.smoothMeshingStrength ?? effectiveSmoothMeshingStrength
+                        builtState?.smoothMeshingStrength ?? smoothMeshingStrength
                     }
                 />
             ) : (

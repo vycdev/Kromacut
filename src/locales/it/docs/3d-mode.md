@@ -93,7 +93,7 @@ _Confronto schematico dei contorni, non una simulazione dello slicer._
 
 Usala per contorni curvi o diagonali che appaiono troppo scalettati. Lasciala disattivata per pixel art intenzionale o bordi esatti sulla griglia. Nessuna delle due scelte ripara dettagli troppo piccoli da stampare o inventa risoluzione assente nella sorgente.
 
-Mesh levigata è inattiva durante [Flat Paint](flat-paint). Attivare Mesh levigata disabilita Flat Paint; Flat Paint usa invece la propria costruzione a lastra sull’intera sagoma.
+Mesh levigata funziona anche con [Flat Paint](flat-paint). Entrambi gli orientamenti mantengono una lastra piatta e confini condivisi tra colori; scegli un’intensità e ricrea il modello.
 
 ## Auto-paint
 

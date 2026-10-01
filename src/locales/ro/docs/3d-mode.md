@@ -93,7 +93,7 @@ _Comparație schematică de contururi, nu simulare de slicer._
 
 Folosește-o pentru contururi curbe sau diagonale care par prea treptate. Las-o oprită pentru pixel art intenționat sau margini exacte de grilă. Niciuna dintre opțiuni nu repară detalii prea mici pentru imprimare și nu inventează rezoluție sursă lipsă.
 
-Geometria netezită este inactivă în [Flat Paint](flat-paint). Activarea ei dezactivează Flat Paint; Flat Paint folosește în schimb construcția sa de placă cu amprentă completă.
+Geometria netezită funcționează și cu [Flat Paint](flat-paint). Ambele orientări păstrează o placă plană și granițe comune între culori; alege o intensitate și reconstruiește pentru a o aplica.
 
 ## Auto-paint
 

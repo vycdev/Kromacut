@@ -245,7 +245,6 @@
         "smoothingMedium": "মাঝারি",
         "smoothingAggressive": "তীব্র",
         "smoothingHelp": "প্রিভিউ ও রপ্তানিতে মডেলের প্রান্ত মসৃণ করে। মাঝারি আগের মসৃণতা বজায় রাখে। প্রয়োগ করতে আবার তৈরি করুন।",
-        "smoothConnectedColorBoundaryEdgesWithFastWeldedTopology": "দ্রুত ওয়েল্ডেড টপোলজি দিয়ে যুক্ত রঙের সীমান্ত মসৃণ করুন। এটি চালু করলে সমতল প্রিন্ট মোড বন্ধ হয়।",
         "modelDimensions": "মডেল: {{width}}×{{height}}×{{depth}} mm"
     },
     "printInstructions": {

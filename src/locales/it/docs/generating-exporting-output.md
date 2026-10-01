@@ -46,7 +46,7 @@ L’anteprima può mostrare decine di miscele con poche bobine. Il 3MF assegna i
 
 STL non contiene colori né assegnazioni automatiche. Usa il piano copiato con i controlli cambio colore dello slicer. 3MF è comunque un modello, non G-code eseguibile: scegli stampante, ugello, profili, temperature e velocità, poi esegui slicing.
 
-Per **Flat Paint** è disponibile solo 3MF: un oggetto per filamento e, a faccia in giù predefinita, un supporto trasparente. L’opzione a faccia in su lo omette. STL senza colore e a geometria unica sarebbe inutile per entrambe le lastre. Flat Paint disattiva **Mesh levigata**, non utilizzando contorni levigati.
+Per **Flat Paint** è disponibile solo 3MF: un oggetto per filamento e, a faccia in giù predefinita, un supporto trasparente. L’opzione a faccia in su lo omette. STL senza colore e a geometria unica sarebbe inutile per entrambe le lastre. Entrambi gli orientamenti supportano tutte le intensità di **Mesh levigata**. Ricrea il modello dopo aver cambiato l’intensità per applicarla all’anteprima e alla geometria esportata.
 
 ## Istruzioni di stampa
 

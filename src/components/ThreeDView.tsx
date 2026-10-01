@@ -14,6 +14,7 @@ import {
     type MeshProgress,
 } from '../lib/meshing';
 import { LAYER_ACTIVATION_EPSILON } from '../lib/layerActivation';
+import { createFlatPaintMesher } from '../lib/flatPaintMeshing';
 import { quantizeHeightMap } from '../lib/heightDithering';
 import { normalizeHexColor as normalizeHexColorValue } from '../lib/colorUtils';
 import {
@@ -787,7 +788,7 @@ export default function ThreeDView({
             return;
         }
 
-        const buildSmoothMeshingStrength = flatPaint ? 'none' : smoothMeshingStrength;
+        const buildSmoothMeshingStrength = smoothMeshingStrength;
         const buildSmoothMeshing = buildSmoothMeshingStrength !== 'none';
 
         // Stable key of inputs to avoid duplicate builds when references unchanged
@@ -1411,6 +1412,14 @@ export default function ThreeDView({
                             );
                         };
 
+                        const meshFlatMask = await createFlatPaintMesher(
+                            orientedCounts,
+                            boxW,
+                            boxH,
+                            pixelSize,
+                            buildSmoothMeshingStrength
+                        );
+                        if (token !== buildTokenRef.current) return;
                         const flatMeshCache = new WeakMap<Uint8Array, Promise<MeshData>>();
                         const partIdxForProgress = (part: (typeof layout.parts)[number]) =>
                             layout.parts.indexOf(part);
@@ -1418,25 +1427,16 @@ export default function ThreeDView({
                             const cached = flatMeshCache.get(part.mask);
                             if (cached) return cached;
 
-                            const promise = generateGreedyMesh(
-                                part.mask,
-                                boxW,
-                                boxH,
-                                1,
-                                0,
-                                pixelSize,
-                                1,
-                                {
-                                    yieldIntervalMs: 8,
-                                    onProgress: (progress: MeshProgress) => {
-                                        pushPartDetail(
-                                            partIdxForProgress(part),
-                                            progress.label,
-                                            progressInSpan(0, 0.9, progress.progress)
-                                        );
-                                    },
-                                }
-                            );
+                            const promise = meshFlatMask(part.mask, {
+                                yieldIntervalMs: 8,
+                                onProgress: (progress: MeshProgress) => {
+                                    pushPartDetail(
+                                        partIdxForProgress(part),
+                                        progress.label,
+                                        progressInSpan(0, 0.9, progress.progress)
+                                    );
+                                },
+                            });
                             flatMeshCache.set(part.mask, promise);
                             return promise;
                         };
@@ -1446,9 +1446,7 @@ export default function ThreeDView({
                             if (token !== buildTokenRef.current) return;
                             if (part.activeCount === 0) continue;
 
-                            // Flat Paint always uses the greedy mesher: smoothed
-                            // boundaries would open gaps between side-by-side
-                            // color regions inside the slab.
+                            // Reuse the shared XY tessellation at each slab Z range.
                             const generatedMesh = remapMeshZRange(
                                 await getFlatMaskMesh(part),
                                 part.baseZ,
@@ -1473,7 +1471,7 @@ export default function ThreeDView({
                                     height: boxH,
                                     pixelSize,
                                     topZ: part.topZ * heightScale,
-                                    compactHeightfield: true,
+                                    compactHeightfield: !buildSmoothMeshing,
                                 }
                             );
                             const isCarrier = part.kind === 'carrier';

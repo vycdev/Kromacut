@@ -55,7 +55,7 @@ Verifica separatamente **Modello di aspetto**. Un punteggio alto non garantisce 
 
 ## Un interruttore ne ha spento un altro
 
-Due coppie sono esclusive: **Mesh levigata** e **Flat Paint**, e **Mantieni separazione colori** e **Dithering dell’altezza**. La prima sceglie geometrie diverse, la seconda assegnazioni diverse alle altezze. Vedi [Flat Paint](flat-paint) e [Auto-paint](auto-paint).
+**Mantieni separazione dei colori** e **Dithering dell’altezza** restano esclusivi perché assegnano i colori sorgente alle altezze stampabili in modi diversi. **Mesh levigata** e **Flat Paint** possono essere usati insieme; ricrea il modello dopo ogni modifica. Vedi [Flat Paint](flat-paint) e [Auto-paint](auto-paint).
 
 ## La separazione colori non trova risultati
 

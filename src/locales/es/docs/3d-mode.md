@@ -93,7 +93,7 @@ _Comparación esquemática de contornos, no simulación del laminador._
 
 Úsala para curvas o diagonales demasiado escalonadas. Déjala desactivada para arte de píxeles intencional o bordes exactos de cuadrícula. Ninguna opción repara detalles demasiado pequeños ni inventa resolución ausente.
 
-Malla suavizada está inactiva en [Pintura plana](flat-paint). Activarla desactiva Pintura plana, que usa su construcción de placa de superficie completa.
+Malla suavizada también funciona con [Pintura plana](flat-paint). Ambas orientaciones mantienen una placa plana y límites compartidos entre colores; elige una intensidad y reconstruye para aplicarla.
 
 ## Pintura automática
 

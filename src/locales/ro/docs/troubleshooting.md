@@ -55,7 +55,7 @@ Verifică separat rândul **Model de aspect**. Un scor general ridicat nu garant
 
 ## Un comutator l-a dezactivat pe altul
 
-Două perechi se exclud intenționat: **Geometrie netezită** și **Flat Paint**, respectiv **Păstrează separarea culorilor** și **Dithering de înălțime**. Prima pereche alege aranjamente geometrice diferite; a doua alege moduri diferite de atribuire a culorilor sursă înălțimilor imprimabile. Consultă [Flat Paint](flat-paint) și [Auto-paint](auto-paint).
+**Păstrează separarea culorilor** și **Dithering de înălțime** se exclud în continuare, deoarece atribuie diferit culorile sursă înălțimilor imprimabile. **Geometrie netezită** și **Flat Paint** pot fi folosite împreună; reconstruiește după schimbarea oricărei setări. Consultă [Flat Paint](flat-paint) și [Auto-paint](auto-paint).
 
 ## Separarea culorilor nu găsește un rezultat
 
