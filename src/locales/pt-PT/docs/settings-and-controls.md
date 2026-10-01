@@ -123,4 +123,16 @@ Um registo completo inclui informação básica de execução, instantâneo de f
 
 O registo destina-se a investigação e pode criar ficheiros grandes. Deixe desligado na impressão normal se não precisar dele.
 
+## Abrir ficheiros a partir do ambiente de trabalho
+
+As instalações de ambiente de trabalho associam os ficheiros `.kfil` e os antigos `.kapp` a perfis de filamentos, e os ficheiros `.kpal` a paletas. Faça duplo clique num ficheiro para o importar e selecionar no Kromacut. Se a aplicação já estiver aberta, é utilizada a janela existente. Aplicam-se as regras habituais de validação, migração, duplicados e preservação da calibração.
+
+Os ficheiros abertos a partir do ambiente de trabalho ficam em espera enquanto o editor de paletas, a caixa de diálogo de calibração ou o formulário para mudar o nome ou guardar um novo perfil estiver aberto. Conclua ou cancele essa sessão para continuar as importações pendentes; os nomes introduzidos e o perfil em edição mantêm-se inalterados até lá.
+
+As importações também ficam em espera enquanto edita o nome ou o campo HD de um filamento, ou enquanto o respetivo seletor de cor ou painel **Converter de TD** estiver aberto. Saia do campo ou feche o seletor ou painel para retomar as importações pendentes; as alterações aos filamentos por guardar continuam a exigir a sua decisão antes de serem substituídas por outro perfil.
+
+Antes de substituir alterações aos filamentos por guardar, o Kromacut apresenta **Manter alterações** ou **Abrir perfil**. Mantenha as alterações para as guardar primeiro; abrir o perfil descarta-as. Os ficheiros abertos desta forma devem ter menos de 32 MiB. Os ficheiros JSON genéricos, imagens e modelos mantêm os procedimentos habituais de importação.
+
+No Linux, as AppImages portáteis requerem integração no ambiente de trabalho para associar ficheiros. Se o Kromacut não for a aplicação predefinida, utilize **Abrir com** no gestor de ficheiros.
+
 Seguinte: [Resolução de problemas](troubleshooting).

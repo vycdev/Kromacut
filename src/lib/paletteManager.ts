@@ -287,6 +287,8 @@ function paletteContentEqual(a: CustomPalette, b: CustomPalette): boolean {
 export interface ImportPaletteResult {
     palettes: CustomPalette[];
     imported: CustomPalette[];
+    /** Accepted files in input order, including already-saved content matches. */
+    resolved: CustomPalette[];
     skipped: string[];
     overwritten: string[];
     renamed: string[];
@@ -309,6 +311,7 @@ export function importCustomPalettes(
     const result: ImportPaletteResult = {
         palettes: [...existing],
         imported: [],
+        resolved: [],
         skipped: [],
         overwritten: [],
         renamed: [],
@@ -360,12 +363,14 @@ export function importCustomPalettes(
             result.palettes[idMatch] = { ...palette, updatedAt: now };
             result.overwritten.push(palette.name);
             result.imported.push(result.palettes[idMatch]);
+            result.resolved.push(result.palettes[idMatch]);
             continue;
         }
 
         // 2. Content match (same colors + disabled set + names) → skip
         const contentMatch = result.palettes.find((p) => paletteContentEqual(p, palette));
         if (contentMatch) {
+            result.resolved.push(contentMatch);
             result.skipped.push(`${palette.name} (matches "${contentMatch.name}")`);
             continue;
         }
@@ -382,6 +387,7 @@ export function importCustomPalettes(
 
         result.palettes.push(palette);
         result.imported.push(palette);
+        result.resolved.push(palette);
     }
 
     return result;

@@ -390,6 +390,8 @@ function appearanceHasEvidence(appearance: AppearanceProfileV1 | undefined): boo
 export interface ImportResult {
     profiles: AutoPaintProfile[];
     imported: AutoPaintProfile[];
+    /** Accepted files in input order, including already-saved content matches. */
+    resolved: AutoPaintProfile[];
     skipped: string[];
     overwritten: string[];
     renamed: string[];
@@ -412,6 +414,7 @@ export function importProfiles(
     const result: ImportResult = {
         profiles: [...existing],
         imported: [],
+        resolved: [],
         skipped: [],
         overwritten: [],
         renamed: [],
@@ -463,6 +466,7 @@ export function importProfiles(
             result.profiles[idMatch] = { ...profile, updatedAt: now };
             result.overwritten.push(profile.name);
             result.imported.push(result.profiles[idMatch]);
+            result.resolved.push(result.profiles[idMatch]);
             continue;
         }
 
@@ -473,6 +477,7 @@ export function importProfiles(
                 appearanceEqual(p.appearance, appearance)
         );
         if (contentMatch) {
+            result.resolved.push(contentMatch);
             result.skipped.push(`${profile.name} (matches "${contentMatch.name}")`);
             continue;
         }
@@ -489,6 +494,7 @@ export function importProfiles(
 
         result.profiles.push(profile);
         result.imported.push(profile);
+        result.resolved.push(profile);
     }
 
     return result;

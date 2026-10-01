@@ -29,6 +29,32 @@
     "bundle": {
         "active": true,
         "targets": "all",
+        "fileAssociations": [
+            {
+                "ext": ["kfil", "kapp"],
+                "name": "Kromacut.FilamentProfile",
+                "description": "Kromacut filament profile",
+                "mimeType": "application/x-kromacut-filament-profile",
+                "role": "Editor",
+                "rank": "Owner",
+                "exportedType": {
+                    "identifier": "com.kromacut.filament-profile",
+                    "conformsTo": ["public.json"]
+                }
+            },
+            {
+                "ext": ["kpal"],
+                "name": "Kromacut.Palette",
+                "description": "Kromacut color palette",
+                "mimeType": "application/x-kromacut-palette",
+                "role": "Editor",
+                "rank": "Owner",
+                "exportedType": {
+                    "identifier": "com.kromacut.palette",
+                    "conformsTo": ["public.json"]
+                }
+            }
+        ],
         "icon": [
             "icons/32x32.png",
             "icons/128x128.png",
@@ -42,7 +68,8 @@
                 "silent": true
             },
             "nsis": {
-                "minimumWebview2Version": "114.0.1823.67"
+                "minimumWebview2Version": "114.0.1823.67",
+                "installerHooks": "windows/file-associations.nsh"
             }
         },
         "macOS": {

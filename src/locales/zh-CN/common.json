@@ -1,4 +1,15 @@
 {
+    "desktopFiles": {
+        "invalidProfile": "无效的配置文件",
+        "failedTitle": "无法打开文件",
+        "failedDescription": "无法打开“{{name}}”。请确认这是小于 32 MiB 且可读取的 Kromacut 文件，并且本地存储有可用空间。",
+        "unavailable": "文件打开功能暂时不可用。请重启 Kromacut 后重试。",
+        "unsavedTitle": "未保存的耗材修改",
+        "unsavedDescription": "打开“{{name}}”将替换未保存的耗材修改。请选择保留修改以便先保存，或打开配置以放弃修改。",
+        "keepEdits": "保留修改",
+        "openProfile": "打开配置",
+        "close": "关闭"
+    },
     "colorPicker": {
         "hue": "色相",
         "color": "颜色",

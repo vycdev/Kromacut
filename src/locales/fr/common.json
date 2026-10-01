@@ -1,4 +1,15 @@
 {
+  "desktopFiles": {
+    "invalidProfile": "Fichier de profil invalide",
+    "failedTitle": "Impossible d’ouvrir le fichier",
+    "failedDescription": "Impossible d’ouvrir « {{name}} ». Vérifiez qu’il s’agit d’un fichier Kromacut lisible de moins de 32 Mio et que le stockage local dispose d’espace.",
+    "unavailable": "L’ouverture des fichiers est temporairement indisponible. Redémarrez Kromacut et réessayez.",
+    "unsavedTitle": "Modifications des filaments non enregistrées",
+    "unsavedDescription": "L’ouverture de « {{name}} » remplacera vos modifications de filaments non enregistrées. Conservez-les pour les enregistrer d’abord, ou ouvrez le profil pour les abandonner.",
+    "keepEdits": "Conserver les modifications",
+    "openProfile": "Ouvrir le profil",
+    "close": "Fermer"
+  },
   "colorPicker": {
     "hue": "Teinte",
     "color": "Couleur",

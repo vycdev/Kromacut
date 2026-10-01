@@ -1,4 +1,15 @@
 {
+  "desktopFiles": {
+    "invalidProfile": "Ficheiro de perfil inválido",
+    "failedTitle": "Não foi possível abrir o ficheiro",
+    "failedDescription": "Não foi possível abrir «{{name}}». Verifique se é um ficheiro Kromacut legível com menos de 32 MiB e se existe espaço no armazenamento local.",
+    "unavailable": "A abertura de ficheiros está temporariamente indisponível. Reinicie o Kromacut e tente novamente.",
+    "unsavedTitle": "Alterações aos filamentos por guardar",
+    "unsavedDescription": "Abrir «{{name}}» substituirá as alterações aos filamentos por guardar. Mantenha as alterações para as guardar primeiro ou abra o perfil para as descartar.",
+    "keepEdits": "Manter alterações",
+    "openProfile": "Abrir perfil",
+    "close": "Fechar"
+  },
   "colorPicker": {
     "hue": "Matiz",
     "color": "Cor",

@@ -49,9 +49,21 @@ export interface UseProfileManagerOptions {
     filaments: Filament[];
     /** Setter to replace the filament list when loading a profile. */
     setFilaments: (filaments: Filament[]) => void;
+    /** App-owned editor state also defers incoming desktop files. */
+    showSaveNewPopover: boolean;
+    setShowSaveNewPopover: (open: boolean) => void;
+    showRenamePopover: boolean;
+    setShowRenamePopover: (open: boolean) => void;
 }
 
-export function useProfileManager({ filaments, setFilaments }: UseProfileManagerOptions) {
+export function useProfileManager({
+    filaments,
+    setFilaments,
+    showSaveNewPopover,
+    setShowSaveNewPopover,
+    showRenamePopover,
+    setShowRenamePopover,
+}: UseProfileManagerOptions) {
     const [initialState] = useState(() => {
         const loadedProfiles = loadProfiles();
         const lastId = loadLastProfileId();
@@ -68,13 +80,18 @@ export function useProfileManager({ filaments, setFilaments }: UseProfileManager
         };
     });
 
-    const [profiles, setProfiles] = useState<AutoPaintProfile[]>(initialState.profiles);
+    const [profiles, setProfilesState] = useState<AutoPaintProfile[]>(initialState.profiles);
+    const profilesRef = useRef(profiles);
+    // Successful writes update the import snapshot synchronously, before React renders.
+    // A delayed FileReader must merge with every profile saved since its read began.
+    const setProfiles = useCallback((updated: AutoPaintProfile[]) => {
+        profilesRef.current = updated;
+        setProfilesState(updated);
+    }, []);
     const [activeProfileId, setActiveProfileId] = useState<string | null>(
         initialState.activeProfileId
     );
-    const [showSaveNewPopover, setShowSaveNewPopover] = useState(false);
     const [saveProfileName, setSaveProfileName] = useState('');
-    const [showRenamePopover, setShowRenamePopover] = useState(false);
     const [renameProfileName, setRenameProfileName] = useState('');
     const [importFeedback, setImportFeedback] = useState<string | null>(null);
     const importInputRef = useRef<HTMLInputElement>(null);
@@ -114,7 +131,7 @@ export function useProfileManager({ filaments, setFilaments }: UseProfileManager
                 setImportFeedback(PROFILE_STORAGE_FAILURE_MESSAGE);
             }
         },
-        [filaments, profiles]
+        [filaments, profiles, setProfiles, setShowSaveNewPopover]
     );
 
     // Save (overwrite): updates existing profile in-place (templates are read-only)
@@ -129,7 +146,7 @@ export function useProfileManager({ filaments, setFilaments }: UseProfileManager
         ) {
             setImportFeedback(PROFILE_STORAGE_FAILURE_MESSAGE);
         }
-    }, [activeProfileId, filaments, profiles]);
+    }, [activeProfileId, filaments, profiles, setProfiles]);
 
     const handleRenameProfile = useCallback(
         (name: string) => {
@@ -149,7 +166,7 @@ export function useProfileManager({ filaments, setFilaments }: UseProfileManager
                 setImportFeedback(PROFILE_STORAGE_FAILURE_MESSAGE);
             }
         },
-        [activeProfileId, profiles]
+        [activeProfileId, profiles, setProfiles, setShowRenamePopover]
     );
 
     const handleLoadProfile = useCallback(
@@ -189,7 +206,7 @@ export function useProfileManager({ filaments, setFilaments }: UseProfileManager
                 setImportFeedback(PROFILE_STORAGE_FAILURE_MESSAGE);
             }
         },
-        [profiles, activeProfileId]
+        [profiles, activeProfileId, setProfiles]
     );
 
     const handleExportProfile = useCallback(async () => {
@@ -225,8 +242,17 @@ export function useProfileManager({ filaments, setFilaments }: UseProfileManager
                     'Save or overwrite the edited filament profile before tracking a Palette Proof'
                 );
             }
-            const record = buildPaletteProofRecord(activeProfile.filaments, snapshot, proof);
-            const updated = profiles.map((profile) =>
+            // Export can finish after its dialog closes and another profile is imported.
+            // Keep the captured owner, but merge into its latest saved data and list.
+            const owner = profilesRef.current.find((profile) => profile.id === activeProfileId);
+            if (!owner) {
+                throw new Error('Save a named filament profile before tracking a Palette Proof');
+            }
+            if (!profileFilamentsEqual(owner.filaments, activeProfile.filaments)) {
+                throw new Error('Palette Proof does not match the final printable stack');
+            }
+            const record = buildPaletteProofRecord(owner.filaments, snapshot, proof);
+            const updated = profilesRef.current.map((profile) =>
                 profile.id === activeProfileId
                     ? {
                           ...profile,
@@ -241,7 +267,7 @@ export function useProfileManager({ filaments, setFilaments }: UseProfileManager
             setProfiles(updated);
             return record;
         },
-        [activeProfile, activeProfileId, isDirty, profiles]
+        [activeProfile, activeProfileId, isDirty, setProfiles]
     );
 
     const handleSetPaletteTargetResponse = useCallback(
@@ -268,7 +294,7 @@ export function useProfileManager({ filaments, setFilaments }: UseProfileManager
             }
             setProfiles(updated);
         },
-        [activeProfile, activeProfileId, isDirty, profiles]
+        [activeProfile, activeProfileId, isDirty, profiles, setProfiles]
     );
 
     const handleCompletePaletteProofEvaluation = useCallback(
@@ -290,7 +316,7 @@ export function useProfileManager({ filaments, setFilaments }: UseProfileManager
             }
             setProfiles(updated);
         },
-        [activeProfile, activeProfileId, isDirty, profiles]
+        [activeProfile, activeProfileId, isDirty, profiles, setProfiles]
     );
 
     const handleReopenPaletteProofEvaluation = useCallback(
@@ -312,7 +338,7 @@ export function useProfileManager({ filaments, setFilaments }: UseProfileManager
             }
             setProfiles(updated);
         },
-        [activeProfile, activeProfileId, isDirty, profiles]
+        [activeProfile, activeProfileId, isDirty, profiles, setProfiles]
     );
 
     const handleDeletePaletteProof = useCallback(
@@ -334,7 +360,7 @@ export function useProfileManager({ filaments, setFilaments }: UseProfileManager
             }
             setProfiles(updated);
         },
-        [activeProfile, activeProfileId, isDirty, profiles]
+        [activeProfile, activeProfileId, isDirty, profiles, setProfiles]
     );
 
     const handleUpsertStackMatrixCalibration = useCallback(
@@ -358,7 +384,7 @@ export function useProfileManager({ filaments, setFilaments }: UseProfileManager
             }
             setProfiles(updated);
         },
-        [activeProfile, activeProfileId, isDirty, profiles]
+        [activeProfile, activeProfileId, isDirty, profiles, setProfiles]
     );
 
     const handleDeleteStackMatrixCalibration = useCallback(
@@ -380,7 +406,52 @@ export function useProfileManager({ filaments, setFilaments }: UseProfileManager
             }
             setProfiles(updated);
         },
-        [activeProfile, activeProfileId, isDirty, profiles]
+        [activeProfile, activeProfileId, isDirty, profiles, setProfiles]
+    );
+
+    const importText = useCallback(
+        (content: string, fileName: string, selectExisting = false): boolean => {
+            const text = content.replace(/^\uFEFF/, '');
+            const isCSV = /\.(csv|tsv)$/i.test(fileName);
+            const profileName = fileName.replace(/\.(csv|tsv)$/i, '') || 'HueForge Import';
+            const incoming = isCSV ? parseHueForgeCSV(text, profileName) : parseProfileFile(text);
+            if (!incoming) {
+                setImportFeedback('Invalid profile file');
+                return false;
+            }
+            const result = importProfiles(profilesRef.current, incoming, RESERVED_PROFILE_IDS);
+            if (result.imported.length > 0) {
+                if (!saveProfilesToStorage(result.profiles)) {
+                    setImportFeedback(
+                        'Import could not be saved. Existing profiles were left unchanged; free browser storage and try again.'
+                    );
+                    return false;
+                }
+                setProfiles(result.profiles);
+            }
+
+            // Build feedback message
+            const parts: string[] = [];
+            if (result.imported.length > 0) parts.push(`${result.imported.length} imported`);
+            if (result.overwritten.length > 0)
+                parts.push(`${result.overwritten.length} overwritten`);
+            if (result.skipped.length > 0)
+                parts.push(`${result.skipped.length} skipped (duplicates)`);
+            if (result.renamed.length > 0) parts.push(`${result.renamed.length} renamed`);
+            setImportFeedback(parts.join(', ') || 'No profiles found');
+
+            // A later entry in a batch may overwrite the first accepted profile.
+            // Select its final saved version, not the earlier resolved object.
+            const firstId = (selectExisting ? result.resolved : result.imported)[0]?.id;
+            const first = result.profiles.find((profile) => profile.id === firstId);
+            if (first) {
+                setActiveProfileId(first.id);
+                saveLastProfileId(first.id);
+                setFilaments(first.filaments.map((f) => ({ ...f })));
+            }
+            return result.resolved.length > 0;
+        },
+        [setProfiles, setFilaments]
     );
 
     const handleImportFile = useCallback(
@@ -388,50 +459,12 @@ export function useProfileManager({ filaments, setFilaments }: UseProfileManager
             const file = e.target.files?.[0];
             if (!file) return;
             const reader = new FileReader();
-            reader.onload = () => {
-                const content = reader.result as string;
-                const isCSV = /\.(csv|tsv)$/i.test(file.name);
-                const profileName = file.name.replace(/\.(csv|tsv)$/i, '') || 'HueForge Import';
-                const incoming = isCSV
-                    ? parseHueForgeCSV(content, profileName)
-                    : parseProfileFile(content);
-                if (!incoming) {
-                    console.error('Invalid profile file');
-                    return;
-                }
-                const result = importProfiles(profiles, incoming, RESERVED_PROFILE_IDS);
-                if (result.imported.length > 0) {
-                    if (!saveProfilesToStorage(result.profiles)) {
-                        setImportFeedback(
-                            'Import could not be saved. Existing profiles were left unchanged; free browser storage and try again.'
-                        );
-                        return;
-                    }
-                    setProfiles(result.profiles);
-                }
-
-                // Build feedback message
-                const parts: string[] = [];
-                if (result.imported.length > 0) parts.push(`${result.imported.length} imported`);
-                if (result.overwritten.length > 0)
-                    parts.push(`${result.overwritten.length} overwritten`);
-                if (result.skipped.length > 0)
-                    parts.push(`${result.skipped.length} skipped (duplicates)`);
-                if (result.renamed.length > 0) parts.push(`${result.renamed.length} renamed`);
-                setImportFeedback(parts.join(', ') || 'No profiles found');
-
-                // Auto-load the first imported profile
-                if (result.imported.length > 0) {
-                    const first = result.imported[0];
-                    setActiveProfileId(first.id);
-                    saveLastProfileId(first.id);
-                    setFilaments(first.filaments.map((f) => ({ ...f })));
-                }
-            };
+            reader.onload = () => importText(reader.result as string, file.name);
+            reader.onerror = () => setImportFeedback('Invalid profile file');
             reader.readAsText(file);
             e.target.value = '';
         },
-        [profiles, setFilaments]
+        [importText]
     );
 
     // Clear import feedback after a few seconds
@@ -487,6 +520,7 @@ export function useProfileManager({ filaments, setFilaments }: UseProfileManager
         handleDeleteProfile,
         handleExportProfile,
         handleImportFile,
+        importText,
         handleRegisterPaletteProof,
         handleSetPaletteTargetResponse,
         handleCompletePaletteProofEvaluation,

@@ -1,4 +1,15 @@
 {
+  "desktopFiles": {
+    "invalidProfile": "Archivo de perfil no válido",
+    "failedTitle": "No se pudo abrir el archivo",
+    "failedDescription": "No se pudo abrir «{{name}}». Comprueba que sea un archivo Kromacut legible de menos de 32 MiB y que haya espacio en el almacenamiento local.",
+    "unavailable": "La apertura de archivos no está disponible temporalmente. Reinicia Kromacut e inténtalo de nuevo.",
+    "unsavedTitle": "Cambios de filamentos sin guardar",
+    "unsavedDescription": "Abrir «{{name}}» reemplazará los cambios de filamentos sin guardar. Conserva los cambios para guardarlos primero o abre el perfil para descartarlos.",
+    "keepEdits": "Conservar cambios",
+    "openProfile": "Abrir perfil",
+    "close": "Cerrar"
+  },
   "colorPicker": {
     "hue": "Matiz",
     "color": "Color",

@@ -25,12 +25,14 @@ interface FilamentRowProps {
     filament: Filament;
     onUpdate: (id: string, updates: Partial<Omit<Filament, 'id'>>) => void;
     onRemove: (id: string) => void;
+    onEditingChange: (id: string, editing: boolean) => void;
 }
 
 const FilamentRow = React.memo(function FilamentRow({
     filament,
     onUpdate,
     onRemove,
+    onEditingChange,
 }: FilamentRowProps) {
     const { t } = useTranslation('printing');
     // Local state for the input value to allow free typing
@@ -63,6 +65,16 @@ const FilamentRow = React.memo(function FilamentRow({
     // "Convert from TD" popover state (conventional backlit/lithophane value).
     const [convertDraft, setConvertDraft] = useState('');
     const [convertOpen, setConvertOpen] = useState(false);
+    const [colorOpen, setColorOpen] = useState(false);
+    const [inputFocused, setInputFocused] = useState(false);
+    const editing = inputFocused || colorOpen || convertOpen || localColor !== filament.color;
+
+    // OS opens do not blur the active input. Hold them until drafts are committed,
+    // including color changes still waiting for the debounced parent update.
+    useEffect(() => {
+        onEditingChange(filament.id, editing);
+    }, [filament.id, editing, onEditingChange]);
+    useEffect(() => () => onEditingChange(filament.id, false), [filament.id, onEditingChange]);
 
     // Sync local TD state if prop changes externally
     useEffect(() => {
@@ -111,7 +123,12 @@ const FilamentRow = React.memo(function FilamentRow({
     };
 
     const handleNameKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-        if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+        if (e.key === 'Enter') {
+            // A queued import may focus its confirmation as this edit commits.
+            // Do not let the same Enter also activate that dialog's button.
+            e.preventDefault();
+            (e.target as HTMLInputElement).blur();
+        }
     };
 
     const handleBlur = () => {
@@ -140,15 +157,39 @@ const FilamentRow = React.memo(function FilamentRow({
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
         if (e.key === 'Enter') {
+            e.preventDefault();
             handleBlur();
             (e.target as HTMLInputElement).blur();
         }
     };
 
     return (
-        <div className="flex items-center gap-2 p-2 rounded-md border border-border/40 bg-card hover:border-border/80 transition-colors">
+        <div
+            className="flex items-center gap-2 p-2 rounded-md border border-border/40 bg-card hover:border-border/80 transition-colors"
+            onFocusCapture={(event) => {
+                // Portal inputs are protected by their popover's open state;
+                // unmounting them does not reliably fire a blur event.
+                const focused =
+                    event.target instanceof HTMLInputElement &&
+                    event.currentTarget.contains(event.target);
+                if (focused) onEditingChange(filament.id, true);
+                setInputFocused(focused);
+            }}
+            onBlurCapture={(event) => {
+                setInputFocused(
+                    event.relatedTarget instanceof HTMLInputElement &&
+                        event.currentTarget.contains(event.relatedTarget)
+                );
+            }}
+        >
             {/* Color Picker Popover */}
-            <Popover>
+            <Popover
+                open={colorOpen}
+                onOpenChange={(open) => {
+                    if (open) onEditingChange(filament.id, true);
+                    setColorOpen(open);
+                }}
+            >
                 <PopoverTrigger asChild>
                     <button
                         type="button"
@@ -217,7 +258,13 @@ const FilamentRow = React.memo(function FilamentRow({
             </div>
 
             {/* Convert from conventional (backlit/lithophane) TD */}
-            <Popover open={convertOpen} onOpenChange={setConvertOpen}>
+            <Popover
+                open={convertOpen}
+                onOpenChange={(open) => {
+                    if (open) onEditingChange(filament.id, true);
+                    setConvertOpen(open);
+                }}
+            >
                 <PopoverTrigger asChild>
                     <Button
                         variant="ghost"
@@ -245,7 +292,10 @@ const FilamentRow = React.memo(function FilamentRow({
                                 value={convertDraft}
                                 onChange={(e) => setConvertDraft(e.target.value)}
                                 onKeyDown={(e) => {
-                                    if (e.key === 'Enter') handleConvertFromTd();
+                                    if (e.key === 'Enter') {
+                                        e.preventDefault();
+                                        handleConvertFromTd();
+                                    }
                                 }}
                                 placeholder={t('filamentRow.eG40')}
                                 className="h-8 text-sm"
