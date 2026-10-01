@@ -256,7 +256,9 @@
     "tooManyColors_few": "Забагато кольорів ({{count, number}})",
     "tooManyColors_many": "Забагато кольорів ({{count, number}})"
   },
-  "threeDView": {
+    "threeDView": {
+        "buildFailed": "Не вдалося побудувати 3D-модель",
+        "buildFailedDetails": "Незавершену модель видалено. Натисніть «Побудувати 3D-модель», щоб повторити спробу. Помилка: {{error}}",
     "layerPreview": "Перегляд шарів",
     "previewBottomLayerCutoff": "Нижня межа шарів у перегляді",
     "previewTopLayerCutoff": "Верхня межа шарів у перегляді",
@@ -399,7 +401,7 @@
     "readingImageLayers": "Читання колірних шарів зображення",
     "buildingLayer": "Побудова колірного шару {{layer}} із {{total}}",
     "layerProgress": "Шар {{layer}} із {{total}}: {{label}}",
-    "flatPaintPartProgress": "Частина Flat Paint {{part}} із {{total}}: {{label}}",
+    "flatPaintPartProgress": "??????? ????? Flat Paint {{part}} ?? {{total}}: {{label}}",
     "partMeshComplete": "Сітку частини завершено",
     "selectingPixels": "Вибір активних пікселів",
     "preparingPreview": "Підготовка геометрії перегляду",

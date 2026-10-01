@@ -15,6 +15,10 @@ Use um fluxo multimaterial como AMS, CFS ou troca de ferramentas, com suporte ad
 
 _Cortes conceptuais. As cores identificam materiais; as etiquetas identificam a face de observação._
 
+O progresso conta partes da malha, n?o camadas impressas: v?rias partes coloridas podem partilhar uma camada. O indicador Modelo mostra o n?mero de camadas f?sicas, incluindo o suporte transparente quando utilizado. A pr?-visualiza??o corta a placa camada a camada; ambos os controlos cortam tamb?m as regi?es unidas de base e cor. A exporta??o inclui sempre o modelo completo. Build 3D Model regenera sempre o modelo, mesmo sem alterar as defini??es, e rep?e todas as camadas e a vista inicial da c?mara.
+
+Se a criação falhar, o Kromacut remove o modelo incompleto e apresenta o erro na pré-visualização. Prima Criar modelo 3D para tentar novamente; quando a criação terminar com êxito, as dimensões do modelo e a pré-visualização das camadas voltam a aparecer.
+
 ## Predefinição: face para baixo com suporte transparente
 
 Ative **Pintura plana** e deixe **Face para cima, sem camada transparente** desligada.

@@ -15,6 +15,10 @@ Use a multi-material workflow such as AMS, CFS, or a toolchanger with suitable s
 
 _Conceptual cross-sections. Colors identify materials; the labels identify the viewing face._
 
+The build progress counts mesh parts, not printed layers: several colored parts can share one layer. The Model badge shows the physical layer count, including the clear carrier when used. Layer Preview cuts the slab one physical layer at a time; both handles also cut through merged backing and color regions. Export always includes the complete model. Build 3D Model always regenerates the model, even with unchanged settings, and restores the full layer range and initial camera view.
+
+If a build fails, Kromacut removes the incomplete model and displays the error in the preview. Press Build 3D Model to retry; a successful build restores the model dimensions and Layer Preview.
+
 ## Default: Face-down With Clear Carrier
 
 Enable **Flat Paint** and leave **Face-up, no clear layer** off.

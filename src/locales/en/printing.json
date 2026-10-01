@@ -213,6 +213,8 @@
         "tooManyColors_other": "Too many colors ({{count, number}})"
     },
     "threeDView": {
+        "buildFailed": "3D model could not be built",
+        "buildFailedDetails": "The incomplete model was removed. Press Build 3D Model to retry. Error: {{error}}",
         "layerPreview": "Layer Preview",
         "previewBottomLayerCutoff": "Preview bottom layer cutoff",
         "previewTopLayerCutoff": "Preview top layer cutoff",
@@ -339,7 +341,7 @@
         "readingImageLayers": "Reading image color layers",
         "buildingLayer": "Building color layer {{layer}} of {{total}}",
         "layerProgress": "Layer {{layer}} of {{total}}: {{label}}",
-        "flatPaintPartProgress": "Flat Paint part {{part}} of {{total}}: {{label}}",
+        "flatPaintPartProgress": "Flat Paint mesh part {{part}} of {{total}}: {{label}}",
         "partMeshComplete": "Part mesh complete",
         "selectingPixels": "Selecting active pixels",
         "preparingPreview": "Preparing preview geometry",

@@ -15,6 +15,10 @@ Folosește un flux multimaterial, precum AMS, CFS sau un schimbător de scule, c
 
 _Secțiuni conceptuale. Culorile identifică materialele; etichetele identifică fața de vizualizare._
 
+Progresul gener?rii num?r? p?r?ile plasei, nu straturile imprimate: mai multe p?r?i colorate pot ocupa acela?i strat. Indicatorul Model arat? num?rul straturilor fizice, inclusiv suportul transparent c?nd este utilizat. Previzualizarea straturilor taie placa strat cu strat; ambele m?nere taie ?i regiunile unite de suport ?i culoare. Exportul include ?ntotdeauna modelul complet. Build 3D Model regenereaz? ?ntotdeauna modelul, chiar dac? set?rile nu s-au schimbat, ?i restabile?te ?ntregul interval de straturi ?i vederea ini?ial? a camerei.
+
+Dacă o construire eșuează, Kromacut elimină modelul incomplet și afișează eroarea în previzualizare. Apasă Construiește modelul 3D pentru a reîncerca; după o construire reușită, dimensiunile modelului și previzualizarea straturilor reapar.
+
 ## Implicit: fața în jos, cu suport transparent
 
 Activează **Flat Paint** și lasă **Fața în sus, fără strat transparent** dezactivat.

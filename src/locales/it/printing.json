@@ -234,7 +234,9 @@
     "colorCount_many": "{{count, number}} colori",
     "tooManyColors_many": "Troppi colori ({{count, number}})"
   },
-  "threeDView": {
+    "threeDView": {
+        "buildFailed": "Impossibile creare il modello 3D",
+        "buildFailedDetails": "Il modello incompleto è stato rimosso. Premi Crea modello 3D per riprovare. Errore: {{error}}",
     "layerPreview": "Anteprima degli strati",
     "previewBottomLayerCutoff": "Limite inferiore degli strati in anteprima",
     "previewTopLayerCutoff": "Limite superiore degli strati in anteprima",
@@ -369,7 +371,7 @@
     "readingImageLayers": "Lettura dei livelli colore dell’immagine",
     "buildingLayer": "Generazione del livello colore {{layer}} di {{total}}",
     "layerProgress": "Livello {{layer}} di {{total}}: {{label}}",
-    "flatPaintPartProgress": "Parte Flat Paint {{part}} di {{total}}: {{label}}",
+    "flatPaintPartProgress": "Parte della mesh Flat Paint {{part}} di {{total}}: {{label}}",
     "partMeshComplete": "Mesh della parte completata",
     "selectingPixels": "Selezione dei pixel attivi",
     "preparingPreview": "Preparazione della geometria di anteprima",

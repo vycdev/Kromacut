@@ -15,6 +15,10 @@ Verwende einen Mehrmaterialablauf wie AMS, CFS oder einen Werkzeugwechsler mit p
 
 _Schematische Querschnitte. Farben kennzeichnen Materialien, Beschriftungen die Betrachtungsseite._
 
+Der Erstellungsfortschritt z?hlt Netzteile, nicht Druckschichten: Mehrere farbige Teile k?nnen dieselbe Schicht belegen. Die Modellanzeige zeigt die Anzahl physischer Schichten einschlie?lich des transparenten Tr?gers, falls verwendet. Die Schichtvorschau schneidet die Platte in einzelnen Druckschichten; beide Regler schneiden auch zusammengefasste Unterbau- und Farbbereiche. Der Export enth?lt immer das vollst?ndige Modell. Build 3D Model erstellt das Modell auch bei unver?nderten Einstellungen neu und stellt den vollst?ndigen Schichtbereich sowie die urspr?ngliche Kameraansicht wieder her.
+
+Wenn die Erstellung fehlschlägt, entfernt Kromacut das unvollständige Modell und zeigt den Fehler in der Vorschau an. Klicke zum erneuten Versuch auf 3D-Modell erstellen. Nach erfolgreicher Erstellung werden Modellabmessungen und Schichtvorschau wieder angezeigt.
+
 ## Standard: Bildseite unten mit transparentem Träger
 
 Aktiviere **Flat Paint** und lass **Bildseite oben, ohne transparente Schicht** ausgeschaltet.

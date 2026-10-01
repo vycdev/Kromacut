@@ -213,6 +213,8 @@
         "tooManyColors_other": "色数が多すぎます（{{count, number}}色）"
     },
     "threeDView": {
+        "buildFailed": "3Dモデルを作成できませんでした",
+        "buildFailedDetails": "未完成のモデルは削除されました。「3Dモデルを作成」を押して再試行してください。エラー: {{error}}",
         "layerPreview": "レイヤープレビュー",
         "previewBottomLayerCutoff": "表示する下端レイヤー",
         "previewTopLayerCutoff": "表示する上端レイヤー",
@@ -339,7 +341,7 @@
         "readingImageLayers": "画像の色レイヤーを読み取り中",
         "buildingLayer": "色レイヤー{{layer}}/{{total}}を作成中",
         "layerProgress": "レイヤー{{layer}}/{{total}}：{{label}}",
-        "flatPaintPartProgress": "フラット印刷のパーツ{{part}}/{{total}}：{{label}}",
+        "flatPaintPartProgress": "??????????????{{part}}/{{total}}?{{label}}",
         "partMeshComplete": "パーツのメッシュ完成",
         "selectingPixels": "有効ピクセルを選択中",
         "preparingPreview": "プレビューの形状を準備中",

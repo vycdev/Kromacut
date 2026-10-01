@@ -213,6 +213,8 @@
         "tooManyColors_other": "बहुत अधिक रंग ({{count, number}})"
     },
     "threeDView": {
+        "buildFailed": "3D मॉडल नहीं बन सका",
+        "buildFailedDetails": "अधूरा मॉडल हटा दिया गया है। दोबारा कोशिश करने के लिए 3D मॉडल बनाएँ दबाएँ। त्रुटि: {{error}}",
         "layerPreview": "परत पूर्वावलोकन",
         "previewBottomLayerCutoff": "पूर्वावलोकन की निचली परत सीमा",
         "previewTopLayerCutoff": "पूर्वावलोकन की ऊपरी परत सीमा",
@@ -339,7 +341,7 @@
         "readingImageLayers": "चित्र की रंग परतें पढ़ी जा रही हैं",
         "buildingLayer": "{{total}} में से रंग परत {{layer}} बन रही है",
         "layerProgress": "परत {{layer}} / {{total}}: {{label}}",
-        "flatPaintPartProgress": "समतल प्रिंट भाग {{part}} / {{total}}: {{label}}",
+        "flatPaintPartProgress": "???? ?????? ??? ??? {{part}} / {{total}}: {{label}}",
         "partMeshComplete": "भाग का मेश पूरा",
         "selectingPixels": "सक्रिय पिक्सेल चुने जा रहे हैं",
         "preparingPreview": "पूर्वावलोकन ज्यामिति तैयार हो रही है",

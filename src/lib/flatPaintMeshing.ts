@@ -2,7 +2,6 @@ import { Vector2 } from 'three';
 import type { SmoothMeshingStrength } from '../types/index.ts';
 import {
     createBoundaryVertexMapperAsync,
-    generateGreedyMesh,
     triangulateBoundaryPreservingVertices,
     type MeshData,
     type MeshYieldOptions,
@@ -28,7 +27,8 @@ function createYield(options: MeshYieldOptions) {
 /**
  * One XY tessellation for every class and the carrier. The same class footprint
  * is reused at every Z level, so color interfaces and the carrier meet exactly.
- * None delegates to the existing Flat Paint mesher unchanged.
+ * None keeps grid vertices fixed, but shares corner repairs too: repairing
+ * each binary mask independently can expand neighboring colors into each other.
  */
 export async function createFlatPaintMesher(
     layerCounts: Uint16Array | Uint8Array,
@@ -38,11 +38,6 @@ export async function createFlatPaintMesher(
     strength: SmoothMeshingStrength,
     options: MeshYieldOptions = {}
 ): Promise<(mask: Uint8Array, options?: MeshYieldOptions) => Promise<MeshData>> {
-    if (strength === 'none') {
-        return (mask, meshOptions) =>
-            generateGreedyMesh(mask, width, height, 1, 0, pixelSize, 1, meshOptions);
-    }
-
     const maybeYield = createYield(options);
     const stride = width + 1;
     const getCell = (x: number, y: number) =>
@@ -56,7 +51,7 @@ export async function createFlatPaintMesher(
     };
 
     // Label transitions include both internal color boundaries and transparency.
-    for (let y = 0; y < height; y++) {
+    for (let y = 0; strength !== 'none' && y < height; y++) {
         for (let x = 0; x < width; x++) {
             const label = getCell(x, y);
             if (!label) continue;
@@ -70,14 +65,17 @@ export async function createFlatPaintMesher(
     }
     // Pin junctions rather than pulling a three/four-color intersection toward
     // one of its branches. All other chains use the existing strength presets.
-    const mapVertex = await createBoundaryVertexMapperAsync(
-        neighbors,
-        width,
-        height,
-        strength,
-        true,
-        options
-    );
+    const mapVertex =
+        strength === 'none'
+            ? (x: number, y: number): [number, number] => [x, y]
+            : await createBoundaryVertexMapperAsync(
+                  neighbors,
+                  width,
+                  height,
+                  strength,
+                  true,
+                  options
+              );
 
     // A repeated diagonal class must connect across an edge, not a zero-width
     // contact. Assign a small shared diamond to one incident cell. The other
@@ -127,7 +125,7 @@ export async function createFlatPaintMesher(
             y: center.y + (neighbor.y - center.y) * 0.1,
         };
     };
-    const cellPolygon = (x: number, y: number): Point[] => {
+    const cellPolygon = (x: number, y: number, includeOwnedDiamonds = true): Point[] => {
         const polygon: Point[] = [];
         const corners = [
             [x, y],
@@ -142,7 +140,7 @@ export async function createFlatPaintMesher(
             const owner = diamondOwners.get(vy * stride + vx);
             if (owner === undefined) {
                 polygon.push(vertex(vx, vy));
-            } else if (owner === y * width + x) {
+            } else if (includeOwnedDiamonds && owner === y * width + x) {
                 for (let step = 0; step < 4; step++) {
                     polygon.push(diamondPoint(vx, vy, (incoming[corner] + step) % 4));
                 }
@@ -169,7 +167,7 @@ export async function createFlatPaintMesher(
             lastCapProgress = Math.max(lastCapProgress, progress);
             meshOptions.onProgress?.({
                 phase: 'caps',
-                label: 'Building smooth mesh caps',
+                label: strength === 'none' ? 'Building mesh caps' : 'Building smooth mesh caps',
                 progress: lastCapProgress,
             });
         };
@@ -260,9 +258,31 @@ export async function createFlatPaintMesher(
                 if (specialCells[index]) {
                     visited[index] = 1;
                     if (!emitPolygon(cellPolygon(x, y))) {
-                        throw new Error(
-                            'Unable to triangulate a smoothed cap without breaking topology'
-                        );
+                        // A concave corner repair can defeat ear clipping when
+                        // almost-collinear edges round differently in Float32
+                        // and 3MF coordinates. Split off the owned diamonds:
+                        // the same footprint and boundary vertices are retained,
+                        // and the internal edges cancel just like rectangle caps.
+                        const pieces = [cellPolygon(x, y, false)];
+                        for (const [vx, vy] of [
+                            [x, y],
+                            [x + 1, y],
+                            [x + 1, y + 1],
+                            [x, y + 1],
+                        ]) {
+                            if (diamondOwners.get(vy * stride + vx) === index) {
+                                pieces.push(
+                                    directions.map((_, direction) =>
+                                        diamondPoint(vx, vy, direction)
+                                    )
+                                );
+                            }
+                        }
+                        if (!pieces.every(emitPolygon)) {
+                            throw new Error(
+                                `Unable to triangulate a Flat Paint cap at pixel (${x}, ${y}) without breaking topology`
+                            );
+                        }
                     }
                     completedCapCells++;
                     continue;
@@ -306,14 +326,14 @@ export async function createFlatPaintMesher(
         }
         meshOptions.onProgress?.({
             phase: 'walls',
-            label: 'Smooth mesh geometry complete',
+            label: strength === 'none' ? 'Mesh geometry complete' : 'Smooth mesh geometry complete',
             progress: 1,
         });
         return {
             positions: new Float32Array(positions),
             indices,
             metrics: {
-                mesher: 'smooth',
+                mesher: strength === 'none' ? 'greedy' : 'smooth',
                 elapsedMs: performance.now() - startedAt,
                 activePixelCount,
                 vertexCount: positions.length / 3,

@@ -213,6 +213,8 @@
         "tooManyColors_other": "颜色过多（{{count, number}}种）"
     },
     "threeDView": {
+        "buildFailed": "无法构建 3D 模型",
+        "buildFailedDetails": "已移除未完成的模型。请点击“构建 3D 模型”重试。错误：{{error}}",
         "layerPreview": "层预览",
         "previewBottomLayerCutoff": "预览底部层截断",
         "previewTopLayerCutoff": "预览顶部层截断",
@@ -339,7 +341,7 @@
         "readingImageLayers": "正在读取图像颜色层",
         "buildingLayer": "正在构建颜色层{{layer}}/{{total}}",
         "layerProgress": "第{{layer}}/{{total}}层：{{label}}",
-        "flatPaintPartProgress": "平面打印部件{{part}}/{{total}}：{{label}}",
+        "flatPaintPartProgress": "????????{{part}}/{{total}}?{{label}}",
         "partMeshComplete": "部件网格已完成",
         "selectingPixels": "正在选择有效像素",
         "preparingPreview": "正在准备预览几何体",

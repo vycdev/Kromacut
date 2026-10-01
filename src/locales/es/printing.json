@@ -234,7 +234,9 @@
     "colorCount_many": "{{count, number}} colores",
     "tooManyColors_many": "Demasiados colores ({{count, number}})"
   },
-  "threeDView": {
+    "threeDView": {
+        "buildFailed": "No se pudo crear el modelo 3D",
+        "buildFailedDetails": "Se ha eliminado el modelo incompleto. Pulsa Crear modelo 3D para volver a intentarlo. Error: {{error}}",
     "layerPreview": "Vista previa de capas",
     "previewBottomLayerCutoff": "Límite inferior de capas de la vista previa",
     "previewTopLayerCutoff": "Límite superior de capas de la vista previa",
@@ -369,7 +371,7 @@
     "readingImageLayers": "Leyendo las capas de color de la imagen",
     "buildingLayer": "Generando la capa de color {{layer}} de {{total}}",
     "layerProgress": "Capa {{layer}} de {{total}}: {{label}}",
-    "flatPaintPartProgress": "Pieza de pintura plana {{part}} de {{total}}: {{label}}",
+    "flatPaintPartProgress": "Parte de malla de pintura plana {{part}} de {{total}}: {{label}}",
     "partMeshComplete": "Malla de la pieza completada",
     "selectingPixels": "Seleccionando los píxeles activos",
     "preparingPreview": "Preparando la geometría de la vista previa",

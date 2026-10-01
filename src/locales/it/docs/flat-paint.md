@@ -15,6 +15,10 @@ Usa un sistema multimateriale come AMS, CFS o cambio utensile con slicer adatto.
 
 _Sezioni concettuali. I colori identificano i materiali; le etichette indicano la faccia da osservare._
 
+L?avanzamento conta le parti della mesh, non gli strati stampati: pi? parti colorate possono condividere uno strato. Il badge Modello mostra il numero di strati fisici, incluso il supporto trasparente se utilizzato. L?anteprima taglia la lastra uno strato alla volta; entrambe le maniglie tagliano anche le regioni unite di fondo e colore. L?esportazione include sempre il modello completo. Build 3D Model rigenera sempre il modello, anche senza modificare le impostazioni, e ripristina tutte le parti del modello e la vista iniziale della fotocamera.
+
+Se la creazione non riesce, Kromacut rimuove il modello incompleto e mostra l’errore nell’anteprima. Premi Crea modello 3D per riprovare; al termine di una creazione riuscita, ricompaiono le dimensioni del modello e l’anteprima dei livelli.
+
 ## Predefinito: faccia in giù con supporto trasparente
 
 Attiva **Flat Paint** e lascia **Faccia in su, senza strato trasparente** disattivato.

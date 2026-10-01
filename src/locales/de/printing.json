@@ -212,7 +212,9 @@
     "tooManyColors_one": "Zu viele Farben ({{count, number}})",
     "tooManyColors_other": "Zu viele Farben ({{count, number}})"
   },
-  "threeDView": {
+    "threeDView": {
+        "buildFailed": "Das 3D-Modell konnte nicht erstellt werden",
+        "buildFailedDetails": "Das unvollständige Modell wurde entfernt. Klicke zum erneuten Versuch auf 3D-Modell erstellen. Fehler: {{error}}",
     "layerPreview": "Schichtvorschau",
     "previewBottomLayerCutoff": "Untere Schichtgrenze der Vorschau",
     "previewTopLayerCutoff": "Obere Schichtgrenze der Vorschau",
@@ -339,7 +341,7 @@
     "readingImageLayers": "Bildfarbschichten werden gelesen",
     "buildingLayer": "Farbschicht {{layer}} von {{total}} wird erstellt",
     "layerProgress": "Schicht {{layer}} von {{total}}: {{label}}",
-    "flatPaintPartProgress": "Flat-Paint-Teil {{part}} von {{total}}: {{label}}",
+    "flatPaintPartProgress": "Flat-Paint-Netzteil {{part}} von {{total}}: {{label}}",
     "partMeshComplete": "Teilnetz fertig",
     "selectingPixels": "Aktive Pixel werden ausgewählt",
     "preparingPreview": "Vorschaugeometrie wird vorbereitet",

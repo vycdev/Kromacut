@@ -15,6 +15,10 @@ Usa un flujo multimaterial como AMS, CFS o un cambiador de herramientas con un l
 
 _Secciones conceptuales. Los colores identifican materiales; las etiquetas indican la cara de observación._
 
+El progreso cuenta partes de la malla, no capas impresas: varias partes de colores pueden compartir una capa. El indicador Modelo muestra el n?mero de capas f?sicas, incluido el soporte transparente cuando se utiliza. La vista previa corta la placa capa por capa; ambos controles tambi?n cortan las zonas de respaldo y color combinadas. La exportaci?n siempre incluye el modelo completo. Build 3D Model regenera siempre el modelo, incluso sin cambios en los ajustes, y restablece todas las capas y la vista inicial de la c?mara.
+
+Si falla la creación, Kromacut elimina el modelo incompleto y muestra el error en la vista previa. Pulsa Crear modelo 3D para volver a intentarlo; cuando finalice correctamente, volverán a aparecer las dimensiones del modelo y la vista previa de capas.
+
 ## Predeterminado: boca abajo con soporte transparente
 
 Activa **Pintura plana** y deja desactivado **Boca arriba, sin capa transparente**.

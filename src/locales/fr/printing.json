@@ -234,7 +234,9 @@
     "colorCount_many": "{{count, number}} couleurs",
     "tooManyColors_many": "Trop de couleurs ({{count, number}})"
   },
-  "threeDView": {
+    "threeDView": {
+        "buildFailed": "Impossible de créer le modèle 3D",
+        "buildFailedDetails": "Le modèle incomplet a été supprimé. Cliquez sur Construire le modèle 3D pour réessayer. Erreur : {{error}}",
     "layerPreview": "Aperçu des couches",
     "previewBottomLayerCutoff": "Limite inférieure des couches de l’aperçu",
     "previewTopLayerCutoff": "Limite supérieure des couches de l’aperçu",
@@ -369,7 +371,7 @@
     "readingImageLayers": "Lecture des couches de couleur de l’image",
     "buildingLayer": "Génération de la couche de couleur {{layer}} sur {{total}}",
     "layerProgress": "Couche {{layer}} sur {{total}} : {{label}}",
-    "flatPaintPartProgress": "Pièce de peinture à plat {{part}} sur {{total}} : {{label}}",
+    "flatPaintPartProgress": "Partie du maillage de peinture ? plat {{part}} sur {{total}} : {{label}}",
     "partMeshComplete": "Maillage de la pièce terminé",
     "selectingPixels": "Sélection des pixels actifs",
     "preparingPreview": "Préparation de la géométrie de l’aperçu",

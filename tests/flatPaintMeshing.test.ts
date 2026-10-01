@@ -2,9 +2,10 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import test from 'node:test';
 import { createFlatPaintMesher } from '../src/lib/flatPaintMeshing.ts';
-import { generateGreedyMesh, type MeshData } from '../src/lib/meshing.ts';
+import type { MeshData } from '../src/lib/meshing.ts';
 import { inspectMeshIntegrity } from './meshDiagnostics.ts';
 import { logoFixturePath, maskFromPngAlpha } from './imageFixtures.ts';
+import { flatPaintPrecisionFixture } from './flatPaintPrecisionFixture.ts';
 
 const noYield = { yieldIntervalMs: Infinity, onYield: async () => undefined };
 const strengths = ['minimal', 'medium', 'aggressive'] as const;
@@ -53,7 +54,7 @@ async function checkTiling(
     counts: Uint16Array,
     width: number,
     height: number,
-    strength: (typeof strengths)[number],
+    strength: 'none' | (typeof strengths)[number],
     pixelSize = 0.1
 ) {
     const meshMask = await createFlatPaintMesher(
@@ -103,14 +104,36 @@ async function checkTiling(
     return opaque;
 }
 
-test('None preserves existing Flat Paint geometry byte for byte', async () => {
-    const counts = Uint16Array.from([1, 2, 0, 2, 1, 3]);
-    const meshMask = await createFlatPaintMesher(counts, 3, 2, 0.1, 'none', noYield);
+test('None tiles diagonal colors without expanding binary masks into neighboring colors', async () => {
+    const counts = Uint16Array.from([1, 2, 2, 1]);
+    const opaque = await checkTiling(counts, 2, 2, 'none', 1);
+    assert.ok(Math.abs(inspectMeshIntegrity(opaque).signedVolume - 4) < 1e-7);
+});
+
+test('nearly collinear corner repairs retain closed, disjoint caps at print coordinates', async () => {
+    const { counts, width, height, pixelSize } = flatPaintPrecisionFixture();
+    // Medium previously threw halfway through this image, leaving just backing
+    // parts in the preview. Also cover the unsmoothed path and both other presets.
+    for (const strength of ['none', ...strengths] as const) {
+        await checkTiling(counts, width, height, strength, pixelSize);
+    }
+});
+
+test('None keeps staircase grid vertices fixed away from diagonal contacts', async () => {
+    const rows = fixtures[0];
+    const counts = Uint16Array.from(rows.join(''), Number);
+    const mesher = await createFlatPaintMesher(
+        counts,
+        rows[0].length,
+        rows.length,
+        1,
+        'none',
+        noYield
+    );
     for (const mask of masksFor(counts)) {
-        const actual = await meshMask(mask, noYield);
-        const expected = await generateGreedyMesh(mask, 3, 2, 1, 0, 0.1, 1, noYield);
-        assert.deepEqual(actual.positions, expected.positions);
-        assert.deepEqual(actual.indices, expected.indices);
+        const mesh = await mesher(mask, noYield);
+        assert.ok([...mesh.positions].every(Number.isInteger));
+        assert.equal(mesh.metrics?.mesher, 'greedy');
     }
 });
 
@@ -176,7 +199,7 @@ test('chunked Flat Paint relaxation preserves the geometry from before the respo
 test('all Flat Paint strengths keep colors and the carrier joined with closed topology', async (t) => {
     for (const [fixture, rows] of fixtures.entries()) {
         const counts = Uint16Array.from(rows.join(''), Number);
-        for (const strength of strengths) {
+        for (const strength of ['none', ...strengths] as const) {
             for (const pixelSize of [0.01, 0.4]) {
                 await t.test(`${fixture}: ${strength}, ${pixelSize} mm`, async () => {
                     await checkTiling(counts, rows[0].length, rows.length, strength, pixelSize);

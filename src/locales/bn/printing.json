@@ -213,6 +213,8 @@
         "tooManyColors_other": "অতিরিক্ত রং ({{count, number}}টি)"
     },
     "threeDView": {
+        "buildFailed": "3D মডেল তৈরি করা যায়নি",
+        "buildFailedDetails": "অসম্পূর্ণ মডেলটি সরানো হয়েছে। আবার চেষ্টা করতে 3D মডেল তৈরি করুন চাপুন। ত্রুটি: {{error}}",
         "layerPreview": "স্তরের প্রিভিউ",
         "previewBottomLayerCutoff": "প্রিভিউয়ের নিচের স্তরের সীমা",
         "previewTopLayerCutoff": "প্রিভিউয়ের ওপরের স্তরের সীমা",
@@ -339,7 +341,7 @@
         "readingImageLayers": "ছবির রঙের স্তর পড়া হচ্ছে",
         "buildingLayer": "{{total}}টির মধ্যে রঙের স্তর {{layer}} তৈরি হচ্ছে",
         "layerProgress": "স্তর {{layer}} / {{total}}: {{label}}",
-        "flatPaintPartProgress": "সমতল প্রিন্টের অংশ {{part}} / {{total}}: {{label}}",
+        "flatPaintPartProgress": "???? ????????? ??? ??? {{part}} / {{total}}: {{label}}",
         "partMeshComplete": "অংশের মেশ সম্পূর্ণ",
         "selectingPixels": "সক্রিয় পিক্সেল বাছা হচ্ছে",
         "preparingPreview": "প্রিভিউয়ের জ্যামিতি প্রস্তুত হচ্ছে",

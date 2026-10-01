@@ -440,7 +440,8 @@ test('Flat Paint part masks produce manifold greedy meshes', async () => {
 async function buildFixturePartMeshes(
     layout = buildFixtureLayout(),
     strength: SmoothMeshingStrength = 'none',
-    layerCounts = FIXTURE.layerCounts
+    layerCounts = FIXTURE.layerCounts,
+    legacyCompactStl = false
 ) {
     const pixelSize = 0.1;
     const root = new THREE.Group();
@@ -454,24 +455,10 @@ async function buildFixturePartMeshes(
     );
 
     for (const part of layout.parts) {
-        const meshData =
-            strength === 'none'
-                ? await generateGreedyMesh(
-                      part.mask,
-                      FIXTURE.width,
-                      FIXTURE.height,
-                      part.topZ - part.baseZ,
-                      part.baseZ,
-                      pixelSize,
-                      1,
-                      noYieldOptions
-                  )
-                : await meshMask(part.mask, noYieldOptions);
-        if (strength !== 'none') {
-            for (let i = 2; i < meshData.positions.length; i += 3) {
-                meshData.positions[i] =
-                    part.baseZ + meshData.positions[i] * (part.topZ - part.baseZ);
-            }
+        const meshData = await meshMask(part.mask, noYieldOptions);
+        for (let i = 2; i < meshData.positions.length; i += 3) {
+            meshData.positions[i] =
+                part.baseZ + meshData.positions[i] * (part.topZ - part.baseZ);
         }
         const geometry = new THREE.BufferGeometry();
         geometry.setAttribute('position', new THREE.BufferAttribute(meshData.positions, 3));
@@ -484,7 +471,7 @@ async function buildFixturePartMeshes(
             height: FIXTURE.height,
             pixelSize,
             topZ: part.topZ,
-            compactHeightfield: strength === 'none',
+            compactHeightfield: legacyCompactStl,
         };
 
         const mesh = new THREE.Mesh(
@@ -502,7 +489,7 @@ async function buildFixturePartMeshes(
 }
 
 test('Flat Paint parts compact into a manifold uniform-height STL slab', async () => {
-    const { layout, root } = await buildFixturePartMeshes();
+    const { layout, root } = await buildFixturePartMeshes(undefined, 'none', undefined, true);
 
     const blob = await exportObjectToStlBlob(root);
     const buffer = await blob.arrayBuffer();
@@ -707,7 +694,7 @@ test('smooth Flat Paint exports closed filament shells at every strength and ori
     installFileReaderPolyfill();
     const { exportObjectTo3MFBlob } = await loadExport3mfModule();
     for (const orientation of ['face-up', 'face-down'] as const) {
-        for (const strength of ['minimal', 'medium', 'aggressive'] as const) {
+        for (const strength of ['none', 'minimal', 'medium', 'aggressive'] as const) {
             await t.test(`${orientation}, ${strength}`, async () => {
                 // Repeated diagonal classes exercise the shared corner tessellation.
                 const layerCounts = Uint16Array.from([1, 2, 3, 2, 1, 2]);

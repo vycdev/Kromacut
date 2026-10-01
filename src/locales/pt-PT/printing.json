@@ -234,7 +234,9 @@
     "colorCount_many": "{{count, number}} cores",
     "tooManyColors_many": "Demasiadas cores ({{count, number}})"
   },
-  "threeDView": {
+    "threeDView": {
+        "buildFailed": "Não foi possível criar o modelo 3D",
+        "buildFailedDetails": "O modelo incompleto foi removido. Prima Criar modelo 3D para tentar novamente. Erro: {{error}}",
     "layerPreview": "Pré-visualização de camadas",
     "previewBottomLayerCutoff": "Limite inferior de camadas da pré-visualização",
     "previewTopLayerCutoff": "Limite superior de camadas da pré-visualização",
@@ -369,7 +371,7 @@
     "readingImageLayers": "A ler as camadas de cor da imagem",
     "buildingLayer": "A gerar a camada de cor {{layer}} de {{total}}",
     "layerProgress": "Camada {{layer}} de {{total}}: {{label}}",
-    "flatPaintPartProgress": "Peça de pintura plana {{part}} de {{total}}: {{label}}",
+    "flatPaintPartProgress": "Parte da malha de pintura plana {{part}} de {{total}}: {{label}}",
     "partMeshComplete": "Malha da peça concluída",
     "selectingPixels": "A selecionar os píxeis ativos",
     "preparingPreview": "A preparar a geometria da pré-visualização",
