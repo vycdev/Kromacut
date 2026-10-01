@@ -62,6 +62,81 @@ test('None matches greedy geometry and Medium preserves the original smooth defa
     }
 });
 
+test('Aggressive removes diagonal oscillation beyond Medium in every orientation', async (t: TestContext) => {
+    const size = 64;
+    for (const pixelSize of [0.01, 0.4]) {
+        for (let orientation = 0; orientation < 8; orientation++) {
+            await t.test(`orientation ${orientation}, pixel size ${pixelSize}`, async () => {
+                const rotations = orientation % 4;
+                const reflected = orientation >= 4;
+                const pixels = new Uint8Array(size * size);
+                for (let y = 0; y < size; y++) {
+                    for (let x = 0; x <= y; x++) {
+                        let targetX = reflected ? size - 1 - x : x;
+                        let targetY = y;
+                        for (let rotation = 0; rotation < rotations; rotation++) {
+                            [targetX, targetY] = [size - 1 - targetY, targetX];
+                        }
+                        pixels[targetY * size + targetX] = 1;
+                    }
+                }
+                const deviations: number[] = [];
+                for (const strength of ['minimal', 'medium', 'aggressive'] as const) {
+                    const mesh = await generateSmoothMesh(
+                        pixels,
+                        size,
+                        size,
+                        0.08,
+                        0.2,
+                        pixelSize,
+                        1,
+                        { ...noYieldOptions, strength }
+                    );
+                    assertHealthyMesh(`${strength} diagonal orientation ${orientation}`, mesh);
+                    assert.deepEqual(inspectRoundedExportTopology(mesh), {
+                        boundaryEdgeCount: 0,
+                        overusedEdgeCount: 0,
+                        skippedTriangleCount: 0,
+                    });
+                    const distances: number[] = [];
+                    for (let i = 0; i < mesh.positions.length; i += 3) {
+                        let x = mesh.positions[i] / pixelSize;
+                        let y = mesh.positions[i + 1] / pixelSize;
+                        // Undo rotations/reflection on grid corners, then inspect
+                        // the central diagonal away from the triangle's endpoints.
+                        for (let rotation = 0; rotation < rotations; rotation++) {
+                            [x, y] = [y, size - x];
+                        }
+                        if (reflected) x = size - x;
+                        const originX = Math.round(x),
+                            originY = Math.round(y);
+                        if (
+                            originX >= 20 &&
+                            originX <= 40 &&
+                            originY >= 20 &&
+                            originY <= 40 &&
+                            (originX - originY === 0 || originX - originY === 1)
+                        ) {
+                            distances.push(Math.abs(x - y - 0.5) / Math.SQRT2);
+                        }
+                    }
+                    assert.ok(
+                        distances.length > 20,
+                        'expected vertices on both sides of the staircase'
+                    );
+                    deviations.push(Math.max(...distances));
+                }
+                const [minimal, medium, aggressive] = deviations;
+                assert.ok(medium < minimal, 'Medium should soften the staircase more than Minimal');
+                assert.ok(
+                    aggressive < medium * 0.1,
+                    `Aggressive should remove residual diagonal steps: ${JSON.stringify({ minimal, medium, aggressive })}`
+                );
+            });
+        }
+    }
+});
+
 test('all smoothing strengths keep every 3x3 footprint manifold after export rounding', async () => {
     for (let bits = 1; bits < 512; bits++) {
         const pixels = Uint8Array.from({ length: 9 }, (_, i) => (bits >>> i) & 1);

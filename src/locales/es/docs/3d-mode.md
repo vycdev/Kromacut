@@ -83,7 +83,7 @@ Suaviza los contornos del modelo en la vista previa y las exportaciones. Medio c
 | **Ninguno** | Pixel art, bordes exactos de cuadrícula o generación más rápida. |
 | **Mínimo** | Limpieza ligera de esquinas dentadas. |
 | **Medio** | El resultado habitual del ajuste activado anterior. |
-| **Intenso** | Suavizado más intenso a lo largo de los contornos, con el mismo límite de desplazamiento y sin pasadas adicionales. |
+| **Intenso** | Suavizado más intenso de los contornos y los escalones restantes, con el mismo límite de desplazamiento que Medio. |
 
 El desplazamiento se mantiene por debajo de medio píxel. Reconstruye el modelo y revisa la vista previa del laminador. Los ajustes antiguos activado/desactivado pasan a Medio/Ninguno.
 

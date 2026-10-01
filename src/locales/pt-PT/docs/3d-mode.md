@@ -83,7 +83,7 @@ Suaviza os contornos do modelo na pré-visualização e nas exportações. Médi
 | **Nenhuma** | Pixel art, contornos exatos da grelha ou geração mais rápida. |
 | **Mínima** | Limpeza ligeira dos cantos irregulares. |
 | **Média** | O resultado familiar da opção anteriormente ativada. |
-| **Intensa** | Suavização mais forte ao longo dos contornos, com o mesmo limite de deslocação e sem passagens adicionais. |
+| **Intensa** | Suavização mais forte dos contornos e degraus restantes, com o mesmo limite de deslocação de Média. |
 
 A deslocação mantém-se abaixo de meio píxel. Reconstrua o modelo e verifique a pré-visualização no slicer. As definições antigas ligada/desligada passam a Média/Nenhuma.
 

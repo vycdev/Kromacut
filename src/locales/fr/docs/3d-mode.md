@@ -83,7 +83,7 @@ Adoucit les contours du modèle dans l’aperçu et les exports. Moyen reproduit
 | **Aucun** | Pixel art, contours carrés exacts ou génération la plus rapide. |
 | **Minimal** | Nettoyage léger des angles irréguliers. |
 | **Moyen** | Résultat familier de l’ancien réglage activé. |
-| **Intensif** | Lissage plus fort le long des contours, avec la même limite de déplacement et sans passes supplémentaires. |
+| **Intensif** | Lissage plus fort le long des contours, y compris les marches restantes, avec la même limite de déplacement que Moyen. |
 
 Le déplacement reste inférieur à un demi-pixel. Reconstruisez le modèle, puis vérifiez l’aperçu du trancheur. Les anciens réglages activé/désactivé deviennent Moyen/Aucun.
 

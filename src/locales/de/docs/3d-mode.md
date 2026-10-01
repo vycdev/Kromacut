@@ -83,7 +83,7 @@ Glättet Modellkonturen in Vorschau und Exporten. Mittel entspricht der bisherig
 | **Keine** | Pixel-Art, exakte Rasterkanten oder schnellste Erstellung. |
 | **Minimal** | Leichte Glättung gezackter Ecken. |
 | **Mittel** | Das vertraute Ergebnis der bisherigen aktivierten Einstellung. |
-| **Stark** | Stärkere Glättung entlang der Konturen bei gleicher Bewegungsgrenze und ohne zusätzliche Durchläufe. |
+| **Stark** | Stärkere Glättung entlang der Konturen und verbleibenden Stufen bei gleicher Bewegungsgrenze wie Mittel. |
 
 Die Bewegung bleibt unter einem halben Pixel. Modell neu erstellen und Slicer-Vorschau prüfen. Bisherige Ein/Aus-Einstellungen werden zu Mittel/Keine.
 

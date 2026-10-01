@@ -83,7 +83,7 @@ Netezește contururile modelului în previzualizare și exporturi. Medie păstre
 | **Fără** | Pixel art, margini exacte pe grilă sau generarea cea mai rapidă. |
 | **Minimă** | Netezire ușoară a colțurilor zimțate. |
 | **Medie** | Rezultatul familiar al setării activate anterior. |
-| **Intensă** | Netezire mai puternică de-a lungul contururilor, cu aceeași limită de deplasare și fără treceri suplimentare. |
+| **Intensă** | Netezire mai puternică de-a lungul contururilor, inclusiv a treptelor rămase, cu aceeași limită de deplasare ca Medie. |
 
 Deplasarea rămâne sub jumătate de pixel. Reconstruiește modelul și verifică previzualizarea în slicer. Setările vechi activat/dezactivat devin Medie/Fără.
 

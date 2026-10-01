@@ -53,13 +53,14 @@ interface Rect {
 
 type PixelMask = Uint8Array | Uint8ClampedArray | boolean[];
 
-// Medium is byte-for-byte compatible with the original toggle. Aggressive spreads
-// rounding farther along boundary chains without extra passes or a larger envelope.
+// Medium is byte-for-byte compatible with the original toggle. Aggressive starts
+// with that result, then uses one stable half-strength pass to remove residual
+// stair-step oscillation without enlarging the movement envelope.
 // Every move stays below half a pixel so neighboring grid vertices cannot cross.
 const SMOOTH_PRESETS = {
-    minimal: { maxMove: 0.2, iterations: 2, relaxation: 0.5 },
-    medium: { maxMove: 0.49, iterations: 10, relaxation: 0.75 },
-    aggressive: { maxMove: 0.49, iterations: 10, relaxation: 0.9 },
+    minimal: { maxMove: 0.2, iterations: 2, relaxation: 0.5, finalRelaxation: 0.5 },
+    medium: { maxMove: 0.49, iterations: 10, relaxation: 0.75, finalRelaxation: 0.75 },
+    aggressive: { maxMove: 0.49, iterations: 11, relaxation: 0.75, finalRelaxation: 0.5 },
 } as const;
 const THREE_MF_COORD_SCALE = 100_000;
 
@@ -398,7 +399,7 @@ function createGridVertexMapper(
         return (x: number, y: number): [number, number] => [x, y];
     }
 
-    const { maxMove, iterations, relaxation } =
+    const { maxMove, iterations, relaxation, finalRelaxation } =
         SMOOTH_PRESETS[strength === 'none' ? 'medium' : strength];
 
     const stride = width + 1;
@@ -469,6 +470,7 @@ function createGridVertexMapper(
 
     for (let iteration = 0; iteration < iterations; iteration++) {
         const nextPositions = new Map<number, [number, number]>();
+        const iterationRelaxation = iteration === iterations - 1 ? finalRelaxation : relaxation;
 
         for (const [key, neighbors] of boundaryNeighbors) {
             const origin = origins.get(key)!;
@@ -490,8 +492,8 @@ function createGridVertexMapper(
             averageY /= neighbors.size;
 
             const candidate = clampMove(origin[0], origin[1], [
-                current[0] + (averageX - current[0]) * relaxation,
-                current[1] + (averageY - current[1]) * relaxation,
+                current[0] + (averageX - current[0]) * iterationRelaxation,
+                current[1] + (averageY - current[1]) * iterationRelaxation,
             ]);
 
             nextPositions.set(key, candidate);

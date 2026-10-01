@@ -83,7 +83,7 @@ Ammorbidisce i contorni del modello nell’anteprima e nelle esportazioni. Media
 | **Nessuna** | Pixel art, bordi esatti della griglia o generazione più rapida. |
 | **Minima** | Pulizia leggera degli angoli frastagliati. |
 | **Media** | Il risultato familiare della precedente impostazione attiva. |
-| **Intensa** | Levigatura più intensa lungo i contorni, con lo stesso limite di spostamento e senza passaggi aggiuntivi. |
+| **Intensa** | Levigatura più intensa lungo i contorni, compresi i gradini residui, con lo stesso limite di spostamento di Media. |
 
 Lo spostamento rimane inferiore a mezzo pixel. Ricostruisci il modello e controlla l’anteprima nello slicer. Le impostazioni attiva/disattiva diventano Media/Nessuna.
 

@@ -81,7 +81,7 @@ Choose a smoothing strength for the physical model. The selected strength applie
 | **None** | Pixel art, exact square-grid edges, or the fastest generation. Matches the previous disabled setting. |
 | **Minimal** | A light cleanup of jagged corners while retaining more pixel detail. |
 | **Medium** | The familiar result from the previous enabled setting. |
-| **Aggressive** | Stronger smoothing along curved or diagonal outlines. Keeps the same bounded movement as Medium, with no extra smoothing passes. |
+| **Aggressive** | Stronger smoothing along curved or diagonal outlines, including remaining stair steps. Keeps the same bounded movement as Medium. |
 
 All smoothing presets keep boundary movement below half a source pixel and preserve welded caps and walls. Smoothing changes exported geometry; it does not add image detail or repair unprintably small features. Rebuild and inspect the slicer preview after changing the strength. Existing saved on/off settings load as Medium/None.
 
