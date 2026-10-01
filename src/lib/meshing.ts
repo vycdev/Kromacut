@@ -1,4 +1,5 @@
 import { ShapeUtils, Vector2 } from 'three';
+import type { SmoothMeshingStrength } from '../types/index.ts';
 
 export interface MeshData {
     positions: Float32Array;
@@ -36,6 +37,11 @@ interface MeshYieldOptions {
 interface GridMeshOptions extends MeshYieldOptions {
     mesher: 'greedy' | 'smooth';
     smoothBoundary: boolean;
+    strength?: SmoothMeshingStrength;
+}
+
+interface SmoothMeshOptions extends MeshYieldOptions {
+    strength?: SmoothMeshingStrength;
 }
 
 interface Rect {
@@ -47,9 +53,15 @@ interface Rect {
 
 type PixelMask = Uint8Array | Uint8ClampedArray | boolean[];
 
-const SMOOTH_VERTEX_MAX_MOVE = 0.49;
-const SMOOTH_BOUNDARY_ITERATIONS = 10;
-const SMOOTH_BOUNDARY_STRENGTH = 0.75;
+// Medium is byte-for-byte compatible with the original toggle. Aggressive starts
+// with that result, then uses one stable half-strength pass to remove residual
+// stair-step oscillation without enlarging the movement envelope.
+// Every move stays below half a pixel so neighboring grid vertices cannot cross.
+const SMOOTH_PRESETS = {
+    minimal: { maxMove: 0.2, iterations: 2, relaxation: 0.5, finalRelaxation: 0.5 },
+    medium: { maxMove: 0.49, iterations: 10, relaxation: 0.75, finalRelaxation: 0.75 },
+    aggressive: { maxMove: 0.49, iterations: 11, relaxation: 0.75, finalRelaxation: 0.5 },
+} as const;
 const THREE_MF_COORD_SCALE = 100_000;
 
 function progressInUnitSpan(index: number, count: number, start: number, span: number) {
@@ -127,10 +139,7 @@ function meshLabel(mesher: 'greedy' | 'smooth', label: string) {
 }
 
 function triangleArea2(a: Vector2, b: Vector2, c: Vector2) {
-    return (
-        (b.x - a.x) * (c.y - a.y) -
-        (b.y - a.y) * (c.x - a.x)
-    );
+    return (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
 }
 
 function pointInsideTriangle(
@@ -274,8 +283,7 @@ function triangulateBoundaryPreservingVertices(
             for (const vertex of chain) {
                 const point = roundedPoints[vertex];
                 if (Math.abs(triangleArea2(a, point, b)) > collinearEpsilon) return null;
-                const projection =
-                    (point.x - a.x) * segmentX + (point.y - a.y) * segmentY;
+                const projection = (point.x - a.x) * segmentX + (point.y - a.y) * segmentY;
                 if (
                     projection < previousProjection - collinearEpsilon ||
                     projection < -collinearEpsilon ||
@@ -384,11 +392,15 @@ function createGridVertexMapper(
     meshingPixels: PixelMask,
     width: number,
     height: number,
-    smoothBoundary: boolean
+    smoothBoundary: boolean,
+    strength: SmoothMeshingStrength = 'medium'
 ) {
     if (!smoothBoundary) {
         return (x: number, y: number): [number, number] => [x, y];
     }
+
+    const { maxMove, iterations, relaxation, finalRelaxation } =
+        SMOOTH_PRESETS[strength === 'none' ? 'medium' : strength];
 
     const stride = width + 1;
     const getCell = (x: number, y: number) =>
@@ -438,15 +450,15 @@ function createGridVertexMapper(
         const dy = targetY - originY;
         const distance = Math.hypot(dx, dy);
 
-        if (distance <= SMOOTH_VERTEX_MAX_MOVE || distance <= 1e-8) {
+        if (distance <= maxMove || distance <= 1e-8) {
             return clampToBounds([targetX, targetY]);
         }
 
-        const scale = SMOOTH_VERTEX_MAX_MOVE / distance;
+        const scale = maxMove / distance;
         return clampToBounds([originX + dx * scale, originY + dy * scale]);
     };
 
-    const positions = new Map<number, [number, number]>();
+    let positions = new Map<number, [number, number]>();
     const origins = new Map<number, [number, number]>();
 
     for (const key of boundaryNeighbors.keys()) {
@@ -456,8 +468,9 @@ function createGridVertexMapper(
         positions.set(key, [x, y]);
     }
 
-    for (let iteration = 0; iteration < SMOOTH_BOUNDARY_ITERATIONS; iteration++) {
+    for (let iteration = 0; iteration < iterations; iteration++) {
         const nextPositions = new Map<number, [number, number]>();
+        const iterationRelaxation = iteration === iterations - 1 ? finalRelaxation : relaxation;
 
         for (const [key, neighbors] of boundaryNeighbors) {
             const origin = origins.get(key)!;
@@ -479,17 +492,16 @@ function createGridVertexMapper(
             averageY /= neighbors.size;
 
             const candidate = clampMove(origin[0], origin[1], [
-                current[0] + (averageX - current[0]) * SMOOTH_BOUNDARY_STRENGTH,
-                current[1] + (averageY - current[1]) * SMOOTH_BOUNDARY_STRENGTH,
+                current[0] + (averageX - current[0]) * iterationRelaxation,
+                current[1] + (averageY - current[1]) * iterationRelaxation,
             ]);
 
             nextPositions.set(key, candidate);
         }
 
-        positions.clear();
-        for (const [key, position] of nextPositions) {
-            positions.set(key, position);
-        }
+        // The next pass only reads this map. Reuse it directly rather than
+        // clearing and copying every boundary position after each iteration.
+        positions = nextPositions;
     }
 
     return (x: number, y: number): [number, number] => {
@@ -555,7 +567,8 @@ async function generateGridMesh(
         meshingPixels,
         width,
         height,
-        options.smoothBoundary
+        options.smoothBoundary,
+        options.strength
     );
 
     const getOrAddVertex = (x: number, y: number, isTop: boolean): number => {
@@ -740,10 +753,7 @@ async function generateGridMesh(
             if (!options.smoothBoundary) return new Vector2(vx, vy);
 
             const [mappedX, mappedY] = getGridVertexXY(vx, vy);
-            return new Vector2(
-                Math.fround(mappedX * pixelSize),
-                Math.fround(mappedY * pixelSize)
-            );
+            return new Vector2(Math.fround(mappedX * pixelSize), Math.fround(mappedY * pixelSize));
         });
         // Cap points in integer 3MF coordinate units — the exact grid the
         // exporter serializes and welds on. Degeneracy checks on these
@@ -763,11 +773,7 @@ async function generateGridMesh(
             : facePoints;
         const capAreaEpsilon = Math.max(Number.EPSILON, 1e-8 * pixelSize * pixelSize);
         const faces = options.smoothBoundary
-            ? triangulateBoundaryPreservingVertices(
-                  facePoints,
-                  roundedFacePoints,
-                  capAreaEpsilon
-              )
+            ? triangulateBoundaryPreservingVertices(facePoints, roundedFacePoints, capAreaEpsilon)
             : ShapeUtils.triangulateShape(facePoints, []);
         if (!faces) {
             throw new Error('Unable to triangulate a smoothed cap without breaking topology');
@@ -937,7 +943,10 @@ async function generateGridMesh(
 
     reportProgress({
         phase: 'walls',
-        label: options.mesher === 'smooth' ? 'Smooth mesh geometry complete' : 'Mesh geometry complete',
+        label:
+            options.mesher === 'smooth'
+                ? 'Smooth mesh geometry complete'
+                : 'Mesh geometry complete',
         progress: 1,
     });
 
@@ -968,13 +977,34 @@ export async function generateSmoothMesh(
     zOffset: number,
     pixelSize: number,
     heightScale: number,
-    options?: MeshYieldOptions
+    options?: SmoothMeshOptions
 ): Promise<MeshData> {
-    return generateGridMesh(activePixels, width, height, thickness, zOffset, pixelSize, heightScale, {
-        ...options,
-        mesher: 'smooth',
-        smoothBoundary: true,
-    });
+    if (options?.strength === 'none') {
+        return generateGreedyMesh(
+            activePixels,
+            width,
+            height,
+            thickness,
+            zOffset,
+            pixelSize,
+            heightScale,
+            options
+        );
+    }
+    return generateGridMesh(
+        activePixels,
+        width,
+        height,
+        thickness,
+        zOffset,
+        pixelSize,
+        heightScale,
+        {
+            ...options,
+            mesher: 'smooth',
+            smoothBoundary: true,
+        }
+    );
 }
 
 /**
@@ -1005,9 +1035,18 @@ export async function generateGreedyMesh(
     heightScale: number,
     options?: MeshYieldOptions
 ): Promise<MeshData> {
-    return generateGridMesh(activePixels, width, height, thickness, zOffset, pixelSize, heightScale, {
-        ...options,
-        mesher: 'greedy',
-        smoothBoundary: false,
-    });
+    return generateGridMesh(
+        activePixels,
+        width,
+        height,
+        thickness,
+        zOffset,
+        pixelSize,
+        heightScale,
+        {
+            ...options,
+            mesher: 'greedy',
+            smoothBoundary: false,
+        }
+    );
 }

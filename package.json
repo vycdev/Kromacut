@@ -16,6 +16,7 @@
         "benchmark:calibrated-exact": "node --expose-gc --no-warnings --experimental-strip-types tests/benchmark/calibratedOptimizer.ts",
         "benchmark:calibrated-series": "node scripts/benchmark-calibrated-series.mjs",
         "benchmark:hotpaths": "node --no-warnings --experimental-strip-types tests/benchmark/performanceHotPaths.ts",
+        "benchmark:meshing": "node --no-warnings --experimental-strip-types tests/benchmark/smoothMeshing.ts",
         "profile:calibrated": "node scripts/profile-calibrated.mjs",
         "profile:compare": "node scripts/compare-calibrated-profiles.mjs",
         "test:e2e": "playwright test --grep @smoke",

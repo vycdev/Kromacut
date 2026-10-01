@@ -46,7 +46,7 @@ An Auto-paint preview may show dozens of blended colors made from only a few rea
 
 STL does not carry filament colors or automatic spool assignments. Use the copied swap plan with the slicer's color-change controls. A 3MF is still a model, not ready-to-run G-code: choose your own printer, nozzle, filament profiles, temperatures and speeds, then slice it.
 
-For **Flat Paint** models the download menu offers only 3MF: the model contains one object per physical filament and, in the default face-down layout, a transparent carrier object. The optional face-up layout omits that carrier. An uncolored single-geometry STL of either flat slab would be useless. Flat Paint turns off **Smooth Meshing** because the flat slab layout does not use smoothed boundary contours.
+For **Flat Paint** models the download menu offers only 3MF: the model contains one object per physical filament and, in the default face-down layout, a transparent carrier object. The optional face-up layout omits that carrier. An uncolored single-geometry STL of either flat slab would be useless. Flat Paint uses **None** for **Smooth Meshing** because the flat slab layout does not use smoothed boundary contours.
 
 ## Print Instructions
 

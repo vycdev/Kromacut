@@ -3,7 +3,14 @@ import { translateRuntimeMessage } from '../lib/runtimeMessages';
 import { useEffect, useState } from 'react';
 import { CollapsibleCard, DirtyDot } from '@/components/CollapsibleCard';
 import { Input, NumberInput } from '@/components/ui/input';
-import { Switch } from '@/components/ui/switch';
+import {
+    Select,
+    SelectTrigger,
+    SelectValue,
+    SelectContent,
+    SelectItem,
+} from '@/components/ui/select';
+import type { SmoothMeshingStrength } from '../types';
 import { RotateCcw } from 'lucide-react';
 
 interface PrintSettingsCardProps {
@@ -12,12 +19,12 @@ interface PrintSettingsCardProps {
     pixelSize: number;
     effectiveLineWidth: number;
     modelSizeEstimate?: { width: number; height: number; depth: number } | null;
-    smoothMeshing: boolean;
+    smoothMeshingStrength: SmoothMeshingStrength;
     onLayerHeightChange: (v: number) => void;
     onSlicerFirstLayerHeightChange: (v: number) => void;
     onPixelSizeChange: (v: number) => void;
     onEffectiveLineWidthChange: (v: number) => void;
-    onSmoothMeshingChange: (v: boolean) => void;
+    onSmoothMeshingStrengthChange: (v: SmoothMeshingStrength) => void;
     onReset: () => void;
     allDefault?: boolean;
 }
@@ -106,12 +113,12 @@ export default function PrintSettingsCard({
     pixelSize,
     effectiveLineWidth,
     modelSizeEstimate,
-    smoothMeshing,
+    smoothMeshingStrength,
     onLayerHeightChange,
     onSlicerFirstLayerHeightChange,
     onPixelSizeChange,
     onEffectiveLineWidthChange,
-    onSmoothMeshingChange,
+    onSmoothMeshingStrengthChange,
     onReset,
     allDefault = false,
 }: PrintSettingsCardProps) {
@@ -324,17 +331,38 @@ export default function PrintSettingsCard({
                             {t('printSettingsCard.smoothMeshing')}
                         </span>
                         <p className="text-xs text-muted-foreground">
-                            {t(
-                                'printSettingsCard.smoothConnectedColorBoundaryEdgesWithFastWeldedTopology'
-                            )}
+                            {t('printSettingsCard.smoothingHelp')}
                         </p>
                     </div>
-                    <Switch
-                        id="smooth-meshing"
-                        data-testid="print-smooth-meshing"
-                        checked={smoothMeshing}
-                        onCheckedChange={onSmoothMeshingChange}
-                    />
+                    <Select
+                        value={smoothMeshingStrength}
+                        onValueChange={(value) =>
+                            onSmoothMeshingStrengthChange(value as SmoothMeshingStrength)
+                        }
+                    >
+                        <SelectTrigger
+                            id="smooth-meshing"
+                            data-testid="print-smooth-meshing"
+                            aria-label={t('printSettingsCard.smoothMeshing')}
+                            className="w-36 shrink-0"
+                        >
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="none">
+                                {t('printSettingsCard.smoothingNone')}
+                            </SelectItem>
+                            <SelectItem value="minimal">
+                                {t('printSettingsCard.smoothingMinimal')}
+                            </SelectItem>
+                            <SelectItem value="medium">
+                                {t('printSettingsCard.smoothingMedium')}
+                            </SelectItem>
+                            <SelectItem value="aggressive">
+                                {t('printSettingsCard.smoothingAggressive')}
+                            </SelectItem>
+                        </SelectContent>
+                    </Select>
                 </div>
             </div>
         </CollapsibleCard>

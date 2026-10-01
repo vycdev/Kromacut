@@ -47,7 +47,7 @@ These layouts have different geometry. **Build 3D Model** again after changing t
 | Flat Paint, default | Bottom through clear carrier | Mirrored, reversed columns with foundation behind.  | Per-filament objects plus carrier. |
 | Flat Paint, face-up | Exposed flat top             | Normal order with foundation below shorter columns. | Per-filament objects; no carrier.  |
 
-Flat Paint and **Smooth Meshing** do not operate together. The slab uses full-footprint side-by-side regions instead of smoothed contours. Enabling Smooth Meshing disables Flat Paint; select the desired layout and rebuild when switching.
+Flat Paint and **Smooth Meshing** do not operate together. The slab uses full-footprint side-by-side regions instead of smoothed contours. Selecting a Smooth Meshing strength other than **None** disables Flat Paint; select the desired layout and rebuild when switching.
 
 ## Export And Check
 

@@ -674,6 +674,9 @@ function App(): React.ReactElement | null {
                 exportObjectTo3MFBlob(obj, {
                     layerHeight: builtModelState.layerHeight,
                     firstLayerHeight: builtModelState.slicerFirstLayerHeight,
+                    smoothMeshingStrength: builtFlatPaint
+                        ? 'none'
+                        : builtModelState.smoothMeshingStrength,
                     layerFilamentColors: builtModelAutoPaint
                         ? builtModelState.autoPaintFilamentSwatches?.map((s) => s.hex)
                         : undefined,
@@ -1001,7 +1004,9 @@ function App(): React.ReactElement | null {
                                                 printableFeaturePixels={
                                                     builtModelState.printableFeaturePixels
                                                 }
-                                                smoothMeshing={builtModelState.smoothMeshing}
+                                                smoothMeshingStrength={
+                                                    builtModelState.smoothMeshingStrength
+                                                }
                                                 isOrtho={isOrtho}
                                                 flatPaint={builtFlatPaint}
                                                 flatPaintFaceUp={!!builtModelState.flatPaintFaceUp}

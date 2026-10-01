@@ -1,6 +1,7 @@
 import { Trans, useTranslation } from 'react-i18next';
 import { CollapsibleCard, DirtyDot } from '@/components/CollapsibleCard';
 import type { SwapEntry } from '../hooks/useSwapPlan';
+import type { SmoothMeshingStrength } from '../types';
 
 interface PrintInstructionsProps {
     swapPlan: SwapEntry[];
@@ -14,6 +15,7 @@ interface PrintInstructionsProps {
     flatPaint?: boolean;
     /** Flat Paint is printed face-up without a transparent carrier. */
     flatPaintFaceUp?: boolean;
+    smoothMeshingStrength?: SmoothMeshingStrength;
 }
 
 export default function PrintInstructions({
@@ -26,8 +28,15 @@ export default function PrintInstructions({
     colorCount = 0,
     flatPaint = false,
     flatPaintFaceUp = false,
+    smoothMeshingStrength = 'none',
 }: PrintInstructionsProps) {
     const { t } = useTranslation('printing');
+    const strengthKeys = {
+        none: 'printSettingsCard.smoothingNone',
+        minimal: 'printSettingsCard.smoothingMinimal',
+        medium: 'printSettingsCard.smoothingMedium',
+        aggressive: 'printSettingsCard.smoothingAggressive',
+    };
     return (
         <CollapsibleCard
             id="print-instructions"
@@ -64,6 +73,10 @@ export default function PrintInstructions({
                         {t('printInstructions.recommendedSettings')}
                     </div>
                     <div className="space-y-1 text-muted-foreground text-xs">
+                        <div data-testid="print-instructions-smoothing">
+                            {t('printSettingsCard.smoothMeshing')}:{' '}
+                            {t(strengthKeys[flatPaint ? 'none' : smoothMeshingStrength])}
+                        </div>
                         <div>
                             <Trans
                                 ns="printing"

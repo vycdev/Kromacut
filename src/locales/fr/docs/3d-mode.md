@@ -76,6 +76,17 @@ Les commandes manuelles et les instructions de changement prennent en charge **6
 
 Sans lissage, les contours suivent la grille carrée des pixels. Avec le lissage, les frontières connectées deviennent une géométrie lissée et soudée. La différence est exportée ; ce n’est pas un filtre d’aperçu.
 
+Adoucit les contours du modèle dans l’aperçu et les exports. Moyen reproduit le lissage d’origine. Reconstruisez pour appliquer.
+
+| Force | Utilisation |
+| --- | --- |
+| **Aucun** | Pixel art, contours carrés exacts ou génération la plus rapide. |
+| **Minimal** | Nettoyage léger des angles irréguliers. |
+| **Moyen** | Résultat familier de l’ancien réglage activé. |
+| **Intensif** | Lissage plus fort le long des contours, y compris les marches restantes, avec la même limite de déplacement que Moyen. |
+
+Le déplacement reste inférieur à un demi-pixel. Reconstruisez le modèle, puis vérifiez l’aperçu du trancheur. Les anciens réglages activé/désactivé deviennent Moyen/Aucun.
+
 ![Comparaison de contours diagonaux en escaliers et lissés sur la même grille source.](12_smooth_boundaries.svg)
 
 _Comparaison schématique de contours, pas une simulation de découpe._

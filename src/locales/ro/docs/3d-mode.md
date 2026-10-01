@@ -76,6 +76,17 @@ Comenzile Manual și instrucțiunile de schimbare acceptă **64 de culori**. Red
 
 Cu netezirea oprită, contururile urmează grila pătrată de pixeli. Cu ea pornită, limitele conectate sunt netezite într-o geometrie sudată. Diferența se exportă, nu este un filtru de previzualizare.
 
+Netezește contururile modelului în previzualizare și exporturi. Medie păstrează netezirea originală. Reconstruiește pentru aplicare.
+
+| Intensitate | Utilizare |
+| --- | --- |
+| **Fără** | Pixel art, margini exacte pe grilă sau generarea cea mai rapidă. |
+| **Minimă** | Netezire ușoară a colțurilor zimțate. |
+| **Medie** | Rezultatul familiar al setării activate anterior. |
+| **Intensă** | Netezire mai puternică de-a lungul contururilor, inclusiv a treptelor rămase, cu aceeași limită de deplasare ca Medie. |
+
+Deplasarea rămâne sub jumătate de pixel. Reconstruiește modelul și verifică previzualizarea în slicer. Setările vechi activat/dezactivat devin Medie/Fără.
+
 ![Contururi diagonale în trepte de pixeli și netezite, comparate pe aceeași grilă sursă.](12_smooth_boundaries.svg)
 
 _Comparație schematică de contururi, nu simulare de slicer._

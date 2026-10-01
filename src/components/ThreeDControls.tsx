@@ -28,6 +28,7 @@ import type {
     AutoPaintRepeatLimit,
     AutoPaintTransitionOpacity,
     Swatch,
+    SmoothMeshingStrength,
     ThreeDControlsStateShape,
 } from '../types';
 import PrintSettingsCard from './PrintSettingsCard';
@@ -159,10 +160,10 @@ export default function ThreeDControls({
     // --- Print Settings ---
     const [initialPrintSettings] = useState(() => {
         const stored = loadPrintSettingsFromStorage();
-        const storedSmoothMeshing =
-            stored?.smoothMeshing ??
-            persisted?.smoothMeshing ??
-            DEFAULT_PRINT_SETTINGS.smoothMeshing;
+        const storedSmoothMeshingStrength =
+            stored?.smoothMeshingStrength ??
+            persisted?.smoothMeshingStrength ??
+            DEFAULT_PRINT_SETTINGS.smoothMeshingStrength;
         return {
             layerHeight:
                 stored?.layerHeight ?? persisted?.layerHeight ?? DEFAULT_PRINT_SETTINGS.layerHeight,
@@ -172,7 +173,7 @@ export default function ThreeDControls({
                 DEFAULT_PRINT_SETTINGS.slicerFirstLayerHeight,
             pixelSize:
                 stored?.pixelSize ?? persisted?.pixelSize ?? DEFAULT_PRINT_SETTINGS.pixelSize,
-            smoothMeshing: storedSmoothMeshing,
+            smoothMeshingStrength: storedSmoothMeshingStrength,
         };
     });
 
@@ -181,7 +182,9 @@ export default function ThreeDControls({
         initialPrintSettings.slicerFirstLayerHeight
     );
     const [pixelSize, setPixelSize] = useState<number>(initialPrintSettings.pixelSize);
-    const [smoothMeshing, setSmoothMeshing] = useState<boolean>(initialPrintSettings.smoothMeshing);
+    const [smoothMeshingStrength, setSmoothMeshingStrength] = useState<SmoothMeshingStrength>(
+        initialPrintSettings.smoothMeshingStrength
+    );
     const [calibrationLayerHeight, setCalibrationLayerHeight] = useState<number>(
         persisted?.calibrationLayerHeight ?? initialPrintSettings.layerHeight
     );
@@ -250,11 +253,11 @@ export default function ThreeDControls({
     }, []);
 
     const flatPaintActive = paintMode === 'autopaint' && flatPaint;
-    const effectiveSmoothMeshing = flatPaintActive ? false : smoothMeshing;
+    const effectiveSmoothMeshingStrength = flatPaintActive ? 'none' : smoothMeshingStrength;
 
-    const handleSmoothMeshingChange = useCallback((enabled: boolean) => {
-        setSmoothMeshing(enabled);
-        if (enabled) {
+    const handleSmoothMeshingStrengthChange = useCallback((strength: SmoothMeshingStrength) => {
+        setSmoothMeshingStrength(strength);
+        if (strength !== 'none') {
             setFlatPaint(false);
         }
     }, []);
@@ -284,7 +287,7 @@ export default function ThreeDControls({
             optimizerAlgorithm,
             optimizerSeed,
             regionWeightingMode,
-            smoothMeshing,
+            smoothMeshingStrength,
         });
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [
@@ -306,7 +309,7 @@ export default function ThreeDControls({
         optimizerAlgorithm,
         optimizerSeed,
         regionWeightingMode,
-        smoothMeshing,
+        smoothMeshingStrength,
     ]);
 
     useEffect(() => {
@@ -314,9 +317,9 @@ export default function ThreeDControls({
             layerHeight,
             slicerFirstLayerHeight,
             pixelSize,
-            smoothMeshing,
+            smoothMeshingStrength,
         });
-    }, [layerHeight, slicerFirstLayerHeight, pixelSize, smoothMeshing]);
+    }, [layerHeight, slicerFirstLayerHeight, pixelSize, smoothMeshingStrength]);
 
     // --- Color Slicing ---
     const {
@@ -340,7 +343,7 @@ export default function ThreeDControls({
         setLayerHeight(DEFAULT_PRINT_SETTINGS.layerHeight);
         setSlicerFirstLayerHeight(DEFAULT_PRINT_SETTINGS.slicerFirstLayerHeight);
         setPixelSize(DEFAULT_PRINT_SETTINGS.pixelSize);
-        setSmoothMeshing(DEFAULT_PRINT_SETTINGS.smoothMeshing);
+        setSmoothMeshingStrength(DEFAULT_PRINT_SETTINGS.smoothMeshingStrength);
         setDitherLineWidth(DEFAULT_EFFECTIVE_LINE_WIDTH);
         resetHeightsToValues(
             DEFAULT_PRINT_SETTINGS.layerHeight,
@@ -490,6 +493,7 @@ export default function ThreeDControls({
         disabled: isInstructionOverLimit,
         flatPaint: instructionFlatPaint,
         flatPaintFaceUp: instructionFlatPaintFaceUp,
+        smoothMeshingStrength: builtState?.smoothMeshingStrength ?? effectiveSmoothMeshingStrength,
     });
 
     // --- Apply handler ---
@@ -542,7 +546,7 @@ export default function ThreeDControls({
                     fingerprint: printableFeatureSimulation.fingerprint,
                 }),
                 calibrationLayerHeight,
-                smoothMeshing,
+                smoothMeshingStrength,
             });
             return;
         }
@@ -562,7 +566,7 @@ export default function ThreeDControls({
             optimizerSeed,
             regionWeightingMode,
             calibrationLayerHeight,
-            smoothMeshing,
+            smoothMeshingStrength,
         });
     }, [
         onChange,
@@ -590,7 +594,7 @@ export default function ThreeDControls({
         optimizerSeed,
         regionWeightingMode,
         calibrationLayerHeight,
-        smoothMeshing,
+        smoothMeshingStrength,
         autoPaintResult,
         autoPaintSliceData,
         printableFeatureSimulation,
@@ -658,12 +662,12 @@ export default function ThreeDControls({
                 pixelSize={pixelSize}
                 effectiveLineWidth={ditherLineWidth}
                 modelSizeEstimate={modelSizeEstimate}
-                smoothMeshing={effectiveSmoothMeshing}
+                smoothMeshingStrength={effectiveSmoothMeshingStrength}
                 onLayerHeightChange={setLayerHeight}
                 onSlicerFirstLayerHeightChange={setSlicerFirstLayerHeight}
                 onPixelSizeChange={setPixelSize}
                 onEffectiveLineWidthChange={setDitherLineWidth}
-                onSmoothMeshingChange={handleSmoothMeshingChange}
+                onSmoothMeshingStrengthChange={handleSmoothMeshingStrengthChange}
                 onReset={handleResetPrintSettings}
                 allDefault={
                     ditherLineWidth === DEFAULT_EFFECTIVE_LINE_WIDTH &&
@@ -671,7 +675,7 @@ export default function ThreeDControls({
                         layerHeight,
                         slicerFirstLayerHeight,
                         pixelSize,
-                        smoothMeshing,
+                        smoothMeshingStrength,
                     })
                 }
             />
@@ -872,6 +876,9 @@ export default function ThreeDControls({
                     colorCount={instructionColorCount}
                     flatPaint={instructionFlatPaint}
                     flatPaintFaceUp={instructionFlatPaintFaceUp}
+                    smoothMeshingStrength={
+                        builtState?.smoothMeshingStrength ?? effectiveSmoothMeshingStrength
+                    }
                 />
             ) : (
                 <CollapsibleCard

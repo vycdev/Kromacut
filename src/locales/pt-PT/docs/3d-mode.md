@@ -76,6 +76,17 @@ Controlos manuais e instruções suportam **64 cores**. Reduza paletas maiores e
 
 Desligada, os contornos seguem a grelha quadrada. Ligada, fronteiras conectadas tornam-se geometria suavizada e soldada. A diferença é exportada, não um filtro visual.
 
+Suaviza os contornos do modelo na pré-visualização e nas exportações. Média mantém a suavização original. Reconstrua para aplicar.
+
+| Intensidade | Utilização |
+| --- | --- |
+| **Nenhuma** | Pixel art, contornos exatos da grelha ou geração mais rápida. |
+| **Mínima** | Limpeza ligeira dos cantos irregulares. |
+| **Média** | O resultado familiar da opção anteriormente ativada. |
+| **Intensa** | Suavização mais forte dos contornos e degraus restantes, com o mesmo limite de deslocação de Média. |
+
+A deslocação mantém-se abaixo de meio píxel. Reconstrua o modelo e verifique a pré-visualização no slicer. As definições antigas ligada/desligada passam a Média/Nenhuma.
+
 ![Contornos diagonais escalonados e suavizados comparados na mesma grelha.](12_smooth_boundaries.svg)
 
 _Comparação esquemática, não simulação do laminador._

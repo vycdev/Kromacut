@@ -240,6 +240,11 @@
         "firstLayerHeight": "初層の高さ",
         "effectiveLineWidth": "実効線幅",
         "smoothMeshing": "滑らかなメッシュ",
+        "smoothingNone": "なし",
+        "smoothingMinimal": "最小",
+        "smoothingMedium": "中",
+        "smoothingAggressive": "強",
+        "smoothingHelp": "プレビューと書き出しでモデルの輪郭を滑らかにします。「中」は従来の処理と同じです。適用するには再生成してください。",
         "smoothConnectedColorBoundaryEdgesWithFastWeldedTopology": "高速な頂点結合によって、つながった色境界を滑らかにします。有効にするとフラット印刷は無効になります。",
         "modelDimensions": "モデル：{{width}}×{{height}}×{{depth}} mm"
     },

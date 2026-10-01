@@ -79,7 +79,7 @@ Large images, many colors, many layers, and smooth meshing all increase build ti
 
 - Cropping the image.
 - Reducing color count.
-- Turning off **Smooth Meshing**.
+- Selecting **None** for **Smooth Meshing**.
 - Downsampling the image with **Resize Image**. Merely lowering Pixel Size makes the same mesh smaller, not simpler.
 - Simplifying Auto-paint options.
 
