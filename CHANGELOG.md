@@ -4,6 +4,14 @@ All notable changes to Kromacut are documented in this file.
 
 ## Unreleased
 
+## v4.2.0 - 2026-10-18
+
+### Upgrade notes
+
+- **Saved smoothing settings carry over.** Smooth Meshing that was on becomes **Medium**, which builds the same geometry as before; Smooth Meshing that was off becomes **None**. Choose another strength and rebuild to change the result.
+- **Rebuild Height dithering and Flat Paint models before printing.** Height dithering now produces neighboring-layer patterns when enabled, and Flat Paint resolves diagonal color contacts differently, so rebuilt previews and exports can differ from 4.1.0 results. Check the new model in your slicer.
+- **Opening files from the desktop needs an installed app.** Desktop packages register `.kfil`, legacy `.kapp`, and `.kpal` files with Kromacut; portable Linux AppImages open them only after desktop integration. Existing profiles and palettes remain compatible.
+
 ### Added
 
 - **Legal pages in Settings** - Privacy & local data and Terms & conditions are accessible from Settings in both the web and desktop apps. Links follow the selected language and open in a new browser tab or the desktop system browser, keeping the workspace open.
