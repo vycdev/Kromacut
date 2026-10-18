@@ -110,7 +110,7 @@
     "photos_one": "{{count}} Foto",
     "photos_other": "{{count}} Fotos",
     "openPhoto": "{{title}} – {{kind}} {{index}} in voller Größe öffnen",
-    "originalArtwork": "Originalmotiv: <source>{{title}}</source>",
+    "originalArtwork": "Originalmotiv: <credit>{{title}}</credit>",
     "themeLabel": "Design: {{theme}}"
   },
   "navigation": {

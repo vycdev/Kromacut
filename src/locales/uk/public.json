@@ -110,7 +110,7 @@
     "photos_one": "{{count}} фото",
     "photos_other": "{{count}} фото",
     "openPhoto": "Відкрити {{title}} — {{kind}} {{index}} у повному розмірі",
-    "originalArtwork": "Оригінальна робота: <source>{{title}}</source>",
+    "originalArtwork": "Оригінальна робота: <credit>{{title}}</credit>",
     "themeLabel": "Тема: {{theme}}",
     "photos_few": "{{count}} фото",
     "photos_many": "{{count}} фото"
