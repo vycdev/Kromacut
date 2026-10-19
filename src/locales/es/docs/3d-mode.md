@@ -76,13 +76,24 @@ Los controles manuales e instrucciones admiten **64 colores**. Reduce paletas ma
 
 Sin suavizado, los contornos siguen la cuadrícula de píxeles. Con él, las fronteras conectadas se suavizan en geometría soldada. La diferencia se exporta; no es un filtro visual.
 
+Suaviza los contornos del modelo en la vista previa y las exportaciones. Medio conserva el suavizado original. Reconstruye para aplicar.
+
+| Intensidad | Uso |
+| --- | --- |
+| **Ninguno** | Pixel art, bordes exactos de cuadrícula o generación más rápida. |
+| **Mínimo** | Limpieza ligera de esquinas dentadas. |
+| **Medio** | El resultado habitual del ajuste activado anterior. |
+| **Intenso** | Suavizado más intenso de los contornos y los escalones restantes, con el mismo límite de desplazamiento que Medio. |
+
+El desplazamiento se mantiene por debajo de medio píxel. Reconstruye el modelo y revisa la vista previa del laminador. Los ajustes antiguos activado/desactivado pasan a Medio/Ninguno.
+
 ![Comparación de contornos diagonales escalonados y suavizados sobre la misma cuadrícula original.](12_smooth_boundaries.svg)
 
 _Comparación esquemática de contornos, no simulación del laminador._
 
 Úsala para curvas o diagonales demasiado escalonadas. Déjala desactivada para arte de píxeles intencional o bordes exactos de cuadrícula. Ninguna opción repara detalles demasiado pequeños ni inventa resolución ausente.
 
-Malla suavizada está inactiva en [Pintura plana](flat-paint). Activarla desactiva Pintura plana, que usa su construcción de placa de superficie completa.
+Malla suavizada también funciona con [Pintura plana](flat-paint). Ambas orientaciones mantienen una placa plana y límites compartidos entre colores; elige una intensidad y reconstruye para aplicarla.
 
 ## Pintura automática
 

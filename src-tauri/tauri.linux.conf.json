@@ -1,0 +1,40 @@
+{
+    "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
+    "bundle": {
+        "linux": {
+            "deb": {
+                "postInstallScript": "linux/refresh-file-associations.sh",
+                "postRemoveScript": "linux/refresh-file-associations.sh",
+                "desktopTemplate": "linux/kromacut.desktop",
+                "files": {
+                    "/usr/share/mime/packages/kromacut.xml": "linux/kromacut-mime.xml",
+                    "/usr/share/icons/hicolor/32x32/mimetypes/application-x-kromacut-filament-profile.png": "icons/32x32.png",
+                    "/usr/share/icons/hicolor/128x128/mimetypes/application-x-kromacut-filament-profile.png": "icons/128x128.png",
+                    "/usr/share/icons/hicolor/32x32/mimetypes/application-x-kromacut-palette.png": "icons/32x32.png",
+                    "/usr/share/icons/hicolor/128x128/mimetypes/application-x-kromacut-palette.png": "icons/128x128.png"
+                }
+            },
+            "rpm": {
+                "postInstallScript": "linux/refresh-file-associations.sh",
+                "postRemoveScript": "linux/refresh-file-associations.sh",
+                "desktopTemplate": "linux/kromacut.desktop",
+                "files": {
+                    "/usr/share/mime/packages/kromacut.xml": "linux/kromacut-mime.xml",
+                    "/usr/share/icons/hicolor/32x32/mimetypes/application-x-kromacut-filament-profile.png": "icons/32x32.png",
+                    "/usr/share/icons/hicolor/128x128/mimetypes/application-x-kromacut-filament-profile.png": "icons/128x128.png",
+                    "/usr/share/icons/hicolor/32x32/mimetypes/application-x-kromacut-palette.png": "icons/32x32.png",
+                    "/usr/share/icons/hicolor/128x128/mimetypes/application-x-kromacut-palette.png": "icons/128x128.png"
+                }
+            },
+            "appimage": {
+                "files": {
+                    "/usr/share/mime/packages/kromacut.xml": "linux/kromacut-mime.xml",
+                    "/usr/share/icons/hicolor/32x32/mimetypes/application-x-kromacut-filament-profile.png": "icons/32x32.png",
+                    "/usr/share/icons/hicolor/128x128/mimetypes/application-x-kromacut-filament-profile.png": "icons/128x128.png",
+                    "/usr/share/icons/hicolor/32x32/mimetypes/application-x-kromacut-palette.png": "icons/32x32.png",
+                    "/usr/share/icons/hicolor/128x128/mimetypes/application-x-kromacut-palette.png": "icons/128x128.png"
+                }
+            }
+        }
+    }
+}

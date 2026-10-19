@@ -45,6 +45,20 @@ test('auto-paint profile exports use kfil filenames', async () => {
     assert.equal(profileFileName('PLA Basic White'), 'PLA_Basic_White.kfil');
 });
 
+test('OS-opened profile duplicates resolve to the saved item while preserving import safeguards', async () => {
+    const { createProfile, importProfiles } = await loadProfileManager();
+    const saved = createProfile('Saved profile', [{ id: 'white', color: '#ffffff', td: 0.6 }]);
+    const duplicate = { ...saved, id: 'different-id', name: 'File profile' };
+    const result = importProfiles([saved], [duplicate]);
+    assert.equal(result.imported.length, 0);
+    assert.equal(result.resolved[0], saved);
+    assert.equal(result.profiles.length, 1);
+    const overwritten = importProfiles([saved], [{ ...saved, name: 'Updated profile' }]);
+    assert.equal(overwritten.resolved[0], overwritten.imported[0]);
+    assert.equal(overwritten.resolved[0].name, 'Updated profile');
+    assert.deepEqual(importProfiles([saved], [null as never]).resolved, []);
+});
+
 test('dirty profile exports use a fresh id and omit incompatible appearance evidence', async () => {
     const { buildProfileExportSnapshot } = await loadProfileManager();
     const active: AutoPaintProfile = {

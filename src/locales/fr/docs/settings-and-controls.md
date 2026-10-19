@@ -22,7 +22,7 @@ Le sélecteur **Langue** modifie l’interface, la documentation, les schémas e
 
 Les pages publiques proposent aussi un sélecteur de langue. La documentation traduite utilise des liens partageables préfixés par la langue, comme `/ro/docs/overview`. Les noms de pages et les ancres de section restent stables d’une langue à l’autre. Les extensions de fichiers, données numériques des modèles, noms saisis par l’utilisateur et titres originaux des œuvres communautaires ne sont pas traduits.
 
-La boîte des paramètres contient des liens vers la documentation, Discord, Reddit, GitHub et Patreon, et affiche la version actuelle de Kromacut.
+La boîte des paramètres contient des liens vers la documentation, Discord, Reddit, GitHub et Patreon, et affiche la version actuelle de Kromacut. **Confidentialité et données locales** et **Conditions d’utilisation** sont également accessibles ici et s’ouvrent dans votre navigateur dans la langue sélectionnée.
 
 ## Modes de l’espace de travail
 
@@ -122,5 +122,17 @@ Chaque calcul crée un fichier `.jsonl` distinct dans le dossier de diagnostics 
 Une trace complète contient les informations de base d’exécution, l’instantané des filaments et de l’étalonnage actifs, les paramètres de génération et d’optimisation, des échantillons limités de progression, l’état d’ajustement de l’apparence, les décisions progressives de niveaux de répétition, les couches physiques finales, chaque couleur imprimable candidate finale, les comparaisons Delta E entre cibles et candidats, la confiance de prédiction et les mesures ayant contribué aux couleurs interpolées ou ajustées localement. Elle enregistre les couleurs de palette traitées et leurs poids, pas l’image source chargée. Les données d’étalonnage et de profil peuvent néanmoins être sensibles : examinez la trace avant de la partager publiquement.
 
 L’enregistrement sert aux investigations et peut créer de gros fichiers. Laissez-le désactivé pour les impressions ordinaires lorsque vous n’avez pas besoin d’une trace.
+
+## Ouvrir des fichiers depuis le bureau
+
+Les installations de bureau associent les fichiers `.kfil` et les anciens `.kapp` aux profils de filaments, et les fichiers `.kpal` aux palettes. Double-cliquez sur un fichier pour l’importer et le sélectionner dans Kromacut. Si l’application est déjà ouverte, le fichier est traité dans sa fenêtre existante. Les règles habituelles de validation, migration, doublons et préservation du calibrage s’appliquent.
+
+Les fichiers ouverts depuis le bureau attendent tant que l’éditeur de palettes, la boîte de dialogue d’étalonnage ou un formulaire pour renommer ou enregistrer un nouveau profil est ouvert. Terminez ou annulez cette session pour poursuivre les importations en attente ; les noms saisis et le profil en cours de modification restent inchangés jusque-là.
+
+Les importations attendent également pendant la modification du nom ou du champ HD d’un filament, ou tant que son sélecteur de couleur ou le panneau **Convertir depuis TD** est ouvert. Quittez le champ ou fermez le sélecteur ou le panneau pour reprendre les importations en attente ; les modifications de filaments non enregistrées nécessitent toujours votre choix avant d’être remplacées par un autre profil.
+
+Avant de remplacer des modifications de filaments non enregistrées, Kromacut propose **Conserver les modifications** ou **Ouvrir le profil**. Conservez-les pour les enregistrer d’abord ; ouvrir le profil les abandonne. Les fichiers ouverts ainsi doivent faire moins de 32 Mio. Les fichiers JSON génériques, images et modèles conservent leurs procédures d’importation habituelles.
+
+Sous Linux, les AppImages portables nécessitent une intégration au bureau pour les associations de fichiers. Si Kromacut n’est pas l’application par défaut, utilisez **Ouvrir avec** dans votre gestionnaire de fichiers.
 
 Suite : [Dépannage](troubleshooting).

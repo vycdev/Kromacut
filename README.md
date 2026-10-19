@@ -1,372 +1,143 @@
-<img align="left" height="125" width="125" src="./content/logo.png">
+# <img src="content/logo.png" alt="Kromacut logo" width="40" height="40" align="absmiddle"> Kromacut
 
-# Kromacut
+**Turn images into multicolor 3D prints.** Prepare artwork, plan filament layers, and export STL or 3MF models with a free, open-source app for your browser, Windows, macOS, and Linux.
 
-[![Patreon](https://img.shields.io/badge/Patreon-Support-orange?logo=patreon&logoColor=white)](https://www.patreon.com/cw/vycdev) [![Discord](https://img.shields.io/badge/Discord-Join%20Chat-5865F2?logo=discord&logoColor=white)](https://discord.gg/nU63sFMcnX) [![Reddit](https://img.shields.io/badge/Reddit-r%2Fkromacut-FF4500?logo=reddit&logoColor=white)](https://www.reddit.com/r/kromacut/) [![YouTube](https://img.shields.io/badge/YouTube-@vycdev-red?logo=youtube&logoColor=white)](https://www.youtube.com/@vycdev) [![Release](https://img.shields.io/github/v/release/vycdev/kromacut?cacheSeconds=3600)](https://github.com/vycdev/Kromacut/releases/latest) [![Repo size](https://img.shields.io/github/repo-size/vycdev/kromacut?cacheSeconds=3600)](https://github.com/vycdev/Kromacut) [![Total downloads](https://img.shields.io/github/downloads/vycdev/Kromacut/total?label=total%20downloads&cacheSeconds=3600)](https://github.com/vycdev/Kromacut/releases) [![Latest downloads](https://img.shields.io/github/downloads/vycdev/Kromacut/latest/total?cacheSeconds=3600)](https://github.com/vycdev/Kromacut/releases/latest)
+**[Open the app](https://kromacut.com/app)** | **[Download for desktop](https://github.com/vycdev/Kromacut/releases)** | [Documentation](https://kromacut.com/docs/overview) | [Website](https://kromacut.com/)
 
-Open-source HueForge-style tool for converting images into stacked, color-layered 3D prints.
-
-**Try Kromacut in your browser:** [landing page](https://kromacut.com/) · [open the app](https://kromacut.com/app) · [read the docs](https://kromacut.com/docs/overview) · [download desktop releases](https://github.com/vycdev/Kromacut/releases)
-
-Kromacut is a browser-first app that converts images into multi-color lithophane 3D prints. It offers two powerful workflows:
-
-**Auto-paint mode** — Define your actual filaments (color + hiding distance), and Kromacut automatically computes optimal layer stacks using physically accurate Beer-Lambert optical blending. Features include a calibration wizard, five deterministic optimizer effort tiers, and region weighting for spatial priority.
-
-**Manual mode** — Reduce images to a small palette, manually tweak per-color layer heights and ordering, and fine-tune every aspect of the stack with complete control.
-
-Both modes include live 2D/3D previews, layer-by-layer visualization, and export to STL/3MF with detailed print instructions.
+[![Release](https://img.shields.io/github/v/release/vycdev/kromacut?cacheSeconds=3600)](https://github.com/vycdev/Kromacut/releases/latest) [![Downloads](https://img.shields.io/github/downloads/vycdev/Kromacut/total?label=downloads&cacheSeconds=3600)](https://github.com/vycdev/Kromacut/releases) [![Patreon](https://img.shields.io/badge/Patreon-Support-orange?logo=patreon&logoColor=white)](https://www.patreon.com/cw/vycdev) [![Discord](https://img.shields.io/badge/Discord-Join%20Chat-5865F2?logo=discord&logoColor=white)](https://discord.gg/nU63sFMcnX) [![Reddit](https://img.shields.io/badge/Reddit-r%2Fkromacut-FF4500?logo=reddit&logoColor=white)](https://www.reddit.com/r/kromacut/) [![YouTube](https://img.shields.io/badge/YouTube-@vycdev-red?logo=youtube&logoColor=white)](https://www.youtube.com/@vycdev)
 
 ## Examples
 
-A quick look at what Kromacut produces from a source image to a printable model:
-
-- Fuji test image (2D input) → 3D preview → per-color sliced view → real print
-
-| 2D Input | 3D Preview |
-|---|---|
-| <img src="content/fuji2d_new.png" alt="Fuji 2D Input" width="600" /> | <img src="content/fuji3d_new.png" alt="Fuji 3D Preview" width="600" /> |
-| Sliced by Colors | Real Print |
-| <img src="content/fuji3dsliced.png" alt="Fuji Sliced" width="600" /> | <img src="content/printed.jpg" alt="Printed Result" width="600" /> |
-
-Another minimal test you can try yourself: the included Transmission Distance (TD) test image (`src/assets/tdTest.png`).
-
-| TD Test |
-|---|
-| <img src="src/assets/tdTest.png" alt="TD Test Image" width="600" /> |
-
-## Notable Features
-
-- Image upload and preview (drag & drop or file picker).
-- Color reduction / quantization with selectable color count.
-- Inline color pickers to tweak or replace generated palette colors.
-- Per-color slice heights and a configurable base slice height.
-- Reorder colors with drag-and-drop to control stack order (darkest → lightest default ordering).
-- Live 2D preview and a 3D stacked preview rendered with three.js.
-- **Layer-by-layer preview slider** — Interactively visualize how the print builds up by dragging a slider to show/hide layers at specific heights.
-- 3D model export to binary STL or 3MF (Preview) suitable for multi-material slicers.
-- Plain-text 3D print instructions that describe layer heights and exact layers where filament swaps are required.
-- Copy-to-clipboard button for the print instructions (produces a clean, copyable plain-text plan).
-- **Filament calibration** — Accurately measure frontlit hiding distances from a camera-free printed wedge, with per-channel values and confidence scoring.
-- **Advanced optimizer** — Five deterministic effort tiers search for optimal filament ordering, from quick previews to exact base-order enumeration.
-- **Region weighting** — Prioritize accuracy in specific image areas (center, edges) during auto-paint optimization.
-
-## Notable implementation details
-
-- Frontend: React + TypeScript + Vite.
-- 3D Rendering: three.js with BufferGeometry. The geometry pipeline produces per-face (non-indexed) triangles so each color slice renders as a solid block (no blended vertex colors) and vertical side walls are preserved.
-- Texture sampling: we create a `CanvasTexture` from the preview canvas and use `NearestFilter` with mipmaps disabled so the texture stays crisp when mapped onto the 3D mesh. The texture UVs are adjusted (repeat/offset) so the canvas region aligns with the mesh bounding box.
-- Color ordering: palette swatches are derived from image pixels, then ordered by hue/saturation/lightness and presented from darkest to lightest by default (you can reorder manually).
-- Async mesh generation: The greedy meshing algorithm yields control back to the browser every 8ms during large mesh builds, keeping the UI responsive. Boundary vertex filtering uses binary search for optimal performance.
-
-
-## How to use
-
-### Quick start (Auto-paint mode — Recommended)
-
-1. Upload or drag an image into the preview area.
-2. Switch to the **Auto-paint** tab in the 3D controls panel.
-3. Click **Add Filament** and configure your filaments:
-   - Use **Calibrate Filaments** to measure accurate hiding distances from a small printed wedge, or
-   - Enter hiding distances manually (the convert button accepts conventional backlit TD values).
-4. Enable **Enhanced color matching** for optimal results; start with the **Balanced** optimizer tier.
-5. (Optional) Set **Region weighting** to Center or Edge to prioritize important areas.
-6. Use the **layer-by-layer preview slider** to verify transitions.
-7. Export via **Download STL** or **Download 3MF** and follow the print plan.
-
-See the [Auto-paint section](#auto-paint) for complete details.
-
-### Manual mode workflow
-
-1. Upload or drag an image into the preview area.
-2. Adjust quantization settings to reduce to the desired number of colors.
-3. Tweak or replace swatches using the color pickers in the Swatches panel.
-4. Open the 3D panel → **Manual** tab to configure:
-   - Per-color slice heights
-   - Base slice height
-   - Pixel size
-   - Color order (drag-and-drop)
-5. Preview in 3D and use the layer slider to inspect the stack.
-6. Click `Download STL` or `Download 3MF` to export your model.
-7. Use the `Copy` button to copy the plain-text print plan with layer heights and swap instructions.
-
-## 3D / printing specifics and tips
-
-- Base slice height default: `0.20 mm`
-- Layer height default: `0.12 mm`
-- Layer height used to compute the exact layer numbers at which color swaps happen in the plain-text plan. 
-- Per-color slice heights are snapped/multiplied to sensible values relative to `layerHeight` when the swatches change or are initialized.
-
-### Layer-by-layer preview
-
-The 3D view includes an interactive **height slider** at the bottom that lets you visualize how the print builds up layer by layer:
-
-- Drag the slider to show/hide layers progressively from base (0mm) to full height
-- Current height and layer information displayed in real-time
-- Slider step size matches your configured layer height for accurate control
-- Helps verify filament swap positions and catch potential issues before printing
-
-This is especially useful for complex multi-color prints where you need to understand exactly when each color transition occurs.
-
-## Auto-paint
-
-Auto-paint is an automated layer-generation mode that replaces the manual palette/swatch workflow. Instead of reducing an image to a fixed number of colors and manually tuning per-color slice heights, you define a set of **filaments** (each with a color and a hiding distance) and let the algorithm compute the optimal layer stack automatically.
-
-### Core concepts
-
-- **Filaments**: Each filament has a hex color and a **Hiding Distance (HD)** value (in mm) — the depth of material at which the filament visually hides what's beneath it when viewed front-lit, the way finished prints are actually seen. Dark/opaque filaments hide quickly (e.g. 0.05–0.1 mm); light/translucent filaments need more depth (e.g. 0.5–0.7 mm). When you add a filament without specifying an HD, Kromacut estimates one from the color's luminance and saturation. If you have a conventional (backlit/lithophane) Transmission Distance from a spool sheet or TD test print, the convert button on the filament row turns it into a hiding distance (a conventional TD is roughly 10× the HD).
-- **Beer-Lambert optical blending**: The algorithm simulates how light transmits through stacked filament layers using the Beer-Lambert law: `transmission = 10^(-thickness / HD)`. It blends in linear-light sRGB before converting back for display and color matching, which better models the color you see from thin semi-transparent layers.
-- **Transition zones**: Each filament in the stack needs enough vertical space to visually transition from the color below it to its own pure color. The algorithm simulates adding layers one at a time until the blended color converges (DeltaE < 2.3 — the "just noticeable difference" threshold) or reaches the selected opacity endpoint. **Compact** uses 80% opacity, **Detailed** uses 90% (one HD), and **Maximum** uses 95% (the same endpoint as the foundation layer). Higher endpoints retain more printable intermediate colors but create taller stacks.
-- **Luminance-to-height mapping**: Once the transition zones are computed, each pixel's brightness is mapped to a target height in the model. Dark pixels get the minimum height (base layer only), bright pixels get the full height (all layers), and mid-tones fall proportionally in between. This produces the characteristic lithophane-style relief where image brightness = model thickness.
-
-### How it works (step by step)
-
-1. **Define filaments** — Add your filament colors and hiding distances in the Auto-paint tab. Use the color picker and HD input for each filament row (or convert a conventional TD value).
-2. **Filament ordering** — By default filaments are sorted by luminance (darkest on the bottom, lightest on top). With **Enhanced color matching** enabled, the algorithm evaluates orderings to find the one that best reproduces the image's color palette.
-3. **Transition zone calculation** — For each consecutive pair of filaments, the algorithm simulates Beer-Lambert blending layer-by-layer until the color converges. The first (darkest) filament gets a foundation zone thick enough to be ~95% opaque (`HD × 1.3`).
-4. **Height compression** — If the ideal height exceeds a user-set **Max Height**, all zones are uniformly compressed. The UI shows which zones are compressed and by how much.
-5. **Virtual swatch generation** — The transition zones are sampled at each layer-height increment to produce a sequence of blended colors (virtual swatches). These drive the 3D preview and the height map, where each pixel maps to the layer whose blended color best matches.
-
-### Filament Calibration
-
-Kromacut measures hiding distances with a camera-free printed wedge — no light meter, no photos, no color picking:
-
-1. **Click Calibrate Filaments** below the filament list and select the filaments to calibrate.
-2. **Pick bases** — Quick mode uses one base read per filament; Accurate mode repeats the read over two or three bases so Kromacut can measure per-channel (RGB) hiding distances directly.
-3. **Print the wedge** — Download an STL (any printer, one filament swap) or a multi-material 3MF (AMS-ready). Each filament prints as a row of patches from 1 layer up beside a fully opaque reference rail.
-4. **Read back one number** — For each print, report the first patch that looks identical to the reference rail. Kromacut converts the reads into measured hiding distances with a confidence score.
-5. **Save profile** — Keep calibrated filaments in a reusable profile for future projects.
-
-Calibrated filaments display a confidence badge next to their HD value. Higher confidence = more accurate optical simulation = better print results. Auto-paint uses calibrated red, green, and blue hiding distances for both preview blending and transition-zone thickness, so calibration can change the generated stack height and swap plan.
-
-### Advanced Optimizer
-
-When **Enhanced color matching** is enabled, choose an effort tier for the filament-order search:
-
-| Tier | Search | Best use |
-|---|---|---|
-| **Fast** | Narrow deterministic beam search. | A quick preview while tuning settings. |
-| **Balanced** | Full deterministic beam search. | Recommended default for most prints. |
-| **Thorough** | Full beam plus deeper multi-start refinement. | A stronger search without a long wait. |
-| **Deep** | Wider beam plus substantially more deterministic refinement. | Difficult images when Thorough does not improve the stack. |
-| **Exact base order** | Enumerates every no-repeat base order. | A guaranteed best base order; the candidate count grows very quickly with each filament. |
-
-Each higher tier retains the best result from the tier below for the same seed. Exact
-base order checks 109,600 sequences at eight filaments and 986,409 at nine, so use it
-deliberately on larger profiles. With extra repeated swaps enabled, its base order is exact
-but repeated occurrences are still refined heuristically.
-
-The optimizer displays metadata after generation:
-- **Algorithm used** — Which method was selected
-- **Quality score** — Lower is better (weighted DeltaE + penalties)
-- **Iterations** — How many orderings were evaluated
-- **Converged** — Whether the algorithm reached a stable solution
-- **Cache hit** — Whether results were retrieved from cache (instant)
-
-**Optimizer seed** — Leave blank for an automatic stable seed, or enter a number to use a specific repeatable seed for A/B comparisons.
-
-### Region Weighting
-
-Prioritize accuracy in specific image regions during optimization:
-
-| Mode | Description |
-|---|---|
-| **Uniform** | All pixels weighted equally (default). |
-| **Center** | Gaussian falloff from center — faces and subjects in the middle get higher priority. |
-| **Edge** | Colors nearer the outer edges of the image get higher priority. |
-
-Region weighting is most useful when filament budget is limited and you want the optimizer to focus on visually important areas.
-
-### Options
-
-| Option | Description |
-|---|---|
-| **Max Height** | Constrains the total model height (mm). When set below the auto-calculated ideal, zones are uniformly compressed. Leave blank or click `Auto` for the physics-derived default. |
-| **Enhanced color matching** | Optimizes the printable filament sequence rather than simply sorting by luminance. It may omit filaments that do not improve the result and evaluates the actual preview color-to-height path. |
-| **Extra repeated swaps** | (Requires Enhanced color matching) Lets the optimizer use a filament more than once. Choose Off, 2, 4, 6, 8, or 12 additional occurrences; more repeats may create useful blend paths but substantially expand the search. |
-| **Preserve color separation** | (Requires Enhanced color matching) Treats the configurable ΔE value as a hard eligibility limit for distinct printable colors. The optimizer searches repeat tiers progressively and ranks candidates by preserved-color count, source coverage, preserved-match error, repeats, then stack length. Strict mode rejects a result unless every 2D color receives a unique in-limit match; non-strict mode drops unmatched colors by merging their regions into surviving preserved mappings. Mutually exclusive with Height dithering. |
-| **Height dithering** | (Requires Enhanced color matching) Applies block-aware Stucki error diffusion to the quantized height map. Instead of sharp stair-steps between layer heights, dithering produces a stippled gradient that simulates intermediate heights, resulting in smoother tonal transitions in the print. Edge pixels between different heights are protected from dithering to avoid staircase artifacts. Mutually exclusive with Preserve color separation. |
-| **Flat Paint (flat face-down print)** | Builds a uniform-thickness slab printed image-side down instead of a stepped relief. Each pixel column's layer order is reversed so the artwork sits against the build plate (already mirrored — don't mirror in the slicer) under a transparent carrier layer, and the back is filled with the foundation filament so every layer has the full footprint. The result has a smooth, glass-flat face — great for bookmarks and coasters. Requires a multi-material printer (AMS/toolchanger); export as 3MF, which contains one object per filament plus the clear carrier object. Flat Paint and Smooth Meshing toggle each other off because flat prints always use the full-footprint slab layout. |
-| **Dither line width** | (Requires Height dithering) Controls the minimum dot size for the dither pattern in mm. This should roughly match your printer's line/nozzle width so dither dots are actually printable. Default: `0.42 mm`. |
-| **Optimizer algorithm** | Choose Fast for a preview, Balanced for the recommended full beam, Thorough or Deep for more search effort, or Exact base order when you want every no-repeat base stack checked. |
-| **Transition detail** | Chooses where a color transition stops: Compact at 80% opacity, Detailed at 90%, or Maximum at 95%. Higher detail preserves a longer physical color ramp, increasing model height, swaps, and runtime. |
-| **Optimizer seed** | Leave blank for an automatic stable seed, or enter a number for a specific repeatable run. |
-| **Region weighting** | Prioritize specific image regions: Uniform (equal), Center (image middle), or Edge (outer image border). Helps focus quality budget on important areas. |
-
-Enhanced matching uses every color in the palette currently produced by 2D mode; it does not silently reduce that palette again. For detail-critical work, first prepare the image in 2D with K-means (for example, weight 128) and the Auto palette set to the number of colors you want to preserve. More 2D colors improve the target representation but make the optimizer proportionally slower.
-
-### Filament profiles
-
-Auto-paint configurations (filament lists) can be saved, loaded, and shared as **profiles**:
-
-- **Save / Save New** — Persist the current filament set under a name. Overwrite an existing profile or create a new one.
-- **Load** — Select a saved profile from the dropdown to restore its filaments.
-- **Rename** — Change the selected profile name without changing its filaments.
-- **Export** — Download the current filaments as a `.kfil` file (JSON) to share with others.
-- **Import** — Load a `.kfil`, legacy `.kapp`, `.json`, or HueForge spool `.csv`/`.tsv` profile file from disk.
-- **Delete** — Remove a saved profile.
-
-Profiles are stored in browser `localStorage` and persist across sessions.
-
-### Transition zones panel
-
-When auto-paint is active and filaments are defined, the UI displays a **Transition Zones** panel showing:
-
-- Each zone's filament color swatch and hex code.
-- The start and end height of each zone (in mm) and its thickness (Δ).
-- A **compressed** badge on zones that have been reduced below their ideal thickness due to a Max Height constraint.
-- Total model height and total number of physical layers.
-
-### Next-best-color suggestion
-
-After running auto-paint, a **Suggest next filament** button appears at the bottom of the panel. Click it to run a blend-aware analysis that finds the single filament addition that would most reduce the average color error (ΔE) across the image.
-
-The result card shows:
-
-| Field | Description |
-|---|---|
-| **Hex** | Suggested filament color. |
-| **Est. ΔE** | Estimated reduction in blend-aware average ΔE if this filament is added. A rough relative estimate — not a calibration confidence rating. |
-| **HD** | Recommended starting hiding distance, borrowed from the nearest existing filament by color distance. Adjust after printing a test patch. |
-| **Captures** | Percentage of image pixels whose blend-aware color error would improve with this filament. |
-| **Isolation** | How far this color sits from existing filaments in perceptual color space (0–1). Higher means it fills a more distinct gap; lower means it overlaps territory already covered by blending. |
-
-Click **Add to filaments** to insert the suggestion directly into the filament list (named `Kromacut-Suggestion-01`, `02`, etc.). You can then re-run auto-paint with the expanded set and repeat as many times as needed.
-
-**How it works (heuristic):** The algorithm estimates how well the current filament set covers the image's color range by checking each image color against each filament and Beer-Lambert blend curve. It identifies underserved colors (those with the largest estimated error) and generates candidates from those colors plus extrapolated positions — colors that, when optically blended with an existing filament, would be closer to the underserved target. The winner is the candidate whose addition most reduces weighted-average estimated error across all image pixels. This is an inventory-planning heuristic: the improvement numbers are relative estimates, not predictions of a specific auto-paint result.
-
-### Quick start
-
-1. Load an image into Kromacut.
-2. Switch to the **Auto-paint** tab (inside the 3D controls panel).
-3. Click **Add Filament** and configure each filament's color and hiding distance to match your real filament stock.
-   - **Tip:** Use **Calibrate Filaments** to measure accurate hiding distances from a printed wedge.
-4. (Optional) Enable **Enhanced color matching** for better results with complex images. Start with the **Balanced** optimizer tier, then use Thorough, Deep, or Exact base order when you want to spend more search effort.
-5. (Optional) Set **Region weighting** to Center or Edge to prioritize accuracy in visually important areas.
-6. The 3D preview updates automatically. Adjust **Max Height** if the model is too tall.
-7. Use the **layer-by-layer preview slider** at the bottom of the 3D view to verify color transitions.
-8. Export the model via **Download STL** or **Download 3MF** and follow the printed swap plan.
-
-## 3MF Export (Preview)
-
-Kromacut now supports exporting directly to `.3mf` format. This file format preserves color information by splitting the model into separate objects for each color, automatically assigned to different extruders/filaments.
-
-**Disclaimer:** This feature is currently in **PREVIEW**. While Kromacut preserves colors, the rest of the settings in the slicer profile should be manually adjusted. Please report any issues or weird behaviors you encounter on the GitHub Issues page.
-
-<img src="content/3mf_export.png" alt="3MF Export" width="600" />
-
-## Hiding Distance (HD) and Transmission Distance (TD)
-
-Stacking thin translucent filament layers produces perceptual intermediate shades — the idea HueForge popularized with Transmission Distance: https://shop.thehueforge.com/blogs/news/what-is-hueforge
-
-Kromacut models the same physics but stores a **Hiding Distance (HD)**: the depth at which a filament visually hides what's beneath it under front lighting, which is how finished prints are viewed. A conventional TD (measured with a backlit lithophane-style test print) is roughly **10× the hiding distance**; the convert button on each filament row accepts a conventional TD and converts it for you.
-
-### Two workflow modes in Kromacut:
-
-**1. Auto-paint mode (Automatic optical blending)** — The recommended approach for layered-color prints:
-
-- **Automatic Beer-Lambert blending** — Kromacut simulates light transmission through stacked filament layers using physically accurate optical models.
-- **Filament-based workflow** — Define your actual filaments (color + hiding distances) and let the algorithm compute optimal layer stacks automatically.
-- **Camera-free calibration** — Print a small wedge and read back the layer count where it turns opaque; Kromacut fits measured per-channel hiding distances from the reads.
-- **Advanced optimizer** — Deterministic effort tiers search for the best filament ordering for complex images, from quick beam previews to exact base-order enumeration.
-- **Transition zones** — Automatically calculated vertical zones where each filament blends from the color below to its own pure color.
-
-See the [Auto-paint section](#auto-paint) above for full details.
-
-**2. Manual mode (Traditional workflow)** — For users who want complete control:
-
-- Reduce your image to a palette with *more colors* than you actually intend to print. The extra colors give you candidate shades to use as intermediate/translucent-looking layers.
-- Use the per-color slice heights and ordering controls in the 3D panel to approximate the stacked thicknesses and ordering that would produce the target intermediate shades.
-- Small adjustments to `base slice height`, per-color slice heights, and `layerHeight` change the produced layer numbers and perceived blends.
-- Iterate with actual filament on small test prints — translucency and perceived mix depend heavily on filament brand, color, and print settings.
-
-**Recommendation:** Use Auto-paint mode for layered-color prints. It handles the complex Beer-Lambert physics and optimization automatically, producing better results than manual approximation.
-
-### TD test image (for manual mode experimentation)
-
-- This repository includes a small test image `tdTest.png` (found in `src/assets/tdTest.png`).
-- Load it into the preview with the toolbar upload button or drag-and-drop so you can quickly experiment with manual layer ordering and per-color slice heights.
-- This is primarily useful for testing manual mode workflows or understanding how layer heights affect perceived color.
-
-Quick manual workflow experiment:
-
-1. Load `tdTest.png` (upload button or drag-and-drop).
-2. Reduce colors to your desired number.
-3. Switch to Manual mode (3D Controls → Manual tab).
-4. Adjust per-color slice heights and ordering.
-5. Generate and download your 3D model.
-6. Follow the layer color swap instructions and print your 3D model to see results.  
-
-Preview of the included TD test image:
-
-<img src="src/assets/tdTest.png" alt="TD Test Image" width="600" />
-
-## Native Desktop App (Tauri)
-
-Kromacut can be built as a **native desktop application** for macOS, Windows, and Linux using [Tauri](https://tauri.app/), offering better performance than the web version:
-
-- **Better performance:** Native webview for faster rendering
-- **Smaller size:** compact native bundle with low runtime overhead
-- **Lower memory usage:** More efficient resource utilization
-- **Automatic updates:** Built-in update checker notifies you of new versions
-
-The desktop app includes an automatic update checker. See [UPDATE_CHECKER.md](docs/UPDATE_CHECKER.md) for details.
-
-### Building
+<table>
+  <tr>
+    <td align="center" valign="top" width="50%">
+      <a href="content/community/titan-finished.jpg"><img src="content/community/titan-finished.jpg" alt="Finished Titan layered print with golden yellow and orange wave reflections on a dark background" width="52%" /></a><br>
+      <strong>Titan</strong><br>
+      <sub>vycdev | <a href="https://www.jpl.nasa.gov/images/titan-jpl-travel-poster/">NASA/JPL artwork</a></sub>
+    </td>
+    <td align="center" valign="top" width="50%">
+      <a href="content/community/hobbits-and-dragons-1.jpg"><img src="content/community/hobbits-and-dragons-1.jpg" alt="A colorful Hobbits and Dragons layered 3D print" width="100%" /></a><br>
+      <strong>Hobbits and Dragons</strong><br>
+      <sub><a href="https://www.reddit.com/r/kromacut/comments/1vum7om/hobbits_and_dragons/">u/ominaex25</a></sub>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" valign="top" width="50%">
+      <a href="content/community/batmanga-finished.jpg"><img src="content/community/batmanga-finished.jpg" alt="Finished Batmanga layered print with a yellow Japanese title, tan background, and black-and-gray Batman figure" width="51%" /></a><br>
+      <strong>Batmanga</strong><br>
+      <sub>vycdev | <a href="https://m.media-amazon.com/images/I/81rOZq5ZgqL._AC_UF1000,1000_QL80_.jpg">Jiro Kuwata / DC artwork</a></sub>
+    </td>
+    <td align="center" valign="top" width="50%">
+      <a href="content/community/king-of-hearts.jpg"><img src="content/community/king-of-hearts.jpg" alt="A multicolor layered King of Hearts playing-card print" width="100%" /></a><br>
+      <strong>King of Hearts</strong><br>
+      <sub>vycdev</sub>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" valign="top" width="50%">
+      <a href="content/community/naruto-finished.jpg"><img src="content/community/naruto-finished.jpg" alt="Finished Naruto layered print with yellow hair, orange clothing, and a lavender-blue sky" width="48%" /></a><br>
+      <strong>Naruto</strong><br>
+      <sub>vycdev | <a href="https://in.pinterest.com/pin/169870217190172931/">Artwork source</a></sub>
+    </td>
+    <td align="center" valign="top" width="50%">
+      <a href="content/community/hope-finished.jpg"><img src="content/community/hope-finished.jpg" alt="Finished layered Hope poster print showing orange and purple-blue color shifts" width="100%" /></a><br>
+      <strong>Hope poster</strong><br>
+      <sub>vycdev</sub>
+    </td>
+  </tr>
+</table>
+
+## Features
+
+- **Image editing.** Make non-destructive adjustments, crop and resize, reduce colors, and remove dithering. Retouch artwork with painting, text, and palette tools.
+- **Auto-paint.** Plan a filament stack from the colors you own. Hiding Distance measurements help predict how thin layers blend.
+- **Manual layers.** Choose the palette, arrange the print order, and set the height of each color.
+- **Calibration and profiles.** Measure your filaments, compare printed color samples, and save or share reusable profiles.
+- **3D preview.** Inspect each layer, compare simulated and physical colors, and explore shaded, transparent, or wireframe views.
+- **STL and 3MF export.** Export STL or color-aware 3MF models, with filament swap instructions for layered prints.
+- **Flat Paint.** Create uniform-thickness bookmarks, coasters, and other flat pieces, with 3MF export for multi-material printing.
+
+## Video guides
+
+<table>
+  <tr>
+    <td align="center" valign="top" width="50%">
+      <a href="https://youtu.be/NnaTVuJ2Sps"><img src="content/tutorial-thumbnail.png" alt="Watch the Kromacut tutorial on YouTube" width="100%" /></a><br>
+      <strong><a href="https://youtu.be/NnaTVuJ2Sps">Image to 3D print tutorial</a></strong>
+    </td>
+    <td align="center" valign="top" width="50%">
+      <a href="https://youtu.be/nTcZJ2gG7zo"><img src="https://i.ytimg.com/vi/nTcZJ2gG7zo/maxresdefault.jpg" alt="Watch the original Kromacut introduction on YouTube" width="100%" /></a><br>
+      <strong><a href="https://youtu.be/nTcZJ2gG7zo">Project introduction</a></strong>
+    </td>
+  </tr>
+</table>
+
+## Documentation
+
+The [user guide](https://kromacut.com/docs/overview) covers the full app and is also available in the app's documentation panel.
+
+[Quick start](https://kromacut.com/docs/quick-start) | [Auto-paint](https://kromacut.com/docs/auto-paint) | [Filament calibration](https://kromacut.com/docs/calibration-workflows) | [Exporting and printing](https://kromacut.com/docs/generating-exporting-output) | [Troubleshooting](https://kromacut.com/docs/troubleshooting)
+
+## Desktop app
+
+Download the latest version from [GitHub Releases](https://github.com/vycdev/Kromacut/releases/latest).
+
+| Platform | Package |
+| --- | --- |
+| Windows | `*-setup.exe` |
+| macOS Apple Silicon | `*_aarch64.dmg` |
+| macOS Intel | `*_x86_64.dmg` |
+| Linux | `*.AppImage` or `*.deb` |
+
+Windows also has an `*_offline-setup.exe` package with the WebView2 installer included. For platform requirements and installation help, see the [desktop documentation](docs/TAURI.md#distribution-notes).
+
+## Development
+
+Built with React, TypeScript, Vite, and Three.js. Desktop builds use Tauri.
+
+Use **Node.js 22.18+** and npm:
 
 ```bash
-# Install Rust (one-time setup)
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-source "$HOME/.cargo/env"
+npm ci
+npm run dev
+```
 
-# Install dependencies
-npm install
+Run the checks and create a production build:
 
-# Run in development mode
+```bash
+npm run lint
+npm run test:docs
+npm test
+npm run build
+```
+
+<details>
+<summary>Desktop development</summary>
+
+Install Rust and the [Tauri platform prerequisites](https://tauri.app/start/prerequisites/), then run:
+
+```bash
 npm run tauri:dev
-
-# Build production app
 npm run tauri:build
 ```
 
-The production build creates:
-- `Kromacut.app` in `src-tauri/target/release/bundle/macos/`
-- `Kromacut_0.1.0_aarch64.dmg` installer in `src-tauri/target/release/bundle/dmg/`
+Build artifacts are written to `src-tauri/target/release/bundle/`. See [TAURI.md](docs/TAURI.md) for build, packaging, and release details.
 
-### Releases
-
-Pre-built native apps are automatically released on GitHub:
-
-1. Download the latest release from the [Releases page](https://github.com/vycdev/Kromacut/releases)
-2. Choose the right file for your platform:
-   - **macOS Apple Silicon (M1/M2/M3)**: `*_aarch64.dmg`
-   - **macOS Intel**: `*_x86_64.dmg`
-   - **Windows**: `*-setup.exe`
-   - **Windows offline**: `*_offline-setup.exe`
-   - **Linux**: `*.AppImage` or `*.deb`
-3. Install and launch
-
-**macOS "Kromacut is damaged" error?** The app isn't code-signed. Run `sudo xattr -d com.apple.quarantine /Applications/Kromacut.app` in Terminal to fix it.
-
-**Windows SmartScreen warning?** The app isn't signed. Click "More info" → "Run anyway".
-
-**Windows WebView2 requirement?** Kromacut uses Tauri, which runs on Microsoft Edge WebView2 on Windows. The standard Windows installers include the small WebView2 bootstrapper, and the setup installer checks for a recent enough WebView2 runtime. Use the offline setup installer on machines without internet access.
-
-> **Note:** To eliminate the macOS quarantine requirement entirely, the app would need to be signed with an Apple Developer ID certificate and notarized through Apple's notarization service. This requires an [Apple Developer Program membership](https://developer.apple.com/programs/) ($99/year). See [TAURI.md](docs/TAURI.md#code-signing--notarization-future-enhancement) for details.
-
-To create a new release, see [TAURI.md](docs/TAURI.md#automated-releases-github).
-
-See [TAURI.md](docs/TAURI.md) for complete documentation on development, building, and distribution.
-
-## Star History
-
-[![Star History Chart](https://api.star-history.com/svg?repos=vycdev/kromacut&type=date&legend=top-left)](https://www.star-history.com/#vycdev/kromacut&type=date&legend=top-left)
+</details>
 
 ## Contributing
 
-Contributions welcome. Open issues or PRs for bugs, improvements, or feature suggestions. If you plan a larger change (architecture, algorithms), open an issue first describing the approach so we can discuss it.
+Bug reports, feature suggestions, and pull requests are welcome. Use [GitHub Issues](https://github.com/vycdev/Kromacut/issues), and discuss larger changes before starting work.
+
+Read [AGENTS.md](AGENTS.md) for repository guidance and testing expectations. The [Changelog](CHANGELOG.md) tracks releases and upcoming changes.
+
+<details open>
+<summary>Star history</summary>
+
+[![Star History Chart](https://api.star-history.com/svg?repos=vycdev/kromacut&type=date&legend=top-left)](https://www.star-history.com/#vycdev/kromacut&type=date&legend=top-left)
+
+</details>
 
 ## License
 
-Kromacut is free software licensed under the GNU Affero General Public License v3.0 only (`AGPL-3.0-only`). See the `LICENSE` file in the repository.
-
-Copyright (C) 2025 vycdev. Redistribution and modified versions must preserve the copyright and license notices. Modified desktop distributions must provide the corresponding source under the AGPL, and modified hosted/network versions must also offer source access to their users.
+[GNU Affero General Public License v3.0 only](LICENSE) (`AGPL-3.0-only`). Copyright (C) 2025 vycdev.

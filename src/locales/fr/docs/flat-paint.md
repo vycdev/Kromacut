@@ -15,6 +15,10 @@ Utilisez un système multimatériau tel qu’un AMS, un CFS ou un changeur d’o
 
 _Coupes de principe. Les couleurs identifient les matériaux ; les étiquettes indiquent la face à regarder._
 
+La progression compte les parties du maillage, pas les couches imprimées : plusieurs parties colorées peuvent partager une couche. Le badge Modèle indique le nombre de couches physiques, y compris le support transparent le cas échéant. L’aperçu des couches découpe la plaque couche par couche ; les deux poignées découpent aussi les zones fusionnées de fondation et de couleur. L’exportation contient toujours le modèle complet. Le bouton Générer le modèle 3D régénère toujours le modèle, même sans modification des réglages, et rétablit toutes les couches ainsi que la vue initiale de la caméra.
+
+Si la création échoue, Kromacut supprime le modèle incomplet et affiche l’erreur dans l’aperçu. Cliquez sur Générer le modèle 3D pour réessayer ; une fois la création réussie, les dimensions du modèle et l’aperçu des couches réapparaissent.
+
 ## Par défaut : face vers le bas avec support transparent
 
 Activez **Peinture à plat** et laissez **Face vers le haut, sans couche transparente** désactivé.
@@ -47,7 +51,7 @@ Ces dispositions ont des géométries différentes. Cliquez de nouveau sur **Gé
 | Peinture à plat, par défaut | Dessous, à travers le support transparent | Colonnes inversées et en miroir, fondation derrière. | Objets par filament, plus support. |
 | Peinture à plat, face vers le haut | Dessus plat exposé | Ordre normal, fondation sous les colonnes plus courtes. | Objets par filament ; sans support. |
 
-La peinture à plat et le **Maillage lissé** ne fonctionnent pas ensemble. La plaque utilise des zones côte à côte couvrant toute l’emprise plutôt que des contours lissés. Activer le maillage lissé désactive la peinture à plat ; choisissez la disposition souhaitée et régénérez lors d’un changement.
+**Maillage lissé** fonctionne dans les deux orientations de la peinture à plat. Choisissez une intensité et reconstruisez. Le lissage adoucit le contour extérieur et les frontières communes entre couleurs, tout en conservant la plaque plane, les hauteurs de couche et les empilements de matériaux. De petites jonctions communes ferment les contacts diagonaux sans chevauchement. Les instructions d’impression et le 3MF indiquent l’intensité utilisée.
 
 ## Exporter et vérifier
 

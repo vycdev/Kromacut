@@ -3,10 +3,12 @@ import * as THREE from 'three';
 import { MINIMAL_PROJECT_SETTINGS, KROMACUT_CONFIG } from './slicerDefaults';
 import { clampProgress, exportMeshProgress, exportZipProgress, progressInSpan } from './progress';
 import { normalizeHexColor } from './colorUtils';
+import type { SmoothMeshingStrength } from '../types';
 
 export interface Export3MFOptions {
     layerHeight?: number;
     firstLayerHeight?: number;
+    smoothMeshingStrength?: SmoothMeshingStrength;
     layerFilamentColors?: string[]; // Optional per-layer filament colors (hex) for export
     onProgress?: (progress: number) => void;
     onZipProgress?: (progress: { percent: number; currentFile?: string | null }) => void;
@@ -317,10 +319,14 @@ ${metadataContentTypes}${metadataContentTypes ? '\n' : ''}
 
     // Header and BaseMaterials
     let header = `<?xml version="1.0" encoding="UTF-8"?>
-<model unit="millimeter" xml:lang="en-US" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02" xmlns:slic3rpe="http://schemas.slic3r.org/3mf/2017/06" xmlns:BambuStudio="http://schemas.bambulab.com/package/2021" xmlns:p="http://schemas.microsoft.com/3dmanufacturing/production/2015/06" requiredextensions="p">
+<model unit="millimeter" xml:lang="en-US" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02" xmlns:slic3rpe="http://schemas.slic3r.org/3mf/2017/06" xmlns:BambuStudio="http://schemas.bambulab.com/package/2021" xmlns:p="http://schemas.microsoft.com/3dmanufacturing/production/2015/06" xmlns:Kromacut="https://github.com/vycdev/Kromacut" requiredextensions="p">
  <metadata name="BambuStudio:3mfVersion">1</metadata>
  <metadata name="Application">Kromacut_Print</metadata>
 `;
+    if (options?.smoothMeshingStrength !== undefined) {
+        header += ` <metadata name="Kromacut:SmoothMeshingStrength">${options.smoothMeshingStrength}</metadata>
+`;
+    }
     if (options?.layerHeight !== undefined) {
         header += ` <metadata name="slic3rpe:layer_height">${options.layerHeight}</metadata>
 `;
@@ -466,8 +472,7 @@ ${metadataContentTypes}${metadataContentTypes ? '\n' : ''}
                 const pos = geom.getAttribute('position');
                 const index = geom.getIndex();
                 const source = getKromacutExportGeometry(geom);
-                const memberCollectStart =
-                    COLLECT_START + (collectSpan * memberIdx) / memberCount;
+                const memberCollectStart = COLLECT_START + (collectSpan * memberIdx) / memberCount;
                 const memberCollectSpan = collectSpan / memberCount;
                 const reportCollect = (fraction: number) => {
                     reportMeshProgress(
@@ -571,7 +576,11 @@ ${metadataContentTypes}${metadataContentTypes ? '\n' : ''}
                 } else {
                     const getExportVertex = (vertexIndex: number) => {
                         v.fromBufferAttribute(pos, vertexIndex).applyMatrix4(mesh.matrixWorld);
-                        return addCoordVertex(toCoordUnits(v.x), toCoordUnits(v.y), toCoordUnits(v.z));
+                        return addCoordVertex(
+                            toCoordUnits(v.x),
+                            toCoordUnits(v.y),
+                            toCoordUnits(v.z)
+                        );
                     };
 
                     const addAttributeTriangle = (a: number, b: number, c: number) => {

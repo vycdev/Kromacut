@@ -15,6 +15,10 @@ Use um fluxo multimaterial como AMS, CFS ou troca de ferramentas, com suporte ad
 
 _Cortes conceptuais. As cores identificam materiais; as etiquetas identificam a face de observação._
 
+O progresso conta partes da malha, não camadas impressas: várias partes coloridas podem partilhar uma camada. O indicador Modelo mostra o número de camadas físicas, incluindo o suporte transparente quando utilizado. A pré-visualização de camadas corta a placa camada a camada; ambos os controlos cortam também as regiões unidas de fundação e cor. A exportação inclui sempre o modelo completo. O botão Gerar modelo 3D regenera sempre o modelo, mesmo sem alterar as definições, e repõe todas as camadas e a vista inicial da câmara.
+
+Se a criação falhar, o Kromacut remove o modelo incompleto e apresenta o erro na pré-visualização. Prima Gerar modelo 3D para tentar novamente; quando a criação terminar com êxito, as dimensões do modelo e a pré-visualização das camadas voltam a aparecer.
+
 ## Predefinição: face para baixo com suporte transparente
 
 Ative **Pintura plana** e deixe **Face para cima, sem camada transparente** desligada.
@@ -47,7 +51,7 @@ Estas disposições têm geometria diferente. Volte a **Gerar modelo 3D** depois
 | Pintura plana predefinida | Fundo através do suporte | Colunas espelhadas e invertidas com fundação atrás. | Objetos por filamento e suporte. |
 | Pintura plana, face para cima | Topo plano exposto | Ordem normal, fundação sob colunas curtas. | Objetos por filamento; sem suporte. |
 
-Pintura plana e **Malha suavizada** não funcionam em conjunto. A placa usa regiões lado a lado cobrindo toda a área, não contornos suavizados. Ativar Malha suavizada desativa Pintura plana; escolha a disposição e regenere ao mudar.
+**Malha suavizada** funciona com ambas as orientações de Pintura plana. Escolha uma intensidade e gere novamente. A suavização amacia o contorno exterior e os limites partilhados entre cores, mantendo a placa plana, as alturas das camadas e as pilhas de materiais. Pequenas ligações partilhadas fecham os contactos diagonais sem sobreposição. As instruções de impressão e o 3MF registam a intensidade usada.
 
 ## Exportar e verificar
 

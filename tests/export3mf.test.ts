@@ -160,6 +160,23 @@ const filamentProfileFixtures = [bwProfile, gh27Profile, current8Profile];
 const exportTopologyMeshers: Array<{ name: string; generate: MeshGenerator }> = [
     { name: 'greedy', generate: generateGreedyMesh },
     { name: 'smooth', generate: generateSmoothMesh },
+    ...(['minimal', 'aggressive'] as const).map((strength) => ({
+        name: `smooth ${strength}`,
+        generate: (...args: Parameters<typeof generateSmoothMesh>) => {
+            const [pixels, width, height, thickness, zOffset, pixelSize, heightScale, options] =
+                args;
+            return generateSmoothMesh(
+                pixels,
+                width,
+                height,
+                thickness,
+                zOffset,
+                pixelSize,
+                heightScale,
+                { ...options, strength }
+            );
+        },
+    })),
 ];
 
 function profileColors(profile: FilamentProfileFixture) {

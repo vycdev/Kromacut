@@ -55,7 +55,7 @@ Verifique separadamente **Modelo de aparência**. Uma pontuação global alta n�
 
 ## Uma opção desligou outra
 
-Dois pares são exclusivos: **Malha suavizada** e **Pintura plana**, e **Preservar separação de cores** e **Pontilhamento de altura**. O primeiro escolhe geometrias distintas; o segundo, formas distintas de atribuir cores a alturas. Consulte [Pintura plana](flat-paint) e [Pintura automática](auto-paint).
+**Preservar separação de cores** e **Pontilhamento de altura** continuam a ser exclusivos, pois atribuem as cores de origem às alturas imprimíveis de formas diferentes. **Malha suavizada** e **Pintura plana** podem ser usadas em conjunto; gere novamente depois de alterar qualquer definição. Consulte [Pintura plana](flat-paint) e [Pintura automática](auto-paint).
 
 ## A separação de cores não encontra resultado
 

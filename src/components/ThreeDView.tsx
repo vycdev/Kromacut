@@ -1,3 +1,4 @@
+import type { SmoothMeshingStrength } from '../types';
 import { useTranslation } from 'react-i18next';
 import { translateRuntimeMessage } from '../lib/runtimeMessages';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -13,6 +14,8 @@ import {
     type MeshProgress,
 } from '../lib/meshing';
 import { LAYER_ACTIVATION_EPSILON } from '../lib/layerActivation';
+import { createFlatPaintMesher } from '../lib/flatPaintMeshing';
+import { quantizeHeightMap } from '../lib/heightDithering';
 import { normalizeHexColor as normalizeHexColorValue } from '../lib/colorUtils';
 import {
     buildFlatPaintLayout,
@@ -28,6 +31,7 @@ import {
 import { clampProgress, layeredBuildScanProgress, progressInSpan } from '../lib/progress';
 import { applyPreviewRenderMode, createPreviewMaterialBaselines } from '../lib/previewRenderMode';
 import { applyPreviewColorMode } from '../lib/previewColorMode';
+import { applyPreviewLayerRange, previewLayerHeights } from '../lib/previewLayerRange';
 import {
     clearPreviewWireframeOverlay,
     rebuildPreviewWireframeOverlay as buildPreviewWireframeOverlay,
@@ -63,7 +67,7 @@ interface ThreeDViewProps {
     heightDithering?: boolean; // Stucki error diffusion on height map
     ditherLineWidth?: number; // Effective extrusion width; also sets minimum dither-dot size
     printableFeaturePixels?: PrintableFeaturePixelSnapshot; // exact filtered pixels used for Auto-paint
-    smoothMeshing?: boolean; // Smooth connected boundaries using welded grid topology
+    smoothMeshingStrength?: SmoothMeshingStrength; // Smooth connected boundaries using welded grid topology
     isOrtho?: boolean;
     flatPaint?: boolean; // Build a uniform Flat Paint slab (auto-paint only)
     flatPaintFaceUp?: boolean; // Expose the artwork on top without a transparent carrier
@@ -263,7 +267,8 @@ function remapMeshZRange(
 }
 
 interface E2EBuildMetrics {
-    status: 'building' | 'complete';
+    status: 'building' | 'complete' | 'failed';
+    error?: string;
     startedAt?: number;
     completedAt?: number;
     elapsedMs?: number;
@@ -285,7 +290,7 @@ interface E2EBuildMetrics {
         pixelSize: number;
         layerHeight: number;
         slicerFirstLayerHeight: number;
-        smoothMeshing: boolean;
+        smoothMeshingStrength: SmoothMeshingStrength;
         autoPaintEnabled: boolean;
         enhancedColorMatch: boolean;
         heightDithering: boolean;
@@ -316,7 +321,10 @@ declare global {
 
 function updateE2EBuild(metrics: E2EBuildMetrics) {
     if (typeof window === 'undefined' || !window.__KROMACUT_E2E) return;
-    const next = { ...(window.__KROMACUT_E2E.lastBuild ?? {}), ...metrics };
+    const next =
+        metrics.status === 'building'
+            ? metrics
+            : { ...(window.__KROMACUT_E2E.lastBuild ?? {}), ...metrics };
     window.__KROMACUT_E2E.lastBuild = next;
     if (metrics.status === 'complete') {
         window.__KROMACUT_E2E.buildHistory = [...(window.__KROMACUT_E2E.buildHistory ?? []), next];
@@ -375,7 +383,7 @@ export default function ThreeDView({
     heightDithering = false,
     ditherLineWidth = 0.42,
     printableFeaturePixels,
-    smoothMeshing = false,
+    smoothMeshingStrength = 'none',
     isOrtho = false,
     flatPaint = false,
     flatPaintFaceUp = false,
@@ -387,7 +395,9 @@ export default function ThreeDView({
     const { t } = useTranslation('printing');
     const mountRef = useRef<HTMLDivElement | null>(null);
     const [isBuilding, setIsBuilding] = useState(false);
-    const [activeBuildSmoothMeshing, setActiveBuildSmoothMeshing] = useState(smoothMeshing);
+    const [buildError, setBuildError] = useState<string | null>(null);
+    const [activeBuildSmoothMeshingStrength, setActiveBuildSmoothMeshingStrength] =
+        useState(smoothMeshingStrength);
     const [buildProgress, setBuildProgress] = useState(0);
     const [buildOverlayStep, setBuildOverlayStep] = useState<BuildOverlayStep | null>(null);
     const [modelDimensions, setModelDimensions] = useState<{
@@ -576,15 +586,7 @@ export default function ThreeDView({
         const modelGroup = modelGroupRef.current;
         if (!modelGroup || previewHeight === null) return;
 
-        const minHeight = Math.min(previewMinHeight, previewHeight);
-        const maxHeight = Math.max(previewMinHeight, previewHeight);
-        modelGroup.traverse((child) => {
-            if (child instanceof THREE.Mesh && child.userData.baseZ !== undefined) {
-                const baseZ = child.userData.baseZ as number;
-                const topZ = (child.userData.topZ as number | undefined) ?? baseZ;
-                child.visible = topZ > minHeight && baseZ < maxHeight;
-            }
-        });
+        applyPreviewLayerRange(modelGroup, previewMinHeight, previewHeight);
 
         syncWireframeOverlayVisibility();
         requestRender();
@@ -595,6 +597,15 @@ export default function ThreeDView({
         requestRender,
         syncWireframeOverlayVisibility,
     ]);
+
+    const flatPreviewHeights = useMemo(
+        () => previewLayerHeights(maxModelHeight, layerHeight, slicerFirstLayerHeight),
+        [maxModelHeight, layerHeight, slicerFirstLayerHeight]
+    );
+    const flatPreviewIndex = (height: number) => {
+        const index = flatPreviewHeights.findIndex((boundary) => boundary >= height - 1e-6);
+        return index < 0 ? flatPreviewHeights.length - 1 : index;
+    };
 
     const snapPreviewHeight = (value: number): number => {
         const bounded = Math.max(0, Math.min(maxModelHeight, value));
@@ -690,8 +701,12 @@ export default function ThreeDView({
     };
 
     const handlePreviewRangeChange = (value: number[]) => {
-        const low = snapPreviewHeight(value[0] ?? 0);
-        const high = snapPreviewHeight(value[1] ?? maxModelHeight);
+        const low = flatPaint
+            ? (flatPreviewHeights[value[0]] ?? 0)
+            : snapPreviewHeight(value[0] ?? 0);
+        const high = flatPaint
+            ? (flatPreviewHeights[value[1]] ?? maxModelHeight)
+            : snapPreviewHeight(value[1] ?? maxModelHeight);
         setPreviewMinHeight(Math.min(low, high));
         setPreviewHeight(Math.max(low, high));
     };
@@ -699,7 +714,6 @@ export default function ThreeDView({
     // 2. Rebuild mesh geometry only when the parent sends an explicit build signal.
     const buildTokenRef = useRef(0);
     const debounceTimerRef = useRef<number | null>(null);
-    const lastParamsKeyRef = useRef<string | null>(null);
     const lastRebuildRef = useRef<number>(rebuildSignal);
     const lastImageSrcRef = useRef<string | null | undefined>(imageSrc);
 
@@ -727,8 +741,8 @@ export default function ThreeDView({
         lastImageSrcRef.current = imageSrc;
 
         if (!imageSrc) {
+            setBuildError(null);
             buildTokenRef.current++;
-            lastParamsKeyRef.current = null;
             if (debounceTimerRef.current !== null) {
                 window.clearTimeout(debounceTimerRef.current);
                 debounceTimerRef.current = null;
@@ -747,8 +761,8 @@ export default function ThreeDView({
         }
 
         if (imageChanged) {
+            setBuildError(null);
             buildTokenRef.current++;
-            lastParamsKeyRef.current = null;
             if (debounceTimerRef.current !== null) {
                 window.clearTimeout(debounceTimerRef.current);
                 debounceTimerRef.current = null;
@@ -771,7 +785,6 @@ export default function ThreeDView({
         // Don't build if there are no layers configured
         if (!colorOrder || colorOrder.length === 0 || !swatches || swatches.length === 0) {
             buildTokenRef.current++;
-            lastParamsKeyRef.current = null;
             if (debounceTimerRef.current !== null) {
                 window.clearTimeout(debounceTimerRef.current);
                 debounceTimerRef.current = null;
@@ -784,52 +797,26 @@ export default function ThreeDView({
             return;
         }
 
-        const buildSmoothMeshing = smoothMeshing && !flatPaint;
+        const buildSmoothMeshingStrength = smoothMeshingStrength;
+        const buildSmoothMeshing = buildSmoothMeshingStrength !== 'none';
 
-        // Stable key of inputs to avoid duplicate builds when references unchanged
-        const paramsKey = JSON.stringify({
-            imageSrc,
-            baseSliceHeight,
-            layerHeight,
-            slicerFirstLayerHeight,
-            colorSliceHeights,
-            colorOrder,
-            swatches: swatches.map((s) => s.hex),
-            // Filament colors shape Flat Paint geometry (zone merging + export groups)
-            filamentSwatches: filamentSwatches?.map((s) => s.hex),
-            pixelSize,
-            heightScale,
-            stepped,
-            pixelColumns,
-            autoPaintEnabled,
-            autoPaintTotalHeight,
-            autoPaintFilamentOrder, // Include filament order to detect optimizer changes
-            autoPaintFinalStackFingerprint: autoPaintFinalStack?.fingerprint,
-            enhancedColorMatch,
-            preserveSeparation,
-            separationMaxDeltaE,
-            heightDithering,
-            ditherLineWidth,
-            printableFeatureFingerprint: printableFeaturePixels?.fingerprint,
-            smoothMeshing,
-            flatPaint,
-            flatPaintFaceUp,
-        });
-        if (paramsKey === lastParamsKeyRef.current) {
-            onBuildStarted?.();
-            return; // nothing changed logically
-        }
-        lastParamsKeyRef.current = paramsKey;
-
-        // Debounce rapid changes (e.g., dragging slider)
+        // The build signal already guards against incidental rerenders. Every
+        // explicit Build must regenerate geometry and reset the inspection cut,
+        // even with identical settings (including after a development update).
+        // Coalesce rapidly repeated build requests.
         if (debounceTimerRef.current !== null) window.clearTimeout(debounceTimerRef.current);
         const token = ++buildTokenRef.current;
-        setActiveBuildSmoothMeshing(buildSmoothMeshing);
+        setActiveBuildSmoothMeshingStrength(buildSmoothMeshingStrength);
         debounceTimerRef.current = window.setTimeout(() => {
             debounceTimerRef.current = null;
             const buildStartedAt = performance.now();
             // mark that a build is in progress for the overlay
             setIsBuilding(true);
+            setBuildError(null);
+            setModelDimensions(null);
+            setMaxModelHeight(0);
+            setPreviewMinHeight(0);
+            setPreviewHeight(null);
             onBuildStarted?.();
             pushProgress(0);
             setBuildOverlayStep(null);
@@ -840,7 +827,7 @@ export default function ThreeDView({
                     pixelSize,
                     layerHeight,
                     slicerFirstLayerHeight,
-                    smoothMeshing: buildSmoothMeshing,
+                    smoothMeshingStrength: buildSmoothMeshingStrength,
                     autoPaintEnabled,
                     enhancedColorMatch,
                     heightDithering,
@@ -889,6 +876,7 @@ export default function ThreeDView({
                 const YIELD_MS = 12;
                 let lastYield = performance.now();
                 const meshBuildMetrics: E2ELayerBuildMetrics[] = [];
+                let flatModelHeight: number | undefined;
                 const buildStepCount = Math.max(1, colorOrder.length + 1);
                 const pushScanDetail = (label: string, progress: number) => {
                     pushBuildOverlayStep({
@@ -1160,18 +1148,20 @@ export default function ThreeDView({
                             });
                         }
 
-                        // --- Pass 1: Compute continuous (un-snapped) heights ---
-                        // We deliberately do NOT snap to the layer grid here.
-                        // The RGB cache is still valid because it stores the ideal
-                        // continuous height; dithering happens spatially in Pass 2.
-                        // Shared final-stack mappings seed every source color so
-                        // optimizer scoring and preview choose the same printable
-                        // layer. Recomputed assignments only fill missing source colors.
+                        // --- Pass 1: Compute per-color height targets ---
+                        // Keep fractional targets until spatial dithering in Pass 2.
+                        // Without dithering, preserve the shared mapper's discrete
+                        // choices. With dithering, recover fractional targets only
+                        // between adjacent layers around those choices. Otherwise
+                        // this cache bypasses projection and makes dithering a no-op.
                         const colorHeightCache = autoPaintFinalStack
                             ? createFinalStackTargetHeightCache(
                                   autoPaintFinalStack.targetMappings,
                                   minModelH,
-                                  maxModelH
+                                  maxModelH,
+                                  heightDithering && !preserveSeparation
+                                      ? { palette: autoPaintFinalStack.palette, layerHeight }
+                                      : undefined
                               )
                             : new Map<number, number>();
                         for (const [key, height] of separationHeights) {
@@ -1269,187 +1259,15 @@ export default function ThreeDView({
                             );
                         }
 
-                        // --- Pass 2: Quantize heights (with optional dithering) ---
-                        // The continuous height map has sub-layer precision, but
-                        // the 3D model must use discrete layer heights.  When
-                        // heightDithering is ON, block-aware Stucki error
-                        // diffusion produces dots sized to the printer's line width
-                        // so the dither pattern is actually printable.  Edges
-                        // between different quantized heights are protected from
-                        // dithering to avoid staircase artifacts that expose wrong
-                        // colors.  When OFF, simple rounding is used.
-                        if (layerHeight > 0 && heightDithering) {
-                            // --- Step 2a: Snap everything to the grid first ---
-                            const snappedMap = new Float32Array(boxW * boxH);
-                            for (let mi = 0; mi < boxW * boxH; mi++) {
-                                const h = pixelHeightMap[mi];
-                                if (h <= 0) {
-                                    snappedMap[mi] = 0;
-                                    continue;
-                                }
-                                const delta = Math.max(0, h - slicerFirstLayerHeight);
-                                let s =
-                                    slicerFirstLayerHeight +
-                                    Math.round(delta / layerHeight) * layerHeight;
-                                s = Math.max(minModelH, Math.min(maxModelH, s));
-                                snappedMap[mi] = s;
-                            }
-
-                            // --- Step 2b: Identify edge pixels ---
-                            // A pixel is on an edge if any of its 4-connected
-                            // neighbors has a different snapped height.  Dithering
-                            // these would create jagged staircases that expose the
-                            // wrong filament color, so we leave them at their
-                            // nearest-round height.
-                            const isEdge = new Uint8Array(boxW * boxH);
-                            for (let y = 0; y < boxH; y++) {
-                                for (let x = 0; x < boxW; x++) {
-                                    const mi = y * boxW + x;
-                                    const sh = snappedMap[mi];
-                                    if (sh <= 0) continue;
-                                    if (
-                                        (x > 0 &&
-                                            snappedMap[mi - 1] > 0 &&
-                                            snappedMap[mi - 1] !== sh) ||
-                                        (x < boxW - 1 &&
-                                            snappedMap[mi + 1] > 0 &&
-                                            snappedMap[mi + 1] !== sh) ||
-                                        (y > 0 &&
-                                            snappedMap[mi - boxW] > 0 &&
-                                            snappedMap[mi - boxW] !== sh) ||
-                                        (y < boxH - 1 &&
-                                            snappedMap[mi + boxW] > 0 &&
-                                            snappedMap[mi + boxW] !== sh)
-                                    ) {
-                                        isEdge[mi] = 1;
-                                    }
-                                }
-                            }
-
-                            // --- Step 2c: Block-aware Stucki error diffusion ---
-                            // The block size ensures dither dots are at least as
-                            // wide as the printer's line width (in pixels).
-                            const blockSize = Math.max(1, Math.round(ditherLineWidth / pixelSize));
-                            const bW = Math.ceil(boxW / blockSize);
-                            const bH = Math.ceil(boxH / blockSize);
-
-                            // Compute average continuous height per block
-                            const blockAvg = new Float64Array(bW * bH);
-                            const blockCnt = new Uint32Array(bW * bH);
-                            const blockHasEdge = new Uint8Array(bW * bH);
-                            for (let y = 0; y < boxH; y++) {
-                                for (let x = 0; x < boxW; x++) {
-                                    const mi = y * boxW + x;
-                                    const h = pixelHeightMap[mi]; // still continuous
-                                    if (h <= 0) continue;
-                                    const bx = Math.floor(x / blockSize);
-                                    const by = Math.floor(y / blockSize);
-                                    const bi = by * bW + bx;
-                                    blockAvg[bi] += h;
-                                    blockCnt[bi]++;
-                                    if (isEdge[mi]) blockHasEdge[bi] = 1;
-                                }
-                            }
-                            for (let bi = 0; bi < bW * bH; bi++) {
-                                if (blockCnt[bi] > 0) blockAvg[bi] /= blockCnt[bi];
-                            }
-
-                            // Dither at block level using the Stucki kernel: a
-                            // wider, error-conserving diffusion than Floyd-
-                            // Steinberg for smoother tone and finer detail.
-                            // Offsets are scan-relative (dx along the serpentine
-                            // direction, dy downward); weights are pre-divided by 42.
-                            const STUCKI_KERNEL: ReadonlyArray<readonly [number, number, number]> =
-                                [
-                                    [1, 0, 8 / 42],
-                                    [2, 0, 4 / 42],
-                                    [-2, 1, 2 / 42],
-                                    [-1, 1, 4 / 42],
-                                    [0, 1, 8 / 42],
-                                    [1, 1, 4 / 42],
-                                    [2, 1, 2 / 42],
-                                    [-2, 2, 1 / 42],
-                                    [-1, 2, 2 / 42],
-                                    [0, 2, 4 / 42],
-                                    [1, 2, 2 / 42],
-                                    [2, 2, 1 / 42],
-                                ];
-                            const errBuf = new Float64Array(bW * bH);
-                            const blockSnapped = new Float32Array(bW * bH);
-
-                            for (let by = 0; by < bH; by++) {
-                                const ltr = by % 2 === 0;
-                                for (let bxi = 0; bxi < bW; bxi++) {
-                                    const bx = ltr ? bxi : bW - 1 - bxi;
-                                    const bi = by * bW + bx;
-                                    if (blockCnt[bi] === 0) continue;
-
-                                    let snapped: number;
-                                    if (blockHasEdge[bi]) {
-                                        // Edge block: no dithering, use simple snap
-                                        const delta = Math.max(
-                                            0,
-                                            blockAvg[bi] - slicerFirstLayerHeight
-                                        );
-                                        snapped =
-                                            slicerFirstLayerHeight +
-                                            Math.round(delta / layerHeight) * layerHeight;
-                                    } else {
-                                        const adjusted = blockAvg[bi] + errBuf[bi];
-                                        const delta = Math.max(
-                                            0,
-                                            adjusted - slicerFirstLayerHeight
-                                        );
-                                        snapped =
-                                            slicerFirstLayerHeight +
-                                            Math.round(delta / layerHeight) * layerHeight;
-                                    }
-                                    snapped = Math.max(minModelH, Math.min(maxModelH, snapped));
-                                    blockSnapped[bi] = snapped;
-
-                                    if (!blockHasEdge[bi]) {
-                                        const err = blockAvg[bi] + errBuf[bi] - snapped;
-                                        const dir = ltr ? 1 : -1;
-                                        for (let k = 0; k < STUCKI_KERNEL.length; k++) {
-                                            const [dx, dy, weight] = STUCKI_KERNEL[k];
-                                            const tx = bx + dir * dx;
-                                            const ty = by + dy;
-                                            if (tx < 0 || tx >= bW || ty >= bH) continue;
-                                            errBuf[ty * bW + tx] += err * weight;
-                                        }
-                                    }
-                                }
-                            }
-
-                            // Write block-level results back to pixel map
-                            for (let y = 0; y < boxH; y++) {
-                                for (let x = 0; x < boxW; x++) {
-                                    const mi = y * boxW + x;
-                                    if (pixelHeightMap[mi] <= 0) continue;
-                                    const bx = Math.floor(x / blockSize);
-                                    const by = Math.floor(y / blockSize);
-                                    const bi = by * bW + bx;
-                                    if (blockHasEdge[bi]) {
-                                        // Edge blocks: use per-pixel snap
-                                        pixelHeightMap[mi] = snappedMap[mi];
-                                    } else {
-                                        pixelHeightMap[mi] = blockSnapped[bi];
-                                    }
-                                }
-                            }
-                        } else if (layerHeight > 0) {
-                            // Simple grid snap without error diffusion
-                            for (let mi = 0; mi < boxW * boxH; mi++) {
-                                const h = pixelHeightMap[mi];
-                                if (h <= 0) continue;
-                                const delta = Math.max(0, h - slicerFirstLayerHeight);
-                                let snapped =
-                                    slicerFirstLayerHeight +
-                                    Math.round(delta / layerHeight) * layerHeight;
-                                snapped = Math.max(minModelH, Math.min(maxModelH, snapped));
-                                pixelHeightMap[mi] = snapped;
-                            }
-                        }
+                        quantizeHeightMap(pixelHeightMap, boxW, boxH, {
+                            layerHeight,
+                            slicerFirstLayerHeight,
+                            minModelH,
+                            maxModelH,
+                            heightDithering: heightDithering && !preserveSeparation,
+                            ditherLineWidth,
+                            pixelSize,
+                        });
                     } else {
                         // === STANDARD: Luminance-based mapping ===
                         // First, find the luminance range of the image
@@ -1555,6 +1373,7 @@ export default function ThreeDView({
                         });
 
                         const partCount = Math.max(1, layout.parts.length);
+                        flatModelHeight = layout.totalHeight;
                         const scanSpanEnd = 1 / (colorOrder.length + 1);
                         const pushPartDetail = (
                             partIndex: number,
@@ -1563,7 +1382,7 @@ export default function ThreeDView({
                         ) => {
                             const stepProgress = clampProgress(progress);
                             pushBuildOverlayStep({
-                                stepLabel: `Flat Paint part ${partIndex + 1} of ${partCount}: ${label}`,
+                                stepLabel: `Flat Paint mesh part ${partIndex + 1} of ${partCount}: ${label}`,
                                 stepIndex: Math.min(partCount + 1, partIndex + 2),
                                 stepCount: partCount + 1,
                                 stepProgress,
@@ -1577,6 +1396,14 @@ export default function ThreeDView({
                             );
                         };
 
+                        const meshFlatMask = await createFlatPaintMesher(
+                            orientedCounts,
+                            boxW,
+                            boxH,
+                            pixelSize,
+                            buildSmoothMeshingStrength
+                        );
+                        if (token !== buildTokenRef.current) return;
                         const flatMeshCache = new WeakMap<Uint8Array, Promise<MeshData>>();
                         const partIdxForProgress = (part: (typeof layout.parts)[number]) =>
                             layout.parts.indexOf(part);
@@ -1584,25 +1411,16 @@ export default function ThreeDView({
                             const cached = flatMeshCache.get(part.mask);
                             if (cached) return cached;
 
-                            const promise = generateGreedyMesh(
-                                part.mask,
-                                boxW,
-                                boxH,
-                                1,
-                                0,
-                                pixelSize,
-                                1,
-                                {
-                                    yieldIntervalMs: 8,
-                                    onProgress: (progress: MeshProgress) => {
-                                        pushPartDetail(
-                                            partIdxForProgress(part),
-                                            progress.label,
-                                            progressInSpan(0, 0.9, progress.progress)
-                                        );
-                                    },
-                                }
-                            );
+                            const promise = meshFlatMask(part.mask, {
+                                yieldIntervalMs: 8,
+                                onProgress: (progress: MeshProgress) => {
+                                    pushPartDetail(
+                                        partIdxForProgress(part),
+                                        progress.label,
+                                        progressInSpan(0, 0.9, progress.progress)
+                                    );
+                                },
+                            });
                             flatMeshCache.set(part.mask, promise);
                             return promise;
                         };
@@ -1612,9 +1430,7 @@ export default function ThreeDView({
                             if (token !== buildTokenRef.current) return;
                             if (part.activeCount === 0) continue;
 
-                            // Flat Paint always uses the greedy mesher: smoothed
-                            // boundaries would open gaps between side-by-side
-                            // color regions inside the slab.
+                            // Reuse the shared XY tessellation at each slab Z range.
                             const generatedMesh = remapMeshZRange(
                                 await getFlatMaskMesh(part),
                                 part.baseZ,
@@ -1639,7 +1455,7 @@ export default function ThreeDView({
                                     height: boxH,
                                     pixelSize,
                                     topZ: part.topZ * heightScale,
-                                    compactHeightfield: true,
+                                    compactHeightfield: false,
                                 }
                             );
                             const isCarrier = part.kind === 'carrier';
@@ -1657,6 +1473,7 @@ export default function ThreeDView({
                             // Store slab Z range for the preview slider
                             mesh.userData.baseZ = part.baseZ;
                             mesh.userData.topZ = part.topZ;
+                            mesh.userData.kromacutFlatPaintHeightScale = heightScale;
                             // Export metadata: one 3MF object per physical filament
                             mesh.userData.kromacutExportGroup = part.exportGroup;
                             mesh.userData.kromacutFilamentHex = part.filamentHex;
@@ -1746,6 +1563,7 @@ export default function ThreeDView({
                                 buildSmoothMeshing ? generateSmoothMesh : generateGreedyMesh
                             )(activePixels, boxW, boxH, thickness, baseZ, pixelSize, heightScale, {
                                 yieldIntervalMs: 8,
+                                strength: buildSmoothMeshingStrength,
                                 onProgress: meshProgressReporter(buildLayerIndex),
                             });
                             meshBuildMetrics.push({
@@ -1922,6 +1740,7 @@ export default function ThreeDView({
                             buildSmoothMeshing ? generateSmoothMesh : generateGreedyMesh
                         )(activePixels, boxW, boxH, thickness, baseZ, pixelSize, heightScale, {
                             yieldIntervalMs: 8,
+                            strength: buildSmoothMeshingStrength,
                             onProgress: meshProgressReporter(buildLayerIndex),
                         });
                         meshBuildMetrics.push({
@@ -2033,9 +1852,9 @@ export default function ThreeDView({
                 };
                 setModelDimensions(nextModelDimensions);
                 // Set max height for layer preview slider
-                setMaxModelHeight(box.max.z);
+                setMaxModelHeight(flatModelHeight ?? box.max.z);
                 setPreviewMinHeight(0);
-                setPreviewHeight(box.max.z); // Start at full height
+                setPreviewHeight(flatModelHeight ?? box.max.z); // Start at full height
                 setHoveredSegment(null);
                 updateE2EBuild({
                     status: 'complete',
@@ -2053,7 +1872,7 @@ export default function ThreeDView({
                         pixelSize,
                         layerHeight,
                         slicerFirstLayerHeight,
-                        smoothMeshing: buildSmoothMeshing,
+                        smoothMeshingStrength: buildSmoothMeshingStrength,
                         autoPaintEnabled,
                         enhancedColorMatch,
                         heightDithering,
@@ -2107,9 +1926,8 @@ export default function ThreeDView({
                 pushProgress(1);
             };
 
-            const finishCurrentBuild = (failed = false) => {
+            const finishCurrentBuild = () => {
                 if (token !== buildTokenRef.current) return;
-                if (failed) lastParamsKeyRef.current = null;
                 setIsBuilding(false);
             };
 
@@ -2117,8 +1935,7 @@ export default function ThreeDView({
                 const img = await loadImage();
                 if (token !== buildTokenRef.current) return;
                 if (!img) {
-                    finishCurrentBuild(true);
-                    return;
+                    throw new Error('Unable to load the model image');
                 }
                 const w = img.naturalWidth;
                 const h = img.naturalHeight;
@@ -2128,8 +1945,7 @@ export default function ThreeDView({
                 c.height = h;
                 const cx = c.getContext('2d');
                 if (!cx) {
-                    finishCurrentBuild(true);
-                    return;
+                    throw new Error('Unable to read the model image');
                 }
                 cx.drawImage(img, 0, 0, w, h);
                 const originalImageData = cx.getImageData(0, 0, w, h).data;
@@ -2186,7 +2002,32 @@ export default function ThreeDView({
             })().catch((buildError) => {
                 if (token !== buildTokenRef.current) return;
                 console.error('[ThreeDView] build failed:', buildError);
-                finishCurrentBuild(true);
+                // Parts are rendered progressively. Never leave an unfinished
+                // backing on screen or expose it as a completed export.
+                clearWireframeOverlay();
+                modelGroup.traverse((object) => {
+                    if (!(object instanceof THREE.Mesh)) return;
+                    object.geometry.dispose();
+                    const materials = Array.isArray(object.material)
+                        ? object.material
+                        : [object.material];
+                    materials.forEach((material) => material.dispose());
+                });
+                modelGroup.clear();
+                clearLastMeshRef();
+                setModelDimensions(null);
+                setMaxModelHeight(0);
+                setPreviewMinHeight(0);
+                setPreviewHeight(null);
+                const error = buildError instanceof Error ? buildError.message : String(buildError);
+                setBuildError(error);
+                updateE2EBuild({
+                    status: 'failed',
+                    error,
+                    elapsedMs: performance.now() - buildStartedAt,
+                });
+                requestRender();
+                finishCurrentBuild();
             });
         }, 120);
     }, [
@@ -2213,7 +2054,7 @@ export default function ThreeDView({
         heightDithering,
         ditherLineWidth,
         printableFeaturePixels,
-        smoothMeshing,
+        smoothMeshingStrength,
         flatPaint,
         flatPaintFaceUp,
         cameraRef,
@@ -2233,8 +2074,15 @@ export default function ThreeDView({
         previewHeight !== null && previewMinHeight > 0.0001
             ? `${previewMinHeight.toFixed(2)} - ${previewHeight.toFixed(2)} mm`
             : `${(previewHeight ?? 0).toFixed(2)} mm`;
-    const previewMinPercent = heightToPercent(previewMinHeight, maxModelHeight);
-    const previewMaxPercent = heightToPercent(previewHeight ?? maxModelHeight, maxModelHeight);
+    const previewMinPercent = flatPaint
+        ? heightToPercent(flatPreviewIndex(previewMinHeight), flatPreviewHeights.length - 1)
+        : heightToPercent(previewMinHeight, maxModelHeight);
+    const previewMaxPercent = flatPaint
+        ? heightToPercent(
+              flatPreviewIndex(previewHeight ?? maxModelHeight),
+              flatPreviewHeights.length - 1
+          )
+        : heightToPercent(previewHeight ?? maxModelHeight, maxModelHeight);
     const previewSelectionLeft = Math.min(previewMinPercent, previewMaxPercent);
     const previewSelectionRight = Math.max(previewMinPercent, previewMaxPercent);
     const previewSelectionClip = `inset(0 ${sliderRightInsetPercentCss(
@@ -2243,10 +2091,22 @@ export default function ThreeDView({
 
     return (
         <div className="w-full h-full relative" ref={mountRef}>
+            {buildError && (
+                <div
+                    role="alert"
+                    data-testid="model-build-error"
+                    className="absolute top-4 left-4 right-4 z-10 rounded-md border border-destructive/50 bg-background/95 p-4 text-sm break-words"
+                >
+                    <p className="font-semibold text-destructive">{t('threeDView.buildFailed')}</p>
+                    <p className="mt-1 text-muted-foreground">
+                        {t('threeDView.buildFailedDetails', { error: buildError })}
+                    </p>
+                </div>
+            )}
             {isBuilding && (
                 <ProgressOverlay
                     title={
-                        activeBuildSmoothMeshing
+                        activeBuildSmoothMeshingStrength !== 'none'
                             ? t('threeDView.generatingSmoothMesh')
                             : t('threeDView.generatingMesh')
                     }
@@ -2267,6 +2127,8 @@ export default function ThreeDView({
                         height: modelDimensions.height.toFixed(1),
                         depth: modelDimensions.depth.toFixed(1),
                     })}
+                    {flatPaint &&
+                        ` ${t('autoPaintTab.physicalLayers', { count: flatPreviewHeights.length - 1 })}`}
                 </div>
             )}
             {/* Layer Preview Slider */}
@@ -2316,11 +2178,18 @@ export default function ThreeDView({
                                     </div>
                                 )}
                                 <SliderPrimitive.Root
-                                    value={[previewMinHeight, previewHeight]}
+                                    value={
+                                        flatPaint
+                                            ? [
+                                                  flatPreviewIndex(previewMinHeight),
+                                                  flatPreviewIndex(previewHeight),
+                                              ]
+                                            : [previewMinHeight, previewHeight]
+                                    }
                                     onValueChange={handlePreviewRangeChange}
                                     min={0}
-                                    max={maxModelHeight}
-                                    step={0.01}
+                                    max={flatPaint ? flatPreviewHeights.length - 1 : maxModelHeight}
+                                    step={flatPaint ? 1 : 0.01}
                                     minStepsBetweenThumbs={0}
                                     className="relative flex h-4 w-full touch-none select-none items-center"
                                     data-testid="layer-preview-range"
@@ -2461,10 +2330,16 @@ export default function ThreeDView({
                                     </SliderPrimitive.Track>
                                     <SliderPrimitive.Thumb
                                         aria-label={t('threeDView.previewBottomLayerCutoff')}
+                                        aria-valuetext={t('threeDView.height', {
+                                            height: previewMinHeight.toFixed(2),
+                                        })}
                                         className="block h-3.5 w-3.5 rounded-full border border-primary/70 bg-background shadow transition-colors hover:shadow-md focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-2"
                                     />
                                     <SliderPrimitive.Thumb
                                         aria-label={t('threeDView.previewTopLayerCutoff')}
+                                        aria-valuetext={t('threeDView.height', {
+                                            height: previewHeight.toFixed(2),
+                                        })}
                                         className="block h-3.5 w-3.5 rounded-full border border-primary/70 bg-background shadow transition-colors hover:shadow-md focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-2"
                                     />
                                 </SliderPrimitive.Root>

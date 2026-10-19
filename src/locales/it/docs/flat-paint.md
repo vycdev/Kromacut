@@ -15,6 +15,10 @@ Usa un sistema multimateriale come AMS, CFS o cambio utensile con slicer adatto.
 
 _Sezioni concettuali. I colori identificano i materiali; le etichette indicano la faccia da osservare._
 
+L’avanzamento conta le parti della mesh, non gli strati stampati: più parti colorate possono condividere uno strato. Il badge Modello mostra il numero di strati fisici, incluso il supporto trasparente se utilizzato. L’anteprima degli strati taglia la lastra uno strato alla volta; entrambe le maniglie tagliano anche le regioni unite di fondazione e colore. L’esportazione include sempre il modello completo. Il pulsante Crea modello 3D rigenera sempre il modello, anche senza modificare le impostazioni, e ripristina l’intero intervallo di strati e la vista iniziale della fotocamera.
+
+Se la creazione non riesce, Kromacut rimuove il modello incompleto e mostra l’errore nell’anteprima. Premi Crea modello 3D per riprovare; al termine di una creazione riuscita, ricompaiono le dimensioni del modello e l’anteprima degli strati.
+
 ## Predefinito: faccia in giù con supporto trasparente
 
 Attiva **Flat Paint** e lascia **Faccia in su, senza strato trasparente** disattivato.
@@ -47,7 +51,7 @@ Le geometrie sono diverse. **Genera modello 3D** di nuovo dopo il cambio. Capovo
 | Flat Paint predefinito | Fondo attraverso supporto | Colonne specchiate e invertite, fondazione dietro. | Oggetti per filamento più supporto. |
 | Flat Paint a faccia in su | Superficie piana esposta | Ordine normale, fondazione sotto colonne corte. | Oggetti per filamento; niente supporto. |
 
-Flat Paint e **Mesh levigata** non operano insieme. La lastra usa regioni affiancate a impronta completa, non contorni levigati. Attivare Mesh levigata disattiva Flat Paint; scegli e rigenera quando cambi.
+**Mesh levigata** funziona con entrambi gli orientamenti di Flat Paint. Scegli un’intensità e ricrea il modello. La levigatura ammorbidisce la sagoma esterna e i confini condivisi tra colori, mantenendo la lastra piatta, le altezze dei livelli e le pile di materiali. Piccole giunzioni condivise chiudono i contatti diagonali senza sovrapposizioni. Le istruzioni di stampa e il 3MF registrano l’intensità usata.
 
 ## Esportare e verificare
 

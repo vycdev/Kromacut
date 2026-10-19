@@ -60,7 +60,7 @@ test.describe('landing page smoke @smoke', () => {
             await batmanga.screenshot({ path: testInfo.outputPath(`batmanga-${width}.png`) });
             const naruto = cards.filter({ has: page.getByRole('heading', { name: 'Naruto', exact: true }) });
             await expect(naruto).toHaveCount(1);
-            await expect(naruto.locator('footer').getByRole('link', { name: 'Naruto artwork — source on Pinterest' })).toHaveAttribute('href', 'https://in.pinterest.com/pin/169870217190172931/');
+            await expect(naruto.locator('footer').getByRole('link', { name: 'Naruto', exact: true })).toHaveAttribute('href', 'https://in.pinterest.com/pin/169870217190172931/');
             await expect(naruto.locator('header').getByText('110.4 × 190.2 mm footprint')).toHaveCount(1);
             expect(await naruto.locator('figcaption > p:first-child').allTextContents()).toEqual(['Kromacut prediction', 'Slicer preview', 'Finished print']);
             expect(await naruto.locator('img').evaluateAll(images => images.map(image => image.getAttribute('alt')))).toEqual([

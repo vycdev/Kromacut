@@ -56,6 +56,8 @@ interface Props {
     onDeletePalette: (id: string) => void;
     onExportPalette: (id: string) => void;
     onImportPaletteFile: (e: React.ChangeEvent<HTMLInputElement>) => void;
+    paletteEditorOpen: boolean;
+    onPaletteEditorOpenChange: (open: boolean) => void;
 }
 
 export const ControlsPanel: React.FC<Props> = ({
@@ -82,6 +84,8 @@ export const ControlsPanel: React.FC<Props> = ({
     onDeletePalette,
     onExportPalette,
     onImportPaletteFile,
+    paletteEditorOpen,
+    onPaletteEditorOpenChange,
 }) => {
     const { t } = useTranslation('workspace');
     // Local state for relaxed typing
@@ -299,6 +303,8 @@ export const ControlsPanel: React.FC<Props> = ({
                             onDeletePalette={onDeletePalette}
                             onExportPalette={onExportPalette}
                             onImportFile={onImportPaletteFile}
+                            dialogOpen={paletteEditorOpen}
+                            onDialogOpenChange={onPaletteEditorOpenChange}
                         />
                     </div>
                     <div className="space-y-2">

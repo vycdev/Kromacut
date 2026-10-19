@@ -49,7 +49,7 @@ Click **3D**. Set the print basics first:
 - **Pixel Size (XY)** controls the physical width and depth of each image pixel.
 - **Layer Height** should match the slicer layer height you plan to use.
 - **First Layer Height** should match your slicer first-layer setting.
-- **Smooth Meshing** can soften connected color boundaries for smoother geometry.
+- **Smooth Meshing** offers None, Minimal, Medium, and Aggressive strengths for model outlines; Medium preserves the original smoothing.
 
 ## Choose Manual Or Auto-paint
 

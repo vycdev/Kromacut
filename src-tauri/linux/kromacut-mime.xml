@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
+  <mime-type type="application/x-kromacut-filament-profile">
+    <comment>Kromacut filament profile</comment>
+    <glob pattern="*.kfil"/>
+    <glob pattern="*.kapp"/>
+    <icon name="application-x-kromacut-filament-profile"/>
+  </mime-type>
+  <mime-type type="application/x-kromacut-palette">
+    <comment>Kromacut color palette</comment>
+    <glob pattern="*.kpal"/>
+    <icon name="application-x-kromacut-palette"/>
+  </mime-type>
+</mime-info>

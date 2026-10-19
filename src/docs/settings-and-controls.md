@@ -22,7 +22,7 @@ The **Language** selector changes the interface, documentation, diagrams, and pu
 
 Public pages also offer a language selector. Translated documentation uses shareable language-prefixed links, such as `/ro/docs/overview`. Page names and section anchors remain stable across languages. File extensions, numeric model data, user-entered names, and original community artwork titles are not translated.
 
-The settings dialog includes links to the documentation, Discord, Reddit, GitHub, and Patreon, and shows the current Kromacut version.
+The settings dialog includes links to the documentation, Discord, Reddit, GitHub, and Patreon, and shows the current Kromacut version. **Privacy & local data** and **Terms & conditions** are also available here and open in your browser in the selected language.
 
 ## Workspace Modes
 
@@ -122,5 +122,17 @@ Each calculation creates a separate `.jsonl` file in Kromacut's Auto-paint diagn
 A completed trace includes basic runtime information, the active filament and calibration snapshot, build and optimizer settings, bounded progress samples, appearance-fit status, progressive repeat-tier decisions, final physical layers, every final printable color candidate, target-to-candidate Delta E comparisons, prediction confidence, and the measurements that contributed to interpolated or locally fitted colors. It records processed palette colors and weights, not the uploaded source image. Calibration and profile data can still be sensitive, so review a trace before sharing it publicly.
 
 Recording is intended for investigations and may create large files. Leave it disabled for ordinary printing when you do not need a trace.
+
+## Opening files from your desktop
+
+Desktop installations associate `.kfil` and legacy `.kapp` files with filament profiles, and `.kpal` files with palettes. Double-click a file to import and select it in Kromacut. If the app is already running, the file opens in its existing window. Normal validation, migration, duplicate handling, and calibration-preservation rules apply.
+
+Files opened from your desktop wait while a palette editor, calibration dialog, or profile Rename or Save New form is open. Finish or cancel that session to continue the queued imports; typed names and the profile being edited stay unchanged until then.
+
+Imports also wait while you edit a filament name or HD field, or while its color picker or **Convert from TD** popover is open. Leave the field or close the picker or popover to resume the queued imports; unsaved filament changes still require your choice before another profile replaces them.
+
+Before replacing unsaved filament edits, Kromacut offers **Keep edits** or **Open profile**. Keep your edits to save them first; opening the profile discards those edits. Files opened this way must be smaller than 32 MiB. Generic JSON, images, and models retain their usual import workflows.
+
+On Linux, portable AppImages require desktop integration for file associations. If your system has not selected Kromacut as the default, use **Open with** in your file manager.
 
 Next: [Troubleshooting](troubleshooting).

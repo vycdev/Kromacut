@@ -7,6 +7,8 @@ use std::process::Command;
 use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Manager, State};
+mod opened_files;
+use opened_files::{enqueue_and_notify, take_opened_file, OpenedFiles};
 
 const RELEASES_URL: &str = "https://github.com/vycdev/Kromacut/releases";
 
@@ -211,6 +213,27 @@ fn open_releases_page() -> Result<(), String> {
     open_external_url(RELEASES_URL)
 }
 
+fn legal_page_url(path: &str) -> Result<String, String> {
+    let segments: Vec<_> = path.strip_prefix('/').unwrap_or("").split('/').collect();
+    let supported = match segments.as_slice() {
+        ["privacy" | "terms"] => true,
+        [language, "privacy" | "terms"] => matches!(
+            *language,
+            "fr" | "de" | "it" | "ro" | "es" | "ja" | "zh-CN" | "hi" | "pt-PT" | "uk" | "bn"
+        ),
+        _ => false,
+    };
+    if !supported {
+        return Err("Unsupported legal page".to_string());
+    }
+    Ok(format!("https://kromacut.com{path}"))
+}
+
+#[tauri::command]
+fn open_legal_page(path: String) -> Result<(), String> {
+    open_external_url(&legal_page_url(&path)?)
+}
+
 fn open_external_url(url: &str) -> Result<(), String> {
     #[cfg(target_os = "windows")]
     let result = Command::new("cmd").args(["/C", "start", "", url]).spawn();
@@ -223,25 +246,40 @@ fn open_external_url(url: &str) -> Result<(), String> {
 
     result
         .map(|_| ())
-        .map_err(|e| format!("Failed to open releases page: {}", e))
+        .map_err(|e| format!("Failed to open web page: {}", e))
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .manage(DiagnosticWriterState::default())
+        .manage(OpenedFiles::default())
+        .plugin(tauri_plugin_single_instance::init(|app, args, cwd| {
+            enqueue_and_notify(
+                app,
+                args.into_iter().skip(1).map(PathBuf::from),
+                Path::new(&cwd),
+            );
+        }))
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             check_for_updates,
             get_app_version,
             open_releases_page,
+            open_legal_page,
+            take_opened_file,
             begin_auto_paint_diagnostic,
             append_auto_paint_diagnostic,
             finish_auto_paint_diagnostic,
             open_auto_paint_diagnostics_directory
         ])
         .setup(|app| {
+            #[cfg(any(target_os = "windows", target_os = "linux"))]
+            app.state::<OpenedFiles>().enqueue(
+                std::env::args_os().skip(1).map(PathBuf::from),
+                &std::env::current_dir()?,
+            );
             if cfg!(debug_assertions) {
                 app.handle().plugin(
                     tauri_plugin_log::Builder::default()
@@ -251,8 +289,17 @@ pub fn run() {
             }
             Ok(())
         })
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|_app, _event| {
+            #[cfg(target_os = "macos")]
+            if let tauri::RunEvent::Opened { urls } = _event {
+                let paths = urls.into_iter().filter_map(|url| url.to_file_path().ok());
+                if let Ok(cwd) = std::env::current_dir() {
+                    enqueue_and_notify(_app, paths, &cwd);
+                }
+            }
+        });
 }
 
 #[cfg(test)]
@@ -262,6 +309,38 @@ mod tests {
     };
     use std::fs::{create_dir_all, read_to_string, remove_dir_all, File};
     use std::io::Cursor;
+
+    #[test]
+    fn legal_page_urls_only_allow_published_notices() {
+        for language in [
+            "", "fr", "de", "it", "ro", "es", "ja", "zh-CN", "hi", "pt-PT", "uk", "bn",
+        ] {
+            for page in ["privacy", "terms"] {
+                let path = if language.is_empty() {
+                    format!("/{page}")
+                } else {
+                    format!("/{language}/{page}")
+                };
+                assert_eq!(
+                    super::legal_page_url(&path).unwrap(),
+                    format!("https://kromacut.com{path}")
+                );
+            }
+        }
+        for path in [
+            "https://example.com/privacy",
+            "//example.com/privacy",
+            "/app",
+            "/xx/privacy",
+            "/ro/../privacy",
+            "/privacy?next=example.com",
+            "/privacy&calc",
+            "privacy",
+            "/terms/",
+        ] {
+            assert!(super::legal_page_url(path).is_err(), "{path}");
+        }
+    }
 
     fn diagnostic_test_directory(name: &str) -> std::path::PathBuf {
         std::env::temp_dir().join(format!(
@@ -276,6 +355,22 @@ mod tests {
         assert!(is_different_version("2.6.1", "2.6.0"));
         assert!(is_different_version("2.6.0", "3.0.0"));
         assert!(is_different_version("3.0.0", "2.9.9"));
+    }
+
+    #[test]
+    fn platform_file_association_configs_are_valid_tauri_configs() {
+        let base: serde_json::Value =
+            serde_json::from_str(include_str!("../tauri.conf.json")).unwrap();
+        for (platform, field) in [
+            (include_str!("../tauri.linux.conf.json"), "linux"),
+            (include_str!("../tauri.macos.conf.json"), "macOS"),
+        ] {
+            let mut merged = base.clone();
+            let overlay: serde_json::Value = serde_json::from_str(platform).unwrap();
+            merged["bundle"][field] = overlay["bundle"][field].clone();
+            let config: tauri::Config = serde_json::from_value(merged).unwrap();
+            assert_eq!(config.bundle.file_associations.unwrap().len(), 2);
+        }
     }
 
     #[test]

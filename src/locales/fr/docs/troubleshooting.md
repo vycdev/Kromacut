@@ -55,7 +55,7 @@ Vérifiez séparément la ligne **Modèle d’apparence**. Un score global élev
 
 ## Une option en a désactivé une autre
 
-Deux paires sont volontairement exclusives : **Maillage lissé** et **Peinture à plat**, ainsi que **Préserver la séparation des couleurs** et **Tramage de hauteur**. La première paire choisit différentes géométries ; la seconde choisit différentes façons d’affecter les couleurs sources aux hauteurs imprimables. Consultez [Peinture à plat](flat-paint) et [Peinture automatique](auto-paint).
+**Préserver la séparation des couleurs** et **Tramage de hauteur** restent exclusifs, car ils affectent différemment les couleurs sources aux hauteurs imprimables. **Maillage lissé** et **Peinture à plat** peuvent être utilisés ensemble ; reconstruisez après toute modification. Consultez [Peinture à plat](flat-paint) et [Peinture automatique](auto-paint).
 
 ## La séparation des couleurs ne trouve aucun résultat
 

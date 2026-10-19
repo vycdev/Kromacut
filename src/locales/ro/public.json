@@ -110,7 +110,7 @@
     "photos_one": "{{count}} fotografie",
     "photos_other": "{{count}} de fotografii",
     "openPhoto": "Deschide {{title}} — {{kind}} {{index}} la dimensiune completă",
-    "originalArtwork": "Ilustrație originală: <source>{{title}}</source>",
+    "originalArtwork": "Ilustrație originală: <credit>{{title}}</credit>",
     "themeLabel": "Temă: {{theme}}",
     "photos_few": "{{count}} fotografii"
   },

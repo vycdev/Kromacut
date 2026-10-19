@@ -234,7 +234,9 @@
     "colorCount_many": "{{count, number}} couleurs",
     "tooManyColors_many": "Trop de couleurs ({{count, number}})"
   },
-  "threeDView": {
+    "threeDView": {
+        "buildFailed": "Impossible de créer le modèle 3D",
+        "buildFailedDetails": "Le modèle incomplet a été supprimé. Cliquez sur Construire le modèle 3D pour réessayer. Erreur : {{error}}",
     "layerPreview": "Aperçu des couches",
     "previewBottomLayerCutoff": "Limite inférieure des couches de l’aperçu",
     "previewTopLayerCutoff": "Limite supérieure des couches de l’aperçu",
@@ -262,7 +264,11 @@
     "firstLayerHeight": "Hauteur de première couche",
     "effectiveLineWidth": "Largeur de ligne effective",
     "smoothMeshing": "Maillage lissé",
-    "smoothConnectedColorBoundaryEdgesWithFastWeldedTopology": "Lisse les frontières de couleurs connectées avec une topologie soudée rapide. Cette option désactive la peinture à plat.",
+    "smoothingNone": "Aucun",
+    "smoothingMinimal": "Minimal",
+    "smoothingMedium": "Moyen",
+    "smoothingAggressive": "Intensif",
+    "smoothingHelp": "Adoucit les contours du modèle dans l’aperçu et les exports. Moyen reproduit le lissage d’origine. Reconstruisez pour appliquer.",
     "modelDimensions": "Modèle : {{width}}×{{height}}×{{depth}} mm"
   },
   "printInstructions": {
@@ -365,7 +371,7 @@
     "readingImageLayers": "Lecture des couches de couleur de l’image",
     "buildingLayer": "Génération de la couche de couleur {{layer}} sur {{total}}",
     "layerProgress": "Couche {{layer}} sur {{total}} : {{label}}",
-    "flatPaintPartProgress": "Pièce de peinture à plat {{part}} sur {{total}} : {{label}}",
+    "flatPaintPartProgress": "Partie du maillage de peinture à plat {{part}} sur {{total}} : {{label}}",
     "partMeshComplete": "Maillage de la pièce terminé",
     "selectingPixels": "Sélection des pixels actifs",
     "preparingPreview": "Préparation de la géométrie de l’aperçu",

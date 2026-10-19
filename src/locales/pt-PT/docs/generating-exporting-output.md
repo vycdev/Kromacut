@@ -46,7 +46,7 @@ Uma vista automática pode mostrar dezenas de misturas de poucas bobinas. O 3MF 
 
 STL não contém cores nem atribuições automáticas de bobinas. Use o plano copiado com os controlos de troca do laminador. Um 3MF é ainda um modelo, não G-code pronto: escolha impressora, bico, perfis, temperaturas e velocidades, e depois lamine.
 
-Para **Pintura plana** só se oferece 3MF: um objeto por filamento e, na disposição predefinida de face para baixo, um suporte transparente. A opção de face para cima omite-o. Um STL sem cores e de geometria única seria inútil para qualquer placa. A pintura plana desativa **Malha suavizada** porque não usa contornos suavizados.
+Para **Pintura plana** só se oferece 3MF: um objeto por filamento e, na disposição predefinida de face para baixo, um suporte transparente. A opção de face para cima omite-o. Um STL sem cores e de geometria única seria inútil para qualquer placa. Ambas as orientações suportam todas as intensidades de **Malha suavizada**. Gere novamente o modelo depois de alterar a intensidade para a aplicar à pré-visualização e à geometria exportada.
 
 ## Instruções de impressão
 

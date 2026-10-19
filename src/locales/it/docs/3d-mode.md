@@ -76,13 +76,24 @@ I controlli manuali e le istruzioni di cambio supportano **64 colori**. Riduci l
 
 Con la levigatura disattivata, i contorni seguono la griglia quadrata dei pixel. Attivandola, i bordi connessi vengono levigati in una geometria saldata. La differenza viene esportata: non è un filtro dell’anteprima.
 
+Ammorbidisce i contorni del modello nell’anteprima e nelle esportazioni. Media mantiene la levigatura originale. Ricostruisci per applicare.
+
+| Intensità | Utilizzo |
+| --- | --- |
+| **Nessuna** | Pixel art, bordi esatti della griglia o generazione più rapida. |
+| **Minima** | Pulizia leggera degli angoli frastagliati. |
+| **Media** | Il risultato familiare della precedente impostazione attiva. |
+| **Intensa** | Levigatura più intensa lungo i contorni, compresi i gradini residui, con lo stesso limite di spostamento di Media. |
+
+Lo spostamento rimane inferiore a mezzo pixel. Ricostruisci il modello e controlla l’anteprima nello slicer. Le impostazioni attiva/disattiva diventano Media/Nessuna.
+
 ![Confronto tra contorni diagonali a gradini e levigati sulla stessa griglia sorgente.](12_smooth_boundaries.svg)
 
 _Confronto schematico dei contorni, non una simulazione dello slicer._
 
 Usala per contorni curvi o diagonali che appaiono troppo scalettati. Lasciala disattivata per pixel art intenzionale o bordi esatti sulla griglia. Nessuna delle due scelte ripara dettagli troppo piccoli da stampare o inventa risoluzione assente nella sorgente.
 
-Mesh levigata è inattiva durante [Flat Paint](flat-paint). Attivare Mesh levigata disabilita Flat Paint; Flat Paint usa invece la propria costruzione a lastra sull’intera sagoma.
+Mesh levigata funziona anche con [Flat Paint](flat-paint). Entrambi gli orientamenti mantengono una lastra piatta e confini condivisi tra colori; scegli un’intensità e ricrea il modello.
 
 ## Auto-paint
 

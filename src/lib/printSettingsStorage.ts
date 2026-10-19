@@ -1,6 +1,7 @@
 /**
  * Persistence helpers for 3D print settings (layer height, pixel size, etc.).
  */
+import type { SmoothMeshingStrength } from '../types/index.ts';
 
 export const PRINT_SETTINGS_STORAGE_KEY = 'kromacut:3d-print-settings';
 
@@ -11,21 +12,37 @@ export const DEFAULT_PRINT_SETTINGS = {
     layerHeight: 0.12,
     slicerFirstLayerHeight: 0.2,
     pixelSize: 0.1,
-    smoothMeshing: false,
+    smoothMeshingStrength: 'none',
 } as const;
 
 export type PrintSettings = {
     layerHeight: number;
     slicerFirstLayerHeight: number;
     pixelSize: number;
-    smoothMeshing: boolean;
+    smoothMeshingStrength: SmoothMeshingStrength;
 };
 
 export const arePrintSettingsDefault = (settings: PrintSettings): boolean =>
     settings.layerHeight === DEFAULT_PRINT_SETTINGS.layerHeight &&
     settings.slicerFirstLayerHeight === DEFAULT_PRINT_SETTINGS.slicerFirstLayerHeight &&
     settings.pixelSize === DEFAULT_PRINT_SETTINGS.pixelSize &&
-    settings.smoothMeshing === DEFAULT_PRINT_SETTINGS.smoothMeshing;
+    settings.smoothMeshingStrength === DEFAULT_PRINT_SETTINGS.smoothMeshingStrength;
+
+/** Keep the existing storage key and map the old enabled toggle to the familiar preset. */
+export function normalizeSmoothMeshingStrength(
+    strength: unknown,
+    legacyEnabled?: unknown
+): SmoothMeshingStrength {
+    if (
+        strength === 'none' ||
+        strength === 'minimal' ||
+        strength === 'medium' ||
+        strength === 'aggressive'
+    ) {
+        return strength;
+    }
+    return legacyEnabled === true ? 'medium' : 'none';
+}
 
 export const clampNumber = (value: number, min: number, max: number) =>
     Math.max(min, Math.min(max, value));
@@ -35,7 +52,7 @@ export const loadPrintSettingsFromStorage = (): PrintSettings | null => {
     try {
         const raw = window.localStorage.getItem(PRINT_SETTINGS_STORAGE_KEY);
         if (!raw) return null;
-        const parsed = JSON.parse(raw) as Partial<PrintSettings>;
+        const parsed = JSON.parse(raw) as Partial<PrintSettings> & { smoothMeshing?: boolean };
         const layerHeight =
             typeof parsed.layerHeight === 'number' && isFinite(parsed.layerHeight)
                 ? clampNumber(parsed.layerHeight, 0.01, 10)
@@ -49,11 +66,11 @@ export const loadPrintSettingsFromStorage = (): PrintSettings | null => {
             typeof parsed.pixelSize === 'number' && isFinite(parsed.pixelSize)
                 ? clampNumber(parsed.pixelSize, 0.01, 10)
                 : DEFAULT_PRINT_SETTINGS.pixelSize;
-        const smoothMeshing =
-            typeof parsed.smoothMeshing === 'boolean'
-                ? parsed.smoothMeshing
-                : DEFAULT_PRINT_SETTINGS.smoothMeshing;
-        return { layerHeight, slicerFirstLayerHeight, pixelSize, smoothMeshing };
+        const smoothMeshingStrength = normalizeSmoothMeshingStrength(
+            parsed.smoothMeshingStrength,
+            parsed.smoothMeshing
+        );
+        return { layerHeight, slicerFirstLayerHeight, pixelSize, smoothMeshingStrength };
     } catch {
         return null;
     }

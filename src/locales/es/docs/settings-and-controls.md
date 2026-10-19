@@ -22,7 +22,7 @@ El selector **Idioma** cambia interfaz, documentación, diagramas y páginas pú
 
 Las páginas públicas también ofrecen selector de idioma. La documentación traducida usa enlaces compartibles con prefijo de idioma, como `/ro/docs/overview`. Los nombres de página y anclas de sección permanecen estables entre idiomas. No se traducen extensiones, datos numéricos del modelo, nombres introducidos por el usuario ni títulos originales de obras comunitarias.
 
-El diálogo incluye enlaces a documentación, Discord, Reddit, GitHub y Patreon, y muestra la versión actual de Kromacut.
+El diálogo incluye enlaces a documentación, Discord, Reddit, GitHub y Patreon, y muestra la versión actual de Kromacut. **Privacidad y datos locales** y **Términos y condiciones** también están disponibles aquí y se abren en el navegador en el idioma seleccionado.
 
 ## Modos del espacio de trabajo
 
@@ -122,5 +122,17 @@ Cada cálculo crea un `.jsonl` separado en la carpeta de diagnósticos. Usa **Ab
 Una traza completa incluye información básica de ejecución, instantánea de filamentos y calibración activos, ajustes de generación y optimizador, muestras limitadas de progreso, estado de ajuste de apariencia, decisiones progresivas de niveles de repetición, capas físicas finales, todos los candidatos imprimibles finales, comparaciones Delta E entre objetivos y candidatos, confianza y las mediciones que contribuyeron a colores interpolados o ajustados localmente. Registra colores de paleta procesados y pesos, no la imagen original cargada. Los datos de calibración y perfil pueden seguir siendo sensibles, así que revisa la traza antes de compartirla públicamente.
 
 El registro está pensado para investigar y puede crear archivos grandes. Déjalo desactivado en impresión normal cuando no necesites una traza.
+
+## Abrir archivos desde el escritorio
+
+Las instalaciones de escritorio asocian los archivos `.kfil` y los antiguos `.kapp` con perfiles de filamentos, y los archivos `.kpal` con paletas. Haz doble clic en un archivo para importarlo y seleccionarlo en Kromacut. Si la aplicación ya está abierta, se utiliza su ventana existente. Se aplican las reglas habituales de validación, migración, duplicados y conservación de la calibración.
+
+Los archivos abiertos desde el escritorio quedan en espera mientras esté abierto el editor de paletas, el cuadro de calibración o el formulario para renombrar o guardar un perfil nuevo. Termina o cancela esa sesión para continuar con las importaciones pendientes; los nombres escritos y el perfil que estás editando permanecen sin cambios hasta entonces.
+
+Las importaciones también esperan mientras editas el nombre o el campo HD de un filamento, o mientras su selector de color o el panel **Convertir desde TD** está abierto. Sal del campo o cierra el selector o el panel para reanudar las importaciones pendientes; los cambios de filamentos sin guardar siguen requiriendo tu decisión antes de que otro perfil los sustituya.
+
+Antes de reemplazar cambios de filamentos sin guardar, Kromacut ofrece **Conservar cambios** o **Abrir perfil**. Conserva los cambios para guardarlos primero; abrir el perfil los descarta. Los archivos abiertos así deben tener menos de 32 MiB. Los archivos JSON genéricos, imágenes y modelos mantienen sus flujos habituales de importación.
+
+En Linux, las AppImage portátiles requieren integración con el escritorio para asociar archivos. Si Kromacut no es la aplicación predeterminada, utiliza **Abrir con** en el gestor de archivos.
 
 Siguiente: [Solución de problemas](troubleshooting).

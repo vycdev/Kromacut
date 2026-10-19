@@ -15,6 +15,10 @@ Folosește un flux multimaterial, precum AMS, CFS sau un schimbător de scule, c
 
 _Secțiuni conceptuale. Culorile identifică materialele; etichetele identifică fața de vizualizare._
 
+Progresul generării numără părțile plasei, nu straturile imprimate: mai multe părți colorate pot ocupa același strat. Indicatorul Model arată numărul straturilor fizice, inclusiv suportul transparent când este utilizat. Previzualizarea straturilor taie placa strat cu strat; ambele mânere taie și regiunile unite de fundație și culoare. Exportul include întotdeauna modelul complet. Butonul Generează modelul 3D regenerează întotdeauna modelul, chiar dacă setările nu s-au schimbat, și restabilește întregul interval de straturi și vederea inițială a camerei.
+
+Dacă o construire eșuează, Kromacut elimină modelul incomplet și afișează eroarea în previzualizare. Apasă Generează modelul 3D pentru a reîncerca; după o construire reușită, dimensiunile modelului și previzualizarea straturilor reapar.
+
 ## Implicit: fața în jos, cu suport transparent
 
 Activează **Flat Paint** și lasă **Fața în sus, fără strat transparent** dezactivat.
@@ -47,7 +51,7 @@ Aceste aranjamente au geometrii diferite. Folosește din nou **Generează modelu
 | Flat Paint, implicit | Partea de jos, prin suportul transparent | Coloane oglindite și inversate, cu fundația în spate. | Obiecte pentru fiecare filament, plus suport. |
 | Flat Paint, fața în sus | Suprafață superioară plană expusă | Ordine normală, cu fundație sub coloanele mai scurte. | Obiecte pentru fiecare filament, fără suport. |
 
-Flat Paint și **Geometrie netezită** nu funcționează simultan. Placa folosește regiuni alăturate care umplu amprenta, nu contururi netezite. Activarea geometriei netezite dezactivează Flat Paint; alege aranjamentul dorit și regenerează la schimbare.
+**Geometrie netezită** funcționează în ambele orientări Flat Paint. Alege o intensitate și reconstruiește modelul. Netezirea atenuează conturul exterior și granițele comune dintre culori, păstrând placa plană, înălțimile straturilor și stivele de materiale. Contactele diagonale folosesc îmbinări comune mici pentru a închide regiunile fără suprapuneri. Instrucțiunile de imprimare și 3MF înregistrează intensitatea folosită.
 
 ## Exportă și verifică
 

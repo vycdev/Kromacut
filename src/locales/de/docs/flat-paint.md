@@ -15,6 +15,10 @@ Verwende einen Mehrmaterialablauf wie AMS, CFS oder einen Werkzeugwechsler mit p
 
 _Schematische Querschnitte. Farben kennzeichnen Materialien, Beschriftungen die Betrachtungsseite._
 
+Der Erstellungsfortschritt zählt Netzteile, nicht Druckschichten: Mehrere farbige Teile können dieselbe Schicht belegen. Die Modellanzeige zeigt die Anzahl physischer Schichten einschließlich des transparenten Trägers, falls verwendet. Die Schichtvorschau schneidet die Platte in einzelnen Druckschichten; beide Regler schneiden auch zusammengefasste Grundmaterial- und Farbbereiche. Der Export enthält immer das vollständige Modell. Die Schaltfläche 3D-Modell erstellen erzeugt das Modell auch bei unveränderten Einstellungen neu und stellt den vollständigen Schichtbereich sowie die ursprüngliche Kameraansicht wieder her.
+
+Wenn die Erstellung fehlschlägt, entfernt Kromacut das unvollständige Modell und zeigt den Fehler in der Vorschau an. Klicke zum erneuten Versuch auf 3D-Modell erstellen. Nach erfolgreicher Erstellung werden Modellabmessungen und Schichtvorschau wieder angezeigt.
+
 ## Standard: Bildseite unten mit transparentem Träger
 
 Aktiviere **Flat Paint** und lass **Bildseite oben, ohne transparente Schicht** ausgeschaltet.
@@ -47,7 +51,7 @@ Diese Anordnungen haben unterschiedliche Geometrie. Klicke nach dem Umschalten e
 | Flat Paint, Standard | Unterseite durch transparenten Träger | Gespiegelte, umgekehrte Spalten mit Grundmaterial dahinter. | Objekte je Filament und zusätzlicher Träger. |
 | Flat Paint, Bildseite oben | Freiliegende flache Oberseite | Normale Reihenfolge mit Grundmaterial unter kürzeren Spalten. | Objekte je Filament, kein Träger. |
 
-Flat Paint und **Glatte Vernetzung** funktionieren nicht gleichzeitig. Die Platte verwendet nebeneinanderliegende Bereiche über der gesamten Grundfläche statt geglätteter Konturen. Das Aktivieren der glatten Vernetzung deaktiviert Flat Paint. Wähle beim Wechsel die gewünschte Anordnung und erstelle das Modell neu.
+**Glatte Vernetzung** funktioniert mit beiden Flat-Paint-Ausrichtungen. Wähle eine Stärke und baue das Modell neu. Die Glättung mildert Außenkontur und gemeinsame Farbgrenzen, während Platte, Schichthöhen und Materialstapel erhalten bleiben. Kleine gemeinsame Verbindungen schließen diagonale Eckkontakte ohne Überlappung. Druckanweisungen und 3MF halten die verwendete Stärke fest.
 
 ## Exportieren und prüfen
 

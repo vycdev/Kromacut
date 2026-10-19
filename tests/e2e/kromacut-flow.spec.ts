@@ -268,7 +268,8 @@ async function runFlow(
             await setNumberInput(page.getByTestId('print-pixel-size'), '0.1');
             await setNumberInput(page.getByTestId('print-layer-height'), '0.08');
             await setNumberInput(page.getByTestId('print-first-layer-height'), '0.16');
-            await setSwitch(page, 'print-smooth-meshing', mesher.smooth);
+            await page.getByTestId('print-smooth-meshing').click();
+            await page.getByRole('option', { name: mesher.smooth ? 'Medium' : 'None', exact: true }).click();
 
             await page.getByRole('tab', { name: 'Auto-paint' }).click();
             await page

@@ -135,7 +135,7 @@ Height dithering can distribute rounding error across small blocks at neighborin
 
 _Schematic mechanism, not a guaranteed before-and-after result. Different top heights do not mean additional spool colors._
 
-Many current Auto-paint mappings already select a discrete printable layer before this step. Those already-snapped regions have no fractional-height error to distribute and may remain unchanged when dithering is enabled. Use the rebuilt preview and slicer to check whether this particular image actually gains height variation; enabling the toggle does not guarantee more tones or visible dots.
+With dithering enabled, Auto-paint looks for an intermediate height between the selected layer and an adjacent printable layer when their blend improves the predicted match. Exact color matches and calibrated target matches stay at their selected heights; regions with no useful neighboring blend remain unchanged. Rebuild the model after changing the setting, then compare the preview and slicer output. Turning dithering off restores ordinary discrete matching.
 
 Dot size follows **Effective line width** in **3D Print Settings** relative to **Pixel Size**, rounded to a whole-pixel block size. This is approximate, not an exact minimum-width guarantee. Edge regions avoid the same dithering treatment to reduce boundary artifacts. Check the slicer for tiny islands and extra travel.
 

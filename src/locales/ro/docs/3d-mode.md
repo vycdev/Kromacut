@@ -76,13 +76,24 @@ Comenzile Manual și instrucțiunile de schimbare acceptă **64 de culori**. Red
 
 Cu netezirea oprită, contururile urmează grila pătrată de pixeli. Cu ea pornită, limitele conectate sunt netezite într-o geometrie sudată. Diferența se exportă, nu este un filtru de previzualizare.
 
+Netezește contururile modelului în previzualizare și exporturi. Medie păstrează netezirea originală. Reconstruiește pentru aplicare.
+
+| Intensitate | Utilizare |
+| --- | --- |
+| **Fără** | Pixel art, margini exacte pe grilă sau generarea cea mai rapidă. |
+| **Minimă** | Netezire ușoară a colțurilor zimțate. |
+| **Medie** | Rezultatul familiar al setării activate anterior. |
+| **Intensă** | Netezire mai puternică de-a lungul contururilor, inclusiv a treptelor rămase, cu aceeași limită de deplasare ca Medie. |
+
+Deplasarea rămâne sub jumătate de pixel. Reconstruiește modelul și verifică previzualizarea în slicer. Setările vechi activat/dezactivat devin Medie/Fără.
+
 ![Contururi diagonale în trepte de pixeli și netezite, comparate pe aceeași grilă sursă.](12_smooth_boundaries.svg)
 
 _Comparație schematică de contururi, nu simulare de slicer._
 
 Folosește-o pentru contururi curbe sau diagonale care par prea treptate. Las-o oprită pentru pixel art intenționat sau margini exacte de grilă. Niciuna dintre opțiuni nu repară detalii prea mici pentru imprimare și nu inventează rezoluție sursă lipsă.
 
-Geometria netezită este inactivă în [Flat Paint](flat-paint). Activarea ei dezactivează Flat Paint; Flat Paint folosește în schimb construcția sa de placă cu amprentă completă.
+Geometria netezită funcționează și cu [Flat Paint](flat-paint). Ambele orientări păstrează o placă plană și granițe comune între culori; alege o intensitate și reconstruiește pentru a o aplica.
 
 ## Auto-paint
 

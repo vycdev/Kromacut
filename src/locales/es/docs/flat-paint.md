@@ -15,6 +15,10 @@ Usa un flujo multimaterial como AMS, CFS o un cambiador de herramientas con un l
 
 _Secciones conceptuales. Los colores identifican materiales; las etiquetas indican la cara de observación._
 
+El progreso cuenta partes de la malla, no capas impresas: varias partes de colores pueden compartir una capa. El indicador Modelo muestra el número de capas físicas, incluido el soporte transparente cuando se utiliza. La vista previa de capas corta la placa capa por capa; ambos controles también cortan las zonas de fundación y color combinadas. La exportación siempre incluye el modelo completo. El botón Generar modelo 3D regenera siempre el modelo, incluso sin cambios en los ajustes, y restablece todas las capas y la vista inicial de la cámara.
+
+Si falla la creación, Kromacut elimina el modelo incompleto y muestra el error en la vista previa. Pulsa Generar modelo 3D para volver a intentarlo; cuando finalice correctamente, volverán a aparecer las dimensiones del modelo y la vista previa de capas.
+
 ## Predeterminado: boca abajo con soporte transparente
 
 Activa **Pintura plana** y deja desactivado **Boca arriba, sin capa transparente**.
@@ -47,7 +51,7 @@ Estas disposiciones tienen geometrías distintas. Vuelve a pulsar **Generar mode
 | Pintura plana predeterminada | Parte inferior a través del soporte | Columnas reflejadas e invertidas con fundación detrás. | Objetos por filamento y soporte. |
 | Pintura plana boca arriba | Parte superior plana expuesta | Orden normal con fundación bajo columnas cortas. | Objetos por filamento; sin soporte. |
 
-Pintura plana y **Malla suavizada** no funcionan juntas. La placa usa regiones contiguas que cubren toda la superficie en vez de contornos suavizados. Activar Malla suavizada desactiva Pintura plana; elige la disposición y regenera al cambiar.
+**Malla suavizada** funciona con ambas orientaciones de Pintura plana. Elige una intensidad y reconstruye. El suavizado ablanda la silueta exterior y los límites compartidos entre colores, conservando la placa plana, las alturas de capa y las pilas de materiales. Pequeñas uniones compartidas cierran los contactos diagonales sin solapamientos. Las instrucciones de impresión y el 3MF registran la intensidad utilizada.
 
 ## Exportar y comprobar
 

@@ -46,7 +46,7 @@ Un aperçu de peinture automatique peut montrer des dizaines de mélanges proven
 
 Le STL ne contient ni couleurs de filament ni affectations automatiques de bobines. Utilisez le plan de changements copié avec les commandes de changement de couleur du logiciel de découpe. Un 3MF reste un modèle, pas un G-code prêt à exécuter : choisissez votre imprimante, buse, profils de filament, températures et vitesses, puis découpez-le.
 
-Pour les modèles de **Peinture à plat**, le menu ne propose que le 3MF : le modèle contient un objet par filament physique et, dans la disposition par défaut face vers le bas, un objet de support transparent. La disposition facultative face vers le haut omet ce support. Un STL sans couleur à géométrie unique de l’une ou l’autre plaque serait inutile. La peinture à plat désactive le **Maillage lissé**, car sa disposition n’utilise pas de contours de frontière lissés.
+Pour les modèles de **Peinture à plat**, le menu ne propose que le 3MF : le modèle contient un objet par filament physique et, dans la disposition par défaut face vers le bas, un objet de support transparent. La disposition facultative face vers le haut omet ce support. Un STL sans couleur à géométrie unique de l’une ou l’autre plaque serait inutile. Les deux orientations prennent en charge toutes les intensités de **Maillage lissé**. Reconstruisez le modèle après avoir changé l’intensité pour l’appliquer à l’aperçu et à la géométrie exportée.
 
 ## Instructions d’impression
 

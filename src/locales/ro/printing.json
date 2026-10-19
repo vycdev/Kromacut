@@ -234,7 +234,9 @@
     "colorCount_few": "{{count, number}} de culori",
     "tooManyColors_few": "Prea multe culori ({{count, number}})"
   },
-  "threeDView": {
+    "threeDView": {
+        "buildFailed": "Modelul 3D nu a putut fi construit",
+        "buildFailedDetails": "Modelul incomplet a fost eliminat. Apasă Construiește modelul 3D pentru a reîncerca. Eroare: {{error}}",
     "layerPreview": "Previzualizarea straturilor",
     "previewBottomLayerCutoff": "Limita inferioară a straturilor previzualizate",
     "previewTopLayerCutoff": "Limita superioară a straturilor previzualizate",
@@ -262,7 +264,11 @@
     "firstLayerHeight": "Înălțimea primului strat",
     "effectiveLineWidth": "Lățimea efectivă a liniei",
     "smoothMeshing": "Geometrie netezită",
-    "smoothConnectedColorBoundaryEdgesWithFastWeldedTopology": "Netezește muchiile conectate dintre culori folosind o topologie sudată rapidă. Activarea dezactivează Flat Paint.",
+    "smoothingNone": "Fără",
+    "smoothingMinimal": "Minimă",
+    "smoothingMedium": "Medie",
+    "smoothingAggressive": "Intensă",
+    "smoothingHelp": "Netezește contururile modelului în previzualizare și exporturi. Medie păstrează netezirea originală. Reconstruiește pentru aplicare.",
     "modelDimensions": "Model: {{width}}×{{height}}×{{depth}} mm"
   },
   "printInstructions": {
@@ -365,7 +371,7 @@
     "readingImageLayers": "Se citesc straturile de culoare ale imaginii",
     "buildingLayer": "Se generează stratul de culoare {{layer}} din {{total}}",
     "layerProgress": "Stratul {{layer}} din {{total}}: {{label}}",
-    "flatPaintPartProgress": "Piesa Flat Paint {{part}} din {{total}}: {{label}}",
+    "flatPaintPartProgress": "Parte de plasă Flat Paint {{part}} din {{total}}: {{label}}",
     "partMeshComplete": "Geometria piesei finalizată",
     "selectingPixels": "Se selectează pixelii activi",
     "preparingPreview": "Se pregătește geometria previzualizării",

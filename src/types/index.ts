@@ -2,6 +2,8 @@ import type { AutoPaintResult } from '../lib/autoPaint';
 import type { FrontlitCalibration } from '../lib/calibration';
 import type { TargetSampleContext } from './appearance';
 
+export type SmoothMeshingStrength = 'none' | 'minimal' | 'medium' | 'aggressive';
+
 export type {
     AppearanceGeometryClass,
     CanonicalSrgbColor,
@@ -91,7 +93,7 @@ export interface ThreeDControlsStateShape {
     colorOrder: number[];
     filteredSwatches: Swatch[];
     pixelSize: number; // mm per pixel (XY)
-    smoothMeshing?: boolean; // boundary-chain smoothed grid meshing
+    smoothMeshingStrength?: SmoothMeshingStrength;
     filaments: Filament[];
     paintMode: 'manual' | 'autopaint';
     /** Optional user-selected cap for the generated Auto-paint stack height. */

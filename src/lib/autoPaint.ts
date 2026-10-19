@@ -2408,23 +2408,122 @@ export function selectHybridPrintableCandidateIndex(
     return paletteIndex;
 }
 
+type DitherPaletteEntry = Pick<
+    FinalStackPaletteEntrySnapshot,
+    'height' | 'predictedLab' | 'surfaceEligible' | 'exactAnchorTargetLab' | 'predictionConfidence'
+>;
+
 /**
- * Seed preview colors from the final-stack mappings produced by the shared
- * optimizer mapper instead of independently re-projecting those source colors.
+ * Recover a fractional target locally around the shared mapper's chosen layer.
+ * Never re-project onto a remote part of the stack: that would discard hybrid
+ * reranking and calibrated assignments. Only an improving mixture of this layer
+ * and one physically adjacent, surface-eligible layer may be dithered.
+ */
+function projectDitherTargetHeight(
+    target: Lab,
+    paletteIndex: number,
+    palette: readonly DitherPaletteEntry[],
+    layerHeight: number,
+    minimumHeight: number,
+    maximumHeight: number
+): number | undefined {
+    const selected = palette[paletteIndex];
+    if (!selected || selected.surfaceEligible === false || !(layerHeight > 0)) return undefined;
+    const asLab = ([L, a, b]: readonly [number, number, number]): Lab => ({ L, a, b });
+    if (
+        selected.exactAnchorTargetLab &&
+        optimizerColorDistance(target, asLab(selected.exactAnchorTargetLab)) <=
+            EXACT_ANCHOR_TARGET_DE
+    ) {
+        return selected.height;
+    }
+    const selectedLab = asLab(selected.predictedLab);
+    const confidence = (entry: DitherPaletteEntry) =>
+        Math.max(0, Math.min(1, entry.predictionConfidence?.confidence ?? 1));
+    const selectedConfidence = confidence(selected);
+    let bestCost =
+        realizedColorError(selectedLab, target) +
+        (1 - selectedConfidence) * PREDICTION_UNCERTAINTY_PENALTY;
+    let height = selected.height;
+    for (const neighborIndex of [paletteIndex - 1, paletteIndex + 1]) {
+        const neighbor = palette[neighborIndex];
+        if (
+            !neighbor ||
+            neighbor.surfaceEligible === false ||
+            neighbor.height < minimumHeight - 1e-6 ||
+            neighbor.height > maximumHeight + 1e-6 ||
+            Math.abs(Math.abs(neighbor.height - selected.height) - layerHeight) > 1e-6
+        )
+            continue;
+        const neighborLab = asLab(neighbor.predictedLab);
+        const dL = neighborLab.L - selectedLab.L;
+        const da = neighborLab.a - selectedLab.a;
+        const db = neighborLab.b - selectedLab.b;
+        const lengthSquared = dL * dL + da * da + db * db;
+        // Indistinguishable colors do not justify adding surface texture.
+        if (lengthSquared < 0.25) continue;
+        const t = Math.max(
+            0,
+            Math.min(
+                1,
+                ((target.L - selectedLab.L) * dL +
+                    (target.a - selectedLab.a) * da +
+                    (target.b - selectedLab.b) * db) /
+                    lengthSquared
+            )
+        );
+        if (t <= 1e-6 || t >= 1 - 1e-6) continue;
+        const projectedLab = {
+            L: selectedLab.L + t * dL,
+            a: selectedLab.a + t * da,
+            b: selectedLab.b + t * db,
+        };
+        const projectedConfidence =
+            selectedConfidence + t * (confidence(neighbor) - selectedConfidence);
+        const cost =
+            realizedColorError(projectedLab, target) +
+            (1 - projectedConfidence) * PREDICTION_UNCERTAINTY_PENALTY;
+        if (cost < bestCost - 1e-9) {
+            bestCost = cost;
+            height = selected.height + t * (neighbor.height - selected.height);
+        }
+    }
+    return height;
+}
+
+/**
+ * Seed preview colors from the shared final-stack mappings. Dithering may recover
+ * fractional targets between adjacent printable layers; ordinary matching keeps
+ * the optimizer's exact discrete assignments. Older snapshots retain those too.
  */
 export function createFinalStackTargetHeightCache(
     targetMappings: readonly {
         targetColor: { rgb: readonly [number, number, number] };
         projectedHeight: number;
+        targetLab?: readonly [number, number, number];
+        paletteIndex?: number;
     }[],
     minimumHeight: number,
-    maximumHeight: number
+    maximumHeight: number,
+    dithering?: { palette: readonly DitherPaletteEntry[]; layerHeight: number }
 ): Map<number, number> {
     const cache = new Map<number, number>();
     for (const mapping of targetMappings) {
         const [r, g, b] = mapping.targetColor.rgb;
         const key = ((r & 0xff) << 16) | ((g & 0xff) << 8) | (b & 0xff);
-        cache.set(key, Math.max(minimumHeight, Math.min(maximumHeight, mapping.projectedHeight)));
+        const target = mapping.targetLab;
+        const height =
+            dithering && target && mapping.paletteIndex !== undefined
+                ? (projectDitherTargetHeight(
+                      { L: target[0], a: target[1], b: target[2] },
+                      mapping.paletteIndex,
+                      dithering.palette,
+                      dithering.layerHeight,
+                      minimumHeight,
+                      maximumHeight
+                  ) ?? mapping.projectedHeight)
+                : mapping.projectedHeight;
+        cache.set(key, Math.max(minimumHeight, Math.min(maximumHeight, height)));
     }
     return cache;
 }

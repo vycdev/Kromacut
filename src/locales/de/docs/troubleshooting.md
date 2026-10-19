@@ -55,7 +55,7 @@ Prüfe die Zeile **Erscheinungsmodell** gesondert. Ein hoher Gesamtwert garantie
 
 ## Ein Schalter hat einen anderen ausgeschaltet
 
-Zwei Paare schließen sich absichtlich aus: **Glatte Vernetzung** und **Flat Paint** sowie **Farbtrennung erhalten** und **Höhen-Dithering**. Das erste Paar wählt unterschiedliche Geometrieanordnungen; das zweite unterschiedliche Zuordnungen von Quellfarben zu druckbaren Höhen. Siehe [Flat Paint](flat-paint) und [Auto-paint](auto-paint).
+**Farbtrennung erhalten** und **Höhen-Dithering** schließen sich weiterhin aus, da sie Quellfarben unterschiedlich auf druckbare Höhen abbilden. **Glatte Vernetzung** und **Flat Paint** lassen sich gemeinsam verwenden; baue nach Änderungen neu. Siehe [Flat Paint](flat-paint) und [Auto-paint](auto-paint).
 
 ## Die Farbtrennung findet kein Ergebnis
 

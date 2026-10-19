@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { previewSourcePosition, syncPreviewGeometryRange } from './previewLayerRange.ts';
 
 const FALLBACK_WIREFRAME_COLOR = 0xffffff;
 const FEATURE_EDGE_THRESHOLD_DEGREES = 15;
@@ -103,7 +104,7 @@ async function createFeatureEdgeGeometry(
     geometry: THREE.BufferGeometry,
     options: PreviewWireframeBuildOptions
 ): Promise<THREE.BufferGeometry | 'cancelled' | null> {
-    const position = geometry.getAttribute('position');
+    const position = previewSourcePosition(geometry);
     if (!position || position.itemSize < 3) return null;
 
     const index = geometry.getIndex();
@@ -150,9 +151,7 @@ async function createFeatureEdgeGeometry(
 
         if (sibling) {
             const normalDot =
-                normalX * sibling.normalX +
-                normalY * sibling.normalY +
-                normalZ * sibling.normalZ;
+                normalX * sibling.normalX + normalY * sibling.normalY + normalZ * sibling.normalZ;
             if (normalDot <= FEATURE_EDGE_THRESHOLD_DOT) {
                 appendSegment(vertices, position, edgeStart, edgeEnd);
             }
@@ -299,6 +298,7 @@ export async function rebuildPreviewWireframeOverlay(
         lines.matrix.copy(mesh.matrixWorld);
         lines.matrixWorldNeedsUpdate = true;
         lines.visible = mesh.visible;
+        syncPreviewGeometryRange(mesh.geometry, geometry);
         lines.renderOrder = 2000 + layerIndex++;
         lines.userData[WIRE_SOURCE_MESH_KEY] = mesh;
         overlay.add(lines);
@@ -312,6 +312,14 @@ export async function rebuildPreviewWireframeOverlay(
 export function syncPreviewWireframeOverlayVisibility(overlay: THREE.Group): void {
     for (const child of overlay.children) {
         const sourceMesh = child.userData[WIRE_SOURCE_MESH_KEY] as THREE.Mesh | undefined;
-        if (sourceMesh?.isMesh) child.visible = sourceMesh.visible;
+        if (sourceMesh?.isMesh) {
+            child.visible = sourceMesh.visible;
+            if ((child as THREE.LineSegments).isLineSegments) {
+                syncPreviewGeometryRange(
+                    sourceMesh.geometry,
+                    (child as THREE.LineSegments).geometry
+                );
+            }
+        }
     }
 }

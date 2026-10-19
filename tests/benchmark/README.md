@@ -36,3 +36,7 @@ npm run benchmark:calibrated -- desk-landscape baseline --seed 1263681357 --repo
 The benchmark passes the fixture or override seed through to the production optimizer and reports weighted mean, p95, and coverage at Delta E 6. Use the same case, settings, and seed on both revisions; multiple fixed seeds are preferable for stochastic search tiers.
 
 For Phase 3 and later, accept a change only when average realized error improves, no fixture regresses by more than 5%, and the 8-filament case stays within a 2-second budget on the comparison machine. Record the machine and the command when comparing reports.
+
+## Smooth meshing presets
+
+Run `npm run benchmark:meshing -- [baseline-ref]` for warmed, alternating-order median timings and mesh sizes on 256px/1024px logos and three 512px photo thresholds. Supply a Git ref before the strength presets (for example `cc577a7`) to compare the original smooth mesher in the same process and assert byte-for-byte Medium geometry compatibility. None, Minimal, Medium, and Aggressive all report vertex and triangle counts; use several runs to distinguish timing noise from regressions.

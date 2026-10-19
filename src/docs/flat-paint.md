@@ -15,6 +15,10 @@ Use a multi-material workflow such as AMS, CFS, or a toolchanger with suitable s
 
 _Conceptual cross-sections. Colors identify materials; the labels identify the viewing face._
 
+The build progress counts mesh parts, not printed layers: several colored parts can share one layer. The Model badge shows the physical layer count, including the clear carrier when used. Layer Preview cuts the slab one physical layer at a time; both handles also cut through merged backing and color regions. Export always includes the complete model. Build 3D Model always regenerates the model, even with unchanged settings, and restores the full layer range and initial camera view.
+
+If a build fails, Kromacut removes the incomplete model and displays the error in the preview. Press Build 3D Model to retry; a successful build restores the model dimensions and Layer Preview.
+
 ## Default: Face-down With Clear Carrier
 
 Enable **Flat Paint** and leave **Face-up, no clear layer** off.
@@ -47,7 +51,7 @@ These layouts have different geometry. **Build 3D Model** again after changing t
 | Flat Paint, default | Bottom through clear carrier | Mirrored, reversed columns with foundation behind.  | Per-filament objects plus carrier. |
 | Flat Paint, face-up | Exposed flat top             | Normal order with foundation below shorter columns. | Per-filament objects; no carrier.  |
 
-Flat Paint and **Smooth Meshing** do not operate together. The slab uses full-footprint side-by-side regions instead of smoothed contours. Enabling Smooth Meshing disables Flat Paint; select the desired layout and rebuild when switching.
+**Smooth Meshing** works with both Flat Paint orientations. Choose None, Minimal, Medium, or Aggressive and rebuild. Smoothing softens the outer silhouette and shared color boundaries while keeping the slab flat, its layer heights, and its material stacks. Diagonal corner contacts use small shared joins so regions stay closed without overlapping. Print instructions and 3MF record the built strength.
 
 ## Export And Check
 

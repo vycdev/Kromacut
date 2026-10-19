@@ -135,7 +135,7 @@ Il dithering dell’altezza può distribuire l’errore di arrotondamento su pic
 
 _Meccanismo schematico, non un risultato prima/dopo garantito. Altezze superiori diverse non significano colori aggiuntivi delle bobine._
 
-Molte mappature attuali di Auto-paint selezionano già uno strato stampabile discreto prima di questa fase. Quelle regioni già allineate non hanno errori di altezza frazionaria da distribuire e possono restare invariate attivando il dithering. Usa l’anteprima rigenerata e lo slicer per verificare se questa specifica immagine acquisisce davvero variazioni di altezza; attivare l’interruttore non garantisce più toni o puntini visibili.
+Con il dithering attivo, Auto-paint cerca un’altezza intermedia tra lo strato selezionato e uno strato stampabile adiacente quando la loro miscela migliora la corrispondenza prevista. Le corrispondenze esatte e quelle dei target calibrati mantengono l’altezza selezionata; le regioni senza una miscela adiacente utile restano invariate. Rigenera il modello dopo aver cambiato l’opzione, quindi confronta anteprima e risultato nello slicer. Disattivando il dithering si ripristina la normale corrispondenza discreta.
 
 La dimensione dei puntini segue **Larghezza effettiva della linea** nelle **Impostazioni di stampa 3D** in rapporto a **Dimensione pixel**, arrotondata a blocchi di pixel interi. È un’approssimazione, non una garanzia esatta della larghezza minima. Le regioni di bordo evitano lo stesso trattamento di dithering per ridurre gli artefatti sui confini. Controlla nello slicer la presenza di minuscole isole e spostamenti aggiuntivi.
 

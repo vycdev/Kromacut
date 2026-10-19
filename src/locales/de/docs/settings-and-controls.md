@@ -22,7 +22,7 @@ Die Auswahl **Sprache** ändert Oberfläche, Dokumentation, Diagramme und öffen
 
 Auch öffentliche Seiten bieten eine Sprachauswahl. Übersetzte Dokumentation verwendet teilbare Links mit Sprachpräfix, etwa `/ro/docs/overview`. Seitennamen und Abschnittsanker bleiben über die Sprachen hinweg stabil. Dateiendungen, numerische Modelldaten, selbst eingegebene Namen und Originaltitel von Community-Kunstwerken werden nicht übersetzt.
 
-Der Einstellungsdialog enthält Links zur Dokumentation, zu Discord, Reddit, GitHub und Patreon und zeigt die aktuelle Kromacut-Version.
+Der Einstellungsdialog enthält Links zur Dokumentation, zu Discord, Reddit, GitHub und Patreon und zeigt die aktuelle Kromacut-Version. **Datenschutz und lokale Daten** und **Nutzungsbedingungen** sind ebenfalls hier verfügbar und öffnen sich in deinem Browser in der gewählten Sprache.
 
 ## Arbeitsbereichsmodi
 
@@ -122,5 +122,17 @@ Jede Berechnung erstellt eine eigene `.jsonl`-Datei in Kromacuts Auto-paint-Diag
 Eine vollständige Aufzeichnung enthält grundlegende Laufzeitinformationen, den aktiven Filament- und Kalibrierstand, Modell- und Optimierungseinstellungen, eine begrenzte Auswahl an Fortschrittsdaten, den Status der Erscheinungsanpassung, Entscheidungen zu aufeinanderfolgenden Wiederholungsstufen, endgültige physische Schichten, jeden endgültigen druckbaren Farbkandidaten, Delta-E-Vergleiche zwischen Zielen und Kandidaten, Vorhersagezuverlässigkeit und die Messungen, die zu interpolierten oder lokal angepassten Farben beigetragen haben. Sie zeichnet verarbeitete Palettenfarben und Gewichte auf, nicht das hochgeladene Quellbild. Kalibrier- und Profildaten können dennoch sensibel sein; prüfe eine Aufzeichnung, bevor du sie öffentlich teilst.
 
 Die Aufzeichnung dient Untersuchungen und kann große Dateien erzeugen. Lass sie für normales Drucken deaktiviert, wenn du keine Aufzeichnung benötigst.
+
+## Dateien vom Desktop öffnen
+
+Desktop-Installationen verknüpfen `.kfil`-Dateien und ältere `.kapp`-Dateien mit Filamentprofilen sowie `.kpal`-Dateien mit Paletten. Doppelklicken Sie auf eine Datei, um sie in Kromacut zu importieren und auszuwählen. Läuft die App bereits, wird das vorhandene Fenster verwendet. Die üblichen Regeln für Validierung, Migration, Duplikate und den Erhalt von Kalibrierungen gelten weiterhin.
+
+Vom Desktop geöffnete Dateien warten, solange der Paletteneditor, der Kalibrierungsdialog oder ein Formular zum Umbenennen oder Speichern eines neuen Profils geöffnet ist. Schließe die Bearbeitung ab oder brich sie ab, um die wartenden Importe fortzusetzen; eingegebene Namen und das bearbeitete Profil bleiben bis dahin unverändert.
+
+Importe warten auch, während du den Namen oder das HD-Feld eines Filaments bearbeitest oder dessen Farbauswahl oder das Popover **Aus TD umrechnen** geöffnet ist. Verlasse das Feld oder schließe die Farbauswahl beziehungsweise das Popover, um die wartenden Importe fortzusetzen; bevor ein anderes Profil ungespeicherte Filamentänderungen ersetzt, musst du weiterhin entscheiden, ob du sie behalten möchtest.
+
+Vor dem Ersetzen ungespeicherter Filamentänderungen bietet Kromacut **Änderungen behalten** oder **Profil öffnen** an. Behalten Sie die Änderungen, um sie zuerst zu speichern; beim Öffnen des Profils werden sie verworfen. So geöffnete Dateien müssen kleiner als 32 MiB sein. Allgemeine JSON-Dateien, Bilder und Modelle behalten ihre üblichen Importabläufe.
+
+Unter Linux benötigen portable AppImages eine Desktop-Integration für Dateiverknüpfungen. Ist Kromacut nicht als Standard ausgewählt, verwenden Sie **Öffnen mit** im Dateimanager.
 
 Weiter: [Fehlerbehebung](troubleshooting).

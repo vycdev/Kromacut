@@ -76,13 +76,24 @@ Manuelle Steuerung und Wechselanweisungen unterstützen **64 Farben**. Reduziere
 
 Ohne Glättung folgen die Konturen dem quadratischen Pixelraster. Mit Glättung werden verbundene Grenzen zu geglätteter, verschweißter Geometrie. Dieser Unterschied wird exportiert; es ist kein Vorschaufilter.
 
+Glättet Modellkonturen in Vorschau und Exporten. Mittel entspricht der bisherigen Glättung. Zum Anwenden neu erstellen.
+
+| Stärke | Verwendung |
+| --- | --- |
+| **Keine** | Pixel-Art, exakte Rasterkanten oder schnellste Erstellung. |
+| **Minimal** | Leichte Glättung gezackter Ecken. |
+| **Mittel** | Das vertraute Ergebnis der bisherigen aktivierten Einstellung. |
+| **Stark** | Stärkere Glättung entlang der Konturen und verbleibenden Stufen bei gleicher Bewegungsgrenze wie Mittel. |
+
+Die Bewegung bleibt unter einem halben Pixel. Modell neu erstellen und Slicer-Vorschau prüfen. Bisherige Ein/Aus-Einstellungen werden zu Mittel/Keine.
+
 ![Pixelgestufte und geglättete diagonale Konturen im Vergleich über demselben Quellraster.](12_smooth_boundaries.svg)
 
 _Schematischer Konturvergleich, keine Slicer-Simulation._
 
 Nutze die Funktion für gekrümmte oder diagonale Konturen, die zu treppenförmig wirken. Lass sie bei absichtlicher Pixelkunst oder exakten Rasterkanten ausgeschaltet. Keine der beiden Optionen repariert unbedruckbar kleine Details oder erfindet fehlende Quellauflösung.
 
-Während [Flat Paint](flat-paint) ist die glatte Vernetzung inaktiv. Ihr Aktivieren deaktiviert Flat Paint; Flat Paint verwendet stattdessen seine Plattenkonstruktion über der gesamten Grundfläche.
+Glatte Vernetzung funktioniert auch mit [Flat Paint](flat-paint). Beide Ausrichtungen behalten eine flache Platte und gemeinsame Farbgrenzen; wähle eine Stärke und baue das Modell neu.
 
 ## Auto-paint
 

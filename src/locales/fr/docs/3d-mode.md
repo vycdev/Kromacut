@@ -76,13 +76,24 @@ Les commandes manuelles et les instructions de changement prennent en charge **6
 
 Sans lissage, les contours suivent la grille carrée des pixels. Avec le lissage, les frontières connectées deviennent une géométrie lissée et soudée. La différence est exportée ; ce n’est pas un filtre d’aperçu.
 
+Adoucit les contours du modèle dans l’aperçu et les exports. Moyen reproduit le lissage d’origine. Reconstruisez pour appliquer.
+
+| Force | Utilisation |
+| --- | --- |
+| **Aucun** | Pixel art, contours carrés exacts ou génération la plus rapide. |
+| **Minimal** | Nettoyage léger des angles irréguliers. |
+| **Moyen** | Résultat familier de l’ancien réglage activé. |
+| **Intensif** | Lissage plus fort le long des contours, y compris les marches restantes, avec la même limite de déplacement que Moyen. |
+
+Le déplacement reste inférieur à un demi-pixel. Reconstruisez le modèle, puis vérifiez l’aperçu du trancheur. Les anciens réglages activé/désactivé deviennent Moyen/Aucun.
+
 ![Comparaison de contours diagonaux en escaliers et lissés sur la même grille source.](12_smooth_boundaries.svg)
 
 _Comparaison schématique de contours, pas une simulation de découpe._
 
 Utilisez-le pour des contours courbes ou diagonaux trop crénelés. Laissez-le désactivé pour un pixel art volontaire ou des bords suivant exactement la grille. Aucun choix ne répare des détails trop petits pour être imprimés ni n’invente une résolution source manquante.
 
-Le maillage lissé est inactif en [Peinture à plat](flat-paint). L’activer désactive la peinture à plat, qui utilise à la place une plaque couvrant toute l’emprise.
+Le maillage lissé fonctionne aussi avec la [Peinture à plat](flat-paint). Les deux orientations conservent une plaque plane et des frontières communes entre couleurs ; choisissez une intensité et reconstruisez pour l’appliquer.
 
 ## Peinture automatique
 

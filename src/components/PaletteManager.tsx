@@ -44,6 +44,8 @@ interface PaletteManagerProps {
     onDeletePalette: (id: string) => void;
     onExportPalette: (id: string) => void;
     onImportFile: (e: React.ChangeEvent<HTMLInputElement>) => void;
+    dialogOpen: boolean;
+    onDialogOpenChange: (open: boolean) => void;
 }
 
 /** Check if a string is a valid hex color (#RGB or #RRGGBB). */
@@ -82,9 +84,10 @@ export const PaletteManager: React.FC<PaletteManagerProps> = ({
     onDeletePalette,
     onExportPalette,
     onImportFile,
+    dialogOpen,
+    onDialogOpenChange: setDialogOpen,
 }) => {
     const { t } = useTranslation('workspace');
-    const [dialogOpen, setDialogOpen] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editor, setEditor] = useState<EditorState>({
         name: '',
@@ -97,7 +100,7 @@ export const PaletteManager: React.FC<PaletteManagerProps> = ({
         setEditingId(null);
         setEditor({ name: '', colors: [{ hex: '#FF0000', enabled: true, name: '' }] });
         setDialogOpen(true);
-    }, []);
+    }, [setDialogOpen]);
 
     const openEdit = useCallback(() => {
         const cp = customPalettes.find((p) => p.id === selectedPalette);
@@ -113,7 +116,7 @@ export const PaletteManager: React.FC<PaletteManagerProps> = ({
             })),
         });
         setDialogOpen(true);
-    }, [customPalettes, selectedPalette]);
+    }, [customPalettes, selectedPalette, setDialogOpen]);
 
     const handleSave = useCallback(() => {
         const trimmed = editor.name.trim();
@@ -129,7 +132,7 @@ export const PaletteManager: React.FC<PaletteManagerProps> = ({
             onCreatePalette(trimmed, colors, disabledColors, colorNames);
         }
         setDialogOpen(false);
-    }, [editor, editingId, onCreatePalette, onUpdatePalette]);
+    }, [editor, editingId, onCreatePalette, onUpdatePalette, setDialogOpen]);
 
     const addColor = useCallback(() => {
         setEditor((prev) => ({

@@ -135,7 +135,7 @@ Ditheringul de înălțime poate distribui eroarea de rotunjire între blocuri m
 
 _Mecanism schematic, nu un rezultat înainte/după garantat. Înălțimi superioare diferite nu înseamnă culori suplimentare de role._
 
-Multe mapări Auto-paint curente aleg deja un strat imprimabil discret înainte de acest pas. Aceste regiuni deja aliniate nu au eroare de înălțime fracționară de distribuit și pot rămâne neschimbate când ditheringul este activat. Folosește previzualizarea regenerată și slicerul pentru a verifica dacă această imagine câștigă efectiv variație de înălțime; activarea comutatorului nu garantează mai multe tonuri sau puncte vizibile.
+Cu ditheringul activat, Auto-paint caută o înălțime intermediară între stratul ales și un strat imprimabil vecin atunci când amestecul lor îmbunătățește potrivirea estimată. Potrivirile exacte de culoare și cele ale țintelor calibrate păstrează înălțimea aleasă; regiunile fără un amestec vecin util rămân neschimbate. Reconstruiește modelul după modificarea setării, apoi compară previzualizarea și rezultatul din slicer. Dezactivarea ditheringului restabilește potrivirea discretă obișnuită.
 
 Dimensiunea punctelor urmează **Lățimea efectivă a liniei** din **Setări de imprimare 3D** în raport cu **Dimensiunea pixelului**, rotunjită la un bloc de pixeli întregi. Este o aproximație, nu o garanție exactă a lățimii minime. Regiunile de margine evită același tratament de dithering pentru a reduce artefactele de contur. Verifică în slicer insulele minuscule și deplasările suplimentare.
 
