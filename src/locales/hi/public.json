@@ -110,7 +110,7 @@
         "photos_one": "{{count}} फ़ोटो",
         "photos_other": "{{count}} फ़ोटो",
         "openPhoto": "{{title}} — {{kind}} {{index}} पूरे आकार में खोलें",
-        "originalArtwork": "मूल कलाकृति: <source>{{title}}</source>",
+        "originalArtwork": "मूल कलाकृति: <credit>{{title}}</credit>",
         "themeLabel": "थीम: {{theme}}"
     },
     "navigation": {

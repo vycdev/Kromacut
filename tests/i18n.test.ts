@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import {
     matchLanguage,
     resolveLanguage,
@@ -235,5 +235,19 @@ test('the current release feed provides real notes for every supported language'
         assert.equal(localized?.language, code, `${code} must not use a fallback`);
         assert.ok(localized?.text.trim());
         if (code !== 'en') assert.notEqual(localized?.text, feed.release_notes);
+    }
+});
+
+test('translation component tags avoid void HTML element names', () => {
+    // Trans parses <source>, <link>, etc. as void elements, so the wrapped text
+    // renders after the component and a translated link becomes empty.
+    const pairedVoidTag =
+        /<(area|base|br|col|embed|hr|img|input|link|meta|param|source|track|wbr)>[^"]*?<\/\1>/;
+    for (const { code } of SUPPORTED_LANGUAGES) {
+        for (const file of readdirSync(`src/locales/${code}`)) {
+            if (!file.endsWith('.json')) continue;
+            const resource = readFileSync(`src/locales/${code}/${file}`, 'utf8');
+            assert.doesNotMatch(resource, pairedVoidTag, `${code}/${file}`);
+        }
     }
 });

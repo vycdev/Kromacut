@@ -89,8 +89,11 @@ test.describe('sticky mobile landing CTA @smoke', () => {
 
         await scrollToFooter(page);
         await expect(sticky).toBeVisible();
-        await page.getByRole('navigation', { name: 'Footer navigation' })
-            .getByRole('link', { name: 'Terms', exact: true }).focus();
+        const footerNavigation = page.getByRole('navigation', { name: 'Footer navigation' });
+        await footerNavigation.getByRole('link', { name: 'Terms', exact: true }).focus();
+        // The footer language selector is the last control before the sticky action.
+        await page.keyboard.press('Tab');
+        await expect(footerNavigation.getByTestId('app-language')).toBeFocused();
         await page.keyboard.press('Tab');
         const stickyAction = sticky.getByRole('link', { name: 'Open Kromacut', exact: true });
         await expect(stickyAction).toBeFocused();
