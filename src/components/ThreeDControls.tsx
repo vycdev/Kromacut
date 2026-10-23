@@ -242,6 +242,9 @@ export default function ThreeDControls({
     const [multiHeadSearchDepth, setMultiHeadSearchDepth] = useState<
         'fast' | 'balanced' | 'thorough'
     >(persisted?.multiHeadSearchDepth ?? 'balanced');
+    const [multiHeadColorMode, setMultiHeadColorMode] = useState<'luminance' | 'color'>(
+        persisted?.multiHeadColorMode ?? 'luminance'
+    );
     // Set after a build when Multi-head mode was on but the analysis could not
     // produce a usable plan (worker error, or no window beat the base stack).
     // In that case the build falls back to a normal single-head model and this
@@ -568,6 +571,7 @@ export default function ThreeDControls({
                 firstLayerHeight: slicerFirstLayerHeight,
                 n: multiHeadCount,
                 searchDepth: multiHeadSearchDepth,
+                colorMode: multiHeadColorMode,
             });
         }
 
@@ -671,6 +675,7 @@ export default function ThreeDControls({
                 multiHeadMode: multiHeadEffective,
                 multiHeadCount,
                 multiHeadSearchDepth,
+                multiHeadColorMode,
                 multiHeadWindows: newMultiHeadWindows,
                 patchedTransitionZones,
                 patchedSliceData,
@@ -703,6 +708,7 @@ export default function ThreeDControls({
             multiHeadMode: multiHeadEffective,
             multiHeadCount,
             multiHeadSearchDepth,
+            multiHeadColorMode,
             multiHeadWindows: newMultiHeadWindows,
             patchedTransitionZones,
             patchedSliceData,
@@ -748,6 +754,7 @@ export default function ThreeDControls({
         multiHeadMode,
         multiHeadCount,
         multiHeadSearchDepth,
+        multiHeadColorMode,
         runMultiHead,
     ]);
 
@@ -938,6 +945,8 @@ export default function ThreeDControls({
                     setMultiHeadCount={setMultiHeadCount}
                     multiHeadSearchDepth={multiHeadSearchDepth}
                     setMultiHeadSearchDepth={setMultiHeadSearchDepth}
+                    multiHeadColorMode={multiHeadColorMode}
+                    setMultiHeadColorMode={setMultiHeadColorMode}
                     multiHeadNotice={multiHeadNotice}
                 />
 

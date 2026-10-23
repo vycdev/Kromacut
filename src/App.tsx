@@ -128,6 +128,7 @@ type AutoPaintPersisted = Pick<
     | 'multiHeadMode'
     | 'multiHeadCount'
     | 'multiHeadSearchDepth'
+    | 'multiHeadColorMode'
 >;
 
 // Schema v2: filament `td` values store frontlit hiding distances. State
@@ -211,6 +212,7 @@ const loadAutoPaintPersisted = (): AutoPaintPersisted | null => {
             multiHeadMode: parsed.multiHeadMode ?? false,
             multiHeadCount: parsed.multiHeadCount ?? 4,
             multiHeadSearchDepth: parsed.multiHeadSearchDepth ?? 'balanced',
+            multiHeadColorMode: parsed.multiHeadColorMode ?? 'luminance',
         };
     } catch {
         return null;
@@ -512,6 +514,7 @@ function App(): React.ReactElement | null {
             multiHeadMode: threeDState.multiHeadMode,
             multiHeadCount: threeDState.multiHeadCount,
             multiHeadSearchDepth: threeDState.multiHeadSearchDepth,
+            multiHeadColorMode: threeDState.multiHeadColorMode,
         });
     }, [
         threeDState.filaments,
@@ -535,6 +538,7 @@ function App(): React.ReactElement | null {
         threeDState.multiHeadMode,
         threeDState.multiHeadCount,
         threeDState.multiHeadSearchDepth,
+        threeDState.multiHeadColorMode,
     ]);
 
     // No auto-build on tab switch — the user must click "Build 3D Model" / "Apply Changes".

@@ -144,6 +144,13 @@ export interface ThreeDControlsStateShape {
     multiHeadMode?: boolean;
     multiHeadCount?: number; // any integer ≥ 2
     multiHeadSearchDepth?: 'fast' | 'balanced' | 'thorough';
+    /**
+     * Palette grouping for multi-head analysis. 'luminance' (default) collapses
+     * colors sharing a printer layer (distinct colors capped at layer count);
+     * 'color' keeps distinct hues distinct for more colors. See
+     * multiHeadAnalysisColorFirst.ts.
+     */
+    multiHeadColorMode?: 'luminance' | 'color';
     multiHeadWindows?: WindowResult[];
     /** Reordered transition zones derived from the multi-head patched layer stack. */
     patchedTransitionZones?: TransitionZone[];

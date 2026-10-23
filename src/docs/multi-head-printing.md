@@ -44,17 +44,56 @@ The **Search depth** control moves two knobs together as this space grows — ho
 - **Balanced** — the default; a good compromise for most images.
 - **Thorough** — opens as many windows as fit and searches filament orders near-exhaustively. Slowest, best match.
 
-When K^N is small enough, every depth checks all of it; the sampling only kicks in on large windows. The sample is fixed (no randomness), so rebuilding with the same inputs gives the same result. Search depth does **not** change which image colors are considered — every depth uses the same target colors.
+When K^N is small enough, every depth checks all of it; the sampling only kicks in on large windows. The sample is fixed (no randomness), so rebuilding with the same inputs gives the same result. Search depth does **not** change which image colors are considered — every depth uses the same target color groups (see [Color Grouping](#color-grouping)).
 
 The analysis runs in a background worker, so the interface stays responsive while a deep search runs, and leaving the 3D panel cancels an in-progress run.
+
+## Color Grouping
+
+Before the search runs, Kromacut groups your palette into the target colors it will try to reproduce. The **Color grouping** control decides how:
+
+- **Layer-based (current)** — colors that map to the same print height are merged into one target. Because height is driven by brightness, two colors of similar brightness but different hue collapse together. This caps the number of distinct colors at roughly the number of printer layers, no matter how many colors your image was quantized to.
+- **Color-based (per-hue)** — distinct hues are kept as distinct targets even when they share a height, so the optimizer can try to reproduce them separately.
+
+Color-based grouping removes the height-collapse bottleneck, but it is not an automatic "more colors" switch. How many distinct colors actually appear also depends on how many head **windows** the optimizer opens: colors only diverge from the shared base stack inside a window, so the benefit grows with your **head count** and can be small — or occasionally negative — at low head counts (for example, two heads). It also asks the optimizer to solve for more targets, so builds take longer, and the number of color groups is capped to keep the search bounded. As always, the colors you can actually get are limited by what your loaded filaments and head swaps can physically make at each height.
+
+Treat this as a setting to try per-image rather than a guaranteed win: build with each option and keep whichever looks better for your print.
+
+## Why Head Order Matters
+
+The heads in a window are not interchangeable. Frontlit color is built by light passing down through the stack and back out, so the **outer layers dominate** the perceived color (the same Beer-Lambert blending described in [Calibration theory](calibration-theory)). The same three filaments in a different per-layer order produce a different color.
+
+![The same three filaments in two different layer arrangements produce two different perceived colors, because outer layers dominate the frontlit blend.](03_beer_lambert_blending.svg)
+
+This is why the search evaluates orderings rather than just filament sets, and why the head assignment for a window is specific, not arbitrary.
+
+## The Head Schedule
+
+Build the model to generate the schedule. It appears as **Head Schedule** in the Print Instructions panel — until then the panel prompts you to build. The schedule lists, in layer order:
+
+- a **before-print** setup showing the filament to load on each head, and
+- a **swap checkpoint** at each layer where one or more heads change filament.
+
+![A compacted nozzle swap schedule showing which filament each head carries across windows, with the changed heads highlighted as swap events.](02_nozzle_swap_schedule.svg)
+
+Only heads that actually change are flagged at each checkpoint, and windows that need no reload are merged away, so every listed pause is a real one. A head that a window does not use keeps whatever it is already carrying — and is pre-loaded with the filament it will need next — so a head's first use never costs an extra swap. A head that is never used anywhere in the print is marked **EMPTY**.
+
+### Printing from the schedule
+
+When you export to 3MF, the swap checkpoints are written into the file as **pause markers** (pause / `M600`) at their layers. During the print the machine pauses at each checkpoint; reload the heads flagged for that checkpoint according to the schedule, then resume. Layer heights in the schedule are approximate — confirm them in your slicer before printing.
+
+Kromacut schedules swaps at pauses rather than driving physically separate extruders, so multi-head mode works on an ordinary single-nozzle printer.
+
+## Settings That Change the Schedule
 
 The generated stacks and swap plan depend on your inputs, so changing any of these and rebuilding can change the schedule:
 
 - **Head count** — more heads mean larger windows and, usually, fewer pauses.
 - **Search depth** — a deeper search can pick different filament assignments.
+- **Color grouping** — Layer-based vs. per-hue grouping changes the target colors the search solves for (see [Color Grouping](#color-grouping)).
 - **Filament list and calibration** — the available filaments and their hiding distances drive every color match.
 - **Layer height and first-layer height** — these set where run and window boundaries land.
 
-Multi-head settings (mode, head count, and search depth) are remembered between sessions along with the rest of your auto-paint setup.
+Multi-head settings (mode, head count, search depth, and color grouping) are remembered between sessions along with the rest of your auto-paint setup.
 
 Next: [Generating and exporting output](generating-exporting-output).
