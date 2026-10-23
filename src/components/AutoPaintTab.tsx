@@ -55,6 +55,7 @@ import {
 import { TEMPLATE_PROFILES, isTemplateProfileId } from '../data/supplierFilaments';
 import { getConfidenceLabel, getConfidenceColor } from '../lib/calibration';
 import { getExactBaseOrderCount } from '../lib/optimizer';
+import { MAX_MULTI_HEAD_HEADS } from '../lib/multiHeadAnalysisColorFirst';
 import { useNextBestColorWorker } from '../hooks/useNextBestColorWorker';
 import type { PrintableFeatureSimulation } from '../lib/printableFeatures.ts';
 import PrintableFeaturePreview from './PrintableFeaturePreview';
@@ -431,6 +432,16 @@ interface AutoPaintTabProps {
     setOptimizerSeed: (v: number | undefined) => void;
     regionWeightingMode: 'uniform' | 'center' | 'edge';
     setRegionWeightingMode: (v: 'uniform' | 'center' | 'edge') => void;
+
+    // Multi-head mode
+    multiHeadMode: boolean;
+    setMultiHeadMode: (v: boolean) => void;
+    multiHeadCount: number;
+    setMultiHeadCount: (v: number) => void;
+    multiHeadSearchDepth: 'fast' | 'balanced' | 'thorough';
+    setMultiHeadSearchDepth: (v: 'fast' | 'balanced' | 'thorough') => void;
+    /** Set after a build that fell back from Multi-head mode to a single-head model. */
+    multiHeadNotice?: string;
 }
 
 export default function AutoPaintTab({
@@ -510,6 +521,13 @@ export default function AutoPaintTab({
     setOptimizerSeed,
     regionWeightingMode,
     setRegionWeightingMode,
+    multiHeadMode,
+    setMultiHeadMode,
+    multiHeadCount,
+    setMultiHeadCount,
+    multiHeadSearchDepth,
+    setMultiHeadSearchDepth,
+    multiHeadNotice,
 }: AutoPaintTabProps) {
     const { t, i18n } = useTranslation('printing');
     const activeProfile = React.useMemo(
@@ -1422,6 +1440,94 @@ export default function AutoPaintTab({
                                     />
                                 </div>
                             </div>
+                        </div>
+                    )}
+
+                    {/* Multi-head mode */}
+                    {filaments.length > 0 && (
+                        <div className="space-y-3 pt-2">
+                            <div className="h-px bg-border/50" />
+                            <div className="flex items-center justify-between">
+                                <div className="space-y-0.5">
+                                    <Label
+                                        htmlFor="multi-head-mode"
+                                        className="text-xs font-semibold text-foreground cursor-pointer"
+                                    >
+                                        Multi-head mode
+                                    </Label>
+                                    <p className="text-[10px] text-muted-foreground">
+                                        Optimize layer order per-pixel across N heads ({filaments.length > 0 ? `${Math.min(filaments.length, 5)}^${Math.min(filaments.length, 5)} = ${Math.pow(Math.min(filaments.length, 5), Math.min(filaments.length, 5)).toLocaleString()} color combinations` : 'load filaments to see'})
+                                    </p>
+                                </div>
+                                <Switch
+                                    id="multi-head-mode"
+                                    data-testid="autopaint-multi-head-mode"
+                                    checked={multiHeadMode}
+                                    onCheckedChange={setMultiHeadMode}
+                                />
+                            </div>
+                            {multiHeadNotice && (
+                                <div
+                                    role="alert"
+                                    data-testid="autopaint-multi-head-notice"
+                                    className="text-[10px] text-destructive"
+                                >
+                                    {multiHeadNotice}
+                                </div>
+                            )}
+                            {multiHeadMode && (
+                                <div className="space-y-2 pl-0.5">
+                                    <p className="text-[10px] text-muted-foreground">
+                                        Not compatible with Flat Paint — enabling Multi-head turns Flat Paint off.
+                                    </p>
+                                    <div className="flex items-center gap-2">
+                                        <Label htmlFor="multi-head-count" className="text-xs text-muted-foreground whitespace-nowrap">
+                                            Head count
+                                        </Label>
+                                        <NumberInput
+                                            id="multi-head-count"
+                                            className="h-7 text-xs flex-1"
+                                            value={multiHeadCount}
+                                            min={2}
+                                            max={MAX_MULTI_HEAD_HEADS}
+                                            step={1}
+                                            onChange={(e) => {
+                                                const v = parseInt(e.target.value, 10);
+                                                if (v >= 2) {
+                                                    setMultiHeadCount(Math.min(v, MAX_MULTI_HEAD_HEADS));
+                                                }
+                                            }}
+                                        />
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <Label htmlFor="multi-head-search-depth" className="text-xs text-muted-foreground whitespace-nowrap">
+                                            Search depth
+                                        </Label>
+                                        <Select
+                                            value={multiHeadSearchDepth}
+                                            onValueChange={(v) => setMultiHeadSearchDepth(v as 'fast' | 'balanced' | 'thorough')}
+                                        >
+                                            <SelectTrigger id="multi-head-search-depth" className="h-7 text-xs flex-1">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="fast" className="text-xs">
+                                                    Fast
+                                                </SelectItem>
+                                                <SelectItem value="balanced" className="text-xs">
+                                                    Balanced
+                                                </SelectItem>
+                                                <SelectItem value="thorough" className="text-xs">
+                                                    Thorough
+                                                </SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <p className="text-[10px] text-muted-foreground">
+                                        Deeper search opens more head windows and tries more filament orders per window (near-exhaustive at Thorough). It does not change which pixels are considered.
+                                    </p>
+                                </div>
+                            )}
                         </div>
                     )}
 
