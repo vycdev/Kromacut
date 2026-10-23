@@ -1,10 +1,12 @@
 import { Trans, useTranslation } from 'react-i18next';
 import { CollapsibleCard, DirtyDot } from '@/components/CollapsibleCard';
-import type { SwapEntry } from '../hooks/useSwapPlan';
+import type { SwapEntry, MultiHeadScheduleEvent } from '../hooks/useSwapPlan';
 import type { SmoothMeshingStrength } from '../types';
 
 interface PrintInstructionsProps {
     swapPlan: SwapEntry[];
+    multiHeadPlan?: MultiHeadScheduleEvent[] | null;
+    multiHeadMode?: boolean;
     layerHeight: number;
     slicerFirstLayerHeight: number;
     copied: boolean;
@@ -20,6 +22,8 @@ interface PrintInstructionsProps {
 
 export default function PrintInstructions({
     swapPlan,
+    multiHeadPlan,
+    multiHeadMode = false,
     layerHeight,
     slicerFirstLayerHeight,
     copied,
@@ -55,7 +59,6 @@ export default function PrintInstructions({
                     onClick={onCopy}
                     title={t('printInstructions.copyPrintInstructionsToClipboard')}
                     aria-pressed={copied}
-                    disabled={tooManyColors}
                     className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-200 ${
                         copied
                             ? 'bg-green-600 text-white'
@@ -67,6 +70,11 @@ export default function PrintInstructions({
             }
         >
             <div className="space-y-4 text-sm">
+                {tooManyColors && (
+                    <div className="text-amber-600 text-sm p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                        This print has {colorCount} layers — swap instructions may be slow to generate above 64.
+                    </div>
+                )}
                 {/* Recommended Settings */}
                 <div className="p-3 rounded-lg bg-primary/5 border border-primary/20">
                     <div className="font-semibold text-foreground mb-2">
@@ -169,9 +177,15 @@ export default function PrintInstructions({
                             )}
                         </ul>
                     </div>
+                ) : multiHeadPlan ? (
+                    <HeadSchedule events={multiHeadPlan} />
+                ) : multiHeadMode ? (
+                    <div className="text-muted-foreground text-sm p-3 rounded-lg bg-accent/5 border border-border/50">
+                        Click <span className="font-semibold text-foreground">Build 3D Model</span> to generate the multi-head schedule.
+                    </div>
                 ) : (
+                    /* Single-head */
                     <>
-                        {/* Start Color */}
                         <div>
                             <div className="font-semibold text-foreground mb-3">
                                 {t('printInstructions.startWithColor')}
@@ -197,13 +211,9 @@ export default function PrintInstructions({
                                     );
                                 })()
                             ) : (
-                                <div className="text-muted-foreground text-sm p-3 rounded-lg bg-muted/30">
-                                    —
-                                </div>
+                                <div className="text-muted-foreground text-sm p-3 rounded-lg bg-muted/30">—</div>
                             )}
                         </div>
-
-                        {/* Color Swap Plan */}
                         <div>
                             <div className="font-semibold text-foreground mb-2">
                                 {t('printInstructions.colorSwapPlan')}
@@ -288,5 +298,76 @@ export default function PrintInstructions({
                 </div>
             </div>
         </CollapsibleCard>
+    );
+}
+
+// ---------------------------------------------------------------------------
+// HeadSchedule — multi-head load / swap schedule in layer order
+// ---------------------------------------------------------------------------
+
+function HeadSchedule({ events }: { events: MultiHeadScheduleEvent[] }) {
+    if (events.length === 0) {
+        return (
+            <div className="text-muted-foreground text-sm p-3 rounded-lg bg-accent/5 border border-border/50">
+                No head assignments computed yet.
+            </div>
+        );
+    }
+
+    return (
+        <div>
+            <div className="font-semibold text-foreground mb-3">Head Schedule</div>
+            <div className="space-y-3">
+                {events.filter(evt => evt.isPrePrint || evt.swapCount > 0).map((evt, evtIdx) => {
+                    return (
+                        <div
+                            key={evtIdx}
+                            className={`p-3 rounded-lg border ${
+                                evt.isPrePrint
+                                    ? 'bg-primary/5 border-primary/20'
+                                    : 'bg-accent/5 border-border/50'
+                            }`}
+                        >
+                            {/* Event header */}
+                            <div className="text-xs font-semibold text-foreground mb-2">
+                                {evt.isPrePrint
+                                    ? <>Before print <span className="font-normal text-muted-foreground"> — load all heads</span></>
+                                    : <>Layer {evt.startLayer}<span className="text-amber-600 dark:text-amber-400"> — swap {evt.swapCount} head{evt.swapCount !== 1 ? 's' : ''}</span></>
+                                }
+                            </div>
+
+                            {/* Nozzle rows — all heads shown; changed ones highlighted */}
+                            <div className="space-y-1">
+                                {evt.nozzles.map((n) => (
+                                    <div
+                                        key={n.nozzle}
+                                        className={`flex items-center gap-2 text-xs ${
+                                            n.changed
+                                                ? 'text-amber-600 dark:text-amber-400 font-semibold'
+                                                : 'text-muted-foreground'
+                                        }`}
+                                    >
+                                        <span className="w-14 flex-shrink-0 font-medium">
+                                            Head {n.nozzle}
+                                        </span>
+                                        <span
+                                            className={`inline-block w-3.5 h-3.5 rounded border flex-shrink-0 ${
+                                                n.empty
+                                                    ? 'border-dashed border-muted-foreground/60'
+                                                    : 'border-border'
+                                            }`}
+                                            style={{ background: n.empty ? 'transparent' : n.filamentHex }}
+                                        />
+                                        <span className={n.empty ? 'italic opacity-70' : undefined}>
+                                            {n.filamentName}
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+        </div>
     );
 }
