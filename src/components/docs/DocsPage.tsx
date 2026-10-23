@@ -40,6 +40,7 @@ const DOC_NAV_GROUPS = [
             'flat-paint',
             'calibration-workflows',
             'calibration-theory',
+            'multi-head-printing',
             'generating-exporting-output',
         ],
     },
