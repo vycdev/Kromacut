@@ -164,6 +164,8 @@ Le mode de vue et le choix simulé/physique sont mémorisés. **Couleurs de l’
 
 Déplacez les poignées inférieure et supérieure de la barre du bas pour isoler une plage de hauteurs. Les positions s’alignent sur la grille de couches. Survolez les segments de matériau pour les informations de départ ou de changement.
 
+Placez le focus sur une poignée et utilisez les flèches pour avancer d’une couche imprimée. Maj+flèche ou Page précédente/suivante déplace de dix couches ; Début/Fin rejoint une limite. Les poignées ne peuvent pas se croiser.
+
 ![Les poignées de limite masquent des couches pour l’examen, mais l’export contient toujours le modèle complet.](19_preview_only.svg)
 
 _Schéma de principe. Masquer une couche à l’écran ne la supprime jamais de l’export._

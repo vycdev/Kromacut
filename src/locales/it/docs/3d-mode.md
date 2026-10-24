@@ -164,6 +164,8 @@ La modalità di visualizzazione e la scelta tra colori simulati e fisici vengono
 
 Trascina le maniglie inferiore e superiore della barra in basso per isolare un intervallo di altezze. Le posizioni si agganciano alla griglia degli strati. Passa sopra i segmenti dei materiali per informazioni sull’inizio o sui cambi.
 
+Porta il focus su una maniglia e usa le frecce per spostarti di uno strato stampato alla volta. Maiusc+freccia o Pag Su/Giù sposta di dieci strati; Home/Fine raggiunge un limite dell’intervallo. Le maniglie non possono incrociarsi.
+
 ![Le maniglie di taglio nascondono strati per esaminarli, ma l’esportazione contiene comunque il modello completo.](19_preview_only.svg)
 
 _Schema. Nascondere uno strato sullo schermo non lo elimina mai dall’esportazione._

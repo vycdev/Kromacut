@@ -164,6 +164,8 @@ Se recuerdan el modo de vista y la elección simulada/física. **Colores de vist
 
 Arrastra los controles inferior y superior de la barra inferior para aislar un intervalo de altura. Se ajustan a la cuadrícula de capas. Pasa el puntero por segmentos de material para información de inicio o cambio.
 
+Enfoca un control y usa las flechas para moverlo una capa impresa cada vez. Mayús+flecha o Re Pág/Av Pág mueve diez capas; Inicio/Fin lleva a un límite del intervalo. Los controles no pueden cruzarse.
+
 ![Los límites ocultan capas para inspección, pero la exportación sigue incluyendo el modelo completo.](19_preview_only.svg)
 
 _Esquema. Ocultar una capa en pantalla nunca la elimina de la exportación._

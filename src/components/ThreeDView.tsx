@@ -2,7 +2,7 @@ import type { SmoothMeshingStrength } from '../types';
 import { useTranslation } from 'react-i18next';
 import { translateRuntimeMessage } from '../lib/runtimeMessages';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { PointerEvent } from 'react';
+import type { KeyboardEvent, PointerEvent } from 'react';
 import * as THREE from 'three';
 import * as SliderPrimitive from '@radix-ui/react-slider';
 import useThreeScene from '../hooks/useThreeScene';
@@ -709,6 +709,29 @@ export default function ThreeDView({
             : snapPreviewHeight(value[1] ?? maxModelHeight);
         setPreviewMinHeight(Math.min(low, high));
         setPreviewHeight(Math.max(low, high));
+    };
+
+    const handleReliefPreviewKeyDown = (event: KeyboardEvent<HTMLSpanElement>, upper: boolean) => {
+        // Pointer positions remain proportional to height. Keyboard movement must
+        // use printable boundaries: a 0.01 mm increment otherwise snaps back to
+        // the same layer. Flat Paint already uses integer boundary indices.
+        if (flatPaint) return;
+        const decreasing = ['ArrowLeft', 'ArrowDown', 'PageDown'].includes(event.key);
+        const increasing = ['ArrowRight', 'ArrowUp', 'PageUp'].includes(event.key);
+        if (!decreasing && !increasing && event.key !== 'Home' && event.key !== 'End') return;
+        event.preventDefault();
+        const current = upper ? (previewHeight ?? maxModelHeight) : previewMinHeight;
+        const page = event.shiftKey || event.key.startsWith('Page') ? 10 : 1;
+        const index =
+            event.key === 'Home'
+                ? 0
+                : event.key === 'End'
+                  ? flatPreviewHeights.length - 1
+                  : flatPreviewIndex(current) + (decreasing ? -page : page);
+        const next =
+            flatPreviewHeights[Math.max(0, Math.min(flatPreviewHeights.length - 1, index))];
+        if (upper) setPreviewHeight(Math.max(previewMinHeight, next));
+        else setPreviewMinHeight(Math.min(previewHeight ?? maxModelHeight, next));
     };
 
     // 2. Rebuild mesh geometry only when the parent sends an explicit build signal.
@@ -2330,6 +2353,9 @@ export default function ThreeDView({
                                     </SliderPrimitive.Track>
                                     <SliderPrimitive.Thumb
                                         aria-label={t('threeDView.previewBottomLayerCutoff')}
+                                        onKeyDown={(event) =>
+                                            handleReliefPreviewKeyDown(event, false)
+                                        }
                                         aria-valuetext={t('threeDView.height', {
                                             height: previewMinHeight.toFixed(2),
                                         })}
@@ -2337,6 +2363,9 @@ export default function ThreeDView({
                                     />
                                     <SliderPrimitive.Thumb
                                         aria-label={t('threeDView.previewTopLayerCutoff')}
+                                        onKeyDown={(event) =>
+                                            handleReliefPreviewKeyDown(event, true)
+                                        }
                                         aria-valuetext={t('threeDView.height', {
                                             height: previewHeight.toFixed(2),
                                         })}

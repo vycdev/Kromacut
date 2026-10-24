@@ -4,6 +4,10 @@ All notable changes to Kromacut are documented in this file.
 
 ## Unreleased
 
+### Fixed
+
+- **Relief layer keyboard controls** - Arrow keys now move each Layer Preview handle by one physical print layer, including the first-layer boundary. Home/End and larger keyboard steps respect the selected range. Pointer positioning remains proportional to height. Added browser coverage for both handles and rebuild recovery.
+
 ## v4.2.0 - 2026-10-19
 
 ### Upgrade notes
