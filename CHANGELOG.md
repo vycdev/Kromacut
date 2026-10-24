@@ -4,6 +4,10 @@ All notable changes to Kromacut are documented in this file.
 
 ## Unreleased
 
+### Fixed
+
+- **Reloading image files** - Choosing the same source image again reloads its original pixels after crop, resize, or other edits, instead of silently retaining the edited image. Added a browser regression for same-path reloads after resizing.
+
 ## v4.2.0 - 2026-10-19
 
 ### Upgrade notes
