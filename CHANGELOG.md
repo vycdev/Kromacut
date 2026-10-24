@@ -4,6 +4,10 @@ All notable changes to Kromacut are documented in this file.
 
 ## Unreleased
 
+### Fixed
+
+- **Desktop palette exports** - Save `.kpal` palettes through the native Save As dialog instead of WebView browser downloads, preserving browser downloads and surfacing write failures without changing saved palettes. Added cancellation, error, and export-content regressions.
+
 ## v4.2.0 - 2026-10-19
 
 ### Upgrade notes

@@ -50,6 +50,7 @@
     "stl": "Modelo STL",
     "threeMf": "Modelo 3MF",
     "profile": "Perfil de filamentos",
+    "palette": "Paleta de colores",
     "noImage": "No hay ninguna imagen disponible para descargar",
     "imageFailed": "La exportación de la imagen ha fallado. Consulta la consola para más detalles.",
     "modelNotReady": "El modelo 3D aún no está listo",
@@ -116,6 +117,7 @@
     "importSaveFailed": "No se ha podido guardar la importación de la paleta. Las paletas existentes no han cambiado; libera espacio de almacenamiento del navegador e inténtalo de nuevo.",
     "cloned": "Duplicada como «{{name}}»",
     "invalid": "Archivo de paleta no válido",
+    "exportFailed": "No se pudo exportar la paleta. Intenta guardarla de nuevo.",
     "none": "No se han encontrado paletas"
   },
   "calibration": {

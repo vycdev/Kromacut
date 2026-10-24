@@ -50,6 +50,7 @@
     "stl": "Modello STL",
     "threeMf": "Modello 3MF",
     "profile": "Profilo filamenti",
+    "palette": "Tavolozza di colori",
     "noImage": "Nessuna immagine disponibile da scaricare",
     "imageFailed": "Esportazione dell’immagine non riuscita. Consulta la console per i dettagli.",
     "modelNotReady": "Il modello 3D non è ancora pronto",
@@ -116,6 +117,7 @@
     "importSaveFailed": "Impossibile salvare l’importazione della tavolozza. Le tavolozze esistenti non sono state modificate; libera spazio nel browser e riprova.",
     "cloned": "Clonata come «{{name}}»",
     "invalid": "File tavolozza non valido",
+    "exportFailed": "Impossibile esportare la tavolozza. Riprova a salvarla.",
     "none": "Nessuna tavolozza trovata"
   },
   "calibration": {
