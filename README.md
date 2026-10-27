@@ -134,7 +134,13 @@ Read [AGENTS.md](AGENTS.md) for repository guidance and testing expectations. Th
 <details open>
 <summary>Star history</summary>
 
-[![Star History Chart](https://api.star-history.com/svg?repos=vycdev/kromacut&type=date&legend=top-left)](https://www.star-history.com/#vycdev/kromacut&type=date&legend=top-left)
+<a href="https://www.star-history.com/?repos=vycdev%2Fkromacut&type=date&legend=top-left">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=vycdev/kromacut&type=date&theme=dark&legend=top-left" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=vycdev/kromacut&type=date&legend=top-left" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=vycdev/kromacut&type=date&legend=top-left" />
+ </picture>
+</a>
 
 </details>
 
