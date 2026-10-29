@@ -15,7 +15,10 @@ import {
 } from '../lib/meshing';
 import { LAYER_ACTIVATION_EPSILON } from '../lib/layerActivation';
 import { createFlatPaintMesher } from '../lib/flatPaintMeshing';
-import { generateMultiHeadMeshes } from '../lib/multiHeadGeometry';
+import {
+    createMultiHeadTargetHeightCache,
+    generateMultiHeadMeshes,
+} from '../lib/multiHeadGeometry';
 import { translate } from '../lib/i18n';
 import { quantizeHeightMap } from '../lib/heightDithering';
 import { normalizeHexColor as normalizeHexColorValue } from '../lib/colorUtils';
@@ -953,12 +956,13 @@ export default function ThreeDView({
                         // including when enhanced matching is off. Preserve those
                         // surface heights while changing each pixel's filament path.
                         const maxHeight = cumulativeHeights[cumulativeHeights.length - 1];
-                        const targets = createFinalStackTargetHeightCache(
-                            autoPaintFinalStack.targetMappings,
+                        const targets = createMultiHeadTargetHeightCache(
+                            autoPaintFinalStack,
+                            multiHeadPlan.colorLayerFilaments.keys(),
                             minimumSurfaceHeight,
                             maxHeight,
                             heightDithering && !preserveSeparation
-                                ? { palette: autoPaintFinalStack.palette, layerHeight }
+                                ? { layerHeight }
                                 : undefined
                         );
                         for (let y = 0; y < boxH; y++) {
