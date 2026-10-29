@@ -1952,5 +1952,633 @@
       "fontSize": 18,
       "fontWeight": 400
     }
+  },
+  "01_window_run_diagram": {
+    "title": {
+      "width": 740,
+      "fontSize": 18,
+      "fontWeight": 700
+    },
+    "subtitle": {
+      "width": 740,
+      "fontSize": 11,
+      "fontWeight": 400
+    },
+    "windowSize": {
+      "width": 740,
+      "fontSize": 11,
+      "fontWeight": 700
+    },
+    "height": {
+      "width": 330,
+      "fontSize": 11,
+      "fontWeight": 400
+    },
+    "run8": {
+      "width": 80,
+      "fontSize": 11,
+      "fontWeight": 700
+    },
+    "run7": {
+      "width": 80,
+      "fontSize": 11,
+      "fontWeight": 700
+    },
+    "run6": {
+      "width": 80,
+      "fontSize": 11,
+      "fontWeight": 700
+    },
+    "run5": {
+      "width": 80,
+      "fontSize": 11,
+      "fontWeight": 700
+    },
+    "run4": {
+      "width": 80,
+      "fontSize": 11,
+      "fontWeight": 700
+    },
+    "run3": {
+      "width": 80,
+      "fontSize": 11,
+      "fontWeight": 700
+    },
+    "run2": {
+      "width": 80,
+      "fontSize": 11,
+      "fontWeight": 700
+    },
+    "run1": {
+      "width": 80,
+      "fontSize": 11,
+      "fontWeight": 700
+    },
+    "window2": {
+      "width": 96,
+      "fontSize": 13,
+      "fontWeight": 700
+    },
+    "window1": {
+      "width": 96,
+      "fontSize": 13,
+      "fontWeight": 700
+    },
+    "outsideShort": {
+      "width": 96,
+      "fontSize": 12,
+      "fontWeight": 400
+    },
+    "how": {
+      "width": 740,
+      "fontSize": 14,
+      "fontWeight": 700
+    },
+    "run": {
+      "width": 398,
+      "fontSize": 12,
+      "fontWeight": 700
+    },
+    "runDefinition": {
+      "width": 382,
+      "fontSize": 11,
+      "fontWeight": 400
+    },
+    "runHeight": {
+      "width": 382,
+      "fontSize": 11,
+      "fontWeight": 400
+    },
+    "window": {
+      "width": 398,
+      "fontSize": 12,
+      "fontWeight": 700
+    },
+    "windowSelection": {
+      "width": 382,
+      "fontSize": 11,
+      "fontWeight": 400
+    },
+    "windowPauses": {
+      "width": 382,
+      "fontSize": 11,
+      "fontWeight": 400
+    },
+    "windowOrders": {
+      "width": 382,
+      "fontSize": 11,
+      "fontWeight": 400
+    },
+    "inside": {
+      "width": 398,
+      "fontSize": 12,
+      "fontWeight": 700
+    },
+    "match": {
+      "width": 382,
+      "fontSize": 11,
+      "fontWeight": 400
+    },
+    "mapping": {
+      "width": 382,
+      "fontSize": 11,
+      "fontWeight": 400
+    },
+    "schedule": {
+      "width": 382,
+      "fontSize": 11,
+      "fontWeight": 400
+    },
+    "outside": {
+      "width": 398,
+      "fontSize": 12,
+      "fontWeight": 700
+    },
+    "keep": {
+      "width": 382,
+      "fontSize": 11,
+      "fontWeight": 400
+    },
+    "loads": {
+      "width": 382,
+      "fontSize": 11,
+      "fontWeight": 400
+    },
+    "stripe": {
+      "width": 350,
+      "fontSize": 10,
+      "fontWeight": 400
+    },
+    "credit": {
+      "width": 740,
+      "fontSize": 10,
+      "fontWeight": 400
+    }
+  },
+  "02_nozzle_swap_schedule": {
+    "title": {
+      "width": 760,
+      "fontSize": 18,
+      "fontWeight": 700
+    },
+    "subtitle": {
+      "width": 760,
+      "fontSize": 11,
+      "fontWeight": 400
+    },
+    "start": {
+      "width": 176,
+      "fontSize": 9,
+      "fontWeight": 400
+    },
+    "window2": {
+      "width": 176,
+      "fontSize": 9,
+      "fontWeight": 400
+    },
+    "window3": {
+      "width": 208,
+      "fontSize": 11,
+      "fontWeight": 400
+    },
+    "outsideRuns": {
+      "width": 208,
+      "fontSize": 11,
+      "fontWeight": 400
+    },
+    "head1": {
+      "width": 88,
+      "fontSize": 12,
+      "fontWeight": 400
+    },
+    "head2": {
+      "width": 88,
+      "fontSize": 12,
+      "fontWeight": 400
+    },
+    "head3": {
+      "width": 88,
+      "fontSize": 12,
+      "fontWeight": 400
+    },
+    "valueC0392B": {
+      "width": 760,
+      "fontSize": 10,
+      "fontWeight": 700
+    },
+    "value2980B9": {
+      "width": 760,
+      "fontSize": 10,
+      "fontWeight": 700
+    },
+    "value27AE60": {
+      "width": 760,
+      "fontSize": 10,
+      "fontWeight": 700
+    },
+    "value8E44AD": {
+      "width": 760,
+      "fontSize": 10,
+      "fontWeight": 700
+    },
+    "value16A085": {
+      "width": 760,
+      "fontSize": 10,
+      "fontWeight": 700
+    },
+    "valueD35400": {
+      "width": 760,
+      "fontSize": 10,
+      "fontWeight": 700
+    },
+    "reload": {
+      "width": 50,
+      "fontSize": 8,
+      "fontWeight": 400
+    },
+    "progression": {
+      "width": 760,
+      "fontSize": 11,
+      "fontWeight": 400
+    },
+    "phase3": {
+      "width": 176,
+      "fontSize": 9,
+      "fontWeight": 400
+    },
+    "red": {
+      "width": 36,
+      "fontSize": 8,
+      "fontWeight": 700
+    },
+    "runNumber1": {
+      "width": 46,
+      "fontSize": 8,
+      "fontWeight": 400
+    },
+    "blue": {
+      "width": 36,
+      "fontSize": 8,
+      "fontWeight": 700
+    },
+    "runNumber2": {
+      "width": 46,
+      "fontSize": 8,
+      "fontWeight": 400
+    },
+    "green": {
+      "width": 36,
+      "fontSize": 8,
+      "fontWeight": 700
+    },
+    "runNumber3": {
+      "width": 46,
+      "fontSize": 8,
+      "fontWeight": 400
+    },
+    "purple": {
+      "width": 36,
+      "fontSize": 8,
+      "fontWeight": 700
+    },
+    "runNumber4": {
+      "width": 46,
+      "fontSize": 8,
+      "fontWeight": 400
+    },
+    "teal": {
+      "width": 36,
+      "fontSize": 8,
+      "fontWeight": 700
+    },
+    "runNumber5": {
+      "width": 46,
+      "fontSize": 8,
+      "fontWeight": 400
+    },
+    "runNumber6": {
+      "width": 46,
+      "fontSize": 8,
+      "fontWeight": 400
+    },
+    "runNumber7": {
+      "width": 46,
+      "fontSize": 8,
+      "fontWeight": 400
+    },
+    "runNumber8": {
+      "width": 46,
+      "fontSize": 8,
+      "fontWeight": 400
+    },
+    "orange": {
+      "width": 36,
+      "fontSize": 8,
+      "fontWeight": 700
+    },
+    "runNumber9": {
+      "width": 46,
+      "fontSize": 8,
+      "fontWeight": 400
+    },
+    "multi": {
+      "width": 105,
+      "fontSize": 10,
+      "fontWeight": 400
+    },
+    "multiCount": {
+      "width": 340,
+      "fontSize": 10,
+      "fontWeight": 700
+    },
+    "single": {
+      "width": 105,
+      "fontSize": 10,
+      "fontWeight": 400
+    },
+    "singleCount": {
+      "width": 250,
+      "fontSize": 10,
+      "fontWeight": 700
+    },
+    "credit": {
+      "width": 760,
+      "fontSize": 10,
+      "fontWeight": 400
+    }
+  },
+  "03_beer_lambert_blending": {
+    "title": {
+      "width": 880,
+      "fontSize": 17,
+      "fontWeight": 700
+    },
+    "subtitle": {
+      "width": 880,
+      "fontSize": 10,
+      "fontWeight": 400
+    },
+    "bars": {
+      "width": 880,
+      "fontSize": 10,
+      "fontWeight": 400
+    },
+    "outer": {
+      "width": 300,
+      "fontSize": 9,
+      "fontWeight": 400
+    },
+    "positionNumber1": {
+      "width": 40,
+      "fontSize": 10,
+      "fontWeight": 700
+    },
+    "positionNumber2": {
+      "width": 40,
+      "fontSize": 10,
+      "fontWeight": 700
+    },
+    "positionNumber3": {
+      "width": 40,
+      "fontSize": 10,
+      "fontWeight": 700
+    },
+    "backing": {
+      "width": 880,
+      "fontSize": 9,
+      "fontWeight": 400
+    },
+    "changes": {
+      "width": 300,
+      "fontSize": 9,
+      "fontWeight": 400
+    },
+    "blend": {
+      "width": 178,
+      "fontSize": 9,
+      "fontWeight": 400
+    },
+    "orderA": {
+      "width": 300,
+      "fontSize": 9,
+      "fontWeight": 400
+    },
+    "orderB": {
+      "width": 300,
+      "fontSize": 9,
+      "fontWeight": 400
+    },
+    "credit": {
+      "width": 880,
+      "fontSize": 10,
+      "fontWeight": 400
+    }
+  },
+  "05_combo_search_space": {
+    "title": {
+      "width": 880,
+      "fontSize": 18,
+      "fontWeight": 700
+    },
+    "subtitle": {
+      "width": 880,
+      "fontSize": 11,
+      "fontWeight": 400
+    },
+    "all": {
+      "width": 400,
+      "fontSize": 13,
+      "fontWeight": 700
+    },
+    "best": {
+      "width": 52,
+      "fontSize": 9,
+      "fontWeight": 700
+    },
+    "position1": {
+      "width": 84,
+      "fontSize": 10,
+      "fontWeight": 400
+    },
+    "position2": {
+      "width": 84,
+      "fontSize": 10,
+      "fontWeight": 400
+    },
+    "position3": {
+      "width": 84,
+      "fontSize": 10,
+      "fontWeight": 400
+    },
+    "cell": {
+      "width": 400,
+      "fontSize": 9,
+      "fontWeight": 400
+    },
+    "count": {
+      "width": 408,
+      "fontSize": 13,
+      "fontWeight": 700
+    },
+    "valueK2": {
+      "width": 54,
+      "fontSize": 11,
+      "fontWeight": 700
+    },
+    "valueK3": {
+      "width": 54,
+      "fontSize": 11,
+      "fontWeight": 700
+    },
+    "valueK4": {
+      "width": 54,
+      "fontSize": 11,
+      "fontWeight": 700
+    },
+    "valueK5": {
+      "width": 54,
+      "fontSize": 11,
+      "fontWeight": 700
+    },
+    "valueK6": {
+      "width": 54,
+      "fontSize": 11,
+      "fontWeight": 700
+    },
+    "valueN2": {
+      "width": 54,
+      "fontSize": 11,
+      "fontWeight": 700
+    },
+    "value4": {
+      "width": 54,
+      "fontSize": 11,
+      "fontWeight": 400
+    },
+    "value9": {
+      "width": 54,
+      "fontSize": 11,
+      "fontWeight": 400
+    },
+    "value16": {
+      "width": 54,
+      "fontSize": 11,
+      "fontWeight": 400
+    },
+    "value25": {
+      "width": 54,
+      "fontSize": 11,
+      "fontWeight": 400
+    },
+    "value36": {
+      "width": 54,
+      "fontSize": 11,
+      "fontWeight": 400
+    },
+    "valueN3": {
+      "width": 54,
+      "fontSize": 11,
+      "fontWeight": 700
+    },
+    "value8": {
+      "width": 54,
+      "fontSize": 11,
+      "fontWeight": 400
+    },
+    "value27": {
+      "width": 54,
+      "fontSize": 12,
+      "fontWeight": 700
+    },
+    "value64": {
+      "width": 54,
+      "fontSize": 11,
+      "fontWeight": 400
+    },
+    "value125": {
+      "width": 54,
+      "fontSize": 11,
+      "fontWeight": 400
+    },
+    "value216": {
+      "width": 54,
+      "fontSize": 11,
+      "fontWeight": 400
+    },
+    "valueN4": {
+      "width": 54,
+      "fontSize": 11,
+      "fontWeight": 700
+    },
+    "value81": {
+      "width": 54,
+      "fontSize": 11,
+      "fontWeight": 400
+    },
+    "value256": {
+      "width": 54,
+      "fontSize": 11,
+      "fontWeight": 400
+    },
+    "value625": {
+      "width": 54,
+      "fontSize": 11,
+      "fontWeight": 400
+    },
+    "value1296": {
+      "width": 54,
+      "fontSize": 11,
+      "fontWeight": 400
+    },
+    "valueN5": {
+      "width": 54,
+      "fontSize": 11,
+      "fontWeight": 700
+    },
+    "value32": {
+      "width": 54,
+      "fontSize": 11,
+      "fontWeight": 400
+    },
+    "value243": {
+      "width": 54,
+      "fontSize": 11,
+      "fontWeight": 400
+    },
+    "value1024": {
+      "width": 54,
+      "fontSize": 11,
+      "fontWeight": 400
+    },
+    "value3125": {
+      "width": 54,
+      "fontSize": 11,
+      "fontWeight": 400
+    },
+    "value7776": {
+      "width": 54,
+      "fontSize": 11,
+      "fontWeight": 400
+    },
+    "example": {
+      "width": 190,
+      "fontSize": 10,
+      "fontWeight": 400
+    },
+    "growth": {
+      "width": 408,
+      "fontSize": 10,
+      "fontWeight": 400
+    },
+    "limit": {
+      "width": 408,
+      "fontSize": 10,
+      "fontWeight": 400
+    },
+    "credit": {
+      "width": 880,
+      "fontSize": 10,
+      "fontWeight": 400
+    }
   }
 }

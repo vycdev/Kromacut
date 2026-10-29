@@ -58,5 +58,9 @@
   "troubleshooting": {
     "title": "Depanare",
     "description": "Probleme frecvente și ce să încerci mai întâi."
+  },
+  "multi-head-printing": {
+    "title": "Imprimare cu mai multe capete",
+    "description": "Planifică atribuirile de filamente, reîncărcările capetelor și exporturile 3MF pentru imprimarea cu mai multe capete."
   }
 }

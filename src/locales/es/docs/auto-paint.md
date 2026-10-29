@@ -201,4 +201,6 @@ Tras crear el modelo correctamente, sigue el programa de cabezales en las instru
 
 Si el análisis falla o no encuentra una disposición utilizable que mejore el resultado, se crea el modelo normal de un solo cabezal y se muestran su color inicial, sus instrucciones de cambio de color y un aviso. Cambiar la imagen cancela el análisis pendiente; vuelve a crear el modelo para la nueva imagen.
 
+Para conocer los tramos, las ventanas, la profundidad de búsqueda y el flujo completo, consulta [Impresión multicabezal](multi-head-printing).
+
 Siguiente: [Pintura plana](flat-paint), [Flujos de calibración](calibration-workflows) o [Generación y exportación](generating-exporting-output).

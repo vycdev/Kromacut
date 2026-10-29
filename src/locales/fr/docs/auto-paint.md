@@ -201,4 +201,6 @@ Après une construction réussie, suivez le planning des têtes dans les instruc
 
 Si l’analyse échoue ou ne trouve aucune disposition exploitable améliorant le résultat, la construction utilise le modèle normal à une seule tête et affiche sa couleur de départ, ses instructions de changement de couleur et un message explicatif. Changer d’image annule l’analyse en cours ; reconstruisez le modèle pour la nouvelle image.
 
+Pour les séquences, les fenêtres, la profondeur de recherche et le déroulement complet, consultez [Impression multi-têtes](multi-head-printing).
+
 Suite : [Peinture à plat](flat-paint), [Méthodes d’étalonnage](calibration-workflows) ou [Génération et export](generating-exporting-output).

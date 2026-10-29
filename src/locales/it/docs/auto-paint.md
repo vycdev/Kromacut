@@ -201,4 +201,6 @@ Dopo una creazione riuscita, segui il programma delle teste nelle istruzioni di 
 
 Se l’analisi non riesce o non trova una disposizione utilizzabile che migliori il risultato, viene creato il normale modello a testa singola con il colore iniziale, le istruzioni di cambio colore e un avviso. Cambiare immagine annulla l’analisi in corso: crea di nuovo il modello per la nuova immagine.
 
+Per sequenze, finestre, profondità di ricerca e procedura completa, vedi [Stampa multitesta](multi-head-printing).
+
 Prosegui con: [Flat Paint](flat-paint), [Flussi di calibrazione](calibration-workflows) o [Generazione ed esportazione](generating-exporting-output).
