@@ -20,7 +20,7 @@ El modo multicabezal y **Flat Paint** se excluyen mutuamente. Calibra los filame
 
 Un **tramo** es un bloque continuo de capas que usan un solo filamento en la pila de Auto-paint. Su grosor procede del resultado imprimible de Auto-paint, incluidas la calibración y las restricciones de altura, no solo del brillo de la imagen original.
 
-Una **ventana** abarca N tramos consecutivos. N está limitado por el número de cabezales elegido y los filamentos disponibles. El análisis selecciona ventanas útiles sin solapamientos; no agrupa automáticamente todos los tramos. Los tramos fuera de las ventanas seleccionadas conservan su filamento previsto y se incluyen en el programa de cabezales.
+Una **ventana** abarca N tramos consecutivos. N está limitado por el número de cabezales elegido, los filamentos disponibles y los tramos por encima del primero, que siempre conserva su filamento; los cabezales que no se necesitan quedan marcados como **VACÍO** en el programa de cabezales. El análisis selecciona ventanas útiles sin solapamientos; no agrupa automáticamente todos los tramos. Los tramos fuera de las ventanas seleccionadas conservan su filamento previsto y se incluyen en el programa de cabezales.
 
 ![Tramos de color agrupados en ventanas de ejemplo; los tramos restantes conservan su filamento previsto.](01_window_run_diagram.svg)
 

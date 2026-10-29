@@ -20,7 +20,7 @@ Modul cu mai multe capete și **Flat Paint** se exclud reciproc. Calibrează fil
 
 O **secvență** este un bloc continuu de straturi care folosesc un singur filament în stiva Auto-paint. Grosimea sa provine din rezultatul imprimabil Auto-paint, inclusiv calibrarea și limitele de înălțime, nu doar din luminozitatea imaginii sursă.
 
-O **fereastră** cuprinde N secvențe consecutive. N este limitat de numărul de capete ales și de filamentele disponibile. Analiza selectează ferestre utile, fără suprapuneri; nu grupează automat toate secvențele. Secvențele din afara ferestrelor selectate își păstrează filamentul planificat și sunt incluse în programul capetelor.
+O **fereastră** cuprinde N secvențe consecutive. N este limitat de numărul de capete ales, de filamentele disponibile și de secvențele de deasupra primei secvențe, care își păstrează mereu filamentul; capetele care nu sunt necesare rămân marcate **GOL** în programul capetelor. Analiza selectează ferestre utile, fără suprapuneri; nu grupează automat toate secvențele. Secvențele din afara ferestrelor selectate își păstrează filamentul planificat și sunt incluse în programul capetelor.
 
 ![Secvențe de culoare grupate în ferestre exemplificative; secvențele rămase își păstrează filamentul planificat.](01_window_run_diagram.svg)
 

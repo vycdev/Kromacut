@@ -20,7 +20,7 @@ Multi-head and **Flat Paint** are mutually exclusive. Calibrate the filaments yo
 
 A **run** is a contiguous block of layers using one filament in the Auto-paint stack. Its thickness comes from the printable Auto-paint result, including calibration and height constraints, rather than source brightness alone.
 
-A **window** spans N consecutive runs. N is limited by the selected head count and available filaments. The analysis selects useful, non-overlapping windows; it does not automatically group every run. Runs outside selected windows keep their planned filament and are included in the head schedule.
+A **window** spans N consecutive runs. N is limited by the selected head count, the available filaments, and the runs above the first run, which always keeps its filament; heads that are not needed stay **EMPTY** in the head schedule. The analysis selects useful, non-overlapping windows; it does not automatically group every run. Runs outside selected windows keep their planned filament and are included in the head schedule.
 
 ![Color runs grouped into example windows, with remaining runs retaining their planned filament.](01_window_run_diagram.svg)
 

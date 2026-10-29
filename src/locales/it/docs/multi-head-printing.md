@@ -20,7 +20,7 @@ La modalità multitesta e **Flat Paint** si escludono a vicenda. Calibra i filam
 
 Una **sequenza** è un blocco contiguo di strati che usano un solo filamento nella pila Auto-paint. Il suo spessore deriva dal risultato stampabile di Auto-paint, compresi calibrazione e vincoli di altezza, non soltanto dalla luminosità dell’immagine originale.
 
-Una **finestra** comprende N sequenze consecutive. N è limitato dal numero di teste scelto e dai filamenti disponibili. L’analisi seleziona finestre utili senza sovrapposizioni; non raggruppa automaticamente tutte le sequenze. Le sequenze esterne alle finestre selezionate mantengono il filamento previsto e sono incluse nel programma delle teste.
+Una **finestra** comprende N sequenze consecutive. N è limitato dal numero di teste scelto, dai filamenti disponibili e dalle sequenze sopra la prima, che mantiene sempre il suo filamento; le teste non necessarie restano contrassegnate come **VUOTA** nel programma delle teste. L’analisi seleziona finestre utili senza sovrapposizioni; non raggruppa automaticamente tutte le sequenze. Le sequenze esterne alle finestre selezionate mantengono il filamento previsto e sono incluse nel programma delle teste.
 
 ![Sequenze di colore raggruppate in finestre di esempio; le rimanenti mantengono il filamento previsto.](01_window_run_diagram.svg)
 

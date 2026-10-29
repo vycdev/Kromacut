@@ -20,7 +20,7 @@ O modo multicabeças e **Flat Paint** excluem-se mutuamente. Calibra os filament
 
 Uma **sequência** é um bloco contínuo de camadas que usam um único filamento no empilhamento Auto-paint. A sua espessura vem do resultado imprimível do Auto-paint, incluindo calibração e limites de altura, e não apenas da luminosidade da imagem original.
 
-Uma **janela** abrange N sequências consecutivas. N é limitado pelo número de cabeças escolhido e pelos filamentos disponíveis. A análise seleciona janelas úteis sem sobreposição; não agrupa automaticamente todas as sequências. As sequências fora das janelas selecionadas mantêm o filamento planeado e são incluídas no plano das cabeças.
+Uma **janela** abrange N sequências consecutivas. N é limitado pelo número de cabeças escolhido, pelos filamentos disponíveis e pelas sequências acima da primeira, que mantém sempre o seu filamento; as cabeças desnecessárias ficam assinaladas como **VAZIA** no plano das cabeças. A análise seleciona janelas úteis sem sobreposição; não agrupa automaticamente todas as sequências. As sequências fora das janelas selecionadas mantêm o filamento planeado e são incluídas no plano das cabeças.
 
 ![Sequências de cor agrupadas em janelas de exemplo; as restantes mantêm o filamento planeado.](01_window_run_diagram.svg)
 
