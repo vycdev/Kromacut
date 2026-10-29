@@ -46,6 +46,8 @@ type ExportGeometrySource = {
     positions: ArrayLike<number>;
     indices?: ArrayLike<number>;
     itemSize?: number;
+    /** Keep coincident vertices belonging to separate voxel surface fans distinct. */
+    preserveVertexIndices?: boolean;
 };
 
 function utf8ByteLength(value: string): number {
@@ -115,6 +117,7 @@ function getKromacutExportGeometry(geometry: THREE.BufferGeometry): ExportGeomet
         positions: source.positions,
         indices: source.indices,
         itemSize: source.itemSize ?? 3,
+        preserveVertexIndices: source.preserveVertexIndices === true,
     };
 }
 
@@ -134,10 +137,14 @@ function generateUUID() {
 /**
  * Build one manifold THREE.Mesh per nozzle from scene meshes tagged with
  * userData.nozzleIndex.  Each nozzle's per-layer pixel masks are OR-ed and
- * fed to buildNozzleVoxelMesh, which produces a single 2-manifold solid
- * with no coincident faces at layer or color boundaries.
+ * fed to buildNozzleVoxelMesh, which preserves closed surface fans at diagonal
+ * contacts and removes internal faces at layer or color boundaries. Fall back
+ * to the original meshes when the scene cannot share an untransformed voxel grid.
  */
-function buildNozzleManifoldMeshes(meshes: THREE.Mesh[]): THREE.Mesh[] {
+function buildNozzleManifoldMeshes(
+    meshes: THREE.Mesh[],
+    layerFilamentColors?: string[]
+): THREE.Mesh[] {
     type LayerData = {
         baseZ_mm: number;
         topZ_world: number;
@@ -151,10 +158,12 @@ function buildNozzleManifoldMeshes(meshes: THREE.Mesh[]): THREE.Mesh[] {
     const nozzleHex = new Map<number, string>();
     let heightScale = 1;
     let heightScaleComputed = false;
+    const identityMatrix = new THREE.Matrix4();
+    let grid: { width: number; height: number; pixelSize: number } | undefined;
 
-    for (const mesh of meshes) {
+    for (const [meshIndex, mesh] of meshes.entries()) {
         const nozzleIndex = mesh.userData?.nozzleIndex;
-        if (typeof nozzleIndex !== 'number') continue;
+        if (typeof nozzleIndex !== 'number' || !mesh.matrixWorld.equals(identityMatrix)) return [];
 
         const rawGeom = mesh.geometry?.userData?.kromacutExportGeometry as
             Record<string, unknown> | undefined;
@@ -163,21 +172,33 @@ function buildNozzleManifoldMeshes(meshes: THREE.Mesh[]): THREE.Mesh[] {
         const height = rawGeom?.height as number | undefined;
         const pixelSize = rawGeom?.pixelSize as number | undefined;
         const topZ_world = rawGeom?.topZ as number | undefined;
-        if (!activePixels || !width || !height || !pixelSize || topZ_world === undefined) continue;
+        if (!activePixels || !width || !height || !pixelSize || topZ_world === undefined) return [];
+        if (activePixels.length !== width * height) return [];
+        if (grid && (grid.width !== width || grid.height !== height || grid.pixelSize !== pixelSize)) {
+            return [];
+        }
+        grid ??= { width, height, pixelSize };
 
         const baseZ_mm = (mesh.userData.baseZ as number) ?? 0;
         const topZ_mm = mesh.userData.topZ as number;
-        if (!Number.isFinite(topZ_mm) || topZ_mm <= 0) continue;
+        if (
+            !Number.isFinite(baseZ_mm) || !Number.isFinite(topZ_mm) ||
+            topZ_mm <= baseZ_mm || topZ_mm <= 0
+        ) return [];
 
+        const meshHeightScale = topZ_world / topZ_mm;
+        if (!Number.isFinite(meshHeightScale) || meshHeightScale <= 0) return [];
         if (!heightScaleComputed) {
-            heightScale = topZ_world / topZ_mm;
+            heightScale = meshHeightScale;
             heightScaleComputed = true;
-        }
+        } else if (Math.abs(meshHeightScale - heightScale) > 1e-9) return [];
 
         if (!nozzleHex.has(nozzleIndex)) {
             const mat = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
-            let hex = 'FFFFFF';
-            if ('color' in mat) {
+            const overrideHex = readMeshUserDataString(mesh, 'kromacutFilamentHex')
+                ?? layerFilamentColors?.[meshIndex];
+            let hex = normalizeHexColor(overrideHex, '#FFFFFF').slice(1);
+            if (!overrideHex && 'color' in mat) {
                 hex = (mat as THREE.MeshStandardMaterial).color.getHexString().toUpperCase();
             }
             nozzleHex.set(nozzleIndex, hex);
@@ -201,7 +222,7 @@ function buildNozzleManifoldMeshes(meshes: THREE.Mesh[]): THREE.Mesh[] {
                 pixelSize,
             };
             nozzleMap.set(layerKey, layerData);
-        }
+        } else if (layerData.topZ_world !== topZ_world) return [];
         for (let mi = 0; mi < activePixels.length; mi++) {
             if (activePixels[mi]) layerData.mask[mi] = 1;
         }
@@ -249,10 +270,13 @@ function buildNozzleManifoldMeshes(meshes: THREE.Mesh[]): THREE.Mesh[] {
 
         const hex = nozzleHex.get(nozzleIndex) ?? 'FFFFFF';
         const geom = new THREE.BufferGeometry();
-        geom.userData.kromacutExportGeometry = { positions, indices, itemSize: 3 };
+        geom.userData.kromacutExportGeometry = {
+            positions, indices, itemSize: 3, preserveVertexIndices: true,
+        };
         const mat = new THREE.MeshStandardMaterial({ color: '#' + hex });
         const syntheticMesh = new THREE.Mesh(geom, mat);
         syntheticMesh.userData.nozzleIndex = nozzleIndex;
+        syntheticMesh.userData.kromacutFilamentHex = '#' + hex;
         syntheticMeshes.push(syntheticMesh);
     }
 
@@ -331,7 +355,7 @@ ${metadataContentTypes}${metadataContentTypes ? '\n' : ''}</Types>`;
     // eliminates coincident faces at color- and layer-boundaries that cause
     // non-manifold geometry in slicers.
     if ((options?.extruderCount ?? 0) >= 2) {
-        const manifoldMeshes = buildNozzleManifoldMeshes(meshes);
+        const manifoldMeshes = buildNozzleManifoldMeshes(meshes, options?.layerFilamentColors);
         if (manifoldMeshes.length > 0) {
             meshes.length = 0;
             for (const m of manifoldMeshes) meshes.push(m);
@@ -790,11 +814,15 @@ ${metadataContentTypes}${metadataContentTypes ? '\n' : ''}</Types>`;
                     );
                 };
 
-                // Per-member vertex welding map (see note above).
+                // Per-member welding map. Voxel surfaces retain their indexed fans
+                // even when separate sheets touch at identical coordinates.
                 const exportVertexMap = new Map<string, number>();
 
-                const addCoordVertex = (coordX: number, coordY: number, coordZ: number) => {
-                    const key = `${coordX},${coordY},${coordZ}`;
+                const addCoordVertex = (
+                    coordX: number, coordY: number, coordZ: number, sourceIndex?: number
+                ) => {
+                    const key = sourceIndex === undefined
+                        ? `${coordX},${coordY},${coordZ}` : `source:${sourceIndex}`;
                     let exportIndex = exportVertexMap.get(key);
 
                     if (exportIndex === undefined) {
@@ -859,7 +887,8 @@ ${metadataContentTypes}${metadataContentTypes ? '\n' : ''}</Types>`;
                         const exportIndex = addCoordVertex(
                             toCoordUnits(transformedX),
                             toCoordUnits(transformedY),
-                            toCoordUnits(transformedZ)
+                            toCoordUnits(transformedZ),
+                            source.preserveVertexIndices ? sourceIndex : undefined
                         );
 
                         sourceToExportVertex[sourceIndex] = exportIndex;
