@@ -129,11 +129,13 @@ export const MAX_MULTI_HEAD_HEADS = 8;
 
 /**
  * Per-window K^N combination budget by search depth. When K^N exceeds the
- * tier's budget the scan evaluates that many evenly-spaced, deterministic
- * sample points instead of every combination (plus the window's current
- * assignment, so a sampled scan can never do worse than leaving the window
- * unchanged). At or below the budget the scan is exhaustive. No RNG is
- * involved, so repeated runs on the same input produce identical stacks.
+ * tier's budget the scan evaluates that many deterministic sample points
+ * instead of every combination: the window's current assignment (so a sampled
+ * scan can never do worse than leaving the window unchanged), every
+ * assignment that changes one short block of neighbouring runs (so a large
+ * window keeps what smaller windows find), and evenly-spaced points for the
+ * rest. At or below the budget the scan is exhaustive. No RNG is involved, so
+ * repeated runs on the same input produce identical stacks.
  */
 export const COMBO_BUDGET_BY_DEPTH: Record<'fast' | 'balanced' | 'thorough', number> = {
     fast: 4096,
@@ -153,15 +155,29 @@ function entryToComboIndex(entry: number[], K: number): number {
 }
 
 /**
- * Combination indices to evaluate for a K^N window: every index in [0, total)
- * when total ≤ budget, otherwise `alwaysInclude` followed by `budget`
- * evenly-spaced indices (both endpoints included). Deterministic.
+ * Assignments that differ from `current` only inside one block of `block`
+ * neighbouring slots, each counted once: a block at position p (below the
+ * last position) must change slot p, so it never repeats a later block.
  */
-function* windowComboIndices(
-    total: number,
+function blockNeighborhoodSize(K: number, N: number, block: number): number {
+    return (N - block) * (K - 1) * K ** (block - 1) + K ** block - 1;
+}
+
+/**
+ * Combination indices to evaluate for a K^N window: every index in [0, K^N)
+ * when K^N ≤ budget. Otherwise the current entry, then every assignment that
+ * changes only the longest block of neighbouring slots fitting in half the
+ * budget, then evenly-spaced indices (both endpoints included) for the rest.
+ * The evaluation count stays within budget + 1. Deterministic.
+ */
+export function* windowComboIndices(
+    K: number,
+    N: number,
     budget: number,
-    alwaysInclude: number
+    currentEntry?: number[]
 ): Generator<number> {
+    const total = K ** N;
+    const alwaysInclude = currentEntry ? entryToComboIndex(currentEntry, K) : 0;
     yield alwaysInclude;
     if (total <= budget) {
         for (let i = 0; i < total; i++) {
@@ -169,9 +185,35 @@ function* windowComboIndices(
         }
         return;
     }
+    let neighbors = 0;
+    if (currentEntry) {
+        let block = 0;
+        while (block + 1 < N && blockNeighborhoodSize(K, N, block + 1) <= Math.floor(budget / 2)) block++;
+        if (block > 0) {
+            neighbors = blockNeighborhoodSize(K, N, block);
+            const powers = Array.from({ length: N }, (_, j) => K ** j);
+            for (let p = 0; p <= N - block; p++) {
+                let base = alwaysInclude;
+                for (let t = 0; t < block; t++) base -= currentEntry[p + t] * powers[p + t];
+                for (let v = 0; v < K ** block; v++) {
+                    let idx = base;
+                    let rest = v;
+                    for (let t = 0; t < block; t++) {
+                        idx += (rest % K) * powers[p + t];
+                        rest = Math.floor(rest / K);
+                    }
+                    if (idx === alwaysInclude) continue;
+                    // Below the last block position, only blocks that change their first slot.
+                    if (p < N - block && v % K === currentEntry[p]) continue;
+                    yield idx;
+                }
+            }
+        }
+    }
+    const samples = budget - neighbors;
     const span = total - 1;
-    const denom = Math.max(1, budget - 1);
-    for (let i = 0; i < budget; i++) yield Math.round((i * span) / denom);
+    const denom = Math.max(1, samples - 1);
+    for (let i = 0; i < samples; i++) yield Math.round((i * span) / denom);
 }
 
 interface ColorGroupResult {
@@ -407,10 +449,7 @@ export function computeColorOptimalAssignments(
     for (let i = 1; i < wStart; i++) appendColorStackLayer(prefix, layers[i], model);
     prefix.color = baseColor;
 
-    const total = K ** N;
-    const startCombo = currentEntry ? entryToComboIndex(currentEntry, K) : 0;
-
-    for (const combo of windowComboIndices(total, comboBudget, startCombo)) {
+    for (const combo of windowComboIndices(K, N, comboBudget, currentEntry)) {
         // Decode combo to slot assignments (base-K digits).
         const entry: number[] = new Array(N);
         let v = combo;
@@ -587,14 +626,12 @@ function findConsensusCombo(
     for (let i = 1; i < wStart; i++) appendColorStackLayer(prefix, layers[i], model);
     prefix.color = baseColor;
 
-    const total = K ** N;
-    const startCombo = currentEntry ? entryToComboIndex(currentEntry, K) : 0;
     let bestEntry: number[] = currentEntry
         ? currentEntry.slice()
         : Array.from({ length: N }, () => 0);
     let bestError = currentEntry ? totalActualError : Infinity;
 
-    for (const combo of windowComboIndices(total, comboBudget, startCombo)) {
+    for (const combo of windowComboIndices(K, N, comboBudget, currentEntry)) {
         const entry: number[] = new Array(N);
         let v = combo;
         for (let j = 0; j < N; j++) { entry[j] = v % K; v = Math.floor(v / K); }
