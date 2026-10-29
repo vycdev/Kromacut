@@ -378,5 +378,31 @@
     "layerMeshComplete": "Malla de la capa completada",
     "minimumValue": "El valor mínimo es {{minimum}}",
     "maximumValue": "El valor máximo es {{maximum}}"
+  },
+  "multiHead": {
+    "mode": "Modo multicabezal",
+    "description": "Optimiza el orden de los filamentos por píxel en {{heads}} cabezales.",
+    "incompatibleWithFlatPaint": "No es compatible con Flat Paint — activar el modo multicabezal desactiva Flat Paint.",
+    "headCount": "Número de cabezales",
+    "searchDepth": "Profundidad de búsqueda",
+    "searchHelp": "Una búsqueda más profunda abre más ventanas de cabezales y prueba más órdenes de filamentos por ventana. Las búsquedas grandes usan una muestra limitada y determinista.",
+    "colorGrouping": "Agrupación de colores",
+    "layerBasedGrouping": "Por capa (actual)",
+    "colorBasedGrouping": "Por color (tono)",
+    "colorGroupingHelp": "La agrupación por capa combina colores de una misma capa de impresión (limitados al número de capas). La agrupación por color separa los tonos; puede añadir colores con más cabezales cargados, pero ninguno — o incluso menos — con pocos cabezales. Requiere más cálculo.",
+    "noLayoutFallback": "El análisis multicabezal no encontró una disposición mejor que la pila normal con {{heads}} cabezales — se ha creado un modelo normal de un solo cabezal.",
+    "analysisFailedFallback": "El análisis multicabezal no terminó — se ha creado un modelo normal de un solo cabezal. Prueba con menos cabezales u otra profundidad de búsqueda.",
+    "largePrintWarning": "Esta impresión tiene {{layers}} capas — por encima de 64, las instrucciones de cambio pueden tardar en generarse.",
+    "buildSchedulePrompt": "Pulsa <action>Crear modelo 3D</action> para generar el modelo multicabezal y el programa de cabezales.",
+    "noAssignments": "Aún no se han calculado asignaciones de cabezales.",
+    "schedule": "Programa de cabezales",
+    "beforePrint": "Antes de imprimir<detail> — carga todos los cabezales</detail>",
+    "swapCheckpoint": "Capa {{layer}}<detail> — cabezales que recargar: {{swaps}}</detail>",
+    "head": "Cabezal {{head}}",
+    "empty": "VACÍO",
+    "beforePrintText": "Antes de imprimir — carga todos los cabezales:",
+    "swapCheckpointText": "Capa {{layer}} — cabezales que recargar: {{swaps}}:",
+    "invalidPlan": "El plan multicabezal está incompleto. Vuelve a crear el modelo para repetir el análisis.",
+    "swapMarker": " ← cambiar"
   }
 }

@@ -348,5 +348,31 @@
         "layerMeshComplete": "レイヤーのメッシュ完成",
         "minimumValue": "最小値は{{minimum}}です",
         "maximumValue": "最大値は{{maximum}}です"
+    },
+    "multiHead": {
+        "mode": "マルチヘッドモード",
+        "description": "{{heads}} 個のヘッドでピクセルごとのフィラメント順序を最適化します。",
+        "incompatibleWithFlatPaint": "Flat Paint とは併用できません。マルチヘッドを有効にすると Flat Paint は無効になります。",
+        "headCount": "ヘッド数",
+        "searchDepth": "探索の深さ",
+        "searchHelp": "探索を深くすると、より多くのヘッドウィンドウを開き、各ウィンドウでより多くのフィラメント順序を試します。大規模な探索では、上限のある決定的なサンプルを使用します。",
+        "colorGrouping": "色のグループ化",
+        "layerBasedGrouping": "レイヤー別（従来）",
+        "colorBasedGrouping": "色別（色相ごと）",
+        "colorGroupingHelp": "レイヤー別では同じ印刷レイヤーの色をまとめます（グループ数はレイヤー数が上限）。色別では異なる色相を分けます。装填済みヘッドが多いと色が増える場合がありますが、ヘッド数が少ないと増えない、または減る場合もあります。計算量は増えます。",
+        "noLayoutFallback": "{{heads}} 個のヘッドで通常の積層より良い配置が見つからなかったため、通常のシングルヘッドモデルを生成しました。",
+        "analysisFailedFallback": "マルチヘッド解析が完了しなかったため、通常のシングルヘッドモデルを生成しました。ヘッド数を減らすか、探索の深さを変更してください。",
+        "largePrintWarning": "この印刷は {{layers}} 層です。64 層を超えると交換手順の生成に時間がかかる場合があります。",
+        "buildSchedulePrompt": "<action>3Dモデルを生成</action>をクリックすると、マルチヘッドモデルとヘッドスケジュールを生成します。",
+        "noAssignments": "ヘッドの割り当てはまだ計算されていません。",
+        "schedule": "ヘッドスケジュール",
+        "beforePrint": "印刷前<detail> — すべてのヘッドに装填</detail>",
+        "swapCheckpoint": "{{layer}} 層目<detail> — 装填し直すヘッド数：{{swaps}}</detail>",
+        "head": "ヘッド {{head}}",
+        "empty": "空",
+        "beforePrintText": "印刷前 — すべてのヘッドに装填：",
+        "swapCheckpointText": "{{layer}} 層目 — 装填し直すヘッド数：{{swaps}}：",
+        "invalidPlan": "マルチヘッドの計画が不完全です。モデルを生成し直して再解析してください。",
+        "swapMarker": " ← 交換"
     }
 }

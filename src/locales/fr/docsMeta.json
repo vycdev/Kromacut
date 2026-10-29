@@ -13,5 +13,6 @@
  "quick-start":{"title":"Démarrage rapide","description":"Une première utilisation pratique, de l’image à l’export."},
  "reducing-colors":{"title":"Réduction des couleurs","description":"Comprendre la réduction en deux étapes, les palettes fixes et la différence entre recoloration et transparence."},
  "settings-and-controls":{"title":"Paramètres et commandes","description":"Actions de l’en-tête, thèmes, sauvegarde, palettes, profils et commandes de l’espace de travail."},
- "troubleshooting":{"title":"Dépannage","description":"Problèmes courants et premières pistes de résolution."}
+ "troubleshooting":{"title":"Dépannage","description":"Problèmes courants et premières pistes de résolution."},
+ "multi-head-printing":{"title":"Impression multi-têtes","description":"Planifier les affectations de filaments, les rechargements des têtes et les exports 3MF pour l’impression multi-têtes."}
 }

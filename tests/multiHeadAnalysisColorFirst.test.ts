@@ -1,14 +1,16 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { loadViteModule } from './helpers/viteModule.ts';
+import type { AutoPaintResult } from '../src/lib/autoPaint.ts';
+import type { AppearanceEffectiveOpticsModelV1 } from '../src/types/appearance.ts';
 import type { WindowFilament } from '../src/lib/multiHeadAnalysis.ts';
 import type { Filament } from '../src/types/index.ts';
 
 // These lib modules reach an extensionless-import graph, so load them through
 // Vite (matching the rest of the suite) rather than node's strip-types loader.
-const { generateAutoLayers, hexToRgb } =
+const { generateAutoLayers, hexToRgb, deltaE } =
     await loadViteModule<typeof import('../src/lib/autoPaint.ts')>('/src/lib/autoPaint.ts');
-const { buildColorStack, expandZonesToPrinterLayers } = await loadViteModule<
+const { buildColorStack, expandZonesToPrinterLayers, buildPixelData } = await loadViteModule<
     typeof import('../src/lib/multiHeadAnalysis.ts')
 >('/src/lib/multiHeadAnalysis.ts');
 const {
@@ -26,6 +28,9 @@ const {
 );
 const { channelHds } =
     await loadViteModule<typeof import('../src/lib/calibration.ts')>('/src/lib/calibration.ts');
+
+const { createPriorEffectiveOpticsModel, predictEffectiveAutoPaintColor } =
+    await loadViteModule<typeof import('../src/lib/effectiveOptics.ts')>('/src/lib/effectiveOptics.ts');
 
 const LAYER_HEIGHT = 0.12;
 const FIRST_LAYER_HEIGHT = 0.20;
@@ -141,7 +146,7 @@ test('buildPixelDataColorFirst — produces fewer entries than input swatches fo
 
     const pixels = buildPixelDataColorFirst(
         swatches, layers, colorAtLayer,
-        result.transitionZones, result.totalHeight, FIRST_LAYER_HEIGHT
+        result.finalStack
     );
 
     assert.ok(pixels.length < swatches.length,
@@ -157,7 +162,7 @@ test('buildPixelDataColorFirst — counts sum to total input count', () => {
 
     const pixels = buildPixelDataColorFirst(
         swatches, layers, colorAtLayer,
-        result.transitionZones, result.totalHeight, FIRST_LAYER_HEIGHT
+        result.finalStack
     );
 
     const totalCount = pixels.reduce((s, p) => s + p.count, 0);
@@ -173,7 +178,7 @@ test('buildPixelDataColorFirst — all actualErr values are non-negative', () =>
 
     const pixels = buildPixelDataColorFirst(
         swatches, layers, colorAtLayer,
-        result.transitionZones, result.totalHeight, FIRST_LAYER_HEIGHT
+        result.finalStack
     );
     for (const p of pixels) {
         assert.ok(p.actualErr >= 0, `actualErr=${p.actualErr} at layerIdx=${p.layerIdx}`);
@@ -511,7 +516,7 @@ test('computeColorOptimalAssignments — errorFactor is non-negative', () => {
     const colorAtLayer = buildColorStack(layers);
     const runs = buildColorRuns(layers);
     const pixels = buildPixelDataColorFirst(
-        swatches, layers, colorAtLayer, result.transitionZones, result.totalHeight, FIRST_LAYER_HEIGHT
+        swatches, layers, colorAtLayer, result.finalStack
     );
     if (runs.length < 3) return; // need at least 3 runs to pick a non-foundation window
 
@@ -520,6 +525,8 @@ test('computeColorOptimalAssignments — errorFactor is non-negative', () => {
     const wEnd = windowRuns[N - 1].endLayerIdx;
     const uniqueIndices = [...new Set(windowRuns.map((r) => r.filamentIdx))];
     const windowFilaments: WindowFilament[] = uniqueIndices.map((fi) => ({
+        filamentIdx: fi,
+        filamentId: FOUR_FILAMENTS[fi].id,
         rgb: hexToRgb(FOUR_FILAMENTS[fi].color),
         td: channelHds(FOUR_FILAMENTS[fi]),
     }));
@@ -537,7 +544,7 @@ test('computeColorOptimalAssignments — affectedCount matches pixels in and abo
     const colorAtLayer = buildColorStack(layers);
     const runs = buildColorRuns(layers);
     const pixels = buildPixelDataColorFirst(
-        swatches, layers, colorAtLayer, result.transitionZones, result.totalHeight, FIRST_LAYER_HEIGHT
+        swatches, layers, colorAtLayer, result.finalStack
     );
     if (runs.length < 3) return;
 
@@ -567,7 +574,7 @@ test('computeColorOptimalAssignments — non-null assignments have length equal 
     const colorAtLayer = buildColorStack(layers);
     const runs = buildColorRuns(layers);
     const pixels = buildPixelDataColorFirst(
-        swatches, layers, colorAtLayer, result.transitionZones, result.totalHeight, FIRST_LAYER_HEIGHT
+        swatches, layers, colorAtLayer, result.finalStack
     );
     if (runs.length < 3) return;
 
@@ -603,7 +610,7 @@ test('computeColorOptimalAssignments — pixels outside the window have null ass
     const colorAtLayer = buildColorStack(layers);
     const runs = buildColorRuns(layers);
     const pixels = buildPixelDataColorFirst(
-        swatches, layers, colorAtLayer, result.transitionZones, result.totalHeight, FIRST_LAYER_HEIGHT
+        swatches, layers, colorAtLayer, result.finalStack
     );
     if (runs.length < 3) return;
 
@@ -739,7 +746,7 @@ test('buildColorGroupedPixels — keeps every distinct color when under the cap'
     const { result, layers, colorAtLayer } = shortModel(colors);
     const grouped = buildColorGroupedPixels(
         colors, layers, colorAtLayer,
-        result.transitionZones, result.totalHeight, FIRST_LAYER_HEIGHT, COLOR_GROUP_CAP
+        result.finalStack, COLOR_GROUP_CAP
     );
     // No merges below the cap: one group per distinct color.
     assert.equal(grouped.pixels.length, colors.length);
@@ -759,11 +766,11 @@ test('buildColorGroupedPixels — preserves more colors than the layer-based col
 
     const grouped = buildColorGroupedPixels(
         colors, layers, colorAtLayer,
-        result.transitionZones, result.totalHeight, FIRST_LAYER_HEIGHT, COLOR_GROUP_CAP
+        result.finalStack, COLOR_GROUP_CAP
     );
     const collapsed = buildPixelDataColorFirst(
         colors, layers, colorAtLayer,
-        result.transitionZones, result.totalHeight, FIRST_LAYER_HEIGHT
+        result.finalStack
     );
 
     assert.ok(collapsed.length <= layers.length, 'layer collapse is bounded by layer count');
@@ -778,7 +785,7 @@ test('buildColorGroupedPixels — never exceeds the group cap', () => {
     const { result, layers, colorAtLayer } = shortModel(colors);
     const grouped = buildColorGroupedPixels(
         colors, layers, colorAtLayer,
-        result.transitionZones, result.totalHeight, FIRST_LAYER_HEIGHT, COLOR_GROUP_CAP
+        result.finalStack, COLOR_GROUP_CAP
     );
     assert.equal(grouped.pixels.length, COLOR_GROUP_CAP);
     // Every original color still maps to some surviving cluster.
@@ -793,7 +800,7 @@ test('buildColorGroupedPixels — deterministic for identical input', () => {
     const { result, layers, colorAtLayer } = shortModel(colors);
     const args = [
         colors, layers, colorAtLayer,
-        result.transitionZones, result.totalHeight, FIRST_LAYER_HEIGHT, COLOR_GROUP_CAP,
+        result.finalStack, COLOR_GROUP_CAP,
     ] as const;
     const a = buildColorGroupedPixels(...args);
     const b = buildColorGroupedPixels(...args);
@@ -876,12 +883,14 @@ function windowSetup() {
     const colorAtLayer = buildColorStack(layers);
     const runs = buildColorRuns(layers);
     const pixels = buildPixelDataColorFirst(
-        swatches, layers, colorAtLayer, result.transitionZones, result.totalHeight, FIRST_LAYER_HEIGHT
+        swatches, layers, colorAtLayer, result.finalStack
     );
     const N = 3;
     const windowRuns = runs.slice(1, 1 + N);
     const uniqueIndices = [...new Set(windowRuns.map((r) => r.filamentIdx))];
     const windowFilaments: WindowFilament[] = uniqueIndices.map((fi) => ({
+        filamentIdx: fi,
+        filamentId: FOUR_FILAMENTS[fi].id,
         rgb: hexToRgb(FOUR_FILAMENTS[fi].color),
         td: channelHds(FOUR_FILAMENTS[fi]),
     }));
@@ -915,7 +924,7 @@ test('computeColorOptimalAssignments — budget ≥ K^N matches the exhaustive s
     const s = windowSetup();
     if (!s.ok) return;
     const exhaustive = computeColorOptimalAssignments(
-        s.windowRuns, s.wEnd, s.layers, s.base, s.windowFilaments, s.pixels
+        s.windowRuns, s.wEnd, s.layers, s.base, s.windowFilaments, s.pixels, Infinity, s.currentEntry
     );
     const budgeted = computeColorOptimalAssignments(
         s.windowRuns, s.wEnd, s.layers, s.base, s.windowFilaments, s.pixels, 1_000_000, s.currentEntry
@@ -1016,5 +1025,252 @@ test('runMultiHeadLayerAnalysisColorFirst — head count clamped to MAX_MULTI_HE
     );
     for (const w of atCap.windows) {
         assert.ok(w.filamentIds.length <= MAX_MULTI_HEAD_HEADS);
+    }
+});
+
+/** Five single-layer runs, with one swatch explicitly mapped to each surface. */
+function multiWindowFixture() {
+    const filaments = [filament('dark', '#363636', 0.66), filament('light', '#e8e8e8', 1.1)];
+    const swatches = ['#0b0b0b', '#2e2e2e', '#7d7d7d', '#ababab', '#c2c2c2']
+        .map((hex) => ({ hex, count: 1 }));
+    const seed = generateAutoLayers(filaments, swatches, 0.25, 0.25);
+    const sequence = [0, 1, 0, 1, 0];
+    const zones = sequence.map((fi, i) => ({
+        filamentId: filaments[fi].id, filamentColor: filaments[fi].color,
+        filamentTd: filaments[fi].td,
+        startHeight: i * 0.25, endHeight: (i + 1) * 0.25,
+        idealThickness: 0.25, actualThickness: 0.25,
+    }));
+    const result: AutoPaintResult = {
+        ...seed, totalHeight: 1.25, transitionZones: zones,
+        finalStack: {
+            ...seed.finalStack, totalHeight: 1.25,
+            layers: sequence.map((fi, i) => ({
+                ...seed.finalStack.layers[0],
+                filamentId: filaments[fi].id, filamentColor: filaments[fi].color,
+                zoneIndex: i, startHeight: i * 0.25, endHeight: (i + 1) * 0.25, thickness: 0.25,
+            })),
+            targetMappings: seed.finalStack.targetMappings.map((mapping, i) => ({
+                ...mapping, projectedHeight: (i + 1) * 0.25,
+            })),
+        },
+    };
+    return { filaments, swatches, result };
+}
+
+test('color-first groups follow final-stack mappings, including weighted centroids', () => {
+    const { filaments, swatches, result } = multiWindowFixture();
+    const layers = expandZonesToPrinterLayers(result, filaments, 0.25, 0.25);
+    const colors = buildColorStack(layers);
+    const groups = buildPixelDataColorFirst(swatches, layers, colors, result.finalStack);
+    assert.deepEqual(groups.map((group) => group.layerIdx), [0, 1, 2, 3, 4]);
+    assert.equal(groups[3].targetRgb.r, 171);
+
+    const merged = buildPixelDataColorFirst([
+        { hex: '#7d7d7d', count: 3 }, { hex: '#ababab', count: 1 },
+    ], layers, colors, {
+        ...result.finalStack,
+        targetMappings: result.finalStack.targetMappings.map((mapping) => ({
+            ...mapping, projectedHeight: 0.75,
+        })),
+    });
+    assert.equal(merged.length, 1);
+    assert.equal(merged[0].layerIdx, 2);
+    assert.equal(merged[0].count, 4);
+    assert.equal(merged[0].targetRgb.r, (125 * 3 + 171) / 4);
+
+    const grouped = buildColorGroupedPixels(swatches, layers, colors, {
+        ...result.finalStack,
+        targetMappings: result.finalStack.targetMappings.map((mapping) => ({
+            ...mapping, projectedHeight: 0.75,
+        })),
+    }, COLOR_GROUP_CAP);
+    assert.equal(grouped.pixels.length, swatches.length, 'color grouping retains separate targets');
+    for (const swatch of swatches) {
+        const pixel = grouped.pixels[grouped.hexToGroupIdx.get(swatch.hex)!];
+        assert.equal(pixel.layerIdx, 2, 'color grouping honors the final mapped surface');
+        assert.deepEqual(pixel.targetRgb, hexToRgb(swatch.hex));
+        assert.equal(pixel.actualErr, deltaE(pixel.targetRgb, colors[2]));
+    }
+});
+
+test('run-based candidates preserve fitted optics, merged runs, and changed suffix substrates', () => {
+    const filaments = [
+        filament('base', '#101010', 0.4), filament('grey', '#777777', 0.7),
+        filament('white', '#ffffff', 1.2),
+    ];
+    const prior = createPriorEffectiveOpticsModel(filaments);
+    const model: AppearanceEffectiveOpticsModelV1 = {
+        ...prior, applied: true, gateReason: 'applied',
+        filaments: prior.filaments.map((entry) => ({
+            ...entry, effectiveOpaqueColor: entry.filamentId === 'white' ? [235, 240, 245] : entry.effectiveOpaqueColor,
+            transmissionExponent: 1.3,
+        })),
+        substrateInteractions: [{
+            foregroundFilamentId: 'white', substrateFilamentId: 'grey', hdMultiplier: 1.7,
+            sampleCount: 20, maxObservedThickness: 0.25,
+        }],
+    };
+    const sequence = [0, 1, 1, 2, 2, 1, 1];
+    const layers = sequence.map((fi, i) => ({
+        filamentIdx: fi, filamentId: filaments[fi].id,
+        filamentRgb: hexToRgb(filaments[fi].color), td: channelHds(filaments[fi]),
+        startZ: i * 0.25, thickness: 0.25,
+    }));
+    const windowRuns = buildColorRuns(layers).slice(1, 3);
+    const windowFilaments = [1, 2].map((fi) => ({
+        filamentIdx: fi, filamentId: filaments[fi].id,
+        rgb: hexToRgb(filaments[fi].color), td: channelHds(filaments[fi]),
+    }));
+    for (const surface of [1, 2, 4, 6]) {
+        const predictions = Array.from({ length: 4 }, (_, combo) => {
+            const rgb = predictEffectiveAutoPaintColor(model, layers.slice(0, surface + 1).map((layer, i) => {
+                const slot = windowRuns.findIndex((run) => i >= run.startLayerIdx && i <= run.endLayerIdx);
+                return {
+                    filamentId: slot === -1 ? layer.filamentId : windowFilaments[(combo >> slot) & 1].filamentId,
+                    thickness: layer.thickness,
+                };
+            }))!;
+            return { r: rgb[0], g: rgb[1], b: rgb[2] };
+        });
+        const pixels = predictions.map((targetRgb) => ({ targetRgb, layerIdx: surface, actualErr: 100, count: 1 }));
+        const analysis = computeColorOptimalAssignments(
+            windowRuns, 4, layers, layers[0].filamentRgb, windowFilaments, pixels, Infinity, undefined, model
+        );
+        for (let p = 0; p < pixels.length; p++) {
+            const slots = analysis.assignments[p]!;
+            const selected = slots[0] + slots[1] * 2;
+            const errors = predictions.map((color) => deltaE(pixels[p].targetRgb, color));
+            assert.ok(Math.abs(errors[selected] - Math.min(...errors)) < 1e-8,
+                `surface ${surface}, target ${p}: run optics differ from the shared predictor`);
+        }
+        assert.ok(Math.abs(analysis.errorFactor - 400) < 1e-8);
+    }
+});
+
+test('multiple windows use each color\'s realized prefix and suffix', () => {
+    const { filaments, swatches, result } = multiWindowFixture();
+    const original = expandZonesToPrinterLayers(result, filaments, 0.25, 0.25);
+    const baseline = buildColorStack(original);
+    const model = createPriorEffectiveOpticsModel(filaments);
+    for (const [depth, mode] of [
+        ['balanced', 'luminance'], ['thorough', 'luminance'],
+        ['balanced', 'color'], ['thorough', 'color'],
+    ] as const) {
+        const analysis = runMultiHeadLayerAnalysisColorFirst(filaments, result, swatches, 0.25, 0.25, 2, depth, mode);
+        assert.deepEqual(analysis.windows.map((w) => [w.windowStart, w.windowEnd]).sort(), [[1, 2], [3, 4]]);
+        const pixels = buildPixelData(swatches, original, baseline, result.finalStack);
+        const error = (seq: number[], px: typeof pixels[number]) => {
+            const rgb = predictEffectiveAutoPaintColor(model, seq.slice(0, px.layerIdx + 1).map((fi, i) => ({
+                filamentId: filaments[fi].id, thickness: original[i].thickness,
+            })))!;
+            return deltaE(px.targetRgb, { r: rgb[0], g: rgb[1], b: rgb[2] });
+        };
+        for (let p = 0; p < swatches.length; p++) {
+            const hex = swatches[p].hex;
+            const seq = analysis.colorLayerFilaments.get(hex)!;
+            const actual = error(seq, pixels[p]);
+            assert.ok(actual <= pixels[p].actualErr + 1e-8, `${hex} worsened from the original stack`);
+            for (let wi = 0; wi < analysis.windows.length; wi++) {
+                const w = analysis.windows[wi];
+                if (pixels[p].layerIdx < w.windowStart) {
+                    assert.equal(analysis.colorAssignments[wi].has(hex), false);
+                    continue;
+                }
+                const slots = analysis.colorAssignments[wi].get(hex)!;
+                for (let r = 0; r < slots.length; r++) {
+                    assert.equal(filaments[seq[w.windowStart + r]].id, w.filamentIds[slots[r]]);
+                }
+                // Independently try every assignment in either selected window,
+                // keeping this color's realized prefix and suffix fixed.
+                for (let combo = 0; combo < 4; combo++) {
+                    const candidate = seq.slice();
+                    for (let r = 0; r < 2; r++) {
+                        const id = w.filamentIds[(combo >> r) & 1];
+                        candidate[w.windowStart + r] = filaments.findIndex((f) => f.id === id);
+                    }
+                    assert.ok(actual <= error(candidate, pixels[p]) + 1e-8,
+                        `${hex}: window ${w.windowStart} can improve the returned stack`);
+                }
+            }
+        }
+    }
+});
+
+function nozzleSwapCount(windows: string[][], assignments: number[][]): number {
+    let state = new Array<string>(assignments[0].length).fill('');
+    let cost = 0;
+    for (let w = 0; w < windows.length; w++) {
+        const next = assignments[w].map((r, k) => r === -1 ? state[k] : windows[w][r]);
+        if (w > 0) cost += next.filter((id, k) => id !== state[k]).length;
+        state = next;
+    }
+    return cost;
+}
+
+/** Exhaustive oracle on small inputs, including all labeled nozzle injections. */
+function exhaustiveNozzleCost(windows: string[][], N: number): number {
+    const memo = new Map<string, number>();
+    function visit(w: number, state: string[]): number {
+        if (w === windows.length) return 0;
+        const key = JSON.stringify([w, state]);
+        if (memo.has(key)) return memo.get(key)!;
+        let best = Infinity;
+        const used = new Set<number>();
+        function assign(r: number, next: string[]): void {
+            if (r === windows[w].length) {
+                const swaps = w === 0 ? 0 : next.filter((id, k) => id !== state[k]).length;
+                best = Math.min(best, swaps + visit(w + 1, next));
+                return;
+            }
+            for (let k = 0; k < N; k++) {
+                if (used.has(k)) continue;
+                used.add(k);
+                const candidate = next.slice();
+                candidate[k] = windows[w][r];
+                assign(r + 1, candidate);
+                used.delete(k);
+            }
+        }
+        assign(0, state.slice());
+        memo.set(key, best);
+        return best;
+    }
+    return visit(0, new Array<string>(N).fill(''));
+}
+
+test('nozzle scheduling matches exhaustive optima across full and idle events', (t) => {
+    t.mock.method(console, 'log', () => {});
+    t.mock.method(console, 'group', () => {});
+    t.mock.method(console, 'groupEnd', () => {});
+    const events = [[], ['A'], ['B'], ['C'], ['A', 'B'], ['A', 'C'], ['B', 'C']];
+    for (let code = 0; code < events.length ** 4; code++) {
+        let digits = code;
+        const windows = Array.from({ length: 4 }, () => {
+            const event = events[digits % events.length];
+            digits = Math.floor(digits / events.length);
+            return event;
+        });
+        assert.equal(nozzleSwapCount(windows, optimizeNozzleAssignments(windows, 2)),
+            exhaustiveNozzleCost(windows, 2), JSON.stringify(windows));
+    }
+    const windows = [['A', 'B', 'C'], ['D'], ['B', 'E'], [], ['A', 'B', 'E']];
+    assert.equal(nozzleSwapCount(windows, optimizeNozzleAssignments(windows, 3)),
+        exhaustiveNozzleCost(windows, 3));
+});
+
+test('consecutive full-head windows at the eight-head cap finish without permutations', (t) => {
+    t.mock.method(console, 'log', () => {});
+    t.mock.method(console, 'group', () => {});
+    t.mock.method(console, 'groupEnd', () => {});
+    const full = Array.from({ length: MAX_MULTI_HEAD_HEADS }, (_, i) => `f${i}`);
+    const windows = [full, full, [...full].reverse(), [...full.slice(1), 'new']];
+    const start = performance.now();
+    const assignments = optimizeNozzleAssignments(windows, MAX_MULTI_HEAD_HEADS);
+    assert.ok(performance.now() - start < 1000, 'eight-head scheduling must remain bounded');
+    assert.equal(nozzleSwapCount(windows, assignments), 1);
+    assert.deepEqual(assignments, optimizeNozzleAssignments(windows, MAX_MULTI_HEAD_HEADS));
+    for (const assignment of assignments) {
+        assert.deepEqual([...assignment].sort((a, b) => a - b), full.map((_, i) => i));
     }
 });

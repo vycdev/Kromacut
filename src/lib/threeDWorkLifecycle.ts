@@ -1,5 +1,19 @@
 export type CancelDeferredWork = () => void;
 
+/** A build may publish only while its image and request revision remain current. */
+export function createBuildRevision() {
+    let revision = 0;
+    return {
+        begin() {
+            const startedAt = ++revision;
+            return () => revision === startedAt;
+        },
+        invalidate() {
+            revision++;
+        },
+    };
+}
+
 /**
  * Defers expensive first-mount work until the browser has painted two frames.
  * The returned cancellation function remains valid between the two frames.

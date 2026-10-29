@@ -12,25 +12,27 @@
 
 import type { AutoPaintResult } from './autoPaint.ts';
 import type { Filament, MultiHeadRangeAssignment } from '../types';
+import type { AppearanceEffectiveOpticsModelV1 } from '../types/appearance';
 import {
     hexToRgb,
-    blendColors,
+    rgbToHex,
     deltaE,
     deltaELab,
     rgbToLab,
-    getLuminance,
     type RGB,
 } from './autoPaint.ts';
 import {
     expandZonesToPrinterLayers,
-    findLayerIdxAtHeight,
+    buildPixelData,
     buildColorStack,
-    luminanceToHeight,
+    startColorStack,
+    appendColorStackLayer,
     type PrinterLayer,
     type WindowFilament,
     type WindowResult,
 } from './multiHeadAnalysis.ts';
 import { channelHds } from './calibration.ts';
+import { createPriorEffectiveOpticsModel, resolveEffectiveTransitionOptics } from './effectiveOptics.ts';
 
 /**
  * Fallback filament for a window that references a filament index no longer in
@@ -54,6 +56,8 @@ export interface ColorFirstPixel {
 
 /**
  * Collapse imageSwatches into one ColorFirstPixel per unique printer layer.
+ * Heights come from the final printable stack's target mappings, as in the
+ * layer-based analyzer; unmapped swatches use the shared palette mapper.
  *
  * Swatches that land on the same layer are merged:
  *   - targetRgb  → frequency-weighted RGB centroid
@@ -64,17 +68,14 @@ export function buildPixelDataColorFirst(
     imageSwatches: Array<{ hex: string; count?: number }>,
     layers: PrinterLayer[],
     colorAtLayer: RGB[],
-    transitionZones: AutoPaintResult['transitionZones'],
-    totalHeight: number,
-    firstLayerHeight: number
+    stack: AutoPaintResult['finalStack']
 ): ColorFirstPixel[] {
     const byLayer = new Map<number, { r: number; g: number; b: number; count: number }>();
 
-    for (const s of imageSwatches) {
-        const rgb = hexToRgb(s.hex);
-        const lum = getLuminance(rgb) / 255;
-        const h = luminanceToHeight(lum, transitionZones, totalHeight, firstLayerHeight);
-        const layerIdx = findLayerIdxAtHeight(layers, h);
+    const mappedPixels = buildPixelData(imageSwatches, layers, colorAtLayer, stack);
+    for (let i = 0; i < mappedPixels.length; i++) {
+        const { targetRgb: rgb, layerIdx } = mappedPixels[i];
+        const s = imageSwatches[i];
         const cnt = s.count ?? 1;
 
         const existing = byLayer.get(layerIdx);
@@ -120,8 +121,8 @@ export const COLOR_GROUP_CAP = 200;
 /**
  * Safe upper bound on the head count. Every candidate window scans K^N
  * filament-order combinations (K = distinct filaments in the window, K ≤ N)
- * twice per iteration — once to pick the consensus ordering, once for the
- * per-color assignments — so cost grows explosively with N: 8 heads already
+ * for consensus selection and per-color reconciliation, so cost grows
+ * explosively with N: 8 heads already
  * reaches 8^8 ≈ 16.7M combinations per window. Head counts above this are
  * clamped by both the UI and the analysis.
  */
@@ -162,11 +163,13 @@ function* windowComboIndices(
     budget: number,
     alwaysInclude: number
 ): Generator<number> {
+    yield alwaysInclude;
     if (total <= budget) {
-        for (let i = 0; i < total; i++) yield i;
+        for (let i = 0; i < total; i++) {
+            if (i !== alwaysInclude) yield i;
+        }
         return;
     }
-    yield alwaysInclude;
     const span = total - 1;
     const denom = Math.max(1, budget - 1);
     for (let i = 0; i < budget; i++) yield Math.round((i * span) / denom);
@@ -181,23 +184,21 @@ interface ColorGroupResult {
  * Color-based grouping (the alternative to buildPixelDataColorFirst).
  *
  * Instead of merging every swatch that lands on the same printer layer, this
- * keeps distinct hues as distinct optimizer groups. The unique palette colors
- * are agglomeratively merged in Lab space (via deltaE) down to `cap` clusters;
- * each surviving cluster becomes one ColorFirstPixel whose home `layerIdx` still
- * comes from its luminance (lightness maps to height), so multiple clusters may
- * share a layer. Returns the group list plus a hex→group map built directly from
+ * keeps distinct hues as distinct optimizer groups. Above `cap`, palette colors
+ * are assigned to frequency-selected seeds by Lab distance. Each cluster becomes
+ * one ColorFirstPixel whose home `layerIdx` comes from the final printable stack's
+ * mappings, so multiple clusters may share a layer. Returns the group list plus a
+ * hex→group map built directly from
  * cluster membership, bypassing the one-group-per-layer assumption.
  *
- * Deterministic: clusters start sorted by hex and merges pick the closest pair
- * with a stable tie-break, so the same input always yields the same grouping.
+ * Deterministic: colors start sorted by hex and seeds have a stable tie-break,
+ * so the same input always yields the same grouping.
  */
 export function buildColorGroupedPixels(
     imageSwatches: Array<{ hex: string; count?: number }>,
     layers: PrinterLayer[],
     colorAtLayer: RGB[],
-    transitionZones: AutoPaintResult['transitionZones'],
-    totalHeight: number,
-    firstLayerHeight: number,
+    stack: AutoPaintResult['finalStack'],
     cap: number
 ): ColorGroupResult {
     // Deduplicate palette hexes, summing pixel frequency per unique color.
@@ -266,11 +267,12 @@ export function buildColorGroupedPixels(
 
     const pixels: ColorFirstPixel[] = [];
     const hexToGroupIdx = new Map<string, number>();
+    const mappedPixels = buildPixelData(
+        clusters.map((c) => ({ hex: rgbToHex(c) })), layers, colorAtLayer, stack
+    );
     clusters.forEach((c, groupIdx) => {
         const targetRgb: RGB = { r: c.r, g: c.g, b: c.b };
-        const lum = getLuminance(targetRgb) / 255;
-        const h = luminanceToHeight(lum, transitionZones, totalHeight, firstLayerHeight);
-        const layerIdx = findLayerIdxAtHeight(layers, h);
+        const layerIdx = mappedPixels[groupIdx].layerIdx;
         pixels.push({
             targetRgb,
             layerIdx,
@@ -312,6 +314,29 @@ export function buildColorRuns(layers: PrinterLayer[]): ColorRun[] {
     return runs;
 }
 
+function assignedLayer(layer: PrinterLayer, filament: WindowFilament, fallbackIdx: number): PrinterLayer {
+    return {
+        filamentIdx: filament.filamentIdx ?? fallbackIdx,
+        filamentId: filament.filamentId,
+        filamentRgb: filament.rgb,
+        td: filament.td,
+        thickness: layer.thickness,
+        startZ: layer.startZ,
+    };
+}
+
+/** Cache resolved substrates so buildColorStack and exported layers agree. */
+function refreshTransitionOptics(layers: PrinterLayer[], model: AppearanceEffectiveOpticsModelV1): void {
+    for (let i = 1; i < layers.length; i++) {
+        if (layers[i].filamentIdx === layers[i - 1].filamentIdx) continue;
+        const id = layers[i].filamentId;
+        const substrate = layers[i - 1].filamentId;
+        if (id && substrate) {
+            layers[i] = { ...layers[i], transitionOptics: resolveEffectiveTransitionOptics(model, id, substrate) };
+        }
+    }
+}
+
 /**
  * Simulate all K^N filament combinations for a run-based window, finding the
  * optimal slot assignment for every color in a single pass per combination.
@@ -334,7 +359,8 @@ export function computeColorOptimalAssignments(
     /** Max K^N combos to evaluate; above this the scan samples deterministically. */
     comboBudget: number = Infinity,
     /** The window's current slot assignment, always included when sampling. */
-    currentEntry?: number[]
+    currentEntry?: number[],
+    model?: AppearanceEffectiveOpticsModelV1
 ): { errorFactor: number; affectedCount: number; assignments: (number[] | null)[] } {
     const K = windowFilaments.length;
     const N = windowRuns.length;
@@ -354,6 +380,10 @@ export function computeColorOptimalAssignments(
     for (let pxIdx = 0; pxIdx < pixels.length; pxIdx++) {
         const px = pixels[pxIdx];
         if (px.layerIdx < wStart) continue;
+        if (currentEntry) {
+            minErr[pxIdx] = px.actualErr;
+            assignments[pxIdx] = currentEntry.slice();
+        }
         affectedCount += px.count;
         totalActualError += px.actualErr * px.count;
         if (px.layerIdx > maxAffectedLayer) maxAffectedLayer = px.layerIdx;
@@ -361,6 +391,10 @@ export function computeColorOptimalAssignments(
         if (bucket) bucket.push(pxIdx);
         else pixelsAtLayer.set(px.layerIdx, [pxIdx]);
     }
+
+    const prefix = startColorStack(layers[0]);
+    for (let i = 1; i < wStart; i++) appendColorStackLayer(prefix, layers[i], model);
+    prefix.color = baseColor;
 
     const total = K ** N;
     const startCombo = currentEntry ? entryToComboIndex(currentEntry, K) : 0;
@@ -372,15 +406,15 @@ export function computeColorOptimalAssignments(
         for (let j = 0; j < N; j++) { entry[j] = v % K; v = Math.floor(v / K); }
 
         // Single incremental simulation through the window runs.
-        let c: RGB = { ...baseColor };
+        const state = { ...prefix };
         for (let r = 0; r < N; r++) {
             const run = windowRuns[r];
             const filament = windowFilaments[entry[r]];
             for (let i = run.startLayerIdx; i <= run.endLayerIdx; i++) {
-                c = blendColors(c, filament.rgb, filament.td, layers[i].thickness);
+                appendColorStackLayer(state, assignedLayer(layers[i], filament, entry[r]), model);
                 const bucket = pixelsAtLayer.get(i);
                 if (bucket) {
-                    const cLab = rgbToLab(c);
+                    const cLab = rgbToLab(state.color);
                     for (const pxIdx of bucket) {
                         const err = deltaELab(targetLab[pxIdx], cLab);
                         if (err < minErr[pxIdx]) { minErr[pxIdx] = err; assignments[pxIdx] = entry.slice(); }
@@ -391,10 +425,10 @@ export function computeColorOptimalAssignments(
 
         // Continue above the window for colors whose layerIdx > wEnd.
         for (let i = wEnd + 1; i <= maxAffectedLayer; i++) {
-            c = blendColors(c, layers[i].filamentRgb, layers[i].td, layers[i].thickness);
+            appendColorStackLayer(state, layers[i], model);
             const bucket = pixelsAtLayer.get(i);
             if (bucket) {
-                const cLab = rgbToLab(c);
+                const cLab = rgbToLab(state.color);
                 for (const pxIdx of bucket) {
                     const err = deltaELab(targetLab[pxIdx], cLab);
                     if (err < minErr[pxIdx]) { minErr[pxIdx] = err; assignments[pxIdx] = entry.slice(); }
@@ -427,7 +461,7 @@ export function analyzeMultiHeadWindowsColorFirst(
     firstLayerHeight: number,
     n: number
 ): WindowResult[] {
-    const N = Math.min(n, filaments.length);
+    const N = Math.min(n, filaments.length, MAX_MULTI_HEAD_HEADS);
     if (N < 2 || result.transitionZones.length === 0 || imageSwatches.length === 0) return [];
 
     const layers = expandZonesToPrinterLayers(result, filaments, layerHeight, firstLayerHeight);
@@ -435,9 +469,11 @@ export function analyzeMultiHeadWindowsColorFirst(
 
     const colorAtLayer = buildColorStack(layers);
     const runs = buildColorRuns(layers);
+    const effectiveOptics = result.finalStack.appearanceModel.effectiveOptics;
+    const model = effectiveOptics?.filaments.length ? effectiveOptics : createPriorEffectiveOpticsModel(filaments);
     const pixels = buildPixelDataColorFirst(
         imageSwatches, layers, colorAtLayer,
-        result.transitionZones, result.totalHeight, firstLayerHeight
+        result.finalStack
     );
 
     const windows: WindowResult[] = [];
@@ -456,12 +492,14 @@ export function analyzeMultiHeadWindowsColorFirst(
 
         const uniqueIndices = [...new Set(windowRuns.map((r) => r.filamentIdx))];
         const windowFilaments: WindowFilament[] = uniqueIndices.map((fi) => ({
+            filamentIdx: fi,
+            filamentId: filaments[fi]?.id,
             rgb: hexToRgb(filaments[fi]?.color ?? '#000000'),
             td: channelHds(filaments[fi] ?? FALLBACK_FILAMENT),
         }));
 
         const { errorFactor, affectedCount } = computeColorOptimalAssignments(
-            windowRuns, wEnd, layers, colorAtLayer[wStart - 1], windowFilaments, pixels
+            windowRuns, wEnd, layers, colorAtLayer[wStart - 1], windowFilaments, pixels, Infinity, undefined, model
         );
 
         windows.push({
@@ -508,7 +546,8 @@ function findConsensusCombo(
     /** Max K^N combos to evaluate; above this the scan samples deterministically. */
     comboBudget: number = Infinity,
     /** The window's current slot assignment, always included when sampling. */
-    currentEntry?: number[]
+    currentEntry?: number[],
+    model?: AppearanceEffectiveOpticsModelV1
 ): { entry: number[]; errorFactor: number; affectedCount: number } {
     const K = windowFilaments.length;
     const N = windowRuns.length;
@@ -533,12 +572,16 @@ function findConsensusCombo(
     // Precompute each target's Lab once (see computeColorOptimalAssignments).
     const targetLab = pixels.map((p) => rgbToLab(p.targetRgb));
 
+    const prefix = startColorStack(layers[0]);
+    for (let i = 1; i < wStart; i++) appendColorStackLayer(prefix, layers[i], model);
+    prefix.color = baseColor;
+
     const total = K ** N;
     const startCombo = currentEntry ? entryToComboIndex(currentEntry, K) : 0;
     let bestEntry: number[] = currentEntry
         ? currentEntry.slice()
         : Array.from({ length: N }, () => 0);
-    let bestError = Infinity;
+    let bestError = currentEntry ? totalActualError : Infinity;
 
     for (const combo of windowComboIndices(total, comboBudget, startCombo)) {
         const entry: number[] = new Array(N);
@@ -546,26 +589,26 @@ function findConsensusCombo(
         for (let j = 0; j < N; j++) { entry[j] = v % K; v = Math.floor(v / K); }
 
         let comboError = 0;
-        let c: RGB = { ...baseColor };
+        const state = { ...prefix };
 
         for (let r = 0; r < N; r++) {
             const run = windowRuns[r];
             const filament = windowFilaments[entry[r]];
             for (let i = run.startLayerIdx; i <= run.endLayerIdx; i++) {
-                c = blendColors(c, filament.rgb, filament.td, layers[i].thickness);
+                appendColorStackLayer(state, assignedLayer(layers[i], filament, entry[r]), model);
                 const bucket = pixelsAtLayer.get(i);
                 if (bucket) {
-                    const cLab = rgbToLab(c);
+                    const cLab = rgbToLab(state.color);
                     for (const pxIdx of bucket)
                         comboError += deltaELab(targetLab[pxIdx], cLab) * pixels[pxIdx].count;
                 }
             }
         }
         for (let i = wEnd + 1; i <= maxAffectedLayer; i++) {
-            c = blendColors(c, layers[i].filamentRgb, layers[i].td, layers[i].thickness);
+            appendColorStackLayer(state, layers[i], model);
             const bucket = pixelsAtLayer.get(i);
             if (bucket) {
-                const cLab = rgbToLab(c);
+                const cLab = rgbToLab(state.color);
                 for (const pxIdx of bucket)
                     comboError += deltaELab(targetLab[pxIdx], cLab) * pixels[pxIdx].count;
             }
@@ -592,7 +635,8 @@ function applyComboToLayers(
     windowRuns: ColorRun[],
     entry: number[],
     uniqueIndices: number[],
-    filaments: Filament[]
+    filaments: Filament[],
+    model: AppearanceEffectiveOpticsModelV1
 ): void {
     for (let r = 0; r < windowRuns.length; r++) {
         const run = windowRuns[r];
@@ -601,9 +645,15 @@ function applyComboToLayers(
         const rgb = hexToRgb(f.color);
         const td = channelHds(f);
         for (let i = run.startLayerIdx; i <= run.endLayerIdx; i++) {
-            layers[i] = { ...layers[i], filamentIdx: fi, filamentRgb: rgb, td };
+            layers[i] = assignedLayer(layers[i], {
+                filamentIdx: fi,
+                filamentId: filaments[fi]?.id,
+                rgb,
+                td,
+            }, fi);
         }
     }
+    refreshTransitionOptics(layers, model);
 }
 
 // ---------------------------------------------------------------------------
@@ -649,6 +699,8 @@ export interface ColorFirstResult {
      * colour shares the global (consensus) stack; inside a window each colour uses
      * its own optimal assignment.  This is what lets the renderer mix filaments
      * across pixels within a single height band.  Empty when no windows applied.
+     * Assignments are reconciled in bounded sweeps against each group's realized
+     * prefix and suffix, retaining its original stack if no improvement is found.
      */
     colorLayerFilaments: Map<string, number[]>;
     /**
@@ -687,11 +739,11 @@ export interface ColorFirstResult {
  *
  * A swap is counted whenever a nozzle changes its loaded filament between
  * consecutive windows.  Nozzles that are idle between windows keep their
- * filament at zero swap cost — the DP state tracks all N nozzles so that a
+ * filament at zero swap cost — the schedule tracks all N nozzles so that a
  * filament parked on an idle nozzle is reused for free if the same filament
  * is needed again in a later window.
  *
- * @param windowRunFilaments  [w][r] = filament ID for run slot r in window w
+ * @param windowRunFilaments  Unique required filament IDs per window (input slot r)
  * @param N                   Number of physical nozzles
  * @returns nozzleAssignments[w][k] = run-slot index for nozzle (k+1) in window w
  */
@@ -706,100 +758,48 @@ export function optimizeNozzleAssignments(
     // or IDLE (-1) when the nozzle is not needed and keeps its previous filament.
     const IDLE = -1;
 
-    // Generate all K-permutations (injections) of K run slots into N nozzle positions.
-    // result[k] = run-slot assigned to nozzle k, or IDLE.
-    // For each of the K slots, exactly one nozzle is chosen; the rest are IDLE.
-    function generateInjections(K: number): number[][] {
-        const result: number[][] = [];
-        const assignment = new Array(N).fill(IDLE);
-        const used = new Array(N).fill(false);
-        function bt(slot: number) {
-            if (slot === K) { result.push(assignment.slice()); return; }
-            for (let k = 0; k < N; k++) {
-                if (!used[k]) {
-                    used[k] = true;
-                    assignment[k] = slot;
-                    bt(slot + 1);
-                    used[k] = false;
-                    assignment[k] = IDLE;
-                }
-            }
-        }
-        bt(0);
-        return result;
-    }
-
-    // Precompute injections per window (keyed by K = number of required filaments).
-    const injectionCache = new Map<number, number[][]>();
-    const windowInjections: number[][][] = windowRunFilaments.map((runs) => {
-        const K = runs.length;
-        if (!injectionCache.has(K)) injectionCache.set(K, generateInjections(K));
-        return injectionCache.get(K)!;
-    });
-
-    // DP state: N-tuple of loaded filament IDs (EMPTY sentinel for never-loaded nozzles).
-    const EMPTY = '\x01';
-    const encodeState = (s: string[]) => s.join('\x00');
-
-    interface DPEntry { cost: number; injIdx: number; prevKey: string }
-
-    // Window 0: idle nozzles start empty (no filament loaded yet).
-    let dp = new Map<string, DPEntry>();
-    const w0Inj = windowInjections[0];
-    const w0Runs = windowRunFilaments[0];
-    for (let ii = 0; ii < w0Inj.length; ii++) {
-        const state = w0Inj[ii].map((r) => r === IDLE ? EMPTY : w0Runs[r]);
-        const key = encodeState(state);
-        // Every nozzle that starts non-empty counts as one initial load (cost 0 — first window
-        // always requires loading; we only optimise swaps *between* windows).
-        if (!dp.has(key)) dp.set(key, { cost: 0, injIdx: ii, prevKey: '' });
-    }
-
-    const history: Map<string, DPEntry>[] = [new Map(dp)];
-
-    for (let w = 1; w < W; w++) {
-        const next = new Map<string, DPEntry>();
-        const injs = windowInjections[w];
-        const runs = windowRunFilaments[w];
-
-        for (const [prevKey, prevEntry] of dp) {
-            const prevState = prevKey.split('\x00');
-
-            for (let ii = 0; ii < injs.length; ii++) {
-                const inj = injs[ii];
-                // Active nozzles take their new filament; idle nozzles keep the previous one.
-                const newState = inj.map((r, k) => r === IDLE ? prevState[k] : runs[r]);
-                let swaps = 0;
-                for (let k = 0; k < N; k++) {
-                    if (newState[k] !== prevState[k]) swaps++;
-                }
-                const cost = prevEntry.cost + swaps;
-                const key = encodeState(newState);
-                const existing = next.get(key);
-                if (!existing || cost < existing.cost) {
-                    next.set(key, { cost, injIdx: ii, prevKey });
-                }
-            }
-        }
-
-        dp = next;
-        history.push(new Map(dp));
-    }
-
-    // Find minimum-cost final state.
-    let bestKey = '';
-    let bestCost = Infinity;
-    for (const [key, entry] of dp) {
-        if (entry.cost < bestCost) { bestCost = entry.cost; bestKey = key; }
-    }
-
-    // Backtrack to recover injection sequence.
-    const result: number[][] = new Array(W);
-    let key = bestKey;
+    // Nozzle labels are interchangeable: this is offline caching with all of an
+    // event's filaments pinned at once. Keep hits and evict the unneeded filament
+    // whose next use is farthest away (Belady's rule). Exchanging any earlier-used
+    // victim for this one cannot add a later load, so the schedule is swap-optimal.
+    // Precompute next uses in O(total slots); scheduling costs O(W * N^2), without
+    // enumerating head permutations. Ties keep the lowest numbered nozzle.
+    const nextUses: number[][] = new Array(W);
+    const nextUse = new Map<string, number>();
     for (let w = W - 1; w >= 0; w--) {
-        const entry = history[w].get(key)!;
-        result[w] = windowInjections[w][entry.injIdx];
-        key = entry.prevKey;
+        nextUses[w] = windowRunFilaments[w].map((id) => nextUse.get(id) ?? Infinity);
+        for (const id of windowRunFilaments[w]) nextUse.set(id, w);
+    }
+
+    const state: (string | null)[] = new Array(N).fill(null);
+    const result: number[][] = [];
+    let bestCost = 0;
+    for (let w = 0; w < W; w++) {
+        const runs = windowRunFilaments[w];
+        const required = new Set(runs);
+        const assignment = new Array<number>(N).fill(IDLE);
+        for (let r = 0; r < runs.length; r++) nextUse.set(runs[r], nextUses[w][r]);
+
+        // Reserve every already-loaded requirement before loading missing ones.
+        for (let r = 0; r < runs.length; r++) {
+            const k = state.findIndex((id, k) => id === runs[r] && assignment[k] === IDLE);
+            if (k !== -1) assignment[k] = r;
+        }
+        for (let r = 0; r < runs.length; r++) {
+            if (assignment.includes(r)) continue;
+            let victim = -1;
+            let farthest = -1;
+            for (let k = 0; k < N; k++) {
+                if (assignment[k] !== IDLE || (state[k] !== null && required.has(state[k]!))) continue;
+                const next = state[k] === null ? Infinity : (nextUse.get(state[k]!) ?? Infinity);
+                if (next > farthest) { victim = k; farthest = next; }
+            }
+            if (victim === -1) throw new Error('Window requires more filaments than available nozzles');
+            state[victim] = runs[r];
+            assignment[victim] = r;
+            if (w > 0) bestCost++;
+        }
+        result.push(assignment);
     }
 
     console.group(`[optimizeNozzleAssignments] ${W} windows × ${N} nozzles → min swaps: ${bestCost}`);
@@ -815,15 +815,15 @@ export function optimizeNozzleAssignments(
         );
     }
     // Show what each nozzle carries at each window (including idle carry-forward).
-    let state = new Array(N).fill('\x01');
+    let traceState = new Array(N).fill('');
     console.log('  Nozzle state trace:');
     for (let w = 0; w < W; w++) {
         const runs = windowRunFilaments[w];
         const assgn = result[w];
-        const newState = assgn.map((r, k) => r === -1 ? state[k] : (runs[r] ?? '?'));
-        const changes = newState.filter((fid, k) => fid !== state[k]).length;
+        const newState = assgn.map((r, k) => r === -1 ? traceState[k] : (runs[r] ?? '?'));
+        const changes = newState.filter((fid, k) => fid !== traceState[k]).length;
         console.log(`    w${w}: [${newState.join(' | ')}]  (+${changes} swaps)`);
-        state = newState;
+        traceState = newState;
     }
     console.groupEnd();
     return result;
@@ -863,9 +863,13 @@ export function runMultiHeadLayerAnalysisColorFirst(
         return empty;
     }
 
+    const originalLayers = layers.slice();
+
     // Run boundaries are fixed for the life of the analysis; only filament
     // assignments within runs change as windows are applied.
     const runs = buildColorRuns(layers);
+    const effectiveOptics = result.finalStack.appearanceModel.effectiveOptics;
+    const model = effectiveOptics?.filaments.length ? effectiveOptics : createPriorEffectiveOpticsModel(filaments);
 
     // Color groups are fixed (derived from image content, not the stack).
     const initialColorAtLayer = buildColorStack(layers);
@@ -880,26 +884,21 @@ export function runMultiHeadLayerAnalysisColorFirst(
     if (colorMode === 'color') {
         const grouped = buildColorGroupedPixels(
             imageSwatches, layers, initialColorAtLayer,
-            result.transitionZones, result.totalHeight, firstLayerHeight,
-            COLOR_GROUP_CAP
+            result.finalStack, COLOR_GROUP_CAP
         );
         pixels = grouped.pixels;
         hexToGroupIdx = grouped.hexToGroupIdx;
     } else {
         pixels = buildPixelDataColorFirst(
             imageSwatches, layers, initialColorAtLayer,
-            result.transitionZones, result.totalHeight, firstLayerHeight
+            result.finalStack
         );
         const layerIdxToGroupIdx = new Map<number, number>(pixels.map((p, i) => [p.layerIdx, i]));
         hexToGroupIdx = new Map<string, number>();
-        for (const s of imageSwatches) {
-            if (hexToGroupIdx.has(s.hex)) continue;
-            const rgb = hexToRgb(s.hex);
-            const lum = getLuminance(rgb) / 255;
-            const h = luminanceToHeight(lum, result.transitionZones, result.totalHeight, firstLayerHeight);
-            const layerIdx = findLayerIdxAtHeight(layers, h);
-            const groupIdx = layerIdxToGroupIdx.get(layerIdx);
-            if (groupIdx !== undefined) hexToGroupIdx.set(s.hex, groupIdx);
+        const mappedPixels = buildPixelData(imageSwatches, layers, initialColorAtLayer, result.finalStack);
+        for (let i = 0; i < imageSwatches.length; i++) {
+            const groupIdx = layerIdxToGroupIdx.get(mappedPixels[i].layerIdx);
+            if (groupIdx !== undefined) hexToGroupIdx.set(imageSwatches[i].hex, groupIdx);
         }
     }
 
@@ -908,8 +907,6 @@ export function runMultiHeadLayerAnalysisColorFirst(
     // Per selected window: the run decomposition + unique filament indices, used
     // after the loop to build the per-colour filament-per-layer map.
     const windowRunInfo: { runs: ColorRun[]; uniqueIndices: number[] }[] = [];
-    // Consensus LUT entry per selected window (bestEntry[r] = index into uniqueIndices).
-    const windowBestEntries: number[][] = [];
     // Layers already claimed by a selected window — windows must not overlap so
     // that each layer has exactly one per-colour assignment source.
     const layerUsed: boolean[] = new Array(layers.length).fill(false);
@@ -969,6 +966,8 @@ export function runMultiHeadLayerAnalysisColorFirst(
                 windowRuns.map((r) => layers[r.startLayerIdx].filamentIdx)
             )];
             const windowFilaments: WindowFilament[] = uniqueIndices.map((fi) => ({
+                filamentIdx: fi,
+                filamentId: filaments[fi]?.id,
                 rgb: hexToRgb(filaments[fi]?.color ?? '#000000'),
                 td: channelHds(filaments[fi] ?? FALLBACK_FILAMENT),
             }));
@@ -978,7 +977,7 @@ export function runMultiHeadLayerAnalysisColorFirst(
 
             const { entry, errorFactor, affectedCount } = findConsensusCombo(
                 windowRuns, wEnd, layers, colorAtLayer[wStart - 1], windowFilaments, pixels,
-                comboBudget, currentEntry
+                comboBudget, currentEntry, model
             );
 
             if (errorFactor > bestErrorFactor) {
@@ -1010,73 +1009,92 @@ export function runMultiHeadLayerAnalysisColorFirst(
             pixelOptimalLUTIdx: [],
         };
 
-        // Per-color optimal assignments for this window, computed against the
-        // current stack (below this window already reflects prior iterations).
-        // Window *selection* used the consensus combo, but each colour now gets
-        // its OWN optimal filament-per-run-slot so the render can mix filaments
-        // across pixels within the same height band.
-        const bestWindowFilaments: WindowFilament[] = bestUniqueIndices.map((fi) => ({
-            rgb: hexToRgb(filaments[fi]?.color ?? '#000000'),
-            td: channelHds(filaments[fi] ?? FALLBACK_FILAMENT),
-        }));
-        const bestCurrentEntry = bestWindowRuns.map(
-            (r) => bestUniqueIndices!.indexOf(layers[r.startLayerIdx].filamentIdx)
-        );
-        const { assignments } = computeColorOptimalAssignments(
-            bestWindowRuns, wEnd, layers, colorAtLayer[wStart - 1], bestWindowFilaments, pixels,
-            comboBudget, bestCurrentEntry
-        );
-
-        const colorMap = new Map<string, number[]>();
-        for (const [hex, groupIdx] of hexToGroupIdx) {
-            const assignment = assignments[groupIdx];
-            if (assignment) colorMap.set(hex, assignment);
-        }
-
         // Patch the layer stack with the consensus ordering so the next
         // iteration's base (and any non-window layers) stay a single realisable
         // stack for window selection.
-        applyComboToLayers(layers, bestWindowRuns, bestEntry, bestUniqueIndices, filaments);
+        applyComboToLayers(layers, bestWindowRuns, bestEntry, bestUniqueIndices, filaments, model);
 
         // Claim this window's layers so later iterations cannot overlap them.
         for (let i = wStart; i <= wEnd; i++) layerUsed[i] = true;
 
         selectedWindows.push(w);
-        selectedAssignments.push(colorMap);
         windowRunInfo.push({ runs: bestWindowRuns, uniqueIndices: bestUniqueIndices });
-        windowBestEntries.push(bestEntry);
 
         console.log(
             `  ★ iter ${iter + 1}  W[${String(wStart).padStart(3)}–${String(wEnd).padStart(3)}]` +
             `  Z: ${layers[wStart].startZ.toFixed(3)}–${(layers[wEnd].startZ + layers[wEnd].thickness).toFixed(3)} mm` +
             `  |  [${w.currentFilaments.join(' → ')}]` +
-            `  |  errorFactor: ${bestErrorFactor.toFixed(4)}` +
-            `  |  colors: ${colorMap.size}`
+            `  |  errorFactor: ${bestErrorFactor.toFixed(4)}`
         );
     }
 
     console.log(`  Total: ${selectedWindows.length} window(s) applied.`);
     console.groupEnd();
+    if (selectedWindows.length === 0) return empty;
 
-    // Build the per-colour filament-per-layer map the renderer consumes.
-    // Default every colour to the global (consensus) stack, then overwrite the
-    // layers of each non-overlapping window with that colour's own assignment.
+    // Reconcile each color group on its own realized stack. Start with the
+    // original assignment so no group's error can worsen; each coordinate scan
+    // keeps the current combo on ties and includes it even in sampled searches.
+    // Bounded sweeps allow earlier windows to respond to changed suffixes while
+    // retaining the best realized stack if the search budget is exhausted.
     const globalSeq = layers.map((l) => l.filamentIdx);
     const colorLayerFilaments = new Map<string, number[]>();
-    for (const hex of hexToGroupIdx.keys()) {
-        const seq = globalSeq.slice();
-        for (let wi = 0; wi < selectedWindows.length; wi++) {
-            const slots = selectedAssignments[wi].get(hex);
-            if (!slots) continue;
-            const { runs: wRuns, uniqueIndices } = windowRunInfo[wi];
-            for (let r = 0; r < wRuns.length; r++) {
-                const filamentIdx = uniqueIndices[slots[r]];
-                for (let i = wRuns[r].startLayerIdx; i <= wRuns[r].endLayerIdx; i++) {
-                    seq[i] = filamentIdx;
+    const sortedByStart = Array.from({ length: selectedWindows.length }, (_, i) => i)
+        .sort((a, b) => selectedWindows[a].windowStart - selectedWindows[b].windowStart);
+    const groupSequences: number[][] = [];
+    const groupAssignments: number[][][] = [];
+    for (const pixel of pixels) {
+        const realized = originalLayers.slice();
+        const entries = windowRunInfo.map(({ runs, uniqueIndices }) =>
+            runs.map((run) => uniqueIndices.indexOf(originalLayers[run.startLayerIdx].filamentIdx))
+        );
+        for (let pass = 0; pass < 4; pass++) {
+            let changed = false;
+            for (const wi of sortedByStart) {
+                const { runs: wRuns, uniqueIndices } = windowRunInfo[wi];
+                const wStart = wRuns[0].startLayerIdx;
+                if (pixel.layerIdx < wStart) continue;
+                const colors = buildColorStack(realized);
+                const windowFilaments = uniqueIndices.map((fi) => ({
+                    filamentIdx: fi,
+                    filamentId: filaments[fi]?.id,
+                    rgb: hexToRgb(filaments[fi]?.color ?? '#000000'),
+                    td: channelHds(filaments[fi] ?? FALLBACK_FILAMENT),
+                }));
+                const { assignments } = computeColorOptimalAssignments(
+                    wRuns, wRuns[wRuns.length - 1].endLayerIdx, realized, colors[wStart - 1],
+                    windowFilaments, [{ ...pixel, actualErr: deltaE(pixel.targetRgb, colors[pixel.layerIdx]) }],
+                    comboBudget, entries[wi], model
+                );
+                const entry = assignments[0]!;
+                if (entry.some((slot, r) => slot !== entries[wi][r])) {
+                    applyComboToLayers(realized, wRuns, entry, uniqueIndices, filaments, model);
+                    entries[wi] = entry;
+                    changed = true;
                 }
             }
+            if (!changed) break;
         }
-        colorLayerFilaments.set(hex, seq);
+        const seq = globalSeq.slice();
+        for (const wi of sortedByStart) {
+            const w = selectedWindows[wi];
+            if (pixel.layerIdx < w.windowStart) continue;
+            for (let i = w.windowStart; i <= w.windowEnd; i++) seq[i] = realized[i].filamentIdx;
+        }
+        groupSequences.push(seq);
+        groupAssignments.push(entries);
+    }
+    for (let wi = 0; wi < selectedWindows.length; wi++) {
+        const colorMap = new Map<string, number[]>();
+        for (const [hex, groupIdx] of hexToGroupIdx) {
+            if (pixels[groupIdx].layerIdx >= selectedWindows[wi].windowStart) {
+                colorMap.set(hex, groupAssignments[groupIdx][wi]);
+            }
+        }
+        selectedAssignments.push(colorMap);
+    }
+    for (const [hex, groupIdx] of hexToGroupIdx) {
+        colorLayerFilaments.set(hex, groupSequences[groupIdx]);
     }
 
     // One unique filament ID per window — used by the nozzle optimizer.
@@ -1100,9 +1118,6 @@ export function runMultiHeadLayerAnalysisColorFirst(
         rangeEnd: number;
         filaments: string[];   // unique IDs needed (optimizer input slots)
     }
-
-    const sortedByStart = Array.from({ length: selectedWindows.length }, (_, i) => i)
-        .sort((a, b) => selectedWindows[a].windowStart - selectedWindows[b].windowStart);
 
     // Add virtual events for a layer range, splitting into ≤N sub-ranges if needed.
     const allPrintEvents: PrintEvent[] = [];
@@ -1231,11 +1246,6 @@ export function runMultiHeadLayerAnalysisColorFirst(
         }
     }
     console.groupEnd();
-
-    if (selectedWindows.length === 0) {
-        console.log('[MultiHead ColorFirst] No windows selected — returning empty result.');
-        return empty;
-    }
 
     return {
         windows: selectedWindows,

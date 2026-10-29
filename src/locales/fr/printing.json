@@ -378,5 +378,31 @@
     "layerMeshComplete": "Maillage de la couche terminé",
     "minimumValue": "La valeur minimale est {{minimum}}",
     "maximumValue": "La valeur maximale est {{maximum}}"
+  },
+  "multiHead": {
+    "mode": "Mode multi-têtes",
+    "description": "Optimiser l’ordre des filaments par pixel sur {{heads}} têtes.",
+    "incompatibleWithFlatPaint": "Incompatible avec Flat Paint — activer le mode multi-têtes désactive Flat Paint.",
+    "headCount": "Nombre de têtes",
+    "searchDepth": "Profondeur de recherche",
+    "searchHelp": "Une recherche plus poussée ouvre davantage de fenêtres de têtes et essaie plus d’ordres de filaments par fenêtre. Les grandes recherches utilisent un échantillon limité et déterministe.",
+    "colorGrouping": "Regroupement des couleurs",
+    "layerBasedGrouping": "Par couche (actuel)",
+    "colorBasedGrouping": "Par couleur (par teinte)",
+    "colorGroupingHelp": "Le mode par couche regroupe les couleurs partageant une couche imprimée (dans la limite du nombre de couches). Le mode par couleur sépare les teintes ; il peut ajouter des couleurs avec davantage de têtes chargées, mais en ajouter peu, voire en réduire le nombre, avec peu de têtes. Il demande plus de calculs.",
+    "noLayoutFallback": "L’analyse multi-têtes n’a trouvé aucune disposition améliorant l’empilement normal avec {{heads}} têtes — un modèle normal à une seule tête a été créé.",
+    "analysisFailedFallback": "L’analyse multi-têtes n’a pas abouti — un modèle normal à une seule tête a été créé. Essayez moins de têtes ou une autre profondeur de recherche.",
+    "largePrintWarning": "Cette impression comporte {{layers}} couches — au-delà de 64, les instructions de changement peuvent être lentes à générer.",
+    "buildSchedulePrompt": "Cliquez sur <action>Construire le modèle 3D</action> pour générer le modèle multi-têtes et le planning des têtes.",
+    "noAssignments": "Aucune affectation de tête calculée pour le moment.",
+    "schedule": "Planning des têtes",
+    "beforePrint": "Avant l’impression<detail> — charger toutes les têtes</detail>",
+    "swapCheckpoint": "Couche {{layer}}<detail> — têtes à recharger : {{swaps}}</detail>",
+    "head": "Tête {{head}}",
+    "empty": "VIDE",
+    "beforePrintText": "Avant l’impression — charger toutes les têtes :",
+    "swapCheckpointText": "Couche {{layer}} — têtes à recharger : {{swaps}} :",
+    "invalidPlan": "Le plan multi-têtes est incomplet. Reconstruisez le modèle pour relancer l’analyse.",
+    "swapMarker": " ← changer"
   }
 }

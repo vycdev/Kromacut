@@ -1,16 +1,12 @@
 import { useTranslation } from 'react-i18next';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { CollapsibleCard, DirtyDot } from '@/components/CollapsibleCard';
 import ThreeDColorRow from './ThreeDColorRow';
 import { Sortable, SortableContent, SortableOverlay } from '@/components/ui/sortable';
 import { Button } from '@/components/ui/button';
 import { Check, RotateCcw, Loader2 } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import {
-    patchedLayersToPlan,
-    patchedLayersToSliceData,
-    buildPerColorLayerColors,
-} from '../lib/patchedLayersToPlan';
+import { multiHeadBuildSnapshot, singleHeadBuildSnapshot } from '../lib/multiHeadBuild';
 import {
     autoPaintResultMatchesSliceGrid,
     autoPaintToSliceHeights,
@@ -42,7 +38,7 @@ import PrintInstructions from './PrintInstructions';
 import AutoPaintTab from './AutoPaintTab';
 import type { ImageDimensions } from '../hooks/useSwatches';
 import { concealPrintableFeatureBuffers } from '../lib/printableFeatures.ts';
-import { shouldApplyInitialProfileFilaments } from '../lib/threeDWorkLifecycle';
+import { createBuildRevision, shouldApplyInitialProfileFilaments } from '../lib/threeDWorkLifecycle';
 import type { DesktopFileRequest } from '../lib/desktopFileInbox';
 import { DesktopProfileImport } from './DesktopProfileImport';
 
@@ -245,12 +241,13 @@ export default function ThreeDControls({
     const [multiHeadColorMode, setMultiHeadColorMode] = useState<'luminance' | 'color'>(
         persisted?.multiHeadColorMode ?? 'luminance'
     );
-    // Set after a build when Multi-head mode was on but the analysis could not
-    // produce a usable plan (worker error, or no window beat the base stack).
-    // In that case the build falls back to a normal single-head model and this
-    // explains why — a multi-head 3MF with guessed head assignments is never
-    // emitted.
-    const [multiHeadNotice, setMultiHeadNotice] = useState<string | undefined>(undefined);
+    // Store translation keys so fallback notices follow the current UI language.
+    const [multiHeadNotice, setMultiHeadNotice] = useState<{
+        key:
+            | 'multiHead.noLayoutFallback'
+            | 'multiHead.analysisFailedFallback';
+        heads: number;
+    }>();
 
     const handleEnhancedColorMatchChange = useCallback((v: boolean) => {
         setEnhancedColorMatch(v);
@@ -440,7 +437,21 @@ export default function ThreeDControls({
     const autoPaintProgressPercent = Math.round(Math.max(0, Math.min(1, autoPaintProgress)) * 100);
 
     // --- Multi-head analysis (runs in Web Worker to avoid blocking the UI) ---
-    const { isComputing: isMultiHeadComputing, run: runMultiHead } = useMultiHeadWorker();
+    const {
+        isComputing: isMultiHeadComputing,
+        run: runMultiHead,
+        cancel: cancelMultiHead,
+    } = useMultiHeadWorker();
+    const [buildRevision] = useState(createBuildRevision);
+    // Invalidate at commit time, before a worker continuation can publish a
+    // snapshot for a previous image. Cleanup also guards component unmounts.
+    useLayoutEffect(
+        () => () => {
+            buildRevision.invalidate();
+            cancelMultiHead();
+        },
+        [imageSrc, buildRevision, cancelMultiHead]
+    );
 
     const autoPaintSliceData = useMemo(() => {
         if (!autoPaintResult) return undefined;
@@ -512,6 +523,9 @@ export default function ThreeDControls({
     const instructionSlicerFirstLayerHeight =
         builtState?.slicerFirstLayerHeight ?? slicerFirstLayerHeight;
     const instructionFlatPaint = builtState ? builtFlatPaint : flatPaintActive;
+    const instructionMultiHeadMode = builtState
+        ? !!builtState.multiHeadMode && instructionPaintMode === 'autopaint'
+        : multiHeadMode && paintMode === 'autopaint';
     const instructionFlatPaintFaceUp = builtState
         ? !!builtState.flatPaintFaceUp
         : flatPaintActive && flatPaintFaceUp;
@@ -532,13 +546,14 @@ export default function ThreeDControls({
         slicerFirstLayerHeight: instructionSlicerFirstLayerHeight,
         paintMode: instructionPaintMode,
         autoPaintResult: instructionAutoPaintResult,
-        multiHeadWindows: persisted?.multiHeadWindows,
-        patchedTransitionZones: persisted?.patchedTransitionZones,
-        nozzleAssignments: persisted?.nozzleAssignments,
-        windowRunFilaments: persisted?.windowRunFilaments,
-        preWindowFilaments: persisted?.preWindowFilaments,
-        nonWindowedRanges: persisted?.nonWindowedRanges,
-        filaments,
+        multiHeadWindows: builtState?.multiHeadMode ? builtState.multiHeadWindows : undefined,
+        patchedTransitionZones: builtState?.multiHeadMode
+            ? builtState.patchedTransitionZones
+            : undefined,
+        nozzleAssignments: builtState?.multiHeadMode ? builtState.nozzleAssignments : undefined,
+        windowRunFilaments: builtState?.multiHeadMode ? builtState.windowRunFilaments : undefined,
+        nonWindowedRanges: builtState?.multiHeadMode ? builtState.nonWindowedRanges : undefined,
+        filaments: builtState?.filaments ?? filaments,
         flatPaint: instructionFlatPaint,
         flatPaintFaceUp: instructionFlatPaintFaceUp,
         smoothMeshingStrength: builtState?.smoothMeshingStrength ?? smoothMeshingStrength,
@@ -547,6 +562,7 @@ export default function ThreeDControls({
     // --- Apply handler ---
     const handleApply = useCallback(async () => {
         if (!onChange) return;
+        const isCurrentBuild = buildRevision.begin();
 
         setMultiHeadNotice(undefined);
 
@@ -557,9 +573,8 @@ export default function ThreeDControls({
 
         let activeResult = null;
         if (multiHeadRequested && autoPaintResult) {
-            // `filtered` carries SwatchEntry objects at runtime (with pixel-frequency
-            // `count`), even though the prop is typed as the narrower Swatch.
-            const swatches = filtered.map((s) => ({
+            // Use the same cleaned pixels and color frequencies as Auto-paint.
+            const swatches = printableSwatches.map((s) => ({
                 hex: s.hex,
                 count: (s as { count?: number }).count,
             }));
@@ -573,57 +588,8 @@ export default function ThreeDControls({
                 searchDepth: multiHeadSearchDepth,
                 colorMode: multiHeadColorMode,
             });
+            if (!isCurrentBuild()) return;
         }
-
-        // A multi-head build is only valid when the analysis produced a real
-        // plan: at least one selected window, a patched layer stack, and nozzle
-        // assignments. Otherwise fall back to a normal single-head build and tell
-        // the user — never emit a multi-head 3MF with guessed head assignments.
-        const multiHeadUsable =
-            multiHeadRequested &&
-            !!activeResult &&
-            activeResult.patchedLayers.length > 0 &&
-            activeResult.windows.length > 0 &&
-            (activeResult.nozzleAssignments?.length ?? 0) > 0;
-
-        if (multiHeadRequested && !multiHeadUsable) {
-            setMultiHeadNotice(
-                activeResult
-                    ? `Multi-head analysis found no head layout that beats the normal stack at ${multiHeadCount} heads — built a normal single-head model instead.`
-                    : "Multi-head analysis didn't finish — built a normal single-head model instead. Try fewer heads or a different search depth."
-            );
-        }
-
-        const multiHeadEffective = multiHeadUsable;
-        const usableResult = multiHeadUsable ? activeResult : null;
-
-        const newMultiHeadWindows = usableResult?.windows ?? [];
-        const patchedTransitionZones = usableResult
-            ? patchedLayersToPlan(usableResult.patchedLayers, filaments)
-            : undefined;
-        const patchedSliceData = usableResult
-            ? patchedLayersToSliceData(
-                  usableResult.patchedLayers,
-                  filaments,
-                  slicerFirstLayerHeight
-              )
-            : undefined;
-        const perColorLayerColors = usableResult
-            ? buildPerColorLayerColors(
-                  usableResult.patchedLayers,
-                  usableResult.colorLayerFilaments,
-                  filaments
-              )
-            : undefined;
-        // Per-colour filament-index-per-layer map. ThreeDView needs this (together with
-        // the window/nozzle data below) to resolve each sub-mesh's physical nozzle; if it
-        // isn't persisted, nozzle tagging silently no-ops and export3mf falls back to
-        // colour-order extruders and all-white filament colours.
-        const colorLayerFilaments = usableResult?.colorLayerFilaments;
-        const windowRunFilaments = usableResult?.windowRunFilaments;
-        const nozzleAssignments = usableResult?.nozzleAssignments;
-        const preWindowFilaments = usableResult?.preWindowFilaments;
-        const nonWindowedRanges = usableResult?.nonWindowedRanges;
 
         if (paintMode === 'autopaint') {
             // Auto-paint is a hard mode boundary. A missing or rejected result
@@ -637,95 +603,91 @@ export default function ThreeDControls({
             ) {
                 return;
             }
-            onChange({
+            const snapshot = multiHeadBuildSnapshot(
+                {
+                    layerHeight,
+                    slicerFirstLayerHeight,
+                    colorSliceHeights: autoPaintSliceData.colorSliceHeights,
+                    colorOrder: autoPaintSliceData.colorOrder,
+                    filteredSwatches: autoPaintSliceData.virtualSwatches,
+                    pixelSize,
+                    filaments,
+                    paintMode,
+                    autoPaintMaxHeight,
+                    enhancedColorMatch,
+                    preserveSeparation,
+                    separationMaxDeltaE,
+                    failOnSeparationError,
+                    maxRepeatedSwaps,
+                    transitionOpacity,
+                    heightDithering,
+                    ditherLineWidth,
+                    omitAtRiskPixels,
+                    flatPaint,
+                    flatPaintFaceUp,
+                    optimizerAlgorithm,
+                    optimizerSeed,
+                    regionWeightingMode,
+                    autoPaintResult,
+                    autoPaintSwatches: autoPaintSliceData.virtualSwatches,
+                    autoPaintFilamentSwatches: autoPaintSliceData.filamentSwatches,
+                    printableFeaturePixels: concealPrintableFeatureBuffers({
+                        width: printableFeatureSimulation.width,
+                        height: printableFeatureSimulation.height,
+                        data: printableFeatureSimulation.data,
+                        fingerprint: printableFeatureSimulation.fingerprint,
+                    }),
+                    calibrationLayerHeight,
+                    smoothMeshingStrength,
+                    multiHeadCount,
+                    multiHeadSearchDepth,
+                    multiHeadColorMode,
+                },
+                activeResult
+            );
+            if (multiHeadRequested && !snapshot.multiHeadMode) {
+                setMultiHeadNotice({
+                    key: activeResult
+                        ? 'multiHead.noLayoutFallback'
+                        : 'multiHead.analysisFailedFallback',
+                    heads: multiHeadCount,
+                });
+            }
+            onChange(snapshot);
+            return;
+        }
+
+        onChange(
+            singleHeadBuildSnapshot({
                 layerHeight,
                 slicerFirstLayerHeight,
-                colorSliceHeights: autoPaintSliceData.colorSliceHeights,
-                colorOrder: autoPaintSliceData.colorOrder,
-                filteredSwatches: autoPaintSliceData.virtualSwatches,
+                colorSliceHeights,
+                colorOrder,
+                filteredSwatches: filtered,
                 pixelSize,
                 filaments,
                 paintMode,
-                autoPaintMaxHeight,
-                enhancedColorMatch,
-                preserveSeparation,
-                separationMaxDeltaE,
-                failOnSeparationError,
-                maxRepeatedSwaps,
-                transitionOpacity,
-                heightDithering,
-                ditherLineWidth,
-                omitAtRiskPixels,
                 flatPaint,
                 flatPaintFaceUp,
                 optimizerAlgorithm,
                 optimizerSeed,
                 regionWeightingMode,
-                autoPaintResult,
-                autoPaintSwatches: autoPaintSliceData.virtualSwatches,
-                autoPaintFilamentSwatches: autoPaintSliceData.filamentSwatches,
-                printableFeaturePixels: concealPrintableFeatureBuffers({
-                    width: printableFeatureSimulation.width,
-                    height: printableFeatureSimulation.height,
-                    data: printableFeatureSimulation.data,
-                    fingerprint: printableFeatureSimulation.fingerprint,
-                }),
                 calibrationLayerHeight,
                 smoothMeshingStrength,
-                multiHeadMode: multiHeadEffective,
                 multiHeadCount,
                 multiHeadSearchDepth,
                 multiHeadColorMode,
-                multiHeadWindows: newMultiHeadWindows,
-                patchedTransitionZones,
-                patchedSliceData,
-                perColorLayerColors,
-                colorLayerFilaments,
-                windowRunFilaments,
-                nozzleAssignments,
-                preWindowFilaments,
-                nonWindowedRanges,
-            });
-            return;
-        }
-
-        onChange({
-            layerHeight,
-            slicerFirstLayerHeight,
-            colorSliceHeights,
-            colorOrder,
-            filteredSwatches: filtered,
-            pixelSize,
-            filaments,
-            paintMode,
-            flatPaint,
-            flatPaintFaceUp,
-            optimizerAlgorithm,
-            optimizerSeed,
-            regionWeightingMode,
-            calibrationLayerHeight,
-            smoothMeshingStrength,
-            multiHeadMode: multiHeadEffective,
-            multiHeadCount,
-            multiHeadSearchDepth,
-            multiHeadColorMode,
-            multiHeadWindows: newMultiHeadWindows,
-            patchedTransitionZones,
-            patchedSliceData,
-            perColorLayerColors,
-            colorLayerFilaments,
-            windowRunFilaments,
-            nozzleAssignments,
-            preWindowFilaments,
-            nonWindowedRanges,
-        });
+            })
+        );
     }, [
         onChange,
+        buildRevision,
         layerHeight,
         slicerFirstLayerHeight,
         colorSliceHeights,
         colorOrder,
         filtered,
+        printableSwatches,
         pixelSize,
         filaments,
         paintMode,
@@ -947,7 +909,11 @@ export default function ThreeDControls({
                     setMultiHeadSearchDepth={setMultiHeadSearchDepth}
                     multiHeadColorMode={multiHeadColorMode}
                     setMultiHeadColorMode={setMultiHeadColorMode}
-                    multiHeadNotice={multiHeadNotice}
+                    multiHeadNotice={
+                        multiHeadNotice
+                            ? t(multiHeadNotice.key, { heads: multiHeadNotice.heads })
+                            : undefined
+                    }
                 />
 
                 {/* Manual Tab */}
@@ -1036,7 +1002,7 @@ export default function ThreeDControls({
                 <PrintInstructions
                     swapPlan={swapPlan}
                     multiHeadPlan={multiHeadPlan}
-                    multiHeadMode={multiHeadMode && paintMode === 'autopaint'}
+                    multiHeadMode={instructionMultiHeadMode}
                     layerHeight={instructionLayerHeight}
                     slicerFirstLayerHeight={instructionSlicerFirstLayerHeight}
                     copied={copied}

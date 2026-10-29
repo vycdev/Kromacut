@@ -378,5 +378,31 @@
     "layerMeshComplete": "Geometria stratului finalizată",
     "minimumValue": "Valoarea minimă este {{minimum}}",
     "maximumValue": "Valoarea maximă este {{maximum}}"
+  },
+  "multiHead": {
+    "mode": "Mod cu mai multe capete",
+    "description": "Optimizează ordinea filamentelor pentru fiecare pixel pe {{heads}} capete.",
+    "incompatibleWithFlatPaint": "Incompatibil cu Flat Paint — activarea modului cu mai multe capete dezactivează Flat Paint.",
+    "headCount": "Număr de capete",
+    "searchDepth": "Profunzimea căutării",
+    "searchHelp": "O căutare mai profundă deschide mai multe ferestre de capete și încearcă mai multe ordini de filamente pe fereastră. Căutările mari folosesc un eșantion limitat și determinist.",
+    "colorGrouping": "Gruparea culorilor",
+    "layerBasedGrouping": "După strat (actual)",
+    "colorBasedGrouping": "După culoare (nuanță)",
+    "colorGroupingHelp": "Gruparea după strat unește culorile de pe același strat de imprimare (limitate la numărul de straturi). Gruparea după culoare păstrează nuanțele distincte; poate adăuga culori cu mai multe capete încărcate, dar niciuna — sau chiar mai puține — cu puține capete. Necesită mai multe calcule.",
+    "noLayoutFallback": "Analiza cu {{heads}} capete nu a găsit o configurație mai bună decât stiva normală — s-a construit un model normal pentru un singur cap.",
+    "analysisFailedFallback": "Analiza pentru mai multe capete nu s-a încheiat — s-a construit un model normal pentru un singur cap. Încearcă mai puține capete sau altă profunzime de căutare.",
+    "largePrintWarning": "Această imprimare are {{layers}} straturi — peste 64, generarea instrucțiunilor de schimbare poate fi lentă.",
+    "buildSchedulePrompt": "Apasă <action>Construiește modelul 3D</action> pentru a genera modelul cu mai multe capete și programul capetelor.",
+    "noAssignments": "Nu s-au calculat încă atribuiri pentru capete.",
+    "schedule": "Programul capetelor",
+    "beforePrint": "Înainte de imprimare<detail> — încarcă toate capetele</detail>",
+    "swapCheckpoint": "Stratul {{layer}}<detail> — capete de reîncărcat: {{swaps}}</detail>",
+    "head": "Capul {{head}}",
+    "empty": "GOL",
+    "beforePrintText": "Înainte de imprimare — încarcă toate capetele:",
+    "swapCheckpointText": "Stratul {{layer}} — capete de reîncărcat: {{swaps}}:",
+    "invalidPlan": "Planul pentru mai multe capete este incomplet. Reconstruiește modelul pentru a relua analiza.",
+    "swapMarker": " ← schimbă"
   }
 }

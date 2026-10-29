@@ -14,14 +14,24 @@
 
 import type { AutoPaintResult } from './autoPaint.ts';
 import type { Filament } from '../types';
+import type { AppearanceEffectiveOpticsModelV1 } from '../types/appearance';
 import {
+    autoPaintResultMatchesSliceGrid,
     hexToRgb,
     blendColors,
     deltaE,
-    getLuminance,
+    rgbToHex,
+    rgbToLab,
+    mapTargetsToPrintablePalette,
     type RGB,
 } from './autoPaint.ts';
 import { channelHds, type CalibrationRgb } from './calibration.ts';
+import {
+    blendEffectiveTransition,
+    createPriorEffectiveOpticsModel,
+    resolveEffectiveTransitionOptics,
+    type EffectiveTransitionOptics,
+} from './effectiveOptics.ts';
 
 /**
  * Fallback filament for the rare case where a window references a filament index
@@ -33,19 +43,25 @@ const FALLBACK_FILAMENT = { color: '#000000', td: 0.5 };
 export interface PrinterLayer {
     /** Index into the original filaments array */
     filamentIdx: number;
+    filamentId?: string;
     filamentRgb: RGB;
     /**
-     * Per-channel hiding distances (mm), from `channelHds()` — the same optical
-     * model as the normal auto-paint pipeline (schema v2 stores frontlit HD
-     * directly in `filament.td`; it is not rescaled). A scalar is still accepted
-     * for hand-built test fixtures.
+     * Effective or calibrated per-channel hiding distances (mm) from the zone.
+     * Schema v2 stores frontlit HD directly; it is not rescaled. A scalar is
+     * still accepted for hand-built test fixtures.
      */
     td: number | CalibrationRgb;
+    transmissionExponent?: number;
+    substrateHdMultiplier?: number;
+    transitionOptics?: EffectiveTransitionOptics;
     thickness: number;
     startZ: number;
 }
 
 export interface WindowFilament {
+    /** Original profile index and ID, for matching runs and resolving substrates. */
+    filamentIdx?: number;
+    filamentId?: string;
     rgb: RGB;
     /** Per-channel hiding distances (mm), from `channelHds()`. See PrinterLayer.td. */
     td: number | CalibrationRgb;
@@ -100,40 +116,24 @@ export function expandZonesToPrinterLayers(
     layerHeight: number,
     firstLayerHeight: number
 ): PrinterLayer[] {
-    const layers: PrinterLayer[] = [];
-    const { transitionZones: zones, totalHeight } = result;
-    if (zones.length === 0 || totalHeight <= 0) return layers;
-
-    let currentZ = 0;
-    let layerIndex = 0;
-
-    while (currentZ < totalHeight) {
-        const thickness =
-            layerIndex === 0 ? Math.max(firstLayerHeight, layerHeight) : layerHeight;
-
-        let activeZoneIdx = 0;
-        for (let zi = 0; zi < zones.length; zi++) {
-            if (currentZ >= zones[zi].startHeight) activeZoneIdx = zi;
-        }
-
-        const zone = zones[activeZoneIdx];
-        const filamentIdx = filaments.findIndex((f) => f.id === zone.filamentId);
-        const filament = filamentIdx >= 0 ? filaments[filamentIdx] : filaments[0];
-
-        layers.push({
-            filamentIdx: Math.max(0, filamentIdx),
-            filamentRgb: hexToRgb(zone.filamentColor),
-            td: channelHds(filament ?? FALLBACK_FILAMENT),
-            thickness,
-            startZ: currentZ,
-        });
-
-        currentZ += thickness;
-        layerIndex++;
-        if (layerIndex > 500) break;
+    if (!autoPaintResultMatchesSliceGrid(result, layerHeight, firstLayerHeight)) {
+        throw new Error('Auto-paint final stack settings do not match the requested slice grid');
     }
-
-    return layers;
+    return result.finalStack.layers.map((layer) => {
+        const zone = result.transitionZones[layer.zoneIndex];
+        const filamentIdx = filaments.findIndex((f) => f.id === layer.filamentId);
+        return {
+            filamentIdx: Math.max(0, filamentIdx),
+            filamentId: layer.filamentId,
+            filamentRgb: zone.effectiveColor ?? hexToRgb(layer.filamentColor),
+            td: zone.effectiveTdChannels ?? zone.filamentTdChannels ?? zone.filamentTd,
+            transmissionExponent: zone.transmissionExponent,
+            substrateHdMultiplier: zone.substrateHdMultiplier,
+            transitionOptics: zone.transitionOptics,
+            thickness: layer.thickness,
+            startZ: layer.startHeight,
+        };
+    });
 }
 
 /**
@@ -159,31 +159,74 @@ export function buildLUT(windowSize: number, filamentCount: number): number[][] 
     return lut;
 }
 
-/** Return the index of the last printer layer whose startZ ≤ h. */
+/** Return the first printable surface at or above h, clamped to the stack. */
 export function findLayerIdxAtHeight(layers: PrinterLayer[], h: number): number {
-    let idx = 0;
     for (let i = 0; i < layers.length; i++) {
-        if (layers[i].startZ <= h) idx = i;
-        else break;
+        if (layers[i].startZ + layers[i].thickness + 1e-8 >= h) return i;
     }
-    return idx;
+    return Math.max(0, layers.length - 1);
+}
+
+export interface ColorStackState {
+    color: RGB;
+    runBackground: RGB;
+    run: PrinterLayer;
+    runThickness: number;
+    foundation: boolean;
+}
+
+export function startColorStack(layer: PrinterLayer): ColorStackState {
+    return {
+        color: { ...layer.filamentRgb },
+        runBackground: { ...layer.filamentRgb },
+        run: layer,
+        runThickness: layer.thickness,
+        foundation: true,
+    };
+}
+
+/** Fitted exponents and support limits apply to a whole run, from its original substrate. */
+export function appendColorStackLayer(
+    state: ColorStackState,
+    layer: PrinterLayer,
+    model?: AppearanceEffectiveOpticsModelV1
+): void {
+    if (layer.filamentIdx !== state.run.filamentIdx) {
+        const transitionOptics = model && layer.filamentId && state.run.filamentId
+            ? resolveEffectiveTransitionOptics(model, layer.filamentId, state.run.filamentId)
+            : undefined;
+        state.runBackground = state.color;
+        state.run = { ...layer, transitionOptics: transitionOptics ?? layer.transitionOptics };
+        state.runThickness = 0;
+        state.foundation = false;
+    }
+    state.runThickness = Number((state.runThickness + layer.thickness).toFixed(8));
+    if (state.foundation) return;
+
+    const run = state.run;
+    if (run.transitionOptics) {
+        const { r, g, b } = state.runBackground;
+        const color = blendEffectiveTransition([r, g, b], run.transitionOptics, state.runThickness);
+        state.color = { r: color[0], g: color[1], b: color[2] };
+    } else {
+        state.color = blendColors(state.runBackground, run.filamentRgb, run.td,
+            state.runThickness, run.transmissionExponent, run.substrateHdMultiplier);
+    }
 }
 
 /**
  * Accumulate the Beer-Lambert stack color at each printer layer.
- * Layer 0 is the opaque foundation (raw filament color); each subsequent
- * layer blends its filament on top of the running total.
+ * The first contiguous run is opaque. Other runs use the fitted zone optics
+ * and cumulative thickness, including conservative continuation beyond support.
  */
 export function buildColorStack(layers: PrinterLayer[]): RGB[] {
     const colorAtLayer: RGB[] = new Array(layers.length);
-    colorAtLayer[0] = { ...layers[0].filamentRgb };
+    if (layers.length === 0) return colorAtLayer;
+    const state = startColorStack(layers[0]);
+    colorAtLayer[0] = state.color;
     for (let i = 1; i < layers.length; i++) {
-        colorAtLayer[i] = blendColors(
-            colorAtLayer[i - 1],
-            layers[i].filamentRgb,
-            layers[i].td,
-            layers[i].thickness
-        );
+        appendColorStackLayer(state, layers[i]);
+        colorAtLayer[i] = state.color;
     }
     return colorAtLayer;
 }
@@ -216,22 +259,36 @@ export function luminanceToHeight(
 }
 
 /**
- * Map each image swatch to its target printer layer and precompute actual ΔE.
- * Luminance drives height via the Beer-Lambert inverse; the layer at that height
- * gives the current stack color for comparison.
+ * Reuse the final stack's swatch-to-surface assignments and precompute actual ΔE.
+ * Swatches absent from that result use the shared printable-palette mapper.
  */
 export function buildPixelData(
     imageSwatches: Array<{ hex: string }>,
     layers: PrinterLayer[],
     colorAtLayer: RGB[],
-    transitionZones: AutoPaintResult['transitionZones'],
-    totalHeight: number,
-    firstLayerHeight: number
+    stack: AutoPaintResult['finalStack']
 ): PixelData[] {
+    if (layers.length === 0) return [];
+    const mappings = new Map(stack.targetMappings.map((mapping) =>
+        [mapping.targetColor.hex, mapping.projectedHeight]
+    ));
     return imageSwatches.map((s) => {
         const rgb = hexToRgb(s.hex);
-        const lum = getLuminance(rgb) / 255;
-        const h = luminanceToHeight(lum, transitionZones, totalHeight, firstLayerHeight);
+        let h = mappings.get(rgbToHex(rgb));
+        if (h === undefined) {
+            const palette = stack.palette.map((entry) => ({
+                height: entry.height,
+                rgb: { r: entry.predictedColor.rgb[0], g: entry.predictedColor.rgb[1], b: entry.predictedColor.rgb[2] },
+                lab: { L: entry.predictedLab[0], a: entry.predictedLab[1], b: entry.predictedLab[2] },
+                surfaceEligible: entry.surfaceEligible,
+                predictionConfidence: entry.predictionConfidence,
+                exactAnchorId: entry.exactAnchorId,
+                exactAnchorTargetLab: entry.exactAnchorTargetLab ? {
+                    L: entry.exactAnchorTargetLab[0], a: entry.exactAnchorTargetLab[1], b: entry.exactAnchorTargetLab[2],
+                } : undefined,
+            }));
+            h = mapTargetsToPrintablePalette(palette, [{ ...rgbToLab(rgb), weight: 1 }])[0].projectedHeight;
+        }
         const layerIdx = findLayerIdxAtHeight(layers, h);
         return { targetRgb: rgb, layerIdx, actualErr: deltaE(rgb, colorAtLayer[layerIdx]) };
     });
@@ -241,7 +298,7 @@ export function buildPixelData(
  * Run the LUT simulation for a single window and return per-pixel optimal assignments.
  *
  * For each affected pixel (layerIdx ≥ wStart), every LUT entry is simulated:
- * - Layers below the window are captured in `baseColor` (colorAtLayer[wStart-1]).
+ * - Layers below the window retain their run context and `baseColor`.
  * - Window layers are applied in LUT order (up to the pixel's own layerIdx).
  * - Layers above the window continue in their original order.
  * The entry producing the lowest ΔE is recorded in `pixelOptimalLUTIdx`.
@@ -253,6 +310,7 @@ export function buildPixelData(
  * @param windowFilaments Unique filaments available in this window, in LUT index order.
  * @param lut            All K^N assignments from buildLUT(N, windowFilaments.length).
  * @param pixels         Swatch pixel data from buildPixelData.
+ * @param model          Result's optical model, for resolving changed substrates.
  */
 export function analyzeWindowLUT(
     wStart: number,
@@ -261,7 +319,8 @@ export function analyzeWindowLUT(
     baseColor: RGB,
     windowFilaments: WindowFilament[],
     lut: number[][],
-    pixels: PixelData[]
+    pixels: PixelData[],
+    model?: AppearanceEffectiveOpticsModelV1
 ): { errorFactor: number; affectedSwatches: number; pixelOptimalLUTIdx: number[] } {
     const wEnd = wStart + N - 1;
     let totalActualError = 0;
@@ -269,32 +328,56 @@ export function analyzeWindowLUT(
     let affectedSwatches = 0;
     const pixelOptimalLUTIdx: number[] = new Array(pixels.length).fill(-1);
 
+    const minErrors: number[] = new Array(pixels.length).fill(Infinity);
+    let lastLayer = wEnd;
     for (let pxIdx = 0; pxIdx < pixels.length; pxIdx++) {
         const px = pixels[pxIdx];
         if (px.layerIdx < wStart) continue;
         affectedSwatches++;
         totalActualError += px.actualErr;
+        lastLayer = Math.max(lastLayer, px.layerIdx);
+    }
+    if (affectedSwatches === 0) return { errorFactor: 0, affectedSwatches, pixelOptimalLUTIdx };
 
-        let minErr = Infinity;
-        let bestLUTIdx = 0;
-        const applyCount = Math.min(N, px.layerIdx - wStart + 1);
+    // A window may split a fitted run. Retain its original background and total
+    // thickness rather than treating the cached boundary color as a new substrate.
+    const prefix = startColorStack(layers[0]);
+    for (let i = 1; i < wStart; i++) appendColorStackLayer(prefix, layers[i]);
+    prefix.color = baseColor;
 
-        for (let li = 0; li < lut.length; li++) {
-            const entry = lut[li];
-            let c: RGB = { ...baseColor };
-            for (let j = 0; j < applyCount; j++) {
-                const fi = entry[j];
-                c = blendColors(c, windowFilaments[fi].rgb, windowFilaments[fi].td, layers[wStart + j].thickness);
+    for (let li = 0; li < lut.length; li++) {
+        const entry = lut[li];
+        const state = { ...prefix };
+        const colors: RGB[] = [];
+        for (let i = wStart; i <= lastLayer && i < layers.length; i++) {
+            let layer = layers[i];
+            if (i <= wEnd) {
+                const fi = entry[i - wStart];
+                const filament = windowFilaments[fi];
+                layer = {
+                    filamentIdx: filament.filamentIdx ?? fi,
+                    filamentId: filament.filamentId,
+                    filamentRgb: filament.rgb,
+                    td: filament.td,
+                    thickness: layer.thickness,
+                    startZ: layer.startZ,
+                };
             }
-            for (let i = wEnd + 1; i <= px.layerIdx && i < layers.length; i++) {
-                c = blendColors(c, layers[i].filamentRgb, layers[i].td, layers[i].thickness);
-            }
-            const err = deltaE(px.targetRgb, c);
-            if (err < minErr) { minErr = err; bestLUTIdx = li; }
+            appendColorStackLayer(state, layer, model);
+            colors[i] = state.color;
         }
-
-        pixelOptimalLUTIdx[pxIdx] = bestLUTIdx;
-        totalMinError += minErr;
+        for (let pxIdx = 0; pxIdx < pixels.length; pxIdx++) {
+            const px = pixels[pxIdx];
+            if (px.layerIdx < wStart) continue;
+            const err = deltaE(px.targetRgb, colors[px.layerIdx]);
+            if (err < minErrors[pxIdx]) {
+                minErrors[pxIdx] = err;
+                pixelOptimalLUTIdx[pxIdx] = li;
+            }
+        }
+    }
+    for (let pxIdx = 0; pxIdx < pixels.length; pxIdx++) {
+        if (pixels[pxIdx].layerIdx >= wStart) totalMinError += minErrors[pxIdx];
     }
 
     return { errorFactor: totalActualError - totalMinError, affectedSwatches, pixelOptimalLUTIdx };
@@ -321,9 +404,10 @@ export function analyzeMultiHeadWindows(
 
     const colorAtLayer = buildColorStack(layers);
     const pixels = buildPixelData(
-        imageSwatches, layers, colorAtLayer,
-        result.transitionZones, result.totalHeight, firstLayerHeight
+        imageSwatches, layers, colorAtLayer, result.finalStack
     );
+    const effectiveOptics = result.finalStack.appearanceModel.effectiveOptics;
+    const model = effectiveOptics?.filaments.length ? effectiveOptics : createPriorEffectiveOpticsModel(filaments);
 
     const windows: WindowResult[] = [];
 
@@ -334,13 +418,15 @@ export function analyzeMultiHeadWindows(
             Array.from({ length: N }, (_, j) => layers[wStart + j].filamentIdx)
         )];
         const windowFilaments: WindowFilament[] = uniqueIndices.map((fi) => ({
+            filamentIdx: fi,
+            filamentId: filaments[fi]?.id,
             rgb: hexToRgb(filaments[fi]?.color ?? '#000000'),
             td: channelHds(filaments[fi] ?? FALLBACK_FILAMENT),
         }));
         const lut = buildLUT(N, windowFilaments.length);
 
         const { errorFactor, affectedSwatches, pixelOptimalLUTIdx } = analyzeWindowLUT(
-            wStart, N, layers, colorAtLayer[wStart - 1], windowFilaments, lut, pixels
+            wStart, N, layers, colorAtLayer[wStart - 1], windowFilaments, lut, pixels, model
         );
 
         windows.push({

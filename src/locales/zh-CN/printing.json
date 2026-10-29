@@ -348,5 +348,31 @@
         "layerMeshComplete": "层网格已完成",
         "minimumValue": "最小值为{{minimum}}",
         "maximumValue": "最大值为{{maximum}}"
+    },
+    "multiHead": {
+        "mode": "多打印头模式",
+        "description": "在 {{heads}} 个打印头之间优化每个像素的耗材顺序。",
+        "incompatibleWithFlatPaint": "无法与 Flat Paint 同时使用——启用多打印头模式会关闭 Flat Paint。",
+        "headCount": "打印头数量",
+        "searchDepth": "搜索深度",
+        "searchHelp": "更深入的搜索会开启更多打印头窗口，并在每个窗口内尝试更多耗材顺序。搜索空间较大时，会使用数量受限且结果可复现的样本。",
+        "colorGrouping": "颜色分组",
+        "layerBasedGrouping": "按层分组（当前）",
+        "colorBasedGrouping": "按颜色分组（色相）",
+        "colorGroupingHelp": "按层分组会合并位于同一打印层的颜色（组数不超过层数）。按颜色分组会保留不同色相；装载的打印头较多时可能增加颜色，但打印头较少时可能不增加，甚至减少。需要更多计算。",
+        "noLayoutFallback": "多打印头分析未找到使用 {{heads}} 个打印头时优于普通堆叠的布局，已改为生成普通单打印头模型。",
+        "analysisFailedFallback": "多打印头分析未完成，已改为生成普通单打印头模型。请尝试减少打印头数量或更改搜索深度。",
+        "largePrintWarning": "此打印包含 {{layers}} 层——超过 64 层时，更换说明的生成可能较慢。",
+        "buildSchedulePrompt": "点击<action>生成 3D 模型</action>，生成多打印头模型和打印头计划。",
+        "noAssignments": "尚未计算打印头分配。",
+        "schedule": "打印头计划",
+        "beforePrint": "打印前<detail>——为所有打印头装入耗材</detail>",
+        "swapCheckpoint": "第 {{layer}} 层<detail>——需要更换耗材的打印头数量：{{swaps}}</detail>",
+        "head": "打印头 {{head}}",
+        "empty": "空",
+        "beforePrintText": "打印前——为所有打印头装入耗材：",
+        "swapCheckpointText": "第 {{layer}} 层——需要更换耗材的打印头数量：{{swaps}}：",
+        "invalidPlan": "多打印头计划不完整。请重新生成模型以再次分析。",
+        "swapMarker": " ← 更换"
     }
 }

@@ -189,3 +189,19 @@ export interface ThreeDControlsStateShape {
     autoPaintFilamentSwatches?: Swatch[];
     printableFeaturePixels?: PrintableFeaturePixelSnapshot;
 }
+
+/** Complete built routing data shared by the preview and 3MF export. */
+export type MultiHeadRoutingPlan = Required<
+    Pick<
+        ThreeDControlsStateShape,
+        | 'multiHeadCount'
+        | 'patchedSliceData'
+        | 'perColorLayerColors'
+        | 'colorLayerFilaments'
+        | 'multiHeadWindows'
+        | 'windowRunFilaments'
+        | 'nozzleAssignments'
+        | 'nonWindowedRanges'
+        | 'filaments'
+    >
+>;

@@ -72,7 +72,7 @@ export default function PrintInstructions({
             <div className="space-y-4 text-sm">
                 {tooManyColors && (
                     <div className="text-amber-600 text-sm p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
-                        This print has {colorCount} layers — swap instructions may be slow to generate above 64.
+                        {t('multiHead.largePrintWarning', { layers: colorCount })}
                     </div>
                 )}
                 {/* Recommended Settings */}
@@ -181,7 +181,13 @@ export default function PrintInstructions({
                     <HeadSchedule events={multiHeadPlan} />
                 ) : multiHeadMode ? (
                     <div className="text-muted-foreground text-sm p-3 rounded-lg bg-accent/5 border border-border/50">
-                        Click <span className="font-semibold text-foreground">Build 3D Model</span> to generate the multi-head schedule.
+                        <Trans
+                            ns="printing"
+                            i18nKey="multiHead.buildSchedulePrompt"
+                            components={{
+                                action: <span className="font-semibold text-foreground" />,
+                            }}
+                        />
                     </div>
                 ) : (
                     /* Single-head */
@@ -306,17 +312,18 @@ export default function PrintInstructions({
 // ---------------------------------------------------------------------------
 
 function HeadSchedule({ events }: { events: MultiHeadScheduleEvent[] }) {
+    const { t } = useTranslation('printing');
     if (events.length === 0) {
         return (
             <div className="text-muted-foreground text-sm p-3 rounded-lg bg-accent/5 border border-border/50">
-                No head assignments computed yet.
+                {t('multiHead.noAssignments')}
             </div>
         );
     }
 
     return (
         <div>
-            <div className="font-semibold text-foreground mb-3">Head Schedule</div>
+            <div className="font-semibold text-foreground mb-3">{t('multiHead.schedule')}</div>
             <div className="space-y-3">
                 {events.filter(evt => evt.isPrePrint || evt.swapCount > 0).map((evt, evtIdx) => {
                     return (
@@ -330,10 +337,24 @@ function HeadSchedule({ events }: { events: MultiHeadScheduleEvent[] }) {
                         >
                             {/* Event header */}
                             <div className="text-xs font-semibold text-foreground mb-2">
-                                {evt.isPrePrint
-                                    ? <>Before print <span className="font-normal text-muted-foreground"> — load all heads</span></>
-                                    : <>Layer {evt.startLayer}<span className="text-amber-600 dark:text-amber-400"> — swap {evt.swapCount} head{evt.swapCount !== 1 ? 's' : ''}</span></>
-                                }
+                                <Trans
+                                    ns="printing"
+                                    i18nKey={
+                                        evt.isPrePrint
+                                            ? 'multiHead.beforePrint'
+                                            : 'multiHead.swapCheckpoint'
+                                    }
+                                    values={{ layer: evt.startLayer, swaps: evt.swapCount }}
+                                    components={{
+                                        detail: (
+                                            <span className={
+                                                evt.isPrePrint
+                                                    ? 'font-normal text-muted-foreground'
+                                                    : 'text-amber-600 dark:text-amber-400'
+                                            } />
+                                        ),
+                                    }}
+                                />
                             </div>
 
                             {/* Nozzle rows — all heads shown; changed ones highlighted */}
@@ -348,7 +369,7 @@ function HeadSchedule({ events }: { events: MultiHeadScheduleEvent[] }) {
                                         }`}
                                     >
                                         <span className="w-14 flex-shrink-0 font-medium">
-                                            Head {n.nozzle}
+                                            {t('multiHead.head', { head: n.nozzle })}
                                         </span>
                                         <span
                                             className={`inline-block w-3.5 h-3.5 rounded border flex-shrink-0 ${
@@ -359,7 +380,7 @@ function HeadSchedule({ events }: { events: MultiHeadScheduleEvent[] }) {
                                             style={{ background: n.empty ? 'transparent' : n.filamentHex }}
                                         />
                                         <span className={n.empty ? 'italic opacity-70' : undefined}>
-                                            {n.filamentName}
+                                            {n.empty ? t('multiHead.empty') : n.filamentName}
                                         </span>
                                     </div>
                                 ))}

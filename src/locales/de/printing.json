@@ -348,5 +348,31 @@
     "layerMeshComplete": "Schichtnetz fertig",
     "minimumValue": "Mindestwert ist {{minimum}}",
     "maximumValue": "Höchstwert ist {{maximum}}"
+  },
+  "multiHead": {
+    "mode": "Mehrkopfmodus",
+    "description": "Filamentreihenfolgen pro Pixel für {{heads}} Druckköpfe optimieren.",
+    "incompatibleWithFlatPaint": "Nicht mit Flat Paint kompatibel — der Mehrkopfmodus schaltet Flat Paint aus.",
+    "headCount": "Anzahl der Druckköpfe",
+    "searchDepth": "Suchtiefe",
+    "searchHelp": "Eine tiefere Suche öffnet mehr Druckkopffenster und prüft mehr Filamentreihenfolgen pro Fenster. Große Suchräume werden mit einer begrenzten, deterministischen Stichprobe untersucht.",
+    "colorGrouping": "Farbgruppierung",
+    "layerBasedGrouping": "Nach Schicht (bisher)",
+    "colorBasedGrouping": "Nach Farbe (Farbton)",
+    "colorGroupingHelp": "Die Schichtgruppierung fasst Farben derselben Druckschicht zusammen (begrenzt auf die Schichtanzahl). Die Farbgruppierung trennt Farbtöne; mit mehr bestückten Köpfen sind zusätzliche Farben möglich, bei wenigen Köpfen jedoch keine oder sogar weniger. Benötigt mehr Rechenzeit.",
+    "noLayoutFallback": "Die Mehrkopfanalyse fand mit {{heads}} Druckköpfen keine Verbesserung des normalen Aufbaus — stattdessen wurde ein normales Modell für einen Druckkopf erstellt.",
+    "analysisFailedFallback": "Die Mehrkopfanalyse wurde nicht abgeschlossen — stattdessen wurde ein normales Modell für einen Druckkopf erstellt. Versuche weniger Druckköpfe oder eine andere Suchtiefe.",
+    "largePrintWarning": "Dieser Druck hat {{layers}} Schichten — bei mehr als 64 kann das Erstellen der Wechselanweisungen langsam sein.",
+    "buildSchedulePrompt": "Klicke auf <action>3D-Modell erstellen</action>, um das Mehrkopfmodell und den Druckkopfplan zu erzeugen.",
+    "noAssignments": "Es wurden noch keine Druckkopfzuweisungen berechnet.",
+    "schedule": "Druckkopfplan",
+    "beforePrint": "Vor dem Druck<detail> — alle Druckköpfe laden</detail>",
+    "swapCheckpoint": "Schicht {{layer}}<detail> — neu zu ladende Druckköpfe: {{swaps}}</detail>",
+    "head": "Druckkopf {{head}}",
+    "empty": "LEER",
+    "beforePrintText": "Vor dem Druck — alle Druckköpfe laden:",
+    "swapCheckpointText": "Schicht {{layer}} — neu zu ladende Druckköpfe: {{swaps}}:",
+    "invalidPlan": "Der Mehrkopfplan ist unvollständig. Erstelle das Modell erneut, um die Analyse zu wiederholen.",
+    "swapMarker": " ← wechseln"
   }
 }
