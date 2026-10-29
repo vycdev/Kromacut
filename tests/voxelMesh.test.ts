@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { Vector3 } from 'three';
-import { buildNozzleVoxelMesh, type NozzleLayerRecord } from '../src/lib/voxelMesh.ts';
+import { buildNozzleVoxelMesh, buildNozzleVoxelMeshAsync, type NozzleLayerRecord } from '../src/lib/voxelMesh.ts';
 import type { MeshData } from '../src/lib/meshing.ts';
 import { inspectMeshIntegrity } from './meshDiagnostics.ts';
 
@@ -92,4 +92,32 @@ test('voxel mesh caps missing layers and physical Z gaps independently', () => {
     ]) {
         assertClosedVoxelSurface(buildNozzleVoxelMesh(layers, 1, 1, 1), 2, 'Z gap');
     }
+});
+
+test('async voxel reconstruction yields during face generation, pairing, and triangulation', async () => {
+    const layers = [0, 1].map((z) => ({
+        mask: Uint8Array.from({ length: 144 }, (_, i) => Number((i % 12 + Math.floor(i / 12) + z) % 2 === 0)),
+        baseZ: z,
+        topZ: z + 1,
+    }));
+    let progress = 0;
+    const yieldedAt: number[] = [];
+    const mesh = await buildNozzleVoxelMeshAsync(layers, 12, 12, 1, {
+        yieldIntervalMs: 0,
+        onProgress: (value) => {
+            assert.ok(value >= progress && value <= 1, 'voxel progress must be monotonic');
+            progress = value;
+        },
+        onYield: async () => {
+            await new Promise<void>((resolve) => setTimeout(resolve, 0));
+            yieldedAt.push(progress);
+        },
+    });
+    for (const [start, end] of [[0, 0.6], [0.6, 0.8], [0.8, 1]]) {
+        assert.ok(yieldedAt.some((value) => value >= start && value < end),
+            `must yield during voxel phase ${start}-${end}`);
+    }
+    assert.equal(progress, 1);
+    assert.deepEqual(mesh, buildNozzleVoxelMesh(layers, 12, 12, 1), 'chunking must preserve geometry');
+    assertClosedVoxelSurface(mesh, 144, 'async checkerboard');
 });
