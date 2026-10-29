@@ -34,6 +34,47 @@ export function buildNozzleVoxelMesh(
     height: number,
     pixelSize: number,
 ): { positions: Float32Array; indices: number[] } {
+    const work = generateNozzleVoxelMesh(layers, width, height, pixelSize);
+    let step = work.next();
+    while (!step.done) step = work.next();
+    return step.value;
+}
+
+/** Use the same deterministic mesher while allowing the exporter to update the UI. */
+export async function buildNozzleVoxelMeshAsync(
+    layers: (NozzleLayerRecord | null)[],
+    width: number,
+    height: number,
+    pixelSize: number,
+    options: {
+        yieldIntervalMs?: number;
+        onYield?: () => Promise<void>;
+        onProgress?: (progress: number) => void;
+    } = {},
+): Promise<{ positions: Float32Array; indices: number[] }> {
+    const work = generateNozzleVoxelMesh(layers, width, height, pixelSize);
+    const yieldIntervalMs = options.yieldIntervalMs ?? 8;
+    const yieldControl = options.onYield ?? (() => new Promise<void>((resolve) => setTimeout(resolve, 0)));
+    let lastYield = performance.now();
+    let step = work.next();
+    while (!step.done) {
+        options.onProgress?.(step.value);
+        if (performance.now() - lastYield >= yieldIntervalMs) {
+            await yieldControl();
+            lastYield = performance.now();
+        }
+        step = work.next();
+    }
+    options.onProgress?.(1);
+    return step.value;
+}
+
+function* generateNozzleVoxelMesh(
+    layers: (NozzleLayerRecord | null)[],
+    width: number,
+    height: number,
+    pixelSize: number,
+): Generator<number, { positions: Float32Array; indices: number[] }> {
     const pos: number[] = [];
     const idx: number[] = [];
     const vmap = new Map<string, number>();
@@ -100,6 +141,9 @@ export function buildNozzleVoxelMesh(
         for (let r = 0; r < height; r++) {
             for (let c = 0; c < width; c++) {
                 const mi = r * width + c;
+                if (mi % 256 === 0) {
+                    yield 0.6 * (li + mi / (width * height)) / Math.max(1, numLayers);
+                }
                 if (!mask[mi]) continue;
                 voxel = li * width * height + mi;
 
@@ -147,6 +191,7 @@ export function buildNozzleVoxelMesh(
         }
     }
 
+    yield 0.6;
     const find = (corner: number): number => {
         while (parents[corner] !== corner) {
             parents[corner] = parents[parents[corner]];
@@ -176,6 +221,7 @@ export function buildNozzleVoxelMesh(
             midpoints.set(b, midpoint);
         }
     };
+    let processedEdges = 0;
     for (const uses of edgeUses.values()) {
         if (uses.length === 2) {
             pair(uses[0], uses[1], false);
@@ -192,7 +238,9 @@ export function buildNozzleVoxelMesh(
                 }
             }
         }
+        if (++processedEdges % 256 === 0) yield 0.6 + 0.2 * processedEdges / edgeUses.size;
     }
+    yield 0.8;
     const vertexMap = new Map<number, number>();
     const getCorner = (corner: number) => {
         const root = find(corner);
@@ -205,6 +253,7 @@ export function buildNozzleVoxelMesh(
         return vertex;
     };
     for (let start = 0; start < corners.length; start += 4) {
+        if (start % 256 === 0) yield 0.8 + 0.2 * start / corners.length;
         const boundary: number[] = [];
         for (let corner = start; corner < start + 4; corner++) {
             boundary.push(getCorner(corner));

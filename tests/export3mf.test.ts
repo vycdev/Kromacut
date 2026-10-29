@@ -2237,6 +2237,74 @@ test('multi-head occupancy export preserves mesh and parent transforms', async (
     }
 });
 
+test('multi-head export preserves every source smoothing strength', async () => {
+    const mask = maskFromRows(['#']);
+    for (const strength of ['minimal', 'medium', 'aggressive'] as const) {
+        const data = await generateSmoothMesh(mask.activePixels, 1, 1, 1, 0, 1, 1, {
+            strength, yieldIntervalMs: Infinity, onYield: async () => undefined,
+        });
+        const mesh = createCompactExportLayer(data, mask, 1, 1, 0x0000ff, false);
+        mesh.userData = { nozzleIndex: 1, baseZ: 0, topZ: 1 };
+        const root = new THREE.Group();
+        root.add(mesh);
+        const [normal] = await exportMeshObjects(root, { smoothMeshingStrength: strength });
+        for (const metadataStrength of [undefined, strength]) {
+            const archive = await exportArchiveXml(root, {
+                extruderCount: 2, smoothMeshingStrength: metadataStrength,
+            });
+            const [multiHead] = parseMeshObjects(archive.modelXml);
+            assert.deepEqual(multiHead.mesh, normal.mesh, `${strength} source shape must be preserved`);
+            assertRawExportObjectIsManifold(multiHead, `${strength} multi-head source`);
+            if (metadataStrength) {
+                assert.ok(archive.modelXml.includes(
+                    `<metadata name="Kromacut:SmoothMeshingStrength">${strength}</metadata>`
+                ));
+            }
+        }
+    }
+});
+
+test('smoothed multi-head fallback preserves separate indexed diagonal fans', async () => {
+    for (const strength of ['minimal', 'medium', 'aggressive'] as const) {
+        const root = new THREE.Group();
+        for (const [nozzle, rows] of [[1, ['#.', '.#']], [2, ['.#', '#.']]] as const) {
+            const mask = maskFromRows([...rows]);
+            const data = await generateSmoothMesh(mask.activePixels, 2, 2, 1, 0, 1, 1, {
+                strength, skipRepair: true, combinedMask: new Uint8Array(4).fill(1),
+                yieldIntervalMs: Infinity, onYield: async () => undefined,
+            });
+            const mesh = createCompactExportLayer(data, mask, 1, 1, 0x0000ff, false);
+            mesh.userData = { nozzleIndex: nozzle, baseZ: 0, topZ: 1 };
+            root.add(mesh);
+        }
+        const objects = await exportMeshObjects(root, { extruderCount: 2, smoothMeshingStrength: strength });
+        assert.equal(objects.length, 2);
+        for (const object of objects) assertRawExportObjectIsManifold(object, `${strength} diagonal fans`);
+    }
+});
+
+test('multi-head reconstruction yields to timers while reporting progress', async () => {
+    const { exportObjectTo3MFBlob } = await loadExport3mfModule();
+    const root = new THREE.Group();
+    root.add(await createNozzleOccupancyLayer(Array(128).fill('#'.repeat(128)), 1));
+    const samples: number[] = [];
+    const timerProgress: number[] = [];
+    let progress = 0;
+    const timer = setInterval(() => timerProgress.push(progress), 0);
+    try {
+        await exportObjectTo3MFBlob(root, {
+            extruderCount: 2,
+            onProgress: (value) => { progress = value; samples.push(value); },
+        });
+    } finally {
+        clearInterval(timer);
+    }
+    assertMonotonicProgress(samples, 'multi-head reconstruction and export');
+    assert.ok(timerProgress.some((value) => value > 0 && value < 0.2),
+        'timers must run during reconstruction, before mesh serialization');
+    assert.equal(samples.at(-1), 1);
+});
+
 test('multi-head occupancy export retains meshes without compatible voxel metadata', async () => {
     for (const incompatible of ['untagged', 'different grid'] as const) {
         const root = new THREE.Group();

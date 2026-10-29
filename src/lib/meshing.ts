@@ -665,7 +665,8 @@ async function generateGridMesh(
         }
     };
 
-    // Vertex welding maps: key = y * (width + 1) + x
+    // Weld within each surface fan. At an unrepaired diagonal contact the two
+    // occupied quadrants need distinct indices, even at identical coordinates.
     const topMap = new Map<number, number>();
     const bottomMap = new Map<number, number>();
     const stride = width + 1;
@@ -683,8 +684,18 @@ async function generateGridMesh(
         options.combinedMask
     );
 
-    const getOrAddVertex = (x: number, y: number, isTop: boolean): number => {
-        const key = y * stride + x;
+    const getOrAddVertex = (x: number, y: number, isTop: boolean, interiorY: number): number => {
+        let fan = 0;
+        if (options.skipRepair && x > 0 && x < width && y > 0 && y < height) {
+            const topLeft = !!meshingPixels[(y - 1) * width + x - 1];
+            const topRight = !!meshingPixels[(y - 1) * width + x];
+            const bottomLeft = !!meshingPixels[y * width + x - 1];
+            const bottomRight = !!meshingPixels[y * width + x];
+            if (topLeft === bottomRight && topRight === bottomLeft && topLeft !== topRight) {
+                fan = interiorY < y ? 0 : 1;
+            }
+        }
+        const key = (y * stride + x) * 2 + fan;
         const map = isTop ? topMap : bottomMap;
         let idx = map.get(key);
         if (idx !== undefined) return idx;
@@ -871,8 +882,8 @@ async function generateGridMesh(
 
         for (let i = 0; i < boundary.length; i++) {
             const [vx, vy] = boundary[i];
-            topLoop[i] = getOrAddVertex(vx, vy, true);
-            bottomLoop[i] = getOrAddVertex(vx, vy, false);
+            topLoop[i] = getOrAddVertex(vx, vy, true, y);
+            bottomLoop[i] = getOrAddVertex(vx, vy, false, y);
         }
 
         const facePoints = boundary.map(([vx, vy]) => {
@@ -983,10 +994,11 @@ async function generateGridMesh(
             const mustSplit = requiredVertices.has(runEnd) && isContiguous;
 
             if (!isContiguous || mustSplit || i === xCoords.length) {
-                const wTL = getOrAddVertex(runStart, yCoord, true);
-                const wTR = getOrAddVertex(runEnd, yCoord, true);
-                const wBR = getOrAddVertex(runEnd, yCoord, false);
-                const wBL = getOrAddVertex(runStart, yCoord, false);
+                const interiorY = isSouth ? yCoord - 1 : yCoord;
+                const wTL = getOrAddVertex(runStart, yCoord, true, interiorY);
+                const wTR = getOrAddVertex(runEnd, yCoord, true, interiorY);
+                const wBR = getOrAddVertex(runEnd, yCoord, false, interiorY);
+                const wBL = getOrAddVertex(runStart, yCoord, false, interiorY);
 
                 if (isSouth) {
                     addQuadCCW(wBL, wTL, wTR, wBR);
@@ -1028,10 +1040,10 @@ async function generateGridMesh(
             const mustSplit = requiredVertices.has(runEnd) && isContiguous;
 
             if (!isContiguous || mustSplit || i === yCoords.length) {
-                const wTL = getOrAddVertex(xCoord, runStart, true);
-                const wTR = getOrAddVertex(xCoord, runEnd, true);
-                const wBR = getOrAddVertex(xCoord, runEnd, false);
-                const wBL = getOrAddVertex(xCoord, runStart, false);
+                const wTL = getOrAddVertex(xCoord, runStart, true, runStart);
+                const wTR = getOrAddVertex(xCoord, runEnd, true, runStart);
+                const wBR = getOrAddVertex(xCoord, runEnd, false, runStart);
+                const wBL = getOrAddVertex(xCoord, runStart, false, runStart);
 
                 if (isEast) {
                     addQuadCCW(wBR, wTR, wTL, wBL);
