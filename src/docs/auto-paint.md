@@ -193,4 +193,12 @@ After changing process or layer height, inspect this evidence summary. A high ge
 
 Find a real spool if the suggestion is useful, then enter its real color and calibration. Do not print assuming the hypothetical row is already available. Suggestions reset when the image colors or filament set changes. A no-candidate result says the current set already covers the image well under this approximate test.
 
+## Multi-head printing
+
+Enable Multi-head mode in Auto-paint and choose 2–8 heads and a search depth. Building analyzes filament orders in the background and assigns each image region its own filament on each layer. The preview shows the simulated blend; Physical colors shows the actual filament. Multi-head and Flat Paint are mutually exclusive.
+
+After a successful build, follow the Head Schedule in Print Instructions: load the listed filaments before printing, leave EMPTY heads unused, and replace only the flagged heads at each checkpoint. Export as 3MF to preserve physical head assignments, filament colors, and M600 pause markers at those same swap layers. Use a compatible multi-head printer and verify head mapping, layer heights, and pauses in your slicer.
+
+If analysis fails or finds no usable improving layout, the build uses the normal single-head model and shows its start color and color swap instructions with a notice. Changing the image cancels pending analysis; build again for the new image.
+
 Next: [Flat Paint](flat-paint), [Calibration workflows](calibration-workflows), or [Generating and exporting output](generating-exporting-output).

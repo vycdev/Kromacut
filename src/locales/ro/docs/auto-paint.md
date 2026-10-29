@@ -193,4 +193,12 @@ După schimbarea procesului sau a înălțimii stratului, inspectează acest rez
 
 Găsește o rolă reală dacă sugestia este utilă, apoi introdu culoarea și calibrarea sa reale. Nu imprima presupunând că rândul ipotetic este deja disponibil. Sugestiile se resetează când se schimbă culorile imaginii sau setul de filamente. Un rezultat fără candidat arată că setul curent acoperă deja bine imaginea în cadrul acestui test aproximativ.
 
+## Imprimarea cu mai multe capete
+
+Activează modul cu mai multe capete în Auto-paint și alege 2–8 capete și o profunzime de căutare. Construirea analizează ordinea filamentelor în fundal și atribuie fiecărei regiuni a imaginii propriul filament pe fiecare strat. Previzualizarea arată amestecul simulat; culorile fizice arată filamentul real. Modul cu mai multe capete și Flat Paint se exclud reciproc.
+
+După o construire reușită, urmează programul capetelor din instrucțiunile de imprimare: încarcă filamentele indicate înainte de imprimare, lasă nefolosite capetele marcate GOL și schimbă filamentul doar în capetele semnalate la fiecare punct de control. Exportă în 3MF pentru a păstra atribuirile fizice ale capetelor, culorile filamentelor și marcajele de pauză M600 la aceleași straturi de schimbare. Folosește o imprimantă compatibilă cu mai multe capete și verifică atribuirile, înălțimile straturilor și pauzele în slicer.
+
+Dacă analiza eșuează sau nu găsește o configurație utilizabilă care să îmbunătățească rezultatul, se construiește modelul normal pentru un singur cap și se afișează culoarea inițială, instrucțiunile de schimbare a culorii și o notificare. Schimbarea imaginii anulează analiza în curs; reconstruiește modelul pentru noua imagine.
+
 În continuare: [Flat Paint](flat-paint), [Fluxuri de calibrare](calibration-workflows) sau [Generarea și exportul rezultatului](generating-exporting-output).

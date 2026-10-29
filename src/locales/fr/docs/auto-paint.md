@@ -193,4 +193,12 @@ Après un changement de procédé ou de hauteur de couche, examinez ce résumé.
 
 Trouvez une bobine réelle si la suggestion est utile, puis saisissez sa vraie couleur et son étalonnage. N’imprimez pas en supposant que la ligne hypothétique est déjà disponible. Les suggestions se réinitialisent lorsque les couleurs de l’image ou le jeu de filaments changent. L’absence de candidat indique que le jeu actuel couvre déjà bien l’image selon ce test approximatif.
 
+## Impression multi-têtes
+
+Activez le mode multi-têtes dans Auto-paint, puis choisissez 2 à 8 têtes et une profondeur de recherche. La construction analyse les ordres de filaments en arrière-plan et attribue à chaque région de l’image son propre filament à chaque couche. L’aperçu montre le mélange simulé ; les couleurs physiques montrent le filament réel. Le mode multi-têtes et Flat Paint sont incompatibles.
+
+Après une construction réussie, suivez le planning des têtes dans les instructions d’impression : chargez les filaments indiqués avant d’imprimer, laissez les têtes marquées VIDE inutilisées et ne rechargez que les têtes signalées à chaque point de contrôle. Exportez en 3MF pour conserver les affectations physiques des têtes, les couleurs des filaments et les marqueurs de pause M600 aux mêmes couches de changement. Utilisez une imprimante multi-têtes compatible et vérifiez les affectations, les hauteurs de couche et les pauses dans votre trancheur.
+
+Si l’analyse échoue ou ne trouve aucune disposition exploitable améliorant le résultat, la construction utilise le modèle normal à une seule tête et affiche sa couleur de départ, ses instructions de changement de couleur et un message explicatif. Changer d’image annule l’analyse en cours ; reconstruisez le modèle pour la nouvelle image.
+
 Suite : [Peinture à plat](flat-paint), [Méthodes d’étalonnage](calibration-workflows) ou [Génération et export](generating-exporting-output).

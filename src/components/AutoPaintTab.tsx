@@ -1453,10 +1453,10 @@ export default function AutoPaintTab({
                                         htmlFor="multi-head-mode"
                                         className="text-xs font-semibold text-foreground cursor-pointer"
                                     >
-                                        Multi-head mode
+                                        {t('multiHead.mode')}
                                     </Label>
                                     <p className="text-[10px] text-muted-foreground">
-                                        Optimize layer order per-pixel across N heads ({filaments.length > 0 ? `${Math.min(filaments.length, 5)}^${Math.min(filaments.length, 5)} = ${Math.pow(Math.min(filaments.length, 5), Math.min(filaments.length, 5)).toLocaleString()} color combinations` : 'load filaments to see'})
+                                        {t('multiHead.description', { heads: multiHeadCount })}
                                     </p>
                                 </div>
                                 <Switch
@@ -1478,11 +1478,11 @@ export default function AutoPaintTab({
                             {multiHeadMode && (
                                 <div className="space-y-2 pl-0.5">
                                     <p className="text-[10px] text-muted-foreground">
-                                        Not compatible with Flat Paint — enabling Multi-head turns Flat Paint off.
+                                        {t('multiHead.incompatibleWithFlatPaint')}
                                     </p>
                                     <div className="flex items-center gap-2">
                                         <Label htmlFor="multi-head-count" className="text-xs text-muted-foreground whitespace-nowrap">
-                                            Head count
+                                            {t('multiHead.headCount')}
                                         </Label>
                                         <NumberInput
                                             id="multi-head-count"
@@ -1501,7 +1501,7 @@ export default function AutoPaintTab({
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <Label htmlFor="multi-head-search-depth" className="text-xs text-muted-foreground whitespace-nowrap">
-                                            Search depth
+                                            {t('multiHead.searchDepth')}
                                         </Label>
                                         <Select
                                             value={multiHeadSearchDepth}
@@ -1512,19 +1512,19 @@ export default function AutoPaintTab({
                                             </SelectTrigger>
                                             <SelectContent>
                                                 <SelectItem value="fast" className="text-xs">
-                                                    Fast
+                                                    {t('autoPaintTab.tierFast')}
                                                 </SelectItem>
                                                 <SelectItem value="balanced" className="text-xs">
-                                                    Balanced
+                                                    {t('autoPaintTab.tierBalanced')}
                                                 </SelectItem>
                                                 <SelectItem value="thorough" className="text-xs">
-                                                    Thorough
+                                                    {t('autoPaintTab.tierThorough')}
                                                 </SelectItem>
                                             </SelectContent>
                                         </Select>
                                     </div>
                                     <p className="text-[10px] text-muted-foreground">
-                                        Deeper search opens more head windows and tries more filament orders per window (near-exhaustive at Thorough). It does not change which pixels are considered.
+                                        {t('multiHead.searchHelp')}
                                     </p>
                                 </div>
                             )}

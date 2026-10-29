@@ -193,4 +193,12 @@ Tras cambiar proceso o altura de capa, revisa este resumen. Una puntuación gene
 
 Busca una bobina real si la sugerencia sirve y después introduce su color y calibración. No imprimas suponiendo que la fila hipotética ya está disponible. Las sugerencias se restablecen si cambian colores o filamentos. Si no hay candidato, el conjunto actual ya cubre bien la imagen según esta prueba aproximada.
 
+## Impresión multicabezal
+
+Activa el modo multicabezal en Auto-paint y elige 2–8 cabezales y una profundidad de búsqueda. Al crear el modelo se analiza el orden de los filamentos en segundo plano y se asigna a cada región de la imagen su propio filamento en cada capa. La vista previa muestra la mezcla simulada; los colores físicos muestran el filamento real. El modo multicabezal y Flat Paint se excluyen mutuamente.
+
+Tras crear el modelo correctamente, sigue el programa de cabezales en las instrucciones de impresión: carga los filamentos indicados antes de imprimir, deja sin usar los cabezales marcados como VACÍO y recarga solo los señalados en cada punto de control. Exporta como 3MF para conservar las asignaciones físicas de cabezales, los colores de los filamentos y los marcadores de pausa M600 en las mismas capas de cambio. Usa una impresora multicabezal compatible y comprueba las asignaciones, las alturas de capa y las pausas en tu laminador.
+
+Si el análisis falla o no encuentra una disposición utilizable que mejore el resultado, se crea el modelo normal de un solo cabezal y se muestran su color inicial, sus instrucciones de cambio de color y un aviso. Cambiar la imagen cancela el análisis pendiente; vuelve a crear el modelo para la nueva imagen.
+
 Siguiente: [Pintura plana](flat-paint), [Flujos de calibración](calibration-workflows) o [Generación y exportación](generating-exporting-output).

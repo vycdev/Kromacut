@@ -33,7 +33,7 @@ import PreviewActions from './components/PreviewActions';
 import { useDropzone } from './hooks/useDropzone';
 import { exportObjectToStlBlob } from './lib/exportStl';
 import { exportObjectTo3MFBlob } from './lib/export3mf';
-import { buildMultiHeadSchedule } from './lib/multiHeadSchedule';
+import { getMultiHeadRoutingPlan, multiHeadExportOptions } from './lib/multiHeadBuild';
 import { useAppHandlers, type ExportProgressStep } from './hooks/useAppHandlers';
 import { useProcessingState } from './hooks/useProcessingState';
 import { useBuildWarning } from './hooks/useBuildWarning';
@@ -477,15 +477,10 @@ function App(): React.ReactElement | null {
     const builtModelState = builtThreeDState ?? threeDState;
     const builtModelAutoPaint = builtModelState.paintMode === 'autopaint';
     const builtModelValid = !builtModelAutoPaint || builtModelState.autoPaintResult !== undefined;
-
-    // Only drive the N-nozzle 3MF export when the built model actually carries a
-    // multi-head plan (selected windows + nozzle assignments). A flag alone —
-    // e.g. from an empty/failed analysis or stale persisted state — would make
-    // export3mf fall back to materialIndex-based extruders and misassign layers.
-    const multiHeadExportReady =
-        !!builtModelState.multiHeadMode &&
-        (builtModelState.multiHeadWindows?.length ?? 0) > 0 &&
-        (builtModelState.nozzleAssignments?.length ?? 0) > 0;
+    const builtMultiHeadPlan = useMemo(
+        () => getMultiHeadRoutingPlan(builtModelState),
+        [builtModelState]
+    );
 
     const prevModeRef = useRef<typeof mode>(mode);
 
@@ -694,32 +689,12 @@ function App(): React.ReactElement | null {
             exportObjectToStlBlob,
             exportObjectTo3MFBlob: (obj, onProgress, onZipProgress) =>
                 exportObjectTo3MFBlob(obj, {
+                    ...multiHeadExportOptions(builtMultiHeadPlan),
                     layerHeight: builtModelState.layerHeight,
                     firstLayerHeight: builtModelState.slicerFirstLayerHeight,
                     smoothMeshingStrength: builtModelState.smoothMeshingStrength,
                     layerFilamentColors: builtModelAutoPaint
-                        ? (
-                              builtModelState.patchedSliceData?.swatches ??
-                              builtModelState.autoPaintFilamentSwatches
-                          )?.map((s) => s.hex)
-                        : undefined,
-                    extruderCount: multiHeadExportReady
-                        ? builtModelState.multiHeadCount
-                        : undefined,
-                    // Head Schedule swap checkpoints -> pause markers at those layers.
-                    swapLayers: multiHeadExportReady
-                        ? buildMultiHeadSchedule({
-                              multiHeadWindows: builtModelState.multiHeadWindows,
-                              nozzleAssignments: builtModelState.nozzleAssignments,
-                              windowRunFilaments: builtModelState.windowRunFilaments,
-                              nonWindowedRanges: builtModelState.nonWindowedRanges,
-                              filaments: builtModelState.filaments,
-                          })
-                              ?.filter((e) => e.startLayer > 0 && e.swapCount > 0)
-                              ?.map((e) => ({
-                                  layer: e.startLayer,
-                                  color: e.nozzles.find((n) => n.changed)?.filamentHex,
-                              }))
+                        ? builtModelState.autoPaintFilamentSwatches?.map((s) => s.hex)
                         : undefined,
                     onProgress,
                     onZipProgress,
@@ -1032,27 +1007,7 @@ function App(): React.ReactElement | null {
                                                 }
                                                 pixelSize={builtModelState.pixelSize}
                                                 rebuildSignal={threeDBuildSignal}
-                                                perColorLayerColors={
-                                                    builtModelAutoPaint
-                                                        ? builtModelState.perColorLayerColors
-                                                        : undefined
-                                                }
-                                                multiHeadWindows={builtModelState.multiHeadWindows}
-                                                colorLayerFilaments={
-                                                    builtModelState.colorLayerFilaments
-                                                }
-                                                windowRunFilaments={
-                                                    builtModelState.windowRunFilaments
-                                                }
-                                                nozzleAssignments={
-                                                    builtModelState.nozzleAssignments
-                                                }
-                                                nonWindowedRanges={
-                                                    builtModelState.nonWindowedRanges
-                                                }
-                                                filamentIds={builtModelState.filaments?.map(
-                                                    (f) => f.id
-                                                )}
+                                                multiHeadPlan={builtMultiHeadPlan}
                                                 autoPaintEnabled={builtModelAutoPaint}
                                                 autoPaintTotalHeight={
                                                     builtModelState.autoPaintResult?.totalHeight
