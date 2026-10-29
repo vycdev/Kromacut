@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { generateGreedyMesh, generateSmoothMesh, type MeshData } from '../src/lib/meshing.ts';
+import { inspectMeshIntegrity } from './meshDiagnostics.ts';
 
 // Re-applied during the develop rebase: the multi-head / per-colour-group build
 // path passes skipBottomCap (stacked sub-meshes) and skipRepair (independent
@@ -197,3 +198,47 @@ test('skipRepair leaves diagonal corner-contacts split (default merges them)', a
         'skipRepair should leave more (unwelded) geometry than the default repair pass'
     );
 });
+
+for (const strength of ['minimal', 'medium', 'aggressive'] as const) {
+    test(`smooth: ${strength} shares cap and wall subdivisions at seam junctions`, async () => {
+        for (const rows of [
+            ['AB', 'AB', 'A.'],
+            ['AAA', 'BB.'],
+            ['AAB', 'ACB', 'ACC'],
+        ]) {
+            const width = rows[0].length;
+            const height = rows.length;
+            const combined = Uint8Array.from(rows.join(''), (color) => Number(color !== '.'));
+            const meshes = new Map<string, MeshData>();
+            for (const color of new Set(rows.join('').replaceAll('.', ''))) {
+                const mask = Uint8Array.from(rows.join(''), (cell) => Number(cell === color));
+                const mesh = await generateSmoothMesh(mask, width, height, 1, 0, 1, 1, {
+                    ...noYield, strength, skipRepair: true, combinedMask: combined,
+                });
+                assert.ok(inspectMeshIntegrity(mesh).isValid, `${color} must remain closed and oriented`);
+                meshes.set(color, mesh);
+            }
+            const key = (mesh: MeshData, i: number) =>
+                Array.from(mesh.positions.slice(i * 3, i * 3 + 3)).join(',');
+            for (const [color, mesh] of meshes) {
+                const others = [...meshes].filter(([other]) => other !== color);
+                for (let i = 0; i < mesh.positions.length / 3; i++) {
+                    const [x, y] = mesh.positions.slice(i * 3, i * 3 + 2);
+                    const gx = Math.round(x), gy = Math.round(y);
+                    const touchingColors = new Set<string>();
+                    for (const dy of [-1, 0]) for (const dx of [-1, 0]) {
+                        const cell = rows[gy + dy]?.[gx + dx];
+                        if (cell && cell !== '.') touchingColors.add(cell);
+                    }
+                    for (const [other, otherMesh] of others) {
+                        if (!touchingColors.has(other)) continue;
+                        const vertices = new Set(Array.from(
+                            { length: otherMesh.positions.length / 3 }, (_, j) => key(otherMesh, j)
+                        ));
+                        assert.ok(vertices.has(key(mesh, i)), `${rows}: ${color}/${other} seam vertex ${key(mesh, i)}`);
+                    }
+                }
+            }
+        }
+    });
+}

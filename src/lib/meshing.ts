@@ -770,6 +770,20 @@ async function generateGridMesh(
             verticesAtX.get(xCoord)!.add(y + h);
         }
 
+        if (options.smoothBoundary && options.combinedMask) {
+            // Other colour groups can end a seam anywhere along this rectangle.
+            // Use the shared unit grid on every cap/wall boundary so all groups
+            // include those junctions before applying the common smoothing map.
+            for (let dx = 1; dx < w; dx++) {
+                verticesAtY.get(y)!.add(x + dx);
+                verticesAtY.get(y + h)!.add(x + dx);
+            }
+            for (let dy = 1; dy < h; dy++) {
+                verticesAtX.get(x)!.add(y + dy);
+                verticesAtX.get(x + w)!.add(y + dy);
+            }
+        }
+
         await maybeYield();
     }
 
