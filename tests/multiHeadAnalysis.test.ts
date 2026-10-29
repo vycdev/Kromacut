@@ -3,10 +3,11 @@ import test from 'node:test';
 import { loadViteModule } from './helpers/viteModule.ts';
 import type { WindowResult, PrinterLayer } from '../src/lib/multiHeadAnalysis.ts';
 import type { Filament } from '../src/types/index.ts';
+import type { AppearanceEffectiveOpticsModelV1 } from '../src/types/appearance.ts';
 
 // autoPaint + multiHeadAnalysis reach an extensionless-import graph, so load them
 // through Vite (matching the rest of the suite) rather than node's strip-types loader.
-const { generateAutoLayers } =
+const { generateAutoLayers, deltaE, hexToRgb, mapTargetsToPrintablePalette, rgbToLab } =
     await loadViteModule<typeof import('../src/lib/autoPaint.ts')>('/src/lib/autoPaint.ts');
 const {
     analyzeMultiHeadWindows,
@@ -14,9 +15,15 @@ const {
     buildLUT,
     buildColorStack,
     runMultiHeadLayerAnalysis,
+    expandZonesToPrinterLayers,
+    buildPixelData,
+    analyzeWindowLUT,
+    findLayerIdxAtHeight,
 } = await loadViteModule<typeof import('../src/lib/multiHeadAnalysis.ts')>(
     '/src/lib/multiHeadAnalysis.ts'
 );
+const { createPriorEffectiveOpticsModel, predictEffectiveAutoPaintColor } =
+    await loadViteModule<typeof import('../src/lib/effectiveOptics.ts')>('/src/lib/effectiveOptics.ts');
 
 // ---------------------------------------------------------------------------
 // Shared fixture helpers
@@ -40,6 +47,199 @@ const SWATCHES_GREY = [{ hex: '#808080' }, { hex: '#e0e0e0' }];
 // Black and white filaments — high TD so the model is tall enough for windowed analysis
 const BLACK = filament('black', '#000000', 5.0, 'Black');
 const WHITE = filament('white', '#ffffff', 5.0, 'White');
+
+test('printer layers match the final printable grid and filament boundaries', () => {
+    for (const layerHeight of [0.12, 0.1]) {
+        const filaments = [BLACK, WHITE];
+        const result = generateAutoLayers(filaments, SWATCHES_GREY, layerHeight, FIRST_LAYER_HEIGHT);
+        const layers = expandZonesToPrinterLayers(result, filaments, layerHeight, FIRST_LAYER_HEIGHT);
+        const windows = analyzeMultiHeadWindows(
+            filaments, result, SWATCHES_GREY, layerHeight, FIRST_LAYER_HEIGHT, 2
+        );
+        assert.equal(windows.length, layers.length - 2);
+        assert.ok(Math.abs(windows.at(-1)!.windowTopZ - result.finalStack.totalHeight) < 1e-8);
+        assert.deepEqual(
+            layers.map((layer) => ({
+                start: layer.startZ,
+                thickness: layer.thickness,
+                filamentId: filaments[layer.filamentIdx].id,
+            })),
+            result.finalStack.layers.map((layer) => ({
+                start: layer.startHeight,
+                thickness: layer.thickness,
+                filamentId: layer.filamentId,
+            }))
+        );
+    }
+});
+
+test('printer layers reject a grid that differs from the final stack', () => {
+    const result = buildResult([BLACK, WHITE], SWATCHES_GREY);
+    assert.throws(() => expandZonesToPrinterLayers(result, [BLACK, WHITE], 0.1, FIRST_LAYER_HEIGHT),
+        /slice grid/);
+});
+
+test('swatch layers and baseline errors use final-stack surface mappings', () => {
+    const result = buildResult([BLACK, WHITE], SWATCHES_GREY);
+    const layers = expandZonesToPrinterLayers(result, [BLACK, WHITE], LAYER_HEIGHT, FIRST_LAYER_HEIGHT);
+    const colors = buildColorStack(layers);
+    const swatches = [...SWATCHES_GREY].reverse();
+    const pixels = buildPixelData(swatches, layers, colors, result.finalStack);
+    for (let index = 0; index < swatches.length; index++) {
+        const mapping = result.finalStack.targetMappings.find(
+            (entry) => entry.targetColor.hex === swatches[index].hex
+        )!;
+        const expectedIndex = result.finalStack.layers.findIndex(
+            (layer) => Math.abs(layer.endHeight - mapping.projectedHeight) < 1e-6
+        );
+        assert.equal(pixels[index].layerIdx, expectedIndex);
+        assert.equal(pixels[index].actualErr, deltaE(pixels[index].targetRgb, colors[expectedIndex]));
+    }
+    const windows = analyzeMultiHeadWindows(
+        [BLACK, WHITE], result, swatches, LAYER_HEIGHT, FIRST_LAYER_HEIGHT, 2
+    );
+    for (const window of windows) {
+        assert.equal(window.affectedSwatches, pixels.filter((px) => px.layerIdx >= window.windowStart).length);
+        for (let index = 0; index < pixels.length; index++) {
+            assert.equal(window.pixelOptimalLUTIdx[index] === -1, pixels[index].layerIdx < window.windowStart);
+        }
+    }
+});
+
+test('unmapped swatches use the shared palette mapper and exact surface boundaries', () => {
+    const result = buildResult([BLACK, WHITE], SWATCHES_GREY);
+    const layers = expandZonesToPrinterLayers(result, [BLACK, WHITE], LAYER_HEIGHT, FIRST_LAYER_HEIGHT);
+    const swatches = [{ hex: '#4A4A4A' }, { hex: '#AbAbAb' }];
+    const pixels = buildPixelData(swatches, layers, buildColorStack(layers), result.finalStack);
+    const palette = result.finalStack.palette.map((entry) => ({
+        height: entry.height,
+        surfaceEligible: entry.surfaceEligible,
+        predictionConfidence: entry.predictionConfidence,
+        rgb: hexToRgb(entry.predictedColor.hex),
+        lab: { L: entry.predictedLab[0], a: entry.predictedLab[1], b: entry.predictedLab[2] },
+    }));
+    const mappings = mapTargetsToPrintablePalette(palette,
+        swatches.map((s) => ({ ...rgbToLab(hexToRgb(s.hex)), weight: 1 })));
+    for (let index = 0; index < pixels.length; index++) {
+        const layerIdx = findLayerIdxAtHeight(layers, mappings[index].projectedHeight);
+        assert.equal(pixels[index].layerIdx, layerIdx);
+        const surface = result.finalStack.layers[layerIdx].endHeight;
+        assert.equal(findLayerIdxAtHeight(layers, surface), layerIdx);
+        assert.equal(findLayerIdxAtHeight(layers, surface + 1e-10), layerIdx);
+    }
+});
+
+function fittedFixture() {
+    const filaments = [
+        filament('black', '#000000', 0.1),
+        filament('grey', '#888844', 0.3),
+        filament('white', '#ffffff', 0.5),
+    ];
+    const prior = createPriorEffectiveOpticsModel(filaments);
+    const model: AppearanceEffectiveOpticsModelV1 = {
+        ...prior,
+        applied: true,
+        gateReason: 'applied',
+        filaments: prior.filaments.map((entry) => entry.filamentId === 'white' ? {
+            ...entry,
+            effectiveOpaqueColor: [235, 240, 245],
+            effectiveHdChannels: [1, 1.1, 1.2],
+            transmissionExponent: 1.3,
+        } : entry.filamentId === 'black' ? { ...entry, effectiveOpaqueColor: [8, 5, 3] } : entry),
+        substrateInteractions: filaments.flatMap((foreground, index) => filaments
+            .filter((substrate) => substrate.id !== foreground.id)
+            .map((substrate) => ({
+                foregroundFilamentId: foreground.id,
+                substrateFilamentId: substrate.id,
+                hdMultiplier: substrate.id === 'black' ? 1 : 1.4 + index * 0.2,
+                sampleCount: 20,
+                maxObservedThickness: 0.25,
+            }))),
+    };
+    const swatches = [{ hex: '#000000' }, { hex: '#888844' }, { hex: '#ffffff' }];
+    const identity = buildResult(filaments, swatches).finalStack.appearanceModel;
+    const result = generateAutoLayers(filaments, swatches, 0.125, 0.25,
+        undefined, false, false, undefined, { ...identity, effectiveOptics: model });
+    const layers = expandZonesToPrinterLayers(result, filaments, 0.125, 0.25);
+    return { filaments, model, result, layers, swatches };
+}
+
+test('color stack preserves fitted optics across whole runs and beyond fitted support', () => {
+    const { result, layers } = fittedFixture();
+    const colors = buildColorStack(layers);
+    for (let index = 0; index < layers.length; index++) {
+        const expected = result.finalStack.layers[index].basePredictedColor.rgb;
+        assert.ok(Math.abs(colors[index].r - expected[0]) <= 0.5, `red at layer ${index}`);
+        assert.ok(Math.abs(colors[index].g - expected[1]) <= 0.5, `green at layer ${index}`);
+        assert.ok(Math.abs(colors[index].b - expected[2]) <= 0.5, `blue at layer ${index}`);
+    }
+});
+
+test('LUT candidates resolve changed substrates, continued runs, and the suffix with fitted optics', () => {
+    const { filaments, model, layers } = fittedFixture();
+    const colors = buildColorStack(layers);
+    const whiteStart = layers.findIndex((layer) => filaments[layer.filamentIdx].id === 'white');
+    const lut = buildLUT(2, filaments.length);
+    const windowFilaments = filaments.map((filament, filamentIdx) => ({
+        filamentIdx,
+        filamentId: filament.id,
+        rgb: hexToRgb(filament.color),
+        td: filament.td,
+    }));
+    for (const start of [1, whiteStart - 1, whiteStart + 1]) {
+        for (const surface of [start, start + 1, Math.min(start + 4, layers.length - 1)]) {
+            const predictions = lut.map((entry) => {
+                const recipe = layers.slice(0, surface + 1).map((layer, index) => ({
+                    filamentId: filaments[index >= start && index < start + 2
+                        ? entry[index - start] : layer.filamentIdx].id,
+                    thickness: layer.thickness,
+                }));
+                const [r, g, b] = predictEffectiveAutoPaintColor(model, recipe)!;
+                return { r, g, b };
+            });
+            const pixels = predictions.map((targetRgb) => ({
+                targetRgb, layerIdx: surface, actualErr: deltaE(targetRgb, colors[surface]),
+            }));
+            const analysis = analyzeWindowLUT(start, 2, layers, colors[start - 1], windowFilaments, lut, pixels, model);
+            let expectedImprovement = 0;
+            for (let index = 0; index < pixels.length; index++) {
+                const errors = predictions.map((color) => deltaE(pixels[index].targetRgb, color));
+                const bestError = Math.min(...errors);
+                assert.ok(Math.abs(errors[analysis.pixelOptimalLUTIdx[index]] - bestError) < 1e-8,
+                    `window ${start}, target ${index}`);
+                expectedImprovement += pixels[index].actualErr - bestError;
+            }
+            assert.ok(Math.abs(analysis.errorFactor - expectedImprovement) < 1e-8);
+        }
+    }
+});
+
+test('window analysis uses the result optical model for every candidate', () => {
+    const { filaments, model, result, layers, swatches } = fittedFixture();
+    const pixels = buildPixelData(swatches, layers, buildColorStack(layers), result.finalStack);
+    const windows = analyzeMultiHeadWindows(filaments, result, swatches, 0.125, 0.25, 2);
+    for (const window of windows) {
+        let improvement = 0;
+        for (let index = 0; index < pixels.length; index++) {
+            const px = pixels[index];
+            if (px.layerIdx < window.windowStart) continue;
+            const errors = window.lut.map((entry) => {
+                const recipe = layers.slice(0, px.layerIdx + 1).map((layer, layerIdx) => ({
+                    filamentId: layerIdx >= window.windowStart && layerIdx <= window.windowEnd
+                        ? window.filamentIds[entry[layerIdx - window.windowStart]]
+                        : filaments[layer.filamentIdx].id,
+                    thickness: layer.thickness,
+                }));
+                const [r, g, b] = predictEffectiveAutoPaintColor(model, recipe)!;
+                return deltaE(px.targetRgb, { r, g, b });
+            });
+            const minimum = Math.min(...errors);
+            assert.ok(Math.abs(errors[window.pixelOptimalLUTIdx[index]] - minimum) < 1e-8);
+            improvement += px.actualErr - minimum;
+        }
+        assert.ok(Math.abs(window.errorFactor - improvement) < 1e-8);
+    }
+});
 
 // Two identical filaments (same colour, same TD)
 const RED_A = filament('red-a', '#cc2200', 5.0, 'RedA');
