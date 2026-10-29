@@ -38,7 +38,18 @@ A **Profundidade da pesquisa** controla o limiar de seleção das janelas, quant
 - **Equilibrado** é o compromisso predefinido entre esforço e cobertura.
 - **Minucioso** permite mais janelas e um orçamento maior; pode continuar a usar amostragem em espaços de pesquisa grandes.
 
-Dentro do orçamento de cada profundidade, todas as combinações são testadas. Os espaços maiores usam uma amostra limitada e determinística, juntamente com a ordem atual. Entradas idênticas dão resultados repetíveis. Todas as profundidades consideram as mesmas cores da imagem; uma pesquisa mais profunda não garante uma impressão física melhor.
+Dentro do orçamento de cada profundidade, todas as combinações são testadas. Os espaços maiores usam uma amostra limitada e determinística, juntamente com a ordem atual. Entradas idênticas dão resultados repetíveis. Todas as profundidades consideram as mesmas cores da imagem; uma pesquisa mais profunda não garante uma impressão física melhor. Para o agrupamento das cores alvo, consulte [Agrupamento de cores](#color-grouping).
+
+## Agrupamento de cores
+
+Antes da pesquisa, o Kromacut agrupa a paleta nas cores alvo que tentará reproduzir. O controlo **Agrupamento de cores** define como:
+
+- **Por camada (atual)** — as cores associadas à mesma camada de impressão no resultado do Auto-paint são reunidas num único alvo. Tonalidades diferentes podem, por isso, partilhar um alvo. Existe, no máximo, um grupo alvo por camada ocupada.
+- **Por cor (tonalidade)** — as tonalidades distintas podem permanecer como alvos separados nas suas camadas de impressão originais. As paletas grandes são reduzidas dentro de um limite de grupos, mantendo pelo menos um grupo por camada ocupada; as cores de camadas diferentes nunca são unidas.
+
+O agrupamento por cor não garante um erro de cor menor nem mais cores impressas. Os resultados dependem da imagem, da calibração dos filamentos, do número de cabeças e das janelas selecionadas. A pesquisa minimiza a diferença de cor CIE76; uma pontuação de pesquisa menor pode ainda assim ter um erro CIEDE2000 maior. A construção pode demorar mais. As cores que pode imprimir continuam limitadas pelos filamentos e pelas suas pilhas físicas.
+
+O agrupamento de cores é guardado assim que o altera, antes da construção. Reconstrua com cada opção e compare as pré-visualizações da sua imagem.
 
 ## Plano das cabeças e exportação
 

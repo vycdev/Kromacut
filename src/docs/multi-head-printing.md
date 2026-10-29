@@ -38,18 +38,18 @@ With K distinct filaments in a window and N run positions, there are **K^N** pos
 - **Balanced** is the default compromise between effort and coverage.
 - **Thorough** allows more windows and a larger combination budget; it can still sample large search spaces.
 
-Within each depth's budget, all combinations are tested. Larger spaces use a bounded, deterministic sample plus the current order. Identical inputs give repeatable results. Every depth considers the same target color groups (see [Color Grouping](#color-grouping)); deeper search does not guarantee a better physical print.
+Within each depth's budget, all combinations are tested. Larger spaces use a bounded, deterministic sample plus the current order. Identical inputs give repeatable results. Every depth considers the same image colors; deeper search does not guarantee a better physical print. For target grouping, see [Color Grouping](#color-grouping).
 
 ## Color Grouping
 
 Before the search runs, Kromacut groups your palette into the target colors it will try to reproduce. The **Color grouping** control decides how:
 
-- **Layer-based (current)** — colors that map to the same printer layer in the Auto-paint result are merged into one target. Two colors with different hues can therefore collapse together when they share a printable height. This caps the number of distinct colors at roughly the number of printer layers, no matter how many colors your image was quantized to.
-- **Color-based (per-hue)** — distinct hues are kept as distinct targets even when they share a height, so the optimizer can try to reproduce them separately.
+- **Layer-based (current)** — colors that map to the same printer layer in the Auto-paint result are merged into one target. Different hues can therefore share a target. There is at most one target group per occupied layer.
+- **Color-based (per-hue)** — distinct hues can remain separate targets on their original print layers. Large palettes are reduced within a group budget, with at least one group per occupied layer; colors from different print layers are never merged.
 
-Color-based grouping removes the height-collapse bottleneck, but it is not an automatic "more colors" switch. How many distinct colors actually appear also depends on how many head **windows** the optimizer opens: colors only diverge from the shared base stack inside a window, so the benefit grows with your **head count** and can be small — or occasionally negative — at low head counts (for example, two heads). It also asks the optimizer to solve for more targets, so builds take longer, and the number of color groups is capped to keep the search bounded. As always, the colors you can actually get are limited by what your loaded filaments and head swaps can physically make at each height.
+Color-based grouping does not guarantee lower color error or more printed colors. Results depend on the image, filament calibration, head count, and selected windows. The search minimizes CIE76 color difference; a lower search score can still have a higher CIEDE2000 error. Builds can take longer. The colors you can print remain limited by your filaments and their physical stacks.
 
-Treat this as a setting to try per-image rather than a guaranteed win: build with each option and keep whichever looks better for your print.
+Color grouping is saved as soon as you change it, before building. Rebuild with each option and compare the previews for your image.
 
 ## Head Schedule and Export
 

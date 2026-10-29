@@ -389,7 +389,7 @@
     "colorGrouping": "Agrupamento de cores",
     "layerBasedGrouping": "Por camada (atual)",
     "colorBasedGrouping": "Por cor (tonalidade)",
-    "colorGroupingHelp": "O agrupamento por camada junta cores da mesma camada de impressão (limitadas ao número de camadas). O agrupamento por cor mantém as tonalidades separadas; pode acrescentar cores com mais cabeças carregadas, mas nenhuma — ou até menos — com poucas cabeças. Exige mais cálculo.",
+    "colorGroupingHelp": "Por camada junta as cores da mesma camada de impressão. Por cor separa tonalidades dentro de um limite de grupos, mantendo as suas camadas. Pode demorar mais e não garante menos erro de cor nem mais cores impressas. Guardado imediatamente; reconstrua para comparar.",
     "noLayoutFallback": "A análise multicabeças não encontrou uma disposição melhor do que o empilhamento normal com {{heads}} cabeças — foi criado um modelo normal de uma só cabeça.",
     "analysisFailedFallback": "A análise multicabeças não terminou — foi criado um modelo normal de uma só cabeça. Experimenta menos cabeças ou outra profundidade de pesquisa.",
     "largePrintWarning": "Esta impressão tem {{layers}} camadas — acima de 64, as instruções de mudança podem demorar a ser geradas.",

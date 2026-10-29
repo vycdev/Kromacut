@@ -38,7 +38,18 @@ Die **Suchtiefe** bestimmt die Auswahlhürde für Fenster, deren mögliche Anzah
 - **Ausgewogen** ist der voreingestellte Kompromiss zwischen Aufwand und Abdeckung.
 - **Gründlich** erlaubt mehr Fenster und ein größeres Kombinationsbudget; große Suchräume können weiterhin stichprobenartig untersucht werden.
 
-Innerhalb des Budgets jeder Suchtiefe werden alle Kombinationen geprüft. Größere Räume verwenden eine begrenzte deterministische Stichprobe sowie die aktuelle Reihenfolge. Gleiche Eingaben liefern reproduzierbare Ergebnisse. Jede Suchtiefe berücksichtigt dieselben Bildfarben; eine tiefere Suche garantiert keinen besseren realen Druck.
+Innerhalb des Budgets jeder Suchtiefe werden alle Kombinationen geprüft. Größere Räume verwenden eine begrenzte deterministische Stichprobe sowie die aktuelle Reihenfolge. Gleiche Eingaben liefern reproduzierbare Ergebnisse. Jede Suchtiefe berücksichtigt dieselben Bildfarben; eine tiefere Suche garantiert keinen besseren realen Druck. Zur Gruppierung der Zielfarben siehe [Farbgruppierung](#color-grouping).
+
+## Farbgruppierung
+
+Vor der Suche fasst Kromacut Ihre Palette zu Zielfarben zusammen, die nachgebildet werden sollen. Die Einstellung **Farbgruppierung** bestimmt das Verfahren:
+
+- **Nach Schicht (bisher)** — Farben, die im Auto-paint-Ergebnis derselben Druckschicht zugeordnet sind, werden zu einer Zielfarbe zusammengefasst. Verschiedene Farbtöne können daher eine Zielfarbe teilen. Pro belegter Schicht gibt es höchstens eine Zielgruppe.
+- **Nach Farbe (Farbton)** — unterschiedliche Farbtöne können auf ihren ursprünglichen Druckschichten getrennte Zielfarben bleiben. Große Paletten werden innerhalb eines Gruppenbudgets reduziert, wobei mindestens eine Gruppe pro belegter Schicht erhalten bleibt; Farben verschiedener Druckschichten werden nie zusammengefasst.
+
+Die Farbgruppierung garantiert weder einen geringeren Farbfehler noch mehr gedruckte Farben. Das Ergebnis hängt vom Bild, der Filamentkalibrierung, der Kopfanzahl und den ausgewählten Fenstern ab. Die Suche minimiert den CIE76-Farbabstand; ein besserer Suchwert kann dennoch einen höheren CIEDE2000-Fehler haben. Der Aufbau kann länger dauern. Die druckbaren Farben bleiben durch Ihre Filamente und deren physische Schichtfolgen begrenzt.
+
+Die Farbgruppierung wird sofort beim Ändern gespeichert, noch vor dem Aufbau. Erstellen Sie das Modell mit beiden Optionen neu und vergleichen Sie die Vorschauen Ihres Bildes.
 
 ## Druckkopfplan und Export
 

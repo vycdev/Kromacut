@@ -389,7 +389,7 @@
     "colorGrouping": "Raggruppamento dei colori",
     "layerBasedGrouping": "Per strato (attuale)",
     "colorBasedGrouping": "Per colore (tonalità)",
-    "colorGroupingHelp": "Il raggruppamento per strato unisce i colori sullo stesso strato di stampa (limitati al numero di strati). Quello per colore mantiene separate le tonalità; può aggiungere colori con più testine caricate, ma nessuno — o persino meno — con poche testine. Richiede più calcoli.",
+    "colorGroupingHelp": "Per strato unisce i colori dello stesso strato di stampa. Per colore separa le tonalità entro un limite di gruppi, mantenendone gli strati. Può richiedere più tempo e non garantisce meno errore cromatico o più colori stampati. Salvato subito; ricostruisci per confrontare.",
     "noLayoutFallback": "L’analisi multi-testa non ha trovato una disposizione migliore della pila normale con {{heads}} teste — è stato creato un normale modello a testa singola.",
     "analysisFailedFallback": "L’analisi multi-testa non è terminata — è stato creato un normale modello a testa singola. Prova meno teste o una diversa profondità di ricerca.",
     "largePrintWarning": "Questa stampa ha {{layers}} strati — oltre 64, la generazione delle istruzioni di cambio può essere lenta.",

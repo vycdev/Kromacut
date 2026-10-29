@@ -146,7 +146,8 @@ for (const { heads, luminance, color } of byHeads) {
     });
 }
 
-test('rocco: color grouping lowers mean ΔE2000 on average across head counts', () => {
+test('rocco: color grouping lowers mean ΔE2000 on average across head counts', (t) => {
+    t.diagnostic(JSON.stringify({ baseline, byHeads }));
     const gain =
         byHeads.reduce((sum, r) => sum + (r.luminance.meanDeltaE - r.color.meanDeltaE), 0) /
         byHeads.length;

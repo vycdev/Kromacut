@@ -781,7 +781,7 @@ test('buildColorGroupedPixels — preserves more colors than the layer-based col
 });
 
 test('buildColorGroupedPixels — never exceeds the group cap', () => {
-    const colors = distinctColors(COLOR_GROUP_CAP + 30);
+    const colors = distinctColors(256);
     const { result, layers, colorAtLayer } = shortModel(colors);
     const grouped = buildColorGroupedPixels(
         colors, layers, colorAtLayer,
@@ -793,6 +793,10 @@ test('buildColorGroupedPixels — never exceeds the group cap', () => {
     for (const idx of grouped.hexToGroupIdx.values()) {
         assert.ok(idx >= 0 && idx < COLOR_GROUP_CAP);
     }
+    const mapped = buildPixelData(colors, layers, colorAtLayer, result.finalStack);
+    colors.forEach((swatch, i) => {
+        assert.equal(grouped.pixels[grouped.hexToGroupIdx.get(swatch.hex)!].layerIdx, mapped[i].layerIdx);
+    });
 });
 
 test('buildColorGroupedPixels — deterministic for identical input', () => {
@@ -812,6 +816,58 @@ test('buildColorGroupedPixels — deterministic for identical input', () => {
     for (const [hex, idx] of a.hexToGroupIdx) {
         assert.equal(b.hexToGroupIdx.get(hex), idx);
     }
+});
+
+test('capped color groups retain member surfaces and ignore layers those members never print', () => {
+    const { filaments, result } = multiWindowFixture();
+    const swatches = [
+        { hex: '#808080', count: 100 },
+        { hex: '#080808', count: 99 },
+        { hex: '#818181', count: 1 },
+    ];
+    const stack = {
+        ...result.finalStack,
+        targetMappings: swatches.map((swatch, i) => ({
+            ...result.finalStack.targetMappings[0],
+            targetColor: { ...result.finalStack.targetMappings[0].targetColor, hex: swatch.hex },
+            projectedHeight: i === 0 ? 0.75 : 0.5,
+        })),
+    };
+    const layers = expandZonesToPrinterLayers(result, filaments, 0.25, 0.25);
+    const colors = buildColorStack(layers);
+    // Without a layer constraint, the rare #818181 joins the high-frequency
+    // #808080 seed on layer 2, although it physically stops on layer 1.
+    const grouped = buildColorGroupedPixels(swatches, layers, colors, stack, 2);
+    assert.equal(grouped.pixels.length, 2);
+    const mapped = buildPixelData(swatches, layers, colors, stack);
+    for (let i = 0; i < swatches.length; i++) {
+        const group = grouped.pixels[grouped.hexToGroupIdx.get(swatches[i].hex)!];
+        assert.equal(group.layerIdx, mapped[i].layerIdx, swatches[i].hex);
+        assert.equal(group.actualErr, deltaE(group.targetRgb, colors[group.layerIdx]));
+    }
+    assert.deepEqual(grouped, buildColorGroupedPixels([...swatches].reverse(), layers, colors, stack, 2));
+
+    const group = grouped.pixels[grouped.hexToGroupIdx.get('#818181')!];
+    const windowRuns = [{ filamentIdx: 1, startLayerIdx: 1, endLayerIdx: 1 }];
+    const windowFilaments = filaments.map((f, filamentIdx) => ({
+        filamentIdx, filamentId: f.id, rgb: hexToRgb(f.color), td: channelHds(f),
+    }));
+    const score = (candidateLayers: typeof layers) => computeColorOptimalAssignments(
+        windowRuns, 1, candidateLayers, colors[0], windowFilaments, [group]
+    );
+    const changedSuffix = layers.map((layer, i) => i < 2 ? layer : {
+        ...layer, filamentIdx: 1, filamentId: filaments[1].id,
+        filamentRgb: hexToRgb(filaments[1].color), td: channelHds(filaments[1]),
+    });
+    assert.deepEqual(score(layers), score(changedSuffix), 'an unprinted suffix cannot change the best order');
+});
+
+test('a color-group budget below the occupied layer count never merges physical surfaces', () => {
+    const { filaments, swatches, result } = multiWindowFixture();
+    const layers = expandZonesToPrinterLayers(result, filaments, 0.25, 0.25);
+    const grouped = buildColorGroupedPixels(swatches, layers, buildColorStack(layers), result.finalStack, 2);
+    assert.equal(grouped.pixels.length, 5, 'reserve one group per occupied layer');
+    assert.deepEqual(grouped.pixels.map((pixel) => pixel.layerIdx).sort(), [0, 1, 2, 3, 4]);
 });
 
 test('runMultiHeadLayerAnalysisColorFirst — color mode produces a valid, complete result', () => {

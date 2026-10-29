@@ -38,7 +38,18 @@ La **Profundidad de búsqueda** controla el umbral de selección de ventanas, cu
 - **Equilibrado** es el compromiso predeterminado entre esfuerzo y cobertura.
 - **Exhaustivo** permite más ventanas y un presupuesto mayor; aun así puede muestrear espacios de búsqueda grandes.
 
-Dentro del presupuesto de cada profundidad se prueban todas las combinaciones. Los espacios mayores usan una muestra limitada y determinista junto con el orden actual. Las mismas entradas producen resultados repetibles. Todas las profundidades consideran los mismos colores de la imagen; una búsqueda más profunda no garantiza una impresión física mejor.
+Dentro del presupuesto de cada profundidad se prueban todas las combinaciones. Los espacios mayores usan una muestra limitada y determinista junto con el orden actual. Las mismas entradas producen resultados repetibles. Todas las profundidades consideran los mismos colores de la imagen; una búsqueda más profunda no garantiza una impresión física mejor. Para la agrupación de los colores objetivo, consulta [Agrupación de colores](#color-grouping).
+
+## Agrupación de colores
+
+Antes de la búsqueda, Kromacut agrupa la paleta en los colores objetivo que intentará reproducir. El control **Agrupación de colores** determina cómo:
+
+- **Por capa (actual)** — los colores asignados a la misma capa de impresión en el resultado de Auto-paint se combinan en un único objetivo. Por tanto, tonos diferentes pueden compartir un objetivo. Hay como máximo un grupo objetivo por capa ocupada.
+- **Por color (tono)** — los tonos distintos pueden mantenerse como objetivos separados en sus capas de impresión originales. Las paletas grandes se reducen dentro de un límite de grupos, conservando al menos un grupo por capa ocupada; nunca se combinan colores de capas diferentes.
+
+La agrupación por color no garantiza un menor error de color ni más colores impresos. Los resultados dependen de la imagen, la calibración de los filamentos, el número de cabezales y las ventanas seleccionadas. La búsqueda minimiza la diferencia de color CIE76; una puntuación de búsqueda menor puede aun así tener un error CIEDE2000 mayor. La construcción puede tardar más. Los colores imprimibles siguen limitados por los filamentos y sus pilas físicas.
+
+La agrupación de colores se guarda en cuanto la cambias, antes de construir. Reconstruye con cada opción y compara las vistas previas de tu imagen.
 
 ## Programa de cabezales y exportación
 

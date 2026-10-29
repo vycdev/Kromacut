@@ -321,6 +321,7 @@ export default function ThreeDControls({
             multiHeadMode,
             multiHeadCount,
             multiHeadSearchDepth,
+            multiHeadColorMode,
         });
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [
@@ -346,6 +347,7 @@ export default function ThreeDControls({
         multiHeadMode,
         multiHeadCount,
         multiHeadSearchDepth,
+        multiHeadColorMode,
     ]);
 
     useEffect(() => {

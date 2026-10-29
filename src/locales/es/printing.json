@@ -389,7 +389,7 @@
     "colorGrouping": "Agrupación de colores",
     "layerBasedGrouping": "Por capa (actual)",
     "colorBasedGrouping": "Por color (tono)",
-    "colorGroupingHelp": "La agrupación por capa combina colores de una misma capa de impresión (limitados al número de capas). La agrupación por color separa los tonos; puede añadir colores con más cabezales cargados, pero ninguno — o incluso menos — con pocos cabezales. Requiere más cálculo.",
+    "colorGroupingHelp": "Por capa combina los colores de una misma capa de impresión. Por color separa los tonos dentro de un límite de grupos y conserva sus capas. Puede tardar más y no garantiza un menor error de color ni más colores impresos. Se guarda inmediatamente; reconstruye para comparar.",
     "noLayoutFallback": "El análisis multicabezal no encontró una disposición mejor que la pila normal con {{heads}} cabezales — se ha creado un modelo normal de un solo cabezal.",
     "analysisFailedFallback": "El análisis multicabezal no terminó — se ha creado un modelo normal de un solo cabezal. Prueba con menos cabezales u otra profundidad de búsqueda.",
     "largePrintWarning": "Esta impresión tiene {{layers}} capas — por encima de 64, las instrucciones de cambio pueden tardar en generarse.",

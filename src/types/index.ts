@@ -147,7 +147,7 @@ export interface ThreeDControlsStateShape {
     /**
      * Palette grouping for multi-head analysis. 'luminance' (default) collapses
      * colors sharing a printer layer (distinct colors capped at layer count);
-     * 'color' keeps distinct hues distinct for more colors. See
+     * 'color' groups hues separately within their original layers and budget. See
      * multiHeadAnalysisColorFirst.ts.
      */
     multiHeadColorMode?: 'luminance' | 'color';

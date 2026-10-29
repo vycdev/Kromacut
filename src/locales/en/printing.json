@@ -359,7 +359,7 @@
         "colorGrouping": "Color grouping",
         "layerBasedGrouping": "Layer-based (current)",
         "colorBasedGrouping": "Color-based (per-hue)",
-        "colorGroupingHelp": "Layer-based groups colors sharing a printer layer (capped at the layer count). Color-based keeps distinct hues apart; it can add colors with more heads loaded, but may add none — or fewer — at low head counts. Costs more compute.",
+        "colorGroupingHelp": "Layer-based combines colors on the same print layer. Color-based separates hues within a group budget, keeping their print layers. It can take longer and does not guarantee lower color error or more printed colors. Saved immediately; rebuild to compare.",
         "noLayoutFallback": "Multi-head analysis found no layout that improves the normal stack with {{heads}} heads — built a normal single-head model instead.",
         "analysisFailedFallback": "Multi-head analysis did not finish — built a normal single-head model instead. Try fewer heads or a different search depth.",
         "largePrintWarning": "This print has {{layers}} layers — swap instructions may be slow to generate above 64.",
