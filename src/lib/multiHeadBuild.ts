@@ -1,5 +1,5 @@
 import type { MultiHeadRoutingPlan, ThreeDControlsStateShape } from '../types';
-import type { ColorFirstResult } from './multiHeadAnalysisColorFirst.ts';
+import { MAX_MULTI_HEAD_HEADS, type ColorFirstResult } from './multiHeadAnalysisColorFirst.ts';
 import type { Export3MFOptions } from './export3mf.ts';
 import {
     buildPerColorLayerColors,
@@ -136,7 +136,11 @@ export function multiHeadBuildSnapshot(
     state: ThreeDControlsStateShape,
     result: ColorFirstResult | null
 ): ThreeDControlsStateShape {
+    const headCount = state.multiHeadCount ?? 0;
     if (
+        !Number.isInteger(headCount) ||
+        headCount < 2 ||
+        headCount > MAX_MULTI_HEAD_HEADS ||
         !result?.windows.length ||
         !result.patchedLayers.length ||
         !result.nozzleAssignments.length
@@ -162,9 +166,20 @@ export function multiHeadBuildSnapshot(
         ),
         colorLayerFilaments: result.colorLayerFilaments,
         windowRunFilaments: result.windowRunFilaments,
-        nozzleAssignments: result.nozzleAssignments,
+        // Analysis only needs as many slots as there are filaments. Retain the
+        // selected physical head count, including never-used heads, downstream.
+        nozzleAssignments: result.nozzleAssignments.map((heads) => [
+            ...heads,
+            ...new Array(Math.max(0, headCount - heads.length)).fill(-1),
+        ]),
         preWindowFilaments: result.preWindowFilaments,
-        nonWindowedRanges: result.nonWindowedRanges,
+        nonWindowedRanges: result.nonWindowedRanges.map((range) => ({
+            ...range,
+            nozzleFilaments: [
+                ...range.nozzleFilaments,
+                ...new Array(Math.max(0, headCount - range.nozzleFilaments.length)).fill(''),
+            ],
+        })),
     };
     return getMultiHeadRoutingPlan(built) ? built : singleHeadBuildSnapshot(state);
 }

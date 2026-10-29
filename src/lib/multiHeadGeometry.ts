@@ -1,10 +1,71 @@
 import * as THREE from 'three';
 import type { MultiHeadRoutingPlan, SmoothMeshingStrength } from '../types/index.ts';
+import type { FinalPrintableStackSnapshot } from '../types/appearance.ts';
 import type { MeshData, MeshProgress, MeshYieldOptions } from './meshing.ts';
+import {
+    createFinalStackTargetHeightCache,
+    hexToRgb,
+    mapTargetsToPrintablePalette,
+    rgbToLab,
+    type AchievableColor,
+} from './autoPaint.ts';
 import { createFlatPaintMesher } from './flatPaintMeshing.ts';
 import { LAYER_ACTIVATION_EPSILON } from './layerActivation.ts';
 import { resolveNozzleIndex } from './multiHeadBuild.ts';
 import { translate } from './i18n.ts';
+
+/** Keep zero-weight colors on the same printable surfaces used by analysis. */
+export function createMultiHeadTargetHeightCache(
+    stack: FinalPrintableStackSnapshot,
+    colors: Iterable<string>,
+    minimumHeight: number,
+    maximumHeight: number,
+    dithering?: { layerHeight: number }
+): Map<number, number> {
+    const cache = createFinalStackTargetHeightCache(
+        stack.targetMappings,
+        minimumHeight,
+        maximumHeight,
+        dithering ? { palette: stack.palette, layerHeight: dithering.layerHeight } : undefined
+    );
+    let palette: AchievableColor[] | undefined;
+    for (const hex of colors) {
+        const key = parseInt(hex.replace('#', ''), 16);
+        if (cache.has(key)) continue;
+        // Regional weighting can omit a printable color from targetMappings.
+        // Match buildPixelData's single-target fallback, including eligibility,
+        // confidence, and calibrated anchors; keep existing target mappings.
+        palette ??= stack.palette.map((entry) => ({
+            height: entry.height,
+            rgb: {
+                r: entry.predictedColor.rgb[0],
+                g: entry.predictedColor.rgb[1],
+                b: entry.predictedColor.rgb[2],
+            },
+            lab: { L: entry.predictedLab[0], a: entry.predictedLab[1], b: entry.predictedLab[2] },
+            surfaceEligible: entry.surfaceEligible,
+            predictionConfidence: entry.predictionConfidence,
+            exactAnchorId: entry.exactAnchorId,
+            exactAnchorTargetLab: entry.exactAnchorTargetLab
+                ? {
+                      L: entry.exactAnchorTargetLab[0],
+                      a: entry.exactAnchorTargetLab[1],
+                      b: entry.exactAnchorTargetLab[2],
+                  }
+                : undefined,
+        }));
+        const mapped = mapTargetsToPrintablePalette(palette, [
+            { ...rgbToLab(hexToRgb(hex)), weight: 1 },
+        ])[0];
+        if (mapped) {
+            cache.set(
+                key,
+                Math.max(minimumHeight, Math.min(maximumHeight, mapped.projectedHeight))
+            );
+        }
+    }
+    return cache;
+}
 
 interface MultiHeadGeometryOptions extends MeshYieldOptions {
     plan: MultiHeadRoutingPlan;
