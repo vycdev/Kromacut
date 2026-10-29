@@ -859,13 +859,15 @@ test('runMultiHeadLayerAnalysisColorFirst — head count clamped to MAX_MULTI_HE
     }
 });
 
-/** Five single-layer runs, with one swatch explicitly mapped to each surface. */
-function multiWindowFixture() {
-    const filaments = [filament('dark', '#363636', 0.66), filament('light', '#e8e8e8', 1.1)];
-    const swatches = ['#0b0b0b', '#2e2e2e', '#7d7d7d', '#ababab', '#c2c2c2']
-        .map((hex) => ({ hex, count: 1 }));
+/** Single-layer runs (five by default), with one swatch explicitly mapped to each surface. */
+function multiWindowFixture(
+    filaments = [filament('dark', '#363636', 0.66), filament('light', '#e8e8e8', 1.1)],
+    sequence = [0, 1, 0, 1, 0],
+    hexes = ['#0b0b0b', '#2e2e2e', '#7d7d7d', '#ababab', '#c2c2c2']
+) {
+    const swatches = hexes.map((hex) => ({ hex, count: 1 }));
     const seed = generateAutoLayers(filaments, swatches, 0.25, 0.25);
-    const sequence = [0, 1, 0, 1, 0];
+    const totalHeight = sequence.length * 0.25;
     const zones = sequence.map((fi, i) => ({
         filamentId: filaments[fi].id, filamentColor: filaments[fi].color,
         filamentTd: filaments[fi].td,
@@ -873,9 +875,9 @@ function multiWindowFixture() {
         idealThickness: 0.25, actualThickness: 0.25,
     }));
     const result: AutoPaintResult = {
-        ...seed, totalHeight: 1.25, transitionZones: zones,
+        ...seed, totalHeight, transitionZones: zones,
         finalStack: {
-            ...seed.finalStack, totalHeight: 1.25,
+            ...seed.finalStack, totalHeight,
             layers: sequence.map((fi, i) => ({
                 ...seed.finalStack.layers[0],
                 filamentId: filaments[fi].id, filamentColor: filaments[fi].color,
@@ -888,6 +890,33 @@ function multiWindowFixture() {
     };
     return { filaments, swatches, result };
 }
+
+test('more heads than runs above the foundation still search every run', () => {
+    // Four filaments, but only three runs above the foundation: a four-run
+    // window could only start on the foundation, which is never searched.
+    const filaments = [
+        filament('dark', '#363636', 0.66), filament('light', '#e8e8e8', 1.1),
+        filament('red', '#b81c1c', 0.3), filament('blue', '#1c46b8', 0.3),
+    ];
+    const { swatches, result } = multiWindowFixture(
+        filaments, [0, 1, 0, 1], ['#0b0b0b', '#2e2e2e', '#7d7d7d', '#ababab']
+    );
+    const fitting = runMultiHeadLayerAnalysisColorFirst(filaments, result, swatches, 0.25, 0.25, 3);
+    const extra = runMultiHeadLayerAnalysisColorFirst(filaments, result, swatches, 0.25, 0.25, 4);
+    assert.ok(fitting.windows.length > 0, 'fixture should find an improving window with three heads');
+    // The spare head adds no run to reorder, so the routed stack matches three heads.
+    assert.deepEqual(
+        extra.windows.map((w) => [w.windowStart, w.windowEnd]),
+        fitting.windows.map((w) => [w.windowStart, w.windowEnd])
+    );
+    assert.deepEqual(extra.patchedLayers, fitting.patchedLayers);
+    assert.deepEqual(extra.colorLayerFilaments, fitting.colorLayerFilaments);
+    // Windows are still scheduled across all four selected heads; the spare one stays idle.
+    for (const heads of extra.nozzleAssignments) {
+        assert.equal(heads.length, 4);
+        assert.ok(heads.includes(-1), `expected an idle head in ${JSON.stringify(heads)}`);
+    }
+});
 
 test('color-first groups follow final-stack mappings, including weighted centroids', () => {
     const { filaments, swatches, result } = multiWindowFixture();

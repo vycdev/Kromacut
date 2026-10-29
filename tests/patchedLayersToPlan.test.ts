@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import test from 'node:test';
 import { loadViteModule } from './helpers/viteModule.ts';
 import type { Filament } from '../src/types/index.ts';
@@ -9,7 +11,7 @@ import type { AppearanceEffectiveOpticsModelV1 } from '../src/types/appearance.t
 // Loaded through Vite (extensionless-import graph — see the other multi-head tests).
 const { generateAutoLayers, autoPaintToSliceHeights, hexToRgb, rgbToHex } =
     await loadViteModule<typeof import('../src/lib/autoPaint.ts')>('/src/lib/autoPaint.ts');
-const { expandZonesToPrinterLayers } = await loadViteModule<
+const { buildColorStack, expandZonesToPrinterLayers } = await loadViteModule<
     typeof import('../src/lib/multiHeadAnalysis.ts')
 >('/src/lib/multiHeadAnalysis.ts');
 const { runMultiHeadLayerAnalysisColorFirst } = await loadViteModule<
@@ -436,6 +438,28 @@ test('buildPerColorLayerColors — colored paths use their own fitted substrates
         });
         assert.deepEqual(perColor.get(hex), expected);
     }
+});
+
+test('buildPerColorLayerColors — an unfitted stored model reproduces the single-head stack', () => {
+    // Without fitted optics, Auto-paint stores an effective-optics model with no
+    // filament entries. Rendering must fall back to the prior model, like the
+    // analysis does, instead of dropping the calibrated substrate-dependent
+    // transitions (red over purple rendered about 40 ΔE too opaque).
+    const filaments = (JSON.parse(readFileSync(
+        resolve(process.cwd(), 'tests/assets/filament-profiles/8_Colors_Calibrated_Frontlit.kfil'), 'utf8'
+    )) as { filaments: Filament[] }).filaments;
+    const swatches = ['#1a0a30', '#4f0095', '#aa2a55', '#c33123', '#2a9a40', '#10b0b0', '#e090b0', '#f2c025', '#fdf4e8']
+        .map((hex) => ({ hex }));
+    const result = generateAutoLayers(filaments, swatches, LAYER_HEIGHT, FIRST_LAYER_HEIGHT);
+    const stored = result.finalStack.appearanceModel.effectiveOptics;
+    assert.ok(stored && stored.filaments.length === 0, 'fixture must store an unfitted model');
+    const layers = expandZonesToPrinterLayers(result, filaments, LAYER_HEIGHT, FIRST_LAYER_HEIGHT);
+    const unchanged = layers.map((layer) => layer.filamentIdx);
+    const perColor = buildPerColorLayerColors(
+        layers, new Map(swatches.map((s) => [s.hex, unchanged])), filaments, stored
+    );
+    const singleHead = buildColorStack(layers).map(rgbToHex);
+    for (const { hex } of swatches) assert.deepEqual(perColor.get(hex), singleHead, `path for ${hex}`);
 });
 
 // ---------------------------------------------------------------------------

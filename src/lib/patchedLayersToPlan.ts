@@ -103,7 +103,7 @@ export function buildPerColorLayerColors(
 
     // Pre-resolve each palette filament's rgb + per-channel hiding distances,
     // using the shared optical model so multi-head colors match normal auto-paint.
-    const model = effectiveOptics ?? createPriorEffectiveOpticsModel(filaments);
+    const model = effectiveOptics?.filaments.length ? effectiveOptics : createPriorEffectiveOpticsModel(filaments);
     const palette = filaments.map((f) => {
         const optics = resolveEffectiveFilamentOptics(model, f);
         const td: PrinterLayer['td'] = [...optics.hdChannels];
