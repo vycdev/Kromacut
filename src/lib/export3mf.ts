@@ -4,7 +4,7 @@ import { MINIMAL_PROJECT_SETTINGS, KROMACUT_CONFIG } from './slicerDefaults';
 import { clampProgress, exportMeshProgress, exportZipProgress, progressInSpan } from './progress';
 import { normalizeHexColor } from './colorUtils';
 import type { SmoothMeshingStrength } from '../types';
-import { buildNozzleVoxelMesh, type NozzleLayerRecord } from './voxelMesh';
+import { buildNozzleVoxelMeshAsync, type NozzleLayerRecord } from './voxelMesh';
 
 export interface Export3MFOptions {
     layerHeight?: number;
@@ -139,12 +139,14 @@ function generateUUID() {
  * userData.nozzleIndex.  Each nozzle's per-layer pixel masks are OR-ed and
  * fed to buildNozzleVoxelMesh, which preserves closed surface fans at diagonal
  * contacts and removes internal faces at layer or color boundaries. Fall back
- * to the original meshes when the scene cannot share an untransformed voxel grid.
+ * to the original meshes when smoothing is enabled or the scene cannot share an
+ * untransformed voxel grid.
  */
-function buildNozzleManifoldMeshes(
+async function buildNozzleManifoldMeshes(
     meshes: THREE.Mesh[],
-    layerFilamentColors?: string[]
-): THREE.Mesh[] {
+    layerFilamentColors?: string[],
+    onProgress?: (progress: number) => void
+): Promise<THREE.Mesh[]> {
     type LayerData = {
         baseZ_mm: number;
         topZ_world: number;
@@ -160,6 +162,14 @@ function buildNozzleManifoldMeshes(
     let heightScaleComputed = false;
     const identityMatrix = new THREE.Matrix4();
     let grid: { width: number; height: number; pixelSize: number } | undefined;
+    let lastYield = performance.now();
+    const maybeYield = async (progress: number) => {
+        onProgress?.(progress);
+        if (performance.now() - lastYield >= 8) {
+            await new Promise<void>((resolve) => setTimeout(resolve, 0));
+            lastYield = performance.now();
+        }
+    };
 
     for (const [meshIndex, mesh] of meshes.entries()) {
         const nozzleIndex = mesh.userData?.nozzleIndex;
@@ -167,6 +177,9 @@ function buildNozzleManifoldMeshes(
 
         const rawGeom = mesh.geometry?.userData?.kromacutExportGeometry as
             Record<string, unknown> | undefined;
+        // This existing source flag disables pixel-based reconstruction for
+        // smoothed geometry, even when export strength metadata is omitted.
+        if (rawGeom?.compactHeightfield === false) return [];
         const activePixels = rawGeom?.activePixels as Uint8Array | undefined;
         const width = rawGeom?.width as number | undefined;
         const height = rawGeom?.height as number | undefined;
@@ -225,7 +238,11 @@ function buildNozzleManifoldMeshes(
         } else if (layerData.topZ_world !== topZ_world) return [];
         for (let mi = 0; mi < activePixels.length; mi++) {
             if (activePixels[mi]) layerData.mask[mi] = 1;
+            if ((mi + 1) % 4096 === 0) {
+                await maybeYield(0.25 * (meshIndex + (mi + 1) / activePixels.length) / meshes.length);
+            }
         }
+        await maybeYield(0.25 * (meshIndex + 1) / meshes.length);
     }
 
     if (nozzleLayerMap.size === 0) return [];
@@ -255,6 +272,7 @@ function buildNozzleManifoldMeshes(
     const globalLayers = [...globalLayerMap.values()].sort((a, b) => a.baseZ_mm - b.baseZ_mm);
 
     const syntheticMeshes: THREE.Mesh[] = [];
+    let nozzleOffset = 0;
 
     for (const [nozzleIndex, nozzleMap] of nozzleLayerMap) {
         const firstData = nozzleMap.values().next().value as LayerData;
@@ -266,7 +284,14 @@ function buildNozzleManifoldMeshes(
             return { mask: data.mask, baseZ: gl.baseZ_world, topZ: data.topZ_world };
         });
 
-        const { positions, indices } = buildNozzleVoxelMesh(layerRecords, width, height, pixelSize);
+        const { positions, indices } = await buildNozzleVoxelMeshAsync(
+            layerRecords, width, height, pixelSize, {
+                onProgress: (progress) => onProgress?.(
+                    0.25 + 0.75 * (nozzleOffset + progress) / nozzleLayerMap.size
+                ),
+            }
+        );
+        nozzleOffset++;
 
         const hex = nozzleHex.get(nozzleIndex) ?? 'FFFFFF';
         const geom = new THREE.BufferGeometry();
@@ -350,17 +375,27 @@ ${metadataContentTypes}${metadataContentTypes ? '\n' : ''}</Types>`;
 
     if (meshes.length === 0) throw new Error('No meshes to export');
 
+    const onProgress = options?.onProgress;
+    const reportProgress = (value: number) => {
+        onProgress?.(clampProgress(value));
+    };
+    const reconstructionSpan = (options?.extruderCount ?? 0) >= 2 ? 0.2 : 0;
+
     // For multi-head mode: replace the fragmented per-layer-per-color mesh list
     // with one manifold voxel solid per nozzle before group building.  This
     // eliminates coincident faces at color- and layer-boundaries that cause
     // non-manifold geometry in slicers.
-    if ((options?.extruderCount ?? 0) >= 2) {
-        const manifoldMeshes = buildNozzleManifoldMeshes(meshes, options?.layerFilamentColors);
+    if (reconstructionSpan > 0 && (options?.smoothMeshingStrength ?? 'none') === 'none') {
+        const manifoldMeshes = await buildNozzleManifoldMeshes(
+            meshes, options?.layerFilamentColors,
+            (progress) => reportProgress(reconstructionSpan * progress)
+        );
         if (manifoldMeshes.length > 0) {
             meshes.length = 0;
             for (const m of manifoldMeshes) meshes.push(m);
         }
     }
+    if (reconstructionSpan > 0) reportProgress(reconstructionSpan);
 
     // Group meshes into exported objects (see ExportMeshGroup).
     const groups: ExportMeshGroup[] = [];
@@ -682,15 +717,14 @@ ${metadataContentTypes}${metadataContentTypes ? '\n' : ''}</Types>`;
     let opsSinceYield = 0;
 
     // Progress tracking
-    const onProgress = options?.onProgress;
-    const reportProgress = (value: number) => {
-        onProgress?.(clampProgress(value));
-    };
     const totalGroups = groups.length;
-    // Mesh generation is the first 80%; zip generation owns the final 20%.
+    // Reconstruction and mesh serialization share the first 80%; ZIP owns the final 20%.
     const reportMeshProgress = (groupIdx: number, meshFrac: number) => {
         if (!onProgress) return;
-        reportProgress(exportMeshProgress(groupIdx, totalGroups, meshFrac));
+        reportProgress(progressInSpan(
+            reconstructionSpan, 0.8 - reconstructionSpan,
+            exportMeshProgress(groupIdx, totalGroups, meshFrac) / 0.8
+        ));
     };
 
     for (let i = 0; i < groups.length; i++) {
@@ -837,6 +871,10 @@ ${metadataContentTypes}${metadataContentTypes ? '\n' : ''}</Types>`;
                 if (source?.indices) {
                     const positions = source.positions;
                     const indices = source.indices;
+                    // Nozzle-tagged source meshes also carry separate fans when
+                    // reconstruction falls back for smoothing or transforms.
+                    const preserveVertexIndices = source.preserveVertexIndices
+                        || typeof mesh.userData.nozzleIndex === 'number';
                     const itemSize = source.itemSize ?? 3;
                     const matrixElements = mesh.matrixWorld.elements;
                     const sourceVertexCount = Math.floor(positions.length / itemSize);
@@ -888,7 +926,7 @@ ${metadataContentTypes}${metadataContentTypes ? '\n' : ''}</Types>`;
                             toCoordUnits(transformedX),
                             toCoordUnits(transformedY),
                             toCoordUnits(transformedZ),
-                            source.preserveVertexIndices ? sourceIndex : undefined
+                            preserveVertexIndices ? sourceIndex : undefined
                         );
 
                         sourceToExportVertex[sourceIndex] = exportIndex;
