@@ -8,12 +8,17 @@
  */
 
 import type { TransitionZone } from './autoPaint.ts';
-import { rgbToHex, hexToRgb } from './autoPaint.ts';
+import { rgbToHex } from './autoPaint.ts';
 import type { PrinterLayer } from './multiHeadAnalysis.ts';
 import { buildColorStack } from './multiHeadAnalysis.ts';
 import type { Filament } from '../types';
+import type { AppearanceEffectiveOpticsModelV1 } from '../types/appearance';
 import { buildColorRuns } from './multiHeadAnalysisColorFirst.ts';
-import { channelHds } from './calibration.ts';
+import {
+    createPriorEffectiveOpticsModel,
+    resolveEffectiveFilamentOptics,
+    resolveEffectiveTransitionOptics,
+} from './effectiveOptics.ts';
 
 // ---------------------------------------------------------------------------
 // Slice data — ThreeDView mesh generation
@@ -82,6 +87,7 @@ export function patchedLayersToSliceData(
  *
  * Two pixels of different colour at the same height can therefore show different
  * colours, which is what makes the reordered "mixed" window layers visible.
+ * Pass the analysis's effective optics model when fitted appearance data is used.
  *
  * @returns Map keyed by image-colour hex → array (length = layers.length) of
  *          blended colour hex strings, one per printer layer.
@@ -89,24 +95,43 @@ export function patchedLayersToSliceData(
 export function buildPerColorLayerColors(
     layers: PrinterLayer[],
     colorLayerFilaments: Map<string, number[]>,
-    filaments: Filament[]
+    filaments: Filament[],
+    effectiveOptics?: AppearanceEffectiveOpticsModelV1
 ): Map<string, string[]> {
     const out = new Map<string, string[]>();
     if (layers.length === 0) return out;
 
     // Pre-resolve each palette filament's rgb + per-channel hiding distances,
     // using the shared optical model so multi-head colors match normal auto-paint.
-    const palette = filaments.map((f) => ({
-        rgb: hexToRgb(f.color),
-        td: channelHds(f),
-    }));
+    const model = effectiveOptics ?? createPriorEffectiveOpticsModel(filaments);
+    const palette = filaments.map((f) => {
+        const optics = resolveEffectiveFilamentOptics(model, f);
+        const td: PrinterLayer['td'] = [...optics.hdChannels];
+        return {
+            filamentId: f.id,
+            rgb: { r: optics.color[0], g: optics.color[1], b: optics.color[2] },
+            td,
+        };
+    });
 
     for (const [hex, seq] of colorLayerFilaments) {
         // Build a per-colour printer-layer stack: same geometry as `layers`, but
         // each layer's filament comes from this colour's path.
         const colorLayers: PrinterLayer[] = layers.map((l, i) => {
-            const p = palette[seq[i]] ?? { rgb: l.filamentRgb, td: l.td };
-            return { ...l, filamentIdx: seq[i], filamentRgb: p.rgb, td: p.td };
+            const p = palette[seq[i]] ?? { filamentId: l.filamentId, rgb: l.filamentRgb, td: l.td };
+            const substrateId = i > 0
+                ? palette[seq[i - 1]]?.filamentId ?? layers[i - 1].filamentId
+                : undefined;
+            // The consensus layer's cached transition belongs to a different
+            // filament path. Resolve this color's actual foreground/substrate.
+            return {
+                filamentIdx: seq[i], filamentId: p.filamentId,
+                filamentRgb: p.rgb, td: p.td,
+                startZ: l.startZ, thickness: l.thickness,
+                transitionOptics: p.filamentId && substrateId
+                    ? resolveEffectiveTransitionOptics(model, p.filamentId, substrateId)
+                    : undefined,
+            };
         });
         const stack = buildColorStack(colorLayers);
         out.set(hex, stack.map(rgbToHex));
@@ -134,9 +159,10 @@ export function patchedLayersToPlan(
 
     const runs = buildColorRuns(layers);
 
-    return runs.map((run) => {
+    return runs.map((run): TransitionZone => {
         const filament = filaments[run.filamentIdx];
-        const startHeight = layers[run.startLayerIdx].startZ;
+        const firstLayer = layers[run.startLayerIdx];
+        const startHeight = firstLayer.startZ;
         const lastLayer = layers[run.endLayerIdx];
         const endHeight = lastLayer.startZ + lastLayer.thickness;
         const thickness = endHeight - startHeight;
@@ -145,6 +171,13 @@ export function patchedLayersToPlan(
             filamentId:      filament?.id    ?? `f${run.filamentIdx}`,
             filamentColor:   filament?.color ?? '#000000',
             filamentTd:      filament?.td    ?? 0,
+            filamentTdChannels: typeof firstLayer.td === 'number'
+                ? [firstLayer.td, firstLayer.td, firstLayer.td]
+                : firstLayer.td,
+            effectiveColor: firstLayer.filamentRgb,
+            transmissionExponent: firstLayer.transmissionExponent,
+            substrateHdMultiplier: firstLayer.substrateHdMultiplier,
+            transitionOptics: firstLayer.transitionOptics,
             startHeight,
             endHeight,
             idealThickness:  thickness,

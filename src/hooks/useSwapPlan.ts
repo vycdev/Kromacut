@@ -219,17 +219,21 @@ export function useSwapPlan({
         }
 
         if (multiHeadPlan) {
-            lines.push('Head load schedule:');
+            lines.push(t('multiHead.schedule'));
             for (const evt of multiHeadPlan.filter(e => e.isPrePrint || e.swapCount > 0)) {
                 const label = evt.isPrePrint
-                    ? 'Before print — load all heads:'
-                    : evt.swapCount === 0
-                        ? `Layer ${evt.startLayer} — no changes needed:`
-                        : `Layer ${evt.startLayer} — swap ${evt.swapCount} head${evt.swapCount !== 1 ? 's' : ''}:`;
+                    ? t('multiHead.beforePrintText')
+                    : t('multiHead.swapCheckpointText', {
+                          layer: evt.startLayer,
+                          swaps: evt.swapCount,
+                      });
                 lines.push(label);
                 for (const n of evt.nozzles) {
                     if (evt.isPrePrint || n.changed) {
-                        lines.push(`  Head ${n.nozzle}: ${n.filamentName}${n.changed ? ' ← swap' : ''}`);
+                        const name = n.empty ? t('multiHead.empty') : n.filamentName;
+                        lines.push(
+                            `  ${t('multiHead.head', { head: n.nozzle })}: ${name}${n.changed ? t('multiHead.swapMarker') : ''}`
+                        );
                     }
                 }
                 lines.push('');

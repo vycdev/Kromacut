@@ -193,4 +193,12 @@ Depois de mudar processo ou altura, examine o resumo. Alta calibração geral n�
 
 Encontre uma bobina real se útil e introduza cor/calibração reais. Não imprima assumindo que a linha hipotética existe. Sugestões reiniciam quando mudam cores ou filamentos. Sem candidato significa que o conjunto já cobre bem segundo este teste aproximado.
 
+## Impressão multicabeças
+
+Ativa o modo multicabeças no Auto-paint e escolhe 2–8 cabeças e uma profundidade de pesquisa. Ao criar o modelo, a ordem dos filamentos é analisada em segundo plano e cada região da imagem recebe o seu próprio filamento em cada camada. A pré-visualização mostra a mistura simulada; as cores físicas mostram o filamento real. O modo multicabeças e o Flat Paint excluem-se mutuamente.
+
+Após criar o modelo com sucesso, segue o plano das cabeças nas instruções de impressão: carrega os filamentos indicados antes de imprimir, deixa sem uso as cabeças marcadas como VAZIA e recarrega apenas as assinaladas em cada ponto de controlo. Exporta como 3MF para preservar as atribuições físicas das cabeças, as cores dos filamentos e os marcadores de pausa M600 nas mesmas camadas de mudança. Usa uma impressora multicabeças compatível e verifica o mapeamento das cabeças, as alturas das camadas e as pausas no programa de corte.
+
+Se a análise falhar ou não encontrar uma disposição utilizável que melhore o resultado, é criado o modelo normal de uma só cabeça e são apresentadas a cor inicial, as instruções de mudança de cor e uma notificação. Alterar a imagem cancela a análise pendente; cria novamente o modelo para a nova imagem.
+
 Seguinte: [Pintura plana](flat-paint), [Fluxos de calibração](calibration-workflows) ou [Geração e exportação](generating-exporting-output).

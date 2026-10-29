@@ -17,6 +17,7 @@ import type {
 export interface UseMultiHeadWorkerResult {
     isComputing: boolean;
     error?: string;
+    cancel: () => void;
     run: (params: {
         filaments: Filament[];
         autoPaintResult: AutoPaintResult;
@@ -35,12 +36,20 @@ export function useMultiHeadWorker(): UseMultiHeadWorkerResult {
     const [error, setError] = useState<string | undefined>(undefined);
     const workerRef = useRef<Worker | null>(null);
     const activeIdRef = useRef<number>(0);
+    const pendingResolveRef = useRef<((result: ColorFirstResult | null) => void) | null>(null);
 
     const cancelWorker = useCallback(() => {
         workerRef.current?.terminate();
         workerRef.current = null;
         activeIdRef.current = 0;
+        pendingResolveRef.current?.(null);
+        pendingResolveRef.current = null;
     }, []);
+
+    const cancel = useCallback(() => {
+        cancelWorker();
+        setIsComputing(false);
+    }, [cancelWorker]);
 
     // Terminate any in-flight worker on unmount so it cannot keep computing
     // (and attempt state updates) after the component is gone.
@@ -64,15 +73,25 @@ export function useMultiHeadWorker(): UseMultiHeadWorkerResult {
             activeIdRef.current = id;
 
             return new Promise((resolve) => {
-                const worker = new Worker(
-                    new URL('../workers/multiHead.worker.ts', import.meta.url),
-                    { type: 'module' }
-                );
-                workerRef.current = worker;
+                pendingResolveRef.current = resolve;
+                let worker: Worker;
+                try {
+                    worker = new Worker(
+                        new URL('../workers/multiHead.worker.ts', import.meta.url),
+                        { type: 'module' }
+                    );
+                    workerRef.current = worker;
+                } catch (err) {
+                    cancelWorker();
+                    setIsComputing(false);
+                    setError(err instanceof Error ? err.message : String(err));
+                    return;
+                }
 
                 worker.onmessage = (e: MessageEvent<MultiHeadWorkerResponse>) => {
                     const resp = e.data;
                     if (resp.id !== activeIdRef.current) return;
+                    pendingResolveRef.current = null;
                     cancelWorker();
                     setIsComputing(false);
                     if (resp.error) {
@@ -109,11 +128,17 @@ export function useMultiHeadWorker(): UseMultiHeadWorkerResult {
                     n: params.n,
                     searchDepth: params.searchDepth,
                 };
-                worker.postMessage(request);
+                try {
+                    worker.postMessage(request);
+                } catch (err) {
+                    cancelWorker();
+                    setIsComputing(false);
+                    setError(err instanceof Error ? err.message : String(err));
+                }
             });
         },
         [cancelWorker]
     );
 
-    return { isComputing, error, run };
+    return { isComputing, error, run, cancel };
 }

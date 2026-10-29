@@ -193,4 +193,12 @@ Dopo aver cambiato processo o altezza dello strato, esamina questo riepilogo dei
 
 Se il suggerimento è utile, trova una bobina reale, poi inserisci il suo colore e la sua calibrazione effettivi. Non stampare presumendo che la riga ipotetica sia già disponibile. I suggerimenti si azzerano quando cambiano i colori dell’immagine o il set di filamenti. Un risultato senza candidati indica che il set attuale copre già bene l’immagine secondo questo test approssimativo.
 
+## Stampa multi-testa
+
+Attiva la modalità multi-testa in Auto-paint e scegli 2–8 teste e una profondità di ricerca. Durante la creazione, l’ordine dei filamenti viene analizzato in background e a ogni regione dell’immagine viene assegnato il proprio filamento per ciascuno strato. L’anteprima mostra la miscela simulata; i colori fisici mostrano il filamento reale. La modalità multi-testa e Flat Paint si escludono a vicenda.
+
+Dopo una creazione riuscita, segui il programma delle teste nelle istruzioni di stampa: carica i filamenti indicati prima di stampare, lascia inutilizzate le teste contrassegnate come VUOTA e ricarica solo quelle segnalate a ogni punto di controllo. Esporta in 3MF per conservare le assegnazioni fisiche delle teste, i colori dei filamenti e i marcatori di pausa M600 agli stessi strati di cambio. Usa una stampante multi-testa compatibile e verifica assegnazioni, altezze degli strati e pause nello slicer.
+
+Se l’analisi non riesce o non trova una disposizione utilizzabile che migliori il risultato, viene creato il normale modello a testa singola con il colore iniziale, le istruzioni di cambio colore e un avviso. Cambiare immagine annulla l’analisi in corso: crea di nuovo il modello per la nuova immagine.
+
 Prosegui con: [Flat Paint](flat-paint), [Flussi di calibrazione](calibration-workflows) o [Generazione ed esportazione](generating-exporting-output).

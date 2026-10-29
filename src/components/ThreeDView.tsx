@@ -15,6 +15,8 @@ import {
 } from '../lib/meshing';
 import { LAYER_ACTIVATION_EPSILON } from '../lib/layerActivation';
 import { createFlatPaintMesher } from '../lib/flatPaintMeshing';
+import { generateMultiHeadMeshes } from '../lib/multiHeadGeometry';
+import { translate } from '../lib/i18n';
 import { quantizeHeightMap } from '../lib/heightDithering';
 import { normalizeHexColor as normalizeHexColorValue } from '../lib/colorUtils';
 import {
@@ -38,13 +40,12 @@ import {
     syncPreviewWireframeOverlayVisibility as syncPreviewWireframeVisibility,
 } from '../lib/previewWireframe';
 import type {
-    MultiHeadRangeAssignment,
+    MultiHeadRoutingPlan,
     PreviewColorMode,
     PreviewRenderMode,
     PrintableFeaturePixelSnapshot,
 } from '../types';
 import type { FinalPrintableStackSnapshot } from '../types/appearance';
-import type { WindowResult } from '../lib/multiHeadAnalysis';
 import { Layers } from 'lucide-react';
 import ProgressOverlay from './ProgressOverlay';
 
@@ -74,20 +75,7 @@ interface ThreeDViewProps {
     ditherLineWidth?: number; // Effective extrusion width; also sets minimum dither-dot size
     printableFeaturePixels?: PrintableFeaturePixelSnapshot; // exact filtered pixels used for Auto-paint
     smoothMeshingStrength?: SmoothMeshingStrength; // Smooth connected boundaries using welded grid topology
-    // Multi-head props. `perColorLayerColors` drives the rebuild signature so a new
-    // multi-head result forces a geometry rebuild. The per-pixel colour mixing and
-    // per-nozzle mesh tagging that consume the rest of these are NOT yet ported onto
-    // this build path (see the pre-rebase ThreeDView `resolveNozzleIndex` + the
-    // `else` branch of the layered build); until then the 3D preview shows the flat
-    // auto-paint colours and export3mf falls back to colour-order extruders.
-    // TODO(multi-head): port per-pixel colour + nozzle tagging into the layered build.
-    perColorLayerColors?: Map<string, string[]>;
-    colorLayerFilaments?: Map<string, number[]>;
-    nozzleAssignments?: number[][];
-    windowRunFilaments?: string[][];
-    multiHeadWindows?: WindowResult[];
-    nonWindowedRanges?: MultiHeadRangeAssignment[];
-    filamentIds?: string[];
+    multiHeadPlan?: MultiHeadRoutingPlan;
     isOrtho?: boolean;
     flatPaint?: boolean; // Build a uniform Flat Paint slab (auto-paint only)
     flatPaintFaceUp?: boolean; // Expose the artwork on top without a transparent carrier
@@ -397,6 +385,7 @@ export default function ThreeDView({
     autoPaintTotalHeight,
     autoPaintFilamentOrder,
     autoPaintFinalStack,
+    multiHeadPlan,
     enhancedColorMatch = false,
     preserveSeparation = false,
     separationMaxDeltaE,
@@ -649,9 +638,9 @@ export default function ThreeDView({
 
     const layerPreviewSegments = useMemo<LayerPreviewSegment[]>(() => {
         if (maxModelHeight <= 0 || colorOrder.length === 0) return [];
-        // Flat Paint: printed layers contain several filaments side by side, so a
-        // single global swap sequence does not exist — show a plain track.
-        if (flatPaint) return [];
+        // Spatial material plans contain several filaments side by side, so a
+        // single global color sequence cannot describe them — show a plain track.
+        if (flatPaint || multiHeadPlan) return [];
 
         const segments: LayerPreviewSegment[] = [];
         let running = 0;
@@ -702,6 +691,7 @@ export default function ThreeDView({
         swatches,
         layerHeight,
         flatPaint,
+        multiHeadPlan,
     ]);
 
     const updateHoveredSegment = (
@@ -958,7 +948,51 @@ export default function ThreeDView({
                         cumulativeHeights[0] ??
                         0;
 
-                    if (enhancedColorMatch) {
+                    if (multiHeadPlan && autoPaintFinalStack) {
+                        // Analysis uses the final printable target assignments,
+                        // including when enhanced matching is off. Preserve those
+                        // surface heights while changing each pixel's filament path.
+                        const maxHeight = cumulativeHeights[cumulativeHeights.length - 1];
+                        const targets = createFinalStackTargetHeightCache(
+                            autoPaintFinalStack.targetMappings,
+                            minimumSurfaceHeight,
+                            maxHeight,
+                            heightDithering && !preserveSeparation
+                                ? { palette: autoPaintFinalStack.palette, layerHeight }
+                                : undefined
+                        );
+                        for (let y = 0; y < boxH; y++) {
+                            for (let x = 0; x < boxW; x++) {
+                                const source = ((minY + y) * fullW + minX + x) * 4;
+                                if (!data[source + 3]) continue;
+                                const key =
+                                    (data[source] << 16) |
+                                    (data[source + 1] << 8) |
+                                    data[source + 2];
+                                const height = targets.get(key);
+                                if (height === undefined) throw new Error(translate('printing:multiHead.invalidPlan'));
+                                pixelHeightMap[y * boxW + x] = height;
+                            }
+                            pushScanDetail(
+                                'Mapping image colors to printable heights',
+                                (y + 1) / boxH
+                            );
+                            if (performance.now() - lastYield > YIELD_MS) {
+                                await new Promise((resolve) => requestAnimationFrame(resolve));
+                                if (token !== buildTokenRef.current) return;
+                                lastYield = performance.now();
+                            }
+                        }
+                        quantizeHeightMap(pixelHeightMap, boxW, boxH, {
+                            layerHeight,
+                            slicerFirstLayerHeight,
+                            minModelH: minimumSurfaceHeight,
+                            maxModelH: maxHeight,
+                            heightDithering: heightDithering && !preserveSeparation,
+                            ditherLineWidth,
+                            pixelSize,
+                        });
+                    } else if (enhancedColorMatch) {
                         // === ENHANCED: Polyline projection in Lab color space ===
                         // The virtual swatches trace a path (polyline) through
                         // CIE-Lab space, parameterized by height.  For each image
@@ -1510,6 +1544,41 @@ export default function ThreeDView({
                                 if (token !== buildTokenRef.current) return;
                                 lastYield = performance.now();
                             }
+                        }
+                    } else if (multiHeadPlan) {
+                        for await (const part of generateMultiHeadMeshes({
+                            plan: multiHeadPlan,
+                            data,
+                            imageWidth: fullW,
+                            minX,
+                            minY,
+                            width: boxW,
+                            height: boxH,
+                            pixelHeights: pixelHeightMap,
+                            pixelSize,
+                            heightScale,
+                            strength: buildSmoothMeshingStrength,
+                            yieldIntervalMs: 8,
+                            onYield: () =>
+                                new Promise((resolve) => requestAnimationFrame(() => resolve())),
+                            isCurrent: () => token === buildTokenRef.current,
+                            onLayerProgress: (layer, progress) =>
+                                pushLayerDetail(layer, progress.label, progress.progress),
+                        })) {
+                            if (token !== buildTokenRef.current) {
+                                part.mesh.geometry.dispose();
+                                (part.mesh.material as THREE.Material).dispose();
+                                return;
+                            }
+                            modelGroup.add(part.mesh);
+                            meshBuildMetrics.push({
+                                layerIndex: part.layerIndex,
+                                swatchIndex: part.layerIndex,
+                                activePixelCount: part.activePixelCount,
+                                vertexCount: part.mesh.geometry.getAttribute('position').count,
+                                triangleCount: (part.mesh.geometry.index?.count ?? 0) / 3,
+                                metrics: part.metrics,
+                            });
                         }
                     } else {
                         // Build each layer once; smooth meshing does not run overhang repair passes.
@@ -2068,6 +2137,7 @@ export default function ThreeDView({
         autoPaintTotalHeight,
         autoPaintFilamentOrder,
         autoPaintFinalStack,
+        multiHeadPlan,
         enhancedColorMatch,
         preserveSeparation,
         separationMaxDeltaE,
