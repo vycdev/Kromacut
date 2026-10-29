@@ -3,11 +3,11 @@ import test from 'node:test';
 import { loadViteModule } from './helpers/viteModule.ts';
 import type { WindowResult, PrinterLayer } from '../src/lib/multiHeadAnalysis.ts';
 import type { Filament } from '../src/types/index.ts';
-import type { AppearanceEffectiveOpticsModelV1 } from '../src/types/appearance.ts';
+import type { AppearanceEffectiveOpticsModelV1, AppearanceRankModelV1 } from '../src/types/appearance.ts';
 
 // autoPaint + multiHeadAnalysis reach an extensionless-import graph, so load them
 // through Vite (matching the rest of the suite) rather than node's strip-types loader.
-const { generateAutoLayers, deltaE, hexToRgb, mapTargetsToPrintablePalette, rgbToLab } =
+const { generateAutoLayers, deltaE, hexToRgb, rgbToHex, mapTargetsToPrintablePalette, rgbToLab } =
     await loadViteModule<typeof import('../src/lib/autoPaint.ts')>('/src/lib/autoPaint.ts');
 const {
     analyzeMultiHeadWindows,
@@ -24,6 +24,8 @@ const {
 );
 const { createPriorEffectiveOpticsModel, predictEffectiveAutoPaintColor } =
     await loadViteModule<typeof import('../src/lib/effectiveOptics.ts')>('/src/lib/effectiveOptics.ts');
+const { createIdentityAppearanceRankModel, resolveAppearanceRankModel, appearanceLabToRgb } =
+    await loadViteModule<typeof import('../src/lib/appearanceModel.ts')>('/src/lib/appearanceModel.ts');
 
 // ---------------------------------------------------------------------------
 // Shared fixture helpers
@@ -93,7 +95,8 @@ test('swatch layers and baseline errors use final-stack surface mappings', () =>
             (layer) => Math.abs(layer.endHeight - mapping.projectedHeight) < 1e-6
         );
         assert.equal(pixels[index].layerIdx, expectedIndex);
-        assert.equal(pixels[index].actualErr, deltaE(pixels[index].targetRgb, colors[expectedIndex]));
+        const [r, g, b] = result.finalStack.layers[expectedIndex].predictedColor.rgb;
+        assert.equal(pixels[index].actualErr, deltaE(pixels[index].targetRgb, { r, g, b }));
     }
     const windows = analyzeMultiHeadWindows(
         [BLACK, WHITE], result, swatches, LAYER_HEIGHT, FIRST_LAYER_HEIGHT, 2
@@ -126,6 +129,132 @@ test('unmapped swatches use the shared palette mapper and exact surface boundari
         const surface = result.finalStack.layers[layerIdx].endHeight;
         assert.equal(findLayerIdxAtHeight(layers, surface), layerIdx);
         assert.equal(findLayerIdxAtHeight(layers, surface + 1e-10), layerIdx);
+    }
+});
+
+function appearanceFixture() {
+    const filaments = [
+        filament('black', '#000000', 0.05),
+        filament('grey', '#808080', 0.5),
+        filament('white', '#ffffff', 0.5),
+    ];
+    const model: AppearanceRankModelV1 = {
+        ...createIdentityAppearanceRankModel(),
+        applied: true,
+        gateReason: 'applied',
+        deltaL: 6,
+    };
+    const result = generateAutoLayers(filaments, SWATCHES_GREY, 0.08, 0.16,
+        undefined, false, false, undefined, model);
+    const layers = expandZonesToPrinterLayers(result, filaments, 0.08, 0.16);
+    return { filaments, model, result, layers };
+}
+
+test('baseline errors use appearance-corrected snapshot colors for mapped and new swatches', () => {
+    const { result, layers } = appearanceFixture();
+    const swatches = [...SWATCHES_GREY].reverse().concat({ hex: '#b0b0b0' });
+    const pixels = buildPixelData(swatches, layers, buildColorStack(layers), result.finalStack);
+    for (const px of pixels) {
+        const [r, g, b] = result.finalStack.layers[px.layerIdx].predictedColor.rgb;
+        assert.equal(px.actualErr, deltaE(px.targetRgb, { r, g, b }));
+    }
+});
+
+test('window assignments minimize error under the full appearance model', () => {
+    const { filaments, model, result, layers } = appearanceFixture();
+    const pixels = buildPixelData(SWATCHES_GREY, layers, buildColorStack(layers), result.finalStack);
+    const optics = createPriorEffectiveOpticsModel(filaments);
+    const windows = analyzeMultiHeadWindows(filaments, result, SWATCHES_GREY, 0.08, 0.16, 2);
+    assert.ok(windows.some((window) => window.windowStart === 5 && window.windowEnd === 6));
+    for (const window of windows) {
+        let improvement = 0;
+        for (let index = 0; index < pixels.length; index++) {
+            const px = pixels[index];
+            if (px.layerIdx < window.windowStart) continue;
+            const errors = window.lut.map((entry) => {
+                const recipe = result.finalStack.layers.slice(0, px.layerIdx + 1).map((layer) => {
+                    const filamentId = layer.index >= window.windowStart && layer.index <= window.windowEnd
+                        ? window.filamentIds[entry[layer.index - window.windowStart]] : layer.filamentId;
+                    return {
+                        filamentId,
+                        filamentColor: filaments.find((f) => f.id === filamentId)!.color,
+                        thickness: layer.thickness,
+                    };
+                });
+                const [r, g, b] = predictEffectiveAutoPaintColor(optics, recipe)!;
+                const prediction = resolveAppearanceRankModel(rgbToLab({ r, g, b }), model, recipe);
+                const corrected = appearanceLabToRgb(prediction.lab);
+                return deltaE(px.targetRgb, { r: corrected[0], g: corrected[1], b: corrected[2] });
+            });
+            const bestError = Math.min(...errors);
+            const chosenError = errors[window.pixelOptimalLUTIdx[index]];
+            const [r, g, b] = result.finalStack.layers[px.layerIdx].predictedColor.rgb;
+            const baselineError = deltaE(px.targetRgb, { r, g, b });
+            assert.ok(chosenError <= baselineError + 1e-8,
+                `window ${window.windowStart} worsens swatch ${index}: ${baselineError} -> ${chosenError}`);
+            assert.ok(Math.abs(chosenError - bestError) < 1e-8);
+            improvement += baselineError - bestError;
+        }
+        assert.ok(Math.abs(window.errorFactor - improvement) < 1e-8);
+    }
+});
+
+test('candidate appearance resolution uses physical recipe prefixes even without a global fit', () => {
+    const { filaments, model: optics, result, layers } = fittedFixture();
+    const colors = buildColorStack(layers);
+    const start = layers.findIndex((layer) => layer.filamentId === 'white') - 1;
+    const surface = layers.length - 1;
+    const windowFilaments = filaments.map((f, filamentIdx) => ({
+        filamentIdx, filamentId: f.id, rgb: hexToRgb(f.color), td: f.td,
+    }));
+    const lut = buildLUT(2, filaments.length);
+    const targetRgb = hexToRgb('#fa50a0');
+    const targetLab = rgbToLab(targetRgb);
+    const recipe = result.finalStack.layers.map((layer) => ({
+        filamentId: layer.index >= start && layer.index < start + 2 ? 'white' : layer.filamentId,
+        filamentColor: layer.index >= start && layer.index < start + 2 ? '#ffffff' : layer.filamentColor,
+        thickness: layer.thickness,
+    }));
+    const model: AppearanceRankModelV1 = {
+        ...createIdentityAppearanceRankModel(),
+        effectiveOptics: optics,
+        exactAnchors: [{
+            id: 'test-anchor', proofId: 'test-proof', source: 'palette-proof', sourceStackKey: 'test-stack',
+            targetLab: [targetLab.L, targetLab.a, targetLab.b], suffixLayers: recipe,
+            maxSubstrateTransmission: 0.05,
+        }],
+    };
+    const analysis = analyzeWindowLUT(start, 2, layers, colors[start - 1], windowFilaments, lut,
+        [{ targetRgb, layerIdx: surface, actualErr: deltaE(targetRgb, colors[surface]) }],
+        optics, model);
+    assert.deepEqual(lut[analysis.pixelOptimalLUTIdx[0]], [2, 2]);
+});
+
+test('window assignments preserve every required opaque foundation layer', () => {
+    const filaments = [filament('black', '#000000', 0.5), filament('white', '#ffffff', 0.5)];
+    const result = generateAutoLayers(filaments, SWATCHES_GREY, 0.08, 0.16);
+    const minimum = result.finalStack.zones[0].minimumThickness!;
+    assert.equal(minimum, 0.72);
+    const windows = analyzeMultiHeadWindows(filaments, result, SWATCHES_GREY, 0.08, 0.16, 2);
+    assert.ok(windows.some((window) => window.windowStart === 7 && window.windowEnd === 8));
+    for (const window of windows) {
+        for (const bestIndex of window.pixelOptimalLUTIdx) {
+            if (bestIndex < 0) continue;
+            const entry = window.lut[bestIndex];
+            const recipe = result.finalStack.layers.map((layer) => ({
+                ...layer,
+                filamentId: layer.index >= window.windowStart && layer.index <= window.windowEnd
+                    ? window.filamentIds[entry[layer.index - window.windowStart]] : layer.filamentId,
+            }));
+            const firstTransition = recipe.find((layer) => layer.filamentId !== recipe[0].filamentId);
+            assert.ok(!firstTransition || firstTransition.startHeight + 1e-8 >= minimum,
+                `window ${window.windowStart} shortens the foundation to ${firstTransition?.startHeight}`);
+            for (const layer of recipe) {
+                if (layer.startHeight + 1e-8 < minimum) {
+                    assert.equal(layer.filamentId, result.finalStack.layers[layer.index].filamentId);
+                }
+            }
+        }
     }
 });
 
@@ -231,7 +360,7 @@ test('window analysis uses the result optical model for every candidate', () => 
                     thickness: layer.thickness,
                 }));
                 const [r, g, b] = predictEffectiveAutoPaintColor(model, recipe)!;
-                return deltaE(px.targetRgb, { r, g, b });
+                return deltaE(px.targetRgb, hexToRgb(rgbToHex({ r, g, b })));
             });
             const minimum = Math.min(...errors);
             assert.ok(Math.abs(errors[window.pixelOptimalLUTIdx[index]] - minimum) < 1e-8);
@@ -570,9 +699,15 @@ test('selectBestWindows — single window is always selected if errorFactor > 0'
 // ---------------------------------------------------------------------------
 
 test('runMultiHeadLayerAnalysis — returns non-overlapping selected windows', () => {
-    const result = buildResult([BLACK, WHITE], SWATCHES_GREY);
+    const filaments = [
+        filament('black', '#000000', 0.05),
+        filament('grey', '#888844', 0.5),
+        filament('white', '#ffffff', 0.5),
+    ];
+    const swatches = [...SWATCHES_GREY, { hex: '#906060' }];
+    const result = generateAutoLayers(filaments, swatches, 0.08, 0.16);
     const selected = runMultiHeadLayerAnalysis(
-        [BLACK, WHITE], result, SWATCHES_GREY, LAYER_HEIGHT, FIRST_LAYER_HEIGHT, 2
+        filaments, result, swatches, 0.08, 0.16, 2
     );
     assert.ok(Array.isArray(selected), 'should return an array');
     assert.ok(selected.length > 0, 'should select at least one window');

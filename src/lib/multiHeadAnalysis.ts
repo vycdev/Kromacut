@@ -4,8 +4,9 @@
  * Slides a window of N consecutive printer layers across the stack and, for each
  * window, builds a LUT of all K^N filament-to-position assignments (K = unique
  * filaments in that window). For every image swatch the per-pixel optimal LUT
- * entry is found via full Beer-Lambert simulation. The errorFactor for a window
- * is the sum of per-pixel improvements achievable by reordering its layers.
+ * entry is found via Beer-Lambert simulation and full appearance resolution.
+ * The errorFactor is the sum of per-pixel improvements achievable by reordering
+ * the window's layers.
  *
  * Primary lookup chain for renderers / 3MF builders:
  *   filamentIds[ lut[ pixelOptimalLUTIdx[p] ][n] ]
@@ -14,7 +15,11 @@
 
 import type { AutoPaintResult } from './autoPaint.ts';
 import type { Filament } from '../types';
-import type { AppearanceEffectiveOpticsModelV1 } from '../types/appearance';
+import type {
+    AppearanceAnchorLayer,
+    AppearanceEffectiveOpticsModelV1,
+    AppearanceRankModelV1,
+} from '../types/appearance';
 import {
     autoPaintResultMatchesSliceGrid,
     hexToRgb,
@@ -26,6 +31,7 @@ import {
     type RGB,
 } from './autoPaint.ts';
 import { channelHds, type CalibrationRgb } from './calibration.ts';
+import { appearanceLabToRgb, resolveAppearanceRankModel } from './appearanceModel.ts';
 import {
     blendEffectiveTransition,
     createPriorEffectiveOpticsModel,
@@ -44,7 +50,11 @@ export interface PrinterLayer {
     /** Index into the original filaments array */
     filamentIdx: number;
     filamentId?: string;
+    /** Physical swatch color, retained separately from the effective optical color. */
+    filamentColor?: string;
     filamentRgb: RGB;
+    /** Required opaque foundation layers cannot change filament in a LUT assignment. */
+    isFoundation?: boolean;
     /**
      * Effective or calibrated per-channel hiding distances (mm) from the zone.
      * Schema v2 stores frontlit HD directly; it is not rescaled. A scalar is
@@ -77,7 +87,7 @@ export interface PixelData {
 
 /** Per-window output from the sliding-window analysis. */
 export interface WindowResult {
-    /** Index of the first layer in the window (1-based; layer 0 is the opaque foundation). */
+    /** Index of the first layer in the window (1-based; required foundation layers stay fixed). */
     windowStart: number;
     /** Index of the last layer in the window (inclusive). */
     windowEnd: number;
@@ -119,13 +129,18 @@ export function expandZonesToPrinterLayers(
     if (!autoPaintResultMatchesSliceGrid(result, layerHeight, firstLayerHeight)) {
         throw new Error('Auto-paint final stack settings do not match the requested slice grid');
     }
+    const foundation = result.finalStack.zones[0];
+    const minimumFoundationThickness = foundation?.minimumThickness ??
+        foundation?.actualThickness ?? firstLayerHeight;
     return result.finalStack.layers.map((layer) => {
         const zone = result.transitionZones[layer.zoneIndex];
         const filamentIdx = filaments.findIndex((f) => f.id === layer.filamentId);
         return {
             filamentIdx: Math.max(0, filamentIdx),
             filamentId: layer.filamentId,
+            filamentColor: layer.filamentColor,
             filamentRgb: zone.effectiveColor ?? hexToRgb(layer.filamentColor),
+            isFoundation: layer.startHeight + 1e-8 < minimumFoundationThickness,
             td: zone.effectiveTdChannels ?? zone.filamentTdChannels ?? zone.filamentTd,
             transmissionExponent: zone.transmissionExponent,
             substrateHdMultiplier: zone.substrateHdMultiplier,
@@ -290,14 +305,26 @@ export function buildPixelData(
             h = mapTargetsToPrintablePalette(palette, [{ ...rgbToLab(rgb), weight: 1 }])[0].projectedHeight;
         }
         const layerIdx = findLayerIdxAtHeight(layers, h);
-        return { targetRgb: rgb, layerIdx, actualErr: deltaE(rgb, colorAtLayer[layerIdx]) };
+        const predicted = stack.layers[layerIdx]?.predictedColor.rgb;
+        const actualColor = predicted
+            ? { r: predicted[0], g: predicted[1], b: predicted[2] }
+            : colorAtLayer[layerIdx];
+        return { targetRgb: rgb, layerIdx, actualErr: deltaE(rgb, actualColor) };
     });
+}
+
+function toAppearanceLayer(layer: PrinterLayer): AppearanceAnchorLayer {
+    return {
+        filamentId: layer.filamentId ?? `f${layer.filamentIdx}`,
+        filamentColor: layer.filamentColor ?? rgbToHex(layer.filamentRgb),
+        thickness: layer.thickness,
+    };
 }
 
 /**
  * Run the LUT simulation for a single window and return per-pixel optimal assignments.
  *
- * For each affected pixel (layerIdx ≥ wStart), every LUT entry is simulated:
+ * For each affected pixel (layerIdx ≥ wStart), every foundation-preserving LUT entry is simulated:
  * - Layers below the window retain their run context and `baseColor`.
  * - Window layers are applied in LUT order (up to the pixel's own layerIdx).
  * - Layers above the window continue in their original order.
@@ -311,6 +338,7 @@ export function buildPixelData(
  * @param lut            All K^N assignments from buildLUT(N, windowFilaments.length).
  * @param pixels         Swatch pixel data from buildPixelData.
  * @param model          Result's optical model, for resolving changed substrates.
+ * @param appearanceModel Full appearance corrections, resolved from each candidate's physical prefix.
  */
 export function analyzeWindowLUT(
     wStart: number,
@@ -320,7 +348,8 @@ export function analyzeWindowLUT(
     windowFilaments: WindowFilament[],
     lut: number[][],
     pixels: PixelData[],
-    model?: AppearanceEffectiveOpticsModelV1
+    model?: AppearanceEffectiveOpticsModelV1,
+    appearanceModel?: AppearanceRankModelV1
 ): { errorFactor: number; affectedSwatches: number; pixelOptimalLUTIdx: number[] } {
     const wEnd = wStart + N - 1;
     let totalActualError = 0;
@@ -329,6 +358,7 @@ export function analyzeWindowLUT(
     const pixelOptimalLUTIdx: number[] = new Array(pixels.length).fill(-1);
 
     const minErrors: number[] = new Array(pixels.length).fill(Infinity);
+    const surfaceLayers = new Set<number>();
     let lastLayer = wEnd;
     for (let pxIdx = 0; pxIdx < pixels.length; pxIdx++) {
         const px = pixels[pxIdx];
@@ -336,6 +366,7 @@ export function analyzeWindowLUT(
         affectedSwatches++;
         totalActualError += px.actualErr;
         lastLayer = Math.max(lastLayer, px.layerIdx);
+        surfaceLayers.add(px.layerIdx);
     }
     if (affectedSwatches === 0) return { errorFactor: 0, affectedSwatches, pixelOptimalLUTIdx };
 
@@ -344,10 +375,16 @@ export function analyzeWindowLUT(
     const prefix = startColorStack(layers[0]);
     for (let i = 1; i < wStart; i++) appendColorStackLayer(prefix, layers[i]);
     prefix.color = baseColor;
+    const appearancePrefix = appearanceModel ? layers.slice(0, wStart).map(toAppearanceLayer) : [];
 
     for (let li = 0; li < lut.length; li++) {
         const entry = lut[li];
+        // Keep the dense window range and LUT indices stable, but never select
+        // an assignment that shortens the reserved opaque foundation.
+        if (entry.some((fi, j) => layers[wStart + j].isFoundation &&
+            (windowFilaments[fi].filamentIdx ?? fi) !== layers[wStart + j].filamentIdx)) continue;
         const state = { ...prefix };
+        const candidatePrefix = [...appearancePrefix];
         const colors: RGB[] = [];
         for (let i = wStart; i <= lastLayer && i < layers.length; i++) {
             let layer = layers[i];
@@ -357,6 +394,7 @@ export function analyzeWindowLUT(
                 layer = {
                     filamentIdx: filament.filamentIdx ?? fi,
                     filamentId: filament.filamentId,
+                    filamentColor: rgbToHex(filament.rgb),
                     filamentRgb: filament.rgb,
                     td: filament.td,
                     thickness: layer.thickness,
@@ -364,7 +402,20 @@ export function analyzeWindowLUT(
                 };
             }
             appendColorStackLayer(state, layer, model);
-            colors[i] = state.color;
+            let color = state.color;
+            if (appearanceModel) {
+                candidatePrefix.push(toAppearanceLayer(layer));
+                if (surfaceLayers.has(i)) {
+                    const prediction = resolveAppearanceRankModel(rgbToLab(color), appearanceModel, candidatePrefix);
+                    if (appearanceModel.applied || prediction.exactAnchor || prediction.empiricalMatch || prediction.localMatch) {
+                        const [r, g, b] = appearanceLabToRgb(prediction.lab);
+                        color = { r, g, b };
+                    }
+                    // Match the canonical uint8 colors stored in the final snapshot.
+                    color = hexToRgb(rgbToHex(color));
+                }
+            }
+            colors[i] = color;
         }
         for (let pxIdx = 0; pxIdx < pixels.length; pxIdx++) {
             const px = pixels[pxIdx];
@@ -406,7 +457,8 @@ export function analyzeMultiHeadWindows(
     const pixels = buildPixelData(
         imageSwatches, layers, colorAtLayer, result.finalStack
     );
-    const effectiveOptics = result.finalStack.appearanceModel.effectiveOptics;
+    const appearanceModel = result.finalStack.appearanceModel;
+    const effectiveOptics = appearanceModel.effectiveOptics;
     const model = effectiveOptics?.filaments.length ? effectiveOptics : createPriorEffectiveOpticsModel(filaments);
 
     const windows: WindowResult[] = [];
@@ -426,7 +478,7 @@ export function analyzeMultiHeadWindows(
         const lut = buildLUT(N, windowFilaments.length);
 
         const { errorFactor, affectedSwatches, pixelOptimalLUTIdx } = analyzeWindowLUT(
-            wStart, N, layers, colorAtLayer[wStart - 1], windowFilaments, lut, pixels, model
+            wStart, N, layers, colorAtLayer[wStart - 1], windowFilaments, lut, pixels, model, appearanceModel
         );
 
         windows.push({
