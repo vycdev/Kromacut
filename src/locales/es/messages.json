@@ -46,6 +46,7 @@
   "files": {
     "save": "Guardar {{format}}",
     "saved": "Guardado en:\n{{path}}",
+    "writeFailed": "No se pudo terminar de guardar el archivo. Vuelve a intentarlo.",
     "png": "Imagen PNG",
     "stl": "Modelo STL",
     "threeMf": "Modelo 3MF",

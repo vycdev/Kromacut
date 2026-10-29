@@ -46,6 +46,7 @@
   "files": {
     "save": "Salvează {{format}}",
     "saved": "Salvat în:\n{{path}}",
+    "writeFailed": "Salvarea fișierului nu a putut fi finalizată. Încearcă din nou.",
     "png": "Imagine PNG",
     "stl": "Model STL",
     "threeMf": "Model 3MF",

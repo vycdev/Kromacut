@@ -46,6 +46,7 @@
     "files": {
         "save": "保存{{format}}",
         "saved": "已保存到：\n{{path}}",
+        "writeFailed": "无法完成文件保存。请重试。",
         "png": "PNG 图像",
         "stl": "STL 模型",
         "threeMf": "3MF 模型",

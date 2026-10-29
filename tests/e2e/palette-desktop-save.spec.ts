@@ -24,6 +24,7 @@ test('@smoke palette export preserves browser downloads and uses desktop Save As
 }) => {
     const errors: string[] = [];
     page.on('pageerror', (error) => errors.push(error.message));
+    await page.clock.install({ time: new Date('2026-10-29T12:00:00Z') });
     await page.addInitScript((saved) => {
         localStorage.clear();
         localStorage.setItem('kromacut.palettes', JSON.stringify([saved]));
@@ -67,6 +68,8 @@ test('@smoke palette export preserves browser downloads and uses desktop Save As
             },
         };
     });
+    // Keep the feedback dismissal timer paused so it cannot mask a failed recovery.
+    await page.clock.pauseAt(new Date('2026-10-29T13:00:00Z'));
     for (const outcome of ['cancel', 'failure', 'success', 'cancel'] as const) {
         await page.evaluate((value) => {
             (window as unknown as Desktop).saveTest = { outcome: value, calls: [], chunks: [] };

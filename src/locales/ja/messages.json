@@ -46,6 +46,7 @@
     "files": {
         "save": "{{format}}を保存",
         "saved": "保存先：\n{{path}}",
+        "writeFailed": "ファイルの保存を完了できませんでした。もう一度お試しください。",
         "png": "PNG 画像",
         "stl": "STL モデル",
         "threeMf": "3MF モデル",

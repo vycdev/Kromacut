@@ -23,7 +23,12 @@ async function writeBlobToTauriFile(filePath: string, blob: Blob) {
         while (true) {
             const { done, value } = await reader.read();
             if (done) break;
-            await file.write(value);
+            let offset = 0;
+            while (offset < value.byteLength) {
+                const written = await file.write(value.subarray(offset));
+                if (written === 0) throw new Error(translate('messages:files.writeFailed'));
+                offset += written;
+            }
         }
     } finally {
         reader.releaseLock();

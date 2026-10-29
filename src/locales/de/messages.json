@@ -46,6 +46,7 @@
   "files": {
     "save": "{{format}} speichern",
     "saved": "Gespeichert unter:\n{{path}}",
+    "writeFailed": "Die Datei konnte nicht vollständig gespeichert werden. Bitte versuche es erneut.",
     "png": "PNG-Bild",
     "stl": "STL-Modell",
     "threeMf": "3MF-Modell",
