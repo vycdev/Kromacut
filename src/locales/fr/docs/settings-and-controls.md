@@ -70,7 +70,7 @@ Les profils sont distincts de cet état mémorisé. Utilisez-les pour disposer d
 
 ## Fichiers de palette
 
-Les palettes personnalisées servent à la réduction des couleurs 2D. Leurs fichiers portent l’extension `.kpal`.
+Les palettes personnalisées servent à la réduction des couleurs 2D. Leurs fichiers portent l’extension `.kpal`. Sur ordinateur, l’exportation d’une palette ouvre **Enregistrer sous** ; choisissez un emplacement accessible en écriture ou annulez pour continuer. Dans le navigateur, le téléchargement habituel est utilisé.
 
 La version 2 du format ajoute deux champs facultatifs : `disabledColors` (couleurs conservées mais exclues de la quantification) et `colorNames` (noms d’affichage facultatifs par couleur). Les deux sont conservés à l’export et à l’import. Les fichiers de version 1 se chargent sans modification avec toutes les couleurs activées et sans nom ; un fichier v2 ouvert dans un ancien Kromacut est simplement traité comme si toutes les couleurs étaient activées.
 

@@ -46,10 +46,12 @@
     "files": {
         "save": "Save {{format}}",
         "saved": "Saved to:\n{{path}}",
+        "writeFailed": "Could not finish saving the file. Please try again.",
         "png": "PNG image",
         "stl": "STL model",
         "threeMf": "3MF model",
         "profile": "Filament profile",
+        "palette": "Color palette",
         "noImage": "No image available to download",
         "imageFailed": "Image export failed. See console for details.",
         "modelNotReady": "3D model not ready yet",
@@ -116,6 +118,7 @@
         "importSaveFailed": "The palette import could not be saved. Existing palettes were left unchanged; free browser storage and try again.",
         "cloned": "Cloned as \"{{name}}\"",
         "invalid": "Invalid palette file",
+        "exportFailed": "Could not export the palette. Please try saving again.",
         "none": "No palettes found"
     },
     "calibration": {

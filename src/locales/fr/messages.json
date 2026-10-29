@@ -46,10 +46,12 @@
   "files": {
     "save": "Enregistrer {{format}}",
     "saved": "Enregistré dans :\n{{path}}",
+    "writeFailed": "Impossible de terminer l’enregistrement du fichier. Veuillez réessayer.",
     "png": "Image PNG",
     "stl": "Modèle STL",
     "threeMf": "Modèle 3MF",
     "profile": "Profil de filaments",
+    "palette": "Palette de couleurs",
     "noImage": "Aucune image à télécharger",
     "imageFailed": "Échec de l’export de l’image. Consultez la console pour plus de détails.",
     "modelNotReady": "Le modèle 3D n’est pas encore prêt",
@@ -116,6 +118,7 @@
     "importSaveFailed": "Impossible d’enregistrer l’importation de la palette. Les palettes existantes restent inchangées ; libérez de l’espace de stockage du navigateur puis réessayez.",
     "cloned": "Copiée sous le nom « {{name}} »",
     "invalid": "Fichier de palette non valide",
+    "exportFailed": "Impossible d’exporter la palette. Veuillez réessayer de l’enregistrer.",
     "none": "Aucune palette trouvée"
   },
   "calibration": {
