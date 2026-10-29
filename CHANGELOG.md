@@ -6,6 +6,7 @@ All notable changes to Kromacut are documented in this file.
 
 ### Fixed
 
+- **Reloading image files** - Choosing the same source image again reloads its original pixels after crop, resize, or other edits, instead of silently retaining the edited image. Added a browser regression for same-path reloads after resizing.
 - **Desktop palette exports** - Save `.kpal` palettes through the native Save As dialog instead of WebView browser downloads, preserving browser downloads and surfacing write failures without changing saved palettes. Retry partial writes and treat stalled writes as failures with localized feedback. Added cancellation, error, partial-write, and export-content regressions; recovery checks exclude automatic feedback dismissal.
 
 ## v4.2.0 - 2026-10-19
