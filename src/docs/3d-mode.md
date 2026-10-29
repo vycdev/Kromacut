@@ -162,6 +162,8 @@ View mode and simulated/physical choices are remembered. **Preview colors** appe
 
 Drag the bottom bar's lower and upper handles to isolate a height range. Positions snap to the layer grid. Hover over material segments for start or swap information.
 
+Focus either handle and use the arrow keys to move one printed layer at a time. Shift+arrow or Page Up/Down moves ten layers; Home/End moves to a range limit. The handles cannot cross.
+
 ![Cutoff handles hide layers for inspection but the export still contains the complete model.](19_preview_only.svg)
 
 _Schematic. Hiding a layer on screen never deletes it from the export._
