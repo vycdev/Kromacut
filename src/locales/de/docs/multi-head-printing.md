@@ -20,7 +20,7 @@ Mehrkopfmodus und **Flat Paint** schließen sich aus. Kalibriere die tatsächlic
 
 Ein **Abschnitt** ist ein zusammenhängender Block aus Schichten mit demselben Filament im Auto-paint-Aufbau. Seine Dicke stammt aus dem druckbaren Auto-paint-Ergebnis einschließlich Kalibrierung und Höhenbeschränkungen, nicht allein aus der Bildhelligkeit.
 
-Ein **Fenster** umfasst N aufeinanderfolgende Abschnitte. N wird durch die gewählte Druckkopfzahl und die verfügbaren Filamente begrenzt. Die Analyse wählt nützliche, nicht überlappende Fenster aus; sie gruppiert nicht automatisch alle Abschnitte. Abschnitte außerhalb gewählter Fenster behalten ihr geplantes Filament und werden im Druckkopfplan berücksichtigt.
+Ein **Fenster** umfasst N aufeinanderfolgende Abschnitte. N wird durch die gewählte Druckkopfzahl, die verfügbaren Filamente und die Abschnitte oberhalb des ersten Abschnitts begrenzt, der sein Filament immer behält; nicht benötigte Köpfe bleiben im Druckkopfplan als **LEER** markiert. Die Analyse wählt nützliche, nicht überlappende Fenster aus; sie gruppiert nicht automatisch alle Abschnitte. Abschnitte außerhalb gewählter Fenster behalten ihr geplantes Filament und werden im Druckkopfplan berücksichtigt.
 
 ![Farbabschnitte in beispielhaften Fenstern; übrige Abschnitte behalten ihr geplantes Filament.](01_window_run_diagram.svg)
 

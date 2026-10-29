@@ -869,16 +869,20 @@ export function runMultiHeadLayerAnalysisColorFirst(
 
     // Mutable layer stack — patched in-place each iteration as windows are applied.
     const layers = expandZonesToPrinterLayers(result, filaments, layerHeight, firstLayerHeight);
-    if (layers.length < N + 1) {
-        console.log(`[MultiHead ColorFirst] Not enough printer layers for window size N=${N}.`);
-        return empty;
-    }
-
     const originalLayers = layers.slice();
 
     // Run boundaries are fixed for the life of the analysis; only filament
     // assignments within runs change as windows are applied.
     const runs = buildColorRuns(layers);
+
+    // A window reorders up to N consecutive runs above the foundation run. With
+    // more heads than such runs, one window spans all of them and the spare
+    // heads stay empty, so extra heads never leave nothing to search.
+    const windowSize = Math.min(N, runs.length - 1);
+    if (windowSize < 2) {
+        console.log(`[MultiHead ColorFirst] Not enough color runs above the foundation for a window (${runs.length} runs).`);
+        return empty;
+    }
     const effectiveOptics = result.finalStack.appearanceModel.effectiveOptics;
     const model = effectiveOptics?.filaments.length ? effectiveOptics : createPriorEffectiveOpticsModel(filaments);
 
@@ -930,10 +934,10 @@ export function runMultiHeadLayerAnalysisColorFirst(
     //              → more windows, near-exhaustive filament-order search
     // (the combo budget is `comboBudget`, computed above from searchDepth).
     const MIN_IMPROVEMENT = searchDepth === 'fast' ? 5e-4 : searchDepth === 'thorough' ? 2e-5 : 1e-4;
-    // Upper bound: at most floor(runs/N) non-overlapping windows.
+    // Upper bound: at most floor(runs/windowSize) non-overlapping windows.
     const maxIter = searchDepth === 'fast'
-        ? Math.max(1, Math.floor(runs.length / N / 2))
-        : Math.floor(runs.length / N);
+        ? Math.max(1, Math.floor(runs.length / windowSize / 2))
+        : Math.floor(runs.length / windowSize);
 
     console.group(
         `[MultiHead ColorFirst] N=${N} heads | ${pixels.length} color groups` +
@@ -950,20 +954,20 @@ export function runMultiHeadLayerAnalysisColorFirst(
             pixels[pxIdx].actualErr = deltaE(pixels[pxIdx].targetRgb, colorAtLayer[pixels[pxIdx].layerIdx]);
         }
 
-        // Scan every candidate N-run window and find the one whose consensus
-        // optimal ordering yields the greatest aggregate improvement.
+        // Scan every candidate windowSize-run window and find the one whose
+        // consensus optimal ordering yields the greatest aggregate improvement.
         let bestWindowRuns: ColorRun[] | null = null;
         let bestUniqueIndices: number[] | null = null;
         let bestEntry: number[] | null = null;
         let bestErrorFactor = MIN_IMPROVEMENT;
         let bestAffectedCount = 0;
 
-        for (let rStart = 0; rStart + N <= runs.length; rStart++) {
-            const windowRuns = runs.slice(rStart, rStart + N);
+        for (let rStart = 0; rStart + windowSize <= runs.length; rStart++) {
+            const windowRuns = runs.slice(rStart, rStart + windowSize);
             const wStart = windowRuns[0].startLayerIdx;
             if (wStart === 0) continue; // skip foundation
 
-            const wEnd = windowRuns[N - 1].endLayerIdx;
+            const wEnd = windowRuns[windowSize - 1].endLayerIdx;
 
             // Skip windows overlapping a layer already claimed by a prior window.
             let overlaps = false;
@@ -1003,7 +1007,7 @@ export function runMultiHeadLayerAnalysisColorFirst(
         if (!bestWindowRuns || !bestEntry || !bestUniqueIndices) break;
 
         const wStart = bestWindowRuns[0].startLayerIdx;
-        const wEnd = bestWindowRuns[N - 1].endLayerIdx;
+        const wEnd = bestWindowRuns[windowSize - 1].endLayerIdx;
 
         const w: WindowResult = {
             windowStart: wStart,

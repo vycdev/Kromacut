@@ -20,7 +20,7 @@ Le mode multi-têtes et **Flat Paint** sont incompatibles. Étalonnez les filame
 
 Une **séquence** est un bloc de couches contiguës utilisant un seul filament dans l’empilement Auto-paint. Son épaisseur provient du résultat imprimable d’Auto-paint, étalonnage et contraintes de hauteur compris, et pas seulement de la luminosité de l’image source.
 
-Une **fenêtre** couvre N séquences consécutives. N est limité par le nombre de têtes choisi et les filaments disponibles. L’analyse sélectionne des fenêtres utiles sans chevauchement ; elle ne regroupe pas automatiquement toutes les séquences. Les séquences hors des fenêtres sélectionnées conservent leur filament prévu et figurent dans le planning des têtes.
+Une **fenêtre** couvre N séquences consécutives. N est limité par le nombre de têtes choisi, les filaments disponibles et les séquences situées au-dessus de la première, qui conserve toujours son filament ; les têtes inutiles restent marquées **VIDE** dans le planning des têtes. L’analyse sélectionne des fenêtres utiles sans chevauchement ; elle ne regroupe pas automatiquement toutes les séquences. Les séquences hors des fenêtres sélectionnées conservent leur filament prévu et figurent dans le planning des têtes.
 
 ![Des séquences de couleurs regroupées en fenêtres d’exemple ; les séquences restantes conservent leur filament prévu.](01_window_run_diagram.svg)
 
