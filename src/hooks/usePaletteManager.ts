@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { CustomPalette } from '../types';
 import type { Palette } from '../data/palettes';
 import { ALL_BUILTIN_PALETTES } from '../data/palettes';
+import { saveBlobToFile } from './saveBlobToFile';
 import {
     loadCustomPalettes,
     saveCustomPalettes,
@@ -179,18 +180,20 @@ export function usePaletteManager() {
     // ---- Import / Export ----
 
     const handleExportPalette = useCallback(
-        (id: string) => {
+        async (id: string) => {
             const cp = customPalettes.find((p) => p.id === id);
             if (!cp) return;
-            const blob = exportCustomPaletteBlob(cp);
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = customPaletteFileName(cp.name);
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-            URL.revokeObjectURL(url);
+            try {
+                const saved = await saveBlobToFile(exportCustomPaletteBlob(cp), {
+                    defaultFileName: customPaletteFileName(cp.name),
+                    extension: 'kpal',
+                    filterName: 'Color palette',
+                });
+                if (saved) setImportFeedback(null);
+            } catch (error) {
+                console.error('Palette export failed', error);
+                setImportFeedback('Could not export the palette. Please try saving again.');
+            }
         },
         [customPalettes]
     );

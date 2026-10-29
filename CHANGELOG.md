@@ -7,6 +7,8 @@ All notable changes to Kromacut are documented in this file.
 ### Fixed
 
 - **Relief layer keyboard controls** - Arrow keys now move each Layer Preview handle by one physical print layer, including the first-layer boundary, without adding a rounding sliver at the top of taller models. Home/End and larger keyboard steps respect the selected range. Pointer positioning remains proportional to height. Added physical-boundary regression coverage and browser coverage for both handles, exact ten-layer moves, and rebuild recovery.
+- **Reloading image files** - Choosing the same source image again reloads its original pixels after crop, resize, or other edits, instead of silently retaining the edited image. Added a browser regression for same-path reloads after resizing.
+- **Desktop palette exports** - Save `.kpal` palettes through the native Save As dialog instead of WebView browser downloads, preserving browser downloads and surfacing write failures without changing saved palettes. Retry partial writes and treat stalled writes as failures with localized feedback. Added cancellation, error, partial-write, and export-content regressions; recovery checks exclude automatic feedback dismissal.
 
 ## v4.2.0 - 2026-10-19
 
