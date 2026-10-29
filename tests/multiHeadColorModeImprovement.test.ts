@@ -144,6 +144,15 @@ for (const { heads, luminance, color } of byHeads) {
         assert.ok(color.meanDeltaE <= baseline.meanDeltaE);
         assert.ok(color.distinctColors >= baseline.distinctColors);
     });
+
+    test(`rocco: layer-based grouping is no worse than single-head printing at ${heads} heads`, () => {
+        // Per-color colors must be rendered with the optics the analysis scores;
+        // otherwise adding heads can measure worse than one head.
+        assert.ok(
+            luminance.meanSearchError <= baseline.meanSearchError,
+            `mean CIE76 ${luminance.meanSearchError.toFixed(2)} should not exceed single-head ${baseline.meanSearchError.toFixed(2)}`
+        );
+    });
 }
 
 test('rocco: color grouping lowers mean ΔE2000 on average across head counts', (t) => {
