@@ -21,6 +21,7 @@ const {
     optimizeNozzleAssignments,
     runMultiHeadLayerAnalysisColorFirst,
     MAX_MULTI_HEAD_HEADS,
+    windowComboIndices,
 } = await loadViteModule<typeof import('../src/lib/multiHeadAnalysisColorFirst.ts')>(
     '/src/lib/multiHeadAnalysisColorFirst.ts'
 );
@@ -737,6 +738,34 @@ function windowSetup() {
         ok: runs.length >= 1 + N && uniqueIndices.length >= 2,
     };
 }
+
+test('windowComboIndices — stays exhaustive at or below the budget', () => {
+    const seen = [...windowComboIndices(3, 4, 81, [2, 0, 1, 1])];
+    assert.equal(seen.length, 81);
+    assert.equal(new Set(seen).size, 81);
+});
+
+test('windowComboIndices — sampled windows keep every change within one short block of runs', () => {
+    // Seven runs and seven filaments exceed the Balanced budget, so the scan
+    // samples. It must still try every order a four-run window could choose
+    // there, or more heads can miss what fewer heads find.
+    const K = 7;
+    const N = 7;
+    const budget = 65536;
+    const current = [3, 1, 4, 1, 5, 2, 6];
+    const yielded = [...windowComboIndices(K, N, budget, current)];
+    assert.equal(yielded.length, budget + 1, 'sampling must not evaluate more than the budget allows');
+    const seen = new Set(yielded);
+    const index = (entry: number[]) => entry.reduce((sum, digit, j) => sum + digit * K ** j, 0);
+    assert.equal(yielded[0], index(current));
+    for (let p = 0; p + 4 <= N; p++) {
+        for (let v = 0; v < K ** 4; v++) {
+            const entry = current.slice();
+            for (let t = 0, rest = v; t < 4; t++, rest = Math.floor(rest / K)) entry[p + t] = rest % K;
+            assert.ok(seen.has(index(entry)), `missing ${entry.join(',')}`);
+        }
+    }
+});
 
 test('computeColorOptimalAssignments — a small combo budget forces deterministic sampling', () => {
     const s = windowSetup();
