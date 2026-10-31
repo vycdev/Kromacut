@@ -182,7 +182,7 @@ export function findLayerIdxAtHeight(layers: PrinterLayer[], h: number): number 
     return Math.max(0, layers.length - 1);
 }
 
-interface ColorStackState {
+export interface ColorStackState {
     color: RGB;
     runBackground: RGB;
     run: PrinterLayer;
@@ -190,7 +190,7 @@ interface ColorStackState {
     foundation: boolean;
 }
 
-function startColorStack(layer: PrinterLayer): ColorStackState {
+export function startColorStack(layer: PrinterLayer): ColorStackState {
     return {
         color: { ...layer.filamentRgb },
         runBackground: { ...layer.filamentRgb },
@@ -201,7 +201,7 @@ function startColorStack(layer: PrinterLayer): ColorStackState {
 }
 
 /** Fitted exponents and support limits apply to a whole run, from its original substrate. */
-function appendColorStackLayer(
+export function appendColorStackLayer(
     state: ColorStackState,
     layer: PrinterLayer,
     model?: AppearanceEffectiveOpticsModelV1

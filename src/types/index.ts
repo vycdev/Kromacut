@@ -52,6 +52,19 @@ export type Swatch = {
     sampleContext?: TargetSampleContext;
 };
 
+/** Realized nozzle state for a non-windowed layer range (pre-window, gap, or post-window). */
+export interface MultiHeadRangeAssignment {
+    /** First layer index (0-indexed, inclusive). */
+    rangeStart: number;
+    /** Last layer index (0-indexed, inclusive). */
+    rangeEnd: number;
+    /**
+     * Which filament is loaded on each head during this range (length = N heads).
+     * nozzleFilaments[k] = filament ID for head k+1. '' = head is unused.
+     */
+    nozzleFilaments: string[];
+}
+
 export interface CustomPalette {
     id: string;
     name: string;
