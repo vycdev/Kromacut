@@ -462,6 +462,70 @@ test('buildPerColorLayerColors — an unfitted stored model reproduces the singl
     for (const { hex } of swatches) assert.deepEqual(perColor.get(hex), singleHead, `path for ${hex}`);
 });
 
+/** A real stack from measured evidence: Palette Proofs and a completed Stack Matrix. */
+let calibratedStackResult: ReturnType<typeof buildCalibratedStack> | undefined;
+const calibratedStack = () => (calibratedStackResult ??= buildCalibratedStack());
+
+async function buildCalibratedStack() {
+    const [appearance, appearanceProfile, profileManager] = await Promise.all([
+        loadViteModule<typeof import('../src/lib/appearanceModel.ts')>('/src/lib/appearanceModel.ts'),
+        loadViteModule<typeof import('../src/lib/appearanceProfile.ts')>('/src/lib/appearanceProfile.ts'),
+        loadViteModule<typeof import('../src/lib/profileManager.ts')>('/src/lib/profileManager.ts'),
+    ]);
+    const parsed = profileManager.parseProfileFile(readFileSync(
+        resolve(process.cwd(), 'tests/assets/performance/8-colors-frontlit-2026-08-26/profile.kfil'), 'utf8'
+    ));
+    assert.ok(parsed);
+    const profile = profileManager.importProfiles([], parsed).imported[0];
+    const swatches = ['#1a0a30', '#4f0095', '#aa2a55', '#c33123', '#2a9a40', '#10b0b0', '#e090b0', '#f2c025', '#fdf4e8']
+        .map((hex) => ({ hex, count: 1 }));
+    const model = appearance.fitAppearanceRankModel(profile.appearance, {
+        filamentProfileFingerprint: appearanceProfile.fingerprintAppearanceFilaments(profile.filaments),
+        layerHeight: 0.08,
+        firstLayerHeight: 0.4,
+        transitionOpacity: 0.9,
+        filaments: profile.filaments,
+    });
+    const result = generateAutoLayers(
+        profile.filaments, swatches, 0.08, 0.4, undefined, true, false, { algorithm: 'fast' }, model
+    );
+    return {
+        filaments: profile.filaments, swatches, result,
+        layers: expandZonesToPrinterLayers(result, profile.filaments, 0.08, 0.4),
+    };
+}
+
+test('buildPerColorLayerColors — the appearance model reproduces the final stack on measured evidence', async () => {
+    const { filaments, swatches, result, layers } = await calibratedStack();
+    const stored = result.finalStack.appearanceModel;
+    const unchanged = layers.map((layer) => layer.filamentIdx);
+    const paths = new Map(swatches.map((s) => [s.hex, unchanged]));
+    const corrected = buildPerColorLayerColors(layers, paths, filaments, stored.effectiveOptics, stored);
+    const expected = result.finalStack.layers.map((layer) => layer.predictedColor.hex);
+    for (const { hex } of swatches) assert.deepEqual(corrected.get(hex), expected, `path for ${hex}`);
+    const uncorrected = buildPerColorLayerColors(layers, paths, filaments, stored.effectiveOptics);
+    assert.notDeepEqual(uncorrected.get(swatches[0].hex), expected, 'fixture must exercise real corrections');
+});
+
+test('buildPerColorLayerColors — each path is corrected from its own physical prefix', async () => {
+    const { filaments, swatches, result, layers } = await calibratedStack();
+    const stored = result.finalStack.appearanceModel;
+    const unchanged = layers.map((layer) => layer.filamentIdx);
+    // Swap the filament above the foundation for another used filament from there up.
+    const changeAt = unchanged.findIndex((fi) => fi !== unchanged[0]);
+    const other = unchanged.find((fi) => fi !== unchanged[0] && fi !== unchanged[changeAt])!;
+    const reordered = unchanged.map((fi, i) => (i === changeAt ? other : fi));
+    const [first, second] = swatches;
+    const corrected = buildPerColorLayerColors(
+        layers, new Map([[first.hex, reordered], [second.hex, unchanged]]), filaments, stored.effectiveOptics, stored
+    );
+    const expected = result.finalStack.layers.map((layer) => layer.predictedColor.hex);
+    // The shared cache must not leak a reordered color onto the unchanged path, in either order.
+    assert.deepEqual(corrected.get(second.hex), expected);
+    assert.deepEqual(corrected.get(first.hex)!.slice(0, changeAt), expected.slice(0, changeAt));
+    assert.notEqual(corrected.get(first.hex)![changeAt], expected[changeAt]);
+});
+
 // ---------------------------------------------------------------------------
 // patchedLayersToPlan — edge cases
 // ---------------------------------------------------------------------------
