@@ -31,6 +31,9 @@ export function multiHeadFixture(firstLayerHeight = 0.2) {
         return {
             targetColor: { hex, rgb: [rgb >> 16, (rgb >> 8) & 255, rgb & 255] },
             projectedHeight: first + 7 * 0.12,
+            usageWeight: 1,
+            // A deliberately poor normal stack, so this plan clears the build's gain check.
+            predictedColor: { hex: '#000000', rgb: [0, 0, 0] },
         };
     });
     // Only the original material runs and target mappings are needed by this
@@ -42,7 +45,11 @@ export function multiHeadFixture(firstLayerHeight = 0.2) {
             endHeight: layers[i].startZ + layers[i].thickness,
         })),
         totalHeight: first + 7 * 0.12,
-        finalStack: { appearanceModel: {}, targetMappings, palette: [] },
+        finalStack: {
+            appearanceModel: { applied: false, exactAnchors: [], localEvidence: [], empiricalLuts: [] },
+            targetMappings,
+            palette: [],
+        },
     } as unknown as AutoPaintResult;
     const state: ThreeDControlsStateShape = {
         layerHeight: 0.12,
