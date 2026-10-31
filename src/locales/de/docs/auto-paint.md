@@ -193,4 +193,14 @@ Prüfe diese Datenzusammenfassung nach Änderungen an Prozess oder Schichthöhe.
 
 Suche eine echte Spule, wenn der Vorschlag hilfreich ist, und gib anschließend ihre tatsächliche Farbe und Kalibrierung ein. Drucke nicht in der Annahme, dass die hypothetische Zeile bereits verfügbar sei. Vorschläge werden bei Änderungen der Bildfarben oder des Filamentsets zurückgesetzt. Wird kein Kandidat gefunden, deckt das aktuelle Set das Bild nach dieser Näherungsprüfung bereits gut ab.
 
+## Mehrkopfdruck
+
+Aktiviere den Mehrkopfmodus in Auto-paint und wähle 2–8 Druckköpfe sowie eine Suchtiefe. Beim Erstellen werden die Filamentreihenfolgen im Hintergrund analysiert und jedem Bildbereich wird auf jeder Schicht sein eigenes Filament zugewiesen. Die Vorschau zeigt die simulierte Mischung; die physischen Farben zeigen das tatsächliche Filament. Mehrkopfmodus und Flat Paint schließen sich gegenseitig aus.
+
+Befolge nach erfolgreicher Erstellung den Druckkopfplan in den Druckanweisungen: Lade vor dem Druck die aufgeführten Filamente, lasse mit LEER markierte Druckköpfe unbenutzt und wechsle an jedem Kontrollpunkt nur die markierten Druckköpfe. Exportiere als 3MF, um die physischen Druckkopfzuweisungen, Filamentfarben und M600-Pausenmarkierungen auf denselben Wechselschichten zu erhalten. Verwende einen kompatiblen Mehrkopfdrucker und prüfe Druckkopfzuordnung, Schichthöhen und Pausen im Slicer.
+
+Wenn die Analyse fehlschlägt oder keine nutzbare Verbesserung findet, wird das normale Modell für einen Druckkopf erstellt. Seine Startfarbe, Farbwechselanweisungen und ein entsprechender Hinweis werden angezeigt. Ein Bildwechsel bricht die laufende Analyse ab; erstelle das Modell für das neue Bild erneut.
+
+Abschnitte, Fenster, Suchtiefe und den vollständigen Ablauf erklärt [Mehrkopfdruck](multi-head-printing).
+
 Weiter: [Flat Paint](flat-paint), [Kalibrierabläufe](calibration-workflows) oder [Ergebnisse erzeugen und exportieren](generating-exporting-output).

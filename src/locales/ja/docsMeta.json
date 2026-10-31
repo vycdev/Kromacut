@@ -58,5 +58,9 @@
     "troubleshooting": {
         "title": "トラブルシューティング",
         "description": "よくある問題と、最初に試すこと。"
+    },
+    "multi-head-printing": {
+        "title": "マルチヘッド印刷",
+        "description": "マルチヘッド印刷のフィラメント割り当て、ヘッドへの再装填、3MF 書き出しを計画します。"
     }
 }
