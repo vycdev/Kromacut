@@ -5,8 +5,10 @@ import type { ThreeDControlsStateShape } from '../src/types/index.ts';
 import type { MultiHeadMeshPart } from '../src/lib/multiHeadGeometry.ts';
 import { inspectMeshIntegrity } from './meshDiagnostics.ts';
 import { withViteTestServer } from './helpers/viteModule.ts';
+import type { Rgb } from '../src/lib/colorDifference.ts';
 
 const {
+    deltaE2000,
     generateAutoLayers,
     createFinalStackTargetHeightCache,
     rgbToHex,
@@ -16,6 +18,8 @@ const {
     buildPixelData,
     runMultiHeadLayerAnalysisColorFirst,
     multiHeadBuildSnapshot,
+    multiHeadPredictedGain,
+    buildPerColorLayerColors,
     getMultiHeadRoutingPlan,
     multiHeadExportOptions,
     buildMultiHeadSchedule,
@@ -24,16 +28,20 @@ const {
     quantizeHeightMap,
 } = (await withViteTestServer(async (server) => ({
     ...(await server.ssrLoadModule('/src/lib/autoPaint.ts')),
+    deltaE2000: (await server.ssrLoadModule('/src/lib/colorDifference.ts')).deltaE2000,
     ...(await server.ssrLoadModule('/src/lib/multiHeadAnalysis.ts')),
     ...(await server.ssrLoadModule('/src/lib/multiHeadAnalysisColorFirst.ts')),
     ...(await server.ssrLoadModule('/src/lib/multiHeadBuild.ts')),
+    ...(await server.ssrLoadModule('/src/lib/patchedLayersToPlan.ts')),
     ...(await server.ssrLoadModule('/src/lib/multiHeadSchedule.ts')),
     ...(await server.ssrLoadModule('/src/lib/multiHeadGeometry.ts')),
     ...(await server.ssrLoadModule('/src/lib/heightDithering.ts')),
 }))) as typeof import('../src/lib/autoPaint.ts') &
+    Pick<typeof import('../src/lib/colorDifference.ts'), 'deltaE2000'> &
     typeof import('../src/lib/multiHeadAnalysis.ts') &
     typeof import('../src/lib/multiHeadAnalysisColorFirst.ts') &
     typeof import('../src/lib/multiHeadBuild.ts') &
+    typeof import('../src/lib/patchedLayersToPlan.ts') &
     typeof import('../src/lib/multiHeadSchedule.ts') &
     typeof import('../src/lib/multiHeadGeometry.ts') &
     typeof import('../src/lib/heightDithering.ts');
@@ -86,6 +94,18 @@ function improvingAnalysisFixture() {
     };
     const layers = expandZonesToPrinterLayers(result, filaments, 0.25, 0.25);
     const colors = buildColorStack(layers);
+    // Normal-stack predictions must describe this fixed stack, not the seed's.
+    result.finalStack.targetMappings = result.finalStack.targetMappings.map((mapping, i) => {
+        const rgb = colors[i];
+        return {
+            ...mapping,
+            predictedColor: {
+                ...mapping.predictedColor,
+                hex: rgbToHex(rgb),
+                rgb: [Math.round(rgb.r), Math.round(rgb.g), Math.round(rgb.b)],
+            },
+        };
+    });
     result.finalStack.palette = colors.map((rgb, i) => {
         const lab = rgbToLab(rgb);
         return {
@@ -126,6 +146,76 @@ function improvingAnalysisFixture() {
     };
     return { state, analysis, swatches, layers, colors };
 }
+
+test('routed builds fall back when the predicted gain does not justify the head swaps', () => {
+    const { state, analysis, layers } = improvingAnalysisFixture();
+    const unchanged = layers.map((layer) => layer.filamentIdx);
+    const noGain = {
+        ...analysis,
+        colorLayerFilaments: new Map([...analysis.colorLayerFilaments.keys()].map((hex) => [hex, unchanged])),
+    };
+    const built = multiHeadBuildSnapshot({ ...state, multiHeadCount: 2 }, noGain);
+    assert.equal(built.multiHeadMode, false);
+    assert.equal(built.perColorLayerColors, undefined);
+    assert.equal(getMultiHeadRoutingPlan(built), undefined);
+    // The same plan with its real paths clears the check.
+    assert.equal(multiHeadBuildSnapshot({ ...state, multiHeadCount: 2 }, analysis).multiHeadMode, true);
+});
+
+test('predicted gain compares routed colors with the final stack, weighted by color usage', () => {
+    const { state, layers } = improvingAnalysisFixture();
+    const finalStack = state.autoPaintResult!.finalStack;
+    const [heavy, light] = finalStack.targetMappings;
+    const stack = {
+        ...finalStack,
+        targetMappings: [
+            { ...heavy, usageWeight: 3 },
+            { ...light, usageWeight: 1 },
+            // Colors without weight or a routed path do not count toward the mean.
+            { ...light, targetColor: { ...light.targetColor, hex: '#123456' }, usageWeight: 1 },
+            { ...heavy, targetColor: { ...heavy.targetColor, hex: '#654321' }, usageWeight: 0 },
+        ],
+    };
+    const surface = (height: number) => layers.findIndex((l) => l.startZ + l.thickness + 1e-8 >= height);
+    const routed = (hex: string, surfaceIdx: number, color: string) => {
+        const colors = layers.map(() => '#000000');
+        colors[surfaceIdx] = color;
+        return [hex, colors] as const;
+    };
+    const perColor = new Map([
+        // The heavy color reaches its exact target; the light one stays as predicted.
+        routed(heavy.targetColor.hex, surface(heavy.projectedHeight), heavy.targetColor.hex),
+        routed(light.targetColor.hex, surface(light.projectedHeight), light.predictedColor.hex),
+        routed('#654321', 0, '#000000'),
+    ]);
+    const heavyError = deltaE2000([...heavy.targetColor.rgb] as Rgb, [...heavy.predictedColor.rgb] as Rgb);
+    assert.ok(heavyError > 0);
+    const gain = multiHeadPredictedGain(stack, layers, perColor);
+    assert.ok(Math.abs(gain - (heavyError * 3) / 4) < 1e-9, `gain ${gain}`);
+    assert.equal(multiHeadPredictedGain(stack, layers, new Map()), 0);
+});
+
+test('routed preview colors use the final stack appearance model', () => {
+    const { state, analysis } = improvingAnalysisFixture();
+    const finalStack = state.autoPaintResult!.finalStack;
+    // A fitted lightness offset applies to every prediction, like a passing global fit.
+    const appearanceModel = { ...finalStack.appearanceModel, applied: true, deltaL: 6 };
+    const corrected = {
+        ...state,
+        multiHeadCount: 2,
+        autoPaintResult: { ...state.autoPaintResult!, finalStack: { ...finalStack, appearanceModel } },
+    };
+    const built = multiHeadBuildSnapshot(corrected, analysis);
+    assert.equal(built.multiHeadMode, true);
+    const expected = buildPerColorLayerColors(
+        analysis.patchedLayers, analysis.colorLayerFilaments, state.filaments, appearanceModel.effectiveOptics, appearanceModel
+    );
+    const uncorrected = buildPerColorLayerColors(
+        analysis.patchedLayers, analysis.colorLayerFilaments, state.filaments, appearanceModel.effectiveOptics
+    );
+    assert.deepEqual(built.perColorLayerColors, expected);
+    assert.notDeepEqual(built.perColorLayerColors, uncorrected);
+});
 
 test('clamped analysis retains selected physical heads as EMPTY in the schedule and export', () => {
     const { state, analysis } = improvingAnalysisFixture();
