@@ -54,7 +54,7 @@ Usa uma impressora multicabeças compatível. Antes de imprimir, verifica no pro
 
 ## Alternativa e reconstrução
 
-Se a análise falhar ou não encontrar uma disposição utilizável que melhore o empilhamento normal, é criado um modelo normal de uma só cabeça com um aviso, a cor inicial e as instruções de mudança originais. Experimenta outros filamentos, outro número de cabeças ou outra profundidade e cria novamente o modelo.
+Se a análise falhar, não encontrar uma disposição utilizável que melhore o empilhamento normal ou prever uma melhoria demasiado pequena para justificar as mudanças de cabeça, é criado um modelo normal de uma só cabeça com um aviso, a cor inicial e as instruções de mudança originais. Experimenta outros filamentos, outro número de cabeças ou outra profundidade e cria novamente o modelo.
 
 A análise decorre em segundo plano. Sair do painel 3D ou mudar a imagem cancela a análise pendente; cria novamente o modelo para a nova imagem. As instruções e exportações descrevem o modelo criado: volta a criá-lo para aplicar alterações às definições.
 
