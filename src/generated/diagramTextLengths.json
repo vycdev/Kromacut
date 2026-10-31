@@ -94,7 +94,11 @@
       "z018Layer3": 145,
       "z014Layer2": 145,
       "z010Layer1": 145
-    }
+    },
+    "01_window_run_diagram": {},
+    "02_nozzle_swap_schedule": {},
+    "03_beer_lambert_blending": {},
+    "05_combo_search_space": {}
   },
   "de": {
     "06_frontlit_hiding_distance": {
@@ -201,7 +205,13 @@
       "z014Layer2": 145,
       "z010Layer1": 145,
       "z000Plate": 145
-    }
+    },
+    "01_window_run_diagram": {},
+    "02_nozzle_swap_schedule": {
+      "teal": 36
+    },
+    "03_beer_lambert_blending": {},
+    "05_combo_search_space": {}
   },
   "it": {
     "06_frontlit_hiding_distance": {
@@ -313,7 +323,11 @@
       "z014Layer2": 145,
       "z010Layer1": 145,
       "bothHeightsDescribeTheSameSwap": 409
-    }
+    },
+    "01_window_run_diagram": {},
+    "02_nozzle_swap_schedule": {},
+    "03_beer_lambert_blending": {},
+    "05_combo_search_space": {}
   },
   "ro": {
     "06_frontlit_hiding_distance": {
@@ -418,7 +432,13 @@
       "z018Layer3": 145,
       "z014Layer2": 145,
       "z010Layer1": 145
-    }
+    },
+    "01_window_run_diagram": {},
+    "02_nozzle_swap_schedule": {
+      "orange": 36
+    },
+    "03_beer_lambert_blending": {},
+    "05_combo_search_space": {}
   },
   "es": {
     "06_frontlit_hiding_distance": {},
@@ -508,7 +528,13 @@
     },
     "41_swap_layers": {
       "sideView010First004Regular": 393
-    }
+    },
+    "01_window_run_diagram": {},
+    "02_nozzle_swap_schedule": {
+      "teal": 36
+    },
+    "03_beer_lambert_blending": {},
+    "05_combo_search_space": {}
   },
   "ja": {
     "06_frontlit_hiding_distance": {},
@@ -559,7 +585,11 @@
     "40_build_export_snapshot": {},
     "41_swap_layers": {
       "z000Plate": 145
-    }
+    },
+    "01_window_run_diagram": {},
+    "02_nozzle_swap_schedule": {},
+    "03_beer_lambert_blending": {},
+    "05_combo_search_space": {}
   },
   "zh-CN": {
     "06_frontlit_hiding_distance": {},
@@ -588,7 +618,11 @@
     "35_swatch_operations": {},
     "36_dedither_neighbors": {},
     "40_build_export_snapshot": {},
-    "41_swap_layers": {}
+    "41_swap_layers": {},
+    "01_window_run_diagram": {},
+    "02_nozzle_swap_schedule": {},
+    "03_beer_lambert_blending": {},
+    "05_combo_search_space": {}
   },
   "hi": {
     "06_frontlit_hiding_distance": {},
@@ -617,7 +651,11 @@
     "35_swatch_operations": {},
     "36_dedither_neighbors": {},
     "40_build_export_snapshot": {},
-    "41_swap_layers": {}
+    "41_swap_layers": {},
+    "01_window_run_diagram": {},
+    "02_nozzle_swap_schedule": {},
+    "03_beer_lambert_blending": {},
+    "05_combo_search_space": {}
   },
   "pt-PT": {
     "06_frontlit_hiding_distance": {},
@@ -715,7 +753,14 @@
       "z018Layer3": 145,
       "z014Layer2": 145,
       "z010Layer1": 145
-    }
+    },
+    "01_window_run_diagram": {},
+    "02_nozzle_swap_schedule": {
+      "red": 36,
+      "teal": 36
+    },
+    "03_beer_lambert_blending": {},
+    "05_combo_search_space": {}
   },
   "uk": {
     "06_frontlit_hiding_distance": {
@@ -838,7 +883,16 @@
     "41_swap_layers": {
       "sideView010First004Regular": 393,
       "z000Plate": 145
-    }
+    },
+    "01_window_run_diagram": {},
+    "02_nozzle_swap_schedule": {
+      "red": 36,
+      "purple": 36,
+      "teal": 36,
+      "orange": 36
+    },
+    "03_beer_lambert_blending": {},
+    "05_combo_search_space": {}
   },
   "bn": {
     "06_frontlit_hiding_distance": {},
@@ -873,6 +927,12 @@
       "pinkCenter3Pink5Cyan": 248
     },
     "40_build_export_snapshot": {},
-    "41_swap_layers": {}
+    "41_swap_layers": {},
+    "01_window_run_diagram": {},
+    "02_nozzle_swap_schedule": {
+      "teal": 36
+    },
+    "03_beer_lambert_blending": {},
+    "05_combo_search_space": {}
   }
 }

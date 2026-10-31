@@ -348,5 +348,31 @@
         "layerMeshComplete": "Layer mesh complete",
         "minimumValue": "Minimum value is {{minimum}}",
         "maximumValue": "Maximum value is {{maximum}}"
+    },
+    "multiHead": {
+        "mode": "Multi-head mode",
+        "description": "Optimize per-pixel filament orders across {{heads}} heads.",
+        "incompatibleWithFlatPaint": "Not compatible with Flat Paint — enabling Multi-head turns Flat Paint off.",
+        "headCount": "Head count",
+        "searchDepth": "Search depth",
+        "searchHelp": "Deeper search opens more head windows and tries more filament orders per window. Large searches use a bounded, deterministic sample.",
+        "colorGrouping": "Color grouping",
+        "layerBasedGrouping": "Layer-based (current)",
+        "colorBasedGrouping": "Color-based (per-hue)",
+        "colorGroupingHelp": "Layer-based combines colors on the same print layer. Color-based separates hues within a group budget, keeping their print layers. It can take longer and does not guarantee lower color error or more printed colors. Saved immediately; rebuild to compare.",
+        "noLayoutFallback": "Multi-head analysis found no layout that improves the normal stack with {{heads}} heads — built a normal single-head model instead.",
+        "analysisFailedFallback": "Multi-head analysis did not finish — built a normal single-head model instead. Try fewer heads or a different search depth.",
+        "largePrintWarning": "This print has {{layers}} layers — swap instructions may be slow to generate above 64.",
+        "buildSchedulePrompt": "Click <action>Build 3D Model</action> to generate the multi-head model and Head Schedule.",
+        "noAssignments": "No head assignments computed yet.",
+        "schedule": "Head Schedule",
+        "beforePrint": "Before print<detail> — load all heads</detail>",
+        "swapCheckpoint": "Layer {{layer}}<detail> — heads to swap: {{swaps}}</detail>",
+        "head": "Head {{head}}",
+        "empty": "EMPTY",
+        "beforePrintText": "Before print — load all heads:",
+        "swapCheckpointText": "Layer {{layer}} — heads to swap: {{swaps}}:",
+        "invalidPlan": "The multi-head plan is incomplete. Rebuild the model to analyze it again.",
+        "swapMarker": " ← swap"
     }
 }
