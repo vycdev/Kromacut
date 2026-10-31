@@ -7,12 +7,17 @@
  * code that already iterates transition zones works unchanged.
  */
 
-import type { TransitionZone } from './autoPaint.ts';
-import { rgbToHex } from './autoPaint.ts';
+import type { RGB, TransitionZone } from './autoPaint.ts';
+import { hexToRgb, rgbToHex, rgbToLab } from './autoPaint.ts';
+import { appearanceLabToRgb, resolveAppearanceRankModel } from './appearanceModel.ts';
 import type { PrinterLayer } from './multiHeadAnalysis.ts';
 import { buildColorStack } from './multiHeadAnalysis.ts';
 import type { Filament } from '../types';
-import type { AppearanceEffectiveOpticsModelV1 } from '../types/appearance';
+import type {
+    AppearanceAnchorLayer,
+    AppearanceEffectiveOpticsModelV1,
+    AppearanceRankModelV1,
+} from '../types/appearance';
 import { buildColorRuns } from './multiHeadAnalysisColorFirst.ts';
 import {
     createPriorEffectiveOpticsModel,
@@ -87,7 +92,9 @@ export function patchedLayersToSliceData(
  *
  * Two pixels of different colour at the same height can therefore show different
  * colours, which is what makes the reordered "mixed" window layers visible.
- * Pass the analysis's effective optics model when fitted appearance data is used.
+ * Pass the analysis's effective optics model when fitted appearance data is used,
+ * and the final stack's appearance model to correct each layer from its physical
+ * prefix, the way the final stack predicts its single-head colors.
  *
  * @returns Map keyed by image-colour hex → array (length = layers.length) of
  *          blended colour hex strings, one per printer layer.
@@ -96,7 +103,8 @@ export function buildPerColorLayerColors(
     layers: PrinterLayer[],
     colorLayerFilaments: Map<string, number[]>,
     filaments: Filament[],
-    effectiveOptics?: AppearanceEffectiveOpticsModelV1
+    effectiveOptics?: AppearanceEffectiveOpticsModelV1,
+    appearanceModel?: AppearanceRankModelV1
 ): Map<string, string[]> {
     const out = new Map<string, string[]>();
     if (layers.length === 0) return out;
@@ -109,10 +117,13 @@ export function buildPerColorLayerColors(
         const td: PrinterLayer['td'] = [...optics.hdChannels];
         return {
             filamentId: f.id,
+            filamentColor: rgbToHex(hexToRgb(f.color)),
             rgb: { r: optics.color[0], g: optics.color[1], b: optics.color[2] },
             td,
         };
     });
+    // Paths sharing a physical prefix share every corrected color up to that layer.
+    const correctedByPrefix = new Map<string, string>();
 
     for (const [hex, seq] of colorLayerFilaments) {
         // Build a per-colour printer-layer stack: same geometry as `layers`, but
@@ -134,10 +145,44 @@ export function buildPerColorLayerColors(
             };
         });
         const stack = buildColorStack(colorLayers);
-        out.set(hex, stack.map(rgbToHex));
+        if (!appearanceModel) {
+            out.set(hex, stack.map(rgbToHex));
+            continue;
+        }
+        const prefix: AppearanceAnchorLayer[] = [];
+        let prefixKey = '';
+        out.set(hex, stack.map((color, i) => {
+            const layer = colorLayers[i];
+            prefix.push({
+                filamentId: layer.filamentId ?? `f${seq[i]}`,
+                filamentColor: palette[seq[i]]?.filamentColor ?? layers[i].filamentColor ?? rgbToHex(layers[i].filamentRgb),
+                thickness: layer.thickness,
+            });
+            prefixKey += `${seq[i]},`;
+            let corrected = correctedByPrefix.get(prefixKey);
+            if (corrected === undefined) {
+                corrected = rgbToHex(correctedStackColor(color, appearanceModel, prefix));
+                correctedByPrefix.set(prefixKey, corrected);
+            }
+            return corrected;
+        }));
     }
 
     return out;
+}
+
+/** Same rule as the final stack's predicted colors. */
+function correctedStackColor(
+    color: RGB,
+    model: AppearanceRankModelV1,
+    prefix: readonly AppearanceAnchorLayer[]
+): RGB {
+    const prediction = resolveAppearanceRankModel(rgbToLab(color), model, prefix);
+    if (!model.applied && !prediction.exactAnchor && !prediction.empiricalMatch && !prediction.localMatch) {
+        return color;
+    }
+    const [r, g, b] = appearanceLabToRgb(prediction.lab);
+    return { r, g, b };
 }
 
 /**
