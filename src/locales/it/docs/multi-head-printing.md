@@ -65,7 +65,7 @@ Usa una stampante multitesta compatibile. Prima di stampare, verifica nel progra
 
 ## Ripiego e ricreazione
 
-Se l’analisi fallisce o non trova una disposizione utilizzabile che migliori la pila normale, viene creato un modello normale a testa singola con un avviso, il colore iniziale e le istruzioni di cambio originali. Prova filamenti diversi, un altro numero di teste o una diversa profondità, poi ricrea il modello.
+Se l’analisi fallisce, non trova una disposizione utilizzabile che migliori la pila normale o prevede un miglioramento troppo piccolo per giustificare i cambi di testa, viene creato un modello normale a testa singola con un avviso, il colore iniziale e le istruzioni di cambio originali. Prova filamenti diversi, un altro numero di teste o una diversa profondità, poi ricrea il modello.
 
 L’analisi viene eseguita in background. Uscire dal pannello 3D o cambiare immagine annulla l’analisi in corso; ricrea il modello per la nuova immagine. Istruzioni ed esportazioni descrivono il modello creato: ricrealo per applicare le impostazioni modificate.
 

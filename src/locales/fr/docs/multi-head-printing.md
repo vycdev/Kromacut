@@ -65,7 +65,7 @@ Utilisez une imprimante multi-têtes compatible. Vérifiez les affectations des 
 
 ## Repli et reconstruction
 
-Si l’analyse échoue ou ne trouve aucune disposition exploitable améliorant l’empilement normal, la construction produit un modèle normal à une tête avec un message, sa couleur de départ et ses instructions de changement d’origine. Essayez d’autres filaments, un autre nombre de têtes ou une autre profondeur de recherche, puis reconstruisez.
+Si l’analyse échoue, ne trouve aucune disposition exploitable améliorant l’empilement normal ou prévoit une amélioration trop faible pour justifier les changements de tête, la construction produit un modèle normal à une tête avec un message, sa couleur de départ et ses instructions de changement d’origine. Essayez d’autres filaments, un autre nombre de têtes ou une autre profondeur de recherche, puis reconstruisez.
 
 L’analyse s’exécute en arrière-plan. Quitter le panneau 3D ou changer d’image annule l’analyse en cours ; reconstruisez pour la nouvelle image. Les instructions et exports décrivent le modèle construit : reconstruisez pour appliquer les paramètres modifiés.
 

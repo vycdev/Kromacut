@@ -65,7 +65,7 @@ Use a compatible multi-head printer. Verify head mapping, first-layer and regula
 
 ## Fallback and Rebuilding
 
-If analysis fails or finds no usable layout that improves the normal stack, the build produces a normal single-head model with a notice and its original start color and swap instructions. Try different filaments, a different head count, or another search depth, then rebuild.
+If analysis fails, finds no usable layout that improves the normal stack, or predicts too small an improvement to justify the head swaps, the build produces a normal single-head model with a notice and its original start color and swap instructions. Try different filaments, a different head count, or another search depth, then rebuild.
 
 Analysis runs in a background worker. Leaving the 3D panel or changing the image cancels pending analysis; build again for the new image. Instructions and exports describe the built model, so rebuild to apply changed settings.
 

@@ -1,4 +1,8 @@
 import type { MultiHeadRoutingPlan, ThreeDControlsStateShape } from '../types';
+import type { FinalPrintableStackSnapshot } from '../types/appearance';
+import { hexToRgb, rgbToHex } from './autoPaint.ts';
+import { deltaE2000, type Rgb } from './colorDifference.ts';
+import { findLayerIdxAtHeight, type PrinterLayer } from './multiHeadAnalysis.ts';
 import { MAX_MULTI_HEAD_HEADS, type ColorFirstResult } from './multiHeadAnalysisColorFirst.ts';
 import type { Export3MFOptions } from './export3mf.ts';
 import {
@@ -131,7 +135,44 @@ export function getMultiHeadRoutingPlan(
     return plan;
 }
 
-/** Publish a routed plan only when all its regions can use the scheduled heads. */
+/**
+ * Smallest predicted gain over the normal stack, in usage-weighted mean CIEDE2000,
+ * that justifies a routed build's head swaps.
+ */
+export const MIN_MULTI_HEAD_PREDICTED_GAIN = 0.25;
+
+/**
+ * Usage-weighted mean CIEDE2000 improvement of routed colors over the final
+ * stack's own predictions. Pass colors corrected with the same appearance model.
+ */
+export function multiHeadPredictedGain(
+    finalStack: FinalPrintableStackSnapshot,
+    layers: PrinterLayer[],
+    perColorLayerColors: Map<string, string[]>
+): number {
+    const colorsByHex = new Map(
+        [...perColorLayerColors].map(([hex, colors]) => [rgbToHex(hexToRgb(hex)), colors])
+    );
+    let totalWeight = 0;
+    let weightedGain = 0;
+    for (const mapping of finalStack.targetMappings) {
+        const colors = colorsByHex.get(mapping.targetColor.hex);
+        const routedHex = colors?.[findLayerIdxAtHeight(layers, mapping.projectedHeight)];
+        if (!routedHex || mapping.usageWeight <= 0) continue;
+        const target = [...mapping.targetColor.rgb] as Rgb;
+        const { r, g, b } = hexToRgb(routedHex);
+        totalWeight += mapping.usageWeight;
+        weightedGain += mapping.usageWeight * (
+            deltaE2000(target, [...mapping.predictedColor.rgb] as Rgb) - deltaE2000(target, [r, g, b])
+        );
+    }
+    return totalWeight > 0 ? weightedGain / totalWeight : 0;
+}
+
+/**
+ * Publish a routed plan only when all its regions can use the scheduled heads
+ * and its predicted colors are worth their head swaps.
+ */
 export function multiHeadBuildSnapshot(
     state: ThreeDControlsStateShape,
     result: ColorFirstResult | null
@@ -147,6 +188,21 @@ export function multiHeadBuildSnapshot(
     ) {
         return singleHeadBuildSnapshot(state);
     }
+    const finalStack = state.autoPaintResult?.finalStack;
+    const perColorLayerColors = buildPerColorLayerColors(
+        result.patchedLayers,
+        result.colorLayerFilaments,
+        state.filaments,
+        finalStack?.appearanceModel.effectiveOptics,
+        finalStack?.appearanceModel
+    );
+    if (
+        finalStack &&
+        multiHeadPredictedGain(finalStack, result.patchedLayers, perColorLayerColors) <
+            MIN_MULTI_HEAD_PREDICTED_GAIN
+    ) {
+        return singleHeadBuildSnapshot(state);
+    }
     const built: ThreeDControlsStateShape = {
         ...state,
         multiHeadMode: true,
@@ -158,12 +214,7 @@ export function multiHeadBuildSnapshot(
             state.filaments,
             state.slicerFirstLayerHeight
         ),
-        perColorLayerColors: buildPerColorLayerColors(
-            result.patchedLayers,
-            result.colorLayerFilaments,
-            state.filaments,
-            state.autoPaintResult?.finalStack?.appearanceModel.effectiveOptics
-        ),
+        perColorLayerColors,
         colorLayerFilaments: result.colorLayerFilaments,
         windowRunFilaments: result.windowRunFilaments,
         // Analysis only needs as many slots as there are filaments. Retain the
