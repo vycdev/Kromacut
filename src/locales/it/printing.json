@@ -378,5 +378,27 @@
     "layerMeshComplete": "Mesh del livello completata",
     "minimumValue": "Il valore minimo è {{minimum}}",
     "maximumValue": "Il valore massimo è {{maximum}}"
+  },
+  "multiHead": {
+    "mode": "Modalità multi-testa",
+    "description": "Ottimizza l’ordine dei filamenti per pixel su {{heads}} teste.",
+    "incompatibleWithFlatPaint": "Non compatibile con Flat Paint — attivare la modalità multi-testa disattiva Flat Paint.",
+    "headCount": "Numero di teste",
+    "searchDepth": "Profondità di ricerca",
+    "searchHelp": "Una ricerca più approfondita apre più finestre di teste e prova più ordini di filamenti per finestra. Le ricerche ampie usano un campione limitato e deterministico.",
+    "noLayoutFallback": "L’analisi multi-testa non ha trovato una disposizione migliore della pila normale con {{heads}} teste — è stato creato un normale modello a testa singola.",
+    "analysisFailedFallback": "L’analisi multi-testa non è terminata — è stato creato un normale modello a testa singola. Prova meno teste o una diversa profondità di ricerca.",
+    "largePrintWarning": "Questa stampa ha {{layers}} strati — oltre 64, la generazione delle istruzioni di cambio può essere lenta.",
+    "buildSchedulePrompt": "Fai clic su <action>Crea modello 3D</action> per generare il modello multi-testa e il programma delle teste.",
+    "noAssignments": "Nessuna assegnazione delle teste ancora calcolata.",
+    "schedule": "Programma delle teste",
+    "beforePrint": "Prima della stampa<detail> — carica tutte le teste</detail>",
+    "swapCheckpoint": "Strato {{layer}}<detail> — teste da ricaricare: {{swaps}}</detail>",
+    "head": "Testa {{head}}",
+    "empty": "VUOTA",
+    "beforePrintText": "Prima della stampa — carica tutte le teste:",
+    "swapCheckpointText": "Strato {{layer}} — teste da ricaricare: {{swaps}}:",
+    "invalidPlan": "Il piano multi-testa è incompleto. Crea di nuovo il modello per ripetere l’analisi.",
+    "swapMarker": " ← cambia"
   }
 }

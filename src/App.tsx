@@ -33,6 +33,7 @@ import PreviewActions from './components/PreviewActions';
 import { useDropzone } from './hooks/useDropzone';
 import { exportObjectToStlBlob } from './lib/exportStl';
 import { exportObjectTo3MFBlob } from './lib/export3mf';
+import { getMultiHeadRoutingPlan, multiHeadExportOptions } from './lib/multiHeadBuild';
 import { useAppHandlers, type ExportProgressStep } from './hooks/useAppHandlers';
 import { useProcessingState } from './hooks/useProcessingState';
 import { useBuildWarning } from './hooks/useBuildWarning';
@@ -124,6 +125,9 @@ type AutoPaintPersisted = Pick<
     | 'omitAtRiskPixels'
     | 'flatPaint'
     | 'flatPaintFaceUp'
+    | 'multiHeadMode'
+    | 'multiHeadCount'
+    | 'multiHeadSearchDepth'
 >;
 
 // Schema v2: filament `td` values store frontlit hiding distances. State
@@ -204,6 +208,9 @@ const loadAutoPaintPersisted = (): AutoPaintPersisted | null => {
             omitAtRiskPixels: parsed.omitAtRiskPixels === true,
             flatPaint: parsed.flatPaint ?? false,
             flatPaintFaceUp: parsed.flatPaintFaceUp === true,
+            multiHeadMode: parsed.multiHeadMode ?? false,
+            multiHeadCount: parsed.multiHeadCount ?? 4,
+            multiHeadSearchDepth: parsed.multiHeadSearchDepth ?? 'balanced',
         };
     } catch {
         return null;
@@ -470,6 +477,10 @@ function App(): React.ReactElement | null {
     const builtModelState = builtThreeDState ?? threeDState;
     const builtModelAutoPaint = builtModelState.paintMode === 'autopaint';
     const builtModelValid = !builtModelAutoPaint || builtModelState.autoPaintResult !== undefined;
+    const builtMultiHeadPlan = useMemo(
+        () => getMultiHeadRoutingPlan(builtModelState),
+        [builtModelState]
+    );
 
     const prevModeRef = useRef<typeof mode>(mode);
 
@@ -493,6 +504,9 @@ function App(): React.ReactElement | null {
             omitAtRiskPixels: threeDState.omitAtRiskPixels,
             flatPaint: threeDState.flatPaint,
             flatPaintFaceUp: threeDState.flatPaintFaceUp,
+            multiHeadMode: threeDState.multiHeadMode,
+            multiHeadCount: threeDState.multiHeadCount,
+            multiHeadSearchDepth: threeDState.multiHeadSearchDepth,
         });
     }, [
         threeDState.filaments,
@@ -513,6 +527,9 @@ function App(): React.ReactElement | null {
         threeDState.omitAtRiskPixels,
         threeDState.flatPaint,
         threeDState.flatPaintFaceUp,
+        threeDState.multiHeadMode,
+        threeDState.multiHeadCount,
+        threeDState.multiHeadSearchDepth,
     ]);
 
     // No auto-build on tab switch — the user must click "Build 3D Model" / "Apply Changes".
@@ -672,6 +689,7 @@ function App(): React.ReactElement | null {
             exportObjectToStlBlob,
             exportObjectTo3MFBlob: (obj, onProgress, onZipProgress) =>
                 exportObjectTo3MFBlob(obj, {
+                    ...multiHeadExportOptions(builtMultiHeadPlan),
                     layerHeight: builtModelState.layerHeight,
                     firstLayerHeight: builtModelState.slicerFirstLayerHeight,
                     smoothMeshingStrength: builtModelState.smoothMeshingStrength,
@@ -970,17 +988,29 @@ function App(): React.ReactElement | null {
                                                     builtModelState.slicerFirstLayerHeight
                                                 }
                                                 colorSliceHeights={
+                                                    builtModelState.patchedSliceData
+                                                        ?.colorSliceHeights ??
                                                     builtModelState.colorSliceHeights
                                                 }
-                                                colorOrder={builtModelState.colorOrder}
-                                                swatches={builtModelState.filteredSwatches}
+                                                colorOrder={
+                                                    builtModelState.patchedSliceData?.colorOrder ??
+                                                    builtModelState.colorOrder
+                                                }
+                                                swatches={
+                                                    builtModelAutoPaint &&
+                                                    builtModelState.patchedSliceData
+                                                        ? builtModelState.patchedSliceData.swatches
+                                                        : builtModelState.filteredSwatches
+                                                }
                                                 filamentSwatches={
-                                                    builtModelAutoPaint
+                                                    builtModelAutoPaint &&
+                                                    !builtModelState.patchedSliceData
                                                         ? builtModelState.autoPaintFilamentSwatches
                                                         : undefined
                                                 }
                                                 pixelSize={builtModelState.pixelSize}
                                                 rebuildSignal={threeDBuildSignal}
+                                                multiHeadPlan={builtMultiHeadPlan}
                                                 autoPaintEnabled={builtModelAutoPaint}
                                                 autoPaintTotalHeight={
                                                     builtModelState.autoPaintResult?.totalHeight

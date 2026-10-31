@@ -378,5 +378,27 @@
     "layerMeshComplete": "Malha da camada concluída",
     "minimumValue": "O valor mínimo é {{minimum}}",
     "maximumValue": "O valor máximo é {{maximum}}"
+  },
+  "multiHead": {
+    "mode": "Modo multicabeças",
+    "description": "Otimiza a ordem dos filamentos por píxel em {{heads}} cabeças.",
+    "incompatibleWithFlatPaint": "Incompatível com Flat Paint — ativar o modo multicabeças desativa o Flat Paint.",
+    "headCount": "Número de cabeças",
+    "searchDepth": "Profundidade da pesquisa",
+    "searchHelp": "Uma pesquisa mais profunda abre mais janelas de cabeças e experimenta mais ordens de filamentos por janela. As pesquisas grandes usam uma amostra limitada e determinística.",
+    "noLayoutFallback": "A análise multicabeças não encontrou uma disposição melhor do que o empilhamento normal com {{heads}} cabeças — foi criado um modelo normal de uma só cabeça.",
+    "analysisFailedFallback": "A análise multicabeças não terminou — foi criado um modelo normal de uma só cabeça. Experimenta menos cabeças ou outra profundidade de pesquisa.",
+    "largePrintWarning": "Esta impressão tem {{layers}} camadas — acima de 64, as instruções de mudança podem demorar a ser geradas.",
+    "buildSchedulePrompt": "Clica em <action>Criar modelo 3D</action> para gerar o modelo multicabeças e o plano das cabeças.",
+    "noAssignments": "Ainda não foram calculadas atribuições de cabeças.",
+    "schedule": "Plano das cabeças",
+    "beforePrint": "Antes de imprimir<detail> — carregar todas as cabeças</detail>",
+    "swapCheckpoint": "Camada {{layer}}<detail> — cabeças a recarregar: {{swaps}}</detail>",
+    "head": "Cabeça {{head}}",
+    "empty": "VAZIA",
+    "beforePrintText": "Antes de imprimir — carregar todas as cabeças:",
+    "swapCheckpointText": "Camada {{layer}} — cabeças a recarregar: {{swaps}}:",
+    "invalidPlan": "O plano multicabeças está incompleto. Cria novamente o modelo para repetir a análise.",
+    "swapMarker": " ← mudar"
   }
 }
