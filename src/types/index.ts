@@ -87,6 +87,13 @@ export interface PrintableFeaturePixelSnapshot {
     fingerprint: string;
 }
 
+/** Exact image and block settings used to resolve multi-head dithered surfaces. */
+export interface MultiHeadDitherContext {
+    pixels: Pick<PrintableFeaturePixelSnapshot, 'width' | 'height' | 'data'>;
+    pixelSize: number;
+    ditherLineWidth: number;
+}
+
 /** Realized nozzle state for a non-windowed layer range (pre-window, gap, or post-window). */
 export interface MultiHeadRangeAssignment {
     /** First layer index (0-indexed, inclusive). */
@@ -169,14 +176,17 @@ export interface ThreeDControlsStateShape {
      * to tag each sub-mesh with the physical nozzle that prints it.
      */
     colorLayerFilaments?: Map<string, number[]>;
+    /** Highest printed layer per color from actual dithered pixels; -1 means absent. */
+    colorPrintTopLayers?: Map<string, number>;
     /**
-     * Consensus filament ID per run slot per window.
-     * windowRunFilaments[w][r] is the filament ID that run slot r carries in window w.
+     * Unique filament IDs required by final printable color paths per window.
+     * Slots here are independent of the original window's filament/LUT indices.
      */
     windowRunFilaments?: string[][];
     /**
-     * Optimal nozzle-to-run-slot permutation per window.
-     * nozzleAssignments[w][k] = run-slot index for nozzle (k+1) in window w.
+     * Nozzle-to-required-filament assignment per window.
+     * nozzleAssignments[w][k] indexes windowRunFilaments[w] for nozzle (k+1),
+     * or -1 when idle (retaining its previous load).
      */
     nozzleAssignments?: number[][];
     /** Filament IDs used in non-windowed layers before the first window. */

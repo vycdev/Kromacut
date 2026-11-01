@@ -5,7 +5,7 @@
  */
 
 import type { AutoPaintResult } from './autoPaint.ts';
-import type { Filament, MultiHeadRangeAssignment } from '../types';
+import type { Filament, MultiHeadDitherContext, MultiHeadRangeAssignment } from '../types';
 import type { AppearanceEffectiveOpticsModelV1, AppearanceRankModelV1 } from '../types/appearance';
 import {
     hexToRgb,
@@ -30,6 +30,7 @@ import {
 import { channelHds } from './calibration.ts';
 import { createPriorEffectiveOpticsModel, resolveEffectiveTransitionOptics } from './effectiveOptics.ts';
 import { deltaE2000Lab, type Lab } from './colorDifference.ts';
+import { multiHeadColorTopLayers } from './multiHeadColorHeights.ts';
 
 /**
  * Fallback filament for a window that references a filament index no longer in
@@ -809,11 +810,12 @@ export interface ColorFirstResult {
      * prefix and suffix, retaining its original stack if no improvement is found.
      */
     colorLayerFilaments: Map<string, number[]>;
+    /** Actual per-color printed tops when dither pixels were supplied. -1 means absent. */
+    colorPrintTopLayers?: Map<string, number>;
     /**
-     * Consensus filament ID per run slot per window (length = windows.length).
-     * windowRunFilaments[w][r] is the filament ID that run slot r carries in
-     * window w, derived from the consensus LUT entry selected during analysis.
-     * Used by optimizeNozzleAssignments to decide which nozzle loads which filament.
+     * Unique filament IDs required by final printable color paths in each window.
+     * These slots index nozzleAssignments; windows[w].filamentIds retains the
+     * original candidate set used by the search.
      */
     windowRunFilaments: string[][];
     /**
@@ -821,8 +823,8 @@ export interface ColorFirstResult {
      * filament swaps across all window transitions.  Idle nozzles (between windows)
      * keep their previous filament at zero swap cost.
      *
-     * nozzleAssignments[w][k] = run-slot index that nozzle (k+1) handles in window w.
-     * Empty when fewer than two windows are selected.
+     * nozzleAssignments[w][k] indexes windowRunFilaments[w] for nozzle (k+1).
+     * -1 leaves a head idle, carrying its previous filament forward.
      */
     nozzleAssignments: number[][];
     /**
@@ -869,7 +871,9 @@ export function optimizeNozzleAssignments(
     // whose next use is farthest away (Belady's rule). Exchanging any earlier-used
     // victim for this one cannot add a later load, so the schedule is swap-optimal.
     // Precompute next uses in O(total slots); scheduling costs O(W * N^2), without
-    // enumerating head permutations. Ties keep the lowest numbered nozzle.
+    // enumerating head permutations. Prefer an empty head to a loaded one on
+    // ties, allowing the schedule to preload its first use before printing.
+    // Other ties keep the lowest numbered nozzle.
     const nextUses: number[][] = new Array(W);
     const nextUse = new Map<string, number>();
     for (let w = W - 1; w >= 0; w--) {
@@ -898,7 +902,10 @@ export function optimizeNozzleAssignments(
             for (let k = 0; k < N; k++) {
                 if (assignment[k] !== IDLE || (state[k] !== null && required.has(state[k]!))) continue;
                 const next = state[k] === null ? Infinity : (nextUse.get(state[k]!) ?? Infinity);
-                if (next > farthest) { victim = k; farthest = next; }
+                if (next > farthest ||
+                    (next === farthest && state[k] === null && victim >= 0 && state[victim] !== null)) {
+                    victim = k; farthest = next;
+                }
             }
             if (victim === -1) throw new Error('Window requires more filaments than available nozzles');
             state[victim] = runs[r];
@@ -944,7 +951,9 @@ export function runMultiHeadLayerAnalysisColorFirst(
     firstLayerHeight: number,
     n: number,
     searchDepth: 'fast' | 'balanced' | 'thorough' = 'balanced',
-    colorMode: MultiHeadColorMode = 'luminance'
+    colorMode: MultiHeadColorMode = 'luminance',
+    heightDithering = false,
+    ditherContext?: MultiHeadDitherContext
 ): ColorFirstResult {
     const N = Math.min(n, filaments.length, MAX_MULTI_HEAD_HEADS);
     const comboBudget = COMBO_BUDGET_BY_DEPTH[searchDepth];
@@ -1217,14 +1226,28 @@ export function runMultiHeadLayerAnalysisColorFirst(
         colorLayerFilaments.set(hex, groupSequences[groupIdx]);
     }
 
-    // One unique filament ID per window — used by the nozzle optimizer.
-    // uniqueIndices already holds the deduplicated set of filament indices for the
-    // window; bestEntry maps run slots onto those indices but a single index can
-    // appear for multiple slots.  The optimizer assigns one nozzle per unique
-    // filament (not one per run slot), so we use uniqueIndices directly.
-    const windowRunFilaments: string[][] = windowRunInfo.map(({ uniqueIndices }) =>
-        uniqueIndices.map((fi) => filaments[fi]?.id ?? `f${fi}`)
+    // Score/search groups retain their original home layers. Scheduling instead
+    // considers only the layers each physical color can print, including those
+    // reachable through shared height-dithering blocks. Zero-weight
+    // regions remain requirements; complete path suffixes above them do not.
+    const colorTopLayers = multiHeadColorTopLayers(
+        result.finalStack, colorLayerFilaments.keys(),
+        layers.map((layer) => layer.startZ + layer.thickness),
+        heightDithering ? layerHeight : undefined,
+        ditherContext
     );
+    const lastPrintedLayer = [...colorTopLayers.values()].reduce((last, top) => Math.max(last, top), -1);
+    const windowRunFilaments: string[][] = windowRunInfo.map(({ uniqueIndices }, wi) => {
+        const required = new Set<number>();
+        const window = selectedWindows[wi];
+        for (const [hex, path] of colorLayerFilaments) {
+            const top = Math.min(window.windowEnd, colorTopLayers.get(hex)!);
+            for (let l = window.windowStart; l <= top; l++) required.add(path[l]);
+        }
+        // Keep the original order without changing the color-assignment indices.
+        return uniqueIndices.filter((fi) => required.has(fi))
+            .map((fi) => filaments[fi]?.id ?? `f${fi}`);
+    });
 
     // Build the full print-order event list: real windows interleaved with virtual
     // events for every non-windowed range (pre-window, gaps, post-window).
@@ -1245,7 +1268,7 @@ export function runMultiHeadLayerAnalysisColorFirst(
         let subStart = rangeStart;
         const curFils: string[] = [];
         const inCur = new Set<string>();
-        for (let l = rangeStart; l <= rangeEnd; l++) {
+        for (let l = rangeStart; l <= Math.min(rangeEnd, lastPrintedLayer); l++) {
             const fi = globalSeq[l];
             if (fi < 0 || fi >= filaments.length) continue;
             const fid = filaments[fi].id;
@@ -1260,9 +1283,9 @@ export function runMultiHeadLayerAnalysisColorFirst(
                 inCur.add(fid);
             }
         }
-        if (curFils.length > 0) {
-            allPrintEvents.push({ type: 'virtual', rangeStart: subStart, rangeEnd: rangeEnd, filaments: [...curFils] });
-        }
+        // Retain even wholly unprinted ranges as idle carryover, so physical
+        // layer boundaries and foundation/gap/post-window routing stay intact.
+        allPrintEvents.push({ type: 'virtual', rangeStart: subStart, rangeEnd, filaments: [...curFils] });
     };
 
     // Pre-window range
@@ -1329,15 +1352,14 @@ export function runMultiHeadLayerAnalysisColorFirst(
         if (evt.type === 'window') {
             const selIdx = evt.selIdx!;
             const w = selectedWindows[selIdx];
-            const { uniqueIndices } = windowRunInfo[selIdx];
             const runs = windowRunFilaments[selIdx];
             const assgn = nozzleAssignments[selIdx] ?? [];
             console.log(
                 `  WIN  W[${w.windowStart}–${w.windowEnd}]` +
                 ` Z:${w.windowBottomZ.toFixed(3)}–${w.windowTopZ.toFixed(3)} mm` +
-                `  filaments: [${runs.map((id, r) => {
+                `  filaments: [${runs.map((id) => {
                     const hex = filaments.find(f => f.id === id)?.color ?? id;
-                    return `${hex}(idx${uniqueIndices[r]})`;
+                    return `${hex}(idx${filaments.findIndex(f => f.id === id)})`;
                 }).join(', ')}]`
             );
             console.log(
@@ -1371,6 +1393,7 @@ export function runMultiHeadLayerAnalysisColorFirst(
         windows: selectedWindows,
         patchedLayers: layers.slice(),
         colorLayerFilaments,
+        ...(heightDithering && ditherContext ? { colorPrintTopLayers: colorTopLayers } : {}),
         windowRunFilaments,
         nozzleAssignments,
         preWindowFilaments,

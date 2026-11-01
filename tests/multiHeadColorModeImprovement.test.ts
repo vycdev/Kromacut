@@ -5,6 +5,7 @@ import { loadViteModule } from './helpers/viteModule.ts';
 import { readPngFixture, testAssetsRoot } from './imageFixtures.ts';
 import type { PrinterLayer } from '../src/lib/multiHeadAnalysis.ts';
 import type { ThreeDControlsStateShape } from '../src/types/index.ts';
+import { buildMultiHeadSchedule } from '../src/lib/multiHeadSchedule.ts';
 
 // Real Palette Proof and Matrix evidence, both grouping modes, original surfaces.
 
@@ -130,6 +131,29 @@ const byHeads = HEAD_COUNTS.map((heads) => {
                 'balanced',
                 mode
             );
+        const schedule = buildMultiHeadSchedule({
+            ...analysis, multiHeadWindows: analysis.windows, filaments,
+        });
+        test(`rocco: ${mode}, ${heads} heads schedules exactly the printed window requirements`, () => {
+            assert.ok(schedule?.length, 'fixture must produce routed analysis');
+            const pixels = buildPixelData(colors, layers, buildColorStack(layers), result.finalStack);
+            const required = analysis.windows.map(() => new Set<string>());
+            for (let p = 0; p < colors.length; p++) {
+                const path = analysis.colorLayerFilaments.get(colors[p].hex)!;
+                for (let l = 0; l <= pixels[p].layerIdx; l++) {
+                    const id = filaments[path[l]].id;
+                    const event = schedule.findLast((event) => event.startLayer <= l + 1)!;
+                    assert.ok(event.nozzles.some((head) => head.filamentId === id),
+                        `${colors[p].hex}, layer ${l}: filament ${id} is unloaded`);
+                    const wi = analysis.windows.findIndex((w) => l >= w.windowStart && l <= w.windowEnd);
+                    if (wi >= 0) required[wi].add(id);
+                }
+            }
+            for (let wi = 0; wi < analysis.windows.length; wi++) {
+                assert.deepEqual(new Set(analysis.windowRunFilaments[wi]), required[wi],
+                    'do not schedule abandoned filaments or unprinted path suffixes');
+            }
+        });
         const original = layers.map((layer) => layer.filamentIdx);
         for (const path of analysis.colorLayerFilaments.values()) {
             for (let i = 0; i < layers.length && layers[i].isFoundation; i++) {
@@ -142,7 +166,8 @@ const byHeads = HEAD_COUNTS.map((heads) => {
             slicerFirstLayerHeight: FIRST_LAYER_HEIGHT,
         } as ThreeDControlsStateShape, analysis);
         if (built.multiHeadMode) assert.ok(getMultiHeadRoutingPlan(built), 'improving paths must use the physical head schedule');
-        return { ...measure(analysis), fallback: !built.multiHeadMode };
+        return { ...measure(analysis), fallback: !built.multiHeadMode,
+            swapCount: schedule?.reduce((sum, event) => sum + event.swapCount, 0) ?? 0 };
     };
     return { heads, luminance: run('luminance'), color: run('color') };
 });

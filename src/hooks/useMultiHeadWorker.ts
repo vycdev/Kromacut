@@ -6,7 +6,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { Filament } from '../types';
+import type { Filament, MultiHeadDitherContext } from '../types';
 import type { AutoPaintResult } from '../lib/autoPaint';
 import type {
     ColorFirstResult,
@@ -30,6 +30,8 @@ export interface UseMultiHeadWorkerResult {
         n: number;
         searchDepth: 'fast' | 'balanced' | 'thorough';
         colorMode: MultiHeadColorMode;
+        heightDithering?: boolean;
+        ditherContext?: MultiHeadDitherContext;
     }) => Promise<ColorFirstResult | null>;
 }
 
@@ -69,6 +71,8 @@ export function useMultiHeadWorker(): UseMultiHeadWorkerResult {
             n: number;
             searchDepth: 'fast' | 'balanced' | 'thorough';
             colorMode: MultiHeadColorMode;
+            heightDithering?: boolean;
+            ditherContext?: MultiHeadDitherContext;
         }): Promise<ColorFirstResult | null> => {
             cancelWorker();
             setError(undefined);
@@ -133,6 +137,17 @@ export function useMultiHeadWorker(): UseMultiHeadWorkerResult {
                     n: params.n,
                     searchDepth: params.searchDepth,
                     colorMode: params.colorMode,
+                    heightDithering: params.heightDithering,
+                    // Pixel snapshots may conceal their large buffer from React;
+                    // explicitly expose it to structured cloning without transfer.
+                    ditherContext: params.ditherContext ? {
+                        ...params.ditherContext,
+                        pixels: {
+                            width: params.ditherContext.pixels.width,
+                            height: params.ditherContext.pixels.height,
+                            data: params.ditherContext.pixels.data,
+                        },
+                    } : undefined,
                 };
                 try {
                     worker.postMessage(request);
