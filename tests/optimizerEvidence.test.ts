@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { loadViteModule } from './helpers/viteModule.ts';
 import {
     measurementSummary,
+    captureOptimizerProvenance,
     persistOptimizerEvidence,
     sha256,
 } from './helpers/optimizerEvidence.ts';
@@ -29,9 +30,11 @@ test('full optimizer evidence survives a failed golden assertion and refuses rep
         });
         const options = {
             output: join(directory, 'full.json'),
-            fixture,
-            profile: fixture,
-            sourceImage: fixture,
+            provenance: captureOptimizerProvenance({
+                fixture,
+                profile: fixture,
+                sourceImage: fixture,
+            }),
             configuration: { layerHeight: 0.08 },
             variant: 'test',
             filaments,
@@ -71,6 +74,48 @@ test('cats reconstruction retains all opaque pixel weights in canonical swatch o
         sha256(JSON.stringify(swatches)),
         'dcf074c26e02243d6b16f2e51146af64921182ef0b518f277c960ce406a99174'
     );
+});
+
+test('completed results save with the original provenance after source files disappear', async () => {
+    const auto =
+        await loadViteModule<typeof import('../src/lib/autoPaint.ts')>('/src/lib/autoPaint.ts');
+    const directory = mkdtempSync(join(tmpdir(), 'kromacut-provenance-'));
+    try {
+        const fixture = join(directory, 'case.json');
+        const harness = join(directory, 'harness.ts');
+        const original = '{"settings":"loaded-before-search"}';
+        writeFileSync(fixture, original);
+        writeFileSync(harness, '// harness loaded before search\n');
+        const provenance = captureOptimizerProvenance({
+            fixture,
+            profile: fixture,
+            sourceImage: fixture,
+            harnessPath: harness,
+        });
+        const filaments = [{ id: 'black', color: '#000000', td: 0.1 }];
+        const swatches = [{ hex: '#000000', count: 1 }];
+        const result = auto.generateAutoLayers(filaments, swatches, 0.08, 0.4, 2);
+        rmSync(fixture);
+        rmSync(harness);
+        const path = persistOptimizerEvidence({
+            output: join(directory, 'completed.json'),
+            provenance,
+            configuration: {},
+            variant: 'test',
+            filaments,
+            swatches,
+            result,
+            timing: { appearanceFitMs: 1, optimizationMs: 2 },
+        });
+        const saved = JSON.parse(readFileSync(path, 'utf8'));
+        assert.equal(saved.inputs.fixture.sha256, sha256(original));
+        assert.deepEqual(saved.harness, provenance.harness);
+        assert.deepEqual(saved.machine, provenance.machine);
+        assert.equal(saved.provenanceCapturedAt, provenance.provenanceCapturedAt);
+        assert.equal(saved.resultSha256, sha256(JSON.stringify(result)));
+    } finally {
+        rmSync(directory, { recursive: true, force: true });
+    }
 });
 
 test('cats captured observations and artifact hashes remain immutable', () => {

@@ -6,6 +6,7 @@ import { withViteTestServer } from '../helpers/viteModule.ts';
 import { imageSwatches } from '../helpers/calibratedSwatches.ts';
 import {
     benchmarkSourceRoot,
+    captureOptimizerProvenance,
     persistOptimizerEvidence,
     sha256,
 } from '../helpers/optimizerEvidence.ts';
@@ -25,6 +26,13 @@ const refs = process.argv.slice(2);
 assert.ok(refs.length, 'Supply Git revisions to audit');
 const rows = [];
 for (const ref of refs) {
+    const provenance = captureOptimizerProvenance({
+        fixture: fixturePath,
+        profile: resolve(root, 'profile.kfil'),
+        sourceImage: resolve(root, 'cats/source.png'),
+        sourceRef: ref,
+        harnessPath: 'tests/benchmark/catsReplayAudit.ts',
+    });
     const sourceRoot = benchmarkSourceRoot(ref);
     const sourcePath = resolve(sourceRoot, 'src/lib/autoPaint.ts');
     const source = readFileSync(sourcePath, 'utf8');
@@ -92,12 +100,9 @@ for (const ref of refs) {
     );
     const evidencePath = persistOptimizerEvidence({
         output: `.profiles/issue-117/audit-${ref}-${Date.now()}.json`,
-        fixture: fixturePath,
-        profile: resolve(root, 'profile.kfil'),
-        sourceImage: resolve(root, 'cats/source.png'),
+        provenance,
         configuration: fixture.settings,
         variant: 'recorded-order-audit',
-        harnessPath: 'tests/benchmark/catsReplayAudit.ts',
         sourceRef: ref,
         filaments: profile.filaments,
         swatches,

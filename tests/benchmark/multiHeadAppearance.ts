@@ -6,6 +6,7 @@ import { performance } from 'node:perf_hooks';
 import { execFileSync } from 'node:child_process';
 import {
     benchmarkEnvironment,
+    captureOptimizerProvenance,
     measurementSummary,
     persistOptimizerEvidence,
 } from '../helpers/optimizerEvidence.ts';
@@ -157,13 +158,63 @@ if (args.includes('--prepare') && calibratedResult) {
         saved.resultSha256,
         createHash('sha256').update(JSON.stringify(saved.result)).digest('hex')
     );
+    const settings = saved.result.finalStack.settings;
+    assert.equal(
+        saved.configuration.layerHeight,
+        settings.layerHeight,
+        'Saved layer height does not match the stack'
+    );
+    assert.equal(
+        Math.max(saved.configuration.firstLayerHeight, saved.configuration.layerHeight),
+        settings.firstLayerHeight,
+        'Saved first-layer height does not match the stack'
+    );
+    assert.equal(
+        saved.configuration.transitionOpacity,
+        settings.transitionOpacity,
+        'Saved transition opacity does not match the stack'
+    );
+    const root = resolve(testAssetsRoot, 'performance/8-colors-frontlit-2026-08-26');
+    const parsed = modules.profile.parseProfileFile(
+        readFileSync(resolve(root, 'profile.kfil'), 'utf8')
+    );
+    assert.ok(parsed);
+    const profile = modules.profile.importProfiles([], parsed).imported[0];
+    const profileFingerprint = modules.fingerprint.fingerprintAppearanceFilaments(
+        profile.filaments
+    );
+    assert.equal(
+        modules.fingerprint.fingerprintAppearanceFilaments(saved.filaments),
+        profileFingerprint,
+        'Saved filaments do not match the measured profile'
+    );
+    assert.equal(
+        saved.swatchesSha256,
+        createHash('sha256')
+            .update(JSON.stringify(imageSwatches(resolve(root, 'cats/source.png'))))
+            .digest('hex'),
+        'Saved swatches do not match the cats image'
+    );
+    // Obtain the production context fingerprint without fitting evidence again.
+    const context = modules.appearance.fitAppearanceRankModel(undefined, {
+        filamentProfileFingerprint: profileFingerprint,
+        layerHeight: settings.layerHeight,
+        firstLayerHeight: settings.firstLayerHeight,
+        transitionOpacity: settings.transitionOpacity,
+        filaments: profile.filaments,
+    });
+    assert.equal(
+        saved.result.finalStack.appearanceModel.contextFingerprint,
+        context.contextFingerprint,
+        'Saved appearance model does not match the physical context'
+    );
     const prepared: Case[] = [
         {
             name: 'cats',
             filaments: saved.filaments,
             swatches: saved.swatches,
-            layerHeight: saved.configuration.layerHeight,
-            firstLayerHeight: saved.configuration.firstLayerHeight,
+            layerHeight: settings.layerHeight,
+            firstLayerHeight: settings.firstLayerHeight,
             result: saved.result,
             provenance: {
                 kind: 'fresh-exact',
@@ -191,6 +242,15 @@ if (args.includes('--prepare') && calibratedResult) {
             name === 'rocco'
         );
         const settings = JSON.parse(readFileSync(resolve(root, 'cats/case.json'), 'utf8')).settings;
+        const provenance = captureOptimizerProvenance({
+            fixture: resolve(root, 'cats/case.json'),
+            profile: resolve(root, 'profile.kfil'),
+            sourceImage:
+                name === 'cats'
+                    ? resolve(root, 'cats/source.png')
+                    : resolve(testAssetsRoot, 'rocco__source.png'),
+            harnessPath: 'tests/benchmark/multiHeadAppearance.ts',
+        });
         const fitStart = performance.now();
         const model = modules.appearance.fitAppearanceRankModel(profile.appearance, {
             filamentProfileFingerprint: modules.fingerprint.fingerprintAppearanceFilaments(
@@ -257,12 +317,7 @@ if (args.includes('--prepare') && calibratedResult) {
         // Persist each full case before any golden assertion or the next optimizer.
         persistOptimizerEvidence({
             output: `${inputPath}.${name}-${Date.now()}.json`,
-            fixture: resolve(root, 'cats/case.json'),
-            profile: resolve(root, 'profile.kfil'),
-            sourceImage:
-                name === 'cats'
-                    ? resolve(root, 'cats/source.png')
-                    : resolve(testAssetsRoot, 'rocco__source.png'),
+            provenance,
             configuration: {
                 layerHeight: 0.08,
                 firstLayerHeight: 0.4,
@@ -278,7 +333,6 @@ if (args.includes('--prepare') && calibratedResult) {
                 case: name,
             },
             variant: 'multi-head-preparation',
-            harnessPath: 'tests/benchmark/multiHeadAppearance.ts',
             filaments: profile.filaments,
             swatches,
             result,

@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { performance } from 'node:perf_hooks';
 import {
     benchmarkSourceRoot,
+    captureOptimizerProvenance,
     measurementSummary,
     persistOptimizerEvidence,
     sha256,
@@ -291,6 +292,12 @@ for (const path of outputPaths) {
             `Optimizer evidence already exists: ${path}. Choose a new --output prefix.`
         );
 }
+const provenance = captureOptimizerProvenance({
+    fixture: resolve(fixtureDirectory, 'case.json'),
+    profile: resolve(fixtureDirectory, fixture.profile),
+    sourceImage: resolve(fixtureDirectory, fixture.sourceImage),
+    sourceRef,
+});
 function runOnce(phase: string, sample: number) {
     const optimizerDiagnostics: import('../../src/lib/optimizer.ts').OptimizerDiagnosticEvent[] =
         [];
@@ -341,9 +348,7 @@ function runOnce(phase: string, sample: number) {
     // Save the entire expensive result before quality calculations or golden assertions.
     const evidencePath = persistOptimizerEvidence({
         output: warmups + runs === 1 ? outputBase : `${outputBase}.${phase}-${sample}.json`,
-        fixture: resolve(fixtureDirectory, 'case.json'),
-        profile: resolve(fixtureDirectory, fixture.profile),
-        sourceImage: resolve(fixtureDirectory, fixture.sourceImage),
+        provenance,
         configuration: settings,
         variant: variantName,
         sourceRef,

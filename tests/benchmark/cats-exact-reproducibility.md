@@ -148,12 +148,22 @@ timings, revision, source-diff hash, and machine/Node metadata. Existing evidenc
 files cannot be overwritten. `--report-only` bypasses revision-specific golden
 checks while retaining structural and repeated-result assertions. `--source-ref`
 can run historical production source with the same fixture reconstruction.
+Git metadata and input/harness hashes are captured before fitting/search and
+reused when saving, so later source edits or missing provenance files cannot
+prevent saving a completed result or relabel it with the changed files.
 Choose a new `--output` prefix for each series; known collisions are rejected
 before fitting or optimization. Archived evidence is marked `-text` in Git so
 its byte hashes survive checkout line-ending settings.
 
+The recorded runs used the archived harness. Pre-run provenance capture and
+cached-input consistency checks were strengthened during self-review; these
+setup changes preserve the exact cached input SHA-256 above. The 23 archived
+evidence artifacts and their hashes remain unchanged.
+
 The multi-head preparation can consume a saved calibrated result, verifying its
-result hash and cats image identity, without repeating the expensive Exact run.
+result hash, cats palette, measured profile, physical grid, and fitted-model
+context without repeating the expensive Exact run. Cached settings that disagree
+with the stored stack are rejected before writing the prepared input.
 Ordinary `--prepare` continues to reconstruct the frozen #113 order;
 `--prepare --reoptimize --cases cats` explicitly searches again and saves its full
 result before checking expectations. Each multi-head sample is written before
@@ -190,10 +200,11 @@ versions are unchanged and unmeasured by this follow-up.
 
 ## Validation
 
-- `npm test`: 1,054 passed, with zero failures or skips.
-- Final focused evidence tests: four passed, covering full-result retention after
-  a failed assertion, replacement refusal, swatch reconstruction, immutable
-  captured observations/hashes, and timing summaries.
+- `npm test`: 1,060 passed, with zero failures or skips after self-review fixes.
+- Ten evidence/CLI regressions passed, covering full-result retention after
+  a failed assertion or missing provenance sources, replacement refusal, swatch
+  reconstruction, immutable captured observations/hashes, timing summaries, and
+  cached grid/profile/palette/model consistency.
 - `npm run lint` and `npm run build`: passed after the final CLI changes.
 - All four saved full Exact results pass independent current-golden validation.
   The output-collision check rejected a reused path in 2.34 seconds, before

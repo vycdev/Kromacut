@@ -53,47 +53,57 @@ export function benchmarkSourceRoot(ref?: string): string {
     return root;
 }
 
-export function persistOptimizerEvidence(options: {
-    output: string;
+/** Resolve all external provenance before starting an expensive calculation. */
+export function captureOptimizerProvenance(options: {
     fixture: string;
     profile: string;
     sourceImage: string;
+    sourceRef?: string;
+    harnessPath?: string;
+}) {
+    const {
+        fixture,
+        profile,
+        sourceImage,
+        sourceRef,
+        harnessPath = 'tests/benchmark/calibratedOptimizer.ts',
+    } = options;
+    return {
+        provenanceCapturedAt: new Date().toISOString(),
+        machine: benchmarkEnvironment(),
+        sourceRevision: execFileSync('git', ['rev-parse', `${sourceRef ?? 'HEAD'}^{commit}`], {
+            encoding: 'utf8',
+        }).trim(),
+        harness: { path: harnessPath, sha256: sha256(readFileSync(harnessPath)) },
+        inputs: Object.fromEntries(
+            Object.entries({ fixture, profile, sourceImage }).map(([key, file]) => [
+                key,
+                { path: file, sha256: sha256(readFileSync(file)) },
+            ])
+        ),
+    };
+}
+
+export function persistOptimizerEvidence(options: {
+    output: string;
+    provenance: ReturnType<typeof captureOptimizerProvenance>;
     configuration: unknown;
     variant: string;
     sourceRef?: string;
     phase?: string;
     sample?: number;
     optimizerDiagnostics?: unknown[];
-    harnessPath?: string;
     filaments: Filament[];
     swatches: Array<{ hex: string; count: number }>;
     result: AutoPaintResult;
     timing: { appearanceFitMs: number; optimizationMs: number };
 }): string {
-    const { output, fixture, profile, sourceImage, ...data } = options;
+    const { output, provenance, ...data } = options;
     const path = resolve(output);
     const evidence = {
         schemaVersion: 1,
         measuredAt: new Date().toISOString(),
-        machine: benchmarkEnvironment(),
-        sourceRevision: execFileSync('git', ['rev-parse', `${data.sourceRef ?? 'HEAD'}^{commit}`], {
-            encoding: 'utf8',
-        }).trim(),
-        harness: {
-            path: data.harnessPath ?? 'tests/benchmark/calibratedOptimizer.ts',
-            sha256: sha256(
-                readFileSync(data.harnessPath ?? 'tests/benchmark/calibratedOptimizer.ts')
-            ),
-        },
-        inputs: Object.fromEntries(
-            Object.entries({ fixture, profile, sourceImage }).map(([key, file]) => [
-                key,
-                {
-                    path: file,
-                    sha256: sha256(readFileSync(file)),
-                },
-            ])
-        ),
+        ...provenance,
         swatchesSha256: sha256(JSON.stringify(data.swatches)),
         resultSha256: sha256(JSON.stringify(data.result)),
         ...data,
