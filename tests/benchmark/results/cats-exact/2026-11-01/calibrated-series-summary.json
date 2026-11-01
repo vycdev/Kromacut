@@ -1,0 +1,187 @@
+{
+  "fixture": "8-colors-frontlit-2026-08-26/cats",
+  "variant": "baseline",
+  "validationMode": "golden",
+  "evidencePath": "C:\\Users\\Vycto\\.t3\\worktrees\\Kromacut\\fix-issue-117-cats-exact-reproducibility\\.profiles\\issue-117\\exact-repeated.json.measured-2.json",
+  "sourceRef": null,
+  "timingBoundaries": {
+    "appearanceFitMs": "fitAppearanceRankModel from imported evidence, including effective optics and empirical/local fitting; excludes module loading, file IO and GC",
+    "optimizationMs": "generateAutoLayers with result cache disabled, including Exact order search, repeat tiers, minimization, physical stack construction and target mapping; excludes evidence serialization, quality replay and assertions"
+  },
+  "samples": [
+    {
+      "phase": "warmup",
+      "sample": 1,
+      "appearanceFitMs": 2012.0185,
+      "optimizationMs": 1011955.1721999999,
+      "resultSha256": "1b35967127485e938a5edd824e18c29e1ee559c7006ebeeb71e9cf81531d875b",
+      "evidencePath": "C:\\Users\\Vycto\\.t3\\worktrees\\Kromacut\\fix-issue-117-cats-exact-reproducibility\\.profiles\\issue-117\\exact-repeated.json.warmup-1.json",
+      "archivedEvidence": "exact-warmup-1.json.gz"
+    },
+    {
+      "phase": "measured",
+      "sample": 1,
+      "appearanceFitMs": 1547.2148000000743,
+      "optimizationMs": 1155997.0304999999,
+      "resultSha256": "1b35967127485e938a5edd824e18c29e1ee559c7006ebeeb71e9cf81531d875b",
+      "evidencePath": "C:\\Users\\Vycto\\.t3\\worktrees\\Kromacut\\fix-issue-117-cats-exact-reproducibility\\.profiles\\issue-117\\exact-repeated.json.measured-1.json",
+      "archivedEvidence": "exact-measured-1.json.gz"
+    },
+    {
+      "phase": "measured",
+      "sample": 2,
+      "appearanceFitMs": 1951.4359000003897,
+      "optimizationMs": 1188362.0135,
+      "resultSha256": "1b35967127485e938a5edd824e18c29e1ee559c7006ebeeb71e9cf81531d875b",
+      "evidencePath": "C:\\Users\\Vycto\\.t3\\worktrees\\Kromacut\\fix-issue-117-cats-exact-reproducibility\\.profiles\\issue-117\\exact-repeated.json.measured-2.json",
+      "archivedEvidence": "exact-measured-2.json.gz"
+    }
+  ],
+  "timingSummary": {
+    "appearanceFitMs": {
+      "values": [
+        1547.2148000000743,
+        1951.4359000003897
+      ],
+      "median": 1749.325350000232,
+      "minimum": 1547.2148000000743,
+      "maximum": 1951.4359000003897,
+      "spread": 404.22110000031535
+    },
+    "optimizationMs": {
+      "values": [
+        1155997.0304999999,
+        1188362.0135
+      ],
+      "median": 1172179.5219999999,
+      "minimum": 1155997.0304999999,
+      "maximum": 1188362.0135,
+      "spread": 32364.983000000007
+    }
+  },
+  "configuration": {
+    "pixelSize": 0.4,
+    "layerHeight": 0.08,
+    "firstLayerHeight": 0.4,
+    "smoothMeshing": true,
+    "maxHeight": 5.92,
+    "maxHeightMode": "auto-resolved",
+    "effectiveLineWidth": 0.4,
+    "omitAtRiskColorsFromMatching": true,
+    "enhancedColorMatching": true,
+    "maximumExtraFilamentAppearances": 4,
+    "preserveColorSeparation": true,
+    "maximumColorErrorDeltaE": 20,
+    "failIfAnyColorIsMissed": false,
+    "heightDithering": false,
+    "flatPaint": false,
+    "optimizerAlgorithm": "exact",
+    "regionPriority": "uniform",
+    "transitionOpacity": 0.9,
+    "seed": null
+  },
+  "evidence": {
+    "proofRecords": 26,
+    "targetJudgments": 250,
+    "stackMatrices": 1,
+    "fittedExactAnchors": 1030,
+    "fittedLocalNeighborhoods": 100,
+    "fittedMatrixRecipes": 1024
+  },
+  "timing": {
+    "appearanceFitMs": 1951.4359000003897,
+    "optimizationMs": 1188362.0135,
+    "totalMs": 1190313.4494000003
+  },
+  "memory": {
+    "heapBeforeBytes": 31539936,
+    "heapAfterBytes": 196104232,
+    "retainedHeapDeltaBytes": 164564296,
+    "heapAfterGcBytes": 33705240,
+    "retainedHeapAfterGcBytes": 2165304,
+    "residentSetAfterGcBytes": 610316288,
+    "maximumResidentSetBytes": 637394944
+  },
+  "result": {
+    "score": 704000033.9608843,
+    "iterations": 773564,
+    "converged": true,
+    "extraRepeatCount": 4,
+    "orderColors": [
+      "#000000",
+      "#ffffff",
+      "#d83400",
+      "#00b8c4",
+      "#f7d000",
+      "#ff7eb4",
+      "#04bb00",
+      "#00b8c4",
+      "#ffffff",
+      "#f7d000",
+      "#ffffff"
+    ],
+    "transitionZones": 11,
+    "physicalLayers": 70,
+    "totalHeight": 5.92,
+    "finalStackFingerprint": "final-stack-v1-9cc07906da622021",
+    "separation": {
+      "requestedColorCount": 128,
+      "printableColorCount": 69,
+      "assignedDistinctColorCount": 64,
+      "uniquelyPreservedWithinThresholdCount": 64,
+      "unacceptableColorCount": 64,
+      "mappedWithinThresholdCount": 128,
+      "overThresholdColorCount": 0,
+      "unmappedColorCount": 0,
+      "reusedPrintableColorCount": 64,
+      "maximumDeltaE": 19.97267362401115,
+      "maximumPreservedDeltaE": 19.97267362401115,
+      "preservedTargetWeight": 0.6047152295524689,
+      "preservedWeightedMeanDeltaE": 13.480051866109635,
+      "mergedColorCount": 64,
+      "maximumAllowedDeltaE": 20,
+      "satisfied": false
+    },
+    "realizedError": {
+      "weightedMean": 8.279193402878551,
+      "p95": 14.48286013375953,
+      "coverageAt6": 0.3508843315972222
+    }
+  },
+  "machine": {
+    "node": "v24.19.0",
+    "platform": "win32",
+    "release": "10.0.26300",
+    "architecture": "x64",
+    "cpu": "AMD Ryzen 9 5950X 16-Core Processor            ",
+    "logicalCpus": 32,
+    "revision": "c0ef02c1acd297261f0a1008f3216996556c9717",
+    "sourceDiffSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "sourceRevision": "c0ef02c1acd297261f0a1008f3216996556c9717",
+  "inputs": {
+    "fixture": {
+      "path": "C:\\Users\\Vycto\\.t3\\worktrees\\Kromacut\\fix-issue-117-cats-exact-reproducibility\\tests\\assets\\performance\\8-colors-frontlit-2026-08-26\\cats\\case.json",
+      "sha256": "6d30f33c0b9b6c8bbd1367c9264d992e4aa7837aa800c500454f3c5759b3de32"
+    },
+    "profile": {
+      "path": "C:\\Users\\Vycto\\.t3\\worktrees\\Kromacut\\fix-issue-117-cats-exact-reproducibility\\tests\\assets\\performance\\8-colors-frontlit-2026-08-26\\profile.kfil",
+      "sha256": "42b7259d58a1babea72d7d9e561d6240338b111246312cc00ae418f23786d091"
+    },
+    "sourceImage": {
+      "path": "C:\\Users\\Vycto\\.t3\\worktrees\\Kromacut\\fix-issue-117-cats-exact-reproducibility\\tests\\assets\\performance\\8-colors-frontlit-2026-08-26\\cats\\source.png",
+      "sha256": "e067bd7c3d89de2fd710997a65dd91199948038f3403f7325c90ab5add3fa7a9"
+    }
+  },
+  "resultSha256": "1b35967127485e938a5edd824e18c29e1ee559c7006ebeeb71e9cf81531d875b",
+  "measuredHarness": {
+    "path": "tests/benchmark/calibratedOptimizer.ts",
+    "sha256": "a743e6346ea2d7b4d1aa7f8f70b7d99dc675c7bc51ecfe7fc94d170091dd395f"
+  },
+  "powershellWrapperExitCode": 1,
+  "savedResultValidation": {
+    "goldenValidation": "passed",
+    "fullResults": 4,
+    "resultSha256": "1b35967127485e938a5edd824e18c29e1ee559c7006ebeeb71e9cf81531d875b"
+  }
+}

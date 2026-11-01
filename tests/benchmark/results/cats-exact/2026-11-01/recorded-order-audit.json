@@ -1,0 +1,62 @@
+[
+  {
+    "ref": "176917c",
+    "evidencePath": "recorded-order-176917c.json.gz",
+    "fingerprint": "final-stack-v1-a4cfc2a6dae4f1ac",
+    "modelSha256": "6f85caa667711f1ef0cef641f32e67f7d9f253ef408fede25a07630abca8239c",
+    "layers": 70,
+    "totalHeight": 5.92,
+    "physicalLayersSha256": "62e518395815217bf4bc85017efab4dccb0a769c5676bad6138b7ffb70ba6e77",
+    "predictedColorsSha256": "f5d538c789213e031b4d25a002e3595706b9fb62b1a13e394fd9c25ab4eaadb7",
+    "mappingsSha256": "b42e93edbda937aa70cafa340c4bb966e5984380cf940409f05e9cb51994241a",
+    "sourceRevision": "176917cc3f59dc8392ac1f5524f89b978b7f3908"
+  },
+  {
+    "ref": "1e18d3d",
+    "evidencePath": "recorded-order-1e18d3d.json.gz",
+    "fingerprint": "final-stack-v1-92720b1ba6b05acf",
+    "modelSha256": "61fb227693ecdddc24f6928c63dd3ea187c2b335b303901bd7abc6373eca490c",
+    "layers": 59,
+    "totalHeight": 5.04,
+    "physicalLayersSha256": "cb5747dd7e43e2e8d2859b06594ed4e99ae705464f0b5b1c6b4ef471ad1b5e48",
+    "predictedColorsSha256": "905f0dba65c240dc8b8b4cdc79944cb80c9bb9ed5bedf4df2ce19e6e12e2b042",
+    "mappingsSha256": "833fefe21116d5bf96527349f88e71f1854885dee2ebe6b94ce169bf0b4963ab",
+    "sourceRevision": "1e18d3d2571c3000f4efeb7a9e45e90f4c4cb417"
+  },
+  {
+    "ref": "f4de749",
+    "evidencePath": "recorded-order-f4de749.json.gz",
+    "fingerprint": "final-stack-v1-316e15e3209e780f",
+    "modelSha256": "4f1b781d7e1b85d2036182545f506ff3e7659baf57e0ea06e3a3ff1740d58012",
+    "layers": 70,
+    "totalHeight": 5.92,
+    "physicalLayersSha256": "8c77d7e6be427f2b242dd0651ececc2ae67deee619063c55293ccd846274f671",
+    "predictedColorsSha256": "662093c99e92b2f6c9898a61afa603889232be95a83e1346c851705313bea444",
+    "mappingsSha256": "a5816f02423630c8a954948cd172f009fa1d0471c3b56d2eb8f7a82b4cde5c3f",
+    "sourceRevision": "f4de749a1f8a2e00454f978f33e246dc44917c48"
+  },
+  {
+    "ref": "e8e8121",
+    "evidencePath": "recorded-order-e8e8121.json.gz",
+    "fingerprint": "final-stack-v1-9684249d4a77bb3c",
+    "modelSha256": "748a1ed5c2932fb562652d63cd0d18e0f7055a53ed8f53a943f22189ad96f8c8",
+    "layers": 70,
+    "totalHeight": 5.92,
+    "physicalLayersSha256": "f91875c7f9b075a86059ab49417e05c33583bb09f4f3d32dc46fc0c2937a5601",
+    "predictedColorsSha256": "7b87629e603c4f13dc8395b3f996c3c3efd9e36ba69c286bb6d960d404040fa1",
+    "mappingsSha256": "0ddd0603e1d6e27eb6618d909f2d1410fe5d9cb8cbfa69f9b838826a75206ae2",
+    "sourceRevision": "e8e812165d710769ad9db94a3aa70b2fe006f99b"
+  },
+  {
+    "ref": "HEAD",
+    "evidencePath": "recorded-order-HEAD.json.gz",
+    "fingerprint": "final-stack-v1-9684249d4a77bb3c",
+    "modelSha256": "748a1ed5c2932fb562652d63cd0d18e0f7055a53ed8f53a943f22189ad96f8c8",
+    "layers": 70,
+    "totalHeight": 5.92,
+    "physicalLayersSha256": "f91875c7f9b075a86059ab49417e05c33583bb09f4f3d32dc46fc0c2937a5601",
+    "predictedColorsSha256": "7b87629e603c4f13dc8395b3f996c3c3efd9e36ba69c286bb6d960d404040fa1",
+    "mappingsSha256": "0ddd0603e1d6e27eb6618d909f2d1410fe5d9cb8cbfa69f9b838826a75206ae2",
+    "sourceRevision": "c0ef02c1acd297261f0a1008f3216996556c9717"
+  }
+]

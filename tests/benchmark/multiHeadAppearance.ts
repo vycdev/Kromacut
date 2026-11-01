@@ -1,12 +1,16 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { cpus, platform } from 'node:os';
 import { dirname, resolve } from 'node:path';
 import { performance } from 'node:perf_hooks';
 import { execFileSync } from 'node:child_process';
+import {
+    benchmarkEnvironment,
+    measurementSummary,
+    persistOptimizerEvidence,
+} from '../helpers/optimizerEvidence.ts';
 import { readPngFixture, testAssetsRoot } from '../imageFixtures.ts';
-import { rgbToHsl } from '../../src/lib/color.ts';
+import { imageSwatches } from '../helpers/calibratedSwatches.ts';
 import { withViteTestServer } from '../helpers/viteModule.ts';
 import type { AutoPaintResult } from '../../src/lib/autoPaint.ts';
 import type { Filament, ThreeDControlsStateShape } from '../../src/types/index.ts';
@@ -19,6 +23,7 @@ interface Case {
     layerHeight: number;
     firstLayerHeight: number;
     result: AutoPaintResult;
+    provenance?: { kind: string; evidenceSha256: string; resultSha256: string };
 }
 
 const args = process.argv.slice(2);
@@ -31,6 +36,11 @@ const outputPath = resolve(option('--output', '.profiles/multi-head/report.json'
 const heads = option('--heads', '2,3,4,5,6,7,8').split(',').map(Number);
 const modes = option('--modes', 'luminance,color').split(',') as ('luminance' | 'color')[];
 const names = option('--cases', 'cats,rocco').split(',');
+const warmups = Number(option('--warmups', '0'));
+const repeats = Number(option('--runs', '1'));
+assert.ok(Number.isInteger(warmups) && warmups >= 0 && warmups <= 20);
+assert.ok(Number.isInteger(repeats) && repeats >= 1 && repeats <= 20);
+const calibratedResult = option('--calibrated-result', '');
 const analysisRef = option('--analysis-ref', '');
 const shortlistSize = Number(option('--shortlist', '32'));
 assert.ok(Number.isInteger(shortlistSize) && shortlistSize > 0 && shortlistSize <= 256);
@@ -51,7 +61,7 @@ if (temporary) writeFileSync(temporaryModule, analysisSource);
 // Assert the reconstructed fingerprint below; the historical Exact golden has
 // drifted on develop. --reoptimize measures a freshly optimized case separately.
 const replayModule = `src/lib/autoPaint.multi-head-benchmark-${process.pid}.ts`;
-const replay = args.includes('--prepare') && !args.includes('--reoptimize');
+const replay = args.includes('--prepare') && !args.includes('--reoptimize') && !calibratedResult;
 if (replay) {
     const source = readFileSync('src/lib/autoPaint.ts', 'utf8');
     const branch = 'if (enhancedColorMatch) {';
@@ -96,6 +106,7 @@ const modules = await withViteTestServer(async (server) => ({
 
 /** Rocco uses the existing regression's 5-bit buckets, every fourth pixel, top 64. */
 function imagePalette(path: string, rocco = false): Swatch[] {
+    if (!rocco) return imageSwatches(path);
     const image = readPngFixture(path);
     const buckets = new Map<number, { r: number; g: number; b: number; n: number }>();
     for (let p = 0; p < image.width * image.height; p += rocco ? 4 : 1) {
@@ -117,21 +128,54 @@ function imagePalette(path: string, rocco = false): Swatch[] {
         hex: modules.auto.rgbToHex({ r: e.r / e.n, g: e.g / e.n, b: e.b / e.n }),
         count: e.n,
     }));
-    // Match the cats case's useSwatches ordering (reversed HSL).
-    if (!rocco)
-        swatches.sort((a, b) => {
-            const hsl = (hex: string) => {
-                const { r, g, b } = modules.auto.hexToRgb(hex);
-                return rgbToHsl(r, g, b);
-            };
-            const x = hsl(a.hex),
-                y = hsl(b.hex);
-            return y.h - x.h || x.s - y.s || x.l - y.l;
-        });
     return swatches;
 }
 
-if (args.includes('--prepare')) {
+if (args.includes('--prepare') && calibratedResult) {
+    const serialized = readFileSync(calibratedResult, 'utf8');
+    const saved = JSON.parse(serialized);
+    assert.equal(saved.schemaVersion, 1);
+    const fixture = JSON.parse(
+        readFileSync('tests/assets/performance/8-colors-frontlit-2026-08-26/cats/case.json', 'utf8')
+    );
+    assert.equal(
+        saved.inputs.sourceImage.sha256,
+        fixture.sha256.sourceImage,
+        'Expected the calibrated cats source'
+    );
+    assert.equal(
+        saved.inputs.profile.sha256,
+        fixture.sha256.profile,
+        'Expected the measured cats profile'
+    );
+    assert.equal(
+        saved.swatchesSha256,
+        createHash('sha256').update(JSON.stringify(saved.swatches)).digest('hex')
+    );
+    assert.equal(saved.configuration.optimizerAlgorithm, 'exact');
+    assert.equal(
+        saved.resultSha256,
+        createHash('sha256').update(JSON.stringify(saved.result)).digest('hex')
+    );
+    const prepared: Case[] = [
+        {
+            name: 'cats',
+            filaments: saved.filaments,
+            swatches: saved.swatches,
+            layerHeight: saved.configuration.layerHeight,
+            firstLayerHeight: saved.configuration.firstLayerHeight,
+            result: saved.result,
+            provenance: {
+                kind: 'fresh-exact',
+                evidenceSha256: createHash('sha256').update(serialized).digest('hex'),
+                resultSha256: saved.resultSha256,
+            },
+        },
+    ];
+    mkdirSync(dirname(inputPath), { recursive: true });
+    writeFileSync(inputPath, JSON.stringify(prepared), { flag: 'wx' });
+    if (!args.includes('--run')) process.exit(0);
+} else if (args.includes('--prepare')) {
     const root = resolve(testAssetsRoot, 'performance/8-colors-frontlit-2026-08-26');
     const parsed = modules.profile.parseProfileFile(
         readFileSync(resolve(root, 'profile.kfil'), 'utf8')
@@ -139,7 +183,7 @@ if (args.includes('--prepare')) {
     assert.ok(parsed);
     const profile = modules.profile.importProfiles([], parsed).imported[0];
     const cases: Case[] = [];
-    for (const name of ['cats', 'rocco']) {
+    for (const name of ['cats', 'rocco'].filter((name) => names.includes(name))) {
         const swatches = imagePalette(
             name === 'cats'
                 ? resolve(root, 'cats/source.png')
@@ -147,6 +191,7 @@ if (args.includes('--prepare')) {
             name === 'rocco'
         );
         const settings = JSON.parse(readFileSync(resolve(root, 'cats/case.json'), 'utf8')).settings;
+        const fitStart = performance.now();
         const model = modules.appearance.fitAppearanceRankModel(profile.appearance, {
             filamentProfileFingerprint: modules.fingerprint.fingerprintAppearanceFilaments(
                 profile.filaments
@@ -156,10 +201,17 @@ if (args.includes('--prepare')) {
             transitionOpacity: 0.9,
             filaments: profile.filaments,
         });
+        const appearanceFitMs = performance.now() - fitStart;
+        const optimizeStart = performance.now();
         let result: AutoPaintResult;
         if (name === 'cats' && modules.replay) {
-            const fixture = JSON.parse(readFileSync(resolve(root, 'cats/case.json'), 'utf8'));
-            const order = fixture.replayResult.filamentOrderColors.map((hex: string) => {
+            const recorded = JSON.parse(
+                readFileSync(
+                    'tests/benchmark/results/multi-head-appearance/2026-11-01-recorded-cats-order.json',
+                    'utf8'
+                )
+            );
+            const order = recorded.filamentOrderColors.map((hex: string) => {
                 const filament = profile.filaments.find((f) => f.color.toLowerCase() === hex);
                 assert.ok(filament);
                 return filament;
@@ -202,11 +254,36 @@ if (args.includes('--prepare')) {
                     : undefined,
                 model
             );
-        if (name === 'cats') {
-            if (replay)
-                assert.equal(result.finalStack.fingerprint, 'final-stack-v1-9684249d4a77bb3c');
-            assert.equal(swatches.length, 128);
-        }
+        // Persist each full case before any golden assertion or the next optimizer.
+        persistOptimizerEvidence({
+            output: `${inputPath}.${name}-${Date.now()}.json`,
+            fixture: resolve(root, 'cats/case.json'),
+            profile: resolve(root, 'profile.kfil'),
+            sourceImage:
+                name === 'cats'
+                    ? resolve(root, 'cats/source.png')
+                    : resolve(testAssetsRoot, 'rocco__source.png'),
+            configuration: {
+                layerHeight: 0.08,
+                firstLayerHeight: 0.4,
+                maxHeight: name === 'cats' ? settings.maxHeight : null,
+                enhancedColorMatching: name === 'cats' && !replay,
+                optimizerAlgorithm: name === 'cats' && !replay ? 'exact' : null,
+                maximumExtraFilamentAppearances: name === 'cats' && !replay ? 4 : 0,
+                preserveColorSeparation: name === 'cats',
+                maximumColorErrorDeltaE: name === 'cats' ? 20 : null,
+                failIfAnyColorIsMissed: false,
+                transitionOpacity: result.finalStack.settings.transitionOpacity,
+                preparation: name === 'cats' && replay ? 'recorded-order' : 'fresh',
+                case: name,
+            },
+            variant: 'multi-head-preparation',
+            harnessPath: 'tests/benchmark/multiHeadAppearance.ts',
+            filaments: profile.filaments,
+            swatches,
+            result,
+            timing: { appearanceFitMs, optimizationMs: performance.now() - optimizeStart },
+        });
         cases.push({
             name,
             filaments: profile.filaments,
@@ -215,6 +292,13 @@ if (args.includes('--prepare')) {
             firstLayerHeight: 0.4,
             result,
         });
+        mkdirSync(dirname(inputPath), { recursive: true });
+        writeFileSync(inputPath, JSON.stringify(cases));
+        if (name === 'cats') {
+            if (replay)
+                assert.equal(result.finalStack.fingerprint, 'final-stack-v1-9684249d4a77bb3c');
+            assert.equal(swatches.length, 128);
+        }
         process.stdout.write(
             `Prepared ${name}: ${swatches.length} colors, ${result.finalStack.layers.length} layers, ${result.finalStack.fingerprint}\n`
         );
@@ -227,14 +311,30 @@ if (args.includes('--prepare')) {
 const input = readFileSync(inputPath, 'utf8');
 const cases = JSON.parse(input) as Case[];
 const rows: object[] = [];
+const summaries: object[] = [];
 const report = {
     measuredAt: new Date().toISOString(),
     revision: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(),
     analysisRef,
     shortlistSize: analysisRef ? null : shortlistSize,
     analysisSha256: createHash('sha256').update(analysisSource).digest('hex'),
+    harnessSha256: createHash('sha256')
+        .update(readFileSync('tests/benchmark/multiHeadAppearance.ts'))
+        .digest('hex'),
     inputSha256: createHash('sha256').update(input).digest('hex'),
-    machine: { node: process.version, platform: platform(), cpu: cpus()[0].model },
+    machine: benchmarkEnvironment(),
+    warmups,
+    repeats,
+    timingBoundaries: {
+        analysisMs:
+            'Balanced analysis including regional selection, full-model reconciliation and nozzle scheduling',
+        previewMs:
+            'Standalone full-model prediction and usage-weighted CIEDE2000 gain replay after the build (excluded from totalBuildMs)',
+        buildMs:
+            'multiHeadBuildSnapshot including corrected colors, gain gate, slice conversion and fallback validation; excludes mesh/export',
+        totalBuildMs:
+            'analysisMs + buildMs; excludes preparation, standalone preview, serialization and assertions',
+    },
     cases: cases.map((c) => ({
         name: c.name,
         colors: c.swatches.length,
@@ -245,72 +345,120 @@ const report = {
         occupiedSurfaces: new Set(c.result.finalStack.targetMappings.map((m) => m.projectedHeight))
             .size,
         finalStackFingerprint: c.result.finalStack.fingerprint,
+        resultSha256: createHash('sha256').update(JSON.stringify(c.result)).digest('hex'),
+        provenance: c.provenance ?? { kind: 'prepared-stack' },
     })),
     depth: 'balanced',
     threshold: modules.build.MIN_MULTI_HEAD_PREDICTED_GAIN,
     rows,
+    summaries,
 };
 const log = console.log;
 console.log = console.group = console.groupEnd = () => {};
 for (const c of cases.filter((c) => names.includes(c.name))) {
+    const originalResultSha256 = createHash('sha256')
+        .update(JSON.stringify(c.result))
+        .digest('hex');
     for (const mode of modes)
         for (const head of heads) {
-            const start = performance.now();
-            const result = modules.analysis.runMultiHeadLayerAnalysisColorFirst(
-                c.filaments,
-                c.result,
-                c.swatches,
-                c.layerHeight,
-                c.firstLayerHeight,
-                head,
-                'balanced',
-                mode
-            );
-            const analysisMs = performance.now() - start;
-            const previewStart = performance.now();
-            const colors = modules.preview.buildPerColorLayerColors(
-                result.patchedLayers,
-                result.colorLayerFilaments,
-                c.filaments,
-                c.result.finalStack.appearanceModel.effectiveOptics,
-                c.result.finalStack.appearanceModel
-            );
-            const predictedGain = modules.build.multiHeadPredictedGain(
-                c.result.finalStack,
-                result.patchedLayers,
-                colors
-            );
-            const previewMs = performance.now() - previewStart;
-            const state = {
-                multiHeadMode: true,
-                multiHeadCount: head,
-                paintMode: 'autopaint',
-                filaments: c.filaments,
-                autoPaintResult: c.result,
-                layerHeight: c.layerHeight,
-                slicerFirstLayerHeight: c.firstLayerHeight,
-            } as ThreeDControlsStateShape;
-            const buildStart = performance.now();
-            const built = modules.build.multiHeadBuildSnapshot(state, result);
-            const buildMs = performance.now() - buildStart;
-            const row = {
+            const samples: {
+                analysisMs: number;
+                previewMs: number;
+                buildMs: number;
+                totalBuildMs: number;
+            }[] = [];
+            let expected: string | undefined;
+            for (let i = 0; i < warmups + repeats; i++) {
+                const start = performance.now();
+                const result = modules.analysis.runMultiHeadLayerAnalysisColorFirst(
+                    c.filaments,
+                    c.result,
+                    c.swatches,
+                    c.layerHeight,
+                    c.firstLayerHeight,
+                    head,
+                    'balanced',
+                    mode
+                );
+                const analysisMs = performance.now() - start;
+                const state = {
+                    multiHeadMode: true,
+                    multiHeadCount: head,
+                    paintMode: 'autopaint',
+                    filaments: c.filaments,
+                    autoPaintResult: c.result,
+                    layerHeight: c.layerHeight,
+                    slicerFirstLayerHeight: c.firstLayerHeight,
+                } as ThreeDControlsStateShape;
+                const buildStart = performance.now();
+                const built = modules.build.multiHeadBuildSnapshot(state, result);
+                const buildMs = performance.now() - buildStart;
+                // Measure the production analysis/build path before the diagnostic replay.
+                const previewStart = performance.now();
+                const colors = modules.preview.buildPerColorLayerColors(
+                    result.patchedLayers,
+                    result.colorLayerFilaments,
+                    c.filaments,
+                    c.result.finalStack.appearanceModel.effectiveOptics,
+                    c.result.finalStack.appearanceModel
+                );
+                const predictedGain = modules.build.multiHeadPredictedGain(
+                    c.result.finalStack,
+                    result.patchedLayers,
+                    colors
+                );
+                const previewMs = performance.now() - previewStart;
+                const row = {
+                    phase: i < warmups ? 'warmup' : 'measured',
+                    sample: i < warmups ? i + 1 : i - warmups + 1,
+                    case: c.name,
+                    mode,
+                    heads: head,
+                    analysisMs,
+                    previewMs,
+                    buildMs,
+                    totalBuildMs: analysisMs + buildMs,
+                    predictedGain,
+                    fallback: !built.multiHeadMode,
+                    windows: result.windows.length,
+                    pathSha256: createHash('sha256')
+                        .update(JSON.stringify([...result.colorLayerFilaments]))
+                        .digest('hex'),
+                };
+                rows.push(row);
+                process.stdout.write(`${JSON.stringify(row)}\n`);
+                mkdirSync(dirname(outputPath), { recursive: true });
+                writeFileSync(outputPath, JSON.stringify(report, null, 2) + '\n');
+                assert.equal(
+                    createHash('sha256').update(JSON.stringify(c.result)).digest('hex'),
+                    originalResultSha256,
+                    'Multi-head measurement mutated its single-head reference (sample saved)'
+                );
+                const stable = JSON.stringify({
+                    predictedGain,
+                    fallback: row.fallback,
+                    windows: row.windows,
+                    pathSha256: row.pathSha256,
+                });
+                expected ??= stable;
+                assert.equal(
+                    stable,
+                    expected,
+                    'Repeated multi-head output changed (all samples saved)'
+                );
+                if (i >= warmups) samples.push(row);
+            }
+            summaries.push({
                 case: c.name,
                 mode,
                 heads: head,
-                analysisMs,
-                previewMs,
-                buildMs,
-                totalBuildMs: analysisMs + buildMs,
-                predictedGain,
-                fallback: !built.multiHeadMode,
-                windows: result.windows.length,
-                pathSha256: createHash('sha256')
-                    .update(JSON.stringify([...result.colorLayerFilaments]))
-                    .digest('hex'),
-            };
-            rows.push(row);
-            process.stdout.write(`${JSON.stringify(row)}\n`);
-            mkdirSync(dirname(outputPath), { recursive: true });
+                ...Object.fromEntries(
+                    (['analysisMs', 'previewMs', 'buildMs', 'totalBuildMs'] as const).map((key) => [
+                        key,
+                        measurementSummary(samples.map((s) => s[key])),
+                    ])
+                ),
+            });
             writeFileSync(outputPath, JSON.stringify(report, null, 2) + '\n');
         }
 }

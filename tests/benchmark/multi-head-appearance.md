@@ -41,7 +41,9 @@ its SHA-256 and both final-stack fingerprints are recorded in every report.
 `--input`, `--cases`, `--heads`, and `--modes` can restrict a replay.
 
 - **Cats:** all 128 opaque colors of the saved 576×576 image, ordered as
-  `useSwatches` does. The 12-run order comes from `cats/case.json`'s `replayResult`,
+  `useSwatches` does. The 12-run order was captured from `cats/case.json`'s
+  `replayResult` at the time of #113 and is now frozen in
+  `results/multi-head-appearance/2026-11-01-recorded-cats-order.json`,
   with its 5.92 mm cap, 0.9 transition opacity, and preserve-separation settings.
   Preparation injects only that order into a temporary copy of Auto-paint; the
   current production stack construction and target mapping produce 70 layers and
@@ -52,14 +54,17 @@ its SHA-256 and both final-stack fingerprints are recorded in every report.
   its ordinary transition opacity; it produces 41 layers, eight runs, and
   fingerprint `final-stack-v1-8efddb6a6515bd5e`.
 
-The historical cats Exact golden is **not** a validated preparation shortcut on
-this base. A fresh Exact preparation was attempted and completed with fingerprint
+At the time of these #113 measurements, the historical cats Exact golden was
+**not** a validated preparation shortcut on this base. A fresh Exact preparation was attempted and completed with fingerprint
 `final-stack-v1-9cc07906da622021`, differing from the checked-in
 `final-stack-v1-a4cfc2a6dae4f1ac`; its assertion failed before saving that result.
 The matrix here therefore compares the explicitly reconstructed order above,
 not that fresh Exact output or the issue's original numeric table. The original
 fixture and captured artifacts were left unchanged. `--prepare --reoptimize`
-can explicitly prepare a newly optimized case for a separate experiment.
+can explicitly prepare a newly optimized case for a separate experiment. The
+independent [#117 investigation](cats-exact-reproducibility.md) records historical
+reproduction, a current replay golden, full optimizer evidence, and warmed
+fresh-stack measurements separately; it does not replace the tables below.
 
 Timings cover the run analysis, nozzle scheduling, and the normal full-model
 build gate. They exclude preparation, mesh generation, and file export. A separate

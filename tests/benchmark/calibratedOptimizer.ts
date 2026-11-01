@@ -1,11 +1,16 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
+import { existsSync, readFileSync } from 'node:fs';
+import { dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { performance } from 'node:perf_hooks';
+import {
+    benchmarkSourceRoot,
+    measurementSummary,
+    persistOptimizerEvidence,
+    sha256,
+} from '../helpers/optimizerEvidence.ts';
 
-import { readPngFixture } from '../imageFixtures.ts';
-import { rgbToHsl } from '../../src/lib/color.ts';
+import { imageSwatches } from '../helpers/calibratedSwatches.ts';
 import { withViteTestServer } from '../helpers/viteModule.ts';
 
 interface CalibratedOptimizerCase {
@@ -110,12 +115,14 @@ type LoadedModules = {
 };
 
 async function loadModules(): Promise<LoadedModules> {
+    const prefix = '/' + relative(process.cwd(), sourceRoot).replaceAll('\\', '/');
+    const modulePath = (path: string) => (sourceRoot === process.cwd() ? path : prefix + path);
     return withViteTestServer(async (server) => {
         const [autoPaint, appearanceModel, appearanceProfile, profileManager] = await Promise.all([
-            server.ssrLoadModule('/src/lib/autoPaint.ts'),
-            server.ssrLoadModule('/src/lib/appearanceModel.ts'),
-            server.ssrLoadModule('/src/lib/appearanceProfile.ts'),
-            server.ssrLoadModule('/src/lib/profileManager.ts'),
+            server.ssrLoadModule(modulePath('/src/lib/autoPaint.ts')),
+            server.ssrLoadModule(modulePath('/src/lib/appearanceModel.ts')),
+            server.ssrLoadModule(modulePath('/src/lib/appearanceProfile.ts')),
+            server.ssrLoadModule(modulePath('/src/lib/profileManager.ts')),
         ]);
         return {
             autoPaint: autoPaint as LoadedModules['autoPaint'],
@@ -126,40 +133,41 @@ async function loadModules(): Promise<LoadedModules> {
     });
 }
 
-function imageSwatches(path: string): Array<{ hex: string; count: number }> {
-    const image = readPngFixture(path);
-    const counts = new Map<number, number>();
-    for (let index = 0; index < image.rgba.length; index += 4) {
-        if (image.rgba[index + 3] === 0) continue;
-        const key =
-            (image.rgba[index] << 16) | (image.rgba[index + 1] << 8) | image.rgba[index + 2];
-        counts.set(key, (counts.get(key) ?? 0) + 1);
-    }
-    const swatches = Array.from(counts, ([rgb, count]) => {
-        const r = (rgb >> 16) & 0xff;
-        const g = (rgb >> 8) & 0xff;
-        const b = rgb & 0xff;
-        return {
-            hex: `#${rgb.toString(16).padStart(6, '0')}`,
-            count,
-            hsl: rgbToHsl(r, g, b),
-        };
-    });
-    swatches.sort((left, right) => {
-        if (left.hsl.h !== right.hsl.h) return left.hsl.h - right.hsl.h;
-        if (left.hsl.s !== right.hsl.s) return right.hsl.s - left.hsl.s;
-        return right.hsl.l - left.hsl.l;
-    });
-    // Match useSwatches exactly: colors are presented darkest-to-lightest by
-    // reversing the shared HSL ordering before they enter auto-paint.
-    return swatches.reverse().map(({ hex, count }) => ({ hex, count }));
-}
-
-function parseRunOptions(args: string[]): { reportOnly: boolean; seedOverride?: number } {
+function parseRunOptions(args: string[]): {
+    reportOnly: boolean;
+    seedOverride?: number;
+    output?: string;
+    sourceRef?: string;
+    warmups: number;
+    runs: number;
+} {
     let reportOnly = false;
     let seedOverride: number | undefined;
+    let warmups = 0;
+    let runs = 1;
+    let output: string | undefined;
+    let sourceRef: string | undefined;
     for (let index = 0; index < args.length; index++) {
         const argument = args[index];
+        if (argument === '--warmups' || argument === '--runs') {
+            const count = Number(args[++index]);
+            if (!Number.isInteger(count) || count < (argument === '--runs' ? 1 : 0) || count > 20)
+                throw new Error(`Invalid ${argument} count`);
+            if (argument === '--warmups') warmups = count;
+            else runs = count;
+            continue;
+        }
+        if (argument === '--source-ref') {
+            sourceRef = args[++index];
+            if (!sourceRef || sourceRef.startsWith('--'))
+                throw new Error('--source-ref requires a Git ref');
+            continue;
+        }
+        if (argument === '--output') {
+            output = args[++index];
+            if (!output || output.startsWith('--')) throw new Error('--output requires a path');
+            continue;
+        }
         if (argument === '--report-only') {
             reportOnly = true;
             continue;
@@ -176,7 +184,7 @@ function parseRunOptions(args: string[]): { reportOnly: boolean; seedOverride?: 
         }
         throw new Error(`Unknown calibrated optimizer option: ${argument}`);
     }
-    return { reportOnly, seedOverride };
+    return { reportOnly, seedOverride, output, sourceRef, warmups, runs };
 }
 
 function realizedQuality(
@@ -226,7 +234,10 @@ const variantName = process.argv[3] ?? 'baseline';
 if (!/^[a-z0-9-]+$/.test(variantName) || !(variantName in VARIANT_OVERRIDES)) {
     throw new Error(`Invalid calibrated optimizer variant name: ${variantName}`);
 }
-const { reportOnly, seedOverride } = parseRunOptions(process.argv.slice(4));
+const { reportOnly, seedOverride, output, sourceRef, warmups, runs } = parseRunOptions(
+    process.argv.slice(4)
+);
+const sourceRoot = benchmarkSourceRoot(sourceRef);
 const fixtureRoot = resolve(
     dirname(fileURLToPath(import.meta.url)),
     '../assets/performance/8-colors-frontlit-2026-08-26'
@@ -262,45 +273,142 @@ assert.ok(profile, 'Calibrated optimizer profile fixture must import');
 const swatches = imageSwatches(resolve(fixtureDirectory, fixture.sourceImage));
 assert.equal(swatches.length, fixture.observedResult.processedOpaqueColorCount);
 
-globalThis.gc?.();
-const heapBefore = process.memoryUsage().heapUsed;
-const fitStartedAt = performance.now();
-const appearanceModel = modules.appearanceModel.fitAppearanceRankModel(profile.appearance, {
-    filamentProfileFingerprint: modules.appearanceProfile.fingerprintAppearanceFilaments(
-        profile.filaments
-    ),
-    layerHeight: settings.layerHeight,
-    firstLayerHeight: Math.max(settings.layerHeight, settings.firstLayerHeight),
-    transitionOpacity: settings.transitionOpacity,
-    filaments: profile.filaments,
-});
-const appearanceFitMs = performance.now() - fitStartedAt;
-
-const optimizationStartedAt = performance.now();
-const result = modules.autoPaint.generateAutoLayers(
-    profile.filaments,
-    swatches,
-    settings.layerHeight,
-    settings.firstLayerHeight,
-    settings.maxHeight ?? undefined,
-    true,
-    settings.maximumExtraFilamentAppearances > 0,
-    {
-        algorithm: settings.optimizerAlgorithm,
-        cachingEnabled: false,
-        maxExtraRepeats: settings.maximumExtraFilamentAppearances,
-        preserveSeparation: settings.preserveColorSeparation,
-        separationMaxDeltaE: settings.maximumColorErrorDeltaE,
-        failOnSeparationError: settings.failIfAnyColorIsMissed,
+const outputBase =
+    output ??
+    `.profiles/calibrated/${new Date().toISOString().replaceAll(':', '-')}-${caseName}-${variantName}.json`;
+// Reject known collisions before doing an expensive fit/search; the exclusive
+// write still protects against another process creating the path afterwards.
+const outputPaths =
+    warmups + runs === 1
+        ? [outputBase]
+        : [
+              ...Array.from({ length: warmups }, (_, i) => `${outputBase}.warmup-${i + 1}.json`),
+              ...Array.from({ length: runs }, (_, i) => `${outputBase}.measured-${i + 1}.json`),
+          ];
+for (const path of outputPaths) {
+    if (existsSync(path))
+        throw new Error(
+            `Optimizer evidence already exists: ${path}. Choose a new --output prefix.`
+        );
+}
+function runOnce(phase: string, sample: number) {
+    const optimizerDiagnostics: import('../../src/lib/optimizer.ts').OptimizerDiagnosticEvent[] =
+        [];
+    globalThis.gc?.();
+    const heapBefore = process.memoryUsage().heapUsed;
+    const fitStartedAt = performance.now();
+    const appearanceModel = modules.appearanceModel.fitAppearanceRankModel(profile.appearance, {
+        filamentProfileFingerprint: modules.appearanceProfile.fingerprintAppearanceFilaments(
+            profile.filaments
+        ),
+        layerHeight: settings.layerHeight,
+        firstLayerHeight: Math.max(settings.layerHeight, settings.firstLayerHeight),
         transitionOpacity: settings.transitionOpacity,
-        seed: settings.seed ?? undefined,
-    },
-    appearanceModel
-);
-const optimizationMs = performance.now() - optimizationStartedAt;
-const heapAfter = process.memoryUsage().heapUsed;
-globalThis.gc?.();
-const memoryAfterGc = process.memoryUsage();
+        filaments: profile.filaments,
+    });
+    const appearanceFitMs = performance.now() - fitStartedAt;
+
+    const optimizationStartedAt = performance.now();
+    const result = modules.autoPaint.generateAutoLayers(
+        profile.filaments,
+        swatches,
+        settings.layerHeight,
+        settings.firstLayerHeight,
+        settings.maxHeight ?? undefined,
+        true,
+        settings.maximumExtraFilamentAppearances > 0,
+        {
+            algorithm: settings.optimizerAlgorithm,
+            cachingEnabled: false,
+            maxExtraRepeats: settings.maximumExtraFilamentAppearances,
+            preserveSeparation: settings.preserveColorSeparation,
+            separationMaxDeltaE: settings.maximumColorErrorDeltaE,
+            failOnSeparationError: settings.failIfAnyColorIsMissed,
+            transitionOpacity: settings.transitionOpacity,
+            seed: settings.seed ?? undefined,
+            onDiagnostic: (event) => {
+                optimizerDiagnostics.push(event);
+                if (event.type === 'repeat-tier' && process.stderr.isTTY)
+                    process.stderr.write(
+                        `${phase} ${sample}: repeat limit ${event.repeatLimit}, ${event.iterations} iterations\n`
+                    );
+            },
+        },
+        appearanceModel
+    );
+    const optimizationMs = performance.now() - optimizationStartedAt;
+    const heapAfter = process.memoryUsage().heapUsed;
+    // Save the entire expensive result before quality calculations or golden assertions.
+    const evidencePath = persistOptimizerEvidence({
+        output: warmups + runs === 1 ? outputBase : `${outputBase}.${phase}-${sample}.json`,
+        fixture: resolve(fixtureDirectory, 'case.json'),
+        profile: resolve(fixtureDirectory, fixture.profile),
+        sourceImage: resolve(fixtureDirectory, fixture.sourceImage),
+        configuration: settings,
+        variant: variantName,
+        sourceRef,
+        phase,
+        sample,
+        optimizerDiagnostics,
+        filaments: profile.filaments,
+        swatches,
+        result,
+        timing: { appearanceFitMs, optimizationMs },
+    });
+    if (process.stderr.isTTY)
+        process.stderr.write(`Full optimizer evidence saved: ${evidencePath}\n`);
+    globalThis.gc?.();
+    const memoryAfterGc = process.memoryUsage();
+
+    return {
+        result,
+        appearanceModel,
+        appearanceFitMs,
+        optimizationMs,
+        heapBefore,
+        heapAfter,
+        memoryAfterGc,
+        evidencePath,
+    };
+}
+const samples: {
+    phase: string;
+    sample: number;
+    appearanceFitMs: number;
+    optimizationMs: number;
+    resultSha256: string;
+    evidencePath: string;
+}[] = [];
+let latest: ReturnType<typeof runOnce> | undefined;
+let expectedHash: string | undefined;
+for (let i = 0; i < warmups + runs; i++) {
+    const phase = i < warmups ? 'warmup' : 'measured';
+    const sample = i < warmups ? i + 1 : i - warmups + 1;
+    latest = runOnce(phase, sample);
+    const resultSha256 = sha256(JSON.stringify(latest.result));
+    samples.push({
+        phase,
+        sample,
+        appearanceFitMs: latest.appearanceFitMs,
+        optimizationMs: latest.optimizationMs,
+        resultSha256,
+        evidencePath: latest.evidencePath,
+    });
+    // Each complete run is already durable, including a run that disagrees.
+    expectedHash ??= resultSha256;
+    assert.equal(resultSha256, expectedHash, 'Repeated optimizer result changed');
+}
+assert.ok(latest);
+const {
+    result,
+    appearanceModel,
+    appearanceFitMs,
+    optimizationMs,
+    heapBefore,
+    heapAfter,
+    memoryAfterGc,
+    evidencePath,
+} = latest;
 
 const colorByFilamentId = new Map(
     profile.filaments.map((filament) => [filament.id, filament.color.toLowerCase()])
@@ -404,6 +512,25 @@ console.log(
             fixture: `8-colors-frontlit-2026-08-26/${caseName}`,
             variant: variantName,
             validationMode: reportOnly ? 'report-only' : 'golden',
+            evidencePath,
+            sourceRef: sourceRef ?? null,
+            timingBoundaries: {
+                appearanceFitMs:
+                    'fitAppearanceRankModel from imported evidence, including effective optics and empirical/local fitting; excludes module loading, file IO and GC',
+                optimizationMs:
+                    'generateAutoLayers with result cache disabled, including Exact order search, repeat tiers, minimization, physical stack construction and target mapping; excludes evidence serialization, quality replay and assertions',
+            },
+            samples,
+            timingSummary: Object.fromEntries(
+                ['appearanceFitMs', 'optimizationMs'].map((key) => [
+                    key,
+                    measurementSummary(
+                        samples
+                            .filter((s) => s.phase === 'measured')
+                            .map((s) => s[key as 'appearanceFitMs' | 'optimizationMs'])
+                    ),
+                ])
+            ),
             configuration: settings,
             evidence: {
                 proofRecords: profile.appearance?.proofs.length ?? 0,
