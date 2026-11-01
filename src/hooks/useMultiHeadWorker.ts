@@ -8,7 +8,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Filament } from '../types';
 import type { AutoPaintResult } from '../lib/autoPaint';
-import type { ColorFirstResult } from '../lib/multiHeadAnalysisColorFirst';
+import type {
+    ColorFirstResult,
+    MultiHeadColorMode,
+} from '../lib/multiHeadAnalysisColorFirst';
 import type {
     MultiHeadWorkerRequest,
     MultiHeadWorkerResponse,
@@ -26,6 +29,7 @@ export interface UseMultiHeadWorkerResult {
         firstLayerHeight: number;
         n: number;
         searchDepth: 'fast' | 'balanced' | 'thorough';
+        colorMode: MultiHeadColorMode;
     }) => Promise<ColorFirstResult | null>;
 }
 
@@ -64,6 +68,7 @@ export function useMultiHeadWorker(): UseMultiHeadWorkerResult {
             firstLayerHeight: number;
             n: number;
             searchDepth: 'fast' | 'balanced' | 'thorough';
+            colorMode: MultiHeadColorMode;
         }): Promise<ColorFirstResult | null> => {
             cancelWorker();
             setError(undefined);
@@ -127,6 +132,7 @@ export function useMultiHeadWorker(): UseMultiHeadWorkerResult {
                     firstLayerHeight: params.firstLayerHeight,
                     n: params.n,
                     searchDepth: params.searchDepth,
+                    colorMode: params.colorMode,
                 };
                 try {
                     worker.postMessage(request);

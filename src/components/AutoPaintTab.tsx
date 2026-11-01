@@ -440,6 +440,8 @@ interface AutoPaintTabProps {
     setMultiHeadCount: (v: number) => void;
     multiHeadSearchDepth: 'fast' | 'balanced' | 'thorough';
     setMultiHeadSearchDepth: (v: 'fast' | 'balanced' | 'thorough') => void;
+    multiHeadColorMode: 'luminance' | 'color';
+    setMultiHeadColorMode: (v: 'luminance' | 'color') => void;
     /** Set after a build that fell back from Multi-head mode to a single-head model. */
     multiHeadNotice?: string;
 }
@@ -527,6 +529,8 @@ export default function AutoPaintTab({
     setMultiHeadCount,
     multiHeadSearchDepth,
     setMultiHeadSearchDepth,
+    multiHeadColorMode,
+    setMultiHeadColorMode,
     multiHeadNotice,
 }: AutoPaintTabProps) {
     const { t, i18n } = useTranslation('printing');
@@ -1525,6 +1529,30 @@ export default function AutoPaintTab({
                                     </div>
                                     <p className="text-[10px] text-muted-foreground">
                                         {t('multiHead.searchHelp')}
+                                    </p>
+                                    <div className="flex items-center gap-2">
+                                        <Label htmlFor="multi-head-color-mode" className="text-xs text-muted-foreground whitespace-nowrap">
+                                            {t('multiHead.colorGrouping')}
+                                        </Label>
+                                        <Select
+                                            value={multiHeadColorMode}
+                                            onValueChange={(v) => setMultiHeadColorMode(v as 'luminance' | 'color')}
+                                        >
+                                            <SelectTrigger id="multi-head-color-mode" className="h-7 text-xs flex-1">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="luminance" className="text-xs">
+                                                    {t('multiHead.layerBasedGrouping')}
+                                                </SelectItem>
+                                                <SelectItem value="color" className="text-xs">
+                                                    {t('multiHead.colorBasedGrouping')}
+                                                </SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <p className="text-[10px] text-muted-foreground">
+                                        {t('multiHead.colorGroupingHelp')}
                                     </p>
                                 </div>
                             )}

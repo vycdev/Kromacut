@@ -8,7 +8,10 @@
 import { runMultiHeadLayerAnalysisColorFirst } from '../lib/multiHeadAnalysisColorFirst';
 import type { Filament } from '../types';
 import type { AutoPaintResult } from '../lib/autoPaint';
-import type { ColorFirstResult } from '../lib/multiHeadAnalysisColorFirst';
+import type {
+    ColorFirstResult,
+    MultiHeadColorMode,
+} from '../lib/multiHeadAnalysisColorFirst';
 
 export interface MultiHeadWorkerRequest {
     id: number;
@@ -19,6 +22,7 @@ export interface MultiHeadWorkerRequest {
     firstLayerHeight: number;
     n: number;
     searchDepth: 'fast' | 'balanced' | 'thorough';
+    colorMode: MultiHeadColorMode;
 }
 
 export interface MultiHeadWorkerResponse {
@@ -37,7 +41,8 @@ self.onmessage = (e: MessageEvent<MultiHeadWorkerRequest>) => {
             req.layerHeight,
             req.firstLayerHeight,
             req.n,
-            req.searchDepth
+            req.searchDepth,
+            req.colorMode
         );
         const response: MultiHeadWorkerResponse = { id: req.id, result };
         self.postMessage(response);

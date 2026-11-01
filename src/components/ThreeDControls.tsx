@@ -238,6 +238,9 @@ export default function ThreeDControls({
     const [multiHeadSearchDepth, setMultiHeadSearchDepth] = useState<
         'fast' | 'balanced' | 'thorough'
     >(persisted?.multiHeadSearchDepth ?? 'balanced');
+    const [multiHeadColorMode, setMultiHeadColorMode] = useState<'luminance' | 'color'>(
+        persisted?.multiHeadColorMode ?? 'luminance'
+    );
     // Store translation keys so fallback notices follow the current UI language.
     const [multiHeadNotice, setMultiHeadNotice] = useState<{
         key:
@@ -318,6 +321,7 @@ export default function ThreeDControls({
             multiHeadMode,
             multiHeadCount,
             multiHeadSearchDepth,
+            multiHeadColorMode,
         });
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [
@@ -343,6 +347,7 @@ export default function ThreeDControls({
         multiHeadMode,
         multiHeadCount,
         multiHeadSearchDepth,
+        multiHeadColorMode,
     ]);
 
     useEffect(() => {
@@ -581,6 +586,7 @@ export default function ThreeDControls({
                 firstLayerHeight: slicerFirstLayerHeight,
                 n: multiHeadCount,
                 searchDepth: multiHeadSearchDepth,
+                colorMode: multiHeadColorMode,
             });
             if (!isCurrentBuild()) return;
         }
@@ -635,6 +641,7 @@ export default function ThreeDControls({
                     smoothMeshingStrength,
                     multiHeadCount,
                     multiHeadSearchDepth,
+                    multiHeadColorMode,
                 },
                 activeResult
             );
@@ -669,6 +676,7 @@ export default function ThreeDControls({
                 smoothMeshingStrength,
                 multiHeadCount,
                 multiHeadSearchDepth,
+                multiHeadColorMode,
             })
         );
     }, [
@@ -708,6 +716,7 @@ export default function ThreeDControls({
         multiHeadMode,
         multiHeadCount,
         multiHeadSearchDepth,
+        multiHeadColorMode,
         runMultiHead,
     ]);
 
@@ -898,6 +907,8 @@ export default function ThreeDControls({
                     setMultiHeadCount={setMultiHeadCount}
                     multiHeadSearchDepth={multiHeadSearchDepth}
                     setMultiHeadSearchDepth={setMultiHeadSearchDepth}
+                    multiHeadColorMode={multiHeadColorMode}
+                    setMultiHeadColorMode={setMultiHeadColorMode}
                     multiHeadNotice={
                         multiHeadNotice
                             ? t(multiHeadNotice.key, { heads: multiHeadNotice.heads })

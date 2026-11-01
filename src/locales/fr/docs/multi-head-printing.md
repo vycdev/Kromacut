@@ -38,7 +38,18 @@ La **Profondeur de recherche** règle le seuil de sélection des fenêtres, leur
 - **Équilibré** est le compromis par défaut entre effort et couverture.
 - **Approfondi** autorise davantage de fenêtres et un budget de combinaisons supérieur ; les grands espaces peuvent toujours être échantillonnés.
 
-Dans le budget de chaque profondeur, toutes les combinaisons sont testées. Au-delà, un échantillon limité et déterministe est utilisé avec l’ordre actuel. Des entrées identiques donnent des résultats reproductibles. Chaque profondeur considère les mêmes couleurs de l’image ; une recherche plus poussée ne garantit pas une meilleure impression réelle.
+Dans le budget de chaque profondeur, toutes les combinaisons sont testées. Au-delà, un échantillon limité et déterministe est utilisé avec l’ordre actuel. Des entrées identiques donnent des résultats reproductibles. Chaque profondeur considère les mêmes couleurs de l’image ; une recherche plus poussée ne garantit pas une meilleure impression réelle. Pour le regroupement des cibles, voir [Regroupement des couleurs](#color-grouping).
+
+## Regroupement des couleurs
+
+Avant la recherche, Kromacut regroupe les couleurs de votre palette en couleurs cibles à reproduire. Le réglage **Regroupement des couleurs** détermine comment :
+
+- **Par couche (actuel)** — les couleurs affectées à une même couche imprimable du résultat Auto-paint sont réunies en une cible. Des teintes différentes peuvent donc partager une cible. Il existe au plus un groupe cible par couche occupée.
+- **Par couleur (par teinte)** — les teintes distinctes peuvent rester des cibles séparées sur leurs couches d’impression d’origine. Les grandes palettes sont réduites selon un budget de groupes, avec au moins un groupe par couche occupée ; les couleurs de couches différentes ne sont jamais fusionnées.
+
+Le regroupement par couleur ne garantit ni une erreur de couleur plus faible ni davantage de couleurs imprimées. Le résultat dépend de l’image, de l’étalonnage des filaments, du nombre de têtes et des fenêtres sélectionnées. La recherche minimise la différence de couleur CIE76 ; un meilleur score de recherche peut malgré tout correspondre à une erreur CIEDE2000 plus élevée. La construction peut prendre plus de temps. Les couleurs imprimables restent limitées par vos filaments et leurs empilements physiques.
+
+Le regroupement des couleurs est enregistré dès sa modification, avant la construction. Reconstruisez avec chaque option et comparez les aperçus de votre image.
 
 ## Planning des têtes et export
 

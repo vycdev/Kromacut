@@ -359,11 +359,13 @@ test('multi-head worker cancellation settles old requests and ignores late repli
             firstLayerHeight: 0.2,
             n: 2,
             searchDepth: 'balanced' as const,
+            colorMode: 'color' as const,
         };
         const result = { windows: [], patchedLayers: [] } as unknown as ColorFirstResult;
         try {
             const old = hook.run(params);
             const oldWorker = FakeWorker.instances.at(-1)!;
+            assert.equal(oldWorker.request.colorMode, 'color');
             const latest = hook.run(params);
             assert.equal(await old, null);
             assert.equal(oldWorker.terminated, true);

@@ -7,6 +7,7 @@ declare global {
                 id: number;
                 n: number;
                 searchDepth: string;
+                colorMode: 'luminance' | 'color';
                 imageSwatches: Array<{ hex: string; count?: number }>;
                 autoPaintResult: {
                     finalStack: {
@@ -43,6 +44,7 @@ for (const outcome of ['worker-error', 'no-layout'] as const) {
                         multiHeadMode: true,
                         multiHeadCount: 2,
                         multiHeadSearchDepth: 'balanced',
+                        multiHeadColorMode: 'luminance',
                     })
                 );
             }
@@ -111,6 +113,13 @@ for (const outcome of ['worker-error', 'no-layout'] as const) {
         });
         await page.getByRole('button', { name: '3D', exact: true }).click();
         await page.getByRole('tab', { name: 'Auto-paint', exact: true }).click();
+        await page.locator('#multi-head-color-mode').click();
+        await page.getByRole('option', { name: 'Color-based (per-hue)', exact: true }).click();
+        await expect
+            .poll(() =>
+                page.evaluate(() => JSON.parse(localStorage.getItem('kromacut.autopaint.v1')!))
+            )
+            .toMatchObject({ multiHeadColorMode: 'color' });
         const build = page.getByTestId('build-3d-model');
         await expect(build).toBeEnabled();
         await build.click();
@@ -119,6 +128,7 @@ for (const outcome of ['worker-error', 'no-layout'] as const) {
         expect(request).toMatchObject({
             n: 2,
             searchDepth: 'balanced',
+            colorMode: 'color',
         });
         const totalWeight = request.imageSwatches.reduce(
             (sum, swatch) => sum + (swatch.count ?? 1),
@@ -140,6 +150,8 @@ for (const outcome of ['worker-error', 'no-layout'] as const) {
         await page.locator('#multi-head-count').blur();
         await page.locator('#multi-head-search-depth').click();
         await page.getByRole('option', { name: 'Thorough', exact: true }).click();
+        await page.locator('#multi-head-color-mode').click();
+        await page.getByRole('option', { name: 'Layer-based (current)', exact: true }).click();
         await page.evaluate(() => window.__MULTI_HEAD_WIRING_TEST!.finish());
         await expect(page.getByTestId('autopaint-multi-head-notice')).toBeVisible();
         await page.waitForFunction(
@@ -157,6 +169,7 @@ for (const outcome of ['worker-error', 'no-layout'] as const) {
                 multiHeadMode: true,
                 multiHeadCount: 5,
                 multiHeadSearchDepth: 'thorough',
+                multiHeadColorMode: 'luminance',
             });
 
         await page.reload();
@@ -168,5 +181,6 @@ for (const outcome of ['worker-error', 'no-layout'] as const) {
         );
         await expect(page.locator('#multi-head-count')).toHaveValue('5');
         await expect(page.locator('#multi-head-search-depth')).toHaveText('Thorough');
+        await expect(page.locator('#multi-head-color-mode')).toHaveText('Layer-based (current)');
     });
 }

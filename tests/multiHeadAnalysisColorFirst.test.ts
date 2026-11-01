@@ -15,11 +15,13 @@ const { buildColorStack, expandZonesToPrinterLayers, buildPixelData } = await lo
 >('/src/lib/multiHeadAnalysis.ts');
 const {
     buildPixelDataColorFirst,
+    buildColorGroupedPixels,
     buildColorRuns,
     analyzeMultiHeadWindowsColorFirst,
     computeColorOptimalAssignments,
     optimizeNozzleAssignments,
     runMultiHeadLayerAnalysisColorFirst,
+    COLOR_GROUP_CAP,
     MAX_MULTI_HEAD_HEADS,
     windowComboIndices,
 } = await loadViteModule<typeof import('../src/lib/multiHeadAnalysisColorFirst.ts')>(
@@ -704,6 +706,269 @@ test('optimizeNozzleAssignments — K < N windows leave some nozzles idle', () =
 });
 
 // ---------------------------------------------------------------------------
+// Color-based grouping (buildColorGroupedPixels) vs. layer collapse
+// ---------------------------------------------------------------------------
+
+// Low TD keeps the model short (few printer layers) so the layer-based collapse
+// is forced to merge distinct colors, exposing the difference from color mode.
+const LOW_BLACK = filament('lb', '#000000', 0.5, 'Black');
+const LOW_WHITE = filament('lw', '#ffffff', 0.5, 'White');
+
+// Deterministically produce `n` distinct colors spread across the RGB cube.
+function distinctColors(n: number): Array<{ hex: string; count: number }> {
+    const out: Array<{ hex: string; count: number }> = [];
+    const seen = new Set<string>();
+    let i = 0;
+    while (out.length < n) {
+        const r = (i * 37) % 256;
+        const g = (i * 59) % 256;
+        const b = (i * 83) % 256;
+        const hex = `#${[r, g, b].map((v) => v.toString(16).padStart(2, '0')).join('')}`;
+        if (!seen.has(hex)) {
+            seen.add(hex);
+            out.push({ hex, count: 1 });
+        }
+        i++;
+    }
+    return out;
+}
+
+// Build a short printer-layer model + its blended stack for grouping tests.
+function shortModel(swatches: Array<{ hex: string; count: number }>) {
+    const filaments = [LOW_BLACK, LOW_WHITE];
+    const result = generateAutoLayers(filaments, swatches, LAYER_HEIGHT, FIRST_LAYER_HEIGHT);
+    const layers = expandZonesToPrinterLayers(result, filaments, LAYER_HEIGHT, FIRST_LAYER_HEIGHT);
+    const colorAtLayer = buildColorStack(layers);
+    return { result, layers, colorAtLayer };
+}
+
+test('buildColorGroupedPixels — keeps every distinct color when under the cap', () => {
+    const colors = distinctColors(60);
+    const { result, layers, colorAtLayer } = shortModel(colors);
+    const grouped = buildColorGroupedPixels(
+        colors, layers, colorAtLayer,
+        result.finalStack, COLOR_GROUP_CAP
+    );
+    // No merges below the cap: one group per distinct color.
+    assert.equal(grouped.pixels.length, colors.length);
+    // Every input hex is mapped to a valid, in-range group index.
+    assert.equal(grouped.hexToGroupIdx.size, colors.length);
+    for (const [hex, idx] of grouped.hexToGroupIdx) {
+        assert.ok(idx >= 0 && idx < grouped.pixels.length, `group idx for ${hex} out of range`);
+    }
+});
+
+test('buildColorGroupedPixels — preserves more colors than the layer-based collapse', () => {
+    const colors = distinctColors(60);
+    const { result, layers, colorAtLayer } = shortModel(colors);
+    // Precondition: the short model has fewer layers than we have colors, so the
+    // layer-based path is guaranteed to collapse.
+    assert.ok(layers.length < colors.length, 'expected a short model for this test');
+
+    const grouped = buildColorGroupedPixels(
+        colors, layers, colorAtLayer,
+        result.finalStack, COLOR_GROUP_CAP
+    );
+    const collapsed = buildPixelDataColorFirst(
+        colors, layers, colorAtLayer,
+        result.finalStack
+    );
+
+    assert.ok(collapsed.length <= layers.length, 'layer collapse is bounded by layer count');
+    assert.ok(
+        grouped.pixels.length > collapsed.length,
+        `color grouping (${grouped.pixels.length}) should exceed layer collapse (${collapsed.length})`
+    );
+});
+
+test('buildColorGroupedPixels — never exceeds the group cap', () => {
+    const colors = distinctColors(256);
+    const { result, layers, colorAtLayer } = shortModel(colors);
+    const grouped = buildColorGroupedPixels(
+        colors, layers, colorAtLayer,
+        result.finalStack, COLOR_GROUP_CAP
+    );
+    assert.equal(grouped.pixels.length, COLOR_GROUP_CAP);
+    // Every original color still maps to some surviving cluster.
+    assert.equal(grouped.hexToGroupIdx.size, colors.length);
+    for (const idx of grouped.hexToGroupIdx.values()) {
+        assert.ok(idx >= 0 && idx < COLOR_GROUP_CAP);
+    }
+    const mapped = buildPixelData(colors, layers, colorAtLayer, result.finalStack);
+    colors.forEach((swatch, i) => {
+        assert.equal(grouped.pixels[grouped.hexToGroupIdx.get(swatch.hex)!].layerIdx, mapped[i].layerIdx);
+    });
+});
+
+test('buildColorGroupedPixels — deterministic for identical input', () => {
+    const colors = distinctColors(120);
+    const { result, layers, colorAtLayer } = shortModel(colors);
+    const args = [
+        colors, layers, colorAtLayer,
+        result.finalStack, COLOR_GROUP_CAP,
+    ] as const;
+    const a = buildColorGroupedPixels(...args);
+    const b = buildColorGroupedPixels(...args);
+    assert.equal(a.pixels.length, b.pixels.length);
+    for (let i = 0; i < a.pixels.length; i++) {
+        assert.deepEqual(a.pixels[i].targetRgb, b.pixels[i].targetRgb);
+        assert.equal(a.pixels[i].layerIdx, b.pixels[i].layerIdx);
+    }
+    for (const [hex, idx] of a.hexToGroupIdx) {
+        assert.equal(b.hexToGroupIdx.get(hex), idx);
+    }
+});
+
+test('capped color grouping retains zero-weight colors on their physical surfaces', () => {
+    for (const [size, cap] of [[4, 2], [256, COLOR_GROUP_CAP]]) {
+        const swatches = distinctColors(size).map((swatch, i) => ({
+            ...swatch, count: i >= size - 2 ? 0 : i + 1,
+        }));
+        const { result, layers, colorAtLayer } = shortModel(swatches);
+        assert.ok(layers.length >= 2);
+        const stack = {
+            ...result.finalStack,
+            targetMappings: swatches.map((swatch, i) => ({
+                ...result.finalStack.targetMappings[0],
+                targetColor: { ...result.finalStack.targetMappings[0].targetColor, hex: swatch.hex },
+                projectedHeight: i === size - 1
+                    ? layers[1].startZ + layers[1].thickness
+                    : layers[0].thickness,
+            })),
+        };
+        const grouped = buildColorGroupedPixels(swatches, layers, colorAtLayer, stack, cap);
+        assert.equal(grouped.hexToGroupIdx.size, swatches.length, 'every printable color needs a path');
+        assert.ok(grouped.pixels.length <= cap);
+        for (const [i, swatch] of swatches.entries()) {
+            const pixel = grouped.pixels[grouped.hexToGroupIdx.get(swatch.hex)!];
+            assert.equal(pixel.layerIdx, i === size - 1 ? 1 : 0);
+            assert.ok(Number.isFinite(pixel.actualErr));
+            assert.ok(Object.values(pixel.targetRgb).every(Number.isFinite));
+        }
+        const zero = grouped.pixels[grouped.hexToGroupIdx.get(swatches.at(-1)!.hex)!];
+        assert.equal(zero.count, 0, 'routing a zero-weight region must not add scoring weight');
+        assert.deepEqual(zero.targetRgb, hexToRgb(swatches.at(-1)!.hex));
+        assert.equal(
+            grouped.pixels.reduce((sum, pixel) => sum + pixel.count, 0),
+            swatches.reduce((sum, swatch) => sum + swatch.count, 0)
+        );
+        assert.deepEqual(
+            grouped,
+            buildColorGroupedPixels([...swatches].reverse(), layers, colorAtLayer, stack, cap)
+        );
+    }
+});
+
+test('capped color groups retain member surfaces and ignore layers those members never print', () => {
+    const { filaments, result } = multiWindowFixture();
+    const swatches = [
+        { hex: '#808080', count: 100 },
+        { hex: '#080808', count: 99 },
+        { hex: '#818181', count: 1 },
+    ];
+    const stack = {
+        ...result.finalStack,
+        targetMappings: swatches.map((swatch, i) => ({
+            ...result.finalStack.targetMappings[0],
+            targetColor: { ...result.finalStack.targetMappings[0].targetColor, hex: swatch.hex },
+            projectedHeight: i === 0 ? 0.75 : 0.5,
+        })),
+    };
+    const layers = expandZonesToPrinterLayers(result, filaments, 0.25, 0.25);
+    const colors = buildColorStack(layers);
+    // Without a layer constraint, the rare #818181 joins the high-frequency
+    // #808080 seed on layer 2, although it physically stops on layer 1.
+    const grouped = buildColorGroupedPixels(swatches, layers, colors, stack, 2);
+    assert.equal(grouped.pixels.length, 2);
+    const mapped = buildPixelData(swatches, layers, colors, stack);
+    for (let i = 0; i < swatches.length; i++) {
+        const group = grouped.pixels[grouped.hexToGroupIdx.get(swatches[i].hex)!];
+        assert.equal(group.layerIdx, mapped[i].layerIdx, swatches[i].hex);
+        assert.equal(group.actualErr, deltaE(group.targetRgb, colors[group.layerIdx]));
+    }
+    assert.deepEqual(grouped, buildColorGroupedPixels([...swatches].reverse(), layers, colors, stack, 2));
+
+    const group = grouped.pixels[grouped.hexToGroupIdx.get('#818181')!];
+    const windowRuns = [{ filamentIdx: 1, startLayerIdx: 1, endLayerIdx: 1 }];
+    const windowFilaments = filaments.map((f, filamentIdx) => ({
+        filamentIdx, filamentId: f.id, rgb: hexToRgb(f.color), td: channelHds(f),
+    }));
+    const score = (candidateLayers: typeof layers) => computeColorOptimalAssignments(
+        windowRuns, 1, candidateLayers, colors[0], windowFilaments, [group]
+    );
+    const changedSuffix = layers.map((layer, i) => i < 2 ? layer : {
+        ...layer, filamentIdx: 1, filamentId: filaments[1].id,
+        filamentRgb: hexToRgb(filaments[1].color), td: channelHds(filaments[1]),
+    });
+    assert.deepEqual(score(layers), score(changedSuffix), 'an unprinted suffix cannot change the best order');
+});
+
+test('a color-group budget below the occupied layer count never merges physical surfaces', () => {
+    const { filaments, swatches, result } = multiWindowFixture();
+    const layers = expandZonesToPrinterLayers(result, filaments, 0.25, 0.25);
+    const grouped = buildColorGroupedPixels(swatches, layers, buildColorStack(layers), result.finalStack, 2);
+    assert.equal(grouped.pixels.length, 5, 'reserve one group per occupied layer');
+    assert.deepEqual(grouped.pixels.map((pixel) => pixel.layerIdx).sort(), [0, 1, 2, 3, 4]);
+});
+
+test('runMultiHeadLayerAnalysisColorFirst — color mode produces a valid, complete result', () => {
+    // Non-regression for the color-mode pipeline path. NOTE: color mode is *not*
+    // guaranteed to yield more distinct printed colors than luminance mode — the
+    // visible-color count is dominated by how many windows the optimizer opens
+    // (the head/swap budget), not just the group count, so the benefit is
+    // config-dependent. This test asserts the color-mode path runs end to end
+    // and returns structurally consistent output, whether or not the analysis
+    // finds an improving window. The strong grouping claim is covered by the
+    // buildColorGroupedPixels tests above.
+    //
+    // Realistic per-channel hiding distances (~0.3 mm, consumed directly via
+    // channelHds — no second ×0.1 scale) with a mixed grey + saturated palette:
+    // enough opacity per layer that reordering a window measurably helps.
+    const filaments = [
+        filament('lf0', '#101010', 0.3, 'VeryDark'),
+        filament('lf1', '#606060', 0.3, 'Dark'),
+        filament('lf2', '#b0b0b0', 0.3, 'Light'),
+        filament('lf3', '#f0f0f0', 0.3, 'VeryLight'),
+        filament('lf4', '#c02020', 0.3, 'Red'),
+        filament('lf5', '#2040c0', 0.3, 'Blue'),
+    ];
+    const grey = gradient(12).map((s) => ({ hex: s.hex, count: 1 }));
+    const hues = ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff', '#ff8000', '#8000ff']
+        .map((hex) => ({ hex, count: 1 }));
+    const colors = [...grey, ...hues];
+    const knownHexes = new Set(colors.map((c) => c.hex));
+    const result = generateAutoLayers(filaments, colors, LAYER_HEIGHT, FIRST_LAYER_HEIGHT);
+
+    const col = runMultiHeadLayerAnalysisColorFirst(
+        filaments, result, colors, LAYER_HEIGHT, FIRST_LAYER_HEIGHT, 3, 'balanced', 'color'
+    );
+
+    // One colorAssignments map per window.
+    assert.equal(col.colorAssignments.length, col.windows.length);
+
+    if (col.patchedLayers.length === 0) {
+        // A no-op result is a valid outcome — no window improved on the base
+        // stack. Everything downstream must be able to treat it as "not a
+        // multi-head build", so the whole result must be consistently empty.
+        assert.equal(col.windows.length, 0);
+        assert.equal(col.colorLayerFilaments.size, 0);
+        assert.equal(col.nozzleAssignments.length, 0);
+        return;
+    }
+
+    // Non-empty result: every color path is keyed by a real image hex and has
+    // one in-range filament index per printer layer.
+    assert.ok(col.windows.length > 0);
+    for (const [hex, seq] of col.colorLayerFilaments) {
+        assert.ok(knownHexes.has(hex), `unexpected hex ${hex}`);
+        assert.equal(seq.length, col.patchedLayers.length);
+        for (const idx of seq) {
+            assert.ok(idx >= 0 && idx < filaments.length, `filament idx ${idx} out of range`);
+        }
+    }
+});
+
+// ---------------------------------------------------------------------------
 // Search-depth combo budget (deterministic sampling) + head-count cap
 // ---------------------------------------------------------------------------
 
@@ -828,7 +1093,7 @@ test('findConsensusCombo path — same searchDepth run twice yields identical st
     ];
     const result = generateAutoLayers(filaments, colors, LAYER_HEIGHT, FIRST_LAYER_HEIGHT);
     const run = () => runMultiHeadLayerAnalysisColorFirst(
-        filaments, result, colors, LAYER_HEIGHT, FIRST_LAYER_HEIGHT, 8, 'fast'
+        filaments, result, colors, LAYER_HEIGHT, FIRST_LAYER_HEIGHT, 8, 'fast', 'color'
     );
     const a = run();
     const b = run();
@@ -967,6 +1232,20 @@ test('color-first groups follow final-stack mappings, including weighted centroi
     assert.equal(merged[0].layerIdx, 2);
     assert.equal(merged[0].count, 4);
     assert.equal(merged[0].targetRgb.r, (125 * 3 + 171) / 4);
+
+    const grouped = buildColorGroupedPixels(swatches, layers, colors, {
+        ...result.finalStack,
+        targetMappings: result.finalStack.targetMappings.map((mapping) => ({
+            ...mapping, projectedHeight: 0.75,
+        })),
+    }, COLOR_GROUP_CAP);
+    assert.equal(grouped.pixels.length, swatches.length, 'color grouping retains separate targets');
+    for (const swatch of swatches) {
+        const pixel = grouped.pixels[grouped.hexToGroupIdx.get(swatch.hex)!];
+        assert.equal(pixel.layerIdx, 2, 'color grouping honors the final mapped surface');
+        assert.deepEqual(pixel.targetRgb, hexToRgb(swatch.hex));
+        assert.equal(pixel.actualErr, deltaE(pixel.targetRgb, colors[2]));
+    }
 });
 
 test('zero-weight colors retain finite groups without changing weighted centroids', () => {
@@ -1055,8 +1334,11 @@ test('multiple windows use each color\'s realized prefix and suffix', () => {
     const original = expandZonesToPrinterLayers(result, filaments, 0.25, 0.25);
     const baseline = buildColorStack(original);
     const model = createPriorEffectiveOpticsModel(filaments);
-    for (const depth of ['balanced', 'thorough'] as const) {
-        const analysis = runMultiHeadLayerAnalysisColorFirst(filaments, result, swatches, 0.25, 0.25, 2, depth);
+    for (const [depth, mode] of [
+        ['balanced', 'luminance'], ['thorough', 'luminance'],
+        ['balanced', 'color'], ['thorough', 'color'],
+    ] as const) {
+        const analysis = runMultiHeadLayerAnalysisColorFirst(filaments, result, swatches, 0.25, 0.25, 2, depth, mode);
         assert.deepEqual(analysis.windows.map((w) => [w.windowStart, w.windowEnd]).sort(), [[1, 2], [3, 4]]);
         const pixels = buildPixelData(swatches, original, baseline, result.finalStack);
         const error = (seq: number[], px: typeof pixels[number]) => {

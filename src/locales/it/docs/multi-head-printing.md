@@ -38,7 +38,18 @@ La **Profondità di ricerca** controlla la soglia di selezione delle finestre, q
 - **Bilanciato** è il compromesso predefinito tra impegno e copertura.
 - **Accurato** consente più finestre e un budget maggiore; può comunque campionare spazi di ricerca grandi.
 
-Entro il budget di ogni profondità vengono provate tutte le combinazioni. Gli spazi più grandi usano un campione limitato e deterministico insieme all’ordine attuale. Dati identici producono risultati ripetibili. Ogni profondità considera gli stessi colori dell’immagine; una ricerca più profonda non garantisce una stampa fisica migliore.
+Entro il budget di ogni profondità vengono provate tutte le combinazioni. Gli spazi più grandi usano un campione limitato e deterministico insieme all’ordine attuale. Dati identici producono risultati ripetibili. Ogni profondità considera gli stessi colori dell’immagine; una ricerca più profonda non garantisce una stampa fisica migliore. Per il raggruppamento dei colori obiettivo, vedi [Raggruppamento dei colori](#color-grouping).
+
+## Raggruppamento dei colori
+
+Prima della ricerca, Kromacut raggruppa la tavolozza nei colori obiettivo da riprodurre. Il controllo **Raggruppamento dei colori** stabilisce come:
+
+- **Per strato (attuale)** — i colori assegnati allo stesso strato di stampa nel risultato Auto-paint vengono uniti in un unico obiettivo. Tonalità diverse possono quindi condividere un obiettivo. È presente al massimo un gruppo obiettivo per strato occupato.
+- **Per colore (tonalità)** — le tonalità distinte possono rimanere obiettivi separati sui rispettivi strati di stampa originali. Le tavolozze grandi vengono ridotte entro un limite di gruppi, mantenendo almeno un gruppo per strato occupato; i colori di strati diversi non vengono mai uniti.
+
+Il raggruppamento per colore non garantisce un errore cromatico inferiore o più colori stampati. I risultati dipendono dall’immagine, dalla calibrazione dei filamenti, dal numero di testine e dalle finestre selezionate. La ricerca minimizza la differenza cromatica CIE76; un punteggio di ricerca inferiore può comunque avere un errore CIEDE2000 superiore. La costruzione può richiedere più tempo. I colori stampabili restano limitati dai filamenti e dalle loro sovrapposizioni fisiche.
+
+Il raggruppamento dei colori viene salvato appena lo modifichi, prima della costruzione. Ricostruisci con ciascuna opzione e confronta le anteprime della tua immagine.
 
 ## Programma delle teste ed esportazione
 

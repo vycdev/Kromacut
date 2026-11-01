@@ -14,7 +14,7 @@ Multi-head mode reorganizes the printable stack chosen by [Auto-paint](auto-pain
 - Use **Auto-paint** with at least one filament in its list, then enable **Multi-head mode**.
 - Choose **2–8 heads** and a **Search depth**, then **Build 3D Model**. Analysis needs at least two available filaments to form a useful window.
 
-Multi-head and **Flat Paint** are mutually exclusive. Calibrate the filaments you actually own; see [Calibration theory](calibration-theory). Mode, head count, and search depth are remembered between sessions. Rebuild after changing inputs.
+Multi-head and **Flat Paint** are mutually exclusive. Calibrate the filaments you actually own; see [Calibration theory](calibration-theory). Mode, head count, search depth, and color grouping are remembered between sessions. Rebuild after changing inputs.
 
 ## Runs and Windows
 
@@ -38,7 +38,18 @@ With K distinct filaments in a window and N run positions, there are **K^N** pos
 - **Balanced** is the default compromise between effort and coverage.
 - **Thorough** allows more windows and a larger combination budget; it can still sample large search spaces.
 
-Within each depth's budget, all combinations are tested. Larger spaces use a bounded, deterministic sample plus the current order. Identical inputs give repeatable results. Every depth considers the same image colors; deeper search does not guarantee a better physical print.
+Within each depth's budget, all combinations are tested. Larger spaces use a bounded, deterministic sample plus the current order. Identical inputs give repeatable results. Every depth considers the same image colors; deeper search does not guarantee a better physical print. For target grouping, see [Color Grouping](#color-grouping).
+
+## Color Grouping
+
+Before the search runs, Kromacut groups your palette into the target colors it will try to reproduce. The **Color grouping** control decides how:
+
+- **Layer-based (current)** — colors that map to the same printer layer in the Auto-paint result are merged into one target. Different hues can therefore share a target. There is at most one target group per occupied layer.
+- **Color-based (per-hue)** — distinct hues can remain separate targets on their original print layers. Large palettes are reduced within a group budget, with at least one group per occupied layer; colors from different print layers are never merged.
+
+Color-based grouping does not guarantee lower color error or more printed colors. Results depend on the image, filament calibration, head count, and selected windows. The search minimizes CIE76 color difference; a lower search score can still have a higher CIEDE2000 error. Builds can take longer. The colors you can print remain limited by your filaments and their physical stacks.
+
+Color grouping is saved as soon as you change it, before building. Rebuild with each option and compare the previews for your image.
 
 ## Head Schedule and Export
 
