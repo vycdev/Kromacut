@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { performance } from 'node:perf_hooks';
 import { execFileSync } from 'node:child_process';
@@ -39,6 +39,14 @@ const inputPath = resolve(option('--input', '.profiles/multi-head/cases.json'));
 const outputPath = resolve(option('--output', '.profiles/multi-head/report.json'));
 const heads = option('--heads', '2,3,4,5,6,7,8').split(',').map(Number);
 const modes = option('--modes', 'luminance,color').split(',') as ('luminance' | 'color')[];
+assert.ok(
+    heads.every((head) => Number.isInteger(head) && head >= 2 && head <= 8),
+    '--heads must contain integers from 2 through 8'
+);
+assert.ok(
+    modes.every((mode) => mode === 'luminance' || mode === 'color'),
+    '--modes must contain luminance or color'
+);
 const calibratedResult = option('--calibrated-result', '');
 assert.ok(
     !calibratedResult || args.includes('--prepare'),
@@ -59,6 +67,19 @@ assert.ok(Number.isInteger(repeats) && repeats >= 1 && repeats <= 20);
 const analysisRef = option('--analysis-ref', '');
 const shortlistSize = Number(option('--shortlist', '32'));
 assert.ok(Number.isInteger(shortlistSize) && shortlistSize > 0 && shortlistSize <= 256);
+function sameFile(first: string, second: string): boolean {
+    const pathKey = (path: string) => (process.platform === 'win32' ? path.toLowerCase() : path);
+    if (pathKey(first) === pathKey(second)) return true;
+    if (!existsSync(first) || !existsSync(second)) return false;
+    const firstFile = statSync(first, { bigint: true });
+    const secondFile = statSync(second, { bigint: true });
+    return firstFile.dev === secondFile.dev && firstFile.ino === secondFile.ino;
+}
+if (!args.includes('--prepare') || args.includes('--run')) {
+    for (const source of [inputPath, ...(calibratedResult ? [resolve(calibratedResult)] : [])]) {
+        assert.ok(!sameFile(outputPath, source), 'Report output must differ from benchmark inputs');
+    }
+}
 let analysisSource = analysisRef
     ? execFileSync('git', ['show', `${analysisRef}:src/lib/multiHeadAnalysisColorFirst.ts`], {
           encoding: 'utf8',

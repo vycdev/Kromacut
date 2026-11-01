@@ -8,6 +8,26 @@ import { runBenchmarkCli } from './helpers/benchmarkCli.ts';
 
 const scenarios = [
     {
+        name: 'a head count below the supported range',
+        args: ['--heads', '1'],
+        error: /--heads must contain integers from 2 through 8/,
+    },
+    {
+        name: 'a head count above the supported range',
+        args: ['--heads', '9'],
+        error: /--heads must contain integers from 2 through 8/,
+    },
+    {
+        name: 'a fractional head count',
+        args: ['--heads', '2.5'],
+        error: /--heads must contain integers from 2 through 8/,
+    },
+    {
+        name: 'an unsupported grouping mode',
+        args: ['--modes', 'colour'],
+        error: /--modes must contain luminance or color/,
+    },
+    {
         name: 'unknown preparation case',
         args: ['--prepare', '--cases', 'ctas'],
         error: /Unknown preparation case/,

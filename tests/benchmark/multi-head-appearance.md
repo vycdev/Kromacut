@@ -39,6 +39,9 @@ the production importer/fitter: 26 Palette Proof rounds, 250 judgments, and one
 The cached JSON contains the complete model, stack, palette, and target mappings;
 its SHA-256 and both final-stack fingerprints are recorded in every report.
 `--input`, `--cases`, `--heads`, and `--modes` can restrict a replay.
+Head counts must be integers from 2 through 8; modes are `luminance` and `color`.
+Use a separate `--output` path for the report: it cannot alias the cached input
+or saved calibrated result, including through hard links or Windows path casing.
 
 - **Cats:** all 128 opaque colors of the saved 576×576 image, ordered as
   `useSwatches` does. The 12-run order was captured from `cats/case.json`'s

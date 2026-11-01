@@ -171,6 +171,11 @@ Exact input. Contradictory cached settings are rejected before writing the input
 Saved cats evidence defaults to selecting cats. Unknown preparation names,
 missing option values, and explicitly requested run cases absent from the input
 are rejected before replacing an existing input or report.
+Head counts must be integers from 2 through 8, and grouping modes must be
+`luminance` or `color`; unsupported values fail before preparation or measurement.
+The report output must differ from the cached input and any saved Exact evidence
+being consumed. Aliases through hard links and Windows path casing are rejected
+before writing either input or report.
 Ordinary `--prepare` continues to reconstruct the frozen #113 order;
 `--prepare --reoptimize --cases cats` explicitly searches again and saves its full
 result before checking expectations. Each multi-head sample is written before
@@ -207,13 +212,14 @@ versions are unchanged and unmeasured by this follow-up.
 
 ## Validation
 
-- `npm test`: 1,075 passed, with zero failures or skips and exit code 0 after self-review fixes.
-- Twenty-five evidence/CLI regressions passed, covering full-result retention after
+- `npm test`: 1,083 passed, with zero failures or skips and exit code 0 after self-review fixes.
+- Thirty-three evidence/CLI regressions passed, covering full-result retention after
   a failed assertion or missing provenance sources, replacement refusal, swatch
   reconstruction, immutable captured observations/hashes, timing summaries, and
   cached grid/profile/palette/model consistency, genuine uncached Exact metadata,
   height caps, separation controls, repeat budgets, rejected case selections
-  preserving existing inputs/reports, and archived source attribution when refs move.
+  preserving existing inputs/reports, report paths aliasing saved inputs/evidence,
+  invalid head counts/grouping modes, and archived source attribution when refs move.
 - `npm run lint` and `npm run build`: passed after the final CLI changes.
 - CLI regression subprocesses run asynchronously so pending Vite module imports
   can progress. Blocking launches caused two full-suite attempts to abort on a
