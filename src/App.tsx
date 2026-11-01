@@ -463,7 +463,7 @@ function App(): React.ReactElement | null {
     // 3D printing shared state
     const {
         threeDState,
-        setThreeDState,
+        handleThreeDSettingsChange,
         threeDBuildSignal,
         builtThreeDState,
         builtFlatPaint,
@@ -894,7 +894,7 @@ function App(): React.ReactElement | null {
                                             onChange={handleThreeDStateChange}
                                             onSettingsChange={(partial) => {
                                                 autoPaintWorkingStateInitializedRef.current = true;
-                                                setThreeDState((prev) => ({ ...prev, ...partial }));
+                                                handleThreeDSettingsChange(partial);
                                             }}
                                             persisted={threeDState}
                                             hasAutoPaintWorkingState={
