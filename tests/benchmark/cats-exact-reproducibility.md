@@ -161,9 +161,11 @@ setup changes preserve the exact cached input SHA-256 above. The 23 archived
 evidence artifacts and their hashes remain unchanged.
 
 The multi-head preparation can consume a saved calibrated result, verifying its
-result hash, cats palette, measured profile, physical grid, and fitted-model
-context without repeating the expensive Exact run. Cached settings that disagree
-with the stored stack are rejected before writing the prepared input.
+result hash, cats palette, measured profile, physical grid, height cap,
+separation settings, repeat budget, and fitted-model context without repeating
+the expensive Exact run. It requires metadata from an uncached Exact search;
+recorded-order audit results and optimizer cache hits cannot be labeled fresh
+Exact input. Contradictory cached settings are rejected before writing the input.
 Ordinary `--prepare` continues to reconstruct the frozen #113 order;
 `--prepare --reoptimize --cases cats` explicitly searches again and saves its full
 result before checking expectations. Each multi-head sample is written before
@@ -200,11 +202,12 @@ versions are unchanged and unmeasured by this follow-up.
 
 ## Validation
 
-- `npm test`: 1,060 passed, with zero failures or skips after self-review fixes.
-- Ten evidence/CLI regressions passed, covering full-result retention after
+- `npm test`: 1,067 passed, with zero failures or skips after self-review fixes.
+- Seventeen evidence/CLI regressions passed, covering full-result retention after
   a failed assertion or missing provenance sources, replacement refusal, swatch
   reconstruction, immutable captured observations/hashes, timing summaries, and
-  cached grid/profile/palette/model consistency.
+  cached grid/profile/palette/model consistency, genuine uncached Exact metadata,
+  height caps, separation controls, and repeat budgets.
 - `npm run lint` and `npm run build`: passed after the final CLI changes.
 - All four saved full Exact results pass independent current-golden validation.
   The output-collision check rejected a reused path in 2.34 seconds, before

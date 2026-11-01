@@ -158,7 +158,55 @@ if (args.includes('--prepare') && calibratedResult) {
         saved.resultSha256,
         createHash('sha256').update(JSON.stringify(saved.result)).digest('hex')
     );
+    const optimizer = saved.result.optimizerMetadata;
+    assert.equal(
+        optimizer?.algorithm,
+        'exact-base',
+        'Saved result was not produced by the Exact optimizer'
+    );
+    assert.equal(optimizer.cacheHit, false, 'Saved result must come from an uncached Exact run');
     const settings = saved.result.finalStack.settings;
+    assert.equal(
+        saved.configuration.maxHeight ?? null,
+        settings.requestedMaxHeight,
+        'Saved height cap does not match the stack'
+    );
+    const preserveSeparation = saved.configuration.preserveColorSeparation === true;
+    assert.equal(
+        preserveSeparation,
+        settings.separationMaxDeltaE !== undefined,
+        'Saved separation mode does not match the stack'
+    );
+    if (preserveSeparation) {
+        assert.equal(
+            modules.auto.normalizeSeparationMaxDeltaE(saved.configuration.maximumColorErrorDeltaE),
+            settings.separationMaxDeltaE,
+            'Saved color-error limit does not match the stack'
+        );
+        assert.equal(
+            saved.configuration.failIfAnyColorIsMissed !== false,
+            settings.failOnSeparationError,
+            'Saved separation failure policy does not match the stack'
+        );
+    }
+    const repeatBudget = saved.configuration.maximumExtraFilamentAppearances;
+    assert.ok(Number.isInteger(repeatBudget) && repeatBudget >= 0, 'Invalid saved repeat budget');
+    const repeatsUsed =
+        saved.result.filamentOrder.length - new Set(saved.result.filamentOrder).size;
+    assert.equal(
+        optimizer.extraRepeatCount,
+        repeatsUsed,
+        'Saved repeat metadata does not match the order'
+    );
+    assert.ok(repeatsUsed <= repeatBudget, 'Saved repeat budget is below the repeats in the order');
+    if (optimizer.repeatTiersEvaluated !== undefined) {
+        assert.ok(
+            Number.isInteger(optimizer.repeatTiersEvaluated) &&
+                optimizer.repeatTiersEvaluated > 0 &&
+                optimizer.repeatTiersEvaluated <= repeatBudget + 1,
+            'Saved repeat budget is below the evaluated tiers'
+        );
+    }
     assert.equal(
         saved.configuration.layerHeight,
         settings.layerHeight,
