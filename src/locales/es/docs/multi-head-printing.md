@@ -67,6 +67,6 @@ Usa una impresora multicabezal compatible. Antes de imprimir, comprueba en el la
 
 Si el análisis falla, no encuentra una disposición utilizable que mejore la pila normal o prevé una mejora demasiado pequeña para justificar los cambios de cabezal, se crea un modelo normal de un solo cabezal con un aviso, su color inicial y sus instrucciones de cambio originales. Prueba otros filamentos, otro número de cabezales u otra profundidad y vuelve a crear el modelo.
 
-El análisis se ejecuta en segundo plano. Salir del panel 3D o cambiar de imagen cancela el análisis pendiente; crea el modelo de nuevo para la nueva imagen. Las instrucciones y exportaciones describen el modelo creado: vuelve a crearlo para aplicar ajustes modificados.
+El análisis se ejecuta en segundo plano. Cambiar de imagen cancela el análisis pendiente; crea el modelo de nuevo para la nueva imagen. Las instrucciones y exportaciones describen el modelo creado: vuelve a crearlo para aplicar ajustes modificados.
 
 Siguiente: [Generación y exportación](generating-exporting-output).

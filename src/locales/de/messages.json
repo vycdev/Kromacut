@@ -46,10 +46,12 @@
   "files": {
     "save": "{{format}} speichern",
     "saved": "Gespeichert unter:\n{{path}}",
+    "writeFailed": "Die Datei konnte nicht vollständig gespeichert werden. Bitte versuche es erneut.",
     "png": "PNG-Bild",
     "stl": "STL-Modell",
     "threeMf": "3MF-Modell",
     "profile": "Filamentprofil",
+    "palette": "Farbpalette",
     "noImage": "Kein Bild zum Herunterladen verfügbar",
     "imageFailed": "Bildexport fehlgeschlagen. Details stehen in der Konsole.",
     "modelNotReady": "3D-Modell ist noch nicht bereit",
@@ -116,6 +118,7 @@
     "importSaveFailed": "Palettenimport konnte nicht gespeichert werden. Vorhandene Paletten blieben unverändert; geben Sie Browserspeicher frei und versuchen Sie es erneut.",
     "cloned": "Als „{{name}}“ geklont",
     "invalid": "Ungültige Palettendatei",
+    "exportFailed": "Die Palette konnte nicht exportiert werden. Bitte versuchen Sie erneut, sie zu speichern.",
     "none": "Keine Paletten gefunden"
   },
   "calibration": {

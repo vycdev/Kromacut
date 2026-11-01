@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
+import { SUPPORTED_LANGUAGES } from '../../src/lib/languagePreferences';
 
 const docsDir = path.resolve('src/docs');
 const pages = readdirSync(docsDir)
@@ -13,6 +14,37 @@ const pages = readdirSync(docsDir)
             images: [...raw.matchAll(/!\[([^\]]*)\]\(([^)]+)\)/g)].map((match) => match[1]),
         };
     });
+
+test('@docs multi-head guide and illustrations load in every language', async ({ page }) => {
+    for (const { code } of SUPPORTED_LANGUAGES) {
+        const metadata = JSON.parse(
+            readFileSync(path.resolve('src/locales', code, 'docsMeta.json'), 'utf8')
+        )['multi-head-printing'];
+        await page.goto(`/${code}/docs/multi-head-printing`);
+        const article = page.getByRole('article', { name: metadata.title, exact: true });
+        await expect(article).toBeVisible();
+        const illustrations = article.locator('img');
+        await expect(illustrations).toHaveCount(4);
+        for (const illustration of await illustrations.all()) {
+            await illustration.scrollIntoViewIfNeeded();
+            await expect(illustration).toBeVisible();
+            await expect
+                .poll(() =>
+                    illustration.evaluate(
+                        (img: HTMLImageElement) => img.complete && img.naturalWidth > 0
+                    )
+                )
+                .toBe(true);
+        }
+        expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
+            page.viewportSize()!.width
+        );
+        await article.locator('h1').scrollIntoViewIfNeeded();
+        await page.screenshot({
+            path: test.info().outputPath(`multi-head-${code}.png`),
+        });
+    }
+});
 
 for (const viewport of [
     { width: 1440, height: 1000 },

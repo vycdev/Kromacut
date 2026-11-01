@@ -110,7 +110,7 @@
         "photos_one": "写真{{count}}枚",
         "photos_other": "写真{{count}}枚",
         "openPhoto": "{{title}} — {{kind}} {{index}}を原寸で開く",
-        "originalArtwork": "元作品：<source>{{title}}</source>",
+        "originalArtwork": "元作品：<credit>{{title}}</credit>",
         "themeLabel": "テーマ：{{theme}}"
     },
     "navigation": {

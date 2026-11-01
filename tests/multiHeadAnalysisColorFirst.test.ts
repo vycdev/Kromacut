@@ -819,6 +819,46 @@ test('buildColorGroupedPixels — deterministic for identical input', () => {
     }
 });
 
+test('capped color grouping retains zero-weight colors on their physical surfaces', () => {
+    for (const [size, cap] of [[4, 2], [256, COLOR_GROUP_CAP]]) {
+        const swatches = distinctColors(size).map((swatch, i) => ({
+            ...swatch, count: i >= size - 2 ? 0 : i + 1,
+        }));
+        const { result, layers, colorAtLayer } = shortModel(swatches);
+        assert.ok(layers.length >= 2);
+        const stack = {
+            ...result.finalStack,
+            targetMappings: swatches.map((swatch, i) => ({
+                ...result.finalStack.targetMappings[0],
+                targetColor: { ...result.finalStack.targetMappings[0].targetColor, hex: swatch.hex },
+                projectedHeight: i === size - 1
+                    ? layers[1].startZ + layers[1].thickness
+                    : layers[0].thickness,
+            })),
+        };
+        const grouped = buildColorGroupedPixels(swatches, layers, colorAtLayer, stack, cap);
+        assert.equal(grouped.hexToGroupIdx.size, swatches.length, 'every printable color needs a path');
+        assert.ok(grouped.pixels.length <= cap);
+        for (const [i, swatch] of swatches.entries()) {
+            const pixel = grouped.pixels[grouped.hexToGroupIdx.get(swatch.hex)!];
+            assert.equal(pixel.layerIdx, i === size - 1 ? 1 : 0);
+            assert.ok(Number.isFinite(pixel.actualErr));
+            assert.ok(Object.values(pixel.targetRgb).every(Number.isFinite));
+        }
+        const zero = grouped.pixels[grouped.hexToGroupIdx.get(swatches.at(-1)!.hex)!];
+        assert.equal(zero.count, 0, 'routing a zero-weight region must not add scoring weight');
+        assert.deepEqual(zero.targetRgb, hexToRgb(swatches.at(-1)!.hex));
+        assert.equal(
+            grouped.pixels.reduce((sum, pixel) => sum + pixel.count, 0),
+            swatches.reduce((sum, swatch) => sum + swatch.count, 0)
+        );
+        assert.deepEqual(
+            grouped,
+            buildColorGroupedPixels([...swatches].reverse(), layers, colorAtLayer, stack, cap)
+        );
+    }
+});
+
 test('capped color groups retain member surfaces and ignore layers those members never print', () => {
     const { filaments, result } = multiWindowFixture();
     const swatches = [
@@ -1205,6 +1245,33 @@ test('color-first groups follow final-stack mappings, including weighted centroi
         assert.equal(pixel.layerIdx, 2, 'color grouping honors the final mapped surface');
         assert.deepEqual(pixel.targetRgb, hexToRgb(swatch.hex));
         assert.equal(pixel.actualErr, deltaE(pixel.targetRgb, colors[2]));
+    }
+});
+
+test('zero-weight colors retain finite groups without changing weighted centroids', () => {
+    const { filaments, swatches, result } = multiWindowFixture();
+    const layers = expandZonesToPrinterLayers(result, filaments, 0.25, 0.25);
+    const colors = buildColorStack(layers);
+    const stack = {
+        ...result.finalStack,
+        targetMappings: result.finalStack.targetMappings.map((mapping) => ({
+            ...mapping, projectedHeight: 0.75,
+        })),
+    };
+    const zero = swatches.slice(0, 2).map((swatch) => ({ ...swatch, count: 0 }));
+    const empty = buildPixelDataColorFirst(zero, layers, colors, stack);
+    assert.equal(empty.length, 1, 'zero-weight colors still need a group for physical routing');
+    assert.equal(empty[0].count, 0);
+    assert.ok(Number.isFinite(empty[0].actualErr));
+    assert.ok(Object.values(empty[0].targetRgb).every(Number.isFinite));
+
+    const weighted = { ...swatches[2], count: 2 };
+    for (const samples of [[...zero, weighted], [weighted, ...zero], [zero[0], weighted, zero[1]]]) {
+        const merged = buildPixelDataColorFirst(samples, layers, colors, stack);
+        assert.equal(merged.length, 1);
+        assert.equal(merged[0].count, 2);
+        assert.deepEqual(merged[0].targetRgb, hexToRgb(weighted.hex));
+        assert.ok(Number.isFinite(merged[0].actualErr));
     }
 });
 

@@ -70,7 +70,7 @@ Profiles are separate from this remembered state. Use profiles when you want nam
 
 ## Palette Files
 
-Custom palettes are for 2D color reduction. Palette files use `.kpal`.
+Custom palettes are for 2D color reduction. Palette files use `.kpal`. Desktop palette export opens **Save As**; choose a writable location or cancel to keep working. Browser exports use the normal download flow.
 
 Palette format version 2 adds two optional fields: `disabledColors` (colors kept in the palette but excluded from quantization) and `colorNames` (optional per-color display names). Both round-trip through export and import. Version 1 files load unchanged with every color enabled and unnamed, and a v2 file opened by an older Kromacut simply treats all colors as enabled.
 

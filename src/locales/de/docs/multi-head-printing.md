@@ -67,6 +67,6 @@ Verwende einen kompatiblen Mehrkopfdrucker. Prüfe vor dem Druck die Kopfzuordnu
 
 Schlägt die Analyse fehl, findet sie keine nutzbare Verbesserung des normalen Aufbaus oder ist die vorhergesagte Verbesserung zu gering, um die Kopfwechsel zu rechtfertigen, entsteht ein normales Einkopfmodell mit Hinweis sowie ursprünglicher Startfarbe und Wechselanweisungen. Probiere andere Filamente, eine andere Druckkopfzahl oder Suchtiefe und erstelle das Modell erneut.
 
-Die Analyse läuft im Hintergrund. Beim Verlassen des 3D-Panels oder Bildwechsel wird eine laufende Analyse abgebrochen; erstelle das Modell für das neue Bild erneut. Anweisungen und Exporte beschreiben das erstellte Modell. Geänderte Einstellungen erfordern eine Neuerstellung.
+Die Analyse läuft im Hintergrund. Bei einem Bildwechsel wird eine laufende Analyse abgebrochen; erstelle das Modell für das neue Bild erneut. Anweisungen und Exporte beschreiben das erstellte Modell. Geänderte Einstellungen erfordern eine Neuerstellung.
 
 Weiter: [Ausgabe erzeugen und exportieren](generating-exporting-output).

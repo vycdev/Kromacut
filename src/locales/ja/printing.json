@@ -341,7 +341,7 @@
         "readingImageLayers": "画像の色レイヤーを読み取り中",
         "buildingLayer": "色レイヤー{{layer}}/{{total}}を作成中",
         "layerProgress": "レイヤー{{layer}}/{{total}}：{{label}}",
-        "flatPaintPartProgress": "??????????????{{part}}/{{total}}?{{label}}",
+        "flatPaintPartProgress": "フラット印刷のメッシュパーツ{{part}}/{{total}}：{{label}}",
         "partMeshComplete": "パーツのメッシュ完成",
         "selectingPixels": "有効ピクセルを選択中",
         "preparingPreview": "プレビューの形状を準備中",

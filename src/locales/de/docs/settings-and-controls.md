@@ -70,7 +70,7 @@ Profile sind von diesem gespeicherten Zustand getrennt. Verwende Profile für be
 
 ## Palettendateien
 
-Eigene Paletten dienen der 2D-Farbreduktion. Palettendateien verwenden `.kpal`.
+Eigene Paletten dienen der 2D-Farbreduktion. Palettendateien verwenden `.kpal`. Beim Export einer Palette in der Desktop-App öffnet sich **Speichern unter**. Wählen Sie einen beschreibbaren Speicherort oder brechen Sie ab, um weiterzuarbeiten. Im Browser erfolgt der übliche Download.
 
 Palettenformat-Version 2 ergänzt zwei optionale Felder: `disabledColors` für gespeicherte, aber von der Quantisierung ausgeschlossene Farben und `colorNames` für optionale Anzeigenamen je Farbe. Beide bleiben beim Exportieren und erneuten Importieren erhalten. Dateien der Version 1 werden unverändert geladen, wobei alle Farben aktiviert und unbenannt sind. Öffnet eine ältere Kromacut-Version eine v2-Datei, behandelt sie einfach alle Farben als aktiviert.
 

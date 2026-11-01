@@ -110,7 +110,7 @@
     "photos_one": "{{count}} foto",
     "photos_other": "{{count}} foto",
     "openPhoto": "Apri {{title}} — {{kind}} {{index}} a dimensione intera",
-    "originalArtwork": "Opera originale: <source>{{title}}</source>",
+    "originalArtwork": "Opera originale: <credit>{{title}}</credit>",
     "themeLabel": "Tema: {{theme}}",
     "photos_many": "{{count}} foto"
   },

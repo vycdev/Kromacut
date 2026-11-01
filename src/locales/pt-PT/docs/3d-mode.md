@@ -164,6 +164,8 @@ Modo de vista e escolha simulada/física são recordados. **Cores da pré-visual
 
 Arraste as pegas inferior e superior da barra para isolar alturas. As posições encaixam na grelha de camadas. Passe sobre segmentos para informação de início ou troca.
 
+Foca uma pega e usa as setas para avançar uma camada impressa de cada vez. Shift+seta ou Page Up/Down avança dez camadas; Home/End vai até um limite do intervalo. As pegas não podem cruzar-se.
+
 ![As pegas ocultam camadas para inspeção, mas a exportação mantém o modelo completo.](19_preview_only.svg)
 
 _Esquema. Ocultar no ecrã nunca elimina da exportação._

@@ -371,7 +371,7 @@
     "readingImageLayers": "Se citesc straturile de culoare ale imaginii",
     "buildingLayer": "Se generează stratul de culoare {{layer}} din {{total}}",
     "layerProgress": "Stratul {{layer}} din {{total}}: {{label}}",
-    "flatPaintPartProgress": "Parte de plas? Flat Paint {{part}} din {{total}}: {{label}}",
+    "flatPaintPartProgress": "Parte de plasă Flat Paint {{part}} din {{total}}: {{label}}",
     "partMeshComplete": "Geometria piesei finalizată",
     "selectingPixels": "Se selectează pixelii activi",
     "preparingPreview": "Se pregătește geometria previzualizării",

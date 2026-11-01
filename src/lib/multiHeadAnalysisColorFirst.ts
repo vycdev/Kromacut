@@ -80,9 +80,13 @@ export function buildPixelDataColorFirst(
         const existing = byLayer.get(layerIdx);
         if (existing) {
             const total = existing.count + cnt;
-            existing.r = (existing.r * existing.count + rgb.r * cnt) / total;
-            existing.g = (existing.g * existing.count + rgb.g * cnt) / total;
-            existing.b = (existing.b * existing.count + rgb.b * cnt) / total;
+            // Keep zero-weight groups for routing. Their first finite color is
+            // sufficient until a positive-weight target supplies the centroid.
+            if (total > 0) {
+                existing.r = (existing.r * existing.count + rgb.r * cnt) / total;
+                existing.g = (existing.g * existing.count + rgb.g * cnt) / total;
+                existing.b = (existing.b * existing.count + rgb.b * cnt) / total;
+            }
             existing.count = total;
         } else {
             byLayer.set(layerIdx, { r: rgb.r, g: rgb.g, b: rgb.b, count: cnt });
@@ -291,7 +295,8 @@ export function buildColorGroupedPixels(
             if (!seeded.has(u.hex)) seeds.push(u);
         }
         const acc = seeds.map((s) => ({
-            r: 0, g: 0, b: 0, count: 0, hexes: [] as string[], seedLab: s.lab, layerIdx: s.layerIdx,
+            r: 0, g: 0, b: 0, count: 0, hexes: [] as string[],
+            seedLab: s.lab, seedRgb: s.rgb, layerIdx: s.layerIdx,
         }));
         const seedsByLayer = new Map<number, number[]>();
         acc.forEach((seed, i) => {
@@ -314,9 +319,13 @@ export function buildColorGroupedPixels(
             g.hexes.push(u.hex);
         }
         clusters = acc
-            .filter((g) => g.count > 0)
+            // Regional priorities can give visible colors zero weight. Retain
+            // their physical paths without adding weight or dividing by zero.
+            .filter((g) => g.hexes.length > 0)
             .map((g) => ({
-                r: g.r / g.count, g: g.g / g.count, b: g.b / g.count,
+                r: g.count > 0 ? g.r / g.count : g.seedRgb.r,
+                g: g.count > 0 ? g.g / g.count : g.seedRgb.g,
+                b: g.count > 0 ? g.b / g.count : g.seedRgb.b,
                 count: g.count, hexes: g.hexes, layerIdx: g.layerIdx,
             }));
     }

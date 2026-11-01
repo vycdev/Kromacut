@@ -15,9 +15,9 @@ Utilisez un système multimatériau tel qu’un AMS, un CFS ou un changeur d’o
 
 _Coupes de principe. Les couleurs identifient les matériaux ; les étiquettes indiquent la face à regarder._
 
-La progression compte les parties du maillage, pas les couches imprim?es : plusieurs parties color?es peuvent partager une couche. Le badge Mod?le indique le nombre de couches physiques, y compris le support transparent le cas ?ch?ant. L?aper?u d?coupe la plaque couche par couche ; les deux poign?es d?coupent aussi les zones fusionn?es de support et de couleur. L?exportation contient toujours le mod?le complet. Build 3D Model r?g?n?re toujours le mod?le, m?me sans modification des r?glages, et r?tablit toutes les couches ainsi que la vue initiale de la cam?ra.
+La progression compte les parties du maillage, pas les couches imprimées : plusieurs parties colorées peuvent partager une couche. Le badge Modèle indique le nombre de couches physiques, y compris le support transparent le cas échéant. L’aperçu des couches découpe la plaque couche par couche ; les deux poignées découpent aussi les zones fusionnées de fondation et de couleur. L’exportation contient toujours le modèle complet. Le bouton Générer le modèle 3D régénère toujours le modèle, même sans modification des réglages, et rétablit toutes les couches ainsi que la vue initiale de la caméra.
 
-Si la création échoue, Kromacut supprime le modèle incomplet et affiche l’erreur dans l’aperçu. Cliquez sur Construire le modèle 3D pour réessayer ; une fois la création réussie, les dimensions du modèle et l’aperçu des couches réapparaissent.
+Si la création échoue, Kromacut supprime le modèle incomplet et affiche l’erreur dans l’aperçu. Cliquez sur Générer le modèle 3D pour réessayer ; une fois la création réussie, les dimensions du modèle et l’aperçu des couches réapparaissent.
 
 ## Par défaut : face vers le bas avec support transparent
 

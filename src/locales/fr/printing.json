@@ -371,7 +371,7 @@
     "readingImageLayers": "Lecture des couches de couleur de l’image",
     "buildingLayer": "Génération de la couche de couleur {{layer}} sur {{total}}",
     "layerProgress": "Couche {{layer}} sur {{total}} : {{label}}",
-    "flatPaintPartProgress": "Partie du maillage de peinture ? plat {{part}} sur {{total}} : {{label}}",
+    "flatPaintPartProgress": "Partie du maillage de peinture à plat {{part}} sur {{total}} : {{label}}",
     "partMeshComplete": "Maillage de la pièce terminé",
     "selectingPixels": "Sélection des pixels actifs",
     "preparingPreview": "Préparation de la géométrie de l’aperçu",
