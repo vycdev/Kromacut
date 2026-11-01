@@ -201,4 +201,6 @@ After a successful build, follow the Head Schedule in Print Instructions: load t
 
 If analysis fails or finds no usable improving layout, the build uses the normal single-head model and shows its start color and color swap instructions with a notice. Changing the image cancels pending analysis; build again for the new image.
 
+For runs, windows, search depth, and the full workflow, see [Multi-Head Printing](multi-head-printing).
+
 Next: [Flat Paint](flat-paint), [Calibration workflows](calibration-workflows), or [Generating and exporting output](generating-exporting-output).

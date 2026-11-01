@@ -201,4 +201,6 @@ Befolge nach erfolgreicher Erstellung den Druckkopfplan in den Druckanweisungen:
 
 Wenn die Analyse fehlschlägt oder keine nutzbare Verbesserung findet, wird das normale Modell für einen Druckkopf erstellt. Seine Startfarbe, Farbwechselanweisungen und ein entsprechender Hinweis werden angezeigt. Ein Bildwechsel bricht die laufende Analyse ab; erstelle das Modell für das neue Bild erneut.
 
+Abschnitte, Fenster, Suchtiefe und den vollständigen Ablauf erklärt [Mehrkopfdruck](multi-head-printing).
+
 Weiter: [Flat Paint](flat-paint), [Kalibrierabläufe](calibration-workflows) oder [Ergebnisse erzeugen und exportieren](generating-exporting-output).

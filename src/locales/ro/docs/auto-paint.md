@@ -201,4 +201,6 @@ După o construire reușită, urmează programul capetelor din instrucțiunile d
 
 Dacă analiza eșuează sau nu găsește o configurație utilizabilă care să îmbunătățească rezultatul, se construiește modelul normal pentru un singur cap și se afișează culoarea inițială, instrucțiunile de schimbare a culorii și o notificare. Schimbarea imaginii anulează analiza în curs; reconstruiește modelul pentru noua imagine.
 
+Pentru secvențe, ferestre, profunzimea căutării și fluxul complet, consultă [Imprimare cu mai multe capete](multi-head-printing).
+
 În continuare: [Flat Paint](flat-paint), [Fluxuri de calibrare](calibration-workflows) sau [Generarea și exportul rezultatului](generating-exporting-output).

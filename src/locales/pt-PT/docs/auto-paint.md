@@ -201,4 +201,6 @@ Após criar o modelo com sucesso, segue o plano das cabeças nas instruções de
 
 Se a análise falhar ou não encontrar uma disposição utilizável que melhore o resultado, é criado o modelo normal de uma só cabeça e são apresentadas a cor inicial, as instruções de mudança de cor e uma notificação. Alterar a imagem cancela a análise pendente; cria novamente o modelo para a nova imagem.
 
+Para sequências, janelas, profundidade da pesquisa e o processo completo, consulta [Impressão multicabeças](multi-head-printing).
+
 Seguinte: [Pintura plana](flat-paint), [Fluxos de calibração](calibration-workflows) ou [Geração e exportação](generating-exporting-output).

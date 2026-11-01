@@ -4,6 +4,8 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
 import { createSlugger } from '../src/lib/docs/slug.ts';
+import { localizeDiagramSvg } from '../src/lib/docs/diagramLocalization.ts';
+import { SUPPORTED_LANGUAGES } from '../src/lib/languagePreferences.ts';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const docsDir = join(root, 'src/docs');
@@ -30,6 +32,46 @@ test('documentation pages have unique metadata and reachable navigation', () => 
         assert.match(doc.raw, /^description: .+$/m);
         assert.ok(nav.includes(`'${doc.slug}'`), `${doc.slug} absent from sidebar`);
         assert.ok(doc.headings.length > 1, `${doc.file} lacks a usable outline`);
+    }
+});
+
+test('every guide has matching navigation metadata in every language', () => {
+    for (const { code } of SUPPORTED_LANGUAGES) {
+        const localeDir = join(root, 'src/locales', code);
+        const metadata = JSON.parse(readFileSync(join(localeDir, 'docsMeta.json'), 'utf8'));
+        for (const doc of docs) {
+            const guide =
+                code === 'en'
+                    ? doc.raw
+                    : readFileSync(join(localeDir, 'docs', doc.file), 'utf8');
+            for (const field of ['title', 'description']) {
+                const value = guide.match(new RegExp(`^${field}: (.+)$`, 'm'))?.[1].trim();
+                assert.ok(value, `${code}/${doc.file}: missing ${field}`);
+                assert.equal(metadata[doc.slug!]?.[field], value, `${code}/${doc.file}: ${field}`);
+            }
+        }
+    }
+});
+
+test('every SVG has translated accessible text, catalogs, and label bounds', () => {
+    const diagramsDir = join(root, 'src/assets/diagrams');
+    const layout = JSON.parse(readFileSync(join(diagramsDir, 'layout.json'), 'utf8'));
+    for (const file of readdirSync(diagramsDir).filter((file) => file.endsWith('.svg'))) {
+        const name = file.slice(0, -4);
+        const svg = readFileSync(join(diagramsDir, file), 'utf8');
+        assert.match(svg, /<title\b[^>]*data-i18n="title"/, file);
+        assert.match(svg, /<desc\b[^>]*data-i18n="description"/, file);
+        for (const label of svg.matchAll(/<text\b[^>]*data-i18n="([^"]+)"/g)) {
+            assert.ok(layout[name]?.[label[1]]?.width > 0, `${file}: ${label[1]} lacks bounds`);
+        }
+        for (const { code } of SUPPORTED_LANGUAGES) {
+            const catalog = JSON.parse(
+                readFileSync(join(root, 'src/locales', code, 'diagrams.json'), 'utf8')
+            );
+            assert.ok(catalog[name], `${code}/${name}: missing diagram catalog`);
+            assert.ok(Object.values(catalog[name]).length > 0, `${code}/${name}: empty catalog`);
+            assert.match(localizeDiagramSvg(svg, catalog[name], code), /xml:lang=/);
+        }
     }
 });
 
