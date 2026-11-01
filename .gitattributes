@@ -1,2 +1,4 @@
 tests/assets/performance/**/*.3mf filter=lfs diff=lfs merge=lfs -text
 src-tauri/linux/*.sh text eol=lf
+# Preserve the byte hashes of archived benchmark evidence on every platform.
+tests/benchmark/results/cats-exact/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol

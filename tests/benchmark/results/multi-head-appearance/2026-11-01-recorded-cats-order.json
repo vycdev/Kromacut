@@ -1,0 +1,19 @@
+{
+    "sourceRevision": "c0ef02c1acd297261f0a1008f3216996556c9717",
+    "source": "cats/case.json replayResult before issue #117",
+    "finalStackFingerprint": "final-stack-v1-9684249d4a77bb3c",
+    "filamentOrderColors": [
+        "#000000",
+        "#d83400",
+        "#00b8c4",
+        "#ffffff",
+        "#04bb00",
+        "#f7d000",
+        "#6300c5",
+        "#f7d000",
+        "#ff7eb4",
+        "#f7d000",
+        "#ffffff",
+        "#f7d000"
+    ]
+}

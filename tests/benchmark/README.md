@@ -23,6 +23,12 @@ across 2–8 heads in both grouping modes, see
 `benchmark:multi-head` command replays identical saved stacks for baseline and
 full-appearance shortlist comparisons, with per-color path hashes.
 
+For the independent fresh Exact cats replay, historical fingerprint investigation,
+complete saved results, and warmed repeated 2–8-head measurements, see
+[Cats Exact reproducibility](cats-exact-reproducibility.md). Calibrated benchmarks
+save complete evidence under `.profiles/calibrated` before checking goldens; use
+`--output` to choose a path and `--warmups 1 --runs 3` for same-process samples.
+
 Run `npm run benchmark:calibrated` for the slower real-world eight-filament Exact K-logo case, `npm run benchmark:calibrated -- cats` for the 128-color Exact cats case, `npm run benchmark:calibrated -- desk-landscape` for the 128-color Thorough landscape case, or `npm run benchmark:calibrated -- prismatic-portrait` for the 128-color Thorough portrait case. They load the dated profile under `tests/assets/performance`, fit all saved Palette Proof and Stack Matrix evidence through the production path, then assert the case-specific optimizer result. Use these benchmarks when changing calibrated appearance lookup, preserve-separation scoring, optimizer traversal, optimizer memory behavior, or complex model-build performance. The legacy `benchmark:calibrated-exact` command remains an alias.
 
 Run `npm run profile:calibrated -- cats` to capture a compact V8 sampling profile without Chrome's Performance trace buffer. The command writes `optimizer.cpuprofile`, a readable Markdown hot-function summary, and machine-readable summary JSON under `.profiles/<timestamp>-<case>`. The raw profile can also be loaded into Chrome DevTools. Other calibrated case names are accepted in place of `cats`.
