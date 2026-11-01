@@ -203,3 +203,22 @@ cases with uneven and zero usage weights, both grouping modes, and 2–4 heads.
 After that addition, all 67 focused analysis/appearance tests, lint, TypeScript,
 and diff checks passed. The 1,034-test full-suite run above predates this one new
 test; production code and the measured benchmark inputs/results are unchanged.
+
+## Integration with merged filament requirements (#114)
+
+Before opening the #113 PR, the branch was updated to develop commit
+`45120d14ea19136c65387609c2ae2f157341fae5` (merged #116 / issue #114).
+The combined code at `dae8494ba1e6e7ec95d7d1f91455ef751e76f97d` passed all
+1,050 tests, lint, and the full build. All 98 focused search, requirements,
+build, and schedule tests also passed after resolving the overlap. Assertions
+that used removed analyzer bookkeeping now check actual paths/windows; the
+Rocco schedule regression checks every printed layer and exact window filament
+requirements on the measured profile, rather than comparing swap counts with
+an older profile/search objective.
+
+A fresh 28-case replay on this combined code reproduced every default-size
+filament-path hash, predicted gain, and fallback outcome exactly. One case still
+falls back. Its maximum observed analysis-plus-build-gate time was 27.27 s;
+these remain shared-machine, single-pass observations. The historical tables
+above retain their original recorded timings. The integration replay is saved
+separately in [the post-#114 report](results/multi-head-appearance/2026-11-01-after-issue-114.json).
