@@ -62,6 +62,8 @@ export interface UseAutoPaintWorkerOptions {
 
 export interface UseAutoPaintWorkerResult {
     autoPaintResult: AutoPaintResult | undefined;
+    /** The weighted printable targets used by this analysis and downstream multi-head search. */
+    imageSwatches: AutoPaintWorkerRequest['imageSwatches'];
     isComputing: boolean;
     progress: number;
     error?: string;
@@ -566,5 +568,5 @@ export function useAutoPaintWorker(opts: UseAutoPaintWorkerOptions): UseAutoPain
         finishRequest,
     ]);
 
-    return { autoPaintResult, isComputing, progress, error };
+    return { autoPaintResult, imageSwatches: stableImageSwatches, isComputing, progress, error };
 }

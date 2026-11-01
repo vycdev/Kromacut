@@ -403,6 +403,7 @@ export default function ThreeDControls({
     // --- Auto-paint (runs in Web Worker to avoid blocking the UI) ---
     const {
         autoPaintResult,
+        imageSwatches: autoPaintImageSwatches,
         isComputing: isOptimizerComputing,
         progress: optimizerProgress,
         error: optimizerError,
@@ -570,15 +571,12 @@ export default function ThreeDControls({
 
         let activeResult = null;
         if (multiHeadRequested && autoPaintResult) {
-            // Use the same cleaned pixels and color frequencies as Auto-paint.
-            const swatches = printableSwatches.map((s) => ({
-                hex: s.hex,
-                count: (s as { count?: number }).count,
-            }));
+            // Retain Auto-paint's regional priorities, including zero-weight
+            // colors whose physical regions still need filament assignments.
             activeResult = await runMultiHead({
                 filaments,
                 autoPaintResult,
-                imageSwatches: swatches,
+                imageSwatches: autoPaintImageSwatches,
                 layerHeight,
                 firstLayerHeight: slicerFirstLayerHeight,
                 n: multiHeadCount,
@@ -681,7 +679,7 @@ export default function ThreeDControls({
         colorSliceHeights,
         colorOrder,
         filtered,
-        printableSwatches,
+        autoPaintImageSwatches,
         pixelSize,
         filaments,
         paintMode,

@@ -3,7 +3,20 @@ import { expect, test } from '@playwright/test';
 declare global {
     interface Window {
         __MULTI_HEAD_WIRING_TEST?: {
-            request: { id: number; n: number; searchDepth: string };
+            request: {
+                id: number;
+                n: number;
+                searchDepth: string;
+                imageSwatches: Array<{ hex: string; count?: number }>;
+                autoPaintResult: {
+                    finalStack: {
+                        targetMappings: Array<{
+                            targetColor: { hex: string };
+                            usageWeight: number;
+                        }>;
+                    };
+                };
+            };
             finish: () => void;
         };
     }
@@ -25,6 +38,7 @@ for (const outcome of ['worker-error', 'no-layout'] as const) {
                             { id: 'white', color: '#ffffff', td: 0.6 },
                         ],
                         optimizerAlgorithm: 'fast',
+                        regionWeightingMode: outcome === 'worker-error' ? 'center' : 'edge',
                         autoPaintMaxHeight: 1.2,
                         multiHeadMode: true,
                         multiHeadCount: 2,
@@ -51,7 +65,9 @@ for (const outcome of ['worker-error', 'no-layout'] as const) {
                         else super.postMessage(message, transfer);
                         return;
                     }
-                    const request = message as { id: number; n: number; searchDepth: string };
+                    const request = message as NonNullable<
+                        Window['__MULTI_HEAD_WIRING_TEST']
+                    >['request'];
                     window.__MULTI_HEAD_WIRING_TEST = {
                         request,
                         finish: () =>
@@ -99,10 +115,25 @@ for (const outcome of ['worker-error', 'no-layout'] as const) {
         await expect(build).toBeEnabled();
         await build.click();
         await page.waitForFunction(() => window.__MULTI_HEAD_WIRING_TEST !== undefined);
-        expect(await page.evaluate(() => window.__MULTI_HEAD_WIRING_TEST!.request)).toMatchObject({
+        const request = await page.evaluate(() => window.__MULTI_HEAD_WIRING_TEST!.request);
+        expect(request).toMatchObject({
             n: 2,
             searchDepth: 'balanced',
         });
+        const totalWeight = request.imageSwatches.reduce(
+            (sum, swatch) => sum + (swatch.count ?? 1),
+            0
+        );
+        for (const mapping of request.autoPaintResult.finalStack.targetMappings) {
+            const swatch = request.imageSwatches.find(
+                (swatch) => swatch.hex === mapping.targetColor.hex
+            );
+            expect(swatch).toBeDefined();
+            expect((swatch!.count ?? 1) / Math.max(1, totalWeight)).toBeCloseTo(
+                mapping.usageWeight,
+                12
+            );
+        }
 
         // These settings belong to the next build, while this request still uses 2 heads.
         await page.locator('#multi-head-count').fill('5');
