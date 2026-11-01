@@ -11,6 +11,7 @@ import {
     patchedLayersToSliceData,
 } from './patchedLayersToPlan.ts';
 import { buildMultiHeadSchedule } from './multiHeadSchedule.ts';
+import { multiHeadColorTopLayers } from './multiHeadColorHeights.ts';
 
 /** Clear previous analysis data when a build falls back to the original stack. */
 export function singleHeadBuildSnapshot(state: ThreeDControlsStateShape): ThreeDControlsStateShape {
@@ -22,6 +23,7 @@ export function singleHeadBuildSnapshot(state: ThreeDControlsStateShape): ThreeD
         patchedSliceData: undefined,
         perColorLayerColors: undefined,
         colorLayerFilaments: undefined,
+        colorPrintTopLayers: undefined,
         windowRunFilaments: undefined,
         nozzleAssignments: undefined,
         preWindowFilaments: undefined,
@@ -124,11 +126,27 @@ export function getMultiHeadRoutingPlan(
         )
             return undefined;
     }
+    let top = 0;
+    const actualTops = state.heightDithering && !state.preserveSeparation
+        ? state.colorPrintTopLayers : undefined;
+    const colorTopLayers = actualTops ?? multiHeadColorTopLayers(
+        state.autoPaintResult.finalStack,
+        colorLayerFilaments.keys(),
+        patchedSliceData.colorSliceHeights.map((height) => (top += height)),
+        state.heightDithering && !state.preserveSeparation ? state.layerHeight : undefined
+    );
     for (const [hex, path] of colorLayerFilaments) {
         if (path.length !== layerCount || perColorLayerColors.get(hex)?.length !== layerCount)
             return undefined;
+        const topLayer = colorTopLayers.get(hex);
+        if (topLayer === undefined || !Number.isInteger(topLayer) ||
+            topLayer < (actualTops ? -1 : 0) || topLayer >= layerCount)
+            return undefined;
         for (let i = 0; i < layerCount; i++) {
-            if (!Number.isInteger(path[i]) || resolveNozzleIndex(plan, path[i], i) === undefined)
+            // Complete paths are retained for color prediction and reconciliation,
+            // but their unprinted suffixes need no head. Still reject bad indices.
+            if (!Number.isInteger(path[i]) || !filaments[path[i]] ||
+                (i <= topLayer && resolveNozzleIndex(plan, path[i], i) === undefined))
                 return undefined;
         }
     }
@@ -216,6 +234,7 @@ export function multiHeadBuildSnapshot(
         ),
         perColorLayerColors,
         colorLayerFilaments: result.colorLayerFilaments,
+        colorPrintTopLayers: result.colorPrintTopLayers,
         windowRunFilaments: result.windowRunFilaments,
         // Analysis only needs as many slots as there are filaments. Retain the
         // selected physical head count, including never-used heads, downstream.
