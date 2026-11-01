@@ -453,6 +453,15 @@ if (args.includes('--cases')) {
     assert.equal(missing.length, 0, `Requested cases absent from input: ${missing.join(',')}`);
 }
 assert.ok(selectedCases.length > 0, 'No requested cases are present in the input');
+for (const c of cases) {
+    if (c.provenance) {
+        assert.equal(
+            createHash('sha256').update(JSON.stringify(c.result)).digest('hex'),
+            c.provenance.resultSha256,
+            `Cached ${c.name} result does not match its preparation provenance`
+        );
+    }
+}
 const rows: object[] = [];
 const summaries: object[] = [];
 const report = {

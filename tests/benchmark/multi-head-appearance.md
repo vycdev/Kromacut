@@ -42,6 +42,8 @@ its SHA-256 and both final-stack fingerprints are recorded in every report.
 Head counts must be integers from 2 through 8; modes are `luminance` and `color`.
 Use a separate `--output` path for the report: it cannot alias the cached input
 or saved calibrated result, including through hard links or Windows path casing.
+Replays verify any recorded preparation result checksum before measurement, so
+changed results cannot silently retain the original preparation provenance.
 
 - **Cats:** all 128 opaque colors of the saved 576×576 image, ordered as
   `useSwatches` does. The 12-run order was captured from `cats/case.json`'s
