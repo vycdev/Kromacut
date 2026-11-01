@@ -7,11 +7,10 @@
  * code that already iterates transition zones works unchanged.
  */
 
-import type { RGB, TransitionZone } from './autoPaint.ts';
-import { hexToRgb, rgbToHex, rgbToLab } from './autoPaint.ts';
-import { appearanceLabToRgb, resolveAppearanceRankModel } from './appearanceModel.ts';
+import type { TransitionZone } from './autoPaint.ts';
+import { hexToRgb, rgbToHex } from './autoPaint.ts';
 import type { PrinterLayer } from './multiHeadAnalysis.ts';
-import { buildColorStack } from './multiHeadAnalysis.ts';
+import { buildColorStack, correctedStackColor } from './multiHeadAnalysis.ts';
 import type { Filament } from '../types';
 import type {
     AppearanceAnchorLayer,
@@ -169,20 +168,6 @@ export function buildPerColorLayerColors(
     }
 
     return out;
-}
-
-/** Same rule as the final stack's predicted colors. */
-function correctedStackColor(
-    color: RGB,
-    model: AppearanceRankModelV1,
-    prefix: readonly AppearanceAnchorLayer[]
-): RGB {
-    const prediction = resolveAppearanceRankModel(rgbToLab(color), model, prefix);
-    if (!model.applied && !prediction.exactAnchor && !prediction.empiricalMatch && !prediction.localMatch) {
-        return color;
-    }
-    const [r, g, b] = appearanceLabToRgb(prediction.lab);
-    return { r, g, b };
 }
 
 /**

@@ -47,7 +47,7 @@ Cu K filamente distincte într-o fereastră și N poziții de secvență, exist�
 - **După strat (actual)** — culorile asociate aceluiași strat de imprimare în rezultatul Auto-paint sunt reunite într-o singură țintă. Nuanțe diferite pot astfel împărți aceeași țintă. Există cel mult un grup țintă pentru fiecare strat ocupat.
 - **După culoare (nuanță)** — nuanțele distincte pot rămâne ținte separate pe straturile lor originale de imprimare. Paletele mari sunt reduse în limita unui buget de grupuri, păstrând cel puțin un grup pe strat ocupat; culorile de pe straturi diferite nu sunt niciodată unite.
 
-Gruparea după culoare nu garantează o eroare de culoare mai mică sau mai multe culori imprimate. Rezultatele depind de imagine, calibrarea filamentelor, numărul de capete și ferestrele selectate. Căutarea minimizează diferența de culoare CIE76; un scor de căutare mai mic poate avea totuși o eroare CIEDE2000 mai mare. Construirea poate dura mai mult. Culorile pe care le poți imprima rămân limitate de filamente și de stivele lor fizice.
+Gruparea după culoare nu garantează o eroare de culoare mai mică sau mai multe culori imprimate. Rezultatele depind de imagine, calibrarea filamentelor, numărul de capete și ferestrele selectate. Estimările rapide ale amestecurilor propun o listă restrânsă de variante. Ordinea variantelor și traseele finale ale regiunilor sunt evaluate cu modelul complet de aspect calibrat și CIEDE2000 ponderat după utilizare, folosind culorile originale din fiecare grup. Construirea poate dura mai mult. Culorile pe care le poți imprima rămân limitate de filamente și de stivele lor fizice.
 
 Gruparea culorilor se salvează imediat ce o modifici, înainte de construire. Reconstruiește cu fiecare opțiune și compară previzualizările imaginii tale.
 

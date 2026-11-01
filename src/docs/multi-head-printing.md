@@ -47,7 +47,7 @@ Before the search runs, Kromacut groups your palette into the target colors it w
 - **Layer-based (current)** — colors that map to the same printer layer in the Auto-paint result are merged into one target. Different hues can therefore share a target. There is at most one target group per occupied layer.
 - **Color-based (per-hue)** — distinct hues can remain separate targets on their original print layers. Large palettes are reduced within a group budget, with at least one group per occupied layer; colors from different print layers are never merged.
 
-Color-based grouping does not guarantee lower color error or more printed colors. Results depend on the image, filament calibration, head count, and selected windows. The search minimizes CIE76 color difference; a lower search score can still have a higher CIEDE2000 error. Builds can take longer. The colors you can print remain limited by your filaments and their physical stacks.
+Color-based grouping does not guarantee lower color error or more printed colors. Results depend on the image, filament calibration, head count, and selected windows. Fast blend estimates nominate a bounded shortlist. Shortlisted orders and final region paths use the full calibration appearance model and usage-weighted CIEDE2000, scoring the original colors within each group. Builds can take longer. The colors you can print remain limited by your filaments and their physical stacks.
 
 Color grouping is saved as soon as you change it, before building. Rebuild with each option and compare the previews for your image.
 
