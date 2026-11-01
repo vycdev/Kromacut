@@ -8,7 +8,7 @@ import type { Filament } from '../src/types/index.ts';
 
 // These lib modules reach an extensionless-import graph, so load them through
 // Vite (matching the rest of the suite) rather than node's strip-types loader.
-const { generateAutoLayers, hexToRgb, deltaE } =
+const { generateAutoLayers, hexToRgb, deltaE, rgbToLab, rgbToHex } =
     await loadViteModule<typeof import('../src/lib/autoPaint.ts')>('/src/lib/autoPaint.ts');
 const { buildColorStack, expandZonesToPrinterLayers, buildPixelData } = await loadViteModule<
     typeof import('../src/lib/multiHeadAnalysis.ts')
@@ -17,7 +17,6 @@ const {
     buildPixelDataColorFirst,
     buildColorGroupedPixels,
     buildColorRuns,
-    analyzeMultiHeadWindowsColorFirst,
     computeColorOptimalAssignments,
     optimizeNozzleAssignments,
     runMultiHeadLayerAnalysisColorFirst,
@@ -29,6 +28,7 @@ const {
 );
 const { channelHds } =
     await loadViteModule<typeof import('../src/lib/calibration.ts')>('/src/lib/calibration.ts');
+const { deltaE2000Lab } = await loadViteModule<typeof import('../src/lib/colorDifference.ts')>('/src/lib/colorDifference.ts');
 
 const { createPriorEffectiveOpticsModel, predictEffectiveAutoPaintColor } =
     await loadViteModule<typeof import('../src/lib/effectiveOptics.ts')>('/src/lib/effectiveOptics.ts');
@@ -187,87 +187,13 @@ test('buildPixelDataColorFirst — all actualErr values are non-negative', () =>
 });
 
 // ---------------------------------------------------------------------------
-// analyzeMultiHeadWindowsColorFirst (run-based windowing)
-// ---------------------------------------------------------------------------
-
-test('analyzeMultiHeadWindowsColorFirst — produces at least one window', () => {
-    const swatches = gradient(20);
-    const result = generateAutoLayers(FOUR_FILAMENTS, swatches, LAYER_HEIGHT, FIRST_LAYER_HEIGHT);
-    const windows = analyzeMultiHeadWindowsColorFirst(
-        FOUR_FILAMENTS, result, swatches, LAYER_HEIGHT, FIRST_LAYER_HEIGHT, 2
-    );
-    assert.ok(windows.length > 0, 'should produce at least one run-based window');
-});
-
-test('analyzeMultiHeadWindowsColorFirst — windows never cover the foundation layer (layer 0)', () => {
-    const swatches = gradient(20);
-    const result = generateAutoLayers(FOUR_FILAMENTS, swatches, LAYER_HEIGHT, FIRST_LAYER_HEIGHT);
-    const windows = analyzeMultiHeadWindowsColorFirst(
-        FOUR_FILAMENTS, result, swatches, LAYER_HEIGHT, FIRST_LAYER_HEIGHT, 2
-    );
-    for (const w of windows) {
-        assert.ok(w.windowStart > 0, `window starts at layer 0 (foundation): windowStart=${w.windowStart}`);
-    }
-});
-
-test('analyzeMultiHeadWindowsColorFirst — errorFactor is never negative', () => {
-    const swatches = gradient(20);
-    const result = generateAutoLayers(FOUR_FILAMENTS, swatches, LAYER_HEIGHT, FIRST_LAYER_HEIGHT);
-    const windows = analyzeMultiHeadWindowsColorFirst(
-        FOUR_FILAMENTS, result, swatches, LAYER_HEIGHT, FIRST_LAYER_HEIGHT, 2
-    );
-    for (const w of windows) {
-        assert.ok(w.errorFactor >= -1e-9,
-            `window [${w.windowStart}–${w.windowEnd}] errorFactor=${w.errorFactor}`);
-    }
-});
-
-test('analyzeMultiHeadWindowsColorFirst — windows span multiple layers (not just N)', () => {
-    const swatches = gradient(20);
-    const result = generateAutoLayers(FOUR_FILAMENTS, swatches, LAYER_HEIGHT, FIRST_LAYER_HEIGHT);
-    const windows = analyzeMultiHeadWindowsColorFirst(
-        FOUR_FILAMENTS, result, swatches, LAYER_HEIGHT, FIRST_LAYER_HEIGHT, 2
-    );
-    const N = 2;
-    const widerThanN = windows.some((w) => w.windowEnd - w.windowStart + 1 > N);
-    assert.ok(widerThanN, 'at least one run-based window should span more than N=2 printer layers');
-});
-
-test('analyzeMultiHeadWindowsColorFirst — returns empty for insufficient data', () => {
-    const result = generateAutoLayers(FOUR_FILAMENTS, gradient(10), LAYER_HEIGHT, FIRST_LAYER_HEIGHT);
-    assert.equal(
-        analyzeMultiHeadWindowsColorFirst([F0], result, gradient(10), LAYER_HEIGHT, FIRST_LAYER_HEIGHT, 2).length,
-        0
-    );
-    assert.equal(
-        analyzeMultiHeadWindowsColorFirst(FOUR_FILAMENTS, result, [], LAYER_HEIGHT, FIRST_LAYER_HEIGHT, 2).length,
-        0
-    );
-});
-
-test('analyzeMultiHeadWindowsColorFirst — lut and pixelOptimalLUTIdx are empty (populated by caller)', () => {
-    // analyzeMultiHeadWindowsColorFirst intentionally leaves lut:[] and pixelOptimalLUTIdx:[]
-    // on each WindowResult — the full pipeline (runMultiHeadLayerAnalysisColorFirst) fills these
-    // in after window selection. Asserting empty here documents that contract explicitly.
-    const swatches = gradient(20);
-    const result = generateAutoLayers(FOUR_FILAMENTS, swatches, LAYER_HEIGHT, FIRST_LAYER_HEIGHT);
-    const windows = analyzeMultiHeadWindowsColorFirst(
-        FOUR_FILAMENTS, result, swatches, LAYER_HEIGHT, FIRST_LAYER_HEIGHT, 2
-    );
-    for (const w of windows) {
-        assert.deepEqual(w.lut, [], `expected lut to be empty on raw window`);
-        assert.deepEqual(w.pixelOptimalLUTIdx, [], `expected pixelOptimalLUTIdx to be empty on raw window`);
-    }
-});
-
-// ---------------------------------------------------------------------------
 // runMultiHeadLayerAnalysisColorFirst
 // ---------------------------------------------------------------------------
 
 test('runMultiHeadLayerAnalysisColorFirst — returns empty for insufficient data', () => {
     const result = generateAutoLayers([BLACK, WHITE], gradient(10), LAYER_HEIGHT, FIRST_LAYER_HEIGHT);
     const emptyShape = {
-        windows: [], colorAssignments: [], uniqueLayerCount: 0, patchedLayers: [],
+        windows: [], patchedLayers: [],
         colorLayerFilaments: new Map(), windowRunFilaments: [], nozzleAssignments: [],
         preWindowFilaments: [], nonWindowedRanges: [],
     };
@@ -279,78 +205,6 @@ test('runMultiHeadLayerAnalysisColorFirst — returns empty for insufficient dat
         runMultiHeadLayerAnalysisColorFirst([BLACK, WHITE], result, [], LAYER_HEIGHT, FIRST_LAYER_HEIGHT, 2),
         emptyShape
     );
-});
-
-test('runMultiHeadLayerAnalysisColorFirst — colorAssignments length matches windows length', () => {
-    const swatches = gradient(200);
-    const result = generateAutoLayers([BLACK, WHITE], swatches, LAYER_HEIGHT, FIRST_LAYER_HEIGHT);
-    const { windows, colorAssignments } = runMultiHeadLayerAnalysisColorFirst(
-        [BLACK, WHITE], result, swatches, LAYER_HEIGHT, FIRST_LAYER_HEIGHT, 2
-    );
-    assert.equal(colorAssignments.length, windows.length);
-});
-
-test('runMultiHeadLayerAnalysisColorFirst — colorAssignments only contain input hex colors', () => {
-    const swatches = gradient(200);
-    const knownHexes = new Set(swatches.map((s) => s.hex));
-    const result = generateAutoLayers([BLACK, WHITE], swatches, LAYER_HEIGHT, FIRST_LAYER_HEIGHT);
-    const { colorAssignments } = runMultiHeadLayerAnalysisColorFirst(
-        [BLACK, WHITE], result, swatches, LAYER_HEIGHT, FIRST_LAYER_HEIGHT, 2
-    );
-    for (let i = 0; i < colorAssignments.length; i++) {
-        for (const hex of colorAssignments[i].keys()) {
-            assert.ok(knownHexes.has(hex), `colorAssignments[${i}] contains unknown hex "${hex}"`);
-        }
-    }
-});
-
-test('runMultiHeadLayerAnalysisColorFirst — all slot indices in colorAssignments are valid', () => {
-    const swatches = gradient(200);
-    const result = generateAutoLayers([BLACK, WHITE], swatches, LAYER_HEIGHT, FIRST_LAYER_HEIGHT);
-    const { windows, colorAssignments } = runMultiHeadLayerAnalysisColorFirst(
-        [BLACK, WHITE], result, swatches, LAYER_HEIGHT, FIRST_LAYER_HEIGHT, 2
-    );
-    for (let i = 0; i < windows.length; i++) {
-        const numFilaments = windows[i].filamentIds.length;
-        for (const [hex, slots] of colorAssignments[i]) {
-            for (let s = 0; s < slots.length; s++) {
-                assert.ok(
-                    slots[s] >= 0 && slots[s] < numFilaments,
-                    `colorAssignments[${i}].get("${hex}")[${s}] = ${slots[s]} out of range [0, ${numFilaments})`
-                );
-            }
-        }
-    }
-});
-
-test('runMultiHeadLayerAnalysisColorFirst — direct lookup resolves to known filament IDs', () => {
-    const swatches = gradient(200);
-    const filaments = [BLACK, WHITE];
-    const knownIds = new Set(filaments.map((f) => f.id));
-    const result = generateAutoLayers(filaments, swatches, LAYER_HEIGHT, FIRST_LAYER_HEIGHT);
-    const { windows, colorAssignments } = runMultiHeadLayerAnalysisColorFirst(
-        filaments, result, swatches, LAYER_HEIGHT, FIRST_LAYER_HEIGHT, 2
-    );
-    for (let i = 0; i < windows.length; i++) {
-        const w = windows[i];
-        for (const [hex, slots] of colorAssignments[i]) {
-            for (let s = 0; s < slots.length; s++) {
-                const id = w.filamentIds[slots[s]];
-                assert.ok(knownIds.has(id),
-                    `window ${i}, hex "${hex}", slot ${s}: filamentId "${id}" unknown`);
-            }
-        }
-    }
-});
-
-test('runMultiHeadLayerAnalysisColorFirst — uniqueLayerCount is less than swatch count for dense gradient', () => {
-    const swatches = gradient(200);
-    const result = generateAutoLayers([BLACK, WHITE], swatches, LAYER_HEIGHT, FIRST_LAYER_HEIGHT);
-    const { uniqueLayerCount } = runMultiHeadLayerAnalysisColorFirst(
-        [BLACK, WHITE], result, swatches, LAYER_HEIGHT, FIRST_LAYER_HEIGHT, 2
-    );
-    assert.ok(uniqueLayerCount < swatches.length,
-        `expected fewer unique layers than swatches (200), got ${uniqueLayerCount}`);
 });
 
 // ---------------------------------------------------------------------------
@@ -485,25 +339,6 @@ test('runMultiHeadLayerAnalysisColorFirst — patchedLayers startZ values are mo
             `patchedLayers[${i}].startZ=${patchedLayers[i].startZ} < patchedLayers[${i-1}].startZ=${patchedLayers[i-1].startZ}`
         );
     }
-});
-
-// ---------------------------------------------------------------------------
-// analyzeMultiHeadWindowsColorFirst — layer count guard
-// ---------------------------------------------------------------------------
-
-test('analyzeMultiHeadWindowsColorFirst — returns empty when layers.length < N + 1', () => {
-    const swatches = gradient(4);
-    const result = generateAutoLayers(FOUR_FILAMENTS, swatches, LAYER_HEIGHT, FIRST_LAYER_HEIGHT);
-    const layers = expandZonesToPrinterLayers(result, FOUR_FILAMENTS, LAYER_HEIGHT, FIRST_LAYER_HEIGHT);
-    // N = min(n, filaments.length). Use n = layers.length so N = min(layers.length, 4).
-    // The guard fires when layers.length < N + 1. With N = layers.length (when layers.length <= 4)
-    // the guard is layers.length < layers.length + 1 which is always true.
-    // When layers.length > 4, N = 4; skip the test — the guard isn't reachable with this fixture.
-    if (layers.length > 4) return;
-    const windows = analyzeMultiHeadWindowsColorFirst(
-        FOUR_FILAMENTS, result, swatches, LAYER_HEIGHT, FIRST_LAYER_HEIGHT, layers.length
-    );
-    assert.equal(windows.length, 0, 'should return [] when layers.length < N + 1');
 });
 
 // ---------------------------------------------------------------------------
@@ -943,8 +778,6 @@ test('runMultiHeadLayerAnalysisColorFirst — color mode produces a valid, compl
         filaments, result, colors, LAYER_HEIGHT, FIRST_LAYER_HEIGHT, 3, 'balanced', 'color'
     );
 
-    // One colorAssignments map per window.
-    assert.equal(col.colorAssignments.length, col.windows.length);
 
     if (col.patchedLayers.length === 0) {
         // A no-op result is a valid outcome — no window improved on the base
@@ -1345,22 +1178,19 @@ test('multiple windows use each color\'s realized prefix and suffix', () => {
             const rgb = predictEffectiveAutoPaintColor(model, seq.slice(0, px.layerIdx + 1).map((fi, i) => ({
                 filamentId: filaments[fi].id, thickness: original[i].thickness,
             })))!;
-            return deltaE(px.targetRgb, { r: rgb[0], g: rgb[1], b: rgb[2] });
+            return deltaE2000Lab(rgbToLab(px.targetRgb), rgbToLab(hexToRgb(rgbToHex({ r: rgb[0], g: rgb[1], b: rgb[2] }))));
         };
         for (let p = 0; p < swatches.length; p++) {
             const hex = swatches[p].hex;
             const seq = analysis.colorLayerFilaments.get(hex)!;
             const actual = error(seq, pixels[p]);
-            assert.ok(actual <= pixels[p].actualErr + 1e-8, `${hex} worsened from the original stack`);
+            assert.ok(actual <= error(original.map((layer) => layer.filamentIdx), pixels[p]) + 1e-8,
+                `${hex} worsened from the original stack under CIEDE2000`);
             for (let wi = 0; wi < analysis.windows.length; wi++) {
                 const w = analysis.windows[wi];
-                if (pixels[p].layerIdx < w.windowStart) {
-                    assert.equal(analysis.colorAssignments[wi].has(hex), false);
-                    continue;
-                }
-                const slots = analysis.colorAssignments[wi].get(hex)!;
-                for (let r = 0; r < slots.length; r++) {
-                    assert.equal(filaments[seq[w.windowStart + r]].id, w.filamentIds[slots[r]]);
+                if (pixels[p].layerIdx < w.windowStart) continue;
+                for (let i = w.windowStart; i <= w.windowEnd; i++) {
+                    assert.ok(w.filamentIds.includes(filaments[seq[i]].id), 'routed layer uses a scheduled filament');
                 }
                 // Independently try every assignment in either selected window,
                 // keeping this color's realized prefix and suffix fixed.

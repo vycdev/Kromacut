@@ -1,0 +1,91 @@
+{
+  "measuredAt": "2026-11-01T09:46:08.237Z",
+  "revision": "3ede3177f231d1ae566ff8afb1313f772f50889e",
+  "analysisRef": "",
+  "shortlistSize": 32,
+  "analysisSha256": "2f3a76b83b36f8b3a46eb4b32e86e00402689182c200e86f120399515e392785",
+  "inputSha256": "5b85a3af7d84112ea067953247d02507bc5e13df0d8ae208635403a76668712d",
+  "machine": {
+    "node": "v24.19.0",
+    "platform": "win32",
+    "cpu": "AMD Ryzen 9 5950X 16-Core Processor            "
+  },
+  "cases": [
+    {
+      "name": "cats",
+      "colors": 128,
+      "layerHeight": 0.08,
+      "firstLayerHeight": 0.4,
+      "layers": 70,
+      "runs": 12,
+      "occupiedSurfaces": 56,
+      "finalStackFingerprint": "final-stack-v1-9684249d4a77bb3c"
+    },
+    {
+      "name": "rocco",
+      "colors": 64,
+      "layerHeight": 0.08,
+      "firstLayerHeight": 0.4,
+      "layers": 41,
+      "runs": 8,
+      "occupiedSurfaces": 7,
+      "finalStackFingerprint": "final-stack-v1-8efddb6a6515bd5e"
+    }
+  ],
+  "depth": "balanced",
+  "threshold": 0.25,
+  "rows": [
+    {
+      "case": "cats",
+      "mode": "luminance",
+      "heads": 4,
+      "analysisMs": 2612.9649,
+      "previewMs": 42.29320000000007,
+      "buildMs": 38.89390000000003,
+      "totalBuildMs": 2651.8588,
+      "predictedGain": 1.0703818280506208,
+      "fallback": false,
+      "windows": 2,
+      "pathSha256": "aadc4b3165e441032b6dbe40f738b7c0f442f5fced68f62e83ee49dc327a3345"
+    },
+    {
+      "case": "cats",
+      "mode": "color",
+      "heads": 4,
+      "analysisMs": 4099.4127,
+      "previewMs": 66.92590000000018,
+      "buildMs": 82.77940000000126,
+      "totalBuildMs": 4182.192100000001,
+      "predictedGain": 1.4249994098601355,
+      "fallback": false,
+      "windows": 2,
+      "pathSha256": "db57a24cb825b865e93755487470e870399669b53346bf19a016411485179062"
+    },
+    {
+      "case": "rocco",
+      "mode": "luminance",
+      "heads": 4,
+      "analysisMs": 109.63420000000042,
+      "previewMs": 11.657400000000052,
+      "buildMs": 15.521300000000338,
+      "totalBuildMs": 125.15550000000076,
+      "predictedGain": 1.1887296923362447,
+      "fallback": false,
+      "windows": 1,
+      "pathSha256": "ae5eac84fe1c8e833d895f3cd9f886e7ee98cc41719f4e8632968381147f7286"
+    },
+    {
+      "case": "rocco",
+      "mode": "color",
+      "heads": 4,
+      "analysisMs": 374.7690999999995,
+      "previewMs": 21.3765999999996,
+      "buildMs": 19.229199999999764,
+      "totalBuildMs": 393.9982999999993,
+      "predictedGain": 3.038377793852619,
+      "fallback": false,
+      "windows": 1,
+      "pathSha256": "617b8927d70074906d0b28846e5623adba41af7309c2a0305e082b0ff84a4aaa"
+    }
+  ]
+}

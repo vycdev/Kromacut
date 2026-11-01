@@ -1,23 +1,18 @@
 /**
- * Color-first multi-head analysis pipeline.
- *
- * Before running the sliding-window LUT simulation, swatches that map to the
- * same printer layer are merged into a single frequency-weighted entry.  This
- * trades a small amount of per-swatch fidelity for a proportional reduction in
- * the inner-loop work of analyzeWindowLUT.
- *
- * Use analyzeMultiHeadWindowsColorFirst as a drop-in alongside
- * analyzeMultiHeadWindows to compare errorFactor rankings side-by-side.
+ * Run-based multi-head search. Cheap fitted-optics simulation nominates a bounded
+ * shortlist; the full appearance model chooses windows and reconciles each group
+ * using its original targets, usage weights, and realized physical stack.
  */
 
 import type { AutoPaintResult } from './autoPaint.ts';
 import type { Filament, MultiHeadDitherContext, MultiHeadRangeAssignment } from '../types';
-import type { AppearanceEffectiveOpticsModelV1 } from '../types/appearance';
+import type { AppearanceEffectiveOpticsModelV1, AppearanceRankModelV1 } from '../types/appearance';
 import {
     hexToRgb,
     deltaE,
     deltaELab,
     rgbToLab,
+    rgbToHex,
     type RGB,
 } from './autoPaint.ts';
 import {
@@ -26,12 +21,15 @@ import {
     buildColorStack,
     startColorStack,
     appendColorStackLayer,
+    correctedStackColor,
+    toAppearanceLayer,
     type PrinterLayer,
     type WindowFilament,
     type WindowResult,
 } from './multiHeadAnalysis.ts';
 import { channelHds } from './calibration.ts';
 import { createPriorEffectiveOpticsModel, resolveEffectiveTransitionOptics } from './effectiveOptics.ts';
+import { deltaE2000Lab, type Lab } from './colorDifference.ts';
 import { multiHeadColorTopLayers } from './multiHeadColorHeights.ts';
 
 /**
@@ -52,6 +50,8 @@ export interface ColorFirstPixel {
     actualErr: number;
     /** Total pixel count of all swatches merged into this entry. */
     count: number;
+    /** Original group members: full-model scoring must not score just the RGB centroid. */
+    targets?: { lab: Lab; count: number }[];
 }
 
 /**
@@ -147,6 +147,9 @@ export const COMBO_BUDGET_BY_DEPTH: Record<'fast' | 'balanced' | 'thorough', num
     balanced: 65536,
     thorough: 1_048_576,
 };
+
+/** Full-model evaluations per window/group, plus the always-retained current order. */
+export const APPEARANCE_SHORTLIST_SIZE = 32;
 
 /** Encode a slot entry as its base-K combination index (slot 0 = least significant digit). */
 function entryToComboIndex(entry: number[], K: number): number {
@@ -400,6 +403,111 @@ function refreshTransitionOptics(layers: PrinterLayer[], model: AppearanceEffect
     }
 }
 
+/** Stable top-k: first visited wins ties, including the current order. */
+class AppearanceShortlist {
+    entries: { entry: number[]; error: number }[] = [];
+    private readonly visibleRuns: number;
+
+    constructor(visibleRuns: number) { this.visibleRuns = visibleRuns; }
+
+    add(entry: number[], error: number): void {
+        const last = this.entries[this.entries.length - 1];
+        if (this.entries.length >= APPEARANCE_SHORTLIST_SIZE && error >= last.error) return;
+        // Orders differing only above the scored surface are the same candidate.
+        // Sampled broad scans may also visit the very same order twice.
+        if (this.entries.some((candidate) => {
+            for (let r = 0; r < this.visibleRuns; r++) if (entry[r] !== candidate.entry[r]) return false;
+            return true;
+        })) return;
+        const at = this.entries.findIndex((candidate) => error < candidate.error);
+        this.entries.splice(at < 0 ? this.entries.length : at, 0, { entry, error });
+        if (this.entries.length > APPEARANCE_SHORTLIST_SIZE) this.entries.pop();
+    }
+}
+
+function fullModelError(pixel: ColorFirstPixel, color: RGB): number {
+    // Preview and the gain gate publish uint8 colors, including uncorrected ones.
+    const lab = rgbToLab(hexToRgb(rgbToHex(color)));
+    if (!pixel.targets?.length || pixel.count <= 0) return deltaE2000Lab(rgbToLab(pixel.targetRgb), lab);
+    return pixel.targets.reduce((sum, target) => sum + deltaE2000Lab(target.lab, lab) * target.count, 0) / pixel.count;
+}
+
+/** Evaluate only shortlisted physical prefixes; never called from the broad sweep. */
+function appearanceErrors(
+    layers: PrinterLayer[],
+    pixels: ColorFirstPixel[],
+    model: AppearanceRankModelV1,
+    windowRuns: ColorRun[] = [],
+    windowFilaments: WindowFilament[] = [],
+    entry: number[] = []
+): number[] {
+    const errors = new Array<number>(pixels.length).fill(0);
+    const atLayer = new Map<number, number[]>();
+    let lastLayer = 0;
+    for (let p = 0; p < pixels.length; p++) {
+        const layer = pixels[p].layerIdx;
+        lastLayer = Math.max(lastLayer, layer);
+        const bucket = atLayer.get(layer);
+        if (bucket) bucket.push(p);
+        else atLayer.set(layer, [p]);
+    }
+    const state = startColorStack(layers[0]);
+    const prefix = [];
+    let r = 0;
+    for (let i = 0; i <= lastLayer; i++) {
+        while (r < windowRuns.length && i > windowRuns[r].endLayerIdx) r++;
+        const run = windowRuns[r];
+        const layer = run && i >= run.startLayerIdx
+            ? assignedLayer(layers[i], windowFilaments[entry[r]], entry[r]) : layers[i];
+        if (i > 0) appendColorStackLayer(state, layer, model.effectiveOptics);
+        prefix.push(toAppearanceLayer(layer));
+        const bucket = atLayer.get(i);
+        if (!bucket) continue;
+        const color = correctedStackColor(state.color, model, prefix);
+        for (const p of bucket) errors[p] = fullModelError(pixels[p], color);
+    }
+    return errors;
+}
+
+/** Full-model per-group choices, always retaining the current realized path. */
+function rerankAssignments(
+    shortlists: AppearanceShortlist[],
+    layers: PrinterLayer[],
+    pixels: ColorFirstPixel[],
+    appearanceModel: AppearanceRankModelV1,
+    windowRuns: ColorRun[],
+    windowFilaments: WindowFilament[],
+    currentEntry?: number[]
+): { errors: number[]; assignments: (number[] | null)[] } {
+    const errors = new Array<number>(pixels.length).fill(Infinity);
+    const assignments: (number[] | null)[] = new Array(pixels.length).fill(null);
+    for (let p = 0; p < pixels.length; p++) {
+        if (pixels[p].layerIdx < windowRuns[0].startLayerIdx) continue;
+        const score = (entry: number[]) => appearanceErrors(
+            layers, [pixels[p]], appearanceModel, windowRuns, windowFilaments, entry
+        )[0];
+        if (currentEntry) {
+            errors[p] = score(currentEntry);
+            assignments[p] = currentEntry.slice();
+        }
+        for (const candidate of shortlists[p].entries) {
+            const error = score(candidate.entry);
+            if (error < errors[p]) { errors[p] = error; assignments[p] = candidate.entry; }
+        }
+    }
+    return { errors, assignments };
+}
+
+type AssignmentCache = Map<string, { entry: number[]; error: number }>;
+
+/** Only the physical prefix/suffix outside this window can change its candidates. */
+function windowContext(layers: PrinterLayer[], surface: number, runs: ColorRun[]): string {
+    const start = runs[0].startLayerIdx;
+    const end = runs[runs.length - 1].endLayerIdx;
+    return layers.slice(0, surface + 1).filter((_, i) => i < start || i > end)
+        .map((layer) => layer.filamentIdx).join(',');
+}
+
 /**
  * Simulate all K^N filament combinations for a run-based window, finding the
  * optimal slot assignment for every color in a single pass per combination.
@@ -409,8 +517,9 @@ function refreshTransitionOptics(layers: PrinterLayer[], model: AppearanceEffect
  * and above. Every color's running minimum is updated the moment the simulation
  * reaches its target layerIdx — no per-color restart from baseColor.
  *
- * Returns per-color optimal slot assignments (direct number[] arrays, no LUT
- * indirection) alongside the frequency-weighted errorFactor.
+ * With appearanceModel, rerank a bounded cheap shortlist per group with the full
+ * model and weighted member CIEDE2000. Otherwise return the cheap CIE76 optimum.
+ * Returns direct slot assignments and the frequency-weighted errorFactor.
  */
 export function computeColorOptimalAssignments(
     windowRuns: ColorRun[],
@@ -423,7 +532,8 @@ export function computeColorOptimalAssignments(
     comboBudget: number = Infinity,
     /** The window's current slot assignment, always included when sampling. */
     currentEntry?: number[],
-    model?: AppearanceEffectiveOpticsModelV1
+    model?: AppearanceEffectiveOpticsModelV1,
+    appearanceModel?: AppearanceRankModelV1
 ): { errorFactor: number; affectedCount: number; assignments: (number[] | null)[] } {
     const K = windowFilaments.length;
     const N = windowRuns.length;
@@ -433,6 +543,9 @@ export function computeColorOptimalAssignments(
     const pixelsAtLayer = new Map<number, number[]>();
     const minErr = new Float64Array(pixels.length).fill(Infinity);
     const assignments: (number[] | null)[] = new Array(pixels.length).fill(null);
+    const shortlists = pixels.map((pixel) => new AppearanceShortlist(
+        windowRuns.filter((run) => run.startLayerIdx <= pixel.layerIdx).length
+    ));
     // Precompute each target's Lab once; the K^N × layers loop below reuses it
     // instead of re-running rgbToLab on the fixed target every combination.
     const targetLab = pixels.map((p) => rgbToLab(p.targetRgb));
@@ -444,7 +557,7 @@ export function computeColorOptimalAssignments(
         const px = pixels[pxIdx];
         if (px.layerIdx < wStart) continue;
         if (currentEntry) {
-            minErr[pxIdx] = px.actualErr;
+            minErr[pxIdx] = appearanceModel ? Infinity : px.actualErr;
             assignments[pxIdx] = currentEntry.slice();
         }
         affectedCount += px.count;
@@ -477,6 +590,7 @@ export function computeColorOptimalAssignments(
                     const cLab = rgbToLab(state.color);
                     for (const pxIdx of bucket) {
                         const err = deltaELab(targetLab[pxIdx], cLab);
+                        if (appearanceModel) shortlists[pxIdx].add(entry, err);
                         if (err < minErr[pxIdx]) { minErr[pxIdx] = err; assignments[pxIdx] = entry.slice(); }
                     }
                 }
@@ -491,9 +605,20 @@ export function computeColorOptimalAssignments(
                 const cLab = rgbToLab(state.color);
                 for (const pxIdx of bucket) {
                     const err = deltaELab(targetLab[pxIdx], cLab);
+                    if (appearanceModel) shortlists[pxIdx].add(entry, err);
                     if (err < minErr[pxIdx]) { minErr[pxIdx] = err; assignments[pxIdx] = entry.slice(); }
                 }
             }
+        }
+    }
+
+    if (appearanceModel) {
+        const ranked = rerankAssignments(shortlists, layers, pixels, appearanceModel,
+            windowRuns, windowFilaments, currentEntry);
+        for (let p = 0; p < pixels.length; p++) {
+            if (pixels[p].layerIdx < wStart) continue;
+            minErr[p] = ranked.errors[p];
+            assignments[p] = ranked.assignments[p];
         }
     }
 
@@ -505,98 +630,16 @@ export function computeColorOptimalAssignments(
     return { errorFactor: totalActualError - totalMinError, affectedCount, assignments };
 }
 
-/**
- * Drop-in parallel to analyzeMultiHeadWindows that uses the color-first pixel
- * pipeline.  The returned WindowResult is structurally identical to the base
- * pipeline's output and carries errorFactor for comparison purposes.
- *
- * Note: affectedSwatches in the returned WindowResult is the total weighted
- * pixel count, not the number of unique color groups.
- */
-export function analyzeMultiHeadWindowsColorFirst(
-    filaments: Filament[],
-    result: AutoPaintResult,
-    imageSwatches: Array<{ hex: string; count?: number }>,
-    layerHeight: number,
-    firstLayerHeight: number,
-    n: number
-): WindowResult[] {
-    const N = Math.min(n, filaments.length, MAX_MULTI_HEAD_HEADS);
-    if (N < 2 || result.transitionZones.length === 0 || imageSwatches.length === 0) return [];
-
-    const layers = expandZonesToPrinterLayers(result, filaments, layerHeight, firstLayerHeight);
-    if (layers.length < N + 1) return [];
-
-    const colorAtLayer = buildColorStack(layers);
-    const runs = buildColorRuns(layers);
-    const effectiveOptics = result.finalStack.appearanceModel.effectiveOptics;
-    const model = effectiveOptics?.filaments.length ? effectiveOptics : createPriorEffectiveOpticsModel(filaments);
-    const pixels = buildPixelDataColorFirst(
-        imageSwatches, layers, colorAtLayer,
-        result.finalStack
-    );
-
-    const windows: WindowResult[] = [];
-
-    // Slide a window of N consecutive color runs (not N individual layers).
-    // Each run covers all printer layers that share the same filament, so the
-    // window always spans exactly N color zones regardless of how many layers
-    // each zone occupies.
-    for (let rStart = 0; rStart + N <= runs.length; rStart++) {
-        const windowRuns = runs.slice(rStart, rStart + N);
-        const wStart = windowRuns[0].startLayerIdx;
-        const wEnd = windowRuns[N - 1].endLayerIdx;
-
-        // Skip the foundation run (layer 0 is the opaque base).
-        if (wStart === 0) continue;
-
-        const uniqueIndices = [...new Set(windowRuns.map((r) => r.filamentIdx))];
-        const windowFilaments: WindowFilament[] = uniqueIndices.map((fi) => ({
-            filamentIdx: fi,
-            filamentId: filaments[fi]?.id,
-            rgb: hexToRgb(filaments[fi]?.color ?? '#000000'),
-            td: channelHds(filaments[fi] ?? FALLBACK_FILAMENT),
-        }));
-
-        const { errorFactor, affectedCount } = computeColorOptimalAssignments(
-            windowRuns, wEnd, layers, colorAtLayer[wStart - 1], windowFilaments, pixels, Infinity, undefined, model
-        );
-
-        windows.push({
-            windowStart: wStart,
-            windowEnd: wEnd,
-            windowBottomZ: layers[wStart].startZ,
-            windowTopZ: layers[wEnd].startZ + layers[wEnd].thickness,
-            currentFilaments: uniqueIndices.map((fi) =>
-                filaments[fi]?.name ?? filaments[fi]?.color ?? `f${fi}`
-            ),
-            filamentIds: uniqueIndices.map((fi) => filaments[fi]?.id ?? `f${fi}`),
-            affectedSwatches: affectedCount,
-            errorFactor,
-            lut: [],
-            pixelOptimalLUTIdx: [],
-        });
-    }
-
-    return windows;
-}
-
 // ---------------------------------------------------------------------------
 // Consensus combo + layer patching (iterative pipeline helpers)
 // ---------------------------------------------------------------------------
 
 /**
- * Find the single K^N filament combo that minimises the aggregate weighted
- * ΔE across all affected color groups for this window.
- *
- * Unlike computeColorOptimalAssignments (which gives each color its own best
- * combo), this returns one consensus ordering that the printer can actually
- * use — every pixel at the same height sees the same head assignment.
- *
- * Returns the winning entry, the improvement over the current stack, and the
- * total affected pixel count.
+ * Nominate shared and per-group orders in one cheap sweep. Full-model reranking
+ * chooses a shared context for later windows, while the independent regional
+ * opportunities determine whether this window is worth routing.
  */
-function findConsensusCombo(
+function findWindowCandidate(
     windowRuns: ColorRun[],
     wEnd: number,
     layers: PrinterLayer[],
@@ -604,11 +647,12 @@ function findConsensusCombo(
     windowFilaments: WindowFilament[],
     pixels: ColorFirstPixel[],
     /** Max K^N combos to evaluate; above this the scan samples deterministically. */
-    comboBudget: number = Infinity,
+    comboBudget: number,
     /** The window's current slot assignment, always included when sampling. */
-    currentEntry?: number[],
-    model?: AppearanceEffectiveOpticsModelV1
-): { entry: number[]; errorFactor: number; affectedCount: number } {
+    currentEntry: number[],
+    model: AppearanceEffectiveOpticsModelV1,
+    appearanceModel: AppearanceRankModelV1
+): { entry: number[]; errorFactor: number; affectedCount: number; regional: ReturnType<typeof rerankAssignments> } {
     const K = windowFilaments.length;
     const N = windowRuns.length;
     const wStart = windowRuns[0].startLayerIdx;
@@ -636,10 +680,10 @@ function findConsensusCombo(
     for (let i = 1; i < wStart; i++) appendColorStackLayer(prefix, layers[i], model);
     prefix.color = baseColor;
 
-    let bestEntry: number[] = currentEntry
-        ? currentEntry.slice()
-        : Array.from({ length: N }, () => 0);
-    let bestError = currentEntry ? totalActualError : Infinity;
+    const shortlist = new AppearanceShortlist(windowRuns.filter((run) => run.startLayerIdx <= maxAffectedLayer).length);
+    const regionalShortlists = pixels.map((pixel) => new AppearanceShortlist(
+        windowRuns.filter((run) => run.startLayerIdx <= pixel.layerIdx).length
+    ));
 
     for (const combo of windowComboIndices(K, N, comboBudget, currentEntry)) {
         const entry: number[] = new Array(N);
@@ -657,8 +701,11 @@ function findConsensusCombo(
                 const bucket = pixelsAtLayer.get(i);
                 if (bucket) {
                     const cLab = rgbToLab(state.color);
-                    for (const pxIdx of bucket)
-                        comboError += deltaELab(targetLab[pxIdx], cLab) * pixels[pxIdx].count;
+                    for (const pxIdx of bucket) {
+                        const error = deltaELab(targetLab[pxIdx], cLab);
+                        comboError += error * pixels[pxIdx].count;
+                        regionalShortlists[pxIdx].add(entry, error);
+                    }
                 }
             }
         }
@@ -667,18 +714,39 @@ function findConsensusCombo(
             const bucket = pixelsAtLayer.get(i);
             if (bucket) {
                 const cLab = rgbToLab(state.color);
-                for (const pxIdx of bucket)
-                    comboError += deltaELab(targetLab[pxIdx], cLab) * pixels[pxIdx].count;
+                for (const pxIdx of bucket) {
+                    const error = deltaELab(targetLab[pxIdx], cLab);
+                    comboError += error * pixels[pxIdx].count;
+                    regionalShortlists[pxIdx].add(entry, error);
+                }
             }
         }
 
-        if (comboError < bestError) { bestError = comboError; bestEntry = entry; }
+        shortlist.add(entry, comboError);
     }
+
+    const score = (entry: number[]) => appearanceErrors(
+        layers, pixels, appearanceModel, windowRuns, windowFilaments, entry
+    ).reduce((sum, error, p) => sum + (pixels[p].layerIdx >= wStart ? error * pixels[p].count : 0), 0);
+    let bestEntry = currentEntry.slice();
+    let bestError = score(bestEntry);
+    for (const candidate of shortlist.entries) {
+        const error = score(candidate.entry);
+        if (error < bestError) { bestError = error; bestEntry = candidate.entry; }
+    }
+    // Windows route regions independently. A useful window need not improve
+    // one global ordering; rank its realizable per-region opportunities.
+    const regional = rerankAssignments(regionalShortlists, layers, pixels, appearanceModel,
+        windowRuns, windowFilaments, currentEntry);
+    bestError = regional.errors.reduce((sum, error, p) => sum + (
+        pixels[p].layerIdx >= wStart ? error * pixels[p].count : 0
+    ), 0);
 
     return {
         entry: bestEntry,
         errorFactor: Math.max(0, totalActualError - bestError),
         affectedCount,
+        regional,
     };
 }
 
@@ -718,29 +786,10 @@ function applyComboToLayers(
 // Full pipeline
 // ---------------------------------------------------------------------------
 
-/**
- * Result of the color-first full pipeline.
- *
- * `colorAssignments[i]` maps every input swatch hex directly to its optimal
- * N-slot filament assignment for `windows[i]`.  No LUT indirection needed.
- *
- * Renderer lookup:
- *   windows[i].filamentIds[ colorAssignments[i].get(hex)![slotIndex] ]
- *   → filament ID for a pixel of color `hex` at run slot `slotIndex` in window i.
- *
- * Colors absent from the map fall below that window's start layer.
- */
+/** Physical routing and schedule produced by the run-based search. */
 export interface ColorFirstResult {
     /** Windows selected by the iterative consensus loop, in application order. */
     windows: WindowResult[];
-    /**
-     * One map per selected window.  Key: swatch hex string.
-     * Value: number[] of length N — the optimal filament index (into
-     * windows[i].filamentIds) for each run slot.
-     */
-    colorAssignments: Map<string, number[]>[];
-    /** Number of unique printer layers the input swatches collapsed to. */
-    uniqueLayerCount: number;
     /**
      * The full printer-layer stack after all window reorderings have been
      * applied.  Each entry's filamentIdx, filamentRgb, and td reflect the
@@ -765,8 +814,8 @@ export interface ColorFirstResult {
     colorPrintTopLayers?: Map<string, number>;
     /**
      * Unique filament IDs required by final printable color paths in each window.
-     * These slots index nozzleAssignments, independently of colorAssignments,
-     * which continues to index windows[w].filamentIds (the original unique set).
+     * These slots index nozzleAssignments; windows[w].filamentIds retains the
+     * original candidate set used by the search.
      */
     windowRunFilaments: string[][];
     /**
@@ -893,14 +942,7 @@ export function optimizeNozzleAssignments(
     return result;
 }
 
-/**
- * Full color-first analysis pipeline — analogue of runMultiHeadLayerAnalysis.
- *
- * Instead of a per-swatch pixelOptimalLUTIdx array, the result carries one
- * Map<hex, lutIdx> per selected window so any downstream renderer can resolve
- * a pixel color directly to the optimal filament sequence without needing to
- * maintain a swatch-index mapping.
- */
+/** Select non-overlapping windows, then reconcile each group's realized path. */
 export function runMultiHeadLayerAnalysisColorFirst(
     filaments: Filament[],
     result: AutoPaintResult,
@@ -915,7 +957,7 @@ export function runMultiHeadLayerAnalysisColorFirst(
 ): ColorFirstResult {
     const N = Math.min(n, filaments.length, MAX_MULTI_HEAD_HEADS);
     const comboBudget = COMBO_BUDGET_BY_DEPTH[searchDepth];
-    const empty: ColorFirstResult = { windows: [], colorAssignments: [], uniqueLayerCount: 0, patchedLayers: [], colorLayerFilaments: new Map(), windowRunFilaments: [], nozzleAssignments: [], preWindowFilaments: [], nonWindowedRanges: [] };
+    const empty: ColorFirstResult = { windows: [], patchedLayers: [], colorLayerFilaments: new Map(), windowRunFilaments: [], nozzleAssignments: [], preWindowFilaments: [], nonWindowedRanges: [] };
 
     if (N < 2 || result.transitionZones.length === 0 || imageSwatches.length === 0) {
         console.log('[MultiHead ColorFirst] Insufficient data (need ≥2 filaments and image swatches).');
@@ -940,6 +982,7 @@ export function runMultiHeadLayerAnalysisColorFirst(
     }
     const effectiveOptics = result.finalStack.appearanceModel.effectiveOptics;
     const model = effectiveOptics?.filaments.length ? effectiveOptics : createPriorEffectiveOpticsModel(filaments);
+    const appearanceModel = { ...result.finalStack.appearanceModel, effectiveOptics: model };
 
     // Color groups are fixed (derived from image content, not the stack).
     const initialColorAtLayer = buildColorStack(layers);
@@ -972,11 +1015,20 @@ export function runMultiHeadLayerAnalysisColorFirst(
         }
     }
 
+    // Preserve regional priorities and the original targets within each group.
+    // A centroid is only a cheap broad-search proxy for weighted CIEDE2000.
+    for (const pixel of pixels) pixel.targets = [];
+    for (const swatch of imageSwatches) {
+        const group = hexToGroupIdx.get(swatch.hex);
+        if (group !== undefined) pixels[group].targets!.push({
+            lab: rgbToLab(hexToRgb(swatch.hex)), count: swatch.count ?? 1,
+        });
+    }
+
     const selectedWindows: WindowResult[] = [];
-    const selectedAssignments: Map<string, number[]>[] = [];
     // Per selected window: the run decomposition + unique filament indices, used
     // after the loop to build the per-colour filament-per-layer map.
-    const windowRunInfo: { runs: ColorRun[]; uniqueIndices: number[] }[] = [];
+    const windowRunInfo: { runs: ColorRun[]; uniqueIndices: number[]; assignmentCache: AssignmentCache[] }[] = [];
     // Layers already claimed by a selected window — windows must not overlap so
     // that each layer has exactly one per-colour assignment source.
     const layerUsed: boolean[] = new Array(layers.length).fill(false);
@@ -1004,18 +1056,19 @@ export function runMultiHeadLayerAnalysisColorFirst(
         // Rebuild the blended color stack from the (possibly patched) layers.
         const colorAtLayer = buildColorStack(layers);
 
-        // Refresh each pixel's actual error against the current stack.
+        // Refresh full-model errors against this realizable consensus stack.
+        const errors = appearanceErrors(layers, pixels, appearanceModel);
         for (let pxIdx = 0; pxIdx < pixels.length; pxIdx++) {
-            pixels[pxIdx].actualErr = deltaE(pixels[pxIdx].targetRgb, colorAtLayer[pixels[pxIdx].layerIdx]);
+            pixels[pxIdx].actualErr = errors[pxIdx];
         }
 
-        // Scan every candidate windowSize-run window and find the one whose
-        // consensus optimal ordering yields the greatest aggregate improvement.
+        // Select the window with the greatest full-model regional opportunity.
         let bestWindowRuns: ColorRun[] | null = null;
         let bestUniqueIndices: number[] | null = null;
         let bestEntry: number[] | null = null;
         let bestErrorFactor = MIN_IMPROVEMENT;
         let bestAffectedCount = 0;
+        let bestRegional: ReturnType<typeof rerankAssignments> | null = null;
 
         for (let rStart = 0; rStart + windowSize <= runs.length; rStart++) {
             const windowRuns = runs.slice(rStart, rStart + windowSize);
@@ -1045,9 +1098,9 @@ export function runMultiHeadLayerAnalysisColorFirst(
                 (r) => uniqueIndices.indexOf(layers[r.startLayerIdx].filamentIdx)
             );
 
-            const { entry, errorFactor, affectedCount } = findConsensusCombo(
+            const { entry, errorFactor, affectedCount, regional } = findWindowCandidate(
                 windowRuns, wEnd, layers, colorAtLayer[wStart - 1], windowFilaments, pixels,
-                comboBudget, currentEntry, model
+                comboBudget, currentEntry, model, appearanceModel
             );
 
             if (errorFactor > bestErrorFactor) {
@@ -1056,10 +1109,11 @@ export function runMultiHeadLayerAnalysisColorFirst(
                 bestEntry = entry;
                 bestErrorFactor = errorFactor;
                 bestAffectedCount = affectedCount;
+                bestRegional = regional;
             }
         }
 
-        if (!bestWindowRuns || !bestEntry || !bestUniqueIndices) break;
+        if (!bestWindowRuns || !bestEntry || !bestUniqueIndices || !bestRegional) break;
 
         const wStart = bestWindowRuns[0].startLayerIdx;
         const wEnd = bestWindowRuns[windowSize - 1].endLayerIdx;
@@ -1075,9 +1129,17 @@ export function runMultiHeadLayerAnalysisColorFirst(
             filamentIds: bestUniqueIndices.map((fi) => filaments[fi]?.id ?? `f${fi}`),
             affectedSwatches: bestAffectedCount,
             errorFactor: bestErrorFactor,
-            lut: [],
-            pixelOptimalLUTIdx: [],
         };
+
+        // Keep fully scored regional choices for unchanged physical contexts.
+        const assignmentCache = pixels.map((pixel, p) => {
+            const cache: AssignmentCache = new Map();
+            const entry = bestRegional.assignments[p];
+            if (entry) cache.set(windowContext(layers, pixel.layerIdx, bestWindowRuns), {
+                entry, error: bestRegional.errors[p],
+            });
+            return cache;
+        });
 
         // Patch the layer stack with the consensus ordering so the next
         // iteration's base (and any non-window layers) stay a single realisable
@@ -1088,7 +1150,7 @@ export function runMultiHeadLayerAnalysisColorFirst(
         for (let i = wStart; i <= wEnd; i++) layerUsed[i] = true;
 
         selectedWindows.push(w);
-        windowRunInfo.push({ runs: bestWindowRuns, uniqueIndices: bestUniqueIndices });
+        windowRunInfo.push({ runs: bestWindowRuns, uniqueIndices: bestUniqueIndices, assignmentCache });
 
         console.log(
             `  ★ iter ${iter + 1}  W[${String(wStart).padStart(3)}–${String(wEnd).padStart(3)}]` +
@@ -1112,8 +1174,7 @@ export function runMultiHeadLayerAnalysisColorFirst(
     const sortedByStart = Array.from({ length: selectedWindows.length }, (_, i) => i)
         .sort((a, b) => selectedWindows[a].windowStart - selectedWindows[b].windowStart);
     const groupSequences: number[][] = [];
-    const groupAssignments: number[][][] = [];
-    for (const pixel of pixels) {
+    for (const [p, pixel] of pixels.entries()) {
         const realized = originalLayers.slice();
         const entries = windowRunInfo.map(({ runs, uniqueIndices }) =>
             runs.map((run) => uniqueIndices.indexOf(originalLayers[run.startLayerIdx].filamentIdx))
@@ -1121,7 +1182,7 @@ export function runMultiHeadLayerAnalysisColorFirst(
         for (let pass = 0; pass < 4; pass++) {
             let changed = false;
             for (const wi of sortedByStart) {
-                const { runs: wRuns, uniqueIndices } = windowRunInfo[wi];
+                const { runs: wRuns, uniqueIndices, assignmentCache } = windowRunInfo[wi];
                 const wStart = wRuns[0].startLayerIdx;
                 if (pixel.layerIdx < wStart) continue;
                 const colors = buildColorStack(realized);
@@ -1131,12 +1192,20 @@ export function runMultiHeadLayerAnalysisColorFirst(
                     rgb: hexToRgb(filaments[fi]?.color ?? '#000000'),
                     td: channelHds(filaments[fi] ?? FALLBACK_FILAMENT),
                 }));
-                const { assignments } = computeColorOptimalAssignments(
-                    wRuns, wRuns[wRuns.length - 1].endLayerIdx, realized, colors[wStart - 1],
-                    windowFilaments, [{ ...pixel, actualErr: deltaE(pixel.targetRgb, colors[pixel.layerIdx]) }],
-                    comboBudget, entries[wi], model
-                );
-                const entry = assignments[0]!;
+                const actualErr = appearanceErrors(realized, [pixel], appearanceModel)[0];
+                const context = windowContext(realized, pixel.layerIdx, wRuns);
+                let cached = assignmentCache[p].get(context);
+                if (!cached) {
+                    const { assignments } = computeColorOptimalAssignments(
+                        wRuns, wRuns[wRuns.length - 1].endLayerIdx, realized, colors[wStart - 1],
+                        windowFilaments, [{ ...pixel, actualErr }], comboBudget, entries[wi], model, appearanceModel
+                    );
+                    const entry = assignments[0]!;
+                    cached = { entry, error: appearanceErrors(realized, [pixel], appearanceModel,
+                        wRuns, windowFilaments, entry)[0] };
+                    assignmentCache[p].set(context, cached);
+                }
+                const entry = cached.error < actualErr ? cached.entry : entries[wi];
                 if (entry.some((slot, r) => slot !== entries[wi][r])) {
                     applyComboToLayers(realized, wRuns, entry, uniqueIndices, filaments, model);
                     entries[wi] = entry;
@@ -1152,16 +1221,6 @@ export function runMultiHeadLayerAnalysisColorFirst(
             for (let i = w.windowStart; i <= w.windowEnd; i++) seq[i] = realized[i].filamentIdx;
         }
         groupSequences.push(seq);
-        groupAssignments.push(entries);
-    }
-    for (let wi = 0; wi < selectedWindows.length; wi++) {
-        const colorMap = new Map<string, number[]>();
-        for (const [hex, groupIdx] of hexToGroupIdx) {
-            if (pixels[groupIdx].layerIdx >= selectedWindows[wi].windowStart) {
-                colorMap.set(hex, groupAssignments[groupIdx][wi]);
-            }
-        }
-        selectedAssignments.push(colorMap);
     }
     for (const [hex, groupIdx] of hexToGroupIdx) {
         colorLayerFilaments.set(hex, groupSequences[groupIdx]);
@@ -1332,8 +1391,6 @@ export function runMultiHeadLayerAnalysisColorFirst(
 
     return {
         windows: selectedWindows,
-        colorAssignments: selectedAssignments,
-        uniqueLayerCount: pixels.length,
         patchedLayers: layers.slice(),
         colorLayerFilaments,
         ...(heightDithering && ditherContext ? { colorPrintTopLayers: colorTopLayers } : {}),

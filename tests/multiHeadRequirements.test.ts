@@ -192,7 +192,8 @@ test('reconciled windows do not schedule a filament that no color prints', () =>
     assert.equal(legacy[1].startLayer, 2);
     assert.deepEqual(analysis.windowRunFilaments, [['white']]);
     assert.deepEqual(analysis.windows[0].filamentIds, ['unused-red', 'white']);
-    assert.deepEqual(analysis.colorAssignments[0].get(swatches[0].hex), [1, 1]);
+    assert.deepEqual(analysis.colorLayerFilaments.get(swatches[0].hex)!.slice(1).map((fi) =>
+        analysis.windows[0].filamentIds.indexOf(filaments[fi].id)), [1, 1]);
     assert.deepEqual(analysis.nozzleAssignments, [[-1, 0]], 'nozzle slots index the pruned list');
     assert.ok(
         schedule.every((event) => event.nozzles.every((head) => head.filamentId !== 'unused-red'))
@@ -237,7 +238,7 @@ test('colors below a phase and unprinted path suffixes do not require filament l
         'retain complete paths, including their unused red suffix'
     );
     assert.deepEqual(analysis.windowRunFilaments, [['white']]);
-    assert.equal(analysis.colorAssignments[0].has('#101010'), false);
+    assert.equal(analysis.colorLayerFilaments.get('#101010')![0], 0, 'the low region keeps its printed foundation');
     assert.deepEqual(
         analysis.nonWindowedRanges.map((r) => [r.rangeStart, r.rangeEnd]),
         [
@@ -356,7 +357,7 @@ test('height dithering retains a required upper neighbor without moving the sear
         true
     );
     assert.deepEqual(plain.colorLayerFilaments, dithered.colorLayerFilaments);
-    assert.deepEqual(plain.colorAssignments, dithered.colorAssignments);
+    assert.deepEqual(plain.windows, dithered.windows);
     assert.deepEqual(plain.windowRunFilaments, [['white']]);
     assert.deepEqual(dithered.windowRunFilaments, [['unused-red', 'white']]);
     const tops = [0.25, 0.5, 0.75];

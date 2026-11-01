@@ -93,8 +93,6 @@ export function multiHeadFixture(firstLayerHeight = 0.2) {
             { rangeStart: 7, rangeEnd: 7, nozzleFilaments: ['A', 'C', ''] },
         ],
         preWindowFilaments: ['A'],
-        colorAssignments: [],
-        uniqueLayerCount: 2,
     };
     return { state, result, colors, layers };
 }

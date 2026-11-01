@@ -4,12 +4,10 @@ import test from 'node:test';
 import { loadViteModule } from './helpers/viteModule.ts';
 import { readPngFixture, testAssetsRoot } from './imageFixtures.ts';
 import type { PrinterLayer } from '../src/lib/multiHeadAnalysis.ts';
-import type { Filament } from '../src/types/index.ts';
+import type { ThreeDControlsStateShape } from '../src/types/index.ts';
 import { buildMultiHeadSchedule } from '../src/lib/multiHeadSchedule.ts';
 
-// Measure both grouping modes on the final printable grid with calibrated
-// filaments. The optimizer minimizes CIE76; a lower CIEDE2000 error at every
-// head count is not guaranteed by that objective or by color grouping.
+// Real Palette Proof and Matrix evidence, both grouping modes, original surfaces.
 
 const autoPaint =
     await loadViteModule<typeof import('../src/lib/autoPaint.ts')>('/src/lib/autoPaint.ts');
@@ -26,9 +24,11 @@ const { buildPerColorLayerColors } = await loadViteModule<
 const { deltaE2000 } = await loadViteModule<typeof import('../src/lib/colorDifference.ts')>(
     '/src/lib/colorDifference.ts'
 );
+const { multiHeadBuildSnapshot, getMultiHeadRoutingPlan, MIN_MULTI_HEAD_PREDICTED_GAIN } =
+    await loadViteModule<typeof import('../src/lib/multiHeadBuild.ts')>('/src/lib/multiHeadBuild.ts');
 
-const LAYER_HEIGHT = 0.12;
-const FIRST_LAYER_HEIGHT = 0.2;
+const LAYER_HEIGHT = 0.08;
+const FIRST_LAYER_HEIGHT = 0.4;
 const PALETTE_SIZE = 64;
 const HEAD_COUNTS = [2, 3, 4];
 
@@ -62,11 +62,21 @@ function paletteFromImage(path: string): Array<{ hex: string; count: number }> {
 }
 
 const colors = paletteFromImage(`${testAssetsRoot}/rocco__source.png`);
-const profile = JSON.parse(
-    readFileSync(`${testAssetsRoot}/filament-profiles/8_Colors_Calibrated_Frontlit.kfil`, 'utf8')
-) as { filaments: Filament[] };
+const { fitAppearanceRankModel } = await loadViteModule<typeof import('../src/lib/appearanceModel.ts')>('/src/lib/appearanceModel.ts');
+const { fingerprintAppearanceFilaments } = await loadViteModule<typeof import('../src/lib/appearanceProfile.ts')>('/src/lib/appearanceProfile.ts');
+const { parseProfileFile, importProfiles } = await loadViteModule<typeof import('../src/lib/profileManager.ts')>('/src/lib/profileManager.ts');
+const parsed = parseProfileFile(readFileSync(`${testAssetsRoot}/performance/8-colors-frontlit-2026-08-26/profile.kfil`, 'utf8'));
+assert.ok(parsed);
+const profile = importProfiles([], parsed).imported[0];
 const filaments = profile.filaments;
-const result = autoPaint.generateAutoLayers(filaments, colors, LAYER_HEIGHT, FIRST_LAYER_HEIGHT);
+const appearance = fitAppearanceRankModel(profile.appearance, {
+    filamentProfileFingerprint: fingerprintAppearanceFilaments(filaments),
+    layerHeight: LAYER_HEIGHT, firstLayerHeight: FIRST_LAYER_HEIGHT, transitionOpacity: 0.9, filaments,
+});
+assert.equal(profile.appearance?.proofs.length, 26);
+assert.equal(profile.appearance?.stackMatrices?.length, 1);
+const result = autoPaint.generateAutoLayers(filaments, colors, LAYER_HEIGHT, FIRST_LAYER_HEIGHT,
+    undefined, false, false, undefined, appearance);
 const layers = expandZonesToPrinterLayers(result, filaments, LAYER_HEIGHT, FIRST_LAYER_HEIGHT);
 const totalCount = colors.reduce((sum, c) => sum + c.count, 0);
 
@@ -86,27 +96,24 @@ function measure(patched: {
                   patched.patchedLayers,
                   patched.colorLayerFilaments,
                   filaments,
-                  result.finalStack.appearanceModel.effectiveOptics
+                  result.finalStack.appearanceModel.effectiveOptics, result.finalStack.appearanceModel
               )
             : null;
     const printed = new Set<string>();
     let weighted = 0;
-    let weightedSearchError = 0;
     const pixels = buildPixelData(colors, layers, baseStack, result.finalStack);
     for (let i = 0; i < colors.length; i++) {
         const c = colors[i];
         const { targetRgb: rgb, layerIdx } = pixels[i];
         const printedHex =
-            perColor?.get(c.hex)?.[layerIdx] ?? autoPaint.rgbToHex(baseStack[layerIdx]);
+            perColor?.get(c.hex)?.[layerIdx] ?? result.finalStack.layers[layerIdx].predictedColor.hex;
         const printedRgb = autoPaint.hexToRgb(printedHex);
         printed.add(printedHex);
         weighted +=
             deltaE2000([rgb.r, rgb.g, rgb.b], [printedRgb.r, printedRgb.g, printedRgb.b]) * c.count;
-        weightedSearchError += autoPaint.deltaE(rgb, printedRgb) * c.count;
     }
     return {
         meanDeltaE: weighted / totalCount,
-        meanSearchError: weightedSearchError / totalCount,
         distinctColors: printed.size,
     };
 }
@@ -115,68 +122,75 @@ const baseline = measure({ patchedLayers: [], colorLayerFilaments: new Map() });
 const byHeads = HEAD_COUNTS.map((heads) => {
     const run = (mode: 'luminance' | 'color') => {
         const analysis = runMultiHeadLayerAnalysisColorFirst(
-            filaments,
-            result,
-            colors,
-            LAYER_HEIGHT,
-            FIRST_LAYER_HEIGHT,
-            heads,
-            'balanced',
-            mode
-        );
+                filaments,
+                result,
+                colors,
+                LAYER_HEIGHT,
+                FIRST_LAYER_HEIGHT,
+                heads,
+                'balanced',
+                mode
+            );
         const schedule = buildMultiHeadSchedule({
             ...analysis, multiHeadWindows: analysis.windows, filaments,
         });
-        test(`rocco: ${mode}, ${heads} heads covers every printed layer with a loaded filament`, () => {
+        test(`rocco: ${mode}, ${heads} heads schedules exactly the printed window requirements`, () => {
             assert.ok(schedule?.length, 'fixture must produce routed analysis');
             const pixels = buildPixelData(colors, layers, buildColorStack(layers), result.finalStack);
+            const required = analysis.windows.map(() => new Set<string>());
             for (let p = 0; p < colors.length; p++) {
                 const path = analysis.colorLayerFilaments.get(colors[p].hex)!;
                 for (let l = 0; l <= pixels[p].layerIdx; l++) {
+                    const id = filaments[path[l]].id;
                     const event = schedule.findLast((event) => event.startLayer <= l + 1)!;
-                    assert.ok(event.nozzles.some((head) => head.filamentId === filaments[path[l]].id),
-                        `${colors[p].hex}, layer ${l}: filament ${filaments[path[l]].id} is unloaded`);
+                    assert.ok(event.nozzles.some((head) => head.filamentId === id),
+                        `${colors[p].hex}, layer ${l}: filament ${id} is unloaded`);
+                    const wi = analysis.windows.findIndex((w) => l >= w.windowStart && l <= w.windowEnd);
+                    if (wi >= 0) required[wi].add(id);
                 }
             }
+            for (let wi = 0; wi < analysis.windows.length; wi++) {
+                assert.deepEqual(new Set(analysis.windowRunFilaments[wi]), required[wi],
+                    'do not schedule abandoned filaments or unprinted path suffixes');
+            }
         });
-        return {
-            ...measure(analysis),
-            swapCount: schedule?.reduce((sum, event) => sum + event.swapCount, 0) ?? 0,
-        };
+        const original = layers.map((layer) => layer.filamentIdx);
+        for (const path of analysis.colorLayerFilaments.values()) {
+            for (let i = 0; i < layers.length && layers[i].isFoundation; i++) {
+                assert.equal(path[i], original[i], 'required opaque foundation stays fixed');
+            }
+        }
+        const built = multiHeadBuildSnapshot({
+            multiHeadMode: true, multiHeadCount: heads, paintMode: 'autopaint',
+            autoPaintResult: result, filaments, layerHeight: LAYER_HEIGHT,
+            slicerFirstLayerHeight: FIRST_LAYER_HEIGHT,
+        } as ThreeDControlsStateShape, analysis);
+        if (built.multiHeadMode) assert.ok(getMultiHeadRoutingPlan(built), 'improving paths must use the physical head schedule');
+        return { ...measure(analysis), fallback: !built.multiHeadMode,
+            swapCount: schedule?.reduce((sum, event) => sum + event.swapCount, 0) ?? 0 };
     };
     return { heads, luminance: run('luminance'), color: run('color') };
 });
 
 for (const { heads, luminance, color } of byHeads) {
-    test(`rocco: pruning requirements does not increase total swaps at ${heads} heads`, () => {
-        // Recorded from merged develop (3ede317), in both grouping modes.
-        const previousSwaps = { 2: 6, 3: 5, 4: 4 }[heads]!;
-        assert.ok(luminance.swapCount <= previousSwaps);
-        assert.ok(color.swapCount <= previousSwaps);
+    test(`rocco: calibrated gains clear the unchanged build gate at ${heads} heads`, () => {
+        assert.equal(MIN_MULTI_HEAD_PREDICTED_GAIN, 0.25);
+        assert.equal(color.fallback, false, 'color-based gain should clear the gate');
+        assert.equal(luminance.fallback, heads === 2, 'keep the small two-head layer-based gain as a safe fallback');
+        if (heads >= 3) {
+            assert.ok(baseline.meanDeltaE - luminance.meanDeltaE > 1);
+            assert.ok(baseline.meanDeltaE - color.meanDeltaE > 1.5);
+        }
     });
-
-    test(`rocco: color grouping improves the search objective at ${heads} heads`, () => {
-        assert.ok(
-            color.meanSearchError < luminance.meanSearchError,
-            `mean CIE76 color ${color.meanSearchError.toFixed(2)} should be below luminance ${luminance.meanSearchError.toFixed(2)}`
-        );
-        assert.ok(
-            color.distinctColors > luminance.distinctColors,
-            `distinct printed colors color ${color.distinctColors} should exceed luminance ${luminance.distinctColors}`
-        );
-    });
-
     test(`rocco: color grouping is no worse than single-head printing at ${heads} heads`, () => {
         assert.ok(color.meanDeltaE <= baseline.meanDeltaE);
         assert.ok(color.distinctColors >= baseline.distinctColors);
     });
 
     test(`rocco: layer-based grouping is no worse than single-head printing at ${heads} heads`, () => {
-        // Per-color colors must be rendered with the optics the analysis scores;
-        // otherwise adding heads can measure worse than one head.
         assert.ok(
-            luminance.meanSearchError <= baseline.meanSearchError,
-            `mean CIE76 ${luminance.meanSearchError.toFixed(2)} should not exceed single-head ${baseline.meanSearchError.toFixed(2)}`
+            luminance.meanDeltaE <= baseline.meanDeltaE,
+            `mean CIEDE2000 ${luminance.meanDeltaE.toFixed(2)} should not exceed single-head ${baseline.meanDeltaE.toFixed(2)}`
         );
     });
 }

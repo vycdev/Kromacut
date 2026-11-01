@@ -1,0 +1,52 @@
+{
+  "measuredAt": "2026-11-01T09:52:22.375Z",
+  "revision": "3ede3177f231d1ae566ff8afb1313f772f50889e",
+  "analysisRef": "3ede3177f231d1ae566ff8afb1313f772f50889e",
+  "shortlistSize": null,
+  "analysisSha256": "bc55edb6cfb8a500e5c3edfd25ee93c66c4cc90582a7eb8bf72f6a09e3f857ff",
+  "inputSha256": "5b85a3af7d84112ea067953247d02507bc5e13df0d8ae208635403a76668712d",
+  "machine": {
+    "node": "v24.19.0",
+    "platform": "win32",
+    "cpu": "AMD Ryzen 9 5950X 16-Core Processor            "
+  },
+  "cases": [
+    {
+      "name": "cats",
+      "colors": 128,
+      "layerHeight": 0.08,
+      "firstLayerHeight": 0.4,
+      "layers": 70,
+      "runs": 12,
+      "occupiedSurfaces": 56,
+      "finalStackFingerprint": "final-stack-v1-9684249d4a77bb3c"
+    },
+    {
+      "name": "rocco",
+      "colors": 64,
+      "layerHeight": 0.08,
+      "firstLayerHeight": 0.4,
+      "layers": 41,
+      "runs": 8,
+      "occupiedSurfaces": 7,
+      "finalStackFingerprint": "final-stack-v1-8efddb6a6515bd5e"
+    }
+  ],
+  "depth": "balanced",
+  "threshold": 0.25,
+  "rows": [
+    {
+      "case": "rocco",
+      "mode": "color",
+      "heads": 8,
+      "analysisMs": 306559.504,
+      "previewMs": 48.508000000030734,
+      "buildMs": 25.29889999999432,
+      "totalBuildMs": 306584.8029,
+      "predictedGain": 3.5543211659894096,
+      "fallback": false,
+      "windows": 1,
+      "pathSha256": "e357e8f51f0af240e23a838e398e2e9c8464783b41feb028a0bb0d87b32b6a74"
+    }
+  ]
+}
