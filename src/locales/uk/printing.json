@@ -401,7 +401,7 @@
     "readingImageLayers": "Читання колірних шарів зображення",
     "buildingLayer": "Побудова колірного шару {{layer}} із {{total}}",
     "layerProgress": "Шар {{layer}} із {{total}}: {{label}}",
-    "flatPaintPartProgress": "??????? ????? Flat Paint {{part}} ?? {{total}}: {{label}}",
+    "flatPaintPartProgress": "Частина сітки Flat Paint {{part}} із {{total}}: {{label}}",
     "partMeshComplete": "Сітку частини завершено",
     "selectingPixels": "Вибір активних пікселів",
     "preparingPreview": "Підготовка геометрії перегляду",

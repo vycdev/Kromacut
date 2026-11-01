@@ -164,6 +164,8 @@ Ansichtsmodus und Auswahl simuliert/physisch werden gespeichert. **Vorschaufarbe
 
 Ziehe die unteren und oberen Griffe der unteren Leiste, um einen Höhenbereich einzeln zu betrachten. Positionen rasten am Schichtraster ein. Fahre über Materialsegmente, um Start- oder Wechselinformationen zu sehen.
 
+Fokussiere einen Griff und bewege ihn mit den Pfeiltasten um jeweils eine gedruckte Schicht. Umschalt+Pfeil oder Bild auf/ab bewegt ihn um zehn Schichten; Pos1/Ende springt zur Bereichsgrenze. Die Griffe können sich nicht kreuzen.
+
 ![Begrenzungsgriffe blenden Schichten zur Prüfung aus; der Export enthält weiterhin das vollständige Modell.](19_preview_only.svg)
 
 _Schematische Darstellung. Das Ausblenden einer Schicht am Bildschirm löscht sie niemals aus dem Export._

@@ -70,7 +70,7 @@ Os perfis são separados deste estado. Use-os para conjuntos nomeados que possa 
 
 ## Ficheiros de paleta
 
-Paletas personalizadas destinam-se à redução 2D e usam `.kpal`.
+Paletas personalizadas destinam-se à redução 2D e usam `.kpal`. Na aplicação para computador, a exportação da paleta abre **Guardar como**. Escolha uma localização com permissão de escrita ou cancele para continuar a trabalhar. No navegador é utilizada a transferência habitual.
 
 A versão 2 acrescenta campos opcionais `disabledColors` (cores guardadas mas excluídas) e `colorNames` (nomes por cor). Ambos sobrevivem a exportação/importação. Ficheiros v1 carregam sem alterações, com todas as cores ativas e sem nome; um v2 aberto num Kromacut antigo trata todas como ativas.
 

@@ -730,8 +730,11 @@ function App(): React.ReactElement | null {
                                             accept="image/*"
                                             data-testid="image-file-input"
                                             onChange={(e) => {
-                                                if (e.target.files && e.target.files[0])
-                                                    handleFiles(e.target.files[0]);
+                                                const file = e.currentTarget.files?.[0];
+                                                // Allow choosing this same source again after
+                                                // cropping, resizing, or other image edits.
+                                                e.currentTarget.value = '';
+                                                if (file) handleFiles(file);
                                             }}
                                             className="hidden-file-input"
                                         />
