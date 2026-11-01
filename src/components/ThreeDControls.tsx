@@ -587,6 +587,12 @@ export default function ThreeDControls({
                 n: multiHeadCount,
                 searchDepth: multiHeadSearchDepth,
                 colorMode: multiHeadColorMode,
+                heightDithering: heightDithering && !preserveSeparation,
+                ditherContext: heightDithering && !preserveSeparation && printableFeatureSimulation ? {
+                    pixels: printableFeatureSimulation,
+                    pixelSize,
+                    ditherLineWidth,
+                } : undefined,
             });
             if (!isCurrentBuild()) return;
         }

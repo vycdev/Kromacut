@@ -68,6 +68,7 @@ function fallbackSnapshot() {
         patchedTransitionZones: [],
         perColorLayerColors: new Map([['#112233', ['#ffffff']]]),
         colorLayerFilaments: new Map([['#112233', [1, 0]]]),
+        colorPrintTopLayers: new Map([['#112233', 1]]),
         windowRunFilaments: [['a', 'b']],
         nozzleAssignments: [[1, 0]],
         preWindowFilaments: ['a'],
@@ -85,6 +86,7 @@ test('failed multi-head builds retain the original physical stack and clear prev
         'patchedSliceData',
         'perColorLayerColors',
         'colorLayerFilaments',
+        'colorPrintTopLayers',
         'windowRunFilaments',
         'nozzleAssignments',
         'preWindowFilaments',
@@ -360,12 +362,23 @@ test('multi-head worker cancellation settles old requests and ignores late repli
             n: 2,
             searchDepth: 'balanced' as const,
             colorMode: 'color' as const,
+            heightDithering: true,
+            ditherContext: {
+                pixels: Object.defineProperty({ width: 1, height: 1, data: new Uint8ClampedArray([16, 16, 16, 255]) },
+                    'data', { enumerable: false }),
+                pixelSize: 0.1,
+                ditherLineWidth: 0.4,
+            },
         };
         const result = { windows: [], patchedLayers: [] } as unknown as ColorFirstResult;
         try {
             const old = hook.run(params);
             const oldWorker = FakeWorker.instances.at(-1)!;
             assert.equal(oldWorker.request.colorMode, 'color');
+            assert.equal(oldWorker.request.heightDithering, true);
+            assert.deepEqual(structuredClone(oldWorker.request).ditherContext?.pixels.data,
+                params.ditherContext.pixels.data, 'the concealed source buffer must reach the worker');
+            assert.equal(params.ditherContext.pixels.data.byteLength, 4, 'retain the preview source buffer');
             const latest = hook.run(params);
             assert.equal(await old, null);
             assert.equal(oldWorker.terminated, true);

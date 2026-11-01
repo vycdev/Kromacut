@@ -5,6 +5,7 @@ import { loadViteModule } from './helpers/viteModule.ts';
 import { readPngFixture, testAssetsRoot } from './imageFixtures.ts';
 import type { PrinterLayer } from '../src/lib/multiHeadAnalysis.ts';
 import type { Filament } from '../src/types/index.ts';
+import { buildMultiHeadSchedule } from '../src/lib/multiHeadSchedule.ts';
 
 // Measure both grouping modes on the final printable grid with calibrated
 // filaments. The optimizer minimizes CIE76; a lower CIEDE2000 error at every
@@ -112,23 +113,48 @@ function measure(patched: {
 
 const baseline = measure({ patchedLayers: [], colorLayerFilaments: new Map() });
 const byHeads = HEAD_COUNTS.map((heads) => {
-    const run = (mode: 'luminance' | 'color') =>
-        measure(
-            runMultiHeadLayerAnalysisColorFirst(
-                filaments,
-                result,
-                colors,
-                LAYER_HEIGHT,
-                FIRST_LAYER_HEIGHT,
-                heads,
-                'balanced',
-                mode
-            )
+    const run = (mode: 'luminance' | 'color') => {
+        const analysis = runMultiHeadLayerAnalysisColorFirst(
+            filaments,
+            result,
+            colors,
+            LAYER_HEIGHT,
+            FIRST_LAYER_HEIGHT,
+            heads,
+            'balanced',
+            mode
         );
+        const schedule = buildMultiHeadSchedule({
+            ...analysis, multiHeadWindows: analysis.windows, filaments,
+        });
+        test(`rocco: ${mode}, ${heads} heads covers every printed layer with a loaded filament`, () => {
+            assert.ok(schedule?.length, 'fixture must produce routed analysis');
+            const pixels = buildPixelData(colors, layers, buildColorStack(layers), result.finalStack);
+            for (let p = 0; p < colors.length; p++) {
+                const path = analysis.colorLayerFilaments.get(colors[p].hex)!;
+                for (let l = 0; l <= pixels[p].layerIdx; l++) {
+                    const event = schedule.findLast((event) => event.startLayer <= l + 1)!;
+                    assert.ok(event.nozzles.some((head) => head.filamentId === filaments[path[l]].id),
+                        `${colors[p].hex}, layer ${l}: filament ${filaments[path[l]].id} is unloaded`);
+                }
+            }
+        });
+        return {
+            ...measure(analysis),
+            swapCount: schedule?.reduce((sum, event) => sum + event.swapCount, 0) ?? 0,
+        };
+    };
     return { heads, luminance: run('luminance'), color: run('color') };
 });
 
 for (const { heads, luminance, color } of byHeads) {
+    test(`rocco: pruning requirements does not increase total swaps at ${heads} heads`, () => {
+        // Recorded from merged develop (3ede317), in both grouping modes.
+        const previousSwaps = { 2: 6, 3: 5, 4: 4 }[heads]!;
+        assert.ok(luminance.swapCount <= previousSwaps);
+        assert.ok(color.swapCount <= previousSwaps);
+    });
+
     test(`rocco: color grouping improves the search objective at ${heads} heads`, () => {
         assert.ok(
             color.meanSearchError < luminance.meanSearchError,
