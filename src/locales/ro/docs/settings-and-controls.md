@@ -70,7 +70,7 @@ Profilurile sunt separate de această stare memorată. Folosește profiluri cân
 
 ## Fișiere de paletă
 
-Paletele personalizate sunt pentru reducerea culorilor în 2D. Fișierele de paletă folosesc `.kpal`.
+Paletele personalizate sunt pentru reducerea culorilor în 2D. Fișierele de paletă folosesc `.kpal`. Exportul paletelor în aplicația desktop deschide **Salvare ca**; alegeți o locație în care puteți scrie sau anulați pentru a continua lucrul. În browser se folosește descărcarea obișnuită.
 
 Versiunea 2 a formatului de paletă adaugă două câmpuri opționale: `disabledColors` (culori păstrate în paletă, dar excluse de la cuantizare) și `colorNames` (nume opționale afișate pentru fiecare culoare). Ambele sunt păstrate la export și import. Fișierele versiunii 1 se încarcă neschimbate, cu toate culorile activate și fără nume, iar un fișier v2 deschis într-un Kromacut mai vechi tratează pur și simplu toate culorile ca activate.
 

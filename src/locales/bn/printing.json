@@ -341,7 +341,7 @@
         "readingImageLayers": "ছবির রঙের স্তর পড়া হচ্ছে",
         "buildingLayer": "{{total}}টির মধ্যে রঙের স্তর {{layer}} তৈরি হচ্ছে",
         "layerProgress": "স্তর {{layer}} / {{total}}: {{label}}",
-        "flatPaintPartProgress": "???? ????????? ??? ??? {{part}} / {{total}}: {{label}}",
+        "flatPaintPartProgress": "সমতল প্রিন্টের মেশ অংশ {{part}} / {{total}}: {{label}}",
         "partMeshComplete": "অংশের মেশ সম্পূর্ণ",
         "selectingPixels": "সক্রিয় পিক্সেল বাছা হচ্ছে",
         "preparingPreview": "প্রিভিউয়ের জ্যামিতি প্রস্তুত হচ্ছে",

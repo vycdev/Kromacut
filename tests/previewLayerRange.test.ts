@@ -35,6 +35,20 @@ test('physical slider boundaries include a thick first layer, exact top, and no 
     );
 });
 
+test('Float32 relief model tops do not add a phantom physical layer', () => {
+    for (const layers of [268, 269, 536, 1068]) {
+        const top = 0.2 + (layers - 1) * 0.12;
+        // Relief model bounds come from the mesher's Float32 vertex positions.
+        const total = Math.fround(top);
+        const heights = previewLayerHeights(total, 0.12, 0.2);
+        assert.equal(heights.length - 1, layers);
+        assert.equal(heights.at(-1), total, 'retain the exact model top');
+        assert.ok(Math.abs(heights.at(-2)! - (top - 0.12)) < 1e-6);
+    }
+    // An actual partial top layer must still be reachable.
+    assert.equal(previewLayerHeights(Math.fround(32.3), 0.12, 0.2).length - 1, 269);
+});
+
 test('each layer cutoff trims merged Flat Paint slabs while preserving complete export positions', () => {
     const { mesh, original } = slab();
     for (const height of previewLayerHeights(1.6, 0.08, 0.16).slice(1).reverse()) {

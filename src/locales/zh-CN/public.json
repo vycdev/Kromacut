@@ -110,7 +110,7 @@
         "photos_one": "{{count}}张照片",
         "photos_other": "{{count}}张照片",
         "openPhoto": "全尺寸打开{{title}} — {{kind}} {{index}}",
-        "originalArtwork": "原作：<source>{{title}}</source>",
+        "originalArtwork": "原作：<credit>{{title}}</credit>",
         "themeLabel": "主题：{{theme}}"
     },
     "navigation": {

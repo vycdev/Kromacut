@@ -46,10 +46,12 @@
   "files": {
     "save": "Salvează {{format}}",
     "saved": "Salvat în:\n{{path}}",
+    "writeFailed": "Salvarea fișierului nu a putut fi finalizată. Încearcă din nou.",
     "png": "Imagine PNG",
     "stl": "Model STL",
     "threeMf": "Model 3MF",
     "profile": "Profil de filamente",
+    "palette": "Paletă de culori",
     "noImage": "Nicio imagine disponibilă pentru descărcare",
     "imageFailed": "Exportul imaginii a eșuat. Vezi consola pentru detalii.",
     "modelNotReady": "Modelul 3D nu este încă pregătit",
@@ -116,6 +118,7 @@
     "importSaveFailed": "Importul paletei nu a putut fi salvat. Paletele existente au rămas neschimbate; eliberează spațiu în browser și încearcă din nou.",
     "cloned": "Clonată ca „{{name}}”",
     "invalid": "Fișier de paletă invalid",
+    "exportFailed": "Paleta nu a putut fi exportată. Încercați din nou să o salvați.",
     "none": "Nu s-au găsit palete"
   },
   "calibration": {

@@ -387,7 +387,7 @@ function ShowcaseCard({ items }: { items: ShowcaseItem[] }) {
                             i18nKey="landing.originalArtwork"
                             values={{ title: artwork.label }}
                             components={{
-                                source: (
+                                credit: (
                                     <a
                                         href={artwork.href}
                                         target="_blank"

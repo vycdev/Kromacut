@@ -56,6 +56,6 @@ Folosește o imprimantă compatibilă cu mai multe capete. Verifică în slicer 
 
 Dacă analiza eșuează, nu găsește o configurație utilizabilă care îmbunătățește stiva normală sau estimează o îmbunătățire prea mică pentru a justifica schimbările de capete, se construiește un model normal cu un singur cap, cu un mesaj și culoarea de pornire și instrucțiunile de schimbare originale. Încearcă alte filamente, alt număr de capete sau altă profunzime, apoi reconstruiește.
 
-Analiza rulează în fundal. Ieșirea din panoul 3D sau schimbarea imaginii anulează analiza în curs; reconstruiește pentru noua imagine. Instrucțiunile și exporturile descriu modelul construit, așa că reconstruiește pentru a aplica setările modificate.
+Analiza rulează în fundal. Schimbarea imaginii anulează analiza în curs; reconstruiește pentru noua imagine. Instrucțiunile și exporturile descriu modelul construit, așa că reconstruiește pentru a aplica setările modificate.
 
 În continuare: [Generarea și exportul rezultatului](generating-exporting-output).

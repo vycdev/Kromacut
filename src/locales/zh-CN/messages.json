@@ -46,11 +46,13 @@
     "files": {
         "save": "保存{{format}}",
         "saved": "已保存到：\n{{path}}",
+        "writeFailed": "无法完成文件保存。请重试。",
         "png": "PNG 图像",
         "stl": "STL 模型",
         "threeMf": "3MF 模型",
         "profile": "耗材配置",
-        "noImage": "没有可下载的图像",
+        "palette": "调色板",
+    "noImage": "没有可下载的图像",
         "imageFailed": "图像导出失败，请查看控制台了解详情。",
         "modelNotReady": "3D 模型尚未准备好",
         "stlFailed": "STL 导出失败，请查看控制台了解详情。",
@@ -116,7 +118,8 @@
         "importSaveFailed": "无法保存导入的调色板。原有调色板未变，请释放浏览器存储空间后重试。",
         "cloned": "已复制为“{{name}}”",
         "invalid": "无效的调色板文件",
-        "none": "未找到调色板"
+        "exportFailed": "无法导出调色板。请重试保存。",
+    "none": "未找到调色板"
     },
     "calibration": {
         "readRequired": "请至少输入一项不透明度读数。",

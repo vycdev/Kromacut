@@ -463,7 +463,7 @@ function App(): React.ReactElement | null {
     // 3D printing shared state
     const {
         threeDState,
-        setThreeDState,
+        handleThreeDSettingsChange,
         threeDBuildSignal,
         builtThreeDState,
         builtFlatPaint,
@@ -730,8 +730,11 @@ function App(): React.ReactElement | null {
                                             accept="image/*"
                                             data-testid="image-file-input"
                                             onChange={(e) => {
-                                                if (e.target.files && e.target.files[0])
-                                                    handleFiles(e.target.files[0]);
+                                                const file = e.currentTarget.files?.[0];
+                                                // Allow choosing this same source again after
+                                                // cropping, resizing, or other image edits.
+                                                e.currentTarget.value = '';
+                                                if (file) handleFiles(file);
                                             }}
                                             className="hidden-file-input"
                                         />
@@ -891,7 +894,7 @@ function App(): React.ReactElement | null {
                                             onChange={handleThreeDStateChange}
                                             onSettingsChange={(partial) => {
                                                 autoPaintWorkingStateInitializedRef.current = true;
-                                                setThreeDState((prev) => ({ ...prev, ...partial }));
+                                                handleThreeDSettingsChange(partial);
                                             }}
                                             persisted={threeDState}
                                             hasAutoPaintWorkingState={

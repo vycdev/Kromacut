@@ -70,7 +70,7 @@ I profili sono separati dallo stato ricordato. Usali per insiemi nominati da car
 
 ## File di tavolozza
 
-Le tavolozze personalizzate servono per riduzione 2D e usano `.kpal`.
+Le tavolozze personalizzate servono per riduzione 2D e usano `.kpal`. Nell’app desktop, l’esportazione della tavolozza apre **Salva con nome**: scegli una posizione scrivibile oppure annulla per continuare. Nel browser viene usato il normale download.
 
 La versione 2 aggiunge `disabledColors`, colori conservati ma esclusi dalla quantizzazione, e `colorNames`, nomi facoltativi. Entrambi passano da export a import. I v1 si caricano invariati con tutto abilitato e senza nome; un v2 aperto in una vecchia versione considera tutti abilitati.
 

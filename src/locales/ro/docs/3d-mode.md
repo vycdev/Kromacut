@@ -164,6 +164,8 @@ Modul de vizualizare și alegerile simulate/fizice sunt memorate. **Culori de pr
 
 Trage mânerele inferior și superior ale barei de jos pentru a izola un interval de înălțime. Pozițiile se aliniază la grila straturilor. Treci cursorul peste segmentele de material pentru informații despre început sau schimbare.
 
+Selectează un mâner și folosește săgețile pentru a avansa câte un strat imprimat. Shift+săgeată sau Page Up/Down mută zece straturi; Home/End duce la limita intervalului. Mânerele nu se pot intersecta.
+
 ![Mânerele limitelor ascund straturi pentru inspecție, dar exportul conține în continuare modelul complet.](19_preview_only.svg)
 
 _Schemă. Ascunderea unui strat pe ecran nu îl șterge niciodată din export._

@@ -341,7 +341,7 @@
         "readingImageLayers": "चित्र की रंग परतें पढ़ी जा रही हैं",
         "buildingLayer": "{{total}} में से रंग परत {{layer}} बन रही है",
         "layerProgress": "परत {{layer}} / {{total}}: {{label}}",
-        "flatPaintPartProgress": "???? ?????? ??? ??? {{part}} / {{total}}: {{label}}",
+        "flatPaintPartProgress": "समतल प्रिंट मेश भाग {{part}} / {{total}}: {{label}}",
         "partMeshComplete": "भाग का मेश पूरा",
         "selectingPixels": "सक्रिय पिक्सेल चुने जा रहे हैं",
         "preparingPreview": "पूर्वावलोकन ज्यामिति तैयार हो रही है",

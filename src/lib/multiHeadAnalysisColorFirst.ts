@@ -80,9 +80,13 @@ export function buildPixelDataColorFirst(
         const existing = byLayer.get(layerIdx);
         if (existing) {
             const total = existing.count + cnt;
-            existing.r = (existing.r * existing.count + rgb.r * cnt) / total;
-            existing.g = (existing.g * existing.count + rgb.g * cnt) / total;
-            existing.b = (existing.b * existing.count + rgb.b * cnt) / total;
+            // Keep zero-weight groups for routing. Their first finite color is
+            // sufficient until a positive-weight target supplies the centroid.
+            if (total > 0) {
+                existing.r = (existing.r * existing.count + rgb.r * cnt) / total;
+                existing.g = (existing.g * existing.count + rgb.g * cnt) / total;
+                existing.b = (existing.b * existing.count + rgb.b * cnt) / total;
+            }
             existing.count = total;
         } else {
             byLayer.set(layerIdx, { r: rgb.r, g: rgb.g, b: rgb.b, count: cnt });
