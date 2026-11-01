@@ -39,18 +39,21 @@ export function benchmarkEnvironment() {
     };
 }
 
-/** Read historical source into an ignored directory without touching a checkout. */
-export function benchmarkSourceRoot(ref?: string): string {
-    if (!ref) return process.cwd();
+/** Keep an archived source tree paired with the exact commit that produced it. */
+export function prepareBenchmarkSource(ref?: string): { root: string; revision?: string } {
+    if (!ref) return { root: process.cwd() };
+    const revision = execFileSync('git', ['rev-parse', `${ref}^{commit}`], {
+        encoding: 'utf8',
+    }).trim();
     mkdirSync('dist/benchmark-source', { recursive: true });
     const root = mkdtempSync(resolve('dist/benchmark-source/revision-'));
     const archive = resolve(root, 'source.tar');
     writeFileSync(
         archive,
-        execFileSync('git', ['archive', ref, 'src'], { maxBuffer: 64 * 1024 * 1024 })
+        execFileSync('git', ['archive', revision, 'src'], { maxBuffer: 64 * 1024 * 1024 })
     );
     execFileSync('tar', ['-xf', archive, '-C', root]);
-    return root;
+    return { root, revision };
 }
 
 /** Resolve all external provenance before starting an expensive calculation. */
@@ -58,22 +61,21 @@ export function captureOptimizerProvenance(options: {
     fixture: string;
     profile: string;
     sourceImage: string;
-    sourceRef?: string;
+    source?: ReturnType<typeof prepareBenchmarkSource>;
     harnessPath?: string;
 }) {
     const {
         fixture,
         profile,
         sourceImage,
-        sourceRef,
+        source,
         harnessPath = 'tests/benchmark/calibratedOptimizer.ts',
     } = options;
+    const machine = benchmarkEnvironment();
     return {
         provenanceCapturedAt: new Date().toISOString(),
-        machine: benchmarkEnvironment(),
-        sourceRevision: execFileSync('git', ['rev-parse', `${sourceRef ?? 'HEAD'}^{commit}`], {
-            encoding: 'utf8',
-        }).trim(),
+        machine,
+        sourceRevision: source?.revision ?? machine.revision,
         harness: { path: harnessPath, sha256: sha256(readFileSync(harnessPath)) },
         inputs: Object.fromEntries(
             Object.entries({ fixture, profile, sourceImage }).map(([key, file]) => [

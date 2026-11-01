@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { gunzipSync } from 'node:zlib';
+import { runBenchmarkCli } from './helpers/benchmarkCli.ts';
 import type { AutoPaintResult } from '../src/lib/autoPaint.ts';
 import type { Filament } from '../src/types/index.ts';
 
@@ -130,7 +130,7 @@ const scenarios: {
     },
 ];
 for (const scenario of scenarios) {
-    test(`cached preparation ${scenario.error ? 'rejects' : 'accepts'} ${scenario.name}`, () => {
+    test(`cached preparation ${scenario.error ? 'rejects' : 'accepts'} ${scenario.name}`, async () => {
         const directory = mkdtempSync(join(tmpdir(), 'kromacut-cached-evidence-'));
         try {
             const saved = savedEvidence(scenario.asset);
@@ -138,22 +138,14 @@ for (const scenario of scenarios) {
             const source = join(directory, 'evidence.json');
             const output = join(directory, 'cases.json');
             writeFileSync(source, JSON.stringify(saved));
-            const child = spawnSync(
-                process.execPath,
-                [
-                    '--no-warnings',
-                    '--experimental-strip-types',
-                    'tests/benchmark/multiHeadAppearance.ts',
-                    '--prepare',
-                    '--cases',
-                    'cats',
-                    '--calibrated-result',
-                    source,
-                    '--input',
-                    output,
-                ],
-                { encoding: 'utf8', timeout: 30_000 }
-            );
+            const child = await runBenchmarkCli([
+                '--prepare',
+                // The default for a saved cats result must select only cats.
+                '--calibrated-result',
+                source,
+                '--input',
+                output,
+            ]);
             if (scenario.error) {
                 assert.notEqual(child.status, 0);
                 assert.match(child.stderr, scenario.error);

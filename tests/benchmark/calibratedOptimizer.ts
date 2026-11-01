@@ -4,7 +4,7 @@ import { dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { performance } from 'node:perf_hooks';
 import {
-    benchmarkSourceRoot,
+    prepareBenchmarkSource,
     captureOptimizerProvenance,
     measurementSummary,
     persistOptimizerEvidence,
@@ -238,7 +238,8 @@ if (!/^[a-z0-9-]+$/.test(variantName) || !(variantName in VARIANT_OVERRIDES)) {
 const { reportOnly, seedOverride, output, sourceRef, warmups, runs } = parseRunOptions(
     process.argv.slice(4)
 );
-const sourceRoot = benchmarkSourceRoot(sourceRef);
+const selectedSource = prepareBenchmarkSource(sourceRef);
+const sourceRoot = selectedSource.root;
 const fixtureRoot = resolve(
     dirname(fileURLToPath(import.meta.url)),
     '../assets/performance/8-colors-frontlit-2026-08-26'
@@ -296,7 +297,7 @@ const provenance = captureOptimizerProvenance({
     fixture: resolve(fixtureDirectory, 'case.json'),
     profile: resolve(fixtureDirectory, fixture.profile),
     sourceImage: resolve(fixtureDirectory, fixture.sourceImage),
-    sourceRef,
+    source: selectedSource,
 });
 function runOnce(phase: string, sample: number) {
     const optimizerDiagnostics: import('../../src/lib/optimizer.ts').OptimizerDiagnosticEvent[] =

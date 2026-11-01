@@ -147,7 +147,9 @@ fitted model, filament list, ordered swatches, settings, input/result hashes,
 timings, revision, source-diff hash, and machine/Node metadata. Existing evidence
 files cannot be overwritten. `--report-only` bypasses revision-specific golden
 checks while retaining structural and repeated-result assertions. `--source-ref`
-can run historical production source with the same fixture reconstruction.
+can run historical production source with the same fixture reconstruction. The
+ref is resolved once; the archived source and recorded source revision use that
+commit even if the requested branch or tag moves during setup.
 Git metadata and input/harness hashes are captured before fitting/search and
 reused when saving, so later source edits or missing provenance files cannot
 prevent saving a completed result or relabel it with the changed files.
@@ -155,10 +157,10 @@ Choose a new `--output` prefix for each series; known collisions are rejected
 before fitting or optimization. Archived evidence is marked `-text` in Git so
 its byte hashes survive checkout line-ending settings.
 
-The recorded runs used the archived harness. Pre-run provenance capture and
-cached-input consistency checks were strengthened during self-review; these
-setup changes preserve the exact cached input SHA-256 above. The 23 archived
-evidence artifacts and their hashes remain unchanged.
+The recorded runs used the archived harness. Provenance capture, archived-ref
+pinning, cached-input consistency, and case-selection checks were strengthened
+during self-review; these setup changes preserve the exact cached input SHA-256
+above. The 23 archived evidence artifacts and their hashes remain unchanged.
 
 The multi-head preparation can consume a saved calibrated result, verifying its
 result hash, cats palette, measured profile, physical grid, height cap,
@@ -166,6 +168,9 @@ separation settings, repeat budget, and fitted-model context without repeating
 the expensive Exact run. It requires metadata from an uncached Exact search;
 recorded-order audit results and optimizer cache hits cannot be labeled fresh
 Exact input. Contradictory cached settings are rejected before writing the input.
+Saved cats evidence defaults to selecting cats. Unknown preparation names,
+missing option values, and explicitly requested run cases absent from the input
+are rejected before replacing an existing input or report.
 Ordinary `--prepare` continues to reconstruct the frozen #113 order;
 `--prepare --reoptimize --cases cats` explicitly searches again and saves its full
 result before checking expectations. Each multi-head sample is written before
@@ -202,13 +207,17 @@ versions are unchanged and unmeasured by this follow-up.
 
 ## Validation
 
-- `npm test`: 1,067 passed, with zero failures or skips after self-review fixes.
-- Seventeen evidence/CLI regressions passed, covering full-result retention after
+- `npm test`: 1,075 passed, with zero failures or skips and exit code 0 after self-review fixes.
+- Twenty-five evidence/CLI regressions passed, covering full-result retention after
   a failed assertion or missing provenance sources, replacement refusal, swatch
   reconstruction, immutable captured observations/hashes, timing summaries, and
   cached grid/profile/palette/model consistency, genuine uncached Exact metadata,
-  height caps, separation controls, and repeat budgets.
+  height caps, separation controls, repeat budgets, rejected case selections
+  preserving existing inputs/reports, and archived source attribution when refs move.
 - `npm run lint` and `npm run build`: passed after the final CLI changes.
+- CLI regression subprocesses run asynchronously so pending Vite module imports
+  can progress. Blocking launches caused two full-suite attempts to abort on a
+  module-transport timeout; the final validation uses asynchronous launches.
 - All four saved full Exact results pass independent current-golden validation.
   The output-collision check rejected a reused path in 2.34 seconds, before
   fitting/search, and left the existing evidence unchanged.

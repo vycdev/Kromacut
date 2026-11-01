@@ -30,18 +30,32 @@ interface Case {
 const args = process.argv.slice(2);
 function option(name: string, fallback: string): string {
     const i = args.indexOf(name);
-    return i < 0 ? fallback : args[i + 1];
+    if (i < 0) return fallback;
+    const value = args[i + 1];
+    assert.ok(value && !value.startsWith('--'), `${name} requires a value`);
+    return value;
 }
 const inputPath = resolve(option('--input', '.profiles/multi-head/cases.json'));
 const outputPath = resolve(option('--output', '.profiles/multi-head/report.json'));
 const heads = option('--heads', '2,3,4,5,6,7,8').split(',').map(Number);
 const modes = option('--modes', 'luminance,color').split(',') as ('luminance' | 'color')[];
-const names = option('--cases', 'cats,rocco').split(',');
+const calibratedResult = option('--calibrated-result', '');
+assert.ok(
+    !calibratedResult || args.includes('--prepare'),
+    '--calibrated-result requires --prepare'
+);
+const names = option('--cases', calibratedResult ? 'cats' : 'cats,rocco').split(',');
+if (args.includes('--prepare')) {
+    const supported = calibratedResult ? ['cats'] : ['cats', 'rocco'];
+    assert.ok(
+        names.every((name) => supported.includes(name)),
+        `Unknown preparation case; supported: ${supported.join(',')}`
+    );
+}
 const warmups = Number(option('--warmups', '0'));
 const repeats = Number(option('--runs', '1'));
 assert.ok(Number.isInteger(warmups) && warmups >= 0 && warmups <= 20);
 assert.ok(Number.isInteger(repeats) && repeats >= 1 && repeats <= 20);
-const calibratedResult = option('--calibrated-result', '');
 const analysisRef = option('--analysis-ref', '');
 const shortlistSize = Number(option('--shortlist', '32'));
 assert.ok(Number.isInteger(shortlistSize) && shortlistSize > 0 && shortlistSize <= 256);
@@ -412,6 +426,12 @@ if (args.includes('--prepare') && calibratedResult) {
 
 const input = readFileSync(inputPath, 'utf8');
 const cases = JSON.parse(input) as Case[];
+const selectedCases = cases.filter((c) => names.includes(c.name));
+if (args.includes('--cases')) {
+    const missing = names.filter((name) => !cases.some((c) => c.name === name));
+    assert.equal(missing.length, 0, `Requested cases absent from input: ${missing.join(',')}`);
+}
+assert.ok(selectedCases.length > 0, 'No requested cases are present in the input');
 const rows: object[] = [];
 const summaries: object[] = [];
 const report = {
@@ -457,7 +477,7 @@ const report = {
 };
 const log = console.log;
 console.log = console.group = console.groupEnd = () => {};
-for (const c of cases.filter((c) => names.includes(c.name))) {
+for (const c of selectedCases) {
     const originalResultSha256 = createHash('sha256')
         .update(JSON.stringify(c.result))
         .digest('hex');

@@ -5,7 +5,7 @@ import { performance } from 'node:perf_hooks';
 import { withViteTestServer } from '../helpers/viteModule.ts';
 import { imageSwatches } from '../helpers/calibratedSwatches.ts';
 import {
-    benchmarkSourceRoot,
+    prepareBenchmarkSource,
     captureOptimizerProvenance,
     persistOptimizerEvidence,
     sha256,
@@ -26,14 +26,15 @@ const refs = process.argv.slice(2);
 assert.ok(refs.length, 'Supply Git revisions to audit');
 const rows = [];
 for (const ref of refs) {
+    const selectedSource = prepareBenchmarkSource(ref);
     const provenance = captureOptimizerProvenance({
         fixture: fixturePath,
         profile: resolve(root, 'profile.kfil'),
         sourceImage: resolve(root, 'cats/source.png'),
-        sourceRef: ref,
+        source: selectedSource,
         harnessPath: 'tests/benchmark/catsReplayAudit.ts',
     });
-    const sourceRoot = benchmarkSourceRoot(ref);
+    const sourceRoot = selectedSource.root;
     const sourcePath = resolve(sourceRoot, 'src/lib/autoPaint.ts');
     const source = readFileSync(sourcePath, 'utf8');
     const branch = 'if (enhancedColorMatch) {';
