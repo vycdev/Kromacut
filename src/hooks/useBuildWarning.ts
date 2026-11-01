@@ -48,6 +48,14 @@ export function useBuildWarning({ imageSrc, initialState }: UseBuildWarningOptio
     const [threeDState, setThreeDState] = useState<ThreeDControlsStateShape>(() =>
         createInitialThreeDState(initialState)
     );
+    const workingSettingsRef = useRef<Partial<ThreeDControlsStateShape>>({});
+    const handleThreeDSettingsChange = useCallback(
+        (settings: Partial<ThreeDControlsStateShape>) => {
+            workingSettingsRef.current = { ...workingSettingsRef.current, ...settings };
+            setThreeDState((current) => ({ ...current, ...settings }));
+        },
+        []
+    );
     const [threeDBuildSignal, setThreeDBuildSignal] = useState(0);
     const [builtThreeDState, setBuiltThreeDState] = useState<ThreeDControlsStateShape | null>(
         null
@@ -76,7 +84,9 @@ export function useBuildWarning({ imageSrc, initialState }: UseBuildWarningOptio
 
     // Apply state without warning (used after user confirms, or when no warning needed)
     const applyThreeDState = useCallback((s: ThreeDControlsStateShape) => {
-        setThreeDState(s);
+        // A built snapshot can describe an older request or disable routing after
+        // fallback. Persist the current controls, while preview/export retain s.
+        setThreeDState({ ...s, ...workingSettingsRef.current });
         setBuiltThreeDState({
             ...s,
             colorSliceHeights: [...s.colorSliceHeights],
@@ -179,7 +189,7 @@ export function useBuildWarning({ imageSrc, initialState }: UseBuildWarningOptio
 
     return {
         threeDState,
-        setThreeDState,
+        handleThreeDSettingsChange,
         threeDBuildSignal,
         builtThreeDState,
         builtFlatPaint,

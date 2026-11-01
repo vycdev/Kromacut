@@ -31,7 +31,7 @@ function createYield(options: MeshYieldOptions) {
  * each binary mask independently can expand neighboring colors into each other.
  */
 export async function createFlatPaintMesher(
-    layerCounts: Uint16Array | Uint8Array,
+    layerCounts: Uint32Array | Uint16Array | Uint8Array,
     width: number,
     height: number,
     pixelSize: number,

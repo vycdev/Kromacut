@@ -969,6 +969,33 @@ test('color-first groups follow final-stack mappings, including weighted centroi
     assert.equal(merged[0].targetRgb.r, (125 * 3 + 171) / 4);
 });
 
+test('zero-weight colors retain finite groups without changing weighted centroids', () => {
+    const { filaments, swatches, result } = multiWindowFixture();
+    const layers = expandZonesToPrinterLayers(result, filaments, 0.25, 0.25);
+    const colors = buildColorStack(layers);
+    const stack = {
+        ...result.finalStack,
+        targetMappings: result.finalStack.targetMappings.map((mapping) => ({
+            ...mapping, projectedHeight: 0.75,
+        })),
+    };
+    const zero = swatches.slice(0, 2).map((swatch) => ({ ...swatch, count: 0 }));
+    const empty = buildPixelDataColorFirst(zero, layers, colors, stack);
+    assert.equal(empty.length, 1, 'zero-weight colors still need a group for physical routing');
+    assert.equal(empty[0].count, 0);
+    assert.ok(Number.isFinite(empty[0].actualErr));
+    assert.ok(Object.values(empty[0].targetRgb).every(Number.isFinite));
+
+    const weighted = { ...swatches[2], count: 2 };
+    for (const samples of [[...zero, weighted], [weighted, ...zero], [zero[0], weighted, zero[1]]]) {
+        const merged = buildPixelDataColorFirst(samples, layers, colors, stack);
+        assert.equal(merged.length, 1);
+        assert.equal(merged[0].count, 2);
+        assert.deepEqual(merged[0].targetRgb, hexToRgb(weighted.hex));
+        assert.ok(Number.isFinite(merged[0].actualErr));
+    }
+});
+
 test('run-based candidates preserve fitted optics, merged runs, and changed suffix substrates', () => {
     const filaments = [
         filament('base', '#101010', 0.4), filament('grey', '#777777', 0.7),

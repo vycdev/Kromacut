@@ -1,11 +1,12 @@
 import { useTranslation } from 'react-i18next';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { CollapsibleCard, DirtyDot } from '@/components/CollapsibleCard';
 import ThreeDColorRow from './ThreeDColorRow';
 import { Sortable, SortableContent, SortableOverlay } from '@/components/ui/sortable';
 import { Button } from '@/components/ui/button';
 import { Check, RotateCcw, Loader2 } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { multiHeadBuildSnapshot, singleHeadBuildSnapshot } from '../lib/multiHeadBuild';
 import {
     autoPaintResultMatchesSliceGrid,
     autoPaintToSliceHeights,
@@ -24,6 +25,7 @@ import { useColorSlicing } from '../hooks/useColorSlicing';
 import { useSwapPlan } from '../hooks/useSwapPlan';
 import { useAutoPaintWorker } from '../hooks/useAutoPaintWorker';
 import { usePrintableFeatureSimulation } from '../hooks/usePrintableFeatureSimulation';
+import { useMultiHeadWorker } from '../hooks/useMultiHeadWorker';
 import type {
     AutoPaintRepeatLimit,
     AutoPaintTransitionOpacity,
@@ -36,7 +38,7 @@ import PrintInstructions from './PrintInstructions';
 import AutoPaintTab from './AutoPaintTab';
 import type { ImageDimensions } from '../hooks/useSwatches';
 import { concealPrintableFeatureBuffers } from '../lib/printableFeatures.ts';
-import { shouldApplyInitialProfileFilaments } from '../lib/threeDWorkLifecycle';
+import { createBuildRevision, shouldApplyInitialProfileFilaments } from '../lib/threeDWorkLifecycle';
 import type { DesktopFileRequest } from '../lib/desktopFileInbox';
 import { DesktopProfileImport } from './DesktopProfileImport';
 
@@ -230,6 +232,20 @@ export default function ThreeDControls({
         persisted?.regionWeightingMode ?? 'uniform'
     );
 
+    // --- Multi-head mode ---
+    const [multiHeadMode, setMultiHeadMode] = useState(persisted?.multiHeadMode ?? false);
+    const [multiHeadCount, setMultiHeadCount] = useState(persisted?.multiHeadCount ?? 4);
+    const [multiHeadSearchDepth, setMultiHeadSearchDepth] = useState<
+        'fast' | 'balanced' | 'thorough'
+    >(persisted?.multiHeadSearchDepth ?? 'balanced');
+    // Store translation keys so fallback notices follow the current UI language.
+    const [multiHeadNotice, setMultiHeadNotice] = useState<{
+        key:
+            | 'multiHead.noLayoutFallback'
+            | 'multiHead.analysisFailedFallback';
+        heads: number;
+    }>();
+
     const handleEnhancedColorMatchChange = useCallback((v: boolean) => {
         setEnhancedColorMatch(v);
         if (!v) {
@@ -258,8 +274,23 @@ export default function ThreeDControls({
         setSmoothMeshingStrength(strength);
     }, []);
 
+    // Flat Paint and Multi-head mode are mutually exclusive: the Flat Paint
+    // geometry path ignores multi-head nozzle assignments, so a schedule built
+    // for the stepped stack would misassign heads on export. Enabling either
+    // turns the other off.
     const handleFlatPaintChange = useCallback((enabled: boolean) => {
         setFlatPaint(enabled);
+        if (enabled) {
+            setMultiHeadMode(false);
+        }
+    }, []);
+
+    const handleMultiHeadModeChange = useCallback((enabled: boolean) => {
+        setMultiHeadMode(enabled);
+        setMultiHeadNotice(undefined);
+        if (enabled) {
+            setFlatPaint(false);
+        }
     }, []);
 
     // Sync non-build settings to parent so persisted stays current across mode switches
@@ -284,6 +315,9 @@ export default function ThreeDControls({
             optimizerSeed,
             regionWeightingMode,
             smoothMeshingStrength,
+            multiHeadMode,
+            multiHeadCount,
+            multiHeadSearchDepth,
         });
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [
@@ -306,6 +340,9 @@ export default function ThreeDControls({
         optimizerSeed,
         regionWeightingMode,
         smoothMeshingStrength,
+        multiHeadMode,
+        multiHeadCount,
+        multiHeadSearchDepth,
     ]);
 
     useEffect(() => {
@@ -366,6 +403,7 @@ export default function ThreeDControls({
     // --- Auto-paint (runs in Web Worker to avoid blocking the UI) ---
     const {
         autoPaintResult,
+        imageSwatches: autoPaintImageSwatches,
         isComputing: isOptimizerComputing,
         progress: optimizerProgress,
         error: optimizerError,
@@ -395,6 +433,23 @@ export default function ThreeDControls({
     const autoPaintProgress = isPrintableFeatureComputing ? 0 : optimizerProgress;
     const autoPaintError = printableFeatureError ?? optimizerError;
     const autoPaintProgressPercent = Math.round(Math.max(0, Math.min(1, autoPaintProgress)) * 100);
+
+    // --- Multi-head analysis (runs in Web Worker to avoid blocking the UI) ---
+    const {
+        isComputing: isMultiHeadComputing,
+        run: runMultiHead,
+        cancel: cancelMultiHead,
+    } = useMultiHeadWorker();
+    const [buildRevision] = useState(createBuildRevision);
+    // Invalidate at commit time, before a worker continuation can publish a
+    // snapshot for a previous image. Cleanup also guards component unmounts.
+    useLayoutEffect(
+        () => () => {
+            buildRevision.invalidate();
+            cancelMultiHead();
+        },
+        [imageSrc, buildRevision, cancelMultiHead]
+    );
 
     const autoPaintSliceData = useMemo(() => {
         if (!autoPaintResult) return undefined;
@@ -466,6 +521,9 @@ export default function ThreeDControls({
     const instructionSlicerFirstLayerHeight =
         builtState?.slicerFirstLayerHeight ?? slicerFirstLayerHeight;
     const instructionFlatPaint = builtState ? builtFlatPaint : flatPaintActive;
+    const instructionMultiHeadMode = builtState
+        ? !!builtState.multiHeadMode && instructionPaintMode === 'autopaint'
+        : multiHeadMode && paintMode === 'autopaint';
     const instructionFlatPaintFaceUp = builtState
         ? !!builtState.flatPaintFaceUp
         : flatPaintActive && flatPaintFaceUp;
@@ -478,7 +536,7 @@ export default function ThreeDControls({
     const isInstructionOverLimit = instructionColorCount > 64;
 
     // --- Swap Plan ---
-    const { swapPlan, copied, copyToClipboard } = useSwapPlan({
+    const { swapPlan, multiHeadPlan, copied, copyToClipboard } = useSwapPlan({
         colorOrder: instructionColorOrder,
         colorSliceHeights: instructionColorSliceHeights,
         filtered: instructionFiltered,
@@ -486,15 +544,46 @@ export default function ThreeDControls({
         slicerFirstLayerHeight: instructionSlicerFirstLayerHeight,
         paintMode: instructionPaintMode,
         autoPaintResult: instructionAutoPaintResult,
-        disabled: isInstructionOverLimit,
+        multiHeadWindows: builtState?.multiHeadMode ? builtState.multiHeadWindows : undefined,
+        patchedTransitionZones: builtState?.multiHeadMode
+            ? builtState.patchedTransitionZones
+            : undefined,
+        nozzleAssignments: builtState?.multiHeadMode ? builtState.nozzleAssignments : undefined,
+        windowRunFilaments: builtState?.multiHeadMode ? builtState.windowRunFilaments : undefined,
+        nonWindowedRanges: builtState?.multiHeadMode ? builtState.nonWindowedRanges : undefined,
+        filaments: builtState?.filaments ?? filaments,
         flatPaint: instructionFlatPaint,
         flatPaintFaceUp: instructionFlatPaintFaceUp,
         smoothMeshingStrength: builtState?.smoothMeshingStrength ?? smoothMeshingStrength,
     });
 
     // --- Apply handler ---
-    const handleApply = useCallback(() => {
+    const handleApply = useCallback(async () => {
         if (!onChange) return;
+        const isCurrentBuild = buildRevision.begin();
+
+        setMultiHeadNotice(undefined);
+
+        // Multi-head runs only when its mode is on, Flat Paint is off (the two
+        // are mutually exclusive), and there is an auto-paint result to reorder.
+        const multiHeadRequested =
+            multiHeadMode && !flatPaint && paintMode === 'autopaint' && !!autoPaintResult;
+
+        let activeResult = null;
+        if (multiHeadRequested && autoPaintResult) {
+            // Retain Auto-paint's regional priorities, including zero-weight
+            // colors whose physical regions still need filament assignments.
+            activeResult = await runMultiHead({
+                filaments,
+                autoPaintResult,
+                imageSwatches: autoPaintImageSwatches,
+                layerHeight,
+                firstLayerHeight: slicerFirstLayerHeight,
+                n: multiHeadCount,
+                searchDepth: multiHeadSearchDepth,
+            });
+            if (!isCurrentBuild()) return;
+        }
 
         if (paintMode === 'autopaint') {
             // Auto-paint is a hard mode boundary. A missing or rejected result
@@ -508,69 +597,89 @@ export default function ThreeDControls({
             ) {
                 return;
             }
-            onChange({
+            const snapshot = multiHeadBuildSnapshot(
+                {
+                    layerHeight,
+                    slicerFirstLayerHeight,
+                    colorSliceHeights: autoPaintSliceData.colorSliceHeights,
+                    colorOrder: autoPaintSliceData.colorOrder,
+                    filteredSwatches: autoPaintSliceData.virtualSwatches,
+                    pixelSize,
+                    filaments,
+                    paintMode,
+                    autoPaintMaxHeight,
+                    enhancedColorMatch,
+                    preserveSeparation,
+                    separationMaxDeltaE,
+                    failOnSeparationError,
+                    maxRepeatedSwaps,
+                    transitionOpacity,
+                    heightDithering,
+                    ditherLineWidth,
+                    omitAtRiskPixels,
+                    flatPaint,
+                    flatPaintFaceUp,
+                    optimizerAlgorithm,
+                    optimizerSeed,
+                    regionWeightingMode,
+                    autoPaintResult,
+                    autoPaintSwatches: autoPaintSliceData.virtualSwatches,
+                    autoPaintFilamentSwatches: autoPaintSliceData.filamentSwatches,
+                    printableFeaturePixels: concealPrintableFeatureBuffers({
+                        width: printableFeatureSimulation.width,
+                        height: printableFeatureSimulation.height,
+                        data: printableFeatureSimulation.data,
+                        fingerprint: printableFeatureSimulation.fingerprint,
+                    }),
+                    calibrationLayerHeight,
+                    smoothMeshingStrength,
+                    multiHeadCount,
+                    multiHeadSearchDepth,
+                },
+                activeResult
+            );
+            if (multiHeadRequested && !snapshot.multiHeadMode) {
+                setMultiHeadNotice({
+                    key: activeResult
+                        ? 'multiHead.noLayoutFallback'
+                        : 'multiHead.analysisFailedFallback',
+                    heads: multiHeadCount,
+                });
+            }
+            onChange(snapshot);
+            return;
+        }
+
+        onChange(
+            singleHeadBuildSnapshot({
                 layerHeight,
                 slicerFirstLayerHeight,
-                colorSliceHeights: autoPaintSliceData.colorSliceHeights,
-                colorOrder: autoPaintSliceData.colorOrder,
-                filteredSwatches: autoPaintSliceData.virtualSwatches,
+                colorSliceHeights,
+                colorOrder,
+                filteredSwatches: filtered,
                 pixelSize,
                 filaments,
                 paintMode,
-                autoPaintMaxHeight,
-                enhancedColorMatch,
-                preserveSeparation,
-                separationMaxDeltaE,
-                failOnSeparationError,
-                maxRepeatedSwaps,
-                transitionOpacity,
-                heightDithering,
-                ditherLineWidth,
-                omitAtRiskPixels,
                 flatPaint,
                 flatPaintFaceUp,
                 optimizerAlgorithm,
                 optimizerSeed,
                 regionWeightingMode,
-                autoPaintResult,
-                autoPaintSwatches: autoPaintSliceData.virtualSwatches,
-                autoPaintFilamentSwatches: autoPaintSliceData.filamentSwatches,
-                printableFeaturePixels: concealPrintableFeatureBuffers({
-                    width: printableFeatureSimulation.width,
-                    height: printableFeatureSimulation.height,
-                    data: printableFeatureSimulation.data,
-                    fingerprint: printableFeatureSimulation.fingerprint,
-                }),
                 calibrationLayerHeight,
                 smoothMeshingStrength,
-            });
-            return;
-        }
-
-        onChange({
-            layerHeight,
-            slicerFirstLayerHeight,
-            colorSliceHeights,
-            colorOrder,
-            filteredSwatches: filtered,
-            pixelSize,
-            filaments,
-            paintMode,
-            flatPaint,
-            flatPaintFaceUp,
-            optimizerAlgorithm,
-            optimizerSeed,
-            regionWeightingMode,
-            calibrationLayerHeight,
-            smoothMeshingStrength,
-        });
+                multiHeadCount,
+                multiHeadSearchDepth,
+            })
+        );
     }, [
         onChange,
+        buildRevision,
         layerHeight,
         slicerFirstLayerHeight,
         colorSliceHeights,
         colorOrder,
         filtered,
+        autoPaintImageSwatches,
         pixelSize,
         filaments,
         paintMode,
@@ -596,6 +705,10 @@ export default function ThreeDControls({
         printableFeatureSimulation,
         autoPaintError,
         isAutoPaintComputing,
+        multiHeadMode,
+        multiHeadCount,
+        multiHeadSearchDepth,
+        runMultiHead,
     ]);
 
     const autoPaintBuildUnavailable =
@@ -624,10 +737,12 @@ export default function ThreeDControls({
                 <Button
                     onClick={handleApply}
                     data-testid="build-3d-model"
-                    disabled={isAutoPaintComputing || autoPaintBuildUnavailable}
+                    disabled={
+                        isAutoPaintComputing || isMultiHeadComputing || autoPaintBuildUnavailable
+                    }
                     className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold transition-all duration-200 shadow-md hover:shadow-lg active:scale-95 gap-1.5 disabled:opacity-60"
                 >
-                    {isAutoPaintComputing ? (
+                    {isAutoPaintComputing || isMultiHeadComputing ? (
                         <>
                             <Loader2 className="w-4 h-4 animate-spin" />
                             <span>
@@ -777,6 +892,17 @@ export default function ThreeDControls({
                     setOptimizerSeed={setOptimizerSeed}
                     regionWeightingMode={regionWeightingMode}
                     setRegionWeightingMode={setRegionWeightingMode}
+                    multiHeadMode={multiHeadMode}
+                    setMultiHeadMode={handleMultiHeadModeChange}
+                    multiHeadCount={multiHeadCount}
+                    setMultiHeadCount={setMultiHeadCount}
+                    multiHeadSearchDepth={multiHeadSearchDepth}
+                    setMultiHeadSearchDepth={setMultiHeadSearchDepth}
+                    multiHeadNotice={
+                        multiHeadNotice
+                            ? t(multiHeadNotice.key, { heads: multiHeadNotice.heads })
+                            : undefined
+                    }
                 />
 
                 {/* Manual Tab */}
@@ -816,7 +942,7 @@ export default function ThreeDControls({
                         >
                             <SortableContent asChild>
                                 <div className="space-y-2">
-                                    {displayOrder.length > 64 ? (
+                                    {displayOrder.length > 256 ? (
                                         <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-md text-sm text-destructive-foreground">
                                             <p className="font-semibold mb-2">
                                                 {t('threeDControls.tooManyColors', {
@@ -864,6 +990,8 @@ export default function ThreeDControls({
             {instructionAvailable ? (
                 <PrintInstructions
                     swapPlan={swapPlan}
+                    multiHeadPlan={multiHeadPlan}
+                    multiHeadMode={instructionMultiHeadMode}
                     layerHeight={instructionLayerHeight}
                     slicerFirstLayerHeight={instructionSlicerFirstLayerHeight}
                     copied={copied}
