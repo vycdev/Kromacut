@@ -82,6 +82,8 @@ import {
     AlertDialogAction,
     AlertDialogCancel,
 } from './components/ui/alert-dialog';
+import { Button } from './components/ui/button';
+import { X } from 'lucide-react';
 // ...existing imports
 
 const AUTOPAINT_STORAGE_KEY = 'kromacut.autopaint.v1';
@@ -135,6 +137,16 @@ type AutoPaintPersisted = Pick<
 // persisted without this marker predates the change and carries uncalibrated
 // tds on the conventional backlit scale, which must be migrated once on load.
 const AUTOPAINT_SCHEMA_VERSION = 2;
+
+/** Resolves to null when the browser cannot decode the URL as an image. */
+function decodeImage(url: string): Promise<HTMLImageElement | null> {
+    return new Promise((resolve) => {
+        const image = new Image();
+        image.onload = () => resolve(image.naturalWidth && image.naturalHeight ? image : null);
+        image.onerror = () => resolve(null);
+        image.src = url;
+    });
+}
 
 function isOneOf<T extends readonly number[]>(value: unknown, values: T): value is T[number] {
     return typeof value === 'number' && values.includes(value as T[number]);
@@ -314,6 +326,11 @@ function App(): React.ReactElement | null {
     // adjustments managed locally inside AdjustmentsPanel now
     // initial selectedPalette derived from initial weight above
     const inputRef = useRef<HTMLInputElement | null>(null);
+    const imageImportRequestRef = useRef(0);
+    // Kept untranslated so the notice follows language changes while it is open.
+    const [imageImportError, setImageImportError] = useState<
+        { kind: 'notImage' } | { kind: 'undecodable'; name: string } | null
+    >(null);
     const canvasPreviewRef = useRef<CanvasPreviewHandle | null>(null);
     const [showCheckerboard, setShowCheckerboard] = useState<boolean>(false);
     const [isCropMode, setIsCropMode] = useState(false);
@@ -585,14 +602,28 @@ function App(): React.ReactElement | null {
         }
     };
 
-    const handleFiles = (file?: File) => {
+    const handleFiles = async (file?: File) => {
         if (!file) return;
+        const request = ++imageImportRequestRef.current;
         if (!file.type.startsWith('image/')) {
-            alert(t('app.uploadImage'));
+            setImageImportError({ kind: 'notImage' });
             return;
         }
-        setTouchUpTool(null);
+        // Decode before touching history so an unreadable file keeps the current
+        // image, its undo stack, and its swatches intact.
         const url = URL.createObjectURL(file);
+        const image = await decodeImage(url);
+        if (request !== imageImportRequestRef.current) {
+            URL.revokeObjectURL(url);
+            return;
+        }
+        if (!image) {
+            URL.revokeObjectURL(url);
+            setImageImportError({ kind: 'undecodable', name: file.name });
+            return;
+        }
+        setImageImportError(null);
+        setTouchUpTool(null);
         invalidate();
         setImage(url, true);
     };
@@ -614,13 +645,7 @@ function App(): React.ReactElement | null {
             if (!sourceBlob) return;
 
             sourceUrl = URL.createObjectURL(sourceBlob);
-            const imageUrl = sourceUrl;
-            const img = await new Promise<HTMLImageElement | null>((resolve) => {
-                const image = new Image();
-                image.onload = () => resolve(image);
-                image.onerror = () => resolve(null);
-                image.src = imageUrl;
-            });
+            const img = await decodeImage(sourceUrl);
 
             if (!img) return;
 
@@ -738,7 +763,7 @@ function App(): React.ReactElement | null {
                                                 // Allow choosing this same source again after
                                                 // cropping, resizing, or other image edits.
                                                 e.currentTarget.value = '';
-                                                if (file) handleFiles(file);
+                                                if (file) void handleFiles(file);
                                             }}
                                             className="hidden-file-input"
                                         />
@@ -963,6 +988,35 @@ function App(): React.ReactElement | null {
                                             }}
                                             onTouchUpExit={() => setTouchUpTool(null)}
                                         />
+                                        {imageImportError && (
+                                            <div
+                                                role="alert"
+                                                data-testid="image-import-error"
+                                                className="absolute bottom-4 left-4 right-4 z-30 flex items-start gap-3 rounded-md border border-destructive/50 bg-background/95 p-4 text-sm break-words"
+                                            >
+                                                <div className="min-w-0 flex-1">
+                                                    <p className="font-semibold text-destructive">
+                                                        {t('app.imageImportFailed')}
+                                                    </p>
+                                                    <p className="mt-1 text-muted-foreground">
+                                                        {imageImportError.kind === 'undecodable'
+                                                            ? t('app.imageDecodeFailed', {
+                                                                  name: imageImportError.name,
+                                                              })
+                                                            : t('app.uploadImage')}
+                                                    </p>
+                                                </div>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    onClick={() => setImageImportError(null)}
+                                                    aria-label={t('app.dismissImageImportError')}
+                                                    className="h-6 w-6 shrink-0 text-muted-foreground hover:text-foreground"
+                                                >
+                                                    <X className="h-4 w-4" />
+                                                </Button>
+                                            </div>
+                                        )}
                                         {processingActive && (
                                             <ProgressOverlay
                                                 title={progressOperationTitle()}

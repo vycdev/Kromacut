@@ -78,6 +78,9 @@
   "app": {
     "uploadImage": "Bitte lade eine Bilddatei hoch",
     "resizeFailed": "Die Bildskalierung ist fehlgeschlagen. Einzelheiten stehen in der Konsole.",
+    "imageImportFailed": "Bild konnte nicht geöffnet werden",
+    "imageDecodeFailed": "„{{name}}“ konnte nicht als Bild gelesen werden. Dein aktuelles Bild wurde beibehalten. Wähle eine gültige PNG-, JPEG- oder WebP-Datei.",
+    "dismissImageImportError": "Bildfehler schließen",
     "preparingControls": "3D-Steuerung wird vorbereitet…",
     "performanceWarning": "Leistungswarnung",
     "slowBuild": "Der Aufbau des 3D-Modells kann aus folgenden Gründen langsam sein:",

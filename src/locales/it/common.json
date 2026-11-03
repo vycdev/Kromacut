@@ -78,6 +78,9 @@
   "app": {
     "uploadImage": "Carica un file immagine",
     "resizeFailed": "Ridimensionamento dell'immagine non riuscito. Consulta la console per i dettagli.",
+    "imageImportFailed": "Impossibile aprire l’immagine",
+    "imageDecodeFailed": "Impossibile leggere «{{name}}» come immagine. L’immagine attuale è stata mantenuta. Scegli un file PNG, JPEG o WebP valido.",
+    "dismissImageImportError": "Chiudi errore immagine",
     "preparingControls": "Preparazione dei controlli 3D…",
     "performanceWarning": "Avviso sulle prestazioni",
     "slowBuild": "La creazione del modello 3D potrebbe essere lenta per i seguenti motivi:",

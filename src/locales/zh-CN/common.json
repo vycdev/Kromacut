@@ -78,6 +78,9 @@
     "app": {
         "uploadImage": "请上传图片文件",
         "resizeFailed": "图片缩放失败，请查看控制台了解详情。",
+        "imageImportFailed": "无法打开图片",
+        "imageDecodeFailed": "无法将“{{name}}”读取为图片。当前图片已保留。请选择有效的 PNG、JPEG 或 WebP 文件。",
+        "dismissImageImportError": "关闭图片错误",
         "preparingControls": "正在准备 3D 控件…",
         "performanceWarning": "性能警告",
         "slowBuild": "以下情况可能导致 3D 模型生成缓慢：",

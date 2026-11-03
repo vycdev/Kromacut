@@ -78,6 +78,9 @@
   "app": {
     "uploadImage": "Încarcă un fișier imagine",
     "resizeFailed": "Redimensionarea imaginii a eșuat. Consultă consola pentru detalii.",
+    "imageImportFailed": "Imaginea nu a putut fi deschisă",
+    "imageDecodeFailed": "„{{name}}” nu a putut fi citit ca imagine. Imaginea curentă a fost păstrată. Alege un fișier PNG, JPEG sau WebP valid.",
+    "dismissImageImportError": "Închide eroarea de imagine",
     "preparingControls": "Se pregătesc comenzile 3D…",
     "performanceWarning": "Avertisment privind performanța",
     "slowBuild": "Generarea modelului 3D poate fi lentă din următoarele motive:",
