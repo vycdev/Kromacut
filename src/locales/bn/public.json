@@ -90,6 +90,8 @@
         "threeJsLayerByLayer3DPreview": "Three.js-এ স্তরে স্তরে 3D প্রিভিউ",
         "calibratedAutoPaintWithDeterministicSearch": "নির্ধারিত অনুসন্ধানসহ ক্যালিব্রেট করা স্বয়ংক্রিয় রং",
         "slicerFriendlySTLAndMultiMaterial3MF": "স্লাইসার-উপযোগী STL ও বহু-উপাদানের 3MF",
+        "snapmakerInnovationFundWinner": "Snapmaker Innovation Fund বিজয়ী",
+        "aboutTheSnapmakerInnovationFund": "Snapmaker Innovation Fund সম্পর্কে",
         "openTheTool": "সরঞ্জাম খুলুন",
         "communityShowcase": "কমিউনিটির প্রদর্শনী",
         "madeByTheKromacutCommunity": "Kromacut কমিউনিটির তৈরি।",
@@ -118,6 +120,7 @@
         "openApp": "Kromacut খুলুন",
         "home": "মূল পৃষ্ঠায় যান",
         "docs": "নির্দেশিকা দেখুন",
+        "awards": "পুরস্কার",
         "privacy": "গোপনীয়তা ও স্থানীয় ডেটা",
         "terms": "নিয়ম ও শর্তাবলি"
     },
@@ -161,6 +164,13 @@
         "loading": "নির্দেশিকা লোড হচ্ছে…",
         "loadFailed": "এই অনুবাদ লোড করা যায়নি। আবার চেষ্টা করুন।",
         "retry": "আবার চেষ্টা"
+    },
+    "awards": {
+        "eyebrow": "স্বীকৃতি",
+        "title": "পুরস্কার",
+        "intro": "Kromacut-এর পাওয়া পুরস্কার ও স্বীকৃতি।",
+        "seoTitle": "পুরস্কার | Kromacut",
+        "description": "ছবিকে বহু রঙের 3D প্রিন্টে রূপান্তরের বিনামূল্যের টুল Kromacut-এর পাওয়া পুরস্কার ও স্বীকৃতি।"
     },
     "seo": {
         "homeTitle": "Kromacut - বিনামূল্যে ছবি থেকে রঙের স্তরের 3D প্রিন্ট তৈরি",

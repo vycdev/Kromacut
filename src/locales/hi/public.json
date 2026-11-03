@@ -90,6 +90,8 @@
         "threeJsLayerByLayer3DPreview": "Three.js से परत-दर-परत 3D पूर्वावलोकन",
         "calibratedAutoPaintWithDeterministicSearch": "निश्चित खोज वाली अंशांकित स्वचालित रंगाई",
         "slicerFriendlySTLAndMultiMaterial3MF": "स्लाइसर-अनुकूल STL और बहु-सामग्री 3MF",
+        "snapmakerInnovationFundWinner": "Snapmaker Innovation Fund विजेता",
+        "aboutTheSnapmakerInnovationFund": "Snapmaker Innovation Fund के बारे में",
         "openTheTool": "उपकरण खोलें",
         "communityShowcase": "समुदाय की रचनाएँ",
         "madeByTheKromacutCommunity": "Kromacut समुदाय की बनाई रचनाएँ।",
@@ -118,6 +120,7 @@
         "openApp": "Kromacut खोलें",
         "home": "मुखपृष्ठ पर जाएँ",
         "docs": "दस्तावेज़ देखें",
+        "awards": "पुरस्कार",
         "privacy": "गोपनीयता और स्थानीय डेटा",
         "terms": "नियम और शर्तें"
     },
@@ -161,6 +164,13 @@
         "loading": "दस्तावेज़ लोड हो रहे हैं…",
         "loadFailed": "यह अनुवाद लोड नहीं हो सका। फिर कोशिश करें।",
         "retry": "फिर कोशिश करें"
+    },
+    "awards": {
+        "eyebrow": "सम्मान",
+        "title": "पुरस्कार",
+        "intro": "Kromacut को मिले पुरस्कार और सम्मान।",
+        "seoTitle": "पुरस्कार | Kromacut",
+        "description": "छवियों को बहुरंगी 3D प्रिंट में बदलने वाले मुफ़्त टूल Kromacut को मिले पुरस्कार और सम्मान।"
     },
     "seo": {
         "homeTitle": "Kromacut - चित्र से रंगीन परत 3D प्रिंट बनाने का निःशुल्क उपकरण",

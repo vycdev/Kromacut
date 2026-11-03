@@ -216,8 +216,8 @@ fn open_releases_page() -> Result<(), String> {
 fn legal_page_url(path: &str) -> Result<String, String> {
     let segments: Vec<_> = path.strip_prefix('/').unwrap_or("").split('/').collect();
     let supported = match segments.as_slice() {
-        ["privacy" | "terms"] => true,
-        [language, "privacy" | "terms"] => matches!(
+        ["privacy" | "terms" | "awards"] => true,
+        [language, "privacy" | "terms" | "awards"] => matches!(
             *language,
             "fr" | "de" | "it" | "ro" | "es" | "ja" | "zh-CN" | "hi" | "pt-PT" | "uk" | "bn"
         ),
@@ -315,7 +315,7 @@ mod tests {
         for language in [
             "", "fr", "de", "it", "ro", "es", "ja", "zh-CN", "hi", "pt-PT", "uk", "bn",
         ] {
-            for page in ["privacy", "terms"] {
+            for page in ["privacy", "terms", "awards"] {
                 let path = if language.is_empty() {
                     format!("/{page}")
                 } else {
@@ -337,6 +337,8 @@ mod tests {
             "/privacy&calc",
             "privacy",
             "/terms/",
+            "/awards/",
+            "/xx/awards",
         ] {
             assert!(super::legal_page_url(path).is_err(), "{path}");
         }

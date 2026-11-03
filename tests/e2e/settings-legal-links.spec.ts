@@ -45,6 +45,7 @@ test('Settings legal links open localized web pages in a new tab', async ({ page
     for (const [path, label] of [
         ['/privacy', 'Privacy & local data'],
         ['/terms', 'Terms & conditions'],
+        ['/awards', 'Awards'],
     ]) {
         const link = page.getByRole('dialog').getByRole('link', { name: label, exact: true });
         await expect(link).toHaveAttribute('href', path);
@@ -63,6 +64,9 @@ test('Settings legal links open localized web pages in a new tab', async ({ page
     await expect(
         page.getByRole('link', { name: publicRo.navigation.terms, exact: true })
     ).toHaveAttribute('href', '/ro/terms');
+    await expect(
+        page.getByRole('link', { name: publicRo.navigation.awards, exact: true })
+    ).toHaveAttribute('href', '/ro/awards');
     const popupEvent = page.waitForEvent('popup');
     await privacy.click();
     const popup = await popupEvent;
@@ -85,6 +89,9 @@ test('desktop Settings legal links use the native browser command and keep the w
     await page.getByRole('option', { name: 'Română', exact: true }).click();
     const terms = page.getByRole('link', { name: publicRo.navigation.terms, exact: true });
     await expect(terms).toHaveAttribute('href', 'https://kromacut.com/ro/terms');
+    await expect(
+        page.getByRole('link', { name: publicRo.navigation.awards, exact: true })
+    ).toHaveAttribute('href', 'https://kromacut.com/ro/awards');
     await page.setViewportSize({ width: 360, height: 800 });
     await terms.scrollIntoViewIfNeeded();
     const dialog = page.getByRole('dialog');
