@@ -152,7 +152,7 @@ Drag with the primary mouse button to orbit, use the wheel to zoom, and drag wit
 | **Transparent**    | See overlapping layers.                                                  | Preview only; does not make filament transparent.                                 |
 | **Wireframe**      | Inspect layer-colored feature edges.                                     | Preview only; not extrusion toolpaths.                                            |
 | **Preview colors** | Toggle Auto-paint simulated blends versus physical filament colors.      | Preview only. Exports keep real material assignments.                             |
-| **Camera toggle**  | Perspective depth versus orthographic alignment without foreshortening.  | Preview only. Camera position is retained.                                        |
+| **Camera toggle**  | Perspective depth versus orthographic alignment without foreshortening.  | Preview only. Viewing angle and zoom carry over between modes.                    |
 | **Undo / Redo**    | Step through shared image-edit history.                                  | Not an undo stack for 3D fields or filament edits. Rebuild after an image change. |
 | **Download**       | Export the built STL or 3MF.                                             | Uses the last built model, not unapplied sidebar settings.                        |
 

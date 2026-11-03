@@ -83,8 +83,32 @@ test('switching back after zooming in moves the perspective camera closer', () =
     ortho.updateProjectionMatrix();
     syncPerspectiveFromOrthographic(perspective, ortho, target, ASPECT);
 
-    assertClose(perspective.position.distanceTo(target), startDistance / 3, 'distance');
-    assertClose(perspective.far, ortho.far, 'far plane');
+    const distance = perspective.position.distanceTo(target);
+    assertClose(distance, startDistance / 3, 'distance');
+    assertClose(perspective.far - distance, ortho.far - startDistance, 'depth beyond target');
+});
+
+test('repeated zoom-out and zoom-in switches do not accumulate far-plane depth', () => {
+    const target = new THREE.Vector3();
+    const perspective = createPerspective(new THREE.Vector3(0, 0.9, 1.8), target);
+    const startDistance = perspective.position.distanceTo(target);
+    const startDepthBeyondTarget = perspective.far - startDistance;
+
+    for (let cycle = 0; cycle < 4; cycle++) {
+        for (const zoom of [0.25, 4]) {
+            const ortho = orthographicFromPerspective(perspective, target, ASPECT);
+            ortho.zoom = zoom;
+            ortho.updateProjectionMatrix();
+            syncPerspectiveFromOrthographic(perspective, ortho, target, ASPECT);
+        }
+    }
+
+    const distance = perspective.position.distanceTo(target);
+    assertClose(distance, startDistance, 'distance');
+    assert.ok(
+        Math.abs(perspective.far - distance - startDepthBeyondTarget) < 1e-6,
+        `depth beyond target drifted to ${perspective.far - distance}`
+    );
 });
 
 test('moving the perspective camera back extends the far plane past the target', () => {
