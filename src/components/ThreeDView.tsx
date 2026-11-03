@@ -2030,6 +2030,8 @@ export default function ThreeDView({
                             camera.bottom = -viewH / 2;
                             camera.left = -(viewH * aspect) / 2;
                             camera.right = (viewH * aspect) / 2;
+                            // Discard orthographic zoom so the new frustum frames the model.
+                            camera.zoom = 1;
                         }
                         camera.updateProjectionMatrix();
                         controls.update();
