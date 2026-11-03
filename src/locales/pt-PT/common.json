@@ -80,6 +80,7 @@
     "resizeFailed": "Não foi possível redimensionar a imagem. Consulte a consola para obter mais informações.",
     "imageImportFailed": "Não foi possível abrir a imagem",
     "imageDecodeFailed": "Não foi possível ler «{{name}}» como imagem. A imagem atual foi mantida. Escolha um ficheiro PNG, JPEG ou WebP válido.",
+    "imageDecodeFailedNoImage": "Não foi possível ler «{{name}}» como imagem. Escolha um ficheiro PNG, JPEG ou WebP válido.",
     "dismissImageImportError": "Fechar erro de imagem",
     "preparingControls": "A preparar os controlos 3D…",
     "performanceWarning": "Aviso de desempenho",

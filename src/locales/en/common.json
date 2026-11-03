@@ -80,6 +80,7 @@
         "resizeFailed": "Image resize failed. See console for details.",
         "imageImportFailed": "Couldn't open image",
         "imageDecodeFailed": "“{{name}}” could not be read as an image. Your current image was kept. Choose a valid PNG, JPEG, or WebP file.",
+        "imageDecodeFailedNoImage": "“{{name}}” could not be read as an image. Choose a valid PNG, JPEG, or WebP file.",
         "dismissImageImportError": "Dismiss image error",
         "preparingControls": "Preparing 3D controls…",
         "performanceWarning": "Performance Warning",

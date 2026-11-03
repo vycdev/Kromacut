@@ -11,7 +11,7 @@ In **2D** prepari l’immagine usata dal modello 3D. Le modifiche cromatiche cam
 
 ## Scegliere una sorgente
 
-Fai clic su **Scegli file** nella barra dell’anteprima o trascina un file nella vista 2D. Viene caricato solo il primo file trascinato. Usa un formato decodificabile dal browser o dalla webview desktop; PNG è utile con trasparenza. Sviluppa prima i RAW fotografici ed esporta un formato normale.
+Fai clic su **Scegli file** nella barra dell’anteprima o trascina un file nella vista 2D. Viene caricato solo il primo file trascinato. Usa un formato decodificabile dal browser o dalla webview desktop; PNG è utile con trasparenza. Sviluppa prima i RAW fotografici ed esporta un formato normale. Se un file non si può leggere come immagine, ad esempio perché danneggiato o scaricato solo in parte, Kromacut mostra un errore e mantiene l’immagine attuale.
 
 Kromacut parte dal proprio logo come esempio. Un’altra immagine sostituisce quella di lavoro. Non viene pubblicata e non viene scaricata da un collegamento web incollato.
 

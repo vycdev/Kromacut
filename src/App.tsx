@@ -148,6 +148,23 @@ function decodeImage(url: string): Promise<HTMLImageElement | null> {
     });
 }
 
+/**
+ * An `<img>` still loads a truncated or partly damaged raster file and shows only
+ * the rows it could decode. `createImageBitmap` rejects such files, so use it as
+ * a stricter check. Chrome's `createImageBitmap` does not accept SVG blobs, so
+ * SVGs rely on the `<img>` decode alone.
+ */
+async function isCompleteRasterImage(file: Blob): Promise<boolean> {
+    if (file.type === 'image/svg+xml' || typeof createImageBitmap !== 'function') return true;
+    try {
+        const bitmap = await createImageBitmap(file);
+        bitmap.close();
+        return true;
+    } catch {
+        return false;
+    }
+}
+
 function isOneOf<T extends readonly number[]>(value: unknown, values: T): value is T[number] {
     return typeof value === 'number' && values.includes(value as T[number]);
 }
@@ -612,12 +629,12 @@ function App(): React.ReactElement | null {
         // Decode before touching history so an unreadable file keeps the current
         // image, its undo stack, and its swatches intact.
         const url = URL.createObjectURL(file);
-        const image = await decodeImage(url);
+        const readable = !!(await decodeImage(url)) && (await isCompleteRasterImage(file));
         if (request !== imageImportRequestRef.current) {
             URL.revokeObjectURL(url);
             return;
         }
-        if (!image) {
+        if (!readable) {
             URL.revokeObjectURL(url);
             setImageImportError({ kind: 'undecodable', name: file.name });
             return;
@@ -631,6 +648,7 @@ function App(): React.ReactElement | null {
     // removed unused handlers (inline handlers used instead)
 
     const clear = () => {
+        setImageImportError(null);
         setTouchUpTool(null);
         clearCurrent();
         if (inputRef.current) inputRef.current.value = '';
@@ -999,11 +1017,15 @@ function App(): React.ReactElement | null {
                                                         {t('app.imageImportFailed')}
                                                     </p>
                                                     <p className="mt-1 text-muted-foreground">
-                                                        {imageImportError.kind === 'undecodable'
-                                                            ? t('app.imageDecodeFailed', {
-                                                                  name: imageImportError.name,
-                                                              })
-                                                            : t('app.uploadImage')}
+                                                        {imageImportError.kind === 'notImage'
+                                                            ? t('app.uploadImage')
+                                                            : imageSrc
+                                                              ? t('app.imageDecodeFailed', {
+                                                                    name: imageImportError.name,
+                                                                })
+                                                              : t('app.imageDecodeFailedNoImage', {
+                                                                    name: imageImportError.name,
+                                                                })}
                                                     </p>
                                                 </div>
                                                 <Button

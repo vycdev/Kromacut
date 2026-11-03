@@ -80,6 +80,7 @@
         "resizeFailed": "ছবির আকার বদলানো যায়নি। বিস্তারিত জানতে কনসোল দেখুন।",
         "imageImportFailed": "ছবি খোলা যায়নি",
         "imageDecodeFailed": "“{{name}}” ছবি হিসেবে পড়া যায়নি। আপনার বর্তমান ছবি রাখা হয়েছে। একটি বৈধ PNG, JPEG বা WebP ফাইল বেছে নিন।",
+        "imageDecodeFailedNoImage": "“{{name}}” ছবি হিসেবে পড়া যায়নি। একটি বৈধ PNG, JPEG বা WebP ফাইল বেছে নিন।",
         "dismissImageImportError": "ছবির ত্রুটি বন্ধ করুন",
         "preparingControls": "3D নিয়ন্ত্রণ প্রস্তুত হচ্ছে…",
         "performanceWarning": "কর্মক্ষমতা সতর্কতা",

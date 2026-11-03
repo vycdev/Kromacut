@@ -11,7 +11,7 @@ En modo **2D**, preparas la imagen que usará el modelo 3D. Los cambios de color
 
 ## Elegir un original
 
-Haz clic en **Elegir archivo** en la barra de la vista previa o arrastra un archivo de imagen a la vista 2D. Solo se carga el primer archivo del grupo. Usa un formato que pueda decodificar tu navegador o la vista web de escritorio; PNG resulta útil cuando importa la transparencia. Revela primero los RAW de cámara y expórtalos a un formato de imagen normal.
+Haz clic en **Elegir archivo** en la barra de la vista previa o arrastra un archivo de imagen a la vista 2D. Solo se carga el primer archivo del grupo. Usa un formato que pueda decodificar tu navegador o la vista web de escritorio; PNG resulta útil cuando importa la transparencia. Revela primero los RAW de cámara y expórtalos a un formato de imagen normal. Si un archivo no se puede leer como imagen, por ejemplo porque está dañado o se descargó a medias, Kromacut muestra un error y conserva la imagen actual.
 
 Kromacut empieza con su logotipo de ejemplo. Cargar otra imagen sustituye la imagen de trabajo actual. No la publica ni descarga un original desde un enlace web pegado.
 

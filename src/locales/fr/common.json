@@ -80,6 +80,7 @@
     "resizeFailed": "Échec du redimensionnement de l’image. Consultez la console pour plus de détails.",
     "imageImportFailed": "Impossible d’ouvrir l’image",
     "imageDecodeFailed": "« {{name}} » n’a pas pu être lu comme une image. Votre image actuelle a été conservée. Choisissez un fichier PNG, JPEG ou WebP valide.",
+    "imageDecodeFailedNoImage": "« {{name}} » n’a pas pu être lu comme une image. Choisissez un fichier PNG, JPEG ou WebP valide.",
     "dismissImageImportError": "Fermer l’erreur d’image",
     "preparingControls": "Préparation des commandes 3D…",
     "performanceWarning": "Avertissement de performances",

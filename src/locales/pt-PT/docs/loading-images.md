@@ -11,7 +11,7 @@ Em **2D**, prepara a imagem que o modelo 3D vai usar. As alterações de cor afe
 
 ## Escolher uma origem
 
-Clique em **Escolher ficheiro** na barra da pré-visualização ou arraste uma imagem para a vista 2D. Só é carregado o primeiro ficheiro largado. Use um formato que o navegador ou a vista web de ambiente de trabalho consiga descodificar; PNG é útil para transparência. Revele primeiro ficheiros RAW da câmara e exporte um formato normal.
+Clique em **Escolher ficheiro** na barra da pré-visualização ou arraste uma imagem para a vista 2D. Só é carregado o primeiro ficheiro largado. Use um formato que o navegador ou a vista web de ambiente de trabalho consiga descodificar; PNG é útil para transparência. Revele primeiro ficheiros RAW da câmara e exporte um formato normal. Se um ficheiro não puder ser lido como imagem, por exemplo por estar danificado ou só parcialmente transferido, o Kromacut mostra um erro e mantém a imagem atual.
 
 O Kromacut começa com o logótipo como exemplo. Carregar outra imagem substitui a imagem de trabalho. Não a publica nem transfere uma origem a partir de uma ligação web colada.
 

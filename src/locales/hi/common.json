@@ -80,6 +80,7 @@
         "resizeFailed": "चित्र का आकार बदलना विफल रहा। जानकारी के लिए कंसोल देखें।",
         "imageImportFailed": "चित्र नहीं खोला जा सका",
         "imageDecodeFailed": "“{{name}}” को चित्र के रूप में नहीं पढ़ा जा सका। आपका मौजूदा चित्र बना रहा। कोई मान्य PNG, JPEG या WebP फ़ाइल चुनें।",
+        "imageDecodeFailedNoImage": "“{{name}}” को चित्र के रूप में नहीं पढ़ा जा सका। कोई मान्य PNG, JPEG या WebP फ़ाइल चुनें।",
         "dismissImageImportError": "चित्र त्रुटि बंद करें",
         "preparingControls": "3D नियंत्रण तैयार हो रहे हैं…",
         "performanceWarning": "प्रदर्शन संबंधी चेतावनी",

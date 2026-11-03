@@ -80,6 +80,7 @@
         "resizeFailed": "画像のサイズ変更に失敗しました。詳細はコンソールを確認してください。",
         "imageImportFailed": "画像を開けませんでした",
         "imageDecodeFailed": "「{{name}}」を画像として読み込めませんでした。現在の画像はそのまま保持されています。有効な PNG、JPEG、または WebP ファイルを選択してください。",
+        "imageDecodeFailedNoImage": "「{{name}}」を画像として読み込めませんでした。有効な PNG、JPEG、または WebP ファイルを選択してください。",
         "dismissImageImportError": "画像エラーを閉じる",
         "preparingControls": "3D 操作パネルを準備中…",
         "performanceWarning": "処理負荷の警告",
