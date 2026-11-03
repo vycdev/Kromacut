@@ -151,7 +151,7 @@ test.describe('sticky mobile landing CTA @smoke', () => {
                     .toBeLessThanOrEqual(width);
 
                 const footerLinks = page.getByRole('navigation', { name: 'Footer navigation' }).getByRole('link');
-                await expect(footerLinks).toHaveCount(7);
+                await expect(footerLinks).toHaveCount(8);
                 for (const link of await footerLinks.all()) {
                     await expect(link).toBeInViewport({ ratio: 1 });
                     const bounds = await link.boundingBox();

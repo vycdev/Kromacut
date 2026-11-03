@@ -72,6 +72,7 @@ type UpdateCheckStatus = 'idle' | 'checking' | 'available' | 'current' | 'error'
 const legalLinks = [
     { path: '/privacy', labelKey: 'public:navigation.privacy' },
     { path: '/terms', labelKey: 'public:navigation.terms' },
+    { path: '/awards', labelKey: 'public:navigation.awards' },
 ] as const;
 
 export const Header: React.FC<Props> = ({ docsOpen, onBackToApp, onOpenDocs }) => {

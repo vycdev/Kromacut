@@ -92,6 +92,12 @@ test.describe('landing page smoke @smoke', () => {
         await expect(communityLinks).toBeVisible();
         await expect(communityLinks.getByRole('link')).toHaveCount(4);
         await expect(communityLinks.getByRole('link', { name: 'r/kromacut on Reddit' })).toHaveAttribute('href', 'https://www.reddit.com/r/kromacut/');
+        const awards = page.getByTestId('landing-awards');
+        await expect(awards.getByRole('heading', { name: 'Snapmaker Innovation Fund Winner' })).toBeVisible();
+        await expect(awards.getByRole('link', { name: 'About the Snapmaker Innovation Fund' })).toHaveAttribute('href', 'https://www.snapmaker.com/innovation-fund');
+        await awards.scrollIntoViewIfNeeded();
+        await expect.poll(() => awards.locator('img').evaluate((image: HTMLImageElement) => image.complete && image.naturalWidth)).toBe(960);
+        await expect(page.getByTestId('landing-awards-link')).toHaveAttribute('href', '/awards');
         await expect(page.getByRole('heading', { name: 'Made by the Kromacut community.' })).toBeVisible();
         const showcase = page.getByTestId('community-showcase');
         const communityGallery = showcase.getByTestId('community-gallery');
@@ -245,6 +251,17 @@ test.describe('landing page smoke @smoke', () => {
         await page.keyboard.press('Escape');
         await expect(dialog).toBeHidden();
         await expect(settingsButton).toBeFocused();
+    });
+
+    test('awards page lists the Snapmaker Innovation Fund award', async ({ page }) => {
+        for (const [path, title] of [['/awards', 'Awards'], ['/ro/awards', 'Premii']]) {
+            await page.goto(path);
+            const awards = page.getByTestId('awards-page');
+            await expect(awards.getByRole('heading', { level: 1, name: title })).toBeVisible();
+            await expect(awards.locator('.awards-entry img')).toHaveJSProperty('naturalWidth', 960);
+            await expect(awards.getByRole('link', { name: /Snapmaker Innovation Fund/ })).toHaveAttribute('href', 'https://www.snapmaker.com/innovation-fund');
+        }
+        await expect(page).toHaveTitle('Premii | Kromacut');
     });
 
     test('docs direct loading keeps the docs shell', async ({ page }) => {

@@ -1,6 +1,8 @@
 import { Trans, useTranslation } from 'react-i18next';
 import {
     ArrowRight,
+    ArrowUpRight,
+    Award,
     BookOpen,
     Check,
     ChevronDown,
@@ -38,6 +40,7 @@ import batmangaFinished from '../../content/community/batmanga-finished.jpg';
 import narutoKromacutPreview from '../../content/community/naruto-kromacut-preview.png';
 import narutoSlicerPreview from '../../content/community/naruto-slicer-preview.png';
 import narutoFinished from '../../content/community/naruto-finished.jpg';
+import innovationFundMedal from '../../content/badges/innovation-fund-medal.png';
 import redditIcon from '../assets/reddit.svg';
 import { APP_PATH, docsPath, publicPath } from '@/lib/routes';
 import LanguageSetting from './LanguageSetting';
@@ -60,6 +63,7 @@ const links = {
     discord: 'https://discord.gg/nU63sFMcnX',
     reddit: 'https://www.reddit.com/r/kromacut/',
     patreon: 'https://www.patreon.com/cw/vycdev',
+    snapmakerInnovationFund: 'https://www.snapmaker.com/innovation-fund',
 };
 
 const workflow = [
@@ -917,6 +921,44 @@ export default function LandingPage() {
                 </div>
             </section>
 
+            <section
+                data-testid="landing-awards"
+                aria-labelledby="landing-awards-heading"
+                className="mx-auto max-w-7xl px-5 py-20 sm:px-8 md:py-24 lg:px-10"
+            >
+                <div className="flex flex-col items-start gap-8 sm:flex-row sm:items-center sm:gap-12">
+                    <img
+                        src={innovationFundMedal}
+                        alt=""
+                        width={480}
+                        height={480}
+                        loading="lazy"
+                        decoding="async"
+                        className="h-36 w-36 flex-shrink-0 drop-shadow-xl sm:h-44 sm:w-44"
+                    />
+                    <div className="max-w-2xl">
+                        <p className="text-xs font-bold uppercase tracking-[0.2em] text-blue-700 dark:text-blue-300">
+                            {t('navigation.awards')}
+                        </p>
+                        <h2
+                            id="landing-awards-heading"
+                            className="mt-4 text-3xl font-extrabold tracking-tight sm:text-4xl"
+                        >
+                            {t('landing.snapmakerInnovationFundWinner')}
+                        </h2>
+                        <a
+                            href={links.snapmakerInnovationFund}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="mt-6 inline-flex items-center gap-2 font-bold text-blue-700 underline decoration-blue-700/30 underline-offset-4 transition-colors motion-reduce:transition-none hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:text-blue-300 dark:decoration-blue-300/30"
+                        >
+                            {t('landing.aboutTheSnapmakerInnovationFund')}
+                            <ArrowUpRight aria-hidden="true" className="h-4 w-4" />
+                        </a>
+                    </div>
+                </div>
+            </section>
+
             <section className="border-t border-slate-200/90 bg-slate-100/80 dark:border-border/70 dark:bg-muted/20">
                 <div className="mx-auto flex max-w-7xl flex-col items-start justify-between gap-8 px-5 py-14 sm:px-8 md:flex-row md:items-center lg:px-10">
                     <div>
@@ -1014,6 +1056,14 @@ export default function LandingPage() {
                         data-testid="landing-footer-utility"
                         className="flex flex-wrap items-center gap-x-6 gap-y-3 lg:justify-end"
                     >
+                        <a
+                            href={publicPath('/awards')}
+                            data-testid="landing-awards-link"
+                            className="inline-flex min-h-11 items-center gap-2 rounded-md px-1 transition-colors motion-reduce:transition-none hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                            <Award aria-hidden="true" className="h-4 w-4" />
+                            {t('navigation.awards')}
+                        </a>
                         <a
                             href={publicPath('/privacy')}
                             data-testid="landing-privacy-link"
