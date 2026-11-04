@@ -115,3 +115,96 @@ test('@smoke valid JPEG and SVG files still import', async ({ page }) => {
     await expect(current).toContainText('40x30');
     await expect(error).toHaveCount(0);
 });
+
+test('@smoke image edits made while an import is being checked cancel that import', async ({
+    page,
+}) => {
+    await page.addInitScript(() => {
+        // Hold createImageBitmap until the test releases it, and record which
+        // files' object URLs are revoked so the test knows when a cancelled
+        // import has finished.
+        const w = window as unknown as {
+            holdImageBitmaps: boolean;
+            heldImageBitmaps: Array<() => void>;
+            revokedImageNames: string[];
+        };
+        w.holdImageBitmaps = false;
+        w.heldImageBitmaps = [];
+        w.revokedImageNames = [];
+        const createBitmap = window.createImageBitmap.bind(window);
+        window.createImageBitmap = ((...args: Parameters<typeof createImageBitmap>) => {
+            if (!w.holdImageBitmaps) return createBitmap(...args);
+            return new Promise<ImageBitmap>((resolve, reject) => {
+                w.heldImageBitmaps.push(() => createBitmap(...args).then(resolve, reject));
+            });
+        }) as typeof createImageBitmap;
+        const names = new Map<string, string>();
+        const createUrl = URL.createObjectURL.bind(URL);
+        const revokeUrl = URL.revokeObjectURL.bind(URL);
+        URL.createObjectURL = (object: Blob | MediaSource) => {
+            const url = createUrl(object);
+            if (object instanceof File) names.set(url, object.name);
+            return url;
+        };
+        URL.revokeObjectURL = (url: string) => {
+            const name = names.get(url);
+            if (name) w.revokedImageNames.push(name);
+            revokeUrl(url);
+        };
+    });
+    await page.addInitScript(() => localStorage.clear());
+    await page.goto('/app');
+    const input = page.getByTestId('image-file-input');
+    const current = page.getByText('Current', { exact: true }).locator('..');
+    const error = page.getByTestId('image-import-error');
+    const undo = page.getByRole('button', { name: 'Undo', exact: true });
+    const redo = page.getByRole('button', { name: 'Redo', exact: true });
+    const removeImage = page.getByRole('button', { name: 'Remove image', exact: true });
+    const jpeg = fileURLToPath(new URL('../assets/3888x2916p.jpg', import.meta.url));
+    const held = () =>
+        page.evaluate(
+            () => (window as unknown as { heldImageBitmaps: unknown[] }).heldImageBitmaps.length
+        );
+    const revoked = () =>
+        page.evaluate(
+            () => (window as unknown as { revokedImageNames: string[] }).revokedImageNames
+        );
+    const hold = (on: boolean) =>
+        page.evaluate((on) => {
+            (window as unknown as { holdImageBitmaps: boolean }).holdImageBitmaps = on;
+        }, on);
+    const release = () =>
+        page.evaluate(() => {
+            const w = window as unknown as { heldImageBitmaps: Array<() => void> };
+            w.heldImageBitmaps.splice(0).forEach((run) => run());
+        });
+    await expect(current).toContainText('1024x1024');
+
+    // Undo while an import is pending: the undone state and its redo entry survive.
+    await input.setInputFiles(source);
+    await expect(current).toContainText('1000x835');
+    await hold(true);
+    await input.setInputFiles(jpeg);
+    await expect.poll(held).toBe(1);
+    await undo.click();
+    await expect(current).toContainText('1024x1024');
+    await release();
+    await expect.poll(revoked).toEqual(['3888x2916p.jpg']);
+    await expect(current).toContainText('1024x1024');
+    await expect(redo).toBeEnabled();
+    await expect(undo).toBeDisabled();
+
+    // Remove image while an import is pending: the preview stays empty and the
+    // history is unchanged.
+    await input.setInputFiles(source);
+    await expect.poll(held).toBe(1);
+    await removeImage.click();
+    await expect(removeImage).toBeDisabled();
+    await release();
+    await expect.poll(revoked).toEqual(['3888x2916p.jpg', 'rocco__source.png']);
+    await expect(removeImage).toBeDisabled();
+    await expect(page.getByText('1000x835')).toHaveCount(0);
+    await expect(undo).toBeDisabled();
+    await expect(redo).toBeEnabled();
+    await expect(error).toHaveCount(0);
+});

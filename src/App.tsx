@@ -334,16 +334,23 @@ function App(): React.ReactElement | null {
         const pal = allPalettes.find((p) => p.id === selectedPalette);
         if (pal && pal.size > 0) setFinalColors(pal.size);
     }, [allPalettes, selectedPalette]);
+    // Each file import takes a token and commits only if no newer image change has
+    // happened while it was being checked.
+    const imageImportRequestRef = useRef(0);
+    // Every history change (set, clear, undo, redo) runs this, so edits such as
+    // Remove image, Undo, crop, or resize made during a pending import cancel it.
+    const cancelPendingImageImport = useCallback(() => {
+        imageImportRequestRef.current += 1;
+    }, []);
     const { imageSrc, setImage, clearCurrent, undo, redo, canUndo, canRedo } = useImageHistory(
         logo,
-        undefined
+        cancelPendingImageImport
     );
     const { swatches, swatchesLoading, imageDimensions, invalidate, immediateOverride } =
         useSwatches(imageSrc);
     // adjustments managed locally inside AdjustmentsPanel now
     // initial selectedPalette derived from initial weight above
     const inputRef = useRef<HTMLInputElement | null>(null);
-    const imageImportRequestRef = useRef(0);
     // Kept untranslated so the notice follows language changes while it is open.
     const [imageImportError, setImageImportError] = useState<
         { kind: 'notImage' } | { kind: 'undecodable'; name: string } | null
