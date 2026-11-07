@@ -103,7 +103,9 @@ test('validateImageFile returns the decoded image and leaves its URL open', asyn
 
 test('validateImageFile refuses a truncated PNG that the decoders accept', async () => {
     await withBrowserStubs({ decodes: true }, async (urls) => {
-        const result = await validateImageFile(png(rocco.subarray(0, Math.floor(rocco.length / 3))));
+        const result = await validateImageFile(
+            png(rocco.subarray(0, Math.floor(rocco.length / 3)))
+        );
         assert.deepEqual(result, { ok: false, reason: 'undecodable' });
         assert.deepEqual(urls.revoked, urls.created);
     });
@@ -117,6 +119,16 @@ test('validateImageFile refuses files the decoder or createImageBitmap rejects',
     });
     await withBrowserStubs({ decodes: true, bitmapRejects: true }, async (urls) => {
         const result = await validateImageFile(png(rocco));
+        assert.deepEqual(result, { ok: false, reason: 'undecodable' });
+        assert.deepEqual(urls.revoked, urls.created);
+    });
+});
+
+test('validateImageFile refuses a file whose bytes can no longer be read', async () => {
+    await withBrowserStubs({ decodes: true }, async (urls) => {
+        const file = png(rocco);
+        file.arrayBuffer = () => Promise.reject(new Error('NotReadableError'));
+        const result = await validateImageFile(file);
         assert.deepEqual(result, { ok: false, reason: 'undecodable' });
         assert.deepEqual(urls.revoked, urls.created);
     });

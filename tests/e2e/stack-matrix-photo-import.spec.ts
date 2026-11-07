@@ -50,13 +50,19 @@ test('@smoke unreadable and truncated Stack Matrix photos report an error and ke
     await expect(openFailed).toBeVisible();
     await expect(canvas).toHaveAttribute('width', '1024');
 
+    // Load a different valid photo first so the next error and kept photo
+    // cannot be left over from the truncated attempt.
+    await input.setInputFiles({ name: 'rocco.png', mimeType: 'image/png', buffer: rocco });
+    await expect(canvas).toHaveAttribute('width', '1000');
+    await expect(openFailed).toHaveCount(0);
+
     await input.setInputFiles({
         name: 'corrupt.png',
         mimeType: 'image/png',
         buffer: Buffer.from('this is plain text, not image data'),
     });
     await expect(openFailed).toBeVisible();
-    await expect(canvas).toHaveAttribute('width', '1024');
+    await expect(canvas).toHaveAttribute('width', '1000');
 
     await input.setInputFiles({
         name: 'notes.txt',
@@ -66,5 +72,5 @@ test('@smoke unreadable and truncated Stack Matrix photos report an error and ke
     await expect(
         dialog.getByText('Drop an image file for the Stack Matrix photo', { exact: true })
     ).toBeVisible();
-    await expect(canvas).toHaveAttribute('width', '1024');
+    await expect(canvas).toHaveAttribute('width', '1000');
 });

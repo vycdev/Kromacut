@@ -53,6 +53,7 @@ export function useImageImport() {
                 );
                 return;
             }
+            setImportError(null);
             commit(result.url);
         },
         []

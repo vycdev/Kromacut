@@ -28,12 +28,13 @@ export function decodeImage(url: string): Promise<HTMLImageElement | null> {
  * also accepts truncated files in `createImageBitmap`, so first check PNG, JPEG,
  * and WebP for their end marker on every engine. `createImageBitmap` then catches
  * other damage in Chrome. Chrome rejects SVG blobs there, so SVGs rely on the
- * `<img>` decode alone.
+ * `<img>` decode alone. Reading the bytes can also fail, for example when the
+ * file changes on disk after it was chosen.
  */
 async function isCompleteRasterImage(file: Blob): Promise<boolean> {
-    if (isTruncatedImageData(new Uint8Array(await file.arrayBuffer()))) return false;
-    if (file.type === 'image/svg+xml' || typeof createImageBitmap !== 'function') return true;
     try {
+        if (isTruncatedImageData(new Uint8Array(await file.arrayBuffer()))) return false;
+        if (file.type === 'image/svg+xml' || typeof createImageBitmap !== 'function') return true;
         const bitmap = await createImageBitmap(file);
         bitmap.close();
         return true;
