@@ -32,11 +32,14 @@ class FakeImage {
 
 function withFakeImage(run: () => Promise<void>) {
     return async () => {
+        // Every test file shares one process, so put back whatever was there.
+        const previous = Object.getOwnPropertyDescriptor(globalThis, 'Image');
         Object.defineProperty(globalThis, 'Image', { value: FakeImage, configurable: true });
         try {
             await run();
         } finally {
-            delete (globalThis as { Image?: unknown }).Image;
+            if (previous) Object.defineProperty(globalThis, 'Image', previous);
+            else delete (globalThis as { Image?: unknown }).Image;
         }
     };
 }
