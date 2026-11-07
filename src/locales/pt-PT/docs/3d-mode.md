@@ -154,7 +154,7 @@ Arraste com o botão principal para rodar, use roda para ampliar e botão secund
 | **Transparente** | Ver camadas sobrepostas. | Só vista; não torna o filamento transparente. |
 | **Aramado** | Examinar arestas coloridas por camada. | Só vista; não são trajetórias de extrusão. |
 | **Cores da pré-visualização** | Alternar misturas simuladas e cores físicas. | Só vista. Exportações mantêm materiais reais. |
-| **Alternar câmara** | Perspetiva com profundidade ou alinhamento ortográfico sem encurtamento. | Só vista. A posição mantém-se. |
+| **Alternar câmara** | Perspetiva com profundidade ou alinhamento ortográfico sem encurtamento. | Só vista. O ângulo de visão e a ampliação mantêm-se entre modos. |
 | **Anular / Refazer** | Percorrer histórico partilhado da imagem. | Não anula campos 3D nem filamentos. Regenere após mudar imagem. |
 | **Transferir** | Exportar STL ou 3MF gerado. | Usa o último modelo, não definições laterais por aplicar. |
 

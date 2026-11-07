@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import {
+    orthographicFromPerspective,
+    syncPerspectiveFromOrthographic,
+} from '../lib/cameraProjection.ts';
 
 export function useThreeScene(
     mountRef: React.RefObject<HTMLDivElement | null>,
@@ -122,26 +126,11 @@ export function useThreeScene(
             const aspect = el.clientWidth / el.clientHeight;
 
             if (isOrtho && cam instanceof THREE.PerspectiveCamera) {
-                const target = ctrl.target.clone();
-                const dist = cam.position.distanceTo(target);
-                const fovRad = (cam.fov * Math.PI) / 180;
-                const viewH = 2 * dist * Math.tan(fovRad / 2);
-                const viewW = viewH * aspect;
-                const ortho = new THREE.OrthographicCamera(
-                    -viewW / 2, viewW / 2, viewH / 2, -viewH / 2, cam.near, cam.far
-                );
-                ortho.position.copy(cam.position);
-                ortho.quaternion.copy(cam.quaternion);
-                ortho.updateProjectionMatrix();
+                const ortho = orthographicFromPerspective(cam, ctrl.target, aspect);
                 cameraRef.current = ortho;
                 ctrl.object = ortho as unknown as THREE.Camera;
             } else if (!isOrtho && cam instanceof THREE.OrthographicCamera) {
-                persp.position.copy(cam.position);
-                persp.quaternion.copy(cam.quaternion);
-                persp.near = cam.near;
-                persp.far = cam.far;
-                persp.aspect = aspect;
-                persp.updateProjectionMatrix();
+                syncPerspectiveFromOrthographic(persp, cam, ctrl.target, aspect);
                 cameraRef.current = persp;
                 ctrl.object = persp as unknown as THREE.Camera;
             }
