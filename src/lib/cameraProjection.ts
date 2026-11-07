@@ -62,7 +62,9 @@ export function syncPerspectiveFromOrthographic(
 
     perspective.position.copy(target).addScaledVector(offset, distance);
     perspective.quaternion.copy(ortho.quaternion);
-    perspective.near = ortho.near;
+    // Scale the near plane with the distance so depth precision holds after zooming out, and the
+    // near plane never reaches the target after zooming in.
+    perspective.near = orthoDistance > 0 ? ortho.near * (distance / orthoDistance) : ortho.near;
     // Keep the same depth range beyond the target so moving back does not clip the model, and
     // moving closer shrinks the far plane again instead of accumulating depth across switches.
     perspective.far = distance + Math.max(0, ortho.far - orthoDistance);

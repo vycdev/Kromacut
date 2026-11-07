@@ -111,6 +111,31 @@ test('repeated zoom-out and zoom-in switches do not accumulate far-plane depth',
     );
 });
 
+test('the near plane scales with the distance carried over from orthographic zoom', () => {
+    const target = new THREE.Vector3();
+    const perspective = createPerspective(new THREE.Vector3(0, 0, 2), target);
+    perspective.near = 0.01;
+    perspective.updateProjectionMatrix();
+
+    const zoomedOut = orthographicFromPerspective(perspective, target, ASPECT);
+    zoomedOut.zoom = 0.01;
+    zoomedOut.updateProjectionMatrix();
+    syncPerspectiveFromOrthographic(perspective, zoomedOut, target, ASPECT);
+
+    assertClose(perspective.position.distanceTo(target), 200, 'zoomed-out distance');
+    assertClose(perspective.near, 1, 'zoomed-out near plane');
+
+    const zoomedIn = orthographicFromPerspective(perspective, target, ASPECT);
+    zoomedIn.zoom = 1000;
+    zoomedIn.updateProjectionMatrix();
+    syncPerspectiveFromOrthographic(perspective, zoomedIn, target, ASPECT);
+
+    const distance = perspective.position.distanceTo(target);
+    assertClose(distance, 0.2, 'zoomed-in distance');
+    assertClose(perspective.near, 0.001, 'zoomed-in near plane');
+    assert.ok(perspective.near < distance, 'near plane stays in front of the target');
+});
+
 test('moving the perspective camera back extends the far plane past the target', () => {
     const target = new THREE.Vector3();
     const perspective = createPerspective(new THREE.Vector3(0, 0, 2), target);
