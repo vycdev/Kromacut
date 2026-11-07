@@ -66,6 +66,7 @@ function installFakeDesktopRuntime() {
             });
             return id;
         },
+        unregisterCallback: (id: number) => callbacks.delete(id),
         async invoke(command: string, args?: unknown) {
             desktop.calls.push(command);
             const handler = handlers.get(command);
@@ -99,6 +100,7 @@ export async function fakeDesktopBeforeLoad<Arg = undefined>(
  * Switches an already loaded page to the desktop runtime, for specs that compare web and desktop
  * behavior in one page. `App` is lazy-loaded, so startup code may still run against the fake;
  * the neutral startup defaults keep that harmless. Calling it again only runs the new `setup`.
+ * Like `fakeDesktopBeforeLoad`, `arg` must be JSON-serializable.
  */
 export async function fakeDesktopAfterLoad<Arg = undefined>(
     page: Page,
@@ -112,11 +114,3 @@ export async function fakeDesktopAfterLoad<Arg = undefined>(
 /** Command names the page has invoked so far. */
 export const fakeDesktopCalls = (page: Page) =>
     page.evaluate(() => (window as unknown as FakeDesktopWindow).__kromacutFakeDesktop.calls);
-
-/** Delivers a native event to the page, as the Rust side would with `emit`. */
-export const emitDesktopEvent = (page: Page, event: string, payload: unknown = null) =>
-    page.evaluate(
-        ([name, value]) =>
-            (window as unknown as FakeDesktopWindow).__kromacutFakeDesktop.emit(name, value),
-        [event, payload] as const
-    );

@@ -1,7 +1,11 @@
 import { expect, test, type Page } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import type { DesktopOpenedFile } from '../../src/lib/desktopFileInbox';
-import { emitDesktopEvent, fakeDesktopBeforeLoad, fakeDesktopCalls } from './helpers/fakeDesktop';
+import {
+    fakeDesktopBeforeLoad,
+    fakeDesktopCalls,
+    type FakeDesktopWindow,
+} from './helpers/fakeDesktop';
 
 const legacyContent = readFileSync('tests/assets/filament-profiles/2_Colors.kapp', 'utf8');
 const legacy = JSON.parse(legacyContent);
@@ -91,10 +95,12 @@ async function mockDesktop(page: Page, initial: DesktopOpenedFile[], entryPath =
 }
 
 async function openFiles(page: Page, files: DesktopOpenedFile[]) {
+    // Queue and signal in one page task, so no take can run in between.
     await page.evaluate((items) => {
-        (window as unknown as MockDesktop).fileOpenTest.pending.push(...items);
+        const host = window as unknown as MockDesktop & FakeDesktopWindow;
+        host.fileOpenTest.pending.push(...items);
+        host.__kromacutFakeDesktop.emit('kromacut-opened-files');
     }, files);
-    await emitDesktopEvent(page, 'kromacut-opened-files');
 }
 
 const profiles = (page: Page) =>
