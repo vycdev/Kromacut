@@ -157,8 +157,8 @@ test('@smoke valid JPEG and SVG files still import', async ({ page }) => {
 
 test('@smoke raster imports are decoded once before they are committed', async ({ page }) => {
     await page.addInitScript(() => {
-        // Hold createImageBitmap until the test releases it, and record the
-        // object URLs that <img> elements load while the check is pending.
+        // Hold createImageBitmap for imported files until the test releases it,
+        // and record the object URLs that <img> elements load meanwhile.
         const w = window as unknown as {
             bitmapCalls: number;
             heldImageBitmaps: Array<() => void>;
@@ -171,6 +171,7 @@ test('@smoke raster imports are decoded once before they are committed', async (
         w.imageSrcs = [];
         const createBitmap = window.createImageBitmap.bind(window);
         window.createImageBitmap = ((...args: Parameters<typeof createImageBitmap>) => {
+            if (!(args[0] instanceof File)) return createBitmap(...args);
             w.bitmapCalls += 1;
             return new Promise<ImageBitmap>((resolve, reject) => {
                 w.heldImageBitmaps.push(() => createBitmap(...args).then(resolve, reject));

@@ -157,8 +157,8 @@ function decodeImage(url: string): Promise<HTMLImageElement | null> {
  * the rows it could decode. WebKit, which the macOS and Linux desktop apps use,
  * also accepts truncated files in `createImageBitmap`, so first check PNG, JPEG,
  * and WebP for their end marker on every engine. Raster files then decode with
- * `createImageBitmap` alone: it accepts the same formats as `<img>` and also
- * catches other damage in Chrome. Chrome rejects SVG blobs there, so SVGs, and
+ * `createImageBitmap` alone: in Chromium and WebKit it accepts the same formats
+ * as `<img>`, and it also catches other damage in Chrome. Chrome rejects SVG blobs there, so SVGs, and
  * engines without `createImageBitmap`, decode in an `<img>` instead.
  */
 async function isReadableImageFile(file: Blob, url: string): Promise<boolean> {
