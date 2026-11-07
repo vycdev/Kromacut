@@ -2,8 +2,9 @@
 
 The cats replay expectation was stale after intentional changes to calibrated
 prediction and printable foundations. The captured `observedResult`, original
-profile, image, screenshots, reference 3MF, and all captured artifact hashes remain
-unchanged. This experiment is separate from the recorded-order #113 matrix.
+profile, image, screenshots, reference 3MF, and captured artifact hashes remain
+unchanged, except that the recorded profile hash was corrected from its CRLF form
+(see below). This experiment is separate from the recorded-order #113 matrix.
 
 ## Fingerprint investigation
 
@@ -21,6 +22,17 @@ and source-image SHA-256
 `e067bd7c3d89de2fd710997a65dd91199948038f3403f7325c90ab5add3fa7a9`.
 The palette contains all 128 opaque colors and all 331,776 pixels in the same
 reversed HSL order as the canonical calibrated benchmark.
+
+The profile hash above, and every profile hash in the archived `2026-11-01`
+results, is the CRLF form of `profile.kfil` from a Windows checkout with
+`core.autocrlf=true`. The committed LF file is the same profile and hashes to
+`0df2f2662da5c8e084654bc48c69238adcc2e7a33ee62186dd39d24b55e874e7`, which the
+fixture `case.json` files now record (#130). `.gitattributes` marks `.kfil` files
+and the performance fixture JSON as `-text`, so every platform checks out the
+committed bytes. The archive stays unchanged because its manifest locks those
+hashes. Existing Windows clones keep their CRLF copy until it is checked out
+again, for example with
+`git rm --cached -r tests/assets/performance && git checkout -- tests/assets/performance`.
 
 | Source | Fixed-order fingerprint | Layers | Height mm |
 |:---|:---|---:|---:|

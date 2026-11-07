@@ -123,7 +123,7 @@ test('cats captured observations and artifact hashes remain immutable', () => {
     const fixture = JSON.parse(readFileSync(`${root}/cats/case.json`, 'utf8'));
     assert.equal(
         sha256(JSON.stringify({ observedResult: fixture.observedResult, sha256: fixture.sha256 })),
-        'ce6e311c32641475752d0f0f3c16de26badd05b80dfc2eed238353901a094c85'
+        'c2d0a515baa633b8e16c01fab5b2568eb823287c113a5c75e1c1157a618b7f54'
     );
     assert.equal(sha256(readFileSync(`${root}/profile.kfil`)), fixture.sha256.profile);
     assert.equal(sha256(readFileSync(`${root}/cats/source.png`)), fixture.sha256.sourceImage);
