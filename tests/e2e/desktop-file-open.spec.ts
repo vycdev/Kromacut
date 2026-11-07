@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import type { DesktopOpenedFile } from '../../src/lib/desktopFileInbox';
+import { emitDesktopEvent, fakeDesktopBeforeLoad, fakeDesktopCalls } from './helpers/fakeDesktop';
 
 const legacyContent = readFileSync('tests/assets/filament-profiles/2_Colors.kapp', 'utf8');
 const legacy = JSON.parse(legacyContent);
@@ -42,8 +43,6 @@ const paletteFile = (id: string): DesktopOpenedFile => ({
 type MockDesktop = Window & {
     fileOpenTest: {
         pending: DesktopOpenedFile[];
-        signal: () => void;
-        calls: string[];
         failWrites?: boolean;
         releaseRead?: () => void;
         holdNextWrite?: boolean;
@@ -52,81 +51,50 @@ type MockDesktop = Window & {
 };
 
 async function mockDesktop(page: Page, initial: DesktopOpenedFile[], entryPath = '/app') {
-    await page.addInitScript((files) => {
-        localStorage.clear();
-        const callbacks = new Map<number, (value: unknown) => void>();
-        let nextId = 0;
-        const desktop = window as unknown as MockDesktop & {
-            isTauri: boolean;
-            __TAURI_INTERNALS__: unknown;
-        };
-        desktop.isTauri = true;
-        desktop.fileOpenTest = { pending: files, signal: () => {}, calls: [] };
-        const setItem = Storage.prototype.setItem;
-        Storage.prototype.setItem = function (key, value) {
-            if (
-                desktop.fileOpenTest.failWrites &&
-                ['kromacut.autopaint.profiles', 'kromacut.palettes'].includes(key)
-            )
-                throw new DOMException('Test storage full', 'QuotaExceededError');
-            setItem.call(this, key, value);
-        };
-        desktop.__TAURI_INTERNALS__ = {
-            transformCallback(callback: (value: unknown) => void) {
-                const id = ++nextId;
-                callbacks.set(id, callback);
-                return id;
-            },
-            async invoke(
-                command: string,
-                args: { event?: string; handler?: number; data?: Uint8Array } = {}
-            ) {
-                desktop.fileOpenTest.calls.push(command);
-                if (command === 'plugin:event|listen') {
-                    if (args.event === 'kromacut-opened-files') {
-                        desktop.fileOpenTest.signal = () =>
-                            callbacks.get(args.handler!)?.({
-                                event: args.event,
-                                id: args.handler,
-                                payload: null,
-                            });
-                    }
-                    return args.handler;
+    await fakeDesktopBeforeLoad(
+        page,
+        (desktop, files) => {
+            localStorage.clear();
+            const host = window as unknown as MockDesktop;
+            host.fileOpenTest = { pending: files };
+            const setItem = Storage.prototype.setItem;
+            Storage.prototype.setItem = function (key, value) {
+                if (
+                    host.fileOpenTest.failWrites &&
+                    ['kromacut.autopaint.profiles', 'kromacut.palettes'].includes(key)
+                )
+                    throw new DOMException('Test storage full', 'QuotaExceededError');
+                setItem.call(this, key, value);
+            };
+            desktop.handle('take_opened_file', () => host.fileOpenTest.pending.shift() ?? null);
+            desktop.handle('plugin:dialog|save', () => 'C:\\mock\\proof.3mf');
+            desktop.handle('plugin:fs|open', () => 91);
+            desktop.handle('plugin:fs|write', async ({ data }: { data: Uint8Array }) => {
+                const state = host.fileOpenTest;
+                if (state.holdNextWrite) {
+                    state.holdNextWrite = false;
+                    await new Promise<void>((resolve) => {
+                        state.releaseWrite = () => {
+                            delete state.releaseWrite;
+                            resolve();
+                        };
+                    });
                 }
-                if (command === 'take_opened_file')
-                    return desktop.fileOpenTest.pending.shift() ?? null;
-                if (command === 'get_app_version') return '4.1.0';
-                if (command === 'check_for_updates') return null;
-                if (command === 'plugin:dialog|save') return 'C:\\mock\\proof.3mf';
-                if (command === 'plugin:fs|open') return 91;
-                if (command === 'plugin:fs|write') {
-                    const state = desktop.fileOpenTest;
-                    if (state.holdNextWrite) {
-                        state.holdNextWrite = false;
-                        await new Promise<void>((resolve) => {
-                            state.releaseWrite = () => {
-                                delete state.releaseWrite;
-                                resolve();
-                            };
-                        });
-                    }
-                    return args.data!.byteLength;
-                }
-                if (command === 'plugin:resources|close') return;
-                if (command === 'plugin:dialog|message') return 'Ok';
-                throw new Error(`Unexpected desktop command: ${command}`);
-            },
-        };
-    }, initial);
+                return data.byteLength;
+            });
+            desktop.handle('plugin:resources|close', () => undefined);
+            desktop.handle('plugin:dialog|message', () => 'Ok');
+        },
+        initial
+    );
     await page.goto(entryPath);
 }
 
 async function openFiles(page: Page, files: DesktopOpenedFile[]) {
     await page.evaluate((items) => {
-        const state = (window as unknown as MockDesktop).fileOpenTest;
-        state.pending.push(...items);
-        state.signal();
+        (window as unknown as MockDesktop).fileOpenTest.pending.push(...items);
     }, files);
+    await emitDesktopEvent(page, 'kromacut-opened-files');
 }
 
 const profiles = (page: Page) =>
@@ -359,13 +327,7 @@ for (const ownerChange of ['unchanged', 'renamed', 'replaced', 'deleted'] as con
         );
         await page.evaluate(() => (window as unknown as MockDesktop).fileOpenTest.releaseWrite!());
         await expect
-            .poll(() =>
-                page.evaluate(() =>
-                    (window as unknown as MockDesktop).fileOpenTest.calls.includes(
-                        'plugin:dialog|message'
-                    )
-                )
-            )
+            .poll(async () => (await fakeDesktopCalls(page)).includes('plugin:dialog|message'))
             .toBe(true);
         await expectPendingFiles(page, 0);
         const after = await profiles(page);
@@ -883,7 +845,7 @@ test('@smoke desktop startup imports legacy profiles; warm batches import/select
     expect(saved.id).toBe(legacy.id);
     expect(saved.version).toBe(3);
     expect(saved.filaments.map((item: { td: number }) => item.td)).toEqual([0.6, 0.016]);
-    const calls = await page.evaluate(() => (window as unknown as MockDesktop).fileOpenTest.calls);
+    const calls = await fakeDesktopCalls(page);
     expect(calls.indexOf('plugin:event|listen')).toBeLessThan(calls.indexOf('take_opened_file'));
 
     await openFiles(page, [
