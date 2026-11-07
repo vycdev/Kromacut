@@ -154,7 +154,7 @@ Trascina con il pulsante principale del mouse per orbitare, usa la rotellina per
 | **Trasparente** | Vedere gli strati sovrapposti. | Solo anteprima; non rende trasparente il filamento. |
 | **Reticolo** | Esaminare i bordi dei dettagli colorati per strato. | Solo anteprima; non sono percorsi di estrusione. |
 | **Colori anteprima** | Alternare miscele simulate da Auto-paint e colori fisici dei filamenti. | Solo anteprima. Le esportazioni mantengono le assegnazioni reali dei materiali. |
-| **Cambio camera** | Passare dalla profondità prospettica all’allineamento ortografico senza scorcio. | Solo anteprima. La posizione della camera viene mantenuta. |
+| **Cambio camera** | Passare dalla profondità prospettica all’allineamento ortografico senza scorcio. | Solo anteprima. Angolo di vista e zoom vengono mantenuti tra le modalità. |
 | **Annulla / Ripeti** | Percorrere la cronologia condivisa delle modifiche all’immagine. | Non annulla i campi 3D o le modifiche ai filamenti. Rigenera dopo una modifica all’immagine. |
 | **Scarica** | Esportare lo STL o il 3MF generato. | Usa l’ultimo modello generato, non le impostazioni della barra laterale non applicate. |
 

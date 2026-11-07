@@ -154,7 +154,7 @@ Arrastra con el botón principal para orbitar, usa la rueda para ampliar y el se
 | **Transparente** | Ver capas superpuestas. | Solo vista; no vuelve transparente el filamento. |
 | **Alámbrico** | Examinar aristas coloreadas por capa. | Solo vista; no son trayectorias de extrusión. |
 | **Colores de vista previa** | Alternar mezclas simuladas y colores físicos. | Solo vista. Las exportaciones conservan asignaciones reales. |
-| **Cambiar cámara** | Perspectiva con profundidad u ortográfica sin acortamiento. | Solo vista. Se conserva la posición. |
+| **Cambiar cámara** | Perspectiva con profundidad u ortográfica sin acortamiento. | Solo vista. El ángulo de vista y la ampliación se conservan al cambiar de modo. |
 | **Deshacer / Rehacer** | Recorrer historial compartido de imagen. | No deshace campos 3D ni filamentos. Regenera tras cambiar la imagen. |
 | **Descargar** | Exportar STL o 3MF generado. | Usa el último modelo, no ajustes laterales sin aplicar. |
 
