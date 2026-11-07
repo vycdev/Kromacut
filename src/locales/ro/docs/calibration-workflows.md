@@ -193,7 +193,7 @@ Imprimă cu fața în sus, la scară 100%, cu înălțimile și atribuirile de f
 
 ### Încarcă și aliniază o fotografie
 
-Selectează placa imprimată din lista matricelor salvate, apoi **Alege fotografia** sau trage o imagine în zona fotografiei. Fotografiază sub lumină frontală difuză, fără reflexii puternice. Fișierul trebuie să poată fi decodat de aplicație; un RAW de cameră nu înlocuiește un export de imagine vizibil în mod obișnuit.
+Selectează placa imprimată din lista matricelor salvate, apoi **Alege fotografia** sau trage o imagine în zona fotografiei. Fotografiază sub lumină frontală difuză, fără reflexii puternice. Fișierul trebuie să poată fi decodat de aplicație; un RAW de cameră nu înlocuiește un export de imagine vizibil în mod obișnuit. Dacă o fotografie nu poate fi citită, de exemplu pentru că este deteriorată sau descărcată doar parțial, Kromacut afișează o eroare și păstrează fotografia deja încărcată, dacă există.
 
 ![Cele patru repere se plasează în centrele celulelor colorate de marcaj, în afara grilei de rețete. Limita plăcii se extinde cu jumătate de celulă dincolo de centre; un detaliu mărit deosebește centrul marcajului de colțul plăcii.](22_matrix_alignment.svg)
 

@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { i18n, translate } from '@/lib/i18n';
 import { translateRuntimeMessage } from '@/lib/runtimeMessages';
-import { isImageFile } from '@/lib/imageFile';
+import { isImageFile, validateImageFile } from '@/lib/imageFile';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     AlertTriangle,
@@ -692,8 +692,10 @@ export default function StackMatrixCalibrationPanel({
     );
 
     const handlePhotoFile = useCallback(
-        (file: File | undefined) => {
+        async (file: File | undefined) => {
             if (!file || !activeRecord) return;
+            // Checked before taking a load generation, so a non-image does not
+            // cancel a photo that is still loading.
             if (!isImageFile(file)) {
                 setError('Drop an image file for the Stack Matrix photo');
                 return;
@@ -701,18 +703,23 @@ export default function StackMatrixCalibrationPanel({
             const loadGeneration = ++photoLoadGenerationRef.current;
             const photoProfileId = profileId;
             const recordId = activeRecord.id;
-            const url = URL.createObjectURL(file);
-            const image = new Image();
-            image.onload = () => {
-                const activeOwner = activePhotoOwnerRef.current;
-                if (
-                    loadGeneration !== photoLoadGenerationRef.current ||
-                    activeOwner.profileId !== photoProfileId ||
-                    activeOwner.recordId !== recordId
-                ) {
-                    URL.revokeObjectURL(url);
-                    return;
-                }
+            const result = await validateImageFile(file);
+            const activeOwner = activePhotoOwnerRef.current;
+            if (
+                loadGeneration !== photoLoadGenerationRef.current ||
+                activeOwner.profileId !== photoProfileId ||
+                activeOwner.recordId !== recordId
+            ) {
+                if (result.ok) URL.revokeObjectURL(result.url);
+                return;
+            }
+            // A truncated photo would otherwise load with only the rows that decoded.
+            if (!result.ok) {
+                setError('Could not open that photo');
+                return;
+            }
+            const { image, url } = result;
+            try {
                 const scale = Math.min(1, 1200 / Math.max(image.naturalWidth, image.naturalHeight));
                 const width = Math.max(1, Math.round(image.naturalWidth * scale));
                 const height = Math.max(1, Math.round(image.naturalHeight * scale));
@@ -722,7 +729,6 @@ export default function StackMatrixCalibrationPanel({
                 const context = scratch.getContext('2d', { willReadFrequently: true });
                 if (!context) {
                     setError('This browser could not read the Stack Matrix photo');
-                    URL.revokeObjectURL(url);
                     return;
                 }
                 context.drawImage(image, 0, 0, width, height);
@@ -741,20 +747,9 @@ export default function StackMatrixCalibrationPanel({
                 detectPhotoAlignment(loadedPhoto);
                 setMeasuredColors([]);
                 setError(null);
+            } finally {
                 URL.revokeObjectURL(url);
-            };
-            image.onerror = () => {
-                const activeOwner = activePhotoOwnerRef.current;
-                if (
-                    loadGeneration === photoLoadGenerationRef.current &&
-                    activeOwner.profileId === photoProfileId &&
-                    activeOwner.recordId === recordId
-                ) {
-                    setError('Could not open that photo');
-                }
-                URL.revokeObjectURL(url);
-            };
-            image.src = url;
+            }
         },
         [activeRecord, detectPhotoAlignment, profileId]
     );
@@ -825,7 +820,7 @@ export default function StackMatrixCalibrationPanel({
             setError('Drop an image file for the Stack Matrix photo');
             return;
         }
-        handlePhotoFile(file);
+        void handlePhotoFile(file);
     };
 
     const drawPhotoOverlay = useCallback(
@@ -1595,9 +1590,10 @@ export default function StackMatrixCalibrationPanel({
                                 ref={fileInputRef}
                                 type="file"
                                 accept="image/*"
+                                data-testid="matrix-photo-input"
                                 className="hidden"
                                 onChange={(event) => {
-                                    handlePhotoFile(event.target.files?.[0]);
+                                    void handlePhotoFile(event.target.files?.[0]);
                                     event.currentTarget.value = '';
                                 }}
                             />
@@ -1705,6 +1701,7 @@ export default function StackMatrixCalibrationPanel({
                                         >
                                             <canvas
                                                 ref={photoCanvasRef}
+                                                data-testid="matrix-photo-canvas"
                                                 className="block h-full w-full"
                                                 aria-hidden="true"
                                             />
