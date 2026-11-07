@@ -171,6 +171,8 @@ for (const width of [1440, 1024, 768, 390]) {
         const utility = navigation.getByTestId('landing-footer-utility');
         const terms = utility.getByTestId('landing-terms-link');
         const privacy = utility.getByTestId('landing-privacy-link');
+        // The utility row starts with whichever link comes first (Awards since #126).
+        const firstUtilityLink = utility.getByRole('link').first();
         const brand = footer.getByRole('link', { name: 'Kromacut', exact: true });
 
         for (const code of ['ro', 'en'] as const) {
@@ -216,6 +218,7 @@ for (const width of [1440, 1024, 768, 390]) {
             const triggerBounds = (await language.boundingBox())!;
             const termsBounds = (await terms.boundingBox())!;
             const privacyBounds = (await privacy.boundingBox())!;
+            const firstUtilityBounds = (await firstUtilityLink.boundingBox())!;
             const utilityBounds = (await utility.boundingBox())!;
             const brandBounds = (await brand.boundingBox())!;
             const communityLinkBounds = await Promise.all(
@@ -251,7 +254,7 @@ for (const width of [1440, 1024, 768, 390]) {
                 expect(triggerBounds.x + triggerBounds.width).toBeCloseTo(firstRowRight, 0);
             } else {
                 expect(firstCommunityLink.x).toBeCloseTo(brandBounds.x, 0);
-                expect(privacyBounds.x).toBeCloseTo(brandBounds.x, 0);
+                expect(firstUtilityBounds.x).toBeCloseTo(brandBounds.x, 0);
             }
             expect(
                 await page.evaluate(
