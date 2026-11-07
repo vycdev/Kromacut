@@ -53,7 +53,12 @@ export function useImageHistory(initial: string | null, onBeforeSet?: () => void
         [onBeforeSet]
     );
 
+    // onBeforeSet runs in the event handler, not inside the state updaters below,
+    // which React may run later or twice. Skip it when there is nothing to undo or
+    // redo, so a no-op does not count as an image change.
     const undo = useCallback(() => {
+        if (past.length === 0) return;
+        if (onBeforeSet) onBeforeSet();
         setPast((p) => {
             if (p.length === 0) return p;
             const prev = p[p.length - 1];
@@ -65,13 +70,14 @@ export function useImageHistory(initial: string | null, onBeforeSet?: () => void
                 }
                 return f;
             });
-            if (onBeforeSet) onBeforeSet();
             setImageSrc(prev);
             return p.slice(0, p.length - 1);
         });
-    }, [onBeforeSet]);
+    }, [past.length, onBeforeSet]);
 
     const redo = useCallback(() => {
+        if (future.length === 0) return;
+        if (onBeforeSet) onBeforeSet();
         setFuture((f) => {
             if (f.length === 0) return f;
             const next = f[f.length - 1];
@@ -82,11 +88,10 @@ export function useImageHistory(initial: string | null, onBeforeSet?: () => void
                 }
                 return p;
             });
-            if (onBeforeSet) onBeforeSet();
             setImageSrc(next);
             return f.slice(0, f.length - 1);
         });
-    }, [onBeforeSet]);
+    }, [future.length, onBeforeSet]);
 
     const clearCurrent = useCallback(() => {
         if (imageSrc && !past.includes(imageSrc) && !future.includes(imageSrc)) {

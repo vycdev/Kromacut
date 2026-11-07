@@ -179,9 +179,17 @@ if (args.includes('--prepare') && calibratedResult) {
         fixture.sha256.sourceImage,
         'Expected the calibrated cats source'
     );
-    assert.equal(
-        saved.inputs.profile.sha256,
-        fixture.sha256.profile,
+    // Results captured from a CRLF checkout hash the same profile with CRLF line endings.
+    const profileBytes = readFileSync(
+        'tests/assets/performance/8-colors-frontlit-2026-08-26/profile.kfil',
+        'utf8'
+    ).replace(/\r\n/g, '\n');
+    const profileHashes = [profileBytes, profileBytes.replace(/\n/g, '\r\n')].map((text) =>
+        createHash('sha256').update(text).digest('hex')
+    );
+    assert.equal(profileHashes[0], fixture.sha256.profile, 'Expected the measured cats profile');
+    assert.ok(
+        profileHashes.includes(saved.inputs.profile.sha256),
         'Expected the measured cats profile'
     );
     assert.equal(

@@ -11,7 +11,7 @@ Im **2D**-Modus bereitest du das Bild vor, das das 3D-Modell verwenden soll. Far
 
 ## Eine Quelle wählen
 
-Klicke in der Vorschau-Werkzeugleiste auf **Datei auswählen** oder ziehe eine Bilddatei in die 2D-Vorschau. Bei mehreren abgelegten Dateien wird nur die erste geladen. Verwende ein Bildformat, das dein Browser oder die Desktop-Webview decodieren kann. PNG eignet sich, wenn Transparenz wichtig ist. Entwickle Kamera-RAW-Dateien zunächst und exportiere sie in ein übliches Bildformat.
+Klicke in der Vorschau-Werkzeugleiste auf **Datei auswählen** oder ziehe eine Bilddatei in die 2D-Vorschau. Bei mehreren abgelegten Dateien wird nur die erste geladen. Verwende ein Bildformat, das dein Browser oder die Desktop-Webview decodieren kann. PNG eignet sich, wenn Transparenz wichtig ist. Entwickle Kamera-RAW-Dateien zunächst und exportiere sie in ein übliches Bildformat. Lässt sich eine Datei nicht als Bild lesen, etwa weil sie beschädigt oder unvollständig heruntergeladen ist, zeigt Kromacut einen Fehler an und behält das aktuelle Bild bei.
 
 Kromacut startet mit seinem Logo als Beispiel. Das Laden eines anderen Bildes ersetzt das aktuelle Arbeitsbild. Dabei wird das Bild weder veröffentlicht noch eine Quelle aus einem eingefügten Weblink heruntergeladen.
 

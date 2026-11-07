@@ -22,6 +22,8 @@ import DeditherPanel from './components/DeditherPanel';
 import ImageResizePanel from './components/ImageResizePanel';
 import { ADJUSTMENT_DEFAULTS } from './lib/applyAdjustments';
 import { calculateImageResizeDimensions } from './lib/imageResize';
+import { isImageFile } from './lib/imageFile';
+import { isTruncatedImageData } from './lib/imageTruncation';
 import SLIDER_DEFS from './components/sliderDefs';
 import { useSwatches } from './hooks/useSwatches';
 import type { SwatchEntry } from './hooks/useSwatches';
@@ -82,6 +84,8 @@ import {
     AlertDialogAction,
     AlertDialogCancel,
 } from './components/ui/alert-dialog';
+import { Button } from './components/ui/button';
+import { X } from 'lucide-react';
 // ...existing imports
 
 const AUTOPAINT_STORAGE_KEY = 'kromacut.autopaint.v1';
@@ -135,6 +139,36 @@ type AutoPaintPersisted = Pick<
 // persisted without this marker predates the change and carries uncalibrated
 // tds on the conventional backlit scale, which must be migrated once on load.
 const AUTOPAINT_SCHEMA_VERSION = 2;
+
+/** Resolves to null when the browser cannot decode the URL as an image. */
+function decodeImage(url: string): Promise<HTMLImageElement | null> {
+    return new Promise((resolve) => {
+        const image = new Image();
+        image.onload = () => resolve(image.naturalWidth && image.naturalHeight ? image : null);
+        image.onerror = () => resolve(null);
+        image.src = url;
+    });
+}
+
+/**
+ * An `<img>` still loads a truncated or partly damaged raster file and shows only
+ * the rows it could decode. WebKit, which the macOS and Linux desktop apps use,
+ * also accepts truncated files in `createImageBitmap`, so first check PNG, JPEG,
+ * and WebP for their end marker on every engine. `createImageBitmap` then catches
+ * other damage in Chrome. Chrome rejects SVG blobs there, so SVGs rely on the
+ * `<img>` decode alone.
+ */
+async function isCompleteRasterImage(file: Blob): Promise<boolean> {
+    if (isTruncatedImageData(new Uint8Array(await file.arrayBuffer()))) return false;
+    if (file.type === 'image/svg+xml' || typeof createImageBitmap !== 'function') return true;
+    try {
+        const bitmap = await createImageBitmap(file);
+        bitmap.close();
+        return true;
+    } catch {
+        return false;
+    }
+}
 
 function isOneOf<T extends readonly number[]>(value: unknown, values: T): value is T[number] {
     return typeof value === 'number' && values.includes(value as T[number]);
@@ -305,15 +339,35 @@ function App(): React.ReactElement | null {
         const pal = allPalettes.find((p) => p.id === selectedPalette);
         if (pal && pal.size > 0) setFinalColors(pal.size);
     }, [allPalettes, selectedPalette]);
+    // Each file import takes a token and commits only if no newer image change has
+    // happened while it was being checked.
+    const imageImportRequestRef = useRef(0);
+    // Every history change (set, clear, undo, redo) runs this, so edits such as
+    // Remove image, Undo, crop, or resize made during a pending import cancel it.
+    const cancelPendingImageImport = useCallback(() => {
+        imageImportRequestRef.current += 1;
+    }, []);
     const { imageSrc, setImage, clearCurrent, undo, redo, canUndo, canRedo } = useImageHistory(
         logo,
-        undefined
+        cancelPendingImageImport
     );
     const { swatches, swatchesLoading, imageDimensions, invalidate, immediateOverride } =
         useSwatches(imageSrc);
     // adjustments managed locally inside AdjustmentsPanel now
     // initial selectedPalette derived from initial weight above
     const inputRef = useRef<HTMLInputElement | null>(null);
+    // Kept untranslated so the notice follows language changes while it is open.
+    // shownImage is the image on screen when the import failed: the wording depends
+    // on it, and the notice closes once the image changes (undo, redo, edits, or
+    // Remove image), so it never describes a different image.
+    const [imageImportError, setImageImportError] = useState<
+        | { kind: 'notImage'; shownImage: string | null }
+        | { kind: 'undecodable'; name: string; shownImage: string | null }
+        | null
+    >(null);
+    if (imageImportError && imageImportError.shownImage !== imageSrc) {
+        setImageImportError(null);
+    }
     const canvasPreviewRef = useRef<CanvasPreviewHandle | null>(null);
     const [showCheckerboard, setShowCheckerboard] = useState<boolean>(false);
     const [isCropMode, setIsCropMode] = useState(false);
@@ -585,14 +639,29 @@ function App(): React.ReactElement | null {
         }
     };
 
-    const handleFiles = (file?: File) => {
+    const handleFiles = async (file?: File) => {
         if (!file) return;
-        if (!file.type.startsWith('image/')) {
-            alert(t('app.uploadImage'));
+        const request = ++imageImportRequestRef.current;
+        if (!isImageFile(file)) {
+            setImageImportError({ kind: 'notImage', shownImage: imageSrc });
+            return;
+        }
+        // Decode before touching history so an unreadable file keeps the current
+        // image, its undo stack, and its swatches intact.
+        const url = URL.createObjectURL(file);
+        const readable = !!(await decodeImage(url)) && (await isCompleteRasterImage(file));
+        if (request !== imageImportRequestRef.current) {
+            URL.revokeObjectURL(url);
+            return;
+        }
+        if (!readable) {
+            URL.revokeObjectURL(url);
+            // The request check above means the image has not changed since this
+            // import started, so imageSrc is still the image on screen.
+            setImageImportError({ kind: 'undecodable', name: file.name, shownImage: imageSrc });
             return;
         }
         setTouchUpTool(null);
-        const url = URL.createObjectURL(file);
         invalidate();
         setImage(url, true);
     };
@@ -614,13 +683,7 @@ function App(): React.ReactElement | null {
             if (!sourceBlob) return;
 
             sourceUrl = URL.createObjectURL(sourceBlob);
-            const imageUrl = sourceUrl;
-            const img = await new Promise<HTMLImageElement | null>((resolve) => {
-                const image = new Image();
-                image.onload = () => resolve(image);
-                image.onerror = () => resolve(null);
-                image.src = imageUrl;
-            });
+            const img = await decodeImage(sourceUrl);
 
             if (!img) return;
 
@@ -679,7 +742,13 @@ function App(): React.ReactElement | null {
         setTouchUpTool(nextTool);
     };
 
-    const dropzone = useDropzone({ enabled: mode === '2d', onFile: handleFiles });
+    const processingActive = mode === '2d' && (isQuantizing || isDedithering);
+    // Quantize and dedither commit their result through image history, which cancels a
+    // pending import, so refuse new imports until they finish rather than drop one silently.
+    const dropzone = useDropzone({
+        enabled: mode === '2d' && !processingActive,
+        onFile: handleFiles,
+    });
     const { onExportImage, onExportStl, onExport3MF, onSwatchApply, onSwatchDelete } =
         useAppHandlers({
             canvasPreviewRef,
@@ -707,8 +776,6 @@ function App(): React.ReactElement | null {
             swatches,
         });
 
-    const processingActive = mode === '2d' && (isQuantizing || isDedithering);
-
     return (
         <>
             <div className="box-border text-inherit font-sans flex flex-col flex-1 min-w-0 max-w-full min-h-0 h-screen w-full">
@@ -732,13 +799,14 @@ function App(): React.ReactElement | null {
                                             ref={inputRef}
                                             type="file"
                                             accept="image/*"
+                                            disabled={processingActive}
                                             data-testid="image-file-input"
                                             onChange={(e) => {
                                                 const file = e.currentTarget.files?.[0];
                                                 // Allow choosing this same source again after
                                                 // cropping, resizing, or other image edits.
                                                 e.currentTarget.value = '';
-                                                if (file) handleFiles(file);
+                                                if (file) void handleFiles(file);
                                             }}
                                             className="hidden-file-input"
                                         />
@@ -926,6 +994,7 @@ function App(): React.ReactElement | null {
                         <main className="h-full w-full bg-background flex flex-col min-h-0">
                             <div
                                 className={`flex-1 relative min-h-0 w-full ${dropzone.dragOver ? 'bg-primary/20' : ''}`}
+                                data-testid="image-dropzone"
                                 onDrop={dropzone.onDrop}
                                 onDragOver={dropzone.onDragOver}
                                 onDragLeave={dropzone.onDragLeave}
@@ -963,6 +1032,39 @@ function App(): React.ReactElement | null {
                                             }}
                                             onTouchUpExit={() => setTouchUpTool(null)}
                                         />
+                                        {imageImportError && (
+                                            <div
+                                                role="alert"
+                                                data-testid="image-import-error"
+                                                className="absolute bottom-4 left-4 right-4 z-30 flex items-start gap-3 rounded-md border border-destructive/50 bg-background/95 p-4 text-sm break-words"
+                                            >
+                                                <div className="min-w-0 flex-1">
+                                                    <p className="font-semibold text-destructive">
+                                                        {t('app.imageImportFailed')}
+                                                    </p>
+                                                    <p className="mt-1 text-muted-foreground">
+                                                        {imageImportError.kind === 'notImage'
+                                                            ? t('app.uploadImage')
+                                                            : imageImportError.shownImage
+                                                              ? t('app.imageDecodeFailed', {
+                                                                    name: imageImportError.name,
+                                                                })
+                                                              : t('app.imageDecodeFailedNoImage', {
+                                                                    name: imageImportError.name,
+                                                                })}
+                                                    </p>
+                                                </div>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    onClick={() => setImageImportError(null)}
+                                                    aria-label={t('app.dismissImageImportError')}
+                                                    className="h-6 w-6 shrink-0 text-muted-foreground hover:text-foreground"
+                                                >
+                                                    <X className="h-4 w-4" />
+                                                </Button>
+                                            </div>
+                                        )}
                                         {processingActive && (
                                             <ProgressOverlay
                                                 title={progressOperationTitle()}
@@ -1101,6 +1203,7 @@ function App(): React.ReactElement | null {
                                     onCancelCrop={() => setIsCropMode(false)}
                                     onToggleCheckerboard={() => setShowCheckerboard((s) => !s)}
                                     onPickFile={() => inputRef.current?.click()}
+                                    pickFileDisabled={processingActive}
                                     onClear={clear}
                                     onExportImage={onExportImage}
                                     onExportStl={onExportStl}

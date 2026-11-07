@@ -11,7 +11,7 @@ In **2D** mode, you prepare the image that the 3D model will use. Color changes 
 
 ## Choose A Source
 
-Click **Choose file** in the preview toolbar, or drag an image file into the 2D preview. Only the first file in a drop is loaded. Use an image format your browser or desktop webview can decode; PNG is useful when transparency matters. Develop camera RAW files and export an ordinary image format first.
+Click **Choose file** in the preview toolbar, or drag an image file into the 2D preview. Only the first file in a drop is loaded. Use an image format your browser or desktop webview can decode; PNG is useful when transparency matters. Develop camera RAW files and export an ordinary image format first. If a file cannot be read as an image, for example because it is damaged or only partly downloaded, Kromacut shows an error and keeps the current image.
 
 Kromacut starts with its logo as an example. Loading another image replaces the current working image. It does not publish the image or download a source from a pasted web link.
 
