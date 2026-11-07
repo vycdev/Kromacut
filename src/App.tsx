@@ -22,6 +22,7 @@ import DeditherPanel from './components/DeditherPanel';
 import ImageResizePanel from './components/ImageResizePanel';
 import { ADJUSTMENT_DEFAULTS } from './lib/applyAdjustments';
 import { calculateImageResizeDimensions } from './lib/imageResize';
+import { isTruncatedImageData } from './lib/imageTruncation';
 import SLIDER_DEFS from './components/sliderDefs';
 import { useSwatches } from './hooks/useSwatches';
 import type { SwatchEntry } from './hooks/useSwatches';
@@ -150,11 +151,14 @@ function decodeImage(url: string): Promise<HTMLImageElement | null> {
 
 /**
  * An `<img>` still loads a truncated or partly damaged raster file and shows only
- * the rows it could decode. `createImageBitmap` rejects such files, so use it as
- * a stricter check. Chrome's `createImageBitmap` does not accept SVG blobs, so
- * SVGs rely on the `<img>` decode alone.
+ * the rows it could decode. WebKit, which the macOS and Linux desktop apps use,
+ * also accepts truncated files in `createImageBitmap`, so first check PNG, JPEG,
+ * and WebP for their end marker on every engine. `createImageBitmap` then catches
+ * other damage in Chrome. Chrome rejects SVG blobs there, so SVGs rely on the
+ * `<img>` decode alone.
  */
 async function isCompleteRasterImage(file: Blob): Promise<boolean> {
+    if (isTruncatedImageData(new Uint8Array(await file.arrayBuffer()))) return false;
     if (file.type === 'image/svg+xml' || typeof createImageBitmap !== 'function') return true;
     try {
         const bitmap = await createImageBitmap(file);
