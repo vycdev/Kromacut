@@ -23,6 +23,7 @@ import ImageResizePanel from './components/ImageResizePanel';
 import { ADJUSTMENT_DEFAULTS } from './lib/applyAdjustments';
 import { calculateImageResizeDimensions } from './lib/imageResize';
 import { isImageFile } from './lib/imageFile';
+import { decodeImage } from './lib/decodeImage';
 import { isTruncatedImageData } from './lib/imageTruncation';
 import SLIDER_DEFS from './components/sliderDefs';
 import { useSwatches } from './hooks/useSwatches';
@@ -139,16 +140,6 @@ type AutoPaintPersisted = Pick<
 // persisted without this marker predates the change and carries uncalibrated
 // tds on the conventional backlit scale, which must be migrated once on load.
 const AUTOPAINT_SCHEMA_VERSION = 2;
-
-/** Resolves to null when the browser cannot decode the URL as an image. */
-function decodeImage(url: string): Promise<HTMLImageElement | null> {
-    return new Promise((resolve) => {
-        const image = new Image();
-        image.onload = () => resolve(image.naturalWidth && image.naturalHeight ? image : null);
-        image.onerror = () => resolve(null);
-        image.src = url;
-    });
-}
 
 /**
  * An `<img>` still loads a truncated or partly damaged raster file and shows only
