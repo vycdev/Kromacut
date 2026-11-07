@@ -1,6 +1,9 @@
 import { expect, test, type Page } from '@playwright/test';
 import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
+import { requirePlaywrightConfig } from './helpers/playwrightConfig';
+
+requirePlaywrightConfig('playwright.terms.config.ts', 'test:e2e:terms');
 
 type TermsNotice = {
     title: string;
