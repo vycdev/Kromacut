@@ -90,6 +90,8 @@
     "threeJsLayerByLayer3DPreview": "Anteprima 3D strato per strato con Three.js",
     "calibratedAutoPaintWithDeterministicSearch": "Auto-paint calibrato con ricerca deterministica",
     "slicerFriendlySTLAndMultiMaterial3MF": "STL compatibili con lo slicer e 3MF multimateriale",
+    "snapmakerInnovationFundWinner": "Vincitore dello Snapmaker Innovation Fund",
+    "aboutTheSnapmakerInnovationFund": "Informazioni sullo Snapmaker Innovation Fund",
     "openTheTool": "Apri lo strumento",
     "communityShowcase": "Galleria della community",
     "madeByTheKromacutCommunity": "Creato dalla community di Kromacut.",
@@ -119,6 +121,7 @@
     "openApp": "Apri Kromacut",
     "home": "Vai alla pagina iniziale",
     "docs": "Consulta la documentazione",
+    "awards": "Premi",
     "privacy": "Privacy e dati locali",
     "terms": "Termini e condizioni"
   },
@@ -162,6 +165,13 @@
     "loading": "Caricamento della documentazione…",
     "loadFailed": "Impossibile caricare questa traduzione. Riprova.",
     "retry": "Riprova"
+  },
+  "awards": {
+    "eyebrow": "Riconoscimenti",
+    "title": "Premi",
+    "intro": "Premi e riconoscimenti ottenuti da Kromacut.",
+    "seoTitle": "Premi | Kromacut",
+    "description": "Premi e riconoscimenti ottenuti da Kromacut, lo strumento gratuito che trasforma le immagini in stampe 3D multicolore."
   },
   "seo": {
     "homeTitle": "Kromacut - Generatore gratuito di stampe 3D a strati colore da immagini",

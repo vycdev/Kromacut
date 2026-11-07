@@ -154,7 +154,7 @@ Ziehe mit der primären Maustaste zum Drehen, nutze das Mausrad zum Zoomen und z
 | **Transparent** | Überlappende Schichten sehen. | Nur Vorschau; macht kein Filament transparent. |
 | **Drahtmodell** | Nach Schichten gefärbte Detailkanten prüfen. | Nur Vorschau, keine Extrusionsbahnen. |
 | **Vorschaufarben** | Zwischen simulierten Auto-paint-Mischungen und physischen Filamentfarben wechseln. | Nur Vorschau. Exporte behalten echte Materialzuweisungen. |
-| **Kamera umschalten** | Perspektivische Tiefe oder orthografische Ausrichtung ohne perspektivische Verkürzung. | Nur Vorschau. Die Kameraposition bleibt erhalten. |
+| **Kamera umschalten** | Perspektivische Tiefe oder orthografische Ausrichtung ohne perspektivische Verkürzung. | Nur Vorschau. Blickwinkel und Zoom bleiben beim Wechsel erhalten. |
 | **Rückgängig / Wiederholen** | Den gemeinsamen Bildbearbeitungsverlauf durchlaufen. | Kein Rückgängig-Verlauf für 3D-Felder oder Filamentänderungen. Nach Bildänderungen neu erstellen. |
 | **Herunterladen** | Die erstellte STL oder 3MF exportieren. | Verwendet das zuletzt erstellte Modell, nicht noch nicht übernommene Seitenleisteneinstellungen. |
 

@@ -90,6 +90,8 @@
     "threeJsLayerByLayer3DPreview": "Schichtweise 3D-Vorschau mit Three.js",
     "calibratedAutoPaintWithDeterministicSearch": "Kalibriertes Auto-paint mit deterministischer Suche",
     "slicerFriendlySTLAndMultiMaterial3MF": "Slicerfreundliches STL und Mehrmaterial-3MF",
+    "snapmakerInnovationFundWinner": "Gewinner des Snapmaker Innovation Fund",
+    "aboutTheSnapmakerInnovationFund": "Über den Snapmaker Innovation Fund",
     "openTheTool": "Werkzeug öffnen",
     "communityShowcase": "Community-Galerie",
     "madeByTheKromacutCommunity": "Von der Kromacut-Community erstellt.",
@@ -118,6 +120,7 @@
     "openApp": "Kromacut öffnen",
     "home": "Zur Startseite",
     "docs": "Dokumentation durchsuchen",
+    "awards": "Auszeichnungen",
     "privacy": "Datenschutz und lokale Daten",
     "terms": "Nutzungsbedingungen"
   },
@@ -161,6 +164,13 @@
     "loading": "Dokumentation wird geladen…",
     "loadFailed": "Diese Übersetzung konnte nicht geladen werden. Bitte erneut versuchen.",
     "retry": "Erneut versuchen"
+  },
+  "awards": {
+    "eyebrow": "Anerkennung",
+    "title": "Auszeichnungen",
+    "intro": "Auszeichnungen und Anerkennung für Kromacut.",
+    "seoTitle": "Auszeichnungen | Kromacut",
+    "description": "Auszeichnungen und Anerkennung für Kromacut, das kostenlose Werkzeug, das Bilder in mehrfarbige 3D-Drucke verwandelt."
   },
   "seo": {
     "homeTitle": "Kromacut – Kostenloser Generator für 3D-Farbschichtdrucke aus Bildern",

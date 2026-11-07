@@ -138,6 +138,10 @@ Read [AGENTS.md](AGENTS.md) for repository guidance and testing expectations. Th
 
 </details>
 
+## Awards
+
+<a href="https://www.snapmaker.com/innovation-fund"><img src="content/badges/innovation-fund-badge.png" alt="Snapmaker Innovation Fund Winner" width="315" height="72"></a>
+
 ## License
 
 [GNU Affero General Public License v3.0 only](LICENSE) (`AGPL-3.0-only`). Copyright (C) 2025 vycdev.

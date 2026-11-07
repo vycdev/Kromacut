@@ -154,7 +154,7 @@ Faites glisser avec le bouton principal pour tourner autour du modèle, utilisez
 | **Transparent** | Voir les couches superposées. | Aperçu uniquement ; ne rend pas le filament transparent. |
 | **Fil de fer** | Examiner les arêtes colorées par couche. | Aperçu uniquement ; ce ne sont pas des trajectoires d’extrusion. |
 | **Couleurs de l’aperçu** | Alterner mélanges simulés de peinture automatique et couleurs physiques des filaments. | Aperçu uniquement. Les exports conservent les affectations réelles de matériaux. |
-| **Basculer la caméra** | Alterner profondeur en perspective et alignement orthographique sans raccourcissement. | Aperçu uniquement. La position de caméra est conservée. |
+| **Basculer la caméra** | Alterner profondeur en perspective et alignement orthographique sans raccourcissement. | Aperçu uniquement. L’angle de vue et le zoom sont conservés d’un mode à l’autre. |
 | **Annuler / Rétablir** | Parcourir l’historique partagé de retouche d’image. | Pas un historique des champs 3D ou des filaments. Régénérez après une modification de l’image. |
 | **Télécharger** | Exporter le STL ou 3MF généré. | Utilise le dernier modèle généré, pas les paramètres latéraux non appliqués. |
 

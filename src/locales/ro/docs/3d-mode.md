@@ -154,7 +154,7 @@ Trage cu butonul principal al mouse-ului pentru orbitare, folosește rotița pen
 | **Transparent** | Vezi straturile suprapuse. | Doar previzualizare; nu face filamentul transparent. |
 | **Schelet** | Inspectează muchiile elementelor colorate pe straturi. | Doar previzualizare; nu sunt trasee de extrudare. |
 | **Culori de previzualizare** | Comută între amestecurile simulate Auto-paint și culorile fizice ale filamentelor. | Doar previzualizare. Exporturile păstrează atribuirile reale de material. |
-| **Comutator cameră** | Adâncime în perspectivă sau aliniere ortografică fără scurtare perspectivă. | Doar previzualizare. Poziția camerei se păstrează. |
+| **Comutator cameră** | Adâncime în perspectivă sau aliniere ortografică fără scurtare perspectivă. | Doar previzualizare. Unghiul de vizualizare și zoomul se păstrează între moduri. |
 | **Anulează / Refă** | Parcurge istoricul comun al editării imaginii. | Nu este un istoric de anulare pentru câmpuri 3D sau editări de filament. Regenerează după schimbarea imaginii. |
 | **Descarcă** | Exportă STL sau 3MF generat. | Folosește ultimul model generat, nu setări laterale neaplicate. |
 
