@@ -155,6 +155,36 @@ test('@smoke valid JPEG and SVG files still import', async ({ page }) => {
     await expect(error).toHaveCount(0);
 });
 
+test('@smoke image files without a MIME type import by extension', async ({ page }) => {
+    await page.addInitScript(() => localStorage.clear());
+    await page.goto('/app');
+    const dropzone = page.getByTestId('image-dropzone');
+    const current = page.getByText('Current', { exact: true }).locator('..');
+    const error = page.getByTestId('image-import-error');
+    // Some platforms report an empty File.type for valid images.
+    const drop = async (name: string) => {
+        const dataTransfer = await page.evaluateHandle(async (name) => {
+            const canvas = new OffscreenCanvas(37, 23);
+            canvas.getContext('2d')!.fillRect(0, 0, 37, 23);
+            const blob = await canvas.convertToBlob({ type: 'image/png' });
+            const transfer = new DataTransfer();
+            transfer.items.add(new File([blob], name, { type: '' }));
+            return transfer;
+        }, name);
+        await dropzone.dispatchEvent('drop', { dataTransfer });
+    };
+    await expect(current).toContainText('1024x1024');
+
+    await drop('no-type.png');
+    await expect(current).toContainText('37x23');
+    await expect(error).toHaveCount(0);
+
+    // Without an image extension, the file is still refused as a non-image.
+    await drop('no-type.txt');
+    await expect(error).toContainText('Please upload an image file');
+    await expect(current).toContainText('37x23');
+});
+
 test('@smoke image edits made while an import is being checked cancel that import', async ({
     page,
 }) => {

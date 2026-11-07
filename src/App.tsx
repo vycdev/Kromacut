@@ -22,6 +22,7 @@ import DeditherPanel from './components/DeditherPanel';
 import ImageResizePanel from './components/ImageResizePanel';
 import { ADJUSTMENT_DEFAULTS } from './lib/applyAdjustments';
 import { calculateImageResizeDimensions } from './lib/imageResize';
+import { isImageFile } from './lib/imageFile';
 import { isTruncatedImageData } from './lib/imageTruncation';
 import SLIDER_DEFS from './components/sliderDefs';
 import { useSwatches } from './hooks/useSwatches';
@@ -641,7 +642,7 @@ function App(): React.ReactElement | null {
     const handleFiles = async (file?: File) => {
         if (!file) return;
         const request = ++imageImportRequestRef.current;
-        if (!file.type.startsWith('image/')) {
+        if (!isImageFile(file)) {
             setImageImportError({ kind: 'notImage', shownImage: imageSrc });
             return;
         }

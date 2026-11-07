@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { i18n, translate } from '@/lib/i18n';
 import { translateRuntimeMessage } from '@/lib/runtimeMessages';
+import { isImageFile } from '@/lib/imageFile';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     AlertTriangle,
@@ -132,13 +133,6 @@ const CORNER_MARKER_LAYOUT = [
     { cornerIndex: 2, number: 3, labelKey: 'matrix.bottomRight', rightAligned: true },
 ] as const;
 let nextMatrixWorkerRequestId = 1;
-
-function isImageFile(file: Pick<File, 'name' | 'type'>): boolean {
-    return (
-        file.type.startsWith('image/') ||
-        (!file.type && /\.(avif|bmp|gif|heic|heif|jpe?g|png|webp)$/i.test(file.name))
-    );
-}
 
 function filamentLabel(filament: Filament): string {
     return filament.name || filament.brand || filament.color;
