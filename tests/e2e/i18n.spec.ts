@@ -20,17 +20,25 @@ test('desktop release notes switch languages without refetching or replacing the
         const desktop = window as Window & {
             isTauri?: boolean;
             nativeUpdateCalls?: number;
-            __TAURI_INTERNALS__?: { invoke: (command: string) => Promise<unknown> };
+            __TAURI_INTERNALS__?: {
+                transformCallback: () => number;
+                invoke: (command: string) => Promise<unknown>;
+            };
         };
         desktop.isTauri = true;
         desktop.nativeUpdateCalls = 0;
         desktop.__TAURI_INTERNALS__ = {
+            transformCallback: () => 1,
             async invoke(command) {
                 if (command === 'get_app_version') return '3.9.0';
                 if (command === 'check_for_updates') {
                     desktop.nativeUpdateCalls!++;
                     return metadata;
                 }
+                // The desktop opened-file inbox starts with the app; no file is waiting.
+                if (command === 'take_opened_file') return null;
+                if (command === 'plugin:event|listen' || command === 'plugin:event|unlisten')
+                    return 1;
                 throw new Error(`Unexpected test command: ${command}`);
             },
         };
