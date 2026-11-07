@@ -1,0 +1,149 @@
+name: CI
+
+# Fork pull requests run with a read-only token and no secrets. Keep this on pull_request, never
+# pull_request_target, so PR code never runs with write access.
+on:
+    pull_request:
+        branches:
+            - develop
+            - main
+    # Runs on the base branches also seed the npm and Playwright caches that PRs can restore.
+    push:
+        branches:
+            - develop
+            - main
+    workflow_dispatch:
+
+permissions:
+    contents: read
+
+concurrency:
+    group: ci-${{ github.event.pull_request.number || github.ref }}
+    cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+    checks:
+        name: Lint, build, and unit tests
+        runs-on: ubuntu-latest
+        timeout-minutes: 30
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+              with:
+                  persist-credentials: false
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: '22'
+                  cache: 'npm'
+
+            - name: Install dependencies
+              run: npm ci
+
+            - name: Lint
+              run: npm run lint
+
+            - name: Build
+              run: npm run build
+
+            - name: Unit tests
+              run: npm test
+
+            - name: Check that test:e2e:all runs every e2e test
+              run: npm run check:e2e
+
+    e2e_suites:
+        name: List e2e suites
+        runs-on: ubuntu-latest
+        timeout-minutes: 5
+        outputs:
+            suites: ${{ steps.list.outputs.suites }}
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+              with:
+                  persist-credentials: false
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: '22'
+
+            # The same list test:e2e:all runs, so new suites reach CI without editing this file.
+            - name: List suites
+              id: list
+              run: echo "suites=$(node scripts/run-e2e-suites.mjs --list)" >> "$GITHUB_OUTPUT"
+
+    e2e:
+        name: E2E (${{ matrix.suite.script }})
+        needs: e2e_suites
+        runs-on: ubuntu-latest
+        timeout-minutes: 60
+        strategy:
+            fail-fast: false
+            matrix:
+                suite: ${{ fromJSON(needs.e2e_suites.outputs.suites) }}
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+              with:
+                  persist-credentials: false
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: '22'
+                  cache: 'npm'
+
+            - name: Install dependencies
+              run: npm ci
+
+            - name: Read Playwright version
+              id: playwright
+              run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+
+            - name: Cache Playwright browsers
+              id: browsers
+              uses: actions/cache@v4
+              with:
+                  path: ~/.cache/ms-playwright
+                  key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}-chromium
+
+            - name: Install Playwright Chromium
+              if: steps.browsers.outputs.cache-hit != 'true'
+              run: npx playwright install --with-deps chromium
+
+            - name: Install Playwright system dependencies
+              if: steps.browsers.outputs.cache-hit == 'true'
+              run: npx playwright install-deps chromium
+
+            - name: Run ${{ matrix.suite.script }}
+              env:
+                  SUITE_SCRIPT: ${{ matrix.suite.script }}
+              run: npm run "$SUITE_SCRIPT"
+
+            - name: Upload Playwright results
+              if: failure()
+              uses: actions/upload-artifact@v4
+              with:
+                  name: playwright-${{ matrix.suite.name }}
+                  path: |
+                      playwright-report/
+                      test-results/
+                  if-no-files-found: ignore
+                  retention-days: 7
+
+    # One stable check to require in branch protection, however many suites the matrix has.
+    ci_passed:
+        name: CI passed
+        if: always()
+        needs: [checks, e2e_suites, e2e]
+        runs-on: ubuntu-latest
+        permissions: {}
+        steps:
+            - name: Require every CI job to pass
+              if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'skipped')
+              run: |
+                  echo "Some CI jobs did not pass: ${{ join(needs.*.result, ', ') }}"
+                  exit 1

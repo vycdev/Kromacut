@@ -25,7 +25,7 @@ async function prepare(page: Page, desktop = false) {
     await page.getByRole('button', { name: 'Open settings' }).click();
 }
 
-test('Settings legal links open localized web pages in a new tab', async ({ page }) => {
+test('@smoke Settings legal links open localized web pages in a new tab', async ({ page }) => {
     await prepare(page);
     for (const [path, label] of [
         ['/privacy', 'Privacy & local data'],
@@ -60,7 +60,7 @@ test('Settings legal links open localized web pages in a new tab', async ({ page
     await popup.close();
 });
 
-test('desktop Settings legal links use the native browser command and keep the workspace', async ({
+test('@smoke desktop Settings legal links use the native browser command and keep the workspace', async ({
     page,
 }, testInfo) => {
     await prepare(page, true);
@@ -97,7 +97,9 @@ test('desktop Settings legal links use the native browser command and keep the w
     await expect(page.getByRole('button', { name: commonRo.settings.open })).toBeVisible();
 });
 
-test('desktop browser-open failure leaves Settings available for retry', async ({ page }) => {
+test('@smoke desktop browser-open failure leaves Settings available for retry', async ({
+    page,
+}) => {
     await prepare(page, true);
     await page.evaluate(() => {
         (window as unknown as LegalLinkTestWindow).legalLinkTest.fail = true;

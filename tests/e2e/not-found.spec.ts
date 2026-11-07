@@ -1,4 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
+import { requirePlaywrightConfig } from './helpers/playwrightConfig';
+
+requirePlaywrightConfig('playwright.not-found.config.ts', 'test:e2e:not-found');
 
 const missingPaths = [
     '/this-page-does-not-exist',
