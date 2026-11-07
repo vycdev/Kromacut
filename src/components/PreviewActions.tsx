@@ -49,6 +49,8 @@ export interface PreviewActionsProps {
     onCancelCrop: () => void;
     onToggleCheckerboard: () => void;
     onPickFile: () => void;
+    /** Image imports are refused while quantize or dedither is running. */
+    pickFileDisabled?: boolean;
     onClear: () => void;
     onExportImage: () => Promise<void>;
     onExportStl: () => Promise<void>;
@@ -94,6 +96,7 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
     onCancelCrop,
     onToggleCheckerboard,
     onPickFile,
+    pickFileDisabled = false,
     onClear,
     onExportImage,
     onExportStl,
@@ -476,6 +479,7 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
                         title={t('previewActions.chooseFile')}
                         aria-label={t('previewActions.chooseFile')}
                         onClick={onPickFile}
+                        disabled={pickFileDisabled}
                         className="bg-primary hover:bg-primary/80 text-primary-foreground disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         <Upload className="w-4 h-4" />

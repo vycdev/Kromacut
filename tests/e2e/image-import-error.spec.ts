@@ -208,3 +208,77 @@ test('@smoke image edits made while an import is being checked cancel that impor
     await expect(redo).toBeEnabled();
     await expect(error).toHaveCount(0);
 });
+
+test('@smoke imports are refused while quantize is running', async ({ page }) => {
+    await page.addInitScript(() => {
+        // Hold canvas PNG encoding until the test releases it, so quantize stays
+        // in progress for as long as the test needs.
+        const w = window as unknown as { holdToBlob: boolean; heldToBlobs: Array<() => void> };
+        w.holdToBlob = false;
+        w.heldToBlobs = [];
+        const toBlob = HTMLCanvasElement.prototype.toBlob;
+        HTMLCanvasElement.prototype.toBlob = function (...args: Parameters<typeof toBlob>) {
+            if (!w.holdToBlob) return toBlob.apply(this, args);
+            w.heldToBlobs.push(() => toBlob.apply(this, args));
+        };
+    });
+    await page.addInitScript(() => localStorage.clear());
+    await page.goto('/app');
+    const input = page.getByTestId('image-file-input');
+    const dropzone = page.getByTestId('image-dropzone');
+    const current = page.getByText('Current', { exact: true }).locator('..');
+    const chooseFile = page.getByRole('button', { name: 'Choose file', exact: true });
+    const undo = page.getByRole('button', { name: 'Undo', exact: true });
+    const apply = page.getByTestId('quantize-apply');
+    await expect(current).toContainText('1024x1024');
+
+    // Drops import normally while nothing is processing.
+    const sourceDrop = await page.evaluateHandle(
+        (bytes) => {
+            const transfer = new DataTransfer();
+            transfer.items.add(
+                new File([new Uint8Array(bytes)], 'rocco__source.png', { type: 'image/png' })
+            );
+            return transfer;
+        },
+        [...readFileSync(source)]
+    );
+    await dropzone.dispatchEvent('drop', { dataTransfer: sourceDrop });
+    await expect(current).toContainText('1000x835');
+
+    await page.evaluate(() => {
+        (window as unknown as { holdToBlob: boolean }).holdToBlob = true;
+    });
+    await apply.click();
+    await expect(apply).toBeDisabled();
+    await expect(chooseFile).toBeDisabled();
+    await expect(input).toBeDisabled();
+    // OffscreenCanvas encoding is not held, and 37x23 matches no other image here.
+    const smallDrop = await page.evaluateHandle(async () => {
+        const canvas = new OffscreenCanvas(37, 23);
+        canvas.getContext('2d')!.fillRect(0, 0, 37, 23);
+        const blob = await canvas.convertToBlob({ type: 'image/png' });
+        const transfer = new DataTransfer();
+        transfer.items.add(new File([blob], 'small.png', { type: 'image/png' }));
+        return transfer;
+    });
+    await dropzone.dispatchEvent('drop', { dataTransfer: smallDrop });
+
+    await page.evaluate(() => {
+        const w = window as unknown as { holdToBlob: boolean; heldToBlobs: Array<() => void> };
+        w.holdToBlob = false;
+        w.heldToBlobs.splice(0).forEach((run) => run());
+    });
+    await expect(apply).toBeEnabled();
+    await expect(chooseFile).toBeEnabled();
+    await expect(input).toBeEnabled();
+    await expect(current).toContainText('1000x835');
+
+    // History is starter -> source -> quantized source. Had the drop been taken,
+    // it would sit between source and the quantized result.
+    await undo.click();
+    await undo.click();
+    await expect(current).toContainText('1024x1024');
+    await expect(undo).toBeDisabled();
+    await expect(page.getByText('37x23')).toHaveCount(0);
+});

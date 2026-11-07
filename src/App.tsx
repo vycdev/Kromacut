@@ -729,7 +729,13 @@ function App(): React.ReactElement | null {
         setTouchUpTool(nextTool);
     };
 
-    const dropzone = useDropzone({ enabled: mode === '2d', onFile: handleFiles });
+    const processingActive = mode === '2d' && (isQuantizing || isDedithering);
+    // Quantize and dedither commit their result through image history, which cancels a
+    // pending import, so refuse new imports until they finish rather than drop one silently.
+    const dropzone = useDropzone({
+        enabled: mode === '2d' && !processingActive,
+        onFile: handleFiles,
+    });
     const { onExportImage, onExportStl, onExport3MF, onSwatchApply, onSwatchDelete } =
         useAppHandlers({
             canvasPreviewRef,
@@ -757,8 +763,6 @@ function App(): React.ReactElement | null {
             swatches,
         });
 
-    const processingActive = mode === '2d' && (isQuantizing || isDedithering);
-
     return (
         <>
             <div className="box-border text-inherit font-sans flex flex-col flex-1 min-w-0 max-w-full min-h-0 h-screen w-full">
@@ -782,6 +786,7 @@ function App(): React.ReactElement | null {
                                             ref={inputRef}
                                             type="file"
                                             accept="image/*"
+                                            disabled={processingActive}
                                             data-testid="image-file-input"
                                             onChange={(e) => {
                                                 const file = e.currentTarget.files?.[0];
@@ -976,6 +981,7 @@ function App(): React.ReactElement | null {
                         <main className="h-full w-full bg-background flex flex-col min-h-0">
                             <div
                                 className={`flex-1 relative min-h-0 w-full ${dropzone.dragOver ? 'bg-primary/20' : ''}`}
+                                data-testid="image-dropzone"
                                 onDrop={dropzone.onDrop}
                                 onDragOver={dropzone.onDragOver}
                                 onDragLeave={dropzone.onDragLeave}
@@ -1184,6 +1190,7 @@ function App(): React.ReactElement | null {
                                     onCancelCrop={() => setIsCropMode(false)}
                                     onToggleCheckerboard={() => setShowCheckerboard((s) => !s)}
                                     onPickFile={() => inputRef.current?.click()}
+                                    pickFileDisabled={processingActive}
                                     onClear={clear}
                                     onExportImage={onExportImage}
                                     onExportStl={onExportStl}
