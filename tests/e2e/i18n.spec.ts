@@ -2,6 +2,11 @@ import { expect, test, type Page } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 import commonRo from '../../src/locales/ro/common.json' with { type: 'json' };
 import { SUPPORTED_LANGUAGES, type AppLanguage } from '../../src/lib/languagePreferences';
+import {
+    fakeDesktopAfterLoad,
+    fakeDesktopBeforeLoad,
+    fakeDesktopCalls,
+} from './helpers/fakeDesktop';
 
 const languageName = (code: AppLanguage) =>
     SUPPORTED_LANGUAGES.find((language) => language.code === code)!.name;
@@ -16,50 +21,27 @@ test('desktop release notes switch languages without refetching or replacing the
     page,
 }) => {
     const feed = JSON.parse(await readFile('public/version.json', 'utf8'));
-    await page.addInitScript((metadata) => {
-        const desktop = window as Window & {
-            isTauri?: boolean;
-            nativeUpdateCalls?: number;
-            __TAURI_INTERNALS__?: {
-                transformCallback: () => number;
-                invoke: (command: string) => Promise<unknown>;
-            };
-        };
-        desktop.isTauri = true;
-        desktop.nativeUpdateCalls = 0;
-        desktop.__TAURI_INTERNALS__ = {
-            transformCallback: () => 1,
-            async invoke(command) {
-                if (command === 'get_app_version') return '3.9.0';
-                if (command === 'check_for_updates') {
-                    desktop.nativeUpdateCalls!++;
-                    return metadata;
-                }
-                // The desktop opened-file inbox starts with the app; no file is waiting.
-                if (command === 'take_opened_file') return null;
-                if (command === 'plugin:event|listen' || command === 'plugin:event|unlisten')
-                    return 1;
-                throw new Error(`Unexpected test command: ${command}`);
-            },
-        };
-    }, feed);
+    await fakeDesktopBeforeLoad(
+        page,
+        (desktop, metadata) => {
+            desktop.handle('get_app_version', () => '3.9.0');
+            desktop.handle('check_for_updates', () => metadata);
+        },
+        feed
+    );
     await page.goto('/app');
     await expect(page.getByText(feed.release_notes, { exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'Open settings' }).click();
     await page.getByRole('button', { name: 'Check', exact: true }).click();
     await expect(page.getByText(feed.release_notes, { exact: true })).toHaveCount(2);
-    const calls = await page.evaluate(
-        () => (window as Window & { nativeUpdateCalls?: number }).nativeUpdateCalls
-    );
+    const updateChecks = async () =>
+        (await fakeDesktopCalls(page)).filter((command) => command === 'check_for_updates').length;
+    const calls = await updateChecks();
     await selectLanguage(page, 'fr');
     const notes = page.getByText(feed.release_notes_localized.fr, { exact: true });
     await expect(notes).toHaveCount(2);
     for (const note of await notes.all()) await expect(note).toHaveAttribute('lang', 'fr');
-    expect(
-        await page.evaluate(
-            () => (window as Window & { nativeUpdateCalls?: number }).nativeUpdateCalls
-        )
-    ).toBe(calls);
+    expect(await updateChecks()).toBe(calls);
     await expect(page.getByText(feed.release_notes, { exact: true })).toHaveCount(0);
 });
 
@@ -530,29 +512,28 @@ test('desktop save prompts translate without changing filenames or bytes', async
     await page.getByRole('button', { name: 'Open settings' }).click();
     await selectLanguage(page, 'ro');
     await expect(page.locator('html')).toHaveAttribute('lang', 'ro');
+    type SaveTestWindow = Window & {
+        saveTest: { calls: Array<{ command: string; args: unknown }>; chunks: number[][] };
+    };
+    await fakeDesktopAfterLoad(page, (desktop) => {
+        const state: SaveTestWindow['saveTest'] = { calls: [], chunks: [] };
+        (window as unknown as SaveTestWindow).saveTest = state;
+        desktop.handle('plugin:fs|write', ({ data }: { data: Uint8Array }) => {
+            state.chunks.push(Array.from(data));
+            return data.byteLength;
+        });
+        const replies: Record<string, unknown> = {
+            'plugin:dialog|save': 'C:\\prints\\my-model.stl',
+            'plugin:fs|open': 17,
+            'plugin:resources|close': undefined,
+            'plugin:dialog|message': 'Ok',
+        };
+        desktop.handle(Object.keys(replies), (args, command) => {
+            state.calls.push({ command, args });
+            return replies[command];
+        });
+    });
     const result = await page.evaluate(async () => {
-        const calls: Array<{ command: string; args: unknown }> = [];
-        const chunks: number[][] = [];
-        const desktop = window as unknown as {
-            isTauri: boolean;
-            __TAURI_INTERNALS__: { invoke: (command: string, args?: unknown) => Promise<unknown> };
-        };
-        desktop.isTauri = true;
-        desktop.__TAURI_INTERNALS__ = {
-            async invoke(command, args) {
-                if (command === 'plugin:fs|write') {
-                    const data = (args as { data: Uint8Array }).data;
-                    chunks.push(Array.from(data));
-                    return data.byteLength;
-                }
-                calls.push({ command, args });
-                if (command === 'plugin:dialog|save') return 'C:\\prints\\my-model.stl';
-                if (command === 'plugin:fs|open') return 17;
-                if (command === 'plugin:resources|close') return;
-                if (command === 'plugin:dialog|message') return 'Ok';
-                throw new Error(`Unexpected native command: ${command}`);
-            },
-        };
         const modulePath = '/src/hooks/saveBlobToFile.ts';
         const { saveBlobToFile } = await import(modulePath);
         const saved = await saveBlobToFile(new Blob([new Uint8Array([0, 17, 200, 255])]), {
@@ -560,6 +541,7 @@ test('desktop save prompts translate without changing filenames or bytes', async
             extension: 'stl',
             filterName: 'STL model',
         });
+        const { calls, chunks } = (window as unknown as SaveTestWindow).saveTest;
         return { saved, calls, chunks };
     });
     expect(result.saved).toBe('C:\\prints\\my-model.stl');

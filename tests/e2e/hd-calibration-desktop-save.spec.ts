@@ -2,6 +2,7 @@ import { expect, test, type Locator, type Page } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import JSZip from 'jszip';
+import { fakeDesktopAfterLoad } from './helpers/fakeDesktop';
 
 type Format = 'stl' | '3mf';
 type Outcome = 'cancel' | 'failure' | 'success';
@@ -11,10 +12,8 @@ interface SaveState {
     chunks: number[][];
 }
 type Desktop = Window & {
-    isTauri: boolean;
     hdSave: SaveState;
     finishHdSave: () => void;
-    __TAURI_INTERNALS__: { invoke: (command: string, args?: unknown) => Promise<unknown> };
 };
 
 async function openWedge(page: Page, format: Format) {
@@ -43,14 +42,21 @@ async function openWedge(page: Page, format: Format) {
 }
 
 async function installDesktopSave(page: Page, path: string) {
-    await page.evaluate((chosenPath) => {
-        const desktop = window as unknown as Desktop;
-        desktop.isTauri = true;
-        desktop.__TAURI_INTERNALS__ = {
-            async invoke(command, args = {}) {
-                const state = desktop.hdSave;
+    await fakeDesktopAfterLoad(
+        page,
+        (desktop, chosenPath) => {
+            const host = window as unknown as Desktop;
+            const commands = [
+                'plugin:dialog|save',
+                'plugin:fs|open',
+                'plugin:fs|write',
+                'plugin:resources|close',
+                'plugin:dialog|message',
+            ];
+            desktop.handle(commands, (args: { rid: number; data: Uint8Array }, command) => {
+                const state = host.hdSave;
                 if (command === 'plugin:fs|write') {
-                    const { rid, data } = args as { rid: number; data: Uint8Array };
+                    const { rid, data } = args;
                     state.calls.push({ command, args: { rid, byteLength: data.byteLength } });
                     if (state.outcome === 'failure') throw new Error('Mock disk write failure');
                     state.chunks.push(Array.from(data));
@@ -60,17 +66,16 @@ async function installDesktopSave(page: Page, path: string) {
                 if (command === 'plugin:dialog|save') {
                     // Keep the dialog pending so busy-state behavior is observable.
                     return new Promise((resolve) => {
-                        desktop.finishHdSave = () =>
+                        host.finishHdSave = () =>
                             resolve(state.outcome === 'cancel' ? null : chosenPath);
                     });
                 }
                 if (command === 'plugin:fs|open') return 91;
-                if (command === 'plugin:resources|close') return;
                 if (command === 'plugin:dialog|message') return 'Ok';
-                throw new Error(`Unexpected native command: ${command}`);
-            },
-        };
-    }, path);
+            });
+        },
+        path
+    );
 }
 
 async function expectMeasurePlan(dialog: Locator, maxLayers: number) {

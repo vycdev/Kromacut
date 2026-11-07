@@ -1,41 +1,26 @@
 import { expect, test, type Page } from '@playwright/test';
 import commonRo from '../../src/locales/ro/common.json' with { type: 'json' };
 import publicRo from '../../src/locales/ro/public.json' with { type: 'json' };
+import { fakeDesktopBeforeLoad } from './helpers/fakeDesktop';
 
-type LegalLinkTestWindow = Window & {
-    isTauri?: boolean;
-    legalLinkTest: { calls: string[]; fail: boolean };
-    __TAURI_INTERNALS__?: {
-        transformCallback: () => number;
-        invoke: (command: string, args?: { path?: string }) => Promise<unknown>;
-    };
-};
+type LegalLinkTestWindow = Window & { legalLinkTest: { calls: string[]; fail: boolean } };
 
 async function prepare(page: Page, desktop = false) {
-    await page.addInitScript((native) => {
+    await page.addInitScript(() => {
         localStorage.clear();
         localStorage.setItem('kromacut.language.v1', 'en');
         localStorage.setItem('legal-link-workspace-sentinel', 'preserved');
-        if (!native) return;
-        const host = window as unknown as LegalLinkTestWindow;
-        host.isTauri = true;
-        host.legalLinkTest = { calls: [], fail: false };
-        host.__TAURI_INTERNALS__ = {
-            transformCallback: () => 1,
-            async invoke(command, args) {
-                if (command === 'get_app_version') return '4.1.0';
-                if (command === 'check_for_updates' || command === 'take_opened_file') return null;
-                if (command === 'plugin:event|listen' || command === 'plugin:event|unlisten')
-                    return 1;
-                if (command === 'open_legal_page') {
-                    if (host.legalLinkTest.fail) throw new Error('Browser unavailable');
-                    host.legalLinkTest.calls.push(args!.path!);
-                    return;
-                }
-                throw new Error(`Unexpected native command: ${command}`);
-            },
-        };
-    }, desktop);
+    });
+    if (desktop) {
+        await fakeDesktopBeforeLoad(page, (native) => {
+            const host = window as unknown as LegalLinkTestWindow;
+            host.legalLinkTest = { calls: [], fail: false };
+            native.handle('open_legal_page', (args: { path: string }) => {
+                if (host.legalLinkTest.fail) throw new Error('Browser unavailable');
+                host.legalLinkTest.calls.push(args.path);
+            });
+        });
+    }
     await page.goto('/app');
     await page.getByRole('button', { name: 'Open settings' }).click();
 }
