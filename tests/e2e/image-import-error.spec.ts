@@ -155,6 +155,70 @@ test('@smoke valid JPEG and SVG files still import', async ({ page }) => {
     await expect(error).toHaveCount(0);
 });
 
+test('@smoke raster imports are decoded once before they are committed', async ({ page }) => {
+    await page.addInitScript(() => {
+        // Hold createImageBitmap until the test releases it, and record the
+        // object URLs that <img> elements load while the check is pending.
+        const w = window as unknown as {
+            bitmapCalls: number;
+            heldImageBitmaps: Array<() => void>;
+            importUrls: string[];
+            imageSrcs: string[];
+        };
+        w.bitmapCalls = 0;
+        w.heldImageBitmaps = [];
+        w.importUrls = [];
+        w.imageSrcs = [];
+        const createBitmap = window.createImageBitmap.bind(window);
+        window.createImageBitmap = ((...args: Parameters<typeof createImageBitmap>) => {
+            w.bitmapCalls += 1;
+            return new Promise<ImageBitmap>((resolve, reject) => {
+                w.heldImageBitmaps.push(() => createBitmap(...args).then(resolve, reject));
+            });
+        }) as typeof createImageBitmap;
+        const createUrl = URL.createObjectURL.bind(URL);
+        URL.createObjectURL = (object: Blob | MediaSource) => {
+            const url = createUrl(object);
+            if (object instanceof File) w.importUrls.push(url);
+            return url;
+        };
+        const src = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, 'src')!;
+        Object.defineProperty(HTMLImageElement.prototype, 'src', {
+            ...src,
+            set(value: string) {
+                w.imageSrcs.push(value);
+                src.set!.call(this, value);
+            },
+        });
+    });
+    await page.addInitScript(() => localStorage.clear());
+    await page.goto('/app');
+    const input = page.getByTestId('image-file-input');
+    const current = page.getByText('Current', { exact: true }).locator('..');
+    const state = () =>
+        page.evaluate(() => {
+            const w = window as unknown as {
+                bitmapCalls: number;
+                importUrls: string[];
+                imageSrcs: string[];
+            };
+            return {
+                bitmapCalls: w.bitmapCalls,
+                imageLoads: w.imageSrcs.filter((src) => w.importUrls.includes(src)).length,
+            };
+        });
+    await expect(current).toContainText('1024x1024');
+
+    await input.setInputFiles(fileURLToPath(new URL('../assets/3888x2916p.jpg', import.meta.url)));
+    await expect.poll(state).toEqual({ bitmapCalls: 1, imageLoads: 0 });
+    await page.evaluate(() => {
+        const w = window as unknown as { heldImageBitmaps: Array<() => void> };
+        w.heldImageBitmaps.splice(0).forEach((run) => run());
+    });
+    await expect(current).toContainText('3888x2916');
+    expect((await state()).bitmapCalls).toBe(1);
+});
+
 test('@smoke image files without a MIME type import by extension', async ({ page }) => {
     await page.addInitScript(() => localStorage.clear());
     await page.goto('/app');

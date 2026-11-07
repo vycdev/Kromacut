@@ -151,16 +151,21 @@ function decodeImage(url: string): Promise<HTMLImageElement | null> {
 }
 
 /**
+ * Checks an imported file before it is committed, decoding it only once.
+ *
  * An `<img>` still loads a truncated or partly damaged raster file and shows only
  * the rows it could decode. WebKit, which the macOS and Linux desktop apps use,
  * also accepts truncated files in `createImageBitmap`, so first check PNG, JPEG,
- * and WebP for their end marker on every engine. `createImageBitmap` then catches
- * other damage in Chrome. Chrome rejects SVG blobs there, so SVGs rely on the
- * `<img>` decode alone.
+ * and WebP for their end marker on every engine. Raster files then decode with
+ * `createImageBitmap` alone: it accepts the same formats as `<img>` and also
+ * catches other damage in Chrome. Chrome rejects SVG blobs there, so SVGs, and
+ * engines without `createImageBitmap`, decode in an `<img>` instead.
  */
-async function isCompleteRasterImage(file: Blob): Promise<boolean> {
+async function isReadableImageFile(file: Blob, url: string): Promise<boolean> {
     if (isTruncatedImageData(new Uint8Array(await file.arrayBuffer()))) return false;
-    if (file.type === 'image/svg+xml' || typeof createImageBitmap !== 'function') return true;
+    if (file.type === 'image/svg+xml' || typeof createImageBitmap !== 'function') {
+        return !!(await decodeImage(url));
+    }
     try {
         const bitmap = await createImageBitmap(file);
         bitmap.close();
@@ -649,7 +654,7 @@ function App(): React.ReactElement | null {
         // Decode before touching history so an unreadable file keeps the current
         // image, its undo stack, and its swatches intact.
         const url = URL.createObjectURL(file);
-        const readable = !!(await decodeImage(url)) && (await isCompleteRasterImage(file));
+        const readable = await isReadableImageFile(file, url);
         if (request !== imageImportRequestRef.current) {
             URL.revokeObjectURL(url);
             return;
