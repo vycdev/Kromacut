@@ -356,9 +356,17 @@ function App(): React.ReactElement | null {
     // initial selectedPalette derived from initial weight above
     const inputRef = useRef<HTMLInputElement | null>(null);
     // Kept untranslated so the notice follows language changes while it is open.
+    // shownImage is the image on screen when the import failed: the wording depends
+    // on it, and the notice closes once the image changes (undo, redo, edits, or
+    // Remove image), so it never describes a different image.
     const [imageImportError, setImageImportError] = useState<
-        { kind: 'notImage' } | { kind: 'undecodable'; name: string } | null
+        | { kind: 'notImage'; shownImage: string | null }
+        | { kind: 'undecodable'; name: string; shownImage: string | null }
+        | null
     >(null);
+    if (imageImportError && imageImportError.shownImage !== imageSrc) {
+        setImageImportError(null);
+    }
     const canvasPreviewRef = useRef<CanvasPreviewHandle | null>(null);
     const [showCheckerboard, setShowCheckerboard] = useState<boolean>(false);
     const [isCropMode, setIsCropMode] = useState(false);
@@ -634,7 +642,7 @@ function App(): React.ReactElement | null {
         if (!file) return;
         const request = ++imageImportRequestRef.current;
         if (!file.type.startsWith('image/')) {
-            setImageImportError({ kind: 'notImage' });
+            setImageImportError({ kind: 'notImage', shownImage: imageSrc });
             return;
         }
         // Decode before touching history so an unreadable file keeps the current
@@ -647,10 +655,11 @@ function App(): React.ReactElement | null {
         }
         if (!readable) {
             URL.revokeObjectURL(url);
-            setImageImportError({ kind: 'undecodable', name: file.name });
+            // The request check above means the image has not changed since this
+            // import started, so imageSrc is still the image on screen.
+            setImageImportError({ kind: 'undecodable', name: file.name, shownImage: imageSrc });
             return;
         }
-        setImageImportError(null);
         setTouchUpTool(null);
         invalidate();
         setImage(url, true);
@@ -659,7 +668,6 @@ function App(): React.ReactElement | null {
     // removed unused handlers (inline handlers used instead)
 
     const clear = () => {
-        setImageImportError(null);
         setTouchUpTool(null);
         clearCurrent();
         if (inputRef.current) inputRef.current.value = '';
@@ -1036,7 +1044,7 @@ function App(): React.ReactElement | null {
                                                     <p className="mt-1 text-muted-foreground">
                                                         {imageImportError.kind === 'notImage'
                                                             ? t('app.uploadImage')
-                                                            : imageSrc
+                                                            : imageImportError.shownImage
                                                               ? t('app.imageDecodeFailed', {
                                                                     name: imageImportError.name,
                                                                 })

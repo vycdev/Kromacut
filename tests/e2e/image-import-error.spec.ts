@@ -94,6 +94,45 @@ test('@smoke removing the image clears the import error and later errors omit th
     await expect(error).not.toContainText('current image was kept');
 });
 
+test('@smoke the import error closes when the image changes and does not come back', async ({
+    page,
+}) => {
+    await page.addInitScript(() => localStorage.clear());
+    await page.goto('/app');
+    const input = page.getByTestId('image-file-input');
+    const current = page.getByText('Current', { exact: true }).locator('..');
+    const error = page.getByTestId('image-import-error');
+    const undo = page.getByRole('button', { name: 'Undo', exact: true });
+    const redo = page.getByRole('button', { name: 'Redo', exact: true });
+    const corrupt = {
+        name: 'corrupt.png',
+        mimeType: 'image/png',
+        buffer: Buffer.from('this is plain text, not image data'),
+    };
+    await input.setInputFiles(source);
+    await expect(current).toContainText('1000x835');
+    await input.setInputFiles(corrupt);
+    await expect(error).toContainText('Your current image was kept.');
+
+    await undo.click();
+    await expect(current).toContainText('1024x1024');
+    await expect(error).toHaveCount(0);
+    // Redo returns to the image the import failed on; the notice stays closed.
+    await redo.click();
+    await expect(current).toContainText('1000x835');
+    await expect(error).toHaveCount(0);
+
+    // A failure with no image loaded must not later claim an image was kept
+    // once Undo brings one back.
+    await page.getByRole('button', { name: 'Remove image', exact: true }).click();
+    await input.setInputFiles(corrupt);
+    await expect(error).toBeVisible();
+    await expect(error).not.toContainText('current image was kept');
+    await undo.click();
+    await expect(current).toContainText('1024x1024');
+    await expect(error).toHaveCount(0);
+});
+
 test('@smoke valid JPEG and SVG files still import', async ({ page }) => {
     await page.addInitScript(() => localStorage.clear());
     await page.goto('/app');
