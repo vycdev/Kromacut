@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ThreeDControlsStateShape } from '../types';
+import { decodeImage } from '../lib/decodeImage.ts';
 
 const LAYER_WARNING_THRESHOLD = 64;
 const PIXEL_WARNING_THRESHOLD = 2500000;
@@ -76,10 +77,9 @@ export function useBuildWarning({ imageSrc, initialState }: UseBuildWarningOptio
             setImageDimensions(null);
             return;
         }
-        const img = new Image();
-        img.onload = () => setImageDimensions({ w: img.naturalWidth, h: img.naturalHeight });
-        img.onerror = () => setImageDimensions(null);
-        img.src = imageSrc;
+        void decodeImage(imageSrc).then((img) =>
+            setImageDimensions(img ? { w: img.naturalWidth, h: img.naturalHeight } : null)
+        );
     }, [imageSrc]);
 
     // Apply state without warning (used after user confirms, or when no warning needed)

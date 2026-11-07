@@ -8,6 +8,7 @@ import {
     shouldRetainCompletedThreeDWork,
     shouldRunThreeDBackgroundWork,
 } from '../lib/threeDWorkLifecycle.ts';
+import { decodeImage } from '../lib/decodeImage.ts';
 import type { Swatch } from '../types';
 import type {
     PrintableFeatureWorkerRequest,
@@ -43,16 +44,6 @@ function simulationKey(
     omitAtRiskPixels: boolean
 ): string {
     return JSON.stringify([imageSrc, pixelSizeMm, lineWidthMm, omitAtRiskPixels]);
-}
-
-function loadImage(source: string): Promise<HTMLImageElement> {
-    return new Promise((resolve, reject) => {
-        const image = new Image();
-        image.onload = () => resolve(image);
-        image.onerror = () =>
-            reject(new Error('Could not load the image for printable-detail analysis'));
-        image.src = source;
-    });
 }
 
 export function usePrintableFeatureSimulation(
@@ -125,9 +116,11 @@ export function usePrintableFeatureSimulation(
             setError(message);
         };
 
-        void loadImage(imageSrc)
+        void decodeImage(imageSrc)
             .then((image) => {
                 if (cancelled) return;
+                if (!image)
+                    throw new Error('Could not load the image for printable-detail analysis');
                 const canvas = document.createElement('canvas');
                 canvas.width = image.naturalWidth;
                 canvas.height = image.naturalHeight;

@@ -4,6 +4,7 @@ import type { RefObject } from 'react';
 import type { CanvasPreviewHandle } from '../components/CanvasPreview';
 import type { SwatchEntry } from './useSwatches';
 import { clampProgress } from '../lib/progress';
+import { decodeImage } from '../lib/decodeImage';
 import { saveBlobToFile } from './saveBlobToFile';
 import type * as THREE from 'three';
 
@@ -319,12 +320,7 @@ export function useAppHandlers(params: UseAppHandlersParams) {
             try {
                 const blob = await canvasPreviewRef.current.exportImageBlob();
                 if (!blob) return;
-                const img = await new Promise<HTMLImageElement | null>((res) => {
-                    const i = new Image();
-                    i.onload = () => res(i);
-                    i.onerror = () => res(null);
-                    i.src = URL.createObjectURL(blob);
-                });
+                const img = await decodeImage(URL.createObjectURL(blob));
                 if (!img) return;
                 const w = img.naturalWidth;
                 const h = img.naturalHeight;

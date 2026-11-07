@@ -11,6 +11,7 @@ import { findBuiltInPalette } from '../data/palettes';
 import { enabledColors } from '../lib/paletteManager';
 import type { CustomPalette } from '../types';
 import { rgbToHsl } from '../lib/color';
+import { decodeImage } from '../lib/decodeImage';
 import {
     clampProgress,
     quantizeAlgorithmProgress,
@@ -118,12 +119,7 @@ export function useQuantize({
         if (!blob) return;
         reportStep(1, 'Loading image data', 0.2);
         bump(0.02);
-        const img = await new Promise<HTMLImageElement | null>((resolve) => {
-            const i = new Image();
-            i.onload = () => resolve(i);
-            i.onerror = () => resolve(null);
-            i.src = URL.createObjectURL(blob);
-        });
+        const img = await decodeImage(URL.createObjectURL(blob));
         if (!img) return;
         reportStep(1, 'Loading image data', 0.4);
         bump(0.04);

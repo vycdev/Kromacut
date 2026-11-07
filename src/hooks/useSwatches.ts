@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { rgbToHsl } from '../lib/color';
+import { decodeImage } from '../lib/decodeImage';
 import { createCenterEdgeWeight } from '../lib/regionWeighting';
 
 // Manages swatch computation with cancellation & immediate override
@@ -51,12 +52,8 @@ export function useSwatches(imageSrc: string | null) {
             setSwatches([]);
             setLoading(true);
             try {
-                const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-                    const i = new Image();
-                    i.onload = () => resolve(i);
-                    i.onerror = () => reject(new Error('image load failed'));
-                    i.src = imageSrc;
-                });
+                const img = await decodeImage(imageSrc);
+                if (!img) throw new Error('image load failed');
                 if (runId !== runRef.current || cancelled) return;
                 const w = img.naturalWidth;
                 const h = img.naturalHeight;

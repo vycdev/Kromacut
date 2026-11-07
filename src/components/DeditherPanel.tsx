@@ -7,6 +7,7 @@ import { CollapsibleCard, DirtyDot } from '@/components/CollapsibleCard';
 import { RotateCcw, Check, Loader } from 'lucide-react';
 import type { CanvasPreviewHandle } from './CanvasPreview';
 import { deditherRowProgress } from '../lib/progress';
+import { decodeImage } from '../lib/decodeImage';
 
 interface Props {
     canvasRef: React.RefObject<CanvasPreviewHandle | null>;
@@ -52,12 +53,7 @@ export const DeditherPanel: React.FC<Props> = ({
             // prefer adjusted image if available
             const blob = await canvasRef.current.exportAdjustedImageBlob?.();
             if (!blob) return;
-            const img = await new Promise<HTMLImageElement | null>((res) => {
-                const i = new Image();
-                i.onload = () => res(i);
-                i.onerror = () => res(null);
-                i.src = URL.createObjectURL(blob);
-            });
+            const img = await decodeImage(URL.createObjectURL(blob));
             if (!img) return;
             onProgress?.(0.06);
 
