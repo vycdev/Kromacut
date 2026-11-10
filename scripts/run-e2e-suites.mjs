@@ -52,13 +52,24 @@ function listTests(args) {
         encoding: 'utf8',
         maxBuffer: 64 * 1024 * 1024,
     });
-    const report = result.status === 0 ? JSON.parse(result.stdout) : undefined;
-    if (!report || report.errors.length > 0) {
-        throw new Error(`Could not list tests for "${args.join(' ')}":\n${result.stderr}`);
+    let report;
+    try {
+        report = JSON.parse(result.stdout);
+    } catch {
+        // Reported below with stderr.
     }
-    const tests = [];
+    // The JSON reporter puts load errors, such as a spec that does not compile, in stdout.
+    const problems = report?.errors?.map((error) => error.message) ?? [];
+    if (result.status !== 0 || !report || problems.length > 0) {
+        const details = [...problems, result.stderr].join('\n').trim();
+        throw new Error(`could not list tests for "${args.join(' ')}":\n${details}`);
+    }
+    const tests = new Map();
     const walk = (suite, titles) => {
-        for (const spec of suite.specs ?? []) tests.push([...titles, spec.title].join(' › '));
+        for (const spec of suite.specs ?? []) {
+            const tags = spec.tags.map((tag) => `@${tag.replace(/^@/, '')}`);
+            tests.set([...titles, spec.title].join(' › '), tags);
+        }
         for (const child of suite.suites ?? []) walk(child, [...titles, child.title]);
     };
     for (const file of report.suites) walk(file, [file.file]);
@@ -74,9 +85,18 @@ function checkE2eCoverage() {
             errors.push(`${file} is not run by any suite in scripts/run-e2e-suites.mjs`);
         }
     }
-    const covered = new Set(E2E_SUITES.flatMap((script) => listTests(suiteArgs(script))));
-    for (const test of new Set(listTests(['test']))) {
-        if (!covered.has(test) && !test.includes(ON_DEMAND_TAG)) {
+    let all;
+    const covered = new Set();
+    try {
+        for (const script of E2E_SUITES) {
+            for (const test of listTests(suiteArgs(script)).keys()) covered.add(test);
+        }
+        all = listTests(['test']);
+    } catch (error) {
+        return [...errors, error.message];
+    }
+    for (const [test, tags] of all) {
+        if (!covered.has(test) && !tags.includes(ON_DEMAND_TAG)) {
             errors.push(
                 `"${test}" is not run by any suite; tag it @smoke or match it in an area config`
             );
