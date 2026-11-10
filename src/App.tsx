@@ -22,7 +22,7 @@ import DeditherPanel from './components/DeditherPanel';
 import ImageResizePanel from './components/ImageResizePanel';
 import { ADJUSTMENT_DEFAULTS } from './lib/applyAdjustments';
 import { calculateImageResizeDimensions } from './lib/imageResize';
-import { decodeImage } from './lib/imageFile';
+import { decodeImage } from './lib/decodeImage';
 import SLIDER_DEFS from './components/sliderDefs';
 import { useSwatches } from './hooks/useSwatches';
 import type { SwatchEntry } from './hooks/useSwatches';

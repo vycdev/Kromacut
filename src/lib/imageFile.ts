@@ -1,3 +1,4 @@
+import { decodeImage } from './decodeImage.ts';
 import { isTruncatedImageData } from './imageTruncation.ts';
 
 /**
@@ -10,16 +11,6 @@ export function isImageFile(file: Pick<File, 'name' | 'type'>): boolean {
         file.type.startsWith('image/') ||
         (!file.type && /\.(avif|bmp|gif|heic|heif|jpe?g|png|webp)$/i.test(file.name))
     );
-}
-
-/** Resolves to null when the browser cannot decode the URL as an image. */
-export function decodeImage(url: string): Promise<HTMLImageElement | null> {
-    return new Promise((resolve) => {
-        const image = new Image();
-        image.onload = () => resolve(image.naturalWidth && image.naturalHeight ? image : null);
-        image.onerror = () => resolve(null);
-        image.src = url;
-    });
 }
 
 /**

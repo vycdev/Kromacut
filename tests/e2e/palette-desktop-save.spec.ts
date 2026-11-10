@@ -1,11 +1,10 @@
 import { expect, test } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
+import { fakeDesktopAfterLoad } from './helpers/fakeDesktop';
 
 type Outcome = 'cancel' | 'failure' | 'success';
 type Desktop = Window & {
-    isTauri: boolean;
     saveTest: { outcome: Outcome; calls: string[]; chunks: number[][]; options?: unknown };
-    __TAURI_INTERNALS__: { invoke: (command: string, args?: unknown) => Promise<unknown> };
 };
 
 const palette = {
@@ -43,30 +42,31 @@ test('@smoke palette export preserves browser downloads and uses desktop Save As
 
     const nativeDownloads: string[] = [];
     page.on('download', (item) => nativeDownloads.push(item.suggestedFilename()));
-    await page.evaluate(() => {
-        const desktop = window as unknown as Desktop;
-        desktop.isTauri = true;
-        desktop.saveTest = { outcome: 'cancel', calls: [], chunks: [] };
-        desktop.__TAURI_INTERNALS__ = {
-            async invoke(command, args) {
-                const state = desktop.saveTest;
-                state.calls.push(command);
-                if (command === 'plugin:dialog|save') {
-                    state.options = args;
-                    return state.outcome === 'cancel' ? null : '/mock/palette.kpal';
-                }
-                if (command === 'plugin:fs|open') return 91;
-                if (command === 'plugin:fs|write') {
-                    if (state.outcome === 'failure') throw new Error('Mock disk failure');
-                    const { data } = args as { data: Uint8Array };
-                    state.chunks.push(Array.from(data));
-                    return data.byteLength;
-                }
-                if (command === 'plugin:resources|close') return;
-                if (command === 'plugin:dialog|message') return 'Ok';
-                throw new Error(`Unexpected command: ${command}`);
-            },
-        };
+    await fakeDesktopAfterLoad(page, (desktop) => {
+        const host = window as unknown as Desktop;
+        host.saveTest = { outcome: 'cancel', calls: [], chunks: [] };
+        const commands = [
+            'plugin:dialog|save',
+            'plugin:fs|open',
+            'plugin:fs|write',
+            'plugin:resources|close',
+            'plugin:dialog|message',
+        ];
+        desktop.handle(commands, (args: { data: Uint8Array }, command) => {
+            const state = host.saveTest;
+            state.calls.push(command);
+            if (command === 'plugin:dialog|save') {
+                state.options = args;
+                return state.outcome === 'cancel' ? null : '/mock/palette.kpal';
+            }
+            if (command === 'plugin:fs|open') return 91;
+            if (command === 'plugin:fs|write') {
+                if (state.outcome === 'failure') throw new Error('Mock disk failure');
+                state.chunks.push(Array.from(args.data));
+                return args.data.byteLength;
+            }
+            if (command === 'plugin:dialog|message') return 'Ok';
+        });
     });
     // Keep the feedback dismissal timer paused so it cannot mask a failed recovery.
     await page.clock.pauseAt(new Date('2026-10-29T13:00:00Z'));

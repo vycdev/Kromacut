@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { fileURLToPath } from 'node:url';
 import JSZip from 'jszip';
+import { fakeDesktopAfterLoad } from './helpers/fakeDesktop';
 import type { StackMatrixCalibrationV1 } from '../../src/lib/appearanceProfile';
 
 const twoColorProfile = fileURLToPath(
@@ -14,31 +15,32 @@ interface NativeSaveState {
     chunks: number[][];
     closed: boolean;
 }
-type MockDesktopWindow = Window & {
-    isTauri: boolean;
-    __nativeSaveState: NativeSaveState;
-    __TAURI_INTERNALS__: {
-        invoke: (command: string, args?: unknown) => Promise<unknown>;
-    };
-};
+type MockDesktopWindow = Window & { __nativeSaveState: NativeSaveState };
 
 async function installDesktopSaveMock(page: Page) {
-    await page.evaluate((selectedPath) => {
-        const desktop = window as unknown as MockDesktopWindow;
-        desktop.isTauri = true;
-        desktop.__nativeSaveState = {
-            outcome: 'cancel',
-            calls: [],
-            chunks: [],
-            closed: false,
-        };
-        // Exercise the production save helper and plugin serialization without
-        // crossing into a real native dialog or filesystem.
-        desktop.__TAURI_INTERNALS__ = {
-            async invoke(command, args = {}) {
-                const state = desktop.__nativeSaveState;
+    await fakeDesktopAfterLoad(
+        page,
+        (desktop, selectedPath) => {
+            const host = window as unknown as MockDesktopWindow;
+            host.__nativeSaveState = {
+                outcome: 'cancel',
+                calls: [],
+                chunks: [],
+                closed: false,
+            };
+            // Exercise the production save helper and plugin serialization without
+            // crossing into a real native dialog or filesystem.
+            const commands = [
+                'plugin:dialog|save',
+                'plugin:fs|open',
+                'plugin:fs|write',
+                'plugin:resources|close',
+                'plugin:dialog|message',
+            ];
+            desktop.handle(commands, (args: { rid: number; data: Uint8Array }, command) => {
+                const state = host.__nativeSaveState;
                 if (command === 'plugin:fs|write') {
-                    const { rid, data } = args as { rid: number; data: Uint8Array };
+                    const { rid, data } = args;
                     state.calls.push({ command, args: { rid, byteLength: data.byteLength } });
                     if (state.outcome === 'write-failure') {
                         throw new Error('Mock native disk write failed');
@@ -51,15 +53,12 @@ async function installDesktopSaveMock(page: Page) {
                     return state.outcome === 'cancel' ? null : selectedPath;
                 }
                 if (command === 'plugin:fs|open') return 91;
-                if (command === 'plugin:resources|close') {
-                    state.closed = true;
-                    return;
-                }
+                if (command === 'plugin:resources|close') state.closed = true;
                 if (command === 'plugin:dialog|message') return 'Ok';
-                throw new Error(`Unexpected native command: ${command}`);
-            },
-        };
-    }, chosenPath);
+            });
+        },
+        chosenPath
+    );
 }
 
 async function resetNativeSave(page: Page, outcome: SaveOutcome) {

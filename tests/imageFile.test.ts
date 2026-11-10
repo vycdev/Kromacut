@@ -79,8 +79,11 @@ async function withBrowserStubs(
     try {
         await run(urls);
     } finally {
-        globals.Image = saved.Image;
-        globals.createImageBitmap = saved.createImageBitmap;
+        // Node has neither global, so remove the stubs rather than leave them undefined.
+        for (const name of ['Image', 'createImageBitmap'] as const) {
+            if (saved[name] === undefined) delete globals[name];
+            else globals[name] = saved[name];
+        }
         URL.createObjectURL = saved.createObjectURL;
         URL.revokeObjectURL = saved.revokeObjectURL;
     }
