@@ -2,6 +2,10 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import {
+    cameraKeepOutBounds,
+    framePerspectiveCamera,
+    keepCameraOutsideBounds,
+    matchOrthographicToPerspective,
     orthographicFromPerspective,
     syncPerspectiveFromOrthographic,
 } from '../lib/cameraProjection.ts';
@@ -19,17 +23,21 @@ export function useThreeScene(
     const controlsRef = useRef<OrbitControls | null>(null);
     const modelGroupRef = useRef<THREE.Group | null>(null);
     const materialRef = useRef<THREE.MeshStandardMaterial | null>(null);
+    // Model bounds plus a margin, set when a model is framed. The camera never enters them.
+    const cameraBoundsRef = useRef<THREE.Box3 | null>(null);
     const [sceneReady, setSceneReady] = useState(false);
     const activeRef = useRef(active);
     activeRef.current = active;
 
     const requestRenderRef = useRef<(() => void) | null>(null);
     const switchCameraRef = useRef<((isOrtho: boolean) => void) | null>(null);
+    const frameModelRef = useRef<((model: THREE.Box3) => void) | null>(null);
     const requestRender = useCallback(() => requestRenderRef.current?.(), []);
     const switchCamera = useCallback(
         (isOrtho: boolean) => switchCameraRef.current?.(isOrtho),
         []
     );
+    const frameModel = useCallback((model: THREE.Box3) => frameModelRef.current?.(model), []);
 
     useEffect(() => {
         const el = mountRef.current;
@@ -111,9 +119,21 @@ export function useThreeScene(
             /* no-op */
         }
 
+        // Applies OrbitControls input, then pushes the camera back out if it moved into the model.
+        const updateControls = () => {
+            const ctrl = controlsRef.current;
+            const cam = cameraRef.current;
+            const persp = perspCameraRef.current;
+            if (!ctrl || !cam || !persp) return;
+            ctrl.update();
+            const bounds = cameraBoundsRef.current;
+            if (!bounds || modelGroup.children.length === 0) return;
+            keepCameraOutsideBounds(cam, ctrl.target, bounds, persp.fov);
+        };
+
         const requestRender = () => {
             if (!rendererRef.current || !sceneRef.current || !cameraRef.current) return;
-            if (controlsRef.current) controlsRef.current.update();
+            updateControls();
             rendererRef.current.render(sceneRef.current, cameraRef.current);
         };
         requestRenderRef.current = requestRender;
@@ -134,10 +154,29 @@ export function useThreeScene(
                 cameraRef.current = persp;
                 ctrl.object = persp as unknown as THREE.Camera;
             }
-            ctrl.update();
+            updateControls();
             requestRender();
         };
         switchCameraRef.current = switchCamera;
+
+        // Frames a newly built model in perspective terms. An active orthographic camera takes the
+        // same framing, so rebuilding frames the model identically in both projections.
+        const frameModel = (model: THREE.Box3) => {
+            const cam = cameraRef.current;
+            const persp = perspCameraRef.current;
+            const ctrl = controlsRef.current;
+            if (!cam || !persp || !ctrl || model.isEmpty()) return;
+
+            framePerspectiveCamera(persp, model, ctrl.target);
+            if (cam instanceof THREE.OrthographicCamera) {
+                // Keep the aspect ratio the resize handler maintains for this camera.
+                const aspect = (cam.right - cam.left) / (cam.top - cam.bottom);
+                matchOrthographicToPerspective(cam, persp, ctrl.target, aspect);
+            }
+            cameraBoundsRef.current = cameraKeepOutBounds(model);
+            updateControls();
+        };
+        frameModelRef.current = frameModel;
 
         const resize = () => {
             if (!el || !cameraRef.current || !rendererRef.current) return;
@@ -178,7 +217,7 @@ export function useThreeScene(
 
         const animate = () => {
             if (activeRef.current) {
-                if (controlsRef.current) controlsRef.current.update();
+                updateControls();
                 if (cameraRef.current) renderer.render(scene, cameraRef.current);
             }
             rafRef.current = requestAnimationFrame(animate);
@@ -204,6 +243,8 @@ export function useThreeScene(
             modelGroupRef.current = null;
             materialRef.current = null;
             switchCameraRef.current = null;
+            frameModelRef.current = null;
+            cameraBoundsRef.current = null;
             setIsBuilding(false);
             setSceneReady(false);
         };
@@ -227,6 +268,7 @@ export function useThreeScene(
         materialRef,
         requestRender,
         switchCamera,
+        frameModel,
         sceneReady,
     } as const;
 }
