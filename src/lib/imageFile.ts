@@ -14,40 +14,61 @@ export function isImageFile(file: Pick<File, 'name' | 'type'>): boolean {
 }
 
 /**
+ * A decoded image file, ready to draw. Call close() once it is no longer needed
+ * to release its pixels.
+ */
+export type DecodedImage = {
+    source: CanvasImageSource;
+    width: number;
+    height: number;
+    close: () => void;
+};
+
+/**
+ * Decodes a file once, refusing it if it is incomplete.
+ *
  * An `<img>` still loads a truncated or partly damaged raster file and shows only
  * the rows it could decode. WebKit, which the macOS and Linux desktop apps use,
  * also accepts truncated files in `createImageBitmap`, so first check PNG, JPEG,
- * and WebP for their end marker on every engine. `createImageBitmap` then catches
- * other damage in Chrome. Chrome rejects SVG blobs there, so SVGs rely on the
- * `<img>` decode alone. Reading the bytes can also fail, for example when the
- * file changes on disk after it was chosen.
+ * and WebP for their end marker on every engine. Raster files then decode with
+ * `createImageBitmap` alone: in Chromium and WebKit it accepts the same formats as
+ * `<img>`, applies the same EXIF orientation, and also catches other damage in
+ * Chrome. Chrome rejects SVG blobs there, so SVGs, and engines without
+ * `createImageBitmap`, decode in an `<img>` instead. Reading the bytes can also
+ * fail, for example when the file changes on disk after it was chosen.
  */
-async function isCompleteRasterImage(file: Blob): Promise<boolean> {
+async function decodeImageFile(file: Blob, url: string): Promise<DecodedImage | null> {
     try {
-        if (isTruncatedImageData(new Uint8Array(await file.arrayBuffer()))) return false;
-        if (file.type === 'image/svg+xml' || typeof createImageBitmap !== 'function') return true;
+        if (isTruncatedImageData(new Uint8Array(await file.arrayBuffer()))) return null;
+        if (file.type === 'image/svg+xml' || typeof createImageBitmap !== 'function') {
+            const image = await decodeImage(url);
+            if (!image) return null;
+            const { naturalWidth: width, naturalHeight: height } = image;
+            return { source: image, width, height, close: () => {} };
+        }
         const bitmap = await createImageBitmap(file);
-        bitmap.close();
-        return true;
+        const { width, height } = bitmap;
+        return { source: bitmap, width, height, close: () => bitmap.close() };
     } catch {
-        return false;
+        return null;
     }
 }
 
 export type ImageFileValidation =
-    | { ok: true; image: HTMLImageElement; url: string }
+    | { ok: true; image: DecodedImage; url: string }
     | { ok: false; reason: 'notImage' | 'undecodable' };
 
 /**
  * Checks that a chosen or dropped file is an image the browser can read in full.
- * On success the caller owns the returned object URL and must revoke it when it
- * is no longer needed; on failure no URL is left open.
+ * On success the caller owns the decoded image and the returned object URL, and
+ * must close the image and revoke the URL when they are no longer needed; on
+ * failure no URL is left open.
  */
 export async function validateImageFile(file: File): Promise<ImageFileValidation> {
     if (!isImageFile(file)) return { ok: false, reason: 'notImage' };
     const url = URL.createObjectURL(file);
-    const image = await decodeImage(url);
-    if (image && (await isCompleteRasterImage(file))) return { ok: true, image, url };
+    const image = await decodeImageFile(file, url);
+    if (image) return { ok: true, image, url };
     URL.revokeObjectURL(url);
     return { ok: false, reason: 'undecodable' };
 }

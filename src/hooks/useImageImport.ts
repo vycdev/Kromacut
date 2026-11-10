@@ -39,6 +39,8 @@ export function useImageImport() {
         async (file: File, hasImage: boolean, commit: (url: string) => void) => {
             const request = ++requestRef.current;
             const result = await validateImageFile(file);
+            // The preview and swatches decode the committed URL themselves.
+            if (result.ok) result.image.close();
             if (request !== requestRef.current) {
                 if (result.ok) URL.revokeObjectURL(result.url);
                 return;

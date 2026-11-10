@@ -33,15 +33,19 @@ test('a non-image MIME type is not overridden by an image extension', () => {
 const rocco = readFileSync(new URL('./assets/rocco__source.png', import.meta.url));
 
 /**
- * Stands in for the browser decoders. Like WebKit, the stub decodes a truncated
- * PNG to a partial image and accepts it in createImageBitmap, so only the
- * structural check can refuse it.
+ * Stands in for the browser decoders and counts how often each one runs. Like
+ * WebKit, the stubs decode a truncated PNG to a partial image and accept it in
+ * createImageBitmap, so only the structural check can refuse it.
  */
 async function withBrowserStubs(
-    options: { decodes: boolean; bitmapRejects?: boolean },
-    run: (urls: { created: string[]; revoked: string[] }) => Promise<void>
+    options: { decodes?: boolean; bitmapRejects?: boolean; noBitmap?: boolean },
+    run: (
+        urls: { created: string[]; revoked: string[] },
+        decodes: { images: number; bitmaps: number; closedBitmaps: number }
+    ) => Promise<void>
 ) {
     const urls = { created: [] as string[], revoked: [] as string[] };
+    const decodes = { images: 0, bitmaps: 0, closedBitmaps: 0 };
     const globals = globalThis as Record<string, unknown>;
     const saved = {
         Image: globals.Image,
@@ -55,18 +59,22 @@ async function withBrowserStubs(
         onload: (() => void) | null = null;
         onerror: (() => void) | null = null;
         set src(_url: string) {
+            decodes.images += 1;
             queueMicrotask(() => {
-                if (!options.decodes) return this.onerror?.();
-                this.naturalWidth = 1000;
-                this.naturalHeight = 835;
+                if (options.decodes === false) return this.onerror?.();
+                this.naturalWidth = 40;
+                this.naturalHeight = 30;
                 this.onload?.();
             });
         }
     };
-    globals.createImageBitmap = async () => {
-        if (options.bitmapRejects) throw new Error('decode failed');
-        return { close() {} };
-    };
+    if (options.noBitmap) delete globals.createImageBitmap;
+    else
+        globals.createImageBitmap = async () => {
+            decodes.bitmaps += 1;
+            if (options.bitmapRejects) throw new Error('decode failed');
+            return { width: 1000, height: 835, close: () => (decodes.closedBitmaps += 1) };
+        };
     URL.createObjectURL = (blob: Blob) => {
         const url = saved.createObjectURL(blob);
         urls.created.push(url);
@@ -77,7 +85,7 @@ async function withBrowserStubs(
         saved.revokeObjectURL(url);
     };
     try {
-        await run(urls);
+        await run(urls, decodes);
     } finally {
         // Node has neither global, so remove the stubs rather than leave them undefined.
         for (const name of ['Image', 'createImageBitmap'] as const) {
@@ -91,36 +99,40 @@ async function withBrowserStubs(
 
 const png = (bytes: Uint8Array, name = 'photo.png') =>
     new File([bytes], name, { type: 'image/png' });
+const svg = () =>
+    new File(['<svg xmlns="http://www.w3.org/2000/svg"/>'], 'shape.svg', {
+        type: 'image/svg+xml',
+    });
 
-test('validateImageFile returns the decoded image and leaves its URL open', async () => {
-    await withBrowserStubs({ decodes: true }, async (urls) => {
+test('validateImageFile decodes a raster file once and leaves its URL open', async () => {
+    await withBrowserStubs({}, async (urls, decodes) => {
         const result = await validateImageFile(png(rocco));
         assert.equal(result.ok, true);
         if (!result.ok) return;
-        assert.equal(result.image.naturalWidth, 1000);
+        assert.equal(result.image.width, 1000);
+        assert.equal(result.image.height, 835);
+        assert.deepEqual(decodes, { images: 0, bitmaps: 1, closedBitmaps: 0 });
         assert.deepEqual(urls.created, [result.url]);
         assert.deepEqual(urls.revoked, []);
+        result.image.close();
+        assert.equal(decodes.closedBitmaps, 1);
         URL.revokeObjectURL(result.url);
     });
 });
 
-test('validateImageFile refuses a truncated PNG that the decoders accept', async () => {
-    await withBrowserStubs({ decodes: true }, async (urls) => {
+test('validateImageFile refuses a truncated PNG before decoding it', async () => {
+    await withBrowserStubs({}, async (urls, decodes) => {
         const result = await validateImageFile(
             png(rocco.subarray(0, Math.floor(rocco.length / 3)))
         );
         assert.deepEqual(result, { ok: false, reason: 'undecodable' });
+        assert.deepEqual(decodes, { images: 0, bitmaps: 0, closedBitmaps: 0 });
         assert.deepEqual(urls.revoked, urls.created);
     });
 });
 
-test('validateImageFile refuses files the decoder or createImageBitmap rejects', async () => {
-    await withBrowserStubs({ decodes: false }, async (urls) => {
-        const result = await validateImageFile(png(rocco));
-        assert.deepEqual(result, { ok: false, reason: 'undecodable' });
-        assert.deepEqual(urls.revoked, urls.created);
-    });
-    await withBrowserStubs({ decodes: true, bitmapRejects: true }, async (urls) => {
+test('validateImageFile refuses raster files createImageBitmap rejects', async () => {
+    await withBrowserStubs({ bitmapRejects: true }, async (urls) => {
         const result = await validateImageFile(png(rocco));
         assert.deepEqual(result, { ok: false, reason: 'undecodable' });
         assert.deepEqual(urls.revoked, urls.created);
@@ -128,7 +140,7 @@ test('validateImageFile refuses files the decoder or createImageBitmap rejects',
 });
 
 test('validateImageFile refuses a file whose bytes can no longer be read', async () => {
-    await withBrowserStubs({ decodes: true }, async (urls) => {
+    await withBrowserStubs({}, async (urls) => {
         const file = png(rocco);
         file.arrayBuffer = () => Promise.reject(new Error('NotReadableError'));
         const result = await validateImageFile(file);
@@ -137,19 +149,44 @@ test('validateImageFile refuses a file whose bytes can no longer be read', async
     });
 });
 
-test('validateImageFile skips createImageBitmap for SVG files', async () => {
-    await withBrowserStubs({ decodes: true, bitmapRejects: true }, async () => {
-        const svg = new File(['<svg xmlns="http://www.w3.org/2000/svg"/>'], 'shape.svg', {
-            type: 'image/svg+xml',
-        });
-        const result = await validateImageFile(svg);
+test('validateImageFile decodes SVG files in an <img> instead of createImageBitmap', async () => {
+    await withBrowserStubs({ bitmapRejects: true }, async (urls, decodes) => {
+        const result = await validateImageFile(svg());
         assert.equal(result.ok, true);
-        if (result.ok) URL.revokeObjectURL(result.url);
+        if (!result.ok) return;
+        assert.equal(result.image.width, 40);
+        assert.equal(result.image.height, 30);
+        assert.deepEqual(decodes, { images: 1, bitmaps: 0, closedBitmaps: 0 });
+        result.image.close();
+        URL.revokeObjectURL(result.url);
+        assert.deepEqual(urls.revoked, urls.created);
+    });
+    await withBrowserStubs({ decodes: false }, async (urls) => {
+        assert.deepEqual(await validateImageFile(svg()), { ok: false, reason: 'undecodable' });
+        assert.deepEqual(urls.revoked, urls.created);
+    });
+});
+
+test('validateImageFile decodes raster files in an <img> without createImageBitmap', async () => {
+    await withBrowserStubs({ noBitmap: true }, async (_urls, decodes) => {
+        const result = await validateImageFile(png(rocco));
+        assert.equal(result.ok, true);
+        if (!result.ok) return;
+        assert.equal(result.image.width, 40);
+        assert.equal(decodes.images, 1);
+        URL.revokeObjectURL(result.url);
+    });
+    await withBrowserStubs({ noBitmap: true, decodes: false }, async (urls) => {
+        assert.deepEqual(await validateImageFile(png(rocco)), {
+            ok: false,
+            reason: 'undecodable',
+        });
+        assert.deepEqual(urls.revoked, urls.created);
     });
 });
 
 test('validateImageFile refuses non-images without opening a URL', async () => {
-    await withBrowserStubs({ decodes: true }, async (urls) => {
+    await withBrowserStubs({}, async (urls) => {
         const text = new File(['not an image'], 'notes.txt', { type: 'text/plain' });
         assert.deepEqual(await validateImageFile(text), { ok: false, reason: 'notImage' });
         assert.deepEqual(urls.created, []);
