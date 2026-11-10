@@ -208,7 +208,7 @@ test('@smoke @matrix New Stack Matrices use live print heights while saved matri
     ).toBe(0.12);
 });
 
-test('@matrix adaptive thickness, swap budget, and completed history survive the worker and saved-profile round trip', async ({
+test('@smoke @matrix adaptive thickness, swap budget, and completed history survive the worker and saved-profile round trip', async ({
     page,
 }, testInfo) => {
     testInfo.setTimeout(3 * 60 * 1000);
