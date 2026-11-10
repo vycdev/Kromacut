@@ -734,6 +734,9 @@ export default function StackMatrixCalibrationPanel({
                     setError('This browser could not read the Stack Matrix photo');
                     return;
                 }
+                // At the default quality, a large bitmap downscales more coarsely than
+                // an <img> did, which shifts the measured cell colors.
+                context.imageSmoothingQuality = 'medium';
                 context.drawImage(image.source, 0, 0, width, height);
                 const pixels = context.getImageData(0, 0, width, height).data;
                 const loadedPhoto = {
