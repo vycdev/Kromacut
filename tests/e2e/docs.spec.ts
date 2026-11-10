@@ -2,6 +2,9 @@ import { test, expect } from '@playwright/test';
 import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { SUPPORTED_LANGUAGES } from '../../src/lib/languagePreferences';
+import { requirePlaywrightConfig } from './helpers/playwrightConfig';
+
+requirePlaywrightConfig('playwright.docs.config.ts', 'test:e2e:docs');
 
 const docsDir = path.resolve('src/docs');
 const pages = readdirSync(docsDir)

@@ -22,13 +22,12 @@ import DeditherPanel from './components/DeditherPanel';
 import ImageResizePanel from './components/ImageResizePanel';
 import { ADJUSTMENT_DEFAULTS } from './lib/applyAdjustments';
 import { calculateImageResizeDimensions } from './lib/imageResize';
-import { isImageFile } from './lib/imageFile';
 import { decodeImage } from './lib/decodeImage';
-import { isTruncatedImageData } from './lib/imageTruncation';
 import SLIDER_DEFS from './components/sliderDefs';
 import { useSwatches } from './hooks/useSwatches';
 import type { SwatchEntry } from './hooks/useSwatches';
 import { useImageHistory } from './hooks/useImageHistory';
+import { useImageImport } from './hooks/useImageImport';
 import { useQuantize } from './hooks/useQuantize';
 import Header from './components/Header';
 import ModeTabs from './components/ModeTabs';
@@ -140,26 +139,6 @@ type AutoPaintPersisted = Pick<
 // persisted without this marker predates the change and carries uncalibrated
 // tds on the conventional backlit scale, which must be migrated once on load.
 const AUTOPAINT_SCHEMA_VERSION = 2;
-
-/**
- * An `<img>` still loads a truncated or partly damaged raster file and shows only
- * the rows it could decode. WebKit, which the macOS and Linux desktop apps use,
- * also accepts truncated files in `createImageBitmap`, so first check PNG, JPEG,
- * and WebP for their end marker on every engine. `createImageBitmap` then catches
- * other damage in Chrome. Chrome rejects SVG blobs there, so SVGs rely on the
- * `<img>` decode alone.
- */
-async function isCompleteRasterImage(file: Blob): Promise<boolean> {
-    if (isTruncatedImageData(new Uint8Array(await file.arrayBuffer()))) return false;
-    if (file.type === 'image/svg+xml' || typeof createImageBitmap !== 'function') return true;
-    try {
-        const bitmap = await createImageBitmap(file);
-        bitmap.close();
-        return true;
-    } catch {
-        return false;
-    }
-}
 
 function isOneOf<T extends readonly number[]>(value: unknown, values: T): value is T[number] {
     return typeof value === 'number' && values.includes(value as T[number]);
@@ -330,35 +309,21 @@ function App(): React.ReactElement | null {
         const pal = allPalettes.find((p) => p.id === selectedPalette);
         if (pal && pal.size > 0) setFinalColors(pal.size);
     }, [allPalettes, selectedPalette]);
-    // Each file import takes a token and commits only if no newer image change has
-    // happened while it was being checked.
-    const imageImportRequestRef = useRef(0);
-    // Every history change (set, clear, undo, redo) runs this, so edits such as
-    // Remove image, Undo, crop, or resize made during a pending import cancel it.
-    const cancelPendingImageImport = useCallback(() => {
-        imageImportRequestRef.current += 1;
-    }, []);
+    const {
+        importFile,
+        importError: imageImportError,
+        dismissImportError,
+        cancelPendingImport,
+    } = useImageImport();
     const { imageSrc, setImage, clearCurrent, undo, redo, canUndo, canRedo } = useImageHistory(
         logo,
-        cancelPendingImageImport
+        cancelPendingImport
     );
     const { swatches, swatchesLoading, imageDimensions, invalidate, immediateOverride } =
         useSwatches(imageSrc);
     // adjustments managed locally inside AdjustmentsPanel now
     // initial selectedPalette derived from initial weight above
     const inputRef = useRef<HTMLInputElement | null>(null);
-    // Kept untranslated so the notice follows language changes while it is open.
-    // shownImage is the image on screen when the import failed: the wording depends
-    // on it, and the notice closes once the image changes (undo, redo, edits, or
-    // Remove image), so it never describes a different image.
-    const [imageImportError, setImageImportError] = useState<
-        | { kind: 'notImage'; shownImage: string | null }
-        | { kind: 'undecodable'; name: string; shownImage: string | null }
-        | null
-    >(null);
-    if (imageImportError && imageImportError.shownImage !== imageSrc) {
-        setImageImportError(null);
-    }
     const canvasPreviewRef = useRef<CanvasPreviewHandle | null>(null);
     const [showCheckerboard, setShowCheckerboard] = useState<boolean>(false);
     const [isCropMode, setIsCropMode] = useState(false);
@@ -632,29 +597,11 @@ function App(): React.ReactElement | null {
 
     const handleFiles = async (file?: File) => {
         if (!file) return;
-        const request = ++imageImportRequestRef.current;
-        if (!isImageFile(file)) {
-            setImageImportError({ kind: 'notImage', shownImage: imageSrc });
-            return;
-        }
-        // Decode before touching history so an unreadable file keeps the current
-        // image, its undo stack, and its swatches intact.
-        const url = URL.createObjectURL(file);
-        const readable = !!(await decodeImage(url)) && (await isCompleteRasterImage(file));
-        if (request !== imageImportRequestRef.current) {
-            URL.revokeObjectURL(url);
-            return;
-        }
-        if (!readable) {
-            URL.revokeObjectURL(url);
-            // The request check above means the image has not changed since this
-            // import started, so imageSrc is still the image on screen.
-            setImageImportError({ kind: 'undecodable', name: file.name, shownImage: imageSrc });
-            return;
-        }
-        setTouchUpTool(null);
-        invalidate();
-        setImage(url, true);
+        await importFile(file, imageSrc !== null, (url) => {
+            setTouchUpTool(null);
+            invalidate();
+            setImage(url, true);
+        });
     };
 
     // removed unused handlers (inline handlers used instead)
@@ -1036,7 +983,7 @@ function App(): React.ReactElement | null {
                                                     <p className="mt-1 text-muted-foreground">
                                                         {imageImportError.kind === 'notImage'
                                                             ? t('app.uploadImage')
-                                                            : imageImportError.shownImage
+                                                            : imageImportError.keptImage
                                                               ? t('app.imageDecodeFailed', {
                                                                     name: imageImportError.name,
                                                                 })
@@ -1048,7 +995,7 @@ function App(): React.ReactElement | null {
                                                 <Button
                                                     variant="ghost"
                                                     size="icon"
-                                                    onClick={() => setImageImportError(null)}
+                                                    onClick={dismissImportError}
                                                     aria-label={t('app.dismissImageImportError')}
                                                     className="h-6 w-6 shrink-0 text-muted-foreground hover:text-foreground"
                                                 >

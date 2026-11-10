@@ -21,7 +21,8 @@ export default defineConfig({
     webServer: {
         command: 'npm run build && npm run preview -- --host 127.0.0.1 --port 5173 --strictPort',
         url: 'http://127.0.0.1:5173',
-        reuseExistingServer: !process.env.CI,
+        // test:e2e:all never reuses a server, which may be serving another checkout.
+        reuseExistingServer: !process.env.CI && !process.env.KROMACUT_E2E_FRESH_SERVERS,
         timeout: 180 * 1000,
     },
     projects: [

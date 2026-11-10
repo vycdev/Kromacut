@@ -7,6 +7,9 @@ import {
     fakeDesktopBeforeLoad,
     fakeDesktopCalls,
 } from './helpers/fakeDesktop';
+import { requirePlaywrightConfig } from './helpers/playwrightConfig';
+
+requirePlaywrightConfig('playwright.i18n.config.ts', 'test:e2e:i18n');
 
 const languageName = (code: AppLanguage) =>
     SUPPORTED_LANGUAGES.find((language) => language.code === code)!.name;

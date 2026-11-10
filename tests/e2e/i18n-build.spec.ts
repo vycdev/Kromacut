@@ -1,6 +1,9 @@
 import { expect, test } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 import { SUPPORTED_LANGUAGES } from '../../src/lib/languagePreferences';
+import { requirePlaywrightConfig } from './helpers/playwrightConfig';
+
+requirePlaywrightConfig('playwright.i18n-build.config.ts', 'test:e2e:i18n:build');
 
 const catalog = async (language: string, name: string) =>
     JSON.parse(

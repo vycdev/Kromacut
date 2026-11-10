@@ -21,6 +21,8 @@
         "profile:calibrated": "node scripts/profile-calibrated.mjs",
         "profile:compare": "node scripts/compare-calibrated-profiles.mjs",
         "test:e2e": "playwright test --grep @smoke",
+        "test:e2e:all": "node scripts/run-e2e-suites.mjs",
+        "check:e2e": "node scripts/run-e2e-suites.mjs --check",
         "test:docs": "node --no-warnings --experimental-strip-types --test tests/docsContent.test.ts",
         "test:e2e:docs": "playwright test --config playwright.docs.config.ts",
         "test:e2e:not-found": "playwright test --config playwright.not-found.config.ts",

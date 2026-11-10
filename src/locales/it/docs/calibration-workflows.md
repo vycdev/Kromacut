@@ -193,7 +193,7 @@ Stampa con la faccia rivolta verso l’alto in scala 100%, con le esatte altezze
 
 ### Carica e allinea una foto
 
-Seleziona la tavola stampata nel menu delle matrici salvate, poi **Scegli foto** oppure trascina un’immagine sull’area della foto. Fotografa sotto una luce frontale diffusa, senza forti riflessi. Il file deve essere decodificabile dall’app; un file RAW della fotocamera non sostituisce l’esportazione di un’immagine normalmente visualizzabile.
+Seleziona la tavola stampata nel menu delle matrici salvate, poi **Scegli foto** oppure trascina un’immagine sull’area della foto. Fotografa sotto una luce frontale diffusa, senza forti riflessi. Il file deve essere decodificabile dall’app; un file RAW della fotocamera non sostituisce l’esportazione di un’immagine normalmente visualizzabile. Se una foto non si può leggere, ad esempio perché danneggiata o scaricata solo in parte, Kromacut mostra un errore e mantiene l’eventuale foto già caricata.
 
 ![Le quattro maniglie vanno posizionate al centro delle celle marcatore colorate fuori dalla griglia delle ricette. Il confine della tavola si estende di mezza cella oltre i centri; un riquadro ingrandito distingue il centro del marcatore dall’angolo della tavola.](22_matrix_alignment.svg)
 

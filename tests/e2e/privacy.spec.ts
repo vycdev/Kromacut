@@ -1,6 +1,9 @@
 import { expect, test, type Page } from '@playwright/test';
 import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
+import { requirePlaywrightConfig } from './helpers/playwrightConfig';
+
+requirePlaywrightConfig('playwright.privacy.config.ts', 'test:e2e:privacy');
 
 // Do not accidentally publish the complete contact address in the test source, either.
 const contactEmail = ['vycdev', ['gmail', 'com'].join('.')].join('@');
