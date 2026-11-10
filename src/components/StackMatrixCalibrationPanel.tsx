@@ -710,7 +710,10 @@ export default function StackMatrixCalibrationPanel({
                 activeOwner.profileId !== photoProfileId ||
                 activeOwner.recordId !== recordId
             ) {
-                if (result.ok) URL.revokeObjectURL(result.url);
+                if (result.ok) {
+                    result.image.close();
+                    URL.revokeObjectURL(result.url);
+                }
                 return;
             }
             // A truncated photo would otherwise load with only the rows that decoded.
@@ -720,9 +723,9 @@ export default function StackMatrixCalibrationPanel({
             }
             const { image, url } = result;
             try {
-                const scale = Math.min(1, 1200 / Math.max(image.naturalWidth, image.naturalHeight));
-                const width = Math.max(1, Math.round(image.naturalWidth * scale));
-                const height = Math.max(1, Math.round(image.naturalHeight * scale));
+                const scale = Math.min(1, 1200 / Math.max(image.width, image.height));
+                const width = Math.max(1, Math.round(image.width * scale));
+                const height = Math.max(1, Math.round(image.height * scale));
                 const scratch = document.createElement('canvas');
                 scratch.width = width;
                 scratch.height = height;
@@ -731,7 +734,7 @@ export default function StackMatrixCalibrationPanel({
                     setError('This browser could not read the Stack Matrix photo');
                     return;
                 }
-                context.drawImage(image, 0, 0, width, height);
+                context.drawImage(image.source, 0, 0, width, height);
                 const pixels = context.getImageData(0, 0, width, height).data;
                 const loadedPhoto = {
                     sourceCanvas: scratch,
@@ -748,6 +751,7 @@ export default function StackMatrixCalibrationPanel({
                 setMeasuredColors([]);
                 setError(null);
             } finally {
+                image.close();
                 URL.revokeObjectURL(url);
             }
         },

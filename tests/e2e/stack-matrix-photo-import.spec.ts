@@ -73,4 +73,26 @@ test('@smoke unreadable and truncated Stack Matrix photos report an error and ke
         dialog.getByText('Drop an image file for the Stack Matrix photo', { exact: true })
     ).toBeVisible();
     await expect(canvas).toHaveAttribute('width', '1000');
+
+    // Phone photos are often stored sideways with an EXIF orientation tag. The
+    // photo must load upright, as an <img> shows it: 400x200 rotated a quarter turn.
+    const rotated = await page.evaluate(async () => {
+        const source = new OffscreenCanvas(400, 200);
+        source.getContext('2d')!.fillRect(0, 0, 200, 200);
+        const blob = await source.convertToBlob({ type: 'image/jpeg' });
+        const jpeg = new Uint8Array(await blob.arrayBuffer());
+        // An APP1 Exif segment holding one big-endian Orientation (0x0112) entry of 6.
+        const tiff = [0x4d, 0x4d, 0, 0x2a, 0, 0, 0, 8, 0, 1, 0x01, 0x12, 0, 3, 0, 0, 0, 1];
+        const exif = [0x45, 0x78, 0x69, 0x66, 0, 0, ...tiff, 0, 6, 0, 0, 0, 0, 0, 0];
+        const app1 = [0xff, 0xe1, 0, exif.length + 2, ...exif];
+        return [...jpeg.subarray(0, 2), ...app1, ...jpeg.subarray(2)];
+    });
+    await input.setInputFiles({
+        name: 'sideways.jpg',
+        mimeType: 'image/jpeg',
+        buffer: Buffer.from(rotated),
+    });
+    await expect(canvas).toHaveAttribute('width', '200');
+    await expect(canvas).toHaveAttribute('height', '400');
+    await expect(openFailed).toHaveCount(0);
 });
