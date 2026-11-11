@@ -218,7 +218,7 @@ test.describe('public terms and conditions @terms', () => {
                 expect(stickyBounds).not.toBeNull();
                 const footer = page.getByRole('navigation', { name: 'Footer navigation' });
                 const footerLinks = footer.getByRole('link');
-                await expect(footerLinks).toHaveCount(7);
+                await expect(footerLinks).toHaveCount(8);
                 for (const link of await footerLinks.all()) {
                     await expect(link).toBeInViewport({ ratio: 1 });
                     const bounds = await link.boundingBox();
