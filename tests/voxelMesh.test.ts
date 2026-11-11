@@ -2,52 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { Vector3 } from 'three';
 import { buildNozzleVoxelMesh, buildNozzleVoxelMeshAsync, type NozzleLayerRecord } from '../src/lib/voxelMesh.ts';
-import type { MeshData } from '../src/lib/meshing.ts';
-import { inspectMeshIntegrity } from './meshDiagnostics.ts';
-
-// Coordinate welding would hide the distinction between independently closed
-// shells that touch at an edge or vertex. Check the actual indexed topology,
-// including each vertex's triangle fan, as well as the occupied volume.
-function assertClosedVoxelSurface(mesh: MeshData, volume: number, label: string) {
-    const edges = new Map<string, { count: number; direction: number }>();
-    const links = new Map<number, Map<number, number[]>>();
-    for (let i = 0; i < mesh.indices.length; i += 3) {
-        const face = mesh.indices.slice(i, i + 3);
-        for (let j = 0; j < 3; j++) {
-            const a = face[j], b = face[(j + 1) % 3], c = face[(j + 2) % 3];
-            const key = a < b ? `${a},${b}` : `${b},${a}`;
-            const edge = edges.get(key) ?? { count: 0, direction: 0 };
-            edge.count++;
-            edge.direction += a < b ? 1 : -1;
-            edges.set(key, edge);
-            let link = links.get(a);
-            if (!link) links.set(a, link = new Map());
-            link.set(b, [...(link.get(b) ?? []), c]);
-            link.set(c, [...(link.get(c) ?? []), b]);
-        }
-    }
-    for (const [key, edge] of edges) {
-        assert.equal(edge.count, 2, `${label}: edge ${key} must have two faces`);
-        assert.equal(edge.direction, 0, `${label}: edge ${key} winding`);
-    }
-    for (const [vertex, link] of links) {
-        const pending = [link.keys().next().value!];
-        const seen = new Set<number>();
-        while (pending.length) {
-            const neighbor = pending.pop()!;
-            if (seen.has(neighbor)) continue;
-            seen.add(neighbor);
-            const adjacent = link.get(neighbor)!;
-            assert.equal(adjacent.length, 2, `${label}: vertex ${vertex} link degree`);
-            pending.push(...adjacent);
-        }
-        assert.equal(seen.size, link.size, `${label}: vertex ${vertex} must have one fan`);
-    }
-    const report = inspectMeshIntegrity(mesh);
-    assert.equal(report.degenerateTriangleCount, 0, label);
-    assert.equal(report.duplicateTriangleCount, 0, label);
-    assert.ok(Math.abs(report.signedVolume - volume) < 1e-6, `${label}: occupied volume`);
-}
+import { assertClosedIndexedSurface } from './helpers/meshAssertions.ts';
 
 test('voxel mesh preserves closed shells for every 2x2x2 occupancy', () => {
     for (let occupancy = 1; occupancy < 256; occupancy++) {
@@ -58,7 +13,7 @@ test('voxel mesh preserves closed shells for every 2x2x2 occupancy', () => {
         }));
         const count = layers.reduce((total, layer) => total + layer.mask.reduce((a, b) => a + b, 0), 0);
         const mesh = buildNozzleVoxelMesh(layers, 2, 2, 1);
-        assertClosedVoxelSurface(mesh, count, `occupancy ${occupancy.toString(2)}`);
+        assertClosedIndexedSurface(mesh, { volume: count, label: `occupancy ${occupancy.toString(2)}` });
 
         // Surface area must equal the exposed voxel faces, with internal faces removed.
         let expectedArea = count * 6;
@@ -90,7 +45,7 @@ test('voxel mesh caps missing layers and physical Z gaps independently', () => {
         [{ mask: new Uint8Array([1]), baseZ: 0, topZ: 1 },
             { mask: new Uint8Array([1]), baseZ: 1.0001, topZ: 2.0001 }],
     ]) {
-        assertClosedVoxelSurface(buildNozzleVoxelMesh(layers, 1, 1, 1), 2, 'Z gap');
+        assertClosedIndexedSurface(buildNozzleVoxelMesh(layers, 1, 1, 1), { volume: 2, label: 'Z gap' });
     }
 });
 
@@ -119,5 +74,5 @@ test('async voxel reconstruction yields during face generation, pairing, and tri
     }
     assert.equal(progress, 1);
     assert.deepEqual(mesh, buildNozzleVoxelMesh(layers, 12, 12, 1), 'chunking must preserve geometry');
-    assertClosedVoxelSurface(mesh, 144, 'async checkerboard');
+    assertClosedIndexedSurface(mesh, { volume: 144, label: 'async checkerboard' });
 });

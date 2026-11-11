@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { generateGreedyMesh, generateSmoothMesh, type MeshData } from '../src/lib/meshing.ts';
+import { assertClosedIndexedSurface } from './helpers/meshAssertions.ts';
 import { inspectMeshIntegrity } from './meshDiagnostics.ts';
 
 // Re-applied during the develop rebase: the multi-head / per-colour-group build
@@ -180,47 +181,6 @@ test('smooth: adjacent colour groups place shared exterior vertices identically 
     }
     assert.ok(seamVertices > 0, 'expected group A to have vertices near the seam');
 });
-
-function assertClosedIndexedSurface(mesh: MeshData) {
-    const edges = new Map<string, { count: number; direction: number }>();
-    const links = new Map<number, Map<number, number[]>>();
-    for (let i = 0; i < mesh.indices.length; i += 3) {
-        const face = mesh.indices.slice(i, i + 3);
-        for (let j = 0; j < 3; j++) {
-            const a = face[j], b = face[(j + 1) % 3], c = face[(j + 2) % 3];
-            const key = a < b ? `${a},${b}` : `${b},${a}`;
-            const edge = edges.get(key) ?? { count: 0, direction: 0 };
-            edge.count++;
-            edge.direction += a < b ? 1 : -1;
-            edges.set(key, edge);
-            let link = links.get(a);
-            if (!link) links.set(a, link = new Map());
-            link.set(b, [...(link.get(b) ?? []), c]);
-            link.set(c, [...(link.get(c) ?? []), b]);
-        }
-    }
-    for (const [key, edge] of edges) {
-        assert.equal(edge.count, 2, `indexed edge ${key} must have two faces`);
-        assert.equal(edge.direction, 0, `indexed edge ${key} must have opposite winding`);
-    }
-    for (const [vertex, link] of links) {
-        const pending = [link.keys().next().value!];
-        const seen = new Set<number>();
-        while (pending.length) {
-            const neighbor = pending.pop()!;
-            if (seen.has(neighbor)) continue;
-            seen.add(neighbor);
-            const adjacent = link.get(neighbor)!;
-            assert.equal(adjacent.length, 2, `vertex ${vertex} link degree`);
-            pending.push(...adjacent);
-        }
-        assert.equal(seen.size, link.size, `vertex ${vertex} must have one surface fan`);
-    }
-    const report = inspectMeshIntegrity(mesh);
-    assert.equal(report.degenerateTriangleCount, 0);
-    assert.equal(report.duplicateTriangleCount, 0);
-    assert.ok(report.signedVolume > 0);
-}
 
 for (const strength of ['none', 'minimal', 'medium', 'aggressive'] as const) {
     test(`skipRepair: ${strength} preserves indexed fans at diagonal colour contacts`, async () => {
