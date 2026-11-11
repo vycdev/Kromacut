@@ -11,7 +11,7 @@ description: Importă, decupează, redimensionează și retușează pixelii imag
 
 ## Alege o sursă
 
-Apasă **Alege fișierul** în bara de instrumente a previzualizării sau trage un fișier imagine în previzualizarea 2D. Se încarcă doar primul fișier dintr-o tragere. Folosește un format de imagine pe care browserul sau componenta web a aplicației desktop îl poate decoda; PNG este util când contează transparența. Developează mai întâi fișierele RAW ale camerei și exportă-le într-un format obișnuit de imagine. Dacă un fișier nu poate fi citit ca imagine, de exemplu pentru că este deteriorat sau descărcat doar parțial, Kromacut afișează o eroare și păstrează imaginea curentă.
+Apasă **Alege fișierul** în bara de instrumente a previzualizării sau trage un fișier imagine în previzualizarea 2D. Se încarcă doar primul fișier dintr-o tragere. Folosește un format de imagine pe care browserul sau componenta web a aplicației desktop îl poate decoda; PNG este util când contează transparența. Developează mai întâi fișierele RAW ale camerei și exportă-le într-un format obișnuit de imagine. Dacă un fișier nu poate fi citit ca imagine, de exemplu pentru că este deteriorat sau descărcat doar parțial, Kromacut afișează o eroare și păstrează imaginea curentă. Imaginile cu peste 268 de milioane de pixeli (16384×16384) sau cu peste 32767 de pixeli pe o latură sunt prea mari pentru a fi afișate de browser, așa că Kromacut le refuză la fel. Redimensionează mai întâi o astfel de imagine într-un editor de imagini.
 
 Kromacut pornește cu sigla sa ca exemplu. Încărcarea altei imagini înlocuiește imaginea de lucru curentă. Nu publică imaginea și nu descarcă o sursă dintr-un link web lipit.
 

@@ -1,8 +1,33 @@
 import { expect, test } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { crc32, deflateSync } from 'node:zlib';
 
 const source = fileURLToPath(new URL('../assets/rocco__source.png', import.meta.url));
+
+/** A valid, all-black 1-bit grayscale PNG of the given size. */
+function blackPng(width: number, height: number): Buffer {
+    const chunk = (type: string, data: Buffer) => {
+        const body = Buffer.concat([Buffer.from(type, 'latin1'), data]);
+        const length = Buffer.alloc(4);
+        length.writeUInt32BE(data.length);
+        const crc = Buffer.alloc(4);
+        crc.writeUInt32BE(crc32(body));
+        return Buffer.concat([length, body, crc]);
+    };
+    const header = Buffer.alloc(13);
+    header.writeUInt32BE(width, 0);
+    header.writeUInt32BE(height, 4);
+    header[8] = 1; // bit depth; color type 0 (grayscale), no interlacing
+    // Each row is a filter byte followed by zeroed pixels.
+    const pixels = Buffer.alloc((1 + Math.ceil(width / 8)) * height);
+    return Buffer.concat([
+        Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+        chunk('IHDR', header),
+        chunk('IDAT', deflateSync(pixels)),
+        chunk('IEND', Buffer.alloc(0)),
+    ]);
+}
 
 test('@smoke unreadable image files report an error and keep the current image', async ({
     page,
@@ -67,6 +92,45 @@ test('@smoke unreadable image files report an error and keep the current image',
     await input.setInputFiles(source);
     await expect(error).toHaveCount(0);
     await expect(current).toContainText('1000x835');
+});
+
+test('@smoke images over the canvas size limit report their size and keep the current image', async ({
+    page,
+}) => {
+    await page.addInitScript(() => localStorage.clear());
+    await page.goto('/app');
+    const input = page.getByTestId('image-file-input');
+    const current = page.getByText('Current', { exact: true }).locator('..');
+    const error = page.getByTestId('image-import-error');
+    await input.setInputFiles(source);
+    await expect(current).toContainText('1000x835');
+
+    // Small in bytes and pixels, but wider than Firefox allows a canvas to be.
+    const wide = { name: 'wide.png', mimeType: 'image/png', buffer: blackPng(32768, 8) };
+    await input.setInputFiles(wide);
+    await expect(error).toContainText("Couldn't open image");
+    await expect(error).toContainText(
+        '“wide.png” is 32768×8 pixels, which is too large to open. Your current image was kept. Resize it to 16384×16384 pixels or smaller and try again.'
+    );
+    await expect(current).toContainText('1000x835');
+
+    // The refused image adds no history: one undo returns to the starter image.
+    const undo = page.getByRole('button', { name: 'Undo', exact: true });
+    await undo.click();
+    await expect(current).toContainText('1024x1024');
+    await expect(undo).toBeDisabled();
+    await expect(error).toHaveCount(0);
+
+    await page.getByRole('button', { name: 'Remove image', exact: true }).click();
+    await input.setInputFiles(wide);
+    await expect(error).toContainText(
+        '“wide.png” is 32768×8 pixels, which is too large to open. Resize it to 16384×16384 pixels or smaller and try again.'
+    );
+
+    // The widest image a canvas can hold still imports.
+    await input.setInputFiles({ ...wide, name: 'widest.png', buffer: blackPng(32767, 8) });
+    await expect(current).toContainText('32767x8');
+    await expect(error).toHaveCount(0);
 });
 
 test('@smoke removing the image clears the import error and later errors omit the kept-image note', async ({

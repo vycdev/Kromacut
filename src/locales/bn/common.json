@@ -81,6 +81,8 @@
         "imageImportFailed": "ছবি খোলা যায়নি",
         "imageDecodeFailed": "“{{name}}” ছবি হিসেবে পড়া যায়নি। আপনার বর্তমান ছবি রাখা হয়েছে। একটি বৈধ PNG, JPEG বা WebP ফাইল বেছে নিন।",
         "imageDecodeFailedNoImage": "“{{name}}” ছবি হিসেবে পড়া যায়নি। একটি বৈধ PNG, JPEG বা WebP ফাইল বেছে নিন।",
+        "imageTooLarge": "“{{name}}” {{width}}×{{height}} পিক্সেল, যা খোলার জন্য খুব বড়। আপনার বর্তমান ছবি রাখা হয়েছে। এটিকে {{maxSize}} পিক্সেল বা তার চেয়ে ছোট করে আবার চেষ্টা করুন।",
+        "imageTooLargeNoImage": "“{{name}}” {{width}}×{{height}} পিক্সেল, যা খোলার জন্য খুব বড়। এটিকে {{maxSize}} পিক্সেল বা তার চেয়ে ছোট করে আবার চেষ্টা করুন।",
         "dismissImageImportError": "ছবির ত্রুটি বন্ধ করুন",
         "preparingControls": "3D নিয়ন্ত্রণ প্রস্তুত হচ্ছে…",
         "performanceWarning": "কর্মক্ষমতা সতর্কতা",

@@ -54,6 +54,26 @@ async function decodeImageFile(file: Blob, url: string): Promise<DecodedImage | 
     }
 }
 
+/**
+ * The largest image the 2D preview can open, in pixels. The preview copies an
+ * image into canvases at full size. Chromium (including the WebView2 desktop app
+ * on Windows) and WebKit refuse canvases over 268,435,456 pixels (16,384 × 16,384),
+ * and Firefox refuses canvases with a side over 32,767 pixels. A refused canvas
+ * stays blank instead of throwing, so a larger image would look imported but
+ * could not be previewed or processed.
+ */
+export const MAX_IMAGE_SIDE = 32767;
+/** The side of the largest square image that fits, 16,384 pixels. */
+export const MAX_SQUARE_IMAGE_SIDE = 16384;
+export const MAX_IMAGE_PIXELS = MAX_SQUARE_IMAGE_SIDE * MAX_SQUARE_IMAGE_SIDE;
+
+/** Whether an image of this size fits in a canvas on every supported engine. */
+export function fitsImageCanvasLimits(width: number, height: number): boolean {
+    return (
+        width <= MAX_IMAGE_SIDE && height <= MAX_IMAGE_SIDE && width * height <= MAX_IMAGE_PIXELS
+    );
+}
+
 export type ImageFileValidation =
     | { ok: true; image: DecodedImage; url: string }
     | { ok: false; reason: 'notImage' | 'undecodable' };

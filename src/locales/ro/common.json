@@ -81,6 +81,8 @@
     "imageImportFailed": "Imaginea nu a putut fi deschisă",
     "imageDecodeFailed": "„{{name}}” nu a putut fi citit ca imagine. Imaginea curentă a fost păstrată. Alege un fișier PNG, JPEG sau WebP valid.",
     "imageDecodeFailedNoImage": "„{{name}}” nu a putut fi citit ca imagine. Alege un fișier PNG, JPEG sau WebP valid.",
+    "imageTooLarge": "„{{name}}” are {{width}}×{{height}} pixeli și este prea mare pentru a fi deschisă. Imaginea curentă a fost păstrată. Redimensioneaz-o la cel mult {{maxSize}} pixeli și încearcă din nou.",
+    "imageTooLargeNoImage": "„{{name}}” are {{width}}×{{height}} pixeli și este prea mare pentru a fi deschisă. Redimensioneaz-o la cel mult {{maxSize}} pixeli și încearcă din nou.",
     "dismissImageImportError": "Închide eroarea de imagine",
     "preparingControls": "Se pregătesc comenzile 3D…",
     "performanceWarning": "Avertisment privind performanța",

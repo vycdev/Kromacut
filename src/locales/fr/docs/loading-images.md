@@ -11,7 +11,7 @@ En mode **2D**, vous préparez l’image que le modèle 3D utilisera. Les change
 
 ## Choisir une source
 
-Cliquez sur **Choisir un fichier** dans la barre d’outils de l’aperçu, ou faites glisser un fichier image dans l’aperçu 2D. Seul le premier fichier déposé est chargé. Utilisez un format que votre navigateur ou la vue web de l’application peut décoder ; le PNG est utile lorsque la transparence importe. Développez d’abord les fichiers RAW de votre appareil photo et exportez-les dans un format d’image courant. Si un fichier ne peut pas être lu comme une image, par exemple parce qu’il est endommagé ou incomplètement téléchargé, Kromacut affiche une erreur et conserve l’image actuelle.
+Cliquez sur **Choisir un fichier** dans la barre d’outils de l’aperçu, ou faites glisser un fichier image dans l’aperçu 2D. Seul le premier fichier déposé est chargé. Utilisez un format que votre navigateur ou la vue web de l’application peut décoder ; le PNG est utile lorsque la transparence importe. Développez d’abord les fichiers RAW de votre appareil photo et exportez-les dans un format d’image courant. Si un fichier ne peut pas être lu comme une image, par exemple parce qu’il est endommagé ou incomplètement téléchargé, Kromacut affiche une erreur et conserve l’image actuelle. Les images de plus de 268 millions de pixels (16384×16384), ou de plus de 32767 pixels sur un côté, sont trop grandes pour que le navigateur les affiche ; Kromacut les refuse donc de la même manière. Redimensionnez d’abord une telle image dans un éditeur d’images.
 
 Kromacut démarre avec son logo comme exemple. Charger une autre image remplace l’image de travail actuelle. Cela ne publie pas l’image et ne télécharge pas de source à partir d’un lien web collé.
 
