@@ -11,7 +11,7 @@ In **2D** mode, you prepare the image that the 3D model will use. Color changes 
 
 ## Choose A Source
 
-Click **Choose file** in the preview toolbar, or drag an image file into the 2D preview. Only the first file in a drop is loaded. Use an image format your browser or desktop webview can decode; PNG is useful when transparency matters. Develop camera RAW files and export an ordinary image format first. If a file cannot be read as an image, for example because it is damaged or only partly downloaded, Kromacut shows an error and keeps the current image.
+Click **Choose file** in the preview toolbar, or drag an image file into the 2D preview. Only the first file in a drop is loaded. Use an image format your browser or desktop webview can decode; PNG is useful when transparency matters. Develop camera RAW files and export an ordinary image format first. If a file cannot be read as an image, for example because it is damaged or only partly downloaded, Kromacut shows an error and keeps the current image. Images with more than 268 million pixels (16384×16384), or more than 32767 pixels on either side, are too large for the browser to display, so Kromacut refuses them the same way. Resize such an image in an image editor first.
 
 Kromacut starts with its logo as an example. Loading another image replaces the current working image. It does not publish the image or download a source from a pasted web link.
 

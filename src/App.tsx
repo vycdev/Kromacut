@@ -23,11 +23,12 @@ import ImageResizePanel from './components/ImageResizePanel';
 import { ADJUSTMENT_DEFAULTS } from './lib/applyAdjustments';
 import { calculateImageResizeDimensions } from './lib/imageResize';
 import { decodeImage } from './lib/decodeImage';
+import { MAX_SQUARE_IMAGE_SIDE } from './lib/imageFile';
 import SLIDER_DEFS from './components/sliderDefs';
 import { useSwatches } from './hooks/useSwatches';
 import type { SwatchEntry } from './hooks/useSwatches';
 import { useImageHistory } from './hooks/useImageHistory';
-import { useImageImport } from './hooks/useImageImport';
+import { useImageImport, type ImageImportError } from './hooks/useImageImport';
 import { useQuantize } from './hooks/useQuantize';
 import Header from './components/Header';
 import ModeTabs from './components/ModeTabs';
@@ -604,6 +605,24 @@ function App(): React.ReactElement | null {
         });
     };
 
+    const imageImportErrorMessage = (error: ImageImportError) => {
+        if (error.kind === 'notImage') return t('app.uploadImage');
+        if (error.kind === 'tooLarge') {
+            const values = {
+                name: error.name,
+                width: error.width,
+                height: error.height,
+                maxSize: `${MAX_SQUARE_IMAGE_SIDE}×${MAX_SQUARE_IMAGE_SIDE}`,
+            };
+            return error.keptImage
+                ? t('app.imageTooLarge', values)
+                : t('app.imageTooLargeNoImage', values);
+        }
+        return error.keptImage
+            ? t('app.imageDecodeFailed', { name: error.name })
+            : t('app.imageDecodeFailedNoImage', { name: error.name });
+    };
+
     // removed unused handlers (inline handlers used instead)
 
     const clear = () => {
@@ -981,15 +1000,7 @@ function App(): React.ReactElement | null {
                                                         {t('app.imageImportFailed')}
                                                     </p>
                                                     <p className="mt-1 text-muted-foreground">
-                                                        {imageImportError.kind === 'notImage'
-                                                            ? t('app.uploadImage')
-                                                            : imageImportError.keptImage
-                                                              ? t('app.imageDecodeFailed', {
-                                                                    name: imageImportError.name,
-                                                                })
-                                                              : t('app.imageDecodeFailedNoImage', {
-                                                                    name: imageImportError.name,
-                                                                })}
+                                                        {imageImportErrorMessage(imageImportError)}
                                                     </p>
                                                 </div>
                                                 <Button
