@@ -263,7 +263,7 @@ test.describe('public privacy notice with footer navigation @privacy', () => {
                 expect(stickyBounds).not.toBeNull();
                 const footer = page.getByRole('navigation', { name: 'Footer navigation' });
                 const footerLinks = footer.getByRole('link');
-                await expect(footerLinks).toHaveCount(7);
+                await expect(footerLinks).toHaveCount(8);
                 for (const link of await footerLinks.all()) {
                     await expect(link).toBeInViewport({ ratio: 1 });
                     const bounds = await link.boundingBox();
@@ -280,7 +280,11 @@ test.describe('public privacy notice with footer navigation @privacy', () => {
                 const privacyLink = footer.getByTestId('landing-privacy-link');
                 await expect(privacyLink).toHaveAccessibleName('Privacy');
                 await expect(privacyLink).toHaveAttribute('href', '/privacy');
+                // The utility row starts with Awards (#126), so Privacy is two Tabs after the
+                // last community link.
                 await footer.getByRole('link', { name: 'Support Kromacut', exact: true }).focus();
+                await page.keyboard.press('Tab');
+                await expect(footer.getByTestId('landing-awards-link')).toBeFocused();
                 await page.keyboard.press('Tab');
                 await expect(privacyLink).toBeFocused();
                 await page.screenshot({ path: testInfo.outputPath(`privacy-footer-${width}-${theme}.png`) });
