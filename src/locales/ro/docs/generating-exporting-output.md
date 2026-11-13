@@ -86,6 +86,8 @@ Verifică în slicer insulele mici, textul, decupajele transparente deconectate,
 
 Exporturile din aplicația desktop deschid un dialog **Salvează ca**. În browser folosesc setările sale de descărcare, deci afișarea unei solicitări de locație depinde de browser. Anularea unui dialog de fișier nu trimite nimic imprimantei. În timpul exportului, scrierea geometriei și comprimarea arhivei pot dura; așteaptă finalizarea salvării înainte de a închide aplicația.
 
+În aplicația desktop, **Deschide în slicer** din meniul de descărcare 3D creează același 3MF ca **Descarcă 3MF** și îl deschide cu aplicația implicită a sistemului pentru fișiere `.3mf`, fără dialogul **Salvează ca**. Setează mai întâi slicerul ca aplicație implicită; altfel fișierul se poate deschide într-un vizualizator 3D sau sistemul te poate întreba ce aplicație să folosească. Kromacut păstrează această copie în folderul său de cache și o poate șterge după o zi, așa că salvează proiectul în slicer dacă vrei să-l păstrezi. În browser, folosește **Descarcă 3MF** și deschide fișierul descărcat în slicer.
+
 ## Sfaturi pentru export
 
 - Generează modelul după schimbarea setărilor 3D.

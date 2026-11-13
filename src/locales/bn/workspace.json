@@ -166,6 +166,8 @@
         "download3dModel": "3D মডেল ডাউনলোড",
         "downloadStl": "STL ডাউনলোড",
         "download3mf": "3MF ডাউনলোড",
+        "openInSlicer": "স্লাইসারে খুলুন",
+        "openInSlicerHint": "3MF এক্সপোর্ট করে আপনার ডিফল্ট 3MF অ্যাপে খুলুন",
         "toggleCheckerboard": "দাবার ছকের পটভূমি চালু বা বন্ধ করুন",
         "chooseFile": "ফাইল বেছে নিন",
         "removeImage": "ছবি সরান",

@@ -86,6 +86,8 @@ Verifica piccole isole, testo, ritagli trasparenti scollegati, fondazioni e spur
 
 Desktop apre **Salva con nome**; browser usa le impostazioni di download, che decidono se chiedere posizione. Annullare non invia nulla alla stampante. Geometria e compressione possono richiedere tempo: attendi il salvataggio prima di chiudere.
 
+Nell’app desktop, **Apri nello slicer** nel menu di download 3D crea lo stesso 3MF di **Scarica 3MF** e lo apre con l’app predefinita del sistema per i file `.3mf`, senza **Salva con nome**. Imposta prima lo slicer come app predefinita; altrimenti il file può aprirsi in un visualizzatore 3D o il sistema può chiedere quale app usare. Kromacut tiene questa copia nella sua cartella cache e può rimuoverla dopo un giorno: salva il progetto nello slicer per conservarlo. Nel browser usa **Scarica 3MF** e apri il file scaricato nello slicer.
+
 ## Suggerimenti di esportazione
 
 - Rigenera dopo modifiche alle impostazioni 3D.

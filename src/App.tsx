@@ -687,32 +687,38 @@ function App(): React.ReactElement | null {
         enabled: mode === '2d' && !processingActive,
         onFile: handleFiles,
     });
-    const { onExportImage, onExportStl, onExport3MF, onSwatchApply, onSwatchDelete } =
-        useAppHandlers({
-            canvasPreviewRef,
-            imageSrc,
-            invalidate,
-            setImage,
-            setExportingSTL,
-            setExportProgress,
-            setExportStep,
-            exportingSTL,
-            exportObjectToStlBlob,
-            exportObjectTo3MFBlob: (obj, onProgress, onZipProgress) =>
-                exportObjectTo3MFBlob(obj, {
-                    ...multiHeadExportOptions(builtMultiHeadPlan),
-                    layerHeight: builtModelState.layerHeight,
-                    firstLayerHeight: builtModelState.slicerFirstLayerHeight,
-                    smoothMeshingStrength: builtModelState.smoothMeshingStrength,
-                    layerFilamentColors: builtModelAutoPaint
-                        ? builtModelState.autoPaintFilamentSwatches?.map((s) => s.hex)
-                        : undefined,
-                    onProgress,
-                    onZipProgress,
-                }),
-            applyQuantize,
-            swatches,
-        });
+    const {
+        onExportImage,
+        onExportStl,
+        onExport3MF,
+        onOpenInSlicer,
+        onSwatchApply,
+        onSwatchDelete,
+    } = useAppHandlers({
+        canvasPreviewRef,
+        imageSrc,
+        invalidate,
+        setImage,
+        setExportingSTL,
+        setExportProgress,
+        setExportStep,
+        exportingSTL,
+        exportObjectToStlBlob,
+        exportObjectTo3MFBlob: (obj, onProgress, onZipProgress) =>
+            exportObjectTo3MFBlob(obj, {
+                ...multiHeadExportOptions(builtMultiHeadPlan),
+                layerHeight: builtModelState.layerHeight,
+                firstLayerHeight: builtModelState.slicerFirstLayerHeight,
+                smoothMeshingStrength: builtModelState.smoothMeshingStrength,
+                layerFilamentColors: builtModelAutoPaint
+                    ? builtModelState.autoPaintFilamentSwatches?.map((s) => s.hex)
+                    : undefined,
+                onProgress,
+                onZipProgress,
+            }),
+        applyQuantize,
+        swatches,
+    });
 
     return (
         <>
@@ -1146,6 +1152,7 @@ function App(): React.ReactElement | null {
                                     onExportImage={onExportImage}
                                     onExportStl={onExportStl}
                                     onExport3MF={onExport3MF}
+                                    onOpenInSlicer={isTauri() ? onOpenInSlicer : undefined}
                                     flatPaintModel={builtFlatPaint}
                                     modelExportDisabled={!builtModelValid}
                                     isOrtho={isOrtho}

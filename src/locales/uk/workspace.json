@@ -172,6 +172,8 @@
     "download3dModel": "Завантажити 3D-модель",
     "downloadStl": "Завантажити STL",
     "download3mf": "Завантажити 3MF",
+    "openInSlicer": "Відкрити в слайсері",
+    "openInSlicerHint": "Експортувати 3MF і відкрити його в програмі для 3MF за замовчуванням",
     "toggleCheckerboard": "Увімкнути або вимкнути шахове тло",
     "chooseFile": "Вибрати файл",
     "removeImage": "Прибрати зображення",

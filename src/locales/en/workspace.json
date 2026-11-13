@@ -166,6 +166,8 @@
         "download3dModel": "Download 3D Model",
         "downloadStl": "Download STL",
         "download3mf": "Download 3MF",
+        "openInSlicer": "Open in Slicer",
+        "openInSlicerHint": "Export a 3MF and open it in your default 3MF app",
         "toggleCheckerboard": "Toggle checkerboard",
         "chooseFile": "Choose file",
         "removeImage": "Remove image",

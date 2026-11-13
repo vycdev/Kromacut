@@ -10,11 +10,19 @@ export interface FakeDesktop {
     calls: string[];
     /**
      * Answers one or more commands, replacing any default. The handler receives the invoke
-     * arguments (`{}` when none were sent) and the command name.
+     * arguments (`{}` when none were sent), the command name, and the invoke options such as
+     * request headers (`{}` when none were sent).
      */
-    handle(commands: string | string[], handler: (args: never, command: string) => unknown): void;
+    handle(
+        commands: string | string[],
+        handler: (args: never, command: string, options: FakeDesktopInvokeOptions) => unknown
+    ): void;
     /** Delivers an event to listeners registered through `@tauri-apps/api/event`. */
     emit(event: string, payload?: unknown): void;
+}
+
+export interface FakeDesktopInvokeOptions {
+    headers?: Record<string, string>;
 }
 
 export type FakeDesktopWindow = Window & { __kromacutFakeDesktop: FakeDesktop };
@@ -33,12 +41,13 @@ function installFakeDesktopRuntime() {
     let nextId = 0;
     const callbacks = new Map<number, (value: unknown) => void>();
     const listeners = new Map<number, { event: string; handler: number }>();
-    const handlers = new Map<string, (args: unknown, command: string) => unknown>();
+    type Handler = (args: unknown, command: string, options: FakeDesktopInvokeOptions) => unknown;
+    const handlers = new Map<string, Handler>();
     const desktop: FakeDesktop = {
         calls: [],
         handle(commands, handler) {
             for (const command of typeof commands === 'string' ? [commands] : commands)
-                handlers.set(command, handler as (args: unknown, command: string) => unknown);
+                handlers.set(command, handler as Handler);
         },
         emit(event, payload = null) {
             for (const [id, listener] of listeners)
@@ -67,11 +76,11 @@ function installFakeDesktopRuntime() {
             return id;
         },
         unregisterCallback: (id: number) => callbacks.delete(id),
-        async invoke(command: string, args?: unknown) {
+        async invoke(command: string, args?: unknown, options?: FakeDesktopInvokeOptions) {
             desktop.calls.push(command);
             const handler = handlers.get(command);
             if (!handler) throw new Error(`Unexpected desktop command: ${command}`);
-            return handler(args ?? {}, command);
+            return handler(args ?? {}, command, options ?? {});
         },
     };
     host.__TAURI_EVENT_PLUGIN_INTERNALS__ = {

@@ -86,6 +86,8 @@ Verifique ilhas pequenas, texto, recortes transparentes separados, fundações e
 
 No ambiente de trabalho, a exportação abre **Guardar como**. No navegador segue as definições de transferência, pelo que pedir localização depende dele. Cancelar não envia nada à impressora. Escrever geometria e comprimir pode demorar; espere que termine antes de fechar.
 
+Na aplicação de ambiente de trabalho, **Abrir no laminador** no menu de transferência 3D gera o mesmo 3MF que **Transferir 3MF** e abre-o com a aplicação predefinida do sistema para ficheiros `.3mf`, sem mostrar **Guardar como**. Defina primeiro o seu laminador como essa aplicação predefinida; caso contrário, o ficheiro pode abrir num visualizador 3D ou o sistema pode perguntar que aplicação usar. O Kromacut guarda esta cópia na sua pasta de cache e pode removê-la ao fim de um dia, por isso guarde o projeto no laminador para o manter. No navegador, use **Transferir 3MF** e abra o ficheiro transferido no laminador.
+
 ## Sugestões de exportação
 
 - Gere novamente após alterar definições 3D.
