@@ -16,8 +16,9 @@ import {
     type PngImage,
     type RasterMask,
 } from './imageFixtures.ts';
+import { reportForMessage } from './helpers/meshAssertions.ts';
 import { loadViteModule } from './helpers/viteModule.ts';
-import { inspectMeshIntegrity, type MeshIntegrityReport } from './meshDiagnostics.ts';
+import { inspectMeshIntegrity } from './meshDiagnostics.ts';
 
 type Export3mfModule = typeof import('../src/lib/export3mf.ts');
 type Export3MFOptions = Parameters<Export3mfModule['exportObjectTo3MFBlob']>[1];
@@ -873,26 +874,6 @@ async function buildAutoPaintLogoRegressionStack(
         imageSwatchCount: imageSwatches.length,
         autoPaintLayerCount: sliceData.colorOrder.length,
     };
-}
-
-function reportForMessage(report: MeshIntegrityReport) {
-    return JSON.stringify(
-        {
-            vertexCount: report.vertexCount,
-            triangleCount: report.triangleCount,
-            invalidPositionCount: report.invalidPositionCount,
-            invalidIndexCount: report.invalidIndexCount,
-            degenerateTriangleCount: report.degenerateTriangleCount,
-            duplicateTriangleCount: report.duplicateTriangleCount,
-            boundaryEdgeCount: report.boundaryEdgeCount,
-            nonManifoldEdgeCount: report.nonManifoldEdgeCount,
-            inconsistentWindingEdgeCount: report.inconsistentWindingEdgeCount,
-            signedVolume: report.signedVolume,
-            bounds: report.bounds,
-        },
-        null,
-        2
-    );
 }
 
 function collectVisibleMeshTriangleCounts(root: THREE.Object3D) {
