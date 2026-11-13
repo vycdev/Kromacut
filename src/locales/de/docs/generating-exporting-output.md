@@ -86,6 +86,8 @@ Prüfe kleine Inseln, Schrift, getrennte transparente Aussparungen, Grundschicht
 
 Die Desktop-App öffnet für Dateiexporte einen Dialog **Speichern unter**. Im Browser gelten dessen Download-Einstellungen; ob nach einem Speicherort gefragt wird, hängt also vom Browser ab. Das Abbrechen eines Dateidialogs sendet nichts an den Drucker. Während des Exports können das Schreiben der Geometrie und die Archivkomprimierung Zeit beanspruchen. Warte vor dem Schließen der App, bis das Speichern abgeschlossen ist.
 
+In der Desktop-App erstellt **Im Slicer öffnen** im 3D-Downloadmenü dieselbe 3MF-Datei wie **3MF herunterladen** und öffnet sie ohne Dialog **Speichern unter** mit der Standard-App deines Systems für `.3mf`-Dateien. Lege deinen Slicer vorher als diese Standard-App fest; sonst öffnet sich die Datei womöglich in einem 3D-Betrachter, oder das System fragt, welche App verwendet werden soll. Kromacut legt diese Kopie in seinem Cache-Ordner ab und kann sie nach einem Tag entfernen. Speichere das Projekt deshalb im Slicer, wenn du es behalten willst. Im Browser nutzt du **3MF herunterladen** und öffnest die heruntergeladene Datei in deinem Slicer.
+
 ## Exporttipps
 
 - Erstelle das Modell nach geänderten 3D-Einstellungen neu.

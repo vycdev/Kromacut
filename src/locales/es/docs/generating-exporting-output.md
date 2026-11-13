@@ -86,6 +86,8 @@ Revisa islas pequeñas, texto, recortes transparentes desconectados, fundaciones
 
 Las exportaciones de escritorio abren **Guardar como**. En navegador siguen sus ajustes de descarga, así que la solicitud de ubicación depende de este. Cancelar un diálogo no envía nada a la impresora. Escribir geometría y comprimir el archivo puede tardar; espera a que termine el guardado antes de cerrar la aplicación.
 
+En la aplicación de escritorio, **Abrir en el laminador** del menú de descarga 3D genera el mismo 3MF que **Descargar 3MF** y lo abre con la aplicación predeterminada del sistema para archivos `.3mf`, sin mostrar **Guardar como**. Configura antes tu laminador como esa aplicación predeterminada; si no, el archivo puede abrirse en un visor 3D o el sistema puede preguntar qué aplicación usar. Kromacut guarda esta copia en su carpeta de caché y puede eliminarla al cabo de un día, así que guarda el proyecto en el laminador si quieres conservarlo. En navegador, usa **Descargar 3MF** y abre el archivo descargado en tu laminador.
+
 ## Consejos de exportación
 
 - Genera el modelo después de cambiar ajustes 3D.

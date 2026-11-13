@@ -8,7 +8,9 @@ use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Manager, State};
 mod opened_files;
+mod slicer_handoff;
 use opened_files::{enqueue_and_notify, take_opened_file, OpenedFiles};
+use slicer_handoff::open_model_in_slicer;
 
 const RELEASES_URL: &str = "https://github.com/vycdev/Kromacut/releases";
 
@@ -147,7 +149,8 @@ fn finish_auto_paint_diagnostic(
         .map_err(|error| format!("Failed to close the diagnostic file: {error}"))
 }
 
-fn open_directory(path: &Path) -> Result<(), String> {
+/// Opens a directory in the file manager, or a file with its default application.
+fn open_with_default_app(path: &Path) -> std::io::Result<()> {
     #[cfg(target_os = "windows")]
     let result = Command::new("explorer").arg(path).spawn();
 
@@ -157,15 +160,14 @@ fn open_directory(path: &Path) -> Result<(), String> {
     #[cfg(all(unix, not(target_os = "macos")))]
     let result = Command::new("xdg-open").arg(path).spawn();
 
-    result
-        .map(|_| ())
-        .map_err(|error| format!("Failed to open the diagnostics directory: {error}"))
+    result.map(|_| ())
 }
 
 #[tauri::command]
 fn open_auto_paint_diagnostics_directory(app: AppHandle) -> Result<String, String> {
     let directory = auto_paint_diagnostics_directory(&app)?;
-    open_directory(&directory)?;
+    open_with_default_app(&directory)
+        .map_err(|error| format!("Failed to open the diagnostics directory: {error}"))?;
     Ok(directory.to_string_lossy().into_owned())
 }
 
@@ -272,7 +274,8 @@ pub fn run() {
             begin_auto_paint_diagnostic,
             append_auto_paint_diagnostic,
             finish_auto_paint_diagnostic,
-            open_auto_paint_diagnostics_directory
+            open_auto_paint_diagnostics_directory,
+            open_model_in_slicer
         ])
         .setup(|app| {
             #[cfg(any(target_os = "windows", target_os = "linux"))]

@@ -166,6 +166,8 @@
         "download3dModel": "3D मॉडल डाउनलोड करें",
         "downloadStl": "STL डाउनलोड करें",
         "download3mf": "3MF डाउनलोड करें",
+        "openInSlicer": "स्लाइसर में खोलें",
+        "openInSlicerHint": "3MF निर्यात करें और उसे अपने डिफ़ॉल्ट 3MF ऐप में खोलें",
         "toggleCheckerboard": "चेकरबोर्ड पृष्ठभूमि बदलें",
         "chooseFile": "फ़ाइल चुनें",
         "removeImage": "चित्र हटाएँ",

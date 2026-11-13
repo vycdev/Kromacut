@@ -86,6 +86,8 @@ Examinez les petits îlots, le texte, les découpes transparentes déconnectées
 
 Sur ordinateur, les exports ouvrent une boîte **Enregistrer sous**. Dans le navigateur, ils suivent les paramètres de téléchargement ; l’apparition d’une demande d’emplacement dépend donc du navigateur. Annuler une boîte de dialogue n’envoie rien à l’imprimante. Pendant l’export, l’écriture de la géométrie et la compression de l’archive peuvent prendre du temps ; attendez la fin de l’enregistrement avant de fermer l’application.
 
+Dans l’application de bureau, **Ouvrir dans le logiciel de découpe** du menu de téléchargement 3D génère le même 3MF que **Télécharger le 3MF** et l’ouvre avec l’application par défaut du système pour les fichiers `.3mf`, sans boîte **Enregistrer sous**. Définissez d’abord votre logiciel de découpe comme application par défaut ; sinon, le fichier peut s’ouvrir dans une visionneuse 3D, ou le système peut demander quelle application utiliser. Kromacut conserve cette copie dans son dossier de cache et peut la supprimer au bout d’un jour ; enregistrez donc le projet dans votre logiciel de découpe pour le garder. Dans le navigateur, utilisez **Télécharger le 3MF** puis ouvrez le fichier téléchargé dans votre logiciel de découpe.
+
 ## Conseils d’export
 
 - Régénérez le modèle après avoir modifié les paramètres 3D.

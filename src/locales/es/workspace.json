@@ -169,6 +169,8 @@
     "download3dModel": "Descargar modelo 3D",
     "downloadStl": "Descargar STL",
     "download3mf": "Descargar 3MF",
+    "openInSlicer": "Abrir en el laminador",
+    "openInSlicerHint": "Exporta un 3MF y ábrelo en tu aplicación predeterminada para 3MF",
     "toggleCheckerboard": "Mostrar u ocultar el damero",
     "chooseFile": "Elegir archivo",
     "removeImage": "Quitar imagen",

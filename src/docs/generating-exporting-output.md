@@ -86,6 +86,8 @@ Review small islands, text, disconnected transparent cutouts, foundations and th
 
 Desktop file exports open a **Save As** dialog. In a browser they use the browser's download settings, so whether you see a location prompt depends on the browser. Cancelling a file dialog does not send anything to the printer. During export, geometry writing and archive compression can take time; wait for saving to finish before closing the app.
 
+In the desktop app, **Open in Slicer** in the 3D download menu builds the same 3MF as **Download 3MF** and opens it with your system's default app for `.3mf` files instead of showing **Save As**. Make your slicer that default app first; otherwise the file may open in a 3D viewer, or the system may ask which app to use. Kromacut keeps this copy in its cache folder and may remove it after a day, so save the project in your slicer to keep it. In a browser, use **Download 3MF** and open the downloaded file in your slicer.
+
 ## Export Tips
 
 - Build the model after changing 3D settings.

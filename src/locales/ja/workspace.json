@@ -166,6 +166,8 @@
         "download3dModel": "3D モデルをダウンロード",
         "downloadStl": "STL をダウンロード",
         "download3mf": "3MF をダウンロード",
+        "openInSlicer": "スライサーで開く",
+        "openInSlicerHint": "3MF を書き出して、既定の 3MF アプリで開きます",
         "toggleCheckerboard": "市松模様の表示を切り替え",
         "chooseFile": "ファイルを選択",
         "removeImage": "画像を削除",

@@ -14,6 +14,7 @@ import {
     X,
     Loader,
     Download,
+    ExternalLink,
     Grid3x3,
     Upload,
     Trash2,
@@ -55,6 +56,8 @@ export interface PreviewActionsProps {
     onExportImage: () => Promise<void>;
     onExportStl: () => Promise<void>;
     onExport3MF: () => Promise<void>;
+    /** Desktop only: export a 3MF and open it in the system's default 3MF app. */
+    onOpenInSlicer?: () => Promise<void>;
     /** The currently built model is a Flat Paint slab — STL export is useless for it */
     flatPaintModel?: boolean;
     /** No valid model exists for the selected 3D mode/settings. */
@@ -101,6 +104,7 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
     onExportImage,
     onExportStl,
     onExport3MF,
+    onOpenInSlicer,
     flatPaintModel = false,
     modelExportDisabled = false,
     isOrtho = false,
@@ -434,7 +438,7 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
                             )}
                         </Button>
                     </PopoverTrigger>
-                    <PopoverContent align="end" className="w-48 p-1 flex flex-col gap-1">
+                    <PopoverContent align="end" className="w-auto min-w-48 p-1 flex flex-col gap-1">
                         {/* Flat Paint slabs carry their colors as per-filament 3MF
                             objects; a single-geometry STL of the slab is useless */}
                         {!flatPaintModel && (
@@ -459,6 +463,19 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
                             <FileType className="w-4 h-4 text-muted-foreground" />
                             <span>{t('previewActions.download3mf')}</span>
                         </Button>
+                        {onOpenInSlicer && (
+                            <Button
+                                variant="ghost"
+                                onClick={onOpenInSlicer}
+                                data-testid="open-3mf-in-slicer"
+                                title={t('previewActions.openInSlicerHint')}
+                                disabled={exportingSTL || modelExportDisabled}
+                                className="justify-start gap-2 h-9 px-2 font-normal"
+                            >
+                                <ExternalLink className="w-4 h-4 text-muted-foreground" />
+                                <span>{t('previewActions.openInSlicer')}</span>
+                            </Button>
+                        )}
                     </PopoverContent>
                 </Popover>
             )}

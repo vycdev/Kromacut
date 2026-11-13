@@ -169,6 +169,8 @@
     "download3dModel": "Scarica modello 3D",
     "downloadStl": "Scarica STL",
     "download3mf": "Scarica 3MF",
+    "openInSlicer": "Apri nello slicer",
+    "openInSlicerHint": "Esporta un 3MF e aprilo nell’app predefinita per i file 3MF",
     "toggleCheckerboard": "Mostra/nascondi lo sfondo a scacchi",
     "chooseFile": "Scegli file",
     "removeImage": "Rimuovi immagine",
