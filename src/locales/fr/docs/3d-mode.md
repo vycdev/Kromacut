@@ -147,6 +147,8 @@ Photographiez une planche de recettes enregistrée, vérifiez l’alignement et 
 
 Faites glisser avec le bouton principal pour tourner autour du modèle, utilisez la molette pour zoomer et le bouton secondaire pour déplacer la vue. Les mouvements de caméra ne modifient jamais les dimensions physiques.
 
+La caméra reste juste à l’extérieur du modèle dans les deux projections. Le zoom orthographique est limité afin que la caméra reste aussi à l’extérieur lors du passage en perspective.
+
 | Commande de barre d’outils | Utilité | Effet sur l’impression |
 | ------------------ | ------------------------------------------------------------------------ | --------------------------------------------------------------------------------- |
 | **Couleurs fidèles** | Comparer les échantillons choisis sans éclairage de scène ni rendu tonal cinématographique. | Aperçu uniquement. Dépend toujours du modèle et de l’écran ; ne valide pas l’étalonnage. |

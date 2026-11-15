@@ -145,6 +145,8 @@ Photograph a saved recipe board, verify alignment, and save measured colors for 
 
 Drag with the primary mouse button to orbit, use the wheel to zoom, and drag with the secondary button to pan. Camera movement never changes physical dimensions.
 
+The camera stays just outside the model in both projections. Orthographic zoom is limited so switching to Perspective also keeps the camera outside.
+
 | Toolbar control    | Use it for                                                               | Effect on the print                                                               |
 | ------------------ | ------------------------------------------------------------------------ | --------------------------------------------------------------------------------- |
 | **Color accurate** | Compare selected swatches without scene lighting or filmic tone mapping. | Preview only. Still depends on the model and display; not calibration validation. |

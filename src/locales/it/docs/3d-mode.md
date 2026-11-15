@@ -147,6 +147,8 @@ Fotografa una tavola di ricette salvata, verifica l’allineamento e salva i col
 
 Trascina con il pulsante principale del mouse per orbitare, usa la rotellina per lo zoom e trascina con il pulsante secondario per spostare la vista. Muovere la camera non cambia mai le dimensioni fisiche.
 
+La fotocamera rimane appena fuori dal modello in entrambe le proiezioni. Lo zoom ortografico è limitato affinché la fotocamera rimanga fuori anche passando alla prospettiva.
+
 | Controllo della barra | A cosa serve | Effetto sulla stampa |
 | ------------------ | ------------------------------------------------------------------------ | --------------------------------------------------------------------------------- |
 | **Colori fedeli** | Confrontare i campioni selezionati senza illuminazione di scena o mappatura tonale cinematografica. | Solo anteprima. Dipende comunque dal modello e dallo schermo; non convalida la calibrazione. |

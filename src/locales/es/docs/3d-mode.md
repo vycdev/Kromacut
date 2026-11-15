@@ -147,6 +147,8 @@ Fotografía una placa guardada de recetas, verifica su alineación y guarda colo
 
 Arrastra con el botón principal para orbitar, usa la rueda para ampliar y el secundario para desplazar. La cámara nunca cambia dimensiones físicas.
 
+La cámara permanece justo fuera del modelo en ambas proyecciones. El zoom ortográfico está limitado para que la cámara también permanezca fuera al cambiar a Perspectiva.
+
 | Control | Uso | Efecto en la impresión |
 | ------------------ | ------------------------------------------------------------------------ | --------------------------------------------------------------------------------- |
 | **Color fiel** | Comparar muestras sin iluminación de escena ni mapeo tonal cinematográfico. | Solo vista. Sigue dependiendo del modelo y pantalla; no valida calibración. |
