@@ -11,7 +11,7 @@ Commencez ici lorsqu’un résultat paraît incorrect ou qu’une commande est d
 
 ## Auto-paint est lent sur une petite photo
 
-Une petite photo non quantifiée peut contenir des milliers de couleurs distinctes, évaluées pour de nombreuses piles. Réduisez les couleurs dans **2D → Paramètres de quantification → Appliquer** (commencez par 16–32), désactivez les répétitions ou choisissez **Rapide / Compact**. À partir de 4 096 couleurs cibles, la correspondance améliorée affiche des conseils et attend **Lancer Auto-paint**. Pendant la recherche, **Annuler Auto-paint** permet de l’arrêter ; relancez-la ou modifiez les réglages. Le pourcentage ne donne pas de durée restante. Voir [Auto-paint](auto-paint).
+Une petite photo non quantifiée peut contenir des milliers de couleurs distinctes, évaluées pour de nombreuses piles. Réduisez les couleurs dans **2D → Paramètres de quantification → Appliquer** (commencez par 16–32), désactivez les répétitions ou choisissez **Rapide / Compact**. À partir de 1 024 couleurs cibles, la correspondance améliorée affiche des conseils et attend **Lancer Auto-paint**. Pendant la recherche, **Annuler Auto-paint** permet de l’arrêter ; relancez-la ou modifiez les réglages. Le pourcentage ne donne pas de durée restante. Voir [Auto-paint](auto-paint).
 
 ## Une Image Est Trop Grande Pour Être Ouverte
 

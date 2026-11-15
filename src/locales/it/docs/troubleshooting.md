@@ -11,7 +11,7 @@ Parti da qui se un risultato è errato o un controllo disattivato.
 
 ## Auto-paint è lento con una piccola foto
 
-Una piccola foto non quantizzata può contenere migliaia di colori distinti, valutati per molte pile candidate. Riduci i colori in **2D → Impostazioni di quantizzazione → Applica** (inizia con 16–32), disattiva le ripetizioni o scegli **Veloce / Compatto**. Da 4.096 colori di destinazione, la corrispondenza avanzata mostra indicazioni e attende **Avvia Auto-paint**. Usa **Annulla Auto-paint** per interrompere la ricerca; riavvia o modifica le impostazioni. La percentuale non indica il tempo restante. Vedi [Auto-paint](auto-paint).
+Una piccola foto non quantizzata può contenere migliaia di colori distinti, valutati per molte pile candidate. Riduci i colori in **2D → Impostazioni di quantizzazione → Applica** (inizia con 16–32), disattiva le ripetizioni o scegli **Veloce / Compatto**. Da 1.024 colori di destinazione, la corrispondenza avanzata mostra indicazioni e attende **Avvia Auto-paint**. Usa **Annulla Auto-paint** per interrompere la ricerca; riavvia o modifica le impostazioni. La percentuale non indica il tempo restante. Vedi [Auto-paint](auto-paint).
 
 ## Un’Immagine È Troppo Grande Per Essere Aperta
 

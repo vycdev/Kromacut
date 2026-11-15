@@ -11,7 +11,7 @@ Empieza aquí cuando un resultado parezca incorrecto o un control esté desactiv
 
 ## Auto-paint es lento con una foto pequeña
 
-Una foto pequeña sin cuantizar puede contener miles de colores distintos, evaluados para muchas pilas candidatas. Reduce colores en **2D → Ajustes de cuantización → Aplicar** (empieza con 16–32), desactiva las repeticiones o elige **Rápido / Compacto**. A partir de 4096 colores de destino, la coincidencia mejorada muestra consejos y espera a **Iniciar Auto-paint**. Usa **Cancelar Auto-paint** para detener la búsqueda; reiníciala o cambia los ajustes. El porcentaje no estima el tiempo restante. Consulta [Auto-paint](auto-paint).
+Una foto pequeña sin cuantizar puede contener miles de colores distintos, evaluados para muchas pilas candidatas. Reduce colores en **2D → Ajustes de cuantización → Aplicar** (empieza con 16–32), desactiva las repeticiones o elige **Rápido / Compacto**. A partir de 1024 colores de destino, la coincidencia mejorada muestra consejos y espera a **Iniciar Auto-paint**. Usa **Cancelar Auto-paint** para detener la búsqueda; reiníciala o cambia los ajustes. El porcentaje no estima el tiempo restante. Consulta [Auto-paint](auto-paint).
 
 ## Una Imagen Es Demasiado Grande Para Abrirla
 

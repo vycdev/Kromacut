@@ -11,7 +11,7 @@ description: Probleme frecvente și ce să încerci mai întâi.
 
 ## Auto-paint este lent pentru o fotografie mică
 
-O fotografie mică necuantizată poate conține mii de culori distincte, evaluate pentru multe stive candidate. Redu culorile în **2D → Setări de cuantizare → Aplică** (începe cu 16–32), dezactivează repetările sau alege **Rapid / Compactă**. De la 4.096 de culori țintă, potrivirea avansată afișează îndrumări și așteaptă **Pornește Auto-paint**. Folosește **Anulează Auto-paint** pentru a opri căutarea; repornește-o sau schimbă setările. Procentul nu estimează timpul rămas. Vezi [Auto-paint](auto-paint).
+O fotografie mică necuantizată poate conține mii de culori distincte, evaluate pentru multe stive candidate. Redu culorile în **2D → Setări de cuantizare → Aplică** (începe cu 16–32), dezactivează repetările sau alege **Rapid / Compactă**. De la 1.024 de culori țintă, potrivirea avansată afișează îndrumări și așteaptă **Pornește Auto-paint**. Folosește **Anulează Auto-paint** pentru a opri căutarea; repornește-o sau schimbă setările. Procentul nu estimează timpul rămas. Vezi [Auto-paint](auto-paint).
 
 ## O Imagine Este Prea Mare Pentru A Fi Deschisă
 

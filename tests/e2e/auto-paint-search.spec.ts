@@ -90,9 +90,10 @@ async function starts(page: Page) {
 test('@smoke high-target search waits for guidance, supports a cheaper preset, and stays cancelled', async ({
     page,
 }) => {
-    await setup(page, 4096);
+    await page.clock.install({ time: new Date('2026-11-15T12:00:00Z') });
+    await setup(page, 1024);
     const guidance = page.getByTestId('auto-paint-search-guidance');
-    await expect(guidance).toContainText('4,096 distinct target colors');
+    await expect(guidance).toContainText('1,024 distinct target colors');
     const run = page.getByRole('button', { name: 'Run Auto-paint', exact: true });
     await expect(run).toBeEnabled();
     expect(await starts(page)).toBe(0);
@@ -124,6 +125,19 @@ test('@smoke high-target search waits for guidance, supports a cheaper preset, a
     ).toBe(1);
     await run.click();
     await expect.poll(() => starts(page)).toBe(2);
+    await page.clock.pauseAt(new Date('2026-11-15T13:00:00Z'));
+    // An earlier approval must not return when settings are changed and reverted.
+    await page.locator('#optimizer-algorithm').click();
+    await page.getByRole('option', { name: 'Balanced', exact: true }).click();
+    await expect(run).toBeEnabled();
+    await page.locator('#optimizer-algorithm').click();
+    await page.getByRole('option', { name: 'Fast', exact: true }).click();
+    await page.clock.runFor(300);
+    await expect(run).toBeEnabled();
+    expect(await starts(page)).toBe(2);
+    await run.click();
+    await page.clock.runFor(250);
+    await expect.poll(() => starts(page)).toBe(3);
     await page.getByRole('button', { name: '2D', exact: true }).click();
     await expect
         .poll(() =>
@@ -133,7 +147,7 @@ test('@smoke high-target search waits for guidance, supports a cheaper preset, a
                         .autoPaintProbe.terminations
             )
         )
-        .toBe(2);
+        .toBe(3);
 });
 
 test('@smoke quantized inputs start automatically and cancel during the debounce without restarting', async ({
@@ -159,4 +173,13 @@ test('@smoke quantized inputs start automatically and cancel during the debounce
     await page.getByRole('option', { name: 'Fast', exact: true }).click();
     await page.clock.runFor(250);
     await expect.poll(() => starts(page)).toBe(before + 1);
+    // Returning to the cancelled configuration is another new request, not a
+    // restoration of the old cancel decision.
+    await page.locator('#optimizer-algorithm').click();
+    await page.getByRole('option', { name: 'Balanced', exact: true }).click();
+    await page.clock.runFor(250);
+    await expect.poll(() => starts(page)).toBe(before + 2);
+    await expect(
+        page.getByText('Auto-paint cancelled. Run Auto-paint to restart, or change settings.')
+    ).toHaveCount(0);
 });

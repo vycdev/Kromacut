@@ -11,7 +11,7 @@ Start here when a result looks wrong or a control is disabled.
 
 ## Auto-paint Is Slow On A Small Photo
 
-A small unquantized photo can contain thousands of distinct colors, each scored for many candidate stacks. Reduce colors in **2D → Quantization Settings → Apply** (start with 16–32), turn repeats off, or choose **Fast / Compact**. At 4,096 or more target colors, Enhanced matching shows guidance and waits for **Run Auto-paint**. Use **Cancel Auto-paint** during the search to stop it; restart with **Run Auto-paint** or change settings. The percentage is not a time estimate. See [Auto-paint](auto-paint).
+A small unquantized photo can contain thousands of distinct colors, each scored for many candidate stacks. Reduce colors in **2D → Quantization Settings → Apply** (start with 16–32), turn repeats off, or choose **Fast / Compact**. At 1,024 or more target colors, Enhanced matching shows guidance and waits for **Run Auto-paint**. Use **Cancel Auto-paint** during the search to stop it; restart with **Run Auto-paint** or change settings. The percentage is not a time estimate. See [Auto-paint](auto-paint).
 
 ## An Image Is Too Large To Open
 

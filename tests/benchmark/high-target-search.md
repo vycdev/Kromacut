@@ -66,15 +66,31 @@ Before the change, complete Fast / Compact searches took:
 | 16,384 | 6.627 s | Still running after 15.047 s |
 | 142,066 | Still running after 15.485 s | Still running after 15.114 s |
 
-The initial exploratory sweep also exceeded 15 s at 4,096 targets with repeats
-12, versus 1.218 s with repeats off. **4,096** is therefore the measured first
-sweep point requiring more than 15 s even in the cheaper repeated search. It is
-a conservative guidance boundary, not an ETA or a guarantee that smaller
-palettes finish quickly. The same warning applies with repeats off: larger
-palettes and deeper algorithms can still be costly. Standard matching bypasses
-this enhanced-search gate. The count excludes zero-weight targets, matching
-the worker's prepared target count, and uses the printable image after optional
-isolated-speck cleanup rather than pixel dimensions or the capped 2D swatch list.
+The initial Fast / Compact sweep informed a 4,096-target cutoff, but review
+showed that it missed expensive default Balanced / Detailed searches with
+repeats below that count. An expanded sweep on the same machine, seed, and
+synthetic input uses the current exact scorer and a 45-second censor limit:
+
+```sh
+node --no-warnings --experimental-strip-types tests/benchmark/highTargetSearch.ts 512,1024,2048 --search-only --algorithm=balanced --opacity=0.9 --timeout-ms=45000
+```
+
+| Distinct targets | Repeats off | Repeats 12 |
+| ---: | ---: | ---: |
+| 512 | 0.260 s | 12.134 s |
+| 1,024 | 0.305 s | 19.574 s |
+| 2,048 | 0.570 s | 36.557 s |
+
+All six runs completed; see [raw Balanced / Detailed results](results/high-target-search/balanced-detailed.jsonl).
+**1,024** is the first sampled default-algorithm count exceeding 15 seconds with
+repeats, so it is the revised advisory threshold for Enhanced matching. Applying
+the same boundary across settings can also warn about cheap runs, such as Fast
+with repeats off. It is a color-count advisory, not a time limit, ETA, or
+guarantee that smaller palettes finish quickly: filament count, deeper search,
+repeat budget, and hardware all affect runtime. Standard matching bypasses the
+gate. The count excludes zero-weight targets, matching the worker's prepared
+target count, and uses the printable image after optional isolated-speck cleanup
+rather than pixel dimensions or the capped 2D swatch list.
 
 Afterward, the 1,024-target repeated search completed in 6.613 s with the same
 score and final-stack fingerprint (baseline 6.756 s); large repeated runs still
@@ -95,10 +111,11 @@ and explicit cancellation are essential.
   tolerance. The reference also checks reused workspaces through palette-size,
   exact-anchor, surface-eligibility, and separation changes.
 - Existing Auto-paint goldens remain unchanged.
-- `autoPaintSearchPolicy.test.ts` checks the exact boundary and standard-matching
+- `autoPaintSearchPolicy.test.ts` checks the revised exact boundary and standard-matching
   bypass; `auto-paint-search.spec.ts` checks the pre-search gate, the cheaper
   preset, running/debounced cancellation, stale progress, restart, input changes,
-  and leaving 3D. Its optimizer worker is held so races are deterministic;
+  settings round-trips for both Run and Cancel decisions, and leaving 3D. Both
+  round-trip regressions fail before invalidating stale decisions. Its optimizer worker is held so races are deterministic;
   printable-image analysis uses the real worker. The debounce test uses a paused
   browser clock so its clicks cannot race the 250 ms timer on a slow CI host.
 - To isolate smoke tests from another checkout, set `KROMACUT_E2E_PORT` and run

@@ -408,6 +408,11 @@ export function useAutoPaintWorker(opts: UseAutoPaintWorkerOptions): UseAutoPain
         [stableImageSwatches]
     );
     const needsSearchGuidance = needsAutoPaintSearchGuidance(targetColorCount, enhancedColorMatch);
+    // A choice applies only until the inputs change. Do not restore an old
+    // approval/cancellation when a user changes settings and then reverts them.
+    useEffect(() => {
+        setDecision((current) => (current?.key === requestKey ? current : undefined));
+    }, [requestKey]);
     const isCancelled = decision?.key === requestKey && decision.action === 'cancel';
     const isAwaitingStart =
         isCancelled ||

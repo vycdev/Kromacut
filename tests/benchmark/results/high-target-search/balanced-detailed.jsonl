@@ -1,0 +1,7 @@
+{"node":"v24.19.0","cpu":"AMD Ryzen 9 5950X 16-Core Processor            ","seed":12345,"source":"current","algorithm":"balanced","transitionOpacity":0.9,"timeoutMs":45000}
+{"count":512,"repeats":0,"elapsedMs":260.40869999999995,"finalStack":"final-stack-v1-5f37756be2f1b7fa","score":54.454226238425164}
+{"count":512,"repeats":12,"elapsedMs":12134.466699999997,"finalStack":"final-stack-v1-0068407e5ee437f0","score":51.582413473497624}
+{"count":1024,"repeats":0,"elapsedMs":305.41439999999784,"finalStack":"final-stack-v1-9f14a1fb040a1c2f","score":55.530753162176595}
+{"count":1024,"repeats":12,"elapsedMs":19574.081499999997,"finalStack":"final-stack-v1-6ddb3ea5a811a8a5","score":52.11684579911303}
+{"count":2048,"repeats":0,"elapsedMs":570.0070000000051,"finalStack":"final-stack-v1-c71aa08e88c7c9cc","score":55.12098109675794}
+{"count":2048,"repeats":12,"elapsedMs":36556.656800000004,"finalStack":"final-stack-v1-1780489caaf7c0c3","score":51.61119991886636}

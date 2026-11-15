@@ -11,7 +11,7 @@ Beginne hier, wenn ein Ergebnis falsch aussieht oder eine Funktion deaktiviert i
 
 ## Auto-paint ist bei einem kleinen Foto langsam
 
-Ein kleines, nicht quantisiertes Foto kann Tausende verschiedene Farben enthalten, die für viele Stapel bewertet werden. Farben unter **2D → Farbquantisierung → Anwenden** reduzieren (mit 16–32 beginnen), Wiederholungen ausschalten oder **Schnell / Kompakt** wählen. Ab 4.096 Zielfarben zeigt der erweiterte Farbabgleich Hinweise und wartet auf **Auto-paint starten**. **Auto-paint abbrechen** stoppt die laufende Suche; zum Fortsetzen neu starten oder Einstellungen ändern. Die Prozentzahl ist keine Zeitschätzung. Siehe [Auto-paint](auto-paint).
+Ein kleines, nicht quantisiertes Foto kann Tausende verschiedene Farben enthalten, die für viele Stapel bewertet werden. Farben unter **2D → Farbquantisierung → Anwenden** reduzieren (mit 16–32 beginnen), Wiederholungen ausschalten oder **Schnell / Kompakt** wählen. Ab 1.024 Zielfarben zeigt der erweiterte Farbabgleich Hinweise und wartet auf **Auto-paint starten**. **Auto-paint abbrechen** stoppt die laufende Suche; zum Fortsetzen neu starten oder Einstellungen ändern. Die Prozentzahl ist keine Zeitschätzung. Siehe [Auto-paint](auto-paint).
 
 ## Ein Bild Ist Zu Groß Zum Öffnen
 
