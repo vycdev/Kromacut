@@ -6,6 +6,10 @@ type DecodeState = {
     bitmaps: number;
     closes: number;
     encodes: number;
+    holdNextEncode: boolean;
+    throwNextEncode: boolean;
+    failImageLoads: boolean;
+    heldEncodes: BlobCallback[];
     completed: string[];
     hold: boolean;
     held: Array<() => void>;
@@ -20,6 +24,10 @@ async function instrument(page: Page, fallback = false) {
             bitmaps: 0,
             closes: 0,
             encodes: 0,
+            holdNextEncode: false,
+            throwNextEncode: false,
+            failImageLoads: false,
+            heldEncodes: [],
             completed: [],
             hold: false,
             held: [],
@@ -28,6 +36,15 @@ async function instrument(page: Page, fallback = false) {
         const toBlob = HTMLCanvasElement.prototype.toBlob;
         HTMLCanvasElement.prototype.toBlob = function (...args: Parameters<typeof toBlob>) {
             state.encodes++;
+            if (state.throwNextEncode) {
+                state.throwNextEncode = false;
+                throw new DOMException('Encoding failed', 'InvalidStateError');
+            }
+            if (state.holdNextEncode) {
+                state.holdNextEncode = false;
+                state.heldEncodes.push(args[0]);
+                return;
+            }
             return toBlob.apply(this, args);
         };
         const createUrl = URL.createObjectURL.bind(URL);
@@ -42,6 +59,10 @@ async function instrument(page: Page, fallback = false) {
             ...src,
             set(value: string) {
                 if (value in state.loads) state.loads[value]++;
+                if (state.failImageLoads && value.startsWith('blob:')) {
+                    queueMicrotask(() => this.onerror?.call(this, new Event('error')));
+                    return;
+                }
                 this.addEventListener('load', () => state.completed.push(value), { once: true });
                 if (state.hold && value.startsWith('blob:')) {
                     const onload = this.onload;
@@ -219,6 +240,8 @@ test('@smoke an obsolete edit decode cannot repopulate a cleared image', async (
             )
         )
         .toBe(1);
+    await expect(page.getByText('Current', { exact: true }).locator('..')).toContainText('64x48');
+    await expect(page.getByText('Updating…', { exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'Remove image', exact: true }).click();
     await page.evaluate(() => {
         const state = (window as unknown as { imageDecodes: DecodeState }).imageDecodes;
@@ -229,6 +252,7 @@ test('@smoke an obsolete edit decode cannot repopulate a cleared image', async (
         'No image'
     );
     await expect(page.getByTestId('quantize-apply')).toBeDisabled();
+    await expect(page.getByText('Updating…', { exact: true })).toHaveCount(0);
     // Wait for the held <img> to finish, then check it cannot publish its pixels.
     await expect
         .poll(() =>
@@ -360,3 +384,132 @@ for (const operation of ['bake', 'crop'] as const) {
             .toEqual([0, 0, 0, 255]);
     });
 }
+
+test('@smoke a failed touch-up save restores the last successful stroke and cancels queued edits', async ({
+    page,
+}) => {
+    await instrument(page);
+    await page.goto('/app');
+    await importRedImage(page);
+    await page.evaluate(() => {
+        (window as unknown as { imageDecodes: DecodeState }).imageDecodes.hold = true;
+    });
+    const preview = page.getByTestId('image-dropzone').locator('canvas').first();
+    const pixel = (fraction: number) =>
+        preview.evaluate(
+            (canvas: HTMLCanvasElement, fraction) =>
+                Array.from(
+                    canvas
+                        .getContext('2d')!
+                        .getImageData(
+                            Math.floor(canvas.width * fraction),
+                            Math.floor(canvas.height / 2),
+                            1,
+                            1
+                        ).data
+                ),
+            fraction
+        );
+    await page.getByTestId('touchup-tool-fill').click();
+    await preview.click();
+    await expect
+        .poll(() =>
+            page.evaluate(
+                () => (window as unknown as { imageDecodes: DecodeState }).imageDecodes.held.length
+            )
+        )
+        .toBe(1);
+    await page.getByTestId('touchup-tool-eraser').click();
+    await page.evaluate(() => {
+        (window as unknown as { imageDecodes: DecodeState }).imageDecodes.holdNextEncode = true;
+    });
+    await preview.click();
+    await expect
+        .poll(() =>
+            page.evaluate(
+                () =>
+                    (window as unknown as { imageDecodes: DecodeState }).imageDecodes.heldEncodes
+                        .length
+            )
+        )
+        .toBe(1);
+    await expect.poll(() => pixel(0.5)).toEqual([0, 0, 0, 0]);
+    const box = (await preview.boundingBox())!;
+    // This later stroke waits behind the failed save and must be rolled back too.
+    await preview.click({ position: { x: box.width / 4, y: box.height / 2 } });
+    await expect.poll(() => pixel(0.25)).toEqual([0, 0, 0, 0]);
+    await page.evaluate(() => {
+        (window as unknown as { imageDecodes: DecodeState }).imageDecodes.heldEncodes.shift()!(
+            null
+        );
+    });
+    await expect.poll(() => pixel(0.5)).toEqual([0, 0, 0, 255]);
+    await expect.poll(() => pixel(0.25)).toEqual([0, 0, 0, 255]);
+    expect(
+        await page.evaluate(
+            () => (window as unknown as { imageDecodes: DecodeState }).imageDecodes.encodes
+        )
+    ).toBe(2);
+    expect((await decodes(page)).loads).toEqual([0, 1]);
+    await page.evaluate(() => {
+        const state = (window as unknown as { imageDecodes: DecodeState }).imageDecodes;
+        state.hold = false;
+        state.held.splice(0).forEach((load) => load());
+    });
+    await expect.poll(() => pixel(0.5)).toEqual([0, 0, 0, 255]);
+    await page.getByRole('button', { name: 'Undo', exact: true }).click();
+    await expect.poll(() => pixel(0.5)).toEqual([192, 64, 32, 255]);
+    await page.getByRole('button', { name: 'Redo', exact: true }).click();
+    await expect.poll(() => pixel(0.5)).toEqual([0, 0, 0, 255]);
+});
+
+test('@smoke a thrown touch-up encode does not stop later strokes from saving', async ({
+    page,
+}) => {
+    await instrument(page);
+    const errors: string[] = [];
+    page.on('pageerror', (error) => errors.push(error.message));
+    await page.goto('/app');
+    await importRedImage(page);
+    await page.getByTestId('touchup-tool-fill').click();
+    const preview = page.getByTestId('image-dropzone').locator('canvas').first();
+    await preview.click();
+    await expect.poll(() => decodes(page)).toMatchObject({ loads: [0, 1], draws: [0, 1] });
+    await page.getByTestId('touchup-tool-eraser').click();
+    await page.evaluate(() => {
+        (window as unknown as { imageDecodes: DecodeState }).imageDecodes.throwNextEncode = true;
+    });
+    await preview.click();
+    await expect
+        .poll(() =>
+            page.evaluate(
+                () => (window as unknown as { imageDecodes: DecodeState }).imageDecodes.encodes
+            )
+        )
+        .toBe(2);
+    await preview.click();
+    await expect.poll(() => decodes(page)).toMatchObject({ loads: [0, 1, 1], draws: [0, 1, 1] });
+    expect(errors).toEqual([]);
+});
+
+test('@smoke a failed shared snapshot ends loading and permits history recovery', async ({
+    page,
+}) => {
+    await instrument(page);
+    await page.goto('/app');
+    await importRedImage(page);
+    await page.evaluate(() => {
+        (window as unknown as { imageDecodes: DecodeState }).imageDecodes.failImageLoads = true;
+    });
+    await page.getByRole('button', { name: 'Apply adjustments', exact: true }).click();
+    await expect.poll(() => decodes(page)).toMatchObject({ loads: [0, 1], draws: [0, 0] });
+    await expect(page.getByText('Updating…', { exact: true })).toHaveCount(0);
+    await expect(page.getByText('Current', { exact: true }).locator('..')).toContainText(
+        'No image'
+    );
+    await page.evaluate(() => {
+        (window as unknown as { imageDecodes: DecodeState }).imageDecodes.failImageLoads = false;
+    });
+    await page.getByRole('button', { name: 'Undo', exact: true }).click();
+    await expect(page.getByText('Current', { exact: true }).locator('..')).toContainText('64x48');
+});

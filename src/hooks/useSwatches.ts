@@ -19,7 +19,7 @@ export interface ImageDimensions {
     opaqueHeight: number;
 }
 
-export function useSwatches(imageCanvas: HTMLCanvasElement | null) {
+export function useSwatches(imageCanvas: HTMLCanvasElement | null, imageLoading: boolean) {
     const [swatches, setSwatches] = useState<SwatchEntry[]>([]);
     const [loading, setLoading] = useState(false);
     const [imageDimensions, setImageDimensions] = useState<ImageDimensions | null>(null);
@@ -43,8 +43,10 @@ export function useSwatches(imageCanvas: HTMLCanvasElement | null) {
             if (!imageCanvas) {
                 runRef.current++;
                 setSwatches([]);
-                setImageDimensions(null);
-                setLoading(false);
+                // Keep the last size during an edit/history decode. Removing
+                // the image or a failed load still clears it explicitly.
+                if (!imageLoading) setImageDimensions(null);
+                setLoading(imageLoading);
                 return;
             }
             const runId = ++runRef.current;
@@ -191,7 +193,7 @@ export function useSwatches(imageCanvas: HTMLCanvasElement | null) {
         return () => {
             cancelled = true;
         };
-    }, [imageCanvas, SWATCH_CAP]);
+    }, [imageCanvas, imageLoading, SWATCH_CAP]);
 
     return {
         swatches,

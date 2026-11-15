@@ -108,7 +108,10 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
         const committedCanvasRef = useRef<HTMLCanvasElement | null>(null);
         const zoomRef = useRef<number>(1);
         const [zoomState, setZoomState] = useState<number>(1);
-        const [imageLoaded, setImageLoaded] = useState<boolean>(false);
+        // Track identity so every newly loaded source schedules its own render,
+        // even if the previous source was already loaded.
+        const [loadedCanvas, setLoadedCanvas] = useState<HTMLCanvasElement | null>(null);
+        const imageLoaded = loadedCanvas !== null;
         const offsetRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
         const panningRef = useRef(false);
         const panStartXRef = useRef(0);
@@ -143,8 +146,16 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
         // are kept as-is — drawing never blocks on the round trip.
         const selfCommitSrcsRef = useRef<Set<string>>(new Set());
         const selfCommitSrcRef = useRef<string | null>(null);
-        // Bumped only when the image is replaced from outside the touch-up
-        // tools (undo, quantize, crop, …); invalidates in-flight commits.
+        // A successful touch-up can reach history before its shared canvas
+        // loads. Retain its existing snapshot only for that interval, so a
+        // later failed save can restore the actual last committed pixels.
+        const touchUpSnapshotRef = useRef<{ src: string; canvas: HTMLCanvasElement } | null>(null);
+        const releaseTouchUpSnapshot = useCallback(() => {
+            const snapshot = touchUpSnapshotRef.current;
+            touchUpSnapshotRef.current = null;
+            if (snapshot) snapshot.canvas.width = snapshot.canvas.height = 1;
+        }, []);
+        // External replacements or a failed save invalidate in-flight commits.
         const externalImageGenerationRef = useRef(0);
         const touchUpCommitChainRef = useRef<Promise<void>>(Promise.resolve());
         const onTouchUpCommitRef = useRef(onTouchUpCommit);
@@ -311,13 +322,14 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
             selfCommitSrcRef.current =
                 imageSrc && selfCommitSrcsRef.current.delete(imageSrc) ? imageSrc : null;
             if (!selfCommitSrcRef.current) {
+                releaseTouchUpSnapshot();
                 selfCommitSrcsRef.current.clear();
                 externalImageGenerationRef.current += 1;
                 activeTouchStrokeRef.current = null;
                 // A text draft's coordinates belong to the replaced image.
                 if (textDraftRef.current) setTextDraft(null);
             }
-        }, [imageSrc]);
+        }, [imageSrc, releaseTouchUpSnapshot]);
 
         useEffect(() => {
             // Keep the live preview while the next history entry is loading.
@@ -329,7 +341,7 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
                 committedCanvasRef.current = null;
                 originalCanvasRef.current = null;
                 processedCanvasRef.current = null;
-                setImageLoaded(false);
+                setLoadedCanvas(null);
                 const canvas = canvasRef.current;
                 if (canvas) {
                     const ctx = canvas.getContext('2d');
@@ -361,9 +373,10 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
 
             const img = imageCanvas!;
             committedCanvasRef.current = img;
+            if (touchUpSnapshotRef.current?.src === imageSrc) releaseTouchUpSnapshot();
             if (isSelfCommit) {
                 // The live canvases may already include another stroke.
-                setImageLoaded(true);
+                setLoadedCanvas(img);
                 drawToCanvasRef.current();
                 return;
             }
@@ -373,7 +386,7 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
             const iw = img.width;
             const ih = img.height;
             if (iw && ih) {
-                setImageLoaded(true); // Image is now loaded
+                setLoadedCanvas(img);
                 originalCanvasRef.current = document.createElement('canvas');
                 originalCanvasRef.current.width = iw;
                 originalCanvasRef.current.height = ih;
@@ -403,7 +416,7 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
             }
 
             drawToCanvasRef.current();
-        }, [imageSrc, imageCanvas]);
+        }, [imageSrc, imageCanvas, releaseTouchUpSnapshot]);
 
         // initialize selection when entering crop mode
         useEffect(() => {
@@ -646,39 +659,61 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
             snapshotContext.drawImage(original, 0, 0);
             const externalGeneration = externalImageGenerationRef.current;
             touchUpCommitChainRef.current = touchUpCommitChainRef.current.then(async () => {
-                if (!mountedRef.current) return;
-                // The image was replaced from outside (undo, quantize, …)
-                // after this edit was made — the edit is gone by design.
-                if (externalImageGenerationRef.current !== externalGeneration) return;
+                try {
+                    if (!mountedRef.current) return;
+                    // The image was replaced from outside (undo, quantize, …)
+                    // after this edit was made — the edit is gone by design.
+                    if (externalImageGenerationRef.current !== externalGeneration) return;
 
-                const blob = await new Promise<Blob | null>((resolve) =>
-                    snapshot.toBlob((result) => resolve(result), 'image/png')
-                );
-                if (
-                    !mountedRef.current ||
-                    externalImageGenerationRef.current !== externalGeneration
-                ) {
-                    return;
-                }
-                if (blob) {
-                    const url = commitCallback(blob);
-                    if (typeof url === 'string') selfCommitSrcsRef.current.add(url);
-                } else {
-                    // Encoding failed — restore the canvases from the last
-                    // committed image so the preview matches the history.
-                    const img = committedCanvasRef.current;
-                    const liveOriginal = originalCanvasRef.current;
-                    const octx = liveOriginal?.getContext('2d');
-                    if (img && liveOriginal && octx) {
-                        octx.clearRect(0, 0, liveOriginal.width, liveOriginal.height);
-                        octx.imageSmoothingEnabled = false;
-                        octx.drawImage(img, 0, 0);
+                    let blob: Blob | null;
+                    try {
+                        blob = await new Promise<Blob | null>((resolve) =>
+                            snapshot.toBlob((result) => resolve(result), 'image/png')
+                        );
+                    } catch {
+                        // Browsers can throw instead of invoking the callback
+                        // with null. Both failures must leave the queue usable.
+                        blob = null;
+                    }
+                    if (
+                        !mountedRef.current ||
+                        externalImageGenerationRef.current !== externalGeneration
+                    ) {
+                        return;
+                    }
+                    if (blob) {
+                        const url = commitCallback(blob);
+                        if (typeof url === 'string') {
+                            selfCommitSrcsRef.current.add(url);
+                            releaseTouchUpSnapshot();
+                            touchUpSnapshotRef.current = { src: url, canvas: snapshot };
+                        }
+                    } else {
+                        // Roll back all unsaved strokes, including snapshots queued
+                        // behind this failure, to the last successful history entry.
+                        externalImageGenerationRef.current += 1;
+                        activeTouchStrokeRef.current = null;
+                        const img =
+                            touchUpSnapshotRef.current?.canvas ?? committedCanvasRef.current;
+                        const liveOriginal = originalCanvasRef.current;
+                        const octx = liveOriginal?.getContext('2d');
+                        if (img && liveOriginal && octx) {
+                            octx.clearRect(0, 0, liveOriginal.width, liveOriginal.height);
+                            octx.imageSmoothingEnabled = false;
+                            octx.drawImage(img, 0, 0);
+                        }
+                    }
+                    // One recompute per commit keeps the adjusted preview exact
+                    // without paying for it on every pointer move.
+                    invalidateProcessedCache();
+                    requestDraw();
+                } finally {
+                    // The retained successful snapshot has one explicit owner;
+                    // cancelled and failed snapshots can release their pixels now.
+                    if (touchUpSnapshotRef.current?.canvas !== snapshot) {
+                        snapshot.width = snapshot.height = 1;
                     }
                 }
-                // One recompute per commit keeps the adjusted preview exact
-                // without paying for it on every pointer move.
-                invalidateProcessedCache();
-                requestDraw();
             });
         };
 
@@ -1135,6 +1170,7 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
             mountedRef.current = true;
             return () => {
                 mountedRef.current = false;
+                releaseTouchUpSnapshot();
                 externalImageGenerationRef.current += 1;
                 activeTouchStrokeRef.current = null;
                 originalCanvasRef.current = null;
@@ -1150,7 +1186,7 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
                     selectionRafRef.current = null;
                 }
             };
-        }, []);
+        }, [releaseTouchUpSnapshot]);
 
         useImperativeHandle(ref, () => ({
             redraw: () => drawToCanvas(),

@@ -323,9 +323,9 @@ function App(): React.ReactElement | null {
         logo,
         cancelPendingImport
     );
-    const { imageCanvas, prepareImageCanvas } = useImageCanvas(imageSrc);
+    const { imageCanvas, imageCanvasLoading, prepareImageCanvas } = useImageCanvas(imageSrc);
     const { swatches, swatchesLoading, imageDimensions, invalidate, immediateOverride } =
-        useSwatches(imageCanvas);
+        useSwatches(imageCanvas, imageCanvasLoading);
     // adjustments managed locally inside AdjustmentsPanel now
     // initial selectedPalette derived from initial weight above
     const inputRef = useRef<HTMLInputElement | null>(null);

@@ -3,8 +3,12 @@ import { loadImageCanvas } from '../lib/imageCanvas';
 
 /** Shares committed pixels without retaining decoded bitmaps in image history. */
 export function useImageCanvas(imageSrc: string | null) {
-    const [ready, setReady] = useState<{ src: string; canvas: HTMLCanvasElement } | null>(null);
-    const preparedRef = useRef<typeof ready>(null);
+    // A matching result with no canvas records a failed load, distinct from a
+    // load still in progress or an empty workspace.
+    const [result, setResult] = useState<{ src: string; canvas: HTMLCanvasElement | null } | null>(
+        null
+    );
+    const preparedRef = useRef<{ src: string; canvas: HTMLCanvasElement } | null>(null);
     const cancelLoadRef = useRef<(() => void) | null>(null);
 
     // Imports already decoded during validation. Publish their snapshot in the
@@ -12,7 +16,7 @@ export function useImageCanvas(imageSrc: string | null) {
     const prepareImageCanvas = useCallback((src: string, canvas: HTMLCanvasElement) => {
         cancelLoadRef.current?.();
         preparedRef.current = { src, canvas };
-        setReady(preparedRef.current);
+        setResult(preparedRef.current);
     }, []);
 
     useEffect(() => {
@@ -22,17 +26,18 @@ export function useImageCanvas(imageSrc: string | null) {
         };
         if (!imageSrc) {
             preparedRef.current = null;
-            setReady(null);
+            setResult(null);
         } else if (preparedRef.current?.src !== imageSrc) {
             preparedRef.current = null;
-            setReady(null);
+            setResult(null);
             void loadImageCanvas(imageSrc, () => !cancelled)
                 .then((canvas) => {
-                    if (cancelled || !canvas) return;
-                    setReady({ src: imageSrc, canvas });
+                    if (cancelled) return;
+                    setResult({ src: imageSrc, canvas });
                 })
                 .catch((error) => {
                     if (!cancelled) {
+                        setResult({ src: imageSrc, canvas: null });
                         console.warn('Image canvas could not be loaded', error);
                     }
                 });
@@ -45,7 +50,8 @@ export function useImageCanvas(imageSrc: string | null) {
     return {
         // Never expose pixels belonging to the previous history entry while a
         // new URL is loading. An obsolete completion cannot publish them either.
-        imageCanvas: ready?.src === imageSrc ? ready.canvas : null,
+        imageCanvas: result?.src === imageSrc ? result.canvas : null,
+        imageCanvasLoading: !!imageSrc && result?.src !== imageSrc,
         prepareImageCanvas,
     };
 }
