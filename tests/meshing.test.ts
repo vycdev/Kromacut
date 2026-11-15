@@ -9,6 +9,7 @@ import {
     maskFromPngAlpha,
     type RasterMask,
 } from './imageFixtures.ts';
+import { assertHealthyMesh, reportForMessage } from './helpers/meshAssertions.ts';
 import { inspectMeshIntegrity, type MeshIntegrityReport } from './meshDiagnostics.ts';
 
 type MeshGenerator = typeof generateGreedyMesh;
@@ -113,7 +114,9 @@ test('Aggressive removes diagonal oscillation beyond Medium in every orientation
                         1,
                         { ...noYieldOptions, strength }
                     );
-                    assertHealthyMesh(`${strength} diagonal orientation ${orientation}`, mesh);
+                    assertHealthyMesh(`${strength} diagonal orientation ${orientation}`, mesh, {
+                        capWinding: true,
+                    });
                     assert.deepEqual(inspectRoundedExportTopology(mesh), {
                         boundaryEdgeCount: 0,
                         overusedEdgeCount: 0,
@@ -172,7 +175,7 @@ test('all smoothing strengths keep every 3x3 footprint manifold after export rou
                 1,
                 { ...noYieldOptions, strength }
             );
-            assertHealthyMesh(`${strength} footprint ${bits}`, mesh);
+            assertHealthyMesh(`${strength} footprint ${bits}`, mesh, { capWinding: true });
             const pixelSize = bits % 2 ? 0.01 : 0.4;
             const maxMove = strength === 'minimal' ? 0.2 : 0.49;
             for (let i = 0; i < mesh.positions.length; i += 3) {
@@ -210,79 +213,6 @@ function maskFromRows(rows: string[]): RasterMask {
     }
 
     return { activePixels, width, height, activeCount };
-}
-
-function reportForMessage(report: MeshIntegrityReport) {
-    return JSON.stringify(
-        {
-            vertexCount: report.vertexCount,
-            triangleCount: report.triangleCount,
-            invalidPositionCount: report.invalidPositionCount,
-            invalidIndexCount: report.invalidIndexCount,
-            degenerateTriangleCount: report.degenerateTriangleCount,
-            duplicateTriangleCount: report.duplicateTriangleCount,
-            boundaryEdgeCount: report.boundaryEdgeCount,
-            nonManifoldEdgeCount: report.nonManifoldEdgeCount,
-            inconsistentWindingEdgeCount: report.inconsistentWindingEdgeCount,
-            signedVolume: report.signedVolume,
-            bounds: report.bounds,
-        },
-        null,
-        2
-    );
-}
-
-function inspectCapWinding(mesh: MeshData) {
-    let minZ = Infinity;
-    let maxZ = -Infinity;
-    for (let offset = 2; offset < mesh.positions.length; offset += 3) {
-        minZ = Math.min(minZ, mesh.positions[offset]);
-        maxZ = Math.max(maxZ, mesh.positions[offset]);
-    }
-
-    let reversedTopCount = 0;
-    let reversedBottomCount = 0;
-    for (let offset = 0; offset + 2 < mesh.indices.length; offset += 3) {
-        const a = mesh.indices[offset] * 3;
-        const b = mesh.indices[offset + 1] * 3;
-        const c = mesh.indices[offset + 2] * 3;
-        const za = mesh.positions[a + 2];
-        const zb = mesh.positions[b + 2];
-        const zc = mesh.positions[c + 2];
-        const area2 =
-            (mesh.positions[b] - mesh.positions[a]) *
-                (mesh.positions[c + 1] - mesh.positions[a + 1]) -
-            (mesh.positions[b + 1] - mesh.positions[a + 1]) *
-                (mesh.positions[c] - mesh.positions[a]);
-        const isTop =
-            Math.abs(za - maxZ) <= 1e-7 &&
-            Math.abs(zb - maxZ) <= 1e-7 &&
-            Math.abs(zc - maxZ) <= 1e-7;
-        const isBottom =
-            Math.abs(za - minZ) <= 1e-7 &&
-            Math.abs(zb - minZ) <= 1e-7 &&
-            Math.abs(zc - minZ) <= 1e-7;
-
-        if (isTop && area2 < -1e-10) reversedTopCount++;
-        if (isBottom && area2 > 1e-10) reversedBottomCount++;
-    }
-
-    return { reversedTopCount, reversedBottomCount };
-}
-
-function assertHealthyMesh(label: string, mesh: MeshData) {
-    const report = inspectMeshIntegrity(mesh);
-    const capWinding = inspectCapWinding(mesh);
-
-    assert.ok(report.vertexCount > 0, `${label} should contain vertices`);
-    assert.ok(report.triangleCount > 0, `${label} should contain triangles`);
-    assert.equal(report.isValid, true, `${label} integrity failed:\n${reportForMessage(report)}`);
-    assert.deepEqual(capWinding, {
-        reversedTopCount: 0,
-        reversedBottomCount: 0,
-    });
-
-    return report;
 }
 
 function inspectRoundedExportTopology(mesh: MeshData): RoundedExportTopologyReport {
@@ -553,7 +483,7 @@ test('meshers produce valid closed meshes for topology-heavy masks', async (t: T
                     noYieldOptions
                 );
 
-                assertHealthyMesh(`${mesherName} ${caseName}`, mesh);
+                assertHealthyMesh(`${mesherName} ${caseName}`, mesh, { capWinding: true });
             });
         }
     }
@@ -581,7 +511,7 @@ test('1024px logo fixture mask stays slicer-safe across meshers and layer settin
                     setting.heightScale,
                     noYieldOptions
                 );
-                const report = assertHealthyMesh(`${mesherName} logo`, mesh);
+                const report = assertHealthyMesh(`${mesherName} logo`, mesh, { capWinding: true });
 
                 assertZBounds(
                     `${mesherName} logo`,
@@ -627,7 +557,9 @@ test('large issue JPG fixture masks stay slicer-safe across meshers', async (t: 
                     1,
                     noYieldOptions
                 );
-                const report = assertHealthyMesh(`${mesherName} large JPG ${fixtureName}`, mesh);
+                const report = assertHealthyMesh(`${mesherName} large JPG ${fixtureName}`, mesh, {
+                    capWinding: true,
+                });
 
                 assertZBounds(`${mesherName} large JPG ${fixtureName}`, report, 0.12, 0.04, 1);
                 assert.ok(
@@ -654,7 +586,7 @@ test('smooth 1024px logo stays slicer-safe after 3MF export rounding', async (t:
                 { ...noYieldOptions, strength }
             );
 
-            assertHealthyMesh('smooth export-rounded logo source mesh', mesh);
+            assertHealthyMesh('smooth export-rounded logo source mesh', mesh, { capWinding: true });
             assert.equal(
                 hasFractionalXY(mesh, 0.4),
                 true,
@@ -686,7 +618,7 @@ test('smooth caps stay inside the bounded smoothing envelope', async (t: TestCon
                 { ...noYieldOptions, strength }
             );
 
-            assertHealthyMesh('smooth concave footprint mesh', mesh);
+            assertHealthyMesh('smooth concave footprint mesh', mesh, { capWinding: true });
             assert.equal(
                 hasFractionalXY(mesh, 0.4),
                 true,
@@ -725,7 +657,7 @@ test('smooth caps avoid reversed center-fan triangles after boundary movement', 
                 { ...noYieldOptions, strength }
             );
 
-            assertHealthyMesh('smooth moved-boundary cap mesh', mesh);
+            assertHealthyMesh('smooth moved-boundary cap mesh', mesh, { capWinding: true });
         });
     }
 });
@@ -755,7 +687,7 @@ test('smooth caps avoid export-degenerate final ears after boundary movement', a
                 { ...noYieldOptions, strength }
             );
 
-            assertHealthyMesh('smooth rounded-boundary cap mesh', mesh);
+            assertHealthyMesh('smooth rounded-boundary cap mesh', mesh, { capWinding: true });
             assert.deepEqual(inspectRoundedExportTopology(mesh), {
                 boundaryEdgeCount: 0,
                 overusedEdgeCount: 0,
@@ -815,7 +747,7 @@ test('smooth caps survive 3MF integer-precision export without dropped faces', a
                 strength,
             });
 
-            assertHealthyMesh('smooth noisy-blob mesh', mesh);
+            assertHealthyMesh('smooth noisy-blob mesh', mesh, { capWinding: true });
             assert.deepEqual(inspectRoundedExportTopology(mesh), {
                 boundaryEdgeCount: 0,
                 overusedEdgeCount: 0,
@@ -905,7 +837,7 @@ test('yield options do not compromise mesh integrity', async () => {
     );
 
     assert.ok(yieldCount > 0, 'expected the mesher to call the provided yield hook');
-    assertHealthyMesh('yielding greedy mesh', mesh);
+    assertHealthyMesh('yielding greedy mesh', mesh, { capWinding: true });
 });
 
 test('mesh diagnostics detect inverted winding', async () => {
