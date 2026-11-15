@@ -7,8 +7,10 @@ use std::process::Command;
 use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Manager, State};
+mod default_app;
 mod opened_files;
 mod slicer_handoff;
+use default_app::open_with_default_app;
 use opened_files::{enqueue_and_notify, take_opened_file, OpenedFiles};
 use slicer_handoff::open_model_in_slicer;
 
@@ -149,26 +151,16 @@ fn finish_auto_paint_diagnostic(
         .map_err(|error| format!("Failed to close the diagnostic file: {error}"))
 }
 
-/// Opens a directory in the file manager, or a file with its default application.
-fn open_with_default_app(path: &Path) -> std::io::Result<()> {
-    #[cfg(target_os = "windows")]
-    let result = Command::new("explorer").arg(path).spawn();
-
-    #[cfg(target_os = "macos")]
-    let result = Command::new("open").arg(path).spawn();
-
-    #[cfg(all(unix, not(target_os = "macos")))]
-    let result = Command::new("xdg-open").arg(path).spawn();
-
-    result.map(|_| ())
-}
-
 #[tauri::command]
-fn open_auto_paint_diagnostics_directory(app: AppHandle) -> Result<String, String> {
+async fn open_auto_paint_diagnostics_directory(app: AppHandle) -> Result<String, String> {
     let directory = auto_paint_diagnostics_directory(&app)?;
-    open_with_default_app(&directory)
-        .map_err(|error| format!("Failed to open the diagnostics directory: {error}"))?;
-    Ok(directory.to_string_lossy().into_owned())
+    tauri::async_runtime::spawn_blocking(move || {
+        open_with_default_app(&directory)
+            .map_err(|error| format!("Failed to open the diagnostics directory: {error}"))?;
+        Ok(directory.to_string_lossy().into_owned())
+    })
+    .await
+    .map_err(|error| format!("Failed to run the directory launcher: {error}"))?
 }
 
 fn normalized_version(version: &str) -> &str {

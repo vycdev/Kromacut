@@ -112,9 +112,13 @@ pub async fn open_model_in_slicer(app: AppHandle, request: Request<'_>) -> Resul
         .and_then(|value| value.to_str().ok())
         .ok_or_else(|| "Missing the model file name".to_string())?;
     let path = write_handoff_file(&handoff_directory(&app)?, file_name, model)?;
-    crate::open_with_default_app(&path)
-        .map_err(|error| format!("Failed to open the model in the default 3MF app: {error}"))?;
-    Ok(path.to_string_lossy().into_owned())
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::open_with_default_app(&path)
+            .map_err(|error| format!("Failed to open the model in the default 3MF app: {error}"))?;
+        Ok(path.to_string_lossy().into_owned())
+    })
+    .await
+    .map_err(|error| format!("Failed to run the model launcher: {error}"))?
 }
 
 #[cfg(test)]
