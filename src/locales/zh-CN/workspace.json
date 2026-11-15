@@ -166,6 +166,8 @@
         "download3dModel": "下载 3D 模型",
         "downloadStl": "下载 STL",
         "download3mf": "下载 3MF",
+        "openInSlicer": "在切片软件中打开",
+        "openInSlicerHint": "导出 3MF 并用默认的 3MF 应用打开",
         "toggleCheckerboard": "切换棋盘格背景",
         "chooseFile": "选择文件",
         "removeImage": "移除图像",

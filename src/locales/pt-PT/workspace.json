@@ -169,6 +169,8 @@
     "download3dModel": "Transferir modelo 3D",
     "downloadStl": "Transferir STL",
     "download3mf": "Transferir 3MF",
+    "openInSlicer": "Abrir no laminador",
+    "openInSlicerHint": "Exportar um 3MF e abri-lo na aplicação predefinida para 3MF",
     "toggleCheckerboard": "Mostrar ou ocultar o quadriculado",
     "chooseFile": "Escolher ficheiro",
     "removeImage": "Remover imagem",

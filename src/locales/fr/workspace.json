@@ -169,6 +169,8 @@
     "download3dModel": "Télécharger le modèle 3D",
     "downloadStl": "Télécharger le STL",
     "download3mf": "Télécharger le 3MF",
+    "openInSlicer": "Ouvrir dans le logiciel de découpe",
+    "openInSlicerHint": "Exporter un 3MF et l’ouvrir dans votre application 3MF par défaut",
     "toggleCheckerboard": "Afficher ou masquer le damier",
     "chooseFile": "Choisir un fichier",
     "removeImage": "Retirer l’image",

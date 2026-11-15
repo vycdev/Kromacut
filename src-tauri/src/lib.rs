@@ -7,8 +7,12 @@ use std::process::Command;
 use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Manager, State};
+mod default_app;
 mod opened_files;
+mod slicer_handoff;
+use default_app::open_with_default_app;
 use opened_files::{enqueue_and_notify, take_opened_file, OpenedFiles};
+use slicer_handoff::open_model_in_slicer;
 
 const RELEASES_URL: &str = "https://github.com/vycdev/Kromacut/releases";
 
@@ -147,26 +151,16 @@ fn finish_auto_paint_diagnostic(
         .map_err(|error| format!("Failed to close the diagnostic file: {error}"))
 }
 
-fn open_directory(path: &Path) -> Result<(), String> {
-    #[cfg(target_os = "windows")]
-    let result = Command::new("explorer").arg(path).spawn();
-
-    #[cfg(target_os = "macos")]
-    let result = Command::new("open").arg(path).spawn();
-
-    #[cfg(all(unix, not(target_os = "macos")))]
-    let result = Command::new("xdg-open").arg(path).spawn();
-
-    result
-        .map(|_| ())
-        .map_err(|error| format!("Failed to open the diagnostics directory: {error}"))
-}
-
 #[tauri::command]
-fn open_auto_paint_diagnostics_directory(app: AppHandle) -> Result<String, String> {
+async fn open_auto_paint_diagnostics_directory(app: AppHandle) -> Result<String, String> {
     let directory = auto_paint_diagnostics_directory(&app)?;
-    open_directory(&directory)?;
-    Ok(directory.to_string_lossy().into_owned())
+    tauri::async_runtime::spawn_blocking(move || {
+        open_with_default_app(&directory)
+            .map_err(|error| format!("Failed to open the diagnostics directory: {error}"))?;
+        Ok(directory.to_string_lossy().into_owned())
+    })
+    .await
+    .map_err(|error| format!("Failed to run the directory launcher: {error}"))?
 }
 
 fn normalized_version(version: &str) -> &str {
@@ -272,7 +266,8 @@ pub fn run() {
             begin_auto_paint_diagnostic,
             append_auto_paint_diagnostic,
             finish_auto_paint_diagnostic,
-            open_auto_paint_diagnostics_directory
+            open_auto_paint_diagnostics_directory,
+            open_model_in_slicer
         ])
         .setup(|app| {
             #[cfg(any(target_os = "windows", target_os = "linux"))]

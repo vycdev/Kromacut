@@ -169,6 +169,8 @@
     "download3dModel": "Descarcă modelul 3D",
     "downloadStl": "Descarcă STL",
     "download3mf": "Descarcă 3MF",
+    "openInSlicer": "Deschide în slicer",
+    "openInSlicerHint": "Exportă un 3MF și deschide-l în aplicația implicită pentru 3MF",
     "toggleCheckerboard": "Comută fundalul în carouri",
     "chooseFile": "Alege fișierul",
     "removeImage": "Elimină imaginea",

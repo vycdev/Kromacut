@@ -166,6 +166,8 @@
     "download3dModel": "3D-Modell herunterladen",
     "downloadStl": "STL herunterladen",
     "download3mf": "3MF herunterladen",
+    "openInSlicer": "Im Slicer öffnen",
+    "openInSlicerHint": "3MF exportieren und in der Standard-App für 3MF-Dateien öffnen",
     "toggleCheckerboard": "Schachbretthintergrund umschalten",
     "chooseFile": "Datei auswählen",
     "removeImage": "Bild entfernen",
