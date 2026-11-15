@@ -9,6 +9,10 @@ description: Common issues and what to try first.
 
 Start here when a result looks wrong or a control is disabled.
 
+## An Image Is Too Large To Open
+
+Resize the file in an image editor before importing it again. The error shows the image dimensions and a conservative resize target for your device. Your current image and undo history are kept. A long, thin image can fit when the browser supports its dimensions; total pixel count matters too. See [Loading images](loading-images).
+
 ## A Link Shows Page Not Found
 
 The address may contain a typo or point to a page that no longer exists. Use **Open Kromacut** to reach the tool, **Go to homepage** to visit the landing page, or **Browse documentation** to find the current guide. An unknown documentation address is not automatically replaced with another guide.

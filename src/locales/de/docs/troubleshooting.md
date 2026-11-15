@@ -9,6 +9,10 @@ description: Häufige Probleme und erste Lösungsversuche.
 
 Beginne hier, wenn ein Ergebnis falsch aussieht oder eine Funktion deaktiviert ist.
 
+## Ein Bild Ist Zu Groß Zum Öffnen
+
+Verkleinere die Datei vor dem erneuten Import in einem Bildbearbeitungsprogramm. Die Fehlermeldung zeigt die Bildmaße und eine vorsichtige Zielgröße für dein Gerät. Das aktuelle Bild und der Rückgängig-Verlauf bleiben erhalten. Ein langes, schmales Bild kann passen, wenn der Browser seine Maße unterstützt; auch die Gesamtpixelzahl zählt. Siehe [Bilder laden](loading-images).
+
 ## Ein Link zeigt „Seite nicht gefunden“
 
 Die Adresse kann einen Tippfehler enthalten oder auf eine nicht mehr vorhandene Seite zeigen. Mit **Kromacut öffnen** erreichst du das Werkzeug, mit **Zur Startseite** die Einstiegsseite und über **Dokumentation durchsuchen** die aktuelle Anleitung. Eine unbekannte Dokumentationsadresse wird nicht automatisch durch eine andere Anleitung ersetzt.

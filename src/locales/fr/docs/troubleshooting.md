@@ -9,6 +9,10 @@ description: Problèmes courants et premières pistes de résolution.
 
 Commencez ici lorsqu’un résultat paraît incorrect ou qu’une commande est désactivée.
 
+## Une Image Est Trop Grande Pour Être Ouverte
+
+Redimensionnez le fichier dans un éditeur d’images avant de l’importer à nouveau. L’erreur indique les dimensions et une taille prudente pour votre appareil. L’image actuelle et l’historique d’annulation sont conservés. Une image longue et étroite peut convenir si le navigateur prend en charge ses dimensions ; le nombre total de pixels compte aussi. Voir [Chargement des images](loading-images).
+
 ## Un lien affiche « Page introuvable »
 
 L’adresse peut contenir une faute ou pointer vers une page disparue. Utilisez **Ouvrir Kromacut** pour accéder à l’outil, **Aller à l’accueil** pour visiter la page de présentation, ou **Parcourir la documentation** pour retrouver le guide actuel. Une adresse de documentation inconnue n’est pas automatiquement remplacée par un autre guide.

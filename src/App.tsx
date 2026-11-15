@@ -23,7 +23,6 @@ import ImageResizePanel from './components/ImageResizePanel';
 import { ADJUSTMENT_DEFAULTS } from './lib/applyAdjustments';
 import { calculateImageResizeDimensions } from './lib/imageResize';
 import { decodeImage } from './lib/decodeImage';
-import { MAX_SQUARE_IMAGE_SIDE } from './lib/imageFile';
 import SLIDER_DEFS from './components/sliderDefs';
 import { useSwatches } from './hooks/useSwatches';
 import type { SwatchEntry } from './hooks/useSwatches';
@@ -612,7 +611,7 @@ function App(): React.ReactElement | null {
                 name: error.name,
                 width: error.width,
                 height: error.height,
-                maxSize: `${MAX_SQUARE_IMAGE_SIDE}×${MAX_SQUARE_IMAGE_SIDE}`,
+                maxSize: `${error.maxSquareSide}×${error.maxSquareSide}`,
             };
             return error.keptImage
                 ? t('app.imageTooLarge', values)

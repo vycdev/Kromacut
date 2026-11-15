@@ -29,6 +29,17 @@ function blackPng(width: number, height: number): Buffer {
     ]);
 }
 
+// SVG dimensions exercise the area guard without decoding a gigabyte of pixels.
+function sizedSvg(width: number, height: number) {
+    return {
+        name: 'large.svg',
+        mimeType: 'image/svg+xml',
+        buffer: Buffer.from(
+            `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}"><rect width="100%" height="100%" fill="red"/></svg>`
+        ),
+    };
+}
+
 test('@smoke unreadable image files report an error and keep the current image', async ({
     page,
 }) => {
@@ -105,12 +116,12 @@ test('@smoke images over the canvas size limit report their size and keep the cu
     await input.setInputFiles(source);
     await expect(current).toContainText('1000x835');
 
-    // Small in bytes and pixels, but wider than Firefox allows a canvas to be.
-    const wide = { name: 'wide.png', mimeType: 'image/png', buffer: blackPng(32768, 8) };
+    // Small in pixels, but over the per-dimension import bound.
+    const wide = { ...sizedSvg(65536, 8), name: 'wide.svg' };
     await input.setInputFiles(wide);
     await expect(error).toContainText("Couldn't open image");
     await expect(error).toContainText(
-        '“wide.png” is 32768×8 pixels, which is too large to open. Your current image was kept. Resize it to 16384×16384 pixels or smaller and try again.'
+        '“wide.svg” is 65536×8 pixels, which is too large to open. Your current image was kept. Resize it to 16384×16384 pixels or smaller and try again.'
     );
     await expect(current).toContainText('1000x835');
 
@@ -124,14 +135,132 @@ test('@smoke images over the canvas size limit report their size and keep the cu
     await page.getByRole('button', { name: 'Remove image', exact: true }).click();
     await input.setInputFiles(wide);
     await expect(error).toContainText(
-        '“wide.png” is 32768×8 pixels, which is too large to open. Resize it to 16384×16384 pixels or smaller and try again.'
+        '“wide.svg” is 65536×8 pixels, which is too large to open. Resize it to 16384×16384 pixels or smaller and try again.'
     );
 
-    // The widest image a canvas can hold still imports.
-    await input.setInputFiles({ ...wide, name: 'widest.png', buffer: blackPng(32767, 8) });
-    await expect(current).toContainText('32767x8');
+    // A thin panorama beyond the historical Firefox limit still imports when
+    // the current browser can draw it, in either orientation.
+    for (const [width, height] of [
+        [40000, 8],
+        [8, 40000],
+    ]) {
+        await input.setInputFiles({
+            name: 'panorama.png',
+            mimeType: 'image/png',
+            buffer: blackPng(width, height),
+        });
+        await expect(current).toContainText(`${width}x${height}`);
+    }
     await expect(error).toHaveCount(0);
 });
+
+test('@smoke images over the canvas area limit are refused through the file picker and drag-drop', async ({
+    page,
+}) => {
+    await page.addInitScript(() => localStorage.clear());
+    await page.goto('/app');
+    const current = page.getByText('Current', { exact: true }).locator('..');
+    await page.getByTestId('image-file-input').setInputFiles(source);
+    await expect(current).toContainText('1000x835');
+    const large = sizedSvg(17000, 17000);
+    const error = page.getByTestId('image-import-error');
+    await page.getByTestId('image-file-input').setInputFiles(large);
+    await expect(error).toContainText('17000×17000');
+    await expect(current).toContainText('1000x835');
+
+    await page.getByRole('button', { name: 'Dismiss image error' }).click();
+    const dataTransfer = await page.evaluateHandle((svg) => {
+        const transfer = new DataTransfer();
+        transfer.items.add(new File([svg], 'dropped.svg', { type: 'image/svg+xml' }));
+        return transfer;
+    }, large.buffer.toString());
+    await page.getByTestId('image-dropzone').dispatchEvent('drop', { dataTransfer });
+    await dataTransfer.dispose();
+    await expect(error).toContainText('“dropped.svg” is 17000×17000 pixels');
+    await expect(current).toContainText('1000x835');
+    await page.getByRole('button', { name: 'Undo', exact: true }).click();
+    await expect(current).toContainText('1024x1024');
+    await expect(page.getByRole('button', { name: 'Undo', exact: true })).toBeDisabled();
+});
+
+for (const device of [
+    { name: 'iPhone', platform: 'iPhone', userAgent: 'Mozilla/5.0 (iPhone)', touches: 5 },
+    {
+        name: 'desktop-mode iPad',
+        platform: 'MacIntel',
+        userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15)',
+        touches: 5,
+    },
+]) {
+    test(`@smoke ${device.name} imports use the lower canvas area budget and resize advice`, async ({
+        page,
+    }) => {
+        await page.addInitScript((device) => {
+            localStorage.clear();
+            Object.defineProperties(Navigator.prototype, {
+                platform: { configurable: true, get: () => device.platform },
+                userAgent: { configurable: true, get: () => device.userAgent },
+                maxTouchPoints: { configurable: true, get: () => device.touches },
+            });
+        }, device);
+        await page.goto('/app');
+        const current = page.getByText('Current', { exact: true }).locator('..');
+        const input = page.getByTestId('image-file-input');
+        await input.setInputFiles(source);
+        await expect(current).toContainText('1000x835');
+        await input.setInputFiles(sizedSvg(9000, 9000));
+        await expect(page.getByTestId('image-import-error')).toContainText(
+            '9000×9000 pixels, which is too large to open. Your current image was kept. Resize it to 4096×4096 pixels or smaller'
+        );
+        await expect(current).toContainText('1000x835');
+        await page.getByRole('button', { name: 'Undo', exact: true }).click();
+        await expect(current).toContainText('1024x1024');
+        await expect(page.getByRole('button', { name: 'Undo', exact: true })).toBeDisabled();
+    });
+}
+
+for (const failure of ['silent', 'throw'] as const) {
+    test(`@smoke lower browser dimension limits are detected when canvas refusal is ${failure}`, async ({
+        page,
+    }) => {
+        await page.addInitScript((failure) => {
+            localStorage.clear();
+            const getContext = HTMLCanvasElement.prototype.getContext;
+            Object.defineProperty(HTMLCanvasElement.prototype, 'getContext', {
+                value(this: HTMLCanvasElement, ...args: Parameters<typeof getContext>) {
+                    if (this.width > 32767 || this.height > 32767) {
+                        if (failure === 'throw') throw new DOMException('Canvas exceeds max size');
+                        // Model a context that exists but silently ignores drawing.
+                        return {
+                            fillRect() {},
+                            getImageData: () => ({ data: new Uint8ClampedArray(4) }),
+                        };
+                    }
+                    return getContext.apply(this, args);
+                },
+            });
+        }, failure);
+        await page.goto('/app');
+        const input = page.getByTestId('image-file-input');
+        const current = page.getByText('Current', { exact: true }).locator('..');
+        await input.setInputFiles(source);
+        await expect(current).toContainText('1000x835');
+        for (const [width, height] of [
+            [32768, 8],
+            [8, 32768],
+        ]) {
+            await input.setInputFiles({
+                name: 'wide.png',
+                mimeType: 'image/png',
+                buffer: blackPng(width, height),
+            });
+            await expect(page.getByTestId('image-import-error')).toContainText(
+                `${width}×${height} pixels, which is too large to open. Your current image was kept.`
+            );
+            await expect(current).toContainText('1000x835');
+        }
+    });
+}
 
 test('@smoke removing the image clears the import error and later errors omit the kept-image note', async ({
     page,

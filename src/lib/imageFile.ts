@@ -55,22 +55,33 @@ async function decodeImageFile(file: Blob, url: string): Promise<DecodedImage | 
 }
 
 /**
- * The largest image the 2D preview can open, in pixels. The preview copies an
- * image into canvases at full size. Chromium (including the WebView2 desktop app
- * on Windows) and WebKit refuse canvases over 268,435,456 pixels (16,384 × 16,384),
- * and Firefox refuses canvases with a side over 32,767 pixels. A refused canvas
- * stays blank instead of throwing, so a larger image would look imported but
- * could not be previewed or processed.
+ * Conservative import bounds: the preview copies images into full-size canvases.
+ * Chromium and desktop WebKit cap canvas area at 16,384² pixels. Current engines
+ * can draw thin canvases beyond 32,767 pixels, but older Firefox cannot, so the
+ * import hook also probes the requested dimensions with one-pixel-wide canvases.
  */
-export const MAX_IMAGE_SIDE = 32767;
-/** The side of the largest square image that fits, 16,384 pixels. */
+export const MAX_IMAGE_SIDE = 65535;
 export const MAX_SQUARE_IMAGE_SIDE = 16384;
 export const MAX_IMAGE_PIXELS = MAX_SQUARE_IMAGE_SIDE * MAX_SQUARE_IMAGE_SIDE;
+// Older iOS WebKit caps area at 4,096²; newer versions allow 8,192². Keep the
+// lower budget for compatibility, including iPads that request desktop websites.
+export const IOS_MAX_SQUARE_IMAGE_SIDE = 4096;
+export const IOS_MAX_IMAGE_PIXELS = IOS_MAX_SQUARE_IMAGE_SIDE * IOS_MAX_SQUARE_IMAGE_SIDE;
 
-/** Whether an image of this size fits in a canvas on every supported engine. */
-export function fitsImageCanvasLimits(width: number, height: number): boolean {
+/** Whether dimensions fit the import budget, before browser capability checks. */
+export function fitsImageCanvasLimits(
+    width: number,
+    height: number,
+    maxPixels = MAX_IMAGE_PIXELS
+): boolean {
     return (
-        width <= MAX_IMAGE_SIDE && height <= MAX_IMAGE_SIDE && width * height <= MAX_IMAGE_PIXELS
+        Number.isSafeInteger(width) &&
+        Number.isSafeInteger(height) &&
+        width > 0 &&
+        height > 0 &&
+        width <= MAX_IMAGE_SIDE &&
+        height <= MAX_IMAGE_SIDE &&
+        width * height <= maxPixels
     );
 }
 
