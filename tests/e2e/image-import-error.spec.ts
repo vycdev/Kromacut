@@ -219,6 +219,66 @@ for (const device of [
     });
 }
 
+test('@smoke canvas privacy noise allows valid imports and still rejects blank probe results', async ({
+    page,
+}) => {
+    await page.addInitScript(() => {
+        localStorage.clear();
+        const state = window as unknown as {
+            refuseCanvasProbe: boolean;
+            canvasProbeAlphas: number[];
+        };
+        state.refuseCanvasProbe = false;
+        state.canvasProbeAlphas = [];
+        const fillRect = CanvasRenderingContext2D.prototype.fillRect;
+        const getImageData = CanvasRenderingContext2D.prototype.getImageData;
+        CanvasRenderingContext2D.prototype.fillRect = function (...args) {
+            if (state.refuseCanvasProbe && (this.canvas.width === 1 || this.canvas.height === 1)) {
+                return;
+            }
+            return fillRect.apply(this, args);
+        };
+        CanvasRenderingContext2D.prototype.getImageData = function (...args) {
+            const pixels = getImageData.apply(this, args);
+            if (
+                (this.canvas.width === 1 || this.canvas.height === 1) &&
+                args[2] === 1 &&
+                args[3] === 1
+            ) {
+                // Privacy noise can move opaque alpha down and transparent alpha up.
+                const alpha = pixels.data[3];
+                pixels.data[3] = alpha === 0 ? 3 : Math.max(0, alpha - 3);
+                state.canvasProbeAlphas.push(pixels.data[3]);
+            }
+            return pixels;
+        };
+    });
+    await page.goto('/app');
+    const input = page.getByTestId('image-file-input');
+    const current = page.getByText('Current', { exact: true }).locator('..');
+    const error = page.getByTestId('image-import-error');
+    const alphas = () =>
+        page.evaluate(
+            () => (window as unknown as { canvasProbeAlphas: number[] }).canvasProbeAlphas
+        );
+    await input.setInputFiles(source);
+    await expect(current).toContainText('1000x835');
+    await expect(error).toHaveCount(0);
+    await expect.poll(alphas).toContain(252);
+
+    // A nonzero but nearly transparent readback must still refuse the import.
+    await page.evaluate(() => {
+        (window as unknown as { refuseCanvasProbe: boolean }).refuseCanvasProbe = true;
+    });
+    await input.setInputFiles(source);
+    await expect(error).toContainText('Your current image was kept.');
+    await expect.poll(alphas).toContain(3);
+    await expect(current).toContainText('1000x835');
+    await page.getByRole('button', { name: 'Undo', exact: true }).click();
+    await expect(current).toContainText('1024x1024');
+    await expect(page.getByRole('button', { name: 'Undo', exact: true })).toBeDisabled();
+});
+
 for (const failure of ['silent', 'throw'] as const) {
     test(`@smoke lower browser dimension limits are detected when canvas refusal is ${failure}`, async ({
         page,

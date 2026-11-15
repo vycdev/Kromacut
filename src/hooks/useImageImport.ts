@@ -26,8 +26,9 @@ function canDrawCanvasDimensions(width: number, height: number): boolean {
             const context = canvas.getContext('2d', { willReadFrequently: true });
             if (!context) return false;
             context.fillRect(w - 1, h - 1, 1, 1);
-            // Chromium can silently refuse a canvas; Firefox can throw instead.
-            if (context.getImageData(w - 1, h - 1, 1, 1).data[3] !== 255) return false;
+            // Refused canvases stay transparent, but privacy protections can add
+            // small alpha noise. Use the midpoint between transparent and opaque.
+            if (context.getImageData(w - 1, h - 1, 1, 1).data[3] < 128) return false;
         }
         return true;
     } catch {
