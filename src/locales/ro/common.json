@@ -76,6 +76,7 @@
     "downloadFailed": "Pagina de descărcare nu a putut fi deschisă."
   },
   "app": {
+    "checkingImage": "Se verifică imaginea…",
     "uploadImage": "Încarcă un fișier imagine",
     "resizeFailed": "Redimensionarea imaginii a eșuat. Consultă consola pentru detalii.",
     "imageImportFailed": "Imaginea nu a putut fi deschisă",

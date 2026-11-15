@@ -76,6 +76,7 @@
     "downloadFailed": "Não foi possível abrir a página de transferência."
   },
   "app": {
+    "checkingImage": "A verificar a imagem…",
     "uploadImage": "Importe um ficheiro de imagem",
     "resizeFailed": "Não foi possível redimensionar a imagem. Consulte a consola para obter mais informações.",
     "imageImportFailed": "Não foi possível abrir a imagem",

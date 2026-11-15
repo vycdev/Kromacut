@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 import { rgbToHsl } from '../lib/color';
-import { decodeImage } from '../lib/decodeImage';
 import { createCenterEdgeWeight } from '../lib/regionWeighting';
 
 // Manages swatch computation with cancellation & immediate override
@@ -20,7 +19,7 @@ export interface ImageDimensions {
     opaqueHeight: number;
 }
 
-export function useSwatches(imageSrc: string | null) {
+export function useSwatches(imageCanvas: HTMLCanvasElement | null) {
     const [swatches, setSwatches] = useState<SwatchEntry[]>([]);
     const [loading, setLoading] = useState(false);
     const [imageDimensions, setImageDimensions] = useState<ImageDimensions | null>(null);
@@ -41,7 +40,7 @@ export function useSwatches(imageSrc: string | null) {
     useEffect(() => {
         let cancelled = false;
         const compute = async () => {
-            if (!imageSrc) {
+            if (!imageCanvas) {
                 runRef.current++;
                 setSwatches([]);
                 setImageDimensions(null);
@@ -52,12 +51,15 @@ export function useSwatches(imageSrc: string | null) {
             setSwatches([]);
             setLoading(true);
             try {
-                const img = await decodeImage(imageSrc);
-                if (!img) throw new Error('image load failed');
-                if (runId !== runRef.current || cancelled) return;
-                const w = img.naturalWidth;
-                const h = img.naturalHeight;
+                // The committed snapshot is immutable, even while touch-up
+                // tools change the preview's separate original canvas.
+                const w = imageCanvas.width;
+                const h = imageCanvas.height;
                 setImageDimensions({ width: w, height: h, opaqueWidth: w, opaqueHeight: h });
+                // Publish the size and loading state before scanning a large
+                // first row of tiles, which can otherwise delay the first paint.
+                await new Promise((resolve) => setTimeout(resolve, 0));
+                if (runId !== runRef.current || cancelled) return;
                 // Precompute the size-dependent weighting terms once so the
                 // per-pixel scan below stays a couple of multiplies per call.
                 const spatialWeightFor = createCenterEdgeWeight(w, h);
@@ -67,11 +69,10 @@ export function useSwatches(imageSrc: string | null) {
                     number,
                     { count: number; centerWeight: number; edgeWeight: number }
                 >();
-                const tile = document.createElement('canvas');
-                const tctx = tile.getContext('2d', {
+                const context = imageCanvas.getContext('2d', {
                     willReadFrequently: true,
                 });
-                if (!tctx) {
+                if (!context) {
                     setLoading(false);
                     return;
                 }
@@ -84,11 +85,7 @@ export function useSwatches(imageSrc: string | null) {
                     for (let x = 0; x < w; x += TILE) {
                         const sw = Math.min(TILE, w - x);
                         const sh = Math.min(TILE, h - y);
-                        tile.width = sw;
-                        tile.height = sh;
-                        tctx.clearRect(0, 0, sw, sh);
-                        tctx.drawImage(img, x, y, sw, sh, 0, 0, sw, sh);
-                        const data = tctx.getImageData(0, 0, sw, sh).data;
+                        const data = context.getImageData(x, y, sw, sh).data;
                         for (let i = 0; i < data.length; i += 4) {
                             const a = data[i + 3];
                             if (a === 0) {
@@ -194,7 +191,7 @@ export function useSwatches(imageSrc: string | null) {
         return () => {
             cancelled = true;
         };
-    }, [imageSrc, SWATCH_CAP]);
+    }, [imageCanvas, SWATCH_CAP]);
 
     return {
         swatches,

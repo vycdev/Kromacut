@@ -27,6 +27,7 @@ import SLIDER_DEFS from './components/sliderDefs';
 import { useSwatches } from './hooks/useSwatches';
 import type { SwatchEntry } from './hooks/useSwatches';
 import { useImageHistory } from './hooks/useImageHistory';
+import { useImageCanvas } from './hooks/useImageCanvas';
 import { useImageImport, type ImageImportError } from './hooks/useImageImport';
 import { useQuantize } from './hooks/useQuantize';
 import Header from './components/Header';
@@ -87,7 +88,7 @@ import {
     AlertDialogCancel,
 } from './components/ui/alert-dialog';
 import { Button } from './components/ui/button';
-import { X } from 'lucide-react';
+import { Loader, X } from 'lucide-react';
 // ...existing imports
 
 const AUTOPAINT_STORAGE_KEY = 'kromacut.autopaint.v1';
@@ -313,6 +314,7 @@ function App(): React.ReactElement | null {
     }, [allPalettes, selectedPalette]);
     const {
         importFile,
+        isImporting,
         importError: imageImportError,
         dismissImportError,
         cancelPendingImport,
@@ -321,8 +323,9 @@ function App(): React.ReactElement | null {
         logo,
         cancelPendingImport
     );
+    const { imageCanvas, prepareImageCanvas } = useImageCanvas(imageSrc);
     const { swatches, swatchesLoading, imageDimensions, invalidate, immediateOverride } =
-        useSwatches(imageSrc);
+        useSwatches(imageCanvas);
     // adjustments managed locally inside AdjustmentsPanel now
     // initial selectedPalette derived from initial weight above
     const inputRef = useRef<HTMLInputElement | null>(null);
@@ -487,7 +490,7 @@ function App(): React.ReactElement | null {
         confirmBuild,
         cancelBuild,
         markBuildStarted,
-    } = useBuildWarning({ imageSrc, initialState: autopaintHydrated });
+    } = useBuildWarning({ imageSrc, imageCanvas, initialState: autopaintHydrated });
     const builtModelState = builtThreeDState ?? threeDState;
     const builtModelAutoPaint = builtModelState.paintMode === 'autopaint';
     const builtModelValid = !builtModelAutoPaint || builtModelState.autoPaintResult !== undefined;
@@ -599,9 +602,10 @@ function App(): React.ReactElement | null {
 
     const handleFiles = async (file?: File) => {
         if (!file) return;
-        await importFile(file, imageSrc !== null, (url) => {
+        await importFile(file, imageSrc !== null, (url, canvas) => {
             setTouchUpTool(null);
             invalidate();
+            prepareImageCanvas(url, canvas);
             setImage(url, true);
         });
     };
@@ -960,6 +964,7 @@ function App(): React.ReactElement | null {
                             <div
                                 className={`flex-1 relative min-h-0 w-full ${dropzone.dragOver ? 'bg-primary/20' : ''}`}
                                 data-testid="image-dropzone"
+                                aria-busy={isImporting}
                                 onDrop={dropzone.onDrop}
                                 onDragOver={dropzone.onDragOver}
                                 onDragLeave={dropzone.onDragLeave}
@@ -977,6 +982,7 @@ function App(): React.ReactElement | null {
                                         <CanvasPreview
                                             ref={canvasPreviewRef}
                                             imageSrc={imageSrc}
+                                            imageCanvas={imageCanvas}
                                             isCropMode={isCropMode}
                                             showCheckerboard={showCheckerboard}
                                             adjustments={adjustments}
@@ -997,6 +1003,19 @@ function App(): React.ReactElement | null {
                                             }}
                                             onTouchUpExit={() => setTouchUpTool(null)}
                                         />
+                                        {isImporting && (
+                                            <div
+                                                role="status"
+                                                data-testid="image-import-busy"
+                                                className="pointer-events-none absolute bottom-4 right-4 z-40 flex items-center gap-2 rounded-md bg-background/95 px-3 py-2 text-sm shadow-sm"
+                                            >
+                                                <Loader
+                                                    className="h-4 w-4 animate-spin"
+                                                    aria-hidden
+                                                />
+                                                {t('app.checkingImage')}
+                                            </div>
+                                        )}
                                         {imageImportError && (
                                             <div
                                                 role="alert"

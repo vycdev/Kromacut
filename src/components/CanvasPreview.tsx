@@ -38,6 +38,7 @@ export interface CanvasPreviewHandle {
 
 interface Props {
     imageSrc: string | null;
+    imageCanvas: HTMLCanvasElement | null;
     isCropMode?: boolean;
     showCheckerboard?: boolean;
     adjustments?: Record<string, number>;
@@ -85,6 +86,7 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
     (
         {
             imageSrc,
+            imageCanvas,
             isCropMode,
             showCheckerboard,
             adjustments,
@@ -102,7 +104,8 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
         const { t } = useTranslation('workspace');
         const canvasRef = useRef<HTMLCanvasElement | null>(null);
         const previewContainerRef = useRef<HTMLDivElement | null>(null);
-        const imgRef = useRef<HTMLImageElement | null>(null);
+        // Immutable committed pixels; the original canvas below is an editable copy.
+        const committedCanvasRef = useRef<HTMLCanvasElement | null>(null);
         const zoomRef = useRef<number>(1);
         const [zoomState, setZoomState] = useState<number>(1);
         const [imageLoaded, setImageLoaded] = useState<boolean>(false);
@@ -134,12 +137,12 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
         const processedCanvasRef = useRef<HTMLCanvasElement | null>(null);
         const lastAdjSigRef = useRef<string>('');
         const mountedRef = useRef(true);
-        const imageLoadGenerationRef = useRef(0);
         const activeTouchStrokeRef = useRef<ActiveTouchStroke | null>(null);
         // Object URLs of our own pending commits. When one of them arrives back
         // as imageSrc, the live canvases already hold exactly those pixels and
         // are kept as-is — drawing never blocks on the round trip.
         const selfCommitSrcsRef = useRef<Set<string>>(new Set());
+        const selfCommitSrcRef = useRef<string | null>(null);
         // Bumped only when the image is replaced from outside the touch-up
         // tools (undo, quantize, crop, …); invalidates in-flight commits.
         const externalImageGenerationRef = useRef(0);
@@ -175,14 +178,12 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
             ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
             ctx.clearRect(0, 0, cw, ch);
 
-            const img = imgRef.current;
+            const img = committedCanvasRef.current;
             if (!img) return;
-            // Prefer the live offscreen canvas dimensions: while a committed
-            // touch-up edit's image is still loading, the original canvas is
-            // the source of truth and keeps the preview from blanking out.
+            // Touch-up edits can be ahead of the committed snapshot.
             const original = originalCanvasRef.current;
-            const iw = original?.width || img.naturalWidth;
-            const ih = original?.height || img.naturalHeight;
+            const iw = original?.width || img.width;
+            const ih = original?.height || img.height;
             if (!iw || !ih) return;
 
             const baseScale = Math.min(cw / iw, ch / ih);
@@ -212,23 +213,18 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
                 // Recompute processed canvas only if signature changed or missing.
                 if (sig !== lastAdjSigRef.current) {
                     try {
-                        const baseSource: HTMLCanvasElement | HTMLImageElement = original ?? img;
-                        const iw2 =
-                            baseSource instanceof HTMLImageElement ? baseSource.naturalWidth : iw;
-                        const ih2 =
-                            baseSource instanceof HTMLImageElement ? baseSource.naturalHeight : ih;
                         let srcCtx: CanvasRenderingContext2D | null = null;
                         if (original) {
                             srcCtx = original.getContext('2d');
                         } else {
                             // lazily build original if missing
                             originalCanvasRef.current = document.createElement('canvas');
-                            originalCanvasRef.current.width = iw2;
-                            originalCanvasRef.current.height = ih2;
+                            originalCanvasRef.current.width = iw;
+                            originalCanvasRef.current.height = ih;
                             const octx = originalCanvasRef.current.getContext('2d');
                             if (octx) {
                                 octx.imageSmoothingEnabled = false;
-                                octx.drawImage(img, 0, 0, iw2, ih2);
+                                octx.drawImage(img, 0, 0, iw, ih);
                                 srcCtx = octx;
                             }
                         }
@@ -273,6 +269,9 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
             }
         }, [adjustments, adjustmentsSig, hasAdjustments]);
 
+        const drawToCanvasRef = useRef(drawToCanvas);
+        drawToCanvasRef.current = drawToCanvas;
+
         const drawRafRef = useRef<number | null>(null);
         const requestDraw = useCallback(() => {
             if (drawRafRef.current !== null) return;
@@ -287,15 +286,15 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
 
         const computeImageLayout = () => {
             const container = previewContainerRef.current;
-            const img = imgRef.current;
+            const img = committedCanvasRef.current;
             if (!container || !img) return null;
             const cw = container.clientWidth;
             const ch = container.clientHeight;
             // Same fallback as drawToCanvas: the offscreen canvas keeps layout
             // (and tool coordinates) stable while a committed edit reloads.
             const original = originalCanvasRef.current;
-            const iw = original?.width || img.naturalWidth;
-            const ih = original?.height || img.naturalHeight;
+            const iw = original?.width || img.width;
+            const ih = original?.height || img.height;
             if (!iw || !ih) return null;
             const baseScale = Math.min(cw / iw, ch / ih);
             const dw = iw * baseScale;
@@ -306,21 +305,28 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
         };
 
         useEffect(() => {
-            const loadGeneration = ++imageLoadGenerationRef.current;
             // Our own commits come back with canvases already holding exactly
             // these pixels; keep the canvases (and any in-progress stroke)
             // untouched so drawing stays continuous across history commits.
-            const isSelfCommit = !!imageSrc && selfCommitSrcsRef.current.delete(imageSrc);
-            if (!isSelfCommit) {
+            selfCommitSrcRef.current =
+                imageSrc && selfCommitSrcsRef.current.delete(imageSrc) ? imageSrc : null;
+            if (!selfCommitSrcRef.current) {
                 selfCommitSrcsRef.current.clear();
                 externalImageGenerationRef.current += 1;
                 activeTouchStrokeRef.current = null;
                 // A text draft's coordinates belong to the replaced image.
                 if (textDraftRef.current) setTextDraft(null);
             }
+        }, [imageSrc]);
+
+        useEffect(() => {
+            // Keep the live preview while the next history entry is loading.
+            // Adjustment changes only redraw; they never reload source pixels.
+            if (imageSrc && !imageCanvas) return;
+            const isSelfCommit = !!imageSrc && selfCommitSrcRef.current === imageSrc;
 
             if (!imageSrc) {
-                imgRef.current = null;
+                committedCanvasRef.current = null;
                 originalCanvasRef.current = null;
                 processedCanvasRef.current = null;
                 setImageLoaded(false);
@@ -334,13 +340,13 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
                 return;
             }
 
-            // Capture visible center image coordinates so we can preserve the
+            // Capture the relative image position at the view center so we can preserve the
             // user's view when the underlying image is replaced (e.g. after
             // baking, dedithering, or cropping). If there's no previous layout
             // available we'll fall back to the existing offset.
             const container = previewContainerRef.current;
             let prevCenterImageCoord: { x: number; y: number } | null = null;
-            if (!isSelfCommit && container && imgRef.current) {
+            if (!isSelfCommit && container && committedCanvasRef.current) {
                 const rect = container.getBoundingClientRect();
                 const cx = rect.width / 2;
                 const cy = rect.height / 2;
@@ -349,83 +355,55 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
                     const prevScale = prevLayout.baseScale * (zoomRef.current || 1);
                     const imgX = (cx - (offsetRef.current.x + prevLayout.dx)) / prevScale;
                     const imgY = (cy - (offsetRef.current.y + prevLayout.dy)) / prevScale;
-                    prevCenterImageCoord = { x: imgX, y: imgY };
+                    prevCenterImageCoord = { x: imgX / prevLayout.iw, y: imgY / prevLayout.ih };
                 }
             }
 
-            const img = new Image();
-            imgRef.current = img;
-            if (!isSelfCommit) setImageLoaded(false); // Reset loading state
-            img.onload = () => {
-                if (
-                    !mountedRef.current ||
-                    loadGeneration !== imageLoadGenerationRef.current ||
-                    imgRef.current !== img
-                ) {
-                    return;
+            const img = imageCanvas!;
+            committedCanvasRef.current = img;
+            if (isSelfCommit) {
+                // The live canvases may already include another stroke.
+                setImageLoaded(true);
+                drawToCanvasRef.current();
+                return;
+            }
+            // preserve current zoom (don't reset) and try to restore the
+            // same image coordinate under the container center so the view
+            // doesn't jump when swapping the image source.
+            const iw = img.width;
+            const ih = img.height;
+            if (iw && ih) {
+                setImageLoaded(true); // Image is now loaded
+                originalCanvasRef.current = document.createElement('canvas');
+                originalCanvasRef.current.width = iw;
+                originalCanvasRef.current.height = ih;
+                const octx = originalCanvasRef.current.getContext('2d');
+                if (octx) {
+                    octx.imageSmoothingEnabled = false;
+                    octx.drawImage(img, 0, 0, iw, ih);
                 }
-                if (isSelfCommit) {
-                    // The img element only feeds the export helpers here; the
-                    // offscreen canvases already show exactly these pixels.
-                    setImageLoaded(true);
-                    drawToCanvas();
-                    return;
-                }
-                // preserve current zoom (don't reset) and try to restore the
-                // same image coordinate under the container center so the view
-                // doesn't jump when swapping the image source.
-                const iw = img.naturalWidth;
-                const ih = img.naturalHeight;
-                if (iw && ih) {
-                    setImageLoaded(true); // Image is now loaded
-                    originalCanvasRef.current = document.createElement('canvas');
-                    originalCanvasRef.current.width = iw;
-                    originalCanvasRef.current.height = ih;
-                    const octx = originalCanvasRef.current.getContext('2d');
-                    if (octx) {
-                        octx.imageSmoothingEnabled = false;
-                        octx.drawImage(img, 0, 0, iw, ih);
-                    }
-                    processedCanvasRef.current = null; // invalidate processed
-                    lastAdjSigRef.current = '';
-                }
+                processedCanvasRef.current = null; // invalidate processed
+                lastAdjSigRef.current = '';
+            }
 
-                // restore view center if we computed it earlier
-                if (prevCenterImageCoord && container) {
-                    const rect = container.getBoundingClientRect();
-                    const cx = rect.width / 2;
-                    const cy = rect.height / 2;
-                    const newLayout = computeImageLayout();
-                    if (newLayout) {
-                        const newScale = newLayout.baseScale * (zoomRef.current || 1);
-                        const newOffsetX = cx - newLayout.dx - prevCenterImageCoord.x * newScale;
-                        const newOffsetY = cy - newLayout.dy - prevCenterImageCoord.y * newScale;
-                        offsetRef.current = { x: newOffsetX, y: newOffsetY };
-                    }
+            // restore view center if we computed it earlier
+            if (prevCenterImageCoord && container) {
+                const rect = container.getBoundingClientRect();
+                const cx = rect.width / 2;
+                const cy = rect.height / 2;
+                const newLayout = computeImageLayout();
+                if (newLayout) {
+                    const newScale = newLayout.baseScale * (zoomRef.current || 1);
+                    const newOffsetX =
+                        cx - newLayout.dx - prevCenterImageCoord.x * newLayout.iw * newScale;
+                    const newOffsetY =
+                        cy - newLayout.dy - prevCenterImageCoord.y * newLayout.ih * newScale;
+                    offsetRef.current = { x: newOffsetX, y: newOffsetY };
                 }
+            }
 
-                drawToCanvas();
-            };
-            img.onerror = () => {
-                if (
-                    !mountedRef.current ||
-                    loadGeneration !== imageLoadGenerationRef.current ||
-                    imgRef.current !== img
-                ) {
-                    return;
-                }
-                setImageLoaded(false);
-            };
-            img.src = imageSrc;
-            return () => {
-                img.onload = null;
-                img.onerror = null;
-                if (imageLoadGenerationRef.current === loadGeneration) {
-                    imageLoadGenerationRef.current += 1;
-                }
-                if (imgRef.current === img) imgRef.current = null;
-            };
-        }, [imageSrc, drawToCanvas]);
+            drawToCanvasRef.current();
+        }, [imageSrc, imageCanvas]);
 
         // initialize selection when entering crop mode
         useEffect(() => {
@@ -461,7 +439,7 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
 
         // update hasValidCropSelection when selection changes
         useEffect(() => {
-            const img = imgRef.current;
+            const img = committedCanvasRef.current;
             const sel = selectionRef.current;
             if (!img || !sel) {
                 setHasValidCropSelection(false);
@@ -489,10 +467,10 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
             const cw = container.clientWidth;
             const ch = container.clientHeight;
 
-            const img = imgRef.current;
+            const img = committedCanvasRef.current;
             if (!img) return;
-            const iw = img.naturalWidth;
-            const ih = img.naturalHeight;
+            const iw = img.width;
+            const ih = img.height;
             if (!iw || !ih) return;
 
             const baseScale = Math.min(cw / iw, ch / ih);
@@ -519,7 +497,14 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
 
         // === 2D touch-up tools ===
 
-        const touchUpActive = !!touchUpTool && !isCropMode && imageLoaded;
+        const touchUpActive =
+            !!touchUpTool &&
+            !isCropMode &&
+            imageLoaded &&
+            (!!imageCanvas ||
+                (!!imageSrc &&
+                    (selfCommitSrcRef.current === imageSrc ||
+                        selfCommitSrcsRef.current.has(imageSrc))));
         const showBrushOutline =
             touchUpActive && (touchUpTool === 'brush' || touchUpTool === 'eraser');
         const brushOutlineRef = useRef<HTMLDivElement | null>(null);
@@ -677,7 +662,7 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
                 } else {
                     // Encoding failed — restore the canvases from the last
                     // committed image so the preview matches the history.
-                    const img = imgRef.current;
+                    const img = committedCanvasRef.current;
                     const liveOriginal = originalCanvasRef.current;
                     const octx = liveOriginal?.getContext('2d');
                     if (img && liveOriginal && octx) {
@@ -1146,7 +1131,6 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
             mountedRef.current = true;
             return () => {
                 mountedRef.current = false;
-                imageLoadGenerationRef.current += 1;
                 externalImageGenerationRef.current += 1;
                 activeTouchStrokeRef.current = null;
                 originalCanvasRef.current = null;
@@ -1176,7 +1160,7 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
                 });
             },
             exportCroppedImage: async (): Promise<Blob | null> => {
-                const img = imgRef.current;
+                const img = committedCanvasRef.current;
                 const sel = selectionRef.current;
                 if (!img || !sel) return null;
                 const layout = computeImageLayout();
@@ -1191,8 +1175,8 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
                 const sw = sel.w / scale;
                 const sh = sel.h / scale;
 
-                const iw = img.naturalWidth;
-                const ih = img.naturalHeight;
+                const iw = img.width;
+                const ih = img.height;
 
                 // clamp and integerize
                 const sxClamped = Math.max(0, Math.min(iw, sx));
@@ -1222,11 +1206,10 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
             },
             exportImageBlob: async (): Promise<Blob | null> => {
                 if (!imageLoaded) return null;
-                const source = originalCanvasRef.current ?? imgRef.current;
+                const source = originalCanvasRef.current ?? committedCanvasRef.current;
                 if (!source) return null;
-                const iw = source instanceof HTMLCanvasElement ? source.width : source.naturalWidth;
-                const ih =
-                    source instanceof HTMLCanvasElement ? source.height : source.naturalHeight;
+                const iw = source.width;
+                const ih = source.height;
                 if (!iw || !ih) return null;
                 const outCanvas = document.createElement('canvas');
                 outCanvas.width = iw;
@@ -1245,10 +1228,10 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
             exportAdjustedImageBlob: async (
                 adjustmentsOverride?: Record<string, number>
             ): Promise<Blob | null> => {
-                const img = imgRef.current;
+                const img = committedCanvasRef.current;
                 if (!img) return null;
-                const iw = img.naturalWidth;
-                const ih = img.naturalHeight;
+                const iw = img.width;
+                const ih = img.height;
                 if (!iw || !ih) return null;
                 const canvas = document.createElement('canvas');
                 canvas.width = iw;
@@ -1398,15 +1381,15 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
                     </div>
                 ) : null}
                 {/* small HUD showing image size and crop size (when active) */}
-                {imageLoaded && imgRef.current ? (
+                {imageLoaded && committedCanvasRef.current ? (
                     <div
                         className="absolute top-2 left-2 z-40 px-2 py-1 rounded-full bg-background/90 text-primary text-xs font-mono font-semibold shadow-sm"
                         aria-hidden
                     >
                         {(() => {
-                            const img = imgRef.current!;
-                            const iw = originalCanvasRef.current?.width || img.naturalWidth;
-                            const ih = originalCanvasRef.current?.height || img.naturalHeight;
+                            const img = committedCanvasRef.current!;
+                            const iw = originalCanvasRef.current?.width || img.width;
+                            const ih = originalCanvasRef.current?.height || img.height;
                             let text = t('canvasPreview.imageDimensions', {
                                 width: iw,
                                 height: ih,

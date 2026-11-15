@@ -77,9 +77,13 @@ test('@smoke unreadable and truncated Stack Matrix photos report an error and ke
     // Phone photos are often stored sideways with an EXIF orientation tag. The
     // photo must load upright, as an <img> shows it: 400x200 rotated a quarter turn.
     const rotated = await page.evaluate(async () => {
-        const source = new OffscreenCanvas(400, 200);
+        const source = document.createElement('canvas');
+        source.width = 400;
+        source.height = 200;
         source.getContext('2d')!.fillRect(0, 0, 200, 200);
-        const blob = await source.convertToBlob({ type: 'image/jpeg' });
+        const blob = await new Promise<Blob>((resolve) =>
+            source.toBlob((blob) => resolve(blob!), 'image/jpeg')
+        );
         const jpeg = new Uint8Array(await blob.arrayBuffer());
         // An APP1 Exif segment holding one big-endian Orientation (0x0112) entry of 6.
         const tiff = [0x4d, 0x4d, 0, 0x2a, 0, 0, 0, 8, 0, 1, 0x01, 0x12, 0, 3, 0, 0, 0, 1];
