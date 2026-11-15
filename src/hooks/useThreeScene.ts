@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import {
-    cameraKeepOutBounds,
     framePerspectiveCamera,
     keepCameraOutsideBounds,
     matchOrthographicToPerspective,
@@ -23,7 +22,7 @@ export function useThreeScene(
     const controlsRef = useRef<OrbitControls | null>(null);
     const modelGroupRef = useRef<THREE.Group | null>(null);
     const materialRef = useRef<THREE.MeshStandardMaterial | null>(null);
-    // Model bounds plus a margin, set when a model is framed. The camera never enters them.
+    // Original model bounds, set when framed; the constraint adds its keep-out margin.
     const cameraBoundsRef = useRef<THREE.Box3 | null>(null);
     const [sceneReady, setSceneReady] = useState(false);
     const activeRef = useRef(active);
@@ -173,7 +172,7 @@ export function useThreeScene(
                 const aspect = (cam.right - cam.left) / (cam.top - cam.bottom);
                 matchOrthographicToPerspective(cam, persp, ctrl.target, aspect);
             }
-            cameraBoundsRef.current = cameraKeepOutBounds(model);
+            cameraBoundsRef.current = model.clone();
             updateControls();
         };
         frameModelRef.current = frameModel;

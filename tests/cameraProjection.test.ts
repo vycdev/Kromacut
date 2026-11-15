@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import {
     cameraKeepOutBounds,
     framePerspectiveCamera,
@@ -277,7 +278,7 @@ test('a perspective camera moved into the model returns to its surface', () => {
     const camera = createPerspective(new THREE.Vector3(72, 69, 2), target);
     const direction = camera.position.clone().sub(target).normalize();
 
-    assert.equal(keepCameraOutsideBounds(camera, target, bounds, camera.fov), true);
+    assert.equal(keepCameraOutsideBounds(camera, target, model, camera.fov), true);
 
     assertOnBoundsSurface(camera.position, bounds, 'camera');
     const nextDirection = camera.position.clone().sub(target).normalize();
@@ -286,13 +287,12 @@ test('a perspective camera moved into the model returns to its surface', () => {
 
 test('a perspective camera can still inspect a flat model up close', () => {
     const model = createSlab();
-    const bounds = cameraKeepOutBounds(model);
     const target = new THREE.Vector3(70, 70, 1.5);
     // 10 mm above the top surface: far closer than the ~99 mm bounding-sphere radius.
     const position = new THREE.Vector3(70, 65, 13);
     const camera = createPerspective(position, target);
 
-    assert.equal(keepCameraOutsideBounds(camera, target, bounds, camera.fov), false);
+    assert.equal(keepCameraOutsideBounds(camera, target, model, camera.fov), false);
 
     assertVectorClose(camera.position, position, 'position');
 });
@@ -304,7 +304,7 @@ test('a camera panned into the model leaves it on the side away from the target'
     const target = new THREE.Vector3(-20, 70, 1.5);
     const camera = createPerspective(new THREE.Vector3(5, 70, 1.5), target);
 
-    assert.equal(keepCameraOutsideBounds(camera, target, bounds, camera.fov), true);
+    assert.equal(keepCameraOutsideBounds(camera, target, model, camera.fov), true);
 
     assertVectorClose(camera.position, new THREE.Vector3(bounds.max.x, 70, 1.5), 'position');
 });
@@ -317,7 +317,7 @@ test('a perspective camera on its target backs out along its viewing axis', () =
     camera.position.copy(target);
     camera.lookAt(new THREE.Vector3(70, 70, 0));
 
-    assert.equal(keepCameraOutsideBounds(camera, target, bounds, camera.fov), true);
+    assert.equal(keepCameraOutsideBounds(camera, target, model, camera.fov), true);
 
     assertVectorClose(camera.position, new THREE.Vector3(70, 70, bounds.max.z), 'position');
 });
@@ -329,12 +329,12 @@ test('orthographic zoom stops where the perspective camera would reach the model
     const perspective = createPerspective(new THREE.Vector3(70, 20, 60), target);
     const ortho = orthographicFromPerspective(perspective, target, ASPECT);
 
-    assert.equal(keepCameraOutsideBounds(ortho, target, bounds, perspective.fov), false);
+    assert.equal(keepCameraOutsideBounds(ortho, target, model, perspective.fov), false);
     assert.equal(ortho.zoom, 1);
 
     ortho.zoom = 1000;
     ortho.updateProjectionMatrix();
-    assert.equal(keepCameraOutsideBounds(ortho, target, bounds, perspective.fov), true);
+    assert.equal(keepCameraOutsideBounds(ortho, target, model, perspective.fov), true);
 
     assert.ok(ortho.zoom > 1 && ortho.zoom < 1000, `zoom capped at ${ortho.zoom}`);
     syncPerspectiveFromOrthographic(perspective, ortho, target, ASPECT);
@@ -355,7 +355,7 @@ test('switching back after zooming far into the model keeps the camera outside i
     syncPerspectiveFromOrthographic(perspective, ortho, target, ASPECT);
     assert.ok(bounds.containsPoint(perspective.position), 'unconstrained switch enters the model');
 
-    assert.equal(keepCameraOutsideBounds(perspective, target, bounds, perspective.fov), true);
+    assert.equal(keepCameraOutsideBounds(perspective, target, model, perspective.fov), true);
 
     assertOnBoundsSurface(perspective.position, bounds, 'perspective camera');
     const nextDirection = perspective.position.clone().sub(target).normalize();
@@ -364,6 +364,111 @@ test('switching back after zooming far into the model keeps the camera outside i
         perspective.near < perspective.position.distanceTo(target),
         'near plane stays in front of the target'
     );
+});
+
+test('orthographic panning keeps the actual camera outside at normal and zoomed-out scales', () => {
+    const model = createSlab();
+    const bounds = cameraKeepOutBounds(model);
+    const mesh = new THREE.Mesh(
+        new THREE.BoxGeometry(140, 140, 3),
+        new THREE.MeshBasicMaterial({ side: THREE.FrontSide })
+    );
+    mesh.position.set(70, 70, 1.5);
+    mesh.updateMatrixWorld();
+
+    for (const zoom of [1, 0.25]) {
+        const target = new THREE.Vector3(70, 70, 1.5);
+        const perspective = createPerspective(new THREE.Vector3(130, 70, 6), target);
+        const ortho = orthographicFromPerspective(perspective, target, ASPECT);
+        ortho.zoom = zoom;
+        ortho.updateProjectionMatrix();
+        const controls = new OrbitControls(ortho, null);
+        controls.target.copy(target);
+        controls.update();
+        assert.equal(
+            keepCameraOutsideBounds(ortho, controls.target, model, perspective.fov),
+            false
+        );
+
+        // A translation in the view plane, as produced by OrbitControls screen-space panning.
+        const pan = new THREE.Vector3(0.375, 0, -5);
+        const direction = ortho.position.clone().sub(target).normalize();
+        assertClose(pan.dot(direction), 0, 'screen-space pan');
+        ortho.position.add(pan);
+        controls.target.add(pan);
+        controls.update();
+        assert.ok(model.containsPoint(ortho.position), 'unconstrained pan enters the model');
+        const pannedTarget = controls.target.clone();
+
+        assert.equal(keepCameraOutsideBounds(ortho, controls.target, model, perspective.fov), true);
+
+        assertOnBoundsSurface(ortho.position, bounds, 'orthographic camera');
+        assertVectorClose(controls.target, pannedTarget, 'panned target');
+        assertVectorClose(
+            ortho.position.clone().sub(controls.target).normalize(),
+            direction,
+            'view direction'
+        );
+        if (zoom < 1) assertClose(ortho.zoom, zoom, 'safe zoom is preserved');
+        ortho.updateMatrixWorld();
+        const ray = new THREE.Raycaster(
+            ortho.position,
+            ortho.getWorldDirection(new THREE.Vector3())
+        );
+        const hit = ray.intersectObject(mesh)[0];
+        assert.ok(hit, 'the camera sees a front-facing surface');
+        const projected = hit.point.clone().project(ortho);
+        assert.ok(projected.z >= -1 && projected.z <= 1, 'surface lies between clipping planes');
+
+        syncPerspectiveFromOrthographic(perspective, ortho, controls.target, ASPECT);
+        assert.ok(
+            !bounds.clone().expandByScalar(-1e-9).containsPoint(perspective.position),
+            'the matching perspective camera also stays outside'
+        );
+    }
+    mesh.geometry.dispose();
+    mesh.material.dispose();
+});
+
+test('dollying after an orthographic zoom-out keeps nearby surfaces ahead of the near plane', () => {
+    const model = createSlab();
+    const bounds = cameraKeepOutBounds(model);
+    const target = new THREE.Vector3();
+    const perspective = new THREE.PerspectiveCamera(45, ASPECT, 0.1, 1000);
+    framePerspectiveCamera(perspective, model, target);
+    const ortho = orthographicFromPerspective(perspective, target, ASPECT);
+    ortho.zoom = 0.25;
+    ortho.updateProjectionMatrix();
+    syncPerspectiveFromOrthographic(perspective, ortho, target, ASPECT);
+    assert.ok(perspective.near > 3, 'the zoom-out enlarged the near plane');
+    const direction = perspective.position.clone().sub(target).normalize();
+
+    // Check approaching the stop distance as well as crossing it. A near-plane correction must
+    // also run while the camera is still outside the keep-out box.
+    for (const clearance of [2.1, 0.1]) {
+        const distance = (model.max.z + clearance - target.z) / direction.z;
+        perspective.position.copy(target).addScaledVector(direction, distance);
+        const beforePosition = perspective.position.clone();
+
+        assert.equal(keepCameraOutsideBounds(perspective, target, model, perspective.fov), true);
+
+        if (clearance > bounds.max.z - model.max.z) {
+            assertVectorClose(perspective.position, beforePosition, 'unobstructed position');
+        } else {
+            assertOnBoundsSurface(perspective.position, bounds, 'perspective camera');
+        }
+        perspective.updateMatrixWorld();
+        const surfaceDistance = (perspective.position.z - model.max.z) / direction.z;
+        const surface = perspective.position.clone().addScaledVector(direction, -surfaceDistance);
+        const projected = surface.project(perspective);
+        assert.ok(projected.z >= -1 && projected.z <= 1, 'nearby surface remains visible');
+        assert.ok(perspective.near > 0, 'near plane stays positive');
+        assert.ok(
+            perspective.position.z - model.max.z < 3,
+            'flat prints remain inspectable up close'
+        );
+        assert.equal(keepCameraOutsideBounds(perspective, target, model, perspective.fov), false);
+    }
 });
 
 test('an empty keep-out region leaves the camera unchanged', () => {

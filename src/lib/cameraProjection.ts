@@ -120,7 +120,7 @@ export function framePerspectiveCamera(
 
 /**
  * Region the camera must stay out of: the model's bounding box plus a margin of twice the framing
- * near plane, so the near plane cannot clip the surface the camera stops at.
+ * near plane. The constraint also reduces an enlarged near plane as the camera approaches it.
  */
 export function cameraKeepOutBounds(model: THREE.Box3): THREE.Box3 {
     const radius = model.getBoundingSphere(new THREE.Sphere()).radius;
@@ -154,38 +154,55 @@ function directionFromTarget(
 }
 
 /**
- * Keeps the camera from looking at `target` from inside `bounds`, where front-facing model
- * materials leave an empty or clipped view. A perspective camera inside the box moves back along
- * its view direction to the box surface. An orthographic camera's zoom is capped where the
- * matching perspective camera (see `syncPerspectiveFromOrthographic`) would reach the box, so
- * switching projections never places the perspective camera inside the model either.
+ * Keeps either camera outside `model` plus its framing margin, where front-facing materials
+ * otherwise leave an empty or clipped view. An orthographic camera's zoom is also capped where
+ * the matching perspective camera (see `syncPerspectiveFromOrthographic`) would reach the box.
+ * The near plane shrinks when necessary for close-ups, including after projection switching has
+ * enlarged it. Pass the original model bounds, without the keep-out margin.
  *
  * Returns whether the camera changed.
  */
 export function keepCameraOutsideBounds(
     camera: THREE.PerspectiveCamera | THREE.OrthographicCamera,
     target: THREE.Vector3,
-    bounds: THREE.Box3,
+    model: THREE.Box3,
     perspectiveFov: number
 ): boolean {
-    if (bounds.isEmpty()) return false;
+    if (model.isEmpty()) return false;
+    const bounds = cameraKeepOutBounds(model);
     const direction = directionFromTarget(camera, target);
+    let changed = false;
 
-    if (camera instanceof THREE.PerspectiveCamera) {
-        if (!bounds.containsPoint(camera.position)) return false;
+    // Orthographic zoom does not move the camera. Panning can put its actual position inside
+    // the model even when its matching perspective position is already safely outside.
+    if (bounds.containsPoint(camera.position)) {
         const exit = distanceToExit(camera.position, direction, bounds);
-        if (exit <= 0) return false;
-        camera.position.addScaledVector(direction, exit);
-        return true;
+        if (exit > 0) {
+            camera.position.addScaledVector(direction, exit);
+            changed = true;
+        }
     }
 
-    const tanHalfFov = Math.tan(THREE.MathUtils.degToRad(perspectiveFov) / 2);
-    const distance = visibleViewHeight(camera, target) / (2 * tanHalfFov);
-    const position = target.clone().addScaledVector(direction, distance);
-    if (!bounds.containsPoint(position)) return false;
-    const exit = distanceToExit(position, direction, bounds);
-    if (exit <= 0) return false;
-    camera.zoom = (camera.top - camera.bottom) / (2 * (distance + exit) * tanHalfFov);
-    camera.updateProjectionMatrix();
-    return true;
+    if (camera instanceof THREE.OrthographicCamera) {
+        const tanHalfFov = Math.tan(THREE.MathUtils.degToRad(perspectiveFov) / 2);
+        const distance = visibleViewHeight(camera, target) / (2 * tanHalfFov);
+        const position = target.clone().addScaledVector(direction, distance);
+        if (bounds.containsPoint(position)) {
+            const exit = distanceToExit(position, direction, bounds);
+            if (exit > 0) {
+                camera.zoom = (camera.top - camera.bottom) / (2 * (distance + exit) * tanHalfFov);
+                changed = true;
+            }
+        }
+    }
+
+    // Projection switching scales the near plane with orthographic zoom. Use actual model
+    // clearance, rather than distance to the panned target, to keep nearby surfaces visible.
+    const near = Math.min(camera.near, model.distanceToPoint(camera.position) / 2);
+    if (near !== camera.near) {
+        camera.near = near;
+        changed = true;
+    }
+    if (changed) camera.updateProjectionMatrix();
+    return changed;
 }

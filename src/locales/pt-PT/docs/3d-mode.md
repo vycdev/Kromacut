@@ -147,6 +147,8 @@ Fotografe uma placa de receitas guardada, verifique alinhamento e guarde cores m
 
 Arraste com o botão principal para rodar, use roda para ampliar e botão secundário para deslocar. A câmara nunca altera dimensões físicas.
 
+A câmara mantém-se junto ao modelo, mas no exterior, em ambas as projeções. O zoom ortográfico é limitado para que a câmara também permaneça no exterior ao mudar para Perspetiva.
+
 | Controlo | Utilidade | Efeito na impressão |
 | ------------------ | ------------------------------------------------------------------------ | --------------------------------------------------------------------------------- |
 | **Cor fiel** | Comparar amostras sem iluminação de cena nem mapeamento tonal cinematográfico. | Só vista. Depende do modelo e ecrã; não valida calibração. |

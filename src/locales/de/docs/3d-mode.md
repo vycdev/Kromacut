@@ -147,6 +147,8 @@ Fotografiere eine gespeicherte Rezepttafel, prüfe ihre Ausrichtung und speicher
 
 Ziehe mit der primären Maustaste zum Drehen, nutze das Mausrad zum Zoomen und ziehe mit der sekundären Taste zum Verschieben. Kamerabewegungen verändern niemals physische Abmessungen.
 
+Die Kamera bleibt in beiden Projektionen knapp außerhalb des Modells. Der orthografische Zoom ist begrenzt, damit die Kamera auch beim Wechsel zur Perspektive außerhalb bleibt.
+
 | Werkzeugleistenfunktion | Verwendung | Auswirkung auf den Druck |
 | ------------------ | ------------------------------------------------------------------------ | --------------------------------------------------------------------------------- |
 | **Farbtreu** | Ausgewählte Farbfelder ohne Szenenbeleuchtung oder filmische Tonwertabbildung vergleichen. | Nur Vorschau. Hängt weiterhin von Modell und Bildschirm ab; keine Kalibrierungsbestätigung. |

@@ -147,6 +147,8 @@ Fotografiază o placă de rețete salvată, verifică alinierea și salvează cu
 
 Trage cu butonul principal al mouse-ului pentru orbitare, folosește rotița pentru zoom și trage cu butonul secundar pentru deplasare. Mișcarea camerei nu schimbă niciodată dimensiunile fizice.
 
+Camera rămâne imediat în afara modelului în ambele proiecții. Zoomul ortografic este limitat astfel încât camera să rămână în exterior și la trecerea în perspectivă.
+
 | Comandă din bară | Utilizare | Efect asupra imprimării |
 | ------------------ | ------------------------------------------------------------------------ | --------------------------------------------------------------------------------- |
 | **Culori exacte** | Compară mostrele selectate fără iluminarea scenei sau mapare tonală cinematografică. | Doar previzualizare. Depinde în continuare de model și ecran; nu validează calibrarea. |
