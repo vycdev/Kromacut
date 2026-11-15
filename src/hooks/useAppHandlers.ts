@@ -6,7 +6,7 @@ import type { SwatchEntry } from './useSwatches';
 import { clampProgress } from '../lib/progress';
 import { decodeImage } from '../lib/decodeImage';
 import { saveBlobToFile } from './saveBlobToFile';
-import { openModelInSlicer } from '../lib/desktopSlicer';
+import { openModelInSlicer, type SlicerApp } from '../lib/desktopSlicer';
 import type * as THREE from 'three';
 
 export interface UseAppHandlersParams {
@@ -331,10 +331,10 @@ export function useAppHandlers(params: UseAppHandlersParams) {
     );
 
     const onOpenInSlicer = useCallback(
-        () =>
+        (slicer: SlicerApp | null) =>
             export3MF({
                 stepLabel: 'Opening 3MF in slicer',
-                deliver: openModelInSlicer,
+                deliver: (blob, fileName) => openModelInSlicer(blob, fileName, slicer),
                 failureMessage: 'messages:files.slicerFailed',
             }),
         [export3MF]

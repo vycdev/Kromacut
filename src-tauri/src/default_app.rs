@@ -9,7 +9,7 @@ pub fn open_with_default_app(path: &Path) -> io::Result<()> {
 }
 
 #[cfg(target_os = "macos")]
-fn checked_launcher(command: &mut std::process::Command) -> io::Result<()> {
+pub(crate) fn checked_launcher(command: &mut std::process::Command) -> io::Result<()> {
     // `open` exits after dispatch unless passed -W. Merely spawning it loses Launch Services
     // failures such as a missing association, which are reported through its exit status.
     let output = command.output()?;
