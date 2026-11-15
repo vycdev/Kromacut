@@ -497,14 +497,18 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
 
         // === 2D touch-up tools ===
 
+        // A pending external history entry still shows the previous preview.
+        // Only our own commits may use those live pixels before their shared
+        // snapshot loads: they were already applied to the original canvas.
+        const hasCurrentImagePixels = () =>
+            !!imageSrc &&
+            !!originalCanvasRef.current &&
+            ((!!imageCanvas && committedCanvasRef.current === imageCanvas) ||
+                selfCommitSrcRef.current === imageSrc ||
+                selfCommitSrcsRef.current.has(imageSrc));
+
         const touchUpActive =
-            !!touchUpTool &&
-            !isCropMode &&
-            imageLoaded &&
-            (!!imageCanvas ||
-                (!!imageSrc &&
-                    (selfCommitSrcRef.current === imageSrc ||
-                        selfCommitSrcsRef.current.has(imageSrc))));
+            !!touchUpTool && !isCropMode && imageLoaded && hasCurrentImagePixels();
         const showBrushOutline =
             touchUpActive && (touchUpTool === 'brush' || touchUpTool === 'eraser');
         const brushOutlineRef = useRef<HTMLDivElement | null>(null);
@@ -1160,7 +1164,8 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
                 });
             },
             exportCroppedImage: async (): Promise<Blob | null> => {
-                const img = committedCanvasRef.current;
+                if (!hasCurrentImagePixels()) return null;
+                const img = originalCanvasRef.current;
                 const sel = selectionRef.current;
                 if (!img || !sel) return null;
                 const layout = computeImageLayout();
@@ -1205,7 +1210,7 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
                 return hasValidCropSelection;
             },
             exportImageBlob: async (): Promise<Blob | null> => {
-                if (!imageLoaded) return null;
+                if (!hasCurrentImagePixels()) return null;
                 const source = originalCanvasRef.current ?? committedCanvasRef.current;
                 if (!source) return null;
                 const iw = source.width;
@@ -1228,6 +1233,7 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
             exportAdjustedImageBlob: async (
                 adjustmentsOverride?: Record<string, number>
             ): Promise<Blob | null> => {
+                if (!hasCurrentImagePixels()) return null;
                 const img = committedCanvasRef.current;
                 if (!img) return null;
                 const iw = img.width;
