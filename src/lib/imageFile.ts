@@ -24,6 +24,8 @@ export type DecodedImage = {
     close: () => void;
 };
 
+type BitmapDecodeOptions = Pick<ImageBitmapOptions, 'premultiplyAlpha'>;
+
 /**
  * Decodes a file once, refusing it if it is incomplete.
  *
@@ -37,7 +39,11 @@ export type DecodedImage = {
  * `createImageBitmap`, decode in an `<img>` instead. Reading the bytes can also
  * fail, for example when the file changes on disk after it was chosen.
  */
-async function decodeImageFile(file: Blob, url: string): Promise<DecodedImage | null> {
+async function decodeImageFile(
+    file: Blob,
+    url: string,
+    bitmapOptions?: BitmapDecodeOptions
+): Promise<DecodedImage | null> {
     try {
         if (isTruncatedImageData(new Uint8Array(await file.arrayBuffer()))) return null;
         if (file.type === 'image/svg+xml' || typeof createImageBitmap !== 'function') {
@@ -46,7 +52,9 @@ async function decodeImageFile(file: Blob, url: string): Promise<DecodedImage | 
             const { naturalWidth: width, naturalHeight: height } = image;
             return { source: image, width, height, close: () => {} };
         }
-        const bitmap = await createImageBitmap(file);
+        const bitmap = bitmapOptions
+            ? await createImageBitmap(file, bitmapOptions)
+            : await createImageBitmap(file);
         const { width, height } = bitmap;
         return { source: bitmap, width, height, close: () => bitmap.close() };
     } catch {
@@ -93,12 +101,16 @@ export type ImageFileValidation =
  * Checks that a chosen or dropped file is an image the browser can read in full.
  * On success the caller owns the decoded image and the returned object URL, and
  * must close the image and revoke the URL when they are no longer needed; on
- * failure no URL is left open.
+ * failure no URL is left open. Bitmap options are opt-in so existing consumers,
+ * including Stack Matrix, retain their current pixel conversion and sampling.
  */
-export async function validateImageFile(file: File): Promise<ImageFileValidation> {
+export async function validateImageFile(
+    file: File,
+    bitmapOptions?: BitmapDecodeOptions
+): Promise<ImageFileValidation> {
     if (!isImageFile(file)) return { ok: false, reason: 'notImage' };
     const url = URL.createObjectURL(file);
-    const image = await decodeImageFile(file, url);
+    const image = await decodeImageFile(file, url, bitmapOptions);
     if (image) return { ok: true, image, url };
     URL.revokeObjectURL(url);
     return { ok: false, reason: 'undecodable' };

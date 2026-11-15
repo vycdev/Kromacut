@@ -11,7 +11,19 @@ const rocco = readFileSync(fileURLToPath(new URL('../assets/rocco__source.png', 
 test('@smoke unreadable and truncated Stack Matrix photos report an error and keep the current photo', async ({
     page,
 }) => {
-    await page.addInitScript(() => localStorage.clear());
+    await page.addInitScript(() => {
+        localStorage.clear();
+        const state = { defaultBitmapOptions: true, bitmapCalls: 0 };
+        (window as unknown as { matrixPhotoDecodes: typeof state }).matrixPhotoDecodes = state;
+        const createBitmap = window.createImageBitmap.bind(window);
+        window.createImageBitmap = ((...args: Parameters<typeof createImageBitmap>) => {
+            if (args[0] instanceof File) {
+                state.bitmapCalls++;
+                state.defaultBitmapOptions &&= Array.from(args).length === 1;
+            }
+            return createBitmap(...args);
+        }) as typeof createImageBitmap;
+    });
     await page.goto('/app');
     await expect(page.getByTestId('image-file-input')).toBeAttached();
     await page.getByRole('button', { name: '3D', exact: true }).click();
@@ -99,4 +111,16 @@ test('@smoke unreadable and truncated Stack Matrix photos report an error and ke
     await expect(canvas).toHaveAttribute('width', '200');
     await expect(canvas).toHaveAttribute('height', '400');
     await expect(openFailed).toHaveCount(0);
+    // Main imports opt into a different alpha conversion policy. Stack Matrix
+    // must retain its existing decode options and measured photo colors.
+    expect(
+        await page.evaluate(() => {
+            const state = (
+                window as unknown as {
+                    matrixPhotoDecodes: { defaultBitmapOptions: boolean; bitmapCalls: number };
+                }
+            ).matrixPhotoDecodes;
+            return state.bitmapCalls > 0 && state.defaultBitmapOptions;
+        })
+    ).toBe(true);
 });

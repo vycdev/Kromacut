@@ -112,7 +112,10 @@ export function useImageImport() {
                 busyTimerRef.current = null;
                 if (request === requestRef.current) setIsImporting(true);
             }, 150);
-            const result = await validateImageFile(file);
+            // Convert profiled colors before premultiplying alpha, as <img>
+            // does on history reloads. Premultiplying in the source color space
+            // first can change translucent Display P3 pixels in Chromium.
+            const result = await validateImageFile(file, { premultiplyAlpha: 'none' });
             if (request !== requestRef.current) {
                 if (result.ok) {
                     result.image.close();

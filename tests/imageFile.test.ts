@@ -81,7 +81,12 @@ const rocco = readFileSync(new URL('./assets/rocco__source.png', import.meta.url
  * createImageBitmap, so only the structural check can refuse it.
  */
 async function withBrowserStubs(
-    options: { decodes?: boolean; bitmapRejects?: boolean; noBitmap?: boolean },
+    options: {
+        decodes?: boolean;
+        bitmapRejects?: boolean;
+        noBitmap?: boolean;
+        onBitmapCall?: (args: unknown[]) => void;
+    },
     run: (
         urls: { created: string[]; revoked: string[] },
         decodes: { images: number; bitmaps: number; closedBitmaps: number }
@@ -113,8 +118,9 @@ async function withBrowserStubs(
     };
     if (options.noBitmap) delete globals.createImageBitmap;
     else
-        globals.createImageBitmap = async () => {
+        globals.createImageBitmap = async (...args: unknown[]) => {
             decodes.bitmaps += 1;
+            options.onBitmapCall?.(args);
             if (options.bitmapRejects) throw new Error('decode failed');
             return { width: 1000, height: 835, close: () => (decodes.closedBitmaps += 1) };
         };
@@ -148,7 +154,8 @@ const svg = () =>
     });
 
 test('validateImageFile decodes a raster file once and leaves its URL open', async () => {
-    await withBrowserStubs({}, async (urls, decodes) => {
+    const calls: unknown[][] = [];
+    await withBrowserStubs({ onBitmapCall: (args) => calls.push(args) }, async (urls, decodes) => {
         const result = await validateImageFile(png(rocco));
         assert.equal(result.ok, true);
         if (!result.ok) return;
@@ -157,10 +164,49 @@ test('validateImageFile decodes a raster file once and leaves its URL open', asy
         assert.deepEqual(decodes, { images: 0, bitmaps: 1, closedBitmaps: 0 });
         assert.deepEqual(urls.created, [result.url]);
         assert.deepEqual(urls.revoked, []);
+        assert.equal(calls.length, 1);
+        assert.equal(calls[0].length, 1, 'default consumers keep the existing bitmap options');
         result.image.close();
         assert.equal(decodes.closedBitmaps, 1);
         URL.revokeObjectURL(result.url);
     });
+});
+
+test('main imports can request unpremultiplied pixels with one decode and one close', async () => {
+    const calls: unknown[][] = [];
+    await withBrowserStubs({ onBitmapCall: (args) => calls.push(args) }, async (urls, decodes) => {
+        const file = png(rocco);
+        const result = await validateImageFile(file, { premultiplyAlpha: 'none' });
+        assert.ok(result.ok);
+        assert.deepEqual(calls, [[file, { premultiplyAlpha: 'none' }]]);
+        assert.deepEqual(decodes, { images: 0, bitmaps: 1, closedBitmaps: 0 });
+        result.image.close();
+        assert.equal(decodes.closedBitmaps, 1);
+        URL.revokeObjectURL(result.url);
+        assert.deepEqual(urls.revoked, urls.created);
+    });
+});
+
+test('unpremultiplied bitmap options keep rejection and fallback behavior', async () => {
+    await withBrowserStubs({ bitmapRejects: true }, async (urls, decodes) => {
+        assert.deepEqual(await validateImageFile(png(rocco), { premultiplyAlpha: 'none' }), {
+            ok: false,
+            reason: 'undecodable',
+        });
+        assert.deepEqual(decodes, { images: 0, bitmaps: 1, closedBitmaps: 0 });
+        assert.deepEqual(urls.revoked, urls.created);
+    });
+    for (const options of [{ noBitmap: true }, { bitmapRejects: true }]) {
+        await withBrowserStubs(options, async (urls, decodes) => {
+            const file = options.noBitmap ? png(rocco) : svg();
+            const result = await validateImageFile(file, { premultiplyAlpha: 'none' });
+            assert.ok(result.ok);
+            assert.deepEqual(decodes, { images: 1, bitmaps: 0, closedBitmaps: 0 });
+            result.image.close();
+            URL.revokeObjectURL(result.url);
+            assert.deepEqual(urls.revoked, urls.created);
+        });
+    }
 });
 
 test('validateImageFile refuses a truncated PNG before decoding it', async () => {

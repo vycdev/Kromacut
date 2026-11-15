@@ -1,4 +1,12 @@
 import { expect, test, type Page } from '@playwright/test';
+import { readFileSync } from 'node:fs';
+
+// A Display P3 PNG exported from a color-managed canvas. Its four pixels use
+// P3 (0.8, 0.25, 0.6) with alpha 1, 0.75, 0.5, and 0.25. A fixed tagged fixture
+// also exercises WebKit platforms that cannot create Display P3 canvases.
+const profiledPixels = readFileSync(
+    new URL('../assets/translucent-display-p3.png', import.meta.url)
+);
 
 type DecodeState = {
     loads: Record<string, number>;
@@ -138,6 +146,91 @@ async function importRedImage(page: Page) {
     });
     await expect(page.getByText('Current', { exact: true }).locator('..')).toContainText('64x48');
     await expect(page.getByTestId('quantize-apply')).toBeEnabled();
+}
+
+for (const fallback of [false, true]) {
+    test(`@smoke translucent Display P3 imports keep their pixels through history (${fallback ? 'img fallback' : 'bitmap'})`, async ({
+        page,
+    }) => {
+        await instrument(page, fallback);
+        await page.goto('/app');
+        // Match the <img> path used for history reloads, independently of the
+        // import's bitmap settings. Data URLs do not affect our URL counters.
+        const expected = await page.evaluate(async (base64) => {
+            const image = new Image();
+            await new Promise<void>((resolve, reject) => {
+                image.onload = () => resolve();
+                image.onerror = () => reject(new Error('Profiled fixture could not load'));
+                image.src = `data:image/png;base64,${base64}`;
+            });
+            const canvas = document.createElement('canvas');
+            canvas.width = 4;
+            canvas.height = 1;
+            const context = canvas.getContext('2d', { willReadFrequently: true })!;
+            context.drawImage(image, 0, 0);
+            return Array.from(context.getImageData(0, 0, 4, 1).data);
+        }, profiledPixels.toString('base64'));
+        const preview = page.getByTestId('image-dropzone').locator('canvas').first();
+        const pixels = () =>
+            preview.evaluate((canvas: HTMLCanvasElement) => {
+                const context = canvas.getContext('2d')!;
+                return [0.125, 0.375, 0.625, 0.875].flatMap((fraction) =>
+                    Array.from(
+                        context.getImageData(
+                            Math.floor(canvas.width * fraction),
+                            Math.floor(canvas.height / 2),
+                            1,
+                            1
+                        ).data
+                    )
+                );
+            });
+        const expectImage = async () => {
+            await expect.poll(pixels).toEqual(expected);
+            for (let offset = 0; offset < expected.length; offset += 4) {
+                const hex = Buffer.from(expected.slice(offset, offset + 3)).toString('hex');
+                await expect(
+                    page.getByTitle(
+                        `#${hex}  alpha:${expected[offset + 3]}  count:1`,
+                        { exact: true }
+                    )
+                ).toBeAttached();
+            }
+        };
+        const importLoads = fallback ? 1 : 0;
+        for (let count = 1; count <= 2; count++) {
+            await page.getByTestId('image-file-input').setInputFiles({
+                name: `profiled-${count}.png`,
+                mimeType: 'image/png',
+                buffer: profiledPixels,
+            });
+            await expect(page.getByText('Current', { exact: true }).locator('..')).toContainText(
+                '4x1'
+            );
+            await expect(page.getByTestId('quantize-apply')).toBeEnabled();
+            await expectImage();
+            await expect.poll(() => decodes(page)).toEqual({
+                loads: Array(count).fill(importLoads),
+                draws: Array(count).fill(importLoads),
+                bitmaps: fallback ? 0 : count,
+                closes: fallback ? 0 : count,
+            });
+        }
+        await page.getByRole('button', { name: 'Undo', exact: true }).click();
+        await expectImage();
+        await expect.poll(() => decodes(page)).toMatchObject({
+            loads: [importLoads + 1, importLoads],
+            draws: [importLoads + 1, importLoads],
+        });
+        await page.getByRole('button', { name: 'Redo', exact: true }).click();
+        await expectImage();
+        await expect.poll(() => decodes(page)).toEqual({
+            loads: [importLoads + 1, importLoads + 1],
+            draws: [importLoads + 1, importLoads + 1],
+            bitmaps: fallback ? 0 : 2,
+            closes: fallback ? 0 : 2,
+        });
+    });
 }
 
 for (const fallback of [false, true]) {
