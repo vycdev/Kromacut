@@ -11,6 +11,12 @@ Auto-paint sagt das Aussehen dünner, übereinanderliegender Filamentschichten v
 
 Lege [physische Größe, Schichthöhen und effektive Linienbreite](3d-mode#3d-print-settings) fest, füge tatsächlich verfügbare Filamente hinzu, warte auf die Berechnung und klicke auf **3D-Modell erstellen**. Eingaben lösen automatisch eine Neuberechnung aus; die angezeigte Geometrie aktualisiert sich erst beim Erstellen.
 
+## Große Paletten und Abbrechen
+
+Die Suchzeit hängt von der Anzahl verschiedener Zielfarben ab, nicht nur von den Bildmaßen. Ab 4.096 Zielfarben zeigt der erweiterte Farbabgleich Hinweise und wartet auf **Auto-paint starten**. Bei Fotos zuerst **2D → Farbquantisierung → Anwenden** mit 16–32 Farben versuchen. **Gesamtlimit für Wiederholungen** ausschalten oder **Schnell** und **Kompakt** wählen reduziert ebenfalls den Suchaufwand; diese Optionen können das Ergebnis ändern. Die Abkürzung setzt alle drei Optionen und wartet weiterhin auf den Start. Farben werden nicht automatisch reduziert.
+
+Während der Filamentsuche beendet **Auto-paint abbrechen** den Hintergrundprozess. Die Suche bleibt bis **Auto-paint starten** oder einer Einstellungsänderung gestoppt. Einstellungsänderungen und der Wechsel zu 2D brechen laufende Arbeit ebenfalls ab. Die Fortschrittsanzeige ist keine Zeitschätzung. Beim Abbrechen entsteht kein neues Modell; eine frühere Vorschau kann sichtbar bleiben. Nach dem Berechnen **3D-Modell erstellen** wählen.
+
 ## Filamenteingaben
 
 | Steuerelement | Eingabe oder Aktion | Wirkung |

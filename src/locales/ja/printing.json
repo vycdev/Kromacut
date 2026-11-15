@@ -192,6 +192,12 @@
         "isolationValue": "独立性：<value>{{value}}</value>"
     },
     "threeDControls": {
+        "runAutoPaint": "Auto-paintを実行",
+        "cancelAutoPaint": "Auto-paintをキャンセル",
+        "highTargetCount": "この画像には{{colors, number}}種類のターゲット色があります。拡張検索は、特に繰り返しを有効にすると数分かかることがあります。",
+        "highTargetGuidance": "速く始めるには、2D → 減色設定 → 適用で16～32色に減色するか、繰り返しをオフにするか、高速 / コンパクトを使用してください。現在の設定で続けるにはAuto-paintを実行してください。",
+        "useFastCompact": "高速 / コンパクト、繰り返しオフに設定",
+        "autoPaintCancelled": "Auto-paintをキャンセルしました。再実行するか設定を変更してください。",
         "build3DModel": "3Dモデルを作成",
         "manual": "手動",
         "autoPaint": "自動ペイント",

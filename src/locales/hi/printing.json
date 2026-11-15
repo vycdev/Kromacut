@@ -192,6 +192,12 @@
         "isolationValue": "अलगाव: <value>{{value}}</value>"
     },
     "threeDControls": {
+        "runAutoPaint": "Auto-paint चलाएँ",
+        "cancelAutoPaint": "Auto-paint रद्द करें",
+        "highTargetCount": "इस छवि में {{colors, number}} अलग लक्ष्य रंग हैं। उन्नत खोज में कई मिनट लग सकते हैं, विशेषकर दोहराव चालू होने पर।",
+        "highTargetGuidance": "तेज़ शुरुआत के लिए 2D → रंग-संख्या घटाने की सेटिंग्स → लागू करें में 16–32 रंग चुनें, दोहराव बंद करें या तेज़ / संक्षिप्त इस्तेमाल करें। मौजूदा सेटिंग्स के साथ जारी रखने के लिए Auto-paint चलाएँ।",
+        "useFastCompact": "तेज़ / संक्षिप्त, दोहराव बंद करें",
+        "autoPaintCancelled": "Auto-paint रद्द हुआ। फिर से Auto-paint चलाएँ या सेटिंग्स बदलें।",
         "build3DModel": "3D मॉडल बनाएँ",
         "manual": "मैनुअल",
         "autoPaint": "स्वचालित रंगाई",

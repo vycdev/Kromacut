@@ -1,0 +1,66 @@
+{
+    "baseline": "31b3881d1cdcb3cd24eee50d207aa141a3ce8fab",
+    "seed": 12345,
+    "results": [
+        {
+            "name": "B&W / logo-png / enhanced=true / repeats=false",
+            "fingerprint": "final-stack-v1-a04b306146d1a428",
+            "score": 57.961303116170896
+        },
+        {
+            "name": "B&W / logo-png / enhanced=true / repeats=true",
+            "fingerprint": "final-stack-v1-e823541f14f23539",
+            "score": 55.502280439025085
+        },
+        {
+            "name": "B&W / large-jpeg / enhanced=true / repeats=false",
+            "fingerprint": "final-stack-v1-d2fa9cedde52ec8a",
+            "score": 41.87307031846494
+        },
+        {
+            "name": "B&W / large-jpeg / enhanced=true / repeats=true",
+            "fingerprint": "final-stack-v1-265680b867578a4b",
+            "score": 34.57622400302855
+        },
+        {
+            "name": "GH#27 / logo-png / enhanced=true / repeats=false",
+            "fingerprint": "final-stack-v1-5ac170ea157e4acf",
+            "score": 59.5588316180687
+        },
+        {
+            "name": "GH#27 / logo-png / enhanced=true / repeats=true",
+            "fingerprint": "final-stack-v1-a89b21e940bf6a76",
+            "score": 59.46433932231491
+        },
+        {
+            "name": "GH#27 / large-jpeg / enhanced=true / repeats=false",
+            "fingerprint": "final-stack-v1-f318d0036d495aa0",
+            "score": 22.691880890396234
+        },
+        {
+            "name": "GH#27 / large-jpeg / enhanced=true / repeats=true",
+            "fingerprint": "final-stack-v1-4db68473bfd88b5f",
+            "score": 18.32585946383311
+        },
+        {
+            "name": "Current 8 Colors / logo-png / enhanced=true / repeats=false",
+            "fingerprint": "final-stack-v1-bd39177a855128da",
+            "score": 21.926520845645793
+        },
+        {
+            "name": "Current 8 Colors / logo-png / enhanced=true / repeats=true",
+            "fingerprint": "final-stack-v1-deaca9208cd17d01",
+            "score": 16.03042088818967
+        },
+        {
+            "name": "Current 8 Colors / large-jpeg / enhanced=true / repeats=false",
+            "fingerprint": "final-stack-v1-30a80c94ae518551",
+            "score": 30.553828603784485
+        },
+        {
+            "name": "Current 8 Colors / large-jpeg / enhanced=true / repeats=true",
+            "fingerprint": "final-stack-v1-da28444ade058ffe",
+            "score": 29.771525593972527
+        }
+    ]
+}

@@ -337,8 +337,16 @@ export function blendColors(
 
 /** Calculate Delta E (CIEDE2000) directly from Lab values. */
 export function deltaE2000Lab(lab1: Lab, lab2: Lab): number {
-    const chroma1 = Math.hypot(lab1.a, lab1.b);
-    const chroma2 = Math.hypot(lab2.a, lab2.b);
+    return deltaE2000LabWithChroma(
+        lab1,
+        lab2,
+        Math.hypot(lab1.a, lab1.b),
+        Math.hypot(lab2.a, lab2.b)
+    );
+}
+
+/** Reuse exact, unrounded chromas when reranking many pairs from one palette. */
+function deltaE2000LabWithChroma(lab1: Lab, lab2: Lab, chroma1: number, chroma2: number): number {
     const averageChroma = (chroma1 + chroma2) / 2;
     const g = 0.5 * (1 - Math.sqrt(averageChroma ** 7 / (averageChroma ** 7 + 25 ** 7)));
     const a1 = (1 + g) * lab1.a;
@@ -412,8 +420,8 @@ function optimizerColorDistance(left: Lab, right: Lab): number {
 /**
  * Perceptual realized-error metric for the optimizer objective and benchmark
  * reporting. CIEDE2000 tracks visible print error far better than CIE76, and it
- * is only evaluated once per image target per sequence (after projection), so
- * its higher cost stays negligible against the search.
+ * is evaluated for the bounded printable shortlist after projection. Scoring
+ * reuses the winning error rather than evaluating that pair a second time.
  */
 function realizedColorError(left: Lab, right: Lab): number {
     return deltaE2000Lab(left, right);
@@ -1841,6 +1849,7 @@ export interface SequenceScoringWorkspace {
         assignedDistinct: Set<number>;
     };
     errorSamples: Array<{ value: number; weight: number }>;
+    realizedErrors: number[];
     bestMatchHeightKeys: Set<number>;
     usedPaletteEntries: Set<number>;
 }
@@ -1861,6 +1870,7 @@ export function createSequenceScoringWorkspace(): SequenceScoringWorkspace {
             assignedDistinct: new Set<number>(),
         },
         errorSamples: [],
+        realizedErrors: [],
         bestMatchHeightKeys: new Set<number>(),
         usedPaletteEntries: new Set<number>(),
     };
@@ -2390,22 +2400,43 @@ export function selectHybridPrintableCandidateIndex(
     target: Lab,
     candidateIndices: readonly number[]
 ): number {
+    return selectHybridPrintableCandidate(palette, target, candidateIndices).paletteIndex;
+}
+
+function selectHybridPrintableCandidate(
+    palette: readonly AchievableColor[],
+    target: Lab,
+    candidateIndices: readonly number[],
+    prepared?: { chromas: number[]; uncertainty: number[] }
+): { paletteIndex: number; realizedDeltaE?: number } {
     let paletteIndex = candidateIndices[0] ?? 0;
     let rerankedCost = Infinity;
+    let realizedDeltaE: number | undefined;
+    const targetChroma = prepared ? Math.hypot(target.a, target.b) : 0;
     for (const candidateIndex of candidateIndices) {
+        const deltaE = prepared
+            ? deltaE2000LabWithChroma(
+                  palette[candidateIndex].lab,
+                  target,
+                  prepared.chromas[candidateIndex],
+                  targetChroma
+              )
+            : realizedColorError(palette[candidateIndex].lab, target);
         const candidateCost =
-            realizedColorError(palette[candidateIndex].lab, target) +
-            (1 - predictionConfidenceValue(palette[candidateIndex])) *
-                PREDICTION_UNCERTAINTY_PENALTY;
+            deltaE +
+            (prepared?.uncertainty[candidateIndex] ??
+                (1 - predictionConfidenceValue(palette[candidateIndex])) *
+                    PREDICTION_UNCERTAINTY_PENALTY);
         if (
             candidateCost < rerankedCost - 1e-12 ||
             (Math.abs(candidateCost - rerankedCost) <= 1e-12 && candidateIndex < paletteIndex)
         ) {
             rerankedCost = candidateCost;
             paletteIndex = candidateIndex;
+            realizedDeltaE = deltaE;
         }
     }
-    return paletteIndex;
+    return { paletteIndex, realizedDeltaE };
 }
 
 type DitherPaletteEntry = Pick<
@@ -2531,8 +2562,15 @@ export function createFinalStackTargetHeightCache(
 export function mapTargetsToPrintablePalette(
     palette: AchievableColor[],
     imageTargets: WeightedLab[],
-    options: { preserveSeparation?: boolean; separationMaxDeltaE?: number } = {}
+    options: {
+        preserveSeparation?: boolean;
+        separationMaxDeltaE?: number;
+        /** Scorer-owned output, in target order; never retained across palettes. */
+        realizedErrors?: number[];
+    } = {}
 ): MappedTarget[] {
+    const realizedErrors = options.realizedErrors;
+    if (realizedErrors) realizedErrors.length = 0;
     if (palette.some((entry) => entry.surfaceEligible === false)) {
         const indices = palette.flatMap((entry, index) =>
             entry.surfaceEligible === false ? [] : [index]
@@ -2551,6 +2589,13 @@ export function mapTargetsToPrintablePalette(
         return mapTargetsWithSeparation(palette, imageTargets, options.separationMaxDeltaE)
             .mappedTargets;
     }
+
+    const prepared = {
+        chromas: palette.map(({ lab }) => Math.hypot(lab.a, lab.b)),
+        uncertainty: palette.map(
+            (entry) => (1 - predictionConfidenceValue(entry)) * PREDICTION_UNCERTAINTY_PENALTY
+        ),
+    };
 
     // Collapse consecutive near-identical layers into flat-zone nodes (ΔE<0.5),
     // matching ThreeDView. Each node keeps its height range and an averaged Lab.
@@ -2611,14 +2656,18 @@ export function mapTargetsToPrintablePalette(
     // next, tracing the blend path through the printable layers between them.
     const segments = nodes.slice(0, -1).map((A, ni) => {
         const B = nodes[ni + 1];
+        const dL = B.lab.L - A.lab.L;
+        const da = B.lab.a - A.lab.a;
+        const db = B.lab.b - A.lab.b;
         return {
             nodeIndex: ni,
             aL: A.lab.L,
             aa: A.lab.a,
             ab: A.lab.b,
-            dL: B.lab.L - A.lab.L,
-            da: B.lab.a - A.lab.a,
-            db: B.lab.b - A.lab.b,
+            dL,
+            da,
+            db,
+            lengthSquared: dL * dL + da * da + db * db,
             hStart: A.maxHeight,
             hEnd: B.minHeight,
         };
@@ -2647,7 +2696,7 @@ export function mapTargetsToPrintablePalette(
         return low < palette.length ? low : palette.length - 1;
     };
 
-    return imageTargets.map((target) => {
+    return imageTargets.map((target, targetIndex) => {
         if (hasExactAnchors) {
             const anchored = exactAnchorMapping(palette, target);
             if (anchored) return anchored;
@@ -2672,8 +2721,7 @@ export function mapTargetsToPrintablePalette(
             const candidateIndex = nodes[ni].paletteIndex;
             const selectionCost =
                 optimizerColorDistance(nodes[ni].lab, target) +
-                (1 - predictionConfidenceValue(palette[candidateIndex])) *
-                    PREDICTION_UNCERTAINTY_PENALTY;
+                prepared.uncertainty[candidateIndex];
             if (firstStageCandidateCount < HYBRID_GLOBAL_FIRST_STAGE_CANDIDATES) {
                 firstStageCandidateIndices.push(candidateIndex);
                 firstStageCandidateCosts.push(selectionCost);
@@ -2707,7 +2755,7 @@ export function mapTargetsToPrintablePalette(
         // Refine against the closest point on each transition segment.
         for (let segmentIndex = 0; segmentIndex < segments.length; segmentIndex++) {
             const seg = segments[segmentIndex];
-            const lengthSquared = seg.dL * seg.dL + seg.da * seg.da + seg.db * seg.db;
+            const lengthSquared = seg.lengthSquared;
             if (lengthSquared < 0.01) continue;
             const t = Math.max(
                 0,
@@ -2725,10 +2773,7 @@ export function mapTargetsToPrintablePalette(
             const projectedDistance = optimizerColorDistance(target, projectedLab);
             const projectedHeight = seg.hStart + t * (seg.hEnd - seg.hStart);
             const paletteIndex = paletteIndexAtOrAboveHeight(projectedHeight);
-            const selectionCost =
-                projectedDistance +
-                (1 - predictionConfidenceValue(palette[paletteIndex])) *
-                    PREDICTION_UNCERTAINTY_PENALTY;
+            const selectionCost = projectedDistance + prepared.uncertainty[paletteIndex];
             if (selectionCost < minimumSelectionCost) {
                 minimumSelectionCost = selectionCost;
                 onSegment = true;
@@ -2764,7 +2809,15 @@ export function mapTargetsToPrintablePalette(
             relevantIndices
         );
 
-        const paletteIndex = selectHybridPrintableCandidateIndex(palette, target, candidateIndices);
+        const { paletteIndex, realizedDeltaE } = selectHybridPrintableCandidate(
+            palette,
+            target,
+            candidateIndices,
+            prepared
+        );
+        if (realizedErrors && realizedDeltaE !== undefined) {
+            realizedErrors[targetIndex] = realizedDeltaE;
+        }
         return {
             target,
             paletteIndex,
@@ -2908,7 +2961,11 @@ export function evaluateSequenceAgainstImage(
           )
         : undefined;
     const mapped =
-        separation?.mappedTargets ?? mapTargetsToPrintablePalette(palette, imageTargets, options);
+        separation?.mappedTargets ??
+        mapTargetsToPrintablePalette(palette, imageTargets, {
+            ...options,
+            realizedErrors: options.workspace?.realizedErrors,
+        });
 
     const physicallyUsedMappings = separation
         ? mapped.filter((entry) => entry.preservedWithinThreshold === true)
@@ -2959,8 +3016,13 @@ export function evaluateSequenceAgainstImage(
     let localPreferenceSum = 0;
     let weightedUncertaintySum = 0;
 
-    for (const entry of mapped) {
-        const realizedDeltaE = realizedColorError(entry.mappedLab, entry.target);
+    for (let index = 0; index < mapped.length; index++) {
+        const entry = mapped[index];
+        // The winning rerank already computed this exact value. Separation and
+        // exact-anchor mappings fall back to the original full calculation.
+        const realizedDeltaE =
+            (!separation ? options.workspace?.realizedErrors[index] : undefined) ??
+            realizedColorError(entry.mappedLab, entry.target);
         const weight = entry.target.weight;
         weightedErrorSum += realizedDeltaE * weight;
         totalWeight += weight;

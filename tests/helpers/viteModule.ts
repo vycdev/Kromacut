@@ -12,7 +12,7 @@ export async function withViteTestServer<T>(
         optimizeDeps: { noDiscovery: true },
         resolve: { alias: { '@': resolve(process.cwd(), 'src') } },
         root: process.cwd(),
-        server: { hmr: false, middlewareMode: true },
+        server: { hmr: false, ws: false, middlewareMode: true },
     });
 
     try {

@@ -11,6 +11,12 @@ La peinture automatique prédit l’apparence de fines couches de filament super
 
 Définissez les [dimensions physiques, hauteurs de couche et largeur de ligne effective](3d-mode#3d-print-settings), ajoutez les filaments que vous pouvez réellement charger, attendez le calcul, puis cliquez sur **Générer le modèle 3D**. Les entrées relancent automatiquement le calcul ; la géométrie affichée n’est actualisée qu’à la génération.
 
+## Grandes palettes et annulation
+
+Le temps de recherche dépend du nombre de couleurs cibles distinctes, pas seulement des dimensions. À partir de 4 096 couleurs cibles, la correspondance améliorée attend **Lancer Auto-paint** et affiche des conseils avant la recherche. Pour une photo, essayez d’abord **2D → Paramètres de quantification → Appliquer** avec 16–32 couleurs. Désactiver la **Limite totale de répétitions** ou choisir **Rapide** et **Compact** réduit aussi le travail ; ces choix peuvent modifier le résultat. Le raccourci règle ces trois options, puis attend votre lancement. Aucune couleur n’est réduite automatiquement.
+
+Pendant la recherche de filaments, **Annuler Auto-paint** arrête le traitement en arrière-plan. Il reste arrêté jusqu’à **Lancer Auto-paint** ou une modification des réglages. Modifier les réglages ou revenir en 2D annule aussi le travail actif. La progression est approximative et ne donne pas de durée restante. L’annulation ne crée aucun nouveau modèle ; l’aperçu précédent peut rester visible. Après le calcul, choisissez **Construire le modèle 3D**.
+
 ## Paramètres des filaments
 
 | Commande | Saisie ou action | Effet |

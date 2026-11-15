@@ -212,6 +212,12 @@
     "physicalLayers_many": "({{count, number}} camadas físicas)"
   },
   "threeDControls": {
+    "runAutoPaint": "Iniciar Auto-paint",
+    "cancelAutoPaint": "Cancelar Auto-paint",
+    "highTargetCount": "Esta imagem tem {{colors, number}} cores de destino distintas. A pesquisa melhorada pode demorar minutos, sobretudo com repetições.",
+    "highTargetGuidance": "Para começar mais depressa, vá a 2D → Definições de quantização → Aplicar com 16–32 cores, desative as repetições ou use Rápido / Compacto. Inicie Auto-paint para continuar com as definições atuais.",
+    "useFastCompact": "Usar Rápido / Compacto sem repetições",
+    "autoPaintCancelled": "Auto-paint cancelado. Reinicie Auto-paint ou altere as definições.",
     "build3DModel": "Gerar modelo 3D",
     "manual": "Manual",
     "autoPaint": "Pintura automática",

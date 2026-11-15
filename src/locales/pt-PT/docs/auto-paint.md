@@ -11,6 +11,12 @@ A pintura automática prevê camadas finas sobrepostas e escolhe alturas imprim�
 
 Defina [tamanho físico, alturas e largura efetiva](3d-mode#3d-print-settings), adicione filamentos realmente disponíveis, aguarde o cálculo e **Gere o modelo 3D**. As entradas recalculam automaticamente; a geometria só atualiza ao gerar.
 
+## Paletas grandes e cancelamento
+
+O tempo de pesquisa depende das cores de destino distintas, não apenas das dimensões. A partir de 4096 cores, a correspondência melhorada apresenta orientações e aguarda **Iniciar Auto-paint**. Para fotografias, experimente primeiro **2D → Definições de quantização → Aplicar** com 16–32 cores. Desativar o **Limite total de repetições** ou escolher **Rápido** e **Compacto** também reduz o trabalho; estas escolhas podem alterar o resultado. O atalho configura as três opções e aguarda o início. As cores não são reduzidas automaticamente.
+
+Durante a pesquisa de filamentos, **Cancelar Auto-paint** termina o processo em segundo plano. A pesquisa fica parada até **Iniciar Auto-paint** ou uma alteração das definições. Alterar as definições ou mudar para 2D também cancela o trabalho ativo. O progresso é aproximado, não uma estimativa de tempo. O cancelamento não cria um modelo novo; a pré-visualização anterior pode continuar visível. Após o cálculo, escolha **Construir modelo 3D**.
+
 ## Entradas de filamento
 
 | Controlo | O que introduzir ou fazer | Efeito |

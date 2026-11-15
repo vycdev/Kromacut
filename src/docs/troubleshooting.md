@@ -9,6 +9,10 @@ description: Common issues and what to try first.
 
 Start here when a result looks wrong or a control is disabled.
 
+## Auto-paint Is Slow On A Small Photo
+
+A small unquantized photo can contain thousands of distinct colors, each scored for many candidate stacks. Reduce colors in **2D → Quantization Settings → Apply** (start with 16–32), turn repeats off, or choose **Fast / Compact**. At 4,096 or more target colors, Enhanced matching shows guidance and waits for **Run Auto-paint**. Use **Cancel Auto-paint** during the search to stop it; restart with **Run Auto-paint** or change settings. The percentage is not a time estimate. See [Auto-paint](auto-paint).
+
 ## An Image Is Too Large To Open
 
 Resize the file in an image editor before importing it again. The error shows the image dimensions and a conservative resize target for your device. Your current image and undo history are kept. A long, thin image can fit when the browser supports its dimensions; total pixel count matters too. See [Loading images](loading-images).

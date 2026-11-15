@@ -9,6 +9,10 @@ description: Probleme frecvente și ce să încerci mai întâi.
 
 Începe aici când un rezultat arată greșit sau o comandă este dezactivată.
 
+## Auto-paint este lent pentru o fotografie mică
+
+O fotografie mică necuantizată poate conține mii de culori distincte, evaluate pentru multe stive candidate. Redu culorile în **2D → Setări de cuantizare → Aplică** (începe cu 16–32), dezactivează repetările sau alege **Rapid / Compactă**. De la 4.096 de culori țintă, potrivirea avansată afișează îndrumări și așteaptă **Pornește Auto-paint**. Folosește **Anulează Auto-paint** pentru a opri căutarea; repornește-o sau schimbă setările. Procentul nu estimează timpul rămas. Vezi [Auto-paint](auto-paint).
+
 ## O Imagine Este Prea Mare Pentru A Fi Deschisă
 
 Micșorează fișierul într-un editor de imagini înainte de a-l importa din nou. Eroarea arată dimensiunile imaginii și o dimensiune prudentă recomandată pentru dispozitivul tău. Imaginea curentă și istoricul Undo sunt păstrate. O imagine lungă și îngustă poate fi acceptată dacă browserul îi suportă dimensiunile; contează și numărul total de pixeli. Vezi [Încărcarea imaginilor](loading-images).

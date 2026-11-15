@@ -11,6 +11,12 @@ Auto-paint prevede l’effetto di strati sottili di filamento sovrapposti e sceg
 
 Imposta [dimensioni fisiche, altezze degli strati e larghezza effettiva della linea](3d-mode#3d-print-settings), aggiungi i filamenti che puoi effettivamente caricare, attendi il calcolo, quindi usa **Genera modello 3D**. Le modifiche avviano automaticamente un nuovo calcolo; la geometria visualizzata si aggiorna solo quando generi il modello.
 
+## Palette grandi e annullamento
+
+Il tempo di ricerca dipende dai colori di destinazione distinti, non solo dalle dimensioni. Da 4.096 colori, la corrispondenza avanzata mostra indicazioni e attende **Avvia Auto-paint**. Per le foto, prova prima **2D → Impostazioni di quantizzazione → Applica** con 16–32 colori. Disattivare il **Limite totale ripetizioni** o scegliere **Veloce** e **Compatto** riduce anche il lavoro; queste scelte possono cambiare il risultato. La scorciatoia imposta tutte e tre le opzioni, poi attende l’avvio. Nessun colore viene ridotto automaticamente.
+
+Durante la ricerca dei filamenti, **Annulla Auto-paint** interrompe il processo in background. La ricerca resta ferma fino a **Avvia Auto-paint** o a una modifica delle impostazioni. Anche modificare le impostazioni o passare a 2D annulla il lavoro attivo. La percentuale è approssimativa, non una stima del tempo. L’annullamento non crea un nuovo modello; l’anteprima precedente può restare visibile. Al termine del calcolo, scegli **Costruisci modello 3D**.
+
 ## Dati dei filamenti
 
 | Controllo | Cosa inserire o fare | Effetto |

@@ -9,6 +9,10 @@ description: Problemas comuns e o que experimentar primeiro.
 
 Comece aqui quando um resultado parecer errado ou um controlo estiver desativado.
 
+## Auto-paint é lento numa fotografia pequena
+
+Uma fotografia pequena sem quantização pode conter milhares de cores distintas, avaliadas para muitas pilhas candidatas. Reduza as cores em **2D → Definições de quantização → Aplicar** (comece por 16–32), desative as repetições ou escolha **Rápido / Compacto**. A partir de 4096 cores de destino, a correspondência melhorada apresenta orientações e aguarda **Iniciar Auto-paint**. Use **Cancelar Auto-paint** para parar a pesquisa; reinicie ou altere as definições. A percentagem não estima o tempo restante. Consulte [Auto-paint](auto-paint).
+
 ## Uma Imagem É Demasiado Grande Para Abrir
 
 Reduza o ficheiro num editor de imagem antes de o voltar a importar. O erro mostra as dimensões e um tamanho conservador para o seu dispositivo. A imagem atual e o histórico de anulação são mantidos. Uma imagem longa e estreita pode caber se o navegador suportar as suas dimensões; o número total de píxeis também conta. Consulte [Carregar imagens](loading-images).

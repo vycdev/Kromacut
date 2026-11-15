@@ -232,6 +232,12 @@
     "physicalLayers_many": "Фізичні шари: {{count, number}}"
   },
   "threeDControls": {
+    "runAutoPaint": "Запустити Auto-paint",
+    "cancelAutoPaint": "Скасувати Auto-paint",
+    "highTargetCount": "Це зображення має {{colors, number}} різних цільових кольорів. Розширений пошук може тривати хвилини, особливо з повторами.",
+    "highTargetGuidance": "Для швидшого початку перейдіть до 2D → Налаштування квантування → Застосувати з 16–32 кольорами, вимкніть повтори або виберіть Швидкий / Компактна. Запустіть Auto-paint, щоб продовжити з поточними налаштуваннями.",
+    "useFastCompact": "Швидкий / Компактна без повторів",
+    "autoPaintCancelled": "Auto-paint скасовано. Запустіть Auto-paint знову або змініть налаштування.",
     "build3DModel": "Створити 3D-модель",
     "manual": "Вручну",
     "autoPaint": "Auto-paint",

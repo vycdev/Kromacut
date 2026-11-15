@@ -212,6 +212,12 @@
     "physicalLayers_few": "Straturi fizice: {{count, number}}"
   },
   "threeDControls": {
+    "runAutoPaint": "Pornește Auto-paint",
+    "cancelAutoPaint": "Anulează Auto-paint",
+    "highTargetCount": "Această imagine are {{colors, number}} culori țintă distincte. Căutarea avansată poate dura minute, mai ales cu repetări.",
+    "highTargetGuidance": "Pentru un început mai rapid, mergi la 2D → Setări de cuantizare → Aplică cu 16–32 de culori, dezactivează repetările sau folosește Rapid / Compactă. Pornește Auto-paint pentru a continua cu setările actuale.",
+    "useFastCompact": "Folosește Rapid / Compactă, fără repetări",
+    "autoPaintCancelled": "Auto-paint anulat. Pornește din nou Auto-paint sau schimbă setările.",
     "build3DModel": "Generează modelul 3D",
     "manual": "Manual",
     "autoPaint": "Auto-paint",

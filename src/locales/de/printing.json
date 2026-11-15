@@ -192,6 +192,12 @@
     "isolationValue": "Isolation: <value>{{value}}</value>"
   },
   "threeDControls": {
+    "runAutoPaint": "Auto-paint starten",
+    "cancelAutoPaint": "Auto-paint abbrechen",
+    "highTargetCount": "Dieses Bild hat {{colors, number}} verschiedene Zielfarben. Die erweiterte Suche kann Minuten dauern, besonders mit Wiederholungen.",
+    "highTargetGuidance": "Für einen schnelleren Start: 2D → Farbquantisierung → Anwenden mit 16–32 Farben, Wiederholungen ausschalten oder Schnell / Kompakt verwenden. Auto-paint starten setzt mit den aktuellen Einstellungen fort.",
+    "useFastCompact": "Schnell / Kompakt ohne Wiederholungen",
+    "autoPaintCancelled": "Auto-paint abgebrochen. Auto-paint neu starten oder Einstellungen ändern.",
     "build3DModel": "3D-Modell erstellen",
     "manual": "Manuell",
     "autoPaint": "Auto-paint",
