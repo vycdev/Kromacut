@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createImageCanvas, loadImageCanvas } from '../src/lib/imageCanvas.ts';
+import {
+    createImageCanvas,
+    loadImageCanvas,
+    validateCanvasImageFile,
+} from '../src/lib/imageCanvas.ts';
 import { validateImageFile } from '../src/lib/imageFile.ts';
 
 async function withBrowser(
@@ -27,7 +31,15 @@ async function withBrowser(
     };
     globals.createImageBitmap = async () => {
         counts.bitmaps++;
-        return { width: 4, height: 3, close: () => counts.closes++ };
+        return {
+            width: 4,
+            height: 3,
+            closed: false,
+            close() {
+                this.closed = true;
+                counts.closes++;
+            },
+        };
     };
     globals.document = {
         createElement: () => ({
@@ -44,9 +56,9 @@ async function withBrowser(
                               w: number,
                               h: number
                           ) => {
-                              assert.equal(
-                                  counts.closes,
-                                  0,
+                              assert.notEqual(
+                                  (_source as { closed?: boolean }).closed,
+                                  true,
                                   'draw must finish before the bitmap is closed'
                               );
                               assert.deepEqual([x, y, w, h], [0, 0, 4, 3]);
@@ -117,5 +129,93 @@ test('an obsolete URL decode does not allocate or draw another full-size canvas'
         current = false;
         assert.equal(await pending, null);
         assert.deepEqual(counts, { bitmaps: 0, images: 1, closes: 0, draws: 0 });
+    });
+});
+
+test('imports and their history reloads decode the same encoded file with the same options', async () => {
+    await withBrowser(null, async (counts) => {
+        const file = new File(['pixels'], 'photo.bmp', { type: 'image/bmp' });
+        const arrayBuffer = file.arrayBuffer.bind(file);
+        let reads = 0;
+        file.arrayBuffer = () => {
+            reads++;
+            return arrayBuffer();
+        };
+        const calls: unknown[][] = [];
+        const bitmap = globalThis.createImageBitmap;
+        globalThis.createImageBitmap = ((...args: Parameters<typeof createImageBitmap>) => {
+            calls.push(args);
+            return bitmap(...args);
+        }) as typeof createImageBitmap;
+        const result = await validateCanvasImageFile(file);
+        assert.ok(result.ok);
+        assert.equal(result.sourceFile, file);
+        try {
+            createImageCanvas(result.image);
+            const restored = await loadImageCanvas(result.url, () => true, result.sourceFile);
+            assert.ok(restored);
+            assert.deepEqual(calls, [
+                [file, { premultiplyAlpha: 'none' }],
+                [file, { premultiplyAlpha: 'none' }],
+            ]);
+            assert.equal(
+                reads,
+                1,
+                'already validated encoded bytes need no second structural check'
+            );
+            assert.deepEqual(counts, { bitmaps: 2, images: 0, closes: 2, draws: 2 });
+        } finally {
+            URL.revokeObjectURL(result.url);
+        }
+    });
+});
+
+test('an obsolete imported-file decode closes its bitmap without allocating a canvas', async () => {
+    await withBrowser(null, async (counts) => {
+        let current = true;
+        const bitmap = globalThis.createImageBitmap;
+        globalThis.createImageBitmap = (async (...args: Parameters<typeof createImageBitmap>) => {
+            const decoded = await bitmap(...args);
+            current = false;
+            return decoded;
+        }) as typeof createImageBitmap;
+        const file = new File(['pixels'], 'photo.bmp', { type: 'image/bmp' });
+        assert.equal(await loadImageCanvas('blob:obsolete-import', () => current, file), null);
+        assert.deepEqual(counts, { bitmaps: 1, images: 0, closes: 1, draws: 0 });
+    });
+});
+
+for (const failure of ['context', 'draw'] as const) {
+    test(`an imported-file history reload closes its bitmap when ${failure} fails`, async () => {
+        await withBrowser(failure, async (counts) => {
+            const file = new File(['pixels'], 'photo.bmp', { type: 'image/bmp' });
+            await assert.rejects(loadImageCanvas('blob:failed-import', () => true, file));
+            assert.equal(counts.bitmaps, 1);
+            assert.equal(counts.closes, 1);
+        });
+    });
+}
+
+test('imported-file history reloads keep the image fallback without bitmap support', async () => {
+    await withBrowser(null, async (counts) => {
+        Object.defineProperty(globalThis, 'createImageBitmap', {
+            value: undefined,
+            configurable: true,
+        });
+        const file = new File(['pixels'], 'photo.png', { type: 'image/png' });
+        assert.ok(await loadImageCanvas('blob:fallback-import', () => true, file));
+        assert.deepEqual(counts, { bitmaps: 0, images: 1, closes: 0, draws: 1 });
+    });
+});
+
+test('an imported-file decode failure returns null without allocating a canvas', async () => {
+    await withBrowser(null, async (counts) => {
+        globalThis.createImageBitmap = (async () => {
+            counts.bitmaps++;
+            throw new Error('decode failed');
+        }) as typeof createImageBitmap;
+        const file = new File(['pixels'], 'photo.bmp', { type: 'image/bmp' });
+        assert.equal(await loadImageCanvas('blob:failed-decode', () => true, file), null);
+        assert.deepEqual(counts, { bitmaps: 1, images: 0, closes: 0, draws: 0 });
     });
 });

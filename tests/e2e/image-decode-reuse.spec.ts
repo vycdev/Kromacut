@@ -11,6 +11,7 @@ const profiledPixels = readFileSync(
 type DecodeState = {
     loads: Record<string, number>;
     draws: Record<string, number>;
+    urlCloses: Record<string, number>;
     bitmaps: number;
     closes: number;
     encodes: number;
@@ -30,6 +31,7 @@ async function instrument(page: Page, fallback = false) {
         const state: DecodeState = {
             loads: {},
             draws: {},
+            urlCloses: {},
             bitmaps: 0,
             closes: 0,
             encodes: 0,
@@ -43,6 +45,9 @@ async function instrument(page: Page, fallback = false) {
             held: [],
         };
         (window as unknown as { imageDecodes: DecodeState }).imageDecodes = state;
+        const fileUrls = new WeakMap<File, string>();
+        const validatedUrls = new Set<string>();
+        const bitmapUrls = new WeakMap<ImageBitmap, string>();
         const toBlob = HTMLCanvasElement.prototype.toBlob;
         HTMLCanvasElement.prototype.toBlob = function (...args: Parameters<typeof toBlob>) {
             state.encodes++;
@@ -68,6 +73,8 @@ async function instrument(page: Page, fallback = false) {
             const url = createUrl(blob);
             state.loads[url] = 0;
             state.draws[url] = 0;
+            state.urlCloses[url] = 0;
+            if (blob instanceof File) fileUrls.set(blob, url);
             return url;
         };
         const src = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, 'src')!;
@@ -97,6 +104,8 @@ async function instrument(page: Page, fallback = false) {
             const image = args[0];
             if (image instanceof HTMLImageElement && image.src in state.draws) {
                 state.draws[image.src]++;
+            } else if (bitmapUrls.has(image as ImageBitmap)) {
+                state.draws[bitmapUrls.get(image as ImageBitmap)!]++;
             }
             return draw.apply(this, args);
         } as typeof draw;
@@ -105,13 +114,28 @@ async function instrument(page: Page, fallback = false) {
         } else {
             const bitmap = window.createImageBitmap.bind(window);
             window.createImageBitmap = (async (...args: Parameters<typeof createImageBitmap>) => {
-                if (args[0] instanceof File) state.bitmaps++;
+                const url = args[0] instanceof File ? fileUrls.get(args[0]) : undefined;
+                const historyUrl = url && validatedUrls.has(url) ? url : undefined;
+                // File import checks and history re-decodes have separate owners.
+                if (!historyUrl && args[0] instanceof File) {
+                    state.bitmaps++;
+                    if (url) validatedUrls.add(url);
+                }
+                if (historyUrl) state.loads[historyUrl]++;
+                if (historyUrl && state.failImageLoads) throw new Error('Image load failed');
+                const held = historyUrl && state.hold;
                 const image = await bitmap(...args);
+                if (historyUrl) {
+                    bitmapUrls.set(image, historyUrl);
+                    state.completed.push(historyUrl);
+                }
                 const close = image.close.bind(image);
                 image.close = () => {
-                    state.closes++;
+                    if (historyUrl) state.urlCloses[historyUrl]++;
+                    else state.closes++;
                     close();
                 };
+                if (held) await new Promise<void>((resolve) => state.held.push(resolve));
                 return image;
             }) as typeof createImageBitmap;
         }
@@ -146,6 +170,126 @@ async function importRedImage(page: Page) {
     });
     await expect(page.getByText('Current', { exact: true }).locator('..')).toContainText('64x48');
     await expect(page.getByTestId('quantize-apply')).toBeEnabled();
+}
+
+for (const bits of [8, 16]) {
+    for (const fallback of [false, true]) {
+        test(`@smoke opaque ${bits}-bit Display P3 imports preserve pixels and chosen layer order through history (${fallback ? 'img fallback' : 'bitmap'})`, async ({
+            page,
+        }) => {
+            await instrument(page, fallback);
+            await page.goto('/app');
+            // RGB PNGs take a different browser color-conversion path from
+            // RGBA PNGs. Each fixture has a blue half and a black half.
+            const buffer = readFileSync(
+                new URL(`../assets/opaque-display-p3-${bits}.png`, import.meta.url)
+            );
+            const paint = () =>
+                page.evaluate(
+                    () =>
+                        new Promise<void>((resolve) =>
+                            requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+                        )
+                );
+            const rows = () =>
+                page
+                    .locator('[aria-label^="Color swatch: "]')
+                    .evaluateAll((elements) =>
+                        elements.map((element) => element.getAttribute('title'))
+                    );
+            const pixel = () =>
+                page
+                    .getByTestId('image-dropzone')
+                    .locator('canvas')
+                    .first()
+                    .evaluate((canvas: HTMLCanvasElement) => {
+                        const side = Math.min(canvas.width, canvas.height);
+                        return Array.from(
+                            canvas
+                                .getContext('2d')!
+                                .getImageData(
+                                    Math.floor((canvas.width - side) / 2 + side / 4),
+                                    Math.floor(canvas.height / 2),
+                                    1,
+                                    1
+                                ).data
+                        );
+                    });
+            const importFile = async (count: number) => {
+                await page
+                    .getByTestId('image-file-input')
+                    .setInputFiles({ name: `opaque-${count}.png`, mimeType: 'image/png', buffer });
+                await expect(
+                    page.getByText('Current', { exact: true }).locator('..')
+                ).toContainText('32x32');
+                await expect
+                    .poll(() => decodes(page))
+                    .toMatchObject({
+                        loads: Array(count).fill(fallback ? 1 : 0),
+                        bitmaps: fallback ? 0 : count,
+                        closes: fallback ? 0 : count,
+                    });
+                await expect(page.getByTestId('quantize-apply')).toBeEnabled();
+                await paint();
+            };
+            await importFile(1);
+            const before = await pixel();
+            const blueHex = '#' + Buffer.from(before.slice(0, 3)).toString('hex');
+            await page.getByRole('button', { name: '3D', exact: true }).click();
+            await page.getByRole('tab', { name: 'Manual', exact: true }).click();
+            const handle = page
+                .getByLabel(`Color swatch: ${blueHex}`, { exact: true })
+                .locator('..')
+                .getByRole('button')
+                .first();
+            await handle.scrollIntoViewIfNeeded();
+            const source = (await handle.boundingBox())!;
+            const target = (await page
+                .getByLabel('Color swatch: #000000', { exact: true })
+                .locator('..')
+                .getByRole('button')
+                .first()
+                .boundingBox())!;
+            await page.mouse.move(source.x + source.width / 2, source.y + source.height / 2);
+            await page.mouse.down();
+            await paint();
+            await page.mouse.move(target.x + target.width / 2, target.y + target.height / 2, {
+                steps: 10,
+            });
+            await paint();
+            await page.mouse.up();
+            await expect.poll(rows).toEqual([blueHex, '#000000']);
+            await page.getByRole('button', { name: '2D', exact: true }).click();
+            await importFile(2);
+            await expect.poll(rows).toEqual([blueHex, '#000000']);
+            await page.getByRole('button', { name: 'Undo', exact: true }).click();
+            await expect
+                .poll(() => decodes(page))
+                .toMatchObject({ draws: [fallback ? 2 : 1, fallback ? 1 : 0] });
+            await paint();
+            await expect(page.getByTestId('quantize-apply')).toBeEnabled();
+            expect.soft(await pixel()).toEqual(before);
+            expect(await rows()).toEqual([blueHex, '#000000']);
+            await expect(
+                page.getByTitle(`${blueHex}  alpha:255  count:512`, { exact: true })
+            ).toBeAttached();
+            await page.getByRole('button', { name: 'Redo', exact: true }).click();
+            await expect
+                .poll(() => decodes(page))
+                .toMatchObject({ draws: [fallback ? 2 : 1, fallback ? 2 : 1] });
+            await paint();
+            await expect(page.getByTestId('quantize-apply')).toBeEnabled();
+            expect(await pixel()).toEqual(before);
+            expect(await rows()).toEqual([blueHex, '#000000']);
+            expect(
+                await page.evaluate(() =>
+                    Object.values(
+                        (window as unknown as { imageDecodes: DecodeState }).imageDecodes.urlCloses
+                    )
+                )
+            ).toEqual([fallback ? 0 : 1, fallback ? 0 : 1]);
+        });
+    }
 }
 
 for (const fallback of [false, true]) {
@@ -190,10 +334,9 @@ for (const fallback of [false, true]) {
             for (let offset = 0; offset < expected.length; offset += 4) {
                 const hex = Buffer.from(expected.slice(offset, offset + 3)).toString('hex');
                 await expect(
-                    page.getByTitle(
-                        `#${hex}  alpha:${expected[offset + 3]}  count:1`,
-                        { exact: true }
-                    )
+                    page.getByTitle(`#${hex}  alpha:${expected[offset + 3]}  count:1`, {
+                        exact: true,
+                    })
                 ).toBeAttached();
             }
         };
@@ -209,27 +352,33 @@ for (const fallback of [false, true]) {
             );
             await expect(page.getByTestId('quantize-apply')).toBeEnabled();
             await expectImage();
-            await expect.poll(() => decodes(page)).toEqual({
-                loads: Array(count).fill(importLoads),
-                draws: Array(count).fill(importLoads),
-                bitmaps: fallback ? 0 : count,
-                closes: fallback ? 0 : count,
-            });
+            await expect
+                .poll(() => decodes(page))
+                .toEqual({
+                    loads: Array(count).fill(importLoads),
+                    draws: Array(count).fill(importLoads),
+                    bitmaps: fallback ? 0 : count,
+                    closes: fallback ? 0 : count,
+                });
         }
         await page.getByRole('button', { name: 'Undo', exact: true }).click();
         await expectImage();
-        await expect.poll(() => decodes(page)).toMatchObject({
-            loads: [importLoads + 1, importLoads],
-            draws: [importLoads + 1, importLoads],
-        });
+        await expect
+            .poll(() => decodes(page))
+            .toMatchObject({
+                loads: [importLoads + 1, importLoads],
+                draws: [importLoads + 1, importLoads],
+            });
         await page.getByRole('button', { name: 'Redo', exact: true }).click();
         await expectImage();
-        await expect.poll(() => decodes(page)).toEqual({
-            loads: [importLoads + 1, importLoads + 1],
-            draws: [importLoads + 1, importLoads + 1],
-            bitmaps: fallback ? 0 : 2,
-            closes: fallback ? 0 : 2,
-        });
+        await expect
+            .poll(() => decodes(page))
+            .toEqual({
+                loads: [importLoads + 1, importLoads + 1],
+                draws: [importLoads + 1, importLoads + 1],
+                bitmaps: fallback ? 0 : 2,
+                closes: fallback ? 0 : 2,
+            });
     });
 }
 
@@ -324,6 +473,59 @@ for (const fallback of [false, true]) {
         expect(errors).toEqual([]);
     });
 }
+
+test('@smoke an obsolete imported-file history decode closes its bitmap after removal', async ({
+    page,
+}) => {
+    await instrument(page);
+    await page.goto('/app');
+    await importRedImage(page);
+    await importRedImage(page);
+    await page.evaluate(() => {
+        (window as unknown as { imageDecodes: DecodeState }).imageDecodes.hold = true;
+    });
+    await page.getByRole('button', { name: 'Undo', exact: true }).click();
+    await expect
+        .poll(() =>
+            page.evaluate(
+                () => (window as unknown as { imageDecodes: DecodeState }).imageDecodes.held.length
+            )
+        )
+        .toBe(1);
+    await expect.poll(() => decodes(page)).toMatchObject({ loads: [1, 0], draws: [0, 0] });
+    await page.getByRole('button', { name: 'Remove image', exact: true }).click();
+    await page.evaluate(() => {
+        const state = (window as unknown as { imageDecodes: DecodeState }).imageDecodes;
+        state.hold = false;
+        state.held.splice(0).forEach((finish) => finish());
+    });
+    await expect
+        .poll(() =>
+            page.evaluate(() =>
+                Object.values(
+                    (window as unknown as { imageDecodes: DecodeState }).imageDecodes.urlCloses
+                )
+            )
+        )
+        .toEqual([1, 0]);
+    expect((await decodes(page)).draws).toEqual([0, 0]);
+    await expect(page.getByText('Current', { exact: true }).locator('..')).toContainText(
+        'No image'
+    );
+    // The future entry still owns its encoded source after the current one is removed.
+    await page.getByRole('button', { name: 'Redo', exact: true }).click();
+    await expect.poll(() => decodes(page)).toMatchObject({ loads: [1, 1], draws: [0, 1] });
+    await expect(page.getByText('Current', { exact: true }).locator('..')).toContainText('64x48');
+    await expect
+        .poll(() =>
+            page.evaluate(() =>
+                Object.values(
+                    (window as unknown as { imageDecodes: DecodeState }).imageDecodes.urlCloses
+                )
+            )
+        )
+        .toEqual([1, 1]);
+});
 
 test('@smoke an obsolete edit decode cannot repopulate a cleared image', async ({ page }) => {
     await instrument(page);

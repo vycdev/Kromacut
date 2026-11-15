@@ -319,11 +319,13 @@ function App(): React.ReactElement | null {
         dismissImportError,
         cancelPendingImport,
     } = useImageImport();
-    const { imageSrc, setImage, clearCurrent, undo, redo, canUndo, canRedo } = useImageHistory(
-        logo,
-        cancelPendingImport
+    const { imageSrc, setImage, clearCurrent, undo, redo, canUndo, canRedo, past, future } =
+        useImageHistory(logo, cancelPendingImport);
+    const { imageCanvas, imageCanvasLoading, prepareImageCanvas } = useImageCanvas(
+        imageSrc,
+        past,
+        future
     );
-    const { imageCanvas, imageCanvasLoading, prepareImageCanvas } = useImageCanvas(imageSrc);
     const { swatches, swatchesLoading, imageDimensions, invalidate, immediateOverride } =
         useSwatches(imageCanvas, imageCanvasLoading);
     // adjustments managed locally inside AdjustmentsPanel now
@@ -602,10 +604,10 @@ function App(): React.ReactElement | null {
 
     const handleFiles = async (file?: File) => {
         if (!file) return;
-        await importFile(file, imageSrc !== null, (url, canvas) => {
+        await importFile(file, imageSrc !== null, (url, canvas, sourceFile) => {
             setTouchUpTool(null);
             invalidate();
-            prepareImageCanvas(url, canvas);
+            prepareImageCanvas(url, canvas, sourceFile);
             setImage(url, true);
         });
     };

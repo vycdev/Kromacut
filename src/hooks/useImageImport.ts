@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { createImageCanvas } from '../lib/imageCanvas';
+import { createImageCanvas, validateCanvasImageFile } from '../lib/imageCanvas';
 import {
     fitsImageCanvasLimits,
     IOS_MAX_SQUARE_IMAGE_SIDE,
     MAX_SQUARE_IMAGE_SIDE,
-    validateImageFile,
 } from '../lib/imageFile';
 
 function importMaxSquareSide(): number {
@@ -96,14 +95,15 @@ export function useImageImport() {
 
     /**
      * Validates the file, then copies and closes its decode. Commit takes
-     * ownership of the URL and an immutable canvas snapshot. Unreadable or
+     * ownership of the URL and an immutable canvas snapshot, and may retain
+     * the encoded file while the URL is in history. Unreadable or
      * oversized files leave the image, undo stack, and swatches intact.
      */
     const importFile = useCallback(
         async (
             file: File,
             hasImage: boolean,
-            commit: (url: string, canvas: HTMLCanvasElement) => void
+            commit: (url: string, canvas: HTMLCanvasElement, sourceFile: File) => void
         ) => {
             const request = ++requestRef.current;
             finishChecking();
@@ -112,10 +112,7 @@ export function useImageImport() {
                 busyTimerRef.current = null;
                 if (request === requestRef.current) setIsImporting(true);
             }, 150);
-            // Convert profiled colors before premultiplying alpha, as <img>
-            // does on history reloads. Premultiplying in the source color space
-            // first can change translucent Display P3 pixels in Chromium.
-            const result = await validateImageFile(file, { premultiplyAlpha: 'none' });
+            const result = await validateCanvasImageFile(file);
             if (request !== requestRef.current) {
                 if (result.ok) {
                     result.image.close();
@@ -163,7 +160,7 @@ export function useImageImport() {
                 return;
             }
             setImportError(null);
-            commit(result.url, canvas);
+            commit(result.url, canvas, result.sourceFile);
         },
         [finishChecking]
     );
