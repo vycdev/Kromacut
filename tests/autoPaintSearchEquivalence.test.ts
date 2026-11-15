@@ -1,12 +1,21 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { readFileSync } from 'node:fs';
 import { loadViteModule } from './helpers/viteModule.ts';
 import { autoPaintGoldenScenarios } from './autoPaintGoldenFixtures.ts';
+import { loadAutoPaintScoringReference } from './helpers/autoPaintScoringReference.ts';
+
+type AutoPaintModule = typeof import('../src/lib/autoPaint.ts');
+let modules: Promise<{ current: AutoPaintModule; baseline: AutoPaintModule }> | undefined;
+function loadModules() {
+    modules ??= (async () => ({
+        current: await loadViteModule<AutoPaintModule>('/src/lib/autoPaint.ts'),
+        baseline: await loadAutoPaintScoringReference(),
+    }))();
+    return modules;
+}
 
 test('reusing rerank errors preserves exact scores through palette, anchor, and separation changes', async () => {
-    const autoPaint =
-        await loadViteModule<typeof import('../src/lib/autoPaint.ts')>('/src/lib/autoPaint.ts');
+    const { current: autoPaint, baseline } = await loadModules();
     const workspace = autoPaint.createSequenceScoringWorkspace();
     const targets = Array.from({ length: 80 }, (_, index) => ({
         L: 10 + index,
@@ -24,7 +33,7 @@ test('reusing rerank errors preserves exact scores through palette, anchor, and 
             const options = { preserveSeparation, separationMaxDeltaE: 12 };
             assert.deepEqual(
                 autoPaint.evaluateSequenceAgainstImage(palette, targets, { ...options, workspace }),
-                autoPaint.evaluateSequenceAgainstImage(palette, targets, options)
+                baseline.evaluateSequenceAgainstImage(palette, targets, options)
             );
         }
         if (palette.length) {
@@ -34,85 +43,93 @@ test('reusing rerank errors preserves exact scores through palette, anchor, and 
             });
             assert.deepEqual(
                 autoPaint.evaluateSequenceAgainstImage(palette, targets, { workspace }),
-                autoPaint.evaluateSequenceAgainstImage(palette, targets)
+                baseline.evaluateSequenceAgainstImage(palette, targets)
             );
             Object.assign(palette[0], { surfaceEligible: false });
             assert.deepEqual(
                 autoPaint.evaluateSequenceAgainstImage(palette, targets, { workspace }),
-                autoPaint.evaluateSequenceAgainstImage(palette, targets)
+                baseline.evaluateSequenceAgainstImage(palette, targets)
             );
         }
     }
 });
 
 test('seed 12345 retains pre-optimization final stacks with and without repeats', async () => {
-    const { generateAutoLayers } =
-        await loadViteModule<typeof import('../src/lib/autoPaint.ts')>('/src/lib/autoPaint.ts');
+    const { current, baseline } = await loadModules();
     const filaments = [
         { id: 'white', color: '#ffffff', td: 0.677 },
         { id: 'black', color: '#000000', td: 0.05 },
         { id: 'green', color: '#00ff00', td: 0.885 },
         { id: 'yellow', color: '#ffff00', td: 0.556 },
     ];
-    for (const [count, repeats, expected, score] of [
-        [16, 0, 'final-stack-v1-6bf1860d12617e39', 51.008153499609854],
-        [16, 12, 'final-stack-v1-9345721ef8afc24a', 46.61133620548023],
-        [1024, 0, 'final-stack-v1-3612fa232a534273', 55.27473943848779],
-        [1024, 12, 'final-stack-v1-932c4f8286c54d83', 51.98335573895216],
+    for (const [count, repeats] of [
+        [16, 0],
+        [16, 12],
+        [1024, 0],
+        [1024, 12],
     ] as const) {
         const swatches = Array.from({ length: count }, (_, index) => ({
             hex: `#${((((index + 12345) * 2654435761) >>> 0) & 0xffffff).toString(16).padStart(6, '0')}`,
             count: 1 + (index % 5),
         }));
-        const result = generateAutoLayers(filaments, swatches, 0.12, 0.2, 5, true, repeats > 0, {
+        const options = {
             algorithm: 'fast',
             seed: 12345,
             maxExtraRepeats: repeats,
             transitionOpacity: 0.8,
             cachingEnabled: false,
-        });
-        assert.equal(result.finalStack.fingerprint, expected);
-        assert.equal(result.optimizerMetadata?.score, score);
+        } as const;
+        const expected = baseline.generateAutoLayers(
+            filaments,
+            swatches,
+            0.12,
+            0.2,
+            5,
+            true,
+            repeats > 0,
+            options
+        );
+        const result = current.generateAutoLayers(
+            filaments,
+            swatches,
+            0.12,
+            0.2,
+            5,
+            true,
+            repeats > 0,
+            options
+        );
+        assert.deepEqual(result.finalStack, expected.finalStack);
+        assert.equal(result.optimizerMetadata?.score, expected.optimizerMetadata?.score);
     }
 });
 
 test('existing image/profile fixtures retain baseline final stacks and scores with seed 12345', async () => {
-    const baseline = JSON.parse(
-        readFileSync(
-            new URL('./assets/auto-paint-search-equivalence.json', import.meta.url),
-            'utf8'
-        )
-    ) as {
-        seed: number;
-        results: { name: string; fingerprint: string; score: number }[];
-    };
-    const { generateAutoLayers } =
-        await loadViteModule<typeof import('../src/lib/autoPaint.ts')>('/src/lib/autoPaint.ts');
+    const { current, baseline } = await loadModules();
     const scenarios = autoPaintGoldenScenarios().filter((scenario) => scenario.enhancedColorMatch);
-    assert.deepEqual(
-        scenarios.map((scenario) => scenario.name),
-        baseline.results.map((result) => result.name)
-    );
-    for (const [index, scenario] of scenarios.entries()) {
-        const result = generateAutoLayers(
-            scenario.filaments,
-            scenario.imageSwatches,
-            0.08,
-            0.16,
-            undefined,
-            true,
-            scenario.allowRepeatedSwaps,
-            {
-                algorithm: 'balanced',
-                seed: baseline.seed,
-                cachingEnabled: false,
-            }
-        );
+    for (const scenario of scenarios) {
+        const generate = (module: AutoPaintModule) =>
+            module.generateAutoLayers(
+                scenario.filaments,
+                scenario.imageSwatches,
+                0.08,
+                0.16,
+                undefined,
+                true,
+                scenario.allowRepeatedSwaps,
+                {
+                    algorithm: 'balanced',
+                    seed: 12345,
+                    cachingEnabled: false,
+                }
+            );
+        const expected = generate(baseline);
+        const result = generate(current);
+        assert.deepEqual(result.finalStack, expected.finalStack, scenario.name);
         assert.equal(
-            result.finalStack.fingerprint,
-            baseline.results[index].fingerprint,
+            result.optimizerMetadata?.score,
+            expected.optimizerMetadata?.score,
             scenario.name
         );
-        assert.equal(result.optimizerMetadata?.score, baseline.results[index].score, scenario.name);
     }
 });

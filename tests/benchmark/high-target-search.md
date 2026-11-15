@@ -84,17 +84,23 @@ and explicit cancellation are essential.
 
 ## Equivalence and UX regression gates
 
-- `autoPaintSearchEquivalence.test.ts` compares scores and final-stack
-  fingerprints to pre-change captures for all 12 existing enhanced image/profile
-  cases (2/4/8 filaments, logo/JPEG, repeats on/off) with seed 12345. It also
-  freezes four synthetic search results and compares reused scoring workspaces
-  through palette-size, exact-anchor, surface-eligibility, and separation changes.
+- `autoPaintSearchEquivalence.test.ts` compares complete final stacks, fingerprints,
+  and exact scores against frozen pre-change scoring functions for all 12 existing
+  enhanced image/profile cases (2/4/8 filaments, logo/JPEG, repeats on/off) and four
+  synthetic searches with seed 12345. The reference contains the baseline commit's
+  CIEDE2000, reranking, mapping, and evaluation functions, protected by a checksum
+  and loaded in a separate module graph. Both paths execute on the runtime under
+  test: literal fingerprints captured on Windows/Node 24 differ from Linux/Node 22
+  and are unsuitable as portable goldens. Comparisons remain exact, with no numeric
+  tolerance. The reference also checks reused workspaces through palette-size,
+  exact-anchor, surface-eligibility, and separation changes.
 - Existing Auto-paint goldens remain unchanged.
 - `autoPaintSearchPolicy.test.ts` checks the exact boundary and standard-matching
   bypass; `auto-paint-search.spec.ts` checks the pre-search gate, the cheaper
   preset, running/debounced cancellation, stale progress, restart, input changes,
   and leaving 3D. Its optimizer worker is held so races are deterministic;
-  printable-image analysis uses the real worker.
+  printable-image analysis uses the real worker. The debounce test uses a paused
+  browser clock so its clicks cannot race the 250 ms timer on a slow CI host.
 - To isolate smoke tests from another checkout, set `KROMACUT_E2E_PORT` and run
   the normal scripts. The verification used port **5287**, confirmed by its
   listener command line to belong to this worktree. Port 5173 was untouched.

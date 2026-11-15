@@ -139,6 +139,7 @@ test('@smoke high-target search waits for guidance, supports a cheaper preset, a
 test('@smoke quantized inputs start automatically and cancel during the debounce without restarting', async ({
     page,
 }) => {
+    await page.clock.install({ time: new Date('2026-11-15T12:00:00Z') });
     await setup(page, 16);
     await expect(page.getByTestId('auto-paint-search-guidance')).toHaveCount(0);
     await expect.poll(() => starts(page)).toBeGreaterThan(0);
@@ -146,14 +147,16 @@ test('@smoke quantized inputs start automatically and cancel during the debounce
     const before = await starts(page);
     const run = page.getByRole('button', { name: 'Run Auto-paint', exact: true });
     await expect(run).toBeEnabled();
+    await page.clock.pauseAt(new Date('2026-11-15T13:00:00Z'));
     // Cancel a fresh request before its 250 ms debounce can post to a worker.
     await run.click();
     await page.getByTestId('cancel-auto-paint').click();
     await expect(run).toBeEnabled();
-    await page.waitForTimeout(350);
+    await page.clock.runFor(350);
     expect(await starts(page)).toBe(before);
     // A setting change should start a fresh low-target request normally.
     await page.locator('#optimizer-algorithm').click();
     await page.getByRole('option', { name: 'Fast', exact: true }).click();
+    await page.clock.runFor(250);
     await expect.poll(() => starts(page)).toBe(before + 1);
 });
