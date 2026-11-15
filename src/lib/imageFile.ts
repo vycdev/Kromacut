@@ -54,6 +54,37 @@ async function decodeImageFile(file: Blob, url: string): Promise<DecodedImage | 
     }
 }
 
+/**
+ * Conservative import bounds: the preview copies images into full-size canvases.
+ * Chromium and desktop WebKit cap canvas area at 16,384² pixels. Current engines
+ * can draw thin canvases beyond 32,767 pixels, but older Firefox cannot, so the
+ * import hook also probes the requested dimensions with one-pixel-wide canvases.
+ */
+export const MAX_IMAGE_SIDE = 65535;
+export const MAX_SQUARE_IMAGE_SIDE = 16384;
+export const MAX_IMAGE_PIXELS = MAX_SQUARE_IMAGE_SIDE * MAX_SQUARE_IMAGE_SIDE;
+// Older iOS WebKit caps area at 4,096²; newer versions allow 8,192². Keep the
+// lower budget for compatibility, including iPads that request desktop websites.
+export const IOS_MAX_SQUARE_IMAGE_SIDE = 4096;
+export const IOS_MAX_IMAGE_PIXELS = IOS_MAX_SQUARE_IMAGE_SIDE * IOS_MAX_SQUARE_IMAGE_SIDE;
+
+/** Whether dimensions fit the import budget, before browser capability checks. */
+export function fitsImageCanvasLimits(
+    width: number,
+    height: number,
+    maxPixels = MAX_IMAGE_PIXELS
+): boolean {
+    return (
+        Number.isSafeInteger(width) &&
+        Number.isSafeInteger(height) &&
+        width > 0 &&
+        height > 0 &&
+        width <= MAX_IMAGE_SIDE &&
+        height <= MAX_IMAGE_SIDE &&
+        width * height <= maxPixels
+    );
+}
+
 export type ImageFileValidation =
     | { ok: true; image: DecodedImage; url: string }
     | { ok: false; reason: 'notImage' | 'undecodable' };

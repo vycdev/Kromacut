@@ -81,6 +81,8 @@
     "imageImportFailed": "Bild konnte nicht geöffnet werden",
     "imageDecodeFailed": "„{{name}}“ konnte nicht als Bild gelesen werden. Dein aktuelles Bild wurde beibehalten. Wähle eine gültige PNG-, JPEG- oder WebP-Datei.",
     "imageDecodeFailedNoImage": "„{{name}}“ konnte nicht als Bild gelesen werden. Wähle eine gültige PNG-, JPEG- oder WebP-Datei.",
+    "imageTooLarge": "„{{name}}“ ist {{width}}×{{height}} Pixel groß und damit zu groß zum Öffnen. Dein aktuelles Bild wurde beibehalten. Verkleinere es auf {{maxSize}} Pixel oder weniger und versuche es erneut.",
+    "imageTooLargeNoImage": "„{{name}}“ ist {{width}}×{{height}} Pixel groß und damit zu groß zum Öffnen. Verkleinere es auf {{maxSize}} Pixel oder weniger und versuche es erneut.",
     "dismissImageImportError": "Bildfehler schließen",
     "preparingControls": "3D-Steuerung wird vorbereitet…",
     "performanceWarning": "Leistungswarnung",

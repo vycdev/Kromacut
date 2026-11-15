@@ -9,6 +9,10 @@ description: Probleme frecvente și ce să încerci mai întâi.
 
 Începe aici când un rezultat arată greșit sau o comandă este dezactivată.
 
+## O Imagine Este Prea Mare Pentru A Fi Deschisă
+
+Micșorează fișierul într-un editor de imagini înainte de a-l importa din nou. Eroarea arată dimensiunile imaginii și o dimensiune prudentă recomandată pentru dispozitivul tău. Imaginea curentă și istoricul Undo sunt păstrate. O imagine lungă și îngustă poate fi acceptată dacă browserul îi suportă dimensiunile; contează și numărul total de pixeli. Vezi [Încărcarea imaginilor](loading-images).
+
 ## Un link afișează „Pagina nu a fost găsită”
 
 Adresa poate conține o greșeală sau poate indica o pagină care nu mai există. Folosește **Deschide Kromacut** pentru a ajunge la instrument, **Mergi la pagina principală** pentru pagina de prezentare sau **Răsfoiește documentația** pentru a găsi ghidul actual. O adresă necunoscută de documentație nu este înlocuită automat cu alt ghid.

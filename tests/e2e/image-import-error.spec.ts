@@ -1,8 +1,44 @@
 import { expect, test } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { crc32, deflateSync } from 'node:zlib';
 
 const source = fileURLToPath(new URL('../assets/rocco__source.png', import.meta.url));
+
+/** A valid, all-black 1-bit grayscale PNG of the given size. */
+function blackPng(width: number, height: number): Buffer {
+    const chunk = (type: string, data: Buffer) => {
+        const body = Buffer.concat([Buffer.from(type, 'latin1'), data]);
+        const length = Buffer.alloc(4);
+        length.writeUInt32BE(data.length);
+        const crc = Buffer.alloc(4);
+        crc.writeUInt32BE(crc32(body));
+        return Buffer.concat([length, body, crc]);
+    };
+    const header = Buffer.alloc(13);
+    header.writeUInt32BE(width, 0);
+    header.writeUInt32BE(height, 4);
+    header[8] = 1; // bit depth; color type 0 (grayscale), no interlacing
+    // Each row is a filter byte followed by zeroed pixels.
+    const pixels = Buffer.alloc((1 + Math.ceil(width / 8)) * height);
+    return Buffer.concat([
+        Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+        chunk('IHDR', header),
+        chunk('IDAT', deflateSync(pixels)),
+        chunk('IEND', Buffer.alloc(0)),
+    ]);
+}
+
+// SVG dimensions exercise the area guard without decoding a gigabyte of pixels.
+function sizedSvg(width: number, height: number) {
+    return {
+        name: 'large.svg',
+        mimeType: 'image/svg+xml',
+        buffer: Buffer.from(
+            `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}"><rect width="100%" height="100%" fill="red"/></svg>`
+        ),
+    };
+}
 
 test('@smoke unreadable image files report an error and keep the current image', async ({
     page,
@@ -68,6 +104,223 @@ test('@smoke unreadable image files report an error and keep the current image',
     await expect(error).toHaveCount(0);
     await expect(current).toContainText('1000x835');
 });
+
+test('@smoke images over the canvas size limit report their size and keep the current image', async ({
+    page,
+}) => {
+    await page.addInitScript(() => localStorage.clear());
+    await page.goto('/app');
+    const input = page.getByTestId('image-file-input');
+    const current = page.getByText('Current', { exact: true }).locator('..');
+    const error = page.getByTestId('image-import-error');
+    await input.setInputFiles(source);
+    await expect(current).toContainText('1000x835');
+
+    // Small in pixels, but over the per-dimension import bound.
+    const wide = { ...sizedSvg(65536, 8), name: 'wide.svg' };
+    await input.setInputFiles(wide);
+    await expect(error).toContainText("Couldn't open image");
+    await expect(error).toContainText(
+        '“wide.svg” is 65536×8 pixels, which is too large to open. Your current image was kept. Resize it to 16384×16384 pixels or smaller and try again.'
+    );
+    await expect(current).toContainText('1000x835');
+
+    // The refused image adds no history: one undo returns to the starter image.
+    const undo = page.getByRole('button', { name: 'Undo', exact: true });
+    await undo.click();
+    await expect(current).toContainText('1024x1024');
+    await expect(undo).toBeDisabled();
+    await expect(error).toHaveCount(0);
+
+    await page.getByRole('button', { name: 'Remove image', exact: true }).click();
+    await input.setInputFiles(wide);
+    await expect(error).toContainText(
+        '“wide.svg” is 65536×8 pixels, which is too large to open. Resize it to 16384×16384 pixels or smaller and try again.'
+    );
+
+    // A thin panorama beyond the historical Firefox limit still imports when
+    // the current browser can draw it, in either orientation.
+    for (const [width, height] of [
+        [40000, 8],
+        [8, 40000],
+    ]) {
+        await input.setInputFiles({
+            name: 'panorama.png',
+            mimeType: 'image/png',
+            buffer: blackPng(width, height),
+        });
+        await expect(current).toContainText(`${width}x${height}`);
+    }
+    await expect(error).toHaveCount(0);
+});
+
+test('@smoke images over the canvas area limit are refused through the file picker and drag-drop', async ({
+    page,
+}) => {
+    await page.addInitScript(() => localStorage.clear());
+    await page.goto('/app');
+    const current = page.getByText('Current', { exact: true }).locator('..');
+    await page.getByTestId('image-file-input').setInputFiles(source);
+    await expect(current).toContainText('1000x835');
+    const large = sizedSvg(17000, 17000);
+    const error = page.getByTestId('image-import-error');
+    await page.getByTestId('image-file-input').setInputFiles(large);
+    await expect(error).toContainText('17000×17000');
+    await expect(current).toContainText('1000x835');
+
+    await page.getByRole('button', { name: 'Dismiss image error' }).click();
+    const dataTransfer = await page.evaluateHandle((svg) => {
+        const transfer = new DataTransfer();
+        transfer.items.add(new File([svg], 'dropped.svg', { type: 'image/svg+xml' }));
+        return transfer;
+    }, large.buffer.toString());
+    await page.getByTestId('image-dropzone').dispatchEvent('drop', { dataTransfer });
+    await dataTransfer.dispose();
+    await expect(error).toContainText('“dropped.svg” is 17000×17000 pixels');
+    await expect(current).toContainText('1000x835');
+    await page.getByRole('button', { name: 'Undo', exact: true }).click();
+    await expect(current).toContainText('1024x1024');
+    await expect(page.getByRole('button', { name: 'Undo', exact: true })).toBeDisabled();
+});
+
+for (const device of [
+    { name: 'iPhone', platform: 'iPhone', userAgent: 'Mozilla/5.0 (iPhone)', touches: 5 },
+    {
+        name: 'desktop-mode iPad',
+        platform: 'MacIntel',
+        userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15)',
+        touches: 5,
+    },
+]) {
+    test(`@smoke ${device.name} imports use the lower canvas area budget and resize advice`, async ({
+        page,
+    }) => {
+        await page.addInitScript((device) => {
+            localStorage.clear();
+            Object.defineProperties(Navigator.prototype, {
+                platform: { configurable: true, get: () => device.platform },
+                userAgent: { configurable: true, get: () => device.userAgent },
+                maxTouchPoints: { configurable: true, get: () => device.touches },
+            });
+        }, device);
+        await page.goto('/app');
+        const current = page.getByText('Current', { exact: true }).locator('..');
+        const input = page.getByTestId('image-file-input');
+        await input.setInputFiles(source);
+        await expect(current).toContainText('1000x835');
+        await input.setInputFiles(sizedSvg(9000, 9000));
+        await expect(page.getByTestId('image-import-error')).toContainText(
+            '9000×9000 pixels, which is too large to open. Your current image was kept. Resize it to 4096×4096 pixels or smaller'
+        );
+        await expect(current).toContainText('1000x835');
+        await page.getByRole('button', { name: 'Undo', exact: true }).click();
+        await expect(current).toContainText('1024x1024');
+        await expect(page.getByRole('button', { name: 'Undo', exact: true })).toBeDisabled();
+    });
+}
+
+test('@smoke canvas privacy noise allows valid imports and still rejects blank probe results', async ({
+    page,
+}) => {
+    await page.addInitScript(() => {
+        localStorage.clear();
+        const state = window as unknown as {
+            refuseCanvasProbe: boolean;
+            canvasProbeAlphas: number[];
+        };
+        state.refuseCanvasProbe = false;
+        state.canvasProbeAlphas = [];
+        const fillRect = CanvasRenderingContext2D.prototype.fillRect;
+        const getImageData = CanvasRenderingContext2D.prototype.getImageData;
+        CanvasRenderingContext2D.prototype.fillRect = function (...args) {
+            if (state.refuseCanvasProbe && (this.canvas.width === 1 || this.canvas.height === 1)) {
+                return;
+            }
+            return fillRect.apply(this, args);
+        };
+        CanvasRenderingContext2D.prototype.getImageData = function (...args) {
+            const pixels = getImageData.apply(this, args);
+            if (
+                (this.canvas.width === 1 || this.canvas.height === 1) &&
+                args[2] === 1 &&
+                args[3] === 1
+            ) {
+                // Privacy noise can move opaque alpha down and transparent alpha up.
+                const alpha = pixels.data[3];
+                pixels.data[3] = alpha === 0 ? 3 : Math.max(0, alpha - 3);
+                state.canvasProbeAlphas.push(pixels.data[3]);
+            }
+            return pixels;
+        };
+    });
+    await page.goto('/app');
+    const input = page.getByTestId('image-file-input');
+    const current = page.getByText('Current', { exact: true }).locator('..');
+    const error = page.getByTestId('image-import-error');
+    const alphas = () =>
+        page.evaluate(
+            () => (window as unknown as { canvasProbeAlphas: number[] }).canvasProbeAlphas
+        );
+    await input.setInputFiles(source);
+    await expect(current).toContainText('1000x835');
+    await expect(error).toHaveCount(0);
+    await expect.poll(alphas).toContain(252);
+
+    // A nonzero but nearly transparent readback must still refuse the import.
+    await page.evaluate(() => {
+        (window as unknown as { refuseCanvasProbe: boolean }).refuseCanvasProbe = true;
+    });
+    await input.setInputFiles(source);
+    await expect(error).toContainText('Your current image was kept.');
+    await expect.poll(alphas).toContain(3);
+    await expect(current).toContainText('1000x835');
+    await page.getByRole('button', { name: 'Undo', exact: true }).click();
+    await expect(current).toContainText('1024x1024');
+    await expect(page.getByRole('button', { name: 'Undo', exact: true })).toBeDisabled();
+});
+
+for (const failure of ['silent', 'throw'] as const) {
+    test(`@smoke lower browser dimension limits are detected when canvas refusal is ${failure}`, async ({
+        page,
+    }) => {
+        await page.addInitScript((failure) => {
+            localStorage.clear();
+            const getContext = HTMLCanvasElement.prototype.getContext;
+            Object.defineProperty(HTMLCanvasElement.prototype, 'getContext', {
+                value(this: HTMLCanvasElement, ...args: Parameters<typeof getContext>) {
+                    if (this.width > 32767 || this.height > 32767) {
+                        if (failure === 'throw') throw new DOMException('Canvas exceeds max size');
+                        // Model a context that exists but silently ignores drawing.
+                        return {
+                            fillRect() {},
+                            getImageData: () => ({ data: new Uint8ClampedArray(4) }),
+                        };
+                    }
+                    return getContext.apply(this, args);
+                },
+            });
+        }, failure);
+        await page.goto('/app');
+        const input = page.getByTestId('image-file-input');
+        const current = page.getByText('Current', { exact: true }).locator('..');
+        await input.setInputFiles(source);
+        await expect(current).toContainText('1000x835');
+        for (const [width, height] of [
+            [32768, 8],
+            [8, 32768],
+        ]) {
+            await input.setInputFiles({
+                name: 'wide.png',
+                mimeType: 'image/png',
+                buffer: blackPng(width, height),
+            });
+            await expect(page.getByTestId('image-import-error')).toContainText(
+                `${width}×${height} pixels, which is too large to open. Your current image was kept.`
+            );
+            await expect(current).toContainText('1000x835');
+        }
+    });
+}
 
 test('@smoke removing the image clears the import error and later errors omit the kept-image note', async ({
     page,

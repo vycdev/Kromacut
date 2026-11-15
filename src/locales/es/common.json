@@ -81,6 +81,8 @@
     "imageImportFailed": "No se pudo abrir la imagen",
     "imageDecodeFailed": "No se pudo leer «{{name}}» como imagen. Se ha conservado tu imagen actual. Elige un archivo PNG, JPEG o WebP válido.",
     "imageDecodeFailedNoImage": "No se pudo leer «{{name}}» como imagen. Elige un archivo PNG, JPEG o WebP válido.",
+    "imageTooLarge": "«{{name}}» mide {{width}}×{{height}} píxeles y es demasiado grande para abrirla. Se ha conservado tu imagen actual. Redúcela a {{maxSize}} píxeles o menos y vuelve a intentarlo.",
+    "imageTooLargeNoImage": "«{{name}}» mide {{width}}×{{height}} píxeles y es demasiado grande para abrirla. Redúcela a {{maxSize}} píxeles o menos y vuelve a intentarlo.",
     "dismissImageImportError": "Cerrar error de imagen",
     "preparingControls": "Preparando los controles 3D…",
     "performanceWarning": "Aviso de rendimiento",

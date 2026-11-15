@@ -81,6 +81,8 @@
         "imageImportFailed": "Couldn't open image",
         "imageDecodeFailed": "“{{name}}” could not be read as an image. Your current image was kept. Choose a valid PNG, JPEG, or WebP file.",
         "imageDecodeFailedNoImage": "“{{name}}” could not be read as an image. Choose a valid PNG, JPEG, or WebP file.",
+        "imageTooLarge": "“{{name}}” is {{width}}×{{height}} pixels, which is too large to open. Your current image was kept. Resize it to {{maxSize}} pixels or smaller and try again.",
+        "imageTooLargeNoImage": "“{{name}}” is {{width}}×{{height}} pixels, which is too large to open. Resize it to {{maxSize}} pixels or smaller and try again.",
         "dismissImageImportError": "Dismiss image error",
         "preparingControls": "Preparing 3D controls…",
         "performanceWarning": "Performance Warning",

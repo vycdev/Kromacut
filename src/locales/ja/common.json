@@ -81,6 +81,8 @@
         "imageImportFailed": "画像を開けませんでした",
         "imageDecodeFailed": "「{{name}}」を画像として読み込めませんでした。現在の画像はそのまま保持されています。有効な PNG、JPEG、または WebP ファイルを選択してください。",
         "imageDecodeFailedNoImage": "「{{name}}」を画像として読み込めませんでした。有効な PNG、JPEG、または WebP ファイルを選択してください。",
+        "imageTooLarge": "「{{name}}」は {{width}}×{{height}} ピクセルで、大きすぎるため開けません。現在の画像はそのまま保持されています。{{maxSize}} ピクセル以下に縮小してから、もう一度お試しください。",
+        "imageTooLargeNoImage": "「{{name}}」は {{width}}×{{height}} ピクセルで、大きすぎるため開けません。{{maxSize}} ピクセル以下に縮小してから、もう一度お試しください。",
         "dismissImageImportError": "画像エラーを閉じる",
         "preparingControls": "3D 操作パネルを準備中…",
         "performanceWarning": "処理負荷の警告",

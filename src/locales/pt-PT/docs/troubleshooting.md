@@ -9,6 +9,10 @@ description: Problemas comuns e o que experimentar primeiro.
 
 Comece aqui quando um resultado parecer errado ou um controlo estiver desativado.
 
+## Uma Imagem É Demasiado Grande Para Abrir
+
+Reduza o ficheiro num editor de imagem antes de o voltar a importar. O erro mostra as dimensões e um tamanho conservador para o seu dispositivo. A imagem atual e o histórico de anulação são mantidos. Uma imagem longa e estreita pode caber se o navegador suportar as suas dimensões; o número total de píxeis também conta. Consulte [Carregar imagens](loading-images).
+
 ## Uma ligação mostra «Página não encontrada»
 
 O endereço pode ter uma gralha ou apontar para uma página removida. Use **Abrir Kromacut**, **Ir para a página inicial** ou **Explorar documentação** para encontrar a ferramenta, início ou guia atual. Um endereço desconhecido de documentação não é substituído automaticamente por outro guia.

@@ -9,6 +9,10 @@ description: Problemi comuni e prime soluzioni da provare.
 
 Parti da qui se un risultato è errato o un controllo disattivato.
 
+## Un’Immagine È Troppo Grande Per Essere Aperta
+
+Ridimensiona il file in un editor di immagini prima di importarlo di nuovo. L’errore mostra le dimensioni e una misura prudenziale per il dispositivo. L’immagine attuale e la cronologia di annullamento vengono mantenute. Un’immagine lunga e stretta può rientrare nei limiti se il browser ne supporta le dimensioni; conta anche il numero totale di pixel. Vedi [Caricamento delle immagini](loading-images).
+
 ## Un collegamento mostra pagina non trovata
 
 L’indirizzo può contenere un errore o riferirsi a pagina rimossa. Usa **Apri Kromacut**, **Vai alla pagina iniziale** o **Esplora documentazione** per raggiungere strumento, home o guida corrente. Un indirizzo sconosciuto non viene sostituito automaticamente con un’altra guida.

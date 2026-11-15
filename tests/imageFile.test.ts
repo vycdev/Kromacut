@@ -1,7 +1,14 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
-import { isImageFile, validateImageFile } from '../src/lib/imageFile.ts';
+import {
+    fitsImageCanvasLimits,
+    IOS_MAX_IMAGE_PIXELS,
+    isImageFile,
+    MAX_IMAGE_PIXELS,
+    MAX_IMAGE_SIDE,
+    validateImageFile,
+} from '../src/lib/imageFile.ts';
 
 test('image MIME types are images regardless of extension', () => {
     assert.equal(isImageFile({ name: 'photo', type: 'image/png' }), true);
@@ -28,6 +35,42 @@ test('files with an empty MIME type fall back to the extension', () => {
 
 test('a non-image MIME type is not overridden by an image extension', () => {
     assert.equal(isImageFile({ name: 'renamed.png', type: 'text/plain' }), false);
+});
+
+test('image budgets allow thin panoramas while limiting each side and total area', () => {
+    assert.equal(MAX_IMAGE_SIDE, 65535);
+    assert.equal(MAX_IMAGE_PIXELS, 268_435_456);
+    assert.equal(fitsImageCanvasLimits(1000, 835), true);
+    assert.equal(fitsImageCanvasLimits(16384, 16384), true);
+    assert.equal(fitsImageCanvasLimits(32767, 8192), true);
+    assert.equal(fitsImageCanvasLimits(32767, 1), true);
+    assert.equal(fitsImageCanvasLimits(1, 32767), true);
+    assert.equal(fitsImageCanvasLimits(40000, 8), true);
+    assert.equal(fitsImageCanvasLimits(8, 40000), true);
+    assert.equal(fitsImageCanvasLimits(65535, 1), true);
+    assert.equal(fitsImageCanvasLimits(1, 65535), true);
+    // Over the total pixel limit, as in Chromium and WebKit.
+    assert.equal(fitsImageCanvasLimits(16385, 16384), false);
+    assert.equal(fitsImageCanvasLimits(16384, 16385), false);
+    assert.equal(fitsImageCanvasLimits(17000, 17000), false);
+    assert.equal(fitsImageCanvasLimits(65536, 1), false);
+    assert.equal(fitsImageCanvasLimits(1, 65536), false);
+});
+
+test('the iOS image budget also protects older Safari and desktop-mode iPads', () => {
+    assert.equal(IOS_MAX_IMAGE_PIXELS, 16_777_216);
+    assert.equal(fitsImageCanvasLimits(4096, 4096, IOS_MAX_IMAGE_PIXELS), true);
+    assert.equal(fitsImageCanvasLimits(8192, 2048, IOS_MAX_IMAGE_PIXELS), true);
+    assert.equal(fitsImageCanvasLimits(4097, 4096, IOS_MAX_IMAGE_PIXELS), false);
+    assert.equal(fitsImageCanvasLimits(4096, 4097, IOS_MAX_IMAGE_PIXELS), false);
+    assert.equal(fitsImageCanvasLimits(9000, 9000, IOS_MAX_IMAGE_PIXELS), false);
+});
+
+test('invalid or empty image dimensions do not fit a canvas', () => {
+    for (const value of [0, -1, 1.5, NaN, Infinity]) {
+        assert.equal(fitsImageCanvasLimits(value, 1), false);
+        assert.equal(fitsImageCanvasLimits(1, value), false);
+    }
 });
 
 const rocco = readFileSync(new URL('./assets/rocco__source.png', import.meta.url));

@@ -11,7 +11,7 @@ In **2D** prepari l’immagine usata dal modello 3D. Le modifiche cromatiche cam
 
 ## Scegliere una sorgente
 
-Fai clic su **Scegli file** nella barra dell’anteprima o trascina un file nella vista 2D. Viene caricato solo il primo file trascinato. Usa un formato decodificabile dal browser o dalla webview desktop; PNG è utile con trasparenza. Sviluppa prima i RAW fotografici ed esporta un formato normale. Se un file non si può leggere come immagine, ad esempio perché danneggiato o scaricato solo in parte, Kromacut mostra un errore e mantiene l’immagine attuale.
+Fai clic su **Scegli file** nella barra dell’anteprima o trascina un file nella vista 2D. Viene caricato solo il primo file trascinato. Usa un formato decodificabile dal browser o dalla webview desktop; PNG è utile con trasparenza. Sviluppa prima i RAW fotografici ed esporta un formato normale. Se un file non si può leggere come immagine, ad esempio perché danneggiato o scaricato solo in parte, Kromacut mostra un errore e mantiene l’immagine attuale. Kromacut usa limiti di importazione prudenziali di 268 milioni di pixel (16384×16384) e 65535 pixel per lato. Su iPhone e iPad, anche nella modalità di navigazione desktop, il limite è di 16 milioni di pixel (4096×4096) per la compatibilità con le versioni meno recenti di Safari. Il browser può imporre un limite inferiore di larghezza o altezza. Se un’immagine viene rifiutata, quella attuale viene mantenuta; ridimensiona il file in un editor di immagini secondo la dimensione suggerita nell’errore e riprova.
 
 Kromacut parte dal proprio logo come esempio. Un’altra immagine sostituisce quella di lavoro. Non viene pubblicata e non viene scaricata da un collegamento web incollato.
 
