@@ -9,6 +9,7 @@ type DecodeState = {
     holdNextEncode: boolean;
     throwNextEncode: boolean;
     failImageLoads: boolean;
+    syncEncodes: boolean;
     heldEncodes: BlobCallback[];
     completed: string[];
     hold: boolean;
@@ -27,6 +28,7 @@ async function instrument(page: Page, fallback = false) {
             holdNextEncode: false,
             throwNextEncode: false,
             failImageLoads: false,
+            syncEncodes: false,
             heldEncodes: [],
             completed: [],
             hold: false,
@@ -36,6 +38,12 @@ async function instrument(page: Page, fallback = false) {
         const toBlob = HTMLCanvasElement.prototype.toBlob;
         HTMLCanvasElement.prototype.toBlob = function (...args: Parameters<typeof toBlob>) {
             state.encodes++;
+            if (state.syncEncodes) {
+                const base64 = this.toDataURL('image/png').split(',')[1];
+                const bytes = Uint8Array.from(atob(base64), (character) => character.charCodeAt(0));
+                args[0](new Blob([bytes], { type: 'image/png' }));
+                return;
+            }
             if (state.throwNextEncode) {
                 state.throwNextEncode = false;
                 throw new DOMException('Encoding failed', 'InvalidStateError');
@@ -512,4 +520,66 @@ test('@smoke a failed shared snapshot ends loading and permits history recovery'
     });
     await page.getByRole('button', { name: 'Undo', exact: true }).click();
     await expect(page.getByText('Current', { exact: true }).locator('..')).toContainText('64x48');
+});
+
+test('@smoke undo reloads a touch-up commit skipped by a batched render', async ({ page }) => {
+    await instrument(page);
+    await page.goto('/app');
+    const base64 = await page.evaluate(() => {
+        const canvas = document.createElement('canvas');
+        canvas.width = 64;
+        canvas.height = 48;
+        const context = canvas.getContext('2d')!;
+        context.fillStyle = '#c04020';
+        context.fillRect(0, 0, 32, 48);
+        context.fillStyle = '#2040c0';
+        context.fillRect(32, 0, 32, 48);
+        return canvas.toDataURL('image/png').split(',')[1];
+    });
+    await page.getByTestId('image-file-input').setInputFiles({
+        name: 'two-regions.png',
+        mimeType: 'image/png',
+        buffer: Buffer.from(base64, 'base64'),
+    });
+    await expect(page.getByText('Current', { exact: true }).locator('..')).toContainText('64x48');
+    await page.getByTestId('touchup-tool-fill').click();
+    const preview = page.getByTestId('image-dropzone').locator('canvas').first();
+    await preview.evaluate((canvas: HTMLCanvasElement) => {
+        (window as unknown as { imageDecodes: DecodeState }).imageDecodes.syncEncodes = true;
+        const box = canvas.getBoundingClientRect();
+        for (const fraction of [0.25, 0.75]) {
+            canvas.dispatchEvent(
+                new PointerEvent('pointerdown', {
+                    bubbles: true,
+                    cancelable: true,
+                    button: 0,
+                    buttons: 1,
+                    pointerId: 1,
+                    pointerType: 'mouse',
+                    isPrimary: true,
+                    clientX: box.left + box.width * fraction,
+                    clientY: box.top + box.height / 2,
+                })
+            );
+        }
+    });
+    await expect.poll(() => decodes(page)).toMatchObject({ loads: [0, 0, 1], draws: [0, 0, 1] });
+    await page.getByRole('button', { name: 'Undo', exact: true }).click();
+    await expect.poll(() => decodes(page)).toMatchObject({ loads: [0, 1, 1], draws: [0, 1, 1] });
+    await expect
+        .poll(() =>
+            preview.evaluate((canvas: HTMLCanvasElement) =>
+                Array.from(
+                    canvas
+                        .getContext('2d')!
+                        .getImageData(
+                            Math.floor(canvas.width * 0.75),
+                            Math.floor(canvas.height / 2),
+                            1,
+                            1
+                        ).data
+                )
+            )
+        )
+        .toEqual([32, 64, 192, 255]);
 });

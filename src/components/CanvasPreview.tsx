@@ -320,7 +320,16 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
             // these pixels; keep the canvases (and any in-progress stroke)
             // untouched so drawing stays continuous across history commits.
             selfCommitSrcRef.current =
-                imageSrc && selfCommitSrcsRef.current.delete(imageSrc) ? imageSrc : null;
+                imageSrc && selfCommitSrcsRef.current.has(imageSrc) ? imageSrc : null;
+            if (selfCommitSrcRef.current) {
+                // React may batch several successful commits into one render.
+                // Earlier URLs are history entries now, not pending self-commits;
+                // retaining their markers would make Undo skip restoring pixels.
+                for (const src of selfCommitSrcsRef.current) {
+                    selfCommitSrcsRef.current.delete(src);
+                    if (src === imageSrc) break;
+                }
+            }
             if (!selfCommitSrcRef.current) {
                 releaseTouchUpSnapshot();
                 selfCommitSrcsRef.current.clear();
