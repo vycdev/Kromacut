@@ -38,7 +38,10 @@ import PrintInstructions from './PrintInstructions';
 import AutoPaintTab from './AutoPaintTab';
 import type { ImageDimensions } from '../hooks/useSwatches';
 import { concealPrintableFeatureBuffers } from '../lib/printableFeatures.ts';
-import { createBuildRevision, shouldApplyInitialProfileFilaments } from '../lib/threeDWorkLifecycle';
+import {
+    createBuildRevision,
+    shouldApplyInitialProfileFilaments,
+} from '../lib/threeDWorkLifecycle';
 import type { DesktopFileRequest } from '../lib/desktopFileInbox';
 import { DesktopProfileImport } from './DesktopProfileImport';
 
@@ -243,9 +246,7 @@ export default function ThreeDControls({
     );
     // Store translation keys so fallback notices follow the current UI language.
     const [multiHeadNotice, setMultiHeadNotice] = useState<{
-        key:
-            | 'multiHead.noLayoutFallback'
-            | 'multiHead.analysisFailedFallback';
+        key: 'multiHead.noLayoutFallback' | 'multiHead.analysisFailedFallback';
         heads: number;
     }>();
 
@@ -412,6 +413,12 @@ export default function ThreeDControls({
         isComputing: isOptimizerComputing,
         progress: optimizerProgress,
         error: optimizerError,
+        needsSearchGuidance,
+        targetColorCount,
+        isAwaitingStart,
+        isCancelled: isAutoPaintCancelled,
+        start: startAutoPaint,
+        cancel: cancelAutoPaint,
     } = useAutoPaintWorker({
         active,
         paintMode,
@@ -588,11 +595,14 @@ export default function ThreeDControls({
                 searchDepth: multiHeadSearchDepth,
                 colorMode: multiHeadColorMode,
                 heightDithering: heightDithering && !preserveSeparation,
-                ditherContext: heightDithering && !preserveSeparation && printableFeatureSimulation ? {
-                    pixels: printableFeatureSimulation,
-                    pixelSize,
-                    ditherLineWidth,
-                } : undefined,
+                ditherContext:
+                    heightDithering && !preserveSeparation && printableFeatureSimulation
+                        ? {
+                              pixels: printableFeatureSimulation,
+                              pixelSize,
+                              ditherLineWidth,
+                          }
+                        : undefined,
             });
             if (!isCurrentBuild()) return;
         }
@@ -748,12 +758,19 @@ export default function ThreeDControls({
                 />
             )}
             {/* Apply button */}
-            <div className="sticky -top-4 z-20 -mx-4 -mt-4 px-4 pt-4 pb-2 bg-card border-b border-border flex justify-end">
+            <div className="sticky -top-4 z-20 -mx-4 -mt-4 px-4 pt-4 pb-2 bg-card border-b border-border flex flex-col gap-2">
                 <Button
-                    onClick={handleApply}
+                    onClick={
+                        paintMode === 'autopaint' && isAwaitingStart ? startAutoPaint : handleApply
+                    }
                     data-testid="build-3d-model"
                     disabled={
-                        isAutoPaintComputing || isMultiHeadComputing || autoPaintBuildUnavailable
+                        isAutoPaintComputing ||
+                        isMultiHeadComputing ||
+                        (autoPaintBuildUnavailable && !isAwaitingStart) ||
+                        (paintMode === 'autopaint' &&
+                            isAwaitingStart &&
+                            (!printableFeatureSimulation || filaments.length === 0))
                     }
                     className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold transition-all duration-200 shadow-md hover:shadow-lg active:scale-95 gap-1.5 disabled:opacity-60"
                 >
@@ -766,6 +783,8 @@ export default function ThreeDControls({
                                 })}
                             </span>
                         </>
+                    ) : paintMode === 'autopaint' && isAwaitingStart ? (
+                        <span>{t('threeDControls.runAutoPaint')}</span>
                     ) : autoPaintBuildUnavailable ? (
                         <span>
                             {autoPaintError
@@ -779,7 +798,49 @@ export default function ThreeDControls({
                         </>
                     )}
                 </Button>
+                {isOptimizerComputing && (
+                    <Button
+                        variant="outline"
+                        onClick={cancelAutoPaint}
+                        data-testid="cancel-auto-paint"
+                        className="w-full h-auto min-h-9 whitespace-normal"
+                    >
+                        {t('threeDControls.cancelAutoPaint')}
+                    </Button>
+                )}
             </div>
+
+            {paintMode === 'autopaint' && needsSearchGuidance && (
+                <div
+                    role="status"
+                    data-testid="auto-paint-search-guidance"
+                    className="rounded-md border border-amber-500/50 bg-amber-500/10 p-3 space-y-2 text-xs"
+                >
+                    <p>
+                        {t('threeDControls.highTargetCount', {
+                            colors: targetColorCount,
+                        })}
+                    </p>
+                    <p>{t('threeDControls.highTargetGuidance')}</p>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-auto min-h-8 whitespace-normal"
+                        onClick={() => {
+                            setOptimizerAlgorithm('fast');
+                            setTransitionOpacity(0.8);
+                            setMaxRepeatedSwaps(0);
+                        }}
+                    >
+                        {t('threeDControls.useFastCompact')}
+                    </Button>
+                </div>
+            )}
+            {paintMode === 'autopaint' && isAutoPaintCancelled && (
+                <p role="status" className="text-xs text-muted-foreground">
+                    {t('threeDControls.autoPaintCancelled')}
+                </p>
+            )}
 
             {/* Printing Parameters Card */}
             <PrintSettingsCard

@@ -212,6 +212,12 @@
     "physicalLayers_many": "({{count, number}} couches physiques)"
   },
   "threeDControls": {
+    "runAutoPaint": "Lancer Auto-paint",
+    "cancelAutoPaint": "Annuler Auto-paint",
+    "highTargetCount": "Cette image contient {{colors, number}} couleurs cibles distinctes. La recherche améliorée peut prendre plusieurs minutes, surtout avec les répétitions.",
+    "highTargetGuidance": "Pour démarrer plus vite, passez à 2D → Paramètres de quantification → Appliquer avec 16–32 couleurs, désactivez les répétitions ou utilisez Rapide / Compact. Lancez Auto-paint pour conserver les réglages actuels.",
+    "useFastCompact": "Utiliser Rapide / Compact, sans répétitions",
+    "autoPaintCancelled": "Auto-paint annulé. Relancez Auto-paint ou modifiez les réglages.",
     "build3DModel": "Générer le modèle 3D",
     "manual": "Manuel",
     "autoPaint": "Peinture automatique",

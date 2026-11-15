@@ -11,6 +11,12 @@ La pintura automática predice capas finas de filamento superpuestas y elige alt
 
 Define [tamaño físico, alturas de capa y ancho efectivo](3d-mode#3d-print-settings), añade filamentos que realmente puedas cargar, espera al cálculo y pulsa **Generar modelo 3D**. Las entradas recalculan automáticamente; la geometría mostrada solo cambia al generar.
 
+## Paletas grandes y cancelación
+
+El tiempo de búsqueda depende de los colores de destino distintos, no solo de las dimensiones. A partir de 1024 colores, la coincidencia mejorada muestra consejos y espera a **Iniciar Auto-paint**. Para fotos, prueba primero **2D → Ajustes de cuantización → Aplicar** con 16–32 colores. Desactivar el **Límite total de repeticiones** o elegir **Rápido** y **Compacto** también reduce el trabajo; estas opciones pueden cambiar el resultado. El acceso rápido configura las tres opciones y espera al inicio. No se reducen colores automáticamente. El umbral es un aviso basado en búsquedas Equilibrado con repeticiones medidas, no un límite de tiempo; las paletas más pequeñas también pueden ser lentas con búsquedas más profundas o más filamentos.
+
+Durante la búsqueda de filamentos, **Cancelar Auto-paint** detiene el proceso en segundo plano. La búsqueda queda detenida hasta **Iniciar Auto-paint** o un cambio de ajustes. Cambiar los ajustes o pasar a 2D también cancela el trabajo activo. El progreso es aproximado, no una estimación de tiempo. La cancelación no crea un modelo nuevo; la vista anterior puede seguir visible. Tras el cálculo, elige **Construir modelo 3D**.
+
 ## Datos de filamentos
 
 | Control | Qué introducir o hacer | Efecto |

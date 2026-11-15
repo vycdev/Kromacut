@@ -11,6 +11,12 @@ Auto-paint prezice aspectul straturilor subțiri de filament suprapuse și alege
 
 Setează [dimensiunea fizică, înălțimile straturilor și lățimea efectivă a liniei](3d-mode#3d-print-settings), adaugă filamente pe care le poți încărca efectiv, așteaptă calculul, apoi **Generează modelul 3D**. Datele de intrare se recalculează automat; geometria afișată se actualizează doar la generare.
 
+## Palete mari și anulare
+
+Timpul de căutare depinde de numărul culorilor țintă distincte, nu doar de dimensiuni. De la 1.024 de culori țintă, potrivirea avansată afișează îndrumări și așteaptă **Pornește Auto-paint**. Pentru fotografii, încearcă mai întâi **2D → Setări de cuantizare → Aplică** cu 16–32 de culori. Dezactivarea **Limitei totale de repetări** sau alegerea **Rapid** și **Compactă** reduce efortul de căutare; aceste opțiuni pot schimba rezultatul. Scurtătura setează toate cele trei opțiuni, apoi așteaptă pornirea. Culorile nu sunt reduse automat. Pragul este o avertizare bazată pe căutări Echilibrat cu repetări măsurate, nu o limită de timp; și paletele mai mici pot fi lente cu o căutare mai aprofundată sau mai multe filamente.
+
+În timpul căutării filamentelor, **Anulează Auto-paint** oprește procesul din fundal. Căutarea rămâne oprită până alegi **Pornește Auto-paint** sau schimbi setările. Schimbarea setărilor sau trecerea la 2D anulează și ele lucrul activ. Progresul este aproximativ, nu o estimare de timp. Anularea nu creează un model nou; previzualizarea anterioară poate rămâne vizibilă. După calcul, alege **Construiește modelul 3D**.
+
 ## Datele filamentelor
 
 | Comandă | Ce introduci sau faci | Efect |

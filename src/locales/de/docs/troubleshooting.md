@@ -9,6 +9,10 @@ description: Häufige Probleme und erste Lösungsversuche.
 
 Beginne hier, wenn ein Ergebnis falsch aussieht oder eine Funktion deaktiviert ist.
 
+## Auto-paint ist bei einem kleinen Foto langsam
+
+Ein kleines, nicht quantisiertes Foto kann Tausende verschiedene Farben enthalten, die für viele Stapel bewertet werden. Farben unter **2D → Farbquantisierung → Anwenden** reduzieren (mit 16–32 beginnen), Wiederholungen ausschalten oder **Schnell / Kompakt** wählen. Ab 1.024 Zielfarben zeigt der erweiterte Farbabgleich Hinweise und wartet auf **Auto-paint starten**. **Auto-paint abbrechen** stoppt die laufende Suche; zum Fortsetzen neu starten oder Einstellungen ändern. Die Prozentzahl ist keine Zeitschätzung. Siehe [Auto-paint](auto-paint).
+
 ## Ein Bild Ist Zu Groß Zum Öffnen
 
 Verkleinere die Datei vor dem erneuten Import in einem Bildbearbeitungsprogramm. Die Fehlermeldung zeigt die Bildmaße und eine vorsichtige Zielgröße für dein Gerät. Das aktuelle Bild und der Rückgängig-Verlauf bleiben erhalten. Ein langes, schmales Bild kann passen, wenn der Browser seine Maße unterstützt; auch die Gesamtpixelzahl zählt. Siehe [Bilder laden](loading-images).

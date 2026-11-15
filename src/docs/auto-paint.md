@@ -11,6 +11,12 @@ Auto-paint predicts thin filament layers over one another and chooses printable 
 
 Set [physical size, layer heights, and effective line width](3d-mode#3d-print-settings), add filaments you can actually load, wait for calculation, then **Build 3D Model**. Inputs recalculate automatically; displayed geometry updates only when you build.
 
+## Large palettes and cancellation
+
+Search time depends on distinct target colors, not just image dimensions. At 1,024 or more target colors, Enhanced matching waits for **Run Auto-paint** and shows guidance before searching. For photos, try **2D → Quantization Settings → Apply** with 16–32 colors first. Turning **Total repeat limit** off or choosing **Fast** and **Compact** also reduces search work; these choices can change the result. The shortcut sets all three options but still waits for you to run the search. No colors are reduced automatically. The threshold is an advisory based on measured Balanced searches with repeats, not a time limit; smaller palettes can also be slow with deeper search or more filaments.
+
+During the filament search, **Cancel Auto-paint** stops the background worker. A cancelled search stays stopped until you choose **Run Auto-paint** or change settings. Changing settings or switching to 2D also cancels active work. Progress is approximate, not a time estimate. Cancellation creates no new model; a previous built preview can remain visible. After calculation finishes, choose **Build 3D Model**.
+
 ## Filament Inputs
 
 | Control                | What to enter or do                                                                  | Effect                                                                                                             |

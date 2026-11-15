@@ -192,6 +192,12 @@
         "isolationValue": "Isolation: <value>{{value}}</value>"
     },
     "threeDControls": {
+        "runAutoPaint": "Run Auto-paint",
+        "cancelAutoPaint": "Cancel Auto-paint",
+        "highTargetCount": "This image has {{colors, number}} distinct target colors. Enhanced search can take minutes, especially with repeats.",
+        "highTargetGuidance": "For a faster start, go to 2D → Quantization Settings → Apply with 16–32 colors, turn repeats off, or use Fast / Compact. Run Auto-paint to continue with the current settings.",
+        "useFastCompact": "Use Fast / Compact, repeats off",
+        "autoPaintCancelled": "Auto-paint cancelled. Run Auto-paint to restart, or change settings.",
         "build3DModel": "Build 3D Model",
         "manual": "Manual",
         "autoPaint": "Auto-paint",

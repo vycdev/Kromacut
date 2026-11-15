@@ -1,5 +1,9 @@
 # Auto-paint benchmark
 
+For issue #103's distinct-target threshold, fixed-seed before/after timings,
+result-equivalence evidence, and a reproducible high-color workload, see
+[High-target Auto-paint search](high-target-search.md).
+
 For diagnostics-only, training-isolated Matrix prediction checks, see
 [Offline Matrix end-to-end validation](appearance-validation.md). Run `npm run benchmark:appearance -- --help`
 for profile/desktop-trace inputs and reporting options. Unlike optimizer quality scores below, it

@@ -212,6 +212,12 @@
     "physicalLayers_many": "Strati fisici: {{count, number}}"
   },
   "threeDControls": {
+    "runAutoPaint": "Avvia Auto-paint",
+    "cancelAutoPaint": "Annulla Auto-paint",
+    "highTargetCount": "Questa immagine ha {{colors, number}} colori di destinazione distinti. La ricerca avanzata può richiedere minuti, soprattutto con ripetizioni.",
+    "highTargetGuidance": "Per iniziare più rapidamente, vai a 2D → Impostazioni di quantizzazione → Applica con 16–32 colori, disattiva le ripetizioni o usa Veloce / Compatto. Avvia Auto-paint per proseguire con le impostazioni attuali.",
+    "useFastCompact": "Usa Veloce / Compatto senza ripetizioni",
+    "autoPaintCancelled": "Auto-paint annullato. Riavvia Auto-paint o cambia le impostazioni.",
     "build3DModel": "Crea modello 3D",
     "manual": "Manuale",
     "autoPaint": "Auto-paint",

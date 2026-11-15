@@ -192,6 +192,12 @@
         "isolationValue": "পৃথকতা: <value>{{value}}</value>"
     },
     "threeDControls": {
+        "runAutoPaint": "Auto-paint চালান",
+        "cancelAutoPaint": "Auto-paint বাতিল করুন",
+        "highTargetCount": "এই ছবিতে {{colors, number}}টি ভিন্ন লক্ষ্য রং রয়েছে। উন্নত অনুসন্ধানে কয়েক মিনিট লাগতে পারে, বিশেষ করে পুনরাবৃত্তি চালু থাকলে।",
+        "highTargetGuidance": "দ্রুত শুরু করতে 2D → রঙ কমানোর সেটিংস → প্রয়োগ করুন-এ ১৬–৩২টি রং ব্যবহার করুন, পুনরাবৃত্তি বন্ধ করুন বা দ্রুত / সংক্ষিপ্ত বেছে নিন। বর্তমান সেটিংস নিয়ে এগোতে Auto-paint চালান।",
+        "useFastCompact": "দ্রুত / সংক্ষিপ্ত, পুনরাবৃত্তি বন্ধ করুন",
+        "autoPaintCancelled": "Auto-paint বাতিল হয়েছে। আবার Auto-paint চালান বা সেটিংস বদলান।",
         "build3DModel": "3D মডেল তৈরি করুন",
         "manual": "ম্যানুয়াল",
         "autoPaint": "স্বয়ংক্রিয় রং",

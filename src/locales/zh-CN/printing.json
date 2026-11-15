@@ -192,6 +192,12 @@
         "isolationValue": "独立程度：<value>{{value}}</value>"
     },
     "threeDControls": {
+        "runAutoPaint": "运行 Auto-paint",
+        "cancelAutoPaint": "取消 Auto-paint",
+        "highTargetCount": "此图像有 {{colors, number}} 种不同的目标颜色。增强搜索可能需要数分钟，尤其是在启用重复时。",
+        "highTargetGuidance": "要更快开始，请在 2D → 减色设置 → 应用中使用 16–32 色，关闭重复，或使用快速 / 精简。运行 Auto-paint 可按当前设置继续。",
+        "useFastCompact": "使用快速 / 精简并关闭重复",
+        "autoPaintCancelled": "Auto-paint 已取消。请重新运行 Auto-paint 或更改设置。",
         "build3DModel": "构建3D模型",
         "manual": "手动",
         "autoPaint": "自动配色",

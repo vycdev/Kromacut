@@ -1,0 +1,16 @@
+{"node":"v24.19.0","cpu":"AMD Ryzen 9 5950X 16-Core Processor            ","seed":12345,"source":"current"}
+{"count":16,"candidates":24,"samplesMs":[51.65430000000015,21.925900000000183,22.22730000000047],"fingerprint":"fb876433d998686ca1ac935111bc39eb0d770ff3da3bf50757acff5b427e49d0"}
+{"count":16,"repeats":0,"elapsedMs":82.17549999999937,"finalStack":"final-stack-v1-6bf1860d12617e39","score":51.008153499609854}
+{"count":16,"repeats":12,"elapsedMs":1543.2795000000006,"finalStack":"final-stack-v1-9345721ef8afc24a","score":46.61133620548023}
+{"count":1024,"candidates":24,"samplesMs":[110.90259999999944,103.38210000000072,104.87640000000101],"fingerprint":"9a0553d7f7f8365c15b5f2a72c3ea6abea188abb19744940cfd56a0afe3119af"}
+{"count":1024,"repeats":0,"elapsedMs":375.16699999999946,"finalStack":"final-stack-v1-3612fa232a534273","score":55.27473943848779}
+{"count":1024,"repeats":12,"elapsedMs":6612.622799999997,"finalStack":"final-stack-v1-932c4f8286c54d83","score":51.98335573895216}
+{"count":4096,"candidates":24,"samplesMs":[458.9108000000015,370.5112999999983,405.82800000000134],"fingerprint":"5bf06bbe31a838da7b41bbb3c60b4a7ca81bf031fdf009bf559b6ba155294654"}
+{"count":4096,"repeats":0,"elapsedMs":1560.2806999999993,"finalStack":"final-stack-v1-620dfc57cf20886b","score":54.90763817746373}
+{"count":4096,"repeats":12,"elapsedMs":15017.158000000003,"progress":0.519281914893617,"censored":true}
+{"count":16384,"candidates":24,"samplesMs":[1472.655899999998,1480.1656999999977,1578.6713000000018],"fingerprint":"d0b65ae8f1bebe487df7fd78bead304ac4e122c1fd788a2182633fc5605e8c05"}
+{"count":16384,"repeats":0,"elapsedMs":6680.394199999995,"finalStack":"final-stack-v1-af6d16df545b6786","score":54.85188424216218}
+{"count":16384,"repeats":12,"elapsedMs":15053.399100000002,"progress":0.13763297872340424,"censored":true}
+{"count":142066,"candidates":24,"samplesMs":[16158.520499999999,16878.273799999995,16899.6841],"fingerprint":"35bfa4b9749ea3361a9185ec6a4adb41104d208bf0bc1a0bb2acef1e23a2a8db"}
+{"count":142066,"repeats":0,"elapsedMs":15355.017900000006,"progress":0.08881578947368421,"censored":true}
+{"count":142066,"repeats":12,"elapsedMs":15143.40359999999,"progress":0.015957446808510637,"censored":true}
