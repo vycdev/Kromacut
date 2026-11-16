@@ -11,14 +11,22 @@ export function thresholdPixels(source: Uint8ClampedArray, thresholds: number[],
         throw new Error('Invalid threshold bands');
     }
     const palette = colors.map((c) => [1, 3, 5].map((i) => parseInt(c.slice(i, i + 2), 16)));
+    // Brightness is an integer in [0, 255]: band selection is constant time per pixel.
+    const lookup = new Uint8ClampedArray(256 * 3);
+    let band = 0;
+    for (let value = 0; value < 256; value++) {
+        while (band < thresholds.length && value >= thresholds[band]) band++;
+        lookup.set(palette[band], value * 3);
+    }
     const out = new Uint8ClampedArray(source.length);
     for (let i = 0; i < source.length; i += 4) {
         const brightness = Math.round(
             0.2126 * source[i] + 0.7152 * source[i + 1] + 0.0722 * source[i + 2]
         );
-        let band = 0;
-        while (band < thresholds.length && brightness >= thresholds[band]) band++;
-        out.set(palette[band], i);
+        const offset = brightness * 3;
+        out[i] = lookup[offset];
+        out[i + 1] = lookup[offset + 1];
+        out[i + 2] = lookup[offset + 2];
         out[i + 3] = source[i + 3];
     }
     return out;

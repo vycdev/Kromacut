@@ -15,11 +15,11 @@ export function useNozzlePatch() {
         pending.current = null;
     }, []);
     useEffect(() => abort, [abort]);
-    const cancel = () => {
+    const cancel = useCallback(() => {
         abort();
         setBusy(false);
         setStatus(null);
-    };
+    }, [abort]);
     async function apply(
         blob: Blob,
         croppedWidth: number,

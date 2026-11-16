@@ -5,7 +5,12 @@ import { useNozzlePatch } from '../hooks/useNozzlePatch';
 import { useNozzleComparison } from '../hooks/useNozzleComparison';
 import { loadPrintSettingsFromStorage, DEFAULT_PRINT_SETTINGS } from '../lib/printSettingsStorage';
 
+import { useImageWorkerTask } from '../hooks/useImageWorkerTask';
+import { useImageEditGuard } from '../hooks/useImageEditGuard';
+import type { PreparedImage } from '../workers/imageEditing.worker';
+
 interface Props {
+    disabled: boolean;
     initial?: NozzleSession | null;
     onSessionChange?: (state: NozzleSession) => void;
     imageAvailable: boolean;
@@ -233,6 +238,7 @@ function Comparison({
 
 export default function NozzlePreview({
     imageAvailable,
+    disabled,
     getImage,
     onApply,
     initial,
@@ -245,6 +251,9 @@ export default function NozzlePreview({
     const [mode, setMode] = useState<PreviewMode>(initial?.mode ?? 'appearance');
     const [patchEnabled, setPatchEnabled] = useState(initial?.patchEnabled ?? false);
     const patch = useNozzlePatch();
+    const { run: prepare, cancel: cancelPreparation } = useImageWorkerTask();
+    const beginEdit = useImageEditGuard(imageAvailable, disabled);
+    const cancelPatch = patch.cancel;
     const [linked, setLinked] = useState(initial?.linked ?? true);
     const [scenarios, setScenarios] = useState<Scenario[]>(
         initial?.scenarios ?? [
@@ -267,51 +276,35 @@ export default function NozzlePreview({
         },
         []
     );
+    useEffect(() => {
+        if (!disabled) return;
+        generation.current++;
+        cancelPreparation();
+        cancelPatch();
+        setOpen(false);
+        setSource(null);
+    }, [disabled, cancelPreparation, cancelPatch]);
     const close = () => {
         patch.cancel();
+        cancelPreparation();
         generation.current++;
         setOpen(false);
         setSource(null);
     };
     async function start() {
+        const current = beginEdit();
+        if (!current) return;
         const id = ++generation.current;
         setSource(null);
         setError(false);
         setOpen(true);
-        let bitmap: ImageBitmap | undefined;
         try {
             const blob = await getImage();
             if (!blob) throw new Error('No image');
-            bitmap = await createImageBitmap(blob);
-            const full = document.createElement('canvas');
-            full.width = bitmap.width;
-            full.height = bitmap.height;
-            const ctx = full.getContext('2d')!;
-            ctx.drawImage(bitmap, 0, 0);
-            const data = ctx.getImageData(0, 0, full.width, full.height).data;
-            let minX = full.width,
-                minY = full.height,
-                maxX = -1,
-                maxY = -1;
-            for (let y = 0; y < full.height; y++)
-                for (let x = 0; x < full.width; x++)
-                    if (data[(y * full.width + x) * 4 + 3]) {
-                        minX = Math.min(minX, x);
-                        minY = Math.min(minY, y);
-                        maxX = Math.max(maxX, x);
-                        maxY = Math.max(maxY, y);
-                    }
-            if (maxX < 0) throw new Error('Empty image');
-            const width = maxX - minX + 1,
-                height = maxY - minY + 1;
-            const scale = Math.min(1, 1024 / Math.max(width, height));
-            const preview = document.createElement('canvas');
-            preview.width = Math.max(1, Math.round(width * scale));
-            preview.height = Math.max(1, Math.round(height * scale));
-            const out = preview.getContext('2d')!;
-            out.imageSmoothingEnabled = false;
-            out.drawImage(full, minX, minY, width, height, 0, 0, preview.width, preview.height);
-            if (id !== generation.current) return;
+            if (id !== generation.current || !current()) return;
+            const prepared = (await prepare({ kind: 'nozzle-source', blob })) as PreparedImage;
+            if (id !== generation.current || !current()) return;
+            const { originalWidth: width, originalHeight: height, pixels } = prepared;
             const pixelSize =
                 loadPrintSettingsFromStorage()?.pixelSize ?? DEFAULT_PRINT_SETTINGS.pixelSize;
             const defaultWidth = Math.min(2000, Math.max(1, width * pixelSize));
@@ -321,21 +314,19 @@ export default function NozzlePreview({
             }
             setSource({
                 blob,
-                pixels: out.getImageData(0, 0, preview.width, preview.height),
+                pixels,
                 originalWidth: width,
                 originalHeight: height,
                 defaultWidth,
             });
         } catch {
             if (id === generation.current) setError(true);
-        } finally {
-            bitmap?.close();
         }
     }
     return (
         <section className="border rounded p-3 space-y-2">
             <h3 className="font-semibold">{t('nozzle.title')}</h3>
-            <button className={buttonStyle} disabled={!imageAvailable} onClick={start}>
+            <button className={buttonStyle} disabled={!imageAvailable || disabled} onClick={start}>
                 {t('nozzle.open')}
             </button>
             {open && (
@@ -441,8 +432,10 @@ export default function NozzlePreview({
                                         label={t('nozzle.scenario', { n: index + 1 })}
                                         mode={mode}
                                         patchEnabled={patchEnabled}
-                                        applying={patch.busy}
+                                        applying={patch.busy || disabled}
                                         onApply={async () => {
+                                            const current = beginEdit();
+                                            if (!current) return;
                                             const id = generation.current;
                                             const blob = await patch.apply(
                                                 source.blob,
@@ -450,7 +443,7 @@ export default function NozzlePreview({
                                                 value.width,
                                                 value.line
                                             );
-                                            if (blob && id === generation.current) {
+                                            if (blob && id === generation.current && current()) {
                                                 onApply(blob);
                                                 close();
                                             }

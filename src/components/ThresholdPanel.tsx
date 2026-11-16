@@ -1,9 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import * as Slider from '@radix-ui/react-slider';
 import { useTranslation } from 'react-i18next';
-import { thresholdPixels, evenThresholds, orderedThresholdBands } from '../lib/thresholds';
+import { evenThresholds, orderedThresholdBands } from '../lib/thresholds';
+
+import { useImageWorkerTask } from '../hooks/useImageWorkerTask';
+import { useThresholdPreview } from '../hooks/useThresholdPreview';
+import { useImageEditGuard } from '../hooks/useImageEditGuard';
+import type { PreparedImage } from '../workers/imageEditing.worker';
 
 interface Props {
+    disabled: boolean;
     imageSrc: string | null;
     currentColors: string[];
     getImage: () => Promise<Blob | null>;
@@ -13,6 +19,7 @@ interface Props {
 
 export default function ThresholdPanel({
     imageSrc,
+    disabled,
     palettes,
     currentColors,
     getImage,
@@ -30,71 +37,55 @@ export default function ThresholdPanel({
     const [original, setOriginal] = useState(false);
     const canvas = useRef<HTMLCanvasElement>(null);
     const dialog = useRef<HTMLDialogElement>(null);
-    const fullImage = useRef<HTMLImageElement | null>(null);
+    const fullImage = useRef<Blob | null>(null);
+    const { run, cancel } = useImageWorkerTask();
+    const beginEdit = useImageEditGuard(imageSrc, disabled || !open);
+    const { preview, error: previewError } = useThresholdPreview(
+        open && !disabled ? source : null,
+        thresholds,
+        colors
+    );
     const captureImage = useRef(getImage);
     captureImage.current = getImage;
     const buttonStyle = 'rounded border px-3 py-2 hover:bg-muted disabled:opacity-40';
 
     useEffect(() => {
-        if (!open || !imageSrc) return;
-        let cancelled = false;
         setSource(null);
+        setBusy(false);
+        if (!open || !imageSrc || disabled) {
+            if (disabled) setOpen(false);
+            return;
+        }
+        const current = beginEdit();
         setError(false);
         dialog.current?.showModal();
-        const img = new Image();
-        let sourceUrl: string | undefined;
-        img.onload = () => {
-            if (cancelled) return;
-            fullImage.current = img;
-            // Bound preview work; Apply always processes the full-resolution source.
-            const scale = Math.min(1, 1000 / Math.max(img.width, img.height));
-            const c = document.createElement('canvas');
-            c.width = Math.max(1, Math.round(img.width * scale));
-            c.height = Math.max(1, Math.round(img.height * scale));
-            const ctx = c.getContext('2d')!;
-            ctx.drawImage(img, 0, 0, c.width, c.height);
-            const data = ctx.getImageData(0, 0, c.width, c.height);
-            setSource(data);
-        };
-        img.onerror = () => {
-            if (!cancelled) setError(true);
-        };
-        void captureImage
-            .current()
-            .then((blob) => {
-                if (cancelled) return;
+        void (async () => {
+            try {
+                const blob = await captureImage.current();
+                if (!current?.()) return;
                 if (!blob) throw new Error('No preview image');
-                sourceUrl = URL.createObjectURL(blob);
-                img.src = sourceUrl;
-            })
-            .catch(() => {
-                if (!cancelled) setError(true);
-            });
+                const prepared = (await run({ kind: 'threshold-source', blob })) as PreparedImage;
+                if (!current()) return;
+                fullImage.current = blob;
+                setSource(prepared.pixels);
+            } catch {
+                if (current?.()) setError(true);
+            }
+        })();
         return () => {
-            cancelled = true;
+            cancel();
             fullImage.current = null;
-            if (sourceUrl) URL.revokeObjectURL(sourceUrl);
         };
-    }, [open, imageSrc]);
+    }, [open, imageSrc, disabled, beginEdit, run, cancel]);
 
     useEffect(() => {
-        if (!open || !source) return;
-        const frame = requestAnimationFrame(() => {
-            const c = canvas.current;
-            if (!c) return;
-            c.width = source.width;
-            c.height = source.height;
-            const pixels = original
-                ? source
-                : new ImageData(
-                      thresholdPixels(source.data, thresholds, colors),
-                      source.width,
-                      source.height
-                  );
-            c.getContext('2d')!.putImageData(pixels, 0, 0);
-        });
-        return () => cancelAnimationFrame(frame);
-    }, [open, source, thresholds, colors, original]);
+        const pixels = original ? source : preview;
+        const c = canvas.current;
+        if (!open || !pixels || !c) return;
+        c.width = pixels.width;
+        c.height = pixels.height;
+        c.getContext('2d')!.putImageData(pixels, 0, 0);
+    }, [open, source, preview, original]);
 
     function changeCount(count: number) {
         if (!Number.isInteger(count) || count < 2 || count > 64) return;
@@ -129,29 +120,24 @@ export default function ThresholdPanel({
         );
     }
     async function apply() {
-        const img = fullImage.current;
-        if (!img || busy) return;
+        const blob = fullImage.current;
+        const current = beginEdit();
+        if (!blob || busy || !current) return;
         setBusy(true);
         try {
-            await new Promise((resolve) => setTimeout(resolve, 0));
-            const c = document.createElement('canvas');
-            c.width = img.width;
-            c.height = img.height;
-            const ctx = c.getContext('2d')!;
-            ctx.drawImage(img, 0, 0);
-            const data = ctx.getImageData(0, 0, c.width, c.height);
-            data.data.set(thresholdPixels(data.data, thresholds, colors));
-            ctx.putImageData(data, 0, 0);
-            const blob = await new Promise<Blob | null>((resolve) =>
-                c.toBlob(resolve, 'image/png')
-            );
-            if (!blob) throw new Error('PNG encoding failed');
-            onApply(URL.createObjectURL(blob), colors);
+            const result = (await run({
+                kind: 'threshold-apply',
+                blob,
+                thresholds,
+                colors,
+            })) as Blob;
+            if (!current()) return;
+            onApply(URL.createObjectURL(result), colors);
             setOpen(false);
         } catch {
-            setError(true);
+            if (current()) setError(true);
         } finally {
-            setBusy(false);
+            if (current()) setBusy(false);
         }
     }
     return (
@@ -160,8 +146,9 @@ export default function ThresholdPanel({
             <p className="text-sm text-muted-foreground">{t('threshold.summary')}</p>
             <button
                 className={buttonStyle}
-                disabled={!imageSrc}
+                disabled={!imageSrc || disabled}
                 onClick={() => {
+                    if (disabled) return;
                     const current = [
                         ...new Set(
                             currentColors
@@ -186,13 +173,16 @@ export default function ThresholdPanel({
                     ref={dialog}
                     onCancel={(e) => {
                         e.preventDefault();
-                        if (!busy) setOpen(false);
+                        setOpen(false);
                     }}
                     className="fixed inset-0 m-auto w-[min(1100px,95vw)] max-h-[95vh] overflow-auto bg-card text-foreground border rounded-xl p-5 shadow-xl backdrop:bg-black/70"
                 >
                     <h2 className="text-xl font-semibold">{t('threshold.title')}</h2>
                     <p className="text-sm my-2">{t('threshold.help')}</p>
-                    <div className="grid md:grid-cols-[1fr_300px] gap-6">
+                    <fieldset
+                        disabled={busy || disabled}
+                        className="grid md:grid-cols-[1fr_300px] gap-6"
+                    >
                         <div className="min-w-0">
                             <div className="bg-muted flex justify-center items-center h-[min(52vh,550px)]">
                                 <canvas
@@ -361,17 +351,17 @@ export default function ThresholdPanel({
                                 </div>
                             ))}
                         </div>
-                    </div>
-                    {error && <p role="alert">{t('threshold.error')}</p>}
+                    </fieldset>
+                    {(error || previewError) && <p role="alert">{t('threshold.error')}</p>}
                     <div className="flex justify-end gap-3 mt-4">
-                        <button
-                            className={buttonStyle}
-                            disabled={busy}
-                            onClick={() => setOpen(false)}
-                        >
+                        <button className={buttonStyle} onClick={() => setOpen(false)}>
                             {t('threshold.cancel')}
                         </button>
-                        <button className={buttonStyle} disabled={!source || busy} onClick={apply}>
+                        <button
+                            className={buttonStyle}
+                            disabled={!source || busy || disabled}
+                            onClick={apply}
+                        >
                             {t(busy ? 'threshold.applying' : 'threshold.apply')}
                         </button>
                     </div>

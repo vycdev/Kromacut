@@ -33,6 +33,7 @@ import {
     savePrintSettingsToStorage,
     DEFAULT_PRINT_SETTINGS,
 } from './lib/printSettingsStorage';
+import { useImageEditGuard } from './hooks/useImageEditGuard';
 import WindowsPathImport from './components/WindowsPathImport';
 import DeditherPanel from './components/DeditherPanel';
 import ImageResizePanel from './components/ImageResizePanel';
@@ -400,6 +401,8 @@ function App(): React.ReactElement | null {
         processingIndeterminate,
         setProcessingIndeterminate,
     } = useProcessingState();
+    const processingActive = isQuantizing || isDedithering;
+    const beginImageEdit = useImageEditGuard(imageSrc, processingActive);
     const [processingStep, setProcessingStep] = useState<ProcessingStepState>({
         stepIndex: 1,
         stepCount: 1,
@@ -654,8 +657,13 @@ function App(): React.ReactElement | null {
     };
 
     const handleFiles = async (file?: File) => {
-        if (!file) return;
+        const current = beginImageEdit();
+        if (!file || !current) return;
         await importFile(file, imageSrc !== null, (url) => {
+            if (!current()) {
+                URL.revokeObjectURL(url);
+                return;
+            }
             setTouchUpTool(null);
             invalidate();
             setImage(url, true);
@@ -756,7 +764,6 @@ function App(): React.ReactElement | null {
         setTouchUpTool(nextTool);
     };
 
-    const processingActive = mode === '2d' && (isQuantizing || isDedithering);
     // Quantize and dedither commit their result through image history, which cancels a
     // pending import, so refuse new imports until they finish rather than drop one silently.
     const dropzone = useDropzone({
@@ -951,7 +958,11 @@ function App(): React.ReactElement | null {
                                         />
                                         {/* file input stays here (hidden); uploader buttons moved to preview actions */}
                                         <div className="space-y-4">
-                                            <WindowsPathImport onFile={handleFiles} />
+                                            <WindowsPathImport
+                                                imageSrc={imageSrc}
+                                                disabled={processingActive}
+                                                onFile={handleFiles}
+                                            />
                                             <AdjustmentsPanel
                                                 key={adjustmentsEpoch}
                                                 defs={SLIDER_DEFS}
@@ -1082,6 +1093,7 @@ function App(): React.ReactElement | null {
                                                 onSwatchApply={onSwatchApply}
                                             />
                                             <ThresholdPanel
+                                                disabled={processingActive}
                                                 imageSrc={imageSrc}
                                                 currentColors={swatches
                                                     .filter((s) => s.a > 0 && !s.isTransparent)
@@ -1101,6 +1113,10 @@ function App(): React.ReactElement | null {
                                                     (p) => p.custom || p.group === 'supplier'
                                                 )}
                                                 onApply={(url, colors) => {
+                                                    if (!beginImageEdit()) {
+                                                        URL.revokeObjectURL(url);
+                                                        return;
+                                                    }
                                                     cachePalette(colors);
                                                     invalidate();
                                                     setTouchUpTool(null);
@@ -1110,6 +1126,7 @@ function App(): React.ReactElement | null {
                                                 }}
                                             />
                                             <FilamentRecommendations
+                                                disabled={processingActive}
                                                 key={`recommendations:${imageSrc}`}
                                                 initial={
                                                     recommendationSession?.source === imageSrc
@@ -1121,9 +1138,11 @@ function App(): React.ReactElement | null {
                                                 onSave={handleCreatePalette}
                                                 onPreview={previewFilamentColors}
                                                 onApply={async () => {
+                                                    const current = beginImageEdit();
+                                                    if (!current) return;
                                                     const blob =
                                                         await canvasPreviewRef.current?.exportAdjustedImageBlob?.();
-                                                    if (!blob) return;
+                                                    if (!blob || !current()) return;
                                                     invalidate();
                                                     setTouchUpTool(null);
                                                     setImage(URL.createObjectURL(blob), true);
@@ -1132,6 +1151,7 @@ function App(): React.ReactElement | null {
                                                 }}
                                             />
                                             <NozzlePreview
+                                                disabled={processingActive}
                                                 key={`nozzle:${imageSrc}`}
                                                 initial={
                                                     nozzleSession?.source === imageSrc
@@ -1145,6 +1165,7 @@ function App(): React.ReactElement | null {
                                                     null
                                                 }
                                                 onApply={(blob) => {
+                                                    if (!beginImageEdit()) return;
                                                     invalidate();
                                                     setTouchUpTool(null);
                                                     setImage(URL.createObjectURL(blob), true);

@@ -97,7 +97,9 @@ Next: [Dedithering and cleanup](dedithering-cleanup).
 
 Use **Color thresholds → Edit thresholds**, directly below **Image colors**, in 2D mode for explicit brightness bands. Choose 2–64 colors; N colors give N−1 triangle handles. Drag a triangle or enter its 0–255 boundary numerically. A pixel at the boundary belongs to the next band. Colors are assigned by luminance. Output colors are automatically ordered darkest to lightest when loading palettes or editing colors; threshold positions remain fixed. Handles cannot cross. Changing the color count evenly redistributes the boundaries.
 
-The preview updates during dragging (downsampled for large images). **Apply thresholds** processes the full-resolution working image as one undoable edit. **Cancel** preserves it. The editor captures current preview adjustments and filament choices automatically. Alpha values, including partially transparent pixels, are preserved. Start from the original image when comparing different threshold choices, using Undo after applying. Continue directly to Manual 3D mode; further quantization can change the regions. Some bands may be empty, or identical selected colors may merge, so check the generated swap plan.
+The preview updates during dragging (downsampled for large images). **Apply thresholds** processes the full-resolution working image as one undoable edit. **Cancel** (or Escape) preserves it, including when Apply is still running. The editor captures current preview adjustments and filament choices automatically. Alpha values, including partially transparent pixels, are preserved. Start from the original image when comparing different threshold choices, using Undo after applying. Continue directly to Manual 3D mode; further quantization can change the regions. Some bands may be empty, or identical selected colors may merge, so check the generated swap plan.
+
+While quantizing or dedithering, image imports, threshold editing, filament Apply and nozzle comparison are unavailable. Wait for processing to finish before starting another edit; pending edits from an earlier image or processing state are discarded.
 
 **Cached palettes**
 

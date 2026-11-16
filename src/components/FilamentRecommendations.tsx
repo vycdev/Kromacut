@@ -5,6 +5,7 @@ import type { RecommendationSession } from '../lib/projectFile';
 import { FILAMENT_CATALOG, recommendFilaments } from '../lib/filamentRecommendations';
 
 interface Props {
+    disabled: boolean;
     initial?: RecommendationSession | null;
     onSessionChange?: (state: RecommendationSession) => void;
     swatches: { hex: string; a: number; count: number; isTransparent?: boolean }[];
@@ -20,6 +21,7 @@ interface Props {
 
 export default function FilamentRecommendations({
     swatches,
+    disabled,
     onSave,
     onPreview,
     onApply,
@@ -337,8 +339,9 @@ export default function FilamentRecommendations({
             </button>
             <button
                 className={btn}
-                disabled={applying || !picks.some(Boolean)}
+                disabled={disabled || applying || !picks.some(Boolean)}
                 onClick={async () => {
+                    if (disabled) return;
                     setApplying(true);
                     try {
                         await onApply();
