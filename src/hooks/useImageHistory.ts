@@ -105,7 +105,29 @@ export function useImageHistory(initial: string | null, onBeforeSet?: () => void
         setImageSrc(null);
     }, [imageSrc, past, future, onBeforeSet]);
 
+    const replaceHistory = useCallback(
+        (session: { current: string; past: string[]; future: string[] }) => {
+            onBeforeSet?.();
+            const retained = new Set([session.current, ...session.past, ...session.future]);
+            for (const url of new Set([
+                imageRef.current,
+                ...pastRef.current,
+                ...futureRef.current,
+            ])) {
+                if (url?.startsWith('blob:') && !retained.has(url)) URL.revokeObjectURL(url);
+            }
+            imageRef.current = session.current;
+            pastRef.current = session.past;
+            futureRef.current = session.future;
+            setImageSrc(session.current);
+            setPast(session.past);
+            setFuture(session.future);
+        },
+        [onBeforeSet]
+    );
+
     return {
+        replaceHistory,
         imageSrc,
         setImage,
         clearCurrent,

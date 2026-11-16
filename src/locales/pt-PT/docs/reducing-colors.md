@@ -13,15 +13,14 @@ Recorte e redimensione primeiro. Se alterou os [ajustes de imagem](image-adjustm
 
 ## O processo em duas etapas
 
-![O peso do algoritmo limita a paleta intermédia; Número de cores ou uma paleta fixa controla a segunda etapa.](34_quantization_pipeline.svg)
 
 **Peso do algoritmo** e **Número de cores** fazem coisas diferentes. K-means com peso 128 agrupa primeiro a origem em até 128 cores. Auto com número 16 funde depois esse resultado até um máximo de 16. O peso não é percentagem, opacidade nem número de filamentos.
 
 | Campo ou ação | Significado |
 | -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Paleta: Auto | Encontra cores dependentes da imagem e limita o número. |
-| Paleta: integrada, fornecedor ou personalizada | Mapeia a imagem intermédia para cores ativadas da paleta. Nem todas têm de aparecer. |
-| Número de cores | Limite final de Auto: 2–256, predefinição 16. Desativado com paleta fixa. |
+| Paleta: integrada, fornecedor ou personalizada | Reduz primeiro para o número pedido e depois procura as cores ativas mais próximas em todas as paletas assinaladas usando Delta E00. As correspondências podem fundir-se. |
+| Número de cores | Limite antes da correspondência: 2 a 256, predefinição 16. Editável com qualquer seleção de paletas. |
 | Peso do algoritmo | Orçamento intermédio: 2–256, predefinição 128. Mais costuma conservar detalhe intermédio, não necessariamente melhorar o resultado final. |
 | Algoritmo | Método da primeira redução. Predefinição: K-means. |
 | Aplicar | Processa a imagem subjacente e cria um passo de Anular. Mudar uma definição só não recolore. |
@@ -93,3 +92,13 @@ Escolha **Nenhum (apenas pós-processamento)** antes de Eliminar para mapear dir
 As instruções manuais ficam desativadas acima de 64 cores não transparentes. Menos cores podem simplificar mesmo abaixo disso, mas menos alvos não significam automaticamente menos trocas na pintura automática.
 
 Seguinte: [Remoção de pontilhamento e limpeza](dedithering-cleanup).
+
+[Prusa: minimum features](https://help.prusa3d.com/article/modeling-with-3d-printing-in-mind_164135) · [Prusa: Arachne](https://help.prusa3d.com/article/arachne-perimeter-generator_352769)
+
+## Limiares de brilho em direto
+
+Edit thresholds, abaixo de Image colors, define bandas de brilho. N cores têm N−1 triângulos e limites numéricos de 0 a 255. As cores mantêm a ordem do escuro para o claro. A pré-visualização acompanha o arrasto; Apply processa a resolução completa com os ajustes e filamentos atuais, preservando o alfa. As paletas geradas ficam guardadas localmente.
+
+## Sessões e ferramentas de pré-visualização
+
+Selecione várias paletas e um número de cores independente: primeiro reduzir, depois corresponder às cores ativas. O recomendador mostra dez filamentos por cor, o mais próximo à esquerda, combinando várias marcas. Ctrl+Z anula e Ctrl+Shift+Z refaz. Compare nozzle sizes compara 0,4 e 0,2 mm ao tamanho escolhido sem fatiar. Âmbar e rosa indicam regiões estreitas com ou sem vizinho mais largo, não probabilidades de falha. Patch vulnerable regions propõe uniões confirmadas por Apply. Save project guarda imagem, histórico e definições num ficheiro portátil .kromacut. Open project substitui a sessão após confirmação; reconstrua depois o modelo 3D. Em WSL, Open Windows path importa caminhos Windows.

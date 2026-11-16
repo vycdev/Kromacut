@@ -13,15 +13,14 @@ Schneide das Bild zuerst zu und skaliere es. Hast du [Bildanpassungen](image-adj
 
 ## Die zweistufige Verarbeitung
 
-![Algorithmusstärke begrenzt die Zwischenpalette; Anzahl der Farben oder eine gewählte feste Palette steuert die zweite Stufe.](34_quantization_pipeline.svg)
 
 **Algorithmusstärke** und **Anzahl der Farben** haben unterschiedliche Aufgaben. K-Means mit Stärke 128 gruppiert die Quelle zunächst in bis zu 128 Farben. Automatisch mit Anzahl der Farben 16 führt dieses Ergebnis anschließend auf höchstens 16 zusammen. Stärke ist weder ein Prozentsatz noch Deckkraft oder Filamentanzahl.
 
 | Feld oder Aktion | Bedeutung |
 | -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Palette: Automatisch | Findet bildabhängige Farben und begrenzt anschließend ihre Anzahl. |
-| Palette: integriert, Hersteller oder eigene | Ordnet das Zwischenbild den aktivierten Farben der gewählten Palette zu. Nicht jede verfügbare Farbe muss vorkommen. |
-| Anzahl der Farben | Endgültige Obergrenze für Automatisch: 2 bis 256, Standard 16. Bei fester Palette deaktiviert. |
+| Palette: integriert, Hersteller oder eigene | Reduziert zuerst auf die gewünschte Anzahl und ordnet dann mit Delta E00 den aktivierten Farben aller markierten Paletten zu. Zuordnungen können zusammenfallen. |
+| Anzahl der Farben | Obergrenze vor der Palettenzuordnung: 2 bis 256, Standard 16. Bei jeder Palettenauswahl editierbar. |
 | Algorithmusstärke | Budget der Zwischenpalette: 2 bis 256, Standard 128. Ein höherer Wert erhält meist mehr Zwischendetails, liefert aber nicht unbedingt eine bessere endgültige Zuordnung. |
 | Algorithmus | Reduktionsmethode der ersten Stufe. Standard: K-Means. |
 | Anwenden | Verarbeitet das zugrunde liegende Bild und erzeugt einen Rückgängig-Schritt. Das Ändern einer Einstellung allein färbt es nicht um. |
@@ -93,3 +92,13 @@ Wähle vor Löschen **Keiner (nur Nachbearbeitung)** für eine direkte Zuordnung
 Manuelle Wechselanweisungen sind oberhalb von 64 nichttransparenten Farben deaktiviert. Auch unterhalb dieser Grenze kann eine kleinere Palette den Stapel vereinfachen. Weniger Zielfarben bedeuten aber nicht automatisch weniger Filamentwechsel in Auto-paint.
 
 Weiter: [Rasterglättung und Bereinigung](dedithering-cleanup).
+
+[Prusa: minimum features](https://help.prusa3d.com/article/modeling-with-3d-printing-in-mind_164135) · [Prusa: Arachne](https://help.prusa3d.com/article/arachne-perimeter-generator_352769)
+
+## Helligkeitsschwellen live bearbeiten
+
+Unter Image colors öffnet Edit thresholds die Helligkeitsbereiche. N Farben haben N−1 dreieckige Regler und numerische Grenzen von 0 bis 255. Farben bleiben von dunkel nach hell sortiert. Die Vorschau reagiert beim Ziehen; Apply übernimmt das Ergebnis in voller Auflösung einschließlich aktueller Anpassungen und Filamentauswahl. Alpha bleibt erhalten. Erzeugte Farbpaletten werden lokal wiederverwendbar gespeichert.
+
+## Sitzungen und Vorschauwerkzeuge
+
+Wähle mehrere Paletten und eine unabhängige Farbanzahl: zuerst reduzieren, dann die nächsten aktivierten Farben zuordnen. Der Filament-Recommender zeigt pro Bildfarbe zehn Kandidaten, links den nächsten; mehrere Hersteller sind kombinierbar. Ctrl+Z macht Bildänderungen rückgängig, Ctrl+Shift+Z wiederholt sie. Compare nozzle sizes vergleicht 0,4 und 0,2 mm bei einstellbarer Druckgröße. Die Ansicht ist eine geometrische Näherung ohne Slicing. Gelb und Rosa kennzeichnen schmale Bereiche mit beziehungsweise ohne breiteren Nachbarn, keine Fehlerwahrscheinlichkeit. Patch vulnerable regions schlägt Farbzusammenführungen vor; erst Apply ändert das Bild. Save project speichert Bild, Verlauf und Einstellungen als portable .kromacut-Datei. Open project ersetzt nach Bestätigung die Sitzung. Anschließend das 3D-Modell neu aufbauen. In WSL hilft Open Windows path beim Laden von Windows-Dateien.

@@ -1,0 +1,427 @@
+[
+  {
+    "id": "polymaker-panchroma-basic",
+    "brand": "Polymaker",
+    "line": "Panchroma Basic PLA",
+    "material": "PLA",
+    "sourceUrl": "https://shop.polymaker.com/products/panchroma-pla",
+    "verifiedOn": "2026-11-16",
+    "filaments": [
+      {
+        "name": "Black",
+        "hex": "#080A0D"
+      },
+      {
+        "name": "White",
+        "hex": "#EBF7FF"
+      },
+      {
+        "name": "Cold White",
+        "hex": "#D9DFE5"
+      },
+      {
+        "name": "Red",
+        "hex": "#E72F1D"
+      },
+      {
+        "name": "Orange",
+        "hex": "#F67405"
+      },
+      {
+        "name": "Magenta",
+        "hex": "#F24574"
+      },
+      {
+        "name": "Pink",
+        "hex": "#F1A1AF"
+      },
+      {
+        "name": "Wine Red",
+        "hex": "#D60212"
+      },
+      {
+        "name": "Lemon Yellow",
+        "hex": "#EED230"
+      },
+      {
+        "name": "Yellow",
+        "hex": "#FFE800"
+      },
+      {
+        "name": "Cream",
+        "hex": "#EED1A8"
+      },
+      {
+        "name": "Beige",
+        "hex": "#C2AB72"
+      },
+      {
+        "name": "Tan",
+        "hex": "#A79E82"
+      },
+      {
+        "name": "Brown",
+        "hex": "#55331A"
+      },
+      {
+        "name": "Green",
+        "hex": "#06924D"
+      },
+      {
+        "name": "Lime Green",
+        "hex": "#D5D701"
+      },
+      {
+        "name": "Jungle Green",
+        "hex": "#4E742D"
+      },
+      {
+        "name": "Olive Green",
+        "hex": "#948902"
+      },
+      {
+        "name": "Dark Olive Drab",
+        "hex": "#575B54"
+      },
+      {
+        "name": "Azure Blue",
+        "hex": "#0066D9"
+      },
+      {
+        "name": "Blue",
+        "hex": "#003776"
+      },
+      {
+        "name": "Aqua Blue",
+        "hex": "#5EBDDB"
+      },
+      {
+        "name": "Stone Blue",
+        "hex": "#487BA2"
+      },
+      {
+        "name": "Polymaker Teal",
+        "hex": "#4CC0C7"
+      },
+      {
+        "name": "Steel Grey",
+        "hex": "#616469"
+      },
+      {
+        "name": "Grey",
+        "hex": "#8C9099"
+      },
+      {
+        "name": "Dark Grey",
+        "hex": "#485259"
+      },
+      {
+        "name": "Purple",
+        "hex": "#6C47B2"
+      }
+    ]
+  },
+  {
+    "id": "prusament-pla-solid",
+    "brand": "Prusament",
+    "line": "PLA \u2014 selected colors",
+    "material": "PLA",
+    "sourceUrl": "https://help.prusa3d.com/article/hueforge-filament-transparency-values-and-hexcodes_762314",
+    "verifiedOn": "2026-11-16",
+    "filaments": [
+      {
+        "name": "Anthracite Grey",
+        "hex": "#3F4647"
+      },
+      {
+        "name": "Army Green",
+        "hex": "#5E6344"
+      },
+      {
+        "name": "Azure Blue",
+        "hex": "#0682AC"
+      },
+      {
+        "name": "Blood Red",
+        "hex": "#990303"
+      },
+      {
+        "name": "Chalky Blue",
+        "hex": "#6F9AAA"
+      },
+      {
+        "name": "Gentleman's Grey",
+        "hex": "#354046"
+      },
+      {
+        "name": "Gravity Grey",
+        "hex": "#9FA4A7"
+      },
+      {
+        "name": "Jet Black",
+        "hex": "#24292A"
+      },
+      {
+        "name": "Lipstick Red",
+        "hex": "#D03036"
+      },
+      {
+        "name": "Noctua Beige",
+        "hex": "#E7CEB4"
+      },
+      {
+        "name": "Noctua Brown",
+        "hex": "#653525"
+      },
+      {
+        "name": "Opal Green",
+        "hex": "#075B49"
+      },
+      {
+        "name": "Pearl Mouse",
+        "hex": "#A49D8D"
+      },
+      {
+        "name": "Pineapple Yellow",
+        "hex": "#EFD006"
+      },
+      {
+        "name": "Pistachio Green",
+        "hex": "#93A683"
+      },
+      {
+        "name": "Pristine White",
+        "hex": "#E6EAED"
+      },
+      {
+        "name": "Prusa Orange",
+        "hex": "#FE6E31"
+      },
+      {
+        "name": "Prusa Pro Green",
+        "hex": "#00C389"
+      },
+      {
+        "name": "Simply Green",
+        "hex": "#70A640"
+      },
+      {
+        "name": "Vanilla White",
+        "hex": "#D9D4C4"
+      }
+    ]
+  },
+  {
+    "id": "prusament-petg-solid",
+    "brand": "Prusament",
+    "line": "PETG \u2014 selected colors",
+    "material": "PETG",
+    "sourceUrl": "https://help.prusa3d.com/article/hueforge-filament-transparency-values-and-hexcodes_762314",
+    "verifiedOn": "2026-11-16",
+    "filaments": [
+      {
+        "name": "Anthracite Grey",
+        "hex": "#3F4646"
+      },
+      {
+        "name": "Chalky Blue",
+        "hex": "#6F9AA9"
+      },
+      {
+        "name": "Jet Black",
+        "hex": "#292B2B"
+      },
+      {
+        "name": "Jungle Green",
+        "hex": "#007248"
+      },
+      {
+        "name": "Lipstick Red",
+        "hex": "#BB2E32"
+      },
+      {
+        "name": "Mango Yellow",
+        "hex": "#F2B706"
+      },
+      {
+        "name": "Matte Black",
+        "hex": "#303635"
+      },
+      {
+        "name": "Ocean Blue",
+        "hex": "#1A4C54"
+      },
+      {
+        "name": "Pistachio Green",
+        "hex": "#93A682"
+      },
+      {
+        "name": "Prusa Orange",
+        "hex": "#EB5403"
+      },
+      {
+        "name": "Prusa Pro Green",
+        "hex": "#00FA9A"
+      },
+      {
+        "name": "Signal White",
+        "hex": "#E5E0E1"
+      },
+      {
+        "name": "Sky Blue",
+        "hex": "#346CE3"
+      },
+      {
+        "name": "Terracotta Light",
+        "hex": "#B87F69"
+      },
+      {
+        "name": "Urban Grey",
+        "hex": "#95908C"
+      }
+    ]
+  },
+  {
+    "id": "sunlu-pla-classic",
+    "brand": "SUNLU",
+    "line": "PLA Classic",
+    "material": "PLA",
+    "sourceKind": "manufacturer",
+    "sourceUrl": "https://www.sunlu.com/products/pla-classic-filament",
+    "verifiedOn": "2026-11-16",
+    "filaments": [
+      {
+        "name": "Grey",
+        "hex": "#63666A"
+      },
+      {
+        "name": "Black",
+        "hex": "#1F2123"
+      },
+      {
+        "name": "Cherry Red",
+        "hex": "#FD404B"
+      },
+      {
+        "name": "Sunny Orange",
+        "hex": "#FF8C54"
+      },
+      {
+        "name": "Lemon Yellow",
+        "hex": "#F2F0A1"
+      },
+      {
+        "name": "Olive Green",
+        "hex": "#5A6D3D"
+      },
+      {
+        "name": "Mint Green",
+        "hex": "#00C7B1"
+      },
+      {
+        "name": "Sky Blue",
+        "hex": "#AEEAFF"
+      },
+      {
+        "name": "Sakura Pink",
+        "hex": "#FFE0E8"
+      },
+      {
+        "name": "Chocolate",
+        "hex": "#906557"
+      },
+      {
+        "name": "Pri-Magenta",
+        "hex": "#D5419E"
+      },
+      {
+        "name": "Pri-White",
+        "hex": "#F9FDFF"
+      },
+      {
+        "name": "Pri-Yellow",
+        "hex": "#F0EA02"
+      },
+      {
+        "name": "Pri-Cyan",
+        "hex": "#00A4E1"
+      },
+      {
+        "name": "White",
+        "hex": "#FFFFF9"
+      }
+    ]
+  },
+  {
+    "id": "elegoo-pla-rfid",
+    "brand": "ELEGOO",
+    "line": "PLA (community RFID)",
+    "material": "PLA",
+    "sourceKind": "community",
+    "sourceUrl": "https://github.com/Ganja-Panda/Elegoo-Centauri-Carbon-Series/blob/main/README.md#-hueforge--elegoo-pla-filament-data",
+    "verifiedOn": "2026-11-16",
+    "sourceNotes": "PandaWorks reports these hex values from ELEGOO RFID filament tags. Community-transcribed reference; not an official color chart or measured RGB. TD values are not imported.",
+    "filaments": [
+      {
+        "name": "Beige",
+        "hex": "#FFEEC5"
+      },
+      {
+        "name": "Black",
+        "hex": "#000000"
+      },
+      {
+        "name": "Brown",
+        "hex": "#9B6A4D"
+      },
+      {
+        "name": "Dark Blue",
+        "hex": "#2323F7"
+      },
+      {
+        "name": "Grey",
+        "hex": "#747C7E"
+      },
+      {
+        "name": "Neon Green",
+        "hex": "#29D464"
+      },
+      {
+        "name": "Orange",
+        "hex": "#E97B47"
+      },
+      {
+        "name": "Pink",
+        "hex": "#FBAFBC"
+      },
+      {
+        "name": "Purple",
+        "hex": "#9E69E8"
+      },
+      {
+        "name": "Red",
+        "hex": "#FF0000"
+      },
+      {
+        "name": "Sea Green",
+        "hex": "#09C299"
+      },
+      {
+        "name": "Sky Blue",
+        "hex": "#24A2CC"
+      },
+      {
+        "name": "Space Grey",
+        "hex": "#979797"
+      },
+      {
+        "name": "White",
+        "hex": "#FFFFFF"
+      },
+      {
+        "name": "Yellow",
+        "hex": "#FFC800"
+      }
+    ]
+  }
+]

@@ -40,6 +40,7 @@ export function useColorSlicing({
     const prevSlicerFirstLayerHeightRef = useRef<number | null>(null);
     const displayOrderRef = useRef<number[]>([]);
     const layerHeightRef = useRef<number>(layerHeight);
+    const firstLayerHeightRef = useRef<number>(slicerFirstLayerHeight);
     const filteredCount = filtered.length;
 
     // guard so we only emit immediately after hydration if needed
@@ -102,7 +103,8 @@ export function useColorSlicing({
         }
 
         const currentLayerHeight = layerHeightRef.current;
-        const nextHeights = filtered.map((s) => {
+        const nextOrder = reconcileColorOrder(filtered, prevFiltered, prevOrder);
+        const nextHeights = filtered.map((s, index) => {
             const key = s.hex + ':' + s.a;
             const existing = heightMap.get(key);
             const isValid = typeof existing === 'number' && isFinite(existing) && existing >= 0;
@@ -111,13 +113,22 @@ export function useColorSlicing({
             if (!currentLayerHeight || !isFinite(currentLayerHeight) || currentLayerHeight <= 0) {
                 return isValid ? base : 0.2;
             }
-            const multiple = Math.round(clamped / currentLayerHeight) * currentLayerHeight;
-            const snapped = Math.max(currentLayerHeight, Math.min(10, multiple));
+            // The first color starts on the slicer's first-layer lattice, which
+            // need not be a multiple of subsequent layer heights. Preserve that
+            // offset when hydrating/reconciling an existing project.
+            const minimum =
+                index === nextOrder[0]
+                    ? Math.max(currentLayerHeight, firstLayerHeightRef.current)
+                    : currentLayerHeight;
+            const multiple =
+                minimum +
+                Math.round(Math.max(0, clamped - minimum) / currentLayerHeight) *
+                    currentLayerHeight;
+            const snapped = Math.max(minimum, Math.min(10, multiple));
             return Number(snapped.toFixed(8));
         });
         setColorSliceHeights(nextHeights);
 
-        const nextOrder = reconcileColorOrder(filtered, prevFiltered, prevOrder);
         setColorOrder(nextOrder);
 
         prevFilteredRef.current = filtered.slice();
@@ -132,6 +143,7 @@ export function useColorSlicing({
     // Keep refs in sync so effects can read latest values without stale closures
     displayOrderRef.current = displayOrder;
     layerHeightRef.current = layerHeight;
+    firstLayerHeightRef.current = slicerFirstLayerHeight;
 
     const onRowChange = useCallback((idx: number, v: number) => {
         setColorSliceHeights((prev) => {

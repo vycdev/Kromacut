@@ -1,3 +1,4 @@
+import { deltaE2000Lab } from './colorDifference.ts';
 // Lightweight image algorithms for Kromacut
 // Each function operates on an ImageData instance and returns the modified ImageData.
 
@@ -1362,7 +1363,7 @@ export async function enforcePaletteSizeAsync(
 export async function mapImageToPalette(
     data: ImageData,
     palette: string[],
-    opts?: AlgoOptions
+    opts?: AlgoOptions & { perceptual?: boolean }
 ): Promise<ImageData> {
     // window debug augmentation (safe access)
     const d = data.data;
@@ -1492,7 +1493,12 @@ export async function mapImageToPalette(
                     const dl = lab[0] - palLab[pi][0];
                     const da = lab[1] - palLab[pi][1];
                     const db = lab[2] - palLab[pi][2];
-                    const d2 = dl * dl + da * da + db * db;
+                    const d2 = opts?.perceptual
+                        ? deltaE2000Lab(
+                              { L: lab[0], a: lab[1], b: lab[2] },
+                              { L: palLab[pi][0], a: palLab[pi][1], b: palLab[pi][2] }
+                          )
+                        : dl * dl + da * da + db * db;
                     if (d2 < bestD) {
                         bestD = d2;
                         best = pi;

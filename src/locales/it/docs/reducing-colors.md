@@ -13,15 +13,14 @@ Ritaglia e ridimensiona prima. Se hai cambiato le [regolazioni dell’immagine](
 
 ## Il processo in due fasi
 
-![Peso algoritmo limita la tavolozza intermedia; Numero di colori o una tavolozza fissa controlla la seconda fase.](34_quantization_pipeline.svg)
 
 **Peso algoritmo** e **Numero di colori** hanno ruoli diversi. K-means con peso 128 raggruppa prima in un massimo di 128 colori. Automatico con numero 16 fonde poi fino a 16. Peso non è percentuale, opacità né numero di filamenti.
 
 | Campo o azione | Significato |
 | -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Tavolozza: Automatico | Trova colori dipendenti dall’immagine, poi ne limita il numero. |
-| Tavolozza: integrata, fornitore o personalizzata | Mappa l’intermedio sui colori abilitati. Non tutti quelli disponibili devono apparire. |
-| Numero di colori | Limite finale Automatico: 2–256, predefinito 16. Disattivato per tavolozza fissa. |
+| Tavolozza: integrata, fornitore o personalizzata | Riduce prima al numero richiesto, poi abbina i colori attivi di tutte le tavolozze selezionate tramite Delta E00. Gli abbinamenti possono fondersi. |
+| Numero di colori | Limite prima dell’abbinamento: da 2 a 256, predefinito 16. Modificabile con qualsiasi selezione di tavolozze. |
 | Peso algoritmo | Budget intermedio: 2–256, predefinito 128. Più alto conserva in genere più dettaglio intermedio, non necessariamente migliore corrispondenza finale. |
 | Algoritmo | Metodo della prima fase. Predefinito: K-means. |
 | Applica | Elabora l’immagine sottostante e crea un passo Annulla. Cambiare un’impostazione da solo non ricolora. |
@@ -93,3 +92,13 @@ Scegli **Nessuno (solo post-elaborazione)** prima di Elimina per mappatura diret
 Le istruzioni manuali sono disattivate oltre 64 colori non trasparenti. Una tavolozza minore semplifica anche sotto tale limite, ma meno obiettivi non significa automaticamente meno cambi Auto-paint.
 
 Successivo: [Rimozione dithering e pulizia](dedithering-cleanup).
+
+[Prusa: minimum features](https://help.prusa3d.com/article/modeling-with-3d-printing-in-mind_164135) · [Prusa: Arachne](https://help.prusa3d.com/article/arachne-perimeter-generator_352769)
+
+## Soglie di luminosità in tempo reale
+
+Edit thresholds sotto Image colors definisce bande di luminosità. N colori hanno N−1 triangoli e limiti numerici da 0 a 255. I colori restano ordinati da scuro a chiaro. L’anteprima segue il trascinamento; Apply elabora la piena risoluzione con regolazioni e filamenti correnti, mantenendo l’alfa. Le tavolozze generate sono memorizzate localmente.
+
+## Sessioni e strumenti di anteprima
+
+Seleziona più tavolozze e un numero di colori indipendente: prima riduzione, poi abbinamento ai colori attivi. Il suggeritore mostra dieci filamenti per colore, il più vicino a sinistra, combinando più marche. Ctrl+Z annulla e Ctrl+Shift+Z ripristina. Compare nozzle sizes confronta 0,4 e 0,2 mm alla dimensione scelta senza slicing. Ambra e rosa indicano regioni strette con o senza un vicino più ampio, non probabilità di errore. Patch vulnerable regions propone fusioni, confermate da Apply. Save project salva immagine, cronologia e impostazioni in un file portatile .kromacut. Open project sostituisce la sessione dopo conferma; ricostruisci poi il modello 3D. In WSL, Open Windows path importa percorsi Windows.

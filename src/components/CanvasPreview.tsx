@@ -8,6 +8,7 @@ import React, {
     useCallback,
     useMemo,
 } from 'react';
+import { replaceImageColors } from '../lib/replaceImageColors';
 import { applyAdjustments, isAllDefault } from '../lib/applyAdjustments';
 import { Check, Move, X } from 'lucide-react';
 import {
@@ -38,6 +39,7 @@ export interface CanvasPreviewHandle {
 
 interface Props {
     imageSrc: string | null;
+    colorReplacements?: Record<string, string>;
     isCropMode?: boolean;
     showCheckerboard?: boolean;
     adjustments?: Record<string, number>;
@@ -85,6 +87,7 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
     (
         {
             imageSrc,
+            colorReplacements,
             isCropMode,
             showCheckerboard,
             adjustments,
@@ -147,6 +150,12 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
         const onTouchUpCommitRef = useRef(onTouchUpCommit);
         onTouchUpCommitRef.current = onTouchUpCommit;
 
+        const colorReplacementsRef = useRef(colorReplacements);
+        colorReplacementsRef.current = colorReplacements;
+        const colorReplacementSig = JSON.stringify(colorReplacements ?? {});
+        const colorReplacementSigRef = useRef(colorReplacementSig);
+        colorReplacementSigRef.current = colorReplacementSig;
+
         const hasAdjustments = useMemo(
             () => !!adjustments && !isAllDefault(adjustments),
             [adjustments]
@@ -207,8 +216,8 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
             // to show the exact pixel values after quantization.
             ctx.imageSmoothingEnabled = false;
             // imageSmoothingQuality is not relevant when smoothing is disabled
-            if (hasAdjustments) {
-                const sig = adjustmentsSig;
+            if (hasAdjustments || Object.keys(colorReplacementsRef.current ?? {}).length) {
+                const sig = adjustmentsSig + colorReplacementSigRef.current;
                 // Recompute processed canvas only if signature changed or missing.
                 if (sig !== lastAdjSigRef.current) {
                     try {
@@ -234,7 +243,10 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
                         }
                         if (srcCtx) {
                             const imgData = srcCtx.getImageData(0, 0, iw, ih);
-                            const adjData = applyAdjustments(imgData, adjustments ?? {});
+                            replaceImageColors(imgData.data, colorReplacementsRef.current ?? {});
+                            const adjData = hasAdjustments
+                                ? applyAdjustments(imgData, adjustments ?? {})
+                                : imgData;
                             const proc = document.createElement('canvas');
                             proc.width = iw;
                             proc.height = ih;
@@ -1140,7 +1152,7 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
         // Trigger redraw when adjustments object changes
         useEffect(() => {
             requestDraw();
-        }, [adjustmentsSig, requestDraw]);
+        }, [adjustmentsSig, colorReplacementSig, requestDraw]);
 
         useEffect(() => {
             mountedRef.current = true;
@@ -1245,8 +1257,14 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
             exportAdjustedImageBlob: async (
                 adjustmentsOverride?: Record<string, number>
             ): Promise<Blob | null> => {
+                // Parent effects can request a capture in the same commit that
+                // replaces the image. Let the canvas loading effect run first.
+                await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
                 const img = imgRef.current;
                 if (!img) return null;
+                // A newly imported image may have a URL before decoding finishes.
+                await img.decode();
+                if (imgRef.current !== img) return null;
                 const iw = img.naturalWidth;
                 const ih = img.naturalHeight;
                 if (!iw || !ih) return null;
@@ -1271,6 +1289,7 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
                 const sourceCtx = source.getContext('2d');
                 if (!sourceCtx) return null;
                 const sourceData = sourceCtx.getImageData(0, 0, iw, ih);
+                replaceImageColors(sourceData.data, colorReplacementsRef.current ?? {});
                 const values = adjustmentsOverride ?? adjustments ?? {};
                 ctx.putImageData(
                     isAllDefault(values) ? sourceData : applyAdjustments(sourceData, values),
@@ -1312,7 +1331,11 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
                         : null),
                 }}
             >
-                <canvas ref={canvasRef} style={{ imageRendering: 'pixelated' }} />
+                <canvas
+                    data-testid="main-image-preview"
+                    ref={canvasRef}
+                    style={{ imageRendering: 'pixelated' }}
+                />
                 {showBrushOutline ? (
                     <div
                         ref={brushOutlineRef}

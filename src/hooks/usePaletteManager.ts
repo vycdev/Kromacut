@@ -4,6 +4,7 @@ import type { Palette } from '../data/palettes';
 import { ALL_BUILTIN_PALETTES } from '../data/palettes';
 import { saveBlobToFile } from './saveBlobToFile';
 import {
+    cacheGeneratedPalette,
     loadCustomPalettes,
     saveCustomPalettes,
     createCustomPalette,
@@ -61,15 +62,40 @@ export function usePaletteManager() {
     const [importFeedback, setImportFeedback] = useState<string | null>(null);
     const importInputRef = useRef<HTMLInputElement>(null);
 
-    // The initially selected palette from localStorage (or 'auto')
-    const [selectedPalette, setSelectedPaletteState] = useState<string>(
-        () => loadSelectedPalette() ?? 'auto'
-    );
-
-    const setSelectedPalette = useCallback((id: string) => {
-        setSelectedPaletteState(id);
-        saveSelectedPalette(id);
+    const [selectedPaletteIds, setSelectedPaletteIdsState] = useState<string[]>(() => {
+        const known = new Set([...ALL_BUILTIN_PALETTES, ...customPalettes].map((p) => p.id));
+        try {
+            const saved = JSON.parse(localStorage.getItem('kromacut.selectedPaletteIds') ?? 'null');
+            if (Array.isArray(saved))
+                return [
+                    ...new Set(
+                        saved.filter(
+                            (id): id is string =>
+                                typeof id === 'string' && id !== 'auto' && known.has(id)
+                        )
+                    ),
+                ];
+        } catch {
+            /* retain the legacy single selection */
+        }
+        const legacy = loadSelectedPalette();
+        return legacy && legacy !== 'auto' && known.has(legacy) ? [legacy] : [];
+    });
+    const selectedPalette = selectedPaletteIds[0] ?? 'auto';
+    const setSelectedPaletteIds = useCallback((ids: string[]) => {
+        const next = [...new Set(ids.filter((id) => id !== 'auto'))];
+        setSelectedPaletteIdsState(next);
+        saveSelectedPalette(next[0] ?? 'auto');
+        try {
+            localStorage.setItem('kromacut.selectedPaletteIds', JSON.stringify(next));
+        } catch {
+            /* session selection still works */
+        }
     }, []);
+    const setSelectedPalette = useCallback(
+        (id: string) => setSelectedPaletteIds(id === 'auto' ? [] : [id]),
+        [setSelectedPaletteIds]
+    );
 
     // Merge built-in + custom palettes for the dropdown
     const allPalettes: MergedPalette[] = useMemo(() => {
@@ -85,21 +111,36 @@ export function usePaletteManager() {
         [allPalettes]
     );
 
+    const cachePalette = useCallback(
+        (colors: string[]) => {
+            const current = customPalettesRef.current;
+            const updated = cacheGeneratedPalette(current, colors);
+            if (updated === current) return;
+            if (!saveCustomPalettes(updated)) {
+                setImportFeedback(paletteStorageFailure('Generated palette'));
+                return;
+            }
+            setCustomPalettes(updated);
+        },
+        [setCustomPalettes]
+    );
+
     // ---- CRUD ----
 
     const handleCreatePalette = useCallback(
         (name: string, colors: string[], disabledColors?: number[], colorNames?: string[]) => {
-            if (!name.trim() || colors.length === 0) return;
+            if (!name.trim() || colors.length === 0) return false;
             const newPal = createCustomPalette(name, colors, disabledColors, colorNames);
             const updated = [...customPalettes, newPal];
             if (!saveCustomPalettes(updated)) {
                 setImportFeedback(paletteStorageFailure('The new palette'));
-                return;
+                return false;
             }
             setCustomPalettes(updated);
             setImportFeedback(null);
             // Auto-select the new palette
             setSelectedPalette(newPal.id);
+            return true;
         },
         [customPalettes, setCustomPalettes, setSelectedPalette]
     );
@@ -170,11 +211,9 @@ export function usePaletteManager() {
             }
             setCustomPalettes(updated);
             setImportFeedback(null);
-            if (selectedPalette === id) {
-                setSelectedPalette('auto');
-            }
+            setSelectedPaletteIds(selectedPaletteIds.filter((selected) => selected !== id));
         },
-        [customPalettes, selectedPalette, setCustomPalettes, setSelectedPalette]
+        [customPalettes, selectedPaletteIds, setCustomPalettes, setSelectedPaletteIds]
     );
 
     // ---- Import / Export ----
@@ -257,21 +296,35 @@ export function usePaletteManager() {
         return () => clearTimeout(timer);
     }, [importFeedback]);
 
-    // If the selected palette was deleted externally, fall back to auto
+    // Keep surviving selections if a palette disappears.
     useEffect(() => {
-        if (selectedPalette === 'auto') return;
-        const exists = allPalettes.some((p) => p.id === selectedPalette);
-        if (!exists) {
-            setSelectedPalette('auto');
-        }
-    }, [allPalettes, selectedPalette, setSelectedPalette]);
+        const available = selectedPaletteIds.filter((id) => allPalettes.some((p) => p.id === id));
+        if (available.length !== selectedPaletteIds.length) setSelectedPaletteIds(available);
+    }, [allPalettes, selectedPaletteIds, setSelectedPaletteIds]);
 
+    // A project's palette snapshots never overwrite unrelated local palette IDs.
+    const restoreProjectPalettes = (palettes: CustomPalette[]) => {
+        const incoming = palettes.map((p) => ({ ...p, id: crypto.randomUUID() }));
+        const result = importCustomPalettes(
+            customPalettesRef.current,
+            incoming,
+            RESERVED_PALETTE_IDS
+        );
+        if (result.resolved.length !== incoming.length || !saveCustomPalettes(result.palettes))
+            throw new Error('palette');
+        setCustomPalettes(result.palettes);
+        setSelectedPaletteIds(result.resolved.map((p) => p.id));
+    };
     return {
+        restoreProjectPalettes,
         customPalettes,
         allPalettes,
         selectedPalette,
+        selectedPaletteIds,
+        setSelectedPaletteIds,
         setSelectedPalette,
         findPalette,
+        cachePalette,
         importFeedback,
         importInputRef,
         handleCreatePalette,
