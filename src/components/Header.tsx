@@ -60,11 +60,22 @@ import {
 } from '@/lib/diagnosticPreferences';
 import { openAutoPaintDiagnosticsDirectory } from '@/lib/desktopDiagnostics';
 import { localizedReleaseNotes } from '@/lib/localizedReleaseNotes';
+import type { SlicerPreference } from '@/lib/slicerPreference';
+
+interface SlicerSetting {
+    preference: SlicerPreference | null;
+    /** Opens the slicer chooser to save a different slicer. */
+    onChange: () => void;
+    /** Forgets the saved slicer, so Open in Slicer asks again. */
+    onForget: () => void;
+}
 
 interface Props {
     docsOpen: boolean;
     onBackToApp: () => void;
     onOpenDocs: () => void;
+    /** Desktop only: the slicer Open in Slicer uses without asking. */
+    slicer?: SlicerSetting;
 }
 
 const appVersion = __APP_VERSION__;
@@ -75,7 +86,7 @@ const legalLinks = [
     { path: '/awards', labelKey: 'public:navigation.awards' },
 ] as const;
 
-export const Header: React.FC<Props> = ({ docsOpen, onBackToApp, onOpenDocs }) => {
+export const Header: React.FC<Props> = ({ docsOpen, onBackToApp, onOpenDocs, slicer }) => {
     const { t, i18n } = useTranslation('common');
     const [themeMode, setThemeMode] = React.useState<ThemeMode>(() => getStoredThemeMode());
     const [settingsOpen, setSettingsOpen] = React.useState(false);
@@ -99,6 +110,7 @@ export const Header: React.FC<Props> = ({ docsOpen, onBackToApp, onOpenDocs }) =
     const isDesktopApp = isDesktopUpdateSupported();
     const settingsButtonRef = React.useRef<HTMLButtonElement>(null);
     const settingsDialogRef = React.useRef<HTMLDivElement>(null);
+    const slicerChangeRef = React.useRef<HTMLButtonElement>(null);
 
     React.useEffect(() => {
         if (!settingsOpen) return;
@@ -523,6 +535,75 @@ export const Header: React.FC<Props> = ({ docsOpen, onBackToApp, onOpenDocs }) =
                                 )}
                             </div>
                         </section>
+
+                        {slicer && (
+                            <section
+                                className="mt-5 space-y-3 border-t border-border pt-5"
+                                data-testid="settings-slicer"
+                            >
+                                <div>
+                                    <div className="text-sm font-medium text-foreground">
+                                        {t('settings.slicer')}
+                                    </div>
+                                    <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                                        {t('settings.slicerDescription')}
+                                    </p>
+                                </div>
+
+                                <div className="flex items-center justify-between gap-3 rounded-md border border-border bg-background p-3">
+                                    <div className="min-w-0">
+                                        <div
+                                            className="truncate text-sm font-medium text-foreground"
+                                            data-testid="settings-slicer-current"
+                                        >
+                                            {slicer.preference === null
+                                                ? t('settings.slicerAskEveryTime')
+                                                : slicer.preference.kind === 'system'
+                                                  ? t('workspace:slicerChooser.systemDefault')
+                                                  : slicer.preference.app.name}
+                                        </div>
+                                        {slicer.preference?.kind === 'app' && (
+                                            <div
+                                                className="mt-1 truncate text-xs text-muted-foreground"
+                                                title={slicer.preference.app.path}
+                                            >
+                                                {slicer.preference.app.path}
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="flex flex-shrink-0 items-center gap-2">
+                                        <Button
+                                            ref={slicerChangeRef}
+                                            type="button"
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={() => {
+                                                setSettingsOpen(false);
+                                                slicer.onChange();
+                                            }}
+                                            data-testid="settings-slicer-change"
+                                        >
+                                            {t('settings.slicerChange')}
+                                        </Button>
+                                        {slicer.preference && (
+                                            <Button
+                                                type="button"
+                                                size="sm"
+                                                variant="outline"
+                                                onClick={() => {
+                                                    slicer.onForget();
+                                                    // Forget disappears, so keep focus in Settings.
+                                                    slicerChangeRef.current?.focus();
+                                                }}
+                                                data-testid="settings-slicer-forget"
+                                            >
+                                                {t('settings.slicerForget')}
+                                            </Button>
+                                        )}
+                                    </div>
+                                </div>
+                            </section>
+                        )}
 
                         {isDesktopApp && (
                             <section className="mt-5 space-y-3 border-t border-border pt-5">

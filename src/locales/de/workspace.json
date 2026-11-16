@@ -191,6 +191,7 @@
   "slicerChooser": {
     "title": "Im Slicer öffnen",
     "description": "Wähle die App, die die 3MF-Datei öffnet.",
+    "saveDescription": "Wähle die App, mit der „Im Slicer öffnen“ Modelle öffnet.",
     "missing": "{{name}} wurde nicht gefunden. Wähle einen anderen Slicer.",
     "systemDefault": "Systemstandard",
     "systemDefaultHint": "Deine Standard-App für .3mf-Dateien",
@@ -201,8 +202,9 @@
     "browseFilter": "Programme",
     "notAnApp": "Diese Datei ist keine App, mit der Kromacut Modelle öffnen kann. Wähle die Slicer-App selbst.",
     "remember": "Immer diesen Slicer verwenden",
-    "rememberHint": "„Im Slicer öffnen“ öffnet Modelle dann ohne Nachfrage. Mit „Slicer auswählen“ im Download-Menü kannst du ihn ändern oder vergessen.",
+    "rememberHint": "„Im Slicer öffnen“ öffnet Modelle dann ohne Nachfrage. Mit „Slicer auswählen“ im Download-Menü oder in den Einstellungen kannst du ihn ändern oder vergessen.",
     "open": "Öffnen",
+    "save": "Speichern",
     "cancel": "Abbrechen"
   },
   "modeTabs": {

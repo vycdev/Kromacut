@@ -25,7 +25,7 @@ const BAMBU = { name: 'Bambu Studio', path: 'C:\\Program Files\\Bambu Studio\\ba
 const ORCA = { name: 'Orca Slicer', path: 'C:\\Program Files\\OrcaSlicer\\orca-slicer.exe' };
 const CUSTOM = { name: 'CrealityPrint', path: 'C:\\Users\\José\\Slicers\\CrealityPrint.exe' };
 
-async function buildModel(page: Page, savedSlicer: unknown = null) {
+async function openApp(page: Page, savedSlicer: unknown = null) {
     await page.addInitScript((saved) => {
         localStorage.clear();
         if (saved) localStorage.setItem('kromacut:desktop-slicer', JSON.stringify(saved));
@@ -41,6 +41,15 @@ async function buildModel(page: Page, savedSlicer: unknown = null) {
         );
     }, savedSlicer);
     await page.goto('/app');
+}
+
+async function buildModel(page: Page, savedSlicer: unknown = null) {
+    await openApp(page, savedSlicer);
+    await buildLoadedModel(page);
+}
+
+/** Imports a small image into the already open app and builds its 3D model. */
+async function buildLoadedModel(page: Page) {
     const png = await page.evaluate(() => {
         const canvas = document.createElement('canvas');
         canvas.width = 24;
@@ -144,7 +153,12 @@ test('@smoke desktop Open in Slicer hands the built 3MF to the native app', asyn
     expect(errors).toEqual([]);
 });
 
-async function setUpChooser(page: Page, installed: SlicerApp[], savedSlicer: unknown = null) {
+async function setUpChooser(
+    page: Page,
+    installed: SlicerApp[],
+    savedSlicer: unknown = null,
+    build = true
+) {
     await fakeDesktopBeforeLoad(
         page,
         (desktop, apps) => {
@@ -177,7 +191,8 @@ async function setUpChooser(page: Page, installed: SlicerApp[], savedSlicer: unk
         },
         installed
     );
-    await buildModel(page, savedSlicer);
+    if (build) await buildModel(page, savedSlicer);
+    else await openApp(page, savedSlicer);
     return {
         state: () => page.evaluate(() => (window as unknown as SlicerTestWindow).slicerTest),
         set: (update: Partial<SlicerTestWindow['slicerTest']>) =>
@@ -336,5 +351,108 @@ test('@smoke desktop Open in Slicer asks again when the saved slicer is gone', a
     await expect(page.getByTestId('open-3mf-in-slicer')).toHaveText('Open in Slicer');
     await expect(page.getByTestId('choose-slicer')).toHaveCount(0);
     expect(await fakeDesktopCalls(page)).not.toContain('open_model_in_slicer');
+    expect(errors).toEqual([]);
+});
+
+test('@smoke the browser Settings dialog has no slicer setting', async ({ page }) => {
+    await openApp(page);
+    await page.getByRole('button', { name: 'Open settings' }).click();
+    await expect(page.getByRole('dialog', { name: 'Settings' })).toBeVisible();
+    await expect(page.getByTestId('settings-slicer')).toHaveCount(0);
+});
+
+test('@smoke desktop Settings changes and forgets the saved slicer without a model', async ({
+    page,
+}) => {
+    const errors: string[] = [];
+    page.on('pageerror', (error) => errors.push(error.message));
+    const slicers = await setUpChooser(page, [BAMBU, ORCA], null, false);
+    const chooser = page.getByTestId('slicer-chooser');
+    const options = chooser.getByTestId('slicer-option');
+    const setting = page.getByTestId('settings-slicer');
+    const current = page.getByTestId('settings-slicer-current');
+    const openSettings = () => page.getByRole('button', { name: 'Open settings' }).click();
+
+    // Nothing is saved yet, so Open in Slicer asks every time and there is nothing to forget.
+    await openSettings();
+    await expect(setting).toContainText('Open in Slicer');
+    await expect(current).toHaveText('Ask every time');
+    await expect(page.getByTestId('settings-slicer-forget')).toHaveCount(0);
+
+    // Change opens the chooser in place of Settings; Cancel saves nothing.
+    await page.getByTestId('settings-slicer-change').click();
+    await expect(page.getByRole('dialog', { name: 'Settings' })).toHaveCount(0);
+    await expect(chooser).toContainText('Choose the app that Open in Slicer opens models with.');
+    await expect(page.getByTestId('slicer-remember')).toHaveCount(0);
+    await expect(page.getByTestId('slicer-open')).toHaveCount(0);
+    await expect(page.getByTestId('slicer-save')).toHaveText('Save');
+    await chooser.getByRole('button', { name: 'Cancel' }).click();
+    await expect(chooser).toHaveCount(0);
+    expect(await slicers.savedPreference()).toBeNull();
+
+    // Saving a slicer only remembers it: nothing is exported or opened.
+    await openSettings();
+    await page.getByTestId('settings-slicer-change').click();
+    await expect(page.getByTestId('slicer-option-system')).toBeChecked();
+    await chooser.getByText(ORCA.name, { exact: true }).click();
+    await expect(options.nth(1)).toBeChecked();
+    await page.getByTestId('slicer-save').click();
+    await expect(chooser).toHaveCount(0);
+    expect(await slicers.savedPreference()).toEqual({ kind: 'app', app: ORCA });
+    await openSettings();
+    await expect(current).toHaveText(ORCA.name);
+    await expect(setting).toContainText(ORCA.path);
+
+    // Changing again starts from the saved slicer and can save a browsed app.
+    await page.getByTestId('settings-slicer-change').click();
+    await expect(options.nth(1)).toBeChecked();
+    await slicers.set({ picked: CUSTOM });
+    await page.getByTestId('slicer-browse').click();
+    await expect(options.nth(2)).toBeChecked();
+    await page.getByTestId('slicer-save').click();
+    expect(await slicers.savedPreference()).toEqual({ kind: 'app', app: CUSTOM });
+
+    // The system default can be saved too.
+    await openSettings();
+    await expect(current).toHaveText(CUSTOM.name);
+    await page.getByTestId('settings-slicer-change').click();
+    await chooser.getByText('System default', { exact: true }).click();
+    await expect(page.getByTestId('slicer-option-system')).toBeChecked();
+    await page.getByTestId('slicer-save').click();
+    expect(await slicers.savedPreference()).toEqual({ kind: 'system' });
+    await openSettings();
+    await expect(current).toHaveText('System default');
+
+    // Forget clears the saved choice and keeps Settings open.
+    await page.getByTestId('settings-slicer-forget').click();
+    await expect(current).toHaveText('Ask every time');
+    await expect(page.getByTestId('settings-slicer-forget')).toHaveCount(0);
+    await expect(page.getByTestId('settings-slicer-change')).toBeFocused();
+    expect(await slicers.savedPreference()).toBeNull();
+
+    // A slicer saved in Settings is the one the download menu then opens without asking.
+    await page.getByTestId('settings-slicer-change').click();
+    await chooser.getByText(BAMBU.name, { exact: true }).click();
+    await page.getByTestId('slicer-save').click();
+    await buildLoadedModel(page);
+    await slicers.openMenu();
+    await expect(page.getByTestId('open-3mf-in-slicer')).toHaveText('Open in Bambu Studio');
+    await page.getByTestId('open-3mf-in-slicer').click();
+    await expect.poll(async () => (await slicers.state()).headers.length).toBe(1);
+    await expect(chooser).toHaveCount(0);
+    expect((await slicers.state()).headers[0][SLICER_HEADER]).toBe(encodeURIComponent(BAMBU.path));
+
+    // Forgetting it in Settings makes the download menu ask again.
+    await expect(page.getByTestId('download-3d-model')).toBeEnabled();
+    await openSettings();
+    await expect(current).toHaveText(BAMBU.name);
+    await page.getByTestId('settings-slicer-forget').click();
+    await page.getByRole('button', { name: 'Close settings' }).click();
+    await slicers.openMenu();
+    await expect(page.getByTestId('open-3mf-in-slicer')).toHaveText('Open in Slicer');
+    await expect(page.getByTestId('choose-slicer')).toHaveCount(0);
+
+    const calls = await fakeDesktopCalls(page);
+    expect(calls.filter((call) => call === 'open_model_in_slicer')).toHaveLength(1);
     expect(errors).toEqual([]);
 });

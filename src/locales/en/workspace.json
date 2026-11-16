@@ -191,6 +191,7 @@
     "slicerChooser": {
         "title": "Open in Slicer",
         "description": "Choose the app that opens the 3MF.",
+        "saveDescription": "Choose the app that Open in Slicer opens models with.",
         "missing": "{{name}} could not be found. Choose another slicer.",
         "systemDefault": "System default",
         "systemDefaultHint": "Your default app for .3mf files",
@@ -201,8 +202,9 @@
         "browseFilter": "Applications",
         "notAnApp": "That file is not an app Kromacut can open models with. Choose the slicer app itself.",
         "remember": "Always use this slicer",
-        "rememberHint": "Open in Slicer then opens models without asking. Use Choose Slicer in the download menu to change or forget it.",
+        "rememberHint": "Open in Slicer then opens models without asking. Use Choose Slicer in the download menu or Settings to change or forget it.",
         "open": "Open",
+        "save": "Save",
         "cancel": "Cancel"
     },
     "modeTabs": {

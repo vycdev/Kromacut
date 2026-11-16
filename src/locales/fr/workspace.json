@@ -194,6 +194,7 @@
   "slicerChooser": {
     "title": "Ouvrir dans le logiciel de découpe",
     "description": "Choisissez l’application qui ouvre le 3MF.",
+    "saveDescription": "Choisissez l’application avec laquelle « Ouvrir dans le logiciel de découpe » ouvre les modèles.",
     "missing": "{{name}} est introuvable. Choisissez un autre logiciel de découpe.",
     "systemDefault": "Application par défaut du système",
     "systemDefaultHint": "Votre application par défaut pour les fichiers .3mf",
@@ -204,8 +205,9 @@
     "browseFilter": "Applications",
     "notAnApp": "Ce fichier n’est pas une application avec laquelle Kromacut peut ouvrir des modèles. Choisissez l’application du logiciel de découpe elle-même.",
     "remember": "Toujours utiliser ce logiciel de découpe",
-    "rememberHint": "« Ouvrir dans le logiciel de découpe » ouvrira alors les modèles sans demander. Utilisez « Choisir le logiciel de découpe » dans le menu de téléchargement pour le changer ou l’oublier.",
+    "rememberHint": "« Ouvrir dans le logiciel de découpe » ouvrira alors les modèles sans demander. Utilisez « Choisir le logiciel de découpe » dans le menu de téléchargement ou dans les Paramètres pour le changer ou l’oublier.",
     "open": "Ouvrir",
+    "save": "Enregistrer",
     "cancel": "Annuler"
   },
   "modeTabs": {

@@ -194,6 +194,7 @@
   "slicerChooser": {
     "title": "Deschide în slicer",
     "description": "Alege aplicația care deschide 3MF-ul.",
+    "saveDescription": "Alege aplicația cu care „Deschide în slicer” deschide modelele.",
     "missing": "{{name}} nu a fost găsit. Alege alt slicer.",
     "systemDefault": "Implicit în sistem",
     "systemDefaultHint": "Aplicația ta implicită pentru fișierele .3mf",
@@ -204,8 +205,9 @@
     "browseFilter": "Aplicații",
     "notAnApp": "Acest fișier nu este o aplicație cu care Kromacut poate deschide modele. Alege chiar aplicația slicerului.",
     "remember": "Folosește mereu acest slicer",
-    "rememberHint": "„Deschide în slicer” va deschide apoi modelele fără să întrebe. Folosește „Alege slicerul” din meniul de descărcare pentru a-l schimba sau uita.",
+    "rememberHint": "„Deschide în slicer” va deschide apoi modelele fără să întrebe. Folosește „Alege slicerul” din meniul de descărcare sau din Setări pentru a-l schimba sau uita.",
     "open": "Deschide",
+    "save": "Salvează",
     "cancel": "Anulează"
   },
   "modeTabs": {
