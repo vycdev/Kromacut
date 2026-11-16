@@ -378,6 +378,21 @@ export default function ThreeDControls({
         persisted,
     });
 
+    useEffect(() => {
+        if (colorSliceHeights.length !== filtered.length || colorOrder.length !== filtered.length)
+            return;
+        onSettingsChange?.({
+            layerHeight,
+            slicerFirstLayerHeight,
+            pixelSize,
+            colorSliceHeights,
+            colorOrder,
+            filteredSwatches: filtered,
+        });
+        // Parent callback is intentionally excluded, as for the non-build settings above.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [layerHeight, slicerFirstLayerHeight, pixelSize, colorSliceHeights, colorOrder, filtered]);
+
     const handleResetPrintSettings = useCallback(() => {
         setLayerHeight(DEFAULT_PRINT_SETTINGS.layerHeight);
         setSlicerFirstLayerHeight(DEFAULT_PRINT_SETTINGS.slicerFirstLayerHeight);

@@ -1,3 +1,4 @@
+import { reduceThenMatchPalette } from '../lib/reduceThenMatchPalette';
 import {
     posterizeImageData,
     medianCutImageData,
@@ -25,6 +26,7 @@ interface Params {
     weight: number;
     finalColors: number;
     selectedPalette: string;
+    selectedPaletteIds?: string[];
     customPalettes: CustomPalette[];
     imageSrc: string | null;
     setImage: (url: string | null, pushHistory?: boolean) => void;
@@ -36,6 +38,7 @@ interface Params {
             isTransparent?: boolean;
         }[]
     ) => void;
+    onGeneratedPalette?: (colors: string[]) => void;
     onProgress?: (value: number) => void;
     onStage?: (stage: 'load' | 'algorithm' | 'post' | 'swatches' | 'final') => void;
     onStepChange?: (step: {
@@ -81,10 +84,12 @@ export function useQuantize({
     weight,
     finalColors,
     selectedPalette,
+    selectedPaletteIds,
     customPalettes,
     imageSrc,
     setImage,
     onImmediateSwatches,
+    onGeneratedPalette,
     onProgress,
     onStage,
     onStepChange,
@@ -198,15 +203,25 @@ export function useQuantize({
         if (overridePalette && overridePalette.length > 0) {
             await mapImageToPalette(data, overridePalette, { onProgress: postProgress });
             ctx.putImageData(data, 0, 0);
-        } else if (selectedPalette && selectedPalette !== 'auto') {
-            // Search built-in palettes first, then custom palettes (enabled colors only)
-            const builtIn = findBuiltInPalette(selectedPalette);
-            const custom = customPalettes.find((p) => p.id === selectedPalette);
-            const palColors = builtIn?.colors ?? (custom ? enabledColors(custom) : undefined);
-            if (palColors && palColors.length > 0) {
-                await mapImageToPalette(data, palColors, { onProgress: postProgress });
-                ctx.putImageData(data, 0, 0);
-            }
+        } else if (selectedPaletteIds?.length || (selectedPalette && selectedPalette !== 'auto')) {
+            const ids = selectedPaletteIds ?? [selectedPalette];
+            const palColors = [
+                ...new Set(
+                    ids.flatMap((id) => {
+                        const builtIn = findBuiltInPalette(id);
+                        const custom = customPalettes.find((p) => p.id === id);
+                        return builtIn?.colors ?? (custom ? enabledColors(custom) : []);
+                    })
+                ),
+            ];
+            // Reduce first: palette matching must not bypass the requested count.
+            await reduceThenMatchPalette(
+                data,
+                overrideFinal ?? finalColors,
+                palColors,
+                postProgress
+            );
+            ctx.putImageData(data, 0, 0);
         } else {
             // auto: reduce to finalColors (or overridden final) via enforcePaletteSize
             await enforcePaletteSizeAsync(data, overrideFinal ?? finalColors, postProgress);
@@ -222,6 +237,7 @@ export function useQuantize({
         await yieldFrame();
         // diagnostic: log final counts and what was applied
 
+        let generatedColors: string[] = [];
         // immediate swatches
         try {
             onStage?.('swatches');
@@ -234,7 +250,7 @@ export function useQuantize({
             const total = dd.length / 4;
             for (let i = 0; i < dd.length; i += 4) {
                 if ((i / 4) % 10000 === 0) {
-                    const fraction = (i / 4) / total;
+                    const fraction = i / 4 / total;
                     reportStep(4, swatchLabel, fraction);
                     bump(quantizeSwatchProgress(i / 4, total));
                 }
@@ -275,6 +291,7 @@ export function useQuantize({
                     isTransparent: true,
                 });
             }
+            generatedColors = structured.filter((c) => c.a > 0).map((c) => c.hex);
             onImmediateSwatches(structured);
             reportStep(4, swatchLabel, 1);
         } catch (err) {
@@ -291,6 +308,7 @@ export function useQuantize({
         bump(1);
         const url = URL.createObjectURL(outBlob);
         setImage(url, true);
+        onGeneratedPalette?.(generatedColors);
     };
 
     return { applyQuantize };

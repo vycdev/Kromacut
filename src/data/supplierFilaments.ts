@@ -1,3 +1,4 @@
+import additionalSupplierSets from './additionalSupplierSets.json' with { type: 'json' };
 import type { Palette } from './palettes.ts';
 import type { AutoPaintProfile } from '../lib/profileManager.ts';
 import { CURRENT_PROFILE_VERSION } from '../lib/profileManager.ts';
@@ -31,6 +32,11 @@ export interface SupplierSet {
     /** Stable id fragment, e.g. 'bambu-pla-basic' */
     id: string;
     brand: string;
+    material?: string;
+    sourceUrl?: string;
+    sourceKind?: string;
+    sourceNotes?: string;
+    verifiedOn?: string;
     line: string;
     filaments: SupplierFilament[];
 }
@@ -39,6 +45,10 @@ export const SUPPLIER_SETS: SupplierSet[] = [
     {
         id: 'bambu-pla-basic',
         brand: 'Bambu Lab',
+        material: 'PLA',
+        sourceUrl:
+            'https://store.bblcdn.com/s7/default/1084369ef84345bbaa5d704a492954e0/Bambu_PLA_Basic_Hex_Code.pdf',
+        verifiedOn: '2026-08-05',
         line: 'PLA Basic',
         filaments: [
             { name: 'Jade White', hex: '#FFFFFF' },
@@ -73,6 +83,7 @@ export const SUPPLIER_SETS: SupplierSet[] = [
             { name: 'Black', hex: '#000000' },
         ],
     },
+    ...additionalSupplierSets,
 ];
 
 export {

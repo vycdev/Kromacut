@@ -1,0 +1,138 @@
+import { renderAdjustedImage } from '../lib/renderAdjustedImage';
+import { prepareNozzleSource, type PreparedNozzleSource } from '../lib/prepareNozzleSource';
+import type { ImageEditSnapshot } from '../types';
+import { thresholdPixels, createThresholdLookup, applyThresholdLookup } from '../lib/thresholds';
+import { renderImageTiles } from '../lib/imageTiles';
+
+export type ImageEditingRequest =
+    | { kind: 'threshold-source' | 'nozzle-source'; blob: Blob }
+    | { kind: 'nozzle-snapshot'; snapshot: ImageEditSnapshot }
+    | { kind: 'threshold-snapshot'; snapshot: ImageEditSnapshot }
+    | { kind: 'image-render'; snapshot: ImageEditSnapshot }
+    | { kind: 'image-export'; snapshot: ImageEditSnapshot }
+    | { kind: 'threshold-apply'; blob: Blob; thresholds: number[]; colors: string[] }
+    | { kind: 'threshold-preview'; pixels: ImageData; thresholds: number[]; colors: string[] };
+export interface PreparedImage {
+    pixels: ImageData;
+    originalWidth: number;
+    originalHeight: number;
+}
+export type ImageEditingResult =
+    | PreparedImage
+    | PreparedNozzleSource
+    | Blob
+    | ImageData
+    | ImageBitmap;
+export interface ImageEditingResponse {
+    result?: ImageEditingResult;
+    error?: string;
+}
+
+self.onmessage = async (event: MessageEvent<ImageEditingRequest>) => {
+    const request = event.data;
+    let bitmap: ImageBitmap | undefined;
+    try {
+        if (
+            request.kind === 'threshold-snapshot' ||
+            request.kind === 'image-render' ||
+            request.kind === 'image-export'
+        ) {
+            bitmap = request.snapshot.bitmap;
+            const full = renderAdjustedImage(request.snapshot);
+            bitmap.close();
+            bitmap = undefined;
+            if (request.kind === 'image-export') {
+                self.postMessage({ result: await full.convertToBlob({ type: 'image/png' }) });
+            } else if (request.kind === 'image-render') {
+                const result = full.transferToImageBitmap();
+                self.postMessage({ result }, { transfer: [result] });
+            } else {
+                const scale = Math.min(1, 1000 / Math.max(full.width, full.height));
+                const preview = new OffscreenCanvas(
+                    Math.max(1, Math.round(full.width * scale)),
+                    Math.max(1, Math.round(full.height * scale))
+                );
+                const ctx = preview.getContext('2d')!;
+                ctx.drawImage(full, 0, 0, preview.width, preview.height);
+                const pixels = ctx.getImageData(0, 0, preview.width, preview.height);
+                const result = {
+                    pixels,
+                    originalWidth: full.width,
+                    originalHeight: full.height,
+                    blob: await full.convertToBlob({ type: 'image/png' }),
+                };
+                self.postMessage({ result }, { transfer: [pixels.data.buffer] });
+            }
+            return;
+        }
+        if (request.kind === 'nozzle-snapshot') {
+            bitmap = request.snapshot.bitmap;
+            const result = await prepareNozzleSource(request.snapshot);
+            self.postMessage({ result }, { transfer: [result.pixels.data.buffer] });
+            return;
+        }
+        if (request.kind === 'threshold-preview') {
+            const { pixels } = request;
+            const result = new ImageData(
+                thresholdPixels(pixels.data, request.thresholds, request.colors),
+                pixels.width,
+                pixels.height
+            );
+            self.postMessage({ result }, { transfer: [result.data.buffer] });
+            return;
+        }
+        bitmap = await createImageBitmap(request.blob);
+        if (request.kind === 'nozzle-source') {
+            const result = await prepareNozzleSource({ bitmap, adjustments: {}, replacements: {} });
+            self.postMessage({ result }, { transfer: [result.pixels.data.buffer] });
+            return;
+        }
+        if (request.kind === 'threshold-apply') {
+            const lookup = createThresholdLookup(request.thresholds, request.colors);
+            const full = renderImageTiles(bitmap, (pixels) => {
+                applyThresholdLookup(pixels.data, lookup);
+                return pixels;
+            });
+            bitmap.close();
+            bitmap = undefined;
+            self.postMessage({ result: await full.convertToBlob({ type: 'image/png' }) });
+            return;
+        }
+        const full = new OffscreenCanvas(bitmap.width, bitmap.height);
+        const ctx = full.getContext('2d', { willReadFrequently: true })!;
+        ctx.drawImage(bitmap, 0, 0);
+        bitmap.close();
+        bitmap = undefined;
+        const bounds = { x: 0, y: 0, width: full.width, height: full.height };
+        const limit = 1000;
+        const scale = Math.min(1, limit / Math.max(bounds.width, bounds.height));
+        const preview = new OffscreenCanvas(
+            Math.max(1, Math.round(bounds.width * scale)),
+            Math.max(1, Math.round(bounds.height * scale))
+        );
+        const out = preview.getContext('2d')!;
+        out.imageSmoothingEnabled = true;
+        out.drawImage(
+            full,
+            bounds.x,
+            bounds.y,
+            bounds.width,
+            bounds.height,
+            0,
+            0,
+            preview.width,
+            preview.height
+        );
+        const pixels = out.getImageData(0, 0, preview.width, preview.height);
+        const result: PreparedImage = {
+            pixels,
+            originalWidth: bounds.width,
+            originalHeight: bounds.height,
+        };
+        self.postMessage({ result }, { transfer: [pixels.data.buffer] });
+    } catch (error) {
+        self.postMessage({ error: error instanceof Error ? error.message : String(error) });
+    } finally {
+        bitmap?.close();
+    }
+};

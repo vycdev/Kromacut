@@ -323,7 +323,8 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
             )}
             <Button
                 size="icon"
-                title={t('previewActions.undo')}
+                title={t('previewActions.undoShortcut')}
+                aria-keyshortcuts="Control+Z Meta+Z"
                 aria-label={t('previewActions.undo')}
                 disabled={isCropMode || !canUndo}
                 onClick={onUndo}
@@ -333,7 +334,8 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
             </Button>
             <Button
                 size="icon"
-                title={t('previewActions.redo')}
+                title={t('previewActions.redoShortcut')}
+                aria-keyshortcuts="Control+Shift+Z Meta+Shift+Z"
                 aria-label={t('previewActions.redo')}
                 disabled={isCropMode || !canRedo}
                 onClick={onRedo}

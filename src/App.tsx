@@ -18,6 +18,25 @@ import CanvasPreview from './components/CanvasPreview';
 import type { CanvasPreviewHandle } from './components/CanvasPreview';
 import { SwatchesPanel } from './components/SwatchesPanel';
 import AdjustmentsPanel from './components/AdjustmentsPanel';
+import ThresholdPanel from './components/ThresholdPanel';
+import FilamentRecommendations from './components/FilamentRecommendations';
+import NozzlePreview from './components/NozzlePreview';
+import ProjectControls from './components/ProjectControls';
+import type { ProjectArchive, RecommendationSession, NozzleSession } from './lib/projectFile';
+import {
+    captureProjectImages,
+    prepareProjectImages,
+    revokeProjectImages,
+} from './lib/projectImages';
+import {
+    loadPrintSettingsFromStorage,
+    savePrintSettingsToStorage,
+    DEFAULT_PRINT_SETTINGS,
+} from './lib/printSettingsStorage';
+import { useImageEditGuard } from './hooks/useImageEditGuard';
+import { useImageWorkerTask } from './hooks/useImageWorkerTask';
+import { toHex6 } from './lib/colorUtils';
+import WindowsPathImport from './components/WindowsPathImport';
 import DeditherPanel from './components/DeditherPanel';
 import ImageResizePanel from './components/ImageResizePanel';
 import { ADJUSTMENT_DEFAULTS } from './lib/applyAdjustments';
@@ -26,6 +45,7 @@ import { decodeImage } from './lib/decodeImage';
 import SLIDER_DEFS from './components/sliderDefs';
 import { useSwatches } from './hooks/useSwatches';
 import type { SwatchEntry } from './hooks/useSwatches';
+import { useImageHistoryShortcuts } from './hooks/useImageHistoryShortcuts';
 import { useImageHistory } from './hooks/useImageHistory';
 import { useImageImport, type ImageImportError } from './hooks/useImageImport';
 import { useQuantize } from './hooks/useQuantize';
@@ -267,12 +287,16 @@ function App(): React.ReactElement | null {
     // Palette manager: custom palettes CRUD + merged palette list + selected palette
     const {
         customPalettes,
+        restoreProjectPalettes,
         allPalettes,
         selectedPalette,
+        selectedPaletteIds,
+        setSelectedPaletteIds,
         setSelectedPalette,
         importFeedback: paletteImportFeedback,
         importInputRef: paletteImportInputRef,
         handleCreatePalette,
+        cachePalette,
         handleUpdatePalette,
         handleClonePalette,
         handleDeletePalette,
@@ -285,10 +309,13 @@ function App(): React.ReactElement | null {
     const [profileSaveNewOpen, setProfileSaveNewOpen] = useState(false);
     const [profileRenameOpen, setProfileRenameOpen] = useState(false);
     const [filamentEditing, setFilamentEditing] = useState(false);
+    const [restoringProject, setRestoringProject] = useState(false);
+    const restoringProjectRef = useRef(false);
     const { file: queuedDesktopFile, finish: finishDesktopFile } = useDesktopFileOpen();
     // OS file opens can arrive through an active editor. Keep the request queued
     // until its draft is saved or dismissed, before changing either workspace.
     const desktopFile =
+        restoringProject ||
         paletteEditorOpen ||
         calibrationDialogOpen ||
         profileSaveNewOpen ||
@@ -300,27 +327,61 @@ function App(): React.ReactElement | null {
     const [failedPaletteFileId, setFailedPaletteFileId] = useState<number | null>(null);
     const [completedPaletteFileId, setCompletedPaletteFileId] = useState<number | null>(null);
 
-    // Keep the postprocess color count in sync with the selected palette's
-    // enabled size. Edits, per-color toggles, clones, and imports all change
-    // the size without a re-selection, so the dropdown callback alone is not
-    // enough. Manual overrides persist until the palette or selection changes.
-    useEffect(() => {
-        if (selectedPalette === 'auto') return;
-        const pal = allPalettes.find((p) => p.id === selectedPalette);
-        if (pal && pal.size > 0) setFinalColors(pal.size);
-    }, [allPalettes, selectedPalette]);
     const {
         importFile,
         importError: imageImportError,
         dismissImportError,
         cancelPendingImport,
     } = useImageImport();
-    const { imageSrc, setImage, clearCurrent, undo, redo, canUndo, canRedo } = useImageHistory(
-        logo,
-        cancelPendingImport
+    const {
+        imageSrc,
+        setImage,
+        clearCurrent,
+        undo,
+        redo,
+        canUndo,
+        canRedo,
+        past,
+        future,
+        replaceHistory,
+    } = useImageHistory(logo, cancelPendingImport);
+    const [projectName, setProjectName] = useState('Kromacut');
+    const [projectEpoch, setProjectEpoch] = useState(0);
+    const [pendingProjectMode, setPendingProjectMode] = useState<'2d' | '3d' | null>(null);
+    const [recommendationSession, setRecommendationSession] = useState<{
+        source: string | null;
+        state: RecommendationSession;
+    } | null>(null);
+    const [nozzleSession, setNozzleSession] = useState<{
+        source: string | null;
+        state: NozzleSession;
+    } | null>(null);
+    const rememberRecommendations = useCallback(
+        (state: RecommendationSession) => setRecommendationSession({ source: imageSrc, state }),
+        [imageSrc]
     );
-    const { swatches, swatchesLoading, imageDimensions, invalidate, immediateOverride } =
-        useSwatches(imageSrc);
+    const rememberNozzle = useCallback(
+        (state: NozzleSession) => setNozzleSession({ source: imageSrc, state }),
+        [imageSrc]
+    );
+    const [filamentPreview, setFilamentPreview] = useState<{
+        source: string | null;
+        colors: Record<string, string>;
+    }>({ source: null, colors: {} });
+    const previewFilamentColors = useCallback(
+        (colors: Record<string, string>) => {
+            setFilamentPreview({ source: imageSrc, colors });
+        },
+        [imageSrc]
+    );
+    const {
+        swatches,
+        swatchesLoading,
+        swatchesSource,
+        imageDimensions,
+        invalidate,
+        immediateOverride,
+    } = useSwatches(imageSrc);
     // adjustments managed locally inside AdjustmentsPanel now
     // initial selectedPalette derived from initial weight above
     const inputRef = useRef<HTMLInputElement | null>(null);
@@ -345,6 +406,10 @@ function App(): React.ReactElement | null {
         processingIndeterminate,
         setProcessingIndeterminate,
     } = useProcessingState();
+    const processingActive = isQuantizing || isDedithering || restoringProject;
+    const beginImageEdit = useImageEditGuard(imageSrc, processingActive);
+    const { run: exportFilamentImage, cancel: cancelFilamentExport } = useImageWorkerTask();
+    useEffect(() => cancelFilamentExport, [imageSrc, processingActive, cancelFilamentExport]);
     const [processingStep, setProcessingStep] = useState<ProcessingStepState>({
         stepIndex: 1,
         stepCount: 1,
@@ -354,6 +419,7 @@ function App(): React.ReactElement | null {
         weight,
         finalColors,
         selectedPalette,
+        selectedPaletteIds,
         customPalettes,
         imageSrc,
         setImage: (u, push = true) => {
@@ -361,6 +427,7 @@ function App(): React.ReactElement | null {
             setImage(u, push);
         },
         onImmediateSwatches: (colors: SwatchEntry[]) => immediateOverride(colors),
+        onGeneratedPalette: cachePalette,
         onProgress: (value) => {
             setProcessingProgress(clampProgress(value));
         },
@@ -476,6 +543,7 @@ function App(): React.ReactElement | null {
     const {
         threeDState,
         handleThreeDSettingsChange,
+        replaceThreeDState,
         threeDBuildSignal,
         builtThreeDState,
         builtFlatPaint,
@@ -596,8 +664,13 @@ function App(): React.ReactElement | null {
     };
 
     const handleFiles = async (file?: File) => {
-        if (!file) return;
+        const current = beginImageEdit();
+        if (!file || !current) return;
         await importFile(file, imageSrc !== null, (url) => {
+            if (!current()) {
+                URL.revokeObjectURL(url);
+                return;
+            }
             setTouchUpTool(null);
             invalidate();
             setImage(url, true);
@@ -698,7 +771,6 @@ function App(): React.ReactElement | null {
         setTouchUpTool(nextTool);
     };
 
-    const processingActive = mode === '2d' && (isQuantizing || isDedithering);
     // Quantize and dedither commit their result through image history, which cancels a
     // pending import, so refuse new imports until they finish rather than drop one silently.
     const dropzone = useDropzone({
@@ -738,6 +810,124 @@ function App(): React.ReactElement | null {
         swatches,
     });
 
+    useEffect(() => {
+        if (pendingProjectMode && swatchesSource === imageSrc && !swatchesLoading) {
+            handleModeChange(pendingProjectMode);
+            setPendingProjectMode(null);
+        }
+    }, [pendingProjectMode, swatchesSource, imageSrc, swatchesLoading, handleModeChange]);
+
+    async function captureProject(): Promise<ProjectArchive> {
+        if (!imageSrc) throw new Error('image');
+        const print = loadPrintSettingsFromStorage() ?? DEFAULT_PRINT_SETTINGS;
+        const state: ProjectArchive['state'] = {
+            name: projectName,
+            adjustments,
+            quantize: {
+                algorithm,
+                weight,
+                finalColors,
+                palettes: selectedPaletteIds.map((id) => {
+                    const custom = customPalettes.find((p) => p.id === id);
+                    if (custom) return custom;
+                    const palette = allPalettes.find((p) => p.id === id)!;
+                    return {
+                        id,
+                        name: palette.label,
+                        colors: palette.colors.map((color) => {
+                            const hex = toHex6(color);
+                            if (!hex) throw new Error('Invalid palette color');
+                            return hex;
+                        }),
+                        version: 1,
+                        createdAt: 0,
+                        updatedAt: 0,
+                        ...(palette.colorNames ? { colorNames: palette.colorNames } : {}),
+                    };
+                }),
+            },
+            threeD: { ...threeDState, ...print },
+            recommendations:
+                recommendationSession?.source === imageSrc ? recommendationSession.state : null,
+            nozzle: nozzleSession?.source === imageSrc ? nozzleSession.state : null,
+            view: {
+                mode,
+                isOrtho,
+                renderMode: previewRenderMode,
+                colorMode: previewColorMode,
+                checkerboard: showCheckerboard,
+            },
+        };
+        return { state, ...(await captureProjectImages({ current: imageSrc, past, future })) };
+    }
+    async function restoreProject(project: ProjectArchive) {
+        if (processingActive || restoringProjectRef.current) throw new Error('busy');
+        restoringProjectRef.current = true;
+        setRestoringProject(true);
+        cancelPendingImport();
+        try {
+            const session = await prepareProjectImages(project);
+            try {
+                restoreProjectPalettes(project.state.quantize.palettes);
+            } catch (e) {
+                revokeProjectImages(session);
+                throw e;
+            }
+            const state = project.state;
+            cancelThreeDMountRef.current?.();
+            cancelThreeDMountRef.current = null;
+            autoPaintWorkingStateInitializedRef.current = true;
+            cancelBuild();
+            setTouchUpTool(null);
+            setIsCropMode(false);
+            setHasValidCropSelection(false);
+            setProjectName(state.name);
+            setAlgorithm(state.quantize.algorithm);
+            setWeight(state.quantize.weight);
+            setFinalColors(state.quantize.finalColors);
+            setAdjustments(state.adjustments);
+            setAdjustmentsEpoch((e) => e + 1);
+            setFilamentPreview({ source: session.current, colors: {} });
+            setRecommendationSession(
+                state.recommendations
+                    ? { source: session.current, state: state.recommendations }
+                    : null
+            );
+            setNozzleSession(
+                state.nozzle ? { source: session.current, state: state.nozzle } : null
+            );
+            savePrintSettingsToStorage({
+                layerHeight: state.threeD.layerHeight,
+                slicerFirstLayerHeight: state.threeD.slicerFirstLayerHeight,
+                pixelSize: state.threeD.pixelSize,
+                smoothMeshingStrength: state.threeD.smoothMeshingStrength ?? 'none',
+            });
+            replaceThreeDState(state.threeD);
+            setProjectEpoch((e) => e + 1);
+            setHasMountedThreeDControls(false);
+            setMode('2d');
+            setPendingProjectMode(state.view.mode);
+            setIsOrtho(state.view.isOrtho);
+            setPreviewRenderMode(state.view.renderMode);
+            setPreviewColorMode(state.view.colorMode);
+            setShowCheckerboard(state.view.checkerboard);
+            invalidate();
+            replaceHistory(session);
+            // Restore the tab once its swatches are ready; geometry still requires an explicit build.
+        } finally {
+            restoringProjectRef.current = false;
+            setRestoringProject(false);
+        }
+    }
+
+    useImageHistoryShortcuts({
+        undo,
+        redo,
+        canUndo,
+        canRedo,
+        disabled: isCropMode || processingActive,
+    });
+
     return (
         <>
             <div className="box-border text-inherit font-sans flex flex-col flex-1 min-w-0 max-w-full min-h-0 h-screen w-full">
@@ -750,10 +940,29 @@ function App(): React.ReactElement | null {
                 <div
                     className={`${docsOpen ? 'hidden' : 'flex'} flex-1 min-h-0 w-full`}
                     ref={layoutRef}
+                    inert={restoringProject}
                 >
                     <ResizableSplitter defaultSize={30} minSize={20} maxSize={50}>
                         <aside className="h-full w-full bg-card border-r border-border flex flex-col min-h-0">
                             <ModeTabs mode={mode} onChange={handleModeChange} />
+                            <ProjectControls
+                                name={projectName}
+                                onNameChange={setProjectName}
+                                canSave={!!imageSrc}
+                                disabled={
+                                    processingActive ||
+                                    swatchesLoading ||
+                                    pendingProjectMode !== null ||
+                                    isCropMode ||
+                                    exportingSTL ||
+                                    isBuildStarting ||
+                                    paletteEditorOpen ||
+                                    calibrationDialogOpen ||
+                                    filamentEditing
+                                }
+                                onCapture={captureProject}
+                                onRestore={restoreProject}
+                            />
                             <div className="flex-1 overflow-y-auto overflow-x-auto p-4">
                                 {mode === '2d' && (
                                     <>
@@ -774,10 +983,15 @@ function App(): React.ReactElement | null {
                                         />
                                         {/* file input stays here (hidden); uploader buttons moved to preview actions */}
                                         <div className="space-y-4">
+                                            <WindowsPathImport
+                                                imageSrc={imageSrc}
+                                                disabled={processingActive}
+                                                onFile={handleFiles}
+                                            />
                                             <AdjustmentsPanel
                                                 key={adjustmentsEpoch}
                                                 defs={SLIDER_DEFS}
-                                                initial={ADJUSTMENT_DEFAULTS}
+                                                initial={adjustments}
                                                 onCommit={(vals) => {
                                                     setTouchUpTool(null);
                                                     setAdjustments(vals);
@@ -840,8 +1054,6 @@ function App(): React.ReactElement | null {
                                                 finalColors={finalColors}
                                                 onFinalColorsChange={(n) => {
                                                     setFinalColors(n);
-                                                    // changing the final colors should switch to auto palette
-                                                    setSelectedPalette('auto');
                                                 }}
                                                 // weight remains the algorithm parameter
                                                 weight={weight}
@@ -851,7 +1063,11 @@ function App(): React.ReactElement | null {
                                                 algorithm={algorithm}
                                                 setAlgorithm={setAlgorithm}
                                                 onApply={async () => {
-                                                    if (isQuantizing) return;
+                                                    if (
+                                                        processingActive ||
+                                                        restoringProjectRef.current
+                                                    )
+                                                        return;
                                                     setIsQuantizing(true);
                                                     setProcessingLabel('Quantizing...');
                                                     setProcessingStep({
@@ -873,15 +1089,14 @@ function App(): React.ReactElement | null {
                                                         setProcessingIndeterminate(false);
                                                     }
                                                 }}
-                                                disabled={!imageSrc || isCropMode}
+                                                disabled={
+                                                    !imageSrc || isCropMode || processingActive
+                                                }
                                                 applying={isQuantizing}
                                                 weightDisabled={algorithm === 'none'}
                                                 selectedPalette={selectedPalette}
-                                                onPaletteSelect={(id, size) => {
-                                                    setSelectedPalette(id);
-                                                    // set the postprocess target to the palette size, but do not lock it
-                                                    if (id !== 'auto') setFinalColors(size);
-                                                }}
+                                                selectedPaletteIds={selectedPaletteIds}
+                                                onPalettesSelect={setSelectedPaletteIds}
                                                 onReset={() => {
                                                     setFinalColors(16);
                                                     setWeight(128);
@@ -908,6 +1123,104 @@ function App(): React.ReactElement | null {
                                                 onSwatchDelete={onSwatchDelete}
                                                 onSwatchApply={onSwatchApply}
                                             />
+                                            <ThresholdPanel
+                                                disabled={processingActive}
+                                                imageSrc={imageSrc}
+                                                currentColors={swatches
+                                                    .filter((s) => s.a > 0 && !s.isTransparent)
+                                                    .sort((a, b) => b.count - a.count)
+                                                    .map((s) =>
+                                                        filamentPreview.source === imageSrc
+                                                            ? (filamentPreview.colors[
+                                                                  s.hex.toUpperCase()
+                                                              ] ?? s.hex)
+                                                            : s.hex
+                                                    )}
+                                                getSnapshot={async () =>
+                                                    (await canvasPreviewRef.current?.captureImageSnapshot()) ??
+                                                    null
+                                                }
+                                                palettes={allPalettes.filter(
+                                                    (p) => p.custom || p.group === 'supplier'
+                                                )}
+                                                onApply={(url, colors) => {
+                                                    if (!beginImageEdit()) {
+                                                        URL.revokeObjectURL(url);
+                                                        return;
+                                                    }
+                                                    cachePalette(colors);
+                                                    invalidate();
+                                                    setTouchUpTool(null);
+                                                    setImage(url, true);
+                                                    setAdjustments(ADJUSTMENT_DEFAULTS);
+                                                    setAdjustmentsEpoch((e) => e + 1);
+                                                }}
+                                            />
+                                            <FilamentRecommendations
+                                                disabled={processingActive}
+                                                key={`recommendations:${imageSrc}`}
+                                                initial={
+                                                    recommendationSession?.source === imageSrc
+                                                        ? recommendationSession.state
+                                                        : null
+                                                }
+                                                onSessionChange={rememberRecommendations}
+                                                swatches={swatches}
+                                                onSave={handleCreatePalette}
+                                                onPreview={previewFilamentColors}
+                                                onApply={async () => {
+                                                    const current = beginImageEdit();
+                                                    if (!current) return;
+                                                    const snapshot =
+                                                        await canvasPreviewRef.current?.captureImageSnapshot();
+                                                    if (!snapshot) return;
+                                                    let blob: Blob;
+                                                    try {
+                                                        if (!current()) return;
+                                                        const result = await exportFilamentImage({
+                                                            kind: 'image-export',
+                                                            snapshot,
+                                                        });
+                                                        if (!(result instanceof Blob))
+                                                            throw new Error('Invalid image export');
+                                                        blob = result;
+                                                    } catch (error) {
+                                                        if (!current()) return;
+                                                        throw error;
+                                                    } finally {
+                                                        snapshot.bitmap.close();
+                                                    }
+                                                    if (!current()) return;
+                                                    invalidate();
+                                                    setTouchUpTool(null);
+                                                    setImage(URL.createObjectURL(blob), true);
+                                                    setAdjustments(ADJUSTMENT_DEFAULTS);
+                                                    setAdjustmentsEpoch((e) => e + 1);
+                                                }}
+                                            />
+                                            <NozzlePreview
+                                                disabled={processingActive}
+                                                key={`nozzle:${imageSrc}`}
+                                                initial={
+                                                    nozzleSession?.source === imageSrc
+                                                        ? nozzleSession.state
+                                                        : null
+                                                }
+                                                onSessionChange={rememberNozzle}
+                                                imageAvailable={!!imageSrc}
+                                                getSnapshot={async () =>
+                                                    (await canvasPreviewRef.current?.captureImageSnapshot()) ??
+                                                    null
+                                                }
+                                                onApply={(blob) => {
+                                                    if (!beginImageEdit()) return;
+                                                    invalidate();
+                                                    setTouchUpTool(null);
+                                                    setImage(URL.createObjectURL(blob), true);
+                                                    setAdjustments(ADJUSTMENT_DEFAULTS);
+                                                    setAdjustmentsEpoch((e) => e + 1);
+                                                }}
+                                            />
                                         </div>
                                     </>
                                 )}
@@ -919,6 +1232,7 @@ function App(): React.ReactElement | null {
                                 {hasMountedThreeDControls && (
                                     <div className={mode === '3d' ? undefined : 'hidden'}>
                                         <ThreeDControls
+                                            key={projectEpoch}
                                             active={mode === '3d'}
                                             swatches={swatches}
                                             imageSrc={imageSrc}
@@ -973,6 +1287,11 @@ function App(): React.ReactElement | null {
                                     <>
                                         <CanvasPreview
                                             ref={canvasPreviewRef}
+                                            colorReplacements={
+                                                filamentPreview.source === imageSrc
+                                                    ? filamentPreview.colors
+                                                    : undefined
+                                            }
                                             imageSrc={imageSrc}
                                             isCropMode={isCropMode}
                                             showCheckerboard={showCheckerboard}
@@ -1019,7 +1338,7 @@ function App(): React.ReactElement | null {
                                                 </Button>
                                             </div>
                                         )}
-                                        {processingActive && (
+                                        {(isQuantizing || isDedithering) && (
                                             <ProgressOverlay
                                                 title={progressOperationTitle()}
                                                 stepLabel={

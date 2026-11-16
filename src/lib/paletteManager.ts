@@ -18,16 +18,11 @@ const SELECTED_PALETTE_KEY = 'kromacut.palettes.selected';
  * in-range integer indices, sorted ascending. Returns undefined (all enabled)
  * when the value is missing/invalid, empty, or would disable every color.
  */
-export function normalizeDisabledColors(
-    colors: string[],
-    disabled: unknown
-): number[] | undefined {
+export function normalizeDisabledColors(colors: string[], disabled: unknown): number[] | undefined {
     if (!Array.isArray(disabled)) return undefined;
     const indices = [
         ...new Set(
-            disabled.filter(
-                (i): i is number => Number.isInteger(i) && i >= 0 && i < colors.length
-            )
+            disabled.filter((i): i is number => Number.isInteger(i) && i >= 0 && i < colors.length)
         ),
     ].sort((a, b) => a - b);
     if (indices.length === 0 || indices.length >= colors.length) return undefined;
@@ -420,4 +415,28 @@ export function exportCustomPaletteBlob(palette: CustomPalette): Blob {
 /** Sanitize a name for use as a filename. */
 export function customPaletteFileName(name: string): string {
     return `${name.replace(/[^a-zA-Z0-9_-]/g, '_')}.kpal`;
+}
+
+/** Cache completed output without selecting it or duplicating an existing palette. */
+export function cacheGeneratedPalette(
+    palettes: CustomPalette[],
+    rawColors: string[]
+): CustomPalette[] {
+    const colors = [
+        ...new Set(rawColors.filter((c) => /^#[0-9a-f]{6}$/i.test(c)).map((c) => c.toLowerCase())),
+    ];
+    if (!colors.length || colors.length > 256) return palettes;
+    const signature = [...colors].sort().join(',');
+    if (
+        palettes.some(
+            (p) =>
+                enabledColors(p)
+                    .map((c) => c.toLowerCase())
+                    .sort()
+                    .join(',') === signature
+        )
+    )
+        return palettes;
+    const name = `Generated ${colors.length} colors · ${new Date().toLocaleString()}`;
+    return [...palettes, createCustomPalette(name, colors)];
 }

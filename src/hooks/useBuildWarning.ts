@@ -58,9 +58,20 @@ export function useBuildWarning({ imageSrc, initialState }: UseBuildWarningOptio
         []
     );
     const [threeDBuildSignal, setThreeDBuildSignal] = useState(0);
-    const [builtThreeDState, setBuiltThreeDState] = useState<ThreeDControlsStateShape | null>(
-        null
-    );
+    const [builtThreeDState, setBuiltThreeDState] = useState<ThreeDControlsStateShape | null>(null);
+    const replaceThreeDState = useCallback((state: ThreeDControlsStateShape) => {
+        if (pendingBuildFrameRef.current !== null) {
+            window.cancelAnimationFrame(pendingBuildFrameRef.current);
+            pendingBuildFrameRef.current = null;
+        }
+        workingSettingsRef.current = { ...state };
+        setThreeDState(state);
+        setBuildWarning(null);
+        setIsBuildStarting(false);
+        setBuiltThreeDState(null);
+        clearLastBuiltMeshRef();
+    }, []);
+
     const builtFlatPaint =
         builtThreeDState?.paintMode === 'autopaint' && !!builtThreeDState.flatPaint;
 
@@ -152,7 +163,11 @@ export function useBuildWarning({ imageSrc, initialState }: UseBuildWarningOptio
                 }
             }
 
-            if (s.paintMode === 'autopaint' && s.flatPaint && layerCount > FLAT_PAINT_LAYER_WARNING_THRESHOLD) {
+            if (
+                s.paintMode === 'autopaint' &&
+                s.flatPaint &&
+                layerCount > FLAT_PAINT_LAYER_WARNING_THRESHOLD
+            ) {
                 warnings.push(
                     `Flat Paint fills every one of the ${layerCount} layers at full size, producing much heavier geometry and slower slicing. Consider raising the layer height or lowering Max Height.`
                 );
@@ -190,6 +205,7 @@ export function useBuildWarning({ imageSrc, initialState }: UseBuildWarningOptio
     return {
         threeDState,
         handleThreeDSettingsChange,
+        replaceThreeDState,
         threeDBuildSignal,
         builtThreeDState,
         builtFlatPaint,

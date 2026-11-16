@@ -13,15 +13,14 @@ Decupează și redimensionează întâi. Dacă ai schimbat [ajustările imaginii
 
 ## Procesul în două etape
 
-![Intensitatea algoritmului limitează paleta intermediară; Numărul de culori sau o paletă fixă selectată controlează a doua etapă.](34_quantization_pipeline.svg)
 
 **Intensitatea algoritmului** și **Numărul de culori** au roluri diferite. K-means cu intensitatea 128 grupează mai întâi sursa în cel mult 128 de culori. Auto cu Număr de culori 16 unește apoi rezultatul în cel mult 16. Intensitatea nu este un procent, o opacitate sau un număr de filamente.
 
 | Câmp sau acțiune | Semnificație |
 | -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Paletă: Auto | Găsește culori dependente de imagine, apoi le limitează numărul. |
-| Paletă: încorporată, de furnizor sau personalizată | Mapează imaginea intermediară la culorile activate ale paletei selectate. Nu trebuie să apară fiecare culoare disponibilă. |
-| Număr de culori | Limita finală superioară pentru Auto: 2–256, implicit 16. Dezactivat pentru o paletă fixă. |
+| Paletă: încorporată, de furnizor sau personalizată | Reduce mai întâi la numărul cerut, apoi potrivește culorile active din toate paletele bifate folosind Delta E00. Potrivirile se pot uni. |
+| Număr de culori | Limită înainte de potrivirea paletelor: 2–256, implicit 16. Editabilă pentru orice selecție de palete. |
 | Intensitatea algoritmului | Bugetul paletei intermediare: 2–256, implicit 128. O valoare mai mare păstrează de obicei mai multe detalii intermediare, nu neapărat o potrivire finală mai bună. |
 | Algoritm | Metoda de reducere din prima etapă. Implicit: K-means. |
 | Aplică | Procesează imaginea de bază și creează un pas de anulare. Simpla schimbare a unei setări nu recolorează imaginea. |
@@ -93,3 +92,17 @@ Alege **Niciunul (doar postprocesare)** înainte de Șterge pentru mapare direct
 Instrucțiunile de schimbare manuală sunt dezactivate peste 64 de culori netransparente. O paletă mai mică poate simplifica stiva chiar sub această limită, dar mai puține ținte nu înseamnă automat mai puține schimbări de filament în Auto-paint.
 
 În continuare: [Eliminarea ditheringului și curățarea](dedithering-cleanup).
+
+[Prusa: minimum features](https://help.prusa3d.com/article/modeling-with-3d-printing-in-mind_164135) · [Prusa: Arachne](https://help.prusa3d.com/article/arachne-perimeter-generator_352769)
+
+## Praguri de luminozitate în timp real
+
+Edit thresholds de sub Image colors definește benzi de luminozitate. N culori au N−1 triunghiuri și limite numerice între 0 și 255. Culorile rămân ordonate de la întunecat la luminos. Previzualizarea urmărește glisarea; Apply procesează rezoluția completă cu ajustările și filamentele curente, păstrând alfa. Paletele generate sunt memorate local.
+
+## Sesiuni și instrumente de previzualizare
+
+Selectează mai multe palete și un număr independent de culori: întâi reducere, apoi potrivire cu culorile active. Recomandările arată zece filamente pentru fiecare culoare, cel mai apropiat la stânga, cu mai multe mărci. Ctrl+Z anulează, Ctrl+Shift+Z reface. Compare nozzle sizes compară 0,4 și 0,2 mm la dimensiunea aleasă fără feliere. Chihlimbar și roz indică regiuni înguste cu sau fără vecin mai lat, nu probabilități de eșec. Patch vulnerable regions propune uniri confirmate prin Apply. Save project păstrează imaginea, istoricul și setările într-un fișier portabil .kromacut. Open project înlocuiește sesiunea după confirmare; reconstruiește apoi modelul 3D. În WSL, Open Windows path importă căi Windows.
+
+Aplicarea la rezoluție completă acceptă imagini de până la 4 megapixeli, inclusiv marginile transparente. Micșorați imaginea pentru a aplica corecția; previzualizarea rămâne disponibilă.
+
+Spațiul de lucru este blocat în timpul restaurării proiectului, pentru ca alte editări sau importuri să nu îl suprascrie. Dacă decodarea eșuează, se deblochează și păstrează sesiunea curentă.

@@ -1,3 +1,4 @@
+import { useImageWorkerTask } from '../hooks/useImageWorkerTask';
 import { useTranslation } from 'react-i18next';
 import React, {
     useEffect,
@@ -8,6 +9,7 @@ import React, {
     useCallback,
     useMemo,
 } from 'react';
+import { replaceImageColors } from '../lib/replaceImageColors';
 import { applyAdjustments, isAllDefault } from '../lib/applyAdjustments';
 import { Check, Move, X } from 'lucide-react';
 import {
@@ -20,7 +22,7 @@ import {
     strokeLinePoints,
     wrapTextLines,
 } from '../lib/touchup';
-import type { TouchUpTool } from '../types';
+import type { TouchUpTool, ImageEditSnapshot } from '../types';
 
 export interface CanvasPreviewHandle {
     redraw: () => void;
@@ -29,6 +31,7 @@ export interface CanvasPreviewHandle {
     waitForNextDraw?: () => Promise<void>;
     exportCroppedImage: () => Promise<Blob | null>;
     exportImageBlob: () => Promise<Blob | null>;
+    captureImageSnapshot: () => Promise<ImageEditSnapshot | null>;
     hasValidCropSelection: () => boolean;
     onCropSelectionChange?: (hasValid: boolean) => void;
     exportAdjustedImageBlob?: (
@@ -38,6 +41,7 @@ export interface CanvasPreviewHandle {
 
 interface Props {
     imageSrc: string | null;
+    colorReplacements?: Record<string, string>;
     isCropMode?: boolean;
     showCheckerboard?: boolean;
     adjustments?: Record<string, number>;
@@ -85,6 +89,7 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
     (
         {
             imageSrc,
+            colorReplacements,
             isCropMode,
             showCheckerboard,
             adjustments,
@@ -133,6 +138,17 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
         const originalCanvasRef = useRef<HTMLCanvasElement | null>(null);
         const processedCanvasRef = useRef<HTMLCanvasElement | null>(null);
         const lastAdjSigRef = useRef<string>('');
+        const { run: renderImage, cancel: cancelRender } = useImageWorkerTask();
+        const renderGeneration = useRef(0);
+        const pendingRenderSig = useRef<string | null>(null);
+        const drawLatestRef = useRef<() => void>(() => {});
+        const invalidateProcessedCache = useCallback(() => {
+            renderGeneration.current++;
+            cancelRender();
+            pendingRenderSig.current = null;
+            processedCanvasRef.current = null;
+            lastAdjSigRef.current = '';
+        }, [cancelRender]);
         const mountedRef = useRef(true);
         const imageLoadGenerationRef = useRef(0);
         const activeTouchStrokeRef = useRef<ActiveTouchStroke | null>(null);
@@ -147,6 +163,12 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
         const onTouchUpCommitRef = useRef(onTouchUpCommit);
         onTouchUpCommitRef.current = onTouchUpCommit;
 
+        const colorReplacementsRef = useRef(colorReplacements);
+        colorReplacementsRef.current = colorReplacements;
+        const colorReplacementSig = JSON.stringify(colorReplacements ?? {});
+        const colorReplacementSigRef = useRef(colorReplacementSig);
+        colorReplacementSigRef.current = colorReplacementSig;
+
         const hasAdjustments = useMemo(
             () => !!adjustments && !isAllDefault(adjustments),
             [adjustments]
@@ -155,6 +177,8 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
             () => (hasAdjustments && adjustments ? JSON.stringify(adjustments) : ''),
             [adjustments, hasAdjustments]
         );
+        const adjustmentsRef = useRef(adjustments);
+        adjustmentsRef.current = adjustments;
 
         const drawToCanvas = useCallback(() => {
             const canvas = canvasRef.current;
@@ -207,45 +231,56 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
             // to show the exact pixel values after quantization.
             ctx.imageSmoothingEnabled = false;
             // imageSmoothingQuality is not relevant when smoothing is disabled
-            if (hasAdjustments) {
-                const sig = adjustmentsSig;
-                // Recompute processed canvas only if signature changed or missing.
-                if (sig !== lastAdjSigRef.current) {
-                    try {
-                        const baseSource: HTMLCanvasElement | HTMLImageElement = original ?? img;
-                        const iw2 =
-                            baseSource instanceof HTMLImageElement ? baseSource.naturalWidth : iw;
-                        const ih2 =
-                            baseSource instanceof HTMLImageElement ? baseSource.naturalHeight : ih;
-                        let srcCtx: CanvasRenderingContext2D | null = null;
-                        if (original) {
-                            srcCtx = original.getContext('2d');
-                        } else {
-                            // lazily build original if missing
-                            originalCanvasRef.current = document.createElement('canvas');
-                            originalCanvasRef.current.width = iw2;
-                            originalCanvasRef.current.height = ih2;
-                            const octx = originalCanvasRef.current.getContext('2d');
-                            if (octx) {
-                                octx.imageSmoothingEnabled = false;
-                                octx.drawImage(img, 0, 0, iw2, ih2);
-                                srcCtx = octx;
-                            }
-                        }
-                        if (srcCtx) {
-                            const imgData = srcCtx.getImageData(0, 0, iw, ih);
-                            const adjData = applyAdjustments(imgData, adjustments ?? {});
+            const values = adjustmentsRef.current ?? {};
+            if (!isAllDefault(values) || Object.keys(colorReplacementsRef.current ?? {}).length) {
+                const sig = JSON.stringify(values) + colorReplacementSigRef.current;
+                if (pendingRenderSig.current && pendingRenderSig.current !== sig) {
+                    renderGeneration.current++;
+                    cancelRender();
+                    pendingRenderSig.current = null;
+                }
+                if (sig !== lastAdjSigRef.current && pendingRenderSig.current !== sig) {
+                    const generation = ++renderGeneration.current;
+                    pendingRenderSig.current = sig;
+                    const replacements = { ...colorReplacementsRef.current };
+                    const snapshotAdjustments = { ...values };
+                    void (async () => {
+                        let bitmap: ImageBitmap | undefined;
+                        let result: ImageBitmap | undefined;
+                        try {
+                            bitmap = await createImageBitmap(original ?? img);
+                            if (!mountedRef.current || generation !== renderGeneration.current)
+                                return;
+                            result = (await renderImage({
+                                kind: 'image-render',
+                                snapshot: {
+                                    bitmap,
+                                    replacements,
+                                    adjustments: snapshotAdjustments,
+                                },
+                            })) as ImageBitmap;
+                            if (!mountedRef.current || generation !== renderGeneration.current)
+                                return;
                             const proc = document.createElement('canvas');
-                            proc.width = iw;
-                            proc.height = ih;
-                            const pctx = proc.getContext('2d');
-                            if (pctx) pctx.putImageData(adjData, 0, 0);
+                            proc.width = result.width;
+                            proc.height = result.height;
+                            proc.getContext('2d')!.drawImage(result, 0, 0);
                             processedCanvasRef.current = proc;
                             lastAdjSigRef.current = sig;
+                        } catch {
+                            if (generation === renderGeneration.current) {
+                                processedCanvasRef.current = null;
+                                lastAdjSigRef.current = sig;
+                            }
+                        } finally {
+                            bitmap?.close();
+                            result?.close();
+                            if (mountedRef.current && generation === renderGeneration.current) {
+                                pendingRenderSig.current = null;
+                                drawLatestRef.current();
+                            }
                         }
-                    } catch {
-                        // fallback to original draw
-                    }
+                    })();
                 }
                 if (processedCanvasRef.current) {
                     ctx.drawImage(processedCanvasRef.current, 0, 0, iw, ih);
@@ -256,8 +291,7 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
                 }
             } else {
                 // No adjustments – ensure processed cache cleared so future adjustment toggles refresh.
-                processedCanvasRef.current = null;
-                lastAdjSigRef.current = '';
+                invalidateProcessedCache();
                 if (original) {
                     ctx.drawImage(original, 0, 0, iw, ih);
                 } else {
@@ -271,7 +305,8 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
             } catch {
                 // ignore
             }
-        }, [adjustments, adjustmentsSig, hasAdjustments]);
+        }, [renderImage, cancelRender, invalidateProcessedCache]);
+        drawLatestRef.current = drawToCanvas;
 
         const drawRafRef = useRef<number | null>(null);
         const requestDraw = useCallback(() => {
@@ -312,6 +347,7 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
             // untouched so drawing stays continuous across history commits.
             const isSelfCommit = !!imageSrc && selfCommitSrcsRef.current.delete(imageSrc);
             if (!isSelfCommit) {
+                invalidateProcessedCache();
                 selfCommitSrcsRef.current.clear();
                 externalImageGenerationRef.current += 1;
                 activeTouchStrokeRef.current = null;
@@ -322,7 +358,7 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
             if (!imageSrc) {
                 imgRef.current = null;
                 originalCanvasRef.current = null;
-                processedCanvasRef.current = null;
+                invalidateProcessedCache();
                 setImageLoaded(false);
                 const canvas = canvasRef.current;
                 if (canvas) {
@@ -386,8 +422,7 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
                         octx.imageSmoothingEnabled = false;
                         octx.drawImage(img, 0, 0, iw, ih);
                     }
-                    processedCanvasRef.current = null; // invalidate processed
-                    lastAdjSigRef.current = '';
+                    invalidateProcessedCache();
                 }
 
                 // restore view center if we computed it earlier
@@ -425,7 +460,7 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
                 }
                 if (imgRef.current === img) imgRef.current = null;
             };
-        }, [imageSrc, drawToCanvas]);
+        }, [imageSrc, drawToCanvas, invalidateProcessedCache]);
 
         // initialize selection when entering crop mode
         useEffect(() => {
@@ -579,13 +614,6 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
             return !!original && x >= 0 && y >= 0 && x < original.width && y < original.height;
         };
 
-        // Invalidate the adjustments cache so the next draw recomputes the
-        // processed canvas from the freshly edited original.
-        const invalidateProcessedCache = () => {
-            processedCanvasRef.current = null;
-            lastAdjSigRef.current = '';
-        };
-
         // Stamps one stroke point into the CPU buffer (no canvas readbacks)
         // and grows the pending dirty rect by the stamp's clamped bounding box.
         const stampStrokePoint = (stroke: ActiveTouchStroke, x: number, y: number) => {
@@ -628,6 +656,7 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
             const dirty = stroke.dirty;
             if (!dirty) return;
             stroke.dirty = null;
+            if (pendingRenderSig.current) invalidateProcessedCache();
             const w = dirty.x1 - dirty.x0 + 1;
             const h = dirty.y1 - dirty.y0 + 1;
             for (const canvas of [originalCanvasRef.current, processedCanvasRef.current]) {
@@ -1140,7 +1169,7 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
         // Trigger redraw when adjustments object changes
         useEffect(() => {
             requestDraw();
-        }, [adjustmentsSig, requestDraw]);
+        }, [adjustmentsSig, colorReplacementSig, requestDraw]);
 
         useEffect(() => {
             mountedRef.current = true;
@@ -1150,7 +1179,7 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
                 externalImageGenerationRef.current += 1;
                 activeTouchStrokeRef.current = null;
                 originalCanvasRef.current = null;
-                processedCanvasRef.current = null;
+                invalidateProcessedCache();
                 if (drawRafRef.current !== null) {
                     cancelAnimationFrame(drawRafRef.current);
                     // Reset so requestDraw works again after a StrictMode
@@ -1162,7 +1191,7 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
                     selectionRafRef.current = null;
                 }
             };
-        }, []);
+        }, [invalidateProcessedCache]);
 
         useImperativeHandle(ref, () => ({
             redraw: () => drawToCanvas(),
@@ -1242,11 +1271,44 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
                     outCanvas.toBlob((b) => resolve(b), 'image/png')
                 );
             },
+            captureImageSnapshot: async (): Promise<ImageEditSnapshot | null> => {
+                // Slider blur schedules its commit in a frame callback. Wait through
+                // the following frame so React has rendered that commit before reading
+                // the refs; a single frame can race with the slider's callback.
+                for (let attempt = 0; attempt < 3; attempt++) {
+                    await new Promise<void>((resolve) =>
+                        requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+                    );
+                    const img = imgRef.current;
+                    if (!img) continue;
+                    await img.decode();
+                    if (imgRef.current !== img) continue;
+                    // Native bitmap snapshot only: pixel reads, adjustments and PNG encoding
+                    // belong to the worker, including for SVGs decoded by the image element.
+                    const bitmap = await createImageBitmap(originalCanvasRef.current ?? img);
+                    if (imgRef.current !== img) {
+                        bitmap.close();
+                        continue;
+                    }
+                    return {
+                        bitmap,
+                        replacements: { ...colorReplacementsRef.current },
+                        adjustments: { ...adjustmentsRef.current },
+                    };
+                }
+                return null;
+            },
             exportAdjustedImageBlob: async (
                 adjustmentsOverride?: Record<string, number>
             ): Promise<Blob | null> => {
+                // Parent effects can request a capture in the same commit that
+                // replaces the image. Let the canvas loading effect run first.
+                await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
                 const img = imgRef.current;
                 if (!img) return null;
+                // A newly imported image may have a URL before decoding finishes.
+                await img.decode();
+                if (imgRef.current !== img) return null;
                 const iw = img.naturalWidth;
                 const ih = img.naturalHeight;
                 if (!iw || !ih) return null;
@@ -1271,6 +1333,7 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
                 const sourceCtx = source.getContext('2d');
                 if (!sourceCtx) return null;
                 const sourceData = sourceCtx.getImageData(0, 0, iw, ih);
+                replaceImageColors(sourceData.data, colorReplacementsRef.current ?? {});
                 const values = adjustmentsOverride ?? adjustments ?? {};
                 ctx.putImageData(
                     isAllDefault(values) ? sourceData : applyAdjustments(sourceData, values),
@@ -1312,7 +1375,11 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
                         : null),
                 }}
             >
-                <canvas ref={canvasRef} style={{ imageRendering: 'pixelated' }} />
+                <canvas
+                    data-testid="main-image-preview"
+                    ref={canvasRef}
+                    style={{ imageRendering: 'pixelated' }}
+                />
                 {showBrushOutline ? (
                     <div
                         ref={brushOutlineRef}

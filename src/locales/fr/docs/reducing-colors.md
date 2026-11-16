@@ -13,15 +13,14 @@ Recadrez et redimensionnez d’abord. Si vous avez modifié les [réglages d’i
 
 ## Le traitement en deux étapes
 
-![Le poids de l’algorithme limite la palette intermédiaire ; le nombre de couleurs ou une palette fixe sélectionnée contrôle la deuxième étape.](34_quantization_pipeline.svg)
 
 Le **Poids de l’algorithme** et le **Nombre de couleurs** ont des fonctions différentes. K-means avec un poids de 128 regroupe d’abord la source en 128 couleurs au maximum. Auto avec un nombre de couleurs de 16 fusionne ensuite ce résultat en 16 couleurs au maximum. Le poids n’est ni un pourcentage, ni une opacité, ni un nombre de filaments.
 
 | Champ ou action | Signification |
 | -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Palette : Auto | Trouve des couleurs adaptées à l’image, puis limite leur nombre. |
-| Palette : intégrée, fournisseur ou personnalisée | Associe l’image intermédiaire aux couleurs activées de la palette choisie. Toutes les couleurs disponibles ne doivent pas nécessairement apparaître. |
-| Nombre de couleurs | Limite finale d’Auto : de 2 à 256, avec 16 par défaut. Désactivé pour une palette fixe. |
+| Palette : intégrée, fournisseur ou personnalisée | Réduit d’abord au nombre demandé, puis choisit les couleurs actives les plus proches dans toutes les palettes cochées avec Delta E00. Des correspondances peuvent fusionner. |
+| Nombre de couleurs | Limite avant la correspondance des palettes : 2 à 256, 16 par défaut. Modifiable avec toute sélection de palettes. |
 | Poids de l’algorithme | Budget de palette intermédiaire : de 2 à 256, avec 128 par défaut. Une valeur supérieure conserve généralement davantage de détails intermédiaires, sans garantir une meilleure correspondance finale. |
 | Algorithme | Méthode de réduction de première étape. Par défaut : K-means. |
 | Appliquer | Traite l’image sous-jacente et crée une étape d’annulation. Changer un réglage seul ne recolore pas l’image. |
@@ -93,3 +92,17 @@ Choisissez **Aucun (post-traitement seul)** avant Supprimer pour une association
 Les instructions de changement manuel sont désactivées au-delà de 64 couleurs non transparentes. Une palette plus petite peut simplifier l’empilement même sous cette limite, mais moins de cibles ne signifie pas automatiquement moins de changements de filament en peinture automatique.
 
 Suite : [Détramage et nettoyage](dedithering-cleanup).
+
+[Prusa: minimum features](https://help.prusa3d.com/article/modeling-with-3d-printing-in-mind_164135) · [Prusa: Arachne](https://help.prusa3d.com/article/arachne-perimeter-generator_352769)
+
+## Seuils de luminosité en direct
+
+Sous Image colors, Edit thresholds définit les plages de luminosité. N couleurs donnent N−1 triangles et des limites numériques de 0 à 255. Les couleurs restent classées du sombre au clair. La prévisualisation suit le glissement ; Apply traite la pleine résolution avec les réglages et choix de filaments actuels, en préservant l’alpha. Les palettes générées sont mises en cache localement.
+
+## Sessions et outils de prévisualisation
+
+Cochez plusieurs palettes et choisissez séparément le nombre de couleurs : réduction, puis correspondance avec les couleurs actives. Le recommandeur affiche dix filaments par couleur, le plus proche à gauche, avec plusieurs marques possibles. Ctrl+Z annule, Ctrl+Shift+Z rétablit. Compare nozzle sizes compare les buses de 0,4 et 0,2 mm à la taille voulue, sans tranchage. Ambre et rose indiquent des régions étroites avec ou sans voisin plus large ; ce ne sont pas des probabilités d’échec. Patch vulnerable regions propose des regroupements, appliqués seulement avec Apply. Save project conserve l’image, l’historique et les réglages dans un fichier portable .kromacut. Open project remplace la session après confirmation ; reconstruisez ensuite le modèle 3D. Sous WSL, Open Windows path permet de charger un chemin Windows.
+
+L’application en pleine résolution accepte les images jusqu’à 4 mégapixels, marges transparentes comprises. Réduisez l’image pour appliquer la correction ; l’aperçu reste disponible.
+
+L’espace de travail est verrouillé pendant la restauration du projet pour éviter qu’une modification ou un import concurrent ne l’écrase. Si le décodage échoue, il se déverrouille et conserve la session actuelle.

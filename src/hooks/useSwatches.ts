@@ -22,6 +22,7 @@ export interface ImageDimensions {
 
 export function useSwatches(imageSrc: string | null) {
     const [swatches, setSwatches] = useState<SwatchEntry[]>([]);
+    const [swatchesSource, setSwatchesSource] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
     const [imageDimensions, setImageDimensions] = useState<ImageDimensions | null>(null);
     const runRef = useRef(0);
@@ -180,6 +181,7 @@ export function useSwatches(imageSrc: string | null) {
                         });
                     }
                     setSwatches(result);
+                    setSwatchesSource(imageSrc);
                     setLoading(false);
                 }
             } catch (err) {
@@ -199,6 +201,7 @@ export function useSwatches(imageSrc: string | null) {
     return {
         swatches,
         swatchesLoading: loading,
+        swatchesSource,
         imageDimensions,
         invalidate,
         immediateOverride,

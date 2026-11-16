@@ -11,6 +11,8 @@ mod default_app;
 mod opened_files;
 mod slicer_handoff;
 use default_app::open_with_default_app;
+mod image_path;
+use image_path::read_image_path;
 use opened_files::{enqueue_and_notify, take_opened_file, OpenedFiles};
 use slicer_handoff::open_model_in_slicer;
 
@@ -258,6 +260,7 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
+            read_image_path,
             check_for_updates,
             get_app_version,
             open_releases_page,

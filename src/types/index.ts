@@ -215,3 +215,10 @@ export type MultiHeadRoutingPlan = Required<
         | 'filaments'
     >
 >;
+
+/** Transferable snapshot of the working image, before live recoloring and adjustments. */
+export interface ImageEditSnapshot {
+    bitmap: ImageBitmap;
+    replacements: Record<string, string>;
+    adjustments: Record<string, number>;
+}
