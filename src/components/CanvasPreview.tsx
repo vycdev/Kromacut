@@ -45,6 +45,8 @@ interface Props {
     onCropSelectionChange?: (hasValid: boolean) => void;
     /** Active 2D touch-up tool; while set, left-drag edits instead of panning. */
     touchUpTool?: TouchUpTool | null;
+    /** Temporarily pause tool input without leaving the tool or baking a text draft. */
+    touchUpDisabled?: boolean;
     touchUpColor?: string;
     touchUpBrushSize?: number;
     touchUpTextSize?: number;
@@ -92,6 +94,7 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
             adjustments,
             onCropSelectionChange,
             touchUpTool,
+            touchUpDisabled = false,
             touchUpColor,
             touchUpBrushSize,
             touchUpTextSize,
@@ -530,7 +533,11 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
                 selfCommitSrcsRef.current.has(imageSrc));
 
         const touchUpActive =
-            !!touchUpTool && !isCropMode && imageLoaded && hasCurrentImagePixels();
+            !!touchUpTool &&
+            !touchUpDisabled &&
+            !isCropMode &&
+            imageLoaded &&
+            hasCurrentImagePixels();
         const showBrushOutline =
             touchUpActive && (touchUpTool === 'brush' || touchUpTool === 'eraser');
         const brushOutlineRef = useRef<HTMLDivElement | null>(null);
@@ -551,7 +558,7 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
         const TEXT_DRAFT_LINE_HEIGHT = 1.25;
 
         useEffect(() => {
-            if (!touchUpTool) return;
+            if (!touchUpTool || touchUpDisabled) return;
             const onKey = (e: KeyboardEvent) => {
                 if (e.key !== 'Escape') return;
                 // First Escape discards an open text draft, second exits the tool.
@@ -563,7 +570,7 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
             };
             window.addEventListener('keydown', onKey);
             return () => window.removeEventListener('keydown', onKey);
-        }, [touchUpTool]);
+        }, [touchUpTool, touchUpDisabled]);
 
         // Leaving the text tool (or entering crop) commits whatever was typed
         // instead of silently dropping it.

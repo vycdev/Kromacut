@@ -932,7 +932,8 @@ function App(): React.ReactElement | null {
                                             showCheckerboard={showCheckerboard}
                                             adjustments={adjustments}
                                             onCropSelectionChange={setHasValidCropSelection}
-                                            touchUpTool={processingActive ? null : touchUpTool}
+                                            touchUpTool={touchUpTool}
+                                            touchUpDisabled={processingActive}
                                             touchUpColor={touchUpColor}
                                             touchUpBrushSize={touchUpBrushSize}
                                             touchUpTextSize={touchUpTextSize}

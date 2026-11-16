@@ -243,3 +243,49 @@ test('@smoke an import started before processing cannot land after processing co
     await expect(currentSize(page)).toContainText('1024x1024');
     await expect(page.getByRole('button', { name: 'Undo', exact: true })).toBeDisabled();
 });
+
+for (const operation of ['quantize', 'dedither']) {
+    test(`@smoke a text draft survives ${operation} without output and still commits to history`, async ({
+        page,
+    }) => {
+        const preview = page.getByTestId('image-dropzone').locator('canvas').first();
+        const pixels = () => preview.evaluate((canvas: HTMLCanvasElement) => canvas.toDataURL());
+        const before = await pixels();
+        await page.getByTestId('touchup-tool-text').click();
+        const box = (await preview.boundingBox())!;
+        await preview.click({ position: { x: box.width / 2, y: box.height / 2 } });
+        const text = page.getByRole('textbox', { name: 'Text to place on the image', exact: true });
+        await text.fill('TT');
+        await page.evaluate(() => {
+            const w = window as unknown as { failProcessingEncode: boolean };
+            w.failProcessingEncode = true;
+            const toBlob = HTMLCanvasElement.prototype.toBlob;
+            HTMLCanvasElement.prototype.toBlob = function (callback, type, quality) {
+                if (w.failProcessingEncode) {
+                    queueMicrotask(() => callback(null));
+                    return;
+                }
+                toBlob.call(this, callback, type, quality);
+            };
+        });
+        await page.getByTestId(`${operation}-apply`).click();
+        await expect(page.getByTestId(`${operation}-apply`)).toBeEnabled();
+        await expect(text).toBeVisible();
+        await expect(text).toHaveValue('TT');
+        await expect.poll(pixels).toBe(before);
+        await page.evaluate(() => {
+            (window as unknown as { failProcessingEncode: boolean }).failProcessingEncode = false;
+        });
+        await page.getByTestId('touchup-text-apply').click();
+        await expect(text).toHaveCount(0);
+        // Swatch recomputation follows the history commit, not just the live rasterization.
+        await expect(
+            page.getByTitle('#000000  alpha:255  count:2048', { exact: true })
+        ).toHaveCount(0);
+        await expect.poll(async () => (await pixels()) !== before).toBe(true);
+        await page.getByRole('button', { name: 'Undo', exact: true }).click();
+        await expect.poll(pixels).toBe(before);
+        await page.getByRole('button', { name: 'Undo', exact: true }).click();
+        await expect(currentSize(page)).toContainText('1024x1024');
+    });
+}
