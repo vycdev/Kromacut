@@ -4,6 +4,7 @@ import { fakeDesktopBeforeLoad, fakeDesktopCalls } from './helpers/fakeDesktop';
 
 type Outcome = 'success' | 'failure';
 type SlicerApp = { name: string; path: string };
+type PickRequest = { title: string; filterName: string; keep: string | null };
 type SlicerTestWindow = Window & {
     slicerTest: {
         outcome: Outcome;
@@ -11,7 +12,7 @@ type SlicerTestWindow = Window & {
         headers: Record<string, string>[];
         installed: SlicerApp[];
         picked: SlicerApp | 'cancel' | 'invalid';
-        pickRequests: { title: string; filterName: string }[];
+        pickRequests: PickRequest[];
     };
     __KROMACUT_E2E: { buildHistory: unknown[] };
 };
@@ -167,7 +168,7 @@ async function setUpChooser(page: Page, installed: SlicerApp[], savedSlicer: unk
                 const known = typeof picked === 'object' ? [...installed, picked] : installed;
                 return known.find((app) => app.path === path) ?? null;
             });
-            desktop.handle('pick_slicer_app', (request: { title: string; filterName: string }) => {
+            desktop.handle('pick_slicer_app', (request: PickRequest) => {
                 host.slicerTest.pickRequests.push(request);
                 const picked = host.slicerTest.picked;
                 if (picked === 'invalid') throw new Error('Not a launchable app');
@@ -274,9 +275,10 @@ test('@smoke desktop Open in Slicer remembers, changes and forgets the chosen sl
     await expect.poll(async () => (await slicers.state()).headers.length).toBe(3);
     handoff = await slicers.state();
     expect(handoff.headers[2][SLICER_HEADER]).toBe(encodeURIComponent(CUSTOM.path));
+    // Browse names the saved slicer, so the native side never forgets it among later picks.
     expect(handoff.pickRequests).toEqual([
-        { title: 'Choose a slicer app', filterName: 'Applications' },
-        { title: 'Choose a slicer app', filterName: 'Applications' },
+        { title: 'Choose a slicer app', filterName: 'Applications', keep: ORCA.path },
+        { title: 'Choose a slicer app', filterName: 'Applications', keep: ORCA.path },
     ]);
     expect(await slicers.savedPreference()).toBeNull();
     await expect(page.getByTestId('download-3d-model')).toBeEnabled();
@@ -322,6 +324,12 @@ test('@smoke desktop Open in Slicer asks again when the saved slicer is gone', a
     await expect(page.getByTestId('slicer-remember')).toHaveAttribute('aria-checked', 'false');
     expect(await slicers.savedPreference()).toBeNull();
     expect((await slicers.state()).bytes).toHaveLength(0);
+
+    // The missing slicer is no longer saved, so Browse has nothing to keep.
+    await page.getByTestId('slicer-browse').click();
+    await expect
+        .poll(async () => (await slicers.state()).pickRequests)
+        .toEqual([{ title: 'Choose a slicer app', filterName: 'Applications', keep: null }]);
 
     await chooser.getByRole('button', { name: 'Cancel' }).click();
     await slicers.openMenu();

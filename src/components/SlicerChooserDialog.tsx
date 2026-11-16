@@ -66,7 +66,8 @@ export function SlicerChooserDialog({ preference, missingSlicerName, onConfirm, 
         try {
             const app = await pickSlicerApp(
                 t('slicerChooser.browseTitle'),
-                t('slicerChooser.browseFilter')
+                t('slicerChooser.browseFilter'),
+                savedApp?.path
             );
             if (!app) return;
             setBrowsed((current) =>
