@@ -931,6 +931,7 @@ function App(): React.ReactElement | null {
                                             active={mode === '3d'}
                                             swatches={swatches}
                                             imageSrc={imageSrc}
+                                            imageCanvas={imageCanvas}
                                             imageDimensions={imageDimensions}
                                             builtState={builtThreeDState}
                                             builtFlatPaint={builtFlatPaint}
@@ -1066,6 +1067,7 @@ function App(): React.ReactElement | null {
                                         <>
                                             <ThreeDView
                                                 imageSrc={builtModelValid ? imageSrc : null}
+                                                imageCanvas={builtModelValid ? imageCanvas : null}
                                                 baseSliceHeight={0}
                                                 layerHeight={builtModelState.layerHeight}
                                                 slicerFirstLayerHeight={

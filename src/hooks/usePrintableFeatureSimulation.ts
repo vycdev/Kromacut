@@ -8,7 +8,6 @@ import {
     shouldRetainCompletedThreeDWork,
     shouldRunThreeDBackgroundWork,
 } from '../lib/threeDWorkLifecycle.ts';
-import { decodeImage } from '../lib/decodeImage.ts';
 import type { Swatch } from '../types';
 import type {
     PrintableFeatureWorkerRequest,
@@ -19,6 +18,7 @@ interface UsePrintableFeatureSimulationOptions {
     active?: boolean;
     enabled: boolean;
     imageSrc: string | null;
+    imageCanvas: HTMLCanvasElement | null;
     sourceSwatches: Swatch[];
     pixelSizeMm: number;
     lineWidthMm: number;
@@ -53,6 +53,7 @@ export function usePrintableFeatureSimulation(
         active = true,
         enabled,
         imageSrc,
+        imageCanvas,
         sourceSwatches,
         pixelSizeMm,
         lineWidthMm,
@@ -64,7 +65,7 @@ export function usePrintableFeatureSimulation(
     const completedKeyRef = useRef<string | null>(null);
 
     useEffect(() => {
-        const ready = enabled && Boolean(imageSrc);
+        const ready = enabled && Boolean(imageSrc) && Boolean(imageCanvas);
         if (!shouldRunThreeDBackgroundWork(active, ready)) {
             // The cleanup from the previous effect terminates any in-flight worker.
             // Keep a completed result only while it still describes the hidden inputs.
@@ -81,7 +82,7 @@ export function usePrintableFeatureSimulation(
         }
 
         // `ready` guarantees this, while preserving the narrowed string type below.
-        if (!imageSrc) return;
+        if (!imageSrc || !imageCanvas) return;
 
         const cacheKey = simulationKey(
             imageSrc,
@@ -116,18 +117,15 @@ export function usePrintableFeatureSimulation(
             setError(message);
         };
 
-        void decodeImage(imageSrc)
-            .then((image) => {
+        void Promise.resolve()
+            .then(() => {
                 if (cancelled) return;
-                if (!image)
-                    throw new Error('Could not load the image for printable-detail analysis');
-                const canvas = document.createElement('canvas');
-                canvas.width = image.naturalWidth;
-                canvas.height = image.naturalHeight;
+                // Read the same immutable pixels as the 2D swatches and 3D build.
+                // Transferring getImageData's copy never changes the shared canvas.
+                const canvas = imageCanvas;
                 const context = canvas.getContext('2d', { willReadFrequently: true });
                 if (!context)
                     throw new Error('Canvas is unavailable for printable-detail analysis');
-                context.drawImage(image, 0, 0);
 
                 const startAttempt = () => {
                     if (cancelled) return;
@@ -221,7 +219,7 @@ export function usePrintableFeatureSimulation(
             if (retryTimer !== null) window.clearTimeout(retryTimer);
             activeWorker?.terminate();
         };
-    }, [active, enabled, imageSrc, lineWidthMm, omitAtRiskPixels, pixelSizeMm]);
+    }, [active, enabled, imageSrc, imageCanvas, lineWidthMm, omitAtRiskPixels, pixelSizeMm]);
 
     const printableSwatches = useMemo(() => {
         if (!simulation) return [];

@@ -598,6 +598,9 @@ test('@smoke baking during a pending undo cannot commit the previous image pixel
         .toBe(1);
     await page.getByRole('button', { name: 'Apply adjustments', exact: true }).click();
     expect(await encodes()).toBe(before);
+    await page.getByRole('button', { name: '3D', exact: true }).click();
+    await expect(page.getByTestId('build-3d-model')).toBeDisabled();
+    await page.getByRole('button', { name: '2D', exact: true }).click();
     await page.evaluate(() => {
         const state = (window as unknown as { imageDecodes: DecodeState }).imageDecodes;
         state.hold = false;

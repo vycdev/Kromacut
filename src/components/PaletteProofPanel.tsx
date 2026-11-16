@@ -58,7 +58,7 @@ import type { FinalPrintableStackSnapshot } from '../types/appearance';
 
 interface PaletteProofPanelProps {
     snapshot?: FinalPrintableStackSnapshot;
-    imageSrc?: string | null;
+    imageCanvas?: HTMLCanvasElement | null;
     profile?: AutoPaintProfile;
     profileDirty?: boolean;
     embedded?: boolean;
@@ -130,7 +130,7 @@ function proofTimestamp(record: PaletteProofRecord): string {
 
 export default function PaletteProofPanel({
     snapshot,
-    imageSrc,
+    imageCanvas,
     profile,
     profileDirty = false,
     embedded = false,
@@ -508,13 +508,13 @@ export default function PaletteProofPanel({
                 (column) => column.targetMappingId
             ),
         });
-        setIsSelectingTargets(Boolean(imageSrc));
+        setIsSelectingTargets(Boolean(imageCanvas));
     };
 
     if (
         isSelectingTargets &&
         snapshot &&
-        imageSrc &&
+        imageCanvas &&
         !selectedRecord &&
         proofGeneration.mode !== 'continue' &&
         targetCountOptions.length > 0
@@ -613,7 +613,7 @@ export default function PaletteProofPanel({
                 </label>
 
                 <PaletteProofImageTargetPicker
-                    imageSrc={imageSrc}
+                    imageCanvas={imageCanvas}
                     targets={snapshot.targetMappings}
                     targetColorMode={targetColorMode}
                     selectedTargetIds={prioritizedTargetIds}
@@ -1087,7 +1087,7 @@ export default function PaletteProofPanel({
                         size="sm"
                         variant="outline"
                         className="h-7 shrink-0 px-2 text-[10px]"
-                        disabled={!imageSrc}
+                        disabled={!imageCanvas}
                         onClick={() => setIsSelectingTargets(true)}
                     >
                         {t('proof.chooseFromImage')}
