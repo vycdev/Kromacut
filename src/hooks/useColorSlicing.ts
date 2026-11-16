@@ -193,7 +193,9 @@ export function useColorSlicing({
     // Ensure the currently-first color in display order cannot be below the slicer first layer height
     // AND all colors stay aligned with valid layer boundaries.
     useEffect(() => {
-        if (displayOrder.length === 0) return;
+        // A palette-size change schedules new heights in the reconciliation effect.
+        // Do not overwrite that update by normalizing this render's old height array.
+        if (displayOrder.length === 0 || colorSliceHeights.length !== displayOrder.length) return;
 
         let changed = false;
         const next = colorSliceHeights.slice();
