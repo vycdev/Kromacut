@@ -64,4 +64,10 @@ Reset removes a live adjustment, not an already-baked image edit. After Apply, z
 
 Repeated Apply operations work on the already-edited image, so clipping and lost tonal detail can accumulate. Undo first when comparing alternatives.
 
+## 2D History Shortcuts
+
+Use **Ctrl+Z** (**Cmd+Z** on macOS) to undo an image edit, and **Ctrl+Shift+Z** (**Cmd+Shift+Z**) to redo it. These shortcuts work in 2D mode, outside text fields, number inputs and dialogs. They are paused while cropping or processing; they do not change the image from the 3D tab.
+
+Wait for quantize or dedither to finish before importing or editing another image. If an older edit finishes after its image has changed or another processing operation has started, its result is discarded.
+
 Next: [Reducing colors](reducing-colors).

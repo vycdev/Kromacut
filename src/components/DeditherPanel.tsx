@@ -10,6 +10,7 @@ import { deditherRowProgress } from '../lib/progress';
 import { decodeImage } from '../lib/decodeImage';
 
 interface Props {
+    beginEdit: () => (() => boolean) | null;
     canvasRef: React.RefObject<CanvasPreviewHandle | null>;
     onApplyResult: (blobUrl: string) => void;
     onWorkingChange?: (working: boolean) => void;
@@ -23,6 +24,7 @@ interface Props {
 }
 
 export const DeditherPanel: React.FC<Props> = ({
+    beginEdit,
     canvasRef,
     onApplyResult,
     onWorkingChange,
@@ -38,6 +40,8 @@ export const DeditherPanel: React.FC<Props> = ({
 
     const handleApply = useCallback(async () => {
         if (!canvasRef.current) return;
+        const isCurrent = beginEdit();
+        if (!isCurrent) return;
         const totalPasses = Math.max(1, Math.min(10, Math.round(passes)));
         setWorking(true);
         onWorkingChange?.(true);
@@ -49,12 +53,15 @@ export const DeditherPanel: React.FC<Props> = ({
         });
         onProgress?.(0.01);
         await new Promise((r) => requestAnimationFrame(r));
+        let sourceUrl: string | null = null;
         try {
+            if (!isCurrent() || !canvasRef.current) return;
             // prefer adjusted image if available
             const blob = await canvasRef.current.exportAdjustedImageBlob?.();
-            if (!blob) return;
-            const img = await decodeImage(URL.createObjectURL(blob));
-            if (!img) return;
+            if (!blob || !isCurrent()) return;
+            sourceUrl = URL.createObjectURL(blob);
+            const img = await decodeImage(sourceUrl);
+            if (!img || !isCurrent()) return;
             onProgress?.(0.06);
 
             const w = img.naturalWidth;
@@ -163,6 +170,7 @@ export const DeditherPanel: React.FC<Props> = ({
                     }
                     if (performance.now() - lastYield > YIELD_MS) {
                         await new Promise((r) => requestAnimationFrame(r));
+                        if (!isCurrent()) return;
                         lastYield = performance.now();
                     }
                     processedRows++;
@@ -196,17 +204,27 @@ export const DeditherPanel: React.FC<Props> = ({
             const outBlob = await new Promise<Blob | null>((res) =>
                 c.toBlob((b) => res(b), 'image/png')
             );
-            if (!outBlob) return;
+            if (!outBlob || !isCurrent()) return;
             onProgress?.(1);
             const url = URL.createObjectURL(outBlob);
             onApplyResult(url);
         } catch (err) {
-            console.warn('Dedither failed', err);
+            if (isCurrent()) console.warn('Dedither failed', err);
         } finally {
+            if (sourceUrl) URL.revokeObjectURL(sourceUrl);
             setWorking(false);
             onWorkingChange?.(false);
         }
-    }, [canvasRef, weight, passes, onApplyResult, onWorkingChange, onProgress, onStepChange]);
+    }, [
+        beginEdit,
+        canvasRef,
+        weight,
+        passes,
+        onApplyResult,
+        onWorkingChange,
+        onProgress,
+        onStepChange,
+    ]);
 
     const allDefault = weight === DEFAULT_WEIGHT && passes === DEFAULT_PASSES;
 

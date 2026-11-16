@@ -64,4 +64,10 @@ Ripristina elimina la regolazione live, non una modifica già incorporata. Dopo 
 
 Applicazioni ripetute lavorano sull’immagine già modificata, accumulando clipping e perdita tonale. Annulla prima di confrontare alternative.
 
+## Scorciatoie della cronologia 2D
+
+Usa **Ctrl+Z** (**Cmd+Z** su macOS) per annullare una modifica e **Ctrl+Maiusc+Z** (**Cmd+Maiusc+Z**) per ripristinarla. Le scorciatoie funzionano in modalità 2D, fuori dai campi di testo, dai campi numerici e dalle finestre di dialogo. Sono disattivate durante il ritaglio o l’elaborazione e non modificano l’immagine dalla scheda 3D.
+
+Attendi il completamento della quantizzazione o della rimozione del dithering prima di importare o modificare un’altra immagine. I risultati di modifiche precedenti vengono scartati se l’immagine è cambiata o è iniziata un’altra elaborazione.
+
 Successivo: [Riduzione dei colori](reducing-colors).

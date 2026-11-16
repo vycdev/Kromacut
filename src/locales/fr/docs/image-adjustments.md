@@ -64,4 +64,10 @@ Réinitialiser supprime un réglage en direct, pas une modification déjà incor
 
 Des applications répétées travaillent sur l’image déjà modifiée ; l’écrêtage et la perte de détails tonals peuvent donc s’accumuler. Annulez d’abord pour comparer des alternatives.
 
+## Raccourcis de l’historique 2D
+
+Utilisez **Ctrl+Z** (**Cmd+Z** sous macOS) pour annuler une modification, et **Ctrl+Maj+Z** (**Cmd+Maj+Z**) pour la rétablir. Ces raccourcis fonctionnent en mode 2D, hors des champs de texte, des champs numériques et des boîtes de dialogue. Ils sont désactivés pendant le recadrage ou le traitement et ne modifient pas l’image depuis l’onglet 3D.
+
+Attendez la fin de la quantification ou du détramage avant d’importer ou de modifier une autre image. Le résultat d’une ancienne modification est ignoré si l’image a changé ou si un autre traitement a commencé.
+
 Suite : [Réduction des couleurs](reducing-colors).

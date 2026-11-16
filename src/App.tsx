@@ -21,12 +21,12 @@ import AdjustmentsPanel from './components/AdjustmentsPanel';
 import DeditherPanel from './components/DeditherPanel';
 import ImageResizePanel from './components/ImageResizePanel';
 import { ADJUSTMENT_DEFAULTS } from './lib/applyAdjustments';
-import { calculateImageResizeDimensions } from './lib/imageResize';
-import { decodeImage } from './lib/decodeImage';
 import SLIDER_DEFS from './components/sliderDefs';
 import { useSwatches } from './hooks/useSwatches';
 import type { SwatchEntry } from './hooks/useSwatches';
 import { useImageHistory } from './hooks/useImageHistory';
+import { useImageEditingActions } from './hooks/useImageEditingActions';
+import { useImageHistoryShortcuts } from './hooks/useImageHistoryShortcuts';
 import { useImageCanvas } from './hooks/useImageCanvas';
 import { useImageImport, type ImageImportError } from './hooks/useImageImport';
 import { useQuantize } from './hooks/useQuantize';
@@ -341,23 +341,21 @@ function App(): React.ReactElement | null {
     const [touchUpColor, setTouchUpColor] = useState('#000000');
     const [touchUpBrushSize, setTouchUpBrushSize] = useState(4);
     const [touchUpTextSize, setTouchUpTextSize] = useState(24);
+    const processing = useProcessingState();
     const {
         isQuantizing,
-        setIsQuantizing,
         isDedithering,
-        setIsDedithering,
         processingLabel,
-        setProcessingLabel,
         processingProgress,
         setProcessingProgress,
         processingIndeterminate,
         setProcessingIndeterminate,
-    } = useProcessingState();
+    } = processing;
     const [processingStep, setProcessingStep] = useState<ProcessingStepState>({
         stepIndex: 1,
         stepCount: 1,
     });
-    const { applyQuantize } = useQuantize({
+    const { applyQuantize: quantize } = useQuantize({
         algorithm,
         weight,
         finalColors,
@@ -603,15 +601,34 @@ function App(): React.ReactElement | null {
         }
     };
 
-    const handleFiles = async (file?: File) => {
-        if (!file) return;
-        await importFile(file, imageSrc !== null, (url, canvas, sourceFile) => {
-            setTouchUpTool(null);
-            invalidate();
-            prepareImageCanvas(url, canvas, sourceFile);
-            setImage(url, true);
-        });
-    };
+    const processingActive = isQuantizing || isDedithering;
+    const imageActions = useImageEditingActions({
+        imageSrc,
+        imageCanvasLoading,
+        canvasPreviewRef,
+        inputRef,
+        importFile,
+        cancelPendingImport,
+        prepareImageCanvas,
+        invalidate,
+        setImage,
+        clearCurrent,
+        resetTouchUp: () => setTouchUpTool(null),
+        setAdjustments,
+        resetAdjustmentsPanel: () => setAdjustmentsEpoch((epoch) => epoch + 1),
+        exitCrop: () => setIsCropMode(false),
+        processing,
+        setProcessingStep,
+        quantize,
+    });
+    const { handleFiles, applyQuantize } = imageActions;
+    useImageHistoryShortcuts({
+        undo,
+        redo,
+        canUndo,
+        canRedo,
+        disabled: mode !== '2d' || docsOpen || isCropMode || processingActive,
+    });
 
     const imageImportErrorMessage = (error: ImageImportError) => {
         if (error.kind === 'notImage') return t('app.uploadImage');
@@ -631,61 +648,6 @@ function App(): React.ReactElement | null {
             : t('app.imageDecodeFailedNoImage', { name: error.name });
     };
 
-    // removed unused handlers (inline handlers used instead)
-
-    const clear = () => {
-        setTouchUpTool(null);
-        clearCurrent();
-        if (inputRef.current) inputRef.current.value = '';
-    };
-
-    const resizeCurrentImage = async (percent: number) => {
-        if (!canvasPreviewRef.current || !imageSrc) return;
-
-        let sourceUrl: string | null = null;
-        try {
-            const sourceBlob = await canvasPreviewRef.current.exportImageBlob();
-            if (!sourceBlob) return;
-
-            sourceUrl = URL.createObjectURL(sourceBlob);
-            const img = await decodeImage(sourceUrl);
-
-            if (!img) return;
-
-            const target = calculateImageResizeDimensions(
-                img.naturalWidth,
-                img.naturalHeight,
-                percent
-            );
-
-            if (target.width >= img.naturalWidth && target.height >= img.naturalHeight) return;
-
-            const canvas = document.createElement('canvas');
-            canvas.width = target.width;
-            canvas.height = target.height;
-            const ctx = canvas.getContext('2d');
-            if (!ctx) return;
-
-            ctx.imageSmoothingEnabled = true;
-            ctx.imageSmoothingQuality = 'high';
-            ctx.drawImage(img, 0, 0, target.width, target.height);
-
-            const resizedBlob = await new Promise<Blob | null>((resolve) =>
-                canvas.toBlob((blob) => resolve(blob), 'image/png')
-            );
-            if (!resizedBlob) return;
-
-            const url = URL.createObjectURL(resizedBlob);
-            invalidate();
-            setImage(url, true);
-        } catch (error) {
-            console.warn('Image resize failed', error);
-            alert(t('app.resizeFailed'));
-        } finally {
-            if (sourceUrl) URL.revokeObjectURL(sourceUrl);
-        }
-    };
-
     // splitter & layout management preserved below
 
     // wheel/pan handled in CanvasPreview
@@ -703,11 +665,10 @@ function App(): React.ReactElement | null {
     );
 
     const handleTouchUpToolChange = (nextTool: TouchUpTool | null) => {
-        if (!imageSrc) return;
+        if (!imageSrc || !imageActions.beginEdit()) return;
         setTouchUpTool(nextTool);
     };
 
-    const processingActive = mode === '2d' && (isQuantizing || isDedithering);
     // Quantize and dedither commit their result through image history, which cancels a
     // pending import, so refuse new imports until they finish rather than drop one silently.
     const dropzone = useDropzone({
@@ -722,6 +683,7 @@ function App(): React.ReactElement | null {
         onSwatchApply,
         onSwatchDelete,
     } = useAppHandlers({
+        beginEdit: imageActions.beginEdit,
         canvasPreviewRef,
         imageSrc,
         invalidate,
@@ -796,12 +758,17 @@ function App(): React.ReactElement | null {
                                             className="hidden-file-input"
                                         />
                                         {/* file input stays here (hidden); uploader buttons moved to preview actions */}
-                                        <div className="space-y-4">
+                                        <fieldset
+                                            className="space-y-4 min-w-0"
+                                            disabled={processingActive}
+                                        >
                                             <AdjustmentsPanel
+                                                disabled={processingActive}
                                                 key={adjustmentsEpoch}
                                                 defs={SLIDER_DEFS}
                                                 initial={ADJUSTMENT_DEFAULTS}
                                                 onCommit={(vals) => {
+                                                    if (!imageActions.beginEdit()) return;
                                                     setTouchUpTool(null);
                                                     setAdjustments(vals);
                                                     // schedule a redraw
@@ -809,50 +776,28 @@ function App(): React.ReactElement | null {
                                                         canvasPreviewRef.current?.redraw()
                                                     );
                                                 }}
-                                                onBake={async (vals) => {
-                                                    if (!canvasPreviewRef.current) return;
-                                                    try {
-                                                        const blob =
-                                                            await canvasPreviewRef.current.exportAdjustedImageBlob?.(
-                                                                vals
-                                                            );
-                                                        if (!blob) return;
-                                                        const url = URL.createObjectURL(blob);
-                                                        invalidate();
-                                                        setImage(url, true);
-                                                        // After baking, reset adjustments state to defaults
-                                                        setAdjustments(ADJUSTMENT_DEFAULTS);
-                                                        setAdjustmentsEpoch((e) => e + 1);
-                                                    } catch (e) {
-                                                        console.warn('Bake adjustments failed', e);
-                                                    }
-                                                }}
+                                                onBake={imageActions.bakeAdjustments}
                                             />
                                             <ImageResizePanel
                                                 imageDimensions={imageDimensions}
-                                                disabled={!imageSrc || isCropMode}
-                                                onApply={resizeCurrentImage}
+                                                disabled={
+                                                    !imageSrc ||
+                                                    isCropMode ||
+                                                    processingActive ||
+                                                    imageCanvasLoading
+                                                }
+                                                onApply={imageActions.resizeCurrentImage}
                                             />
                                             <DeditherPanel
+                                                beginEdit={imageActions.beginProcessingEdit}
                                                 canvasRef={canvasPreviewRef}
                                                 onApplyResult={(url) => {
                                                     invalidate();
                                                     setImage(url, true);
                                                 }}
-                                                onWorkingChange={(working) => {
-                                                    setIsDedithering(working);
-                                                    if (working) {
-                                                        setProcessingLabel('Dedithering...');
-                                                        setProcessingStep({
-                                                            stepIndex: 1,
-                                                            stepCount: 1,
-                                                            label: 'Dedithering pass 1',
-                                                            stepProgress: 0,
-                                                        });
-                                                        setProcessingProgress(0);
-                                                        setProcessingIndeterminate(false);
-                                                    }
-                                                }}
+                                                onWorkingChange={
+                                                    imageActions.onDeditherWorkingChange
+                                                }
                                                 onStepChange={setProcessingStep}
                                                 onProgress={(value) => {
                                                     setProcessingProgress(clampProgress(value));
@@ -873,30 +818,13 @@ function App(): React.ReactElement | null {
                                                 }}
                                                 algorithm={algorithm}
                                                 setAlgorithm={setAlgorithm}
-                                                onApply={async () => {
-                                                    if (isQuantizing) return;
-                                                    setIsQuantizing(true);
-                                                    setProcessingLabel('Quantizing...');
-                                                    setProcessingStep({
-                                                        stepIndex: 1,
-                                                        stepCount: 5,
-                                                        label: 'Loading image data',
-                                                        stepProgress: 0,
-                                                    });
-                                                    setProcessingProgress(0);
-                                                    setProcessingIndeterminate(false);
-                                                    await new Promise((r) =>
-                                                        requestAnimationFrame(r)
-                                                    );
-                                                    try {
-                                                        await applyQuantize(canvasPreviewRef);
-                                                    } finally {
-                                                        setIsQuantizing(false);
-                                                        setProcessingProgress(1);
-                                                        setProcessingIndeterminate(false);
-                                                    }
-                                                }}
-                                                disabled={!imageSrc || isCropMode}
+                                                onApply={() => applyQuantize(canvasPreviewRef)}
+                                                disabled={
+                                                    !imageSrc ||
+                                                    isCropMode ||
+                                                    processingActive ||
+                                                    imageCanvasLoading
+                                                }
                                                 applying={isQuantizing}
                                                 weightDisabled={algorithm === 'none'}
                                                 selectedPalette={selectedPalette}
@@ -931,7 +859,7 @@ function App(): React.ReactElement | null {
                                                 onSwatchDelete={onSwatchDelete}
                                                 onSwatchApply={onSwatchApply}
                                             />
-                                        </div>
+                                        </fieldset>
                                     </>
                                 )}
                                 {mode === '3d' && !hasMountedThreeDControls && (
@@ -1004,16 +932,11 @@ function App(): React.ReactElement | null {
                                             showCheckerboard={showCheckerboard}
                                             adjustments={adjustments}
                                             onCropSelectionChange={setHasValidCropSelection}
-                                            touchUpTool={touchUpTool}
+                                            touchUpTool={processingActive ? null : touchUpTool}
                                             touchUpColor={touchUpColor}
                                             touchUpBrushSize={touchUpBrushSize}
                                             touchUpTextSize={touchUpTextSize}
-                                            onTouchUpCommit={(blob) => {
-                                                const url = URL.createObjectURL(blob);
-                                                invalidate();
-                                                setImage(url, true);
-                                                return url;
-                                            }}
+                                            onTouchUpCommit={imageActions.commitTouchUp}
                                             onTouchUpPickColor={(hex) => {
                                                 setTouchUpColor(hex);
                                                 setTouchUpTool('brush');
@@ -1170,35 +1093,30 @@ function App(): React.ReactElement | null {
                                 )}
                                 <PreviewActions
                                     mode={mode}
-                                    canUndo={canUndo}
-                                    canRedo={canRedo}
+                                    canUndo={canUndo && !processingActive}
+                                    canRedo={canRedo && !processingActive}
                                     isCropMode={isCropMode}
-                                    imageAvailable={!!imageSrc}
+                                    imageAvailable={!!imageSrc && !processingActive}
                                     hasValidCropSelection={hasValidCropSelection}
                                     exportingSTL={exportingSTL}
                                     exportProgress={exportProgress}
-                                    onUndo={undo}
-                                    onRedo={redo}
+                                    onUndo={() => {
+                                        if (imageActions.beginEdit()) undo();
+                                    }}
+                                    onRedo={() => {
+                                        if (imageActions.beginEdit()) redo();
+                                    }}
                                     onEnterCrop={() => {
-                                        if (!imageSrc) return;
+                                        if (!imageSrc || !imageActions.beginEdit()) return;
                                         setTouchUpTool(null);
                                         setIsCropMode(true);
                                     }}
-                                    onSaveCrop={async () => {
-                                        if (!canvasPreviewRef.current) return;
-                                        const blob =
-                                            await canvasPreviewRef.current.exportCroppedImage();
-                                        if (!blob) return;
-                                        const url = URL.createObjectURL(blob);
-                                        invalidate();
-                                        setImage(url, true);
-                                        setIsCropMode(false);
-                                    }}
+                                    onSaveCrop={imageActions.saveCrop}
                                     onCancelCrop={() => setIsCropMode(false)}
                                     onToggleCheckerboard={() => setShowCheckerboard((s) => !s)}
                                     onPickFile={() => inputRef.current?.click()}
                                     pickFileDisabled={processingActive}
-                                    onClear={clear}
+                                    onClear={imageActions.clearImage}
                                     onExportImage={onExportImage}
                                     onExportStl={onExportStl}
                                     onExport3MF={onExport3MF}

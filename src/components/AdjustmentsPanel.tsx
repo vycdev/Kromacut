@@ -7,6 +7,7 @@ import { Check, RotateCcw } from 'lucide-react';
 import type { SliderDef } from '@/components/sliderDefs';
 
 interface Props {
+    disabled?: boolean;
     defs: SliderDef[];
     initial?: Record<string, number>;
     /** Called when user finishes a slider drag (pointer up). */
@@ -17,7 +18,7 @@ interface Props {
 
 // Memoize to avoid parent re-render noise when props are stable
 export const AdjustmentsPanel: React.FC<Props> = React.memo(
-    ({ defs, initial, onCommit, onBake }) => {
+    ({ defs, initial, onCommit, onBake, disabled = false }) => {
         const { t } = useTranslation('workspace');
         // Local state only; parent not updated per-drag
         const [values, setValues] = useState<Record<string, number>>(() => {
@@ -175,6 +176,7 @@ export const AdjustmentsPanel: React.FC<Props> = React.memo(
                                     </div>
                                 </div>
                                 <Slider
+                                    disabled={disabled}
                                     min={s.min}
                                     max={s.max}
                                     step={s.step}
