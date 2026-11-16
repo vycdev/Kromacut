@@ -124,12 +124,25 @@ function boxBlur3(data: Uint8ClampedArray, w: number, h: number, out: Uint8Clamp
     }
 }
 
-export function applyAdjustments(src: ImageData, adjustments: Adjustments): ImageData {
+/** Optional reusable buffers; the caller keeps them at least as large as the input. */
+export interface AdjustmentScratch {
+    output: Uint8ClampedArray;
+    blurred: Uint8ClampedArray;
+}
+
+export function applyAdjustments(
+    src: ImageData,
+    adjustments: Adjustments,
+    scratch?: AdjustmentScratch
+): ImageData {
     if (isAllDefault(adjustments))
         return new ImageData(new Uint8ClampedArray(src.data), src.width, src.height);
 
     const { width: w, height: h, data: sdata } = src;
-    const out = new Uint8ClampedArray(sdata); // start with copy
+    const out = scratch
+        ? scratch.output.subarray(0, sdata.length)
+        : new Uint8ClampedArray(sdata.length);
+    out.set(sdata);
 
     const exposure = adjustments.exposure ?? 0; // stops
     const exposureMul = Math.pow(2, exposure);
@@ -148,7 +161,9 @@ export function applyAdjustments(src: ImageData, adjustments: Adjustments): Imag
     const needHSL = saturationAdj !== 0 || vibranceAdj !== 0 || hueShift !== 0;
     let blurred: Uint8ClampedArray | null = null;
     if (clarity !== 0) {
-        blurred = new Uint8ClampedArray(out.length);
+        blurred = scratch
+            ? scratch.blurred.subarray(0, out.length)
+            : new Uint8ClampedArray(out.length);
         boxBlur3(out, w, h, blurred);
     }
 

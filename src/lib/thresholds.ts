@@ -1,5 +1,5 @@
 /** Brightness bands: a pixel exactly at a boundary enters the next band. */
-export function thresholdPixels(source: Uint8ClampedArray, thresholds: number[], colors: string[]) {
+export function createThresholdLookup(thresholds: number[], colors: string[]) {
     if (
         colors.length !== thresholds.length + 1 ||
         colors.length < 2 ||
@@ -18,17 +18,26 @@ export function thresholdPixels(source: Uint8ClampedArray, thresholds: number[],
         while (band < thresholds.length && value >= thresholds[band]) band++;
         lookup.set(palette[band], value * 3);
     }
-    const out = new Uint8ClampedArray(source.length);
-    for (let i = 0; i < source.length; i += 4) {
+    return lookup;
+}
+
+/** Reuse the lookup across tiles; mutate RGB in place and preserve every alpha byte. */
+export function applyThresholdLookup(data: Uint8ClampedArray, lookup: Uint8ClampedArray) {
+    for (let i = 0; i < data.length; i += 4) {
         const brightness = Math.round(
-            0.2126 * source[i] + 0.7152 * source[i + 1] + 0.0722 * source[i + 2]
+            0.2126 * data[i] + 0.7152 * data[i + 1] + 0.0722 * data[i + 2]
         );
         const offset = brightness * 3;
-        out[i] = lookup[offset];
-        out[i + 1] = lookup[offset + 1];
-        out[i + 2] = lookup[offset + 2];
-        out[i + 3] = source[i + 3];
+        data[i] = lookup[offset];
+        data[i + 1] = lookup[offset + 1];
+        data[i + 2] = lookup[offset + 2];
     }
+}
+
+export function thresholdPixels(source: Uint8ClampedArray, thresholds: number[], colors: string[]) {
+    const lookup = createThresholdLookup(thresholds, colors);
+    const out = new Uint8ClampedArray(source);
+    applyThresholdLookup(out, lookup);
     return out;
 }
 export function evenThresholds(count: number) {

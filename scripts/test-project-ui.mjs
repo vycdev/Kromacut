@@ -24,13 +24,11 @@ try {
         });
         return c.toDataURL().split(',')[1];
     });
-    await page
-        .getByTestId('image-file-input')
-        .setInputFiles({
-            name: 'session-source.png',
-            mimeType: 'image/png',
-            buffer: Buffer.from(png, 'base64'),
-        });
+    await page.getByTestId('image-file-input').setInputFiles({
+        name: 'session-source.png',
+        mimeType: 'image/png',
+        buffer: Buffer.from(png, 'base64'),
+    });
     await expect(page.getByRole('button', { name: 'Save project', exact: true })).toBeEnabled();
     const canvasHash = (p) =>
         p
@@ -47,6 +45,8 @@ try {
     const menu = page.getByRole('dialog', { name: 'Palette', exact: true });
     await menu.getByRole('checkbox', { name: 'SUNLU PLA Classic', exact: true }).check();
     await menu.getByRole('checkbox', { name: 'ELEGOO PLA (community RFID)', exact: true }).check();
+    for (const size of [4, 8, 16, 32])
+        await menu.getByRole('checkbox', { name: `Gray ${size}`, exact: true }).check();
     await page.keyboard.press('Escape');
     await page.getByRole('button', { name: 'Select top colors', exact: true }).click();
     await page.getByRole('button', { name: 'Compare nozzle sizes', exact: true }).click();
@@ -106,7 +106,27 @@ try {
     const zip = await JSZip.loadAsync(file),
         manifest = JSON.parse(await zip.file('project.json').async('string'));
     assert.equal(manifest.state.name, 'Roundtrip Session');
-    assert.equal(manifest.state.quantize.palettes.length, 2);
+    assert.equal(manifest.state.quantize.palettes.length, 6);
+    for (const [size, start, span] of [
+        [4, 20, 60],
+        [8, 10, 75],
+        [16, 6, 88],
+        [32, 3, 92],
+    ]) {
+        const palette = manifest.state.quantize.palettes.find((p) => p.id === `g${size}`);
+        const expected = Array.from({ length: size }, (_, i) => {
+            const light = Math.round(start + (i * span) / (size - 1));
+            return (
+                '#' +
+                Math.round((light * 255) / 100)
+                    .toString(16)
+                    .padStart(2, '0')
+                    .repeat(3)
+                    .toUpperCase()
+            );
+        });
+        assert.deepEqual(palette.colors, expected);
+    }
     assert.equal(manifest.state.quantize.finalColors, 2);
     assert.equal(manifest.state.adjustments.contrast, 2);
     assert.equal(manifest.state.threeD.layerHeight, 0.16);
@@ -122,13 +142,11 @@ try {
     });
     const fresh = await restore.newPage();
     await fresh.goto(appUrl);
-    await fresh
-        .getByTestId('project-file-input')
-        .setInputFiles({
-            name: 'Roundtrip Session.kromacut',
-            mimeType: 'application/zip',
-            buffer: file,
-        });
+    await fresh.getByTestId('project-file-input').setInputFiles({
+        name: 'Roundtrip Session.kromacut',
+        mimeType: 'application/zip',
+        buffer: file,
+    });
     const confirm = fresh.getByRole('dialog', { name: 'Open project', exact: true });
     await confirm.getByRole('button', { name: 'Open project', exact: true }).click();
     await expect(confirm).not.toBeVisible();
@@ -147,11 +165,15 @@ try {
     assert.deepEqual(again.state.threeD.colorSliceHeights, manifest.state.threeD.colorSliceHeights);
     assert.deepEqual(again.state.threeD.colorOrder, manifest.state.threeD.colorOrder);
     assert.deepEqual(again.history, manifest.history);
+    assert.deepEqual(
+        again.state.quantize.palettes.map((p) => p.colors),
+        manifest.state.quantize.palettes.map((p) => p.colors)
+    );
     page = fresh;
     await fresh.getByRole('button', { name: '2D', exact: true }).click();
     await expect.poll(() => canvasHash(fresh)).toBe(visibleImage);
     await expect(fresh.getByRole('button', { name: 'Palette', exact: true })).toHaveText(
-        'Selected palettes: 2'
+        'Selected palettes: 6'
     );
     await fresh.getByRole('button', { name: 'Compare nozzle sizes', exact: true }).click();
     const reopened = fresh.getByRole('dialog', { name: 'Nozzle and size preview', exact: true });
@@ -173,18 +195,16 @@ try {
     await fresh.keyboard.press('Control+z');
     await expect.poll(() => canvasHash(fresh)).toBe(historyImage);
     const before = await canvasHash(fresh);
-    await fresh
-        .getByTestId('project-file-input')
-        .setInputFiles({
-            name: 'bad.kromacut',
-            mimeType: 'application/zip',
-            buffer: Buffer.from('not a project'),
-        });
+    await fresh.getByTestId('project-file-input').setInputFiles({
+        name: 'bad.kromacut',
+        mimeType: 'application/zip',
+        buffer: Buffer.from('not a project'),
+    });
     await expect(fresh.getByRole('status').filter({ hasText: 'Project could not' })).toBeVisible();
     assert.equal(await canvasHash(fresh), before);
     await fresh.screenshot({ path: artifactPath('project-session-tested.png') });
     console.log(
-        'PASS: native-format download; embedded image and undo/redo history; committed adjustments; two palette snapshots; live filament choices; nozzle settings; unsaved manual 3D heights/settings; fresh-context reopen with exact preview; bad file preserves active session.'
+        'PASS: native-format download; embedded image and undo/redo history; committed adjustments; six palette snapshots including all four grayscale palettes; live filament choices; nozzle settings; unsaved manual 3D heights/settings; fresh-context reopen with exact preview; bad file preserves active session.'
     );
 } catch (error) {
     if (page) await page.screenshot({ path: artifactPath('project-test-failure.png') });

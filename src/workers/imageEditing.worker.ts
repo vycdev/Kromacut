@@ -1,13 +1,15 @@
 import { renderAdjustedImage } from '../lib/renderAdjustedImage';
 import { prepareNozzleSource, type PreparedNozzleSource } from '../lib/prepareNozzleSource';
 import type { ImageEditSnapshot } from '../types';
-import { thresholdPixels } from '../lib/thresholds';
+import { thresholdPixels, createThresholdLookup, applyThresholdLookup } from '../lib/thresholds';
+import { renderImageTiles } from '../lib/imageTiles';
 
 export type ImageEditingRequest =
     | { kind: 'threshold-source' | 'nozzle-source'; blob: Blob }
     | { kind: 'nozzle-snapshot'; snapshot: ImageEditSnapshot }
     | { kind: 'threshold-snapshot'; snapshot: ImageEditSnapshot }
     | { kind: 'image-render'; snapshot: ImageEditSnapshot }
+    | { kind: 'image-export'; snapshot: ImageEditSnapshot }
     | { kind: 'threshold-apply'; blob: Blob; thresholds: number[]; colors: string[] }
     | { kind: 'threshold-preview'; pixels: ImageData; thresholds: number[]; colors: string[] };
 export interface PreparedImage {
@@ -30,10 +32,18 @@ self.onmessage = async (event: MessageEvent<ImageEditingRequest>) => {
     const request = event.data;
     let bitmap: ImageBitmap | undefined;
     try {
-        if (request.kind === 'threshold-snapshot' || request.kind === 'image-render') {
+        if (
+            request.kind === 'threshold-snapshot' ||
+            request.kind === 'image-render' ||
+            request.kind === 'image-export'
+        ) {
             bitmap = request.snapshot.bitmap;
             const full = renderAdjustedImage(request.snapshot);
-            if (request.kind === 'image-render') {
+            bitmap.close();
+            bitmap = undefined;
+            if (request.kind === 'image-export') {
+                self.postMessage({ result: await full.convertToBlob({ type: 'image/png' }) });
+            } else if (request.kind === 'image-render') {
                 const result = full.transferToImageBitmap();
                 self.postMessage({ result }, { transfer: [result] });
             } else {
@@ -77,18 +87,22 @@ self.onmessage = async (event: MessageEvent<ImageEditingRequest>) => {
             self.postMessage({ result }, { transfer: [result.pixels.data.buffer] });
             return;
         }
+        if (request.kind === 'threshold-apply') {
+            const lookup = createThresholdLookup(request.thresholds, request.colors);
+            const full = renderImageTiles(bitmap, (pixels) => {
+                applyThresholdLookup(pixels.data, lookup);
+                return pixels;
+            });
+            bitmap.close();
+            bitmap = undefined;
+            self.postMessage({ result: await full.convertToBlob({ type: 'image/png' }) });
+            return;
+        }
         const full = new OffscreenCanvas(bitmap.width, bitmap.height);
         const ctx = full.getContext('2d', { willReadFrequently: true })!;
         ctx.drawImage(bitmap, 0, 0);
         bitmap.close();
         bitmap = undefined;
-        if (request.kind === 'threshold-apply') {
-            const pixels = ctx.getImageData(0, 0, full.width, full.height);
-            const result = thresholdPixels(pixels.data, request.thresholds, request.colors);
-            ctx.putImageData(new ImageData(result, full.width, full.height), 0, 0);
-            self.postMessage({ result: await full.convertToBlob({ type: 'image/png' }) });
-            return;
-        }
         const bounds = { x: 0, y: 0, width: full.width, height: full.height };
         const limit = 1000;
         const scale = Math.min(1, limit / Math.max(bounds.width, bounds.height));

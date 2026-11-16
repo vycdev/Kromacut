@@ -1,6 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { thresholdPixels, evenThresholds } from '../src/lib/thresholds.ts';
+import {
+    thresholdPixels,
+    evenThresholds,
+    createThresholdLookup,
+    applyThresholdLookup,
+} from '../src/lib/thresholds.ts';
 test('exact thresholds enter the next band without changing source', () => {
     const values = [0, 79, 80, 169, 170, 255];
     const src = new Uint8ClampedArray(values.flatMap((v) => [v, v, v, 255]));
@@ -75,4 +80,21 @@ test('lookup matches brightness bands at every boundary for 2–64 colors', () =
         ),
         [18, 52, 86, 73, 171, 205, 239, 91]
     );
+});
+
+test('in-place threshold tiles reuse one lookup, preserve alpha and match the immutable API', () => {
+    const source = new Uint8ClampedArray(130 * 129 * 4);
+    for (let i = 0; i < source.length; i++) source[i] = (i * 79 + (i >> 5)) % 256;
+    const thresholds = [41, 127, 210];
+    const colors = ['#102030', '#f02010', '#208040', '#fafbfc'];
+    const expected = thresholdPixels(source, thresholds, colors);
+    const lookup = createThresholdLookup(thresholds, colors);
+    const beforeLookup = lookup.slice();
+    const actual = source.slice();
+    // Deliberately uneven tiles exercise reuse and the final short tile.
+    for (let offset = 0; offset < actual.length; offset += 127 * 4)
+        applyThresholdLookup(actual.subarray(offset, offset + 127 * 4), lookup);
+    assert.deepEqual(actual, expected);
+    assert.deepEqual(lookup, beforeLookup);
+    for (let i = 3; i < source.length; i += 4) assert.equal(actual[i], source[i]);
 });

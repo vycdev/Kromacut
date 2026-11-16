@@ -49,6 +49,12 @@ async function setup(page: Page) {
             constructor(url: string | URL, options?: WorkerOptions) {
                 super(url, options);
                 const post = this.postMessage.bind(this);
+                let active = true;
+                const stop = this.terminate.bind(this);
+                this.terminate = () => {
+                    active = false;
+                    stop();
+                };
                 this.postMessage = (message, transferOrOptions = []) => {
                     if (
                         [
@@ -58,10 +64,17 @@ async function setup(page: Page) {
                             'threshold-apply',
                             'nozzle-source',
                             'nozzle-snapshot',
+                            'image-export',
                         ].includes(message?.kind)
                     )
                         w.editingWorkerUrl = String(url);
-                    const send = () => post(message, transferOrOptions as Transferable[]);
+                    const send = () => {
+                        if (active) post(message, transferOrOptions as Transferable[]);
+                    };
+                    if (w.holdEncoding && message?.kind === 'image-export') {
+                        w.heldEncodings.push(send);
+                        return;
+                    }
                     if (w.holdApply && message?.kind === 'threshold-apply') w.heldApply.push(send);
                     else send();
                 };
@@ -219,15 +232,43 @@ test('@smoke large-image editing worker preserves exact bounds and alpha while t
         ctx.fillStyle = 'rgba(0,0,0,0.5)';
         ctx.fillRect(4800, 4600, 1, 1);
         const blob = await canvas.convertToBlob();
-        const worker = new Worker((window as unknown as Controls).editingWorkerUrl!, {
-            type: 'module',
+        // Probe the actual worker's canvas readbacks, not a duplicate test implementation.
+        const workerUrl = new URL((window as unknown as Controls).editingWorkerUrl!, location.href)
+            .href;
+        const wrapper = URL.createObjectURL(
+            new Blob(
+                [
+                    `
+            let largestRead = 0;
+            const read = OffscreenCanvasRenderingContext2D.prototype.getImageData;
+            OffscreenCanvasRenderingContext2D.prototype.getImageData = function(...args) {
+                largestRead = Math.max(largestRead, args[2] * args[3]);
+                return read.apply(this, args);
+            };
+            const post = self.postMessage.bind(self);
+            self.postMessage = (message, ...rest) => post({...message, largestRead}, ...rest);
+            await import(${JSON.stringify(workerUrl)});
+            post({ready: true});
+        `,
+                ],
+                { type: 'text/javascript' }
+            )
+        );
+        const worker = new Worker(wrapper, { type: 'module' });
+        await new Promise<void>((resolve, reject) => {
+            worker.onmessage = () => resolve();
+            worker.onerror = reject;
         });
+        let largestRead = 0;
         let ticks = 0;
         const timer = setInterval(() => ticks++, 0);
         const request = <T>(message: unknown) =>
             new Promise<T>((resolve, reject) => {
-                worker.onmessage = (e) =>
-                    e.data.error ? reject(new Error(e.data.error)) : resolve(e.data.result);
+                worker.onmessage = (e) => {
+                    largestRead = Math.max(largestRead, e.data.largestRead);
+                    if (e.data.error) reject(new Error(e.data.error));
+                    else resolve(e.data.result);
+                };
                 worker.onerror = reject;
                 worker.postMessage(message);
             });
@@ -257,6 +298,7 @@ test('@smoke large-image editing worker preserves exact bounds and alpha while t
                 dimensions,
                 duringBounds,
                 duringApply,
+                largestRead,
                 clear: [...ctx.getImageData(0, 0, 1, 1).data],
                 faint: [...ctx.getImageData(4800, 4600, 1, 1).data],
                 solid: [...ctx.getImageData(200, 300, 1, 1).data],
@@ -264,8 +306,10 @@ test('@smoke large-image editing worker preserves exact bounds and alpha while t
         } finally {
             clearInterval(timer);
             worker.terminate();
+            URL.revokeObjectURL(wrapper);
         }
     });
+    expect(result.largestRead).toBeLessThanOrEqual(130 * 130);
     expect(result.bounds).toEqual([4701, 4401]);
     expect(result.preview).toEqual([1024, Math.round((4401 * 1024) / 4701)]);
     expect(result.dimensions).toEqual([5000, 5000]);

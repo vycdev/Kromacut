@@ -34,6 +34,8 @@ import {
     DEFAULT_PRINT_SETTINGS,
 } from './lib/printSettingsStorage';
 import { useImageEditGuard } from './hooks/useImageEditGuard';
+import { useImageWorkerTask } from './hooks/useImageWorkerTask';
+import { toHex6 } from './lib/colorUtils';
 import WindowsPathImport from './components/WindowsPathImport';
 import DeditherPanel from './components/DeditherPanel';
 import ImageResizePanel from './components/ImageResizePanel';
@@ -406,6 +408,8 @@ function App(): React.ReactElement | null {
     } = useProcessingState();
     const processingActive = isQuantizing || isDedithering || restoringProject;
     const beginImageEdit = useImageEditGuard(imageSrc, processingActive);
+    const { run: exportFilamentImage, cancel: cancelFilamentExport } = useImageWorkerTask();
+    useEffect(() => cancelFilamentExport, [imageSrc, processingActive, cancelFilamentExport]);
     const [processingStep, setProcessingStep] = useState<ProcessingStepState>({
         stepIndex: 1,
         stepCount: 1,
@@ -830,7 +834,11 @@ function App(): React.ReactElement | null {
                     return {
                         id,
                         name: palette.label,
-                        colors: palette.colors,
+                        colors: palette.colors.map((color) => {
+                            const hex = toHex6(color);
+                            if (!hex) throw new Error('Invalid palette color');
+                            return hex;
+                        }),
                         version: 1,
                         createdAt: 0,
                         updatedAt: 0,
@@ -1163,9 +1171,26 @@ function App(): React.ReactElement | null {
                                                 onApply={async () => {
                                                     const current = beginImageEdit();
                                                     if (!current) return;
-                                                    const blob =
-                                                        await canvasPreviewRef.current?.exportAdjustedImageBlob?.();
-                                                    if (!blob || !current()) return;
+                                                    const snapshot =
+                                                        await canvasPreviewRef.current?.captureImageSnapshot();
+                                                    if (!snapshot) return;
+                                                    let blob: Blob;
+                                                    try {
+                                                        if (!current()) return;
+                                                        const result = await exportFilamentImage({
+                                                            kind: 'image-export',
+                                                            snapshot,
+                                                        });
+                                                        if (!(result instanceof Blob))
+                                                            throw new Error('Invalid image export');
+                                                        blob = result;
+                                                    } catch (error) {
+                                                        if (!current()) return;
+                                                        throw error;
+                                                    } finally {
+                                                        snapshot.bitmap.close();
+                                                    }
+                                                    if (!current()) return;
                                                     invalidate();
                                                     setTouchUpTool(null);
                                                     setImage(URL.createObjectURL(blob), true);

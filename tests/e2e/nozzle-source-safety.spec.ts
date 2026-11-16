@@ -16,6 +16,11 @@ type Probe = Window & {
     holdRender: boolean;
     cancelledRenders: number;
     renderSizes: number[];
+    holdExport: boolean;
+    heldExport?: () => void;
+    exportedBlob?: Blob;
+    cancelledExports: number;
+    failExport: boolean;
 };
 async function openImage(page: Page, width: number, height: number) {
     await page.addInitScript(() => {
@@ -30,6 +35,7 @@ async function openImage(page: Page, width: number, height: number) {
         w.holdRender = false;
         w.cancelledRenders = 0;
         w.renderSizes = [];
+        w.cancelledExports = 0;
         const read = CanvasRenderingContext2D.prototype.getImageData;
         CanvasRenderingContext2D.prototype.getImageData = function (
             ...args: Parameters<typeof read>
@@ -53,10 +59,12 @@ async function openImage(page: Page, width: number, height: number) {
                 super(url, options);
                 const post = this.postMessage.bind(this);
                 let active = true,
-                    render = false;
+                    render = false,
+                    exporting = false;
                 const stop = this.terminate.bind(this);
                 this.terminate = () => {
                     if (render && active) w.cancelledRenders++;
+                    if (exporting && active) w.cancelledExports++;
                     active = false;
                     stop();
                 };
@@ -73,6 +81,28 @@ async function openImage(page: Page, width: number, height: number) {
                         this.addEventListener('message', (e) => {
                             w.thresholdBlob = e.data.result?.blob;
                         });
+                    }
+                    if (message.kind === 'image-export') {
+                        exporting = true;
+                        this.addEventListener('message', (e) => {
+                            w.exportedBlob = e.data.result;
+                        });
+                        if (w.failExport) {
+                            queueMicrotask(() =>
+                                this.dispatchEvent(
+                                    new MessageEvent('message', {
+                                        data: { error: 'Test encoding failure' },
+                                    })
+                                )
+                            );
+                            return;
+                        }
+                        if (w.holdExport) {
+                            w.heldExport = () => {
+                                if (active) post(message, transfer as Transferable[]);
+                            };
+                            return;
+                        }
                     }
                     if (message.kind === 'image-render') {
                         render = true;
@@ -327,4 +357,126 @@ test('@smoke live recoloring avoids main-thread reads and cancels obsolete large
             }, expected)
         )
         .toBe(true);
+});
+
+test('@smoke filament Apply exports full-resolution pixels in a worker with no UI readback', async ({
+    page,
+}) => {
+    await openImage(page, 1100, 600);
+    await page.getByRole('button', { name: 'Select top colors', exact: true }).click();
+    const clarity = page
+        .locator('div.space-y-2')
+        .filter({ has: page.getByRole('button', { name: 'Reset Clarity', exact: true }) })
+        .getByRole('slider');
+    await clarity.press('End');
+    // The established full-frame adjustment path provides an independent pixel oracle.
+    await page.evaluate(() => {
+        (window as unknown as Probe).imageBlobs = [];
+    });
+    await page.getByRole('button', { name: 'Apply adjustments', exact: true }).click();
+    await expect
+        .poll(() => page.evaluate(() => (window as unknown as Probe).imageBlobs.length))
+        .toBeGreaterThan(0);
+    await page.evaluate(() => {
+        (window as unknown as Probe).preparedBlob = (window as unknown as Probe).imageBlobs.at(-1)!;
+    });
+    await page.getByRole('button', { name: 'Save project', exact: true }).focus();
+    await page.keyboard.press('Control+z');
+    await expect(
+        page
+            .getByTestId('filament-recommender')
+            .getByRole('button', { name: 'Select #A02030', exact: true })
+    ).toBeVisible();
+    await page.getByRole('button', { name: 'Select top colors', exact: true }).click();
+    await clarity.press('End');
+    await page.evaluate(() => {
+        const w = window as unknown as Probe;
+        w.readbacks = [];
+        w.pngEncodes = 0;
+        w.watchCapture = true;
+        w.holdExport = true;
+    });
+    const apply = page
+        .getByTestId('filament-recommender')
+        .getByRole('button', { name: 'Apply to image', exact: true });
+    await apply.click();
+    await expect
+        .poll(() => page.evaluate(() => !!(window as unknown as Probe).heldExport))
+        .toBe(true);
+    await expect(apply).toBeDisabled();
+    expect(
+        await page.evaluate(() => {
+            const w = window as unknown as Probe;
+            return { reads: w.readbacks, encodes: w.pngEncodes };
+        })
+    ).toEqual({ reads: [], encodes: 0 });
+    await page.evaluate(() => {
+        (window as unknown as Probe).heldExport!();
+    });
+    await expect
+        .poll(() => page.evaluate(() => !!(window as unknown as Probe).exportedBlob))
+        .toBe(true);
+    const result = await page.evaluate(async () => {
+        const w = window as unknown as Probe;
+        w.watchCapture = false;
+        async function pixels(blob: Blob) {
+            const bitmap = await createImageBitmap(blob);
+            const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+            const ctx = canvas.getContext('2d')!;
+            ctx.drawImage(bitmap, 0, 0);
+            bitmap.close();
+            return ctx.getImageData(0, 0, canvas.width, canvas.height);
+        }
+        const actual = await pixels(w.exportedBlob!),
+            expected = await pixels(w.preparedBlob!);
+        return {
+            width: actual.width,
+            height: actual.height,
+            differences: actual.data.reduce((n, v, i) => n + Number(v !== expected.data[i]), 0),
+        };
+    });
+    expect(result).toEqual({ width: 1100, height: 600, differences: 0 });
+});
+
+test('@smoke filament Apply recovers from worker failure and cancels when the source changes', async ({
+    page,
+}) => {
+    await openImage(page, 1100, 600);
+    await page.getByRole('button', { name: 'Select top colors', exact: true }).click();
+    await page.evaluate(() => {
+        (window as unknown as Probe).failExport = true;
+    });
+    const panel = page.getByTestId('filament-recommender');
+    const apply = panel.getByRole('button', { name: 'Apply to image', exact: true });
+    await apply.click();
+    await expect(panel.getByRole('alert')).toContainText('Could not process the image');
+    await expect(apply).toBeEnabled();
+    await expect(page.getByText('Image: 1100×600', { exact: true })).toBeVisible();
+    await page.evaluate(() => {
+        const w = window as unknown as Probe;
+        w.failExport = false;
+        w.holdExport = true;
+        w.cancelledExports = 0;
+    });
+    await apply.click();
+    await expect
+        .poll(() => page.evaluate(() => !!(window as unknown as Probe).heldExport))
+        .toBe(true);
+    const png = await page.evaluate(async () => {
+        const canvas = new OffscreenCanvas(37, 23);
+        canvas.getContext('2d')!.fillRect(0, 0, 37, 23);
+        return [...new Uint8Array(await (await canvas.convertToBlob()).arrayBuffer())];
+    });
+    await page
+        .getByTestId('image-file-input')
+        .setInputFiles({ name: 'new.png', mimeType: 'image/png', buffer: Buffer.from(png) });
+    await expect(page.getByText('Image: 37×23', { exact: true })).toBeVisible();
+    await expect
+        .poll(() => page.evaluate(() => (window as unknown as Probe).cancelledExports))
+        .toBeGreaterThan(0);
+    await page.evaluate(() => {
+        (window as unknown as Probe).heldExport!();
+    });
+    await expect(page.getByText('Image: 37×23', { exact: true })).toBeVisible();
+    expect(await page.evaluate(() => !!(window as unknown as Probe).exportedBlob)).toBe(false);
 });

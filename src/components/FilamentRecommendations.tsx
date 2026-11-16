@@ -39,6 +39,7 @@ export default function FilamentRecommendations({
     }, [checkedBrands, material, chosen, onSessionChange]);
     const [saved, setSaved] = useState(false);
     const [applying, setApplying] = useState(false);
+    const [applyError, setApplyError] = useState(false);
     const [selectedClosest, setSelectedClosest] = useState(false);
     const targets = useMemo(
         () =>
@@ -343,8 +344,11 @@ export default function FilamentRecommendations({
                 onClick={async () => {
                     if (disabled) return;
                     setApplying(true);
+                    setApplyError(false);
                     try {
                         await onApply();
+                    } catch {
+                        setApplyError(true);
                     } finally {
                         setApplying(false);
                     }
@@ -352,6 +356,7 @@ export default function FilamentRecommendations({
             >
                 {t('recommend.applyImage')}
             </button>
+            {applyError && <p role="alert">{t('threshold.error')}</p>}
             <p className="text-xs text-muted-foreground">
                 {t('recommend.livePreview')} {t('recommend.applyBeforeExport')}
             </p>

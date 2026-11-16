@@ -1,5 +1,6 @@
 import { opaqueBounds } from './opaqueBounds';
-import { replaceImageColors } from './replaceImageColors';
+import { createReplacementLookup, applyReplacementLookup } from './replaceImageColors';
+import { IMAGE_TILE_SIZE, IMAGE_TILE_BYTES } from './imageTiles';
 import { applyAdjustments, isAllDefault } from './applyAdjustments';
 import { canApplyNozzlePatch } from './nozzlePatchLimits';
 import type { ImageEditSnapshot } from '../types';
@@ -20,7 +21,7 @@ export async function prepareNozzleSource({
 }: ImageEditSnapshot): Promise<PreparedNozzleSource> {
     const width = bitmap.width,
         height = bitmap.height;
-    const tileSize = 512;
+    const tileSize = IMAGE_TILE_SIZE;
     const tile = new OffscreenCanvas(tileSize + 2, tileSize + 2);
     const ctx = tile.getContext('2d', { willReadFrequently: true })!;
     let minX = width,
@@ -61,6 +62,13 @@ export async function prepareNozzleSource({
     const full = canApplyNozzlePatch(width, height) ? new OffscreenCanvas(width, height) : null;
     const fullCtx = full?.getContext('2d');
     const adjust = !isAllDefault(adjustments);
+    const lookup = createReplacementLookup(replacements);
+    const scratch = adjust
+        ? {
+              output: new Uint8ClampedArray(IMAGE_TILE_BYTES),
+              blurred: new Uint8ClampedArray(IMAGE_TILE_BYTES),
+          }
+        : undefined;
     // A one-pixel halo keeps clarity's 3x3 neighborhood identical at tile seams.
     for (let y = 0, py = 0; y < height; y += tileSize) {
         const endY = Math.min(height, y + tileSize),
@@ -78,8 +86,8 @@ export async function prepareNozzleSource({
             ctx.clearRect(0, 0, tile.width, tile.height);
             ctx.drawImage(bitmap, sx, sy, sw, sh, 0, 0, sw, sh);
             let data = ctx.getImageData(0, 0, sw, sh);
-            replaceImageColors(data.data, replacements);
-            if (adjust) data = applyAdjustments(data, adjustments);
+            applyReplacementLookup(data.data, lookup);
+            if (adjust) data = applyAdjustments(data, adjustments, scratch);
             // Match the canvas/PNG premultiplication of the working-image export.
             ctx.putImageData(data, 0, 0);
             data = ctx.getImageData(0, 0, sw, sh);
