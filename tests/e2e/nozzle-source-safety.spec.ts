@@ -21,6 +21,8 @@ type Probe = Window & {
     exportedBlob?: Blob;
     cancelledExports: number;
     failExport: boolean;
+    captureExportOnly: boolean;
+    exportClarity?: number;
 };
 async function openImage(page: Page, width: number, height: number) {
     await page.addInitScript(() => {
@@ -84,9 +86,25 @@ async function openImage(page: Page, width: number, height: number) {
                     }
                     if (message.kind === 'image-export') {
                         exporting = true;
-                        this.addEventListener('message', (e) => {
-                            w.exportedBlob = e.data.result;
-                        });
+                        w.exportClarity = message.snapshot.adjustments.clarity;
+                        if (w.captureExportOnly) {
+                            // Keep this exact source/settings available for the independent
+                            // full-frame oracle, instead of recreating them through Undo.
+                            const receive = this.onmessage;
+                            this.onmessage = (event) => {
+                                w.exportedBlob = event.data.result;
+                                receive?.call(
+                                    this,
+                                    new MessageEvent('message', {
+                                        data: { error: event.data.error ?? 'Captured test export' },
+                                    })
+                                );
+                            };
+                        } else {
+                            this.addEventListener('message', (e) => {
+                                w.exportedBlob = e.data.result;
+                            });
+                        }
                         if (w.failExport) {
                             queueMicrotask(() =>
                                 this.dispatchEvent(
@@ -369,32 +387,13 @@ test('@smoke filament Apply exports full-resolution pixels in a worker with no U
         .filter({ has: page.getByRole('button', { name: 'Reset Clarity', exact: true }) })
         .getByRole('slider');
     await clarity.press('End');
-    // The established full-frame adjustment path provides an independent pixel oracle.
-    await page.evaluate(() => {
-        (window as unknown as Probe).imageBlobs = [];
-    });
-    await page.getByRole('button', { name: 'Apply adjustments', exact: true }).click();
-    await expect
-        .poll(() => page.evaluate(() => (window as unknown as Probe).imageBlobs.length))
-        .toBeGreaterThan(0);
-    await page.evaluate(() => {
-        (window as unknown as Probe).preparedBlob = (window as unknown as Probe).imageBlobs.at(-1)!;
-    });
-    await page.getByRole('button', { name: 'Save project', exact: true }).focus();
-    await page.keyboard.press('Control+z');
-    await expect(
-        page
-            .getByTestId('filament-recommender')
-            .getByRole('button', { name: 'Select #A02030', exact: true })
-    ).toBeVisible();
-    await page.getByRole('button', { name: 'Select top colors', exact: true }).click();
-    await clarity.press('End');
     await page.evaluate(() => {
         const w = window as unknown as Probe;
         w.readbacks = [];
         w.pngEncodes = 0;
         w.watchCapture = true;
         w.holdExport = true;
+        w.captureExportOnly = true;
     });
     const apply = page
         .getByTestId('filament-recommender')
@@ -404,6 +403,7 @@ test('@smoke filament Apply exports full-resolution pixels in a worker with no U
         .poll(() => page.evaluate(() => !!(window as unknown as Probe).heldExport))
         .toBe(true);
     await expect(apply).toBeDisabled();
+    expect(await page.evaluate(() => (window as unknown as Probe).exportClarity)).toBe(100);
     expect(
         await page.evaluate(() => {
             const w = window as unknown as Probe;
@@ -416,9 +416,26 @@ test('@smoke filament Apply exports full-resolution pixels in a worker with no U
     await expect
         .poll(() => page.evaluate(() => !!(window as unknown as Probe).exportedBlob))
         .toBe(true);
-    const result = await page.evaluate(async () => {
+    await expect(apply).toBeEnabled();
+    expect(
+        await page.evaluate(() => {
+            const w = window as unknown as Probe;
+            return { reads: w.readbacks, encodes: w.pngEncodes };
+        })
+    ).toEqual({ reads: [], encodes: 0 });
+    // Compare the captured worker export against the old full-frame implementation
+    // without changing the source, adjustments or recommendations between captures.
+    await page.evaluate(() => {
         const w = window as unknown as Probe;
         w.watchCapture = false;
+        w.imageBlobs = [];
+    });
+    await page.getByRole('button', { name: 'Apply adjustments', exact: true }).click();
+    await expect
+        .poll(() => page.evaluate(() => (window as unknown as Probe).imageBlobs.length))
+        .toBeGreaterThan(0);
+    const result = await page.evaluate(async () => {
+        const w = window as unknown as Probe;
         async function pixels(blob: Blob) {
             const bitmap = await createImageBitmap(blob);
             const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
@@ -428,7 +445,7 @@ test('@smoke filament Apply exports full-resolution pixels in a worker with no U
             return ctx.getImageData(0, 0, canvas.width, canvas.height);
         }
         const actual = await pixels(w.exportedBlob!),
-            expected = await pixels(w.preparedBlob!);
+            expected = await pixels(w.imageBlobs.at(-1)!);
         return {
             width: actual.width,
             height: actual.height,

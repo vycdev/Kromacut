@@ -1272,10 +1272,13 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
                 );
             },
             captureImageSnapshot: async (): Promise<ImageEditSnapshot | null> => {
-                // Blurring a slider commits on the next frame and may reload the image.
-                // Retry that transition and read the committed settings with the bitmap.
+                // Slider blur schedules its commit in a frame callback. Wait through
+                // the following frame so React has rendered that commit before reading
+                // the refs; a single frame can race with the slider's callback.
                 for (let attempt = 0; attempt < 3; attempt++) {
-                    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+                    await new Promise<void>((resolve) =>
+                        requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+                    );
                     const img = imgRef.current;
                     if (!img) continue;
                     await img.decode();
