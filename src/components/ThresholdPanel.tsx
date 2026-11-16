@@ -7,12 +7,13 @@ import { useImageWorkerTask } from '../hooks/useImageWorkerTask';
 import { useThresholdPreview } from '../hooks/useThresholdPreview';
 import { useImageEditGuard } from '../hooks/useImageEditGuard';
 import type { PreparedImage } from '../workers/imageEditing.worker';
+import type { ImageEditSnapshot } from '../types';
 
 interface Props {
     disabled: boolean;
     imageSrc: string | null;
     currentColors: string[];
-    getImage: () => Promise<Blob | null>;
+    getSnapshot: () => Promise<ImageEditSnapshot | null>;
     palettes: { id: string; label: string; colors: string[] }[];
     onApply: (url: string, colors: string[]) => void;
 }
@@ -22,7 +23,7 @@ export default function ThresholdPanel({
     disabled,
     palettes,
     currentColors,
-    getImage,
+    getSnapshot,
     onApply,
 }: Props) {
     const { t } = useTranslation('workspace');
@@ -45,8 +46,8 @@ export default function ThresholdPanel({
         thresholds,
         colors
     );
-    const captureImage = useRef(getImage);
-    captureImage.current = getImage;
+    const captureImage = useRef(getSnapshot);
+    captureImage.current = getSnapshot;
     const buttonStyle = 'rounded border px-3 py-2 hover:bg-muted disabled:opacity-40';
 
     useEffect(() => {
@@ -60,16 +61,22 @@ export default function ThresholdPanel({
         setError(false);
         dialog.current?.showModal();
         void (async () => {
+            let snapshot: ImageEditSnapshot | null = null;
             try {
-                const blob = await captureImage.current();
+                snapshot = await captureImage.current();
                 if (!current?.()) return;
-                if (!blob) throw new Error('No preview image');
-                const prepared = (await run({ kind: 'threshold-source', blob })) as PreparedImage;
+                if (!snapshot) throw new Error('No preview image');
+                const prepared = (await run({
+                    kind: 'threshold-snapshot',
+                    snapshot,
+                })) as PreparedImage & { blob: Blob };
                 if (!current()) return;
-                fullImage.current = blob;
+                fullImage.current = prepared.blob;
                 setSource(prepared.pixels);
             } catch {
                 if (current?.()) setError(true);
+            } finally {
+                snapshot?.bitmap.close();
             }
         })();
         return () => {

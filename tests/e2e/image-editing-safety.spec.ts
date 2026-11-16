@@ -53,6 +53,7 @@ async function setup(page: Page) {
                     if (
                         [
                             'threshold-source',
+                            'threshold-snapshot',
                             'threshold-preview',
                             'threshold-apply',
                             'nozzle-source',

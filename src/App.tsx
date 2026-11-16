@@ -307,10 +307,13 @@ function App(): React.ReactElement | null {
     const [profileSaveNewOpen, setProfileSaveNewOpen] = useState(false);
     const [profileRenameOpen, setProfileRenameOpen] = useState(false);
     const [filamentEditing, setFilamentEditing] = useState(false);
+    const [restoringProject, setRestoringProject] = useState(false);
+    const restoringProjectRef = useRef(false);
     const { file: queuedDesktopFile, finish: finishDesktopFile } = useDesktopFileOpen();
     // OS file opens can arrive through an active editor. Keep the request queued
     // until its draft is saved or dismissed, before changing either workspace.
     const desktopFile =
+        restoringProject ||
         paletteEditorOpen ||
         calibrationDialogOpen ||
         profileSaveNewOpen ||
@@ -401,7 +404,7 @@ function App(): React.ReactElement | null {
         processingIndeterminate,
         setProcessingIndeterminate,
     } = useProcessingState();
-    const processingActive = isQuantizing || isDedithering;
+    const processingActive = isQuantizing || isDedithering || restoringProject;
     const beginImageEdit = useImageEditGuard(imageSrc, processingActive);
     const [processingStep, setProcessingStep] = useState<ProcessingStepState>({
         stepIndex: 1,
@@ -850,50 +853,63 @@ function App(): React.ReactElement | null {
         return { state, ...(await captureProjectImages({ current: imageSrc, past, future })) };
     }
     async function restoreProject(project: ProjectArchive) {
-        const session = await prepareProjectImages(project);
+        if (processingActive || restoringProjectRef.current) throw new Error('busy');
+        restoringProjectRef.current = true;
+        setRestoringProject(true);
+        cancelPendingImport();
         try {
-            restoreProjectPalettes(project.state.quantize.palettes);
-        } catch (e) {
-            revokeProjectImages(session);
-            throw e;
+            const session = await prepareProjectImages(project);
+            try {
+                restoreProjectPalettes(project.state.quantize.palettes);
+            } catch (e) {
+                revokeProjectImages(session);
+                throw e;
+            }
+            const state = project.state;
+            cancelThreeDMountRef.current?.();
+            cancelThreeDMountRef.current = null;
+            autoPaintWorkingStateInitializedRef.current = true;
+            cancelBuild();
+            setTouchUpTool(null);
+            setIsCropMode(false);
+            setHasValidCropSelection(false);
+            setProjectName(state.name);
+            setAlgorithm(state.quantize.algorithm);
+            setWeight(state.quantize.weight);
+            setFinalColors(state.quantize.finalColors);
+            setAdjustments(state.adjustments);
+            setAdjustmentsEpoch((e) => e + 1);
+            setFilamentPreview({ source: session.current, colors: {} });
+            setRecommendationSession(
+                state.recommendations
+                    ? { source: session.current, state: state.recommendations }
+                    : null
+            );
+            setNozzleSession(
+                state.nozzle ? { source: session.current, state: state.nozzle } : null
+            );
+            savePrintSettingsToStorage({
+                layerHeight: state.threeD.layerHeight,
+                slicerFirstLayerHeight: state.threeD.slicerFirstLayerHeight,
+                pixelSize: state.threeD.pixelSize,
+                smoothMeshingStrength: state.threeD.smoothMeshingStrength ?? 'none',
+            });
+            replaceThreeDState(state.threeD);
+            setProjectEpoch((e) => e + 1);
+            setHasMountedThreeDControls(false);
+            setMode('2d');
+            setPendingProjectMode(state.view.mode);
+            setIsOrtho(state.view.isOrtho);
+            setPreviewRenderMode(state.view.renderMode);
+            setPreviewColorMode(state.view.colorMode);
+            setShowCheckerboard(state.view.checkerboard);
+            invalidate();
+            replaceHistory(session);
+            // Restore the tab once its swatches are ready; geometry still requires an explicit build.
+        } finally {
+            restoringProjectRef.current = false;
+            setRestoringProject(false);
         }
-        const state = project.state;
-        cancelThreeDMountRef.current?.();
-        cancelThreeDMountRef.current = null;
-        autoPaintWorkingStateInitializedRef.current = true;
-        cancelBuild();
-        setTouchUpTool(null);
-        setIsCropMode(false);
-        setHasValidCropSelection(false);
-        setProjectName(state.name);
-        setAlgorithm(state.quantize.algorithm);
-        setWeight(state.quantize.weight);
-        setFinalColors(state.quantize.finalColors);
-        setAdjustments(state.adjustments);
-        setAdjustmentsEpoch((e) => e + 1);
-        setFilamentPreview({ source: session.current, colors: {} });
-        setRecommendationSession(
-            state.recommendations ? { source: session.current, state: state.recommendations } : null
-        );
-        setNozzleSession(state.nozzle ? { source: session.current, state: state.nozzle } : null);
-        savePrintSettingsToStorage({
-            layerHeight: state.threeD.layerHeight,
-            slicerFirstLayerHeight: state.threeD.slicerFirstLayerHeight,
-            pixelSize: state.threeD.pixelSize,
-            smoothMeshingStrength: state.threeD.smoothMeshingStrength ?? 'none',
-        });
-        replaceThreeDState(state.threeD);
-        setProjectEpoch((e) => e + 1);
-        setHasMountedThreeDControls(false);
-        setMode('2d');
-        setPendingProjectMode(state.view.mode);
-        setIsOrtho(state.view.isOrtho);
-        setPreviewRenderMode(state.view.renderMode);
-        setPreviewColorMode(state.view.colorMode);
-        setShowCheckerboard(state.view.checkerboard);
-        invalidate();
-        replaceHistory(session);
-        // Restore the tab once its swatches are ready; geometry still requires an explicit build.
     }
 
     useImageHistoryShortcuts({
@@ -916,6 +932,7 @@ function App(): React.ReactElement | null {
                 <div
                     className={`${docsOpen ? 'hidden' : 'flex'} flex-1 min-h-0 w-full`}
                     ref={layoutRef}
+                    inert={restoringProject}
                 >
                     <ResizableSplitter defaultSize={30} minSize={20} maxSize={50}>
                         <aside className="h-full w-full bg-card border-r border-border flex flex-col min-h-0">
@@ -1038,7 +1055,11 @@ function App(): React.ReactElement | null {
                                                 algorithm={algorithm}
                                                 setAlgorithm={setAlgorithm}
                                                 onApply={async () => {
-                                                    if (isQuantizing) return;
+                                                    if (
+                                                        processingActive ||
+                                                        restoringProjectRef.current
+                                                    )
+                                                        return;
                                                     setIsQuantizing(true);
                                                     setProcessingLabel('Quantizing...');
                                                     setProcessingStep({
@@ -1060,7 +1081,9 @@ function App(): React.ReactElement | null {
                                                         setProcessingIndeterminate(false);
                                                     }
                                                 }}
-                                                disabled={!imageSrc || isCropMode}
+                                                disabled={
+                                                    !imageSrc || isCropMode || processingActive
+                                                }
                                                 applying={isQuantizing}
                                                 weightDisabled={algorithm === 'none'}
                                                 selectedPalette={selectedPalette}
@@ -1105,8 +1128,8 @@ function App(): React.ReactElement | null {
                                                               ] ?? s.hex)
                                                             : s.hex
                                                     )}
-                                                getImage={async () =>
-                                                    (await canvasPreviewRef.current?.exportAdjustedImageBlob?.()) ??
+                                                getSnapshot={async () =>
+                                                    (await canvasPreviewRef.current?.captureImageSnapshot()) ??
                                                     null
                                                 }
                                                 palettes={allPalettes.filter(
@@ -1290,7 +1313,7 @@ function App(): React.ReactElement | null {
                                                 </Button>
                                             </div>
                                         )}
-                                        {processingActive && (
+                                        {(isQuantizing || isDedithering) && (
                                             <ProgressOverlay
                                                 title={progressOperationTitle()}
                                                 stepLabel={

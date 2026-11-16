@@ -119,10 +119,11 @@ export default function ProjectControls({
                     accept=".kromacut"
                     data-testid="project-file-input"
                     className="hidden"
+                    disabled={busy || disabled}
                     onChange={(e) => {
                         const file = e.target.files?.[0];
                         e.target.value = '';
-                        if (file) void open(file);
+                        if (file && !busy && !disabled) void open(file);
                     }}
                 />
             </div>

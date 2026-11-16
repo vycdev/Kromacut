@@ -11,6 +11,11 @@ type Probe = Window & {
     preparedBlob: Blob | null;
     preparationError?: string;
     imageBlobs: Blob[];
+    thresholdBlob?: Blob;
+    heldRenders: Array<() => void>;
+    holdRender: boolean;
+    cancelledRenders: number;
+    renderSizes: number[];
 };
 async function openImage(page: Page, width: number, height: number) {
     await page.addInitScript(() => {
@@ -21,6 +26,10 @@ async function openImage(page: Page, width: number, height: number) {
         w.pngEncodes = 0;
         w.snapshotRequests = 0;
         w.imageBlobs = [];
+        w.heldRenders = [];
+        w.holdRender = false;
+        w.cancelledRenders = 0;
+        w.renderSizes = [];
         const read = CanvasRenderingContext2D.prototype.getImageData;
         CanvasRenderingContext2D.prototype.getImageData = function (
             ...args: Parameters<typeof read>
@@ -43,6 +52,14 @@ async function openImage(page: Page, width: number, height: number) {
             constructor(url: string | URL, options?: WorkerOptions) {
                 super(url, options);
                 const post = this.postMessage.bind(this);
+                let active = true,
+                    render = false;
+                const stop = this.terminate.bind(this);
+                this.terminate = () => {
+                    if (render && active) w.cancelledRenders++;
+                    active = false;
+                    stop();
+                };
                 this.postMessage = (message, transfer = []) => {
                     if (message.kind === 'nozzle-snapshot') {
                         w.snapshotRequests++;
@@ -51,6 +68,23 @@ async function openImage(page: Page, width: number, height: number) {
                             w.preparedBlob = e.data.result?.blob;
                             w.preparationError = e.data.error;
                         });
+                    }
+                    if (message.kind === 'threshold-snapshot') {
+                        this.addEventListener('message', (e) => {
+                            w.thresholdBlob = e.data.result?.blob;
+                        });
+                    }
+                    if (message.kind === 'image-render') {
+                        render = true;
+                        w.renderSizes.push(
+                            message.snapshot.bitmap.width * message.snapshot.bitmap.height
+                        );
+                        if (w.holdRender) {
+                            w.heldRenders.push(() => {
+                                if (active) post(message, transfer as Transferable[]);
+                            });
+                            return;
+                        }
                     }
                     if ('pixelSizeMm' in message) w.comparisonUrl = String(url);
                     post(message, transfer as Transferable[]);
@@ -185,4 +219,112 @@ test('@smoke tiled nozzle capture matches full-frame recoloring and clarity acro
         return { width: actual.width, height: actual.height, differences };
     });
     expect(comparison).toEqual({ width: 1100, height: 600, differences: 0 });
+});
+
+test('@smoke threshold capture uses worker tiles and preserves adjusted full-resolution pixels', async ({
+    page,
+}) => {
+    await openImage(page, 1100, 600);
+    await page.getByRole('button', { name: 'Select top colors', exact: true }).click();
+    const clarity = page
+        .locator('div.space-y-2')
+        .filter({ has: page.getByRole('button', { name: 'Reset Clarity', exact: true }) })
+        .getByRole('slider');
+    await clarity.press('End');
+    await page.evaluate(() => {
+        (window as unknown as Probe).watchCapture = true;
+    });
+    await page.getByRole('button', { name: 'Edit thresholds', exact: true }).click();
+    await expect
+        .poll(() => page.evaluate(() => !!(window as unknown as Probe).thresholdBlob))
+        .toBe(true);
+    await expect(
+        page.getByRole('dialog').getByRole('button', { name: 'Apply thresholds', exact: true })
+    ).toBeEnabled();
+    expect(
+        await page.evaluate(() => ({
+            reads: (window as unknown as Probe).readbacks,
+            encodes: (window as unknown as Probe).pngEncodes,
+        }))
+    ).toEqual({ reads: [], encodes: 0 });
+    await page.getByRole('dialog').getByRole('button', { name: 'Cancel', exact: true }).click();
+    await page.evaluate(() => {
+        const w = window as unknown as Probe;
+        w.watchCapture = false;
+        w.imageBlobs = [];
+    });
+    await page.getByRole('button', { name: 'Apply adjustments', exact: true }).click();
+    await expect
+        .poll(() => page.evaluate(() => (window as unknown as Probe).imageBlobs.length))
+        .toBeGreaterThan(0);
+    const difference = await page.evaluate(async () => {
+        const w = window as unknown as Probe;
+        async function pixels(blob: Blob) {
+            const bitmap = await createImageBitmap(blob);
+            const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+            const ctx = canvas.getContext('2d')!;
+            ctx.drawImage(bitmap, 0, 0);
+            bitmap.close();
+            return ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+        }
+        const a = await pixels(w.thresholdBlob!),
+            b = await pixels(w.imageBlobs.at(-1)!);
+        return a.length === b.length ? a.reduce((n, v, i) => n + Number(v !== b[i]), 0) : -1;
+    });
+    expect(difference).toBe(0);
+});
+
+test('@smoke live recoloring avoids main-thread reads and cancels obsolete large-image renders', async ({
+    page,
+}) => {
+    await openImage(page, 2050, 2050);
+    const swatch = page
+        .getByTestId('filament-recommender')
+        .getByRole('button', { name: 'Select #A02030', exact: true });
+    await swatch.click();
+    const matches = page.getByTestId('filament-match-row').getByRole('radio');
+    await page.evaluate(() => {
+        const w = window as unknown as Probe;
+        w.watchCapture = true;
+        w.holdRender = true;
+    });
+    await matches.nth(1).click();
+    await expect
+        .poll(() => page.evaluate(() => (window as unknown as Probe).heldRenders.length))
+        .toBe(1);
+    await matches.nth(2).click();
+    await expect
+        .poll(() => page.evaluate(() => (window as unknown as Probe).heldRenders.length))
+        .toBe(2);
+    const expected = await swatch.getAttribute('data-preview-hex');
+    const probe = await page.evaluate(() => {
+        const w = window as unknown as Probe;
+        const result = {
+            reads: w.readbacks,
+            encodes: w.pngEncodes,
+            cancelled: w.cancelledRenders,
+            sizes: w.renderSizes,
+        };
+        w.watchCapture = false;
+        w.holdRender = false;
+        w.heldRenders.splice(0).forEach((send) => send());
+        return result;
+    });
+    expect(probe.reads).toEqual([]);
+    expect(probe.encodes).toBe(0);
+    expect(probe.cancelled).toBeGreaterThanOrEqual(1);
+    expect(probe.sizes).toEqual([2050 * 2050, 2050 * 2050]);
+    await expect
+        .poll(() =>
+            page.getByTestId('main-image-preview').evaluate((canvas: HTMLCanvasElement, hex) => {
+                const rgb = [1, 3, 5].map((i) => parseInt(hex!.slice(i, i + 2), 16));
+                const d = canvas
+                    .getContext('2d')!
+                    .getImageData(0, 0, canvas.width, canvas.height).data;
+                for (let i = 0; i < d.length; i += 4)
+                    if (rgb.every((c, k) => d[i + k] === c) && d[i + 3] === 255) return true;
+                return false;
+            }, expected)
+        )
+        .toBe(true);
 });

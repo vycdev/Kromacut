@@ -104,3 +104,5 @@ Edit thresholds, abaixo de Image colors, define bandas de brilho. N cores têm N
 Selecione várias paletas e um número de cores independente: primeiro reduzir, depois corresponder às cores ativas. O recomendador mostra dez filamentos por cor, o mais próximo à esquerda, combinando várias marcas. Ctrl+Z anula e Ctrl+Shift+Z refaz. Compare nozzle sizes compara 0,4 e 0,2 mm ao tamanho escolhido sem fatiar. Âmbar e rosa indicam regiões estreitas com ou sem vizinho mais largo, não probabilidades de falha. Patch vulnerable regions propõe uniões confirmadas por Apply. Save project guarda imagem, histórico e definições num ficheiro portátil .kromacut. Open project substitui a sessão após confirmação; reconstrua depois o modelo 3D. Em WSL, Open Windows path importa caminhos Windows.
 
 A aplicação à resolução completa suporta imagens até 4 megapíxeis, incluindo margens transparentes. Reduza a imagem para aplicar a correção; a pré-visualização continua disponível.
+
+O espaço de trabalho fica bloqueado durante o restauro de um projeto para evitar que outras edições ou importações o substituam. Se a descodificação falhar, é desbloqueado e mantém a sessão atual.

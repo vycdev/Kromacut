@@ -45,7 +45,7 @@ export function useImageWorkerTask() {
                 try {
                     worker.postMessage(
                         request,
-                        request.kind === 'nozzle-snapshot' ? [request.snapshot.bitmap] : []
+                        'snapshot' in request ? [request.snapshot.bitmap] : []
                     );
                 } catch (error) {
                     finish();

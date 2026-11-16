@@ -1,3 +1,4 @@
+import { renderAdjustedImage } from '../lib/renderAdjustedImage';
 import { prepareNozzleSource, type PreparedNozzleSource } from '../lib/prepareNozzleSource';
 import type { ImageEditSnapshot } from '../types';
 import { thresholdPixels } from '../lib/thresholds';
@@ -5,6 +6,8 @@ import { thresholdPixels } from '../lib/thresholds';
 export type ImageEditingRequest =
     | { kind: 'threshold-source' | 'nozzle-source'; blob: Blob }
     | { kind: 'nozzle-snapshot'; snapshot: ImageEditSnapshot }
+    | { kind: 'threshold-snapshot'; snapshot: ImageEditSnapshot }
+    | { kind: 'image-render'; snapshot: ImageEditSnapshot }
     | { kind: 'threshold-apply'; blob: Blob; thresholds: number[]; colors: string[] }
     | { kind: 'threshold-preview'; pixels: ImageData; thresholds: number[]; colors: string[] };
 export interface PreparedImage {
@@ -12,7 +15,12 @@ export interface PreparedImage {
     originalWidth: number;
     originalHeight: number;
 }
-export type ImageEditingResult = PreparedImage | PreparedNozzleSource | Blob | ImageData;
+export type ImageEditingResult =
+    | PreparedImage
+    | PreparedNozzleSource
+    | Blob
+    | ImageData
+    | ImageBitmap;
 export interface ImageEditingResponse {
     result?: ImageEditingResult;
     error?: string;
@@ -22,6 +30,31 @@ self.onmessage = async (event: MessageEvent<ImageEditingRequest>) => {
     const request = event.data;
     let bitmap: ImageBitmap | undefined;
     try {
+        if (request.kind === 'threshold-snapshot' || request.kind === 'image-render') {
+            bitmap = request.snapshot.bitmap;
+            const full = renderAdjustedImage(request.snapshot);
+            if (request.kind === 'image-render') {
+                const result = full.transferToImageBitmap();
+                self.postMessage({ result }, { transfer: [result] });
+            } else {
+                const scale = Math.min(1, 1000 / Math.max(full.width, full.height));
+                const preview = new OffscreenCanvas(
+                    Math.max(1, Math.round(full.width * scale)),
+                    Math.max(1, Math.round(full.height * scale))
+                );
+                const ctx = preview.getContext('2d')!;
+                ctx.drawImage(full, 0, 0, preview.width, preview.height);
+                const pixels = ctx.getImageData(0, 0, preview.width, preview.height);
+                const result = {
+                    pixels,
+                    originalWidth: full.width,
+                    originalHeight: full.height,
+                    blob: await full.convertToBlob({ type: 'image/png' }),
+                };
+                self.postMessage({ result }, { transfer: [pixels.data.buffer] });
+            }
+            return;
+        }
         if (request.kind === 'nozzle-snapshot') {
             bitmap = request.snapshot.bitmap;
             const result = await prepareNozzleSource(request.snapshot);
