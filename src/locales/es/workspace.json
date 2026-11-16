@@ -352,7 +352,8 @@
     "applyPatch": "Aplicar a la imagen",
     "patchHelp": "Unir al color adyacente más parecido con una zona más ancha. El borde compartido desempata. Sin vecinos adecuados, la zona no cambia.",
     "noPatch": "No se pudieron corregir zonas a resolución completa.",
-    "patchApplyHelp": "Se aplica a resolución completa con las dimensiones de esta comparación. La vista reducida puede variar. Los ajustes de impresión no cambian. Ctrl+Z deshace."
+    "patchApplyHelp": "Se aplica a resolución completa con las dimensiones de esta comparación. La vista reducida puede variar. Los ajustes de impresión no cambian. Ctrl+Z deshace.",
+    "patchSizeLimit": "La aplicación a resolución completa admite imágenes de hasta {{megapixels}} megapíxeles, incluidos los márgenes transparentes. Reduce la imagen para aplicar el parche; la vista previa sigue disponible."
   },
   "project": {
     "title": "Proyecto",

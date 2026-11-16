@@ -1160,8 +1160,8 @@ function App(): React.ReactElement | null {
                                                 }
                                                 onSessionChange={rememberNozzle}
                                                 imageAvailable={!!imageSrc}
-                                                getImage={async () =>
-                                                    (await canvasPreviewRef.current?.exportAdjustedImageBlob?.()) ??
+                                                getSnapshot={async () =>
+                                                    (await canvasPreviewRef.current?.captureImageSnapshot()) ??
                                                     null
                                                 }
                                                 onApply={(blob) => {

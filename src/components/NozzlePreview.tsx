@@ -7,18 +7,20 @@ import { loadPrintSettingsFromStorage, DEFAULT_PRINT_SETTINGS } from '../lib/pri
 
 import { useImageWorkerTask } from '../hooks/useImageWorkerTask';
 import { useImageEditGuard } from '../hooks/useImageEditGuard';
-import type { PreparedImage } from '../workers/imageEditing.worker';
+import type { PreparedNozzleSource } from '../lib/prepareNozzleSource';
+import type { ImageEditSnapshot } from '../types';
+import { MAX_NOZZLE_PATCH_PIXELS } from '../lib/nozzlePatchLimits';
 
 interface Props {
     disabled: boolean;
     initial?: NozzleSession | null;
     onSessionChange?: (state: NozzleSession) => void;
     imageAvailable: boolean;
-    getImage: () => Promise<Blob | null>;
+    getSnapshot: () => Promise<ImageEditSnapshot | null>;
     onApply: (blob: Blob) => void;
 }
 interface Source {
-    blob: Blob;
+    blob: Blob | null;
     pixels: ImageData;
     originalWidth: number;
     originalHeight: number;
@@ -225,7 +227,7 @@ function Comparison({
                     </p>
                     <button
                         className={buttonStyle}
-                        disabled={busy || error || applying || !result?.patch}
+                        disabled={busy || error || applying || !result?.patch || !source.blob}
                         onClick={onApply}
                     >
                         {t(applying ? 'nozzle.applying' : 'nozzle.applyPatch')}
@@ -239,7 +241,7 @@ function Comparison({
 export default function NozzlePreview({
     imageAvailable,
     disabled,
-    getImage,
+    getSnapshot,
     onApply,
     initial,
     onSessionChange,
@@ -298,11 +300,15 @@ export default function NozzlePreview({
         setSource(null);
         setError(false);
         setOpen(true);
+        let snapshot: ImageEditSnapshot | null = null;
         try {
-            const blob = await getImage();
-            if (!blob) throw new Error('No image');
+            snapshot = await getSnapshot();
+            if (!snapshot) throw new Error('No image');
             if (id !== generation.current || !current()) return;
-            const prepared = (await prepare({ kind: 'nozzle-source', blob })) as PreparedImage;
+            const prepared = (await prepare({
+                kind: 'nozzle-snapshot',
+                snapshot,
+            })) as PreparedNozzleSource;
             if (id !== generation.current || !current()) return;
             const { originalWidth: width, originalHeight: height, pixels } = prepared;
             const pixelSize =
@@ -313,7 +319,7 @@ export default function NozzlePreview({
                 initializedWidth.current = true;
             }
             setSource({
-                blob,
+                blob: prepared.blob,
                 pixels,
                 originalWidth: width,
                 originalHeight: height,
@@ -321,6 +327,8 @@ export default function NozzlePreview({
             });
         } catch {
             if (id === generation.current) setError(true);
+        } finally {
+            snapshot?.bitmap.close();
         }
     }
     return (
@@ -403,6 +411,13 @@ export default function NozzlePreview({
                             {t('nozzle.patchHelp')} {t('nozzle.patchApplyHelp')}
                         </p>
                     )}
+                    {source && !source.blob && (
+                        <p role="status" data-testid="nozzle-patch-size-limit">
+                            {t('nozzle.patchSizeLimit', {
+                                megapixels: MAX_NOZZLE_PATCH_PIXELS / 1_000_000,
+                            })}
+                        </p>
+                    )}
                     {patch.status && (
                         <p role="alert">
                             {t(patch.status === 'error' ? 'nozzle.error' : 'nozzle.noPatch')}
@@ -435,7 +450,7 @@ export default function NozzlePreview({
                                         applying={patch.busy || disabled}
                                         onApply={async () => {
                                             const current = beginEdit();
-                                            if (!current) return;
+                                            if (!current || !source.blob) return;
                                             const id = generation.current;
                                             const blob = await patch.apply(
                                                 source.blob,

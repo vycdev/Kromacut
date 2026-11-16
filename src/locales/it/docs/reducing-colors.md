@@ -102,3 +102,5 @@ Edit thresholds sotto Image colors definisce bande di luminosità. N colori hann
 ## Sessioni e strumenti di anteprima
 
 Seleziona più tavolozze e un numero di colori indipendente: prima riduzione, poi abbinamento ai colori attivi. Il suggeritore mostra dieci filamenti per colore, il più vicino a sinistra, combinando più marche. Ctrl+Z annulla e Ctrl+Shift+Z ripristina. Compare nozzle sizes confronta 0,4 e 0,2 mm alla dimensione scelta senza slicing. Ambra e rosa indicano regioni strette con o senza un vicino più ampio, non probabilità di errore. Patch vulnerable regions propone fusioni, confermate da Apply. Save project salva immagine, cronologia e impostazioni in un file portatile .kromacut. Open project sostituisce la sessione dopo conferma; ricostruisci poi il modello 3D. In WSL, Open Windows path importa percorsi Windows.
+
+L’applicazione a piena risoluzione supporta immagini fino a 4 megapixel, inclusi i margini trasparenti. Riduci l’immagine per applicare la correzione; l’anteprima resta disponibile.

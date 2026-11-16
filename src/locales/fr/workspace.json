@@ -352,7 +352,8 @@
     "applyPatch": "Appliquer à l’image",
     "patchHelp": "Fusionner avec la couleur voisine plus large la plus proche. La frontière commune départage les égalités. Sans voisin adapté, la zone reste intacte.",
     "noPatch": "Aucune zone corrigible en pleine résolution.",
-    "patchApplyHelp": "Application en pleine résolution aux dimensions de cette comparaison. L’aperçu réduit peut différer. Paramètres d’impression inchangés. Ctrl+Z annule."
+    "patchApplyHelp": "Application en pleine résolution aux dimensions de cette comparaison. L’aperçu réduit peut différer. Paramètres d’impression inchangés. Ctrl+Z annule.",
+    "patchSizeLimit": "L’application en pleine résolution accepte les images jusqu’à {{megapixels}} mégapixels, marges transparentes comprises. Réduisez l’image pour appliquer la correction ; l’aperçu reste disponible."
   },
   "project": {
     "title": "Projet",

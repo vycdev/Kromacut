@@ -1,3 +1,4 @@
+import { assertNozzlePatchSize } from './nozzlePatchLimits.ts';
 import { rgbToLab, deltaE2000Lab, type Lab } from './colorDifference.ts';
 
 export interface RegionPatch {
@@ -16,6 +17,7 @@ export function patchVulnerableRegions(
     source: Uint8ClampedArray,
     mask: Uint8Array
 ): RegionPatch {
+    assertNozzlePatchSize(width, height);
     const n = width * height;
     if (
         !Number.isInteger(width) ||
@@ -27,8 +29,12 @@ export function patchVulnerableRegions(
     )
         throw new Error('Invalid region patch dimensions');
     const data = new Uint8ClampedArray(source);
+    let flagged = 0;
+    for (let i = 0; i < n; i++) if (mask[i] && source[i * 4 + 3]) flagged++;
+    if (!flagged)
+        return { data, changedPixelCount: 0, patchedRegionCount: 0, unresolvedPixelCount: 0 };
     const visited = new Uint8Array(n);
-    const queue = new Int32Array(n);
+    const queue = new Int32Array(flagged);
     const key = (i: number) => (source[i * 4] << 16) | (source[i * 4 + 1] << 8) | source[i * 4 + 2];
     const labs = new Map<number, Lab>();
     const lab = (rgb: number) => {

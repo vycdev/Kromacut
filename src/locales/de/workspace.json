@@ -349,7 +349,8 @@
     "applyPatch": "Auf Bild anwenden",
     "patchHelp": "Mit der ähnlichsten benachbarten breiteren Farbe vereinigen. Bei Gleichstand entscheidet die gemeinsame Grenze. Ohne geeigneten Nachbarn bleibt der Bereich erhalten.",
     "noPatch": "Bei voller Auflösung konnten keine Bereiche ausgebessert werden.",
-    "patchApplyHelp": "Anwendung in voller Auflösung mit den Maßen dieses Vergleichs. Verkleinerte Vorschauen können abweichen. Druckeinstellungen bleiben erhalten. Ctrl+Z macht rückgängig."
+    "patchApplyHelp": "Anwendung in voller Auflösung mit den Maßen dieses Vergleichs. Verkleinerte Vorschauen können abweichen. Druckeinstellungen bleiben erhalten. Ctrl+Z macht rückgängig.",
+    "patchSizeLimit": "Patches in voller Auflösung unterstützen Bilder bis {{megapixels}} Megapixel einschließlich transparenter Ränder. Verkleinere das Bild zum Anwenden; die Vorschau bleibt verfügbar."
   },
   "project": {
     "title": "Projekt",

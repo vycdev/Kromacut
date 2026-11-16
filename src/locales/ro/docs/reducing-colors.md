@@ -102,3 +102,5 @@ Edit thresholds de sub Image colors definește benzi de luminozitate. N culori a
 ## Sesiuni și instrumente de previzualizare
 
 Selectează mai multe palete și un număr independent de culori: întâi reducere, apoi potrivire cu culorile active. Recomandările arată zece filamente pentru fiecare culoare, cel mai apropiat la stânga, cu mai multe mărci. Ctrl+Z anulează, Ctrl+Shift+Z reface. Compare nozzle sizes compară 0,4 și 0,2 mm la dimensiunea aleasă fără feliere. Chihlimbar și roz indică regiuni înguste cu sau fără vecin mai lat, nu probabilități de eșec. Patch vulnerable regions propune uniri confirmate prin Apply. Save project păstrează imaginea, istoricul și setările într-un fișier portabil .kromacut. Open project înlocuiește sesiunea după confirmare; reconstruiește apoi modelul 3D. În WSL, Open Windows path importă căi Windows.
+
+Aplicarea la rezoluție completă acceptă imagini de până la 4 megapixeli, inclusiv marginile transparente. Micșorați imaginea pentru a aplica corecția; previzualizarea rămâne disponibilă.

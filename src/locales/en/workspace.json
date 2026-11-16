@@ -349,7 +349,8 @@
         "applyPatch": "Apply patch to image",
         "patchHelp": "Merge into the closest adjacent wider color. Shared boundary breaks ties. Regions without a suitable neighbor stay unchanged.",
         "noPatch": "No regions could be patched at full resolution.",
-        "patchApplyHelp": "Apply uses full resolution and this comparison’s dimensions. Sampled previews may differ. Print settings stay unchanged. Ctrl+Z undoes."
+        "patchApplyHelp": "Apply uses full resolution and this comparison’s dimensions. Sampled previews may differ. Print settings stay unchanged. Ctrl+Z undoes.",
+        "patchSizeLimit": "Full-resolution patching supports images up to {{megapixels}} megapixels, including transparent margins. Resize the image to apply a patch; preview remains available."
     },
     "project": {
         "title": "Project",

@@ -56,6 +56,7 @@ async function setup(page: Page) {
                             'threshold-preview',
                             'threshold-apply',
                             'nozzle-source',
+                            'nozzle-snapshot',
                         ].includes(message?.kind)
                     )
                         w.editingWorkerUrl = String(url);

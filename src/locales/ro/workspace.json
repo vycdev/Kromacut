@@ -352,7 +352,8 @@
     "applyPatch": "Aplică imaginii",
     "patchHelp": "Unește cu cea mai apropiată culoare vecină mai lată. Granița comună departajează egalitățile. Zonele fără vecini potriviți rămân neschimbate.",
     "noPatch": "Nicio zonă nu a putut fi corectată la rezoluție completă.",
-    "patchApplyHelp": "Aplică la rezoluție completă folosind dimensiunile acestei comparații. Previzualizarea redusă poate diferi. Setările de imprimare rămân neschimbate. Ctrl+Z anulează."
+    "patchApplyHelp": "Aplică la rezoluție completă folosind dimensiunile acestei comparații. Previzualizarea redusă poate diferi. Setările de imprimare rămân neschimbate. Ctrl+Z anulează.",
+    "patchSizeLimit": "Aplicarea la rezoluție completă acceptă imagini de până la {{megapixels}} megapixeli, inclusiv marginile transparente. Micșorați imaginea pentru a aplica corecția; previzualizarea rămâne disponibilă."
   },
   "project": {
     "title": "Proiect",

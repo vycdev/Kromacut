@@ -1,3 +1,4 @@
+import { assertNozzlePatchSize } from '../lib/nozzlePatchLimits';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { RegionPatch } from '../lib/patchVulnerableRegions';
 import type { NozzleComparisonResponse } from '../workers/nozzlePreview.worker';
@@ -34,6 +35,7 @@ export function useNozzlePatch() {
         try {
             bitmap = await createImageBitmap(blob);
             if (id !== operation.current) return null;
+            assertNozzlePatchSize(bitmap.width, bitmap.height);
             const canvas = document.createElement('canvas');
             canvas.width = bitmap.width;
             canvas.height = bitmap.height;

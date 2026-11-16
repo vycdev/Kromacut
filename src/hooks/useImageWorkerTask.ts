@@ -43,7 +43,10 @@ export function useImageWorkerTask() {
                     reject(new Error('Invalid worker response'));
                 };
                 try {
-                    worker.postMessage(request);
+                    worker.postMessage(
+                        request,
+                        request.kind === 'nozzle-snapshot' ? [request.snapshot.bitmap] : []
+                    );
                 } catch (error) {
                     finish();
                     reject(error);

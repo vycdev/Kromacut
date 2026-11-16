@@ -102,3 +102,5 @@ Sous Image colors, Edit thresholds définit les plages de luminosité. N couleur
 ## Sessions et outils de prévisualisation
 
 Cochez plusieurs palettes et choisissez séparément le nombre de couleurs : réduction, puis correspondance avec les couleurs actives. Le recommandeur affiche dix filaments par couleur, le plus proche à gauche, avec plusieurs marques possibles. Ctrl+Z annule, Ctrl+Shift+Z rétablit. Compare nozzle sizes compare les buses de 0,4 et 0,2 mm à la taille voulue, sans tranchage. Ambre et rose indiquent des régions étroites avec ou sans voisin plus large ; ce ne sont pas des probabilités d’échec. Patch vulnerable regions propose des regroupements, appliqués seulement avec Apply. Save project conserve l’image, l’historique et les réglages dans un fichier portable .kromacut. Open project remplace la session après confirmation ; reconstruisez ensuite le modèle 3D. Sous WSL, Open Windows path permet de charger un chemin Windows.
+
+L’application en pleine résolution accepte les images jusqu’à 4 mégapixels, marges transparentes comprises. Réduisez l’image pour appliquer la correction ; l’aperçu reste disponible.

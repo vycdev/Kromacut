@@ -102,3 +102,5 @@ Edit thresholds, debajo de Image colors, permite definir bandas de brillo. N col
 ## Sesiones y herramientas de vista previa
 
 Marca varias paletas y elige por separado el número de colores: primero se reduce y después se buscan coincidencias activas. El recomendador muestra diez filamentos por color, el más cercano a la izquierda, combinando varias marcas. Ctrl+Z deshace y Ctrl+Shift+Z rehace. Compare nozzle sizes compara 0,4 y 0,2 mm al tamaño elegido sin laminar. Ámbar y rosa indican regiones estrechas con o sin vecino más ancho, no probabilidades de fallo. Patch vulnerable regions propone fusiones que Apply confirma. Save project guarda imagen, historial y ajustes en un archivo portátil .kromacut. Open project reemplaza la sesión tras confirmación; reconstruye después el modelo 3D. En WSL, Open Windows path permite importar rutas de Windows.
+
+La aplicación a resolución completa admite imágenes de hasta 4 megapíxeles, incluidos los márgenes transparentes. Reduce la imagen para aplicar el parche; la vista previa sigue disponible.

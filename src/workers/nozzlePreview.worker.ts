@@ -1,3 +1,4 @@
+import { assertNozzlePatchSize } from '../lib/nozzlePatchLimits';
 import {
     simulatePrintableFeatures,
     type PrintableFeatureSimulation,
@@ -21,6 +22,7 @@ export type NozzleComparisonRequest = PrintableFeatureWorkerRequest & {
 self.onmessage = (event: MessageEvent<NozzleComparisonRequest>) => {
     const input = event.data;
     try {
+        if (input.patchOnly || input.patchEnabled) assertNozzlePatchSize(input.width, input.height);
         let analysis = simulatePrintableFeatures(input);
         const patch =
             input.patchEnabled || input.patchOnly

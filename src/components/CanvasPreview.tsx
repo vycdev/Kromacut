@@ -21,7 +21,7 @@ import {
     strokeLinePoints,
     wrapTextLines,
 } from '../lib/touchup';
-import type { TouchUpTool } from '../types';
+import type { TouchUpTool, ImageEditSnapshot } from '../types';
 
 export interface CanvasPreviewHandle {
     redraw: () => void;
@@ -30,6 +30,7 @@ export interface CanvasPreviewHandle {
     waitForNextDraw?: () => Promise<void>;
     exportCroppedImage: () => Promise<Blob | null>;
     exportImageBlob: () => Promise<Blob | null>;
+    captureImageSnapshot: () => Promise<ImageEditSnapshot | null>;
     hasValidCropSelection: () => boolean;
     onCropSelectionChange?: (hasValid: boolean) => void;
     exportAdjustedImageBlob?: (
@@ -164,6 +165,8 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
             () => (hasAdjustments && adjustments ? JSON.stringify(adjustments) : ''),
             [adjustments, hasAdjustments]
         );
+        const adjustmentsRef = useRef(adjustments);
+        adjustmentsRef.current = adjustments;
 
         const drawToCanvas = useCallback(() => {
             const canvas = canvasRef.current;
@@ -1253,6 +1256,30 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
                 return await new Promise<Blob | null>((resolve) =>
                     outCanvas.toBlob((b) => resolve(b), 'image/png')
                 );
+            },
+            captureImageSnapshot: async (): Promise<ImageEditSnapshot | null> => {
+                // Blurring a slider commits on the next frame and may reload the image.
+                // Retry that transition and read the committed settings with the bitmap.
+                for (let attempt = 0; attempt < 3; attempt++) {
+                    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+                    const img = imgRef.current;
+                    if (!img) continue;
+                    await img.decode();
+                    if (imgRef.current !== img) continue;
+                    // Native bitmap snapshot only: pixel reads, adjustments and PNG encoding
+                    // belong to the worker, including for SVGs decoded by the image element.
+                    const bitmap = await createImageBitmap(originalCanvasRef.current ?? img);
+                    if (imgRef.current !== img) {
+                        bitmap.close();
+                        continue;
+                    }
+                    return {
+                        bitmap,
+                        replacements: { ...colorReplacementsRef.current },
+                        adjustments: { ...adjustmentsRef.current },
+                    };
+                }
+                return null;
             },
             exportAdjustedImageBlob: async (
                 adjustmentsOverride?: Record<string, number>

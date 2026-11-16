@@ -352,7 +352,8 @@
     "applyPatch": "Applica all’immagine",
     "patchHelp": "Unisci al colore adiacente più simile con una zona più larga. A parità decide il confine condiviso. Senza vicini adatti la zona resta invariata.",
     "noPatch": "Nessuna zona correggibile a piena risoluzione.",
-    "patchApplyHelp": "Applica a piena risoluzione con le dimensioni di questo confronto. L’anteprima ridotta può differire. Impostazioni di stampa invariate. Ctrl+Z annulla."
+    "patchApplyHelp": "Applica a piena risoluzione con le dimensioni di questo confronto. L’anteprima ridotta può differire. Impostazioni di stampa invariate. Ctrl+Z annulla.",
+    "patchSizeLimit": "L’applicazione a piena risoluzione supporta immagini fino a {{megapixels}} megapixel, inclusi i margini trasparenti. Riduci l’immagine per applicare la correzione; l’anteprima resta disponibile."
   },
   "project": {
     "title": "Progetto",

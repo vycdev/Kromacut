@@ -352,7 +352,8 @@
     "applyPatch": "Aplicar à imagem",
     "patchHelp": "Une à cor adjacente mais semelhante numa área mais larga. A fronteira partilhada desempata. Sem vizinhos adequados, a área mantém-se.",
     "noPatch": "Nenhuma área pôde ser corrigida à resolução completa.",
-    "patchApplyHelp": "Aplica à resolução completa com as dimensões desta comparação. A pré-visualização reduzida pode diferir. As definições de impressão mantêm-se. Ctrl+Z anula."
+    "patchApplyHelp": "Aplica à resolução completa com as dimensões desta comparação. A pré-visualização reduzida pode diferir. As definições de impressão mantêm-se. Ctrl+Z anula.",
+    "patchSizeLimit": "A aplicação à resolução completa suporta imagens até {{megapixels}} megapíxeis, incluindo margens transparentes. Reduza a imagem para aplicar a correção; a pré-visualização continua disponível."
   },
   "project": {
     "title": "Projeto",
