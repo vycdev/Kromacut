@@ -24,29 +24,36 @@ export type DecodedImage = {
     close: () => void;
 };
 
+type BitmapDecodeOptions = Pick<ImageBitmapOptions, 'premultiplyAlpha'>;
+
 /**
- * Decodes a file once, refusing it if it is incomplete.
+ * Decodes a checked image blob once. The caller owns the returned decode and
+ * closes it; ownership of the supplied URL stays with the caller.
  *
  * An `<img>` still loads a truncated or partly damaged raster file and shows only
  * the rows it could decode. WebKit, which the macOS and Linux desktop apps use,
  * also accepts truncated files in `createImageBitmap`, so first check PNG, JPEG,
- * and WebP for their end marker on every engine. Raster files then decode with
- * `createImageBitmap` alone: in Chromium and WebKit it accepts the same formats as
+ * and WebP for their end marker in validateImageFile on every engine. Raster
+ * files decode with `createImageBitmap` alone: in Chromium and WebKit it accepts the same formats as
  * `<img>`, applies the same EXIF orientation, and also catches other damage in
  * Chrome. Chrome rejects SVG blobs there, so SVGs, and engines without
- * `createImageBitmap`, decode in an `<img>` instead. Reading the bytes can also
- * fail, for example when the file changes on disk after it was chosen.
+ * `createImageBitmap`, decode in an `<img>` instead.
  */
-async function decodeImageFile(file: Blob, url: string): Promise<DecodedImage | null> {
+export async function decodeImageBlob(
+    file: Blob,
+    url: string,
+    bitmapOptions?: BitmapDecodeOptions
+): Promise<DecodedImage | null> {
     try {
-        if (isTruncatedImageData(new Uint8Array(await file.arrayBuffer()))) return null;
         if (file.type === 'image/svg+xml' || typeof createImageBitmap !== 'function') {
             const image = await decodeImage(url);
             if (!image) return null;
             const { naturalWidth: width, naturalHeight: height } = image;
             return { source: image, width, height, close: () => {} };
         }
-        const bitmap = await createImageBitmap(file);
+        const bitmap = bitmapOptions
+            ? await createImageBitmap(file, bitmapOptions)
+            : await createImageBitmap(file);
         const { width, height } = bitmap;
         return { source: bitmap, width, height, close: () => bitmap.close() };
     } catch {
@@ -86,20 +93,32 @@ export function fitsImageCanvasLimits(
 }
 
 export type ImageFileValidation =
-    | { ok: true; image: DecodedImage; url: string }
+    | { ok: true; image: DecodedImage; url: string; sourceFile: File }
     | { ok: false; reason: 'notImage' | 'undecodable' };
 
 /**
  * Checks that a chosen or dropped file is an image the browser can read in full.
  * On success the caller owns the decoded image and the returned object URL, and
  * must close the image and revoke the URL when they are no longer needed; on
- * failure no URL is left open.
+ * failure no URL is left open. sourceFile is the immutable encoded file backing
+ * the URL, which history can retain without keeping decoded pixels. Bitmap
+ * options are opt-in so existing consumers, including Stack Matrix, retain
+ * their current pixel conversion and sampling.
  */
-export async function validateImageFile(file: File): Promise<ImageFileValidation> {
+export async function validateImageFile(
+    file: File,
+    bitmapOptions?: BitmapDecodeOptions
+): Promise<ImageFileValidation> {
     if (!isImageFile(file)) return { ok: false, reason: 'notImage' };
     const url = URL.createObjectURL(file);
-    const image = await decodeImageFile(file, url);
-    if (image) return { ok: true, image, url };
+    try {
+        if (!isTruncatedImageData(new Uint8Array(await file.arrayBuffer()))) {
+            const image = await decodeImageBlob(file, url, bitmapOptions);
+            if (image) return { ok: true, image, url, sourceFile: file };
+        }
+    } catch {
+        // Reading the chosen file can fail before its bytes reach a decoder.
+    }
     URL.revokeObjectURL(url);
     return { ok: false, reason: 'undecodable' };
 }

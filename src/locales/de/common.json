@@ -76,6 +76,7 @@
     "downloadFailed": "Die Downloadseite konnte nicht geöffnet werden."
   },
   "app": {
+    "checkingImage": "Bild wird geprüft…",
     "uploadImage": "Bitte lade eine Bilddatei hoch",
     "resizeFailed": "Die Bildskalierung ist fehlgeschlagen. Einzelheiten stehen in der Konsole.",
     "imageImportFailed": "Bild konnte nicht geöffnet werden",

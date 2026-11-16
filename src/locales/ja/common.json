@@ -76,6 +76,7 @@
         "downloadFailed": "ダウンロードページを開けませんでした。"
     },
     "app": {
+        "checkingImage": "画像を確認中…",
         "uploadImage": "画像ファイルをアップロードしてください",
         "resizeFailed": "画像のサイズ変更に失敗しました。詳細はコンソールを確認してください。",
         "imageImportFailed": "画像を開けませんでした",

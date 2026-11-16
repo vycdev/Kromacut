@@ -76,6 +76,7 @@
     "downloadFailed": "No se pudo abrir la página de descarga."
   },
   "app": {
+    "checkingImage": "Comprobando imagen…",
     "uploadImage": "Importa un archivo de imagen",
     "resizeFailed": "No se pudo cambiar el tamaño de la imagen. Consulta la consola para obtener más detalles.",
     "imageImportFailed": "No se pudo abrir la imagen",

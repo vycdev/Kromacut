@@ -18,7 +18,7 @@ import {
 import type { FinalStackTargetMappingSnapshot } from '../types/appearance';
 
 interface PaletteProofImageTargetPickerProps {
-    imageSrc: string;
+    imageCanvas: HTMLCanvasElement;
     targets: readonly FinalStackTargetMappingSnapshot[];
     targetColorMode: PaletteProofTargetColorMode;
     selectedTargetIds: readonly string[];
@@ -36,7 +36,7 @@ function formatUsagePercent(usageWeight: number): string {
 }
 
 export default function PaletteProofImageTargetPicker({
-    imageSrc,
+    imageCanvas,
     targets,
     targetColorMode,
     selectedTargetIds,
@@ -94,16 +94,13 @@ export default function PaletteProofImageTargetPicker({
     );
 
     useEffect(() => {
-        let cancelled = false;
         setLoadError(null);
         setSelectionMessage(null);
         sourcePixelsRef.current = null;
         setImageSize({ width: 0, height: 0 });
 
-        const image = new Image();
-        image.onload = () => {
-            if (cancelled) return;
-            const size = paletteProofTargetImageSize(image.naturalWidth, image.naturalHeight);
+        try {
+            const size = paletteProofTargetImageSize(imageCanvas.width, imageCanvas.height);
             const samplingCanvas = document.createElement('canvas');
             samplingCanvas.width = size.width;
             samplingCanvas.height = size.height;
@@ -114,23 +111,13 @@ export default function PaletteProofImageTargetPicker({
             }
             context.imageSmoothingEnabled = false;
             context.clearRect(0, 0, size.width, size.height);
-            context.drawImage(image, 0, 0, size.width, size.height);
-            try {
-                sourcePixelsRef.current = context.getImageData(0, 0, size.width, size.height);
-                setImageSize(size);
-            } catch {
-                setLoadError('Could not read the processed image colors.');
-            }
-        };
-        image.onerror = () => {
-            if (!cancelled) setLoadError('Could not load the processed image.');
-        };
-        image.src = imageSrc;
-
-        return () => {
-            cancelled = true;
-        };
-    }, [imageSrc]);
+            context.drawImage(imageCanvas, 0, 0, size.width, size.height);
+            sourcePixelsRef.current = context.getImageData(0, 0, size.width, size.height);
+            setImageSize(size);
+        } catch {
+            setLoadError('Could not read the processed image colors.');
+        }
+    }, [imageCanvas]);
 
     useEffect(() => {
         const canvas = canvasRef.current;

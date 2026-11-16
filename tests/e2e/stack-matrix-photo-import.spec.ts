@@ -11,7 +11,19 @@ const rocco = readFileSync(fileURLToPath(new URL('../assets/rocco__source.png', 
 test('@smoke unreadable and truncated Stack Matrix photos report an error and keep the current photo', async ({
     page,
 }) => {
-    await page.addInitScript(() => localStorage.clear());
+    await page.addInitScript(() => {
+        localStorage.clear();
+        const state = { defaultBitmapOptions: true, bitmapCalls: 0 };
+        (window as unknown as { matrixPhotoDecodes: typeof state }).matrixPhotoDecodes = state;
+        const createBitmap = window.createImageBitmap.bind(window);
+        window.createImageBitmap = ((...args: Parameters<typeof createImageBitmap>) => {
+            if (args[0] instanceof File) {
+                state.bitmapCalls++;
+                state.defaultBitmapOptions &&= Array.from(args).length === 1;
+            }
+            return createBitmap(...args);
+        }) as typeof createImageBitmap;
+    });
     await page.goto('/app');
     await expect(page.getByTestId('image-file-input')).toBeAttached();
     await page.getByRole('button', { name: '3D', exact: true }).click();
@@ -77,9 +89,13 @@ test('@smoke unreadable and truncated Stack Matrix photos report an error and ke
     // Phone photos are often stored sideways with an EXIF orientation tag. The
     // photo must load upright, as an <img> shows it: 400x200 rotated a quarter turn.
     const rotated = await page.evaluate(async () => {
-        const source = new OffscreenCanvas(400, 200);
+        const source = document.createElement('canvas');
+        source.width = 400;
+        source.height = 200;
         source.getContext('2d')!.fillRect(0, 0, 200, 200);
-        const blob = await source.convertToBlob({ type: 'image/jpeg' });
+        const blob = await new Promise<Blob>((resolve) =>
+            source.toBlob((blob) => resolve(blob!), 'image/jpeg')
+        );
         const jpeg = new Uint8Array(await blob.arrayBuffer());
         // An APP1 Exif segment holding one big-endian Orientation (0x0112) entry of 6.
         const tiff = [0x4d, 0x4d, 0, 0x2a, 0, 0, 0, 8, 0, 1, 0x01, 0x12, 0, 3, 0, 0, 0, 1];
@@ -95,4 +111,16 @@ test('@smoke unreadable and truncated Stack Matrix photos report an error and ke
     await expect(canvas).toHaveAttribute('width', '200');
     await expect(canvas).toHaveAttribute('height', '400');
     await expect(openFailed).toHaveCount(0);
+    // Main imports opt into a different alpha conversion policy. Stack Matrix
+    // must retain its existing decode options and measured photo colors.
+    expect(
+        await page.evaluate(() => {
+            const state = (
+                window as unknown as {
+                    matrixPhotoDecodes: { defaultBitmapOptions: boolean; bitmapCalls: number };
+                }
+            ).matrixPhotoDecodes;
+            return state.bitmapCalls > 0 && state.defaultBitmapOptions;
+        })
+    ).toBe(true);
 });

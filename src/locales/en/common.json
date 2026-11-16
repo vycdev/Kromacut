@@ -76,6 +76,7 @@
         "downloadFailed": "Could not open the download page."
     },
     "app": {
+        "checkingImage": "Checking image…",
         "uploadImage": "Please upload an image file",
         "resizeFailed": "Image resize failed. See console for details.",
         "imageImportFailed": "Couldn't open image",

@@ -1,9 +1,9 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { createImageCanvas, validateCanvasImageFile } from '../lib/imageCanvas';
 import {
     fitsImageCanvasLimits,
     IOS_MAX_SQUARE_IMAGE_SIDE,
     MAX_SQUARE_IMAGE_SIDE,
-    validateImageFile,
 } from '../lib/imageFile';
 
 function importMaxSquareSide(): number {
@@ -67,24 +67,52 @@ export function useImageImport() {
     // Each import takes a token and commits only if no newer image change has
     // happened while it was being checked.
     const requestRef = useRef(0);
+    const busyTimerRef = useRef<number | null>(null);
+    const [isImporting, setIsImporting] = useState(false);
     const [importError, setImportError] = useState<ImageImportError | null>(null);
+
+    const finishChecking = useCallback(() => {
+        if (busyTimerRef.current !== null) window.clearTimeout(busyTimerRef.current);
+        busyTimerRef.current = null;
+        setIsImporting(false);
+    }, []);
+
+    useEffect(
+        () => () => {
+            requestRef.current += 1;
+            if (busyTimerRef.current !== null) window.clearTimeout(busyTimerRef.current);
+        },
+        []
+    );
 
     const cancelPendingImport = useCallback(() => {
         requestRef.current += 1;
+        finishChecking();
         setImportError(null);
-    }, []);
+    }, [finishChecking]);
 
     const dismissImportError = useCallback(() => setImportError(null), []);
 
     /**
-     * Validates the file, then hands its object URL to commit, which takes
-     * ownership of it. Unreadable or oversized files leave the current image, its
-     * undo stack, and its swatches intact.
+     * Validates the file, then copies and closes its decode. Commit takes
+     * ownership of the URL and an immutable canvas snapshot, and may retain
+     * the encoded file while the URL is in history. Unreadable or
+     * oversized files leave the image, undo stack, and swatches intact.
      */
     const importFile = useCallback(
-        async (file: File, hasImage: boolean, commit: (url: string) => void) => {
+        async (
+            file: File,
+            hasImage: boolean,
+            commit: (url: string, canvas: HTMLCanvasElement, sourceFile: File) => void
+        ) => {
             const request = ++requestRef.current;
-            const result = await validateImageFile(file);
+            finishChecking();
+            // Avoid flashing a spinner for the usual fast checks.
+            busyTimerRef.current = window.setTimeout(() => {
+                busyTimerRef.current = null;
+                if (request === requestRef.current) setIsImporting(true);
+            }, 150);
+            const result = await validateCanvasImageFile(file);
             if (request !== requestRef.current) {
                 if (result.ok) {
                     result.image.close();
@@ -92,6 +120,7 @@ export function useImageImport() {
                 }
                 return;
             }
+            finishChecking();
             if (!result.ok) {
                 // The request check above means the image has not changed since
                 // this import started, so hasImage still describes the screen.
@@ -102,16 +131,14 @@ export function useImageImport() {
                 );
                 return;
             }
-            // The preview and swatches decode the committed URL themselves. Read the
-            // size first: a closed ImageBitmap reports zero.
             const { width, height } = result.image;
-            result.image.close();
             const maxSquareSide = importMaxSquareSide();
             // Past the canvas limits the preview would stay blank, so refuse the image.
             if (
                 !fitsImageCanvasLimits(width, height, maxSquareSide * maxSquareSide) ||
                 !canDrawCanvasDimensions(width, height)
             ) {
+                result.image.close();
                 URL.revokeObjectURL(result.url);
                 setImportError({
                     kind: 'tooLarge',
@@ -123,11 +150,20 @@ export function useImageImport() {
                 });
                 return;
             }
+            let canvas: HTMLCanvasElement;
+            try {
+                // createImageCanvas consumes the decode, including on failure.
+                canvas = createImageCanvas(result.image);
+            } catch {
+                URL.revokeObjectURL(result.url);
+                setImportError({ kind: 'undecodable', name: file.name, keptImage: hasImage });
+                return;
+            }
             setImportError(null);
-            commit(result.url);
+            commit(result.url, canvas, result.sourceFile);
         },
-        []
+        [finishChecking]
     );
 
-    return { importFile, importError, dismissImportError, cancelPendingImport };
+    return { importFile, importError, isImporting, dismissImportError, cancelPendingImport };
 }

@@ -53,6 +53,7 @@ interface ThreeDControlsProps {
     active?: boolean;
     swatches: Swatch[] | null;
     imageSrc: string | null;
+    imageCanvas: HTMLCanvasElement | null;
     imageDimensions: ImageDimensions | null;
     /** Snapshot of the settings used for the model currently built in the preview/export pane. */
     builtState?: ThreeDControlsStateShape | null;
@@ -86,6 +87,7 @@ export default function ThreeDControls({
     active = true,
     swatches,
     imageSrc,
+    imageCanvas,
     imageDimensions,
     builtState = null,
     builtFlatPaint = false,
@@ -400,6 +402,7 @@ export default function ThreeDControls({
         active,
         enabled: paintMode === 'autopaint' && filaments.length > 0 && filtered.length > 0,
         imageSrc,
+        imageCanvas,
         sourceSwatches: filtered,
         pixelSizeMm: pixelSize,
         lineWidthMm: ditherLineWidth,
@@ -571,7 +574,7 @@ export default function ThreeDControls({
 
     // --- Apply handler ---
     const handleApply = useCallback(async () => {
-        if (!onChange) return;
+        if (!onChange || !imageCanvas) return;
         const isCurrentBuild = buildRevision.begin();
 
         setMultiHeadNotice(undefined);
@@ -697,6 +700,7 @@ export default function ThreeDControls({
         );
     }, [
         onChange,
+        imageCanvas,
         buildRevision,
         layerHeight,
         slicerFirstLayerHeight,
@@ -765,6 +769,7 @@ export default function ThreeDControls({
                     }
                     data-testid="build-3d-model"
                     disabled={
+                        !imageCanvas ||
                         isAutoPaintComputing ||
                         isMultiHeadComputing ||
                         (autoPaintBuildUnavailable && !isAwaitingStart) ||
@@ -941,7 +946,7 @@ export default function ThreeDControls({
                     firstLayerHeight={slicerFirstLayerHeight}
                     filteredCount={printableSwatches.length}
                     imageSwatches={printableSwatches}
-                    paletteProofImageSrc={imageSrc}
+                    paletteProofImageCanvas={imageCanvas}
                     enhancedColorMatch={enhancedColorMatch}
                     setEnhancedColorMatch={handleEnhancedColorMatchChange}
                     preserveSeparation={preserveSeparation}

@@ -76,6 +76,7 @@
     "downloadFailed": "Impossibile aprire la pagina di download."
   },
   "app": {
+    "checkingImage": "Verifica dell’immagine…",
     "uploadImage": "Carica un file immagine",
     "resizeFailed": "Ridimensionamento dell'immagine non riuscito. Consulta la console per i dettagli.",
     "imageImportFailed": "Impossibile aprire l’immagine",

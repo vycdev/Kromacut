@@ -408,32 +408,67 @@ test('@smoke valid JPEG and SVG files still import', async ({ page }) => {
     await expect(error).toHaveCount(0);
 });
 
-test('@smoke raster imports are decoded once before they are committed', async ({ page }) => {
+test('@smoke raster imports share one decode through validation, preview, and swatches', async ({
+    page,
+}) => {
     await page.addInitScript(() => {
         // Hold createImageBitmap for imported files until the test releases it,
         // and record the object URLs that <img> elements load meanwhile.
         const w = window as unknown as {
             bitmapCalls: number;
+            bitmapCloses: number;
+            historyCalls: number;
+            historyCloses: number;
             heldImageBitmaps: Array<() => void>;
             importUrls: string[];
             imageSrcs: string[];
         };
         w.bitmapCalls = 0;
+        w.bitmapCloses = 0;
+        w.historyCalls = 0;
+        w.historyCloses = 0;
         w.heldImageBitmaps = [];
         w.importUrls = [];
         w.imageSrcs = [];
+        const fileUrls = new WeakMap<File, string>();
+        const checkedUrls = new Set<string>();
         const createBitmap = window.createImageBitmap.bind(window);
         window.createImageBitmap = ((...args: Parameters<typeof createImageBitmap>) => {
             if (!(args[0] instanceof File)) return createBitmap(...args);
+            const url = fileUrls.get(args[0]);
+            if (url && checkedUrls.has(url)) {
+                w.historyCalls++;
+                return createBitmap(...args).then((bitmap) => {
+                    const close = bitmap.close.bind(bitmap);
+                    bitmap.close = () => {
+                        w.historyCloses++;
+                        close();
+                    };
+                    return bitmap;
+                });
+            }
+            if (url) checkedUrls.add(url);
             w.bitmapCalls += 1;
             return new Promise<ImageBitmap>((resolve, reject) => {
-                w.heldImageBitmaps.push(() => createBitmap(...args).then(resolve, reject));
+                w.heldImageBitmaps.push(() =>
+                    createBitmap(...args).then((bitmap) => {
+                        const close = bitmap.close.bind(bitmap);
+                        bitmap.close = () => {
+                            w.bitmapCloses++;
+                            close();
+                        };
+                        resolve(bitmap);
+                    }, reject)
+                );
             });
         }) as typeof createImageBitmap;
         const createUrl = URL.createObjectURL.bind(URL);
         URL.createObjectURL = (object: Blob | MediaSource) => {
             const url = createUrl(object);
-            if (object instanceof File) w.importUrls.push(url);
+            if (object instanceof File) {
+                w.importUrls.push(url);
+                fileUrls.set(object, url);
+            }
             return url;
         };
         const src = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, 'src')!;
@@ -453,24 +488,68 @@ test('@smoke raster imports are decoded once before they are committed', async (
         page.evaluate(() => {
             const w = window as unknown as {
                 bitmapCalls: number;
+                bitmapCloses: number;
+                historyCalls: number;
+                historyCloses: number;
                 importUrls: string[];
                 imageSrcs: string[];
             };
             return {
                 bitmapCalls: w.bitmapCalls,
+                bitmapCloses: w.bitmapCloses,
+                historyCalls: w.historyCalls,
+                historyCloses: w.historyCloses,
                 imageLoads: w.imageSrcs.filter((src) => w.importUrls.includes(src)).length,
             };
         });
     await expect(current).toContainText('1024x1024');
 
     await input.setInputFiles(fileURLToPath(new URL('../assets/3888x2916p.jpg', import.meta.url)));
-    await expect.poll(state).toEqual({ bitmapCalls: 1, imageLoads: 0 });
+    await expect
+        .poll(state)
+        .toEqual({
+            bitmapCalls: 1,
+            bitmapCloses: 0,
+            historyCalls: 0,
+            historyCloses: 0,
+            imageLoads: 0,
+        });
+    await expect(page.getByTestId('image-import-busy')).toHaveText('Checking image…');
+    const busyBox = await page.getByTestId('image-import-busy').boundingBox();
+    const chooseBox = await page
+        .getByRole('button', { name: 'Choose file', exact: true })
+        .boundingBox();
+    expect(busyBox!.y).toBeGreaterThan(chooseBox!.y + chooseBox!.height);
+    await expect(page.getByTestId('image-dropzone')).toHaveAttribute('aria-busy', 'true');
     await page.evaluate(() => {
         const w = window as unknown as { heldImageBitmaps: Array<() => void> };
         w.heldImageBitmaps.splice(0).forEach((run) => run());
     });
     await expect(current).toContainText('3888x2916');
-    expect((await state()).bitmapCalls).toBe(1);
+    await expect(page.getByTestId('image-import-busy')).toHaveCount(0);
+    await expect(page.getByText('Updating…', { exact: true })).toHaveCount(0);
+    expect(await state()).toEqual({
+        bitmapCalls: 1,
+        bitmapCloses: 1,
+        historyCalls: 0,
+        historyCloses: 0,
+        imageLoads: 0,
+    });
+
+    // History retains URLs, not open bitmaps. A revisit decodes once for all
+    // consumers, and never tries to draw the now-closed validation bitmap.
+    await page.getByRole('button', { name: 'Undo', exact: true }).click();
+    await expect(current).toContainText('1024x1024');
+    await page.getByRole('button', { name: 'Redo', exact: true }).click();
+    await expect(current).toContainText('3888x2916');
+    await expect(page.getByText('Updating…', { exact: true })).toHaveCount(0);
+    expect(await state()).toEqual({
+        bitmapCalls: 1,
+        bitmapCloses: 1,
+        historyCalls: 1,
+        historyCloses: 1,
+        imageLoads: 0,
+    });
 });
 
 test('@smoke image files without a MIME type import by extension', async ({ page }) => {
@@ -482,9 +561,11 @@ test('@smoke image files without a MIME type import by extension', async ({ page
     // Some platforms report an empty File.type for valid images.
     const drop = async (name: string) => {
         const dataTransfer = await page.evaluateHandle(async (name) => {
-            const canvas = new OffscreenCanvas(37, 23);
+            const canvas = document.createElement('canvas');
+            canvas.width = 37;
+            canvas.height = 23;
             canvas.getContext('2d')!.fillRect(0, 0, 37, 23);
-            const blob = await canvas.convertToBlob({ type: 'image/png' });
+            const blob = await (await fetch(canvas.toDataURL('image/png'))).blob();
             const transfer = new DataTransfer();
             transfer.items.add(new File([blob], name, { type: '' }));
             return transfer;
@@ -514,15 +595,29 @@ test('@smoke image edits made while an import is being checked cancel that impor
             holdImageBitmaps: boolean;
             heldImageBitmaps: Array<() => void>;
             revokedImageNames: string[];
+            closedImageNames: string[];
         };
         w.holdImageBitmaps = false;
         w.heldImageBitmaps = [];
         w.revokedImageNames = [];
+        w.closedImageNames = [];
         const createBitmap = window.createImageBitmap.bind(window);
+        const checked = new WeakSet<File>();
+        const decode = (args: Parameters<typeof createImageBitmap>, isImport: boolean) =>
+            createBitmap(...args).then((bitmap) => {
+                const close = bitmap.close.bind(bitmap);
+                bitmap.close = () => {
+                    if (isImport && args[0] instanceof File) w.closedImageNames.push(args[0].name);
+                    close();
+                };
+                return bitmap;
+            });
         window.createImageBitmap = ((...args: Parameters<typeof createImageBitmap>) => {
-            if (!w.holdImageBitmaps) return createBitmap(...args);
+            const isImport = args[0] instanceof File && !checked.has(args[0]);
+            if (args[0] instanceof File) checked.add(args[0]);
+            if (!w.holdImageBitmaps || !isImport) return decode(args, isImport);
             return new Promise<ImageBitmap>((resolve, reject) => {
-                w.heldImageBitmaps.push(() => createBitmap(...args).then(resolve, reject));
+                w.heldImageBitmaps.push(() => decode(args, isImport).then(resolve, reject));
             });
         }) as typeof createImageBitmap;
         const names = new Map<string, string>();
@@ -573,7 +668,9 @@ test('@smoke image edits made while an import is being checked cancel that impor
     await hold(true);
     await input.setInputFiles(jpeg);
     await expect.poll(held).toBe(1);
+    await expect(page.getByTestId('image-import-busy')).toBeVisible();
     await undo.click();
+    await expect(page.getByTestId('image-import-busy')).toHaveCount(0);
     await expect(current).toContainText('1024x1024');
     await release();
     await expect.poll(revoked).toEqual(['3888x2916p.jpg']);
@@ -594,6 +691,11 @@ test('@smoke image edits made while an import is being checked cancel that impor
     await expect(undo).toBeDisabled();
     await expect(redo).toBeEnabled();
     await expect(error).toHaveCount(0);
+    expect(
+        await page.evaluate(
+            () => (window as unknown as { closedImageNames: string[] }).closedImageNames
+        )
+    ).toEqual(['rocco__source.png', '3888x2916p.jpg', 'rocco__source.png']);
 });
 
 test('@smoke imports are refused while quantize is running', async ({ page }) => {
@@ -640,11 +742,13 @@ test('@smoke imports are refused while quantize is running', async ({ page }) =>
     await expect(apply).toBeDisabled();
     await expect(chooseFile).toBeDisabled();
     await expect(input).toBeDisabled();
-    // OffscreenCanvas encoding is not held, and 37x23 matches no other image here.
+    // Data URL encoding bypasses the held toBlob; 37x23 matches no other image here.
     const smallDrop = await page.evaluateHandle(async () => {
-        const canvas = new OffscreenCanvas(37, 23);
+        const canvas = document.createElement('canvas');
+        canvas.width = 37;
+        canvas.height = 23;
         canvas.getContext('2d')!.fillRect(0, 0, 37, 23);
-        const blob = await canvas.convertToBlob({ type: 'image/png' });
+        const blob = await (await fetch(canvas.toDataURL('image/png'))).blob();
         const transfer = new DataTransfer();
         transfer.items.add(new File([blob], 'small.png', { type: 'image/png' }));
         return transfer;

@@ -76,6 +76,7 @@
         "downloadFailed": "无法打开下载页面。"
     },
     "app": {
+        "checkingImage": "正在检查图像…",
         "uploadImage": "请上传图片文件",
         "resizeFailed": "图片缩放失败，请查看控制台了解详情。",
         "imageImportFailed": "无法打开图片",

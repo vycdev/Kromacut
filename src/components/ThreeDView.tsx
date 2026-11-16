@@ -54,6 +54,7 @@ import ProgressOverlay from './ProgressOverlay';
 
 interface ThreeDViewProps {
     imageSrc?: string | null;
+    imageCanvas: HTMLCanvasElement | null;
     baseSliceHeight: number; // mm
     layerHeight: number; // mm (granularity)
     slicerFirstLayerHeight?: number; // mm
@@ -372,6 +373,7 @@ function collectMeshStats(root: THREE.Object3D) {
 
 export default function ThreeDView({
     imageSrc,
+    imageCanvas,
     baseSliceHeight,
     layerHeight,
     slicerFirstLayerHeight = 0,
@@ -776,7 +778,7 @@ export default function ThreeDView({
         const imageChanged = imageSrc !== lastImageSrcRef.current;
         lastImageSrcRef.current = imageSrc;
 
-        if (!imageSrc) {
+        if (!imageSrc || !imageCanvas) {
             setBuildError(null);
             buildTokenRef.current++;
             if (debounceTimerRef.current !== null) {
@@ -882,26 +884,16 @@ export default function ThreeDView({
                 else setTimeout(fn, 0);
             };
 
-            // Shared image load (do once for preview + final)
-            const loadImage = () =>
-                new Promise<HTMLImageElement | null>((res) => {
-                    const i = new Image();
-                    i.crossOrigin = 'anonymous';
-                    i.onload = () => res(i);
-                    i.onerror = () => res(null);
-                    i.src = imageSrc;
-                });
-
             // Build multi-mesh geometry (one object per color layer)
             const buildPixelGeometry = async (
-                img: HTMLImageElement,
+                img: HTMLCanvasElement,
                 bbox: { minX: number; minY: number; boxW: number; boxH: number },
                 data: Uint8ClampedArray
             ) => {
                 const nearestSwatchIndex = buildNearestSwatchFinder(swatches);
                 if (token !== buildTokenRef.current) return;
-                const fullW = img.naturalWidth;
-                const fullH = img.naturalHeight;
+                const fullW = img.width;
+                const fullH = img.height;
                 const { minX, minY, boxW, boxH } = bbox;
 
                 // Clear current model
@@ -2009,22 +2001,17 @@ export default function ThreeDView({
             };
 
             void (async () => {
-                const img = await loadImage();
+                // Swatches, matching, and geometry must read the same immutable
+                // pixels. Re-decoding the URL can round profiled colors differently.
+                const img = imageCanvas;
                 if (token !== buildTokenRef.current) return;
-                if (!img) {
-                    throw new Error('Unable to load the model image');
-                }
-                const w = img.naturalWidth;
-                const h = img.naturalHeight;
+                const w = img.width;
+                const h = img.height;
                 // compute opaque bounding box
-                const c = document.createElement('canvas');
-                c.width = w;
-                c.height = h;
-                const cx = c.getContext('2d');
+                const cx = img.getContext('2d', { willReadFrequently: true });
                 if (!cx) {
                     throw new Error('Unable to read the model image');
                 }
-                cx.drawImage(img, 0, 0, w, h);
                 const originalImageData = cx.getImageData(0, 0, w, h).data;
                 const imgd =
                     autoPaintEnabled &&
@@ -2109,6 +2096,7 @@ export default function ThreeDView({
         }, 120);
     }, [
         imageSrc,
+        imageCanvas,
         baseSliceHeight,
         layerHeight,
         slicerFirstLayerHeight,
