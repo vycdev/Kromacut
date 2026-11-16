@@ -15,6 +15,7 @@ import {
     Loader,
     Download,
     ExternalLink,
+    SlidersHorizontal,
     Grid3x3,
     Upload,
     Trash2,
@@ -56,8 +57,12 @@ export interface PreviewActionsProps {
     onExportImage: () => Promise<void>;
     onExportStl: () => Promise<void>;
     onExport3MF: () => Promise<void>;
-    /** Desktop only: export a 3MF and open it in the system's default 3MF app. */
+    /** Desktop only: export a 3MF and open it in the chosen slicer, asking first if none is saved. */
     onOpenInSlicer?: () => Promise<void>;
+    /** Name of the saved slicer that Open in Slicer uses without asking. */
+    savedSlicerName?: string;
+    /** Desktop only, once a slicer is saved: change or forget it. */
+    onChooseSlicer?: () => void;
     /** The currently built model is a Flat Paint slab — STL export is useless for it */
     flatPaintModel?: boolean;
     /** No valid model exists for the selected 3D mode/settings. */
@@ -105,6 +110,8 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
     onExportStl,
     onExport3MF,
     onOpenInSlicer,
+    savedSlicerName,
+    onChooseSlicer,
     flatPaintModel = false,
     modelExportDisabled = false,
     isOrtho = false,
@@ -473,7 +480,26 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
                                 className="justify-start gap-2 h-9 px-2 font-normal"
                             >
                                 <ExternalLink className="w-4 h-4 text-muted-foreground" />
-                                <span>{t('previewActions.openInSlicer')}</span>
+                                <span>
+                                    {savedSlicerName
+                                        ? t('previewActions.openInNamedSlicer', {
+                                              name: savedSlicerName,
+                                          })
+                                        : t('previewActions.openInSlicer')}
+                                </span>
+                            </Button>
+                        )}
+                        {onOpenInSlicer && onChooseSlicer && (
+                            <Button
+                                variant="ghost"
+                                onClick={onChooseSlicer}
+                                data-testid="choose-slicer"
+                                title={t('previewActions.chooseSlicerHint')}
+                                disabled={exportingSTL || modelExportDisabled}
+                                className="justify-start gap-2 h-9 px-2 font-normal"
+                            >
+                                <SlidersHorizontal className="w-4 h-4 text-muted-foreground" />
+                                <span>{t('previewActions.chooseSlicer')}</span>
                             </Button>
                         )}
                     </PopoverContent>

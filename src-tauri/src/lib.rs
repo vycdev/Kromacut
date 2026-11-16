@@ -9,9 +9,11 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Manager, State};
 mod default_app;
 mod opened_files;
+mod slicer_apps;
 mod slicer_handoff;
 use default_app::open_with_default_app;
 use opened_files::{enqueue_and_notify, take_opened_file, OpenedFiles};
+use slicer_apps::{find_slicer_app, list_slicer_apps, pick_slicer_app};
 use slicer_handoff::open_model_in_slicer;
 
 const RELEASES_URL: &str = "https://github.com/vycdev/Kromacut/releases";
@@ -267,7 +269,10 @@ pub fn run() {
             append_auto_paint_diagnostic,
             finish_auto_paint_diagnostic,
             open_auto_paint_diagnostics_directory,
-            open_model_in_slicer
+            open_model_in_slicer,
+            list_slicer_apps,
+            find_slicer_app,
+            pick_slicer_app
         ])
         .setup(|app| {
             #[cfg(any(target_os = "windows", target_os = "linux"))]

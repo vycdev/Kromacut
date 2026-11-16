@@ -50,7 +50,9 @@ import ResizableSplitter from './components/ResizableSplitter';
 import { ControlsPanel } from './components/ControlsPanel';
 import { usePaletteManager } from './hooks/usePaletteManager';
 import { useDesktopFileOpen } from './hooks/useDesktopFileOpen';
+import { useSlicerChoice } from './hooks/useSlicerChoice';
 import { DesktopFileDialog } from './components/DesktopFileDialog';
+import { SlicerChooserDialog } from './components/SlicerChooserDialog';
 import { UpdateChecker } from './components/UpdateChecker';
 import ProgressOverlay from './components/ProgressOverlay';
 import DocsPage from './components/docs/DocsPage';
@@ -737,6 +739,7 @@ function App(): React.ReactElement | null {
         applyQuantize,
         swatches,
     });
+    const slicerChoice = useSlicerChoice(onOpenInSlicer);
 
     return (
         <>
@@ -1162,7 +1165,19 @@ function App(): React.ReactElement | null {
                                     onExportImage={onExportImage}
                                     onExportStl={onExportStl}
                                     onExport3MF={onExport3MF}
-                                    onOpenInSlicer={isTauri() ? onOpenInSlicer : undefined}
+                                    onOpenInSlicer={
+                                        isTauri() ? slicerChoice.onOpenInSlicer : undefined
+                                    }
+                                    savedSlicerName={
+                                        slicerChoice.preference?.kind === 'app'
+                                            ? slicerChoice.preference.app.name
+                                            : undefined
+                                    }
+                                    onChooseSlicer={
+                                        slicerChoice.preference
+                                            ? slicerChoice.onChooseSlicer
+                                            : undefined
+                                    }
                                     flatPaintModel={builtFlatPaint}
                                     modelExportDisabled={!builtModelValid}
                                     isOrtho={isOrtho}
@@ -1228,6 +1243,14 @@ function App(): React.ReactElement | null {
                     </AlertDialogContent>
                 </AlertDialog>
 
+                {slicerChoice.chooser && (
+                    <SlicerChooserDialog
+                        preference={slicerChoice.preference}
+                        missingSlicerName={slicerChoice.chooser.missingSlicerName}
+                        onConfirm={slicerChoice.onChooserConfirm}
+                        onCancel={slicerChoice.onChooserCancel}
+                    />
+                )}
                 {/* Update checker for Tauri desktop app */}
                 <UpdateChecker />
                 {desktopFile &&

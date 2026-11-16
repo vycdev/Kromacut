@@ -1,3 +1,4 @@
+use percent_encoding::percent_decode_str;
 use std::fs::{create_dir_all, read_dir, remove_file, File, OpenOptions};
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -7,6 +8,9 @@ use tauri::{AppHandle, Manager};
 
 /// Header carrying the suggested file name; the request body is the raw 3MF archive.
 const FILE_NAME_HEADER: &str = "x-kromacut-file-name";
+/// Optional header carrying the percent-encoded path of the slicer to open the model with.
+/// Without it, the system's default 3MF application opens the model.
+const SLICER_APP_HEADER: &str = "x-kromacut-slicer-app";
 /// Handoff copies older than this are removed the next time a model is opened. Slicers import
 /// the 3MF when it opens, so a day leaves ample time without letting the cache grow.
 const STALE_AFTER: Duration = Duration::from_secs(24 * 60 * 60);
@@ -99,22 +103,43 @@ fn write_handoff_file(directory: &Path, file_name: &str, model: &[u8]) -> Result
     Ok(path)
 }
 
-/// Writes the exported 3MF into Kromacut's cache and opens it with the system's default 3MF
-/// application, normally the user's slicer. Returns the path that was opened.
+/// Header values are ASCII, so the slicer path travels percent-encoded.
+fn slicer_app_path(header: &str) -> Result<PathBuf, String> {
+    percent_decode_str(header)
+        .decode_utf8()
+        .map(|path| PathBuf::from(path.as_ref()))
+        .map_err(|_| "The slicer path is not valid UTF-8".to_string())
+}
+
+/// Writes the exported 3MF into Kromacut's cache and opens it with the chosen slicer, or with
+/// the system's default 3MF application when none was chosen. Returns the path that was opened.
 #[tauri::command]
 pub async fn open_model_in_slicer(app: AppHandle, request: Request<'_>) -> Result<String, String> {
     let InvokeBody::Raw(model) = request.body() else {
         return Err("Expected the 3MF archive as raw bytes".to_string());
     };
-    let file_name = request
-        .headers()
-        .get(FILE_NAME_HEADER)
-        .and_then(|value| value.to_str().ok())
-        .ok_or_else(|| "Missing the model file name".to_string())?;
+    let header = |name: &str| {
+        request
+            .headers()
+            .get(name)
+            .map(|value| value.to_str().map_err(|_| format!("Invalid {name} header")))
+            .transpose()
+    };
+    let file_name =
+        header(FILE_NAME_HEADER)?.ok_or_else(|| "Missing the model file name".to_string())?;
+    let slicer = header(SLICER_APP_HEADER)?
+        .map(slicer_app_path)
+        .transpose()?;
+    let picked_apps = crate::slicer_apps::picked_apps_file(&app)?;
     let path = write_handoff_file(&handoff_directory(&app)?, file_name, model)?;
     tauri::async_runtime::spawn_blocking(move || {
-        crate::open_with_default_app(&path)
-            .map_err(|error| format!("Failed to open the model in the default 3MF app: {error}"))?;
+        match slicer {
+            Some(slicer) => crate::slicer_apps::open_with_slicer_app(&slicer, &path, &picked_apps)
+                .map_err(|error| format!("Failed to open the model in the chosen slicer: {error}")),
+            None => crate::open_with_default_app(&path).map_err(|error| {
+                format!("Failed to open the model in the default 3MF app: {error}")
+            }),
+        }?;
         Ok(path.to_string_lossy().into_owned())
     })
     .await
@@ -123,7 +148,9 @@ pub async fn open_model_in_slicer(app: AppHandle, request: Request<'_>) -> Resul
 
 #[cfg(test)]
 mod tests {
-    use super::{handoff_stem, remove_stale_handoff_files, write_handoff_file, STALE_AFTER};
+    use super::{
+        handoff_stem, remove_stale_handoff_files, slicer_app_path, write_handoff_file, STALE_AFTER,
+    };
     use std::fs::{create_dir_all, read, remove_dir_all, File};
     use std::path::PathBuf;
     use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -170,6 +197,25 @@ mod tests {
         let longest = format!("{}.3mf", "a".repeat(124));
         assert!(handoff_stem(&longest).is_ok());
         assert!(handoff_stem(&format!("a{longest}")).is_err());
+    }
+
+    #[test]
+    fn slicer_paths_are_percent_decoded() {
+        assert_eq!(
+            slicer_app_path("%2FApplications%2FOrcaSlicer.app"),
+            Ok(PathBuf::from("/Applications/OrcaSlicer.app"))
+        );
+        assert_eq!(
+            slicer_app_path("C%3A%5CProgram%20Files%5CBambu%20Studio%5Cbambu-studio.exe"),
+            Ok(PathBuf::from(
+                "C:\\Program Files\\Bambu Studio\\bambu-studio.exe"
+            ))
+        );
+        assert_eq!(
+            slicer_app_path("%2Fhome%2Fjos%C3%A9%2FPrusaSlicer.AppImage"),
+            Ok(PathBuf::from("/home/josé/PrusaSlicer.AppImage"))
+        );
+        assert!(slicer_app_path("%FF").is_err());
     }
 
     #[test]
