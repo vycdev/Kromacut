@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Swatch, ThreeDControlsStateShape } from '../types';
 import { hexLuminance } from '../lib/colorUtils';
 import { reconcileColorOrder } from '../lib/colorOrder';
+import { reconcileColorSliceHeight } from '../lib/colorSliceHeight';
 
 export interface UseColorSlicingOptions {
     swatches: Swatch[] | null;
@@ -40,6 +41,7 @@ export function useColorSlicing({
     const prevSlicerFirstLayerHeightRef = useRef<number | null>(null);
     const displayOrderRef = useRef<number[]>([]);
     const layerHeightRef = useRef<number>(layerHeight);
+    const firstLayerHeightRef = useRef<number>(slicerFirstLayerHeight);
     const filteredCount = filtered.length;
 
     // guard so we only emit immediately after hydration if needed
@@ -82,6 +84,11 @@ export function useColorSlicing({
         prevSlicerFirstLayerHeightRef.current = slicerFirstLayerHeight;
     }, [slicerFirstLayerHeight]);
 
+    // Preserve slider edits as well as the heights from the last reconciliation.
+    useEffect(() => {
+        prevHeightsRef.current = colorSliceHeights.slice();
+    }, [colorSliceHeights]);
+
     // Initialize or resize per-color slice heights and preserve ordering when swatches change.
     useEffect(() => {
         if (filtered.length === 0) return;
@@ -101,23 +108,17 @@ export function useColorSlicing({
             }
         }
 
-        const currentLayerHeight = layerHeightRef.current;
-        const nextHeights = filtered.map((s) => {
-            const key = s.hex + ':' + s.a;
-            const existing = heightMap.get(key);
-            const isValid = typeof existing === 'number' && isFinite(existing) && existing >= 0;
-            const base = isValid ? existing : currentLayerHeight;
-            const clamped = Math.max(currentLayerHeight, Math.min(10, base));
-            if (!currentLayerHeight || !isFinite(currentLayerHeight) || currentLayerHeight <= 0) {
-                return isValid ? base : 0.2;
-            }
-            const multiple = Math.round(clamped / currentLayerHeight) * currentLayerHeight;
-            const snapped = Math.max(currentLayerHeight, Math.min(10, multiple));
-            return Number(snapped.toFixed(8));
-        });
+        const nextOrder = reconcileColorOrder(filtered, prevFiltered, prevOrder);
+        const nextHeights = filtered.map((s, index) =>
+            reconcileColorSliceHeight(
+                heightMap.get(s.hex + ':' + s.a),
+                layerHeightRef.current,
+                firstLayerHeightRef.current,
+                index === nextOrder[0]
+            )
+        );
         setColorSliceHeights(nextHeights);
 
-        const nextOrder = reconcileColorOrder(filtered, prevFiltered, prevOrder);
         setColorOrder(nextOrder);
 
         prevFilteredRef.current = filtered.slice();
@@ -132,6 +133,7 @@ export function useColorSlicing({
     // Keep refs in sync so effects can read latest values without stale closures
     displayOrderRef.current = displayOrder;
     layerHeightRef.current = layerHeight;
+    firstLayerHeightRef.current = slicerFirstLayerHeight;
 
     const onRowChange = useCallback((idx: number, v: number) => {
         setColorSliceHeights((prev) => {
