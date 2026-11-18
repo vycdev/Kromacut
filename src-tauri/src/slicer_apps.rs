@@ -798,7 +798,7 @@ mod tests {
 
         assert_eq!(find(&orca), Some(app("Orca Slicer", &orca)));
         assert_eq!(find(&picked), None);
-        remember_picked_app(&picked_apps, &picked.to_string_lossy()).unwrap();
+        remember_picked_app(&picked_apps, &picked.to_string_lossy(), None).unwrap();
         assert_eq!(find(&picked), Some(app("CrealityPrint", &picked)));
         assert_eq!(find(&other), None);
         assert_eq!(find(&root.join("Tools").join("missing.exe")), None);
