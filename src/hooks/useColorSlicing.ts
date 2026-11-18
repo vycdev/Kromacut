@@ -44,6 +44,7 @@ export function useColorSlicing({
     const firstLayerHeightRef = useRef<number>(slicerFirstLayerHeight);
     // Set when the first-layer height changes while no colors are shown, e.g. with no image.
     const pendingFirstLayerResetRef = useRef<boolean>(false);
+    const normalizedFilteredRef = useRef<Swatch[] | null>(null);
     const filteredCount = filtered.length;
 
     // guard so we only emit immediately after hydration if needed
@@ -75,8 +76,9 @@ export function useColorSlicing({
             prevSlicerFirstLayerHeightRef.current !== slicerFirstLayerHeight
         ) {
             // Without displayed colors, apply the reset when reconciliation restores them.
-            pendingFirstLayerResetRef.current = displayOrderRef.current.length === 0;
-            if (!pendingFirstLayerResetRef.current) {
+            const noColors = displayOrderRef.current.length === 0;
+            pendingFirstLayerResetRef.current = noColors;
+            if (!noColors) {
                 const firstIdx = displayOrderRef.current[0];
                 const newMin = Math.max(layerHeightRef.current, slicerFirstLayerHeight);
                 setColorSliceHeights((prev) => {
@@ -205,9 +207,13 @@ export function useColorSlicing({
     // Ensure the currently-first color in display order cannot be below the slicer first layer height
     // AND all colors stay aligned with valid layer boundaries.
     useEffect(() => {
-        // A palette-size change schedules new heights in the reconciliation effect.
+        // A swatch change schedules new heights in the reconciliation effect.
         // Do not overwrite that update by normalizing this render's old height array.
-        if (displayOrder.length === 0 || colorSliceHeights.length !== displayOrder.length) return;
+        if (normalizedFilteredRef.current !== filtered) {
+            normalizedFilteredRef.current = filtered;
+            return;
+        }
+        if (displayOrder.length === 0) return;
 
         let changed = false;
         const next = colorSliceHeights.slice();
@@ -236,7 +242,7 @@ export function useColorSlicing({
         if (changed) {
             setColorSliceHeights(next);
         }
-    }, [displayOrder, colorSliceHeights, layerHeight, slicerFirstLayerHeight]);
+    }, [filtered, displayOrder, colorSliceHeights, layerHeight, slicerFirstLayerHeight]);
 
     // Check if the current state already matches what reset would produce
     const isResetState = useMemo(() => {

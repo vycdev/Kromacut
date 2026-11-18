@@ -56,6 +56,12 @@ async function moveWhiteFirst(page: Page) {
         steps: 10,
     });
     await page.mouse.up();
+    await expect(page.locator('[aria-label^="Color swatch"]').first()).toHaveAttribute(
+        'aria-label',
+        'Color swatch: #ffffff'
+    );
+    // dnd-kit swallows clicks for 50 ms after a drag ends.
+    await page.waitForTimeout(100);
 }
 
 async function applyResize(page: Page) {
@@ -121,26 +127,33 @@ test('@smoke height reset order survives resize', async ({ page }) => {
     await expect(firstHeight).toHaveAttribute('aria-valuenow', '0.28');
 });
 
-test('@smoke first layer change without an image resets the restored first color', async ({
-    page,
-}) => {
-    const { mode2d, mode3d, firstColor, firstHeight } = await openTwoColorImage(page, 8);
-    await firstHeight.press('Home');
-    for (let i = 0; i < 4; i++) await firstHeight.press('ArrowRight');
-    await expect(firstHeight).toHaveAttribute('aria-valuenow', '0.52');
-    // Undo after removing the image restores the previous history entry: the 16x16 import.
-    await mode2d.click();
-    await applyResize(page);
-    await page.getByRole('button', { name: 'Remove image', exact: true }).click();
-    await expect(page.getByRole('button', { name: 'Undo', exact: true })).toBeEnabled();
-    await mode3d.click();
-    await expect(page.locator('[aria-label^="Color swatch"]')).toHaveCount(0);
-    await page.getByTestId('print-first-layer-height').fill('0.28');
-    await page.getByTestId('print-first-layer-height').press('Tab');
-    await mode2d.click();
-    await page.getByRole('button', { name: 'Undo', exact: true }).click();
-    await expect(page.getByText('Current', { exact: true }).locator('..')).toContainText('16x16');
-    await mode3d.click();
-    await expect(firstColor).toHaveAttribute('aria-label', 'Color swatch: #000000');
-    await expect(firstHeight).toHaveAttribute('aria-valuenow', '0.28');
-});
+// 0.28 keeps the old 0.52 on the new grid; 0.25 does not, so stale heights would be re-snapped.
+for (const firstLayer of ['0.28', '0.25']) {
+    test(`@smoke first layer change to ${firstLayer} without an image resets the restored first color`, async ({
+        page,
+    }) => {
+        const { mode2d, mode3d, firstColor, firstHeight } = await openTwoColorImage(page, 8);
+        await firstHeight.press('Home');
+        for (let i = 0; i < 4; i++) await firstHeight.press('ArrowRight');
+        await expect(firstHeight).toHaveAttribute('aria-valuenow', '0.52');
+        // Undo after removing the image restores the previous history entry: the 16x16 import.
+        await mode2d.click();
+        await applyResize(page);
+        await page.getByRole('button', { name: 'Remove image', exact: true }).click();
+        await expect(page.getByRole('button', { name: 'Undo', exact: true })).toBeEnabled();
+        await mode3d.click();
+        const swatches = page.locator('[aria-label^="Color swatch"]');
+        await expect(swatches).toHaveCount(0);
+        await page.getByTestId('print-first-layer-height').fill(firstLayer);
+        await page.getByTestId('print-first-layer-height').press('Tab');
+        await mode2d.click();
+        await page.getByRole('button', { name: 'Undo', exact: true }).click();
+        await expect(page.getByText('Current', { exact: true }).locator('..')).toContainText(
+            '16x16'
+        );
+        await mode3d.click();
+        await expect(swatches).toHaveCount(2);
+        await expect(firstColor).toHaveAttribute('aria-label', 'Color swatch: #000000');
+        await expect(firstHeight).toHaveAttribute('aria-valuenow', firstLayer);
+    });
+}
