@@ -42,6 +42,8 @@ export function useColorSlicing({
     const displayOrderRef = useRef<number[]>([]);
     const layerHeightRef = useRef<number>(layerHeight);
     const firstLayerHeightRef = useRef<number>(slicerFirstLayerHeight);
+    // Set when the first-layer height changes while no colors are shown, e.g. with no image.
+    const pendingFirstLayerResetRef = useRef<boolean>(false);
     const filteredCount = filtered.length;
 
     // guard so we only emit immediately after hydration if needed
@@ -70,16 +72,19 @@ export function useColorSlicing({
     useEffect(() => {
         if (
             prevSlicerFirstLayerHeightRef.current !== null &&
-            prevSlicerFirstLayerHeightRef.current !== slicerFirstLayerHeight &&
-            displayOrderRef.current.length > 0
+            prevSlicerFirstLayerHeightRef.current !== slicerFirstLayerHeight
         ) {
-            const firstIdx = displayOrderRef.current[0];
-            const newMin = Math.max(layerHeightRef.current, slicerFirstLayerHeight);
-            setColorSliceHeights((prev) => {
-                const next = prev.slice();
-                next[firstIdx] = Number(newMin.toFixed(8));
-                return next;
-            });
+            // Without displayed colors, apply the reset when reconciliation restores them.
+            pendingFirstLayerResetRef.current = displayOrderRef.current.length === 0;
+            if (!pendingFirstLayerResetRef.current) {
+                const firstIdx = displayOrderRef.current[0];
+                const newMin = Math.max(layerHeightRef.current, slicerFirstLayerHeight);
+                setColorSliceHeights((prev) => {
+                    const next = prev.slice();
+                    next[firstIdx] = Number(newMin.toFixed(8));
+                    return next;
+                });
+            }
         }
         prevSlicerFirstLayerHeightRef.current = slicerFirstLayerHeight;
     }, [slicerFirstLayerHeight]);
@@ -117,6 +122,12 @@ export function useColorSlicing({
                 index === nextOrder[0]
             )
         );
+        if (pendingFirstLayerResetRef.current && nextOrder.length > 0) {
+            pendingFirstLayerResetRef.current = false;
+            nextHeights[nextOrder[0]] = Number(
+                Math.max(layerHeightRef.current, firstLayerHeightRef.current).toFixed(8)
+            );
+        }
         setColorSliceHeights(nextHeights);
 
         setColorOrder(nextOrder);
@@ -159,6 +170,7 @@ export function useColorSlicing({
         });
 
         setColorOrder(indices);
+        prevOrderRef.current = indices.slice();
         setColorSliceHeights(nextHeights);
     }, [filtered, colorSliceHeights, layerHeight, slicerFirstLayerHeight]);
 
