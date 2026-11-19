@@ -750,7 +750,20 @@ function App(): React.ReactElement | null {
     return (
         <>
             <div className="box-border text-inherit font-sans flex flex-col flex-1 min-w-0 max-w-full min-h-0 h-screen w-full">
-                <Header docsOpen={docsOpen} onBackToApp={backToApp} onOpenDocs={openDocs} />
+                <Header
+                    docsOpen={docsOpen}
+                    onBackToApp={backToApp}
+                    onOpenDocs={openDocs}
+                    slicer={
+                        isTauri()
+                            ? {
+                                  preference: slicerChoice.preference,
+                                  onChange: slicerChoice.onChangeSavedSlicer,
+                                  onForget: slicerChoice.onForgetSlicer,
+                              }
+                            : undefined
+                    }
+                />
                 {docsOpen && (
                     <div className="flex flex-1 min-h-0 w-full">
                         <DocsPage />
@@ -1270,6 +1283,7 @@ function App(): React.ReactElement | null {
                     <SlicerChooserDialog
                         preference={slicerChoice.preference}
                         missingSlicerName={slicerChoice.chooser.missingSlicerName}
+                        saveOnly={slicerChoice.chooser.saveOnly}
                         onConfirm={slicerChoice.onChooserConfirm}
                         onCancel={slicerChoice.onChooserCancel}
                     />

@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Check, FolderOpen } from 'lucide-react';
 import {
@@ -19,14 +19,25 @@ import type { SlicerPreference } from '../lib/slicerPreference';
 interface Props {
     preference: SlicerPreference | null;
     missingSlicerName: string | null;
+    /** Opened from Settings: confirming saves the selected slicer instead of opening a model. */
+    saveOnly?: boolean;
     onConfirm: (slicer: SlicerApp | null, remember: boolean) => void;
     onCancel: () => void;
 }
 
 const SYSTEM_DEFAULT = '';
 
-/** Desktop only: asks which slicer opens the model, and whether to stop asking. */
-export function SlicerChooserDialog({ preference, missingSlicerName, onConfirm, onCancel }: Props) {
+/**
+ * Desktop only: asks which slicer opens the model, and whether to stop asking. With `saveOnly`
+ * it picks the slicer Open in Slicer uses from now on.
+ */
+export function SlicerChooserDialog({
+    preference,
+    missingSlicerName,
+    saveOnly = false,
+    onConfirm,
+    onCancel,
+}: Props) {
     const { t } = useTranslation('workspace');
     const groupName = useId();
     const rememberId = useId();
@@ -37,6 +48,8 @@ export function SlicerChooserDialog({ preference, missingSlicerName, onConfirm, 
     const [remember, setRemember] = useState(preference !== null);
     const [browsing, setBrowsing] = useState(false);
     const [browseFailed, setBrowseFailed] = useState(false);
+    // The chooser has no trigger, so closing it would leave focus on the page body.
+    const openerRef = useRef<HTMLElement | null>(null);
 
     useEffect(() => {
         let cancelled = false;
@@ -118,13 +131,26 @@ export function SlicerChooserDialog({ preference, missingSlicerName, onConfirm, 
                 if (!open) onCancel();
             }}
         >
-            <AlertDialogContent data-testid="slicer-chooser">
+            <AlertDialogContent
+                data-testid="slicer-chooser"
+                onOpenAutoFocus={() => {
+                    openerRef.current = document.activeElement as HTMLElement | null;
+                }}
+                onCloseAutoFocus={(event) => {
+                    const opener = openerRef.current;
+                    if (!opener?.isConnected || opener === document.body) return;
+                    event.preventDefault();
+                    opener.focus();
+                }}
+            >
                 <AlertDialogHeader>
                     <AlertDialogTitle>{t('slicerChooser.title')}</AlertDialogTitle>
                     <AlertDialogDescription>
                         {missingSlicerName
                             ? t('slicerChooser.missing', { name: missingSlicerName })
-                            : t('slicerChooser.description')}
+                            : saveOnly
+                              ? t('slicerChooser.saveDescription')
+                              : t('slicerChooser.description')}
                     </AlertDialogDescription>
                 </AlertDialogHeader>
 
@@ -170,22 +196,24 @@ export function SlicerChooserDialog({ preference, missingSlicerName, onConfirm, 
                             {t('slicerChooser.notAnApp')}
                         </p>
                     )}
-                    <div className="flex items-start justify-between gap-4 border-t border-border pt-3">
-                        <label htmlFor={rememberId} className="min-w-0 cursor-pointer">
-                            <span className="block text-sm font-medium text-foreground">
-                                {t('slicerChooser.remember')}
-                            </span>
-                            <span className="mt-1 block text-xs leading-5 text-muted-foreground">
-                                {t('slicerChooser.rememberHint')}
-                            </span>
-                        </label>
-                        <Switch
-                            id={rememberId}
-                            checked={remember}
-                            onCheckedChange={setRemember}
-                            data-testid="slicer-remember"
-                        />
-                    </div>
+                    {!saveOnly && (
+                        <div className="flex items-start justify-between gap-4 border-t border-border pt-3">
+                            <label htmlFor={rememberId} className="min-w-0 cursor-pointer">
+                                <span className="block text-sm font-medium text-foreground">
+                                    {t('slicerChooser.remember')}
+                                </span>
+                                <span className="mt-1 block text-xs leading-5 text-muted-foreground">
+                                    {t('slicerChooser.rememberHint')}
+                                </span>
+                            </label>
+                            <Switch
+                                id={rememberId}
+                                checked={remember}
+                                onCheckedChange={setRemember}
+                                data-testid="slicer-remember"
+                            />
+                        </div>
+                    )}
                 </div>
 
                 <AlertDialogFooter>
@@ -193,14 +221,14 @@ export function SlicerChooserDialog({ preference, missingSlicerName, onConfirm, 
                         {t('slicerChooser.cancel')}
                     </AlertDialogCancel>
                     <AlertDialogAction
-                        data-testid="slicer-open"
+                        data-testid={saveOnly ? 'slicer-save' : 'slicer-open'}
                         disabled={browsing || (selectedPath !== SYSTEM_DEFAULT && !selected)}
                         onClick={(event) => {
                             event.preventDefault();
-                            onConfirm(selected, remember);
+                            onConfirm(selected, saveOnly || remember);
                         }}
                     >
-                        {t('slicerChooser.open')}
+                        {saveOnly ? t('slicerChooser.save') : t('slicerChooser.open')}
                     </AlertDialogAction>
                 </AlertDialogFooter>
             </AlertDialogContent>

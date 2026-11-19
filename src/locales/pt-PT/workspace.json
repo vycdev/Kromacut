@@ -194,6 +194,7 @@
   "slicerChooser": {
     "title": "Abrir no laminador",
     "description": "Escolha a aplicação que abre o 3MF.",
+    "saveDescription": "Escolha a aplicação com que «Abrir no laminador» abre os modelos.",
     "missing": "Não foi possível encontrar o {{name}}. Escolha outro laminador.",
     "systemDefault": "Predefinição do sistema",
     "systemDefaultHint": "A sua aplicação predefinida para ficheiros .3mf",
@@ -204,8 +205,9 @@
     "browseFilter": "Aplicações",
     "notAnApp": "Esse ficheiro não é uma aplicação com a qual o Kromacut possa abrir modelos. Escolha a própria aplicação do laminador.",
     "remember": "Usar sempre este laminador",
-    "rememberHint": "«Abrir no laminador» passa a abrir os modelos sem perguntar. Utilize «Escolher laminador» no menu de transferência para o alterar ou esquecer.",
+    "rememberHint": "«Abrir no laminador» passa a abrir os modelos sem perguntar. Para o alterar ou esquecer, utilize «Escolher laminador» no menu de transferência ou abra as Definições.",
     "open": "Abrir",
+    "save": "Guardar",
     "cancel": "Cancelar"
   },
   "modeTabs": {
