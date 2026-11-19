@@ -696,6 +696,7 @@ function App(): React.ReactElement | null {
         setExportProgress,
         setExportStep,
         exportingSTL,
+        threeDBuildBusy,
         exportObjectToStlBlob,
         exportObjectTo3MFBlob: (obj, onProgress, onZipProgress) =>
             exportObjectTo3MFBlob(obj, {

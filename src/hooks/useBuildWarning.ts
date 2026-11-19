@@ -182,6 +182,8 @@ export function useBuildWarning({ imageSrc, imageCanvas, initialState }: UseBuil
     }, []);
 
     const markBuildStarted = useCallback(() => {
+        // An older build can start while a newer request is still preparing.
+        if (pendingBuildFrameRef.current !== null) return;
         setIsBuildStarting(false);
     }, []);
 

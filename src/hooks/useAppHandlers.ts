@@ -19,6 +19,8 @@ export interface UseAppHandlersParams {
     setExportProgress: (n: number) => void;
     setExportStep?: (step: ExportProgressStep) => void;
     exportingSTL: boolean;
+    /** A 3D build is starting or running, so the exported mesh may not match its settings. */
+    threeDBuildBusy: boolean;
     exportObjectToStlBlob: (
         object: THREE.Object3D,
         onProgress?: (p: number) => void
@@ -114,6 +116,7 @@ export function useAppHandlers(params: UseAppHandlersParams) {
         setExportProgress,
         setExportStep,
         exportingSTL,
+        threeDBuildBusy,
         exportObjectToStlBlob,
         exportObjectTo3MFBlob,
         applyQuantize,
@@ -145,7 +148,7 @@ export function useAppHandlers(params: UseAppHandlersParams) {
             __KROMACUT_LAST_MESH?: THREE.Object3D;
         }
         const threeObject = (window as KromacutWindow).__KROMACUT_LAST_MESH;
-        if (!threeObject) {
+        if (!threeObject || threeDBuildBusy) {
             alert(translate('messages:files.modelNotReady'));
             return;
         }
@@ -197,7 +200,14 @@ export function useAppHandlers(params: UseAppHandlersParams) {
                 setExportStep?.(DEFAULT_EXPORT_STEP);
             }, 300);
         }
-    }, [exportingSTL, exportObjectToStlBlob, setExportingSTL, setExportProgress, setExportStep]);
+    }, [
+        exportingSTL,
+        threeDBuildBusy,
+        exportObjectToStlBlob,
+        setExportingSTL,
+        setExportProgress,
+        setExportStep,
+    ]);
 
     const export3MF = useCallback(
         async (destination: ThreeMFDestination) => {
@@ -206,7 +216,8 @@ export function useAppHandlers(params: UseAppHandlersParams) {
                 __KROMACUT_LAST_MESH?: THREE.Object3D;
             }
             const threeObject = (window as KromacutWindow).__KROMACUT_LAST_MESH;
-            if (!threeObject) {
+            // Also covers exports that start later, such as after a slow slicer check.
+            if (!threeObject || threeDBuildBusy) {
                 alert(translate('messages:files.modelNotReady'));
                 return;
             }
@@ -314,7 +325,14 @@ export function useAppHandlers(params: UseAppHandlersParams) {
                 }, 300);
             }
         },
-        [exportingSTL, exportObjectTo3MFBlob, setExportingSTL, setExportProgress, setExportStep]
+        [
+            exportingSTL,
+            threeDBuildBusy,
+            exportObjectTo3MFBlob,
+            setExportingSTL,
+            setExportProgress,
+            setExportStep,
+        ]
     );
 
     const onExport3MF = useCallback(
