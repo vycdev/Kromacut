@@ -728,7 +728,7 @@ mod tests {
             assert!(!is_launchable(platform, &path), "{platform:?} {path:?}");
             assert_eq!(describe_slicer_app(platform, &path), None);
         }
-        // Only Unix hosts have the executable bit; elsewhere every file counts as executable.
+        // Off Unix hosts there is no executable bit, so a plain file passes the Linux check.
         #[cfg(unix)]
         {
             let plain = root.join("notes.txt");
