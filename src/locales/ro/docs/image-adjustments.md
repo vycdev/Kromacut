@@ -64,4 +64,10 @@ Resetarea elimină o ajustare live, nu o editare deja integrată în imagine. Du
 
 Operațiile Aplică repetate lucrează pe imaginea deja editată, astfel că limitarea valorilor și pierderea detaliilor tonale se pot acumula. Anulează întâi când compari alternative.
 
+## Comenzi rapide pentru istoricul 2D
+
+Folosește **Ctrl+Z** (**Cmd+Z** pe macOS) pentru a anula o editare și **Ctrl+Shift+Z** (**Cmd+Shift+Z**) pentru a o reface. Comenzile funcționează în modul 2D, în afara câmpurilor de text, a câmpurilor numerice, a dialogurilor și a meniurilor sau listelor deschise. Sunt dezactivate în timpul decupării sau procesării și nu modifică imaginea din fila 3D.
+
+Așteaptă finalizarea cuantizării sau a eliminării ditheringului înainte de a importa ori edita altă imagine. Rezultatele editărilor mai vechi sunt ignorate dacă imaginea s-a schimbat sau a început o altă procesare.
+
 În continuare: [Reducerea culorilor](reducing-colors).

@@ -10,6 +10,7 @@ import { openModelInSlicer, type SlicerApp } from '../lib/desktopSlicer';
 import type * as THREE from 'three';
 
 export interface UseAppHandlersParams {
+    beginEdit: () => (() => boolean) | null;
     canvasPreviewRef: RefObject<CanvasPreviewHandle | null>;
     imageSrc?: string | null;
     invalidate: () => void;
@@ -104,6 +105,7 @@ function exportFileName(extension: string) {
 
 export function useAppHandlers(params: UseAppHandlersParams) {
     const {
+        beginEdit,
         canvasPreviewRef,
         imageSrc,
         invalidate,
@@ -362,13 +364,16 @@ export function useAppHandlers(params: UseAppHandlersParams) {
 
     const onSwatchApply = useCallback(
         async (original: SwatchEntry, newHex: string) => {
+            const current = beginEdit();
             // Perform literal pixel replacement on the full-size image
-            if (!canvasPreviewRef.current || !imageSrc) return;
+            if (!current || !canvasPreviewRef.current || !imageSrc) return;
+            let sourceUrl: string | null = null;
             try {
                 const blob = await canvasPreviewRef.current.exportImageBlob();
-                if (!blob) return;
-                const img = await decodeImage(URL.createObjectURL(blob));
-                if (!img) return;
+                if (!blob || !current()) return;
+                sourceUrl = URL.createObjectURL(blob);
+                const img = await decodeImage(sourceUrl);
+                if (!img || !current()) return;
                 const w = img.naturalWidth;
                 const h = img.naturalHeight;
                 const c = document.createElement('canvas');
@@ -438,15 +443,17 @@ export function useAppHandlers(params: UseAppHandlersParams) {
                 const outBlob = await new Promise<Blob | null>((res) =>
                     c.toBlob((b) => res(b), 'image/png')
                 );
-                if (!outBlob) return;
+                if (!outBlob || !current()) return;
                 const url = URL.createObjectURL(outBlob);
                 invalidate();
                 setImage(url, true);
             } catch (err) {
-                console.warn('literal replace failed', err);
+                if (current()) console.warn('literal replace failed', err);
+            } finally {
+                if (sourceUrl) URL.revokeObjectURL(sourceUrl);
             }
         },
-        [canvasPreviewRef, imageSrc, invalidate, setImage]
+        [beginEdit, canvasPreviewRef, imageSrc, invalidate, setImage]
     );
 
     return {
