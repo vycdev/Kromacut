@@ -1,5 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+function revokeObjectUrl(url: string) {
+    if (!url.startsWith('blob:')) return;
+    try {
+        URL.revokeObjectURL(url);
+    } catch {
+        /* ignore revoke error */
+    }
+}
+
 // Manages image history (undo/redo) and objectURL revocation.
 export function useImageHistory(initial: string | null, onBeforeSet?: () => void) {
     const [imageSrc, setImageSrc] = useState<string | null>(initial);
@@ -7,34 +16,22 @@ export function useImageHistory(initial: string | null, onBeforeSet?: () => void
     const [future, setFuture] = useState<string[]>([]);
 
     const imageRef = useRef<string | null>(initial);
-    const pastRef = useRef<string[]>([]);
-    const futureRef = useRef<string[]>([]);
     useEffect(() => {
         imageRef.current = imageSrc;
     }, [imageSrc]);
-    useEffect(() => {
-        pastRef.current = past;
-    }, [past]);
-    useEffect(() => {
-        futureRef.current = future;
-    }, [future]);
 
+    // Release each object URL once no history entry uses it: a discarded redo
+    // branch, a removed image, or everything left on unmount.
+    const retainedRef = useRef(new Set<string>());
     useEffect(() => {
-        return () => {
-            const revokeIf = (u: string | null) => {
-                if (u && u.startsWith('blob:')) {
-                    try {
-                        URL.revokeObjectURL(u);
-                    } catch {
-                        /* ignore revoke error */
-                    }
-                }
-            };
-            revokeIf(imageRef.current);
-            pastRef.current.forEach(revokeIf);
-            futureRef.current.forEach(revokeIf);
-        };
-    }, []);
+        const retained = new Set([...past, ...future]);
+        if (imageSrc) retained.add(imageSrc);
+        retainedRef.current.forEach((url) => {
+            if (!retained.has(url)) revokeObjectUrl(url);
+        });
+        retainedRef.current = retained;
+    }, [imageSrc, past, future]);
+    useEffect(() => () => retainedRef.current.forEach(revokeObjectUrl), []);
 
     const setImage = useCallback(
         (next: string | null, pushHistory = true) => {
@@ -94,16 +91,9 @@ export function useImageHistory(initial: string | null, onBeforeSet?: () => void
     }, [future.length, onBeforeSet]);
 
     const clearCurrent = useCallback(() => {
-        if (imageSrc && !past.includes(imageSrc) && !future.includes(imageSrc)) {
-            try {
-                URL.revokeObjectURL(imageSrc);
-            } catch {
-                /* ignore revoke error */
-            }
-        }
         if (onBeforeSet) onBeforeSet();
         setImageSrc(null);
-    }, [imageSrc, past, future, onBeforeSet]);
+    }, [onBeforeSet]);
 
     return {
         imageSrc,
