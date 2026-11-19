@@ -389,19 +389,36 @@ test('@smoke a single-head fallback never offers STL of the previous multi-head 
     await expect(page.getByTestId('autopaint-multi-head-notice')).toBeVisible();
     await waitForBuild(page, 2);
 
-    // A routed mesh that outlives its snapshot, e.g. from an overlapping build, is refused.
+    // A routed mesh that outlives its snapshot, e.g. from an overlapping build, is refused,
+    // both when it is published before the click and while the export overlay paints.
+    const tagMesh = (unavailable: boolean) =>
+        page.evaluate((unavailable) => {
+            (
+                window as unknown as { __KROMACUT_LAST_MESH: { userData: Record<string, unknown> } }
+            ).__KROMACUT_LAST_MESH.userData.kromacutStlUnavailable = unavailable;
+        }, unavailable);
+    const downloads: string[] = [];
+    page.on('download', (download) => downloads.push(download.suggestedFilename()));
+    const alerts: string[] = [];
+    page.on('dialog', (dialog) => {
+        alerts.push(dialog.message());
+        void dialog.accept();
+    });
+    if (!(await page.getByTestId('download-stl').isVisible())) await openDownloads(page);
+
+    await tagMesh(true);
+    await page.getByTestId('download-stl').click();
+    await expect.poll(() => alerts).toEqual(['3D model not ready yet']);
+    await expect(page.getByTestId('download-stl')).toBeEnabled();
+
+    await tagMesh(false);
     await page.evaluate(() => {
+        document.querySelector<HTMLButtonElement>('[data-testid="download-stl"]')!.click();
         (
             window as unknown as { __KROMACUT_LAST_MESH: { userData: Record<string, unknown> } }
         ).__KROMACUT_LAST_MESH.userData.kromacutStlUnavailable = true;
     });
-    if (!(await page.getByTestId('download-stl').isVisible())) await openDownloads(page);
-    const alerts: string[] = [];
-    page.once('dialog', (dialog) => {
-        alerts.push(dialog.message());
-        void dialog.accept();
-    });
-    await page.getByTestId('download-stl').click();
-    await expect.poll(() => alerts).toEqual(['3D model not ready yet']);
+    await expect.poll(() => alerts).toEqual(['3D model not ready yet', '3D model not ready yet']);
     await expect(page.getByTestId('download-stl')).toBeEnabled();
+    expect(downloads).toEqual([]);
 });

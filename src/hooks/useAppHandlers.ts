@@ -150,9 +150,13 @@ export function useAppHandlers(params: UseAppHandlersParams) {
         interface KromacutWindow extends Window {
             __KROMACUT_LAST_MESH?: THREE.Object3D;
         }
-        const threeObject = (window as KromacutWindow).__KROMACUT_LAST_MESH;
         // A Flat Paint or multi-head mesh can outlive its build snapshot briefly.
-        if (!threeObject || threeDBuildBusy || threeObject.userData.kromacutStlUnavailable) {
+        const readStlMesh = () => {
+            const mesh = (window as KromacutWindow).__KROMACUT_LAST_MESH;
+            return mesh && !mesh.userData.kromacutStlUnavailable ? mesh : undefined;
+        };
+        const threeObject = readStlMesh();
+        if (!threeObject || threeDBuildBusy) {
             alert(translate('messages:files.modelNotReady'));
             return;
         }
@@ -168,6 +172,11 @@ export function useAppHandlers(params: UseAppHandlersParams) {
         const overlayStartedAt = performance.now();
         try {
             await waitForOverlayPaint();
+            // A build may have replaced the mesh while the overlay painted.
+            if (readStlMesh() !== threeObject) {
+                alert(translate('messages:files.modelNotReady'));
+                return;
+            }
             const blob = await exportObjectToStlBlob(
                 threeObject,
                 createExportProgressReporter(setExportProgress, (progress) => {
