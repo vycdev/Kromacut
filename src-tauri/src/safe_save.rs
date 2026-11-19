@@ -102,16 +102,16 @@ pub fn begin_safe_file_save<R: Runtime>(
     app: AppHandle<R>,
     state: State<'_, SafeSaves>,
 ) -> Result<String, String> {
-    let scope = app.fs_scope();
-    if !scope.is_allowed(&path) {
-        return Err("The save destination was not chosen in a Save dialog".to_string());
-    }
-    // Replace the file a symlink points to, which the scope check above resolved, not the link.
+    // Replace the file a symlink points to, not the link, and check that same file below.
     let path = match path.symlink_metadata() {
         Ok(metadata) if metadata.file_type().is_symlink() => std::fs::canonicalize(&path)
             .map_err(|error| format!("Failed to resolve the save destination: {error}"))?,
         _ => path,
     };
+    let scope = app.fs_scope();
+    if !scope.is_allowed(&path) {
+        return Err("The save destination was not chosen in a Save dialog".to_string());
+    }
     if is_in_app_local_data(&app, &path) {
         return Err("Files cannot be saved in the app's data folder".to_string());
     }
@@ -378,16 +378,26 @@ mod tests {
         assert_eq!(read(&unchosen).unwrap(), b"other palette");
         assert_eq!(entries(&directory), ["other.kpal", "palette.kpal"]);
 
-        // A link to the chosen file updates that file and stays a link.
+        // Absolute and relative links to the chosen file update that file and stay links.
         #[cfg(unix)]
         {
             let elsewhere = test_directory("ipc-link");
             let link = elsewhere.join("link.kpal");
             std::os::unix::fs::symlink(&destination, &link).unwrap();
-            save(&link, b"linked palette").unwrap();
-            assert!(link.symlink_metadata().unwrap().file_type().is_symlink());
-            assert_eq!(read(&destination).unwrap(), b"linked palette");
-            assert_eq!(entries(&elsewhere), ["link.kpal"]);
+            let relative = elsewhere.join("relative.kpal");
+            let folder = directory.file_name().unwrap();
+            std::os::unix::fs::symlink(
+                PathBuf::from("..").join(folder).join("palette.kpal"),
+                &relative,
+            )
+            .unwrap();
+            for (path, data) in [(&link, "linked palette"), (&relative, "relative palette")] {
+                let data = data.as_bytes();
+                save(path, data).unwrap();
+                assert!(path.symlink_metadata().unwrap().file_type().is_symlink());
+                assert_eq!(read(&destination).unwrap(), data);
+            }
+            assert_eq!(entries(&elsewhere), ["link.kpal", "relative.kpal"]);
             remove_dir_all(elsewhere).unwrap();
         }
 
