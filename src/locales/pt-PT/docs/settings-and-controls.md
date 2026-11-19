@@ -40,7 +40,7 @@ A maioria das secções laterais pode recolher-se pelo título. Recolher esconde
 
 **Anular / Refazer** partilha o histórico da imagem entre 2D e 3D. Não é histórico de filamentos, calibração, alturas nem otimizador. Use reposições de cada painel quando existirem e regenere após restaurar a imagem.
 
-Em 2D, **Ctrl+Z** (**Cmd+Z** no macOS) anula e **Ctrl+Shift+Z** (**Cmd+Shift+Z**) refaz uma edição da imagem. Os atalhos são ignorados em campos editáveis, caixas de diálogo, painéis emergentes, menus e listas abertas, durante o recorte ou o processamento e em 3D. Consulte [Atalhos do histórico 2D](image-adjustments#2d-history-shortcuts).
+Em 2D, **Ctrl+Z** (**Cmd+Z** no macOS) anula e **Ctrl+Shift+Z** (**Cmd+Shift+Z**) refaz uma edição da imagem. No Windows e no Linux, **Ctrl+Y** também refaz. Os atalhos são ignorados em campos editáveis, caixas de diálogo, painéis emergentes, menus e listas abertas, durante o recorte ou o processamento e em 3D. Consulte [Atalhos do histórico 2D](image-adjustments#2d-history-shortcuts).
 
 ## Modo multiplaca experimental
 

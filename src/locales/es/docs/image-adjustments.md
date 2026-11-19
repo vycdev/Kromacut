@@ -66,7 +66,7 @@ Aplicar repetidamente actúa sobre la imagen ya editada, de modo que el recorte 
 
 ## Atajos del historial 2D
 
-Usa **Ctrl+Z** (**Cmd+Z** en macOS) para deshacer una edición y **Ctrl+Mayús+Z** (**Cmd+Mayús+Z**) para rehacerla. Funcionan en modo 2D, fuera de campos de texto, entradas numéricas, cuadros de diálogo y menús o listas abiertos. Se desactivan al recortar o procesar; no cambian la imagen desde la pestaña 3D.
+Usa **Ctrl+Z** (**Cmd+Z** en macOS) para deshacer una edición y **Ctrl+Mayús+Z** (**Cmd+Mayús+Z**) para rehacerla. En Windows y Linux, **Ctrl+Y** también rehace. Funcionan en modo 2D, fuera de campos de texto, entradas numéricas, cuadros de diálogo y menús o listas abiertos. Se desactivan al recortar o procesar; no cambian la imagen desde la pestaña 3D.
 
 Espera a que termine la cuantización o la eliminación de tramado antes de importar o editar otra imagen. Se descartan los resultados de ediciones anteriores si la imagen cambió o comenzó otra operación de procesamiento.
 

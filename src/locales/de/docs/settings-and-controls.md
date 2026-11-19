@@ -40,7 +40,7 @@ Die meisten Seitenleistenbereiche lassen sich über ihre Überschrift einklappen
 
 **Rückgängig / Wiederholen** teilt den Bildbearbeitungsverlauf zwischen 2D und 3D. Es ist kein Rückgängig-Verlauf für Filamentänderungen, Kalibrierung, Schichthöhen oder Optimierungseinstellungen. Verwende dafür, sofern vorhanden, die Rücksetzfunktion des jeweiligen Bereichs und erstelle nach dem Wiederherstellen eines Bildstands das Modell neu.
 
-Im 2D-Modus macht **Strg+Z** (**Cmd+Z** unter macOS) eine Bildbearbeitung rückgängig, und **Strg+Umschalt+Z** (**Cmd+Umschalt+Z**) stellt sie wieder her. In bearbeitbaren Feldern, Dialogen, Popovers, Menüs und geöffneten Listen, beim Zuschneiden, während der Verarbeitung und im 3D-Modus werden die Kürzel ignoriert. Siehe [Tastenkürzel für den 2D-Verlauf](image-adjustments#2d-history-shortcuts).
+Im 2D-Modus macht **Strg+Z** (**Cmd+Z** unter macOS) eine Bildbearbeitung rückgängig, und **Strg+Umschalt+Z** (**Cmd+Umschalt+Z**) stellt sie wieder her. Unter Windows und Linux stellt auch **Strg+Y** sie wieder her. In bearbeitbaren Feldern, Dialogen, Popovers, Menüs und geöffneten Listen, beim Zuschneiden, während der Verarbeitung und im 3D-Modus werden die Kürzel ignoriert. Siehe [Tastenkürzel für den 2D-Verlauf](image-adjustments#2d-history-shortcuts).
 
 ## Experimenteller Mehrplattenmodus
 
