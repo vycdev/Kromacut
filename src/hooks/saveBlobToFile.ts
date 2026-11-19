@@ -1,4 +1,4 @@
-import { isTauri } from '@tauri-apps/api/core';
+import { invoke, isTauri } from '@tauri-apps/api/core';
 import { message, save } from '@tauri-apps/plugin-dialog';
 import { open } from '@tauri-apps/plugin-fs';
 import { translate } from '../lib/i18n';
@@ -10,7 +10,7 @@ export interface SaveBlobOptions {
     filterName: string;
 }
 
-async function writeBlobToTauriFile(filePath: string, blob: Blob) {
+async function streamBlobToTauriFile(filePath: string, blob: Blob) {
     const file = await open(filePath, {
         read: false,
         write: true,
@@ -34,6 +34,19 @@ async function writeBlobToTauriFile(filePath: string, blob: Blob) {
         reader.releaseLock();
         await file.close();
     }
+}
+
+// Writes next to the destination and renames over it only after the whole blob is written, so a
+// failed overwrite leaves the existing file intact.
+async function writeBlobToTauriFile(filePath: string, blob: Blob) {
+    const tempPath = await invoke<string>('begin_safe_file_save', { path: filePath });
+    try {
+        await streamBlobToTauriFile(tempPath, blob);
+    } catch (error) {
+        await invoke('discard_safe_file_save', { tempPath }).catch(() => undefined);
+        throw error;
+    }
+    await invoke('finish_safe_file_save', { tempPath });
 }
 
 export async function saveBlobToFile(blob: Blob, options: SaveBlobOptions): Promise<string | null> {

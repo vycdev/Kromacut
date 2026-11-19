@@ -1,0 +1,340 @@
+//! Replaces a Save As destination only after its new contents are fully written.
+//!
+//! The webview streams the file into a temporary sibling through the fs plugin, then asks for
+//! the sibling to be renamed over the destination. A failed or abandoned save removes the
+//! sibling, so an existing file keeps its old contents.
+
+use std::collections::HashMap;
+use std::fs::{remove_file, rename, OpenOptions};
+use std::io::ErrorKind;
+use std::path::{Path, PathBuf};
+use std::sync::Mutex;
+use std::time::{SystemTime, UNIX_EPOCH};
+use tauri::{AppHandle, Runtime, State};
+use tauri_plugin_fs::FsExt;
+
+/// Temporary file paths handed to the webview, mapped to the destination each one replaces.
+#[derive(Default)]
+pub struct SafeSaves {
+    pending: Mutex<HashMap<PathBuf, PathBuf>>,
+}
+
+fn create_temp_sibling(destination: &Path) -> Result<PathBuf, String> {
+    let directory = destination
+        .parent()
+        .ok_or_else(|| "The save destination has no parent folder".to_string())?;
+    let name = destination
+        .file_name()
+        .ok_or_else(|| "The save destination has no file name".to_string())?
+        .to_string_lossy();
+    let stamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_millis())
+        .unwrap_or_default();
+    for collision in 0..1_000_u16 {
+        let path = directory.join(format!(".{name}.{stamp}-{collision}.kromacut-tmp"));
+        match OpenOptions::new().write(true).create_new(true).open(&path) {
+            Ok(_) => return Ok(path),
+            Err(error) if error.kind() == ErrorKind::AlreadyExists => continue,
+            Err(error) => return Err(format!("Failed to create a temporary save file: {error}")),
+        }
+    }
+    Err("Could not allocate a unique temporary save file name".to_string())
+}
+
+fn discard_temp(temp: &Path) {
+    if let Err(error) = remove_file(temp) {
+        if error.kind() != ErrorKind::NotFound {
+            log::warn!("Failed to remove temporary save file {temp:?}: {error}");
+        }
+    }
+}
+
+fn commit_temp(temp: &Path, destination: &Path) -> Result<(), String> {
+    let result = (|| {
+        OpenOptions::new()
+            .write(true)
+            .open(temp)
+            .and_then(|file| file.sync_all())
+            .map_err(|error| format!("Failed to flush the saved file: {error}"))?;
+        // Keep an existing file's Unix mode instead of the umask default.
+        #[cfg(unix)]
+        if let Ok(metadata) = std::fs::metadata(destination) {
+            std::fs::set_permissions(temp, metadata.permissions())
+                .map_err(|error| format!("Failed to copy the file permissions: {error}"))?;
+        }
+        rename(temp, destination).map_err(|error| format!("Failed to replace the file: {error}"))
+    })();
+    if result.is_err() {
+        discard_temp(temp);
+    }
+    result
+}
+
+#[tauri::command]
+pub fn begin_safe_file_save<R: Runtime>(
+    path: PathBuf,
+    app: AppHandle<R>,
+    state: State<'_, SafeSaves>,
+) -> Result<String, String> {
+    let scope = app.fs_scope();
+    if !scope.is_allowed(&path) {
+        return Err("The save destination was not chosen in a Save dialog".to_string());
+    }
+    let temp = create_temp_sibling(&path)?;
+    if let Err(error) = scope.allow_file(&temp) {
+        discard_temp(&temp);
+        return Err(format!("Failed to allow the temporary save file: {error}"));
+    }
+    let mut pending = state
+        .pending
+        .lock()
+        .map_err(|_| "Safe save lock was poisoned".to_string())?;
+    pending.insert(temp.clone(), path);
+    Ok(temp.to_string_lossy().into_owned())
+}
+
+fn take_pending<R: Runtime>(
+    app: &AppHandle<R>,
+    state: &SafeSaves,
+    temp: &Path,
+) -> Result<Option<PathBuf>, String> {
+    let destination = state
+        .pending
+        .lock()
+        .map_err(|_| "Safe save lock was poisoned".to_string())?
+        .remove(temp);
+    if destination.is_some() {
+        let _ = app.fs_scope().forbid_file(temp);
+    }
+    Ok(destination)
+}
+
+#[tauri::command]
+pub fn finish_safe_file_save<R: Runtime>(
+    temp_path: PathBuf,
+    app: AppHandle<R>,
+    state: State<'_, SafeSaves>,
+) -> Result<(), String> {
+    let destination = take_pending(&app, &state, &temp_path)?
+        .ok_or_else(|| "Unknown or finished temporary save file".to_string())?;
+    commit_temp(&temp_path, &destination)
+}
+
+#[tauri::command]
+pub fn discard_safe_file_save<R: Runtime>(
+    temp_path: PathBuf,
+    app: AppHandle<R>,
+    state: State<'_, SafeSaves>,
+) -> Result<(), String> {
+    if take_pending(&app, &state, &temp_path)?.is_some() {
+        discard_temp(&temp_path);
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{commit_temp, create_temp_sibling, discard_temp};
+    use std::fs::{create_dir_all, read, read_dir, remove_dir_all, write};
+    use std::path::PathBuf;
+
+    fn test_directory(name: &str) -> PathBuf {
+        let folder = format!("kromacut-safe-save-{name}-{}", std::process::id());
+        let directory = std::env::temp_dir().join(folder);
+        let _ = remove_dir_all(&directory);
+        create_dir_all(&directory).unwrap();
+        directory
+    }
+
+    fn entries(directory: &PathBuf) -> Vec<String> {
+        let mut names: Vec<_> = read_dir(directory)
+            .unwrap()
+            .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
+            .collect();
+        names.sort();
+        names
+    }
+
+    #[test]
+    fn commit_replaces_an_existing_file_with_the_complete_temp_contents() {
+        let directory = test_directory("commit");
+        let destination = directory.join("palette.kpal");
+        write(&destination, b"old palette").unwrap();
+        let temp = create_temp_sibling(&destination).unwrap();
+        assert_eq!(temp.parent(), destination.parent());
+        write(&temp, b"new palette").unwrap();
+
+        commit_temp(&temp, &destination).unwrap();
+
+        assert_eq!(read(&destination).unwrap(), b"new palette");
+        assert_eq!(entries(&directory), ["palette.kpal"]);
+        remove_dir_all(directory).unwrap();
+    }
+
+    #[test]
+    fn discarding_a_partial_temp_file_keeps_the_original_file() {
+        let directory = test_directory("discard");
+        let destination = directory.join("palette.kpal");
+        write(&destination, b"old palette").unwrap();
+        let temp = create_temp_sibling(&destination).unwrap();
+        write(&temp, b"new pal").unwrap();
+
+        discard_temp(&temp);
+
+        assert_eq!(read(&destination).unwrap(), b"old palette");
+        assert_eq!(entries(&directory), ["palette.kpal"]);
+        remove_dir_all(directory).unwrap();
+    }
+
+    #[test]
+    fn failed_commit_keeps_the_original_and_removes_the_temp_file() {
+        let directory = test_directory("failed-commit");
+        let destination = directory.join("palette.kpal");
+        write(&destination, b"old palette").unwrap();
+        let temp = create_temp_sibling(&destination).unwrap();
+        write(&temp, b"new palette").unwrap();
+        // A directory cannot be replaced by a file, so the rename fails on every platform.
+        let blocked = directory.join("blocked");
+        create_dir_all(blocked.join("child")).unwrap();
+
+        assert!(commit_temp(&temp, &blocked).is_err());
+
+        assert_eq!(read(&destination).unwrap(), b"old palette");
+        assert_eq!(entries(&directory), ["blocked", "palette.kpal"]);
+        remove_dir_all(directory).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn commit_keeps_the_existing_file_mode() {
+        use std::os::unix::fs::PermissionsExt;
+        let directory = test_directory("mode");
+        let destination = directory.join("palette.kpal");
+        write(&destination, b"old palette").unwrap();
+        std::fs::set_permissions(&destination, std::fs::Permissions::from_mode(0o600)).unwrap();
+        let temp = create_temp_sibling(&destination).unwrap();
+        write(&temp, b"new palette").unwrap();
+
+        commit_temp(&temp, &destination).unwrap();
+
+        let mode = std::fs::metadata(&destination)
+            .unwrap()
+            .permissions()
+            .mode();
+        assert_eq!(mode & 0o777, 0o600);
+        remove_dir_all(directory).unwrap();
+    }
+
+    fn invoke(
+        webview: &tauri::WebviewWindow<tauri::test::MockRuntime>,
+        cmd: &str,
+        args: serde_json::Value,
+    ) -> Result<serde_json::Value, serde_json::Value> {
+        let url = if cfg!(windows) {
+            "http://tauri.localhost"
+        } else {
+            "tauri://localhost"
+        };
+        tauri::test::get_ipc_response(
+            webview,
+            tauri::webview::InvokeRequest {
+                cmd: cmd.into(),
+                callback: tauri::ipc::CallbackFn(0),
+                error: tauri::ipc::CallbackFn(1),
+                url: url.parse().unwrap(),
+                body: tauri::ipc::InvokeBody::Json(args),
+                headers: Default::default(),
+                invoke_key: tauri::test::INVOKE_KEY.to_string(),
+            },
+        )
+        .map(|body| body.deserialize().unwrap())
+    }
+
+    /// Runs the webview's save sequence against the app's real fs plugin scope and capabilities.
+    #[test]
+    fn webview_saves_replace_only_dialog_chosen_files_through_the_fs_plugin() {
+        use super::{begin_safe_file_save, discard_safe_file_save, finish_safe_file_save};
+        use serde_json::json;
+        use tauri_plugin_fs::FsExt;
+
+        let directory = test_directory("ipc");
+        let destination = directory.join("palette.kpal");
+        let unchosen = directory.join("other.kpal");
+        write(&destination, b"old palette").unwrap();
+        write(&unchosen, b"other palette").unwrap();
+        let app = tauri::test::mock_builder()
+            .plugin(tauri_plugin_fs::init())
+            .manage(super::SafeSaves::default())
+            .invoke_handler(tauri::generate_handler![
+                begin_safe_file_save,
+                finish_safe_file_save,
+                discard_safe_file_save
+            ])
+            .build(crate::app_context())
+            .unwrap();
+        let webview = tauri::WebviewWindowBuilder::new(&app, "main", Default::default())
+            .build()
+            .unwrap();
+        // The Save dialog allows exactly the chosen file.
+        app.fs_scope().allow_file(&destination).unwrap();
+
+        assert!(invoke(
+            &webview,
+            "begin_safe_file_save",
+            json!({ "path": unchosen })
+        )
+        .is_err());
+
+        let save = |data: &[u8]| -> Result<(), serde_json::Value> {
+            let temp = invoke(
+                &webview,
+                "begin_safe_file_save",
+                json!({ "path": destination }),
+            )?;
+            let options = json!({ "read": false, "write": true, "create": true, "truncate": true });
+            let rid = invoke(
+                &webview,
+                "plugin:fs|open",
+                json!({ "path": temp, "options": options }),
+            )?;
+            let written = invoke(
+                &webview,
+                "plugin:fs|write",
+                json!({ "rid": rid, "data": data }),
+            );
+            invoke(&webview, "plugin:resources|close", json!({ "rid": rid }))?;
+            if written.is_err() || data.is_empty() {
+                invoke(
+                    &webview,
+                    "discard_safe_file_save",
+                    json!({ "tempPath": temp }),
+                )?;
+                return Err(json!("abandoned"));
+            }
+            invoke(
+                &webview,
+                "finish_safe_file_save",
+                json!({ "tempPath": temp }),
+            )?;
+            // A finished temp file can no longer be written by the webview.
+            let reopened = invoke(
+                &webview,
+                "plugin:fs|open",
+                json!({ "path": temp, "options": options }),
+            );
+            assert!(reopened.is_err(), "{reopened:?}");
+            Ok(())
+        };
+
+        assert!(save(b"").is_err());
+        assert_eq!(read(&destination).unwrap(), b"old palette");
+        assert_eq!(entries(&directory), ["other.kpal", "palette.kpal"]);
+
+        save(b"new palette").unwrap();
+        assert_eq!(read(&destination).unwrap(), b"new palette");
+        assert_eq!(read(&unchosen).unwrap(), b"other palette");
+        assert_eq!(entries(&directory), ["other.kpal", "palette.kpal"]);
+        remove_dir_all(directory).unwrap();
+    }
+}

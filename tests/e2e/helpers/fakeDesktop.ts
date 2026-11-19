@@ -2,8 +2,9 @@ import type { Page } from '@playwright/test';
 
 /**
  * A fake Tauri runtime for e2e specs. It answers every command the desktop app sends at startup
- * with neutral defaults (no update, no opened file, event listen/unlisten succeed), so specs only
- * handle the commands they test. Any other command throws, so new native calls are noticed.
+ * with neutral defaults (no update, no opened file, event listen/unlisten succeed, native saves
+ * replace the chosen file), so specs only handle the commands they test. Any other command
+ * throws, so new native calls are noticed.
  */
 export interface FakeDesktop {
     /** Every invoked command name in call order, including startup and unknown commands. */
@@ -57,6 +58,11 @@ function installFakeDesktopRuntime() {
     };
     desktop.handle('get_app_version', () => '4.1.0');
     desktop.handle(['check_for_updates', 'take_opened_file'], () => null);
+    // Native saves stream into a temporary sibling, then replace the chosen file with it.
+    desktop.handle('begin_safe_file_save', ({ path }: { path: string }) =>
+        path.replace(/[^\\/]+$/, (name) => `.${name}.kromacut-tmp`)
+    );
+    desktop.handle(['finish_safe_file_save', 'discard_safe_file_save'], () => undefined);
     desktop.handle('plugin:event|listen', (args: { event: string; handler: number }) => {
         const id = ++nextId;
         listeners.set(id, { event: args.event, handler: args.handler });
