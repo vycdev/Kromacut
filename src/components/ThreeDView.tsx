@@ -1,7 +1,7 @@
 import type { SmoothMeshingStrength } from '../types';
 import { useTranslation } from 'react-i18next';
 import { translateRuntimeMessage } from '../lib/runtimeMessages';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { KeyboardEvent, PointerEvent } from 'react';
 import * as THREE from 'three';
 import * as SliderPrimitive from '@radix-ui/react-slider';
@@ -88,6 +88,8 @@ interface ThreeDViewProps {
     previewColorMode?: PreviewColorMode;
     /** Signals that mesh generation has taken over from the parent's preparation overlay. */
     onBuildStarted?: () => void;
+    /** Reports whether mesh generation is running, so the parent can block export meanwhile. */
+    onBuildingChange?: (building: boolean) => void;
     /** Pauses continuous preview rendering while the retained 3D workspace is hidden. */
     active?: boolean;
 }
@@ -404,6 +406,7 @@ export default function ThreeDView({
     previewRenderMode = 'shaded',
     previewColorMode = 'simulated',
     onBuildStarted,
+    onBuildingChange,
     active = true,
 }: ThreeDViewProps) {
     const { t } = useTranslation('printing');
@@ -594,6 +597,11 @@ export default function ThreeDView({
             controlsRef.current.enabled = !isBuilding;
         }
     }, [controlsRef, isBuilding]);
+
+    // Before paint, so the parent's export controls never show as ready under the overlay.
+    useLayoutEffect(() => {
+        onBuildingChange?.(isBuilding);
+    }, [onBuildingChange, isBuilding]);
 
     // Update mesh visibility based on preview height slider
     useEffect(() => {
