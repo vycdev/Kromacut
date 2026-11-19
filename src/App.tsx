@@ -1119,7 +1119,7 @@ function App(): React.ReactElement | null {
                                         setIsCropMode(true);
                                     }}
                                     onSaveCrop={imageActions.saveCrop}
-                                    onCancelCrop={() => setIsCropMode(false)}
+                                    onCancelCrop={imageActions.cancelCrop}
                                     onToggleCheckerboard={() => setShowCheckerboard((s) => !s)}
                                     onPickFile={() => inputRef.current?.click()}
                                     pickFileDisabled={processingActive}
