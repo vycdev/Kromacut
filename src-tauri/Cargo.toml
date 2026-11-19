@@ -30,6 +30,9 @@ tauri-plugin-dialog = "2"
 tauri-plugin-fs = "2"
 tauri-plugin-single-instance = "2"
 
+[dev-dependencies]
+tauri = { version = "2.11.0", features = ["devtools", "test"] }
+
 [target.'cfg(all(unix, not(target_os = "macos")))'.dependencies]
 gio = "0.18"
 

@@ -100,7 +100,7 @@ function expectClosedNativeFile(state: NativeSaveState) {
         {
             command: 'plugin:fs|open',
             args: {
-                path: chosenPath,
+                path: 'C:\\mock-save-dialog\\.white-backed-matrix.3mf.kromacut-tmp',
                 options: { read: false, write: true, create: true, truncate: true },
             },
         },

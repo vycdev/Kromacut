@@ -9,10 +9,12 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Manager, State};
 mod default_app;
 mod opened_files;
+mod safe_save;
 mod slicer_apps;
 mod slicer_handoff;
 use default_app::open_with_default_app;
 use opened_files::{enqueue_and_notify, take_opened_file, OpenedFiles};
+use safe_save::{begin_safe_file_save, discard_safe_file_save, finish_safe_file_save, SafeSaves};
 use slicer_apps::{find_slicer_app, list_slicer_apps, pick_slicer_app};
 use slicer_handoff::open_model_in_slicer;
 
@@ -245,11 +247,17 @@ fn open_external_url(url: &str) -> Result<(), String> {
         .map_err(|e| format!("Failed to open web page: {}", e))
 }
 
+/// The app's config, assets and capabilities. The macro can only expand once per crate.
+fn app_context<R: tauri::Runtime>() -> tauri::Context<R> {
+    tauri::generate_context!()
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .manage(DiagnosticWriterState::default())
         .manage(OpenedFiles::default())
+        .manage(SafeSaves::default())
         .plugin(tauri_plugin_single_instance::init(|app, args, cwd| {
             enqueue_and_notify(
                 app,
@@ -265,6 +273,9 @@ pub fn run() {
             open_releases_page,
             open_legal_page,
             take_opened_file,
+            begin_safe_file_save,
+            finish_safe_file_save,
+            discard_safe_file_save,
             begin_auto_paint_diagnostic,
             append_auto_paint_diagnostic,
             finish_auto_paint_diagnostic,
@@ -289,7 +300,7 @@ pub fn run() {
             }
             Ok(())
         })
-        .build(tauri::generate_context!())
+        .build(app_context())
         .expect("error while building tauri application")
         .run(|_app, _event| {
             #[cfg(target_os = "macos")]

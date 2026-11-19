@@ -194,7 +194,7 @@ for (const format of ['stl', '3mf'] as const) {
                 expect(state.calls).toContainEqual({
                     command: 'plugin:fs|open',
                     args: {
-                        path,
+                        path: `C:\\mock-save-dialog\\.calibration.${format}.kromacut-tmp`,
                         options: { read: false, write: true, create: true, truncate: true },
                     },
                 });
