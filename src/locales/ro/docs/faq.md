@@ -55,6 +55,8 @@ Alege **Descarcă STL** pentru compatibilitate largă cu slicerele și schimbăr
 
 Alege **Descarcă 3MF** când slicerul acceptă fișiere 3MF cu informații de culoare și vrei să păstrezi obiectele colorate ale straturilor.
 
+În aplicația desktop, **Deschide în slicer** exportă același 3MF și îl deschide în slicer fără pasul **Salvează ca**. Dacă salvezi un anumit slicer în loc de **Implicit în sistem**, elementul din meniu îi afișează în schimb numele. Salvează proiectul în slicer dacă vrei să-l păstrezi.
+
 ## De ce sunt înălțimile aproximative?
 
 Numerele straturilor depind de comportamentul slicerului, în special de înălțimea primului strat. Folosește valorile din **Instrucțiunile de imprimare**, apoi confirmă straturile finale de schimbare în previzualizarea slicerului.

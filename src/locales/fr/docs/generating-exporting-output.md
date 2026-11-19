@@ -67,6 +67,8 @@ La hauteur approximative du plan demande de l’attention : le parcours Manuel a
 
 En peinture à plat, il n’y a pas de plan de changements manuels. Le panneau résume plutôt la méthode multimatériau choisie : affectez chaque objet 3MF à son filament, puis utilisez un filament transparent et retournez l’impression par défaut face vers le bas, ou imprimez la disposition sans support face vers le haut. Aucune disposition ne doit être mise en miroir dans le logiciel de découpe.
 
+Avec le **Mode multi-têtes**, une génération réussie affiche un **Planning des têtes** à la place de la couleur de départ et du plan de changements : avant l’impression, chargez les filaments indiqués dans leurs têtes numérotées, laissez inutilisées les têtes marquées **VIDE** et, à chaque point de contrôle de couche, ne rechargez que les têtes marquées. Si la génération s’est repliée sur un modèle à une seule tête, la couleur de départ et le plan de changements habituels s’affichent à la place. Consultez [Impression multi-têtes](multi-head-printing#head-schedule-and-export).
+
 ## Paramètres de découpe recommandés
 
 Kromacut recommande :

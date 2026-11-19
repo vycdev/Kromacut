@@ -67,6 +67,8 @@ Hay que interpretar con cuidado la altura aproximada: Manual muestra la Z superi
 
 En pintura plana no hay plan manual de cambios. El panel resume el flujo multimaterial elegido: asigna cada objeto 3MF a su filamento y usa transparente y voltea la impresión predeterminada boca abajo, o imprime boca arriba sin soporte. Ninguna disposición debe reflejarse en el laminador.
 
+Con el **Modo multicabezal**, una generación correcta muestra un **Programa de cabezales** en lugar del color inicial y el plan de cambios: antes de imprimir, carga los filamentos indicados en sus cabezales numerados, deja sin usar los cabezales marcados como **VACÍO** y recarga solo los cabezales marcados en cada punto de control de capa. Si la generación recurrió a un modelo de un solo cabezal, aparecen en su lugar el color inicial y el plan de cambios normales. Consulta [Impresión multicabezal](multi-head-printing#head-schedule-and-export).
+
 ## Configuración recomendada del laminador
 
 Kromacut recomienda:

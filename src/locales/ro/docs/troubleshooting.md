@@ -99,6 +99,16 @@ Pentru STL, fișierul nu conține atribuiri de culori ale filamentelor. Foloseș
 
 Vederea Simulate din Auto-paint arată amestecuri estimate; slicerele afișează de obicei culorile fizice ale filamentelor. Comută Kromacut pe **Fizice** pentru verificarea atribuirilor, apoi inspectează maparea reală a rolelor. Niciuna dintre vederi nu dovedește culoarea imprimată finală.
 
+## Slicerul nu se deschide
+
+**Deschide în slicer** este disponibil doar în aplicația desktop. În browser, folosește **Descarcă 3MF** și deschide fișierul în slicer.
+
+Dacă Kromacut raportează că nu a putut deschide fișierul 3MF, folosește **Descarcă 3MF** pentru a salva fișierul și deschide-l din slicer. Dacă fișierul se deschide într-un vizualizator 3D sau în altă aplicație, probabil a fost deschis cu **Implicit în sistem**. Folosește **Schimbă** din **Setări** pentru a selecta chiar slicerul tău; după ce o alegere este salvată, o poți schimba și cu **Alege slicerul** din meniul de descărcare. Dacă un slicer salvat a fost mutat sau dezinstalat, Kromacut îți cere să alegi din nou. Consultă [Salvare și anulare](generating-exporting-output#saving-and-cancelling).
+
+## Modul cu mai multe capete a generat un model cu un singur cap
+
+Un mesaj care spune că s-a generat un model normal cu un singur cap înseamnă că analiza pentru mai multe capete nu s-a încheiat sau nu a găsit o configurație care să îmbunătățească suficient stiva normală. Panoul **Instrucțiuni de imprimare** afișează atunci culoarea de început și planul de schimbări obișnuite în locul unui program al capetelor, iar fișierul exportat nu are atribuiri de capete sau pauze, așa că configurează schimbările de culoare în slicer ca pentru orice imprimare cu un singur cap. Încearcă alte filamente, alt număr de capete sau altă profunzime a căutării, apoi apasă din nou **Generează modelul 3D**. Dacă analiza nu s-a încheiat, încearcă mai întâi cu mai puține capete. Consultă [Imprimare cu mai multe capete](multi-head-printing#fallback-and-rebuilding).
+
 ## Decuparea sau editările imaginii au mers prea departe
 
 Folosește **Anulează**. Refacerea este disponibilă dacă anulezi prea mult.

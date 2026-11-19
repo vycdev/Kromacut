@@ -45,6 +45,7 @@ Beginne mit der gewünschten Aufgabe. Jede Anleitung erklärt die Steuerelemente
 | Abmessungen, Schichthöhen und manuelle Farbreihenfolge festlegen | [3D-Modus](3d-mode) |
 | Filamente wählen, Mischfarben optimieren und druckbare Details prüfen | [Auto-paint](auto-paint) |
 | Eine flache Mehrmaterialplatte mit Bildseite oben oder unten erstellen | [Flat Paint](flat-paint) |
+| Mit mehreren Druckköpfen drucken und einem Druckkopfplan folgen | [Mehrkopfdruck](multi-head-printing) |
 | HD messen, Palette Proofs vergleichen oder eine Stack Matrix fotografieren | [Kalibrierabläufe](calibration-workflows) |
 | Die Silhouette vorbereiten und Pixel retuschieren | [Bilder laden](loading-images) |
 | Tonwerte und Farben abstimmen und das Ergebnis übernehmen | [Bildanpassungen](image-adjustments) |

@@ -45,6 +45,7 @@ Start with the task you want to do. Each guide explains the controls, their inte
 | Set dimensions, layer heights and manual color order               | [3D mode](3d-mode)                                             |
 | Choose filaments, optimize blends and inspect printable detail     | [Auto-paint](auto-paint)                                       |
 | Make a flat face-up or face-down multi-material slab               | [Flat Paint](flat-paint)                                       |
+| Print with several heads and follow a Head Schedule                | [Multi-head printing](multi-head-printing)                     |
 | Measure HD, compare Palette Proofs or photograph a Stack Matrix    | [Calibration workflows](calibration-workflows)                 |
 | Prepare the silhouette and touch up pixels                         | [Loading images](loading-images)                               |
 | Tune tones and colors, then bake the result                        | [Image adjustments](image-adjustments)                         |

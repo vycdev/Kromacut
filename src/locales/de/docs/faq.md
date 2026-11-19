@@ -55,6 +55,8 @@ Wähle **STL herunterladen** für breite Slicer-Kompatibilität und manuelle Fil
 
 Wähle **3MF herunterladen**, wenn dein Slicer farbfähige 3MF-Dateien unterstützt und du die farbigen Schichtobjekte erhalten möchtest.
 
+In der Desktop-App exportiert **Im Slicer öffnen** dieselbe 3MF-Datei und öffnet sie ohne den Schritt **Speichern unter** in deinem Slicer. Speicherst du einen bestimmten Slicer und nicht **Systemstandard**, zeigt der Menüeintrag stattdessen dessen Namen. Speichere das Projekt im Slicer, wenn du es behalten willst.
+
 ## Warum sind Höhen Näherungswerte?
 
 Schichtnummern hängen vom Verhalten des Slicers ab, insbesondere von der Höhe der ersten Schicht. Verwende die Angaben unter **Druckanweisungen** und bestätige anschließend die endgültigen Wechselschichten in der Slicer-Vorschau.

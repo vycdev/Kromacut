@@ -99,6 +99,16 @@ Le STL ne contient aucune affectation de couleur de filament. Utilisez les **Ins
 
 La vue Simulées de peinture automatique montre des mélanges estimés ; les logiciels de découpe affichent généralement les couleurs des filaments physiques. Passez Kromacut en **Physiques** pour vérifier les affectations, puis contrôlez l’association réelle des bobines. Aucune des deux vues ne prouve la couleur finale imprimée.
 
+## Le logiciel de découpe ne s’ouvre pas
+
+**Ouvrir dans le logiciel de découpe** n’est disponible que dans l’application de bureau. Dans un navigateur, utilisez **Télécharger le 3MF** puis ouvrez le fichier dans votre logiciel de découpe.
+
+Si Kromacut indique qu’il n’a pas pu ouvrir le 3MF, utilisez **Télécharger le 3MF** pour enregistrer le fichier, puis ouvrez-le depuis votre logiciel de découpe. Si le fichier s’ouvre dans une visionneuse 3D ou une autre application, il a probablement été ouvert avec **Application par défaut du système**. Utilisez **Modifier** dans les **Paramètres** pour sélectionner directement votre logiciel de découpe ; une fois un choix enregistré, **Choisir le logiciel de découpe** dans le menu de téléchargement permet aussi de le changer. Si un logiciel enregistré a été déplacé ou désinstallé, Kromacut vous demande d’en choisir un de nouveau. Consultez [Enregistrer et annuler](generating-exporting-output#saving-and-cancelling).
+
+## Le mode multi-têtes a généré un modèle à une seule tête
+
+Un message indiquant qu’un modèle normal à une seule tête a été généré signifie que l’analyse multi-têtes n’a pas abouti ou n’a trouvé aucune disposition qui améliore suffisamment l’empilement normal. Les **Instructions d’impression** affichent alors la couleur de départ et le plan de changements habituels au lieu d’un planning des têtes, et le fichier exporté ne contient ni affectations de têtes ni pauses : configurez donc les changements de couleur dans votre logiciel de découpe comme pour toute impression à une seule tête. Essayez d’autres filaments, un autre nombre de têtes ou une autre profondeur de recherche, puis cliquez de nouveau sur **Générer le modèle 3D**. Si l’analyse n’a pas abouti, essayez d’abord avec moins de têtes. Consultez [Impression multi-têtes](multi-head-printing#fallback-and-rebuilding).
+
 ## Le recadrage ou les retouches sont allés trop loin
 
 Utilisez **Annuler**. Rétablir est disponible si vous annulez trop loin.

@@ -99,6 +99,16 @@ STL enthält keine Filamentfarbzuweisungen. Verwende die **Druckanweisungen** f�
 
 Die Auto-paint-Ansicht Simuliert zeigt geschätzte Mischfarben; Slicer zeigen normalerweise physische Filamentfarben. Schalte Kromacut zur Zuweisungsprüfung auf **Physisch** und kontrolliere dann die tatsächliche Spulenzuordnung. Keine der Ansichten beweist die endgültige gedruckte Farbe.
 
+## Der Slicer öffnet sich nicht
+
+**Im Slicer öffnen** gibt es nur in der Desktop-App. Im Browser nutzt du **3MF herunterladen** und öffnest die Datei in deinem Slicer.
+
+Meldet Kromacut, dass die 3MF-Datei nicht geöffnet werden konnte, speichere sie mit **3MF herunterladen** und öffne sie aus deinem Slicer heraus. Öffnet sich die Datei in einem 3D-Betrachter oder einer anderen App, wurde sie vermutlich mit **Systemstandard** geöffnet. Wähle mit **Ändern** in den **Einstellungen** direkt deinen Slicer aus; sobald eine Auswahl gespeichert ist, kannst du sie auch mit **Slicer auswählen** im Downloadmenü ändern. Wurde ein gespeicherter Slicer verschoben oder deinstalliert, fordert Kromacut dich auf, erneut zu wählen. Siehe [Speichern und Abbrechen](generating-exporting-output#saving-and-cancelling).
+
+## Der Mehrkopfmodus hat ein Einkopfmodell erstellt
+
+Ein Hinweis, dass ein normales Einkopfmodell erstellt wurde, bedeutet: Die Mehrkopfanalyse wurde nicht abgeschlossen oder hat keine Anordnung gefunden, die den normalen Aufbau ausreichend verbessert. Die **Druckanleitung** zeigt dann statt eines Druckkopfplans die normale Startfarbe und den Wechselplan, und die exportierte Datei enthält weder Druckkopfzuweisungen noch Pausen; richte die Farbwechsel deshalb wie bei jedem Einkopfdruck in deinem Slicer ein. Probiere andere Filamente, eine andere Druckkopfzahl oder Suchtiefe und klicke erneut auf **3D-Modell erstellen**. Wurde die Analyse nicht abgeschlossen, versuche es zuerst mit weniger Druckköpfen. Siehe [Mehrkopfdruck](multi-head-printing#fallback-and-rebuilding).
+
 ## Zuschnitt oder Bildbearbeitung gingen zu weit
 
 Nutze **Rückgängig**. Mit Wiederholen kannst du zu weit zurückgenommene Schritte wiederherstellen.

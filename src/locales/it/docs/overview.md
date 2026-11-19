@@ -45,6 +45,7 @@ Parti dall’attività che vuoi svolgere. Ogni guida spiega controlli, interazio
 | Impostare dimensioni, altezze degli strati e ordine manuale | [Modalità 3D](3d-mode) |
 | Scegliere filamenti, ottimizzare miscele e verificare dettagli stampabili | [Auto-paint](auto-paint) |
 | Creare una lastra multimateriale a faccia in su o in giù | [Flat Paint](flat-paint) |
+| Stampare con più teste e seguire un programma delle teste | [Stampa multitesta](multi-head-printing) |
 | Misurare HD, confrontare Palette Proof o fotografare una Stack Matrix | [Flussi di calibrazione](calibration-workflows) |
 | Preparare la sagoma e ritoccare i pixel | [Caricamento delle immagini](loading-images) |
 | Regolare toni e colori, poi applicare definitivamente | [Regolazioni dell’immagine](image-adjustments) |

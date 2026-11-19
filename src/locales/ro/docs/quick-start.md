@@ -73,4 +73,6 @@ Apasă **Generează modelul 3D**. Când apare modelul, folosește glisorul **Pre
 
 Deschide meniul de descărcare și alege **Descarcă STL** sau **Descarcă 3MF**. Apoi copiază **Instrucțiunile de imprimare**, ca să ai culoarea de început, straturile de schimbare și setările recomandate pentru slicer.
 
+În aplicația desktop, **Deschide în slicer** din același meniu exportă fișierul 3MF și îl deschide direct în slicer. Dacă salvezi un anumit slicer în loc de **Implicit în sistem**, elementul din meniu îi afișează numele, de exemplu **Deschide în Bambu Studio**. Consultă [Salvare și anulare](generating-exporting-output#saving-and-cancelling).
+
 În continuare: [Modul 3D](3d-mode), [Auto-paint](auto-paint) sau [Generarea și exportul rezultatului](generating-exporting-output#before-you-export).

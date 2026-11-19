@@ -67,6 +67,8 @@ The approximate height in the plan needs care: the Manual path shows the new lay
 
 In Flat Paint mode there is no manual swap plan. The panel instead summarizes the selected multi-material workflow: assign each 3MF object to its filament, then either use clear filament and flip the default face-down print or print the carrier-free layout face-up. Neither layout should be mirrored in the slicer.
 
+With **Multi-head mode**, a successful build shows a **Head Schedule** instead of the start color and swap plan: load the listed filaments into their numbered heads before printing, leave **EMPTY** heads unused, and reload only the marked heads at each layer checkpoint. If the build fell back to a single-head model, the normal start color and swap plan appear instead. See [Multi-head printing](multi-head-printing#head-schedule-and-export).
+
 ## Recommended Slicer Setup
 
 Kromacut recommends:
