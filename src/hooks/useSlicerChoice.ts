@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { findSlicerApp, type SlicerApp } from '../lib/desktopSlicer';
 import {
     loadSlicerPreference,
@@ -22,23 +22,30 @@ export interface SlicerChooserRequest {
 export function useSlicerChoice(openInSlicer: (slicer: SlicerApp | null) => Promise<void>) {
     const [preference, setPreference] = useState<SlicerPreference | null>(loadSlicerPreference);
     const [chooser, setChooser] = useState<SlicerChooserRequest | null>(null);
+    // The latest preference, so a slow saved-slicer check can tell it was changed meanwhile.
+    const preferenceRef = useRef(preference);
 
     const updatePreference = useCallback((next: SlicerPreference | null) => {
         saveSlicerPreference(next);
+        preferenceRef.current = next;
         setPreference(next);
     }, []);
 
     const onOpenInSlicer = useCallback(async () => {
+        const preference = preferenceRef.current;
         if (preference?.kind === 'system') return openInSlicer(null);
         if (preference?.kind === 'app') {
             let found: SlicerApp | null;
             try {
                 found = await findSlicerApp(preference.app.path);
             } catch (err) {
+                if (preferenceRef.current !== preference) return;
                 console.warn('Checking the saved slicer failed', err);
                 setChooser({ missingSlicerName: null, saveOnly: false });
                 return;
             }
+            // Changed in Settings during the check: the newer choice wins, so do nothing.
+            if (preferenceRef.current !== preference) return;
             if (found) return openInSlicer(found);
             // The slicer was moved or uninstalled: forget it and ask again.
             updatePreference(null);
@@ -46,7 +53,7 @@ export function useSlicerChoice(openInSlicer: (slicer: SlicerApp | null) => Prom
             return;
         }
         setChooser({ missingSlicerName: null, saveOnly: false });
-    }, [openInSlicer, preference, updatePreference]);
+    }, [openInSlicer, updatePreference]);
 
     const onChooseSlicer = useCallback(
         () => setChooser({ missingSlicerName: null, saveOnly: false }),
