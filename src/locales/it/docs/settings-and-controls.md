@@ -40,7 +40,7 @@ Molte sezioni laterali si comprimono dal titolo. Nascondere controlli non disatt
 
 **Annulla / Ripeti** condivide lo storico immagine tra 2D e 3D. Non registra filamenti, calibrazione, altezze o ottimizzatore. Usa ripristini dei pannelli quando disponibili e rigenera dopo aver restaurato un’immagine.
 
-In 2D, **Ctrl+Z** (**Cmd+Z** su macOS) annulla una modifica all’immagine e **Ctrl+Maiusc+Z** (**Cmd+Maiusc+Z**) la ripristina. Le scorciatoie vengono ignorate nei campi modificabili, nelle finestre di dialogo, nei popover, nei menu e negli elenchi aperti, durante il ritaglio o l’elaborazione e in 3D. Vedi [Scorciatoie della cronologia 2D](image-adjustments#2d-history-shortcuts).
+In 2D, **Ctrl+Z** (**Cmd+Z** su macOS) annulla una modifica all’immagine e **Ctrl+Maiusc+Z** (**Cmd+Maiusc+Z**) la ripristina. Su Windows e Linux anche **Ctrl+Y** la ripristina. Le scorciatoie vengono ignorate nei campi modificabili, nelle finestre di dialogo, nei popover, nei menu e negli elenchi aperti, durante il ritaglio o l’elaborazione e in 3D. Vedi [Scorciatoie della cronologia 2D](image-adjustments#2d-history-shortcuts).
 
 ## Modalità multipiatto sperimentale
 

@@ -40,7 +40,7 @@ La mayoría de las secciones laterales se pliegan desde sus títulos. Plegar ocu
 
 **Deshacer / Rehacer** comparte el historial de imagen entre 2D y 3D. No es un historial de cambios de filamentos, calibración, alturas u opciones del optimizador. Usa el restablecimiento propio de cada panel cuando exista y regenera después de restaurar una imagen.
 
-En 2D, **Ctrl+Z** (**Cmd+Z** en macOS) deshace y **Ctrl+Mayús+Z** (**Cmd+Mayús+Z**) rehace una edición de imagen. Los atajos se ignoran en campos editables, cuadros de diálogo, paneles emergentes, menús y listas abiertas, al recortar, durante el procesamiento y en 3D. Consulta [Atajos del historial 2D](image-adjustments#2d-history-shortcuts).
+En 2D, **Ctrl+Z** (**Cmd+Z** en macOS) deshace y **Ctrl+Mayús+Z** (**Cmd+Mayús+Z**) rehace una edición de imagen. En Windows y Linux, **Ctrl+Y** también rehace. Los atajos se ignoran en campos editables, cuadros de diálogo, paneles emergentes, menús y listas abiertas, al recortar, durante el procesamiento y en 3D. Consulta [Atajos del historial 2D](image-adjustments#2d-history-shortcuts).
 
 ## Modo multiplaca experimental
 

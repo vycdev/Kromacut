@@ -40,7 +40,7 @@ Most sidebar sections can be collapsed by their headings. Collapsing hides contr
 
 **Undo / Redo** shares the image-editing history between 2D and 3D. It is not an undo stack for filament edits, calibration, layer heights or optimizer settings. Use each panel's own reset control where available, and rebuild after restoring an image state.
 
-In 2D, **Ctrl+Z** (**Cmd+Z** on macOS) undoes and **Ctrl+Shift+Z** (**Cmd+Shift+Z**) redoes an image edit. The shortcuts are ignored in editable fields, dialogs, popovers, menus and open lists, while cropping, during processing, and in 3D. See [2D History Shortcuts](image-adjustments#2d-history-shortcuts).
+In 2D, **Ctrl+Z** (**Cmd+Z** on macOS) undoes and **Ctrl+Shift+Z** (**Cmd+Shift+Z**) redoes an image edit. On Windows and Linux, **Ctrl+Y** also redoes. The shortcuts are ignored in editable fields, dialogs, popovers, menus and open lists, while cropping, during processing, and in 3D. See [2D History Shortcuts](image-adjustments#2d-history-shortcuts).
 
 ## Experimental Multi-plate Mode
 
