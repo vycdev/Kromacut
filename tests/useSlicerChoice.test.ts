@@ -32,15 +32,19 @@ const bambu: SlicerApp = { name: 'Bambu Studio', path: '/Applications/BambuStudi
 const orca: SlicerApp = { name: 'Orca Slicer', path: '/Applications/OrcaSlicer.app' };
 
 /**
- * Saves `bambu` and holds `find_slicer_app` until `release` is called. `restore` puts the
- * original `window` back.
+ * Saves `bambu` and holds `find_slicer_app` until `release` or `fail` is called. `restore` puts
+ * the original `window` back.
  */
 function holdSavedSlicerLookup() {
     globalThis.localStorage.clear();
     saveSlicerPreference({ kind: 'app', app: bambu });
 
     let release!: (app: SlicerApp | null) => void;
-    const lookup = new Promise<SlicerApp | null>((resolve) => (release = resolve));
+    let fail!: (err: Error) => void;
+    const lookup = new Promise<SlicerApp | null>((resolve, reject) => {
+        release = resolve;
+        fail = reject;
+    });
     const windowDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'window');
     Object.defineProperty(globalThis, 'window', {
         configurable: true,
@@ -57,22 +61,30 @@ function holdSavedSlicerLookup() {
         if (windowDescriptor) Object.defineProperty(globalThis, 'window', windowDescriptor);
         else Reflect.deleteProperty(globalThis, 'window');
     };
-    return { release, restore };
+    return { release, fail, restore };
 }
 
+type SlicerChoice = ReturnType<SlicerChoiceModule['useSlicerChoice']>;
+
 /**
- * Saves `bambu`, then clicks Open in Slicer while `find_slicer_app` is held, saves `orca` from
- * Settings, and only then lets the lookup resolve to `found`.
+ * Saves `bambu`, then clicks Open in Slicer while `find_slicer_app` is held, runs `meanwhile`,
+ * and only then lets the lookup resolve to `found` (or fail with it, for an `Error`).
  */
-async function saveDuringSlowCheck(found: SlicerApp | null) {
+async function duringSlowCheck(
+    found: SlicerApp | null | Error,
+    meanwhile: (choice: SlicerChoice) => void
+) {
     const { useSlicerChoice } = await loadViteModule<SlicerChoiceModule>(
         '/src/hooks/useSlicerChoice.ts'
     );
-    const { release, restore } = holdSavedSlicerLookup();
+    const { release, fail, restore } = holdSavedSlicerLookup();
 
     const opened: (SlicerApp | null)[] = [];
+    const warn = console.warn;
+    const warnings: unknown[][] = [];
+    console.warn = (...args: unknown[]) => warnings.push(args);
     try {
-        let choice!: ReturnType<SlicerChoiceModule['useSlicerChoice']>;
+        let choice!: SlicerChoice;
         function Probe() {
             choice = useSlicerChoice(async (slicer) => {
                 opened.push(slicer);
@@ -82,15 +94,23 @@ async function saveDuringSlowCheck(found: SlicerApp | null) {
         renderToStaticMarkup(createElement(Probe));
 
         const open = choice.onOpenInSlicer();
-        choice.onChangeSavedSlicer();
-        choice.onChooserConfirm(orca, true);
-        release(found);
+        meanwhile(choice);
+        if (found instanceof Error) fail(found);
+        else release(found);
         await open;
     } finally {
+        console.warn = warn;
         restore();
     }
-    return opened;
+    return { opened, warnings };
 }
+
+/** Saves `orca` from Settings during the check. */
+const saveDuringSlowCheck = (found: SlicerApp | null) =>
+    duringSlowCheck(found, (choice) => {
+        choice.onChangeSavedSlicer();
+        choice.onChooserConfirm(orca, true);
+    }).then(({ opened }) => opened);
 
 test('a missing saved slicer found late does not forget the slicer saved in Settings', async () => {
     await saveDuringSlowCheck(null);
@@ -135,4 +155,44 @@ test('a saved slicer found late exports with the build that finished during the 
         restore();
     }
     assert.deepEqual(exported, [{ build: 2, slicer: bambu }]);
+});
+
+test('a saved slicer found late does not open the model over the Settings chooser', async () => {
+    const { opened } = await duringSlowCheck(bambu, (choice) => choice.onChangeSavedSlicer());
+    assert.deepEqual(opened, []);
+    assert.deepEqual(loadSlicerPreference(), { kind: 'app', app: bambu });
+});
+
+test('a missing saved slicer found late leaves the Settings chooser and the slicer alone', async () => {
+    const { opened } = await duringSlowCheck(null, (choice) => choice.onChangeSavedSlicer());
+    assert.deepEqual(opened, []);
+    assert.deepEqual(loadSlicerPreference(), { kind: 'app', app: bambu });
+});
+
+test('a failed saved-slicer check ignores a chooser opened meanwhile', async () => {
+    const { opened, warnings } = await duringSlowCheck(new Error('lookup failed'), (choice) =>
+        choice.onChangeSavedSlicer()
+    );
+    assert.deepEqual(opened, []);
+    assert.deepEqual(warnings, [], 'the late failure must not show its own chooser');
+    assert.deepEqual(loadSlicerPreference(), { kind: 'app', app: bambu });
+});
+
+test('a saved slicer found late does not open the model after a chooser was closed', async () => {
+    const { opened } = await duringSlowCheck(bambu, (choice) => {
+        choice.onChangeSavedSlicer();
+        choice.onChooserCancel();
+    });
+    assert.deepEqual(opened, []);
+});
+
+test('a saved slicer found without interruption still opens the model', async () => {
+    const { opened } = await duringSlowCheck(bambu, () => {});
+    assert.deepEqual(opened, [bambu]);
+});
+
+test('a saved slicer found late does not open the model after Settings forgot it', async () => {
+    const { opened } = await duringSlowCheck(bambu, (choice) => choice.onForgetSlicer());
+    assert.deepEqual(opened, []);
+    assert.equal(loadSlicerPreference(), null);
 });
