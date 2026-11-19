@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 
 declare global {
     interface Window {
@@ -21,6 +21,8 @@ declare global {
             finish: () => void;
         };
         __COPIED_INSTRUCTIONS?: string;
+        __MULTI_HEAD_FAIL_NEXT?: boolean;
+        __MULTI_HEAD_FAIL?: () => void;
     }
 }
 
@@ -215,9 +217,8 @@ for (const outcome of ['worker-error', 'no-layout'] as const) {
     });
 }
 
-test('@smoke multi-head builds offer 3MF only, and single-head builds keep STL', async ({
-    page,
-}) => {
+// This fixture's real analysis clears the multi-head gain gate and builds a routed model.
+async function loadRoutedMultiHeadImage(page: Page) {
     await page.addInitScript(() => {
         localStorage.setItem(
             'kromacut.autopaint.v1',
@@ -261,23 +262,32 @@ test('@smoke multi-head builds offer 3MF only, and single-head builds keep STL',
     });
     await page.getByRole('button', { name: '3D', exact: true }).click();
     await page.getByRole('tab', { name: 'Auto-paint', exact: true }).click();
+}
 
-    const buildAndOpenDownloads = async (buildCount: number) => {
-        await page.getByTestId('build-3d-model').click();
-        await page.waitForFunction((count) => {
-            const e2e = (
-                window as unknown as {
-                    __KROMACUT_E2E: { buildHistory: unknown[]; lastBuild?: { status: string } };
-                }
-            ).__KROMACUT_E2E;
-            return e2e.buildHistory.length >= count && e2e.lastBuild?.status === 'complete';
-        }, buildCount);
-        await page.getByTestId('download-3d-model').click();
-        await expect(page.getByTestId('download-3mf')).toBeVisible();
-    };
+async function buildModel(page: Page, buildCount: number) {
+    await page.getByTestId('build-3d-model').click();
+    await page.waitForFunction((count) => {
+        const e2e = (
+            window as unknown as {
+                __KROMACUT_E2E: { buildHistory: unknown[]; lastBuild?: { status: string } };
+            }
+        ).__KROMACUT_E2E;
+        return e2e.buildHistory.length >= count && e2e.lastBuild?.status === 'complete';
+    }, buildCount);
+}
 
-    await buildAndOpenDownloads(1);
+async function openDownloads(page: Page) {
+    await page.getByTestId('download-3d-model').click();
+    await expect(page.getByTestId('download-3mf')).toBeVisible();
+}
+
+test('@smoke multi-head builds offer 3MF only, and single-head builds keep STL', async ({
+    page,
+}) => {
+    await loadRoutedMultiHeadImage(page);
+    await buildModel(page, 1);
     await expect(page.getByText('Head Schedule', { exact: true })).toBeVisible();
+    await openDownloads(page);
     await expect(page.getByTestId('download-stl')).toHaveCount(0);
     await page.keyboard.press('Escape');
 
@@ -286,7 +296,77 @@ test('@smoke multi-head builds offer 3MF only, and single-head builds keep STL',
         'data-state',
         'unchecked'
     );
-    await buildAndOpenDownloads(2);
+    // The menu follows the built model, not the toggle.
+    await openDownloads(page);
+    await expect(page.getByTestId('download-stl')).toHaveCount(0);
+    await page.keyboard.press('Escape');
+
+    await buildModel(page, 2);
     await expect(page.getByText('Head Schedule', { exact: true })).toHaveCount(0);
+    await openDownloads(page);
     await expect(page.getByTestId('download-stl')).toBeVisible();
+});
+
+test('@smoke a single-head fallback never offers STL of the previous multi-head mesh', async ({
+    page,
+}) => {
+    await page.addInitScript(() => {
+        const NativeWorker = window.Worker;
+        window.Worker = class extends NativeWorker {
+            private isMultiHead: boolean;
+
+            constructor(url: string | URL, options?: WorkerOptions) {
+                super(url, options);
+                this.isMultiHead = String(url).includes('multiHead');
+            }
+
+            postMessage(
+                message: unknown,
+                transfer: Transferable[] | StructuredSerializeOptions = []
+            ) {
+                if (!this.isMultiHead || !window.__MULTI_HEAD_FAIL_NEXT) {
+                    if (Array.isArray(transfer)) super.postMessage(message, transfer);
+                    else super.postMessage(message, transfer);
+                    return;
+                }
+                window.__MULTI_HEAD_FAIL_NEXT = false;
+                const { id } = message as { id: number };
+                window.__MULTI_HEAD_FAIL = () =>
+                    this.dispatchEvent(
+                        new MessageEvent('message', {
+                            data: { id, error: 'Deliberate multi-head failure' },
+                        })
+                    );
+            }
+        };
+    });
+    await loadRoutedMultiHeadImage(page);
+    await buildModel(page, 1);
+    await expect(page.getByText('Head Schedule', { exact: true })).toBeVisible();
+
+    // Hold the next analysis, then fail it while the download menu is open.
+    await page.evaluate(() => {
+        window.__MULTI_HEAD_FAIL_NEXT = true;
+    });
+    await page.getByTestId('build-3d-model').click();
+    await page.waitForFunction(() => window.__MULTI_HEAD_FAIL !== undefined);
+    await openDownloads(page);
+    await expect(page.getByTestId('download-stl')).toHaveCount(0);
+    const staleMeshWhenStlAppears = await page.evaluate(
+        () =>
+            new Promise<boolean>((resolve) => {
+                const observer = new MutationObserver(() => {
+                    if (!document.querySelector('[data-testid="download-stl"]')) return;
+                    observer.disconnect();
+                    resolve(
+                        (window as unknown as { __KROMACUT_LAST_MESH?: unknown })
+                            .__KROMACUT_LAST_MESH !== undefined
+                    );
+                });
+                observer.observe(document.body, { childList: true, subtree: true });
+                window.__MULTI_HEAD_FAIL!();
+            })
+    );
+    expect(staleMeshWhenStlAppears).toBe(false);
+    await expect(page.getByTestId('autopaint-multi-head-notice')).toBeVisible();
 });

@@ -77,6 +77,9 @@ export function useBuildWarning({ imageSrc, imageCanvas, initialState }: UseBuil
     const applyThreeDState = useCallback((s: ThreeDControlsStateShape) => {
         // A built snapshot can describe an older request or disable routing after
         // fallback. Persist the current controls, while preview/export retain s.
+        // Until s is built, export must not offer the previous mesh under its
+        // formats (e.g. STL of a multi-head mesh after a single-head fallback).
+        clearLastBuiltMeshRef();
         setThreeDState({ ...s, ...workingSettingsRef.current });
         // The previous mesh stays in the scene until ThreeDView starts the new build.
         // Export must not pair it with the settings published here.
