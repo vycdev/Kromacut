@@ -851,7 +851,10 @@ mod tests {
         touch(&older);
         touch(&newer);
         // Same executable name, but not in a versioned Cura folder under a programs directory.
-        let elsewhere = root.join("Tools").join("UltiMaker-Cura.exe");
+        let elsewhere = root
+            .join("Tools")
+            .join("UltiMaker Cura 5.7.2")
+            .join("UltiMaker-Cura.exe");
         let unversioned = programs.join("UltiMaker Cura").join("UltiMaker-Cura.exe");
         let nested = programs
             .join("UltiMaker Cura 5.7.2")
