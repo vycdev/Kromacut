@@ -103,7 +103,7 @@ La vista Simulados muestra mezclas estimadas; los laminadores suelen mostrar col
 
 **Abrir en el laminador** solo está disponible en la aplicación de escritorio. En un navegador, usa **Descargar 3MF** y abre el archivo en tu laminador.
 
-Si Kromacut indica que no pudo abrir el 3MF, usa **Descargar 3MF** para guardar el archivo y ábrelo desde tu laminador. Si el archivo se abre en un visor 3D u otra aplicación, probablemente se abrió con **Predeterminada del sistema**. Usa **Cambiar** en **Ajustes** para seleccionar el propio laminador; cuando hay un laminador guardado, **Elegir laminador** en el menú de descarga también permite cambiarlo. Si un laminador guardado se ha movido o desinstalado, Kromacut te pide que elijas de nuevo. Consulta [Guardar y cancelar](generating-exporting-output#saving-and-cancelling).
+Si Kromacut indica que no pudo abrir el 3MF, usa **Descargar 3MF** para guardar el archivo y ábrelo desde tu laminador. Si el archivo se abre en un visor 3D u otra aplicación, probablemente se abrió con **Predeterminada del sistema**. Usa **Cambiar** en **Ajustes** para seleccionar el propio laminador; cuando hay una elección guardada, **Elegir laminador** en el menú de descarga también permite cambiarla. Si un laminador guardado se ha movido o desinstalado, Kromacut te pide que elijas de nuevo. Consulta [Guardar y cancelar](generating-exporting-output#saving-and-cancelling).
 
 ## El modo multicabezal creó un modelo de un solo cabezal
 

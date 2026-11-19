@@ -103,7 +103,7 @@ La vista Simulati mostra miscele stimate; gli slicer mostrano normalmente colori
 
 **Apri nello slicer** è disponibile solo nell’app desktop. Nel browser usa **Scarica 3MF** e apri il file nello slicer.
 
-Se Kromacut segnala di non essere riuscito ad aprire il 3MF, usa **Scarica 3MF** per salvare il file e aprilo dallo slicer. Se il file si apre in un visualizzatore 3D o in un’altra app, probabilmente è stato aperto con **Predefinita di sistema**. Usa **Cambia** nelle **Impostazioni** per selezionare direttamente il tuo slicer; quando uno slicer è salvato, puoi cambiarlo anche con **Scegli slicer** nel menu di download. Se uno slicer salvato è stato spostato o disinstallato, Kromacut ti chiede di sceglierne di nuovo uno. Vedi [Salvare e annullare](generating-exporting-output#saving-and-cancelling).
+Se Kromacut segnala di non essere riuscito ad aprire il 3MF, usa **Scarica 3MF** per salvare il file e aprilo dallo slicer. Se il file si apre in un visualizzatore 3D o in un’altra app, probabilmente è stato aperto con **Predefinita di sistema**. Usa **Cambia** nelle **Impostazioni** per selezionare direttamente il tuo slicer; quando una scelta è salvata, puoi cambiarla anche con **Scegli slicer** nel menu di download. Se uno slicer salvato è stato spostato o disinstallato, Kromacut ti chiede di sceglierne di nuovo uno. Vedi [Salvare e annullare](generating-exporting-output#saving-and-cancelling).
 
 ## La modalità multi-testa ha creato un modello a testa singola
 

@@ -103,7 +103,7 @@ Vederea Simulate din Auto-paint arată amestecuri estimate; slicerele afișează
 
 **Deschide în slicer** este disponibil doar în aplicația desktop. În browser, folosește **Descarcă 3MF** și deschide fișierul în slicer.
 
-Dacă Kromacut raportează că nu a putut deschide fișierul 3MF, folosește **Descarcă 3MF** pentru a salva fișierul și deschide-l din slicer. Dacă fișierul se deschide într-un vizualizator 3D sau în altă aplicație, probabil a fost deschis cu **Implicit în sistem**. Folosește **Schimbă** din **Setări** pentru a selecta chiar slicerul tău; după ce un slicer este salvat, îl poți schimba și cu **Alege slicerul** din meniul de descărcare. Dacă un slicer salvat a fost mutat sau dezinstalat, Kromacut îți cere să alegi din nou. Consultă [Salvare și anulare](generating-exporting-output#saving-and-cancelling).
+Dacă Kromacut raportează că nu a putut deschide fișierul 3MF, folosește **Descarcă 3MF** pentru a salva fișierul și deschide-l din slicer. Dacă fișierul se deschide într-un vizualizator 3D sau în altă aplicație, probabil a fost deschis cu **Implicit în sistem**. Folosește **Schimbă** din **Setări** pentru a selecta chiar slicerul tău; după ce o alegere este salvată, o poți schimba și cu **Alege slicerul** din meniul de descărcare. Dacă un slicer salvat a fost mutat sau dezinstalat, Kromacut îți cere să alegi din nou. Consultă [Salvare și anulare](generating-exporting-output#saving-and-cancelling).
 
 ## Modul cu mai multe capete a generat un model cu un singur cap
 

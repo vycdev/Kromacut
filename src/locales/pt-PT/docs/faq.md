@@ -55,7 +55,7 @@ Escolha **Transferir STL** para ampla compatibilidade com laminadores e trocas m
 
 Escolha **Transferir 3MF** se o laminador suportar 3MF com cores e pretender preservar objetos de camadas coloridos.
 
-Na aplicação de ambiente de trabalho, **Abrir no laminador** exporta o mesmo 3MF e abre-o no seu laminador sem passar por **Guardar como**. Depois de guardar um laminador, a opção do menu passa a mostrar o respetivo nome. Guarde o projeto no laminador se o quiser manter.
+Na aplicação de ambiente de trabalho, **Abrir no laminador** exporta o mesmo 3MF e abre-o no seu laminador sem passar por **Guardar como**. Se guardar um laminador específico em vez de **Predefinição do sistema**, a opção do menu passa a mostrar o respetivo nome. Guarde o projeto no laminador se o quiser manter.
 
 ## Porque são aproximadas as alturas?
 

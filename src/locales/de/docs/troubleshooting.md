@@ -103,7 +103,7 @@ Die Auto-paint-Ansicht Simuliert zeigt geschätzte Mischfarben; Slicer zeigen no
 
 **Im Slicer öffnen** gibt es nur in der Desktop-App. Im Browser nutzt du **3MF herunterladen** und öffnest die Datei in deinem Slicer.
 
-Meldet Kromacut, dass die 3MF-Datei nicht geöffnet werden konnte, speichere sie mit **3MF herunterladen** und öffne sie aus deinem Slicer heraus. Öffnet sich die Datei in einem 3D-Betrachter oder einer anderen App, wurde sie vermutlich mit **Systemstandard** geöffnet. Wähle mit **Ändern** in den **Einstellungen** direkt deinen Slicer aus; sobald ein Slicer gespeichert ist, kannst du ihn auch mit **Slicer auswählen** im Downloadmenü ändern. Wurde ein gespeicherter Slicer verschoben oder deinstalliert, fordert Kromacut dich auf, erneut zu wählen. Siehe [Speichern und Abbrechen](generating-exporting-output#saving-and-cancelling).
+Meldet Kromacut, dass die 3MF-Datei nicht geöffnet werden konnte, speichere sie mit **3MF herunterladen** und öffne sie aus deinem Slicer heraus. Öffnet sich die Datei in einem 3D-Betrachter oder einer anderen App, wurde sie vermutlich mit **Systemstandard** geöffnet. Wähle mit **Ändern** in den **Einstellungen** direkt deinen Slicer aus; sobald eine Auswahl gespeichert ist, kannst du sie auch mit **Slicer auswählen** im Downloadmenü ändern. Wurde ein gespeicherter Slicer verschoben oder deinstalliert, fordert Kromacut dich auf, erneut zu wählen. Siehe [Speichern und Abbrechen](generating-exporting-output#saving-and-cancelling).
 
 ## Der Mehrkopfmodus hat ein Einkopfmodell erstellt
 

@@ -103,7 +103,7 @@ Auto-paint's Simulated view shows estimated blends; slicers normally show physic
 
 **Open in Slicer** is only available in the desktop app. In a browser, use **Download 3MF** and open the file in your slicer.
 
-If Kromacut reports that it could not open the 3MF, use **Download 3MF** to save the file and open it from your slicer. If the file opens in a 3D viewer or another app, it was probably opened with **System default**. Use **Change** in **Settings** to select your slicer itself; once a slicer is saved, **Choose Slicer** in the download menu can change it too. If a saved slicer was moved or uninstalled, Kromacut asks you to choose again. See [Saving and cancelling](generating-exporting-output#saving-and-cancelling).
+If Kromacut reports that it could not open the 3MF, use **Download 3MF** to save the file and open it from your slicer. If the file opens in a 3D viewer or another app, it was probably opened with **System default**. Use **Change** in **Settings** to select your slicer itself; once a choice is saved, **Choose Slicer** in the download menu can change it too. If a saved slicer was moved or uninstalled, Kromacut asks you to choose again. See [Saving and cancelling](generating-exporting-output#saving-and-cancelling).
 
 ## Multi-head Built A Single-head Model
 

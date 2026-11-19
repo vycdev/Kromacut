@@ -55,7 +55,7 @@ Elige **Descargar STL** para una amplia compatibilidad con laminadores y cambios
 
 Elige **Descargar 3MF** si el laminador admite archivos 3MF con colores y quieres conservar objetos de capas coloreados.
 
-En la aplicación de escritorio, **Abrir en el laminador** exporta el mismo 3MF y lo abre en tu laminador sin pasar por **Guardar como**. Cuando guardas un laminador, la opción del menú muestra en cambio su nombre. Guarda el proyecto en el laminador si quieres conservarlo.
+En la aplicación de escritorio, **Abrir en el laminador** exporta el mismo 3MF y lo abre en tu laminador sin pasar por **Guardar como**. Si guardas un laminador concreto en lugar de **Predeterminada del sistema**, la opción del menú muestra en cambio su nombre. Guarda el proyecto en el laminador si quieres conservarlo.
 
 ## ¿Por qué las alturas son aproximadas?
 

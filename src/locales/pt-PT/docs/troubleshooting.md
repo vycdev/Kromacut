@@ -103,7 +103,7 @@ A vista Simuladas mostra misturas estimadas; laminadores mostram normalmente cor
 
 **Abrir no laminador** só está disponível na aplicação de ambiente de trabalho. No navegador, use **Transferir 3MF** e abra o ficheiro no laminador.
 
-Se o Kromacut indicar que não conseguiu abrir o 3MF, use **Transferir 3MF** para guardar o ficheiro e abra-o a partir do laminador. Se o ficheiro abrir num visualizador 3D ou noutra aplicação, foi provavelmente aberto com **Predefinição do sistema**. Use **Alterar** nas **Definições** para selecionar o próprio laminador; depois de guardar um laminador, também o pode alterar com **Escolher laminador** no menu de transferência. Se um laminador guardado tiver sido movido ou desinstalado, o Kromacut pede-lhe que escolha novamente. Consulte [Guardar e cancelar](generating-exporting-output#saving-and-cancelling).
+Se o Kromacut indicar que não conseguiu abrir o 3MF, use **Transferir 3MF** para guardar o ficheiro e abra-o a partir do laminador. Se o ficheiro abrir num visualizador 3D ou noutra aplicação, foi provavelmente aberto com **Predefinição do sistema**. Use **Alterar** nas **Definições** para selecionar o próprio laminador; depois de guardar uma escolha, também a pode alterar com **Escolher laminador** no menu de transferência. Se um laminador guardado tiver sido movido ou desinstalado, o Kromacut pede-lhe que escolha novamente. Consulte [Guardar e cancelar](generating-exporting-output#saving-and-cancelling).
 
 ## O modo multicabeças criou um modelo de uma só cabeça
 

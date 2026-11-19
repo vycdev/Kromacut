@@ -73,6 +73,6 @@ Haz clic en **Generar modelo 3D**. Cuando aparezca el modelo, usa el deslizador 
 
 Abre el menú de descarga y elige **Descargar STL** o **Descargar 3MF**. Después copia las **Instrucciones de impresión** para conservar el color inicial, las capas de cambio y los ajustes recomendados del laminador.
 
-En la aplicación de escritorio, **Abrir en el laminador**, en el mismo menú, exporta el 3MF y lo abre directamente en tu laminador. Cuando guardas un laminador, la opción del menú muestra su nombre, por ejemplo **Abrir en Bambu Studio**. Consulta [Guardar y cancelar](generating-exporting-output#saving-and-cancelling).
+En la aplicación de escritorio, **Abrir en el laminador**, en el mismo menú, exporta el 3MF y lo abre directamente en tu laminador. Si guardas un laminador concreto en lugar de **Predeterminada del sistema**, la opción del menú muestra su nombre, por ejemplo **Abrir en Bambu Studio**. Consulta [Guardar y cancelar](generating-exporting-output#saving-and-cancelling).
 
 Siguiente: [Modo 3D](3d-mode), [Pintura automática](auto-paint) o [Generación y exportación](generating-exporting-output#before-you-export).
