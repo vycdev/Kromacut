@@ -14,9 +14,11 @@ fn main() {
     tauri_build::try_build(attributes).expect("failed to run tauri-build");
 }
 
-/// Writes tauri-build's default manifest (copied to `windows/app-manifest.xml`) into a resource
-/// script exactly as tauri-winres does, so the app's embedded manifest bytes do not change, then
-/// links it into tests and libraries as well as binaries.
+/// Writes tauri-build's default manifest into a resource script in tauri-winres' format, so the
+/// app's embedded manifest bytes do not change, then links it into tests and libraries as well as
+/// binaries. `windows/app-manifest.xml` is a verbatim copy of tauri-build 2.6.3's
+/// `windows-app-manifest.xml`; re-diff it when upgrading tauri-build. Only `"` is escaped, the
+/// one character tauri-winres escapes that the manifest contains.
 fn embed_manifest_in_every_target() {
     let manifest = include_str!("windows/app-manifest.xml");
     let mut script = String::from("#pragma code_page(65001)\n1 24\n{\n");
