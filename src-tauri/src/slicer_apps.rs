@@ -354,12 +354,18 @@ fn read_picked_apps(file: &Path) -> Vec<String> {
         .unwrap_or_default()
 }
 
-fn remember_picked_app(file: &Path, path: &str) -> Result<(), String> {
+/// Adds `path` as the newest picked app and drops the oldest ones beyond the cap. `keep` is the
+/// slicer saved for Open in Slicer: it is never dropped, or it could no longer be launched.
+fn remember_picked_app(file: &Path, path: &str, keep: Option<&str>) -> Result<(), String> {
     let mut picked = read_picked_apps(file);
     picked.retain(|known| known != path);
     picked.push(path.to_string());
-    let excess = picked.len().saturating_sub(MAX_PICKED_APPS);
-    picked.drain(..excess);
+    while picked.len() > MAX_PICKED_APPS {
+        let Some(oldest) = picked.iter().position(|known| Some(known.as_str()) != keep) else {
+            break;
+        };
+        picked.remove(oldest);
+    }
     if let Some(directory) = file.parent() {
         create_dir_all(directory)
             .map_err(|error| format!("Failed to create the app config directory: {error}"))?;
@@ -441,12 +447,14 @@ pub async fn find_slicer_app(app: AppHandle, path: String) -> Result<Option<Slic
 }
 
 /// Lets the user pick a slicer that is not in the presets. `None` means the dialog was
-/// cancelled; picking something that cannot be launched is an error.
+/// cancelled; picking something that cannot be launched is an error. `keep` is the path of the
+/// saved slicer, which stays launchable however many other apps are picked.
 #[tauri::command]
 pub async fn pick_slicer_app(
     app: AppHandle,
     title: String,
     filter_name: String,
+    keep: Option<String>,
 ) -> Result<Option<SlicerApp>, String> {
     let picked_apps = picked_apps_file(&app)?;
     let mut dialog = app.dialog().file().set_title(title);
@@ -468,7 +476,7 @@ pub async fn pick_slicer_app(
             .map_err(|error| format!("Unsupported slicer location: {error}"))?;
         let slicer = describe_slicer_app(PLATFORM, &path)
             .ok_or_else(|| format!("Not a launchable app: {}", path.display()))?;
-        remember_picked_app(&picked_apps, &slicer.path)?;
+        remember_picked_app(&picked_apps, &slicer.path, keep.as_deref())?;
         Ok(Some(slicer))
     })
     .await
@@ -790,7 +798,7 @@ mod tests {
 
         assert_eq!(find(&orca), Some(app("Orca Slicer", &orca)));
         assert_eq!(find(&picked), None);
-        remember_picked_app(&picked_apps, &picked.to_string_lossy()).unwrap();
+        remember_picked_app(&picked_apps, &picked.to_string_lossy(), None).unwrap();
         assert_eq!(find(&picked), Some(app("CrealityPrint", &picked)));
         assert_eq!(find(&other), None);
         assert_eq!(find(&root.join("Tools").join("missing.exe")), None);
@@ -809,13 +817,13 @@ mod tests {
         write(&file, b"not json").unwrap();
         assert!(read_picked_apps(&file).is_empty());
 
-        remember_picked_app(&file, "/opt/a").unwrap();
-        remember_picked_app(&file, "/opt/b").unwrap();
-        remember_picked_app(&file, "/opt/a").unwrap();
+        remember_picked_app(&file, "/opt/a", None).unwrap();
+        remember_picked_app(&file, "/opt/b", None).unwrap();
+        remember_picked_app(&file, "/opt/a", None).unwrap();
         assert_eq!(read_picked_apps(&file), ["/opt/b", "/opt/a"]);
 
         for index in 0..MAX_PICKED_APPS {
-            remember_picked_app(&file, &format!("/opt/app-{index}")).unwrap();
+            remember_picked_app(&file, &format!("/opt/app-{index}"), None).unwrap();
         }
         let picked = read_picked_apps(&file);
         assert_eq!(picked.len(), MAX_PICKED_APPS);
@@ -824,6 +832,35 @@ mod tests {
             picked.last().map(String::as_str),
             Some(format!("/opt/app-{}", MAX_PICKED_APPS - 1).as_str())
         );
+        remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn the_saved_slicer_outlives_later_picks() {
+        let root = test_directory("slicers-saved");
+        let file = root.join("picked-slicers.json");
+        let saved = "/opt/saved";
+        remember_picked_app(&file, saved, None).unwrap();
+
+        // The saved slicer is the oldest pick, yet the apps picked after it are dropped instead.
+        for index in 0..=MAX_PICKED_APPS {
+            remember_picked_app(&file, &format!("/opt/app-{index}"), Some(saved)).unwrap();
+        }
+        let picked = read_picked_apps(&file);
+        assert_eq!(picked.len(), MAX_PICKED_APPS);
+        assert_eq!(picked.first().map(String::as_str), Some(saved));
+        assert_eq!(picked[1], "/opt/app-2");
+        assert_eq!(
+            picked.last().map(String::as_str),
+            Some(format!("/opt/app-{MAX_PICKED_APPS}").as_str())
+        );
+
+        // Once something else is saved, the old choice ages out like any other pick.
+        remember_picked_app(&file, "/opt/newest", Some("/opt/app-2")).unwrap();
+        let picked = read_picked_apps(&file);
+        assert_eq!(picked.len(), MAX_PICKED_APPS);
+        assert!(!picked.iter().any(|known| known == saved));
+        assert_eq!(picked.first().map(String::as_str), Some("/opt/app-2"));
         remove_dir_all(root).unwrap();
     }
 }

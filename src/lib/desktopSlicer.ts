@@ -24,9 +24,15 @@ export function findSlicerApp(path: string): Promise<SlicerApp | null> {
 /**
  * Desktop only: lets the user pick a slicer app with the native file dialog. Resolves to `null`
  * when the dialog is cancelled and rejects when the picked file is not a launchable app.
+ * `savedPath` is the saved slicer, which the native side keeps launchable however many other
+ * apps are picked.
  */
-export function pickSlicerApp(title: string, filterName: string): Promise<SlicerApp | null> {
-    return invoke<SlicerApp | null>('pick_slicer_app', { title, filterName });
+export function pickSlicerApp(
+    title: string,
+    filterName: string,
+    savedPath: string | null = null
+): Promise<SlicerApp | null> {
+    return invoke<SlicerApp | null>('pick_slicer_app', { title, filterName, keep: savedPath });
 }
 
 /**
