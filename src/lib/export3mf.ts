@@ -670,8 +670,8 @@ ${metadataContentTypes}${metadataContentTypes ? '\n' : ''}</Types>`;
                 if (source?.indices) {
                     const positions = source.positions;
                     const indices = source.indices;
-                    // Multi-head meshes are already welded by their mesher; keep
-                    // its vertex indexing instead of re-welding by coordinate.
+                    // Keep the multi-head mesher's vertex indexing instead of
+                    // re-welding by coordinate.
                     const preserveVertexIndices = typeof mesh.userData.nozzleIndex === 'number';
                     const itemSize = source.itemSize ?? 3;
                     const matrixElements = mesh.matrixWorld.elements;

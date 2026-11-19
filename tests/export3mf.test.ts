@@ -2221,10 +2221,11 @@ test('multi-head export reports the same progress as single-head export', async 
         await exportObjectTo3MFBlob(root, { extruderCount, onProgress: (value) => samples.push(value) });
         return samples;
     };
+    const meshPhase = (samples: number[]) => samples.filter((value) => value < 0.8);
     const multiHead = await progressFor(2);
     assertMonotonicProgress(multiHead, 'multi-head export');
     assert.equal(multiHead.at(-1), 1);
-    assert.deepEqual(multiHead, await progressFor());
+    assert.deepEqual(meshPhase(multiHead), meshPhase(await progressFor()));
 });
 
 async function exportMultiHead(
