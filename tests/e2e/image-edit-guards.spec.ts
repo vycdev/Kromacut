@@ -497,3 +497,29 @@ test('@smoke a drag commit still pending a frame lands before dedither takes the
     expect(await processingInputs(page)).toEqual([false]);
     await expect.poll(pixels).not.toBe(before);
 });
+
+test('@smoke a slider value React has not rendered yet still commits on blur', async ({ page }) => {
+    const preview = page.getByTestId('image-dropzone').locator('canvas').first();
+    const pixels = () => preview.evaluate((canvas: HTMLCanvasElement) => canvas.toDataURL());
+    const before = await pixels();
+    const slider = page
+        .getByText('Contrast', { exact: true })
+        .first()
+        .locator('../..')
+        .getByRole('slider');
+    await slider.focus();
+    await failProcessingEncodes(page, true);
+    // Change the value, move focus and click in one task, before React renders the change.
+    await slider.evaluate((thumb: HTMLElement) => {
+        thumb.dispatchEvent(
+            new KeyboardEvent('keydown', { key: 'Home', bubbles: true, cancelable: true })
+        );
+        const button = document.querySelector<HTMLButtonElement>('[data-testid="dedither-apply"]')!;
+        button.focus();
+        button.click();
+    });
+    await expect(page.getByTestId('dedither-apply')).toBeEnabled();
+    await failProcessingEncodes(page, false);
+    expect(await processingInputs(page)).toEqual([false]);
+    await expect.poll(pixels).not.toBe(before);
+});

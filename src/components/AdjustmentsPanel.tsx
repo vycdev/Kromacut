@@ -39,6 +39,8 @@ export const AdjustmentsPanel: React.FC<Props> = React.memo(
         const draggingRef = useRef(false);
 
         const scheduleSet = useCallback((k: string, v: number) => {
+            // Keep the ref current before React renders, so an early blur commits this value.
+            if (valuesRef.current[k] !== v) valuesRef.current = { ...valuesRef.current, [k]: v };
             setValues((prev) => {
                 if (prev[k] === v) return prev; // no change
                 return { ...prev, [k]: v };
@@ -74,16 +76,20 @@ export const AdjustmentsPanel: React.FC<Props> = React.memo(
             });
         }, [flush]);
 
-        // Changes have rendered by the time focus leaves, so commit now (including a drag
+        // The latest value is in valuesRef when focus leaves, so commit now (including a drag
         // whose deferred flush is still pending): focusing another control such as
         // Dedither can start processing before the next frame.
+        const cancelPendingFlush = useCallback(() => {
+            if (frameRef.current) cancelAnimationFrame(frameRef.current);
+            frameRef.current = null;
+        }, []);
+
         const handleBlur = useCallback(() => {
             if (!draggingRef.current && frameRef.current === null) return;
             draggingRef.current = false;
-            if (frameRef.current) cancelAnimationFrame(frameRef.current);
-            frameRef.current = null;
+            cancelPendingFlush();
             flush();
-        }, [flush]);
+        }, [cancelPendingFlush, flush]);
 
         // Attach a global pointerup listener only while dragging (simple approach)
         useEffect(() => {
@@ -99,10 +105,11 @@ export const AdjustmentsPanel: React.FC<Props> = React.memo(
                     return { ...prev, [key]: defaultVal };
                 });
                 draggingRef.current = false;
+                cancelPendingFlush();
                 dirtyRef.current = true;
                 onCommit?.({ ...valuesRef.current, [key]: defaultVal });
             },
-            [onCommit]
+            [cancelPendingFlush, onCommit]
         );
 
         const handleResetAll = useCallback(() => {
@@ -113,8 +120,9 @@ export const AdjustmentsPanel: React.FC<Props> = React.memo(
             setValues(defaults);
             dirtyRef.current = true;
             draggingRef.current = false;
+            cancelPendingFlush();
             onCommit?.(defaults);
-        }, [defs, onCommit]);
+        }, [cancelPendingFlush, defs, onCommit]);
 
         const allDefault = defs.every((d) => values[d.key] === d.default);
 
