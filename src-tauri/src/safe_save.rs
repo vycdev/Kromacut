@@ -10,7 +10,7 @@ use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
-use tauri::{AppHandle, Runtime, State};
+use tauri::{AppHandle, Manager, Runtime, State};
 use tauri_plugin_fs::FsExt;
 
 /// Temporary file paths handed to the webview, mapped to the destination each one replaces.
@@ -69,10 +69,12 @@ fn commit_temp(temp: &Path, destination: &Path) -> Result<(), String> {
             .and_then(|file| file.sync_all())
             .map_err(|error| format!("Failed to flush the saved file: {error}"))?;
         // Keep an existing file's Unix mode instead of the umask default.
+        // Best effort: some mounts (such as SMB shares) reject chmod but still accept the file.
         #[cfg(unix)]
         if let Ok(metadata) = std::fs::metadata(destination) {
-            std::fs::set_permissions(temp, metadata.permissions())
-                .map_err(|error| format!("Failed to copy the file permissions: {error}"))?;
+            if let Err(error) = std::fs::set_permissions(temp, metadata.permissions()) {
+                log::warn!("Failed to copy file permissions to {destination:?}: {error}");
+            }
         }
         rename(temp, destination).map_err(|error| format!("Failed to replace the file: {error}"))
     })();
@@ -82,7 +84,19 @@ fn commit_temp(temp: &Path, destination: &Path) -> Result<(), String> {
     result
 }
 
-#[tauri::command]
+/// Whether the path is in the app's local data folder, which holds the webview data that the fs
+/// plugin denies the webview by default.
+fn is_in_app_local_data<R: Runtime>(app: &AppHandle<R>, path: &Path) -> bool {
+    let canonical =
+        |path: &Path| std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
+    match (app.path().app_local_data_dir(), path.parent()) {
+        (Ok(data), Some(directory)) => canonical(directory).starts_with(canonical(&data)),
+        _ => false,
+    }
+}
+
+// Async commands run off the main thread, so flushing a large export does not freeze the UI.
+#[tauri::command(async)]
 pub fn begin_safe_file_save<R: Runtime>(
     path: PathBuf,
     app: AppHandle<R>,
@@ -91,6 +105,15 @@ pub fn begin_safe_file_save<R: Runtime>(
     let scope = app.fs_scope();
     if !scope.is_allowed(&path) {
         return Err("The save destination was not chosen in a Save dialog".to_string());
+    }
+    // Replace the file a symlink points to, which the scope check above resolved, not the link.
+    let path = match path.symlink_metadata() {
+        Ok(metadata) if metadata.file_type().is_symlink() => std::fs::canonicalize(&path)
+            .map_err(|error| format!("Failed to resolve the save destination: {error}"))?,
+        _ => path,
+    };
+    if is_in_app_local_data(&app, &path) {
+        return Err("Files cannot be saved in the app's data folder".to_string());
     }
     let temp = create_temp_sibling(&path)?;
     if let Err(error) = scope.allow_file(&temp) {
@@ -121,7 +144,7 @@ fn take_pending<R: Runtime>(
     Ok(destination)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn finish_safe_file_save<R: Runtime>(
     temp_path: PathBuf,
     app: AppHandle<R>,
@@ -132,7 +155,7 @@ pub fn finish_safe_file_save<R: Runtime>(
     commit_temp(&temp_path, &destination)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn discard_safe_file_save<R: Runtime>(
     temp_path: PathBuf,
     app: AppHandle<R>,
@@ -278,6 +301,7 @@ mod tests {
     fn webview_saves_replace_only_dialog_chosen_files_through_the_fs_plugin() {
         use super::{begin_safe_file_save, discard_safe_file_save, finish_safe_file_save};
         use serde_json::json;
+        use tauri::Manager;
         use tauri_plugin_fs::FsExt;
 
         let directory = test_directory("ipc");
@@ -308,12 +332,8 @@ mod tests {
         )
         .is_err());
 
-        let save = |data: &[u8]| -> Result<(), serde_json::Value> {
-            let temp = invoke(
-                &webview,
-                "begin_safe_file_save",
-                json!({ "path": destination }),
-            )?;
+        let save = |path: &PathBuf, data: &[u8]| -> Result<(), serde_json::Value> {
+            let temp = invoke(&webview, "begin_safe_file_save", json!({ "path": path }))?;
             let options = json!({ "read": false, "write": true, "create": true, "truncate": true });
             let rid = invoke(
                 &webview,
@@ -349,14 +369,43 @@ mod tests {
             Ok(())
         };
 
-        assert!(save(b"").is_err());
+        assert!(save(&destination, b"").is_err());
         assert_eq!(read(&destination).unwrap(), b"old palette");
         assert_eq!(entries(&directory), ["other.kpal", "palette.kpal"]);
 
-        save(b"new palette").unwrap();
+        save(&destination, b"new palette").unwrap();
         assert_eq!(read(&destination).unwrap(), b"new palette");
         assert_eq!(read(&unchosen).unwrap(), b"other palette");
         assert_eq!(entries(&directory), ["other.kpal", "palette.kpal"]);
+
+        // A link to the chosen file updates that file and stays a link.
+        #[cfg(unix)]
+        {
+            let elsewhere = test_directory("ipc-link");
+            let link = elsewhere.join("link.kpal");
+            std::os::unix::fs::symlink(&destination, &link).unwrap();
+            save(&link, b"linked palette").unwrap();
+            assert!(link.symlink_metadata().unwrap().file_type().is_symlink());
+            assert_eq!(read(&destination).unwrap(), b"linked palette");
+            assert_eq!(entries(&elsewhere), ["link.kpal"]);
+            remove_dir_all(elsewhere).unwrap();
+        }
+
+        // The fs plugin denies the webview data folder, even for a dialog-chosen file.
+        let data_file = app
+            .path()
+            .app_local_data_dir()
+            .unwrap()
+            .join("kromacut-safe-save-test/palette.kpal");
+        app.fs_scope().allow_file(&data_file).unwrap();
+        assert_eq!(
+            invoke(
+                &webview,
+                "begin_safe_file_save",
+                json!({ "path": data_file })
+            ),
+            Err(json!("Files cannot be saved in the app's data folder"))
+        );
         remove_dir_all(directory).unwrap();
     }
 }
