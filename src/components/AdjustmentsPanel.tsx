@@ -68,13 +68,17 @@ export const AdjustmentsPanel: React.FC<Props> = React.memo(
             draggingRef.current = false;
             // Defer flush to next frame so final value state is applied
             if (frameRef.current) cancelAnimationFrame(frameRef.current);
-            frameRef.current = requestAnimationFrame(() => flush());
+            frameRef.current = requestAnimationFrame(() => {
+                frameRef.current = null;
+                flush();
+            });
         }, [flush]);
 
-        // Keyboard changes have rendered by the time focus leaves, so commit now: focusing
-        // another control (such as Dedither) can start processing before the next frame.
+        // Changes have rendered by the time focus leaves, so commit now (including a drag
+        // whose deferred flush is still pending): focusing another control such as
+        // Dedither can start processing before the next frame.
         const handleBlur = useCallback(() => {
-            if (!draggingRef.current) return;
+            if (!draggingRef.current && frameRef.current === null) return;
             draggingRef.current = false;
             if (frameRef.current) cancelAnimationFrame(frameRef.current);
             frameRef.current = null;

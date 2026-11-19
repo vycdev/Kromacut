@@ -470,3 +470,30 @@ test('@smoke a keyboard adjustment commits before dedither takes the edit lock',
     expect(await processingInputs(page)).toEqual([false]);
     await expect.poll(pixels).not.toBe(before);
 });
+
+test('@smoke a drag commit still pending a frame lands before dedither takes the edit lock', async ({
+    page,
+}) => {
+    const preview = page.getByTestId('image-dropzone').locator('canvas').first();
+    const pixels = () => preview.evaluate((canvas: HTMLCanvasElement) => canvas.toDataURL());
+    const before = await pixels();
+    await page
+        .getByText('Contrast', { exact: true })
+        .first()
+        .locator('../..')
+        .getByRole('slider')
+        .focus();
+    await page.keyboard.press('Home');
+    await failProcessingEncodes(page, true);
+    // Release the drag, then move focus and click within the same frame, before the
+    // slider's deferred commit runs.
+    await page.getByTestId('dedither-apply').evaluate((button: HTMLButtonElement) => {
+        window.dispatchEvent(new PointerEvent('pointerup'));
+        button.focus();
+        button.click();
+    });
+    await expect(page.getByTestId('dedither-apply')).toBeEnabled();
+    await failProcessingEncodes(page, false);
+    expect(await processingInputs(page)).toEqual([false]);
+    await expect.poll(pixels).not.toBe(before);
+});
