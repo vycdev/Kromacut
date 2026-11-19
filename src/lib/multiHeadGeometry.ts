@@ -171,9 +171,8 @@ export async function* generateMultiHeadMeshes(
             const geometry = new THREE.BufferGeometry();
             geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
             geometry.setIndex(indices);
-            // Retain the actual shared tessellation. Supplying voxel occupancy
-            // here would make export replace smoothing and collapse different
-            // physical filaments used by one head across swap checkpoints.
+            // Export writes this shared tessellation as-is, so the 3MF keeps
+            // the preview's smoothing and each region's physical filament.
             geometry.userData.kromacutExportGeometry = { positions, indices };
             const material = new THREE.MeshStandardMaterial({
                 color: previewHex,
