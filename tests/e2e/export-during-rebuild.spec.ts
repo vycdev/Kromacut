@@ -138,22 +138,27 @@ test('@smoke a keyboard export during a rebuild never mixes the old mesh with th
     const trigger = page.getByTestId('download-3d-model');
     await expect(trigger).toBeDisabled();
 
-    // Keyboard users cannot reach the preview actions behind the build overlay.
-    const reached = new Set<string>();
-    for (let tab = 0; tab < 120; tab++) {
+    // Keyboard users cannot reach any preview action behind the build overlay, including
+    // the ones that stay enabled. Tabbing from Build back to Build covers every stop.
+    let cycled = false;
+    let reachedPreviewActions = false;
+    for (let tab = 0; tab < 200 && !cycled; tab++) {
         await page.keyboard.press('Tab');
-        const testId = await page.evaluate(
-            () => document.activeElement?.getAttribute('data-testid') ?? ''
-        );
-        reached.add(testId);
+        const focus = await page.evaluate(() => {
+            const active = document.activeElement;
+            const actions = document.querySelector(
+                '[data-testid="download-3d-model"]'
+            )?.parentElement;
+            return {
+                onBuild: active?.getAttribute('data-testid') === 'build-3d-model',
+                inPreviewActions: !!active && !!actions?.contains(active),
+            };
+        });
+        cycled = focus.onBuild;
+        reachedPreviewActions ||= focus.inPreviewActions;
     }
-    expect(reached.has('build-3d-model'), 'Tab should cycle through the controls').toBe(true);
-    expect(reached.has('download-3d-model')).toBe(false);
-    expect(
-        await page
-            .locator('[data-testid="download-3d-model"]')
-            .evaluate((el) => !!el.closest('[inert]'))
-    ).toBe(true);
+    expect(cycled, 'Tab should cycle back to Build').toBe(true);
+    expect(reachedPreviewActions).toBe(false);
 
     // Once the rebuild finishes, the export is the single-head model with its own settings.
     await page.evaluate(() => (window as unknown as HarnessWindow).__releaseIdle());
