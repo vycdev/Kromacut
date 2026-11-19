@@ -7,7 +7,7 @@ on:
         branches:
             - develop
             - main
-    # Runs on the base branches also seed the npm and Playwright caches that PRs can restore.
+    # Runs on the base branches also seed the npm, Playwright, and cargo caches that PRs can restore.
     push:
         branches:
             - develop
@@ -134,11 +134,50 @@ jobs:
                   if-no-files-found: ignore
                   retention-days: 7
 
+    rust_tests:
+        name: Rust tests (${{ matrix.os }})
+        runs-on: ${{ matrix.os }}
+        timeout-minutes: 45
+        strategy:
+            fail-fast: false
+            matrix:
+                # Each OS compiles different native code (GIO, Launch Services, ShellExecuteEx)
+                # and runs different tests, so one runner cannot cover the others. ubuntu-22.04
+                # matches the release build and still has libwebkit2gtk-4.0-dev.
+                os: [ubuntu-22.04, macos-latest, windows-latest]
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+              with:
+                  persist-credentials: false
+
+            - name: Install Rust stable
+              uses: dtolnay/rust-toolchain@stable
+
+            # The same packages release.yml installs to build the Linux app.
+            - name: Install Linux dependencies
+              if: runner.os == 'Linux'
+              run: |
+                  sudo apt-get update
+                  sudo apt-get install -y libwebkit2gtk-4.0-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf zsync
+
+            # Caches the cargo registry and src-tauri/target. Pull request runs only restore, so
+            # they do not each fill the repository's cache quota.
+            - name: Cache cargo
+              uses: Swatinem/rust-cache@v2
+              with:
+                  workspaces: src-tauri -> target
+                  save-if: ${{ github.event_name != 'pull_request' }}
+
+            - name: cargo test
+              working-directory: src-tauri
+              run: cargo test --locked
+
     # One stable check to require in branch protection, however many suites the matrix has.
     ci_passed:
         name: CI passed
         if: always()
-        needs: [checks, e2e_suites, e2e]
+        needs: [checks, rust_tests, e2e_suites, e2e]
         runs-on: ubuntu-latest
         permissions: {}
         steps:
