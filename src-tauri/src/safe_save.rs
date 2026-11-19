@@ -24,19 +24,27 @@ fn create_temp_sibling(destination: &Path) -> Result<PathBuf, String> {
         .parent()
         .ok_or_else(|| "The save destination has no parent folder".to_string())?;
     // Renaming can replace a read-only file that opening it for writing would refuse.
-    match OpenOptions::new().write(true).open(destination) {
-        Err(error) if error.kind() != ErrorKind::NotFound => {
-            return Err(format!("Failed to open the file for writing: {error}"));
-        }
-        _ => {}
+    let replacing = match OpenOptions::new().write(true).open(destination) {
+        Ok(_) => true,
+        Err(error) if error.kind() == ErrorKind::NotFound => false,
+        Err(error) => return Err(format!("Failed to open the file for writing: {error}")),
+    };
+    let mut options = OpenOptions::new();
+    options.write(true).create_new(true);
+    // Keep a replaced file's new contents private until the commit copies its mode.
+    #[cfg(unix)]
+    if replacing {
+        std::os::unix::fs::OpenOptionsExt::mode(&mut options, 0o600);
     }
+    #[cfg(not(unix))]
+    let _ = replacing;
     let stamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map(|duration| duration.as_millis())
         .unwrap_or_default();
     for collision in 0..1_000_u16 {
         let path = directory.join(format!(".kromacut-save-{stamp}-{collision}.tmp"));
-        match OpenOptions::new().write(true).create_new(true).open(&path) {
+        match options.open(&path) {
             Ok(_) => return Ok(path),
             Err(error) if error.kind() == ErrorKind::AlreadyExists => continue,
             Err(error) => return Err(format!("Failed to create a temporary save file: {error}")),
@@ -228,17 +236,15 @@ mod tests {
         let directory = test_directory("mode");
         let destination = directory.join("palette.kpal");
         write(&destination, b"old palette").unwrap();
-        std::fs::set_permissions(&destination, std::fs::Permissions::from_mode(0o600)).unwrap();
+        std::fs::set_permissions(&destination, std::fs::Permissions::from_mode(0o640)).unwrap();
         let temp = create_temp_sibling(&destination).unwrap();
+        let mode = |path| std::fs::metadata(path).unwrap().permissions().mode() & 0o777;
+        assert_eq!(mode(&temp), 0o600);
         write(&temp, b"new palette").unwrap();
 
         commit_temp(&temp, &destination).unwrap();
 
-        let mode = std::fs::metadata(&destination)
-            .unwrap()
-            .permissions()
-            .mode();
-        assert_eq!(mode & 0o777, 0o600);
+        assert_eq!(mode(&destination), 0o640);
         remove_dir_all(directory).unwrap();
     }
 
