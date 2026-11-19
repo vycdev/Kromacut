@@ -567,6 +567,7 @@ export default function ThreeDControls({
         windowRunFilaments: builtState?.multiHeadMode ? builtState.windowRunFilaments : undefined,
         nonWindowedRanges: builtState?.multiHeadMode ? builtState.nonWindowedRanges : undefined,
         filaments: builtState?.filaments ?? filaments,
+        multiHeadMode: instructionMultiHeadMode,
         flatPaint: instructionFlatPaint,
         flatPaintFaceUp: instructionFlatPaintFaceUp,
         smoothMeshingStrength: builtState?.smoothMeshingStrength ?? smoothMeshingStrength,
