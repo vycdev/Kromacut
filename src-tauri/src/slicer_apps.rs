@@ -235,7 +235,7 @@ fn is_versioned_preset_install(platform: Platform, roots: &SearchRoots, path: &P
                     WindowsFolder::Versioned(prefix) => {
                         versioned_installs(programs, prefix, install.executable)
                             .iter()
-                            .any(|(_, install)| install == path)
+                            .any(|(_, found)| found == path)
                     }
                 })
         })
