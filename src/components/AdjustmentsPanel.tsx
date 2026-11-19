@@ -76,14 +76,14 @@ export const AdjustmentsPanel: React.FC<Props> = React.memo(
             });
         }, [flush]);
 
-        // The latest value is in valuesRef when focus leaves, so commit now (including a drag
-        // whose deferred flush is still pending): focusing another control such as
-        // Dedither can start processing before the next frame.
         const cancelPendingFlush = useCallback(() => {
             if (frameRef.current) cancelAnimationFrame(frameRef.current);
             frameRef.current = null;
         }, []);
 
+        // The latest value is in valuesRef when focus leaves, so commit now (including a drag
+        // whose deferred flush is still pending): focusing another control such as
+        // Dedither can start processing before the next frame.
         const handleBlur = useCallback(() => {
             if (!draggingRef.current && frameRef.current === null) return;
             draggingRef.current = false;
