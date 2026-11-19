@@ -24,6 +24,10 @@ export function useSlicerChoice(openInSlicer: (slicer: SlicerApp | null) => Prom
     const [chooser, setChooser] = useState<SlicerChooserRequest | null>(null);
     // The latest preference, so a slow saved-slicer check can tell it was changed meanwhile.
     const preferenceRef = useRef(preference);
+    // The latest export, so a slow saved-slicer check exports the current build's settings
+    // with the current mesh, not the settings captured when Open in Slicer was clicked.
+    const openInSlicerRef = useRef(openInSlicer);
+    openInSlicerRef.current = openInSlicer;
 
     const updatePreference = useCallback((next: SlicerPreference | null) => {
         saveSlicerPreference(next);
@@ -46,7 +50,7 @@ export function useSlicerChoice(openInSlicer: (slicer: SlicerApp | null) => Prom
             }
             // Changed in Settings during the check: the newer choice wins, so do nothing.
             if (preferenceRef.current !== preference) return;
-            if (found) return openInSlicer(found);
+            if (found) return openInSlicerRef.current(found);
             // The slicer was moved or uninstalled: forget it and ask again.
             updatePreference(null);
             setChooser({ missingSlicerName: preference.app.name, saveOnly: false });
