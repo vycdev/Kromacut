@@ -23,16 +23,19 @@ fn create_temp_sibling(destination: &Path) -> Result<PathBuf, String> {
     let directory = destination
         .parent()
         .ok_or_else(|| "The save destination has no parent folder".to_string())?;
-    let name = destination
-        .file_name()
-        .ok_or_else(|| "The save destination has no file name".to_string())?
-        .to_string_lossy();
+    // Renaming can replace a read-only file that opening it for writing would refuse.
+    match OpenOptions::new().write(true).open(destination) {
+        Err(error) if error.kind() != ErrorKind::NotFound => {
+            return Err(format!("Failed to open the file for writing: {error}"));
+        }
+        _ => {}
+    }
     let stamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map(|duration| duration.as_millis())
         .unwrap_or_default();
     for collision in 0..1_000_u16 {
-        let path = directory.join(format!(".{name}.{stamp}-{collision}.kromacut-tmp"));
+        let path = directory.join(format!(".kromacut-save-{stamp}-{collision}.tmp"));
         match OpenOptions::new().write(true).create_new(true).open(&path) {
             Ok(_) => return Ok(path),
             Err(error) if error.kind() == ErrorKind::AlreadyExists => continue,
@@ -188,11 +191,9 @@ mod tests {
     }
 
     #[test]
-    fn failed_commit_keeps_the_original_and_removes_the_temp_file() {
+    fn failed_commit_removes_the_temp_file() {
         let directory = test_directory("failed-commit");
-        let destination = directory.join("palette.kpal");
-        write(&destination, b"old palette").unwrap();
-        let temp = create_temp_sibling(&destination).unwrap();
+        let temp = create_temp_sibling(&directory.join("palette.kpal")).unwrap();
         write(&temp, b"new palette").unwrap();
         // A directory cannot be replaced by a file, so the rename fails on every platform.
         let blocked = directory.join("blocked");
@@ -200,8 +201,23 @@ mod tests {
 
         assert!(commit_temp(&temp, &blocked).is_err());
 
+        assert_eq!(entries(&directory), ["blocked"]);
+        remove_dir_all(directory).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn read_only_files_are_not_replaced() {
+        use std::os::unix::fs::PermissionsExt;
+        let directory = test_directory("read-only");
+        let destination = directory.join("palette.kpal");
+        write(&destination, b"old palette").unwrap();
+        std::fs::set_permissions(&destination, std::fs::Permissions::from_mode(0o444)).unwrap();
+
+        assert!(create_temp_sibling(&destination).is_err());
+
         assert_eq!(read(&destination).unwrap(), b"old palette");
-        assert_eq!(entries(&directory), ["blocked", "palette.kpal"]);
+        assert_eq!(entries(&directory), ["palette.kpal"]);
         remove_dir_all(directory).unwrap();
     }
 
