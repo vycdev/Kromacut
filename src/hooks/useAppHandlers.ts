@@ -151,7 +151,8 @@ export function useAppHandlers(params: UseAppHandlersParams) {
             __KROMACUT_LAST_MESH?: THREE.Object3D;
         }
         const threeObject = (window as KromacutWindow).__KROMACUT_LAST_MESH;
-        if (!threeObject || threeDBuildBusy) {
+        // A Flat Paint or multi-head mesh can outlive its build snapshot briefly.
+        if (!threeObject || threeDBuildBusy || threeObject.userData.kromacutStlUnavailable) {
             alert(translate('messages:files.modelNotReady'));
             return;
         }

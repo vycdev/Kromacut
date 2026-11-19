@@ -266,6 +266,10 @@ async function loadRoutedMultiHeadImage(page: Page) {
 
 async function buildModel(page: Page, buildCount: number) {
     await page.getByTestId('build-3d-model').click();
+    await waitForBuild(page, buildCount);
+}
+
+async function waitForBuild(page: Page, buildCount: number) {
     await page.waitForFunction((count) => {
         const e2e = (
             window as unknown as {
@@ -274,6 +278,14 @@ async function buildModel(page: Page, buildCount: number) {
         ).__KROMACUT_E2E;
         return e2e.buildHistory.length >= count && e2e.lastBuild?.status === 'complete';
     }, buildCount);
+}
+
+function meshStlUnavailable(page: Page) {
+    return page.evaluate(
+        () =>
+            (window as unknown as { __KROMACUT_LAST_MESH?: { userData: Record<string, unknown> } })
+                .__KROMACUT_LAST_MESH?.userData.kromacutStlUnavailable
+    );
 }
 
 async function openDownloads(page: Page) {
@@ -287,6 +299,7 @@ test('@smoke multi-head builds offer 3MF only, and single-head builds keep STL',
     await loadRoutedMultiHeadImage(page);
     await buildModel(page, 1);
     await expect(page.getByText('Head Schedule', { exact: true })).toBeVisible();
+    expect(await meshStlUnavailable(page)).toBe(true);
     await openDownloads(page);
     await expect(page.getByTestId('download-stl')).toHaveCount(0);
     await page.keyboard.press('Escape');
@@ -303,6 +316,7 @@ test('@smoke multi-head builds offer 3MF only, and single-head builds keep STL',
 
     await buildModel(page, 2);
     await expect(page.getByText('Head Schedule', { exact: true })).toHaveCount(0);
+    expect(await meshStlUnavailable(page)).toBe(false);
     await openDownloads(page);
     await expect(page.getByTestId('download-stl')).toBeVisible();
 });
@@ -352,21 +366,42 @@ test('@smoke a single-head fallback never offers STL of the previous multi-head 
     await page.waitForFunction(() => window.__MULTI_HEAD_FAIL !== undefined);
     await openDownloads(page);
     await expect(page.getByTestId('download-stl')).toHaveCount(0);
-    const staleMeshWhenStlAppears = await page.evaluate(
+    const meshWhenStlAppears = await page.evaluate(
         () =>
-            new Promise<boolean>((resolve) => {
+            new Promise<string>((resolve) => {
+                const timeout = window.setTimeout(() => {
+                    observer.disconnect();
+                    resolve('STL never appeared');
+                }, 15_000);
                 const observer = new MutationObserver(() => {
                     if (!document.querySelector('[data-testid="download-stl"]')) return;
                     observer.disconnect();
-                    resolve(
-                        (window as unknown as { __KROMACUT_LAST_MESH?: unknown })
-                            .__KROMACUT_LAST_MESH !== undefined
-                    );
+                    window.clearTimeout(timeout);
+                    const mesh = (window as unknown as { __KROMACUT_LAST_MESH?: unknown })
+                        .__KROMACUT_LAST_MESH;
+                    resolve(mesh === undefined ? 'cleared' : 'previous mesh');
                 });
                 observer.observe(document.body, { childList: true, subtree: true });
                 window.__MULTI_HEAD_FAIL!();
             })
     );
-    expect(staleMeshWhenStlAppears).toBe(false);
+    expect(meshWhenStlAppears).toBe('cleared');
     await expect(page.getByTestId('autopaint-multi-head-notice')).toBeVisible();
+    await waitForBuild(page, 2);
+
+    // A routed mesh that outlives its snapshot, e.g. from an overlapping build, is refused.
+    await page.evaluate(() => {
+        (
+            window as unknown as { __KROMACUT_LAST_MESH: { userData: Record<string, unknown> } }
+        ).__KROMACUT_LAST_MESH.userData.kromacutStlUnavailable = true;
+    });
+    if (!(await page.getByTestId('download-stl').isVisible())) await openDownloads(page);
+    const alerts: string[] = [];
+    page.once('dialog', (dialog) => {
+        alerts.push(dialog.message());
+        void dialog.accept();
+    });
+    await page.getByTestId('download-stl').click();
+    await expect.poll(() => alerts).toEqual(['3D model not ready yet']);
+    await expect(page.getByTestId('download-stl')).toBeEnabled();
 });
