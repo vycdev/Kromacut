@@ -66,7 +66,7 @@ Operațiile Aplică repetate lucrează pe imaginea deja editată, astfel că lim
 
 ## Comenzi rapide pentru istoricul 2D
 
-Folosește **Ctrl+Z** (**Cmd+Z** pe macOS) pentru a anula o editare și **Ctrl+Shift+Z** (**Cmd+Shift+Z**) pentru a o reface. Comenzile funcționează în modul 2D, în afara câmpurilor de text, a câmpurilor numerice, a dialogurilor și a meniurilor sau listelor deschise. Sunt dezactivate în timpul decupării sau procesării și nu modifică imaginea din fila 3D.
+Folosește **Ctrl+Z** (**Cmd+Z** pe macOS) pentru a anula o editare și **Ctrl+Shift+Z** (**Cmd+Shift+Z**) pentru a o reface. Pe Windows și Linux, o reface și **Ctrl+Y**. Comenzile funcționează în modul 2D, în afara câmpurilor de text, a câmpurilor numerice, a dialogurilor și a meniurilor sau listelor deschise. Sunt dezactivate în timpul decupării sau procesării și nu modifică imaginea din fila 3D.
 
 Așteaptă finalizarea cuantizării sau a eliminării ditheringului înainte de a importa ori edita altă imagine. Rezultatele editărilor mai vechi sunt ignorate dacă imaginea s-a schimbat sau a început o altă procesare.
 

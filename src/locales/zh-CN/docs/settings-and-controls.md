@@ -40,7 +40,7 @@ description: 顶部操作、主题、持久化、调色板、配置及工作区�
 
 **撤销 / 重做**在2D与3D之间共享图像编辑历史，不是耗材编辑、校准、层高或优化器设置的撤销栈。可用时请使用各面板自身的重置控制，恢复图像状态后重新构建。
 
-在2D中，按 **Ctrl+Z**（macOS 上为 **Cmd+Z**）撤销图像编辑，按 **Ctrl+Shift+Z**（**Cmd+Shift+Z**）重做。在可编辑字段、对话框、弹出框、菜单和已打开的列表中，以及裁剪期间、处理期间和3D中，这些快捷键会被忽略。参见[2D 历史记录快捷键](image-adjustments#2d-history-shortcuts)。
+在2D中，按 **Ctrl+Z**（macOS 上为 **Cmd+Z**）撤销图像编辑，按 **Ctrl+Shift+Z**（**Cmd+Shift+Z**）重做。在 Windows 和 Linux 上，也可以按 **Ctrl+Y** 重做。在可编辑字段、对话框、弹出框、菜单和已打开的列表中，以及裁剪期间、处理期间和3D中，这些快捷键会被忽略。参见[2D 历史记录快捷键](image-adjustments#2d-history-shortcuts)。
 
 ## 实验性多打印板模式
 
