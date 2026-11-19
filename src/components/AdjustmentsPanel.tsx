@@ -71,6 +71,16 @@ export const AdjustmentsPanel: React.FC<Props> = React.memo(
             frameRef.current = requestAnimationFrame(() => flush());
         }, [flush]);
 
+        // Keyboard changes have rendered by the time focus leaves, so commit now: focusing
+        // another control (such as Dedither) can start processing before the next frame.
+        const handleBlur = useCallback(() => {
+            if (!draggingRef.current) return;
+            draggingRef.current = false;
+            if (frameRef.current) cancelAnimationFrame(frameRef.current);
+            frameRef.current = null;
+            flush();
+        }, [flush]);
+
         // Attach a global pointerup listener only while dragging (simple approach)
         useEffect(() => {
             const up = () => handlePointerUp();
@@ -191,7 +201,7 @@ export const AdjustmentsPanel: React.FC<Props> = React.memo(
                                         draggingRef.current = true;
                                     }}
                                     onPointerUp={() => handlePointerUp()}
-                                    onBlur={() => handlePointerUp()}
+                                    onBlur={handleBlur}
                                 />
                             </div>
                         );

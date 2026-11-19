@@ -181,9 +181,14 @@ for (const replacement of ['import', 'quantize', 'dedither']) {
             // Wait for processing and committed image decoding before releasing the older edit.
             await expect(page.getByRole('button', { name: 'Undo', exact: true })).toBeEnabled();
         }
-        await releaseEncoding(page);
-        // A stale resize that slipped past its guard would decode and encode again.
-        await holdNextEncoding(page);
+        // A stale resize that slipped past its guard would decode and encode again,
+        // so re-arm the hold before releasing the first encode.
+        await page.evaluate(() => {
+            const state = window as unknown as HeldEncoding;
+            const release = state.releaseEncoding;
+            state.holdNextEncoding = true;
+            release?.();
+        });
         await page.waitForTimeout(300);
         expect(
             await page.evaluate(() => !!(window as unknown as HeldEncoding).releaseEncoding)
@@ -299,15 +304,42 @@ for (const operation of ['quantize', 'dedither']) {
     });
 }
 
+interface ProcessingEncodes {
+    failProcessingEncode: boolean;
+    failPatched?: boolean;
+    processingInputs: boolean[];
+}
+const processingInputs = (page: Page) =>
+    page.evaluate(() => (window as unknown as ProcessingEncodes).processingInputs);
+
 async function failProcessingEncodes(page: Page, fail: boolean) {
     await page.evaluate((fail) => {
-        const w = window as unknown as { failProcessingEncode: boolean; failPatched?: boolean };
+        const w = window as unknown as ProcessingEncodes;
         w.failProcessingEncode = fail;
         if (w.failPatched) return;
         w.failPatched = true;
+        w.processingInputs = [];
         const toBlob = HTMLCanvasElement.prototype.toBlob;
         HTMLCanvasElement.prototype.toBlob = function (callback, type, quality) {
             if (w.failProcessingEncode) {
+                // Record whether processing read the committed 64x64 fixture: black left
+                // half, white right half, no touch-up pixels.
+                const data =
+                    this.width === 64 && this.height === 64
+                        ? this.getContext('2d')?.getImageData(0, 0, 64, 64).data
+                        : undefined;
+                if (data) {
+                    let clean = true;
+                    for (let i = 0; i < 64 * 64 && clean; i++) {
+                        const v = i % 64 < 32 ? 0 : 255;
+                        clean =
+                            data[i * 4] === v &&
+                            data[i * 4 + 1] === v &&
+                            data[i * 4 + 2] === v &&
+                            data[i * 4 + 3] === 255;
+                    }
+                    w.processingInputs.push(clean);
+                }
                 queueMicrotask(() => callback(null));
                 return;
             }
@@ -339,6 +371,8 @@ for (const operation of ['quantize', 'dedither']) {
         await expect(page.getByTestId(`${operation}-apply`)).toBeEnabled();
         await releaseEncoding(page);
         await failProcessingEncodes(page, false);
+        // The stroke was dropped before processing read the canvas.
+        expect(await processingInputs(page)).toEqual([true]);
 
         // Processing produced nothing and refused the stroke: canvas and history agree.
         await expect.poll(pixels).toBe(before);
@@ -366,6 +400,7 @@ for (const operation of ['quantize', 'dedither']) {
             .evaluate((button: HTMLButtonElement) => button.click());
         await expect(page.getByTestId(`${operation}-apply`)).toBeEnabled();
         await failProcessingEncodes(page, false);
+        expect(await processingInputs(page)).toEqual([true]);
         await page.mouse.move(box.x + box.width * 0.8, box.y + box.height * 0.7, { steps: 8 });
         await page.mouse.up();
 
@@ -410,4 +445,28 @@ test('@smoke Ctrl+Z ignores an open select list and follows the physical Z key',
     );
     await expect(currentSize(page)).toContainText('64x64');
     await expect(redo).toBeEnabled();
+});
+
+test('@smoke a keyboard adjustment commits before dedither takes the edit lock', async ({
+    page,
+}) => {
+    const preview = page.getByTestId('image-dropzone').locator('canvas').first();
+    const pixels = () => preview.evaluate((canvas: HTMLCanvasElement) => canvas.toDataURL());
+    const before = await pixels();
+    await page
+        .getByText('Contrast', { exact: true })
+        .first()
+        .locator('../..')
+        .getByRole('slider')
+        .focus();
+    // Minimum contrast turns the black and white fixture grey.
+    await page.keyboard.press('Home');
+    // Clicking Dedither blurs the slider first; its commit must not wait a frame.
+    await failProcessingEncodes(page, true);
+    await page.getByTestId('dedither-apply').click();
+    await expect(page.getByTestId('dedither-apply')).toBeEnabled();
+    await failProcessingEncodes(page, false);
+    // Processing read the adjusted image, and the preview shows the slider's value.
+    expect(await processingInputs(page)).toEqual([false]);
+    await expect.poll(pixels).not.toBe(before);
 });
