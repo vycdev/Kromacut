@@ -67,6 +67,8 @@ Die ungefähre Höhenangabe im Plan erfordert Aufmerksamkeit: Der manuelle Ablau
 
 Im Flat-Paint-Modus gibt es keinen manuellen Wechselplan. Der Bereich fasst stattdessen den gewählten Mehrmaterialablauf zusammen: Weise jedes 3MF-Objekt seinem Filament zu. Nutze dann entweder transparentes Filament und drehe den standardmäßigen Druck mit Bildseite unten um, oder drucke die trägerlose Anordnung mit Bildseite oben. Keine der beiden Anordnungen darf im Slicer gespiegelt werden.
 
+Im **Mehrkopfmodus** zeigt eine erfolgreiche Erstellung statt Startfarbe und Wechselplan einen **Druckkopfplan**: Lade vor dem Druck die aufgeführten Filamente in ihre nummerierten Druckköpfe, lass als **LEER** markierte Köpfe unbenutzt und lade an jedem Schichtkontrollpunkt nur die markierten Köpfe neu. Ist die Erstellung auf ein Einkopfmodell zurückgefallen, erscheinen stattdessen die normale Startfarbe und der Wechselplan. Siehe [Mehrkopfdruck](multi-head-printing#head-schedule-and-export).
+
 ## Empfohlene Slicer-Einstellungen
 
 Kromacut empfiehlt:

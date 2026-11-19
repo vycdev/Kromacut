@@ -73,4 +73,6 @@ Cliquez sur **Générer le modèle 3D**. Lorsque le modèle apparaît, utilisez 
 
 Ouvrez le menu de téléchargement et choisissez **Télécharger STL** ou **Télécharger 3MF**. Copiez ensuite les **Instructions d’impression** pour conserver la couleur de départ, les couches de changement et les paramètres de découpe recommandés.
 
+Dans l’application de bureau, **Ouvrir dans le logiciel de découpe**, dans ce même menu, exporte le 3MF et l’ouvre directement dans votre logiciel de découpe. Consultez [Enregistrer et annuler](generating-exporting-output#saving-and-cancelling).
+
 Suite : [Mode 3D](3d-mode), [Peinture automatique](auto-paint) ou [Génération et export](generating-exporting-output#before-you-export).

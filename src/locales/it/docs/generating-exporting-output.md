@@ -67,6 +67,8 @@ L’altezza approssimativa richiede attenzione: Manuale mostra Z superiore del n
 
 Flat Paint non ha piano manuale. Il pannello riassume il flusso multimateriale: assegna oggetti ai filamenti, usa trasparente e capovolgi la stampa predefinita, oppure stampa a faccia in su senza supporto. Nessuna disposizione va specchiata nello slicer.
 
+Con la **Modalità multi-testa**, una creazione riuscita mostra il **Programma delle teste** al posto del colore iniziale e del piano dei cambi: prima di stampare carica i filamenti elencati nelle rispettive teste numerate, lascia inutilizzate le teste contrassegnate come **VUOTA** e a ogni punto di controllo ricarica solo le teste indicate. Se la creazione è ripiegata su un modello a testa singola, compaiono invece il normale colore iniziale e il piano dei cambi. Vedi [Stampa multitesta](multi-head-printing#head-schedule-and-export).
+
 ## Impostazioni consigliate dello slicer
 
 Kromacut consiglia:

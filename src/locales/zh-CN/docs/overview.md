@@ -45,6 +45,7 @@ Kromacut在3D模式中提供两种打印流程。
 | 设置尺寸、层高和手动颜色顺序 | [3D模式](3d-mode) |
 | 选择耗材、优化混色并检查可打印细节 | [自动配色](auto-paint) |
 | 制作正面朝上或朝下的平整多材料板 | [平面打印模式](flat-paint) |
+| 使用多个打印头打印并遵循打印头计划 | [多打印头打印](multi-head-printing) |
 | 测量HD、比较配色校样或拍摄叠层校准矩阵 | [校准流程](calibration-workflows) |
 | 准备轮廓并修整像素 | [加载图像](loading-images) |
 | 调整色调和颜色，然后应用结果 | [图像调整](image-adjustments) |

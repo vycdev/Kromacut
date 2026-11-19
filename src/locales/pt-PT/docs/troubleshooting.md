@@ -99,6 +99,16 @@ STL não transporta atribuições de cor. Use **Instruções de impressão** par
 
 A vista Simuladas mostra misturas estimadas; laminadores mostram normalmente cores físicas. Mude para **Físicas** para conferir atribuições e verifique as bobinas reais. Nenhuma vista prova a cor final impressa.
 
+## O laminador não abre
+
+**Abrir no laminador** só está disponível na aplicação de ambiente de trabalho. No navegador, use **Transferir 3MF** e abra o ficheiro no laminador.
+
+Se o Kromacut indicar que não conseguiu abrir o 3MF, use **Transferir 3MF** para guardar o ficheiro e abra-o a partir do laminador. Se o ficheiro abrir num visualizador 3D ou noutra aplicação, a escolha guardada é provavelmente **Predefinição do sistema**: use **Escolher laminador** no menu de transferência, ou **Alterar** nas **Definições**, para selecionar o próprio laminador. Se um laminador guardado tiver sido movido ou desinstalado, o Kromacut pede-lhe que escolha novamente. Consulte [Guardar e cancelar](generating-exporting-output#saving-and-cancelling).
+
+## O modo multicabeças criou um modelo de uma só cabeça
+
+Um aviso a indicar que foi criado um modelo normal de uma só cabeça significa que a análise multicabeças não terminou ou não encontrou uma disposição que melhore o suficiente o empilhamento normal. O modelo, as Instruções de impressão e a exportação usam então a cor inicial e o plano de trocas normais, e não um plano das cabeças. Experimente outros filamentos, outro número de cabeças ou outra profundidade da pesquisa e clique novamente em **Gerar modelo 3D**. Se a análise não tiver terminado, experimente primeiro menos cabeças. Consulte [Impressão multicabeças](multi-head-printing#fallback-and-rebuilding).
+
 ## O recorte ou as edições foram longe de mais
 
 Use **Anular**. Refazer está disponível se anular demasiado.

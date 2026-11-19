@@ -99,6 +99,16 @@ STL no incluye asignaciones de color de filamento. Usa las **Instrucciones de im
 
 La vista Simulados muestra mezclas estimadas; los laminadores suelen mostrar colores físicos. Cambia Kromacut a **Físicos** para revisar las asignaciones y después comprueba las bobinas reales. Ninguna vista demuestra el color final impreso.
 
+## El laminador no se abre
+
+**Abrir en el laminador** solo está disponible en la aplicación de escritorio. En un navegador, usa **Descargar 3MF** y abre el archivo en tu laminador.
+
+Si Kromacut indica que no pudo abrir el 3MF, usa **Descargar 3MF** para guardar el archivo y ábrelo desde tu laminador. Si el archivo se abre en un visor 3D u otra aplicación, es probable que la elección guardada sea **Predeterminada del sistema**: usa **Elegir laminador** en el menú de descarga, o **Cambiar** en **Ajustes**, para seleccionar el propio laminador. Si un laminador guardado se ha movido o desinstalado, Kromacut te pide que elijas de nuevo. Consulta [Guardar y cancelar](generating-exporting-output#saving-and-cancelling).
+
+## El modo multicabezal creó un modelo de un solo cabezal
+
+Un aviso de que se ha creado un modelo normal de un solo cabezal significa que el análisis multicabezal no terminó o no encontró una disposición que mejore lo suficiente la pila normal. El modelo, las Instrucciones de impresión y la exportación usan entonces el color inicial y el plan de cambios normales, no un programa de cabezales. Prueba con otros filamentos, otro número de cabezales u otra profundidad de búsqueda y vuelve a pulsar **Generar modelo 3D**. Si el análisis no terminó, prueba primero con menos cabezales. Consulta [Impresión multicabezal](multi-head-printing#fallback-and-rebuilding).
+
 ## El recorte o las ediciones han ido demasiado lejos
 
 Usa **Deshacer**. Rehacer está disponible si deshaces demasiado.

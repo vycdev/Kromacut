@@ -73,4 +73,6 @@ Clique em **Gerar modelo 3D**. Quando aparecer, use **Pré-visualização de cam
 
 Abra o menu de transferência e escolha **Transferir STL** ou **Transferir 3MF**. Copie depois as **Instruções de impressão** para ter a cor inicial, camadas de troca e definições recomendadas do laminador.
 
+Na aplicação de ambiente de trabalho, **Abrir no laminador**, no mesmo menu, exporta o 3MF e abre-o diretamente no seu laminador. Consulte [Guardar e cancelar](generating-exporting-output#saving-and-cancelling).
+
 Seguinte: [Modo 3D](3d-mode), [Pintura automática](auto-paint) ou [Geração e exportação](generating-exporting-output#before-you-export).

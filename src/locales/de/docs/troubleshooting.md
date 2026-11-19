@@ -99,6 +99,16 @@ STL enthält keine Filamentfarbzuweisungen. Verwende die **Druckanweisungen** f�
 
 Die Auto-paint-Ansicht Simuliert zeigt geschätzte Mischfarben; Slicer zeigen normalerweise physische Filamentfarben. Schalte Kromacut zur Zuweisungsprüfung auf **Physisch** und kontrolliere dann die tatsächliche Spulenzuordnung. Keine der Ansichten beweist die endgültige gedruckte Farbe.
 
+## Der Slicer öffnet sich nicht
+
+**Im Slicer öffnen** gibt es nur in der Desktop-App. Im Browser nutzt du **3MF herunterladen** und öffnest die Datei in deinem Slicer.
+
+Meldet Kromacut, dass die 3MF-Datei nicht geöffnet werden konnte, speichere sie mit **3MF herunterladen** und öffne sie aus deinem Slicer heraus. Öffnet sich die Datei in einem 3D-Betrachter oder einer anderen App, ist vermutlich **Systemstandard** gespeichert: Wähle mit **Slicer auswählen** im Downloadmenü oder mit **Ändern** in den **Einstellungen** direkt deinen Slicer aus. Wurde ein gespeicherter Slicer verschoben oder deinstalliert, fordert Kromacut dich auf, erneut zu wählen. Siehe [Speichern und Abbrechen](generating-exporting-output#saving-and-cancelling).
+
+## Der Mehrkopfmodus hat ein Einkopfmodell erstellt
+
+Ein Hinweis, dass ein normales Einkopfmodell erstellt wurde, bedeutet: Die Mehrkopfanalyse wurde nicht abgeschlossen oder hat keine Anordnung gefunden, die den normalen Aufbau ausreichend verbessert. Modell, Druckanweisungen und Export verwenden dann die normale Startfarbe und den Wechselplan statt eines Druckkopfplans. Probiere andere Filamente, eine andere Druckkopfzahl oder Suchtiefe und klicke erneut auf **3D-Modell erstellen**. Wurde die Analyse nicht abgeschlossen, versuche es zuerst mit weniger Druckköpfen. Siehe [Mehrkopfdruck](multi-head-printing#fallback-and-rebuilding).
+
 ## Zuschnitt oder Bildbearbeitung gingen zu weit
 
 Nutze **Rückgängig**. Mit Wiederholen kannst du zu weit zurückgenommene Schritte wiederherstellen.

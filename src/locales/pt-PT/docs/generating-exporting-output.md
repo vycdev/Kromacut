@@ -67,6 +67,8 @@ A altura aproximada exige cuidado: Manual mostra o Z do topo da nova camada; Pin
 
 Na pintura plana não há plano manual. O painel resume o fluxo multimaterial: atribua cada objeto ao filamento e use transparente e vire a impressão predefinida de face para baixo, ou imprima sem suporte de face para cima. Nenhuma deve ser espelhada no laminador.
 
+Com o **Modo multicabeças**, uma geração bem-sucedida mostra um **Plano das cabeças** em vez da cor inicial e do plano de trocas: antes de imprimir, carregue os filamentos indicados nas respetivas cabeças numeradas, deixe sem utilização as cabeças **VAZIA** e recarregue apenas as cabeças assinaladas em cada ponto de controlo de camada. Se a geração tiver recorrido a um modelo de uma só cabeça, aparecem a cor inicial e o plano de trocas normais. Consulte [Impressão multicabeças](multi-head-printing#head-schedule-and-export).
+
 ## Configuração recomendada do laminador
 
 O Kromacut recomenda:

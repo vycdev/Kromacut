@@ -67,6 +67,8 @@ Folosește planul copiat lângă previzualizarea slicerului. Numerele straturilo
 
 În modul Flat Paint nu există plan de schimbări manuale. Panoul rezumă în schimb fluxul multimaterial selectat: atribuie fiecărui obiect 3MF filamentul său, apoi fie folosește filament transparent și întoarce imprimarea implicită cu fața în jos, fie imprimă aranjamentul fără suport cu fața în sus. Niciun aranjament nu trebuie oglindit în slicer.
 
+Cu opțiunea **Mod cu mai multe capete** activată, o generare reușită afișează **Programul capetelor** în locul culorii de început și al planului de schimbări: înainte de imprimare, încarcă filamentele indicate în capetele numerotate corespunzătoare, lasă neutilizate capetele marcate **GOL** și, la fiecare punct de control, reîncarcă doar capetele marcate. Dacă generarea a revenit la un model cu un singur cap, apar în schimb culoarea de început și planul de schimbări obișnuite. Consultă [Imprimare cu mai multe capete](multi-head-printing#head-schedule-and-export).
+
 ## Configurația recomandată pentru slicer
 
 Kromacut recomandă:

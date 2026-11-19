@@ -22,7 +22,9 @@ Selectorul **Limbă** schimbă interfața, documentația, diagramele și paginil
 
 Paginile publice oferă și ele un selector de limbă. Documentația tradusă folosește linkuri partajabile cu prefix de limbă, precum `/ro/docs/overview`. Numele paginilor și ancorele secțiunilor rămân stabile între limbi. Extensiile fișierelor, datele numerice ale modelului, numele introduse de utilizator și titlurile originale ale lucrărilor comunității nu sunt traduse.
 
-Dialogul de setări include legături către documentație, Discord, Reddit, GitHub și Patreon și afișează versiunea curentă Kromacut. **Confidențialitate și date locale** și **Termeni și condiții** sunt disponibile tot aici și se deschid în browser în limba selectată.
+Dialogul de setări include legături către documentație, Discord, Reddit, GitHub și Patreon și afișează versiunea curentă Kromacut. **Confidențialitate și date locale**, **Termeni și condiții** și **Premii** sunt disponibile tot aici și se deschid în browser în limba selectată.
+
+În aplicația desktop, Setările au și un rând **Deschide în slicer**, care arată slicerul folosit de **Deschide în slicer**: **Întreabă de fiecare dată**, **Implicit în sistem** sau numele și locația slicerului salvat. **Schimbă** salvează alt slicer fără să deschidă vreun fișier. **Uită** apare când este salvată o alegere și face ca Kromacut să întrebe din nou. Consultă [Salvare și anulare](generating-exporting-output#saving-and-cancelling).
 
 ## Modurile spațiului de lucru
 
@@ -37,6 +39,8 @@ Pe ecrane mici, extinde **Cuprins** pentru a alege un ghid sau **Pe această pag
 Majoritatea secțiunilor laterale pot fi restrânse apăsând titlul. Restrângerea ascunde comenzile, nu efectele lor: ajustările active, setările de imprimare și opțiunile optimizatorului se aplică în continuare. Rezumatele restrânse și punctele de stare te ajută să observi modificările active. Starea deschis/închis a secțiunilor este memorată. Extinderea unei secțiuni nu o resetează.
 
 **Anulează / Refă** folosește același istoric al editării imaginii în 2D și 3D. Nu este un istoric de anulare pentru editările filamentelor, calibrare, înălțimi de strat sau setările optimizatorului. Folosește resetarea proprie fiecărui panou, unde există, și regenerează după restaurarea unei stări a imaginii.
+
+În 2D, **Ctrl+Z** (**Cmd+Z** pe macOS) anulează o editare a imaginii, iar **Ctrl+Shift+Z** (**Cmd+Shift+Z**) o reface. Comenzile rapide sunt ignorate în câmpurile de text și numerice, în dialoguri și în meniurile deschise, în timpul decupării sau al procesării și în 3D. Consultă [Comenzi rapide pentru istoricul 2D](image-adjustments#2d-history-shortcuts).
 
 ## Modul experimental multiplacă
 
@@ -63,6 +67,7 @@ Setările Auto-paint sunt păstrate între sesiuni, inclusiv:
 - Detalierea tranzițiilor și ditheringul de înălțime.
 - Lățimea efectivă a liniei (editată în **Setări de imprimare 3D**) pentru avertismente de lățime, curățarea punctelor izolate și dithering de înălțime, plus preferința salvată **Omite punctele de culoare izolate**. Preferința de curățare nu elimină toate avertismentele de lățime și nu controlează ditheringul de înălțime.
 - Flat Paint și preferința sa pentru fața în sus, fără strat transparent.
+- Modul cu mai multe capete, numărul de capete, profunzimea căutării și gruparea culorilor.
 - Algoritmul optimizatorului și sămânța aleatorie.
 - Prioritatea regiunii.
 

@@ -73,4 +73,6 @@ description: 从图像到导出的首次实操指南。
 
 打开下载菜单，选择**下载STL**或**下载3MF**。然后复制**打印说明**，保留起始颜色、换料层及推荐切片设置。
 
+在桌面应用中，同一菜单里的**在切片软件中打开**会导出3MF并直接在切片软件中打开。参见[保存与取消](generating-exporting-output#saving-and-cancelling)。
+
 下一步：[3D模式](3d-mode)、[自动配色](auto-paint)或[生成与导出](generating-exporting-output#before-you-export)。

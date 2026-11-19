@@ -99,6 +99,16 @@ STL non contiene assegnazioni cromatiche. Usa le **Istruzioni di stampa** per i 
 
 La vista Simulati mostra miscele stimate; gli slicer mostrano normalmente colori fisici. Passa a **Fisici** per confrontare e verifica bobine reali. Nessuna vista prova il colore finale.
 
+## Lo slicer non si apre
+
+**Apri nello slicer** è disponibile solo nell’app desktop. Nel browser usa **Scarica 3MF** e apri il file nello slicer.
+
+Se Kromacut segnala di non essere riuscito ad aprire il 3MF, usa **Scarica 3MF** per salvare il file e aprilo dallo slicer. Se il file si apre in un visualizzatore 3D o in un’altra app, la scelta salvata è probabilmente **Predefinita di sistema**: usa **Scegli slicer** nel menu di download, oppure **Cambia** nelle **Impostazioni**, per selezionare direttamente il tuo slicer. Se uno slicer salvato è stato spostato o disinstallato, Kromacut ti chiede di sceglierne di nuovo uno. Vedi [Salvare e annullare](generating-exporting-output#saving-and-cancelling).
+
+## La modalità multi-testa ha creato un modello a testa singola
+
+Un avviso che indica la creazione di un normale modello a testa singola significa che l’analisi multitesta non è terminata o non ha trovato una disposizione che migliori abbastanza la pila normale. Modello, istruzioni di stampa ed esportazione usano allora il normale colore iniziale e il piano dei cambi, non un programma delle teste. Prova filamenti diversi, un altro numero di teste o un’altra profondità di ricerca, poi fai di nuovo clic su **Crea modello 3D**. Se l’analisi non è terminata, prova prima con meno teste. Vedi [Stampa multitesta](multi-head-printing#fallback-and-rebuilding).
+
 ## Ritaglio o modifiche eccessive
 
 Usa **Annulla**. Ripeti è disponibile se annulli troppo.

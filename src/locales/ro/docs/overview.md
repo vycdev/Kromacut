@@ -45,6 +45,7 @@ Folosește 2D pentru a pregăti imaginea și 3D pentru a planifica straturile fi
 | Stabilește dimensiunile, înălțimile straturilor și ordinea manuală a culorilor | [Modul 3D](3d-mode) |
 | Alege filamentele, optimizează amestecurile și inspectează detaliile imprimabile | [Auto-paint](auto-paint) |
 | Creează o placă multimaterial plană, cu fața în sus sau în jos | [Flat Paint](flat-paint) |
+| Imprimă cu mai multe capete și urmează un program al capetelor | [Imprimare cu mai multe capete](multi-head-printing) |
 | Măsoară HD, compară probe Palette Proof sau fotografiază o Stack Matrix | [Fluxuri de calibrare](calibration-workflows) |
 | Pregătește silueta și retușează pixelii | [Încărcarea imaginilor](loading-images) |
 | Ajustează tonurile și culorile, apoi aplică definitiv rezultatul | [Ajustările imaginii](image-adjustments) |

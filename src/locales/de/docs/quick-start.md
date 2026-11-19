@@ -73,4 +73,6 @@ Klicke auf **3D-Modell erstellen**. Sobald das Modell erscheint, kannst du mit *
 
 Öffne das Downloadmenü und wähle **STL herunterladen** oder **3MF herunterladen**. Kopiere anschließend die **Druckanweisungen**, damit Startfarbe, Wechselschichten und empfohlene Slicer-Einstellungen bereitliegen.
 
+In der Desktop-App exportiert **Im Slicer öffnen** im selben Menü die 3MF-Datei und öffnet sie direkt in deinem Slicer. Siehe [Speichern und Abbrechen](generating-exporting-output#saving-and-cancelling).
+
 Weiter: [3D-Modus](3d-mode), [Auto-paint](auto-paint) oder [Ergebnisse erzeugen und exportieren](generating-exporting-output#before-you-export).

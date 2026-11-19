@@ -22,7 +22,9 @@ El selector **Idioma** cambia interfaz, documentación, diagramas y páginas pú
 
 Las páginas públicas también ofrecen selector de idioma. La documentación traducida usa enlaces compartibles con prefijo de idioma, como `/ro/docs/overview`. Los nombres de página y anclas de sección permanecen estables entre idiomas. No se traducen extensiones, datos numéricos del modelo, nombres introducidos por el usuario ni títulos originales de obras comunitarias.
 
-El diálogo incluye enlaces a documentación, Discord, Reddit, GitHub y Patreon, y muestra la versión actual de Kromacut. **Privacidad y datos locales** y **Términos y condiciones** también están disponibles aquí y se abren en el navegador en el idioma seleccionado.
+El diálogo incluye enlaces a documentación, Discord, Reddit, GitHub y Patreon, y muestra la versión actual de Kromacut. **Privacidad y datos locales**, **Términos y condiciones** y **Premios** también están disponibles aquí y se abren en el navegador en el idioma seleccionado.
+
+En la aplicación de escritorio, Ajustes también tiene una fila **Abrir en el laminador** que muestra el laminador que usa **Abrir en el laminador**: **Preguntar siempre**, **Predeterminada del sistema** o el nombre y la ubicación del laminador guardado. **Cambiar** guarda otro laminador sin abrir ningún archivo. **Olvidar** aparece cuando hay una elección guardada y hace que Kromacut vuelva a preguntar. Consulta [Guardar y cancelar](generating-exporting-output#saving-and-cancelling).
 
 ## Modos del espacio de trabajo
 
@@ -37,6 +39,8 @@ En pantallas pequeñas, despliega **Contenido** para elegir guía o **En esta p�
 La mayoría de las secciones laterales se pliegan desde sus títulos. Plegar oculta controles, no efectos: los ajustes activos, parámetros de impresión y opciones del optimizador siguen aplicándose. Los resúmenes y puntos de estado ayudan a detectar cambios activos. El estado abierto/cerrado se recuerda. Desplegar una sección no la restablece.
 
 **Deshacer / Rehacer** comparte el historial de imagen entre 2D y 3D. No es un historial de cambios de filamentos, calibración, alturas u opciones del optimizador. Usa el restablecimiento propio de cada panel cuando exista y regenera después de restaurar una imagen.
+
+En 2D, **Ctrl+Z** (**Cmd+Z** en macOS) deshace y **Ctrl+Mayús+Z** (**Cmd+Mayús+Z**) rehace una edición de imagen. Los atajos se ignoran en campos de texto y numéricos, en cuadros de diálogo y menús abiertos, al recortar, durante el procesamiento y en 3D. Consulta [Atajos del historial 2D](image-adjustments#2d-history-shortcuts).
 
 ## Modo multiplaca experimental
 
@@ -63,6 +67,7 @@ Se conservan entre sesiones los siguientes ajustes:
 - Detalle de transición y tramado de altura.
 - Ancho de línea efectivo, editado en **Ajustes de impresión 3D**, para avisos, limpieza de motas y tramado de altura, junto con la preferencia **Omitir motas de color aisladas**. La limpieza no quita todos los avisos ni controla el tramado de altura.
 - Pintura plana y la preferencia boca arriba sin capa transparente.
+- Modo multicabezal, número de cabezales, profundidad de búsqueda y agrupación de colores.
 - Algoritmo y semilla del optimizador.
 - Prioridad regional.
 

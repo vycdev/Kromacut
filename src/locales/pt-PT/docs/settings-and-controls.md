@@ -22,7 +22,9 @@ O seletor **Idioma** altera interface, documentação, diagramas e páginas púb
 
 As páginas públicas também têm seletor. A documentação traduzida usa ligações partilháveis com prefixo, como `/ro/docs/overview`. Os nomes de páginas e âncoras mantêm-se entre idiomas. Extensões, dados numéricos, nomes introduzidos pelo utilizador e títulos originais de obras comunitárias não são traduzidos.
 
-O diálogo contém ligações para documentação, Discord, Reddit, GitHub e Patreon e mostra a versão atual. **Privacidade e dados locais** e **Termos e condições** também estão disponíveis aqui e abrem no navegador no idioma selecionado.
+O diálogo contém ligações para documentação, Discord, Reddit, GitHub e Patreon e mostra a versão atual. **Privacidade e dados locais**, **Termos e condições** e **Prémios** também estão disponíveis aqui e abrem no navegador no idioma selecionado.
+
+Na aplicação de ambiente de trabalho, as Definições têm também uma linha **Abrir no laminador** que mostra o laminador usado por **Abrir no laminador**: **Perguntar sempre**, **Predefinição do sistema** ou o nome e a localização do laminador guardado. **Alterar** guarda outro laminador sem abrir nenhum ficheiro. **Esquecer** aparece quando existe uma escolha guardada e faz com que o Kromacut volte a perguntar. Consulte [Guardar e cancelar](generating-exporting-output#saving-and-cancelling).
 
 ## Modos da área de trabalho
 
@@ -37,6 +39,8 @@ Em ecrãs pequenos, expanda **Conteúdo** para escolher guia ou **Nesta página*
 A maioria das secções laterais pode recolher-se pelo título. Recolher esconde controlos, não efeitos: ajustes, impressão e otimizador continuam ativos. Resumos e pontos de estado ajudam a detetar alterações. O estado aberto/fechado é recordado. Expandir não repõe definições.
 
 **Anular / Refazer** partilha o histórico da imagem entre 2D e 3D. Não é histórico de filamentos, calibração, alturas nem otimizador. Use reposições de cada painel quando existirem e regenere após restaurar a imagem.
+
+Em 2D, **Ctrl+Z** (**Cmd+Z** no macOS) anula e **Ctrl+Shift+Z** (**Cmd+Shift+Z**) refaz uma edição da imagem. Os atalhos são ignorados em campos de texto e numéricos, em caixas de diálogo e menus abertos, durante o recorte ou o processamento e em 3D. Consulte [Atalhos do histórico 2D](image-adjustments#2d-history-shortcuts).
 
 ## Modo multiplaca experimental
 
@@ -63,6 +67,7 @@ As definições preservadas entre sessões incluem:
 - Detalhe de transição e pontilhamento de altura.
 - Largura efetiva, editada em **Definições de impressão 3D**, para avisos, limpeza de pontos e pontilhamento, mais a preferência **Omitir pontos isolados de cor**. A limpeza não remove todos os avisos nem controla o pontilhamento de altura.
 - Pintura plana e preferência de face para cima sem transparente.
+- Modo multicabeças, número de cabeças, profundidade da pesquisa e agrupamento de cores.
 - Algoritmo e semente do otimizador.
 - Prioridade regional.
 
