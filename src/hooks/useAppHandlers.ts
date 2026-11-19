@@ -21,6 +21,8 @@ export interface UseAppHandlersParams {
     exportingSTL: boolean;
     /** A 3D build is starting or running, so the exported mesh may not match its settings. */
     threeDBuildBusy: boolean;
+    /** Flat Paint and multi-head models only export correctly as 3MF. */
+    stlUnavailable?: boolean;
     exportObjectToStlBlob: (
         object: THREE.Object3D,
         onProgress?: (p: number) => void
@@ -117,6 +119,7 @@ export function useAppHandlers(params: UseAppHandlersParams) {
         setExportStep,
         exportingSTL,
         threeDBuildBusy,
+        stlUnavailable = false,
         exportObjectToStlBlob,
         exportObjectTo3MFBlob,
         applyQuantize,
@@ -143,7 +146,7 @@ export function useAppHandlers(params: UseAppHandlersParams) {
     }, [canvasPreviewRef]);
 
     const onExportStl = useCallback(async () => {
-        if (exportingSTL) return;
+        if (exportingSTL || stlUnavailable) return;
         interface KromacutWindow extends Window {
             __KROMACUT_LAST_MESH?: THREE.Object3D;
         }
@@ -203,6 +206,7 @@ export function useAppHandlers(params: UseAppHandlersParams) {
     }, [
         exportingSTL,
         threeDBuildBusy,
+        stlUnavailable,
         exportObjectToStlBlob,
         setExportingSTL,
         setExportProgress,

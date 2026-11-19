@@ -187,6 +187,10 @@ for (const outcome of ['worker-error', 'no-layout'] as const) {
         await expect.poll(copied).toContain('Color swap plan:');
         expect(await copied()).toMatch(/Start with color: #[0-9a-f]{6}/i);
         expect(await copied()).not.toContain(prompt);
+        // The fallback is a normal single-head model, so it keeps STL export.
+        await page.getByTestId('download-3d-model').click();
+        await expect(page.getByTestId('download-stl')).toBeVisible();
+        await page.keyboard.press('Escape');
         await expect
             .poll(() =>
                 page.evaluate(() => JSON.parse(localStorage.getItem('kromacut.autopaint.v1')!))
@@ -210,3 +214,79 @@ for (const outcome of ['worker-error', 'no-layout'] as const) {
         await expect(page.locator('#multi-head-color-mode')).toHaveText('Layer-based (current)');
     });
 }
+
+test('@smoke multi-head builds offer 3MF only, and single-head builds keep STL', async ({
+    page,
+}) => {
+    await page.addInitScript(() => {
+        localStorage.setItem(
+            'kromacut.autopaint.v1',
+            JSON.stringify({
+                schemaVersion: 2,
+                paintMode: 'autopaint',
+                filaments: [
+                    { id: 'white', color: '#ffffff', td: 0.6 },
+                    { id: 'black', color: '#000000', td: 0.016 },
+                    { id: 'cyan', color: '#00a0e0', td: 0.4 },
+                    { id: 'magenta', color: '#e0007a', td: 0.4 },
+                    { id: 'yellow', color: '#ffe000', td: 0.5 },
+                ],
+                optimizerAlgorithm: 'fast',
+                autoPaintMaxHeight: 1.6,
+                multiHeadMode: true,
+                multiHeadCount: 3,
+                multiHeadSearchDepth: 'balanced',
+                multiHeadColorMode: 'luminance',
+            })
+        );
+        Object.assign(window, { __KROMACUT_E2E: { buildHistory: [] } });
+    });
+    await page.goto('/app');
+    const image = await page.evaluate(() => {
+        const canvas = document.createElement('canvas');
+        canvas.width = 32;
+        canvas.height = 16;
+        const context = canvas.getContext('2d')!;
+        const bars = ['#f00', '#0f0', '#00f', '#ff0', '#0ff', '#f0f', '#fff', '#000'];
+        bars.forEach((color, i) => {
+            context.fillStyle = color;
+            context.fillRect(i * 4, 0, 4, 16);
+        });
+        return canvas.toDataURL().split(',')[1];
+    });
+    await page.getByTestId('image-file-input').setInputFiles({
+        name: 'multi-head-export.png',
+        mimeType: 'image/png',
+        buffer: Buffer.from(image, 'base64'),
+    });
+    await page.getByRole('button', { name: '3D', exact: true }).click();
+    await page.getByRole('tab', { name: 'Auto-paint', exact: true }).click();
+
+    const buildAndOpenDownloads = async (buildCount: number) => {
+        await page.getByTestId('build-3d-model').click();
+        await page.waitForFunction((count) => {
+            const e2e = (
+                window as unknown as {
+                    __KROMACUT_E2E: { buildHistory: unknown[]; lastBuild?: { status: string } };
+                }
+            ).__KROMACUT_E2E;
+            return e2e.buildHistory.length >= count && e2e.lastBuild?.status === 'complete';
+        }, buildCount);
+        await page.getByTestId('download-3d-model').click();
+        await expect(page.getByTestId('download-3mf')).toBeVisible();
+    };
+
+    await buildAndOpenDownloads(1);
+    await expect(page.getByText('Head Schedule', { exact: true })).toBeVisible();
+    await expect(page.getByTestId('download-stl')).toHaveCount(0);
+    await page.keyboard.press('Escape');
+
+    await page.getByTestId('autopaint-multi-head-mode').click();
+    await expect(page.getByTestId('autopaint-multi-head-mode')).toHaveAttribute(
+        'data-state',
+        'unchecked'
+    );
+    await buildAndOpenDownloads(2);
+    await expect(page.getByText('Head Schedule', { exact: true })).toHaveCount(0);
+    await expect(page.getByTestId('download-stl')).toBeVisible();
+});

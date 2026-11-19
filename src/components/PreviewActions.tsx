@@ -65,8 +65,8 @@ export interface PreviewActionsProps {
     onChooseSlicer?: () => void;
     /** Receives the download menu button, so the slicer chooser can return focus to it. */
     downloadMenuButtonRef?: React.Ref<HTMLButtonElement>;
-    /** The currently built model is a Flat Paint slab — STL export is useless for it */
-    flatPaintModel?: boolean;
+    /** The built model is a Flat Paint slab or a multi-head build, so STL can't represent it. */
+    stlUnavailable?: boolean;
     /** No valid model exists for the selected 3D mode/settings, or a build is running. */
     modelExportDisabled?: boolean;
     /** Covered by a build overlay: keep keyboard and screen-reader users out as well. */
@@ -117,7 +117,7 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
     savedSlicerName,
     onChooseSlicer,
     downloadMenuButtonRef,
-    flatPaintModel = false,
+    stlUnavailable = false,
     modelExportDisabled = false,
     inert = false,
     isOrtho = false,
@@ -453,9 +453,9 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
                         </Button>
                     </PopoverTrigger>
                     <PopoverContent align="end" className="w-auto min-w-48 p-1 flex flex-col gap-1">
-                        {/* Flat Paint slabs carry their colors as per-filament 3MF
-                            objects; a single-geometry STL of the slab is useless */}
-                        {!flatPaintModel && (
+                        {/* Flat Paint slabs and multi-head builds need 3MF: one STL
+                            can't carry their per-filament objects or head routing */}
+                        {!stlUnavailable && (
                             <Button
                                 variant="ghost"
                                 onClick={onExportStl}

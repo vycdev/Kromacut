@@ -57,7 +57,7 @@ Après une construction réussie, l’aperçu affiche la couleur simulée de cha
 
 - Avant l’impression, chargez chaque filament indiqué dans sa tête numérotée. Laissez les têtes marquées **VIDE** inutilisées.
 - À chaque couche de contrôle indiquée, rechargez uniquement les têtes marquées. Les chargements inchangés sont conservés ; toutes les limites de fenêtre ne nécessitent pas une pause.
-- Exportez en **3MF** pour conserver la géométrie répartie, les couleurs physiques des filaments et les affectations des têtes. Le fichier enregistre le nombre de têtes choisi comme nombre d’extrudeurs et ajoute des marqueurs de pause **M600** aux points de changement du planning. STL ne conserve pas ces affectations.
+- Exportez en **3MF** pour conserver la géométrie répartie, les couleurs physiques des filaments et les affectations des têtes. Le fichier enregistre le nombre de têtes choisi comme nombre d’extrudeurs et ajoute des marqueurs de pause **M600** aux points de changement du planning. Pour les modèles multi-têtes, le menu de téléchargement ne propose que le 3MF, car le STL ne peut pas conserver ces affectations.
 
 ![Trois têtes conservent les filaments inchangés entre les phases ; seuls les chargements modifiés nécessitent un rechargement manuel.](02_nozzle_swap_schedule.svg)
 

@@ -48,6 +48,8 @@ STL nu conține culori de filament sau atribuiri automate de role. Folosește pl
 
 Pentru modelele **Flat Paint**, meniul de descărcare oferă doar 3MF: modelul conține câte un obiect pentru fiecare filament fizic și, în aranjamentul implicit cu fața în jos, un obiect de suport transparent. Aranjamentul opțional cu fața în sus omite suportul. Un STL necolorat cu geometrie unică al oricăreia dintre aceste plăci ar fi inutil. Ambele orientări acceptă toate intensitățile pentru **Geometrie netezită**. Reconstruiește modelul după schimbarea intensității pentru a o aplica previzualizării și geometriei exportate.
 
+Modelele **cu mai multe capete** construite cu succes oferă și ele doar 3MF, deoarece STL nu poate păstra atribuirile capetelor. Dacă se construiește în schimb un model normal cu un singur cap, STL rămâne disponibil.
+
 ## Instrucțiuni de imprimare
 
 Panoul **Instrucțiuni de imprimare** oferă:

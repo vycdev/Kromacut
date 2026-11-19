@@ -48,6 +48,8 @@ STL does not carry filament colors or automatic spool assignments. Use the copie
 
 For **Flat Paint** models the download menu offers only 3MF: the model contains one object per physical filament and, in the default face-down layout, a transparent carrier object. The optional face-up layout omits that carrier. An uncolored single-geometry STL of either flat slab would be useless. Both orientations support every **Smooth Meshing** strength. Rebuild after changing the strength to apply it to the preview and exported geometry.
 
+Successful **Multi-head** builds also offer only 3MF, because STL can't carry their head assignments. A build that falls back to a normal single-head model still offers STL.
+
 ## Print Instructions
 
 The **Print Instructions** panel gives you:
