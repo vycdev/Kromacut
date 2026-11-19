@@ -159,6 +159,8 @@ test('fallback instructions show the original start color and swaps in every lan
             paintMode: built.paintMode,
             autoPaintResult: built.autoPaintResult,
             filaments: built.filaments,
+            // ThreeDControls passes the built mode, which a fallback clears.
+            multiHeadMode: built.multiHeadMode,
         };
         let plan!: ReturnType<typeof useSwapPlan>;
         function Probe() {
@@ -263,6 +265,27 @@ test('fallback instructions show the original start color and swaps in every lan
                 }
                 await plan.copyToClipboard();
                 assert.ok(copied.includes('#112233') && copied.includes('#aabbcc'), language);
+
+                // Before a multi-head build, Copy matches the panel's pending prompt
+                // instead of the single-head swaps that will not print.
+                function PendingProbe() {
+                    plan = useSwapPlan({ ...options, multiHeadMode: true });
+                    return null;
+                }
+                render(createElement(PendingProbe));
+                const prompt = catalog.multiHead.buildSchedulePrompt.replace(/<\/?action>/g, '');
+                const pendingHtml = render(
+                    createElement(PrintInstructions, { ...props, ...plan, multiHeadMode: true })
+                );
+                const action = catalog.multiHead.buildSchedulePrompt.match(
+                    /<action>(.*)<\/action>/
+                )[1];
+                assert.ok(pendingHtml.includes(action), language);
+                assert.ok(!pendingHtml.includes(catalog.printInstructions.colorSwapPlan), language);
+                await plan.copyToClipboard();
+                assert.ok(copied.includes(prompt), language);
+                assert.ok(!copied.includes('#112233') && !copied.includes('#aabbcc'), language);
+                assert.doesNotMatch(copied, /<action>/);
 
                 // Render and copy an explicit schedule, including a never-used head.
                 const scheduleOptions = {

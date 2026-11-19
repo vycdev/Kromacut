@@ -20,6 +20,7 @@ declare global {
             };
             finish: () => void;
         };
+        __COPIED_INSTRUCTIONS?: string;
     }
 }
 
@@ -49,6 +50,14 @@ for (const outcome of ['worker-error', 'no-layout'] as const) {
                 );
             }
             Object.assign(window, { __KROMACUT_E2E: { buildHistory: [] } });
+            Object.defineProperty(navigator, 'clipboard', {
+                configurable: true,
+                value: {
+                    writeText: async (text: string) => {
+                        window.__COPIED_INSTRUCTIONS = text;
+                    },
+                },
+            });
             const NativeWorker = window.Worker;
             window.Worker = class extends NativeWorker {
                 private isMultiHead: boolean;
@@ -122,6 +131,15 @@ for (const outcome of ['worker-error', 'no-layout'] as const) {
             .toMatchObject({ multiHeadColorMode: 'color' });
         const build = page.getByTestId('build-3d-model');
         await expect(build).toBeEnabled();
+        // Before the first build, Copy matches the pending panel, not single-head swaps.
+        const prompt = 'Click Build 3D Model to generate the multi-head model and Head Schedule.';
+        const copy = page.getByRole('button', { name: 'Copy', exact: true });
+        const copied = () => page.evaluate(() => window.__COPIED_INSTRUCTIONS ?? '');
+        await expect(page.getByText(prompt, { exact: true })).toBeVisible();
+        await copy.click();
+        await expect.poll(copied).toContain(prompt);
+        expect(await copied()).not.toContain('Color swap plan:');
+        expect(await copied()).not.toContain('Start with color:');
         await build.click();
         await page.waitForFunction(() => window.__MULTI_HEAD_WIRING_TEST !== undefined);
         const request = await page.evaluate(() => window.__MULTI_HEAD_WIRING_TEST!.request);
@@ -161,6 +179,14 @@ for (const outcome of ['worker-error', 'no-layout'] as const) {
         );
         await expect(page.getByText('Start with Color', { exact: true })).toBeVisible();
         await expect(page.getByText('Head Schedule', { exact: true })).toHaveCount(0);
+        // The fallback prints single-head, so Copy gives its swap plan.
+        await page.evaluate(() => {
+            window.__COPIED_INSTRUCTIONS = undefined;
+        });
+        await copy.click();
+        await expect.poll(copied).toContain('Color swap plan:');
+        expect(await copied()).toMatch(/Start with color: #[0-9a-f]{6}/i);
+        expect(await copied()).not.toContain(prompt);
         await expect
             .poll(() =>
                 page.evaluate(() => JSON.parse(localStorage.getItem('kromacut.autopaint.v1')!))

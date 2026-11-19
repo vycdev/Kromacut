@@ -33,6 +33,8 @@ export interface UseSwapPlanOptions {
     preWindowFilaments?: string[];
     nonWindowedRanges?: MultiHeadRangeAssignment[];
     filaments?: Filament[];
+    /** Multi-head is the instruction mode; without a schedule the plan is still pending. */
+    multiHeadMode?: boolean;
     /** Flat Paint prints have no manual swap sequence (multi-material per layer) */
     flatPaint?: boolean;
     /** Flat Paint is printed face-up without a transparent carrier. */
@@ -54,6 +56,7 @@ export function useSwapPlan({
     windowRunFilaments,
     nonWindowedRanges,
     filaments,
+    multiHeadMode = false,
     flatPaint = false,
     flatPaintFaceUp = false,
     smoothMeshingStrength = 'none',
@@ -238,6 +241,9 @@ export function useSwapPlan({
                 }
                 lines.push('');
             }
+        } else if (multiHeadMode) {
+            // Match the panel: a pending multi-head build has no plan to print yet.
+            lines.push(t('multiHead.buildSchedulePrompt').replace(/<\/?action>/g, ''));
         } else {
             if (swapPlan.length) {
                 const first = swapPlan[0];
