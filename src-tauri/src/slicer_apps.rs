@@ -196,11 +196,13 @@ fn version_key(version: &str) -> Vec<u32> {
         .collect()
 }
 
-/// The newest `<prefix> <version>` folder in `programs` containing `executable`.
-fn newest_versioned_install(programs: &Path, prefix: &str, executable: &str) -> Option<PathBuf> {
+/// Every `<prefix> <version>` folder in `programs` containing `executable`, with its version.
+fn versioned_installs(programs: &Path, prefix: &str, executable: &str) -> Vec<(Vec<u32>, PathBuf)> {
     let prefix = format!("{} ", prefix.to_ascii_lowercase());
-    std::fs::read_dir(programs)
-        .ok()?
+    let Ok(entries) = std::fs::read_dir(programs) else {
+        return Vec::new();
+    };
+    entries
         .flatten()
         .filter_map(|entry| {
             let name = entry.file_name().into_string().ok()?;
@@ -209,8 +211,34 @@ fn newest_versioned_install(programs: &Path, prefix: &str, executable: &str) -> 
             let path = entry.path().join(executable);
             (!key.is_empty() && is_launchable(Platform::Windows, &path)).then_some((key, path))
         })
+        .collect()
+}
+
+/// The newest `<prefix> <version>` folder in `programs` containing `executable`.
+fn newest_versioned_install(programs: &Path, prefix: &str, executable: &str) -> Option<PathBuf> {
+    versioned_installs(programs, prefix, executable)
+        .into_iter()
         .max_by(|(a, _), (b, _)| a.cmp(b))
         .map(|(_, path)| path)
+}
+
+/// Whether `path` is any installed version of a preset that installs each version into its own
+/// folder. Detection lists only the newest, but a slicer saved before an upgrade still works.
+fn is_versioned_preset_install(platform: Platform, roots: &SearchRoots, path: &Path) -> bool {
+    platform == Platform::Windows
+        && roots.windows_programs.iter().any(|programs| {
+            PRESETS
+                .iter()
+                .flat_map(|preset| preset.windows_installs)
+                .any(|install| match install.folder {
+                    WindowsFolder::Fixed(_) => false,
+                    WindowsFolder::Versioned(prefix) => {
+                        versioned_installs(programs, prefix, install.executable)
+                            .iter()
+                            .any(|(_, found)| found == path)
+                    }
+                })
+        })
 }
 
 fn find_preset(platform: Platform, preset: &Preset, roots: &SearchRoots) -> Option<PathBuf> {
@@ -387,7 +415,8 @@ fn find_known_slicer_app(
         .into_iter()
         .map(|app| app.path)
         .chain(read_picked_apps(picked_apps))
-        .any(|known| Path::new(&known) == path);
+        .any(|known| Path::new(&known) == path)
+        || is_versioned_preset_install(platform, roots, path);
     if known {
         describe_slicer_app(platform, path)
     } else {
@@ -806,6 +835,61 @@ mod tests {
         // A picked app that was uninstalled can no longer be launched.
         std::fs::remove_file(&picked).unwrap();
         assert_eq!(find(&picked), None);
+        remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn a_saved_cura_stays_launchable_after_a_newer_one_is_installed() {
+        let root = test_directory("slicers-cura-upgrade");
+        let programs = root.join("Program Files");
+        let cura = |version: &str| {
+            programs
+                .join(format!("UltiMaker Cura {version}"))
+                .join("UltiMaker-Cura.exe")
+        };
+        let (older, newer) = (cura("5.7.2"), cura("5.8.0"));
+        touch(&older);
+        touch(&newer);
+        // Same executable name, but not in a versioned Cura folder under a programs directory.
+        let elsewhere = root
+            .join("Tools")
+            .join("UltiMaker Cura 5.7.2")
+            .join("UltiMaker-Cura.exe");
+        let unversioned = programs.join("UltiMaker Cura").join("UltiMaker-Cura.exe");
+        let nested = programs
+            .join("UltiMaker Cura 5.7.2")
+            .join("bin")
+            .join("UltiMaker-Cura.exe");
+        let other = programs.join("UltiMaker Cura 5.7.2").join("calc.exe");
+        for path in [&elsewhere, &unversioned, &nested, &other] {
+            touch(path);
+        }
+        let roots = SearchRoots {
+            windows_programs: vec![programs.clone()],
+            ..SearchRoots::default()
+        };
+        let picked_apps = root.join("config").join("picked-slicers.json");
+        let find =
+            |path: &Path| find_known_slicer_app(Platform::Windows, &roots, &picked_apps, path);
+
+        assert_eq!(
+            detect_slicer_apps(Platform::Windows, &roots),
+            vec![app("UltiMaker Cura", &newer)]
+        );
+        assert_eq!(find(&older), Some(app("UltiMaker Cura", &older)));
+        assert_eq!(find(&newer), Some(app("UltiMaker Cura", &newer)));
+        for path in [&elsewhere, &unversioned, &nested, &other] {
+            assert_eq!(find(path), None, "{path:?}");
+        }
+        // Versioned folders only count on Windows.
+        assert_eq!(
+            find_known_slicer_app(Platform::Linux, &roots, &picked_apps, &older),
+            None
+        );
+
+        // Uninstalling the older version forgets it.
+        remove_dir_all(older.parent().unwrap()).unwrap();
+        assert_eq!(find(&older), None);
         remove_dir_all(root).unwrap();
     }
 
