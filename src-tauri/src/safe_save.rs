@@ -87,8 +87,16 @@ fn commit_temp(temp: &Path, destination: &Path) -> Result<(), String> {
 /// Whether the path is in the app's local data folder, which holds the webview data that the fs
 /// plugin denies the webview by default.
 fn is_in_app_local_data<R: Runtime>(app: &AppHandle<R>, path: &Path) -> bool {
-    let canonical =
-        |path: &Path| std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
+    // Canonicalize the deepest folder that exists, so both sides compare in the same form even
+    // when one is missing (on Windows, canonical paths gain a `\\?\` prefix).
+    let canonical = |path: &Path| {
+        path.ancestors()
+            .find_map(|ancestor| {
+                let rest = path.strip_prefix(ancestor).ok()?;
+                Some(std::fs::canonicalize(ancestor).ok()?.join(rest))
+            })
+            .unwrap_or_else(|| path.to_path_buf())
+    };
     match (app.path().app_local_data_dir(), path.parent()) {
         (Ok(data), Some(directory)) => canonical(directory).starts_with(canonical(&data)),
         _ => false,

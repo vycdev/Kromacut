@@ -2128,6 +2128,7 @@ dependencies = [
 name = "kromacut"
 version = "4.2.0"
 dependencies = [
+ "embed-resource",
  "gio",
  "log",
  "percent-encoding",
