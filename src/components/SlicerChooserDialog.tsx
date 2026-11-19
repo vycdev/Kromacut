@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Check, FolderOpen } from 'lucide-react';
 import {
@@ -48,6 +48,8 @@ export function SlicerChooserDialog({
     const [remember, setRemember] = useState(preference !== null);
     const [browsing, setBrowsing] = useState(false);
     const [browseFailed, setBrowseFailed] = useState(false);
+    // The chooser has no trigger, so closing it would leave focus on the page body.
+    const openerRef = useRef<HTMLElement | null>(null);
 
     useEffect(() => {
         let cancelled = false;
@@ -129,7 +131,18 @@ export function SlicerChooserDialog({
                 if (!open) onCancel();
             }}
         >
-            <AlertDialogContent data-testid="slicer-chooser">
+            <AlertDialogContent
+                data-testid="slicer-chooser"
+                onOpenAutoFocus={() => {
+                    openerRef.current = document.activeElement as HTMLElement | null;
+                }}
+                onCloseAutoFocus={(event) => {
+                    const opener = openerRef.current;
+                    if (!opener?.isConnected || opener === document.body) return;
+                    event.preventDefault();
+                    opener.focus();
+                }}
+            >
                 <AlertDialogHeader>
                     <AlertDialogTitle>{t('slicerChooser.title')}</AlertDialogTitle>
                     <AlertDialogDescription>

@@ -205,7 +205,7 @@
     "browseFilter": "Applications",
     "notAnApp": "Ce fichier n’est pas une application avec laquelle Kromacut peut ouvrir des modèles. Choisissez l’application du logiciel de découpe elle-même.",
     "remember": "Toujours utiliser ce logiciel de découpe",
-    "rememberHint": "« Ouvrir dans le logiciel de découpe » ouvrira alors les modèles sans demander. Utilisez « Choisir le logiciel de découpe » dans le menu de téléchargement ou dans les Paramètres pour le changer ou l’oublier.",
+    "rememberHint": "« Ouvrir dans le logiciel de découpe » ouvrira alors les modèles sans demander. Pour le changer ou l’oublier, utilisez « Choisir le logiciel de découpe » dans le menu de téléchargement ou ouvrez les Paramètres.",
     "open": "Ouvrir",
     "save": "Enregistrer",
     "cancel": "Annuler"

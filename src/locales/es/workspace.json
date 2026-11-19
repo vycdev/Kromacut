@@ -205,7 +205,7 @@
     "browseFilter": "Aplicaciones",
     "notAnApp": "Ese archivo no es una aplicación con la que Kromacut pueda abrir modelos. Elige la aplicación del laminador.",
     "remember": "Usar siempre este laminador",
-    "rememberHint": "«Abrir en el laminador» abrirá los modelos sin preguntar. Usa «Elegir laminador» en el menú de descarga o en Ajustes para cambiarlo u olvidarlo.",
+    "rememberHint": "«Abrir en el laminador» abrirá los modelos sin preguntar. Para cambiarlo u olvidarlo, usa «Elegir laminador» en el menú de descarga o abre Ajustes.",
     "open": "Abrir",
     "save": "Guardar",
     "cancel": "Cancelar"

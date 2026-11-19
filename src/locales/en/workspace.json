@@ -202,7 +202,7 @@
         "browseFilter": "Applications",
         "notAnApp": "That file is not an app Kromacut can open models with. Choose the slicer app itself.",
         "remember": "Always use this slicer",
-        "rememberHint": "Open in Slicer then opens models without asking. Use Choose Slicer in the download menu or Settings to change or forget it.",
+        "rememberHint": "Open in Slicer then opens models without asking. To change or forget it, use Choose Slicer in the download menu or open Settings.",
         "open": "Open",
         "save": "Save",
         "cancel": "Cancel"

@@ -361,7 +361,7 @@ test('@smoke the browser Settings dialog has no slicer setting', async ({ page }
     await expect(page.getByTestId('settings-slicer')).toHaveCount(0);
 });
 
-test('@smoke desktop Settings changes and forgets the saved slicer without a model', async ({
+test('@smoke desktop Settings changes and forgets the saved slicer without opening a model', async ({
     page,
 }) => {
     const errors: string[] = [];
@@ -371,7 +371,8 @@ test('@smoke desktop Settings changes and forgets the saved slicer without a mod
     const options = chooser.getByTestId('slicer-option');
     const setting = page.getByTestId('settings-slicer');
     const current = page.getByTestId('settings-slicer-current');
-    const openSettings = () => page.getByRole('button', { name: 'Open settings' }).click();
+    const settingsButton = page.getByRole('button', { name: 'Open settings' });
+    const openSettings = () => settingsButton.click();
 
     // Nothing is saved yet, so Open in Slicer asks every time and there is nothing to forget.
     await openSettings();
@@ -389,6 +390,23 @@ test('@smoke desktop Settings changes and forgets the saved slicer without a mod
     await chooser.getByRole('button', { name: 'Cancel' }).click();
     await expect(chooser).toHaveCount(0);
     expect(await slicers.savedPreference()).toBeNull();
+    // The chooser has no trigger of its own, so closing it returns focus to the Settings button.
+    await expect(settingsButton).toBeFocused();
+    await settingsButton.press('Enter');
+    await page.getByTestId('settings-slicer-change').press('Enter');
+    await expect(chooser).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(chooser).toHaveCount(0);
+    await expect(settingsButton).toBeFocused();
+    expect(await slicers.savedPreference()).toBeNull();
+    // WebKit does not focus a clicked button, so Settings can open with focus on the page body.
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+    await settingsButton.dispatchEvent('click');
+    await page.getByTestId('settings-slicer-change').dispatchEvent('click');
+    await expect(chooser).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(chooser).toHaveCount(0);
+    await expect(settingsButton).toBeFocused();
 
     // Saving a slicer only remembers it: nothing is exported or opened.
     await openSettings();
@@ -398,6 +416,7 @@ test('@smoke desktop Settings changes and forgets the saved slicer without a mod
     await expect(options.nth(1)).toBeChecked();
     await page.getByTestId('slicer-save').click();
     await expect(chooser).toHaveCount(0);
+    await expect(settingsButton).toBeFocused();
     expect(await slicers.savedPreference()).toEqual({ kind: 'app', app: ORCA });
     await openSettings();
     await expect(current).toHaveText(ORCA.name);
@@ -409,6 +428,10 @@ test('@smoke desktop Settings changes and forgets the saved slicer without a mod
     await slicers.set({ picked: CUSTOM });
     await page.getByTestId('slicer-browse').click();
     await expect(options.nth(2)).toBeChecked();
+    // Browse keeps the saved slicer launchable, as it does from the download menu.
+    expect((await slicers.state()).pickRequests).toEqual([
+        { title: 'Choose a slicer app', filterName: 'Applications', keep: ORCA.path },
+    ]);
     await page.getByTestId('slicer-save').click();
     expect(await slicers.savedPreference()).toEqual({ kind: 'app', app: CUSTOM });
 
@@ -430,11 +453,19 @@ test('@smoke desktop Settings changes and forgets the saved slicer without a mod
     await expect(page.getByTestId('settings-slicer-change')).toBeFocused();
     expect(await slicers.savedPreference()).toBeNull();
 
-    // A slicer saved in Settings is the one the download menu then opens without asking.
+    // With a model built, Save still only remembers the slicer. The final call count shows that
+    // nothing was exported or opened here.
+    await page.getByRole('button', { name: 'Close settings' }).click();
+    await buildLoadedModel(page);
+    await openSettings();
     await page.getByTestId('settings-slicer-change').click();
     await chooser.getByText(BAMBU.name, { exact: true }).click();
     await page.getByTestId('slicer-save').click();
-    await buildLoadedModel(page);
+    await expect(chooser).toHaveCount(0);
+    expect(await slicers.savedPreference()).toEqual({ kind: 'app', app: BAMBU });
+    expect((await slicers.state()).headers).toHaveLength(0);
+
+    // A slicer saved in Settings is the one the download menu then opens without asking.
     await slicers.openMenu();
     await expect(page.getByTestId('open-3mf-in-slicer')).toHaveText('Open in Bambu Studio');
     await page.getByTestId('open-3mf-in-slicer').click();
@@ -451,6 +482,12 @@ test('@smoke desktop Settings changes and forgets the saved slicer without a mod
     await slicers.openMenu();
     await expect(page.getByTestId('open-3mf-in-slicer')).toHaveText('Open in Slicer');
     await expect(page.getByTestId('choose-slicer')).toHaveCount(0);
+    await page.getByTestId('open-3mf-in-slicer').click();
+    await expect(chooser).toContainText('Choose the app that opens the 3MF.');
+    await expect(page.getByTestId('slicer-open')).toBeVisible();
+    await chooser.getByRole('button', { name: 'Cancel' }).click();
+    await expect(chooser).toHaveCount(0);
+    expect(await slicers.savedPreference()).toBeNull();
 
     const calls = await fakeDesktopCalls(page);
     expect(calls.filter((call) => call === 'open_model_in_slicer')).toHaveLength(1);

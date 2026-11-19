@@ -106,6 +106,8 @@ export const Header: React.FC<Props> = ({ docsOpen, onBackToApp, onOpenDocs, sli
     const settingsTitleId = React.useId();
     const updateStartupSwitchId = React.useId();
     const multiPlateSwitchId = React.useId();
+    const slicerTitleId = React.useId();
+    const slicerCurrentId = React.useId();
     const diagnosticsSwitchId = React.useId();
     const isDesktopApp = isDesktopUpdateSupported();
     const settingsButtonRef = React.useRef<HTMLButtonElement>(null);
@@ -542,7 +544,10 @@ export const Header: React.FC<Props> = ({ docsOpen, onBackToApp, onOpenDocs, sli
                                 data-testid="settings-slicer"
                             >
                                 <div>
-                                    <div className="text-sm font-medium text-foreground">
+                                    <div
+                                        id={slicerTitleId}
+                                        className="text-sm font-medium text-foreground"
+                                    >
                                         {t('settings.slicer')}
                                     </div>
                                     <p className="mt-1 text-xs leading-5 text-muted-foreground">
@@ -553,7 +558,13 @@ export const Header: React.FC<Props> = ({ docsOpen, onBackToApp, onOpenDocs, sli
                                 <div className="flex items-center justify-between gap-3 rounded-md border border-border bg-background p-3">
                                     <div className="min-w-0">
                                         <div
+                                            id={slicerCurrentId}
                                             className="truncate text-sm font-medium text-foreground"
+                                            title={
+                                                slicer.preference?.kind === 'app'
+                                                    ? slicer.preference.app.name
+                                                    : undefined
+                                            }
                                             data-testid="settings-slicer-current"
                                         >
                                             {slicer.preference === null
@@ -577,7 +588,10 @@ export const Header: React.FC<Props> = ({ docsOpen, onBackToApp, onOpenDocs, sli
                                             type="button"
                                             size="sm"
                                             variant="outline"
+                                            aria-describedby={`${slicerTitleId} ${slicerCurrentId}`}
                                             onClick={() => {
+                                                // The chooser returns focus here once it closes.
+                                                settingsButtonRef.current?.focus();
                                                 setSettingsOpen(false);
                                                 slicer.onChange();
                                             }}
@@ -590,6 +604,7 @@ export const Header: React.FC<Props> = ({ docsOpen, onBackToApp, onOpenDocs, sli
                                                 type="button"
                                                 size="sm"
                                                 variant="outline"
+                                                aria-describedby={`${slicerTitleId} ${slicerCurrentId}`}
                                                 onClick={() => {
                                                     slicer.onForget();
                                                     // Forget disappears, so keep focus in Settings.

@@ -205,7 +205,7 @@
     "browseFilter": "Aplicații",
     "notAnApp": "Acest fișier nu este o aplicație cu care Kromacut poate deschide modele. Alege chiar aplicația slicerului.",
     "remember": "Folosește mereu acest slicer",
-    "rememberHint": "„Deschide în slicer” va deschide apoi modelele fără să întrebe. Folosește „Alege slicerul” din meniul de descărcare sau din Setări pentru a-l schimba sau uita.",
+    "rememberHint": "„Deschide în slicer” va deschide apoi modelele fără să întrebe. Pentru a-l schimba sau uita, folosește „Alege slicerul” din meniul de descărcare sau deschide Setările.",
     "open": "Deschide",
     "save": "Salvează",
     "cancel": "Anulează"
