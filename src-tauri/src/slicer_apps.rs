@@ -714,8 +714,6 @@ mod tests {
         let model = root.join("model.3mf");
         touch(&exe);
         touch(&model);
-        let plain = root.join("notes.txt");
-        write(&plain, b"").unwrap();
 
         for (platform, path) in [
             (Platform::MacOs, exe.clone()),
@@ -725,11 +723,18 @@ mod tests {
             (Platform::Windows, model.clone()),
             (Platform::Windows, root.join("missing.exe")),
             (Platform::Linux, bundle.clone()),
-            (Platform::Linux, plain.clone()),
             (Platform::Linux, root.join("missing")),
         ] {
             assert!(!is_launchable(platform, &path), "{platform:?} {path:?}");
             assert_eq!(describe_slicer_app(platform, &path), None);
+        }
+        // Only Unix hosts have the executable bit; elsewhere every file counts as executable.
+        #[cfg(unix)]
+        {
+            let plain = root.join("notes.txt");
+            write(&plain, b"").unwrap();
+            assert!(!is_launchable(Platform::Linux, &plain));
+            assert_eq!(describe_slicer_app(Platform::Linux, &plain), None);
         }
         remove_dir_all(root).unwrap();
     }

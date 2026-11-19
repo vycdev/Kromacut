@@ -161,8 +161,8 @@ jobs:
                   sudo apt-get update
                   sudo apt-get install -y libwebkit2gtk-4.0-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf zsync
 
-            # Caches the cargo registry and src-tauri/target. Only base-branch runs save, so PRs
-            # restore those caches without each filling the repository's cache quota.
+            # Caches the cargo registry and src-tauri/target. Pull request runs only restore, so
+            # they do not each fill the repository's cache quota.
             - name: Cache cargo
               uses: Swatinem/rust-cache@v2
               with:
