@@ -55,7 +55,7 @@ Choisissez **Télécharger STL** pour une large compatibilité avec les logiciel
 
 Choisissez **Télécharger 3MF** si votre logiciel de découpe prend en charge les fichiers 3MF avec couleurs et si vous souhaitez préserver les objets de couches colorés.
 
-Dans l’application de bureau, **Ouvrir dans le logiciel de découpe** exporte le même 3MF et l’ouvre dans votre logiciel de découpe, sans passer par **Enregistrer sous**. Enregistrez le projet dans votre logiciel de découpe si vous souhaitez le conserver.
+Dans l’application de bureau, **Ouvrir dans le logiciel de découpe** exporte le même 3MF et l’ouvre dans votre logiciel de découpe, sans passer par **Enregistrer sous**. Une fois un logiciel de découpe enregistré, l’élément du menu affiche son nom à la place. Enregistrez le projet dans votre logiciel de découpe si vous souhaitez le conserver.
 
 ## Pourquoi les hauteurs sont-elles approximatives ?
 

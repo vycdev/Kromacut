@@ -103,11 +103,11 @@ Auto-paint's Simulated view shows estimated blends; slicers normally show physic
 
 **Open in Slicer** is only available in the desktop app. In a browser, use **Download 3MF** and open the file in your slicer.
 
-If Kromacut reports that it could not open the 3MF, use **Download 3MF** to save the file and open it from your slicer. If the file opens in a 3D viewer or another app, the saved choice is probably **System default**: use **Choose Slicer** in the download menu, or **Change** in **Settings**, to select your slicer itself. If a saved slicer was moved or uninstalled, Kromacut asks you to choose again. See [Saving and cancelling](generating-exporting-output#saving-and-cancelling).
+If Kromacut reports that it could not open the 3MF, use **Download 3MF** to save the file and open it from your slicer. If the file opens in a 3D viewer or another app, it was probably opened with **System default**. Use **Change** in **Settings** to select your slicer itself; once a slicer is saved, **Choose Slicer** in the download menu can change it too. If a saved slicer was moved or uninstalled, Kromacut asks you to choose again. See [Saving and cancelling](generating-exporting-output#saving-and-cancelling).
 
 ## Multi-head Built A Single-head Model
 
-A notice saying that a normal single-head model was built means that multi-head analysis did not finish or found no layout that improves the normal stack enough. The model, Print Instructions, and export then use the normal start color and swap plan, not a Head Schedule. Try different filaments, a different head count, or another search depth, then click **Build 3D Model** again. If analysis did not finish, try fewer heads first. See [Multi-head printing](multi-head-printing#fallback-and-rebuilding).
+A notice saying that a normal single-head model was built means that multi-head analysis did not finish or found no layout that improves the normal stack enough. **Print Instructions** then show the normal start color and swap plan instead of a Head Schedule, and the exported file has no head assignments or pauses, so set up the color swaps in your slicer as for any single-head print. Try different filaments, a different head count, or another search depth, then click **Build 3D Model** again. If analysis did not finish, try fewer heads first. See [Multi-head printing](multi-head-printing#fallback-and-rebuilding).
 
 ## Crop Or Image Edits Went Too Far
 

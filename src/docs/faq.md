@@ -55,7 +55,7 @@ Choose **Download STL** for broad slicer compatibility and manual filament swaps
 
 Choose **Download 3MF** when your slicer supports color-aware 3MF files and you want to preserve colored layer objects.
 
-In the desktop app, **Open in Slicer** exports the same 3MF and opens it in your slicer without a **Save As** step. Save the project in your slicer if you want to keep it.
+In the desktop app, **Open in Slicer** exports the same 3MF and opens it in your slicer without a **Save As** step. Once you save a slicer, the menu item shows its name instead. Save the project in your slicer if you want to keep it.
 
 ## Why Are Heights Approximate?
 

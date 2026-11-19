@@ -24,7 +24,7 @@ Auch öffentliche Seiten bieten eine Sprachauswahl. Übersetzte Dokumentation ve
 
 Der Einstellungsdialog enthält Links zur Dokumentation, zu Discord, Reddit, GitHub und Patreon und zeigt die aktuelle Kromacut-Version. **Datenschutz und lokale Daten**, **Nutzungsbedingungen** und **Auszeichnungen** sind ebenfalls hier verfügbar und öffnen sich in deinem Browser in der gewählten Sprache.
 
-In der Desktop-App enthalten die Einstellungen außerdem eine Zeile **Im Slicer öffnen**. Sie zeigt, welchen Slicer **Im Slicer öffnen** verwendet: **Jedes Mal fragen**, **Systemstandard** oder Name und Speicherort des gespeicherten Slicers. **Ändern** speichert einen anderen Slicer, ohne eine Datei zu öffnen. **Vergessen** erscheint, wenn eine Auswahl gespeichert ist, und sorgt dafür, dass Kromacut wieder fragt. Siehe [Speichern und Abbrechen](generating-exporting-output#saving-and-cancelling).
+In der Desktop-App enthalten die Einstellungen außerdem eine Zeile **Im Slicer öffnen**. Sie zeigt, welchen Slicer **Im Slicer öffnen** verwendet: **Jedes Mal fragen**, **Systemstandard** oder Name und Speicherort des gespeicherten Slicers. **Ändern** öffnet die Slicer-Auswahl und speichert den gewählten Slicer, ohne eine Datei zu öffnen. **Vergessen** erscheint, wenn eine Auswahl gespeichert ist, und sorgt dafür, dass Kromacut wieder fragt. Siehe [Speichern und Abbrechen](generating-exporting-output#saving-and-cancelling).
 
 ## Arbeitsbereichsmodi
 
@@ -40,7 +40,7 @@ Die meisten Seitenleistenbereiche lassen sich über ihre Überschrift einklappen
 
 **Rückgängig / Wiederholen** teilt den Bildbearbeitungsverlauf zwischen 2D und 3D. Es ist kein Rückgängig-Verlauf für Filamentänderungen, Kalibrierung, Schichthöhen oder Optimierungseinstellungen. Verwende dafür, sofern vorhanden, die Rücksetzfunktion des jeweiligen Bereichs und erstelle nach dem Wiederherstellen eines Bildstands das Modell neu.
 
-Im 2D-Modus macht **Strg+Z** (**Cmd+Z** unter macOS) eine Bildbearbeitung rückgängig, und **Strg+Umschalt+Z** (**Cmd+Umschalt+Z**) stellt sie wieder her. In Text- und Zahlenfeldern, in Dialogen und geöffneten Menüs, beim Zuschneiden, während der Verarbeitung und im 3D-Modus werden die Kürzel ignoriert. Siehe [Tastenkürzel für den 2D-Verlauf](image-adjustments#2d-history-shortcuts).
+Im 2D-Modus macht **Strg+Z** (**Cmd+Z** unter macOS) eine Bildbearbeitung rückgängig, und **Strg+Umschalt+Z** (**Cmd+Umschalt+Z**) stellt sie wieder her. In bearbeitbaren Feldern, Dialogen, Popovers, Menüs und geöffneten Listen, beim Zuschneiden, während der Verarbeitung und im 3D-Modus werden die Kürzel ignoriert. Siehe [Tastenkürzel für den 2D-Verlauf](image-adjustments#2d-history-shortcuts).
 
 ## Experimenteller Mehrplattenmodus
 

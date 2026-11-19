@@ -55,7 +55,7 @@ Scegli **Scarica STL** per ampia compatibilità e cambi manuali.
 
 Scegli **Scarica 3MF** se lo slicer supporta colori 3MF e vuoi preservare oggetti stratificati colorati.
 
-Nell’app desktop, **Apri nello slicer** esporta lo stesso 3MF e lo apre nello slicer senza passare da **Salva con nome**. Salva il progetto nello slicer se vuoi conservarlo.
+Nell’app desktop, **Apri nello slicer** esporta lo stesso 3MF e lo apre nello slicer senza passare da **Salva con nome**. Dopo aver salvato uno slicer, la voce di menu mostra invece il suo nome. Salva il progetto nello slicer se vuoi conservarlo.
 
 ## Perché le altezze sono approssimative?
 

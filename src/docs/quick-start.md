@@ -73,6 +73,6 @@ Click **Build 3D Model**. When the model appears, use the **Layer Preview** slid
 
 Open the download menu and choose **Download STL** or **Download 3MF**. Then copy the **Print Instructions** so you have the start color, swap layers, and recommended slicer settings.
 
-In the desktop app, **Open in Slicer** in the same menu exports the 3MF and opens it directly in your slicer. See [Saving and cancelling](generating-exporting-output#saving-and-cancelling).
+In the desktop app, **Open in Slicer** in the same menu exports the 3MF and opens it directly in your slicer. Once you save a slicer, the menu item shows its name, such as **Open in Bambu Studio**. See [Saving and cancelling](generating-exporting-output#saving-and-cancelling).
 
 Next: [3D mode](3d-mode), [Auto-paint](auto-paint), or [Generating and exporting output](generating-exporting-output#before-you-export).

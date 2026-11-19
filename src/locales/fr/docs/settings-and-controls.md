@@ -24,7 +24,7 @@ Les pages publiques proposent aussi un sélecteur de langue. La documentation tr
 
 La boîte des paramètres contient des liens vers la documentation, Discord, Reddit, GitHub et Patreon, et affiche la version actuelle de Kromacut. **Confidentialité et données locales**, **Conditions d’utilisation** et **Récompenses** sont également accessibles ici et s’ouvrent dans votre navigateur dans la langue sélectionnée.
 
-Dans l’application de bureau, les paramètres comportent aussi une ligne **Ouvrir dans le logiciel de découpe** qui indique le logiciel utilisé par **Ouvrir dans le logiciel de découpe** : **Toujours demander**, **Application par défaut du système**, ou le nom et l’emplacement du logiciel enregistré. **Modifier** enregistre un autre logiciel de découpe sans ouvrir de fichier. **Oublier** apparaît lorsqu’un choix est enregistré et oblige Kromacut à poser de nouveau la question. Consultez [Enregistrer et annuler](generating-exporting-output#saving-and-cancelling).
+Dans l’application de bureau, les paramètres comportent aussi une ligne **Ouvrir dans le logiciel de découpe** qui indique le logiciel utilisé par **Ouvrir dans le logiciel de découpe** : **Toujours demander**, **Application par défaut du système**, ou le nom et l’emplacement du logiciel enregistré. **Modifier** ouvre le sélecteur de logiciel de découpe et enregistre celui que vous choisissez, sans ouvrir de fichier. **Oublier** apparaît lorsqu’un choix est enregistré et oblige Kromacut à poser de nouveau la question. Consultez [Enregistrer et annuler](generating-exporting-output#saving-and-cancelling).
 
 ## Modes de l’espace de travail
 
@@ -40,7 +40,7 @@ La plupart des sections latérales peuvent être repliées par leur titre. Le re
 
 **Annuler / Rétablir** partage l’historique de retouche d’image entre la 2D et la 3D. Ce n’est pas un historique des modifications de filaments, de l’étalonnage, des hauteurs de couche ou des paramètres d’optimisation. Utilisez le bouton de réinitialisation propre à chaque panneau lorsqu’il existe, et régénérez après avoir restauré un état de l’image.
 
-En 2D, **Ctrl+Z** (**Cmd+Z** sous macOS) annule une modification de l’image et **Ctrl+Maj+Z** (**Cmd+Maj+Z**) la rétablit. Ces raccourcis sont ignorés dans les champs de texte et numériques, dans les boîtes de dialogue et les menus ouverts, pendant le recadrage ou le traitement, ainsi qu’en 3D. Consultez [Raccourcis de l’historique 2D](image-adjustments#2d-history-shortcuts).
+En 2D, **Ctrl+Z** (**Cmd+Z** sous macOS) annule une modification de l’image et **Ctrl+Maj+Z** (**Cmd+Maj+Z**) la rétablit. Ces raccourcis sont ignorés dans les champs modifiables, les boîtes de dialogue, les fenêtres contextuelles, les menus et les listes ouvertes, pendant le recadrage ou le traitement, ainsi qu’en 3D. Consultez [Raccourcis de l’historique 2D](image-adjustments#2d-history-shortcuts).
 
 ## Mode multiplateau expérimental
 

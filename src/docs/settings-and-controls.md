@@ -24,7 +24,7 @@ Public pages also offer a language selector. Translated documentation uses share
 
 The settings dialog includes links to the documentation, Discord, Reddit, GitHub, and Patreon, and shows the current Kromacut version. **Privacy & local data**, **Terms & conditions**, and **Awards** are also available here and open in your browser in the selected language.
 
-In the desktop app, Settings also has an **Open in Slicer** row showing the slicer that **Open in Slicer** uses: **Ask every time**, **System default**, or the saved slicer's name and location. **Change** saves a different slicer without opening a file. **Forget** appears when a choice is saved and makes Kromacut ask again. See [Saving and cancelling](generating-exporting-output#saving-and-cancelling).
+In the desktop app, Settings also has an **Open in Slicer** row showing the slicer that **Open in Slicer** uses: **Ask every time**, **System default**, or the saved slicer's name and location. **Change** opens the slicer chooser and saves the slicer you pick without opening a file. **Forget** appears when a choice is saved and makes Kromacut ask again. See [Saving and cancelling](generating-exporting-output#saving-and-cancelling).
 
 ## Workspace Modes
 
@@ -40,7 +40,7 @@ Most sidebar sections can be collapsed by their headings. Collapsing hides contr
 
 **Undo / Redo** shares the image-editing history between 2D and 3D. It is not an undo stack for filament edits, calibration, layer heights or optimizer settings. Use each panel's own reset control where available, and rebuild after restoring an image state.
 
-In 2D, **Ctrl+Z** (**Cmd+Z** on macOS) undoes and **Ctrl+Shift+Z** (**Cmd+Shift+Z**) redoes an image edit. The shortcuts are ignored in text and number fields, in dialogs and open menus, while cropping, during processing, and in 3D. See [2D History Shortcuts](image-adjustments#2d-history-shortcuts).
+In 2D, **Ctrl+Z** (**Cmd+Z** on macOS) undoes and **Ctrl+Shift+Z** (**Cmd+Shift+Z**) redoes an image edit. The shortcuts are ignored in editable fields, dialogs, popovers, menus and open lists, while cropping, during processing, and in 3D. See [2D History Shortcuts](image-adjustments#2d-history-shortcuts).
 
 ## Experimental Multi-plate Mode
 

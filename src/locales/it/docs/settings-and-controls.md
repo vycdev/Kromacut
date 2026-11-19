@@ -24,7 +24,7 @@ Anche le pagine pubbliche hanno il selettore. La documentazione tradotta usa col
 
 Le impostazioni includono documentazione, Discord, Reddit, GitHub, Patreon e versione corrente. Anche **Privacy e dati locali**, **Termini e condizioni** e **Premi** sono disponibili qui e si aprono nel browser nella lingua selezionata.
 
-Nell’app desktop, le Impostazioni contengono anche una riga **Apri nello slicer** che mostra lo slicer usato da **Apri nello slicer**: **Chiedi ogni volta**, **Predefinita di sistema** oppure nome e percorso dello slicer salvato. **Cambia** salva un altro slicer senza aprire file. **Dimentica** compare quando una scelta è salvata e fa sì che Kromacut chieda di nuovo. Vedi [Salvare e annullare](generating-exporting-output#saving-and-cancelling).
+Nell’app desktop, le Impostazioni contengono anche una riga **Apri nello slicer** che mostra lo slicer usato da **Apri nello slicer**: **Chiedi ogni volta**, **Predefinita di sistema** oppure nome e percorso dello slicer salvato. **Cambia** apre il selettore dello slicer e salva quello che scegli senza aprire file. **Dimentica** compare quando una scelta è salvata e fa sì che Kromacut chieda di nuovo. Vedi [Salvare e annullare](generating-exporting-output#saving-and-cancelling).
 
 ## Modalità dell’area di lavoro
 
@@ -40,7 +40,7 @@ Molte sezioni laterali si comprimono dal titolo. Nascondere controlli non disatt
 
 **Annulla / Ripeti** condivide lo storico immagine tra 2D e 3D. Non registra filamenti, calibrazione, altezze o ottimizzatore. Usa ripristini dei pannelli quando disponibili e rigenera dopo aver restaurato un’immagine.
 
-In 2D, **Ctrl+Z** (**Cmd+Z** su macOS) annulla una modifica all’immagine e **Ctrl+Maiusc+Z** (**Cmd+Maiusc+Z**) la ripristina. Le scorciatoie vengono ignorate nei campi di testo e numerici, nelle finestre di dialogo e nei menu aperti, durante il ritaglio o l’elaborazione e in 3D. Vedi [Scorciatoie della cronologia 2D](image-adjustments#2d-history-shortcuts).
+In 2D, **Ctrl+Z** (**Cmd+Z** su macOS) annulla una modifica all’immagine e **Ctrl+Maiusc+Z** (**Cmd+Maiusc+Z**) la ripristina. Le scorciatoie vengono ignorate nei campi modificabili, nelle finestre di dialogo, nei popover, nei menu e negli elenchi aperti, durante il ritaglio o l’elaborazione e in 3D. Vedi [Scorciatoie della cronologia 2D](image-adjustments#2d-history-shortcuts).
 
 ## Modalità multipiatto sperimentale
 

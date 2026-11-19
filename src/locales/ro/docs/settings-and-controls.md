@@ -24,7 +24,7 @@ Paginile publice oferă și ele un selector de limbă. Documentația tradusă fo
 
 Dialogul de setări include legături către documentație, Discord, Reddit, GitHub și Patreon și afișează versiunea curentă Kromacut. **Confidențialitate și date locale**, **Termeni și condiții** și **Premii** sunt disponibile tot aici și se deschid în browser în limba selectată.
 
-În aplicația desktop, Setările au și un rând **Deschide în slicer**, care arată slicerul folosit de **Deschide în slicer**: **Întreabă de fiecare dată**, **Implicit în sistem** sau numele și locația slicerului salvat. **Schimbă** salvează alt slicer fără să deschidă vreun fișier. **Uită** apare când este salvată o alegere și face ca Kromacut să întrebe din nou. Consultă [Salvare și anulare](generating-exporting-output#saving-and-cancelling).
+În aplicația desktop, Setările au și un rând **Deschide în slicer**, care arată slicerul folosit de **Deschide în slicer**: **Întreabă de fiecare dată**, **Implicit în sistem** sau numele și locația slicerului salvat. **Schimbă** deschide selectorul de slicer și salvează slicerul ales, fără să deschidă vreun fișier. **Uită** apare când este salvată o alegere și face ca Kromacut să întrebe din nou. Consultă [Salvare și anulare](generating-exporting-output#saving-and-cancelling).
 
 ## Modurile spațiului de lucru
 
@@ -40,7 +40,7 @@ Majoritatea secțiunilor laterale pot fi restrânse apăsând titlul. Restrânge
 
 **Anulează / Refă** folosește același istoric al editării imaginii în 2D și 3D. Nu este un istoric de anulare pentru editările filamentelor, calibrare, înălțimi de strat sau setările optimizatorului. Folosește resetarea proprie fiecărui panou, unde există, și regenerează după restaurarea unei stări a imaginii.
 
-În 2D, **Ctrl+Z** (**Cmd+Z** pe macOS) anulează o editare a imaginii, iar **Ctrl+Shift+Z** (**Cmd+Shift+Z**) o reface. Comenzile rapide sunt ignorate în câmpurile de text și numerice, în dialoguri și în meniurile deschise, în timpul decupării sau al procesării și în 3D. Consultă [Comenzi rapide pentru istoricul 2D](image-adjustments#2d-history-shortcuts).
+În 2D, **Ctrl+Z** (**Cmd+Z** pe macOS) anulează o editare a imaginii, iar **Ctrl+Shift+Z** (**Cmd+Shift+Z**) o reface. Comenzile rapide sunt ignorate în câmpurile editabile, în dialoguri, ferestre pop-up, meniuri și liste deschise, în timpul decupării sau al procesării și în 3D. Consultă [Comenzi rapide pentru istoricul 2D](image-adjustments#2d-history-shortcuts).
 
 ## Modul experimental multiplacă
 

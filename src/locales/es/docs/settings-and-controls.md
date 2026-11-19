@@ -24,7 +24,7 @@ Las páginas públicas también ofrecen selector de idioma. La documentación tr
 
 El diálogo incluye enlaces a documentación, Discord, Reddit, GitHub y Patreon, y muestra la versión actual de Kromacut. **Privacidad y datos locales**, **Términos y condiciones** y **Premios** también están disponibles aquí y se abren en el navegador en el idioma seleccionado.
 
-En la aplicación de escritorio, Ajustes también tiene una fila **Abrir en el laminador** que muestra el laminador que usa **Abrir en el laminador**: **Preguntar siempre**, **Predeterminada del sistema** o el nombre y la ubicación del laminador guardado. **Cambiar** guarda otro laminador sin abrir ningún archivo. **Olvidar** aparece cuando hay una elección guardada y hace que Kromacut vuelva a preguntar. Consulta [Guardar y cancelar](generating-exporting-output#saving-and-cancelling).
+En la aplicación de escritorio, Ajustes también tiene una fila **Abrir en el laminador** que muestra el laminador que usa **Abrir en el laminador**: **Preguntar siempre**, **Predeterminada del sistema** o el nombre y la ubicación del laminador guardado. **Cambiar** abre el selector de laminador y guarda el laminador que elijas sin abrir ningún archivo. **Olvidar** aparece cuando hay una elección guardada y hace que Kromacut vuelva a preguntar. Consulta [Guardar y cancelar](generating-exporting-output#saving-and-cancelling).
 
 ## Modos del espacio de trabajo
 
@@ -40,7 +40,7 @@ La mayoría de las secciones laterales se pliegan desde sus títulos. Plegar ocu
 
 **Deshacer / Rehacer** comparte el historial de imagen entre 2D y 3D. No es un historial de cambios de filamentos, calibración, alturas u opciones del optimizador. Usa el restablecimiento propio de cada panel cuando exista y regenera después de restaurar una imagen.
 
-En 2D, **Ctrl+Z** (**Cmd+Z** en macOS) deshace y **Ctrl+Mayús+Z** (**Cmd+Mayús+Z**) rehace una edición de imagen. Los atajos se ignoran en campos de texto y numéricos, en cuadros de diálogo y menús abiertos, al recortar, durante el procesamiento y en 3D. Consulta [Atajos del historial 2D](image-adjustments#2d-history-shortcuts).
+En 2D, **Ctrl+Z** (**Cmd+Z** en macOS) deshace y **Ctrl+Mayús+Z** (**Cmd+Mayús+Z**) rehace una edición de imagen. Los atajos se ignoran en campos editables, cuadros de diálogo, paneles emergentes, menús y listas abiertas, al recortar, durante el procesamiento y en 3D. Consulta [Atajos del historial 2D](image-adjustments#2d-history-shortcuts).
 
 ## Modo multiplaca experimental
 
