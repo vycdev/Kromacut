@@ -5,6 +5,7 @@ import {
     SUPPLIER_SETS,
     SUPPLIER_PALETTES,
     TEMPLATE_PROFILES,
+    TEMPLATE_PROFILE_PREFIX,
     isSupplierPaletteId,
     isTemplateProfileId,
 } from '../src/data/supplierFilaments.ts';
@@ -61,12 +62,36 @@ test('supplier filament hex values are canonical #RRGGBB uppercase', () => {
     }
 });
 
-test('supplier set ids and filament names are unique within each set', () => {
+test('supplier sets and filaments have unique stable IDs', () => {
     const setIds = SUPPLIER_SETS.map((s) => s.id);
     assert.equal(new Set(setIds).size, setIds.length);
+    const filamentIds = new Set<string>();
     for (const set of SUPPLIER_SETS) {
+        assert.match(set.id, /^[a-z0-9]+(?:-[a-z0-9]+)*$/);
         const names = set.filaments.map((f) => f.name);
         assert.equal(new Set(names).size, names.length, `duplicate names in ${set.id}`);
+        for (const filament of set.filaments) {
+            assert.ok(filament.id.startsWith(`${set.id}/`), filament.id);
+            assert.match(filament.id.slice(set.id.length + 1), /^[a-z0-9]+(?:-[a-z0-9]+)*$/);
+            assert.ok(!filamentIds.has(filament.id), `duplicate ID ${filament.id}`);
+            filamentIds.add(filament.id);
+        }
+    }
+});
+
+test('supplier sets record provenance and an official page for the product line', () => {
+    for (const { id, source, manufacturerUrl, filaments } of SUPPLIER_SETS) {
+        assert.equal(new URL(source.url).protocol, 'https:', id);
+        assert.ok(['manufacturer', 'community'].includes(source.kind), id);
+        assert.match(source.checkedOn, /^\d{4}-\d{2}-\d{2}$/, id);
+        assert.equal(new Date(source.checkedOn).toISOString().slice(0, 10), source.checkedOn, id);
+        assert.ok(source.redistribution.trim(), id);
+        assert.equal(new URL(manufacturerUrl).protocol, 'https:', id);
+        for (const filament of filaments) {
+            if (filament.manufacturerUrl) {
+                assert.equal(new URL(filament.manufacturerUrl).protocol, 'https:', filament.id);
+            }
+        }
     }
 });
 
@@ -89,19 +114,38 @@ test('supplier palettes derive from the sets with prefixed ids', () => {
     });
 });
 
-test('template profiles carry name, brand, and a positive finite TD per filament', () => {
-    assert.equal(TEMPLATE_PROFILES.length, SUPPLIER_SETS.length);
-    TEMPLATE_PROFILES.forEach((profile, i) => {
-        const set = SUPPLIER_SETS[i];
-        assert.ok(isTemplateProfileId(profile.id));
-        assert.equal(profile.filaments.length, set.filaments.length);
-        profile.filaments.forEach((f, j) => {
-            assert.equal(f.color, set.filaments[j].hex);
-            assert.equal(f.name, set.filaments[j].name);
-            assert.equal(f.brand, set.brand);
-            assert.ok(Number.isFinite(f.td) && f.td > 0, `${profile.id} / ${f.name}: td=${f.td}`);
-        });
-        const filamentIds = profile.filaments.map((f) => f.id);
-        assert.equal(new Set(filamentIds).size, filamentIds.length);
+test('reference palettes add no optical data and preserve the existing Bambu template IDs', () => {
+    const bambu = SUPPLIER_SETS.find((s) => s.id === 'bambu-pla-basic');
+    assert.ok(bambu);
+    const referenceSets = SUPPLIER_SETS.filter((s) => s.id !== bambu.id);
+    assert.deepEqual(referenceSets.map((set) => set.id).sort(), [
+        'elegoo-pla-rfid',
+        'polymaker-panchroma-basic',
+        'prusament-petg-solid',
+        'prusament-pla-solid',
+        'sunlu-pla-classic',
+    ]);
+    for (const set of referenceSets) {
+        assert.ok(set.filaments.length > 0, set.id);
+        assert.ok(
+            set.filaments.every((f) => !('td' in f)),
+            set.id
+        );
+    }
+
+    const bambuTemplateId = `${TEMPLATE_PROFILE_PREFIX}${bambu.id}`;
+    assert.deepEqual(
+        TEMPLATE_PROFILES.map((p) => p.id),
+        [bambuTemplateId]
+    );
+    const profile = TEMPLATE_PROFILES[0];
+    assert.ok(isTemplateProfileId(profile.id));
+    assert.equal(profile.filaments.length, bambu.filaments.length);
+    profile.filaments.forEach((f, i) => {
+        assert.equal(f.id, `${bambuTemplateId}-${i}`);
+        assert.equal(f.color, bambu.filaments[i].hex);
+        assert.equal(f.name, bambu.filaments[i].name);
+        assert.equal(f.brand, bambu.brand);
+        assert.ok(Number.isFinite(f.td) && f.td > 0, `${profile.id} / ${f.name}: td=${f.td}`);
     });
 });

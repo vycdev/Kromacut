@@ -52,6 +52,8 @@ description: দুই ধাপের রং কমানো, নির্দ�
 
 **সরবরাহকারীর প্যালেট** ফিলামেন্টের নাম ও বিজ্ঞাপিত হেক্স রঙের অনানুষ্ঠানিক রেফারেন্স সেট। বর্তমান পণ্যের প্রাপ্যতা বা প্রিন্টের রঙের নির্ভুলতার নিশ্চয়তা দেয় না। যেমন, Bambu রেফারেন্স রং [Bambu Lab-এর ফিলামেন্ট হেক্স চার্ট](https://store.bblcdn.com/s7/default/1084369ef84345bbaa5d704a492954e0/Bambu_PLA_Basic_Hex_Code.pdf) ব্যবহার করে। Kromacut নির্মাতাদের সঙ্গে যুক্ত নয় বা তাদের অনুমোদিত নয়।
 
+প্রস্তুতকারকদের পণ্য তালিকা দেখুন. [Polymaker Panchroma Basic PLA](https://shop.polymaker.com/products/panchroma-pla) · [Prusament PLA](https://prusament.com/materials/pla/) · [Prusament PETG](https://prusament.com/materials/prusament-petg/) · [SUNLU PLA Classic](https://www.sunlu.com/products/pla-classic-filament) · [ELEGOO PLA (RFID)](https://www.elegoo.com/products/pla-filament-1-75mm-colored-1kg)
+
 অন্তর্ভুক্ত ও সরবরাহকারীর প্যালেট শুধু পড়া যায়। বদলাতে কপি তৈরি করুন। প্রকৃত স্পুল ও স্তরের আচরণের জন্য আলাদাভাবে [ফিলামেন্ট ক্যালিব্রেশন](calibration-theory) ব্যবহার করুন।
 
 ## নিজের প্যালেট

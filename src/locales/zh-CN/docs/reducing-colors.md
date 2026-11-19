@@ -52,6 +52,8 @@ description: 了解两阶段减色流程、固定调色板，以及重新着色�
 
 **供应商调色板**是耗材名称及宣传十六进制颜色的非官方参考集合，不保证当前产品供应情况或打印颜色准确度。例如，Bambu参考颜色使用[Bambu Lab耗材十六进制色表](https://store.bblcdn.com/s7/default/1084369ef84345bbaa5d704a492954e0/Bambu_PLA_Basic_Hex_Code.pdf)。Kromacut与制造商没有隶属关系，也未获其认可。
 
+可在制造商的产品页面查看颜色名称。 [Polymaker Panchroma Basic PLA](https://shop.polymaker.com/products/panchroma-pla) · [Prusament PLA](https://prusament.com/materials/pla/) · [Prusament PETG](https://prusament.com/materials/prusament-petg/) · [SUNLU PLA Classic](https://www.sunlu.com/products/pla-classic-filament) · [ELEGOO PLA (RFID)](https://www.elegoo.com/products/pla-filament-1-75mm-colored-1kg)
+
 内置和供应商调色板只读。克隆后可自定义。实际耗材卷及叠层表现请单独使用[耗材校准](calibration-theory)。
 
 ## 自定义调色板

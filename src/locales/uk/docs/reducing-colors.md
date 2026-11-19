@@ -52,6 +52,8 @@ description: Дізнайтеся про двоетапне скорочення
 
 **Палітри постачальників** — неофіційні довідкові набори назв філаментів і рекламованих hex-кольорів. Вони не гарантують актуальної наявності товару чи точності друкованого кольору. Наприклад, довідкові кольори Bambu використовують [таблицю hex-кольорів філаментів Bambu Lab](https://store.bblcdn.com/s7/default/1084369ef84345bbaa5d704a492954e0/Bambu_PLA_Basic_Hex_Code.pdf). Kromacut не пов’язаний із виробниками й не схвалений ними.
 
+Перегляньте сторінки матеріалів на сайтах виробників. [Polymaker Panchroma Basic PLA](https://shop.polymaker.com/products/panchroma-pla) · [Prusament PLA](https://prusament.com/materials/pla/) · [Prusament PETG](https://prusament.com/materials/prusament-petg/) · [SUNLU PLA Classic](https://www.sunlu.com/products/pla-classic-filament) · [ELEGOO PLA (RFID)](https://www.elegoo.com/products/pla-filament-1-75mm-colored-1kg)
+
 Вбудовані палітри й палітри постачальників доступні лише для читання. Клонуйте палітру для налаштування. Окремо використовуйте [калібрування філаментів](calibration-theory) для фактичної поведінки котушок і шарів.
 
 ## Власні палітри
