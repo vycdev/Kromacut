@@ -182,6 +182,15 @@ for (const replacement of ['import', 'quantize', 'dedither']) {
             await expect(page.getByRole('button', { name: 'Undo', exact: true })).toBeEnabled();
         }
         await releaseEncoding(page);
+        // A stale resize that slipped past its guard would decode and encode again.
+        await holdNextEncoding(page);
+        await page.waitForTimeout(300);
+        expect(
+            await page.evaluate(() => !!(window as unknown as HeldEncoding).releaseEncoding)
+        ).toBe(false);
+        await page.evaluate(() => {
+            (window as unknown as HeldEncoding).holdNextEncoding = false;
+        });
         await expect(resizeApply(page)).toBeEnabled();
         await expect(currentSize(page)).toContainText(replacement === 'import' ? '48x48' : '64x64');
         await page.getByRole('button', { name: 'Undo', exact: true }).click();
@@ -289,3 +298,116 @@ for (const operation of ['quantize', 'dedither']) {
         await expect(currentSize(page)).toContainText('1024x1024');
     });
 }
+
+async function failProcessingEncodes(page: Page, fail: boolean) {
+    await page.evaluate((fail) => {
+        const w = window as unknown as { failProcessingEncode: boolean; failPatched?: boolean };
+        w.failProcessingEncode = fail;
+        if (w.failPatched) return;
+        w.failPatched = true;
+        const toBlob = HTMLCanvasElement.prototype.toBlob;
+        HTMLCanvasElement.prototype.toBlob = function (callback, type, quality) {
+            if (w.failProcessingEncode) {
+                queueMicrotask(() => callback(null));
+                return;
+            }
+            toBlob.call(this, callback, type, quality);
+        };
+    }, fail);
+}
+
+for (const operation of ['quantize', 'dedither']) {
+    test(`@smoke a brush stroke still saving when ${operation} starts is rolled back`, async ({
+        page,
+    }) => {
+        const preview = page.getByTestId('image-dropzone').locator('canvas').first();
+        const pixels = () => preview.evaluate((canvas: HTMLCanvasElement) => canvas.toDataURL());
+        const before = await pixels();
+        await page.getByTestId('touchup-tool-brush').click();
+        const box = (await preview.boundingBox())!;
+        await holdNextEncoding(page);
+        await page.mouse.move(box.x + box.width * 0.2, box.y + box.height * 0.5);
+        await page.mouse.down();
+        await page.mouse.move(box.x + box.width * 0.8, box.y + box.height * 0.5, { steps: 8 });
+        await page.mouse.up();
+        // The stroke is drawn but its history entry is still encoding.
+        await waitForEncoding(page);
+        await expect.poll(pixels).not.toBe(before);
+
+        await failProcessingEncodes(page, true);
+        await page.getByTestId(`${operation}-apply`).click();
+        await expect(page.getByTestId(`${operation}-apply`)).toBeEnabled();
+        await releaseEncoding(page);
+        await failProcessingEncodes(page, false);
+
+        // Processing produced nothing and refused the stroke: canvas and history agree.
+        await expect.poll(pixels).toBe(before);
+        await page.getByTestId('touchup-tool-brush').click();
+        await page.getByRole('button', { name: 'Undo', exact: true }).click();
+        await expect(currentSize(page)).toContainText('1024x1024');
+        await expect(page.getByRole('button', { name: 'Undo', exact: true })).toBeDisabled();
+    });
+
+    test(`@smoke a brush stroke in progress stops when ${operation} starts`, async ({ page }) => {
+        const preview = page.getByTestId('image-dropzone').locator('canvas').first();
+        const pixels = () => preview.evaluate((canvas: HTMLCanvasElement) => canvas.toDataURL());
+        const before = await pixels();
+        await page.getByTestId('touchup-tool-brush').click();
+        const box = (await preview.boundingBox())!;
+        await page.mouse.move(box.x + box.width * 0.2, box.y + box.height * 0.3);
+        await page.mouse.down();
+        await page.mouse.move(box.x + box.width * 0.8, box.y + box.height * 0.3, { steps: 8 });
+        await expect.poll(pixels).not.toBe(before);
+
+        // Start processing while the pointer is still down.
+        await failProcessingEncodes(page, true);
+        await page
+            .getByTestId(`${operation}-apply`)
+            .evaluate((button: HTMLButtonElement) => button.click());
+        await expect(page.getByTestId(`${operation}-apply`)).toBeEnabled();
+        await failProcessingEncodes(page, false);
+        await page.mouse.move(box.x + box.width * 0.8, box.y + box.height * 0.7, { steps: 8 });
+        await page.mouse.up();
+
+        await expect.poll(pixels).toBe(before);
+        await page.getByTestId('touchup-tool-brush').click();
+        await page.getByRole('button', { name: 'Undo', exact: true }).click();
+        await expect(currentSize(page)).toContainText('1024x1024');
+        await expect(page.getByRole('button', { name: 'Undo', exact: true })).toBeDisabled();
+    });
+}
+
+test('@smoke Ctrl+Z ignores an open select list and follows the physical Z key', async ({
+    page,
+}) => {
+    await resizeApply(page).click();
+    await expect(currentSize(page)).toContainText('32x32');
+    await page.getByRole('combobox').first().click();
+    await expect(page.getByRole('listbox')).toBeVisible();
+    // The open select hides the rest of the page from the accessibility tree.
+    const redo = page.locator('button[aria-label="Redo"]');
+    await page.keyboard.press('Control+z');
+    // History updates within the key event, unlike the decoded image size, so read it
+    // once instead of letting an auto-waiting assertion pass before an undo lands.
+    expect(await redo.isDisabled()).toBe(true);
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('listbox')).toHaveCount(0);
+    await expect(currentSize(page)).toContainText('32x32');
+    await expect(redo).toBeDisabled();
+
+    // A Ukrainian layout reports `я` for the physical Z key.
+    await blur(page);
+    await page.evaluate(() =>
+        window.dispatchEvent(
+            new KeyboardEvent('keydown', {
+                key: 'я',
+                code: 'KeyZ',
+                ctrlKey: true,
+                bubbles: true,
+                cancelable: true,
+            })
+        )
+    );
+    await expect(currentSize(page)).toContainText('64x64');
+    await expect(redo).toBeEnabled();
+});

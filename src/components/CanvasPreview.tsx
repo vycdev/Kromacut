@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next';
 import React, {
     useEffect,
     useImperativeHandle,
+    useLayoutEffect,
     useRef,
     useState,
     forwardRef,
@@ -572,6 +573,16 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
             return () => window.removeEventListener('keydown', onKey);
         }, [touchUpTool, touchUpDisabled]);
 
+        // Processing refuses every touch-up that is not in history yet, so drop
+        // them before it reads the canvas (and stop a stroke still in progress).
+        const pendingTouchUpCommitsRef = useRef(0);
+        const rollbackUnsavedTouchUpsRef = useRef<() => void>(() => {});
+        useLayoutEffect(() => {
+            if (!touchUpDisabled) return;
+            if (!activeTouchStrokeRef.current && pendingTouchUpCommitsRef.current === 0) return;
+            rollbackUnsavedTouchUpsRef.current();
+        }, [touchUpDisabled]);
+
         // Leaving the text tool (or entering crop) commits whatever was typed
         // instead of silently dropping it.
         useEffect(() => {
@@ -656,6 +667,24 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
             requestDraw();
         };
 
+        // Roll back all unsaved strokes, including the active one and snapshots
+        // still queued for history, to the last successful history entry.
+        const rollbackUnsavedTouchUps = () => {
+            externalImageGenerationRef.current += 1;
+            activeTouchStrokeRef.current = null;
+            const img = touchUpSnapshotRef.current?.canvas ?? committedCanvasRef.current;
+            const liveOriginal = originalCanvasRef.current;
+            const octx = liveOriginal?.getContext('2d');
+            if (img && liveOriginal && octx) {
+                octx.clearRect(0, 0, liveOriginal.width, liveOriginal.height);
+                octx.imageSmoothingEnabled = false;
+                octx.drawImage(img, 0, 0);
+            }
+            invalidateProcessedCache();
+            requestDraw();
+        };
+        rollbackUnsavedTouchUpsRef.current = rollbackUnsavedTouchUps;
+
         // Commits are serialized so rapid strokes land in history in order.
         // Drawing never waits on a commit: the offscreen canvases stay the
         // source of truth, and the imageSrc round trip is absorbed by the
@@ -674,6 +703,7 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
             snapshotContext.imageSmoothingEnabled = false;
             snapshotContext.drawImage(original, 0, 0);
             const externalGeneration = externalImageGenerationRef.current;
+            pendingTouchUpCommitsRef.current += 1;
             touchUpCommitChainRef.current = touchUpCommitChainRef.current.then(async () => {
                 try {
                     if (!mountedRef.current) return;
@@ -697,33 +727,22 @@ const CanvasPreview = forwardRef<CanvasPreviewHandle, Props>(
                     ) {
                         return;
                     }
-                    if (blob) {
-                        const url = commitCallback(blob);
-                        if (typeof url === 'string') {
-                            selfCommitSrcsRef.current.add(url);
-                            releaseTouchUpSnapshot();
-                            touchUpSnapshotRef.current = { src: url, canvas: snapshot };
-                        }
+                    // The owner may refuse the edit (processing started meanwhile);
+                    // a refused edit must not stay on the canvas outside history.
+                    const url = blob ? commitCallback(blob) : undefined;
+                    if (typeof url === 'string') {
+                        selfCommitSrcsRef.current.add(url);
+                        releaseTouchUpSnapshot();
+                        touchUpSnapshotRef.current = { src: url, canvas: snapshot };
+                        // One recompute per commit keeps the adjusted preview exact
+                        // without paying for it on every pointer move.
+                        invalidateProcessedCache();
+                        requestDraw();
                     } else {
-                        // Roll back all unsaved strokes, including snapshots queued
-                        // behind this failure, to the last successful history entry.
-                        externalImageGenerationRef.current += 1;
-                        activeTouchStrokeRef.current = null;
-                        const img =
-                            touchUpSnapshotRef.current?.canvas ?? committedCanvasRef.current;
-                        const liveOriginal = originalCanvasRef.current;
-                        const octx = liveOriginal?.getContext('2d');
-                        if (img && liveOriginal && octx) {
-                            octx.clearRect(0, 0, liveOriginal.width, liveOriginal.height);
-                            octx.imageSmoothingEnabled = false;
-                            octx.drawImage(img, 0, 0);
-                        }
+                        rollbackUnsavedTouchUps();
                     }
-                    // One recompute per commit keeps the adjusted preview exact
-                    // without paying for it on every pointer move.
-                    invalidateProcessedCache();
-                    requestDraw();
                 } finally {
+                    pendingTouchUpCommitsRef.current -= 1;
                     // The retained successful snapshot has one explicit owner;
                     // cancelled and failed snapshots can release their pixels now.
                     if (touchUpSnapshotRef.current?.canvas !== snapshot) {

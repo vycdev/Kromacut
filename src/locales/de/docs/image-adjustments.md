@@ -66,7 +66,7 @@ Wiederholtes Anwenden wirkt auf das bereits bearbeitete Bild. Dadurch können si
 
 ## Tastenkürzel für den 2D-Verlauf
 
-Mit **Strg+Z** (**Cmd+Z** unter macOS) machen Sie eine Bildbearbeitung rückgängig; **Strg+Umschalt+Z** (**Cmd+Umschalt+Z**) stellt sie wieder her. Die Kürzel gelten im 2D-Modus außerhalb von Textfeldern, Zahlenfeldern und Dialogen. Beim Zuschneiden und Verarbeiten sind sie deaktiviert; im 3D-Reiter verändern sie das Bild nicht.
+Mit **Strg+Z** (**Cmd+Z** unter macOS) machen Sie eine Bildbearbeitung rückgängig; **Strg+Umschalt+Z** (**Cmd+Umschalt+Z**) stellt sie wieder her. Die Kürzel gelten im 2D-Modus außerhalb von Textfeldern, Zahlenfeldern, Dialogen und geöffneten Menüs oder Listen. Beim Zuschneiden und Verarbeiten sind sie deaktiviert; im 3D-Reiter verändern sie das Bild nicht.
 
 Warten Sie, bis Quantisierung oder Dedithering abgeschlossen sind, bevor Sie ein anderes Bild importieren oder bearbeiten. Ergebnisse älterer Bearbeitungen werden verworfen, wenn sich das Bild inzwischen geändert hat oder eine weitere Verarbeitung gestartet wurde.
 

@@ -628,6 +628,7 @@ function App(): React.ReactElement | null {
         canUndo,
         canRedo,
         disabled: mode !== '2d' || docsOpen || isCropMode || processingActive,
+        beginEdit: imageActions.beginEdit,
     });
 
     const imageImportErrorMessage = (error: ImageImportError) => {

@@ -66,7 +66,7 @@ Aplicações repetidas atuam na imagem já editada, acumulando corte e perda de 
 
 ## Atalhos do histórico 2D
 
-Usa **Ctrl+Z** (**Cmd+Z** no macOS) para anular uma edição e **Ctrl+Shift+Z** (**Cmd+Shift+Z**) para a refazer. Estes atalhos funcionam no modo 2D, fora dos campos de texto, campos numéricos e caixas de diálogo. Ficam desativados durante o recorte ou processamento e não alteram a imagem no separador 3D.
+Usa **Ctrl+Z** (**Cmd+Z** no macOS) para anular uma edição e **Ctrl+Shift+Z** (**Cmd+Shift+Z**) para a refazer. Estes atalhos funcionam no modo 2D, fora dos campos de texto, campos numéricos, caixas de diálogo e menus ou listas abertos. Ficam desativados durante o recorte ou processamento e não alteram a imagem no separador 3D.
 
 Espera que a quantização ou a remoção de dithering termine antes de importar ou editar outra imagem. Os resultados de edições anteriores são descartados se a imagem tiver mudado ou se tiver começado outro processamento.
 
