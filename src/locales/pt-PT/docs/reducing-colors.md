@@ -52,6 +52,8 @@ Uma paleta fixa só oferece as cores escolhidas. Após a eventual primeira redu�
 
 As **Paletas de fornecedores** são referências não oficiais de nomes e cores hexadecimais anunciadas. Não garantem disponibilidade atual nem exatidão de impressão. Por exemplo, as cores Bambu usam a [tabela hexadecimal de filamentos da Bambu Lab](https://store.bblcdn.com/s7/default/1084369ef84345bbaa5d704a492954e0/Bambu_PLA_Basic_Hex_Code.pdf). O Kromacut não tem afiliação nem aprovação dos fabricantes.
 
+Consulte as páginas de produto dos fabricantes. [Polymaker Panchroma Basic PLA](https://shop.polymaker.com/products/panchroma-pla) · [Prusament PLA](https://prusament.com/materials/pla/) · [Prusament PETG](https://prusament.com/materials/prusament-petg/) · [SUNLU PLA Classic](https://www.sunlu.com/products/pla-classic-filament) · [ELEGOO PLA (RFID)](https://www.elegoo.com/products/pla-filament-1-75mm-colored-1kg)
+
 Paletas integradas e de fornecedores são só de leitura. Clone para personalizar. Use separadamente a [calibração de filamentos](calibration-theory) para o comportamento real de bobinas e camadas.
 
 ## Paletas personalizadas

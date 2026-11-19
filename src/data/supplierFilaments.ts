@@ -17,6 +17,8 @@ export interface SupplierFilament {
     name: string;
     /** Canonical #RRGGBB uppercase hex */
     hex: string;
+    /** Official page for this shade when the manufacturer publishes one. */
+    manufacturerUrl?: string;
     /** Measured frontlit hiding distance in mm; omit to estimate from color */
     td?: number;
 }
@@ -26,6 +28,8 @@ export interface SupplierSet {
     id: string;
     brand: string;
     line: string;
+    /** Official product line or color chart. */
+    manufacturerUrl: string;
     source: {
         url: string;
         kind: 'manufacturer' | 'community';
@@ -41,6 +45,8 @@ const LEGACY_TEMPLATE_SETS: SupplierSet[] = [
         id: 'bambu-pla-basic',
         brand: 'Bambu Lab',
         line: 'PLA Basic',
+        manufacturerUrl:
+            'https://store.bblcdn.com/s7/default/1084369ef84345bbaa5d704a492954e0/Bambu_PLA_Basic_Hex_Code.pdf',
         source: {
             url: 'https://store.bblcdn.com/s7/default/1084369ef84345bbaa5d704a492954e0/Bambu_PLA_Basic_Hex_Code.pdf',
             kind: 'manufacturer',
@@ -89,6 +95,7 @@ export const SUPPLIER_SETS: SupplierSet[] = [
         id: 'polymaker-panchroma-basic',
         brand: 'Polymaker',
         line: 'Panchroma Basic PLA',
+        manufacturerUrl: 'https://shop.polymaker.com/products/panchroma-pla',
         source: {
             url: 'https://github.com/OpenFilamentCollective/open-filament-database/tree/1c19d5088fbc19a434c426aae2006f7a3a4348d9/data/panchroma/PLA/basic_pla',
             kind: 'community',
@@ -138,6 +145,7 @@ export const SUPPLIER_SETS: SupplierSet[] = [
         id: 'prusament-pla-solid',
         brand: 'Prusament',
         line: 'PLA',
+        manufacturerUrl: 'https://prusament.com/materials/pla/',
         source: {
             url: 'https://github.com/OpenFilamentCollective/open-filament-database/tree/1c19d5088fbc19a434c426aae2006f7a3a4348d9/data/prusament/PLA/pla',
             kind: 'community',
@@ -145,36 +153,142 @@ export const SUPPLIER_SETS: SupplierSet[] = [
             redistribution: 'MIT',
         },
         filaments: [
-            { id: 'prusament-pla-solid/anthracite-grey', name: 'Anthracite Grey', hex: '#3F4647' },
-            { id: 'prusament-pla-solid/army-green', name: 'Army Green', hex: '#5E6345' },
-            { id: 'prusament-pla-solid/azure-blue', name: 'Azure Blue', hex: '#0082AD' },
-            { id: 'prusament-pla-solid/blood-red', name: 'Blood Red', hex: '#990303' },
-            { id: 'prusament-pla-solid/chalky-blue', name: 'Chalky Blue', hex: '#6F9AAA' },
-            { id: 'prusament-pla-solid/gentlemans-grey', name: "Gentleman's Grey", hex: '#354047' },
-            { id: 'prusament-pla-solid/gravity-grey', name: 'Gravity Grey', hex: '#9FA4A8' },
-            { id: 'prusament-pla-solid/jet-black', name: 'Jet Black', hex: '#393C3C' },
-            { id: 'prusament-pla-solid/lipstick-red', name: 'Lipstick Red', hex: '#BF2B2B' },
-            { id: 'prusament-pla-solid/noctua-beige', name: 'Noctua Beige', hex: '#E7CEB4' },
-            { id: 'prusament-pla-solid/noctua-brown', name: 'Noctua Brown', hex: '#653525' },
-            { id: 'prusament-pla-solid/opal-green', name: 'Opal Green', hex: '#065B4A' },
-            { id: 'prusament-pla-solid/pearl-mouse', name: 'Pearl Mouse', hex: '#A49D8E' },
+            {
+                id: 'prusament-pla-solid/anthracite-grey',
+                name: 'Anthracite Grey',
+                hex: '#3F4647',
+                manufacturerUrl:
+                    'https://www.prusa3d.com/product/prusament-pla-anthracite-grey-1kg',
+            },
+            {
+                id: 'prusament-pla-solid/army-green',
+                name: 'Army Green',
+                hex: '#5E6345',
+                manufacturerUrl: 'https://www.prusa3d.com/product/prusament-pla-army-green-1kg/',
+            },
+            {
+                id: 'prusament-pla-solid/azure-blue',
+                name: 'Azure Blue',
+                hex: '#0082AD',
+                manufacturerUrl: 'https://www.prusa3d.com/product/prusament-pla-azure-blue-1kg/',
+            },
+            {
+                id: 'prusament-pla-solid/blood-red',
+                name: 'Blood Red',
+                hex: '#990303',
+                manufacturerUrl: 'https://www.prusa3d.com/product/prusament-pla-blood-red-1kg/',
+            },
+            {
+                id: 'prusament-pla-solid/chalky-blue',
+                name: 'Chalky Blue',
+                hex: '#6F9AAA',
+                manufacturerUrl: 'https://www.prusa3d.com/product/prusament-pla-chalky-blue-1kg',
+            },
+            {
+                id: 'prusament-pla-solid/gentlemans-grey',
+                name: "Gentleman's Grey",
+                hex: '#354047',
+                manufacturerUrl:
+                    'https://www.prusa3d.com/product/prusament-pla-gentleman-s-grey-1kg/',
+            },
+            {
+                id: 'prusament-pla-solid/gravity-grey',
+                name: 'Gravity Grey',
+                hex: '#9FA4A8',
+                manufacturerUrl: 'https://www.prusa3d.com/product/prusament-pla-gravity-grey-1kg/',
+            },
+            {
+                id: 'prusament-pla-solid/jet-black',
+                name: 'Jet Black',
+                hex: '#393C3C',
+                manufacturerUrl:
+                    'https://www.prusa3d.com/product/prusament-pla-jet-black-1kg-refill/',
+            },
+            {
+                id: 'prusament-pla-solid/lipstick-red',
+                name: 'Lipstick Red',
+                hex: '#BF2B2B',
+                manufacturerUrl: 'https://www.prusa3d.com/product/prusament-pla-lipstick-red-1kg/',
+            },
+            {
+                id: 'prusament-pla-solid/noctua-beige',
+                name: 'Noctua Beige',
+                hex: '#E7CEB4',
+                manufacturerUrl:
+                    'https://www.prusa3d.com/product/prusament-pla-noctua-beige-1kg-nfc/',
+            },
+            {
+                id: 'prusament-pla-solid/noctua-brown',
+                name: 'Noctua Brown',
+                hex: '#653525',
+                manufacturerUrl:
+                    'https://www.prusa3d.com/product/prusament-pla-noctua-brown-1kg-nfc/',
+            },
+            {
+                id: 'prusament-pla-solid/opal-green',
+                name: 'Opal Green',
+                hex: '#065B4A',
+                manufacturerUrl: 'https://www.prusa3d.com/product/prusament-pla-opal-green-1kg/',
+            },
+            {
+                id: 'prusament-pla-solid/pearl-mouse',
+                name: 'Pearl Mouse',
+                hex: '#A49D8E',
+                manufacturerUrl: 'https://www.prusa3d.com/product/prusament-pla-pearl-mouse-1kg/',
+            },
             {
                 id: 'prusament-pla-solid/pineapple-yellow',
                 name: 'Pineapple Yellow',
                 hex: '#EFD00B',
+                manufacturerUrl:
+                    'https://www.prusa3d.com/product/prusament-pla-pineapple-yellow-1kg/',
             },
-            { id: 'prusament-pla-solid/pistachio-green', name: 'Pistachio Green', hex: '#93A683' },
-            { id: 'prusament-pla-solid/pristine-white', name: 'Pristine White', hex: '#E6EAEF' },
-            { id: 'prusament-pla-solid/prusa-orange', name: 'Prusa Orange', hex: '#FE6E32' },
-            { id: 'prusament-pla-solid/prusa-pro-green', name: 'Prusa Pro Green', hex: '#85E2C3' },
-            { id: 'prusament-pla-solid/simply-green', name: 'Simply Green', hex: '#70A641' },
-            { id: 'prusament-pla-solid/vanilla-white', name: 'Vanilla White', hex: '#D9D4C6' },
+            {
+                id: 'prusament-pla-solid/pistachio-green',
+                name: 'Pistachio Green',
+                hex: '#93A683',
+                manufacturerUrl:
+                    'https://www.prusa3d.com/product/prusament-pla-pistachio-green-1kg',
+            },
+            {
+                id: 'prusament-pla-solid/pristine-white',
+                name: 'Pristine White',
+                hex: '#E6EAEF',
+                manufacturerUrl:
+                    'https://www.prusa3d.com/product/prusament-pla-pristine-white-1kg/',
+            },
+            {
+                id: 'prusament-pla-solid/prusa-orange',
+                name: 'Prusa Orange',
+                hex: '#FE6E32',
+                manufacturerUrl: 'https://www.prusa3d.com/product/prusament-pla-prusa-orange-1kg/',
+            },
+            {
+                id: 'prusament-pla-solid/prusa-pro-green',
+                name: 'Prusa Pro Green',
+                hex: '#85E2C3',
+                manufacturerUrl:
+                    'https://www.prusa3d.com/product/prusament-pla-prusa-pro-green-1kg/',
+            },
+            {
+                id: 'prusament-pla-solid/simply-green',
+                name: 'Simply Green',
+                hex: '#70A641',
+                manufacturerUrl: 'https://www.prusa3d.com/product/prusament-pla-simply-green-1kg/',
+            },
+            {
+                id: 'prusament-pla-solid/vanilla-white',
+                name: 'Vanilla White',
+                hex: '#D9D4C6',
+                manufacturerUrl: 'https://www.prusa3d.com/product/prusament-pla-vanilla-white-1kg/',
+            },
         ],
     },
     {
         id: 'prusament-petg-solid',
         brand: 'Prusament',
         line: 'PETG',
+        manufacturerUrl: 'https://prusament.com/materials/prusament-petg/',
         source: {
             url: 'https://github.com/OpenFilamentCollective/open-filament-database/tree/1c19d5088fbc19a434c426aae2006f7a3a4348d9/data/prusament/PETG/petg',
             kind: 'community',
@@ -182,29 +296,94 @@ export const SUPPLIER_SETS: SupplierSet[] = [
             redistribution: 'MIT',
         },
         filaments: [
-            { id: 'prusament-petg-solid/anthracite-grey', name: 'Anthracite Grey', hex: '#3F4647' },
-            { id: 'prusament-petg-solid/chalky-blue', name: 'Chalky Blue', hex: '#6F9AAA' },
-            { id: 'prusament-petg-solid/jet-black', name: 'Jet Black', hex: '#292B2B' },
-            { id: 'prusament-petg-solid/jungle-green', name: 'Jungle Green', hex: '#007249' },
-            { id: 'prusament-petg-solid/lipstick-red', name: 'Lipstick Red', hex: '#BB2E33' },
-            { id: 'prusament-petg-solid/mango-yellow', name: 'Mango Yellow', hex: '#F2B70A' },
-            { id: 'prusament-petg-solid/ocean-blue', name: 'Ocean Blue', hex: '#194C55' },
-            { id: 'prusament-petg-solid/pistachio-green', name: 'Pistachio Green', hex: '#93A683' },
-            { id: 'prusament-petg-solid/prusa-orange', name: 'Prusa Orange', hex: '#EB5405' },
-            { id: 'prusament-petg-solid/signal-white', name: 'Signal White', hex: '#E5E0E3' },
-            { id: 'prusament-petg-solid/sky-blue', name: 'Sky Blue', hex: '#346CE3' },
+            {
+                id: 'prusament-petg-solid/anthracite-grey',
+                name: 'Anthracite Grey',
+                hex: '#3F4647',
+                manufacturerUrl:
+                    'https://www.prusa3d.com/product/prusament-petg-anthracite-grey-1kg/',
+            },
+            {
+                id: 'prusament-petg-solid/chalky-blue',
+                name: 'Chalky Blue',
+                hex: '#6F9AAA',
+                manufacturerUrl: 'https://www.prusa3d.com/product/prusament-petg-chalky-blue-1kg/',
+            },
+            {
+                id: 'prusament-petg-solid/jet-black',
+                name: 'Jet Black',
+                hex: '#292B2B',
+                manufacturerUrl: 'https://www.prusa3d.com/product/prusament-petg-jet-black-1kg/',
+            },
+            {
+                id: 'prusament-petg-solid/jungle-green',
+                name: 'Jungle Green',
+                hex: '#007249',
+                manufacturerUrl: 'https://www.prusa3d.com/product/prusament-petg-jungle-green-1kg/',
+            },
+            {
+                id: 'prusament-petg-solid/lipstick-red',
+                name: 'Lipstick Red',
+                hex: '#BB2E33',
+                manufacturerUrl: 'https://www.prusa3d.com/product/prusament-petg-lipstick-red-1kg/',
+            },
+            {
+                id: 'prusament-petg-solid/mango-yellow',
+                name: 'Mango Yellow',
+                hex: '#F2B70A',
+                manufacturerUrl: 'https://www.prusa3d.com/product/prusament-petg-mango-yellow-1kg/',
+            },
+            {
+                id: 'prusament-petg-solid/ocean-blue',
+                name: 'Ocean Blue',
+                hex: '#194C55',
+                manufacturerUrl: 'https://www.prusa3d.com/product/prusament-petg-ocean-blue-1kg/',
+            },
+            {
+                id: 'prusament-petg-solid/pistachio-green',
+                name: 'Pistachio Green',
+                hex: '#93A683',
+                manufacturerUrl:
+                    'https://www.prusa3d.com/product/prusament-petg-pistachio-green-1kg/',
+            },
+            {
+                id: 'prusament-petg-solid/prusa-orange',
+                name: 'Prusa Orange',
+                hex: '#EB5405',
+                manufacturerUrl: 'https://www.prusa3d.com/product/prusament-petg-prusa-orange-1kg/',
+            },
+            {
+                id: 'prusament-petg-solid/signal-white',
+                name: 'Signal White',
+                hex: '#E5E0E3',
+                manufacturerUrl: 'https://www.prusa3d.com/product/prusament-petg-signal-white-1kg/',
+            },
+            {
+                id: 'prusament-petg-solid/sky-blue',
+                name: 'Sky Blue',
+                hex: '#346CE3',
+                manufacturerUrl: 'https://www.prusa3d.com/product/prusament-petg-sky-blue-1kg-nfc',
+            },
             {
                 id: 'prusament-petg-solid/terracotta-light',
                 name: 'Terracotta Light',
                 hex: '#B87F6A',
+                manufacturerUrl:
+                    'https://www.prusa3d.com/product/prusament-petg-terracotta-light-1kg/',
             },
-            { id: 'prusament-petg-solid/urban-grey', name: 'Urban Grey', hex: '#95908D' },
+            {
+                id: 'prusament-petg-solid/urban-grey',
+                name: 'Urban Grey',
+                hex: '#95908D',
+                manufacturerUrl: 'https://www.prusa3d.com/product/prusament-petg-urban-grey-1kg/',
+            },
         ],
     },
     {
         id: 'sunlu-pla-classic',
         brand: 'SUNLU',
         line: 'PLA Classic',
+        manufacturerUrl: 'https://www.sunlu.com/products/pla-classic-filament',
         source: {
             url: 'https://github.com/OpenFilamentCollective/open-filament-database/tree/1c19d5088fbc19a434c426aae2006f7a3a4348d9/data/sunlu/PLA/pla_classic',
             kind: 'community',
@@ -233,6 +412,7 @@ export const SUPPLIER_SETS: SupplierSet[] = [
         id: 'elegoo-pla-rfid',
         brand: 'ELEGOO',
         line: 'PLA (RFID)',
+        manufacturerUrl: 'https://www.elegoo.com/products/pla-filament-1-75mm-colored-1kg',
         source: {
             url: 'https://github.com/Ganja-Panda/Elegoo-Centauri-Carbon-Series/blob/0290cfda6817c00e55c5f93b6de7d53dea42883f/README.md#-hueforge--elegoo-pla-filament-data',
             kind: 'community',

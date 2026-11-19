@@ -79,13 +79,19 @@ test('supplier sets and filaments have unique stable IDs', () => {
     }
 });
 
-test('supplier sets record source, check date, and redistribution terms', () => {
-    for (const { id, source } of SUPPLIER_SETS) {
+test('supplier sets record provenance and an official page for the product line', () => {
+    for (const { id, source, manufacturerUrl, filaments } of SUPPLIER_SETS) {
         assert.equal(new URL(source.url).protocol, 'https:', id);
         assert.ok(['manufacturer', 'community'].includes(source.kind), id);
         assert.match(source.checkedOn, /^\d{4}-\d{2}-\d{2}$/, id);
         assert.equal(new Date(source.checkedOn).toISOString().slice(0, 10), source.checkedOn, id);
         assert.ok(source.redistribution.trim(), id);
+        assert.equal(new URL(manufacturerUrl).protocol, 'https:', id);
+        for (const filament of filaments) {
+            if (filament.manufacturerUrl) {
+                assert.equal(new URL(filament.manufacturerUrl).protocol, 'https:', filament.id);
+            }
+        }
     }
 });
 

@@ -52,6 +52,8 @@ description: 2段階の減色処理、固定パレット、色の置換と透明
 
 **メーカーのパレット**は、フィラメント名と公表された16進数色の非公式な参考セットです。現在の製品の入手可能性や印刷色の正確さは保証しません。たとえばBambuの参考色には[Bambu Labのフィラメント16進数色表](https://store.bblcdn.com/s7/default/1084369ef84345bbaa5d704a492954e0/Bambu_PLA_Basic_Hex_Code.pdf)を使います。Kromacutはメーカーと提携しておらず、公認でもありません。
 
+メーカーの製品ページで色名を確認できます。 [Polymaker Panchroma Basic PLA](https://shop.polymaker.com/products/panchroma-pla) · [Prusament PLA](https://prusament.com/materials/pla/) · [Prusament PETG](https://prusament.com/materials/prusament-petg/) · [SUNLU PLA Classic](https://www.sunlu.com/products/pla-classic-filament) · [ELEGOO PLA (RFID)](https://www.elegoo.com/products/pla-filament-1-75mm-colored-1kg)
+
 内蔵パレットとメーカーのパレットは読み取り専用です。カスタマイズするには複製します。実物のスプールと層の挙動には、別途[フィラメント校正](calibration-theory)を使ってください。
 
 ## 独自パレット

@@ -52,6 +52,8 @@ description: दो-चरण रंग कटौती, तय पैलेट 
 
 **आपूर्तिकर्ता पैलेट** फ़िलामेंट नामों और विज्ञापित हेक्स रंगों के अनौपचारिक संदर्भ सेट हैं। वे वर्तमान उत्पाद उपलब्धता या मुद्रित रंग सटीकता की गारंटी नहीं देते। उदाहरण के लिए Bambu संदर्भ रंग [Bambu Lab की फ़िलामेंट हेक्स तालिका](https://store.bblcdn.com/s7/default/1084369ef84345bbaa5d704a492954e0/Bambu_PLA_Basic_Hex_Code.pdf) लेते हैं। Kromacut निर्माताओं से संबद्ध या उनके द्वारा अनुमोदित नहीं है।
 
+निर्माताओं की उत्पाद सूचियाँ देखें. [Polymaker Panchroma Basic PLA](https://shop.polymaker.com/products/panchroma-pla) · [Prusament PLA](https://prusament.com/materials/pla/) · [Prusament PETG](https://prusament.com/materials/prusament-petg/) · [SUNLU PLA Classic](https://www.sunlu.com/products/pla-classic-filament) · [ELEGOO PLA (RFID)](https://www.elegoo.com/products/pla-filament-1-75mm-colored-1kg)
+
 अंतर्निहित और आपूर्तिकर्ता पैलेट केवल पढ़ने योग्य हैं। अनुकूलित करने के लिए क्लोन करें। असली स्पूल और परत व्यवहार के लिए अलग से [फ़िलामेंट अंशांकन](calibration-theory) इस्तेमाल करें।
 
 ## कस्टम पैलेट
