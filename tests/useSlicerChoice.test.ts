@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createElement } from 'react';
+import { createElement, useState } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import type { SlicerApp } from '../src/lib/desktopSlicer.ts';
 import { loadViteModule } from './helpers/viteModule.ts';
@@ -32,13 +32,10 @@ const bambu: SlicerApp = { name: 'Bambu Studio', path: '/Applications/BambuStudi
 const orca: SlicerApp = { name: 'Orca Slicer', path: '/Applications/OrcaSlicer.app' };
 
 /**
- * Saves `bambu`, then clicks Open in Slicer while `find_slicer_app` is held, saves `orca` from
- * Settings, and only then lets the lookup resolve to `found`.
+ * Saves `bambu` and holds `find_slicer_app` until `release` is called. `restore` puts the
+ * original `window` back.
  */
-async function saveDuringSlowCheck(found: SlicerApp | null) {
-    const { useSlicerChoice } = await loadViteModule<SlicerChoiceModule>(
-        '/src/hooks/useSlicerChoice.ts'
-    );
+function holdSavedSlicerLookup() {
     globalThis.localStorage.clear();
     saveSlicerPreference({ kind: 'app', app: bambu });
 
@@ -56,6 +53,22 @@ async function saveDuringSlowCheck(found: SlicerApp | null) {
             },
         },
     });
+    const restore = () => {
+        if (windowDescriptor) Object.defineProperty(globalThis, 'window', windowDescriptor);
+        else Reflect.deleteProperty(globalThis, 'window');
+    };
+    return { release, restore };
+}
+
+/**
+ * Saves `bambu`, then clicks Open in Slicer while `find_slicer_app` is held, saves `orca` from
+ * Settings, and only then lets the lookup resolve to `found`.
+ */
+async function saveDuringSlowCheck(found: SlicerApp | null) {
+    const { useSlicerChoice } = await loadViteModule<SlicerChoiceModule>(
+        '/src/hooks/useSlicerChoice.ts'
+    );
+    const { release, restore } = holdSavedSlicerLookup();
 
     const opened: (SlicerApp | null)[] = [];
     try {
@@ -74,8 +87,7 @@ async function saveDuringSlowCheck(found: SlicerApp | null) {
         release(found);
         await open;
     } finally {
-        if (windowDescriptor) Object.defineProperty(globalThis, 'window', windowDescriptor);
-        else Reflect.deleteProperty(globalThis, 'window');
+        restore();
     }
     return opened;
 }
@@ -89,4 +101,38 @@ test('a saved slicer found late does not open the model after Settings changed i
     const opened = await saveDuringSlowCheck(bambu);
     assert.ok(!opened.includes(bambu), 'the model must not open in the replaced slicer');
     assert.deepEqual(loadSlicerPreference(), { kind: 'app', app: orca });
+});
+
+test('a saved slicer found late exports with the build that finished during the check', async () => {
+    const { useSlicerChoice } = await loadViteModule<SlicerChoiceModule>(
+        '/src/hooks/useSlicerChoice.ts'
+    );
+    const { release, restore } = holdSavedSlicerLookup();
+
+    // Each export callback carries the settings of the build it was rendered with, as the
+    // App's 3MF options do, while the exported mesh is always the latest one.
+    const exported: { build: number; slicer: SlicerApp | null }[] = [];
+    try {
+        let open: Promise<void> | undefined;
+        function Probe() {
+            const [build, setBuild] = useState(1);
+            const choice = useSlicerChoice(async (slicer) => {
+                exported.push({ build, slicer });
+            });
+            if (!open) {
+                // Click Open in Slicer with build 1, then let build 2 finish during the check.
+                // A render-phase update re-renders this same instance with the new export.
+                open = choice.onOpenInSlicer();
+                setBuild(2);
+            }
+            return null;
+        }
+        renderToStaticMarkup(createElement(Probe));
+
+        release(bambu);
+        await open;
+    } finally {
+        restore();
+    }
+    assert.deepEqual(exported, [{ build: 2, slicer: bambu }]);
 });
