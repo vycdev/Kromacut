@@ -67,8 +67,10 @@ export interface PreviewActionsProps {
     downloadMenuButtonRef?: React.Ref<HTMLButtonElement>;
     /** The currently built model is a Flat Paint slab — STL export is useless for it */
     flatPaintModel?: boolean;
-    /** No valid model exists for the selected 3D mode/settings. */
+    /** No valid model exists for the selected 3D mode/settings, or a build is running. */
     modelExportDisabled?: boolean;
+    /** Covered by a build overlay: keep keyboard and screen-reader users out as well. */
+    inert?: boolean;
     isOrtho?: boolean;
     onToggleCamera?: () => void;
     previewRenderMode?: PreviewRenderMode;
@@ -117,6 +119,7 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
     downloadMenuButtonRef,
     flatPaintModel = false,
     modelExportDisabled = false,
+    inert = false,
     isOrtho = false,
     onToggleCamera,
     previewRenderMode = 'shaded',
@@ -219,7 +222,7 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
     };
 
     return (
-        <div className="absolute top-4 right-4 flex flex-wrap justify-end gap-2 z-40">
+        <div className="absolute top-4 right-4 flex flex-wrap justify-end gap-2 z-40" inert={inert}>
             {mode === '3d' && onPreviewRenderModeChange && (
                 <Popover open={previewModeMenuOpen} onOpenChange={setPreviewModeMenuOpen}>
                     <PopoverTrigger asChild>

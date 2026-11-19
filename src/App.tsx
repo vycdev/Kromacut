@@ -492,6 +492,9 @@ function App(): React.ReactElement | null {
         cancelBuild,
         markBuildStarted,
     } = useBuildWarning({ imageSrc, imageCanvas, initialState: autopaintHydrated });
+    const [isThreeDBuilding, setIsThreeDBuilding] = useState(false);
+    // The build overlays cover the preview actions, but not from keyboard or screen readers.
+    const threeDBuildBusy = isBuildStarting || isThreeDBuilding;
     const builtModelState = builtThreeDState ?? threeDState;
     const builtModelAutoPaint = builtModelState.paintMode === 'autopaint';
     const builtModelValid = !builtModelAutoPaint || builtModelState.autoPaintResult !== undefined;
@@ -693,6 +696,7 @@ function App(): React.ReactElement | null {
         setExportProgress,
         setExportStep,
         exportingSTL,
+        threeDBuildBusy,
         exportObjectToStlBlob,
         exportObjectTo3MFBlob: (obj, onProgress, onZipProgress) =>
             exportObjectTo3MFBlob(obj, {
@@ -1069,6 +1073,7 @@ function App(): React.ReactElement | null {
                                                 previewRenderMode={previewRenderMode}
                                                 previewColorMode={previewColorMode}
                                                 onBuildStarted={markBuildStarted}
+                                                onBuildingChange={setIsThreeDBuilding}
                                                 active={mode === '3d'}
                                             />
                                             {isBuildStarting && (
@@ -1137,7 +1142,8 @@ function App(): React.ReactElement | null {
                                     }
                                     downloadMenuButtonRef={downloadMenuButtonRef}
                                     flatPaintModel={builtFlatPaint}
-                                    modelExportDisabled={!builtModelValid}
+                                    modelExportDisabled={!builtModelValid || threeDBuildBusy}
+                                    inert={mode === '3d' && threeDBuildBusy}
                                     isOrtho={isOrtho}
                                     previewRenderMode={previewRenderMode}
                                     onPreviewRenderModeChange={(next) => {
