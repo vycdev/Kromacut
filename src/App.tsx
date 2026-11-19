@@ -332,6 +332,7 @@ function App(): React.ReactElement | null {
     // initial selectedPalette derived from initial weight above
     const inputRef = useRef<HTMLInputElement | null>(null);
     const canvasPreviewRef = useRef<CanvasPreviewHandle | null>(null);
+    const downloadMenuButtonRef = useRef<HTMLButtonElement | null>(null);
     const [showCheckerboard, setShowCheckerboard] = useState<boolean>(false);
     const [isCropMode, setIsCropMode] = useState(false);
     const [hasValidCropSelection, setHasValidCropSelection] = useState(false);
@@ -1214,6 +1215,7 @@ function App(): React.ReactElement | null {
                                             ? slicerChoice.onChooseSlicer
                                             : undefined
                                     }
+                                    downloadMenuButtonRef={downloadMenuButtonRef}
                                     flatPaintModel={builtFlatPaint}
                                     modelExportDisabled={!builtModelValid}
                                     isOrtho={isOrtho}
@@ -1284,6 +1286,7 @@ function App(): React.ReactElement | null {
                         preference={slicerChoice.preference}
                         missingSlicerName={slicerChoice.chooser.missingSlicerName}
                         saveOnly={slicerChoice.chooser.saveOnly}
+                        fallbackFocusRef={downloadMenuButtonRef}
                         onConfirm={slicerChoice.onChooserConfirm}
                         onCancel={slicerChoice.onChooserCancel}
                     />

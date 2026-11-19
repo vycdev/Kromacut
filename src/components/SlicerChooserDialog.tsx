@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState, type RefObject } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Check, FolderOpen } from 'lucide-react';
 import {
@@ -21,6 +21,8 @@ interface Props {
     missingSlicerName: string | null;
     /** Opened from Settings: confirming saves the selected slicer instead of opening a model. */
     saveOnly?: boolean;
+    /** Gets focus on close when the element that opened the chooser is gone, such as a menu item. */
+    fallbackFocusRef?: RefObject<HTMLElement | null>;
     onConfirm: (slicer: SlicerApp | null, remember: boolean) => void;
     onCancel: () => void;
 }
@@ -35,6 +37,7 @@ export function SlicerChooserDialog({
     preference,
     missingSlicerName,
     saveOnly = false,
+    fallbackFocusRef,
     onConfirm,
     onCancel,
 }: Props) {
@@ -138,9 +141,13 @@ export function SlicerChooserDialog({
                 }}
                 onCloseAutoFocus={(event) => {
                     const opener = openerRef.current;
-                    if (!opener?.isConnected || opener === document.body) return;
+                    const target =
+                        opener?.isConnected && opener !== document.body
+                            ? opener
+                            : fallbackFocusRef?.current;
+                    if (!target?.isConnected) return;
                     event.preventDefault();
-                    opener.focus();
+                    target.focus();
                 }}
             >
                 <AlertDialogHeader>

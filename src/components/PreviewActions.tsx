@@ -63,6 +63,8 @@ export interface PreviewActionsProps {
     savedSlicerName?: string;
     /** Desktop only, once a slicer is saved: change or forget it. */
     onChooseSlicer?: () => void;
+    /** Receives the download menu button, so the slicer chooser can return focus to it. */
+    downloadMenuButtonRef?: React.Ref<HTMLButtonElement>;
     /** The currently built model is a Flat Paint slab — STL export is useless for it */
     flatPaintModel?: boolean;
     /** No valid model exists for the selected 3D mode/settings. */
@@ -112,6 +114,7 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
     onOpenInSlicer,
     savedSlicerName,
     onChooseSlicer,
+    downloadMenuButtonRef,
     flatPaintModel = false,
     modelExportDisabled = false,
     isOrtho = false,
@@ -425,6 +428,7 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
                 <Popover>
                     <PopoverTrigger asChild>
                         <Button
+                            ref={downloadMenuButtonRef}
                             size="icon"
                             data-testid="download-3d-model"
                             title={
