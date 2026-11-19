@@ -4,6 +4,8 @@ All notable changes to Kromacut are documented in this file.
 
 ## Unreleased
 
+## v4.3.0 - 2026-11-19
+
 ### Added
 
 - **2D history shortcuts (#163)** - Ctrl/Cmd+Z undoes and Ctrl/Cmd+Shift+Z redoes image edits in 2D. The shortcuts are ignored in editable fields, dialogs, popovers, menus and open select lists, in 3D mode, while cropping, and during processing, and they follow the physical Z key on non-Latin keyboard layouts. Documented in the image adjustments guide, with Playwright regressions for keyboard behavior.
