@@ -354,6 +354,49 @@ test('@smoke desktop Open in Slicer asks again when the saved slicer is gone', a
     expect(errors).toEqual([]);
 });
 
+test('@smoke closing the chooser from the download menu returns focus to the menu button', async ({
+    page,
+}) => {
+    const errors: string[] = [];
+    page.on('pageerror', (error) => errors.push(error.message));
+    const slicers = await setUpChooser(page, [BAMBU, ORCA]);
+    const chooser = page.getByTestId('slicer-chooser');
+    const downloadButton = page.getByTestId('download-3d-model');
+    const openFromMenu = async (item: string) => {
+        await downloadButton.focus();
+        await downloadButton.press('Enter');
+        await page.getByTestId(item).focus();
+        await page.getByTestId(item).press('Enter');
+        await expect(chooser).toBeVisible();
+    };
+
+    // The menu item that opened the chooser is gone once the menu closes, so focus goes back
+    // to the download button instead of the page body.
+    await openFromMenu('open-3mf-in-slicer');
+    await page.keyboard.press('Escape');
+    await expect(chooser).toHaveCount(0);
+    await expect(downloadButton).toBeFocused();
+
+    await openFromMenu('open-3mf-in-slicer');
+    await chooser.getByText(ORCA.name, { exact: true }).click();
+    await page.getByTestId('slicer-remember').click();
+    await page.getByTestId('slicer-open').click();
+    await expect.poll(async () => (await slicers.state()).headers.length).toBe(1);
+    await expect(downloadButton).toBeEnabled();
+
+    // Choose Slicer, once a slicer is saved.
+    await openFromMenu('choose-slicer');
+    await page.keyboard.press('Escape');
+    await expect(chooser).toHaveCount(0);
+    await expect(downloadButton).toBeFocused();
+    await openFromMenu('choose-slicer');
+    await chooser.getByRole('button', { name: 'Cancel' }).press('Enter');
+    await expect(chooser).toHaveCount(0);
+    await expect(downloadButton).toBeFocused();
+    expect(await slicers.savedPreference()).toEqual({ kind: 'app', app: ORCA });
+    expect(errors).toEqual([]);
+});
+
 test('@smoke the browser Settings dialog has no slicer setting', async ({ page }) => {
     await openApp(page);
     await page.getByRole('button', { name: 'Open settings' }).click();
