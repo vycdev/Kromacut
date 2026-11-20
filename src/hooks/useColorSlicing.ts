@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Swatch, ThreeDControlsStateShape } from '../types';
 import { hexLuminance } from '../lib/colorUtils';
 import { reconcileColorOrder } from '../lib/colorOrder';
-import { reconcileColorSliceHeight } from '../lib/colorSliceHeight';
+import { reconcileColorSliceHeight, snapColorSliceHeight } from '../lib/colorSliceHeight';
 
 export interface UseColorSlicingOptions {
     swatches: Swatch[] | null;
@@ -222,17 +222,12 @@ export function useColorSlicing({
             const current = next[fi];
             if (typeof current !== 'number' || !isFinite(current)) return;
 
-            let snapped: number;
-            if (idx === 0) {
-                const minFirst = Math.max(layerHeight, slicerFirstLayerHeight);
-                const delta = Math.max(0, current - minFirst);
-                snapped = minFirst + Math.round(delta / layerHeight) * layerHeight;
-            } else {
-                snapped = Math.round(current / layerHeight) * layerHeight;
-                snapped = Math.max(layerHeight, snapped);
-            }
-
-            snapped = Number(snapped.toFixed(8));
+            const snapped = snapColorSliceHeight(
+                current,
+                layerHeight,
+                slicerFirstLayerHeight,
+                idx === 0
+            );
             if (Math.abs(current - snapped) > 1e-6) {
                 next[fi] = snapped;
                 changed = true;
