@@ -48,6 +48,8 @@ Le STL ne contient ni couleurs de filament ni affectations automatiques de bobin
 
 Pour les modèles de **Peinture à plat**, le menu ne propose que le 3MF : le modèle contient un objet par filament physique et, dans la disposition par défaut face vers le bas, un objet de support transparent. La disposition facultative face vers le haut omet ce support. Un STL sans couleur à géométrie unique de l’une ou l’autre plaque serait inutile. Les deux orientations prennent en charge toutes les intensités de **Maillage lissé**. Reconstruisez le modèle après avoir changé l’intensité pour l’appliquer à l’aperçu et à la géométrie exportée.
 
+Les modèles **multi-têtes** réussis ne proposent eux aussi que le 3MF, car le STL ne peut pas conserver leurs affectations de têtes. Si la construction se rabat sur un modèle normal à une tête, le STL reste disponible.
+
 ## Instructions d’impression
 
 Le panneau **Instructions d’impression** fournit :

@@ -502,6 +502,8 @@ function App(): React.ReactElement | null {
         () => getMultiHeadRoutingPlan(builtModelState),
         [builtModelState]
     );
+    // Both models are built from parts that only 3MF keeps apart.
+    const builtModelStlUnavailable = builtFlatPaint || builtMultiHeadPlan !== undefined;
 
     const prevModeRef = useRef<typeof mode>(mode);
 
@@ -697,6 +699,7 @@ function App(): React.ReactElement | null {
         setExportStep,
         exportingSTL,
         threeDBuildBusy,
+        stlUnavailable: builtModelStlUnavailable,
         exportObjectToStlBlob,
         exportObjectTo3MFBlob: (obj, onProgress, onZipProgress) =>
             exportObjectTo3MFBlob(obj, {
@@ -1141,7 +1144,7 @@ function App(): React.ReactElement | null {
                                             : undefined
                                     }
                                     downloadMenuButtonRef={downloadMenuButtonRef}
-                                    flatPaintModel={builtFlatPaint}
+                                    stlUnavailable={builtModelStlUnavailable}
                                     modelExportDisabled={!builtModelValid || threeDBuildBusy}
                                     inert={mode === '3d' && threeDBuildBusy}
                                     isOrtho={isOrtho}

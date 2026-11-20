@@ -57,7 +57,7 @@ Nach erfolgreicher Erstellung zeigt die Vorschau die zugewiesene simulierte Farb
 
 - Lade vor dem Druck jedes aufgeführte Filament in seinen nummerierten Druckkopf. Als **LEER** markierte Köpfe bleiben unbenutzt.
 - Lade an jedem aufgeführten Schichtkontrollpunkt nur die markierten Köpfe neu. Unveränderte Belegungen bleiben erhalten; nicht jede Fenstergrenze braucht eine Pause.
-- Exportiere als **3MF**, um zugewiesene Geometrie, physische Filamentfarben und Druckkopfzuweisungen zu erhalten. Die Datei speichert die gewählte Druckkopfzahl als Extruderzahl und fügt **M600**-Pausenmarkierungen an den Wechselpunkten des Plans ein. STL erhält diese Zuweisungen nicht.
+- Exportiere als **3MF**, um zugewiesene Geometrie, physische Filamentfarben und Druckkopfzuweisungen zu erhalten. Die Datei speichert die gewählte Druckkopfzahl als Extruderzahl und fügt **M600**-Pausenmarkierungen an den Wechselpunkten des Plans ein. Für Mehrkopfmodelle bietet das Downloadmenü nur 3MF an, weil STL diese Zuweisungen nicht speichern kann.
 
 ![Drei Köpfe behalten unveränderte Filamente zwischen Phasen; nur geänderte Belegungen erfordern manuelles Nachladen.](02_nozzle_swap_schedule.svg)
 

@@ -48,6 +48,8 @@ STL não contém cores nem atribuições automáticas de bobinas. Use o plano co
 
 Para **Pintura plana** só se oferece 3MF: um objeto por filamento e, na disposição predefinida de face para baixo, um suporte transparente. A opção de face para cima omite-o. Um STL sem cores e de geometria única seria inútil para qualquer placa. Ambas as orientações suportam todas as intensidades de **Malha suavizada**. Gere novamente o modelo depois de alterar a intensidade para a aplicar à pré-visualização e à geometria exportada.
 
+Os modelos **multicabeças** criados com êxito também só oferecem 3MF, porque o STL não consegue preservar as atribuições às cabeças. Se for criado em alternativa um modelo normal de uma só cabeça, o STL continua disponível.
+
 ## Instruções de impressão
 
 O painel **Instruções de impressão** fornece:

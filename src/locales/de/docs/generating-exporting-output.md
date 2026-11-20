@@ -48,6 +48,8 @@ STL enthält keine Filamentfarben oder automatischen Spulenzuweisungen. Verwende
 
 Bei **Flat Paint** bietet das Downloadmenü nur 3MF an: Das Modell enthält je ein Objekt pro tatsächlichem Filament sowie in der Standardanordnung mit Bildseite unten ein transparentes Trägerobjekt. Die optionale Anordnung mit Bildseite oben lässt diesen Träger weg. Eine farblose STL mit nur einer Geometrie wäre bei beiden flachen Platten nutzlos. Beide Ausrichtungen unterstützen alle Stärken der **Glatten Vernetzung**. Baue das Modell nach einer Änderung der Stärke neu, um sie auf die Vorschau und die exportierte Geometrie anzuwenden.
 
+Erfolgreiche **Mehrkopf**-Modelle bieten ebenfalls nur 3MF an, weil STL ihre Druckkopfzuweisungen nicht speichern kann. Fällt der Aufbau auf ein normales Einkopfmodell zurück, steht STL weiterhin zur Verfügung.
+
 ## Druckanweisungen
 
 Der Bereich **Druckanweisungen** enthält:

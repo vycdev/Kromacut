@@ -57,7 +57,7 @@ Dopo una creazione riuscita, l’anteprima mostra il colore simulato assegnato a
 
 - Prima di stampare, carica ciascun filamento elencato nella sua testa numerata. Lascia inutilizzate le teste contrassegnate come **VUOTA**.
 - A ogni punto di controllo indicato per strato, ricarica soltanto le teste contrassegnate. I carichi invariati vengono mantenuti; non ogni confine di finestra richiede una pausa.
-- Esporta in **3MF** per conservare la geometria assegnata, i colori fisici dei filamenti e le assegnazioni alle teste. Il file registra il numero di teste scelto come numero di estrusori e aggiunge marcatori di pausa **M600** ai punti di cambio del programma. STL non conserva queste assegnazioni.
+- Esporta in **3MF** per conservare la geometria assegnata, i colori fisici dei filamenti e le assegnazioni alle teste. Il file registra il numero di teste scelto come numero di estrusori e aggiunge marcatori di pausa **M600** ai punti di cambio del programma. Per i modelli multi-testa il menu di download offre solo 3MF, perché STL non può conservare queste assegnazioni.
 
 ![Tre teste mantengono i filamenti invariati tra le fasi; solo i carichi modificati richiedono ricariche manuali.](02_nozzle_swap_schedule.svg)
 

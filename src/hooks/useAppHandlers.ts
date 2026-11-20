@@ -21,6 +21,8 @@ export interface UseAppHandlersParams {
     exportingSTL: boolean;
     /** A 3D build is starting or running, so the exported mesh may not match its settings. */
     threeDBuildBusy: boolean;
+    /** Flat Paint and multi-head models only export correctly as 3MF. */
+    stlUnavailable?: boolean;
     exportObjectToStlBlob: (
         object: THREE.Object3D,
         onProgress?: (p: number) => void
@@ -117,6 +119,7 @@ export function useAppHandlers(params: UseAppHandlersParams) {
         setExportStep,
         exportingSTL,
         threeDBuildBusy,
+        stlUnavailable = false,
         exportObjectToStlBlob,
         exportObjectTo3MFBlob,
         applyQuantize,
@@ -143,11 +146,16 @@ export function useAppHandlers(params: UseAppHandlersParams) {
     }, [canvasPreviewRef]);
 
     const onExportStl = useCallback(async () => {
-        if (exportingSTL) return;
+        if (exportingSTL || stlUnavailable) return;
         interface KromacutWindow extends Window {
             __KROMACUT_LAST_MESH?: THREE.Object3D;
         }
-        const threeObject = (window as KromacutWindow).__KROMACUT_LAST_MESH;
+        // A Flat Paint or multi-head mesh can outlive its build snapshot briefly.
+        const readStlMesh = () => {
+            const mesh = (window as KromacutWindow).__KROMACUT_LAST_MESH;
+            return mesh && !mesh.userData.kromacutStlUnavailable ? mesh : undefined;
+        };
+        const threeObject = readStlMesh();
         if (!threeObject || threeDBuildBusy) {
             alert(translate('messages:files.modelNotReady'));
             return;
@@ -164,6 +172,11 @@ export function useAppHandlers(params: UseAppHandlersParams) {
         const overlayStartedAt = performance.now();
         try {
             await waitForOverlayPaint();
+            // A build may have replaced the mesh while the overlay painted.
+            if (readStlMesh() !== threeObject) {
+                alert(translate('messages:files.modelNotReady'));
+                return;
+            }
             const blob = await exportObjectToStlBlob(
                 threeObject,
                 createExportProgressReporter(setExportProgress, (progress) => {
@@ -203,6 +216,7 @@ export function useAppHandlers(params: UseAppHandlersParams) {
     }, [
         exportingSTL,
         threeDBuildBusy,
+        stlUnavailable,
         exportObjectToStlBlob,
         setExportingSTL,
         setExportProgress,

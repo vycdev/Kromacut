@@ -1948,6 +1948,9 @@ export default function ThreeDView({
                     );
                 }
 
+                // The STL export checks the mesh itself, because a newer build
+                // snapshot can be committed before this one is replaced.
+                modelGroup.userData.kromacutStlUnavailable = flatPaint || !!multiHeadPlan;
                 try {
                     (
                         window as unknown as { __KROMACUT_LAST_MESH?: THREE.Object3D }
