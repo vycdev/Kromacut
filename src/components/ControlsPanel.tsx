@@ -12,11 +12,10 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { PALETTES } from '../data/palettes';
-import { SUPPLIER_PALETTES } from '../data/supplierFilaments';
 import type { MergedPalette } from '../hooks/usePaletteManager';
 import type { CustomPalette } from '../types';
 import { PaletteManager } from './PaletteManager';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 interface Props {
     finalColors: number;
@@ -29,7 +28,8 @@ interface Props {
     disabled: boolean;
     weightDisabled?: boolean;
     selectedPalette: string;
-    onPaletteSelect: (id: string, size: number) => void;
+    selectedPaletteIds: string[];
+    onPalettesSelect: (ids: string[]) => void;
     applying?: boolean;
     onReset?: () => void;
     // Palette manager props
@@ -71,7 +71,8 @@ export const ControlsPanel: React.FC<Props> = ({
     disabled,
     weightDisabled = false,
     selectedPalette,
-    onPaletteSelect,
+    selectedPaletteIds,
+    onPalettesSelect,
     applying = false,
     onReset,
     allPalettes,
@@ -93,7 +94,6 @@ export const ControlsPanel: React.FC<Props> = ({
     const [localWeight, setLocalWeight] = useState(weight);
 
     // Custom palettes as merged entries so counts reflect enabled colors only
-    const customEntries = allPalettes.filter((p) => p.custom);
 
     // Sync from parent props
     useEffect(() => {
@@ -146,151 +146,103 @@ export const ControlsPanel: React.FC<Props> = ({
                         <Label htmlFor="palette-select" className="font-medium">
                             {t('controlsPanel.palette')}
                         </Label>
-                        <Select
-                            value={selectedPalette}
-                            onValueChange={(paletteId) => {
-                                const palette = allPalettes.find((p) => p.id === paletteId);
-                                if (palette) {
-                                    onPaletteSelect(paletteId, palette.size);
-                                }
-                            }}
-                        >
-                            <SelectTrigger id="palette-select">
-                                <SelectValue placeholder={t('controlsPanel.selectAPalette')} />
-                            </SelectTrigger>
-                            <SelectContent className="max-h-48 w-[var(--radix-select-trigger-width)] overflow-y-auto">
-                                {PALETTES.map((p) => (
-                                    <SelectItem key={p.id} value={p.id}>
-                                        <div className="flex items-center gap-2">
-                                            <span>
-                                                {p.id === 'auto'
-                                                    ? t('controlsPanel.auto')
-                                                    : t('controlsPanel.colorCount', {
-                                                          count: p.size,
-                                                      })}
-                                            </span>
-                                            {p.id !== 'auto' && (
-                                                <div className="flex gap-1">
-                                                    {p.colors
-                                                        .slice(0, 5)
-                                                        .map((c: string, i: number) => (
-                                                            <div
-                                                                key={i}
-                                                                className="rounded border border-border/70 cursor-pointer hover:border-primary hover:shadow-md transition-all duration-200 hover:scale-110 select-none"
-                                                                style={{
-                                                                    background: c,
-                                                                    width: '15px',
-                                                                    height: '15px',
-                                                                    aspectRatio: '1',
-                                                                }}
-                                                            />
-                                                        ))}
-                                                    {p.colors.length > 5 && (
-                                                        <div className="text-xs text-muted-foreground">
-                                                            +{p.colors.length - 5}
-                                                        </div>
-                                                    )}
-                                                </div>
+                        <Popover>
+                            <PopoverTrigger asChild>
+                                <button
+                                    id="palette-select"
+                                    aria-label={t('controlsPanel.palette')}
+                                    className="border rounded w-full px-3 py-2 text-left"
+                                    type="button"
+                                    disabled={disabled || applying}
+                                >
+                                    {selectedPaletteIds.length === 1
+                                        ? allPalettes.find((p) => p.id === selectedPaletteIds[0])
+                                              ?.label
+                                        : selectedPaletteIds.length
+                                          ? t('controlsPanel.selectedPalettes', {
+                                                count: selectedPaletteIds.length,
+                                            })
+                                          : t('controlsPanel.auto')}
+                                </button>
+                            </PopoverTrigger>
+                            <PopoverContent
+                                className="w-96 max-w-[90vw] max-h-80 overflow-y-auto space-y-2"
+                                align="start"
+                                aria-label={t('controlsPanel.palette')}
+                            >
+                                <label className="flex items-center gap-2">
+                                    <input
+                                        type="checkbox"
+                                        checked={!selectedPaletteIds.length}
+                                        onChange={() => onPalettesSelect([])}
+                                    />
+                                    {t('controlsPanel.auto')}
+                                </label>
+                                {allPalettes
+                                    .filter((p) => p.id !== 'auto')
+                                    .map((p, i, entries) => (
+                                        <div key={p.id}>
+                                            {p.group === 'supplier' &&
+                                                entries[i - 1]?.group !== 'supplier' && (
+                                                    <>
+                                                        <p className="text-xs font-semibold mt-3 mb-1">
+                                                            {t('controlsPanel.supplierPalettes')}
+                                                        </p>
+                                                        <p className="text-xs text-muted-foreground mb-2">
+                                                            {t(
+                                                                'controlsPanel.unofficialReferencePalettesOfFilamentColorNamesAndHex'
+                                                            )}
+                                                        </p>
+                                                    </>
+                                                )}
+                                            {p.custom && !entries[i - 1]?.custom && (
+                                                <p className="text-xs font-semibold mt-3 mb-1">
+                                                    {t('controlsPanel.customPalettes')}
+                                                </p>
                                             )}
-                                        </div>
-                                    </SelectItem>
-                                ))}
-                                {SUPPLIER_PALETTES.length > 0 && (
-                                    <>
-                                        <div className="px-2 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider select-none border-t border-border/50 mt-1 pt-2">
-                                            {t('controlsPanel.supplierPalettes')}
-                                        </div>
-                                        <div className="px-2 pb-1.5 text-[9px] leading-snug whitespace-normal text-muted-foreground/70 select-none">
-                                            {t(
-                                                'controlsPanel.unofficialReferencePalettesOfFilamentColorNamesAndHex'
-                                            )}
-                                        </div>
-                                        {SUPPLIER_PALETTES.map((p) => (
-                                            <SelectItem key={p.id} value={p.id}>
-                                                <div className="flex min-w-0 items-center gap-2">
-                                                    <span className="truncate">
-                                                        {p.label} ({p.size})
-                                                    </span>
-                                                    <div className="flex shrink-0 gap-1">
-                                                        {p.colors
-                                                            .slice(0, 5)
-                                                            .map((c: string, i: number) => (
-                                                                <div
-                                                                    key={i}
-                                                                    title={
-                                                                        p.colorNames?.[i]
-                                                                            ? `${p.colorNames[i]} (${c})`
-                                                                            : c
-                                                                    }
-                                                                    className="rounded border border-border/70 select-none"
-                                                                    style={{
-                                                                        background: c,
-                                                                        width: '15px',
-                                                                        height: '15px',
-                                                                        aspectRatio: '1',
-                                                                    }}
-                                                                />
-                                                            ))}
-                                                        {p.colors.length > 5 && (
-                                                            <div className="text-xs text-muted-foreground">
-                                                                +{p.colors.length - 5}
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            </SelectItem>
-                                        ))}
-                                    </>
-                                )}
-                                {customEntries.length > 0 && (
-                                    <>
-                                        <div className="px-2 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider select-none border-t border-border/50 mt-1 pt-2">
-                                            {t('controlsPanel.customPalettes')}
-                                        </div>
-                                        {customEntries.map((cp) => (
-                                            <SelectItem key={cp.id} value={cp.id}>
-                                                <div className="flex items-center gap-2">
-                                                    <span>
-                                                        {cp.label} (
-                                                        {cp.totalColors !== undefined &&
-                                                        cp.totalColors > cp.size
-                                                            ? `${cp.size}/${cp.totalColors}`
-                                                            : cp.size}
+                                            <label className="flex items-center gap-2 text-sm">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={selectedPaletteIds.includes(p.id)}
+                                                    disabled={
+                                                        !p.size &&
+                                                        !selectedPaletteIds.includes(p.id)
+                                                    }
+                                                    onChange={(e) =>
+                                                        onPalettesSelect(
+                                                            e.target.checked
+                                                                ? [...selectedPaletteIds, p.id]
+                                                                : selectedPaletteIds.filter(
+                                                                      (id) => id !== p.id
+                                                                  )
                                                         )
-                                                    </span>
-                                                    <div className="flex gap-1">
-                                                        {cp.colors
-                                                            .slice(0, 5)
-                                                            .map((c: string, i: number) => (
-                                                                <div
-                                                                    key={i}
-                                                                    title={
-                                                                        cp.colorNames?.[i]
-                                                                            ? `${cp.colorNames[i]} (${c})`
-                                                                            : c
-                                                                    }
-                                                                    className="rounded border border-border/70 select-none"
-                                                                    style={{
-                                                                        background: c,
-                                                                        width: '15px',
-                                                                        height: '15px',
-                                                                        aspectRatio: '1',
-                                                                    }}
-                                                                />
-                                                            ))}
-                                                        {cp.colors.length > 5 && (
-                                                            <div className="text-xs text-muted-foreground">
-                                                                +{cp.colors.length - 5}
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            </SelectItem>
-                                        ))}
-                                    </>
-                                )}
-                            </SelectContent>
-                        </Select>
+                                                    }
+                                                />
+                                                <span>
+                                                    {p.label} (
+                                                    {p.totalColors !== undefined &&
+                                                    p.totalColors !== p.size
+                                                        ? `${p.size}/${p.totalColors}`
+                                                        : p.size}
+                                                    )
+                                                </span>
+                                                <span className="flex gap-0.5 ml-auto">
+                                                    {p.colors.slice(0, 5).map((color, index) => (
+                                                        <span
+                                                            key={index}
+                                                            className="w-3 h-3 rounded-sm border"
+                                                            style={{ background: color }}
+                                                        />
+                                                    ))}
+                                                </span>
+                                            </label>
+                                        </div>
+                                    ))}
+                            </PopoverContent>
+                        </Popover>
+                        <p className="text-xs text-muted-foreground">
+                            {t('controlsPanel.reduceThenMatch')} {t('controlsPanel.sharedMatches')}
+                        </p>
                         <PaletteManager
                             customPalettes={customPalettes}
                             allPalettes={allPalettes}
@@ -318,15 +270,6 @@ export const ControlsPanel: React.FC<Props> = ({
                             min={2}
                             max={256}
                             value={localColors}
-                            // With a named palette selected the palette determines the
-                            // color count, so the input (and its min-2 clamp, which would
-                            // fight one-color palettes) is disabled.
-                            disabled={selectedPalette !== 'auto'}
-                            title={
-                                selectedPalette !== 'auto'
-                                    ? t('controlsPanel.determinedByTheSelectedPalette')
-                                    : undefined
-                            }
                             onChange={(e) => {
                                 const v = Number(e.target.value);
                                 if (!Number.isNaN(v)) {

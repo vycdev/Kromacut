@@ -13,15 +13,13 @@ Recorte e redimensione primeiro. Se alterou os [ajustes de imagem](image-adjustm
 
 ## O processo em duas etapas
 
-![O peso do algoritmo limita a paleta intermédia; Número de cores ou uma paleta fixa controla a segunda etapa.](34_quantization_pipeline.svg)
-
 **Peso do algoritmo** e **Número de cores** fazem coisas diferentes. K-means com peso 128 agrupa primeiro a origem em até 128 cores. Auto com número 16 funde depois esse resultado até um máximo de 16. O peso não é percentagem, opacidade nem número de filamentos.
 
 | Campo ou ação | Significado |
 | -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Paleta: Auto | Encontra cores dependentes da imagem e limita o número. |
-| Paleta: integrada, fornecedor ou personalizada | Mapeia a imagem intermédia para cores ativadas da paleta. Nem todas têm de aparecer. |
-| Número de cores | Limite final de Auto: 2–256, predefinição 16. Desativado com paleta fixa. |
+| Paleta: integrada, fornecedor ou personalizada | Reduz as cores e associa-as às cores ativas de todas as paletas selecionadas. |
+| Número de cores | Limite final de 2 a 256, com 16 por predefinição. Pode ser alterado com paletas selecionadas. |
 | Peso do algoritmo | Orçamento intermédio: 2–256, predefinição 128. Mais costuma conservar detalhe intermédio, não necessariamente melhorar o resultado final. |
 | Algoritmo | Método da primeira redução. Predefinição: K-means. |
 | Aplicar | Processa a imagem subjacente e cria um passo de Anular. Mudar uma definição só não recolore. |
@@ -37,7 +35,7 @@ Estes métodos agrupam cores. Nenhum acrescenta pontilhamento espacial nem garan
 
 | Algoritmo | O que muda | Comparação útil |
 | ----------------------- | --------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| Nenhum (apenas pós-processamento) | Omite o quantizador inicial; Peso fica desativado. A redução final ou mapeamento fixo continua. | Mapear diretamente uma imagem limpa para uma paleta conhecida. Não é uma opção universal de imagem inalterada. |
+| Nenhum (apenas pós-processamento) | Ignora a primeira redução. O limite de cores e a correspondência com as paletas mantêm-se. | Mapear diretamente uma imagem limpa para uma paleta conhecida. Não é uma opção universal de imagem inalterada. |
 | Posterizar | Divide canais RGB em passos discretos e aplica o peso. | Gráficos deliberadamente escalonados; os níveis disponíveis mudam por saltos. |
 | Corte mediano | Divide a distribuição em grupos representados por cores médias. | Comparar quando outro método perde um grupo tonal importante. |
 | K-means | Encontra grupos ponderados por número de píxeis, com início aleatório. | Ponto de partida para fotografias e imagens mistas. Execuções da mesma origem podem variar ligeiramente. |
@@ -48,7 +46,7 @@ Não há algoritmo universalmente melhor. Examine o motivo, letras pequenas e de
 
 ## Paletas fixas e de fornecedores
 
-Uma paleta fixa só oferece as cores escolhidas. Após a eventual primeira redução, cada píxel não transparente vai para a cor disponível mais próxima no espaço Lab. É correspondência de cores da imagem, não simulação ótica de filamento.
+Selecione uma ou mais paletas. O Kromacut reduz a imagem ao número de cores pedido e procura as cores ativas mais próximas no espaço Lab. Várias cores podem corresponder à mesma cor da paleta. As versões anteriores faziam a correspondência diretamente. As ações de gestão aplicam-se à primeira paleta selecionada.
 
 As **Paletas de fornecedores** são referências não oficiais de nomes e cores hexadecimais anunciadas. Não garantem disponibilidade atual nem exatidão de impressão. Por exemplo, as cores Bambu usam a [tabela hexadecimal de filamentos da Bambu Lab](https://store.bblcdn.com/s7/default/1084369ef84345bbaa5d704a492954e0/Bambu_PLA_Basic_Hex_Code.pdf). O Kromacut não tem afiliação nem aprovação dos fabricantes.
 

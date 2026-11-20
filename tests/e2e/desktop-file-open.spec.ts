@@ -860,7 +860,8 @@ test('@smoke desktop startup imports legacy profiles; warm batches import/select
         paletteFile('Second palette'),
     ]);
     await expect(page.locator('#palette-select')).toContainText('Second palette');
-    await expect(page.locator('#final-colors')).toHaveValue('1');
+    await expect(page.locator('#final-colors')).toHaveValue('16');
+    await expect(page.locator('#final-colors')).toBeEnabled();
     expect((await profiles(page)).length).toBe(2);
     const savedPalettes = await page.evaluate(() =>
         JSON.parse(localStorage.getItem('kromacut.palettes') ?? '[]')

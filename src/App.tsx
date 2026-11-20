@@ -273,6 +273,8 @@ function App(): React.ReactElement | null {
         allPalettes,
         selectedPalette,
         setSelectedPalette,
+        selectedPaletteIds,
+        setSelectedPaletteIds,
         importFeedback: paletteImportFeedback,
         importInputRef: paletteImportInputRef,
         handleCreatePalette,
@@ -303,15 +305,6 @@ function App(): React.ReactElement | null {
     const [failedPaletteFileId, setFailedPaletteFileId] = useState<number | null>(null);
     const [completedPaletteFileId, setCompletedPaletteFileId] = useState<number | null>(null);
 
-    // Keep the postprocess color count in sync with the selected palette's
-    // enabled size. Edits, per-color toggles, clones, and imports all change
-    // the size without a re-selection, so the dropdown callback alone is not
-    // enough. Manual overrides persist until the palette or selection changes.
-    useEffect(() => {
-        if (selectedPalette === 'auto') return;
-        const pal = allPalettes.find((p) => p.id === selectedPalette);
-        if (pal && pal.size > 0) setFinalColors(pal.size);
-    }, [allPalettes, selectedPalette]);
     const {
         importFile,
         isImporting,
@@ -359,7 +352,7 @@ function App(): React.ReactElement | null {
         algorithm,
         weight,
         finalColors,
-        selectedPalette,
+        selectedPaletteIds,
         customPalettes,
         imageSrc,
         setImage: (u, push = true) => {
@@ -811,11 +804,7 @@ function App(): React.ReactElement | null {
                                             <ControlsPanel
                                                 // finalColors controls postprocessing result count
                                                 finalColors={finalColors}
-                                                onFinalColorsChange={(n) => {
-                                                    setFinalColors(n);
-                                                    // changing the final colors should switch to auto palette
-                                                    setSelectedPalette('auto');
-                                                }}
+                                                onFinalColorsChange={setFinalColors}
                                                 // weight remains the algorithm parameter
                                                 weight={weight}
                                                 onWeightChange={(n) => {
@@ -833,11 +822,8 @@ function App(): React.ReactElement | null {
                                                 applying={isQuantizing}
                                                 weightDisabled={algorithm === 'none'}
                                                 selectedPalette={selectedPalette}
-                                                onPaletteSelect={(id, size) => {
-                                                    setSelectedPalette(id);
-                                                    // set the postprocess target to the palette size, but do not lock it
-                                                    if (id !== 'auto') setFinalColors(size);
-                                                }}
+                                                selectedPaletteIds={selectedPaletteIds}
+                                                onPalettesSelect={setSelectedPaletteIds}
                                                 onReset={() => {
                                                     setFinalColors(16);
                                                     setWeight(128);

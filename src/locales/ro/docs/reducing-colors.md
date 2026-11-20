@@ -13,15 +13,13 @@ Decupează și redimensionează întâi. Dacă ai schimbat [ajustările imaginii
 
 ## Procesul în două etape
 
-![Intensitatea algoritmului limitează paleta intermediară; Numărul de culori sau o paletă fixă selectată controlează a doua etapă.](34_quantization_pipeline.svg)
-
 **Intensitatea algoritmului** și **Numărul de culori** au roluri diferite. K-means cu intensitatea 128 grupează mai întâi sursa în cel mult 128 de culori. Auto cu Număr de culori 16 unește apoi rezultatul în cel mult 16. Intensitatea nu este un procent, o opacitate sau un număr de filamente.
 
 | Câmp sau acțiune | Semnificație |
 | -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Paletă: Auto | Găsește culori dependente de imagine, apoi le limitează numărul. |
-| Paletă: încorporată, de furnizor sau personalizată | Mapează imaginea intermediară la culorile activate ale paletei selectate. Nu trebuie să apară fiecare culoare disponibilă. |
-| Număr de culori | Limita finală superioară pentru Auto: 2–256, implicit 16. Dezactivat pentru o paletă fixă. |
+| Paletă: încorporată, de furnizor sau personalizată | Reduce culorile și le asociază cu nuanțele active din toate paletele bifate. |
+| Număr de culori | Limită finală între 2 și 256, implicit 16. Limita rămâne editabilă când sunt alese palete. |
 | Intensitatea algoritmului | Bugetul paletei intermediare: 2–256, implicit 128. O valoare mai mare păstrează de obicei mai multe detalii intermediare, nu neapărat o potrivire finală mai bună. |
 | Algoritm | Metoda de reducere din prima etapă. Implicit: K-means. |
 | Aplică | Procesează imaginea de bază și creează un pas de anulare. Simpla schimbare a unei setări nu recolorează imaginea. |
@@ -37,7 +35,7 @@ Aceste metode grupează culori. Niciuna nu adaugă un model spațial de ditherin
 
 | Algoritm | Ce se schimbă | Comparație utilă |
 | ----------------------- | --------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| Niciunul (doar postprocesare) | Omite cuantizatorul primei etape; Intensitatea este dezactivată. Reducerea numărului final sau maparea la paleta fixă se execută în continuare. | Mapează direct o imagine curată la o paletă cunoscută. Nu este un comutator universal „lasă imaginea neschimbată”. |
+| Niciunul (doar postprocesare) | Sare peste prima reducere. Limita și asocierea cu paletele rămân active. | Mapează direct o imagine curată la o paletă cunoscută. Nu este un comutator universal „lasă imaginea neschimbată”. |
 | Posterizare | Împarte canalele RGB în trepte discrete, apoi aplică limita de intensitate. | Grafică intenționat în trepte; nivelurile disponibile ale canalelor se schimbă prin salturi discrete. |
 | Median-cut | Împarte distribuția culorilor în grupuri reprezentate de culori medii. | Compară când altă metodă pierde un grup tonal important. |
 | K-means | Găsește grupuri de culori ponderate cu numărul de pixeli, pornind de la o inițializare aleatorie. | Un punct de pornire pentru fotografii și imagini mixte. Rulările pe aceeași sursă pot diferi ușor. |
@@ -48,7 +46,7 @@ Nu există un algoritm universal optim. Inspectează subiectul, literele mici ș
 
 ## Palete fixe și de furnizor
 
-O paletă fixă oferă numai culorile sale selectate. După orice reducere din prima etapă, fiecare pixel netransparent este mapat la cea mai apropiată culoare disponibilă în spațiul de culoare Lab. Este potrivirea culorilor imaginii, nu simularea optică a filamentelor.
+Bifează una sau mai multe palete. Kromacut reduce imaginea la numărul cerut și alege cele mai apropiate culori active în spațiul Lab. Mai multe culori se pot asocia cu aceeași culoare din paletă. Versiunile anterioare făceau asocierea direct. Comenzile de gestionare se aplică primei palete selectate.
 
 **Paletele furnizorilor** sunt seturi de referință neoficiale cu nume de filamente și culori hexazecimale publicate. Nu garantează disponibilitatea actuală a produselor sau precizia culorilor imprimate. De exemplu, culorile de referință Bambu folosesc [tabelul hexazecimal de filamente Bambu Lab](https://store.bblcdn.com/s7/default/1084369ef84345bbaa5d704a492954e0/Bambu_PLA_Basic_Hex_Code.pdf). Kromacut nu este afiliat și nu este susținut de producători.
 

@@ -8,6 +8,7 @@ export const CURRENT_PALETTE_VERSION = 2;
 const PALETTES_STORAGE_KEY = 'kromacut.palettes';
 const LAST_PALETTE_KEY = 'kromacut.palettes.lastId';
 const SELECTED_PALETTE_KEY = 'kromacut.palettes.selected';
+const SELECTED_PALETTES_KEY = 'kromacut.selectedPaletteIds';
 
 /* ---------------------------------------------------------------------------
  * localStorage helpers
@@ -18,16 +19,11 @@ const SELECTED_PALETTE_KEY = 'kromacut.palettes.selected';
  * in-range integer indices, sorted ascending. Returns undefined (all enabled)
  * when the value is missing/invalid, empty, or would disable every color.
  */
-export function normalizeDisabledColors(
-    colors: string[],
-    disabled: unknown
-): number[] | undefined {
+export function normalizeDisabledColors(colors: string[], disabled: unknown): number[] | undefined {
     if (!Array.isArray(disabled)) return undefined;
     const indices = [
         ...new Set(
-            disabled.filter(
-                (i): i is number => Number.isInteger(i) && i >= 0 && i < colors.length
-            )
+            disabled.filter((i): i is number => Number.isInteger(i) && i >= 0 && i < colors.length)
         ),
     ].sort((a, b) => a - b);
     if (indices.length === 0 || indices.length >= colors.length) return undefined;
@@ -106,11 +102,11 @@ export function loadCustomPalettes(reservedIds?: Set<string>): CustomPalette[] {
         // stored references to the same custom palette. Never update a
         // reference when the primary migration was rejected by storage.
         if (migrated && saveCustomPalettes(palettes)) {
-            const selectedPaletteId = loadSelectedPalette();
-            const reassignedSelectedPaletteId = selectedPaletteId
-                ? reassignedPaletteIds.get(selectedPaletteId)
-                : undefined;
-            if (reassignedSelectedPaletteId) saveSelectedPalette(reassignedSelectedPaletteId);
+            const selectedIds = loadSelectedPaletteIds();
+            const reassigned = selectedIds.map((id) => reassignedPaletteIds.get(id) ?? id);
+            if (selectedIds.some((id, i) => id !== reassigned[i])) {
+                saveSelectedPaletteIds(reassigned);
+            }
 
             // This legacy pointer is not used by the current hook, but remains
             // a public compatibility key and must not be left dangling.
@@ -170,6 +166,29 @@ export function saveSelectedPalette(id: string) {
     } catch {
         // ignore
     }
+}
+
+/** Reads the single-palette key for users upgrading from an older release. */
+export function loadSelectedPaletteIds(): string[] {
+    try {
+        const saved = JSON.parse(localStorage.getItem(SELECTED_PALETTES_KEY) ?? 'null');
+        if (Array.isArray(saved) && saved.every((id) => typeof id === 'string')) {
+            return [...new Set(saved)].filter((id) => id && id !== 'auto');
+        }
+    } catch {
+        // Fall back to the legacy selection when storage is unavailable or malformed.
+    }
+    const previous = loadSelectedPalette();
+    return previous && previous !== 'auto' ? [previous] : [];
+}
+
+export function saveSelectedPaletteIds(ids: string[]) {
+    try {
+        localStorage.setItem(SELECTED_PALETTES_KEY, JSON.stringify(ids));
+    } catch {
+        // Keep the session selection when storage is unavailable.
+    }
+    saveSelectedPalette(ids[0] ?? 'auto');
 }
 
 /* ---------------------------------------------------------------------------

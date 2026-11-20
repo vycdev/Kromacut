@@ -13,15 +13,13 @@ Schneide das Bild zuerst zu und skaliere es. Hast du [Bildanpassungen](image-adj
 
 ## Die zweistufige Verarbeitung
 
-![Algorithmusstärke begrenzt die Zwischenpalette; Anzahl der Farben oder eine gewählte feste Palette steuert die zweite Stufe.](34_quantization_pipeline.svg)
-
 **Algorithmusstärke** und **Anzahl der Farben** haben unterschiedliche Aufgaben. K-Means mit Stärke 128 gruppiert die Quelle zunächst in bis zu 128 Farben. Automatisch mit Anzahl der Farben 16 führt dieses Ergebnis anschließend auf höchstens 16 zusammen. Stärke ist weder ein Prozentsatz noch Deckkraft oder Filamentanzahl.
 
 | Feld oder Aktion | Bedeutung |
 | -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Palette: Automatisch | Findet bildabhängige Farben und begrenzt anschließend ihre Anzahl. |
-| Palette: integriert, Hersteller oder eigene | Ordnet das Zwischenbild den aktivierten Farben der gewählten Palette zu. Nicht jede verfügbare Farbe muss vorkommen. |
-| Anzahl der Farben | Endgültige Obergrenze für Automatisch: 2 bis 256, Standard 16. Bei fester Palette deaktiviert. |
+| Palette: integriert, Hersteller oder eigene | Die Bildfarben werden zuerst reduziert und dann den aktivierten Farben aller gewählten Paletten zugeordnet. |
+| Anzahl der Farben | Obergrenze für das Ergebnis: 2 bis 256, standardmäßig 16. Sie bleibt bei gewählten Paletten einstellbar. |
 | Algorithmusstärke | Budget der Zwischenpalette: 2 bis 256, Standard 128. Ein höherer Wert erhält meist mehr Zwischendetails, liefert aber nicht unbedingt eine bessere endgültige Zuordnung. |
 | Algorithmus | Reduktionsmethode der ersten Stufe. Standard: K-Means. |
 | Anwenden | Verarbeitet das zugrunde liegende Bild und erzeugt einen Rückgängig-Schritt. Das Ändern einer Einstellung allein färbt es nicht um. |
@@ -37,7 +35,7 @@ Diese Methoden gruppieren Farben. Keine fügt ein räumliches Dither-Muster hinz
 
 | Algorithmus | Was sich ändert | Sinnvoller Vergleich |
 | ----------------------- | --------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| Keiner (nur Nachbearbeitung) | Überspringt die erste Quantisierungsstufe; Stärke ist deaktiviert. Die abschließende Anzahlreduktion oder Zuordnung zur festen Palette läuft weiterhin. | Saubere Grafiken direkt einer bekannten Palette zuordnen. Kein allgemeiner Schalter für „Bild unverändert lassen“. |
+| Keiner (nur Nachbearbeitung) | Überspringt die erste Reduktion. Farblimit und Palettenzuordnung bleiben aktiv. | Saubere Grafiken direkt einer bekannten Palette zuordnen. Kein allgemeiner Schalter für „Bild unverändert lassen“. |
 | Tontrennung | Teilt RGB-Kanäle in diskrete Stufen und setzt danach das Stärkebudget durch. | Bewusst abgestufte Grafiken; verfügbare Kanalstufen ändern sich sprunghaft. |
 | Median-Cut | Teilt die Farbverteilung in Gruppen, die durch Durchschnittsfarben repräsentiert werden. | Vergleichen, wenn eine andere Methode eine wichtige Tonwertgruppe verliert. |
 | K-Means | Findet nach Pixelanzahl gewichtete Farbcluster mit zufälliger Initialisierung. | Ein Ausgangspunkt für Fotos und gemischte Motive. Durchläufe derselben Quelle können sich leicht unterscheiden. |
@@ -48,7 +46,7 @@ Es gibt keinen allgemein besten Algorithmus. Prüfe Motiv, kleine Schrift und wi
 
 ## Feste Paletten und Herstellerpaletten
 
-Eine feste Palette bietet nur ihre ausgewählten Farben. Nach einer eventuellen ersten Reduktionsstufe wird jeder nichttransparente Pixel der nächstgelegenen verfügbaren Farbe im Lab-Farbraum zugeordnet. Dies ist eine Bildfarbabstimmung, keine optische Filamentsimulation.
+Wähle eine oder mehrere Paletten. Kromacut reduziert zuerst auf die gewünschte Farbanzahl und ordnet die Farben dann den nächstgelegenen aktivierten Palettenfarben im Lab-Farbraum zu. Mehrere Farben können dieselbe Palettenfarbe ergeben. Frühere Versionen ordneten direkt zur Palette zu. Die Verwaltungsaktionen gelten für die zuerst gewählte Palette.
 
 **Herstellerpaletten** sind inoffizielle Referenzsets aus Filamentnamen und beworbenen Hex-Farben. Sie garantieren weder aktuelle Produktverfügbarkeit noch Genauigkeit der Druckfarben. Die Bambu-Referenzfarben verwenden beispielsweise [Bambu Labs Filament-Hex-Tabelle](https://store.bblcdn.com/s7/default/1084369ef84345bbaa5d704a492954e0/Bambu_PLA_Basic_Hex_Code.pdf). Kromacut ist weder mit Herstellern verbunden noch wird es von ihnen unterstützt oder empfohlen.
 

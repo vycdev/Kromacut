@@ -13,15 +13,13 @@ Ritaglia e ridimensiona prima. Se hai cambiato le [regolazioni dell’immagine](
 
 ## Il processo in due fasi
 
-![Peso algoritmo limita la tavolozza intermedia; Numero di colori o una tavolozza fissa controlla la seconda fase.](34_quantization_pipeline.svg)
-
 **Peso algoritmo** e **Numero di colori** hanno ruoli diversi. K-means con peso 128 raggruppa prima in un massimo di 128 colori. Automatico con numero 16 fonde poi fino a 16. Peso non è percentuale, opacità né numero di filamenti.
 
 | Campo o azione | Significato |
 | -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Tavolozza: Automatico | Trova colori dipendenti dall’immagine, poi ne limita il numero. |
-| Tavolozza: integrata, fornitore o personalizzata | Mappa l’intermedio sui colori abilitati. Non tutti quelli disponibili devono apparire. |
-| Numero di colori | Limite finale Automatico: 2–256, predefinito 16. Disattivato per tavolozza fissa. |
+| Tavolozza: integrata, fornitore o personalizzata | Riduce i colori e li associa ai colori attivi di tutte le tavolozze selezionate. |
+| Numero di colori | Limite finale da 2 a 256, con 16 come valore predefinito. Resta modificabile con le tavolozze selezionate. |
 | Peso algoritmo | Budget intermedio: 2–256, predefinito 128. Più alto conserva in genere più dettaglio intermedio, non necessariamente migliore corrispondenza finale. |
 | Algoritmo | Metodo della prima fase. Predefinito: K-means. |
 | Applica | Elabora l’immagine sottostante e crea un passo Annulla. Cambiare un’impostazione da solo non ricolora. |
@@ -37,7 +35,7 @@ Questi metodi raggruppano colori. Nessuno aggiunge dithering spaziale né garant
 
 | Algoritmo | Cosa cambia | Confronto utile |
 | ----------------------- | --------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| Nessuno (solo post-elaborazione) | Salta il quantizzatore iniziale; Peso disattivato. Riduzione finale o mappatura fissa avvengono comunque. | Mappare direttamente grafica pulita su tavolozza nota. Non è un’opzione universale per lasciare tutto invariato. |
+| Nessuno (solo post-elaborazione) | Salta la prima riduzione. Il limite di colori e l’associazione alla tavolozza restano attivi. | Mappare direttamente grafica pulita su tavolozza nota. Non è un’opzione universale per lasciare tutto invariato. |
 | Posterizza | Divide i canali RGB in livelli discreti, poi applica Peso. | Grafica volutamente a gradini; i livelli disponibili cambiano per salti. |
 | Median-cut | Divide la distribuzione in gruppi rappresentati da medie. | Confrontare quando un altro metodo perde un gruppo tonale importante. |
 | K-means | Trova gruppi pesati per numero di pixel con inizializzazione casuale. | Partenza per foto e grafica mista. Esecuzioni uguali possono differire leggermente. |
@@ -48,7 +46,7 @@ Non esiste un algoritmo universalmente migliore. Controlla soggetto, scritte pic
 
 ## Tavolozze fisse e dei fornitori
 
-Una tavolozza fissa offre solo i colori scelti. Dopo l’eventuale prima riduzione, ogni pixel non trasparente va al colore disponibile più vicino in Lab. È corrispondenza d’immagine, non simulazione ottica dei filamenti.
+Seleziona una o più tavolozze. Kromacut riduce l’immagine al numero richiesto e associa i colori ai più vicini tra quelli attivi nello spazio Lab. Più colori possono corrispondere allo stesso colore della tavolozza. Le versioni precedenti eseguivano direttamente l’associazione. Le azioni di gestione si applicano alla prima tavolozza selezionata.
 
 Le **Tavolozze dei fornitori** sono riferimenti non ufficiali di nomi e colori esadecimali dichiarati. Non garantiscono disponibilità attuale né colore stampato. Per esempio Bambu usa la [tabella esadecimale dei filamenti Bambu Lab](https://store.bblcdn.com/s7/default/1084369ef84345bbaa5d704a492954e0/Bambu_PLA_Basic_Hex_Code.pdf). Kromacut non è affiliato né approvato dai produttori.
 
