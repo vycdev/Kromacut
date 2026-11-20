@@ -16,6 +16,7 @@ import {
     arePrintSettingsDefault,
     loadPrintSettingsFromStorage,
     savePrintSettingsToStorage,
+    type PrintSettings,
     DEFAULT_PRINT_SETTINGS,
     DEFAULT_EFFECTIVE_LINE_WIDTH,
 } from '../lib/printSettingsStorage';
@@ -70,6 +71,7 @@ interface ThreeDControlsProps {
      * when the user switches away from 3D mode and comes back later.
      */
     persisted?: ThreeDControlsStateShape | null;
+    projectPrintSettings?: PrintSettings;
     /** Whether `persisted.filaments` belongs to an authoritative saved or in-session workspace. */
     hasAutoPaintWorkingState?: boolean;
     desktopProfileFile?: DesktopFileRequest | null;
@@ -94,6 +96,7 @@ export default function ThreeDControls({
     onChange,
     onSettingsChange,
     persisted,
+    projectPrintSettings,
     hasAutoPaintWorkingState = false,
     desktopProfileFile = null,
     onDesktopFileFinished,
@@ -166,6 +169,7 @@ export default function ThreeDControls({
 
     // --- Print Settings ---
     const [initialPrintSettings] = useState(() => {
+        if (projectPrintSettings) return projectPrintSettings;
         const stored = loadPrintSettingsFromStorage();
         const storedSmoothMeshingStrength =
             stored?.smoothMeshingStrength ??
@@ -320,6 +324,9 @@ export default function ThreeDControls({
             optimizerAlgorithm,
             optimizerSeed,
             regionWeightingMode,
+            layerHeight,
+            slicerFirstLayerHeight,
+            pixelSize,
             smoothMeshingStrength,
             multiHeadMode,
             multiHeadCount,
@@ -346,6 +353,9 @@ export default function ThreeDControls({
         optimizerAlgorithm,
         optimizerSeed,
         regionWeightingMode,
+        layerHeight,
+        slicerFirstLayerHeight,
+        pixelSize,
         smoothMeshingStrength,
         multiHeadMode,
         multiHeadCount,
@@ -354,13 +364,20 @@ export default function ThreeDControls({
     ]);
 
     useEffect(() => {
+        if (projectPrintSettings) return;
         savePrintSettingsToStorage({
             layerHeight,
             slicerFirstLayerHeight,
             pixelSize,
             smoothMeshingStrength,
         });
-    }, [layerHeight, slicerFirstLayerHeight, pixelSize, smoothMeshingStrength]);
+    }, [
+        layerHeight,
+        slicerFirstLayerHeight,
+        pixelSize,
+        smoothMeshingStrength,
+        projectPrintSettings,
+    ]);
 
     // --- Color Slicing ---
     const {

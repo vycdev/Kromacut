@@ -257,5 +257,19 @@
         "instructionsVertical": "按空格键或 Enter 键抓取排序项。拖动时使用上下方向键移动。再次按空格键或 Enter 键将其放到新位置，或按 Esc 键取消。",
         "instructionsHorizontal": "按空格键或 Enter 键抓取排序项。拖动时使用左右方向键移动。再次按空格键或 Enter 键将其放到新位置，或按 Esc 键取消。",
         "instructionsGrid": "按空格键或 Enter 键抓取排序项。拖动时使用方向键移动。再次按空格键或 Enter 键将其放到新位置，或按 Esc 键取消。"
+    },
+    "project": {
+        "title": "项目",
+        "name": "项目名称",
+        "save": "保存项目",
+        "open": "打开项目",
+        "busy": "处理中…",
+        "saved": "项目已保存。",
+        "opened": "项目已打开。需要时请重新生成3D模型。",
+        "error": "无法读取或保存项目。当前会话已保留。",
+        "version": "不支持此项目版本。",
+        "tooLarge": "项目超过大小限制。",
+        "replace": "打开将替换当前会话。如需保留，请先保存。",
+        "cancel": "取消"
     }
 }

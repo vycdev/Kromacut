@@ -257,5 +257,19 @@
         "instructionsVertical": "To pick up a sortable item, press space or enter. While dragging, use the up and down keys to move the item. Press space or enter again to drop the item in its new position, or press escape to cancel.",
         "instructionsHorizontal": "To pick up a sortable item, press space or enter. While dragging, use the left and right keys to move the item. Press space or enter again to drop the item in its new position, or press escape to cancel.",
         "instructionsGrid": "To pick up a sortable item, press space or enter. While dragging, use the arrow keys to move the item. Press space or enter again to drop the item in its new position, or press escape to cancel."
+    },
+    "project": {
+        "title": "Project",
+        "name": "Project name",
+        "save": "Save project",
+        "open": "Open project",
+        "busy": "Working…",
+        "saved": "Project saved.",
+        "opened": "Project opened. Rebuild 3D when needed.",
+        "error": "Project could not be read or saved. Current session retained.",
+        "version": "This project version is unsupported.",
+        "tooLarge": "Project exceeds size limits.",
+        "replace": "Opening replaces this session. Save it first if you want to keep it.",
+        "cancel": "Cancel"
     }
 }

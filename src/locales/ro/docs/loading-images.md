@@ -89,3 +89,9 @@ Nu folosi **Șterge** pe mostră în acest scop: remapează culorile, nu face pi
 **Elimină imaginea** golește spațiul de lucru, nu setările. Nu te baza pe ea ca editare reversibilă: nu adaugă imaginea eliminată ca pas nou de anulare. Descarcă întâi o copie dacă trebuie să o păstrezi.
 
 În continuare: [Ajustările imaginii](image-adjustments).
+
+## Salvarea și deschiderea proiectelor
+
+**Salvează proiectul** include imaginea, ajustările, cuantizarea, paleta selectată, setările de imprimare și filamentele de lucru într-un fișier `.kromacut`. Confirmă **Deschide proiectul** pentru a înlocui sesiunea. O paletă personalizată absentă este copiată. Setările de imprimare salvate se păstrează.
+
+La deschidere începe un istoric nou. Reconstruiește modelul 3D când este necesar. Limita este de 16 megapixeli și 128 MiB.

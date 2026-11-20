@@ -260,5 +260,19 @@
     "instructionsVertical": "Para seleccionar un elemento ordenable, pulsa Espacio o Intro. Mientras lo arrastras, usa las flechas arriba y abajo para moverlo. Pulsa de nuevo Espacio o Intro para soltarlo en su nueva posición, o Escape para cancelar.",
     "instructionsHorizontal": "Para seleccionar un elemento ordenable, pulsa Espacio o Intro. Mientras lo arrastras, usa las flechas izquierda y derecha para moverlo. Pulsa de nuevo Espacio o Intro para soltarlo en su nueva posición, o Escape para cancelar.",
     "instructionsGrid": "Para seleccionar un elemento ordenable, pulsa Espacio o Intro. Mientras lo arrastras, usa las teclas de flecha para moverlo. Pulsa de nuevo Espacio o Intro para soltarlo en su nueva posición, o Escape para cancelar."
+  },
+  "project": {
+    "title": "Proyecto",
+    "name": "Nombre del proyecto",
+    "save": "Guardar proyecto",
+    "open": "Abrir proyecto",
+    "busy": "Procesando…",
+    "saved": "Proyecto guardado.",
+    "opened": "Proyecto abierto. Reconstruye el 3D cuando lo necesites.",
+    "error": "No se pudo leer o guardar. Se conserva la sesión actual.",
+    "version": "Versión de proyecto no compatible.",
+    "tooLarge": "El proyecto supera los límites de tamaño.",
+    "replace": "Abrir reemplaza esta sesión. Guárdala primero si quieres conservarla.",
+    "cancel": "Cancelar"
   }
 }

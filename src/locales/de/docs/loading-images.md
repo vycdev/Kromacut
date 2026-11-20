@@ -89,3 +89,9 @@ Verwende dafür nicht **Löschen** am Farbfeld: Es ordnet Farben neu zu, statt P
 **Bild entfernen** leert den Arbeitsbereich, nicht die Einstellungen. Verlasse dich nicht darauf, diese Aktion rückgängig machen zu können: Das entfernte Bild wird nicht als neuer Rückgängig-Schritt hinzugefügt. Lade vorher eine Kopie herunter, wenn du es erhalten möchtest.
 
 Weiter: [Bildanpassungen](image-adjustments).
+
+## Projekte speichern und öffnen
+
+**Projekt speichern** bündelt Bild, Anpassungen, Quantisierung, ausgewählte Palette, Druckeinstellungen und Arbeitsfilamente in einer `.kromacut`-Datei. Bestätige **Projekt öffnen**, um die Sitzung zu ersetzen. Eine fehlende eigene Palette wird als Kopie hinzugefügt. Gespeicherte Druckvorgaben bleiben erhalten.
+
+Nach dem Öffnen beginnt ein neuer Bearbeitungsverlauf. Erstelle das 3D-Modell bei Bedarf erneut. Projektbilder sind auf 16 Megapixel und die Datei auf 128 MiB begrenzt.

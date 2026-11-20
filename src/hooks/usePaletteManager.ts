@@ -250,6 +250,36 @@ export function usePaletteManager() {
         [importText]
     );
 
+    const restoreProjectPalette = useCallback(
+        (id: string, palette?: CustomPalette) => {
+            if (RESERVED_PALETTE_IDS.has(id)) {
+                setSelectedPaletteState(id);
+                return;
+            }
+            if (id.startsWith('sup_') || !palette) {
+                setSelectedPaletteState(
+                    customPalettesRef.current.some((existing) => existing.id === id) ? id : 'auto'
+                );
+                return;
+            }
+            const existing = customPalettesRef.current;
+            // Imported project data must not overwrite a palette with the same ID.
+            const result = importCustomPalettes(
+                existing,
+                [{ ...palette, id: '' }],
+                RESERVED_PALETTE_IDS
+            );
+            const selected = result.resolved[0];
+            if (!selected) throw new Error('invalid');
+            if (result.imported.length && !saveCustomPalettes(result.palettes)) {
+                throw new Error('storage');
+            }
+            if (result.imported.length) setCustomPalettes(result.palettes);
+            setSelectedPaletteState(selected.id);
+        },
+        [setCustomPalettes]
+    );
+
     // Clear import feedback after a few seconds
     useEffect(() => {
         if (!importFeedback) return;
@@ -271,6 +301,7 @@ export function usePaletteManager() {
         allPalettes,
         selectedPalette,
         setSelectedPalette,
+        restoreProjectPalette,
         findPalette,
         importFeedback,
         importInputRef,

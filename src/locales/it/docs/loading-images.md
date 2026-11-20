@@ -89,3 +89,9 @@ Non usare **Elimina** sul campione: rimappa anziché rendere trasparente. Vedi [
 **Rimuovi immagine** svuota l’area, non le impostazioni. Non considerarla reversibile: non aggiunge l’immagine rimossa come nuovo passo Annulla. Scarica prima una copia se serve conservarla.
 
 Successivo: [Regolazioni dell’immagine](image-adjustments).
+
+## Salvare e aprire progetti
+
+**Salva progetto** raccoglie immagine, regolazioni, quantizzazione, tavolozza selezionata, impostazioni di stampa e filamenti di lavoro in un file `.kromacut`. Conferma **Apri progetto** per sostituire la sessione. Una tavolozza personalizzata mancante viene copiata. Le impostazioni di stampa salvate restano disponibili.
+
+All’apertura la cronologia riparte da zero. Ricrea il modello 3D quando serve. Limite di 16 megapixel e 128 MiB.
