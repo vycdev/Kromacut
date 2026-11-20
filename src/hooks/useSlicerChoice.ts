@@ -28,6 +28,14 @@ export function useSlicerChoice(openInSlicer: (slicer: SlicerApp | null) => Prom
     // with the current mesh, not the settings captured when Open in Slicer was clicked.
     const openInSlicerRef = useRef(openInSlicer);
     openInSlicerRef.current = openInSlicer;
+    // The Open in Slicer click whose saved-slicer check may still act. Showing any chooser
+    // clears it, so a late check result never replaces or launches over that chooser.
+    const pendingOpenRef = useRef<object | null>(null);
+
+    const showChooser = useCallback((request: SlicerChooserRequest) => {
+        pendingOpenRef.current = null;
+        setChooser(request);
+    }, []);
 
     const updatePreference = useCallback((next: SlicerPreference | null) => {
         saveSlicerPreference(next);
@@ -39,34 +47,40 @@ export function useSlicerChoice(openInSlicer: (slicer: SlicerApp | null) => Prom
         const preference = preferenceRef.current;
         if (preference?.kind === 'system') return openInSlicer(null);
         if (preference?.kind === 'app') {
+            const request = {};
+            pendingOpenRef.current = request;
+            // Changed in Settings, a chooser shown, or another click during the check: the
+            // newer action wins, so do nothing.
+            const superseded = () =>
+                preferenceRef.current !== preference || pendingOpenRef.current !== request;
             let found: SlicerApp | null;
             try {
                 found = await findSlicerApp(preference.app.path);
             } catch (err) {
-                if (preferenceRef.current !== preference) return;
+                if (superseded()) return;
                 console.warn('Checking the saved slicer failed', err);
-                setChooser({ missingSlicerName: null, saveOnly: false });
+                showChooser({ missingSlicerName: null, saveOnly: false });
                 return;
             }
-            // Changed in Settings during the check: the newer choice wins, so do nothing.
-            if (preferenceRef.current !== preference) return;
+            if (superseded()) return;
+            pendingOpenRef.current = null;
             if (found) return openInSlicerRef.current(found);
             // The slicer was moved or uninstalled: forget it and ask again.
             updatePreference(null);
-            setChooser({ missingSlicerName: preference.app.name, saveOnly: false });
+            showChooser({ missingSlicerName: preference.app.name, saveOnly: false });
             return;
         }
-        setChooser({ missingSlicerName: null, saveOnly: false });
-    }, [openInSlicer, updatePreference]);
+        showChooser({ missingSlicerName: null, saveOnly: false });
+    }, [openInSlicer, showChooser, updatePreference]);
 
     const onChooseSlicer = useCallback(
-        () => setChooser({ missingSlicerName: null, saveOnly: false }),
-        []
+        () => showChooser({ missingSlicerName: null, saveOnly: false }),
+        [showChooser]
     );
 
     const onChangeSavedSlicer = useCallback(
-        () => setChooser({ missingSlicerName: null, saveOnly: true }),
-        []
+        () => showChooser({ missingSlicerName: null, saveOnly: true }),
+        [showChooser]
     );
 
     const onForgetSlicer = useCallback(() => updatePreference(null), [updatePreference]);
