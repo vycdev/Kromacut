@@ -89,3 +89,9 @@ Não use **Eliminar** na amostra: remapeia cores em vez de tornar píxeis transp
 **Remover imagem** limpa a área, não as definições. Não conte com reversibilidade: não acrescenta a imagem removida como novo passo de Anular. Transfira uma cópia antes se a quiser preservar.
 
 Seguinte: [Ajustes de imagem](image-adjustments).
+
+## Guardar e abrir projetos
+
+**Guardar projeto** inclui a imagem, os ajustes, a quantização, a paleta selecionada, as definições de impressão e os filamentos de trabalho num ficheiro `.kromacut`. Confirme **Abrir projeto** para substituir a sessão. Uma paleta personalizada em falta é copiada. As predefinições de impressão são preservadas.
+
+Ao abrir começa um novo histórico. Reconstrua o modelo 3D quando necessário. Limite de 16 megapíxeis e 128 MiB.

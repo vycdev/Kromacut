@@ -257,5 +257,19 @@
     "instructionsVertical": "Drücke die Leertaste oder Eingabetaste, um ein sortierbares Element aufzunehmen. Verschiebe es beim Ziehen mit den Pfeiltasten nach oben und unten. Drücke erneut die Leertaste oder Eingabetaste, um es an der neuen Position abzulegen, oder Esc, um abzubrechen.",
     "instructionsHorizontal": "Drücke die Leertaste oder Eingabetaste, um ein sortierbares Element aufzunehmen. Verschiebe es beim Ziehen mit den Pfeiltasten nach links und rechts. Drücke erneut die Leertaste oder Eingabetaste, um es an der neuen Position abzulegen, oder Esc, um abzubrechen.",
     "instructionsGrid": "Drücke die Leertaste oder Eingabetaste, um ein sortierbares Element aufzunehmen. Verschiebe es beim Ziehen mit den Pfeiltasten. Drücke erneut die Leertaste oder Eingabetaste, um es an der neuen Position abzulegen, oder Esc, um abzubrechen."
+  },
+  "project": {
+    "title": "Projekt",
+    "name": "Projektname",
+    "save": "Projekt speichern",
+    "open": "Projekt öffnen",
+    "busy": "Wird verarbeitet…",
+    "saved": "Projekt gespeichert.",
+    "opened": "Projekt geöffnet. 3D bei Bedarf neu erstellen.",
+    "error": "Projekt konnte nicht gelesen oder gespeichert werden. Sitzung bleibt erhalten.",
+    "version": "Diese Projektversion wird nicht unterstützt.",
+    "tooLarge": "Projekt überschreitet die Größenbegrenzung.",
+    "replace": "Öffnen ersetzt diese Sitzung. Zum Behalten zuerst speichern.",
+    "cancel": "Abbrechen"
   }
 }

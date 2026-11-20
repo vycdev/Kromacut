@@ -260,5 +260,19 @@
     "instructionsVertical": "Pour saisir un élément à trier, appuyez sur Espace ou Entrée. Pendant le déplacement, utilisez les flèches haut et bas. Appuyez à nouveau sur Espace ou Entrée pour déposer l’élément à sa nouvelle position, ou sur Échap pour annuler.",
     "instructionsHorizontal": "Pour saisir un élément à trier, appuyez sur Espace ou Entrée. Pendant le déplacement, utilisez les flèches gauche et droite. Appuyez à nouveau sur Espace ou Entrée pour déposer l’élément à sa nouvelle position, ou sur Échap pour annuler.",
     "instructionsGrid": "Pour saisir un élément à trier, appuyez sur Espace ou Entrée. Pendant le déplacement, utilisez les touches fléchées. Appuyez à nouveau sur Espace ou Entrée pour déposer l’élément à sa nouvelle position, ou sur Échap pour annuler."
+  },
+  "project": {
+    "title": "Projet",
+    "name": "Nom du projet",
+    "save": "Enregistrer le projet",
+    "open": "Ouvrir un projet",
+    "busy": "Traitement…",
+    "saved": "Projet enregistré.",
+    "opened": "Projet ouvert. Reconstruisez la 3D au besoin.",
+    "error": "Lecture ou enregistrement impossible. Session actuelle conservée.",
+    "version": "Version du projet non prise en charge.",
+    "tooLarge": "Le projet dépasse les limites de taille.",
+    "replace": "L’ouverture remplace cette session. Enregistrez-la d’abord pour la conserver.",
+    "cancel": "Annuler"
   }
 }

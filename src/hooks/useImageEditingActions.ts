@@ -12,6 +12,7 @@ import type { useQuantize } from './useQuantize';
 
 interface Params {
     imageSrc: string | null;
+    workspaceLock?: { readonly current: boolean };
     imageCanvasLoading: boolean;
     canvasPreviewRef: RefObject<CanvasPreviewHandle | null>;
     inputRef: RefObject<HTMLInputElement | null>;
@@ -38,6 +39,7 @@ interface Params {
 /** Own the edit lifecycle without changing image history or the shared canvas cache. */
 export function useImageEditingActions({
     imageSrc,
+    workspaceLock,
     imageCanvasLoading,
     canvasPreviewRef,
     inputRef,
@@ -62,12 +64,15 @@ export function useImageEditingActions({
     // Synchronous ownership closes the gap before React renders the processing flag.
     const operation = useRef({ busy: false, generation: 0 });
     const beginEdit = () => {
-        if (operation.current.busy) return null;
+        if (operation.current.busy || workspaceLock?.current) return null;
         const current = beginGuardedEdit();
         if (!current) return null;
         const generation = operation.current.generation;
         return () =>
-            current() && !operation.current.busy && generation === operation.current.generation;
+            current() &&
+            !workspaceLock?.current &&
+            !operation.current.busy &&
+            generation === operation.current.generation;
     };
     const beginProcessingEdit = () => {
         if (imageCanvasLoading || !beginEdit() || !imageSrc) return null;

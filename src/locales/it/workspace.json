@@ -260,5 +260,19 @@
     "instructionsVertical": "Per prendere un elemento riordinabile, premi Spazio o Invio. Durante il trascinamento, usa le frecce Su e Giù per spostarlo. Premi di nuovo Spazio o Invio per rilasciarlo nella nuova posizione, oppure Esc per annullare.",
     "instructionsHorizontal": "Per prendere un elemento riordinabile, premi Spazio o Invio. Durante il trascinamento, usa le frecce Sinistra e Destra per spostarlo. Premi di nuovo Spazio o Invio per rilasciarlo nella nuova posizione, oppure Esc per annullare.",
     "instructionsGrid": "Per prendere un elemento riordinabile, premi Spazio o Invio. Durante il trascinamento, usa le frecce per spostarlo. Premi di nuovo Spazio o Invio per rilasciarlo nella nuova posizione, oppure Esc per annullare."
+  },
+  "project": {
+    "title": "Progetto",
+    "name": "Nome del progetto",
+    "save": "Salva progetto",
+    "open": "Apri progetto",
+    "busy": "Elaborazione…",
+    "saved": "Progetto salvato.",
+    "opened": "Progetto aperto. Ricostruisci il 3D quando serve.",
+    "error": "Lettura o salvataggio non riusciti. Sessione attuale conservata.",
+    "version": "Versione del progetto non supportata.",
+    "tooLarge": "Il progetto supera i limiti di dimensione.",
+    "replace": "L’apertura sostituisce questa sessione. Salvala prima per conservarla.",
+    "cancel": "Annulla"
   }
 }

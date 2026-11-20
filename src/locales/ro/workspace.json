@@ -260,5 +260,19 @@
     "instructionsVertical": "Pentru a prelua un element reordonabil, apasă Spațiu sau Enter. În timpul tragerii, folosește săgețile Sus și Jos pentru a-l muta. Apasă din nou Spațiu sau Enter pentru a-l plasa în noua poziție, ori Escape pentru a anula.",
     "instructionsHorizontal": "Pentru a prelua un element reordonabil, apasă Spațiu sau Enter. În timpul tragerii, folosește săgețile Stânga și Dreapta pentru a-l muta. Apasă din nou Spațiu sau Enter pentru a-l plasa în noua poziție, ori Escape pentru a anula.",
     "instructionsGrid": "Pentru a prelua un element reordonabil, apasă Spațiu sau Enter. În timpul tragerii, folosește săgețile pentru a-l muta. Apasă din nou Spațiu sau Enter pentru a-l plasa în noua poziție, ori Escape pentru a anula."
+  },
+  "project": {
+    "title": "Proiect",
+    "name": "Numele proiectului",
+    "save": "Salvează proiectul",
+    "open": "Deschide proiectul",
+    "busy": "Se procesează…",
+    "saved": "Proiect salvat.",
+    "opened": "Proiect deschis. Reconstruiește 3D când este nevoie.",
+    "error": "Citirea sau salvarea a eșuat. Sesiunea curentă este păstrată.",
+    "version": "Versiune de proiect neacceptată.",
+    "tooLarge": "Proiectul depășește limitele de mărime.",
+    "replace": "Deschiderea înlocuiește sesiunea. Salveaz-o mai întâi dacă vrei s-o păstrezi.",
+    "cancel": "Anulează"
   }
 }

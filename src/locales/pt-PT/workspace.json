@@ -260,5 +260,19 @@
     "instructionsVertical": "Para selecionar um item ordenável, prima Espaço ou Enter. Durante o arrastamento, use as setas para cima e para baixo para o mover. Prima novamente Espaço ou Enter para o soltar na nova posição, ou Escape para cancelar.",
     "instructionsHorizontal": "Para selecionar um item ordenável, prima Espaço ou Enter. Durante o arrastamento, use as setas para a esquerda e para a direita para o mover. Prima novamente Espaço ou Enter para o soltar na nova posição, ou Escape para cancelar.",
     "instructionsGrid": "Para selecionar um item ordenável, prima Espaço ou Enter. Durante o arrastamento, use as teclas de seta para o mover. Prima novamente Espaço ou Enter para o soltar na nova posição, ou Escape para cancelar."
+  },
+  "project": {
+    "title": "Projeto",
+    "name": "Nome do projeto",
+    "save": "Guardar projeto",
+    "open": "Abrir projeto",
+    "busy": "A processar…",
+    "saved": "Projeto guardado.",
+    "opened": "Projeto aberto. Reconstrua o 3D quando necessário.",
+    "error": "Não foi possível ler ou guardar. A sessão atual foi mantida.",
+    "version": "Versão do projeto não suportada.",
+    "tooLarge": "O projeto excede os limites de tamanho.",
+    "replace": "Abrir substitui esta sessão. Guarde-a primeiro se a quiser manter.",
+    "cancel": "Cancelar"
   }
 }

@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { CollapsibleCard, DirtyDot } from '@/components/CollapsibleCard';
 import { Check, RotateCcw } from 'lucide-react';
-import type { SliderDef } from '@/components/sliderDefs';
+import type { SliderDef } from '@/lib/sliderDefs';
 
 interface Props {
     disabled?: boolean;
