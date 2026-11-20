@@ -30,6 +30,9 @@
     "colorCount_many": "{{count}} colores"
   },
   "adjustmentsPanel": {
+    "previewRenderFailed": "No se pudo generar la vista previa de los ajustes. Se sigue mostrando la última imagen disponible.",
+    "retryPreviewRender": "Reintentar vista previa",
+    "applyRenderFailed": "No se pudieron aplicar los ajustes. Vuelve a intentarlo.",
     "adjustments": "Ajustes",
     "fineTuneImageProperties": "Ajusta las propiedades de la imagen",
     "adjustmentsModified": "Ajustes modificados",

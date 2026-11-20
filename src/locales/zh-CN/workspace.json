@@ -29,6 +29,9 @@
         "colorCount_other": "{{count}} 种颜色"
     },
     "adjustmentsPanel": {
+        "previewRenderFailed": "无法生成调整预览。仍显示上一次可用的图像。",
+        "retryPreviewRender": "重试预览",
+        "applyRenderFailed": "无法应用图像调整。请重试。",
         "adjustments": "图像调整",
         "fineTuneImageProperties": "微调图像属性",
         "adjustmentsModified": "调整已修改",

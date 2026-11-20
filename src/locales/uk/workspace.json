@@ -31,6 +31,9 @@
     "colorCount_many": "{{count}} кольорів"
   },
   "adjustmentsPanel": {
+    "previewRenderFailed": "Не вдалося відобразити попередній перегляд коригувань. Залишається останнє доступне зображення.",
+    "retryPreviewRender": "Повторити перегляд",
+    "applyRenderFailed": "Не вдалося застосувати коригування. Спробуйте ще раз.",
     "adjustments": "Коригування",
     "fineTuneImageProperties": "Точно налаштуйте властивості зображення",
     "adjustmentsModified": "Коригування змінено",

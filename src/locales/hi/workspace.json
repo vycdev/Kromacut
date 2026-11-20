@@ -29,6 +29,9 @@
         "colorCount_other": "{{count}} रंग"
     },
     "adjustmentsPanel": {
+        "previewRenderFailed": "समायोजन का पूर्वावलोकन नहीं बन सका। पिछली उपलब्ध छवि अभी भी दिखाई जा रही है।",
+        "retryPreviewRender": "पूर्वावलोकन दोबारा बनाएँ",
+        "applyRenderFailed": "छवि के समायोजन लागू नहीं हो सके। फिर से कोशिश करें।",
         "adjustments": "समायोजन",
         "fineTuneImageProperties": "चित्र के गुणों में सूक्ष्म बदलाव करें",
         "adjustmentsModified": "समायोजन बदले गए हैं",

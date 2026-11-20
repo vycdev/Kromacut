@@ -29,6 +29,9 @@
     "colorCount_other": "{{count}} Farben"
   },
   "adjustmentsPanel": {
+        "previewRenderFailed": "Die Vorschau der Anpassungen konnte nicht berechnet werden. Das letzte verfügbare Bild wird weiterhin angezeigt.",
+        "retryPreviewRender": "Vorschau erneut versuchen",
+        "applyRenderFailed": "Die Bildanpassungen konnten nicht angewendet werden. Versuche es erneut.",
     "adjustments": "Bildanpassungen",
     "fineTuneImageProperties": "Bildeigenschaften fein abstimmen",
     "adjustmentsModified": "Bildanpassungen geändert",
