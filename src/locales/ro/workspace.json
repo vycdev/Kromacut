@@ -30,6 +30,9 @@
     "colorCount_few": "{{count}} culori"
   },
   "adjustmentsPanel": {
+    "previewRenderFailed": "Previzualizarea ajustărilor nu a putut fi generată. Ultima imagine disponibilă rămâne afișată.",
+    "retryPreviewRender": "Reîncearcă previzualizarea",
+    "applyRenderFailed": "Ajustările imaginii nu au putut fi aplicate. Încearcă din nou.",
     "adjustments": "Ajustări",
     "fineTuneImageProperties": "Ajustează fin proprietățile imaginii",
     "adjustmentsModified": "Ajustările au fost modificate",

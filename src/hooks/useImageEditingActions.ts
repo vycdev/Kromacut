@@ -155,7 +155,10 @@ export function useImageEditingActions({
             setAdjustments(ADJUSTMENT_DEFAULTS);
             resetAdjustmentsPanel();
         } catch (error) {
-            if (current()) console.warn('Bake adjustments failed', error);
+            if (current()) {
+                console.warn('Bake adjustments failed', error);
+                alert(t('workspace:adjustmentsPanel.applyRenderFailed'));
+            }
         }
     };
     const saveCrop = async () => {

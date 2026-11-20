@@ -29,6 +29,9 @@
         "colorCount_other": "{{count}} colors"
     },
     "adjustmentsPanel": {
+        "previewRenderFailed": "Could not render the adjustment preview. The last available image is still displayed.",
+        "retryPreviewRender": "Retry preview",
+        "applyRenderFailed": "Could not apply image adjustments. Try Apply again.",
         "adjustments": "Adjustments",
         "fineTuneImageProperties": "Fine-tune image properties",
         "adjustmentsModified": "Adjustments modified",

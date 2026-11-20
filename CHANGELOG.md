@@ -22,6 +22,8 @@ All notable changes to Kromacut are documented in this file.
 
 ### Changed
 
+- **Tiled image editing (#165)** - Render adjustment previews and Apply in one reusable background worker, with a main-thread fallback on browsers without worker canvas support and a retry message for failed renders.
+
 - **Auto-paint scoring (#103)** - Reuse the winning CIEDE2000 error and precompute unchanged chroma, uncertainty, and segment values while preserving all target colors, arithmetic, tie breaking, and final stacks. The fixed-seed benchmark records a modest 6.1% reduction in median scoring time at 142,066 targets, with mixed results on smaller palettes; large repeated searches remain expensive. No target approximation or HD/TD storage or rounding change is involved.
 
 ### Fixed

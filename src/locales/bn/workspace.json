@@ -29,6 +29,9 @@
         "colorCount_other": "{{count}}টি রঙ"
     },
     "adjustmentsPanel": {
+        "previewRenderFailed": "সমন্বয়ের পূর্বরূপ তৈরি করা যায়নি। সর্বশেষ উপলব্ধ ছবিটি এখনও দেখা যাচ্ছে।",
+        "retryPreviewRender": "পূর্বরূপ আবার চেষ্টা করুন",
+        "applyRenderFailed": "ছবির সমন্বয় প্রয়োগ করা যায়নি। আবার চেষ্টা করুন।",
         "adjustments": "সমন্বয়",
         "fineTuneImageProperties": "ছবির বৈশিষ্ট্য সূক্ষ্মভাবে ঠিক করুন",
         "adjustmentsModified": "সমন্বয় বদলানো হয়েছে",

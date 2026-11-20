@@ -30,6 +30,9 @@
     "colorCount_many": "{{count}} couleurs"
   },
   "adjustmentsPanel": {
+    "previewRenderFailed": "Impossible de calculer l’aperçu des réglages. La dernière image disponible reste affichée.",
+    "retryPreviewRender": "Réessayer l’aperçu",
+    "applyRenderFailed": "Impossible d’appliquer les réglages. Réessayez.",
     "adjustments": "Réglages",
     "fineTuneImageProperties": "Ajuster finement les propriétés de l’image",
     "adjustmentsModified": "Réglages modifiés",
