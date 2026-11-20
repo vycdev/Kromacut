@@ -13,8 +13,8 @@ import {
     parseCustomPaletteFile,
     exportCustomPaletteBlob,
     customPaletteFileName,
-    loadSelectedPalette,
-    saveSelectedPalette,
+    loadSelectedPaletteIds,
+    saveSelectedPaletteIds,
     enabledColors,
     clonePalette,
 } from '../lib/paletteManager';
@@ -61,15 +61,19 @@ export function usePaletteManager() {
     const [importFeedback, setImportFeedback] = useState<string | null>(null);
     const importInputRef = useRef<HTMLInputElement>(null);
 
-    // The initially selected palette from localStorage (or 'auto')
-    const [selectedPalette, setSelectedPaletteState] = useState<string>(
-        () => loadSelectedPalette() ?? 'auto'
-    );
+    const [selectedPaletteIds, setSelectedPaletteIdsState] = useState(loadSelectedPaletteIds);
+    const selectedPalette = selectedPaletteIds[0] ?? 'auto';
 
-    const setSelectedPalette = useCallback((id: string) => {
-        setSelectedPaletteState(id);
-        saveSelectedPalette(id);
+    const setSelectedPaletteIds = useCallback((ids: string[]) => {
+        setSelectedPaletteIdsState(ids);
+        saveSelectedPaletteIds(ids);
     }, []);
+
+    // Existing palette management actions select their result as the active palette.
+    const setSelectedPalette = useCallback(
+        (id: string) => setSelectedPaletteIds(id === 'auto' ? [] : [id]),
+        [setSelectedPaletteIds]
+    );
 
     // Merge built-in + custom palettes for the dropdown
     const allPalettes: MergedPalette[] = useMemo(() => {
@@ -170,11 +174,11 @@ export function usePaletteManager() {
             }
             setCustomPalettes(updated);
             setImportFeedback(null);
-            if (selectedPalette === id) {
-                setSelectedPalette('auto');
+            if (selectedPaletteIds.includes(id)) {
+                setSelectedPaletteIds(selectedPaletteIds.filter((selected) => selected !== id));
             }
         },
-        [customPalettes, selectedPalette, setCustomPalettes, setSelectedPalette]
+        [customPalettes, selectedPaletteIds, setCustomPalettes, setSelectedPaletteIds]
     );
 
     // ---- Import / Export ----
@@ -257,20 +261,19 @@ export function usePaletteManager() {
         return () => clearTimeout(timer);
     }, [importFeedback]);
 
-    // If the selected palette was deleted externally, fall back to auto
+    // Prune stale IDs after imports or palette deletion while keeping the other choices.
     useEffect(() => {
-        if (selectedPalette === 'auto') return;
-        const exists = allPalettes.some((p) => p.id === selectedPalette);
-        if (!exists) {
-            setSelectedPalette('auto');
-        }
-    }, [allPalettes, selectedPalette, setSelectedPalette]);
+        const available = selectedPaletteIds.filter((id) => allPalettes.some((p) => p.id === id));
+        if (available.length !== selectedPaletteIds.length) setSelectedPaletteIds(available);
+    }, [allPalettes, selectedPaletteIds, setSelectedPaletteIds]);
 
     return {
         customPalettes,
         allPalettes,
         selectedPalette,
         setSelectedPalette,
+        selectedPaletteIds,
+        setSelectedPaletteIds,
         findPalette,
         importFeedback,
         importInputRef,

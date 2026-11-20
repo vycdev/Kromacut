@@ -10,6 +10,7 @@ import {
 } from '../lib/algorithms';
 import { findBuiltInPalette } from '../data/palettes';
 import { enabledColors } from '../lib/paletteManager';
+import { reduceThenMatchPalette } from '../lib/reduceThenMatchPalette';
 import type { CustomPalette } from '../types';
 import { rgbToHsl } from '../lib/color';
 import { decodeImage } from '../lib/decodeImage';
@@ -25,7 +26,7 @@ interface Params {
     algorithm: string;
     weight: number;
     finalColors: number;
-    selectedPalette: string;
+    selectedPaletteIds: string[];
     customPalettes: CustomPalette[];
     imageSrc: string | null;
     setImage: (url: string | null, pushHistory?: boolean) => void;
@@ -59,7 +60,7 @@ function quantizeAlgorithmLabel(algorithm: string) {
 }
 
 function quantizePostLabel(
-    selectedPalette: string,
+    selectedPaletteIds: string[],
     finalColors: number,
     options?: {
         overridePalette?: string[];
@@ -70,8 +71,8 @@ function quantizePostLabel(
         return 'Mapping to override palette';
     }
 
-    if (selectedPalette && selectedPalette !== 'auto') {
-        return 'Mapping to selected palette';
+    if (selectedPaletteIds.length) {
+        return 'Reducing colors and mapping to selected palettes';
     }
 
     return `Reducing palette to ${options?.overrideFinalColors ?? finalColors} colors`;
@@ -81,7 +82,7 @@ export function useQuantize({
     algorithm,
     weight,
     finalColors,
-    selectedPalette,
+    selectedPaletteIds,
     customPalettes,
     imageSrc,
     setImage,
@@ -195,7 +196,7 @@ export function useQuantize({
         // fall back to selectedPalette (named palettes) or auto (enforce finalColors)
         const overridePalette = options?.overridePalette;
         const overrideFinal = options?.overrideFinalColors;
-        const postLabel = quantizePostLabel(selectedPalette, finalColors, options);
+        const postLabel = quantizePostLabel(selectedPaletteIds, finalColors, options);
         const postEnd = quantizePostProgress(1);
         const postProgress = (f: number) => {
             reportStep(3, postLabel, f);
@@ -205,15 +206,19 @@ export function useQuantize({
         if (overridePalette && overridePalette.length > 0) {
             await mapImageToPalette(data, overridePalette, { onProgress: postProgress });
             ctx.putImageData(data, 0, 0);
-        } else if (selectedPalette && selectedPalette !== 'auto') {
-            // Search built-in palettes first, then custom palettes (enabled colors only)
-            const builtIn = findBuiltInPalette(selectedPalette);
-            const custom = customPalettes.find((p) => p.id === selectedPalette);
-            const palColors = builtIn?.colors ?? (custom ? enabledColors(custom) : undefined);
-            if (palColors && palColors.length > 0) {
-                await mapImageToPalette(data, palColors, { onProgress: postProgress });
-                ctx.putImageData(data, 0, 0);
-            }
+        } else if (selectedPaletteIds.length) {
+            const palette = [
+                ...new Set(
+                    selectedPaletteIds.flatMap((id) => {
+                        const custom = customPalettes.find((item) => item.id === id);
+                        return (
+                            findBuiltInPalette(id)?.colors ?? (custom ? enabledColors(custom) : [])
+                        );
+                    })
+                ),
+            ];
+            await reduceThenMatchPalette(data, overrideFinal ?? finalColors, palette, postProgress);
+            ctx.putImageData(data, 0, 0);
         } else {
             // auto: reduce to finalColors (or overridden final) via enforcePaletteSize
             await enforcePaletteSizeAsync(data, overrideFinal ?? finalColors, postProgress);

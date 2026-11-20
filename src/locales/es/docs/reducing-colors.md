@@ -13,15 +13,13 @@ Recorta y redimensiona primero. Si has cambiado los [ajustes de imagen](image-ad
 
 ## El proceso de dos etapas
 
-![El peso del algoritmo limita la paleta intermedia; Número de colores o una paleta fija controla la segunda etapa.](34_quantization_pipeline.svg)
-
 **Peso del algoritmo** y **Número de colores** tienen funciones diferentes. K-means con peso 128 primero agrupa el original en hasta 128 colores. Auto con número 16 fusiona después ese resultado hasta un máximo de 16. El peso no es porcentaje, opacidad ni número de filamentos.
 
 | Campo o acción | Significado |
 | -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Paleta: Auto | Encuentra colores según la imagen y limita su número. |
-| Paleta: integrada, proveedor o personalizada | Asigna la imagen intermedia a los colores activados de la paleta. No tienen que aparecer todos los disponibles. |
-| Número de colores | Límite final superior de Auto: 2 a 256, predeterminado 16. Desactivado para paletas fijas. |
+| Paleta: integrada, proveedor o personalizada | Reduce los colores y luego los asigna a los colores activos de todas las paletas marcadas. |
+| Número de colores | Límite final de 2 a 256, con 16 por defecto. Sigue siendo editable al elegir paletas. |
 | Peso del algoritmo | Presupuesto de paleta intermedia: 2 a 256, predeterminado 128. Un valor mayor suele conservar más detalle intermedio, no necesariamente una mejor coincidencia final. |
 | Algoritmo | Método de reducción inicial. Predeterminado: K-means. |
 | Aplicar | Procesa la imagen subyacente y crea un paso de Deshacer. Cambiar un ajuste no la recolorea por sí solo. |
@@ -37,7 +35,7 @@ Estos métodos agrupan colores. Ninguno añade tramado espacial ni garantiza que
 
 | Algoritmo | Qué cambia | Comparación útil |
 | ----------------------- | --------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| Ninguno (solo posprocesado) | Omite el cuantizador inicial; Peso se desactiva. La reducción final o asignación a paleta fija sigue funcionando. | Asignar directamente una ilustración limpia a una paleta conocida. No es un interruptor universal para dejar todo intacto. |
+| Ninguno (solo posprocesado) | Omite la primera reducción. El límite de colores y la asignación a paletas se mantienen. | Asignar directamente una ilustración limpia a una paleta conocida. No es un interruptor universal para dejar todo intacto. |
 | Posterizar | Divide los canales RGB en pasos discretos y después aplica el peso. | Gráficos deliberadamente escalonados; los niveles disponibles cambian por saltos. |
 | Corte mediano | Divide la distribución de colores en grupos representados por promedios. | Comparar cuando otro método pierde un grupo tonal importante. |
 | K-means | Encuentra grupos ponderados por número de píxeles con inicialización aleatoria. | Punto de partida para fotos e ilustraciones mixtas. Las ejecuciones desde el mismo original pueden variar ligeramente. |
@@ -48,7 +46,7 @@ No existe un algoritmo universalmente mejor. Inspecciona el sujeto, letras peque
 
 ## Paletas fijas y de proveedores
 
-Una paleta fija solo ofrece sus colores elegidos. Después de cualquier reducción inicial, cada píxel no transparente se asigna al color disponible más cercano en el espacio Lab. Es correspondencia de colores de imagen, no simulación óptica del filamento.
+Marca una o varias paletas. Kromacut reduce primero la imagen al número de colores solicitado y luego busca los colores activos más cercanos en el espacio Lab. Varios colores pueden coincidir con el mismo color de paleta. Las versiones anteriores asignaban los colores directamente a la paleta. Las acciones de gestión se aplican a la primera paleta seleccionada.
 
 Las **Paletas de proveedores** son referencias no oficiales de nombres y colores hexadecimales anunciados de filamentos. No garantizan disponibilidad actual ni exactitud del color impreso. Por ejemplo, los colores de referencia Bambu usan la [tabla hexadecimal de filamentos de Bambu Lab](https://store.bblcdn.com/s7/default/1084369ef84345bbaa5d704a492954e0/Bambu_PLA_Basic_Hex_Code.pdf). Kromacut no está afiliado ni respaldado por los fabricantes.
 

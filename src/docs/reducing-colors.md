@@ -13,15 +13,13 @@ Crop and resize first. If you changed [image adjustments](image-adjustments), cl
 
 ## The Two-Stage Pipeline
 
-![Algorithm Weight limits the intermediate palette; Number of Colors or a selected fixed palette controls the second stage.](34_quantization_pipeline.svg)
-
 **Algorithm Weight** and **Number of Colors** do different jobs. K-means with Weight 128 first groups the source into up to 128 colors. Auto with Number of Colors 16 then merges that result to at most 16. Weight is not a percentage, opacity, or filament count.
 
 | Field or action                        | Meaning                                                                                                                                            |
 | -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Palette: Auto                          | Finds image-dependent colors, then limits their count.                                                                                             |
-| Palette: built-in, supplier, or custom | Maps the intermediate image to the selected palette's enabled colors. Not every available color must appear.                                       |
-| Number of Colors                       | Auto's final upper limit: 2 to 256, default 16. Disabled for a fixed palette.                                                                      |
+| Palette: built-in, supplier, or custom | Maps the reduced image to the combined enabled colors of the checked palettes.                                       |
+| Number of Colors                       | Final upper limit: 2 to 256, default 16. Palette selections leave this setting editable.                                                                      |
 | Algorithm Weight                       | Intermediate palette budget: 2 to 256, default 128. A larger value usually retains more intermediate detail, not necessarily a better final match. |
 | Algorithm                              | First-stage reduction method. Default: K-means.                                                                                                    |
 | Apply                                  | Processes the underlying image and creates an Undo step. Changing a setting alone does not recolor it.                                             |
@@ -37,7 +35,7 @@ These methods group colors. None adds a spatial dither pattern or guarantees tha
 
 | Algorithm               | What changes                                                                                                    | Useful comparison                                                                                    |
 | ----------------------- | --------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| None (postprocess only) | Skips the first-stage quantizer; Weight is disabled. Final count reduction or fixed-palette mapping still runs. | Directly map clean artwork to a known palette. It is not a universal “leave image unchanged” switch. |
+| None (postprocess only) | Skips the first-stage quantizer; Weight is disabled. Final count reduction and any palette mapping still run. | Directly map clean artwork to a known palette. It is not a universal “leave image unchanged” switch. |
 | Posterize               | Divides RGB channels into discrete steps, then enforces Weight.                                                 | Deliberately stepped graphics; available channel levels change in discrete jumps.                    |
 | Median-cut              | Splits the color distribution into buckets represented by average colors.                                       | Compare when another method loses an important tonal group.                                          |
 | K-means                 | Finds pixel-count-weighted color clusters using random initialization.                                          | A starting point for photos and mixed artwork. Runs from the same source can differ slightly.        |
@@ -48,7 +46,7 @@ There is no universally best algorithm. Inspect the subject, small lettering, an
 
 ## Fixed And Supplier Palettes
 
-A fixed palette offers only its chosen colors. After any first-stage reduction, each nontransparent pixel maps to the nearest available color in Lab color space. This is image-color matching, not filament optical simulation.
+Check one or more palettes in the palette menu. Kromacut reduces the image to the requested Number of Colors, then maps those colors to the closest enabled colors across the checked palettes in Lab color space. Two reduced colors can map to the same palette color, so the final image can contain fewer colors than requested. Previous versions mapped directly to the chosen palette, so existing settings can produce different results. With several palettes checked, the palette management actions apply to the first checked palette.
 
 **Supplier Palettes** are unofficial reference sets of filament names and advertised hex colors. They do not guarantee current product availability or printed-color accuracy. For example, Bambu reference colors use [Bambu Lab's filament hex chart](https://store.bblcdn.com/s7/default/1084369ef84345bbaa5d704a492954e0/Bambu_PLA_Basic_Hex_Code.pdf). Kromacut is not affiliated with or endorsed by manufacturers.
 

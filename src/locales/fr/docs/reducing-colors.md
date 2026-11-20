@@ -13,15 +13,13 @@ Recadrez et redimensionnez d’abord. Si vous avez modifié les [réglages d’i
 
 ## Le traitement en deux étapes
 
-![Le poids de l’algorithme limite la palette intermédiaire ; le nombre de couleurs ou une palette fixe sélectionnée contrôle la deuxième étape.](34_quantization_pipeline.svg)
-
 Le **Poids de l’algorithme** et le **Nombre de couleurs** ont des fonctions différentes. K-means avec un poids de 128 regroupe d’abord la source en 128 couleurs au maximum. Auto avec un nombre de couleurs de 16 fusionne ensuite ce résultat en 16 couleurs au maximum. Le poids n’est ni un pourcentage, ni une opacité, ni un nombre de filaments.
 
 | Champ ou action | Signification |
 | -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Palette : Auto | Trouve des couleurs adaptées à l’image, puis limite leur nombre. |
-| Palette : intégrée, fournisseur ou personnalisée | Associe l’image intermédiaire aux couleurs activées de la palette choisie. Toutes les couleurs disponibles ne doivent pas nécessairement apparaître. |
-| Nombre de couleurs | Limite finale d’Auto : de 2 à 256, avec 16 par défaut. Désactivé pour une palette fixe. |
+| Palette : intégrée, fournisseur ou personnalisée | Réduit les couleurs, puis associe le résultat aux couleurs actives de toutes les palettes cochées. |
+| Nombre de couleurs | Limite finale de 2 à 256, avec 16 par défaut. Elle reste modifiable avec des palettes sélectionnées. |
 | Poids de l’algorithme | Budget de palette intermédiaire : de 2 à 256, avec 128 par défaut. Une valeur supérieure conserve généralement davantage de détails intermédiaires, sans garantir une meilleure correspondance finale. |
 | Algorithme | Méthode de réduction de première étape. Par défaut : K-means. |
 | Appliquer | Traite l’image sous-jacente et crée une étape d’annulation. Changer un réglage seul ne recolore pas l’image. |
@@ -37,7 +35,7 @@ Ces méthodes regroupent les couleurs. Aucune n’ajoute de motif de tramage spa
 
 | Algorithme | Ce qui change | Comparaison utile |
 | ----------------------- | --------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| Aucun (post-traitement seul) | Saute la quantification de première étape ; le poids est désactivé. La réduction finale du nombre ou l’association à la palette fixe a toujours lieu. | Associer directement une illustration nette à une palette connue. Ce n’est pas une option universelle « laisser l’image inchangée ». |
+| Aucun (post-traitement seul) | Ignore la première réduction. La limite de couleurs et la correspondance des palettes s’appliquent. | Associer directement une illustration nette à une palette connue. Ce n’est pas une option universelle « laisser l’image inchangée ». |
 | Postérisation | Divise les canaux RVB en paliers discrets, puis applique la limite du poids. | Graphismes volontairement en paliers ; les niveaux disponibles des canaux changent par sauts discrets. |
 | Coupe médiane | Divise la distribution des couleurs en groupes représentés par des couleurs moyennes. | À comparer lorsqu’une autre méthode perd un groupe tonal important. |
 | K-means | Recherche des groupes de couleurs pondérés par le nombre de pixels, avec une initialisation aléatoire. | Point de départ pour les photos et illustrations mixtes. Les essais depuis la même source peuvent varier légèrement. |
@@ -48,7 +46,7 @@ Il n’existe pas d’algorithme universellement meilleur. Examinez le sujet, le
 
 ## Palettes fixes et de fournisseurs
 
-Une palette fixe ne propose que les couleurs choisies. Après l’éventuelle première réduction, chaque pixel non transparent est associé à la couleur disponible la plus proche dans l’espace Lab. Il s’agit d’une correspondance de couleurs d’image, pas d’une simulation optique de filament.
+Cochez une ou plusieurs palettes. Kromacut réduit d’abord l’image au nombre demandé, puis associe les couleurs aux couleurs actives les plus proches dans l’espace Lab. Plusieurs couleurs réduites peuvent choisir la même couleur de palette. Les versions précédentes associaient directement les couleurs à une palette. Les commandes de gestion s’appliquent à la première palette sélectionnée.
 
 Les **Palettes de fournisseurs** sont des ensembles de référence non officiels de noms de filaments et de couleurs hexadécimales annoncées. Elles ne garantissent ni la disponibilité actuelle des produits ni l’exactitude des couleurs imprimées. Les couleurs Bambu utilisent par exemple le [nuancier hexadécimal des filaments Bambu Lab](https://store.bblcdn.com/s7/default/1084369ef84345bbaa5d704a492954e0/Bambu_PLA_Basic_Hex_Code.pdf). Kromacut n’est affilié à aucun fabricant et n’est approuvé par aucun d’eux.
 
