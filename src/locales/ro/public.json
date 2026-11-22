@@ -90,6 +90,8 @@
     "threeJsLayerByLayer3DPreview": "Previzualizare 3D strat cu strat prin Three.js",
     "calibratedAutoPaintWithDeterministicSearch": "Auto-paint calibrat cu căutare deterministă",
     "slicerFriendlySTLAndMultiMaterial3MF": "STL compatibil cu slicerul și 3MF multi-material",
+    "snapmakerInnovationFundWinner": "Câștigător al Snapmaker Innovation Fund",
+    "aboutTheSnapmakerInnovationFund": "Despre Snapmaker Innovation Fund",
     "openTheTool": "Deschide instrumentul",
     "communityShowcase": "Galeria comunității",
     "madeByTheKromacutCommunity": "Realizate de comunitatea Kromacut.",
@@ -119,6 +121,7 @@
     "openApp": "Deschide Kromacut",
     "home": "Mergi la pagina principală",
     "docs": "Răsfoiește documentația",
+    "awards": "Premii",
     "privacy": "Confidențialitate și date locale",
     "terms": "Termeni și condiții"
   },
@@ -162,6 +165,13 @@
     "loading": "Se încarcă documentația…",
     "loadFailed": "Această traducere nu a putut fi încărcată. Încearcă din nou.",
     "retry": "Încearcă din nou"
+  },
+  "awards": {
+    "eyebrow": "Recunoaștere",
+    "title": "Premii",
+    "intro": "Premii și distincții primite de Kromacut.",
+    "seoTitle": "Premii | Kromacut",
+    "description": "Premii și distincții primite de Kromacut, instrumentul gratuit care transformă imaginile în printuri 3D multicolore."
   },
   "seo": {
     "homeTitle": "Kromacut - Generator gratuit de imprimări 3D în straturi de culoare din imagini",

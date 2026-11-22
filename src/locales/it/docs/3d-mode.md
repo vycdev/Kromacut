@@ -147,6 +147,8 @@ Fotografa una tavola di ricette salvata, verifica l’allineamento e salva i col
 
 Trascina con il pulsante principale del mouse per orbitare, usa la rotellina per lo zoom e trascina con il pulsante secondario per spostare la vista. Muovere la camera non cambia mai le dimensioni fisiche.
 
+La fotocamera rimane appena fuori dal modello in entrambe le proiezioni. Lo zoom ortografico è limitato affinché la fotocamera rimanga fuori anche passando alla prospettiva.
+
 | Controllo della barra | A cosa serve | Effetto sulla stampa |
 | ------------------ | ------------------------------------------------------------------------ | --------------------------------------------------------------------------------- |
 | **Colori fedeli** | Confrontare i campioni selezionati senza illuminazione di scena o mappatura tonale cinematografica. | Solo anteprima. Dipende comunque dal modello e dallo schermo; non convalida la calibrazione. |
@@ -154,7 +156,7 @@ Trascina con il pulsante principale del mouse per orbitare, usa la rotellina per
 | **Trasparente** | Vedere gli strati sovrapposti. | Solo anteprima; non rende trasparente il filamento. |
 | **Reticolo** | Esaminare i bordi dei dettagli colorati per strato. | Solo anteprima; non sono percorsi di estrusione. |
 | **Colori anteprima** | Alternare miscele simulate da Auto-paint e colori fisici dei filamenti. | Solo anteprima. Le esportazioni mantengono le assegnazioni reali dei materiali. |
-| **Cambio camera** | Passare dalla profondità prospettica all’allineamento ortografico senza scorcio. | Solo anteprima. La posizione della camera viene mantenuta. |
+| **Cambio camera** | Passare dalla profondità prospettica all’allineamento ortografico senza scorcio. | Solo anteprima. Angolo di vista e zoom vengono mantenuti tra le modalità. |
 | **Annulla / Ripeti** | Percorrere la cronologia condivisa delle modifiche all’immagine. | Non annulla i campi 3D o le modifiche ai filamenti. Rigenera dopo una modifica all’immagine. |
 | **Scarica** | Esportare lo STL o il 3MF generato. | Usa l’ultimo modello generato, non le impostazioni della barra laterale non applicate. |
 
@@ -163,6 +165,8 @@ La modalità di visualizzazione e la scelta tra colori simulati e fisici vengono
 ## Anteprima degli strati
 
 Trascina le maniglie inferiore e superiore della barra in basso per isolare un intervallo di altezze. Le posizioni si agganciano alla griglia degli strati. Passa sopra i segmenti dei materiali per informazioni sull’inizio o sui cambi.
+
+Porta il focus su una maniglia e usa le frecce per spostarti di uno strato stampato alla volta. Maiusc+freccia o Pag Su/Giù sposta di dieci strati; Home/Fine raggiunge un limite dell’intervallo. Le maniglie non possono incrociarsi.
 
 ![Le maniglie di taglio nascondono strati per esaminarli, ma l’esportazione contiene comunque il modello completo.](19_preview_only.svg)
 

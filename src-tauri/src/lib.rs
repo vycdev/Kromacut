@@ -7,8 +7,16 @@ use std::process::Command;
 use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Manager, State};
+mod default_app;
 mod opened_files;
+mod safe_save;
+mod slicer_apps;
+mod slicer_handoff;
+use default_app::open_with_default_app;
 use opened_files::{enqueue_and_notify, take_opened_file, OpenedFiles};
+use safe_save::{begin_safe_file_save, discard_safe_file_save, finish_safe_file_save, SafeSaves};
+use slicer_apps::{find_slicer_app, list_slicer_apps, pick_slicer_app};
+use slicer_handoff::open_model_in_slicer;
 
 const RELEASES_URL: &str = "https://github.com/vycdev/Kromacut/releases";
 
@@ -147,26 +155,16 @@ fn finish_auto_paint_diagnostic(
         .map_err(|error| format!("Failed to close the diagnostic file: {error}"))
 }
 
-fn open_directory(path: &Path) -> Result<(), String> {
-    #[cfg(target_os = "windows")]
-    let result = Command::new("explorer").arg(path).spawn();
-
-    #[cfg(target_os = "macos")]
-    let result = Command::new("open").arg(path).spawn();
-
-    #[cfg(all(unix, not(target_os = "macos")))]
-    let result = Command::new("xdg-open").arg(path).spawn();
-
-    result
-        .map(|_| ())
-        .map_err(|error| format!("Failed to open the diagnostics directory: {error}"))
-}
-
 #[tauri::command]
-fn open_auto_paint_diagnostics_directory(app: AppHandle) -> Result<String, String> {
+async fn open_auto_paint_diagnostics_directory(app: AppHandle) -> Result<String, String> {
     let directory = auto_paint_diagnostics_directory(&app)?;
-    open_directory(&directory)?;
-    Ok(directory.to_string_lossy().into_owned())
+    tauri::async_runtime::spawn_blocking(move || {
+        open_with_default_app(&directory)
+            .map_err(|error| format!("Failed to open the diagnostics directory: {error}"))?;
+        Ok(directory.to_string_lossy().into_owned())
+    })
+    .await
+    .map_err(|error| format!("Failed to run the directory launcher: {error}"))?
 }
 
 fn normalized_version(version: &str) -> &str {
@@ -216,8 +214,8 @@ fn open_releases_page() -> Result<(), String> {
 fn legal_page_url(path: &str) -> Result<String, String> {
     let segments: Vec<_> = path.strip_prefix('/').unwrap_or("").split('/').collect();
     let supported = match segments.as_slice() {
-        ["privacy" | "terms"] => true,
-        [language, "privacy" | "terms"] => matches!(
+        ["privacy" | "terms" | "awards"] => true,
+        [language, "privacy" | "terms" | "awards"] => matches!(
             *language,
             "fr" | "de" | "it" | "ro" | "es" | "ja" | "zh-CN" | "hi" | "pt-PT" | "uk" | "bn"
         ),
@@ -249,11 +247,17 @@ fn open_external_url(url: &str) -> Result<(), String> {
         .map_err(|e| format!("Failed to open web page: {}", e))
 }
 
+/// The app's config, assets and capabilities. The macro can only expand once per crate.
+fn app_context<R: tauri::Runtime>() -> tauri::Context<R> {
+    tauri::generate_context!()
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .manage(DiagnosticWriterState::default())
         .manage(OpenedFiles::default())
+        .manage(SafeSaves::default())
         .plugin(tauri_plugin_single_instance::init(|app, args, cwd| {
             enqueue_and_notify(
                 app,
@@ -269,10 +273,17 @@ pub fn run() {
             open_releases_page,
             open_legal_page,
             take_opened_file,
+            begin_safe_file_save,
+            finish_safe_file_save,
+            discard_safe_file_save,
             begin_auto_paint_diagnostic,
             append_auto_paint_diagnostic,
             finish_auto_paint_diagnostic,
-            open_auto_paint_diagnostics_directory
+            open_auto_paint_diagnostics_directory,
+            open_model_in_slicer,
+            list_slicer_apps,
+            find_slicer_app,
+            pick_slicer_app
         ])
         .setup(|app| {
             #[cfg(any(target_os = "windows", target_os = "linux"))]
@@ -289,7 +300,7 @@ pub fn run() {
             }
             Ok(())
         })
-        .build(tauri::generate_context!())
+        .build(app_context())
         .expect("error while building tauri application")
         .run(|_app, _event| {
             #[cfg(target_os = "macos")]
@@ -315,7 +326,7 @@ mod tests {
         for language in [
             "", "fr", "de", "it", "ro", "es", "ja", "zh-CN", "hi", "pt-PT", "uk", "bn",
         ] {
-            for page in ["privacy", "terms"] {
+            for page in ["privacy", "terms", "awards"] {
                 let path = if language.is_empty() {
                     format!("/{page}")
                 } else {
@@ -337,6 +348,8 @@ mod tests {
             "/privacy&calc",
             "privacy",
             "/terms/",
+            "/awards/",
+            "/xx/awards",
         ] {
             assert!(super::legal_page_url(path).is_err(), "{path}");
         }

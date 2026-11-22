@@ -20,6 +20,8 @@ test('auto-paint worker ignores progress and result messages from stale requests
     assert.equal(isCurrentAutoPaintWorkerResponse(7, 7), true);
     assert.equal(isCurrentAutoPaintWorkerResponse(6, 7), false);
     assert.equal(isCurrentAutoPaintWorkerResponse(8, 7), false);
+    assert.equal(isCurrentAutoPaintWorkerResponse(7, 0), false);
+    assert.equal(isCurrentAutoPaintWorkerResponse(0, 0), false);
 });
 
 test('auto-paint diagnostic progress is sampled by time or meaningful completion increments', () => {

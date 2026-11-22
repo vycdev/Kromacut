@@ -147,6 +147,8 @@ Fotografiere eine gespeicherte Rezepttafel, prüfe ihre Ausrichtung und speicher
 
 Ziehe mit der primären Maustaste zum Drehen, nutze das Mausrad zum Zoomen und ziehe mit der sekundären Taste zum Verschieben. Kamerabewegungen verändern niemals physische Abmessungen.
 
+Die Kamera bleibt in beiden Projektionen knapp außerhalb des Modells. Der orthografische Zoom ist begrenzt, damit die Kamera auch beim Wechsel zur Perspektive außerhalb bleibt.
+
 | Werkzeugleistenfunktion | Verwendung | Auswirkung auf den Druck |
 | ------------------ | ------------------------------------------------------------------------ | --------------------------------------------------------------------------------- |
 | **Farbtreu** | Ausgewählte Farbfelder ohne Szenenbeleuchtung oder filmische Tonwertabbildung vergleichen. | Nur Vorschau. Hängt weiterhin von Modell und Bildschirm ab; keine Kalibrierungsbestätigung. |
@@ -154,7 +156,7 @@ Ziehe mit der primären Maustaste zum Drehen, nutze das Mausrad zum Zoomen und z
 | **Transparent** | Überlappende Schichten sehen. | Nur Vorschau; macht kein Filament transparent. |
 | **Drahtmodell** | Nach Schichten gefärbte Detailkanten prüfen. | Nur Vorschau, keine Extrusionsbahnen. |
 | **Vorschaufarben** | Zwischen simulierten Auto-paint-Mischungen und physischen Filamentfarben wechseln. | Nur Vorschau. Exporte behalten echte Materialzuweisungen. |
-| **Kamera umschalten** | Perspektivische Tiefe oder orthografische Ausrichtung ohne perspektivische Verkürzung. | Nur Vorschau. Die Kameraposition bleibt erhalten. |
+| **Kamera umschalten** | Perspektivische Tiefe oder orthografische Ausrichtung ohne perspektivische Verkürzung. | Nur Vorschau. Blickwinkel und Zoom bleiben beim Wechsel erhalten. |
 | **Rückgängig / Wiederholen** | Den gemeinsamen Bildbearbeitungsverlauf durchlaufen. | Kein Rückgängig-Verlauf für 3D-Felder oder Filamentänderungen. Nach Bildänderungen neu erstellen. |
 | **Herunterladen** | Die erstellte STL oder 3MF exportieren. | Verwendet das zuletzt erstellte Modell, nicht noch nicht übernommene Seitenleisteneinstellungen. |
 
@@ -163,6 +165,8 @@ Ansichtsmodus und Auswahl simuliert/physisch werden gespeichert. **Vorschaufarbe
 ## Schichtvorschau
 
 Ziehe die unteren und oberen Griffe der unteren Leiste, um einen Höhenbereich einzeln zu betrachten. Positionen rasten am Schichtraster ein. Fahre über Materialsegmente, um Start- oder Wechselinformationen zu sehen.
+
+Fokussiere einen Griff und bewege ihn mit den Pfeiltasten um jeweils eine gedruckte Schicht. Umschalt+Pfeil oder Bild auf/ab bewegt ihn um zehn Schichten; Pos1/Ende springt zur Bereichsgrenze. Die Griffe können sich nicht kreuzen.
 
 ![Begrenzungsgriffe blenden Schichten zur Prüfung aus; der Export enthält weiterhin das vollständige Modell.](19_preview_only.svg)
 

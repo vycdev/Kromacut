@@ -30,6 +30,7 @@ if (
 const route = selectRoute(window.location.pathname, desktopRuntime);
 const PrivacyPage = lazy(() => import('./components/PrivacyPage.tsx'));
 const TermsPage = lazy(() => import('./components/TermsPage.tsx'));
+const AwardsPage = lazy(() => import('./components/AwardsPage.tsx'));
 const App = lazy(() => import('./App.tsx'));
 function syncEntrySeo() {
     const currentRoute = selectRoute(window.location.pathname, desktopRuntime);
@@ -61,6 +62,8 @@ void initializeAppLanguage().then(() => {
                             <PrivacyPage />
                         ) : route === 'terms' ? (
                             <TermsPage />
+                        ) : route === 'awards' ? (
+                            <AwardsPage />
                         ) : (
                             <App />
                         )}

@@ -22,7 +22,9 @@ The **Language** selector changes the interface, documentation, diagrams, and pu
 
 Public pages also offer a language selector. Translated documentation uses shareable language-prefixed links, such as `/ro/docs/overview`. Page names and section anchors remain stable across languages. File extensions, numeric model data, user-entered names, and original community artwork titles are not translated.
 
-The settings dialog includes links to the documentation, Discord, Reddit, GitHub, and Patreon, and shows the current Kromacut version. **Privacy & local data** and **Terms & conditions** are also available here and open in your browser in the selected language.
+The settings dialog includes links to the documentation, Discord, Reddit, GitHub, and Patreon, and shows the current Kromacut version. **Privacy & local data**, **Terms & conditions**, and **Awards** are also available here and open in your browser in the selected language.
+
+In the desktop app, Settings also has an **Open in Slicer** row showing the slicer that **Open in Slicer** uses: **Ask every time**, **System default**, or the saved slicer's name and location. **Change** opens the slicer chooser and saves the slicer you pick without opening a file. **Forget** appears when a choice is saved and makes Kromacut ask again. See [Saving and cancelling](generating-exporting-output#saving-and-cancelling).
 
 ## Workspace Modes
 
@@ -37,6 +39,8 @@ On smaller screens, expand **Contents** to choose a guide or **On This Page** to
 Most sidebar sections can be collapsed by their headings. Collapsing hides controls, not their effects: active adjustments, print settings and optimizer options still apply. Collapsed summaries and status dots help you spot active changes. Section open/closed state is remembered. Expanding a section does not reset it.
 
 **Undo / Redo** shares the image-editing history between 2D and 3D. It is not an undo stack for filament edits, calibration, layer heights or optimizer settings. Use each panel's own reset control where available, and rebuild after restoring an image state.
+
+In 2D, **Ctrl+Z** (**Cmd+Z** on macOS) undoes and **Ctrl+Shift+Z** (**Cmd+Shift+Z**) redoes an image edit. The shortcuts are ignored in editable fields, dialogs, popovers, menus and open lists, while cropping, during processing, and in 3D. See [2D History Shortcuts](image-adjustments#2d-history-shortcuts).
 
 ## Experimental Multi-plate Mode
 
@@ -63,6 +67,7 @@ Auto-paint settings are preserved across sessions, including:
 - Transition detail and height dithering.
 - Effective line width (edited in **3D Print Settings**) for width warnings, isolated-speck cleanup, and height dithering, plus the saved **Omit isolated color specks** preference. The cleanup preference does not remove every width warning or control height dithering.
 - Flat Paint and its face-up, no-clear-layer preference.
+- Multi-head mode, head count, search depth, and color grouping.
 - Optimizer algorithm and seed.
 - Region priority.
 
@@ -70,7 +75,7 @@ Profiles are separate from this remembered state. Use profiles when you want nam
 
 ## Palette Files
 
-Custom palettes are for 2D color reduction. Palette files use `.kpal`.
+Custom palettes are for 2D color reduction. Palette files use `.kpal`. Desktop palette export opens **Save As**; choose a writable location or cancel to keep working. Browser exports use the normal download flow.
 
 Palette format version 2 adds two optional fields: `disabledColors` (colors kept in the palette but excluded from quantization) and `colorNames` (optional per-color display names). Both round-trip through export and import. Version 1 files load unchanged with every color enabled and unnamed, and a v2 file opened by an older Kromacut simply treats all colors as enabled.
 

@@ -90,6 +90,8 @@
         "threeJsLayerByLayer3DPreview": "Three.jsによるレイヤーごとの3Dプレビュー",
         "calibratedAutoPaintWithDeterministicSearch": "決定的な探索による校正済み自動ペイント",
         "slicerFriendlySTLAndMultiMaterial3MF": "スライサー向けSTLとマルチマテリアル3MF",
+        "snapmakerInnovationFundWinner": "Snapmaker Innovation Fund 受賞者",
+        "aboutTheSnapmakerInnovationFund": "Snapmaker Innovation Fund について",
         "openTheTool": "ツールを開く",
         "communityShowcase": "コミュニティ作品集",
         "madeByTheKromacutCommunity": "Kromacutコミュニティの作品。",
@@ -118,6 +120,7 @@
         "openApp": "Kromacutを開く",
         "home": "ホームへ戻る",
         "docs": "ドキュメントを見る",
+        "awards": "受賞歴",
         "privacy": "プライバシーとローカルデータ",
         "terms": "利用規約"
     },
@@ -161,6 +164,13 @@
         "loading": "ドキュメントを読み込み中…",
         "loadFailed": "この翻訳を読み込めませんでした。もう一度お試しください。",
         "retry": "再試行"
+    },
+    "awards": {
+        "eyebrow": "評価",
+        "title": "受賞歴",
+        "intro": "Kromacut が受けた賞と評価。",
+        "seoTitle": "受賞歴 | Kromacut",
+        "description": "画像をマルチカラー 3D プリントに変換する無料ツール、Kromacut が受けた賞と評価。"
     },
     "seo": {
         "homeTitle": "Kromacut - 画像を色レイヤー3D印刷へ変える無料ツール",

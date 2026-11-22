@@ -1,0 +1,143 @@
+{
+  "measuredAt": "2026-11-01T09:44:33.285Z",
+  "revision": "3ede3177f231d1ae566ff8afb1313f772f50889e",
+  "analysisRef": "",
+  "shortlistSize": 64,
+  "analysisSha256": "a00b98a02052044c0795d05782373a1e1e5bf111fe1510c2a6e78ba88c982945",
+  "inputSha256": "5b85a3af7d84112ea067953247d02507bc5e13df0d8ae208635403a76668712d",
+  "machine": {
+    "node": "v24.19.0",
+    "platform": "win32",
+    "cpu": "AMD Ryzen 9 5950X 16-Core Processor            "
+  },
+  "cases": [
+    {
+      "name": "cats",
+      "colors": 128,
+      "layerHeight": 0.08,
+      "firstLayerHeight": 0.4,
+      "layers": 70,
+      "runs": 12,
+      "occupiedSurfaces": 56,
+      "finalStackFingerprint": "final-stack-v1-9684249d4a77bb3c"
+    },
+    {
+      "name": "rocco",
+      "colors": 64,
+      "layerHeight": 0.08,
+      "firstLayerHeight": 0.4,
+      "layers": 41,
+      "runs": 8,
+      "occupiedSurfaces": 7,
+      "finalStackFingerprint": "final-stack-v1-8efddb6a6515bd5e"
+    }
+  ],
+  "depth": "balanced",
+  "threshold": 0.25,
+  "rows": [
+    {
+      "case": "cats",
+      "mode": "luminance",
+      "heads": 4,
+      "analysisMs": 4870.7856,
+      "previewMs": 54.996799999999894,
+      "buildMs": 48.9967000000006,
+      "totalBuildMs": 4919.782300000001,
+      "predictedGain": 1.073798212443786,
+      "fallback": false,
+      "windows": 2,
+      "pathSha256": "70dbafd11ad803f18ba5225b11be1414610aa9d7af56cd392e17b17a90c511a1"
+    },
+    {
+      "case": "cats",
+      "mode": "luminance",
+      "heads": 6,
+      "analysisMs": 11834.508399999999,
+      "previewMs": 70.39619999999923,
+      "buildMs": 71.28050000000076,
+      "totalBuildMs": 11905.7889,
+      "predictedGain": 1.1440153646798203,
+      "fallback": false,
+      "windows": 1,
+      "pathSha256": "2c53d0b46d874a3330690d8f14a27b7f548f969e3ed2be676806b2f0e838b4b8"
+    },
+    {
+      "case": "cats",
+      "mode": "color",
+      "heads": 4,
+      "analysisMs": 7870.055400000001,
+      "previewMs": 80.71110000000044,
+      "buildMs": 69.5196999999971,
+      "totalBuildMs": 7939.575099999998,
+      "predictedGain": 1.4293896391034855,
+      "fallback": false,
+      "windows": 2,
+      "pathSha256": "858e0cf35158d1e248e88a9a5879d1d10ae1990563e3cf2907d41170712a0e8b"
+    },
+    {
+      "case": "cats",
+      "mode": "color",
+      "heads": 6,
+      "analysisMs": 15034.532299999999,
+      "previewMs": 86.0051999999996,
+      "buildMs": 105.38940000000002,
+      "totalBuildMs": 15139.921699999999,
+      "predictedGain": 1.6940234085470975,
+      "fallback": false,
+      "windows": 1,
+      "pathSha256": "a2953a6ed5e730dae13c7f65871d7b2fe095708dfbcbadee6aa450cd3e198caf"
+    },
+    {
+      "case": "rocco",
+      "mode": "luminance",
+      "heads": 4,
+      "analysisMs": 218.02919999999722,
+      "previewMs": 9.656499999997322,
+      "buildMs": 9.170500000000175,
+      "totalBuildMs": 227.1996999999974,
+      "predictedGain": 1.1887296923362447,
+      "fallback": false,
+      "windows": 1,
+      "pathSha256": "ae5eac84fe1c8e833d895f3cd9f886e7ee98cc41719f4e8632968381147f7286"
+    },
+    {
+      "case": "rocco",
+      "mode": "luminance",
+      "heads": 6,
+      "analysisMs": 5104.658500000005,
+      "previewMs": 15.537400000001071,
+      "buildMs": 14.051999999996042,
+      "totalBuildMs": 5118.710500000001,
+      "predictedGain": 1.406977010560554,
+      "fallback": false,
+      "windows": 1,
+      "pathSha256": "e8f9ee3d591729327e1d829bcc652ce88d2df4537763e30e9fa5b107f39609ea"
+    },
+    {
+      "case": "rocco",
+      "mode": "color",
+      "heads": 4,
+      "analysisMs": 598.3190000000031,
+      "previewMs": 31.43210000000545,
+      "buildMs": 29.76299999999901,
+      "totalBuildMs": 628.0820000000022,
+      "predictedGain": 3.0777535880641715,
+      "fallback": false,
+      "windows": 1,
+      "pathSha256": "fa50589608c13c8af05d6a374555bceea69dd2895bafd01bece83ddef5216aaa"
+    },
+    {
+      "case": "rocco",
+      "mode": "color",
+      "heads": 6,
+      "analysisMs": 5939.087200000002,
+      "previewMs": 29.076900000000023,
+      "buildMs": 29.790500000002794,
+      "totalBuildMs": 5968.877700000005,
+      "predictedGain": 3.660733607554123,
+      "fallback": false,
+      "windows": 1,
+      "pathSha256": "92e7a1a6a1b6de7747b2dd7dc1fc76193f82efa4fc372b911d24f5c3221aca09"
+    }
+  ]
+}

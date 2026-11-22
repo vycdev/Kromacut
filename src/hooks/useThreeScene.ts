@@ -1,6 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import {
+    framePerspectiveCamera,
+    keepCameraOutsideBounds,
+    matchOrthographicToPerspective,
+    orthographicFromPerspective,
+    syncPerspectiveFromOrthographic,
+} from '../lib/cameraProjection.ts';
 
 export function useThreeScene(
     mountRef: React.RefObject<HTMLDivElement | null>,
@@ -15,17 +22,21 @@ export function useThreeScene(
     const controlsRef = useRef<OrbitControls | null>(null);
     const modelGroupRef = useRef<THREE.Group | null>(null);
     const materialRef = useRef<THREE.MeshStandardMaterial | null>(null);
+    // Original model bounds, set when framed; the constraint adds its keep-out margin.
+    const cameraBoundsRef = useRef<THREE.Box3 | null>(null);
     const [sceneReady, setSceneReady] = useState(false);
     const activeRef = useRef(active);
     activeRef.current = active;
 
     const requestRenderRef = useRef<(() => void) | null>(null);
     const switchCameraRef = useRef<((isOrtho: boolean) => void) | null>(null);
+    const frameModelRef = useRef<((model: THREE.Box3) => void) | null>(null);
     const requestRender = useCallback(() => requestRenderRef.current?.(), []);
     const switchCamera = useCallback(
         (isOrtho: boolean) => switchCameraRef.current?.(isOrtho),
         []
     );
+    const frameModel = useCallback((model: THREE.Box3) => frameModelRef.current?.(model), []);
 
     useEffect(() => {
         const el = mountRef.current;
@@ -107,9 +118,21 @@ export function useThreeScene(
             /* no-op */
         }
 
+        // Applies OrbitControls input, then pushes the camera back out if it moved into the model.
+        const updateControls = () => {
+            const ctrl = controlsRef.current;
+            const cam = cameraRef.current;
+            const persp = perspCameraRef.current;
+            if (!ctrl || !cam || !persp) return;
+            ctrl.update();
+            const bounds = cameraBoundsRef.current;
+            if (!bounds || modelGroup.children.length === 0) return;
+            keepCameraOutsideBounds(cam, ctrl.target, bounds, persp.fov);
+        };
+
         const requestRender = () => {
             if (!rendererRef.current || !sceneRef.current || !cameraRef.current) return;
-            if (controlsRef.current) controlsRef.current.update();
+            updateControls();
             rendererRef.current.render(sceneRef.current, cameraRef.current);
         };
         requestRenderRef.current = requestRender;
@@ -122,33 +145,37 @@ export function useThreeScene(
             const aspect = el.clientWidth / el.clientHeight;
 
             if (isOrtho && cam instanceof THREE.PerspectiveCamera) {
-                const target = ctrl.target.clone();
-                const dist = cam.position.distanceTo(target);
-                const fovRad = (cam.fov * Math.PI) / 180;
-                const viewH = 2 * dist * Math.tan(fovRad / 2);
-                const viewW = viewH * aspect;
-                const ortho = new THREE.OrthographicCamera(
-                    -viewW / 2, viewW / 2, viewH / 2, -viewH / 2, cam.near, cam.far
-                );
-                ortho.position.copy(cam.position);
-                ortho.quaternion.copy(cam.quaternion);
-                ortho.updateProjectionMatrix();
+                const ortho = orthographicFromPerspective(cam, ctrl.target, aspect);
                 cameraRef.current = ortho;
                 ctrl.object = ortho as unknown as THREE.Camera;
             } else if (!isOrtho && cam instanceof THREE.OrthographicCamera) {
-                persp.position.copy(cam.position);
-                persp.quaternion.copy(cam.quaternion);
-                persp.near = cam.near;
-                persp.far = cam.far;
-                persp.aspect = aspect;
-                persp.updateProjectionMatrix();
+                syncPerspectiveFromOrthographic(persp, cam, ctrl.target, aspect);
                 cameraRef.current = persp;
                 ctrl.object = persp as unknown as THREE.Camera;
             }
-            ctrl.update();
+            updateControls();
             requestRender();
         };
         switchCameraRef.current = switchCamera;
+
+        // Frames a newly built model in perspective terms. An active orthographic camera takes the
+        // same framing, so rebuilding frames the model identically in both projections.
+        const frameModel = (model: THREE.Box3) => {
+            const cam = cameraRef.current;
+            const persp = perspCameraRef.current;
+            const ctrl = controlsRef.current;
+            if (!cam || !persp || !ctrl || model.isEmpty()) return;
+
+            framePerspectiveCamera(persp, model, ctrl.target);
+            if (cam instanceof THREE.OrthographicCamera) {
+                // Keep the aspect ratio the resize handler maintains for this camera.
+                const aspect = (cam.right - cam.left) / (cam.top - cam.bottom);
+                matchOrthographicToPerspective(cam, persp, ctrl.target, aspect);
+            }
+            cameraBoundsRef.current = model.clone();
+            updateControls();
+        };
+        frameModelRef.current = frameModel;
 
         const resize = () => {
             if (!el || !cameraRef.current || !rendererRef.current) return;
@@ -189,7 +216,7 @@ export function useThreeScene(
 
         const animate = () => {
             if (activeRef.current) {
-                if (controlsRef.current) controlsRef.current.update();
+                updateControls();
                 if (cameraRef.current) renderer.render(scene, cameraRef.current);
             }
             rafRef.current = requestAnimationFrame(animate);
@@ -215,6 +242,8 @@ export function useThreeScene(
             modelGroupRef.current = null;
             materialRef.current = null;
             switchCameraRef.current = null;
+            frameModelRef.current = null;
+            cameraBoundsRef.current = null;
             setIsBuilding(false);
             setSceneReady(false);
         };
@@ -238,6 +267,7 @@ export function useThreeScene(
         materialRef,
         requestRender,
         switchCamera,
+        frameModel,
         sceneReady,
     } as const;
 }

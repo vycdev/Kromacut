@@ -7,7 +7,7 @@ import JSZip from 'jszip';
 const repoRoot = path.resolve(fileURLToPath(new URL('../../', import.meta.url)));
 const assetRoot = path.join(repoRoot, 'tests', 'assets');
 
-test('Palette Proof stays usable, persists results, and downloads its frozen 3MF', async ({
+test('@smoke Palette Proof stays usable, persists results, and downloads its frozen 3MF', async ({
     page,
 }, testInfo) => {
     testInfo.setTimeout(3 * 60 * 1000);

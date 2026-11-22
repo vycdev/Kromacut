@@ -37,6 +37,7 @@ import {
 } from '../lib/desktopDiagnostics.ts';
 import type { AutoPaintDiagnosticRunInputV1 } from '../lib/autoPaintDiagnostics.ts';
 import { frontlitCalibrationDiagnostics } from '../lib/calibration.ts';
+import { needsAutoPaintSearchGuidance } from '../lib/autoPaintSearchPolicy.ts';
 
 declare const __APP_VERSION__: string;
 
@@ -62,9 +63,17 @@ export interface UseAutoPaintWorkerOptions {
 
 export interface UseAutoPaintWorkerResult {
     autoPaintResult: AutoPaintResult | undefined;
+    /** The weighted printable targets used by this analysis and downstream multi-head search. */
+    imageSwatches: AutoPaintWorkerRequest['imageSwatches'];
     isComputing: boolean;
     progress: number;
     error?: string;
+    needsSearchGuidance: boolean;
+    targetColorCount: number;
+    isAwaitingStart: boolean;
+    isCancelled: boolean;
+    start: () => void;
+    cancel: () => void;
 }
 
 let nextRequestId = 1;
@@ -73,7 +82,7 @@ export function isCurrentAutoPaintWorkerResponse(
     responseId: number,
     activeRequestId: number
 ): boolean {
-    return responseId === activeRequestId;
+    return activeRequestId !== 0 && responseId === activeRequestId;
 }
 
 export function shouldRecordAutoPaintDiagnosticProgress(
@@ -141,6 +150,7 @@ export function useAutoPaintWorker(opts: UseAutoPaintWorkerOptions): UseAutoPain
     const [isComputing, setIsComputing] = useState(false);
     const [progress, setProgress] = useState(0);
     const [error, setError] = useState<string | undefined>(undefined);
+    const [decision, setDecision] = useState<{ key: string; action: 'run' | 'cancel' }>();
 
     const workerRef = useRef<Worker | null>(null);
     const activeRequestIdRef = useRef<number>(0);
@@ -181,7 +191,7 @@ export function useAutoPaintWorker(opts: UseAutoPaintWorkerOptions): UseAutoPain
 
     const finishRequest = useCallback(
         (id: number, nextError?: string, result?: AutoPaintResult) => {
-            if (id !== activeRequestIdRef.current) return;
+            if (!isCurrentAutoPaintWorkerResponse(id, activeRequestIdRef.current)) return;
 
             const completedKey = activeRequestKeyRef.current;
             activeRequestIdRef.current = 0;
@@ -312,6 +322,7 @@ export function useAutoPaintWorker(opts: UseAutoPaintWorkerOptions): UseAutoPain
                 new URL('../workers/autoPaint.worker.ts', import.meta.url),
                 { type: 'module' }
             );
+            const worker = workerRef.current;
 
             workerRef.current.onmessage = (e: MessageEvent<AutoPaintWorkerResponse>) => {
                 const resp = e.data;
@@ -368,6 +379,7 @@ export function useAutoPaintWorker(opts: UseAutoPaintWorkerOptions): UseAutoPain
             };
 
             workerRef.current.onerror = (err) => {
+                if (workerRef.current !== worker) return;
                 const id = activeRequestIdRef.current;
                 workerRef.current?.terminate();
                 workerRef.current = null;
@@ -375,6 +387,7 @@ export function useAutoPaintWorker(opts: UseAutoPaintWorkerOptions): UseAutoPain
             };
 
             workerRef.current.onmessageerror = () => {
+                if (workerRef.current !== worker) return;
                 const id = activeRequestIdRef.current;
                 workerRef.current?.terminate();
                 workerRef.current = null;
@@ -384,6 +397,41 @@ export function useAutoPaintWorker(opts: UseAutoPaintWorkerOptions): UseAutoPain
 
         return workerRef.current;
     }, [finishRequest]);
+
+    // Match buildOptimizerImageTargets: zero-weight regional colors are not scored.
+    const targetColorCount = useMemo(
+        () =>
+            stableImageSwatches.reduce(
+                (count, swatch) => count + ((swatch.count ?? 1) > 0 ? 1 : 0),
+                0
+            ),
+        [stableImageSwatches]
+    );
+    const needsSearchGuidance = needsAutoPaintSearchGuidance(targetColorCount, enhancedColorMatch);
+    // A choice applies only until the inputs change. Do not restore an old
+    // approval/cancellation when a user changes settings and then reverts them.
+    useEffect(() => {
+        setDecision((current) => (current?.key === requestKey ? current : undefined));
+    }, [requestKey]);
+    const isCancelled = decision?.key === requestKey && decision.action === 'cancel';
+    const isAwaitingStart =
+        isCancelled ||
+        (needsSearchGuidance && !(decision?.key === requestKey && decision.action === 'run'));
+    const start = useCallback(() => setDecision({ key: requestKey, action: 'run' }), [requestKey]);
+    const cancel = useCallback(() => {
+        // Invalidate first: delayed progress/results and an async diagnostic start
+        // must not resurrect a cancelled request, including during the debounce.
+        activeRequestIdRef.current = 0;
+        activeRequestKeyRef.current = null;
+        completedRequestKeyRef.current = null;
+        clearTimers();
+        cancelWorker('user-cancelled');
+        setDecision({ key: requestKey, action: 'cancel' });
+        setAutoPaintResult(undefined);
+        setIsComputing(false);
+        setProgress(0);
+        setError(undefined);
+    }, [cancelWorker, clearTimers, requestKey]);
 
     useEffect(() => {
         return () => {
@@ -418,6 +466,18 @@ export function useAutoPaintWorker(opts: UseAutoPaintWorkerOptions): UseAutoPain
             cancelWorker('completed-result-reused');
             setIsComputing(false);
             setProgress(1);
+            setError(undefined);
+            return;
+        }
+
+        if (isAwaitingStart) {
+            activeRequestIdRef.current = 0;
+            activeRequestKeyRef.current = null;
+            cancelWorker('awaiting-user-start');
+            completedRequestKeyRef.current = null;
+            setAutoPaintResult(undefined);
+            setIsComputing(false);
+            setProgress(0);
             setError(undefined);
             return;
         }
@@ -538,6 +598,7 @@ export function useAutoPaintWorker(opts: UseAutoPaintWorkerOptions): UseAutoPain
         };
     }, [
         active,
+        isAwaitingStart,
         requestKey,
         paintMode,
         filaments.length,
@@ -566,5 +627,17 @@ export function useAutoPaintWorker(opts: UseAutoPaintWorkerOptions): UseAutoPain
         finishRequest,
     ]);
 
-    return { autoPaintResult, isComputing, progress, error };
+    return {
+        autoPaintResult,
+        imageSwatches: stableImageSwatches,
+        isComputing,
+        progress,
+        error,
+        needsSearchGuidance,
+        targetColorCount,
+        isAwaitingStart,
+        isCancelled,
+        start,
+        cancel,
+    };
 }

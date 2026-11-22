@@ -48,6 +48,8 @@ STL nu conține culori de filament sau atribuiri automate de role. Folosește pl
 
 Pentru modelele **Flat Paint**, meniul de descărcare oferă doar 3MF: modelul conține câte un obiect pentru fiecare filament fizic și, în aranjamentul implicit cu fața în jos, un obiect de suport transparent. Aranjamentul opțional cu fața în sus omite suportul. Un STL necolorat cu geometrie unică al oricăreia dintre aceste plăci ar fi inutil. Ambele orientări acceptă toate intensitățile pentru **Geometrie netezită**. Reconstruiește modelul după schimbarea intensității pentru a o aplica previzualizării și geometriei exportate.
 
+Modelele **cu mai multe capete** construite cu succes oferă și ele doar 3MF, deoarece STL nu poate păstra atribuirile capetelor. Dacă se construiește în schimb un model normal cu un singur cap, STL rămâne disponibil.
+
 ## Instrucțiuni de imprimare
 
 Panoul **Instrucțiuni de imprimare** oferă:
@@ -67,6 +69,8 @@ Folosește planul copiat lângă previzualizarea slicerului. Numerele straturilo
 
 În modul Flat Paint nu există plan de schimbări manuale. Panoul rezumă în schimb fluxul multimaterial selectat: atribuie fiecărui obiect 3MF filamentul său, apoi fie folosește filament transparent și întoarce imprimarea implicită cu fața în jos, fie imprimă aranjamentul fără suport cu fața în sus. Niciun aranjament nu trebuie oglindit în slicer.
 
+Cu opțiunea **Mod cu mai multe capete** activată, o generare reușită afișează **Programul capetelor** în locul culorii de început și al planului de schimbări: înainte de imprimare, încarcă filamentele indicate în capetele numerotate corespunzătoare, lasă neutilizate capetele marcate **GOL** și, la fiecare punct de control de strat, reîncarcă doar capetele marcate. Dacă generarea a revenit la un model cu un singur cap, apar în schimb culoarea de început și planul de schimbări obișnuite. Consultă [Imprimare cu mai multe capete](multi-head-printing#head-schedule-and-export).
+
 ## Configurația recomandată pentru slicer
 
 Kromacut recomandă:
@@ -85,6 +89,8 @@ Verifică în slicer insulele mici, textul, decupajele transparente deconectate,
 ## Salvare și anulare
 
 Exporturile din aplicația desktop deschid un dialog **Salvează ca**. În browser folosesc setările sale de descărcare, deci afișarea unei solicitări de locație depinde de browser. Anularea unui dialog de fișier nu trimite nimic imprimantei. În timpul exportului, scrierea geometriei și comprimarea arhivei pot dura; așteaptă finalizarea salvării înainte de a închide aplicația.
+
+În aplicația desktop, **Deschide în slicer** din meniul de descărcare 3D creează același 3MF ca **Descarcă 3MF** și îl deschide în slicerul tău, fără dialogul **Salvează ca**. Prima dată, Kromacut întreabă ce aplicație să folosească. Afișează Bambu Studio, Orca Slicer, PrusaSlicer și UltiMaker Cura dacă sunt instalate în locațiile obișnuite, plus **Implicit în sistem**, aplicația implicită a sistemului pentru fișiere `.3mf`. Folosește **Răsfoiește** pentru a alege un slicer instalat în altă parte sau care nu apare în listă. Activează **Folosește mereu acest slicer** ca să nu mai fii întrebat: elementul din meniu afișează apoi numele slicerului, iar **Alege slicerul** din același meniu îl schimbă sau îl uită. **Setări** afișează și slicerul salvat, chiar înainte de a crea un model: **Schimbă** salvează altul fără să deschidă nimic, iar după **Uită** Kromacut întreabă din nou. Dacă slicerul salvat a fost mutat sau dezinstalat, Kromacut întreabă din nou. Cu **Implicit în sistem**, setează mai întâi slicerul ca aplicație implicită pentru fișiere `.3mf`; altfel fișierul se poate deschide într-un vizualizator 3D. Dacă slicerul nu poate fi pornit, Kromacut afișează o eroare; folosește **Descarcă 3MF** și deschide manual fișierul salvat. Kromacut păstrează această copie în folderul său de cache și o poate șterge după o zi, așa că salvează proiectul în slicer dacă vrei să-l păstrezi. În browser, folosește **Descarcă 3MF** și deschide fișierul descărcat în slicer.
 
 ## Sfaturi pentru export
 

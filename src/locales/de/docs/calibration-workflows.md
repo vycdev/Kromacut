@@ -193,7 +193,7 @@ Drucke mit Bildseite oben, 100 % Maßstab und den exakten Schichthöhen sowie Fi
 
 ### Ein Foto laden und ausrichten
 
-Wähle die gedruckte Tafel in der Auswahl gespeicherter Matrizen und anschließend **Foto auswählen**, oder ziehe ein Bild in den Fotobereich. Fotografiere unter diffusem Auflicht ohne starke Spiegelungen. Die App muss die Datei decodieren können; eine Kamera-RAW-Datei ersetzt keinen normal darstellbaren Bildexport.
+Wähle die gedruckte Tafel in der Auswahl gespeicherter Matrizen und anschließend **Foto auswählen**, oder ziehe ein Bild in den Fotobereich. Fotografiere unter diffusem Auflicht ohne starke Spiegelungen. Die App muss die Datei decodieren können; eine Kamera-RAW-Datei ersetzt keinen normal darstellbaren Bildexport. Lässt sich ein Foto nicht lesen, etwa weil es beschädigt oder unvollständig heruntergeladen ist, zeigt Kromacut einen Fehler an und behält ein bereits geladenes Foto bei.
 
 ![Die vier Griffe gehören auf die Mittelpunkte der farbigen Markerzellen außerhalb des Rezeptrasters. Die Tafelgrenze liegt eine halbe Zelle außerhalb dieser Mittelpunkte; ein vergrößerter Ausschnitt unterscheidet Markermitte und Tafelecke.](22_matrix_alignment.svg)
 

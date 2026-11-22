@@ -1,4 +1,6 @@
-import type { AutoPaintResult } from '../lib/autoPaint';
+import type { AutoPaintResult, TransitionZone } from '../lib/autoPaint';
+import type { WindowResult } from '../lib/multiHeadAnalysis';
+import type { PatchedSliceData } from '../lib/patchedLayersToPlan';
 import type { FrontlitCalibration } from '../lib/calibration';
 import type { TargetSampleContext } from './appearance';
 
@@ -85,6 +87,26 @@ export interface PrintableFeaturePixelSnapshot {
     fingerprint: string;
 }
 
+/** Exact image and block settings used to resolve multi-head dithered surfaces. */
+export interface MultiHeadDitherContext {
+    pixels: Pick<PrintableFeaturePixelSnapshot, 'width' | 'height' | 'data'>;
+    pixelSize: number;
+    ditherLineWidth: number;
+}
+
+/** Realized nozzle state for a non-windowed layer range (pre-window, gap, or post-window). */
+export interface MultiHeadRangeAssignment {
+    /** First layer index (0-indexed, inclusive). */
+    rangeStart: number;
+    /** Last layer index (0-indexed, inclusive). */
+    rangeEnd: number;
+    /**
+     * Which filament is loaded on each head during this range (length = N heads).
+     * nozzleFilaments[k] = filament ID for head k+1. '' = head is unused.
+     */
+    nozzleFilaments: string[];
+}
+
 export interface ThreeDControlsStateShape {
     layerHeight: number;
     slicerFirstLayerHeight: number;
@@ -125,9 +147,71 @@ export interface ThreeDControlsStateShape {
     optimizerAlgorithm?: 'fast' | 'balanced' | 'thorough' | 'deep' | 'exact';
     optimizerSeed?: number;
     regionWeightingMode?: 'uniform' | 'center' | 'edge';
+    // Multi-head mode (per-pixel layer order optimization)
+    multiHeadMode?: boolean;
+    multiHeadCount?: number; // any integer ≥ 2
+    multiHeadSearchDepth?: 'fast' | 'balanced' | 'thorough';
+    /**
+     * Palette grouping for multi-head analysis. 'luminance' (default) collapses
+     * colors sharing a printer layer (distinct colors capped at layer count);
+     * 'color' groups hues separately within their original layers and budget. See
+     * multiHeadAnalysisColorFirst.ts.
+     */
+    multiHeadColorMode?: 'luminance' | 'color';
+    multiHeadWindows?: WindowResult[];
+    /** Reordered transition zones derived from the multi-head patched layer stack. */
+    patchedTransitionZones?: TransitionZone[];
+    /** Slice data for ThreeDView mesh generation derived from the patched layer stack. */
+    patchedSliceData?: PatchedSliceData;
+    /**
+     * Per image-colour blended colour per printer layer (keys = image palette hex).
+     * Drives per-pixel filament mixing in the 3D render: a pixel of colour `hex`
+     * shows perColorLayerColors.get(hex)[layerIdx] at each layer.
+     */
+    perColorLayerColors?: Map<string, string[]>;
+    /**
+     * Per image-colour filament index per printer layer (keys = image palette hex).
+     * colorLayerFilaments.get(hex)[layerIdx] is the global filament-array index
+     * that a pixel of colour `hex` uses at that layer.  Used with nozzleAssignments
+     * to tag each sub-mesh with the physical nozzle that prints it.
+     */
+    colorLayerFilaments?: Map<string, number[]>;
+    /** Highest printed layer per color from actual dithered pixels; -1 means absent. */
+    colorPrintTopLayers?: Map<string, number>;
+    /**
+     * Unique filament IDs required by final printable color paths per window.
+     * Slots here are independent of the original window's filament/LUT indices.
+     */
+    windowRunFilaments?: string[][];
+    /**
+     * Nozzle-to-required-filament assignment per window.
+     * nozzleAssignments[w][k] indexes windowRunFilaments[w] for nozzle (k+1),
+     * or -1 when idle (retaining its previous load).
+     */
+    nozzleAssignments?: number[][];
+    /** Filament IDs used in non-windowed layers before the first window. */
+    preWindowFilaments?: string[];
+    /** Nozzle assignments for non-windowed layer ranges (pre-window, gaps, post-window). */
+    nonWindowedRanges?: MultiHeadRangeAssignment[];
     // Auto-paint computed state (only used when paintMode is 'autopaint')
     autoPaintResult?: AutoPaintResult;
     autoPaintSwatches?: Swatch[];
     autoPaintFilamentSwatches?: Swatch[];
     printableFeaturePixels?: PrintableFeaturePixelSnapshot;
 }
+
+/** Complete built routing data shared by the preview and 3MF export. */
+export type MultiHeadRoutingPlan = Required<
+    Pick<
+        ThreeDControlsStateShape,
+        | 'multiHeadCount'
+        | 'patchedSliceData'
+        | 'perColorLayerColors'
+        | 'colorLayerFilaments'
+        | 'multiHeadWindows'
+        | 'windowRunFilaments'
+        | 'nozzleAssignments'
+        | 'nonWindowedRanges'
+        | 'filaments'
+    >
+>;

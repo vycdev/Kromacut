@@ -12,12 +12,12 @@ import {
     type FlatPaintLayout,
     type FlatPaintPart,
 } from '../src/lib/flatPaint.ts';
-import { generateGreedyMesh, type MeshData } from '../src/lib/meshing.ts';
+import { generateGreedyMesh } from '../src/lib/meshing.ts';
 import { createFlatPaintMesher } from '../src/lib/flatPaintMeshing.ts';
 import type { SmoothMeshingStrength } from '../src/types/index.ts';
 import { exportObjectToStlBlob } from '../src/lib/exportStl.ts';
 import { loadViteModule } from './helpers/viteModule.ts';
-import { inspectMeshIntegrity, type MeshIntegrityReport } from './meshDiagnostics.ts';
+import { assertHealthyMesh } from './helpers/meshAssertions.ts';
 
 type Export3mfModule = typeof import('../src/lib/export3mf.ts');
 
@@ -58,32 +58,6 @@ function installFileReaderPolyfill() {
     if (typeof globalThis.FileReader === 'undefined') {
         globalThis.FileReader = NodeFileReader as unknown as typeof FileReader;
     }
-}
-
-function reportForMessage(report: MeshIntegrityReport) {
-    return JSON.stringify(
-        {
-            vertexCount: report.vertexCount,
-            triangleCount: report.triangleCount,
-            boundaryEdgeCount: report.boundaryEdgeCount,
-            nonManifoldEdgeCount: report.nonManifoldEdgeCount,
-            inconsistentWindingEdgeCount: report.inconsistentWindingEdgeCount,
-            signedVolume: report.signedVolume,
-            bounds: report.bounds,
-        },
-        null,
-        2
-    );
-}
-
-function assertHealthyMesh(label: string, mesh: MeshData) {
-    const report = inspectMeshIntegrity(mesh);
-
-    assert.ok(report.vertexCount > 0, `${label} should contain vertices`);
-    assert.ok(report.triangleCount > 0, `${label} should contain triangles`);
-    assert.equal(report.isValid, true, `${label} integrity failed:\n${reportForMessage(report)}`);
-
-    return report;
 }
 
 /**

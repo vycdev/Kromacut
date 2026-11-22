@@ -4,10 +4,13 @@ import type { RefObject } from 'react';
 import type { CanvasPreviewHandle } from '../components/CanvasPreview';
 import type { SwatchEntry } from './useSwatches';
 import { clampProgress } from '../lib/progress';
+import { decodeImage } from '../lib/decodeImage';
 import { saveBlobToFile } from './saveBlobToFile';
+import { openModelInSlicer, type SlicerApp } from '../lib/desktopSlicer';
 import type * as THREE from 'three';
 
 export interface UseAppHandlersParams {
+    beginEdit: () => (() => boolean) | null;
     canvasPreviewRef: RefObject<CanvasPreviewHandle | null>;
     imageSrc?: string | null;
     invalidate: () => void;
@@ -16,6 +19,10 @@ export interface UseAppHandlersParams {
     setExportProgress: (n: number) => void;
     setExportStep?: (step: ExportProgressStep) => void;
     exportingSTL: boolean;
+    /** A 3D build is starting or running, so the exported mesh may not match its settings. */
+    threeDBuildBusy: boolean;
+    /** Flat Paint and multi-head models only export correctly as 3MF. */
+    stlUnavailable?: boolean;
     exportObjectToStlBlob: (
         object: THREE.Object3D,
         onProgress?: (p: number) => void
@@ -88,6 +95,13 @@ function compressionStepLabel(percent: number) {
     return 'Compressing 3MF package';
 }
 
+/** Where a finished 3MF goes: a saved file, or the desktop's default 3MF app. */
+interface ThreeMFDestination {
+    stepLabel: string;
+    deliver: (blob: Blob, fileName: string) => Promise<unknown>;
+    failureMessage: string;
+}
+
 function exportFileName(extension: string) {
     const timestamp = new Date().toISOString().slice(0, 10);
     return `kromacut-${timestamp}.${extension}`;
@@ -95,6 +109,7 @@ function exportFileName(extension: string) {
 
 export function useAppHandlers(params: UseAppHandlersParams) {
     const {
+        beginEdit,
         canvasPreviewRef,
         imageSrc,
         invalidate,
@@ -103,6 +118,8 @@ export function useAppHandlers(params: UseAppHandlersParams) {
         setExportProgress,
         setExportStep,
         exportingSTL,
+        threeDBuildBusy,
+        stlUnavailable = false,
         exportObjectToStlBlob,
         exportObjectTo3MFBlob,
         applyQuantize,
@@ -129,12 +146,17 @@ export function useAppHandlers(params: UseAppHandlersParams) {
     }, [canvasPreviewRef]);
 
     const onExportStl = useCallback(async () => {
-        if (exportingSTL) return;
+        if (exportingSTL || stlUnavailable) return;
         interface KromacutWindow extends Window {
             __KROMACUT_LAST_MESH?: THREE.Object3D;
         }
-        const threeObject = (window as KromacutWindow).__KROMACUT_LAST_MESH;
-        if (!threeObject) {
+        // A Flat Paint or multi-head mesh can outlive its build snapshot briefly.
+        const readStlMesh = () => {
+            const mesh = (window as KromacutWindow).__KROMACUT_LAST_MESH;
+            return mesh && !mesh.userData.kromacutStlUnavailable ? mesh : undefined;
+        };
+        const threeObject = readStlMesh();
+        if (!threeObject || threeDBuildBusy) {
             alert(translate('messages:files.modelNotReady'));
             return;
         }
@@ -150,6 +172,11 @@ export function useAppHandlers(params: UseAppHandlersParams) {
         const overlayStartedAt = performance.now();
         try {
             await waitForOverlayPaint();
+            // A build may have replaced the mesh while the overlay painted.
+            if (readStlMesh() !== threeObject) {
+                alert(translate('messages:files.modelNotReady'));
+                return;
+            }
             const blob = await exportObjectToStlBlob(
                 threeObject,
                 createExportProgressReporter(setExportProgress, (progress) => {
@@ -186,111 +213,166 @@ export function useAppHandlers(params: UseAppHandlersParams) {
                 setExportStep?.(DEFAULT_EXPORT_STEP);
             }, 300);
         }
-    }, [exportingSTL, exportObjectToStlBlob, setExportingSTL, setExportProgress, setExportStep]);
+    }, [
+        exportingSTL,
+        threeDBuildBusy,
+        stlUnavailable,
+        exportObjectToStlBlob,
+        setExportingSTL,
+        setExportProgress,
+        setExportStep,
+    ]);
 
-    const onExport3MF = useCallback(async () => {
-        if (exportingSTL) return;
-        interface KromacutWindow extends Window {
-            __KROMACUT_LAST_MESH?: THREE.Object3D;
-        }
-        const threeObject = (window as KromacutWindow).__KROMACUT_LAST_MESH;
-        if (!threeObject) {
-            alert(translate('messages:files.modelNotReady'));
-            return;
-        }
-        setExportingSTL(true);
-        setExportStep?.({
-            title: 'Exporting 3MF',
-            stepLabel: 'Writing 3MF geometry',
-            stepIndex: 1,
-            stepCount: 3,
-            stepProgress: 0,
-        });
-        setExportProgress(0);
-        const overlayStartedAt = performance.now();
-        try {
-            await waitForOverlayPaint();
-            let phase: 'geometry' | 'zip' = 'geometry';
-            let lastGeometryStepPercent = -1;
-            let lastZipLabelPercent = -1;
-            const updateGeometryStep = (progress: number) => {
-                const stepPercent = Math.max(0, Math.min(100, Math.floor((progress / 0.8) * 100)));
-                if (
-                    stepPercent !== 0 &&
-                    stepPercent !== 100 &&
-                    stepPercent < lastGeometryStepPercent + 5
-                ) {
-                    return;
-                }
-
-                lastGeometryStepPercent = stepPercent;
-                setExportStep?.({
-                    title: 'Exporting 3MF',
-                    stepLabel: 'Writing 3MF geometry',
-                    stepIndex: 1,
-                    stepCount: 3,
-                    stepProgress: stepPercent / 100,
-                });
-            };
-            const updateZipStep = (percent: number) => {
-                const roundedPercent = Math.max(0, Math.min(100, Math.floor(percent)));
-                if (
-                    roundedPercent !== 0 &&
-                    roundedPercent !== 100 &&
-                    roundedPercent < lastZipLabelPercent + 5
-                ) {
-                    return;
-                }
-
-                lastZipLabelPercent = roundedPercent;
-                setExportStep?.({
-                    title: 'Exporting 3MF',
-                    stepLabel: compressionStepLabel(roundedPercent),
-                    stepIndex: 2,
-                    stepCount: 3,
-                    stepProgress: roundedPercent / 100,
-                });
-            };
-            const progressReporter = createExportProgressReporter(setExportProgress, (progress) => {
-                const nextPhase = progress >= 0.8 ? 'zip' : 'geometry';
-                if (nextPhase === 'geometry') {
-                    updateGeometryStep(progress);
-                    return;
-                }
-
-                if (phase !== 'zip') {
-                    phase = nextPhase;
-                    updateZipStep(0);
-                }
-            });
-            const blob = await exportObjectTo3MFBlob(threeObject, progressReporter, (meta) =>
-                updateZipStep(meta.percent)
-            );
+    const export3MF = useCallback(
+        async (destination: ThreeMFDestination) => {
+            if (exportingSTL) return;
+            interface KromacutWindow extends Window {
+                __KROMACUT_LAST_MESH?: THREE.Object3D;
+            }
+            const threeObject = (window as KromacutWindow).__KROMACUT_LAST_MESH;
+            // Also covers exports that start later, such as after a slow slicer check.
+            if (!threeObject || threeDBuildBusy) {
+                alert(translate('messages:files.modelNotReady'));
+                return;
+            }
+            setExportingSTL(true);
             setExportStep?.({
                 title: 'Exporting 3MF',
-                stepLabel: 'Saving 3MF file',
-                stepIndex: 3,
+                stepLabel: 'Writing 3MF geometry',
+                stepIndex: 1,
                 stepCount: 3,
-                stepProgress: 1,
+                stepProgress: 0,
             });
-            setExportProgress(1);
-            await saveBlobToFile(blob, {
-                defaultFileName: exportFileName('3mf'),
-                extension: '3mf',
-                filterName: '3MF model',
-            });
-        } catch (err) {
-            console.warn('3MF export failed', err);
-            alert(translate('messages:files.threeMfFailed'));
-        } finally {
-            await keepOverlayVisibleSince(overlayStartedAt);
-            setExportingSTL(false);
-            setTimeout(() => {
-                setExportProgress(0);
-                setExportStep?.(DEFAULT_EXPORT_STEP);
-            }, 300);
-        }
-    }, [exportingSTL, exportObjectTo3MFBlob, setExportingSTL, setExportProgress, setExportStep]);
+            setExportProgress(0);
+            const overlayStartedAt = performance.now();
+            let delivering = false;
+            try {
+                await waitForOverlayPaint();
+                let phase: 'geometry' | 'zip' = 'geometry';
+                let lastGeometryStepPercent = -1;
+                let lastZipLabelPercent = -1;
+                const updateGeometryStep = (progress: number) => {
+                    const stepPercent = Math.max(
+                        0,
+                        Math.min(100, Math.floor((progress / 0.8) * 100))
+                    );
+                    if (
+                        stepPercent !== 0 &&
+                        stepPercent !== 100 &&
+                        stepPercent < lastGeometryStepPercent + 5
+                    ) {
+                        return;
+                    }
+
+                    lastGeometryStepPercent = stepPercent;
+                    setExportStep?.({
+                        title: 'Exporting 3MF',
+                        stepLabel: 'Writing 3MF geometry',
+                        stepIndex: 1,
+                        stepCount: 3,
+                        stepProgress: stepPercent / 100,
+                    });
+                };
+                const updateZipStep = (percent: number) => {
+                    const roundedPercent = Math.max(0, Math.min(100, Math.floor(percent)));
+                    if (
+                        roundedPercent !== 0 &&
+                        roundedPercent !== 100 &&
+                        roundedPercent < lastZipLabelPercent + 5
+                    ) {
+                        return;
+                    }
+
+                    lastZipLabelPercent = roundedPercent;
+                    setExportStep?.({
+                        title: 'Exporting 3MF',
+                        stepLabel: compressionStepLabel(roundedPercent),
+                        stepIndex: 2,
+                        stepCount: 3,
+                        stepProgress: roundedPercent / 100,
+                    });
+                };
+                const progressReporter = createExportProgressReporter(
+                    setExportProgress,
+                    (progress) => {
+                        const nextPhase = progress >= 0.8 ? 'zip' : 'geometry';
+                        if (nextPhase === 'geometry') {
+                            updateGeometryStep(progress);
+                            return;
+                        }
+
+                        if (phase !== 'zip') {
+                            phase = nextPhase;
+                            updateZipStep(0);
+                        }
+                    }
+                );
+                const blob = await exportObjectTo3MFBlob(threeObject, progressReporter, (meta) =>
+                    updateZipStep(meta.percent)
+                );
+                setExportStep?.({
+                    title: 'Exporting 3MF',
+                    stepLabel: destination.stepLabel,
+                    stepIndex: 3,
+                    stepCount: 3,
+                    stepProgress: 1,
+                });
+                setExportProgress(1);
+                delivering = true;
+                await destination.deliver(blob, exportFileName('3mf'));
+            } catch (err) {
+                console.warn(
+                    delivering ? `${destination.stepLabel} failed` : '3MF export failed',
+                    err
+                );
+                alert(
+                    translate(
+                        delivering ? destination.failureMessage : 'messages:files.threeMfFailed'
+                    )
+                );
+            } finally {
+                await keepOverlayVisibleSince(overlayStartedAt);
+                setExportingSTL(false);
+                setTimeout(() => {
+                    setExportProgress(0);
+                    setExportStep?.(DEFAULT_EXPORT_STEP);
+                }, 300);
+            }
+        },
+        [
+            exportingSTL,
+            threeDBuildBusy,
+            exportObjectTo3MFBlob,
+            setExportingSTL,
+            setExportProgress,
+            setExportStep,
+        ]
+    );
+
+    const onExport3MF = useCallback(
+        () =>
+            export3MF({
+                stepLabel: 'Saving 3MF file',
+                deliver: (blob, fileName) =>
+                    saveBlobToFile(blob, {
+                        defaultFileName: fileName,
+                        extension: '3mf',
+                        filterName: '3MF model',
+                    }),
+                failureMessage: 'messages:files.threeMfFailed',
+            }),
+        [export3MF]
+    );
+
+    const onOpenInSlicer = useCallback(
+        (slicer: SlicerApp | null) =>
+            export3MF({
+                stepLabel: 'Opening 3MF in slicer',
+                deliver: (blob, fileName) => openModelInSlicer(blob, fileName, slicer),
+                failureMessage: 'messages:files.slicerFailed',
+            }),
+        [export3MF]
+    );
 
     const onSwatchDelete = useCallback(
         async (deleted: SwatchEntry) => {
@@ -314,18 +396,16 @@ export function useAppHandlers(params: UseAppHandlersParams) {
 
     const onSwatchApply = useCallback(
         async (original: SwatchEntry, newHex: string) => {
+            const current = beginEdit();
             // Perform literal pixel replacement on the full-size image
-            if (!canvasPreviewRef.current || !imageSrc) return;
+            if (!current || !canvasPreviewRef.current || !imageSrc) return;
+            let sourceUrl: string | null = null;
             try {
                 const blob = await canvasPreviewRef.current.exportImageBlob();
-                if (!blob) return;
-                const img = await new Promise<HTMLImageElement | null>((res) => {
-                    const i = new Image();
-                    i.onload = () => res(i);
-                    i.onerror = () => res(null);
-                    i.src = URL.createObjectURL(blob);
-                });
-                if (!img) return;
+                if (!blob || !current()) return;
+                sourceUrl = URL.createObjectURL(blob);
+                const img = await decodeImage(sourceUrl);
+                if (!img || !current()) return;
                 const w = img.naturalWidth;
                 const h = img.naturalHeight;
                 const c = document.createElement('canvas');
@@ -395,21 +475,24 @@ export function useAppHandlers(params: UseAppHandlersParams) {
                 const outBlob = await new Promise<Blob | null>((res) =>
                     c.toBlob((b) => res(b), 'image/png')
                 );
-                if (!outBlob) return;
+                if (!outBlob || !current()) return;
                 const url = URL.createObjectURL(outBlob);
                 invalidate();
                 setImage(url, true);
             } catch (err) {
-                console.warn('literal replace failed', err);
+                if (current()) console.warn('literal replace failed', err);
+            } finally {
+                if (sourceUrl) URL.revokeObjectURL(sourceUrl);
             }
         },
-        [canvasPreviewRef, imageSrc, invalidate, setImage]
+        [beginEdit, canvasPreviewRef, imageSrc, invalidate, setImage]
     );
 
     return {
         onExportImage,
         onExportStl,
         onExport3MF,
+        onOpenInSlicer,
         onSwatchDelete,
         onSwatchApply,
     } as const;

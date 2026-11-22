@@ -45,6 +45,7 @@ Commencez par la tâche que vous souhaitez accomplir. Chaque guide explique les 
 | Définir les dimensions, les hauteurs de couche et l’ordre manuel des couleurs | [Mode 3D](3d-mode) |
 | Choisir les filaments, optimiser les mélanges et examiner les détails imprimables | [Peinture automatique](auto-paint) |
 | Créer une plaque plane multimatériau, face vers le haut ou vers le bas | [Peinture à plat](flat-paint) |
+| Imprimer avec plusieurs têtes et suivre un planning des têtes | [Impression multi-têtes](multi-head-printing) |
 | Mesurer la HD, comparer des épreuves de palette ou photographier une matrice d’empilements | [Méthodes d’étalonnage](calibration-workflows) |
 | Préparer la silhouette et retoucher les pixels | [Chargement des images](loading-images) |
 | Régler les tons et les couleurs, puis appliquer le résultat | [Réglages d’image](image-adjustments) |

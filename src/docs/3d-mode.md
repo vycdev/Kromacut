@@ -145,6 +145,8 @@ Photograph a saved recipe board, verify alignment, and save measured colors for 
 
 Drag with the primary mouse button to orbit, use the wheel to zoom, and drag with the secondary button to pan. Camera movement never changes physical dimensions.
 
+The camera stays just outside the model in both projections. Orthographic zoom is limited so switching to Perspective also keeps the camera outside.
+
 | Toolbar control    | Use it for                                                               | Effect on the print                                                               |
 | ------------------ | ------------------------------------------------------------------------ | --------------------------------------------------------------------------------- |
 | **Color accurate** | Compare selected swatches without scene lighting or filmic tone mapping. | Preview only. Still depends on the model and display; not calibration validation. |
@@ -152,7 +154,7 @@ Drag with the primary mouse button to orbit, use the wheel to zoom, and drag wit
 | **Transparent**    | See overlapping layers.                                                  | Preview only; does not make filament transparent.                                 |
 | **Wireframe**      | Inspect layer-colored feature edges.                                     | Preview only; not extrusion toolpaths.                                            |
 | **Preview colors** | Toggle Auto-paint simulated blends versus physical filament colors.      | Preview only. Exports keep real material assignments.                             |
-| **Camera toggle**  | Perspective depth versus orthographic alignment without foreshortening.  | Preview only. Camera position is retained.                                        |
+| **Camera toggle**  | Perspective depth versus orthographic alignment without foreshortening.  | Preview only. Viewing angle and zoom carry over between modes.                    |
 | **Undo / Redo**    | Step through shared image-edit history.                                  | Not an undo stack for 3D fields or filament edits. Rebuild after an image change. |
 | **Download**       | Export the built STL or 3MF.                                             | Uses the last built model, not unapplied sidebar settings.                        |
 
@@ -161,6 +163,8 @@ View mode and simulated/physical choices are remembered. **Preview colors** appe
 ## Layer Preview
 
 Drag the bottom bar's lower and upper handles to isolate a height range. Positions snap to the layer grid. Hover over material segments for start or swap information.
+
+Focus either handle and use the arrow keys to move one printed layer at a time. Shift+arrow or Page Up/Down moves ten layers; Home/End moves to a range limit. The handles cannot cross.
 
 ![Cutoff handles hide layers for inspection but the export still contains the complete model.](19_preview_only.svg)
 

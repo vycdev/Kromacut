@@ -3,10 +3,11 @@ export const APP_PATH = '/app';
 export const DOCS_PATH = '/docs';
 export const PRIVACY_PATH = '/privacy';
 export const TERMS_PATH = '/terms';
+export const AWARDS_PATH = '/awards';
 
 export const HAS_LAUNCHED_STORAGE_KEY = 'kromacut.has-launched.v1';
 
-export type AppRoute = 'landing' | 'app' | 'docs' | 'privacy' | 'terms' | 'not-found';
+export type AppRoute = 'landing' | 'app' | 'docs' | 'privacy' | 'terms' | 'awards' | 'not-found';
 
 /** Only our exact published locale prefixes are routes, never arbitrary language-like slugs. */
 export function languageFromPath(pathname: string): AppLanguage | undefined {
@@ -47,6 +48,9 @@ export function selectRoute(pathname: string, isTauri = false): AppRoute {
     }
     if (normalized === TERMS_PATH || normalized === `${TERMS_PATH}/index.html`) {
         return 'terms';
+    }
+    if (normalized === AWARDS_PATH || normalized === `${AWARDS_PATH}/index.html`) {
+        return 'awards';
     }
     return 'not-found';
 }

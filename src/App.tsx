@@ -21,11 +21,14 @@ import AdjustmentsPanel from './components/AdjustmentsPanel';
 import DeditherPanel from './components/DeditherPanel';
 import ImageResizePanel from './components/ImageResizePanel';
 import { ADJUSTMENT_DEFAULTS } from './lib/applyAdjustments';
-import { calculateImageResizeDimensions } from './lib/imageResize';
 import SLIDER_DEFS from './components/sliderDefs';
 import { useSwatches } from './hooks/useSwatches';
 import type { SwatchEntry } from './hooks/useSwatches';
 import { useImageHistory } from './hooks/useImageHistory';
+import { useImageEditingActions } from './hooks/useImageEditingActions';
+import { useImageHistoryShortcuts } from './hooks/useImageHistoryShortcuts';
+import { useImageCanvas } from './hooks/useImageCanvas';
+import { useImageImport, type ImageImportError } from './hooks/useImageImport';
 import { useQuantize } from './hooks/useQuantize';
 import Header from './components/Header';
 import ModeTabs from './components/ModeTabs';
@@ -33,6 +36,7 @@ import PreviewActions from './components/PreviewActions';
 import { useDropzone } from './hooks/useDropzone';
 import { exportObjectToStlBlob } from './lib/exportStl';
 import { exportObjectTo3MFBlob } from './lib/export3mf';
+import { getMultiHeadRoutingPlan, multiHeadExportOptions } from './lib/multiHeadBuild';
 import { useAppHandlers, type ExportProgressStep } from './hooks/useAppHandlers';
 import { useProcessingState } from './hooks/useProcessingState';
 import { useBuildWarning } from './hooks/useBuildWarning';
@@ -47,7 +51,9 @@ import ResizableSplitter from './components/ResizableSplitter';
 import { ControlsPanel } from './components/ControlsPanel';
 import { usePaletteManager } from './hooks/usePaletteManager';
 import { useDesktopFileOpen } from './hooks/useDesktopFileOpen';
+import { useSlicerChoice } from './hooks/useSlicerChoice';
 import { DesktopFileDialog } from './components/DesktopFileDialog';
+import { SlicerChooserDialog } from './components/SlicerChooserDialog';
 import { UpdateChecker } from './components/UpdateChecker';
 import ProgressOverlay from './components/ProgressOverlay';
 import DocsPage from './components/docs/DocsPage';
@@ -81,6 +87,8 @@ import {
     AlertDialogAction,
     AlertDialogCancel,
 } from './components/ui/alert-dialog';
+import { Button } from './components/ui/button';
+import { Loader, X } from 'lucide-react';
 // ...existing imports
 
 const AUTOPAINT_STORAGE_KEY = 'kromacut.autopaint.v1';
@@ -124,6 +132,10 @@ type AutoPaintPersisted = Pick<
     | 'omitAtRiskPixels'
     | 'flatPaint'
     | 'flatPaintFaceUp'
+    | 'multiHeadMode'
+    | 'multiHeadCount'
+    | 'multiHeadSearchDepth'
+    | 'multiHeadColorMode'
 >;
 
 // Schema v2: filament `td` values store frontlit hiding distances. State
@@ -204,6 +216,10 @@ const loadAutoPaintPersisted = (): AutoPaintPersisted | null => {
             omitAtRiskPixels: parsed.omitAtRiskPixels === true,
             flatPaint: parsed.flatPaint ?? false,
             flatPaintFaceUp: parsed.flatPaintFaceUp === true,
+            multiHeadMode: parsed.multiHeadMode ?? false,
+            multiHeadCount: parsed.multiHeadCount ?? 4,
+            multiHeadSearchDepth: parsed.multiHeadSearchDepth ?? 'balanced',
+            multiHeadColorMode: parsed.multiHeadColorMode ?? 'luminance',
         };
     } catch {
         return null;
@@ -296,16 +312,27 @@ function App(): React.ReactElement | null {
         const pal = allPalettes.find((p) => p.id === selectedPalette);
         if (pal && pal.size > 0) setFinalColors(pal.size);
     }, [allPalettes, selectedPalette]);
-    const { imageSrc, setImage, clearCurrent, undo, redo, canUndo, canRedo } = useImageHistory(
-        logo,
-        undefined
+    const {
+        importFile,
+        isImporting,
+        importError: imageImportError,
+        dismissImportError,
+        cancelPendingImport,
+    } = useImageImport();
+    const { imageSrc, setImage, clearCurrent, undo, redo, canUndo, canRedo, past, future } =
+        useImageHistory(logo, cancelPendingImport);
+    const { imageCanvas, imageCanvasLoading, prepareImageCanvas } = useImageCanvas(
+        imageSrc,
+        past,
+        future
     );
     const { swatches, swatchesLoading, imageDimensions, invalidate, immediateOverride } =
-        useSwatches(imageSrc);
+        useSwatches(imageCanvas, imageCanvasLoading);
     // adjustments managed locally inside AdjustmentsPanel now
     // initial selectedPalette derived from initial weight above
     const inputRef = useRef<HTMLInputElement | null>(null);
     const canvasPreviewRef = useRef<CanvasPreviewHandle | null>(null);
+    const downloadMenuButtonRef = useRef<HTMLButtonElement | null>(null);
     const [showCheckerboard, setShowCheckerboard] = useState<boolean>(false);
     const [isCropMode, setIsCropMode] = useState(false);
     const [hasValidCropSelection, setHasValidCropSelection] = useState(false);
@@ -314,23 +341,21 @@ function App(): React.ReactElement | null {
     const [touchUpColor, setTouchUpColor] = useState('#000000');
     const [touchUpBrushSize, setTouchUpBrushSize] = useState(4);
     const [touchUpTextSize, setTouchUpTextSize] = useState(24);
+    const processing = useProcessingState();
     const {
         isQuantizing,
-        setIsQuantizing,
         isDedithering,
-        setIsDedithering,
         processingLabel,
-        setProcessingLabel,
         processingProgress,
         setProcessingProgress,
         processingIndeterminate,
         setProcessingIndeterminate,
-    } = useProcessingState();
+    } = processing;
     const [processingStep, setProcessingStep] = useState<ProcessingStepState>({
         stepIndex: 1,
         stepCount: 1,
     });
-    const { applyQuantize } = useQuantize({
+    const { applyQuantize: quantize } = useQuantize({
         algorithm,
         weight,
         finalColors,
@@ -456,7 +481,7 @@ function App(): React.ReactElement | null {
     // 3D printing shared state
     const {
         threeDState,
-        setThreeDState,
+        handleThreeDSettingsChange,
         threeDBuildSignal,
         builtThreeDState,
         builtFlatPaint,
@@ -466,10 +491,19 @@ function App(): React.ReactElement | null {
         confirmBuild,
         cancelBuild,
         markBuildStarted,
-    } = useBuildWarning({ imageSrc, initialState: autopaintHydrated });
+    } = useBuildWarning({ imageSrc, imageCanvas, initialState: autopaintHydrated });
+    const [isThreeDBuilding, setIsThreeDBuilding] = useState(false);
+    // The build overlays cover the preview actions, but not from keyboard or screen readers.
+    const threeDBuildBusy = isBuildStarting || isThreeDBuilding;
     const builtModelState = builtThreeDState ?? threeDState;
     const builtModelAutoPaint = builtModelState.paintMode === 'autopaint';
     const builtModelValid = !builtModelAutoPaint || builtModelState.autoPaintResult !== undefined;
+    const builtMultiHeadPlan = useMemo(
+        () => getMultiHeadRoutingPlan(builtModelState),
+        [builtModelState]
+    );
+    // Both models are built from parts that only 3MF keeps apart.
+    const builtModelStlUnavailable = builtFlatPaint || builtMultiHeadPlan !== undefined;
 
     const prevModeRef = useRef<typeof mode>(mode);
 
@@ -493,6 +527,10 @@ function App(): React.ReactElement | null {
             omitAtRiskPixels: threeDState.omitAtRiskPixels,
             flatPaint: threeDState.flatPaint,
             flatPaintFaceUp: threeDState.flatPaintFaceUp,
+            multiHeadMode: threeDState.multiHeadMode,
+            multiHeadCount: threeDState.multiHeadCount,
+            multiHeadSearchDepth: threeDState.multiHeadSearchDepth,
+            multiHeadColorMode: threeDState.multiHeadColorMode,
         });
     }, [
         threeDState.filaments,
@@ -513,6 +551,10 @@ function App(): React.ReactElement | null {
         threeDState.omitAtRiskPixels,
         threeDState.flatPaint,
         threeDState.flatPaintFaceUp,
+        threeDState.multiHeadMode,
+        threeDState.multiHeadCount,
+        threeDState.multiHeadSearchDepth,
+        threeDState.multiHeadColorMode,
     ]);
 
     // No auto-build on tab switch — the user must click "Build 3D Model" / "Apply Changes".
@@ -564,77 +606,52 @@ function App(): React.ReactElement | null {
         }
     };
 
-    const handleFiles = (file?: File) => {
-        if (!file) return;
-        if (!file.type.startsWith('image/')) {
-            alert(t('app.uploadImage'));
-            return;
+    const processingActive = isQuantizing || isDedithering;
+    const imageActions = useImageEditingActions({
+        imageSrc,
+        imageCanvasLoading,
+        canvasPreviewRef,
+        inputRef,
+        importFile,
+        cancelPendingImport,
+        prepareImageCanvas,
+        invalidate,
+        setImage,
+        clearCurrent,
+        resetTouchUp: () => setTouchUpTool(null),
+        setAdjustments,
+        resetAdjustmentsPanel: () => setAdjustmentsEpoch((epoch) => epoch + 1),
+        exitCrop: () => setIsCropMode(false),
+        processing,
+        setProcessingStep,
+        quantize,
+    });
+    const { handleFiles, applyQuantize } = imageActions;
+    useImageHistoryShortcuts({
+        undo,
+        redo,
+        canUndo,
+        canRedo,
+        disabled: mode !== '2d' || docsOpen || isCropMode || processingActive,
+        beginEdit: imageActions.beginEdit,
+    });
+
+    const imageImportErrorMessage = (error: ImageImportError) => {
+        if (error.kind === 'notImage') return t('app.uploadImage');
+        if (error.kind === 'tooLarge') {
+            const values = {
+                name: error.name,
+                width: error.width,
+                height: error.height,
+                maxSize: `${error.maxSquareSide}×${error.maxSquareSide}`,
+            };
+            return error.keptImage
+                ? t('app.imageTooLarge', values)
+                : t('app.imageTooLargeNoImage', values);
         }
-        setTouchUpTool(null);
-        const url = URL.createObjectURL(file);
-        invalidate();
-        setImage(url, true);
-    };
-
-    // removed unused handlers (inline handlers used instead)
-
-    const clear = () => {
-        setTouchUpTool(null);
-        clearCurrent();
-        if (inputRef.current) inputRef.current.value = '';
-    };
-
-    const resizeCurrentImage = async (percent: number) => {
-        if (!canvasPreviewRef.current || !imageSrc) return;
-
-        let sourceUrl: string | null = null;
-        try {
-            const sourceBlob = await canvasPreviewRef.current.exportImageBlob();
-            if (!sourceBlob) return;
-
-            sourceUrl = URL.createObjectURL(sourceBlob);
-            const imageUrl = sourceUrl;
-            const img = await new Promise<HTMLImageElement | null>((resolve) => {
-                const image = new Image();
-                image.onload = () => resolve(image);
-                image.onerror = () => resolve(null);
-                image.src = imageUrl;
-            });
-
-            if (!img) return;
-
-            const target = calculateImageResizeDimensions(
-                img.naturalWidth,
-                img.naturalHeight,
-                percent
-            );
-
-            if (target.width >= img.naturalWidth && target.height >= img.naturalHeight) return;
-
-            const canvas = document.createElement('canvas');
-            canvas.width = target.width;
-            canvas.height = target.height;
-            const ctx = canvas.getContext('2d');
-            if (!ctx) return;
-
-            ctx.imageSmoothingEnabled = true;
-            ctx.imageSmoothingQuality = 'high';
-            ctx.drawImage(img, 0, 0, target.width, target.height);
-
-            const resizedBlob = await new Promise<Blob | null>((resolve) =>
-                canvas.toBlob((blob) => resolve(blob), 'image/png')
-            );
-            if (!resizedBlob) return;
-
-            const url = URL.createObjectURL(resizedBlob);
-            invalidate();
-            setImage(url, true);
-        } catch (error) {
-            console.warn('Image resize failed', error);
-            alert(t('app.resizeFailed'));
-        } finally {
-            if (sourceUrl) URL.revokeObjectURL(sourceUrl);
-        }
+        return error.keptImage
+            ? t('app.imageDecodeFailed', { name: error.name })
+            : t('app.imageDecodeFailedNoImage', { name: error.name });
     };
 
     // splitter & layout management preserved below
@@ -654,43 +671,70 @@ function App(): React.ReactElement | null {
     );
 
     const handleTouchUpToolChange = (nextTool: TouchUpTool | null) => {
-        if (!imageSrc) return;
+        if (!imageSrc || !imageActions.beginEdit()) return;
         setTouchUpTool(nextTool);
     };
 
-    const dropzone = useDropzone({ enabled: mode === '2d', onFile: handleFiles });
-    const { onExportImage, onExportStl, onExport3MF, onSwatchApply, onSwatchDelete } =
-        useAppHandlers({
-            canvasPreviewRef,
-            imageSrc,
-            invalidate,
-            setImage,
-            setExportingSTL,
-            setExportProgress,
-            setExportStep,
-            exportingSTL,
-            exportObjectToStlBlob,
-            exportObjectTo3MFBlob: (obj, onProgress, onZipProgress) =>
-                exportObjectTo3MFBlob(obj, {
-                    layerHeight: builtModelState.layerHeight,
-                    firstLayerHeight: builtModelState.slicerFirstLayerHeight,
-                    smoothMeshingStrength: builtModelState.smoothMeshingStrength,
-                    layerFilamentColors: builtModelAutoPaint
-                        ? builtModelState.autoPaintFilamentSwatches?.map((s) => s.hex)
-                        : undefined,
-                    onProgress,
-                    onZipProgress,
-                }),
-            applyQuantize,
-            swatches,
-        });
-
-    const processingActive = mode === '2d' && (isQuantizing || isDedithering);
+    // Quantize and dedither commit their result through image history, which cancels a
+    // pending import, so refuse new imports until they finish rather than drop one silently.
+    const dropzone = useDropzone({
+        enabled: mode === '2d' && !processingActive,
+        onFile: handleFiles,
+    });
+    const {
+        onExportImage,
+        onExportStl,
+        onExport3MF,
+        onOpenInSlicer,
+        onSwatchApply,
+        onSwatchDelete,
+    } = useAppHandlers({
+        beginEdit: imageActions.beginEdit,
+        canvasPreviewRef,
+        imageSrc,
+        invalidate,
+        setImage,
+        setExportingSTL,
+        setExportProgress,
+        setExportStep,
+        exportingSTL,
+        threeDBuildBusy,
+        stlUnavailable: builtModelStlUnavailable,
+        exportObjectToStlBlob,
+        exportObjectTo3MFBlob: (obj, onProgress, onZipProgress) =>
+            exportObjectTo3MFBlob(obj, {
+                ...multiHeadExportOptions(builtMultiHeadPlan),
+                layerHeight: builtModelState.layerHeight,
+                firstLayerHeight: builtModelState.slicerFirstLayerHeight,
+                smoothMeshingStrength: builtModelState.smoothMeshingStrength,
+                layerFilamentColors: builtModelAutoPaint
+                    ? builtModelState.autoPaintFilamentSwatches?.map((s) => s.hex)
+                    : undefined,
+                onProgress,
+                onZipProgress,
+            }),
+        applyQuantize,
+        swatches,
+    });
+    const slicerChoice = useSlicerChoice(onOpenInSlicer);
 
     return (
         <>
             <div className="box-border text-inherit font-sans flex flex-col flex-1 min-w-0 max-w-full min-h-0 h-screen w-full">
-                <Header docsOpen={docsOpen} onBackToApp={backToApp} onOpenDocs={openDocs} />
+                <Header
+                    docsOpen={docsOpen}
+                    onBackToApp={backToApp}
+                    onOpenDocs={openDocs}
+                    slicer={
+                        isTauri()
+                            ? {
+                                  preference: slicerChoice.preference,
+                                  onChange: slicerChoice.onChangeSavedSlicer,
+                                  onForget: slicerChoice.onForgetSlicer,
+                              }
+                            : undefined
+                    }
+                />
                 {docsOpen && (
                     <div className="flex flex-1 min-h-0 w-full">
                         <DocsPage />
@@ -710,20 +754,29 @@ function App(): React.ReactElement | null {
                                             ref={inputRef}
                                             type="file"
                                             accept="image/*"
+                                            disabled={processingActive}
                                             data-testid="image-file-input"
                                             onChange={(e) => {
-                                                if (e.target.files && e.target.files[0])
-                                                    handleFiles(e.target.files[0]);
+                                                const file = e.currentTarget.files?.[0];
+                                                // Allow choosing this same source again after
+                                                // cropping, resizing, or other image edits.
+                                                e.currentTarget.value = '';
+                                                if (file) void handleFiles(file);
                                             }}
                                             className="hidden-file-input"
                                         />
                                         {/* file input stays here (hidden); uploader buttons moved to preview actions */}
-                                        <div className="space-y-4">
+                                        <fieldset
+                                            className="space-y-4 min-w-0"
+                                            disabled={processingActive}
+                                        >
                                             <AdjustmentsPanel
+                                                disabled={processingActive}
                                                 key={adjustmentsEpoch}
                                                 defs={SLIDER_DEFS}
                                                 initial={ADJUSTMENT_DEFAULTS}
                                                 onCommit={(vals) => {
+                                                    if (!imageActions.beginEdit()) return;
                                                     setTouchUpTool(null);
                                                     setAdjustments(vals);
                                                     // schedule a redraw
@@ -731,50 +784,28 @@ function App(): React.ReactElement | null {
                                                         canvasPreviewRef.current?.redraw()
                                                     );
                                                 }}
-                                                onBake={async (vals) => {
-                                                    if (!canvasPreviewRef.current) return;
-                                                    try {
-                                                        const blob =
-                                                            await canvasPreviewRef.current.exportAdjustedImageBlob?.(
-                                                                vals
-                                                            );
-                                                        if (!blob) return;
-                                                        const url = URL.createObjectURL(blob);
-                                                        invalidate();
-                                                        setImage(url, true);
-                                                        // After baking, reset adjustments state to defaults
-                                                        setAdjustments(ADJUSTMENT_DEFAULTS);
-                                                        setAdjustmentsEpoch((e) => e + 1);
-                                                    } catch (e) {
-                                                        console.warn('Bake adjustments failed', e);
-                                                    }
-                                                }}
+                                                onBake={imageActions.bakeAdjustments}
                                             />
                                             <ImageResizePanel
                                                 imageDimensions={imageDimensions}
-                                                disabled={!imageSrc || isCropMode}
-                                                onApply={resizeCurrentImage}
+                                                disabled={
+                                                    !imageSrc ||
+                                                    isCropMode ||
+                                                    processingActive ||
+                                                    imageCanvasLoading
+                                                }
+                                                onApply={imageActions.resizeCurrentImage}
                                             />
                                             <DeditherPanel
+                                                beginEdit={imageActions.beginProcessingEdit}
                                                 canvasRef={canvasPreviewRef}
                                                 onApplyResult={(url) => {
                                                     invalidate();
                                                     setImage(url, true);
                                                 }}
-                                                onWorkingChange={(working) => {
-                                                    setIsDedithering(working);
-                                                    if (working) {
-                                                        setProcessingLabel('Dedithering...');
-                                                        setProcessingStep({
-                                                            stepIndex: 1,
-                                                            stepCount: 1,
-                                                            label: 'Dedithering pass 1',
-                                                            stepProgress: 0,
-                                                        });
-                                                        setProcessingProgress(0);
-                                                        setProcessingIndeterminate(false);
-                                                    }
-                                                }}
+                                                onWorkingChange={
+                                                    imageActions.onDeditherWorkingChange
+                                                }
                                                 onStepChange={setProcessingStep}
                                                 onProgress={(value) => {
                                                     setProcessingProgress(clampProgress(value));
@@ -795,30 +826,13 @@ function App(): React.ReactElement | null {
                                                 }}
                                                 algorithm={algorithm}
                                                 setAlgorithm={setAlgorithm}
-                                                onApply={async () => {
-                                                    if (isQuantizing) return;
-                                                    setIsQuantizing(true);
-                                                    setProcessingLabel('Quantizing...');
-                                                    setProcessingStep({
-                                                        stepIndex: 1,
-                                                        stepCount: 5,
-                                                        label: 'Loading image data',
-                                                        stepProgress: 0,
-                                                    });
-                                                    setProcessingProgress(0);
-                                                    setProcessingIndeterminate(false);
-                                                    await new Promise((r) =>
-                                                        requestAnimationFrame(r)
-                                                    );
-                                                    try {
-                                                        await applyQuantize(canvasPreviewRef);
-                                                    } finally {
-                                                        setIsQuantizing(false);
-                                                        setProcessingProgress(1);
-                                                        setProcessingIndeterminate(false);
-                                                    }
-                                                }}
-                                                disabled={!imageSrc || isCropMode}
+                                                onApply={() => applyQuantize(canvasPreviewRef)}
+                                                disabled={
+                                                    !imageSrc ||
+                                                    isCropMode ||
+                                                    processingActive ||
+                                                    imageCanvasLoading
+                                                }
                                                 applying={isQuantizing}
                                                 weightDisabled={algorithm === 'none'}
                                                 selectedPalette={selectedPalette}
@@ -853,7 +867,7 @@ function App(): React.ReactElement | null {
                                                 onSwatchDelete={onSwatchDelete}
                                                 onSwatchApply={onSwatchApply}
                                             />
-                                        </div>
+                                        </fieldset>
                                     </>
                                 )}
                                 {mode === '3d' && !hasMountedThreeDControls && (
@@ -867,13 +881,14 @@ function App(): React.ReactElement | null {
                                             active={mode === '3d'}
                                             swatches={swatches}
                                             imageSrc={imageSrc}
+                                            imageCanvas={imageCanvas}
                                             imageDimensions={imageDimensions}
                                             builtState={builtThreeDState}
                                             builtFlatPaint={builtFlatPaint}
                                             onChange={handleThreeDStateChange}
                                             onSettingsChange={(partial) => {
                                                 autoPaintWorkingStateInitializedRef.current = true;
-                                                setThreeDState((prev) => ({ ...prev, ...partial }));
+                                                handleThreeDSettingsChange(partial);
                                             }}
                                             persisted={threeDState}
                                             hasAutoPaintWorkingState={
@@ -901,6 +916,8 @@ function App(): React.ReactElement | null {
                         <main className="h-full w-full bg-background flex flex-col min-h-0">
                             <div
                                 className={`flex-1 relative min-h-0 w-full ${dropzone.dragOver ? 'bg-primary/20' : ''}`}
+                                data-testid="image-dropzone"
+                                aria-busy={isImporting}
                                 onDrop={dropzone.onDrop}
                                 onDragOver={dropzone.onDragOver}
                                 onDragLeave={dropzone.onDragLeave}
@@ -918,26 +935,61 @@ function App(): React.ReactElement | null {
                                         <CanvasPreview
                                             ref={canvasPreviewRef}
                                             imageSrc={imageSrc}
+                                            imageCanvas={imageCanvas}
                                             isCropMode={isCropMode}
                                             showCheckerboard={showCheckerboard}
                                             adjustments={adjustments}
                                             onCropSelectionChange={setHasValidCropSelection}
                                             touchUpTool={touchUpTool}
+                                            touchUpDisabled={processingActive}
                                             touchUpColor={touchUpColor}
                                             touchUpBrushSize={touchUpBrushSize}
                                             touchUpTextSize={touchUpTextSize}
-                                            onTouchUpCommit={(blob) => {
-                                                const url = URL.createObjectURL(blob);
-                                                invalidate();
-                                                setImage(url, true);
-                                                return url;
-                                            }}
+                                            onTouchUpCommit={imageActions.commitTouchUp}
                                             onTouchUpPickColor={(hex) => {
                                                 setTouchUpColor(hex);
                                                 setTouchUpTool('brush');
                                             }}
                                             onTouchUpExit={() => setTouchUpTool(null)}
                                         />
+                                        {isImporting && (
+                                            <div
+                                                role="status"
+                                                data-testid="image-import-busy"
+                                                className="pointer-events-none absolute bottom-4 right-4 z-40 flex items-center gap-2 rounded-md bg-background/95 px-3 py-2 text-sm shadow-sm"
+                                            >
+                                                <Loader
+                                                    className="h-4 w-4 animate-spin"
+                                                    aria-hidden
+                                                />
+                                                {t('app.checkingImage')}
+                                            </div>
+                                        )}
+                                        {imageImportError && (
+                                            <div
+                                                role="alert"
+                                                data-testid="image-import-error"
+                                                className="absolute bottom-4 left-4 right-4 z-30 flex items-start gap-3 rounded-md border border-destructive/50 bg-background/95 p-4 text-sm break-words"
+                                            >
+                                                <div className="min-w-0 flex-1">
+                                                    <p className="font-semibold text-destructive">
+                                                        {t('app.imageImportFailed')}
+                                                    </p>
+                                                    <p className="mt-1 text-muted-foreground">
+                                                        {imageImportErrorMessage(imageImportError)}
+                                                    </p>
+                                                </div>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    onClick={dismissImportError}
+                                                    aria-label={t('app.dismissImageImportError')}
+                                                    className="h-6 w-6 shrink-0 text-muted-foreground hover:text-foreground"
+                                                >
+                                                    <X className="h-4 w-4" />
+                                                </Button>
+                                            </div>
+                                        )}
                                         {processingActive && (
                                             <ProgressOverlay
                                                 title={progressOperationTitle()}
@@ -961,23 +1013,36 @@ function App(): React.ReactElement | null {
                                         <>
                                             <ThreeDView
                                                 imageSrc={builtModelValid ? imageSrc : null}
+                                                imageCanvas={builtModelValid ? imageCanvas : null}
                                                 baseSliceHeight={0}
                                                 layerHeight={builtModelState.layerHeight}
                                                 slicerFirstLayerHeight={
                                                     builtModelState.slicerFirstLayerHeight
                                                 }
                                                 colorSliceHeights={
+                                                    builtModelState.patchedSliceData
+                                                        ?.colorSliceHeights ??
                                                     builtModelState.colorSliceHeights
                                                 }
-                                                colorOrder={builtModelState.colorOrder}
-                                                swatches={builtModelState.filteredSwatches}
+                                                colorOrder={
+                                                    builtModelState.patchedSliceData?.colorOrder ??
+                                                    builtModelState.colorOrder
+                                                }
+                                                swatches={
+                                                    builtModelAutoPaint &&
+                                                    builtModelState.patchedSliceData
+                                                        ? builtModelState.patchedSliceData.swatches
+                                                        : builtModelState.filteredSwatches
+                                                }
                                                 filamentSwatches={
-                                                    builtModelAutoPaint
+                                                    builtModelAutoPaint &&
+                                                    !builtModelState.patchedSliceData
                                                         ? builtModelState.autoPaintFilamentSwatches
                                                         : undefined
                                                 }
                                                 pixelSize={builtModelState.pixelSize}
                                                 rebuildSignal={threeDBuildSignal}
+                                                multiHeadPlan={builtMultiHeadPlan}
                                                 autoPaintEnabled={builtModelAutoPaint}
                                                 autoPaintTotalHeight={
                                                     builtModelState.autoPaintResult?.totalHeight
@@ -1011,6 +1076,7 @@ function App(): React.ReactElement | null {
                                                 previewRenderMode={previewRenderMode}
                                                 previewColorMode={previewColorMode}
                                                 onBuildStarted={markBuildStarted}
+                                                onBuildingChange={setIsThreeDBuilding}
                                                 active={mode === '3d'}
                                             />
                                             {isBuildStarting && (
@@ -1037,39 +1103,50 @@ function App(): React.ReactElement | null {
                                 )}
                                 <PreviewActions
                                     mode={mode}
-                                    canUndo={canUndo}
-                                    canRedo={canRedo}
+                                    canUndo={canUndo && !processingActive}
+                                    canRedo={canRedo && !processingActive}
                                     isCropMode={isCropMode}
-                                    imageAvailable={!!imageSrc}
+                                    imageAvailable={!!imageSrc && !processingActive}
                                     hasValidCropSelection={hasValidCropSelection}
                                     exportingSTL={exportingSTL}
                                     exportProgress={exportProgress}
-                                    onUndo={undo}
-                                    onRedo={redo}
+                                    onUndo={() => {
+                                        if (imageActions.beginEdit()) undo();
+                                    }}
+                                    onRedo={() => {
+                                        if (imageActions.beginEdit()) redo();
+                                    }}
                                     onEnterCrop={() => {
-                                        if (!imageSrc) return;
+                                        if (!imageSrc || !imageActions.beginEdit()) return;
                                         setTouchUpTool(null);
                                         setIsCropMode(true);
                                     }}
-                                    onSaveCrop={async () => {
-                                        if (!canvasPreviewRef.current) return;
-                                        const blob =
-                                            await canvasPreviewRef.current.exportCroppedImage();
-                                        if (!blob) return;
-                                        const url = URL.createObjectURL(blob);
-                                        invalidate();
-                                        setImage(url, true);
-                                        setIsCropMode(false);
-                                    }}
+                                    onSaveCrop={imageActions.saveCrop}
                                     onCancelCrop={() => setIsCropMode(false)}
                                     onToggleCheckerboard={() => setShowCheckerboard((s) => !s)}
                                     onPickFile={() => inputRef.current?.click()}
-                                    onClear={clear}
+                                    pickFileDisabled={processingActive}
+                                    onClear={imageActions.clearImage}
                                     onExportImage={onExportImage}
                                     onExportStl={onExportStl}
                                     onExport3MF={onExport3MF}
-                                    flatPaintModel={builtFlatPaint}
-                                    modelExportDisabled={!builtModelValid}
+                                    onOpenInSlicer={
+                                        isTauri() ? slicerChoice.onOpenInSlicer : undefined
+                                    }
+                                    savedSlicerName={
+                                        slicerChoice.preference?.kind === 'app'
+                                            ? slicerChoice.preference.app.name
+                                            : undefined
+                                    }
+                                    onChooseSlicer={
+                                        slicerChoice.preference
+                                            ? slicerChoice.onChooseSlicer
+                                            : undefined
+                                    }
+                                    downloadMenuButtonRef={downloadMenuButtonRef}
+                                    stlUnavailable={builtModelStlUnavailable}
+                                    modelExportDisabled={!builtModelValid || threeDBuildBusy}
+                                    inert={mode === '3d' && threeDBuildBusy}
                                     isOrtho={isOrtho}
                                     previewRenderMode={previewRenderMode}
                                     onPreviewRenderModeChange={(next) => {
@@ -1133,6 +1210,16 @@ function App(): React.ReactElement | null {
                     </AlertDialogContent>
                 </AlertDialog>
 
+                {slicerChoice.chooser && (
+                    <SlicerChooserDialog
+                        preference={slicerChoice.preference}
+                        missingSlicerName={slicerChoice.chooser.missingSlicerName}
+                        saveOnly={slicerChoice.chooser.saveOnly}
+                        fallbackFocusRef={downloadMenuButtonRef}
+                        onConfirm={slicerChoice.onChooserConfirm}
+                        onCancel={slicerChoice.onChooserCancel}
+                    />
+                )}
                 {/* Update checker for Tauri desktop app */}
                 <UpdateChecker />
                 {desktopFile &&

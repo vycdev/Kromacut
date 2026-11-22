@@ -193,7 +193,7 @@ Imprimez face vers le haut à 100 % d’échelle, avec les hauteurs et affectati
 
 ### Charger et aligner une photo
 
-Sélectionnez la planche imprimée dans la liste des matrices, puis **Choisir une photo** ou déposez une image dans la zone photo. Photographiez sous un éclairage frontal diffus sans reflets importants. Le fichier doit être décodable par l’application ; un RAW ne remplace pas un export d’image normalement visualisable.
+Sélectionnez la planche imprimée dans la liste des matrices, puis **Choisir une photo** ou déposez une image dans la zone photo. Photographiez sous un éclairage frontal diffus sans reflets importants. Le fichier doit être décodable par l’application ; un RAW ne remplace pas un export d’image normalement visualisable. Si une photo ne peut pas être lue, par exemple parce qu’elle est endommagée ou incomplètement téléchargée, Kromacut affiche une erreur et conserve la photo déjà chargée, le cas échéant.
 
 ![Les quatre poignées se placent au centre des cases de repère colorées hors de la grille de recettes. Le bord dépasse les centres d’une demi-case ; un agrandissement distingue le centre du repère du coin de la planche.](22_matrix_alignment.svg)
 

@@ -58,5 +58,9 @@
   "troubleshooting": {
     "title": "Fehlerbehebung",
     "description": "Häufige Probleme und erste Lösungsversuche."
+  },
+  "multi-head-printing": {
+    "title": "Mehrkopfdruck",
+    "description": "Filamentzuweisungen, Druckkopfwechsel und 3MF-Exporte für den Mehrkopfdruck planen."
   }
 }

@@ -64,4 +64,10 @@ Restablecer retira un ajuste en directo, no una edición ya aplicada. Después d
 
 Aplicar repetidamente actúa sobre la imagen ya editada, de modo que el recorte de valores y la pérdida de detalle tonal pueden acumularse. Deshaz primero al comparar alternativas.
 
+## Atajos del historial 2D
+
+Usa **Ctrl+Z** (**Cmd+Z** en macOS) para deshacer una edición y **Ctrl+Mayús+Z** (**Cmd+Mayús+Z**) para rehacerla. Funcionan en modo 2D, fuera de campos de texto, entradas numéricas, cuadros de diálogo y menús o listas abiertos. Se desactivan al recortar o procesar; no cambian la imagen desde la pestaña 3D.
+
+Espera a que termine la cuantización o la eliminación de tramado antes de importar o editar otra imagen. Se descartan los resultados de ediciones anteriores si la imagen cambió o comenzó otra operación de procesamiento.
+
 Siguiente: [Reducir colores](reducing-colors).

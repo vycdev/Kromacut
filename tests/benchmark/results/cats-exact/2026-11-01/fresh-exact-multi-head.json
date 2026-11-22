@@ -1,0 +1,1577 @@
+{
+  "measuredAt": "2026-11-01T12:49:44.984Z",
+  "revision": "c0ef02c1acd297261f0a1008f3216996556c9717",
+  "analysisRef": "",
+  "shortlistSize": 32,
+  "analysisSha256": "126e6c38468cedd84b6be14f9f5f876757dd2974fcfdb06c42e02e3363094187",
+  "harnessSha256": "7b9ec289611315b2fdbb69108908f3b5cf8d94f856737b00604865efe57caaa2",
+  "inputSha256": "076ef1d6dc7460257ac445cd103b5437827a8ab138e12c28a074d94852b39dec",
+  "machine": {
+    "node": "v24.19.0",
+    "platform": "win32",
+    "release": "10.0.26300",
+    "architecture": "x64",
+    "cpu": "AMD Ryzen 9 5950X 16-Core Processor            ",
+    "logicalCpus": 32,
+    "revision": "c0ef02c1acd297261f0a1008f3216996556c9717",
+    "sourceDiffSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "warmups": 1,
+  "repeats": 3,
+  "timingBoundaries": {
+    "analysisMs": "Balanced analysis including regional selection, full-model reconciliation and nozzle scheduling",
+    "previewMs": "Standalone full-model prediction and usage-weighted CIEDE2000 gain replay after the build (excluded from totalBuildMs)",
+    "buildMs": "multiHeadBuildSnapshot including corrected colors, gain gate, slice conversion and fallback validation; excludes mesh/export",
+    "totalBuildMs": "analysisMs + buildMs; excludes preparation, standalone preview, serialization and assertions"
+  },
+  "cases": [
+    {
+      "name": "cats",
+      "colors": 128,
+      "layerHeight": 0.08,
+      "firstLayerHeight": 0.4,
+      "layers": 70,
+      "runs": 11,
+      "occupiedSurfaces": 64,
+      "finalStackFingerprint": "final-stack-v1-9cc07906da622021",
+      "resultSha256": "1b35967127485e938a5edd824e18c29e1ee559c7006ebeeb71e9cf81531d875b",
+      "provenance": {
+        "kind": "fresh-exact",
+        "evidenceSha256": "571c1e3402352fb7604d29423027102f80b44ecbc9fe5b15a09055c7d13e93bb",
+        "resultSha256": "1b35967127485e938a5edd824e18c29e1ee559c7006ebeeb71e9cf81531d875b"
+      }
+    }
+  ],
+  "depth": "balanced",
+  "threshold": 0.25,
+  "rows": [
+    {
+      "phase": "warmup",
+      "sample": 1,
+      "case": "cats",
+      "mode": "luminance",
+      "heads": 2,
+      "analysisMs": 1172.9222999999997,
+      "previewMs": 39.153899999999794,
+      "buildMs": 48.84979999999996,
+      "totalBuildMs": 1221.7720999999997,
+      "predictedGain": 0.8406118924059788,
+      "fallback": false,
+      "windows": 4,
+      "pathSha256": "9a214fb30d297bae2559c496f7dad07a81879084f5e9adfec91b2d51cc2d9fd5"
+    },
+    {
+      "phase": "measured",
+      "sample": 1,
+      "case": "cats",
+      "mode": "luminance",
+      "heads": 2,
+      "analysisMs": 726.9882000000002,
+      "previewMs": 26.336299999999937,
+      "buildMs": 29.006400000000212,
+      "totalBuildMs": 755.9946000000004,
+      "predictedGain": 0.8406118924059788,
+      "fallback": false,
+      "windows": 4,
+      "pathSha256": "9a214fb30d297bae2559c496f7dad07a81879084f5e9adfec91b2d51cc2d9fd5"
+    },
+    {
+      "phase": "measured",
+      "sample": 2,
+      "case": "cats",
+      "mode": "luminance",
+      "heads": 2,
+      "analysisMs": 577.0059000000001,
+      "previewMs": 32.072799999999916,
+      "buildMs": 26.58940000000075,
+      "totalBuildMs": 603.5953000000009,
+      "predictedGain": 0.8406118924059788,
+      "fallback": false,
+      "windows": 4,
+      "pathSha256": "9a214fb30d297bae2559c496f7dad07a81879084f5e9adfec91b2d51cc2d9fd5"
+    },
+    {
+      "phase": "measured",
+      "sample": 3,
+      "case": "cats",
+      "mode": "luminance",
+      "heads": 2,
+      "analysisMs": 636.0987000000005,
+      "previewMs": 42.2445000000007,
+      "buildMs": 38.76730000000043,
+      "totalBuildMs": 674.8660000000009,
+      "predictedGain": 0.8406118924059788,
+      "fallback": false,
+      "windows": 4,
+      "pathSha256": "9a214fb30d297bae2559c496f7dad07a81879084f5e9adfec91b2d51cc2d9fd5"
+    },
+    {
+      "phase": "warmup",
+      "sample": 1,
+      "case": "cats",
+      "mode": "luminance",
+      "heads": 3,
+      "analysisMs": 1717.8345,
+      "previewMs": 46.5033999999996,
+      "buildMs": 44.90090000000055,
+      "totalBuildMs": 1762.7354000000005,
+      "predictedGain": 1.1066907472844387,
+      "fallback": false,
+      "windows": 2,
+      "pathSha256": "018d13192bcdd50da28cfba44da277179c0961f3a72677a2e227a5d8c1534371"
+    },
+    {
+      "phase": "measured",
+      "sample": 1,
+      "case": "cats",
+      "mode": "luminance",
+      "heads": 3,
+      "analysisMs": 1897.7286000000004,
+      "previewMs": 32.29170000000158,
+      "buildMs": 30.854600000000573,
+      "totalBuildMs": 1928.583200000001,
+      "predictedGain": 1.1066907472844387,
+      "fallback": false,
+      "windows": 2,
+      "pathSha256": "018d13192bcdd50da28cfba44da277179c0961f3a72677a2e227a5d8c1534371"
+    },
+    {
+      "phase": "measured",
+      "sample": 2,
+      "case": "cats",
+      "mode": "luminance",
+      "heads": 3,
+      "analysisMs": 1792.1834,
+      "previewMs": 36.96630000000005,
+      "buildMs": 31.993999999998778,
+      "totalBuildMs": 1824.1773999999987,
+      "predictedGain": 1.1066907472844387,
+      "fallback": false,
+      "windows": 2,
+      "pathSha256": "018d13192bcdd50da28cfba44da277179c0961f3a72677a2e227a5d8c1534371"
+    },
+    {
+      "phase": "measured",
+      "sample": 3,
+      "case": "cats",
+      "mode": "luminance",
+      "heads": 3,
+      "analysisMs": 1770.970299999999,
+      "previewMs": 44.1887999999999,
+      "buildMs": 48.08779999999933,
+      "totalBuildMs": 1819.0580999999984,
+      "predictedGain": 1.1066907472844387,
+      "fallback": false,
+      "windows": 2,
+      "pathSha256": "018d13192bcdd50da28cfba44da277179c0961f3a72677a2e227a5d8c1534371"
+    },
+    {
+      "phase": "warmup",
+      "sample": 1,
+      "case": "cats",
+      "mode": "luminance",
+      "heads": 4,
+      "analysisMs": 2458.1268,
+      "previewMs": 36.438899999999194,
+      "buildMs": 37.21570000000065,
+      "totalBuildMs": 2495.3425000000007,
+      "predictedGain": 1.4990834147056027,
+      "fallback": false,
+      "windows": 2,
+      "pathSha256": "557da2adf6d186697519bd0fbdb1b0489077f1a6453be070efad82fa197cf38b"
+    },
+    {
+      "phase": "measured",
+      "sample": 1,
+      "case": "cats",
+      "mode": "luminance",
+      "heads": 4,
+      "analysisMs": 2332.6135000000013,
+      "previewMs": 55.11029999999664,
+      "buildMs": 43.42130000000179,
+      "totalBuildMs": 2376.034800000003,
+      "predictedGain": 1.4990834147056027,
+      "fallback": false,
+      "windows": 2,
+      "pathSha256": "557da2adf6d186697519bd0fbdb1b0489077f1a6453be070efad82fa197cf38b"
+    },
+    {
+      "phase": "measured",
+      "sample": 2,
+      "case": "cats",
+      "mode": "luminance",
+      "heads": 4,
+      "analysisMs": 2662.6555000000008,
+      "previewMs": 37.248999999999796,
+      "buildMs": 37.79660000000149,
+      "totalBuildMs": 2700.4521000000022,
+      "predictedGain": 1.4990834147056027,
+      "fallback": false,
+      "windows": 2,
+      "pathSha256": "557da2adf6d186697519bd0fbdb1b0489077f1a6453be070efad82fa197cf38b"
+    },
+    {
+      "phase": "measured",
+      "sample": 3,
+      "case": "cats",
+      "mode": "luminance",
+      "heads": 4,
+      "analysisMs": 2577.6018000000004,
+      "previewMs": 62.820199999998295,
+      "buildMs": 45.827000000001135,
+      "totalBuildMs": 2623.4288000000015,
+      "predictedGain": 1.4990834147056027,
+      "fallback": false,
+      "windows": 2,
+      "pathSha256": "557da2adf6d186697519bd0fbdb1b0489077f1a6453be070efad82fa197cf38b"
+    },
+    {
+      "phase": "warmup",
+      "sample": 1,
+      "case": "cats",
+      "mode": "luminance",
+      "heads": 5,
+      "analysisMs": 7146.058000000001,
+      "previewMs": 44.53939999999784,
+      "buildMs": 45.71270000000004,
+      "totalBuildMs": 7191.770700000001,
+      "predictedGain": 1.6074859959230363,
+      "fallback": false,
+      "windows": 2,
+      "pathSha256": "98886aa623553da478d131d8f633259654f435b5ff6448c60d445761598b915d"
+    },
+    {
+      "phase": "measured",
+      "sample": 1,
+      "case": "cats",
+      "mode": "luminance",
+      "heads": 5,
+      "analysisMs": 7853.614200000004,
+      "previewMs": 53.35910000000149,
+      "buildMs": 65.50220000000263,
+      "totalBuildMs": 7919.116400000006,
+      "predictedGain": 1.6074859959230363,
+      "fallback": false,
+      "windows": 2,
+      "pathSha256": "98886aa623553da478d131d8f633259654f435b5ff6448c60d445761598b915d"
+    },
+    {
+      "phase": "measured",
+      "sample": 2,
+      "case": "cats",
+      "mode": "luminance",
+      "heads": 5,
+      "analysisMs": 8054.417300000001,
+      "previewMs": 65.5373000000036,
+      "buildMs": 48.28270000000339,
+      "totalBuildMs": 8102.700000000004,
+      "predictedGain": 1.6074859959230363,
+      "fallback": false,
+      "windows": 2,
+      "pathSha256": "98886aa623553da478d131d8f633259654f435b5ff6448c60d445761598b915d"
+    },
+    {
+      "phase": "measured",
+      "sample": 3,
+      "case": "cats",
+      "mode": "luminance",
+      "heads": 5,
+      "analysisMs": 6965.9418000000005,
+      "previewMs": 63.51460000000225,
+      "buildMs": 58.14300000000367,
+      "totalBuildMs": 7024.084800000004,
+      "predictedGain": 1.6074859959230363,
+      "fallback": false,
+      "windows": 2,
+      "pathSha256": "98886aa623553da478d131d8f633259654f435b5ff6448c60d445761598b915d"
+    },
+    {
+      "phase": "warmup",
+      "sample": 1,
+      "case": "cats",
+      "mode": "luminance",
+      "heads": 6,
+      "analysisMs": 8769.580200000004,
+      "previewMs": 60.66059999999561,
+      "buildMs": 47.621100000003935,
+      "totalBuildMs": 8817.201300000008,
+      "predictedGain": 1.1417530386444206,
+      "fallback": false,
+      "windows": 1,
+      "pathSha256": "f91bf6c06bd111c797862e2e9b20529bf7af58ea3c2f126643e2fb1d4c1bd1fb"
+    },
+    {
+      "phase": "measured",
+      "sample": 1,
+      "case": "cats",
+      "mode": "luminance",
+      "heads": 6,
+      "analysisMs": 8894.023899999993,
+      "previewMs": 58.95610000001034,
+      "buildMs": 58.84230000000389,
+      "totalBuildMs": 8952.866199999997,
+      "predictedGain": 1.1417530386444206,
+      "fallback": false,
+      "windows": 1,
+      "pathSha256": "f91bf6c06bd111c797862e2e9b20529bf7af58ea3c2f126643e2fb1d4c1bd1fb"
+    },
+    {
+      "phase": "measured",
+      "sample": 2,
+      "case": "cats",
+      "mode": "luminance",
+      "heads": 6,
+      "analysisMs": 8865.560700000002,
+      "previewMs": 42.83490000000165,
+      "buildMs": 44.85719999999856,
+      "totalBuildMs": 8910.4179,
+      "predictedGain": 1.1417530386444206,
+      "fallback": false,
+      "windows": 1,
+      "pathSha256": "f91bf6c06bd111c797862e2e9b20529bf7af58ea3c2f126643e2fb1d4c1bd1fb"
+    },
+    {
+      "phase": "measured",
+      "sample": 3,
+      "case": "cats",
+      "mode": "luminance",
+      "heads": 6,
+      "analysisMs": 8929.497100000008,
+      "previewMs": 40.372400000007474,
+      "buildMs": 41.142699999996694,
+      "totalBuildMs": 8970.639800000004,
+      "predictedGain": 1.1417530386444206,
+      "fallback": false,
+      "windows": 1,
+      "pathSha256": "f91bf6c06bd111c797862e2e9b20529bf7af58ea3c2f126643e2fb1d4c1bd1fb"
+    },
+    {
+      "phase": "warmup",
+      "sample": 1,
+      "case": "cats",
+      "mode": "luminance",
+      "heads": 7,
+      "analysisMs": 20072.804200000013,
+      "previewMs": 57.592600000003586,
+      "buildMs": 70.50690000000759,
+      "totalBuildMs": 20143.31110000002,
+      "predictedGain": 1.4041872926047743,
+      "fallback": false,
+      "windows": 1,
+      "pathSha256": "bbc68f5f327a7554daec6a6d2638b649597b42464b08dd0136e2bc6c03ec9166"
+    },
+    {
+      "phase": "measured",
+      "sample": 1,
+      "case": "cats",
+      "mode": "luminance",
+      "heads": 7,
+      "analysisMs": 20711.92150000001,
+      "previewMs": 45.426300000021,
+      "buildMs": 44.80789999999979,
+      "totalBuildMs": 20756.72940000001,
+      "predictedGain": 1.4041872926047743,
+      "fallback": false,
+      "windows": 1,
+      "pathSha256": "bbc68f5f327a7554daec6a6d2638b649597b42464b08dd0136e2bc6c03ec9166"
+    },
+    {
+      "phase": "measured",
+      "sample": 2,
+      "case": "cats",
+      "mode": "luminance",
+      "heads": 7,
+      "analysisMs": 19944.11679999999,
+      "previewMs": 46.8526000000129,
+      "buildMs": 44.33129999999073,
+      "totalBuildMs": 19988.44809999998,
+      "predictedGain": 1.4041872926047743,
+      "fallback": false,
+      "windows": 1,
+      "pathSha256": "bbc68f5f327a7554daec6a6d2638b649597b42464b08dd0136e2bc6c03ec9166"
+    },
+    {
+      "phase": "measured",
+      "sample": 3,
+      "case": "cats",
+      "mode": "luminance",
+      "heads": 7,
+      "analysisMs": 20101.002299999993,
+      "previewMs": 48.2840000000142,
+      "buildMs": 48.439199999993434,
+      "totalBuildMs": 20149.441499999986,
+      "predictedGain": 1.4041872926047743,
+      "fallback": false,
+      "windows": 1,
+      "pathSha256": "bbc68f5f327a7554daec6a6d2638b649597b42464b08dd0136e2bc6c03ec9166"
+    },
+    {
+      "phase": "warmup",
+      "sample": 1,
+      "case": "cats",
+      "mode": "luminance",
+      "heads": 8,
+      "analysisMs": 18228.346500000014,
+      "previewMs": 72.43439999999828,
+      "buildMs": 62.015400000003865,
+      "totalBuildMs": 18290.361900000018,
+      "predictedGain": 1.469251371294509,
+      "fallback": false,
+      "windows": 1,
+      "pathSha256": "da0e3f1e9501a3336da7f8ffd5eb59a58e37d05f14ce83c4a4aa3219029aa4d2"
+    },
+    {
+      "phase": "measured",
+      "sample": 1,
+      "case": "cats",
+      "mode": "luminance",
+      "heads": 8,
+      "analysisMs": 16278.589100000012,
+      "previewMs": 48.86410000000615,
+      "buildMs": 54.63629999998375,
+      "totalBuildMs": 16333.225399999996,
+      "predictedGain": 1.469251371294509,
+      "fallback": false,
+      "windows": 1,
+      "pathSha256": "da0e3f1e9501a3336da7f8ffd5eb59a58e37d05f14ce83c4a4aa3219029aa4d2"
+    },
+    {
+      "phase": "measured",
+      "sample": 2,
+      "case": "cats",
+      "mode": "luminance",
+      "heads": 8,
+      "analysisMs": 16059.952499999985,
+      "previewMs": 48.90130000002682,
+      "buildMs": 49.10130000000936,
+      "totalBuildMs": 16109.053799999994,
+      "predictedGain": 1.469251371294509,
+      "fallback": false,
+      "windows": 1,
+      "pathSha256": "da0e3f1e9501a3336da7f8ffd5eb59a58e37d05f14ce83c4a4aa3219029aa4d2"
+    },
+    {
+      "phase": "measured",
+      "sample": 3,
+      "case": "cats",
+      "mode": "luminance",
+      "heads": 8,
+      "analysisMs": 15551.979499999987,
+      "previewMs": 52.1195000000007,
+      "buildMs": 48.81510000000708,
+      "totalBuildMs": 15600.794599999994,
+      "predictedGain": 1.469251371294509,
+      "fallback": false,
+      "windows": 1,
+      "pathSha256": "da0e3f1e9501a3336da7f8ffd5eb59a58e37d05f14ce83c4a4aa3219029aa4d2"
+    },
+    {
+      "phase": "warmup",
+      "sample": 1,
+      "case": "cats",
+      "mode": "color",
+      "heads": 2,
+      "analysisMs": 1180.7501999999804,
+      "previewMs": 39.71340000000782,
+      "buildMs": 39.91370000000461,
+      "totalBuildMs": 1220.663899999985,
+      "predictedGain": 1.0920714317434455,
+      "fallback": false,
+      "windows": 4,
+      "pathSha256": "eb79b7b5e6212adf03b7fced4b4f5b4888b9da6adbe076eec7b5adb5636e6f0f"
+    },
+    {
+      "phase": "measured",
+      "sample": 1,
+      "case": "cats",
+      "mode": "color",
+      "heads": 2,
+      "analysisMs": 941.4255000000121,
+      "previewMs": 39.899700000009034,
+      "buildMs": 40.07129999998142,
+      "totalBuildMs": 981.4967999999935,
+      "predictedGain": 1.0920714317434455,
+      "fallback": false,
+      "windows": 4,
+      "pathSha256": "eb79b7b5e6212adf03b7fced4b4f5b4888b9da6adbe076eec7b5adb5636e6f0f"
+    },
+    {
+      "phase": "measured",
+      "sample": 2,
+      "case": "cats",
+      "mode": "color",
+      "heads": 2,
+      "analysisMs": 1002.9335000000137,
+      "previewMs": 29.128799999976764,
+      "buildMs": 31.449099999997998,
+      "totalBuildMs": 1034.3826000000117,
+      "predictedGain": 1.0920714317434455,
+      "fallback": false,
+      "windows": 4,
+      "pathSha256": "eb79b7b5e6212adf03b7fced4b4f5b4888b9da6adbe076eec7b5adb5636e6f0f"
+    },
+    {
+      "phase": "measured",
+      "sample": 3,
+      "case": "cats",
+      "mode": "color",
+      "heads": 2,
+      "analysisMs": 953.3591000000015,
+      "previewMs": 26.80329999999958,
+      "buildMs": 25.230299999995623,
+      "totalBuildMs": 978.5893999999971,
+      "predictedGain": 1.0920714317434455,
+      "fallback": false,
+      "windows": 4,
+      "pathSha256": "eb79b7b5e6212adf03b7fced4b4f5b4888b9da6adbe076eec7b5adb5636e6f0f"
+    },
+    {
+      "phase": "warmup",
+      "sample": 1,
+      "case": "cats",
+      "mode": "color",
+      "heads": 3,
+      "analysisMs": 2420.0973999999987,
+      "previewMs": 50.38519999998971,
+      "buildMs": 34.39089999999851,
+      "totalBuildMs": 2454.4882999999973,
+      "predictedGain": 1.3742947927721754,
+      "fallback": false,
+      "windows": 2,
+      "pathSha256": "bf55e9751f4890d9f67f355d800c6c7a83f8246eb47483265d153a36725ec832"
+    },
+    {
+      "phase": "measured",
+      "sample": 1,
+      "case": "cats",
+      "mode": "color",
+      "heads": 3,
+      "analysisMs": 2372.984199999977,
+      "previewMs": 30.735499999980675,
+      "buildMs": 31.366600000008475,
+      "totalBuildMs": 2404.3507999999856,
+      "predictedGain": 1.3742947927721754,
+      "fallback": false,
+      "windows": 2,
+      "pathSha256": "bf55e9751f4890d9f67f355d800c6c7a83f8246eb47483265d153a36725ec832"
+    },
+    {
+      "phase": "measured",
+      "sample": 2,
+      "case": "cats",
+      "mode": "color",
+      "heads": 3,
+      "analysisMs": 2536.7700999999943,
+      "previewMs": 46.60099999999511,
+      "buildMs": 36.64389999999548,
+      "totalBuildMs": 2573.4139999999898,
+      "predictedGain": 1.3742947927721754,
+      "fallback": false,
+      "windows": 2,
+      "pathSha256": "bf55e9751f4890d9f67f355d800c6c7a83f8246eb47483265d153a36725ec832"
+    },
+    {
+      "phase": "measured",
+      "sample": 3,
+      "case": "cats",
+      "mode": "color",
+      "heads": 3,
+      "analysisMs": 3183.282099999982,
+      "previewMs": 34.48979999998119,
+      "buildMs": 31.22510000001057,
+      "totalBuildMs": 3214.5071999999927,
+      "predictedGain": 1.3742947927721754,
+      "fallback": false,
+      "windows": 2,
+      "pathSha256": "bf55e9751f4890d9f67f355d800c6c7a83f8246eb47483265d153a36725ec832"
+    },
+    {
+      "phase": "warmup",
+      "sample": 1,
+      "case": "cats",
+      "mode": "color",
+      "heads": 4,
+      "analysisMs": 4770.694699999993,
+      "previewMs": 59.786800000001676,
+      "buildMs": 65.48369999998249,
+      "totalBuildMs": 4836.178399999975,
+      "predictedGain": 1.8174497830215628,
+      "fallback": false,
+      "windows": 2,
+      "pathSha256": "f26f15e680c90117f5efc2b7e3115982407f54846afe2cff2c0e62d277a7ad2b"
+    },
+    {
+      "phase": "measured",
+      "sample": 1,
+      "case": "cats",
+      "mode": "color",
+      "heads": 4,
+      "analysisMs": 4202.659300000028,
+      "previewMs": 64.68280000000959,
+      "buildMs": 51.38960000005318,
+      "totalBuildMs": 4254.048900000082,
+      "predictedGain": 1.8174497830215628,
+      "fallback": false,
+      "windows": 2,
+      "pathSha256": "f26f15e680c90117f5efc2b7e3115982407f54846afe2cff2c0e62d277a7ad2b"
+    },
+    {
+      "phase": "measured",
+      "sample": 2,
+      "case": "cats",
+      "mode": "color",
+      "heads": 4,
+      "analysisMs": 3742.069200000027,
+      "previewMs": 46.73849999997765,
+      "buildMs": 62.56410000001779,
+      "totalBuildMs": 3804.633300000045,
+      "predictedGain": 1.8174497830215628,
+      "fallback": false,
+      "windows": 2,
+      "pathSha256": "f26f15e680c90117f5efc2b7e3115982407f54846afe2cff2c0e62d277a7ad2b"
+    },
+    {
+      "phase": "measured",
+      "sample": 3,
+      "case": "cats",
+      "mode": "color",
+      "heads": 4,
+      "analysisMs": 3814.98060000001,
+      "previewMs": 56.62989999999991,
+      "buildMs": 47.35899999999674,
+      "totalBuildMs": 3862.3396000000066,
+      "predictedGain": 1.8174497830215628,
+      "fallback": false,
+      "windows": 2,
+      "pathSha256": "f26f15e680c90117f5efc2b7e3115982407f54846afe2cff2c0e62d277a7ad2b"
+    },
+    {
+      "phase": "warmup",
+      "sample": 1,
+      "case": "cats",
+      "mode": "color",
+      "heads": 5,
+      "analysisMs": 11547.739700000035,
+      "previewMs": 55.76739999995334,
+      "buildMs": 57.72120000002906,
+      "totalBuildMs": 11605.460900000064,
+      "predictedGain": 2.087211108081288,
+      "fallback": false,
+      "windows": 2,
+      "pathSha256": "0fecb0b608f5e86b8f5543d4bc48a31d525a490eb4eeeffac6ce66d2cb809a29"
+    },
+    {
+      "phase": "measured",
+      "sample": 1,
+      "case": "cats",
+      "mode": "color",
+      "heads": 5,
+      "analysisMs": 11313.931900000025,
+      "previewMs": 64.09839999995893,
+      "buildMs": 60.51549999997951,
+      "totalBuildMs": 11374.447400000005,
+      "predictedGain": 2.087211108081288,
+      "fallback": false,
+      "windows": 2,
+      "pathSha256": "0fecb0b608f5e86b8f5543d4bc48a31d525a490eb4eeeffac6ce66d2cb809a29"
+    },
+    {
+      "phase": "measured",
+      "sample": 2,
+      "case": "cats",
+      "mode": "color",
+      "heads": 5,
+      "analysisMs": 11468.134900000005,
+      "previewMs": 56.44179999997141,
+      "buildMs": 57.09369999996852,
+      "totalBuildMs": 11525.228599999973,
+      "predictedGain": 2.087211108081288,
+      "fallback": false,
+      "windows": 2,
+      "pathSha256": "0fecb0b608f5e86b8f5543d4bc48a31d525a490eb4eeeffac6ce66d2cb809a29"
+    },
+    {
+      "phase": "measured",
+      "sample": 3,
+      "case": "cats",
+      "mode": "color",
+      "heads": 5,
+      "analysisMs": 11057.51039999997,
+      "previewMs": 54.675900000031106,
+      "buildMs": 57.41940000001341,
+      "totalBuildMs": 11114.929799999984,
+      "predictedGain": 2.087211108081288,
+      "fallback": false,
+      "windows": 2,
+      "pathSha256": "0fecb0b608f5e86b8f5543d4bc48a31d525a490eb4eeeffac6ce66d2cb809a29"
+    },
+    {
+      "phase": "warmup",
+      "sample": 1,
+      "case": "cats",
+      "mode": "color",
+      "heads": 6,
+      "analysisMs": 10740.115100000054,
+      "previewMs": 87.17530000000261,
+      "buildMs": 69.39100000000326,
+      "totalBuildMs": 10809.506100000057,
+      "predictedGain": 1.4952270347920924,
+      "fallback": false,
+      "windows": 1,
+      "pathSha256": "8153fd9a890dc32fe9aab2cce541dd16f75482e2ee24cb3eb37f4c876b56b7f3"
+    },
+    {
+      "phase": "measured",
+      "sample": 1,
+      "case": "cats",
+      "mode": "color",
+      "heads": 6,
+      "analysisMs": 10606.246999999974,
+      "previewMs": 88.84869999997318,
+      "buildMs": 87.289300000004,
+      "totalBuildMs": 10693.536299999978,
+      "predictedGain": 1.4952270347920924,
+      "fallback": false,
+      "windows": 1,
+      "pathSha256": "8153fd9a890dc32fe9aab2cce541dd16f75482e2ee24cb3eb37f4c876b56b7f3"
+    },
+    {
+      "phase": "measured",
+      "sample": 2,
+      "case": "cats",
+      "mode": "color",
+      "heads": 6,
+      "analysisMs": 9663.89909999998,
+      "previewMs": 57.208700000017416,
+      "buildMs": 81.09200000000419,
+      "totalBuildMs": 9744.991099999985,
+      "predictedGain": 1.4952270347920924,
+      "fallback": false,
+      "windows": 1,
+      "pathSha256": "8153fd9a890dc32fe9aab2cce541dd16f75482e2ee24cb3eb37f4c876b56b7f3"
+    },
+    {
+      "phase": "measured",
+      "sample": 3,
+      "case": "cats",
+      "mode": "color",
+      "heads": 6,
+      "analysisMs": 9620.023099999991,
+      "previewMs": 58.881500000017695,
+      "buildMs": 57.68190000002505,
+      "totalBuildMs": 9677.705000000016,
+      "predictedGain": 1.4952270347920924,
+      "fallback": false,
+      "windows": 1,
+      "pathSha256": "8153fd9a890dc32fe9aab2cce541dd16f75482e2ee24cb3eb37f4c876b56b7f3"
+    },
+    {
+      "phase": "warmup",
+      "sample": 1,
+      "case": "cats",
+      "mode": "color",
+      "heads": 7,
+      "analysisMs": 20648.678399999975,
+      "previewMs": 63.003400000045076,
+      "buildMs": 64.76990000001388,
+      "totalBuildMs": 20713.44829999999,
+      "predictedGain": 1.7919815206620842,
+      "fallback": false,
+      "windows": 1,
+      "pathSha256": "d9da5f4feee666cf79e25669797b501345e9d6175b7bc4e06512efda60022510"
+    },
+    {
+      "phase": "measured",
+      "sample": 1,
+      "case": "cats",
+      "mode": "color",
+      "heads": 7,
+      "analysisMs": 23067.446400000015,
+      "previewMs": 73.62889999995241,
+      "buildMs": 80.98669999995036,
+      "totalBuildMs": 23148.433099999966,
+      "predictedGain": 1.7919815206620842,
+      "fallback": false,
+      "windows": 1,
+      "pathSha256": "d9da5f4feee666cf79e25669797b501345e9d6175b7bc4e06512efda60022510"
+    },
+    {
+      "phase": "measured",
+      "sample": 2,
+      "case": "cats",
+      "mode": "color",
+      "heads": 7,
+      "analysisMs": 20703.97710000002,
+      "previewMs": 70.65990000002785,
+      "buildMs": 73.02050000004238,
+      "totalBuildMs": 20776.99760000006,
+      "predictedGain": 1.7919815206620842,
+      "fallback": false,
+      "windows": 1,
+      "pathSha256": "d9da5f4feee666cf79e25669797b501345e9d6175b7bc4e06512efda60022510"
+    },
+    {
+      "phase": "measured",
+      "sample": 3,
+      "case": "cats",
+      "mode": "color",
+      "heads": 7,
+      "analysisMs": 20605.74820000003,
+      "previewMs": 80.73389999999199,
+      "buildMs": 75.00349999999162,
+      "totalBuildMs": 20680.751700000023,
+      "predictedGain": 1.7919815206620842,
+      "fallback": false,
+      "windows": 1,
+      "pathSha256": "d9da5f4feee666cf79e25669797b501345e9d6175b7bc4e06512efda60022510"
+    },
+    {
+      "phase": "warmup",
+      "sample": 1,
+      "case": "cats",
+      "mode": "color",
+      "heads": 8,
+      "analysisMs": 16754.532000000007,
+      "previewMs": 78.45840000000317,
+      "buildMs": 89.65550000005169,
+      "totalBuildMs": 16844.18750000006,
+      "predictedGain": 1.869464956481947,
+      "fallback": false,
+      "windows": 1,
+      "pathSha256": "143187b06734b81274921f9b7dceab1613fe690ad53e334e0c6bbecc69ab9229"
+    },
+    {
+      "phase": "measured",
+      "sample": 1,
+      "case": "cats",
+      "mode": "color",
+      "heads": 8,
+      "analysisMs": 16202.851800000004,
+      "previewMs": 71.33110000001034,
+      "buildMs": 65.75770000001648,
+      "totalBuildMs": 16268.60950000002,
+      "predictedGain": 1.869464956481947,
+      "fallback": false,
+      "windows": 1,
+      "pathSha256": "143187b06734b81274921f9b7dceab1613fe690ad53e334e0c6bbecc69ab9229"
+    },
+    {
+      "phase": "measured",
+      "sample": 2,
+      "case": "cats",
+      "mode": "color",
+      "heads": 8,
+      "analysisMs": 14829.94299999997,
+      "previewMs": 73.0447999999742,
+      "buildMs": 62.78129999997327,
+      "totalBuildMs": 14892.724299999943,
+      "predictedGain": 1.869464956481947,
+      "fallback": false,
+      "windows": 1,
+      "pathSha256": "143187b06734b81274921f9b7dceab1613fe690ad53e334e0c6bbecc69ab9229"
+    },
+    {
+      "phase": "measured",
+      "sample": 3,
+      "case": "cats",
+      "mode": "color",
+      "heads": 8,
+      "analysisMs": 15477.7108,
+      "previewMs": 72.2451000000001,
+      "buildMs": 78.40159999998286,
+      "totalBuildMs": 15556.112399999984,
+      "predictedGain": 1.869464956481947,
+      "fallback": false,
+      "windows": 1,
+      "pathSha256": "143187b06734b81274921f9b7dceab1613fe690ad53e334e0c6bbecc69ab9229"
+    }
+  ],
+  "summaries": [
+    {
+      "case": "cats",
+      "mode": "luminance",
+      "heads": 2,
+      "analysisMs": {
+        "values": [
+          726.9882000000002,
+          577.0059000000001,
+          636.0987000000005
+        ],
+        "median": 636.0987000000005,
+        "minimum": 577.0059000000001,
+        "maximum": 726.9882000000002,
+        "spread": 149.98230000000012
+      },
+      "previewMs": {
+        "values": [
+          26.336299999999937,
+          32.072799999999916,
+          42.2445000000007
+        ],
+        "median": 32.072799999999916,
+        "minimum": 26.336299999999937,
+        "maximum": 42.2445000000007,
+        "spread": 15.908200000000761
+      },
+      "buildMs": {
+        "values": [
+          29.006400000000212,
+          26.58940000000075,
+          38.76730000000043
+        ],
+        "median": 29.006400000000212,
+        "minimum": 26.58940000000075,
+        "maximum": 38.76730000000043,
+        "spread": 12.177899999999681
+      },
+      "totalBuildMs": {
+        "values": [
+          755.9946000000004,
+          603.5953000000009,
+          674.8660000000009
+        ],
+        "median": 674.8660000000009,
+        "minimum": 603.5953000000009,
+        "maximum": 755.9946000000004,
+        "spread": 152.39929999999958
+      }
+    },
+    {
+      "case": "cats",
+      "mode": "luminance",
+      "heads": 3,
+      "analysisMs": {
+        "values": [
+          1897.7286000000004,
+          1792.1834,
+          1770.970299999999
+        ],
+        "median": 1792.1834,
+        "minimum": 1770.970299999999,
+        "maximum": 1897.7286000000004,
+        "spread": 126.75830000000133
+      },
+      "previewMs": {
+        "values": [
+          32.29170000000158,
+          36.96630000000005,
+          44.1887999999999
+        ],
+        "median": 36.96630000000005,
+        "minimum": 32.29170000000158,
+        "maximum": 44.1887999999999,
+        "spread": 11.897099999998318
+      },
+      "buildMs": {
+        "values": [
+          30.854600000000573,
+          31.993999999998778,
+          48.08779999999933
+        ],
+        "median": 31.993999999998778,
+        "minimum": 30.854600000000573,
+        "maximum": 48.08779999999933,
+        "spread": 17.23319999999876
+      },
+      "totalBuildMs": {
+        "values": [
+          1928.583200000001,
+          1824.1773999999987,
+          1819.0580999999984
+        ],
+        "median": 1824.1773999999987,
+        "minimum": 1819.0580999999984,
+        "maximum": 1928.583200000001,
+        "spread": 109.52510000000257
+      }
+    },
+    {
+      "case": "cats",
+      "mode": "luminance",
+      "heads": 4,
+      "analysisMs": {
+        "values": [
+          2332.6135000000013,
+          2662.6555000000008,
+          2577.6018000000004
+        ],
+        "median": 2577.6018000000004,
+        "minimum": 2332.6135000000013,
+        "maximum": 2662.6555000000008,
+        "spread": 330.04199999999946
+      },
+      "previewMs": {
+        "values": [
+          55.11029999999664,
+          37.248999999999796,
+          62.820199999998295
+        ],
+        "median": 55.11029999999664,
+        "minimum": 37.248999999999796,
+        "maximum": 62.820199999998295,
+        "spread": 25.5711999999985
+      },
+      "buildMs": {
+        "values": [
+          43.42130000000179,
+          37.79660000000149,
+          45.827000000001135
+        ],
+        "median": 43.42130000000179,
+        "minimum": 37.79660000000149,
+        "maximum": 45.827000000001135,
+        "spread": 8.030399999999645
+      },
+      "totalBuildMs": {
+        "values": [
+          2376.034800000003,
+          2700.4521000000022,
+          2623.4288000000015
+        ],
+        "median": 2623.4288000000015,
+        "minimum": 2376.034800000003,
+        "maximum": 2700.4521000000022,
+        "spread": 324.41729999999916
+      }
+    },
+    {
+      "case": "cats",
+      "mode": "luminance",
+      "heads": 5,
+      "analysisMs": {
+        "values": [
+          7853.614200000004,
+          8054.417300000001,
+          6965.9418000000005
+        ],
+        "median": 7853.614200000004,
+        "minimum": 6965.9418000000005,
+        "maximum": 8054.417300000001,
+        "spread": 1088.4755000000005
+      },
+      "previewMs": {
+        "values": [
+          53.35910000000149,
+          65.5373000000036,
+          63.51460000000225
+        ],
+        "median": 63.51460000000225,
+        "minimum": 53.35910000000149,
+        "maximum": 65.5373000000036,
+        "spread": 12.178200000002107
+      },
+      "buildMs": {
+        "values": [
+          65.50220000000263,
+          48.28270000000339,
+          58.14300000000367
+        ],
+        "median": 58.14300000000367,
+        "minimum": 48.28270000000339,
+        "maximum": 65.50220000000263,
+        "spread": 17.219499999999243
+      },
+      "totalBuildMs": {
+        "values": [
+          7919.116400000006,
+          8102.700000000004,
+          7024.084800000004
+        ],
+        "median": 7919.116400000006,
+        "minimum": 7024.084800000004,
+        "maximum": 8102.700000000004,
+        "spread": 1078.6152000000002
+      }
+    },
+    {
+      "case": "cats",
+      "mode": "luminance",
+      "heads": 6,
+      "analysisMs": {
+        "values": [
+          8894.023899999993,
+          8865.560700000002,
+          8929.497100000008
+        ],
+        "median": 8894.023899999993,
+        "minimum": 8865.560700000002,
+        "maximum": 8929.497100000008,
+        "spread": 63.93640000000596
+      },
+      "previewMs": {
+        "values": [
+          58.95610000001034,
+          42.83490000000165,
+          40.372400000007474
+        ],
+        "median": 42.83490000000165,
+        "minimum": 40.372400000007474,
+        "maximum": 58.95610000001034,
+        "spread": 18.583700000002864
+      },
+      "buildMs": {
+        "values": [
+          58.84230000000389,
+          44.85719999999856,
+          41.142699999996694
+        ],
+        "median": 44.85719999999856,
+        "minimum": 41.142699999996694,
+        "maximum": 58.84230000000389,
+        "spread": 17.699600000007194
+      },
+      "totalBuildMs": {
+        "values": [
+          8952.866199999997,
+          8910.4179,
+          8970.639800000004
+        ],
+        "median": 8952.866199999997,
+        "minimum": 8910.4179,
+        "maximum": 8970.639800000004,
+        "spread": 60.2219000000041
+      }
+    },
+    {
+      "case": "cats",
+      "mode": "luminance",
+      "heads": 7,
+      "analysisMs": {
+        "values": [
+          20711.92150000001,
+          19944.11679999999,
+          20101.002299999993
+        ],
+        "median": 20101.002299999993,
+        "minimum": 19944.11679999999,
+        "maximum": 20711.92150000001,
+        "spread": 767.8047000000224
+      },
+      "previewMs": {
+        "values": [
+          45.426300000021,
+          46.8526000000129,
+          48.2840000000142
+        ],
+        "median": 46.8526000000129,
+        "minimum": 45.426300000021,
+        "maximum": 48.2840000000142,
+        "spread": 2.8576999999932013
+      },
+      "buildMs": {
+        "values": [
+          44.80789999999979,
+          44.33129999999073,
+          48.439199999993434
+        ],
+        "median": 44.80789999999979,
+        "minimum": 44.33129999999073,
+        "maximum": 48.439199999993434,
+        "spread": 4.107900000002701
+      },
+      "totalBuildMs": {
+        "values": [
+          20756.72940000001,
+          19988.44809999998,
+          20149.441499999986
+        ],
+        "median": 20149.441499999986,
+        "minimum": 19988.44809999998,
+        "maximum": 20756.72940000001,
+        "spread": 768.2813000000315
+      }
+    },
+    {
+      "case": "cats",
+      "mode": "luminance",
+      "heads": 8,
+      "analysisMs": {
+        "values": [
+          16278.589100000012,
+          16059.952499999985,
+          15551.979499999987
+        ],
+        "median": 16059.952499999985,
+        "minimum": 15551.979499999987,
+        "maximum": 16278.589100000012,
+        "spread": 726.6096000000252
+      },
+      "previewMs": {
+        "values": [
+          48.86410000000615,
+          48.90130000002682,
+          52.1195000000007
+        ],
+        "median": 48.90130000002682,
+        "minimum": 48.86410000000615,
+        "maximum": 52.1195000000007,
+        "spread": 3.2553999999945518
+      },
+      "buildMs": {
+        "values": [
+          54.63629999998375,
+          49.10130000000936,
+          48.81510000000708
+        ],
+        "median": 49.10130000000936,
+        "minimum": 48.81510000000708,
+        "maximum": 54.63629999998375,
+        "spread": 5.82119999997667
+      },
+      "totalBuildMs": {
+        "values": [
+          16333.225399999996,
+          16109.053799999994,
+          15600.794599999994
+        ],
+        "median": 16109.053799999994,
+        "minimum": 15600.794599999994,
+        "maximum": 16333.225399999996,
+        "spread": 732.4308000000019
+      }
+    },
+    {
+      "case": "cats",
+      "mode": "color",
+      "heads": 2,
+      "analysisMs": {
+        "values": [
+          941.4255000000121,
+          1002.9335000000137,
+          953.3591000000015
+        ],
+        "median": 953.3591000000015,
+        "minimum": 941.4255000000121,
+        "maximum": 1002.9335000000137,
+        "spread": 61.50800000000163
+      },
+      "previewMs": {
+        "values": [
+          39.899700000009034,
+          29.128799999976764,
+          26.80329999999958
+        ],
+        "median": 29.128799999976764,
+        "minimum": 26.80329999999958,
+        "maximum": 39.899700000009034,
+        "spread": 13.096400000009453
+      },
+      "buildMs": {
+        "values": [
+          40.07129999998142,
+          31.449099999997998,
+          25.230299999995623
+        ],
+        "median": 31.449099999997998,
+        "minimum": 25.230299999995623,
+        "maximum": 40.07129999998142,
+        "spread": 14.840999999985797
+      },
+      "totalBuildMs": {
+        "values": [
+          981.4967999999935,
+          1034.3826000000117,
+          978.5893999999971
+        ],
+        "median": 981.4967999999935,
+        "minimum": 978.5893999999971,
+        "maximum": 1034.3826000000117,
+        "spread": 55.79320000001462
+      }
+    },
+    {
+      "case": "cats",
+      "mode": "color",
+      "heads": 3,
+      "analysisMs": {
+        "values": [
+          2372.984199999977,
+          2536.7700999999943,
+          3183.282099999982
+        ],
+        "median": 2536.7700999999943,
+        "minimum": 2372.984199999977,
+        "maximum": 3183.282099999982,
+        "spread": 810.297900000005
+      },
+      "previewMs": {
+        "values": [
+          30.735499999980675,
+          46.60099999999511,
+          34.48979999998119
+        ],
+        "median": 34.48979999998119,
+        "minimum": 30.735499999980675,
+        "maximum": 46.60099999999511,
+        "spread": 15.865500000014435
+      },
+      "buildMs": {
+        "values": [
+          31.366600000008475,
+          36.64389999999548,
+          31.22510000001057
+        ],
+        "median": 31.366600000008475,
+        "minimum": 31.22510000001057,
+        "maximum": 36.64389999999548,
+        "spread": 5.418799999984913
+      },
+      "totalBuildMs": {
+        "values": [
+          2404.3507999999856,
+          2573.4139999999898,
+          3214.5071999999927
+        ],
+        "median": 2573.4139999999898,
+        "minimum": 2404.3507999999856,
+        "maximum": 3214.5071999999927,
+        "spread": 810.1564000000071
+      }
+    },
+    {
+      "case": "cats",
+      "mode": "color",
+      "heads": 4,
+      "analysisMs": {
+        "values": [
+          4202.659300000028,
+          3742.069200000027,
+          3814.98060000001
+        ],
+        "median": 3814.98060000001,
+        "minimum": 3742.069200000027,
+        "maximum": 4202.659300000028,
+        "spread": 460.59010000000126
+      },
+      "previewMs": {
+        "values": [
+          64.68280000000959,
+          46.73849999997765,
+          56.62989999999991
+        ],
+        "median": 56.62989999999991,
+        "minimum": 46.73849999997765,
+        "maximum": 64.68280000000959,
+        "spread": 17.944300000031944
+      },
+      "buildMs": {
+        "values": [
+          51.38960000005318,
+          62.56410000001779,
+          47.35899999999674
+        ],
+        "median": 51.38960000005318,
+        "minimum": 47.35899999999674,
+        "maximum": 62.56410000001779,
+        "spread": 15.205100000021048
+      },
+      "totalBuildMs": {
+        "values": [
+          4254.048900000082,
+          3804.633300000045,
+          3862.3396000000066
+        ],
+        "median": 3862.3396000000066,
+        "minimum": 3804.633300000045,
+        "maximum": 4254.048900000082,
+        "spread": 449.41560000003665
+      }
+    },
+    {
+      "case": "cats",
+      "mode": "color",
+      "heads": 5,
+      "analysisMs": {
+        "values": [
+          11313.931900000025,
+          11468.134900000005,
+          11057.51039999997
+        ],
+        "median": 11313.931900000025,
+        "minimum": 11057.51039999997,
+        "maximum": 11468.134900000005,
+        "spread": 410.62450000003446
+      },
+      "previewMs": {
+        "values": [
+          64.09839999995893,
+          56.44179999997141,
+          54.675900000031106
+        ],
+        "median": 56.44179999997141,
+        "minimum": 54.675900000031106,
+        "maximum": 64.09839999995893,
+        "spread": 9.422499999927823
+      },
+      "buildMs": {
+        "values": [
+          60.51549999997951,
+          57.09369999996852,
+          57.41940000001341
+        ],
+        "median": 57.41940000001341,
+        "minimum": 57.09369999996852,
+        "maximum": 60.51549999997951,
+        "spread": 3.4218000000109896
+      },
+      "totalBuildMs": {
+        "values": [
+          11374.447400000005,
+          11525.228599999973,
+          11114.929799999984
+        ],
+        "median": 11374.447400000005,
+        "minimum": 11114.929799999984,
+        "maximum": 11525.228599999973,
+        "spread": 410.29879999998957
+      }
+    },
+    {
+      "case": "cats",
+      "mode": "color",
+      "heads": 6,
+      "analysisMs": {
+        "values": [
+          10606.246999999974,
+          9663.89909999998,
+          9620.023099999991
+        ],
+        "median": 9663.89909999998,
+        "minimum": 9620.023099999991,
+        "maximum": 10606.246999999974,
+        "spread": 986.2238999999827
+      },
+      "previewMs": {
+        "values": [
+          88.84869999997318,
+          57.208700000017416,
+          58.881500000017695
+        ],
+        "median": 58.881500000017695,
+        "minimum": 57.208700000017416,
+        "maximum": 88.84869999997318,
+        "spread": 31.639999999955762
+      },
+      "buildMs": {
+        "values": [
+          87.289300000004,
+          81.09200000000419,
+          57.68190000002505
+        ],
+        "median": 81.09200000000419,
+        "minimum": 57.68190000002505,
+        "maximum": 87.289300000004,
+        "spread": 29.607399999978952
+      },
+      "totalBuildMs": {
+        "values": [
+          10693.536299999978,
+          9744.991099999985,
+          9677.705000000016
+        ],
+        "median": 9744.991099999985,
+        "minimum": 9677.705000000016,
+        "maximum": 10693.536299999978,
+        "spread": 1015.8312999999616
+      }
+    },
+    {
+      "case": "cats",
+      "mode": "color",
+      "heads": 7,
+      "analysisMs": {
+        "values": [
+          23067.446400000015,
+          20703.97710000002,
+          20605.74820000003
+        ],
+        "median": 20703.97710000002,
+        "minimum": 20605.74820000003,
+        "maximum": 23067.446400000015,
+        "spread": 2461.6981999999844
+      },
+      "previewMs": {
+        "values": [
+          73.62889999995241,
+          70.65990000002785,
+          80.73389999999199
+        ],
+        "median": 73.62889999995241,
+        "minimum": 70.65990000002785,
+        "maximum": 80.73389999999199,
+        "spread": 10.073999999964144
+      },
+      "buildMs": {
+        "values": [
+          80.98669999995036,
+          73.02050000004238,
+          75.00349999999162
+        ],
+        "median": 75.00349999999162,
+        "minimum": 73.02050000004238,
+        "maximum": 80.98669999995036,
+        "spread": 7.966199999907985
+      },
+      "totalBuildMs": {
+        "values": [
+          23148.433099999966,
+          20776.99760000006,
+          20680.751700000023
+        ],
+        "median": 20776.99760000006,
+        "minimum": 20680.751700000023,
+        "maximum": 23148.433099999966,
+        "spread": 2467.681399999943
+      }
+    },
+    {
+      "case": "cats",
+      "mode": "color",
+      "heads": 8,
+      "analysisMs": {
+        "values": [
+          16202.851800000004,
+          14829.94299999997,
+          15477.7108
+        ],
+        "median": 15477.7108,
+        "minimum": 14829.94299999997,
+        "maximum": 16202.851800000004,
+        "spread": 1372.9088000000338
+      },
+      "previewMs": {
+        "values": [
+          71.33110000001034,
+          73.0447999999742,
+          72.2451000000001
+        ],
+        "median": 72.2451000000001,
+        "minimum": 71.33110000001034,
+        "maximum": 73.0447999999742,
+        "spread": 1.7136999999638647
+      },
+      "buildMs": {
+        "values": [
+          65.75770000001648,
+          62.78129999997327,
+          78.40159999998286
+        ],
+        "median": 65.75770000001648,
+        "minimum": 62.78129999997327,
+        "maximum": 78.40159999998286,
+        "spread": 15.620300000009593
+      },
+      "totalBuildMs": {
+        "values": [
+          16268.60950000002,
+          14892.724299999943,
+          15556.112399999984
+        ],
+        "median": 15556.112399999984,
+        "minimum": 14892.724299999943,
+        "maximum": 16268.60950000002,
+        "spread": 1375.885200000077
+      }
+    }
+  ]
+}

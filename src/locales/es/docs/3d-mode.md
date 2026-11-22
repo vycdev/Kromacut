@@ -147,6 +147,8 @@ Fotografía una placa guardada de recetas, verifica su alineación y guarda colo
 
 Arrastra con el botón principal para orbitar, usa la rueda para ampliar y el secundario para desplazar. La cámara nunca cambia dimensiones físicas.
 
+La cámara permanece justo fuera del modelo en ambas proyecciones. El zoom ortográfico está limitado para que la cámara también permanezca fuera al cambiar a Perspectiva.
+
 | Control | Uso | Efecto en la impresión |
 | ------------------ | ------------------------------------------------------------------------ | --------------------------------------------------------------------------------- |
 | **Color fiel** | Comparar muestras sin iluminación de escena ni mapeo tonal cinematográfico. | Solo vista. Sigue dependiendo del modelo y pantalla; no valida calibración. |
@@ -154,7 +156,7 @@ Arrastra con el botón principal para orbitar, usa la rueda para ampliar y el se
 | **Transparente** | Ver capas superpuestas. | Solo vista; no vuelve transparente el filamento. |
 | **Alámbrico** | Examinar aristas coloreadas por capa. | Solo vista; no son trayectorias de extrusión. |
 | **Colores de vista previa** | Alternar mezclas simuladas y colores físicos. | Solo vista. Las exportaciones conservan asignaciones reales. |
-| **Cambiar cámara** | Perspectiva con profundidad u ortográfica sin acortamiento. | Solo vista. Se conserva la posición. |
+| **Cambiar cámara** | Perspectiva con profundidad u ortográfica sin acortamiento. | Solo vista. El ángulo de vista y la ampliación se conservan al cambiar de modo. |
 | **Deshacer / Rehacer** | Recorrer historial compartido de imagen. | No deshace campos 3D ni filamentos. Regenera tras cambiar la imagen. |
 | **Descargar** | Exportar STL o 3MF generado. | Usa el último modelo, no ajustes laterales sin aplicar. |
 
@@ -163,6 +165,8 @@ Se recuerdan el modo de vista y la elección simulada/física. **Colores de vist
 ## Vista previa de capas
 
 Arrastra los controles inferior y superior de la barra inferior para aislar un intervalo de altura. Se ajustan a la cuadrícula de capas. Pasa el puntero por segmentos de material para información de inicio o cambio.
+
+Enfoca un control y usa las flechas para moverlo una capa impresa cada vez. Mayús+flecha o Re Pág/Av Pág mueve diez capas; Inicio/Fin lleva a un límite del intervalo. Los controles no pueden cruzarse.
 
 ![Los límites ocultan capas para inspección, pero la exportación sigue incluyendo el modelo completo.](19_preview_only.svg)
 

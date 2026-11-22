@@ -147,6 +147,8 @@ Fotografe uma placa de receitas guardada, verifique alinhamento e guarde cores m
 
 Arraste com o botão principal para rodar, use roda para ampliar e botão secundário para deslocar. A câmara nunca altera dimensões físicas.
 
+A câmara mantém-se junto ao modelo, mas no exterior, em ambas as projeções. O zoom ortográfico é limitado para que a câmara também permaneça no exterior ao mudar para Perspetiva.
+
 | Controlo | Utilidade | Efeito na impressão |
 | ------------------ | ------------------------------------------------------------------------ | --------------------------------------------------------------------------------- |
 | **Cor fiel** | Comparar amostras sem iluminação de cena nem mapeamento tonal cinematográfico. | Só vista. Depende do modelo e ecrã; não valida calibração. |
@@ -154,7 +156,7 @@ Arraste com o botão principal para rodar, use roda para ampliar e botão secund
 | **Transparente** | Ver camadas sobrepostas. | Só vista; não torna o filamento transparente. |
 | **Aramado** | Examinar arestas coloridas por camada. | Só vista; não são trajetórias de extrusão. |
 | **Cores da pré-visualização** | Alternar misturas simuladas e cores físicas. | Só vista. Exportações mantêm materiais reais. |
-| **Alternar câmara** | Perspetiva com profundidade ou alinhamento ortográfico sem encurtamento. | Só vista. A posição mantém-se. |
+| **Alternar câmara** | Perspetiva com profundidade ou alinhamento ortográfico sem encurtamento. | Só vista. O ângulo de visão e a ampliação mantêm-se entre modos. |
 | **Anular / Refazer** | Percorrer histórico partilhado da imagem. | Não anula campos 3D nem filamentos. Regenere após mudar imagem. |
 | **Transferir** | Exportar STL ou 3MF gerado. | Usa o último modelo, não definições laterais por aplicar. |
 
@@ -163,6 +165,8 @@ Modo de vista e escolha simulada/física são recordados. **Cores da pré-visual
 ## Pré-visualização de camadas
 
 Arraste as pegas inferior e superior da barra para isolar alturas. As posições encaixam na grelha de camadas. Passe sobre segmentos para informação de início ou troca.
+
+Foca uma pega e usa as setas para avançar uma camada impressa de cada vez. Shift+seta ou Page Up/Down avança dez camadas; Home/End vai até um limite do intervalo. As pegas não podem cruzar-se.
 
 ![As pegas ocultam camadas para inspeção, mas a exportação mantém o modelo completo.](19_preview_only.svg)
 

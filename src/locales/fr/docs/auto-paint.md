@@ -11,6 +11,12 @@ La peinture automatique prédit l’apparence de fines couches de filament super
 
 Définissez les [dimensions physiques, hauteurs de couche et largeur de ligne effective](3d-mode#3d-print-settings), ajoutez les filaments que vous pouvez réellement charger, attendez le calcul, puis cliquez sur **Générer le modèle 3D**. Les entrées relancent automatiquement le calcul ; la géométrie affichée n’est actualisée qu’à la génération.
 
+## Grandes palettes et annulation
+
+Le temps de recherche dépend du nombre de couleurs cibles distinctes, pas seulement des dimensions. À partir de 1 024 couleurs cibles, la correspondance améliorée attend **Lancer Auto-paint** et affiche des conseils avant la recherche. Pour une photo, essayez d’abord **2D → Paramètres de quantification → Appliquer** avec 16–32 couleurs. Désactiver la **Limite totale de répétitions** ou choisir **Rapide** et **Compact** réduit aussi le travail ; ces choix peuvent modifier le résultat. Le raccourci règle ces trois options, puis attend votre lancement. Aucune couleur n’est réduite automatiquement. Ce seuil est un avertissement fondé sur des recherches Équilibré avec répétitions, pas une limite de durée ; de plus petites palettes peuvent aussi être lentes avec une recherche plus poussée ou davantage de filaments.
+
+Pendant la recherche de filaments, **Annuler Auto-paint** arrête le traitement en arrière-plan. Il reste arrêté jusqu’à **Lancer Auto-paint** ou une modification des réglages. Modifier les réglages ou revenir en 2D annule aussi le travail actif. La progression est approximative et ne donne pas de durée restante. L’annulation ne crée aucun nouveau modèle ; l’aperçu précédent peut rester visible. Après le calcul, choisissez **Construire le modèle 3D**.
+
 ## Paramètres des filaments
 
 | Commande | Saisie ou action | Effet |
@@ -192,5 +198,15 @@ Après un changement de procédé ou de hauteur de couche, examinez ce résumé.
 | **Ajouter aux filaments** | Ajoute une ligne de travail nommée `Kromacut-Suggestion-…` et recalcule avec elle. |
 
 Trouvez une bobine réelle si la suggestion est utile, puis saisissez sa vraie couleur et son étalonnage. N’imprimez pas en supposant que la ligne hypothétique est déjà disponible. Les suggestions se réinitialisent lorsque les couleurs de l’image ou le jeu de filaments changent. L’absence de candidat indique que le jeu actuel couvre déjà bien l’image selon ce test approximatif.
+
+## Impression multi-têtes
+
+Activez le mode multi-têtes dans Auto-paint, puis choisissez 2 à 8 têtes et une profondeur de recherche. La construction analyse les ordres de filaments en arrière-plan et attribue à chaque région de l’image son propre filament à chaque couche. L’aperçu montre le mélange simulé ; les couleurs physiques montrent le filament réel. Le mode multi-têtes et Flat Paint sont incompatibles.
+
+Après une construction réussie, suivez le planning des têtes dans les instructions d’impression : chargez les filaments indiqués avant d’imprimer, laissez les têtes marquées VIDE inutilisées et ne rechargez que les têtes signalées à chaque point de contrôle. Exportez en 3MF pour conserver les affectations physiques des têtes, les couleurs des filaments et les marqueurs de pause M600 aux mêmes couches de changement. Utilisez une imprimante multi-têtes compatible et vérifiez les affectations, les hauteurs de couche et les pauses dans votre trancheur.
+
+Si l’analyse échoue ou ne trouve aucune disposition exploitable améliorant le résultat, la construction utilise le modèle normal à une seule tête et affiche sa couleur de départ, ses instructions de changement de couleur et un message explicatif. Changer d’image annule l’analyse en cours ; reconstruisez le modèle pour la nouvelle image.
+
+Pour les séquences, les fenêtres, la profondeur de recherche et le déroulement complet, consultez [Impression multi-têtes](multi-head-printing).
 
 Suite : [Peinture à plat](flat-paint), [Méthodes d’étalonnage](calibration-workflows) ou [Génération et export](generating-exporting-output).

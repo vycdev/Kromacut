@@ -58,5 +58,9 @@
     "troubleshooting": {
         "title": "故障排查",
         "description": "常见问题及优先尝试的解决方法。"
+    },
+    "multi-head-printing": {
+        "title": "多打印头打印",
+        "description": "为多打印头打印规划耗材分配、打印头重新装料和 3MF 导出。"
     }
 }

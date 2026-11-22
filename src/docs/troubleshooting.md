@@ -9,6 +9,14 @@ description: Common issues and what to try first.
 
 Start here when a result looks wrong or a control is disabled.
 
+## Auto-paint Is Slow On A Small Photo
+
+A small unquantized photo can contain thousands of distinct colors, each scored for many candidate stacks. Reduce colors in **2D → Quantization Settings → Apply** (start with 16–32), turn repeats off, or choose **Fast / Compact**. At 1,024 or more target colors, Enhanced matching shows guidance and waits for **Run Auto-paint**. Use **Cancel Auto-paint** during the search to stop it; restart with **Run Auto-paint** or change settings. The percentage is not a time estimate. See [Auto-paint](auto-paint).
+
+## An Image Is Too Large To Open
+
+Resize the file in an image editor before importing it again. The error shows the image dimensions and a conservative resize target for your device. Your current image and undo history are kept. A long, thin image can fit when the browser supports its dimensions; total pixel count matters too. See [Loading images](loading-images).
+
 ## A Link Shows Page Not Found
 
 The address may contain a typo or point to a page that no longer exists. Use **Open Kromacut** to reach the tool, **Go to homepage** to visit the landing page, or **Browse documentation** to find the current guide. An unknown documentation address is not automatically replaced with another guide.
@@ -90,6 +98,16 @@ For 3MF, review material or filament assignments in your slicer. Kromacut preser
 For STL, no filament color assignments are carried in the file. Use the **Print Instructions** for filament swaps.
 
 Auto-paint's Simulated view shows estimated blends; slicers normally show physical filament colors. Toggle Kromacut to **Physical** for the assignment check, then inspect the actual spool mapping. Neither view is proof of the final printed color.
+
+## The Slicer Does Not Open
+
+**Open in Slicer** is only available in the desktop app. In a browser, use **Download 3MF** and open the file in your slicer.
+
+If Kromacut reports that it could not open the 3MF, use **Download 3MF** to save the file and open it from your slicer. If the file opens in a 3D viewer or another app, it was probably opened with **System default**. Use **Change** in **Settings** to select your slicer itself; once a choice is saved, **Choose Slicer** in the download menu can change it too. If a saved slicer was moved or uninstalled, Kromacut asks you to choose again. See [Saving and cancelling](generating-exporting-output#saving-and-cancelling).
+
+## Multi-head Built A Single-head Model
+
+A notice saying that a normal single-head model was built means that multi-head analysis did not finish or found no layout that improves the normal stack enough. **Print Instructions** then show the normal start color and swap plan instead of a Head Schedule, and the exported file has no head assignments or pauses, so set up the color swaps in your slicer as for any single-head print. Try different filaments, a different head count, or another search depth, then click **Build 3D Model** again. If analysis did not finish, try fewer heads first. See [Multi-head printing](multi-head-printing#fallback-and-rebuilding).
 
 ## Crop Or Image Edits Went Too Far
 

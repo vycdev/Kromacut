@@ -1,6 +1,6 @@
 [package]
 name = "kromacut"
-version = "4.2.0"
+version = "4.3.0"
 description = "Kromacut - Multi-color lithophane 3D print generator"
 authors = ["vycdev"]
 license = "AGPL-3.0-only"
@@ -16,9 +16,11 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
 tauri-build = { version = "2.6.0", features = [] }
+embed-resource = "3"
 
 [dependencies]
 serde_json = "1.0"
+percent-encoding = "2"
 serde = { version = "1.0", features = ["derive"] }
 log = "0.4"
 tauri = { version = "2.11.0", features = ["devtools"] }
@@ -28,3 +30,12 @@ tokio = { version = "1", features = ["full"] }
 tauri-plugin-dialog = "2"
 tauri-plugin-fs = "2"
 tauri-plugin-single-instance = "2"
+
+[dev-dependencies]
+tauri = { version = "2.11.0", features = ["devtools", "test"] }
+
+[target.'cfg(all(unix, not(target_os = "macos")))'.dependencies]
+gio = "0.18"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_System_Com", "Win32_System_Registry", "Win32_UI_Shell", "Win32_UI_WindowsAndMessaging"] }

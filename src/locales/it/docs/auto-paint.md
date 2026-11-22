@@ -11,6 +11,12 @@ Auto-paint prevede l’effetto di strati sottili di filamento sovrapposti e sceg
 
 Imposta [dimensioni fisiche, altezze degli strati e larghezza effettiva della linea](3d-mode#3d-print-settings), aggiungi i filamenti che puoi effettivamente caricare, attendi il calcolo, quindi usa **Genera modello 3D**. Le modifiche avviano automaticamente un nuovo calcolo; la geometria visualizzata si aggiorna solo quando generi il modello.
 
+## Palette grandi e annullamento
+
+Il tempo di ricerca dipende dai colori di destinazione distinti, non solo dalle dimensioni. Da 1.024 colori, la corrispondenza avanzata mostra indicazioni e attende **Avvia Auto-paint**. Per le foto, prova prima **2D → Impostazioni di quantizzazione → Applica** con 16–32 colori. Disattivare il **Limite totale ripetizioni** o scegliere **Veloce** e **Compatto** riduce anche il lavoro; queste scelte possono cambiare il risultato. La scorciatoia imposta tutte e tre le opzioni, poi attende l’avvio. Nessun colore viene ridotto automaticamente. La soglia è un avviso basato su ricerche Bilanciato con ripetizioni, non un limite di tempo; anche palette più piccole possono essere lente con ricerche più approfondite o più filamenti.
+
+Durante la ricerca dei filamenti, **Annulla Auto-paint** interrompe il processo in background. La ricerca resta ferma fino a **Avvia Auto-paint** o a una modifica delle impostazioni. Anche modificare le impostazioni o passare a 2D annulla il lavoro attivo. La percentuale è approssimativa, non una stima del tempo. L’annullamento non crea un nuovo modello; l’anteprima precedente può restare visibile. Al termine del calcolo, scegli **Costruisci modello 3D**.
+
 ## Dati dei filamenti
 
 | Controllo | Cosa inserire o fare | Effetto |
@@ -192,5 +198,15 @@ Dopo aver cambiato processo o altezza dello strato, esamina questo riepilogo dei
 | **Aggiungi ai filamenti** | Aggiunge una riga di lavoro denominata `Kromacut-Suggestion-…` e ricalcola includendola. |
 
 Se il suggerimento è utile, trova una bobina reale, poi inserisci il suo colore e la sua calibrazione effettivi. Non stampare presumendo che la riga ipotetica sia già disponibile. I suggerimenti si azzerano quando cambiano i colori dell’immagine o il set di filamenti. Un risultato senza candidati indica che il set attuale copre già bene l’immagine secondo questo test approssimativo.
+
+## Stampa multi-testa
+
+Attiva la modalità multi-testa in Auto-paint e scegli 2–8 teste e una profondità di ricerca. Durante la creazione, l’ordine dei filamenti viene analizzato in background e a ogni regione dell’immagine viene assegnato il proprio filamento per ciascuno strato. L’anteprima mostra la miscela simulata; i colori fisici mostrano il filamento reale. La modalità multi-testa e Flat Paint si escludono a vicenda.
+
+Dopo una creazione riuscita, segui il programma delle teste nelle istruzioni di stampa: carica i filamenti indicati prima di stampare, lascia inutilizzate le teste contrassegnate come VUOTA e ricarica solo quelle segnalate a ogni punto di controllo. Esporta in 3MF per conservare le assegnazioni fisiche delle teste, i colori dei filamenti e i marcatori di pausa M600 agli stessi strati di cambio. Usa una stampante multi-testa compatibile e verifica assegnazioni, altezze degli strati e pause nello slicer.
+
+Se l’analisi non riesce o non trova una disposizione utilizzabile che migliori il risultato, viene creato il normale modello a testa singola con il colore iniziale, le istruzioni di cambio colore e un avviso. Cambiare immagine annulla l’analisi in corso: crea di nuovo il modello per la nuova immagine.
+
+Per sequenze, finestre, profondità di ricerca e procedura completa, vedi [Stampa multitesta](multi-head-printing).
 
 Prosegui con: [Flat Paint](flat-paint), [Flussi di calibrazione](calibration-workflows) o [Generazione ed esportazione](generating-exporting-output).

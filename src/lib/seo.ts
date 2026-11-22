@@ -178,6 +178,14 @@ export function applyTermsSeo(title: string, description: string) {
     });
 }
 
+export function applyAwardsSeo() {
+    applySeo({
+        title: translate('public:awards.seoTitle'),
+        description: translate('public:awards.description'),
+        url: absoluteUrl(publicPath('/awards')),
+    });
+}
+
 export function docSeoTitle(doc: DocRecord): string {
     return translate('public:seo.docTitle', { title: doc.meta.title });
 }

@@ -193,7 +193,7 @@ Imprime boca arriba al 100 % con alturas y filamentos exactos. Una primera capa 
 
 ### Cargar y alinear una foto
 
-Selecciona la placa impresa en la lista y usa **Elegir foto** o arrastra una imagen a la zona. Fotografía con luz frontal difusa sin reflejos fuertes. La aplicación debe poder decodificarla; un RAW no sustituye una imagen exportada normalmente visible.
+Selecciona la placa impresa en la lista y usa **Elegir foto** o arrastra una imagen a la zona. Fotografía con luz frontal difusa sin reflejos fuertes. La aplicación debe poder decodificarla; un RAW no sustituye una imagen exportada normalmente visible. Si una foto no se puede leer, por ejemplo porque está dañada o se descargó a medias, Kromacut muestra un error y conserva la foto ya cargada, si la hay.
 
 ![Los cuatro controles van en centros de marcadores fuera de la cuadrícula. El borde queda a media celda de los centros; una ampliación distingue el centro de la esquina exterior.](22_matrix_alignment.svg)
 

@@ -147,6 +147,8 @@ Photographiez une planche de recettes enregistrée, vérifiez l’alignement et 
 
 Faites glisser avec le bouton principal pour tourner autour du modèle, utilisez la molette pour zoomer et le bouton secondaire pour déplacer la vue. Les mouvements de caméra ne modifient jamais les dimensions physiques.
 
+La caméra reste juste à l’extérieur du modèle dans les deux projections. Le zoom orthographique est limité afin que la caméra reste aussi à l’extérieur lors du passage en perspective.
+
 | Commande de barre d’outils | Utilité | Effet sur l’impression |
 | ------------------ | ------------------------------------------------------------------------ | --------------------------------------------------------------------------------- |
 | **Couleurs fidèles** | Comparer les échantillons choisis sans éclairage de scène ni rendu tonal cinématographique. | Aperçu uniquement. Dépend toujours du modèle et de l’écran ; ne valide pas l’étalonnage. |
@@ -154,7 +156,7 @@ Faites glisser avec le bouton principal pour tourner autour du modèle, utilisez
 | **Transparent** | Voir les couches superposées. | Aperçu uniquement ; ne rend pas le filament transparent. |
 | **Fil de fer** | Examiner les arêtes colorées par couche. | Aperçu uniquement ; ce ne sont pas des trajectoires d’extrusion. |
 | **Couleurs de l’aperçu** | Alterner mélanges simulés de peinture automatique et couleurs physiques des filaments. | Aperçu uniquement. Les exports conservent les affectations réelles de matériaux. |
-| **Basculer la caméra** | Alterner profondeur en perspective et alignement orthographique sans raccourcissement. | Aperçu uniquement. La position de caméra est conservée. |
+| **Basculer la caméra** | Alterner profondeur en perspective et alignement orthographique sans raccourcissement. | Aperçu uniquement. L’angle de vue et le zoom sont conservés d’un mode à l’autre. |
 | **Annuler / Rétablir** | Parcourir l’historique partagé de retouche d’image. | Pas un historique des champs 3D ou des filaments. Régénérez après une modification de l’image. |
 | **Télécharger** | Exporter le STL ou 3MF généré. | Utilise le dernier modèle généré, pas les paramètres latéraux non appliqués. |
 
@@ -163,6 +165,8 @@ Le mode de vue et le choix simulé/physique sont mémorisés. **Couleurs de l’
 ## Aperçu des couches
 
 Déplacez les poignées inférieure et supérieure de la barre du bas pour isoler une plage de hauteurs. Les positions s’alignent sur la grille de couches. Survolez les segments de matériau pour les informations de départ ou de changement.
+
+Placez le focus sur une poignée et utilisez les flèches pour avancer d’une couche imprimée. Maj+flèche ou Page précédente/suivante déplace de dix couches ; Début/Fin rejoint une limite. Les poignées ne peuvent pas se croiser.
 
 ![Les poignées de limite masquent des couches pour l’examen, mais l’export contient toujours le modèle complet.](19_preview_only.svg)
 

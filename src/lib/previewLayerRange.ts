@@ -14,7 +14,10 @@ export function previewLayerHeights(total: number, layerHeight: number, firstLay
     if (total <= 0 || layerHeight <= 0) return [0];
     const heights = [0];
     const first = Math.max(layerHeight, firstLayerHeight);
-    for (let i = 0; first + i * layerHeight < total - HEIGHT_EPSILON; i++) {
+    // Relief bounds use Float32 vertices. Their rounding error grows with height;
+    // don't count that error as a separate layer at the top of taller models.
+    const topEpsilon = Math.max(HEIGHT_EPSILON, total * 2 ** -24);
+    for (let i = 0; first + i * layerHeight < total - topEpsilon; i++) {
         heights.push(first + i * layerHeight);
     }
     heights.push(total);

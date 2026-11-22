@@ -16,8 +16,9 @@ import {
     type PngImage,
     type RasterMask,
 } from './imageFixtures.ts';
+import { reportForMessage } from './helpers/meshAssertions.ts';
 import { loadViteModule } from './helpers/viteModule.ts';
-import { inspectMeshIntegrity, type MeshIntegrityReport } from './meshDiagnostics.ts';
+import { inspectMeshIntegrity } from './meshDiagnostics.ts';
 
 type Export3mfModule = typeof import('../src/lib/export3mf.ts');
 type Export3MFOptions = Parameters<Export3mfModule['exportObjectTo3MFBlob']>[1];
@@ -873,26 +874,6 @@ async function buildAutoPaintLogoRegressionStack(
         imageSwatchCount: imageSwatches.length,
         autoPaintLayerCount: sliceData.colorOrder.length,
     };
-}
-
-function reportForMessage(report: MeshIntegrityReport) {
-    return JSON.stringify(
-        {
-            vertexCount: report.vertexCount,
-            triangleCount: report.triangleCount,
-            invalidPositionCount: report.invalidPositionCount,
-            invalidIndexCount: report.invalidIndexCount,
-            degenerateTriangleCount: report.degenerateTriangleCount,
-            duplicateTriangleCount: report.duplicateTriangleCount,
-            boundaryEdgeCount: report.boundaryEdgeCount,
-            nonManifoldEdgeCount: report.nonManifoldEdgeCount,
-            inconsistentWindingEdgeCount: report.inconsistentWindingEdgeCount,
-            signedVolume: report.signedVolume,
-            bounds: report.bounds,
-        },
-        null,
-        2
-    );
 }
 
 function collectVisibleMeshTriangleCounts(root: THREE.Object3D) {
@@ -2161,4 +2142,234 @@ test('3MF export keeps many smooth layers bounded to layer count', async () => {
             `${object.name} should not overuse edges`
         );
     }
+});
+
+// ---------------------------------------------------------------------------
+// Multi-head (toolchanger) export — regression tests for the OrcaSlicer import
+// crash chain. Each assertion maps to a real SIGABRT we fixed. See
+// REBASE-NOTES.md §A.
+// ---------------------------------------------------------------------------
+
+interface MultiHeadArchive {
+    projectSettings: Record<string, unknown>;
+    modelSettingsXml: string;
+    customGcodeXml: string | null;
+    contentTypesXml: string;
+}
+
+async function createNozzleLayer(rows: string[], nozzle: number, baseZ = 0, topZ = 1) {
+    const mask = maskFromRows(rows);
+    const data = await generateGreedyMesh(
+        mask.activePixels, mask.width, mask.height, topZ - baseZ, baseZ, 1, 1,
+        { yieldIntervalMs: Infinity, onYield: async () => undefined }
+    );
+    // Match multi-head preview meshes, which carry only their tessellation.
+    const mesh = createMeshDataLayer(data, 0x0000ff);
+    mesh.geometry.userData.kromacutExportGeometry = { positions: data.positions, indices: data.indices };
+    mesh.userData = { nozzleIndex: nozzle, baseZ, topZ };
+    return mesh;
+}
+
+test('multi-head export preserves mesh and parent transforms', async () => {
+    for (const transform of ['translate', 'rotate', 'scale', 'parent'] as const) {
+        const root = new THREE.Group();
+        const mesh = await createNozzleLayer(['#'], 1);
+        if (transform === 'translate') mesh.position.set(7, 8, 0);
+        if (transform === 'rotate') mesh.rotation.set(0.3, 0.5, 0.7);
+        if (transform === 'scale') mesh.scale.set(2, 3, 4);
+        if (transform === 'parent') root.position.set(7, 8, 9);
+        root.add(mesh);
+        const [normal] = await exportMeshObjects(root);
+        const [multiHead] = await exportMeshObjects(root, { extruderCount: 2 });
+        assert.deepEqual(multiHead.mesh, normal.mesh, `${transform} must match ordinary export`);
+    }
+});
+
+test('multi-head export preserves every source smoothing strength', async () => {
+    const mask = maskFromRows(['#']);
+    for (const strength of ['minimal', 'medium', 'aggressive'] as const) {
+        const data = await generateSmoothMesh(mask.activePixels, 1, 1, 1, 0, 1, 1, {
+            strength, yieldIntervalMs: Infinity, onYield: async () => undefined,
+        });
+        const mesh = createCompactExportLayer(data, mask, 1, 1, 0x0000ff, false);
+        mesh.userData = { nozzleIndex: 1, baseZ: 0, topZ: 1 };
+        const root = new THREE.Group();
+        root.add(mesh);
+        const [normal] = await exportMeshObjects(root, { smoothMeshingStrength: strength });
+        for (const metadataStrength of [undefined, strength]) {
+            const archive = await exportArchiveXml(root, {
+                extruderCount: 2, smoothMeshingStrength: metadataStrength,
+            });
+            const [multiHead] = parseMeshObjects(archive.modelXml);
+            assert.deepEqual(multiHead.mesh, normal.mesh, `${strength} source shape must be preserved`);
+            assertRawExportObjectIsManifold(multiHead, `${strength} multi-head source`);
+            if (metadataStrength) {
+                assert.ok(archive.modelXml.includes(
+                    `<metadata name="Kromacut:SmoothMeshingStrength">${strength}</metadata>`
+                ));
+            }
+        }
+    }
+});
+
+test('multi-head export reports the same progress as single-head export', async () => {
+    const { exportObjectTo3MFBlob } = await loadExport3mfModule();
+    const root = new THREE.Group();
+    root.add(await createNozzleLayer(['##', '#.'], 1), await createNozzleLayer(['#.'], 2, 1, 2));
+    const progressFor = async (extruderCount?: number) => {
+        const samples: number[] = [];
+        await exportObjectTo3MFBlob(root, { extruderCount, onProgress: (value) => samples.push(value) });
+        return samples;
+    };
+    const meshPhase = (samples: number[]) => samples.filter((value) => value < 0.8);
+    const multiHead = await progressFor(2);
+    assertMonotonicProgress(multiHead, 'multi-head export');
+    assert.equal(multiHead.at(-1), 1);
+    assert.deepEqual(meshPhase(multiHead), meshPhase(await progressFor()));
+});
+
+async function exportMultiHead(
+    nozzleIndices: number[],
+    options: Export3MFOptions
+): Promise<MultiHeadArchive> {
+    installFileReaderPolyfill();
+    const root = new THREE.Group();
+    nozzleIndices.forEach((nozzle, i) => {
+        const geometry = new THREE.BoxGeometry(1, 1, 1);
+        geometry.translate(0, 0, i);
+        const mesh = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({ color: 0xff0000 }));
+        mesh.userData.nozzleIndex = nozzle;
+        root.add(mesh);
+    });
+
+    const { exportObjectTo3MFBlob } = await loadExport3mfModule();
+    const blob = await exportObjectTo3MFBlob(root, options);
+    const zip = await JSZip.loadAsync(await blob.arrayBuffer());
+    const read = async (name: string) => {
+        const file = zip.file(name);
+        return file ? file.async('string') : null;
+    };
+
+    return {
+        projectSettings: JSON.parse(
+            (await read('Metadata/project_settings.config'))!
+        ) as Record<string, unknown>,
+        modelSettingsXml: (await read('Metadata/model_settings.config'))!,
+        customGcodeXml: await read('Metadata/custom_gcode_per_layer.xml'),
+        contentTypesXml: (await read('[Content_Types].xml'))!,
+    };
+}
+
+function projectArray(ps: Record<string, unknown>, key: string): unknown[] {
+    const value = ps[key];
+    assert.ok(Array.isArray(value), `${key} should be an array`);
+    return value as unknown[];
+}
+
+test('multi-head export: filament + per-extruder arrays are all length N', async () => {
+    const N = 4;
+    const { projectSettings: ps } = await exportMultiHead([1, 2, 3, 4], { extruderCount: N });
+
+    for (const key of [
+        'nozzle_diameter',
+        'filament_colour',
+        'filament_type',
+        'filament_settings_id',
+        'filament_vendor',
+        'filament_diameter',
+        'filament_map',
+        'extruder_type',
+        'nozzle_volume_type',
+        'z_hop_types',
+        'retract_lift_enforce',
+        'nozzle_type',
+        'nozzle_flush_dataset',
+        'wipe',
+        'retract_when_changing_layer',
+        'long_retractions_when_cut',
+        'extruder_offset',
+        'extruder_colour',
+        'retraction_length',
+        'z_hop',
+        'flush_multiplier',
+    ]) {
+        assert.equal(projectArray(ps, key).length, N, `${key} should be length ${N}`);
+    }
+
+    // Serialization Orca expects: enums as labels, bools as "1"/"0", points as "0x0".
+    assert.deepEqual(ps.extruder_type, [
+        'Direct Drive',
+        'Direct Drive',
+        'Direct Drive',
+        'Direct Drive',
+    ]);
+    assert.deepEqual(ps.wipe, ['1', '1', '1', '1']);
+    assert.deepEqual(ps.extruder_offset, ['0x0', '0x0', '0x0', '0x0']);
+});
+
+test('multi-head export: flush_volumes_matrix is nozzleCount * filamentCount^2 zeros', async () => {
+    const N = 4;
+    const { projectSettings: ps } = await exportMultiHead([1, 2, 3, 4], { extruderCount: N });
+    const matrix = projectArray(ps, 'flush_volumes_matrix');
+    assert.equal(matrix.length, N * N * N);
+    assert.ok(matrix.every((v) => v === '0'));
+});
+
+test('multi-head export: filament_map identity + Manual, G92 reset, pause gcode', async () => {
+    const { projectSettings: ps } = await exportMultiHead([1, 2, 3], { extruderCount: 3 });
+    assert.deepEqual(ps.filament_map, ['1', '2', '3']);
+    assert.equal(ps.filament_map_mode, 'Manual');
+    assert.match(String(ps.before_layer_change_gcode), /G92 E0/);
+    assert.equal(ps.layer_gcode, undefined, 'must not use the non-Orca layer_gcode key');
+    assert.equal(ps.machine_pause_gcode, 'M600');
+});
+
+test('multi-head export: part extruder matches mesh nozzle index, clamped to [1,N]', async () => {
+    const N = 3;
+    // 5 clamps down to 3.
+    const { modelSettingsXml } = await exportMultiHead([2, 3, 1, 5], { extruderCount: N });
+    const extruders = parseModelSettingsPartExtruders(modelSettingsXml);
+    assert.deepEqual([...extruders.values()], [2, 3, 1, 3]);
+});
+
+test('multi-head export: swapLayers become PausePrint markers at the right print_z', async () => {
+    const { customGcodeXml, contentTypesXml } = await exportMultiHead([1, 2, 3, 4], {
+        extruderCount: 4,
+        layerHeight: 0.08,
+        firstLayerHeight: 0.2,
+        swapLayers: [
+            { layer: 9, color: '#63646b' },
+            { layer: 17, color: '#cacccb' },
+        ],
+    });
+
+    assert.ok(customGcodeXml, 'custom_gcode_per_layer.xml should be present');
+    assert.match(contentTypesXml, /Extension="xml"/);
+    // print_z = firstLayerHeight + (layer - 1) * layerHeight
+    const tops = [...customGcodeXml!.matchAll(/top_z="([^"]+)"/g)].map((m) => Number(m[1]));
+    assert.deepEqual(tops, [0.84, 1.48]);
+    assert.equal(
+        (customGcodeXml!.match(/type="1"/g) ?? []).length,
+        2,
+        'both markers should be PausePrint (type=1)'
+    );
+});
+
+test('single-head export omits toolchanger settings and pauses', async () => {
+    const { projectSettings: ps, customGcodeXml } = await exportMultiHead([1, 1], {});
+    assert.equal(ps.filament_map, undefined);
+    assert.equal(ps.flush_volumes_matrix, undefined);
+    assert.equal(ps.machine_pause_gcode, undefined);
+    assert.equal(customGcodeXml, null);
+});
+
+test('multi-head export: filament_colour uses real per-nozzle colours (not all white)', async () => {
+    // Regression for the "white object" symptom: nozzleRepColor must be populated
+    // from the tagged meshes, not fall back to #FFFFFF for every slot.
+    const { projectSettings: ps } = await exportMultiHead([1, 2, 3, 4], { extruderCount: 4 });
+    const colours = projectArray(ps, 'filament_colour') as string[];
+    assert.ok(
+        colours.every((c) => c.toUpperCase() !== '#FFFFFF'),
+        `filament_colour should reflect the tagged mesh colours, got ${JSON.stringify(colours)}`
+    );
 });

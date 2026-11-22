@@ -90,6 +90,8 @@
         "threeJsLayerByLayer3DPreview": "Three.js逐层3D预览",
         "calibratedAutoPaintWithDeterministicSearch": "采用确定性搜索的已校准自动配色",
         "slicerFriendlySTLAndMultiMaterial3MF": "适合切片的STL和多材料3MF",
+        "snapmakerInnovationFundWinner": "Snapmaker Innovation Fund 获奖者",
+        "aboutTheSnapmakerInnovationFund": "关于 Snapmaker Innovation Fund",
         "openTheTool": "打开工具",
         "communityShowcase": "社区作品展示",
         "madeByTheKromacutCommunity": "来自Kromacut社区的创作。",
@@ -118,6 +120,7 @@
         "openApp": "打开Kromacut",
         "home": "返回主页",
         "docs": "浏览文档",
+        "awards": "奖项",
         "privacy": "隐私与本地数据",
         "terms": "使用条款"
     },
@@ -161,6 +164,13 @@
         "loading": "正在加载文档…",
         "loadFailed": "无法加载此翻译。请重试。",
         "retry": "重试"
+    },
+    "awards": {
+        "eyebrow": "荣誉",
+        "title": "奖项",
+        "intro": "Kromacut 获得的奖项与荣誉。",
+        "seoTitle": "奖项 | Kromacut",
+        "description": "将图像转换为多色 3D 打印的免费工具 Kromacut 获得的奖项与荣誉。"
     },
     "seo": {
         "homeTitle": "Kromacut - 免费图像转彩色分层3D打印生成器",

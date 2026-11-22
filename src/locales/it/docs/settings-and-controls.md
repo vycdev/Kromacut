@@ -22,7 +22,9 @@ Il tema offre **Sistema**, **Scuro** e **Chiaro**. Sistema segue le preferenze c
 
 Anche le pagine pubbliche hanno il selettore. La documentazione tradotta usa collegamenti condivisibili con prefisso, come `/ro/docs/overview`. Nomi di pagina e ancore restano stabili tra lingue. Estensioni, numeri del modello, nomi inseriti dall’utente e titoli originali delle opere comunitarie non vengono tradotti.
 
-Le impostazioni includono documentazione, Discord, Reddit, GitHub, Patreon e versione corrente. Anche **Privacy e dati locali** e **Termini e condizioni** sono disponibili qui e si aprono nel browser nella lingua selezionata.
+Le impostazioni includono documentazione, Discord, Reddit, GitHub, Patreon e versione corrente. Anche **Privacy e dati locali**, **Termini e condizioni** e **Premi** sono disponibili qui e si aprono nel browser nella lingua selezionata.
+
+Nell’app desktop, le Impostazioni contengono anche una riga **Apri nello slicer** che mostra lo slicer usato da **Apri nello slicer**: **Chiedi ogni volta**, **Predefinita di sistema** oppure nome e percorso dello slicer salvato. **Cambia** apre il selettore dello slicer e salva quello che scegli senza aprire file. **Dimentica** compare quando una scelta è salvata e fa sì che Kromacut chieda di nuovo. Vedi [Salvare e annullare](generating-exporting-output#saving-and-cancelling).
 
 ## Modalità dell’area di lavoro
 
@@ -37,6 +39,8 @@ Su schermi piccoli espandi **Contenuti** per scegliere guida o **In questa pagin
 Molte sezioni laterali si comprimono dal titolo. Nascondere controlli non disattiva effetti: regolazioni, stampa e ottimizzatore restano attivi. Riepiloghi e indicatori aiutano a vedere cambiamenti. Lo stato aperto/chiuso è ricordato. Espandere non ripristina.
 
 **Annulla / Ripeti** condivide lo storico immagine tra 2D e 3D. Non registra filamenti, calibrazione, altezze o ottimizzatore. Usa ripristini dei pannelli quando disponibili e rigenera dopo aver restaurato un’immagine.
+
+In 2D, **Ctrl+Z** (**Cmd+Z** su macOS) annulla una modifica all’immagine e **Ctrl+Maiusc+Z** (**Cmd+Maiusc+Z**) la ripristina. Le scorciatoie vengono ignorate nei campi modificabili, nelle finestre di dialogo, nei popover, nei menu e negli elenchi aperti, durante il ritaglio o l’elaborazione e in 3D. Vedi [Scorciatoie della cronologia 2D](image-adjustments#2d-history-shortcuts).
 
 ## Modalità multipiatto sperimentale
 
@@ -63,6 +67,7 @@ Tra le impostazioni conservate:
 - Dettaglio transizioni e dithering dell’altezza.
 - Larghezza effettiva dalle **Impostazioni stampa 3D**, per avvisi, pulizia e dithering, più **Escludi puntini di colore isolati**. La pulizia non rimuove tutti gli avvisi né controlla dithering.
 - Flat Paint e preferenza a faccia in su senza trasparente.
+- Modalità multi-testa, numero di teste, profondità di ricerca e raggruppamento dei colori.
 - Algoritmo e seme dell’ottimizzatore.
 - Priorità regione.
 
@@ -70,7 +75,7 @@ I profili sono separati dallo stato ricordato. Usali per insiemi nominati da car
 
 ## File di tavolozza
 
-Le tavolozze personalizzate servono per riduzione 2D e usano `.kpal`.
+Le tavolozze personalizzate servono per riduzione 2D e usano `.kpal`. Nell’app desktop, l’esportazione della tavolozza apre **Salva con nome**: scegli una posizione scrivibile oppure annulla per continuare. Nel browser viene usato il normale download.
 
 La versione 2 aggiunge `disabledColors`, colori conservati ma esclusi dalla quantizzazione, e `colorNames`, nomi facoltativi. Entrambi passano da export a import. I v1 si caricano invariati con tutto abilitato e senza nome; un v2 aperto in una vecchia versione considera tutti abilitati.
 

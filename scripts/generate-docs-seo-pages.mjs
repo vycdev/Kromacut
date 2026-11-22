@@ -515,7 +515,7 @@ function writeNotFoundPage(template) {
 }
 
 function writeSitemap(docs) {
-    const urls = ['/', '/privacy', '/terms', ...docs.map((doc) => `/docs/${doc.slug}`)];
+    const urls = ['/', '/privacy', '/terms', '/awards', ...docs.map((doc) => `/docs/${doc.slug}`)];
     const body = urls
         .map((url) => `    <url><loc>${siteUrl}${url === '/' ? '/' : url}</loc></url>`)
         .join('\n');
@@ -623,6 +623,75 @@ function writeLegalPage(template, kind) {
     writeFileSync(path.join(outputDir, 'index.html'), html);
 }
 
+const SNAPMAKER_INNOVATION_FUND_URL = 'https://www.snapmaker.com/innovation-fund';
+
+// Static twin of AwardsPage, so the page is crawlable and works without JavaScript.
+function generateAwardsPage(
+    template,
+    catalog = JSON.parse(readFileSync(path.join(rootDir, 'src/locales/en/public.json'), 'utf8'))
+) {
+    const logo = findBuiltAsset('logo-');
+    const medal = findBuiltAsset('innovation-fund-medal-');
+    const stylesheet = readdirSync(path.join(distDir, 'assets')).find(
+        (file) =>
+            file.endsWith('.css') &&
+            readFileSync(path.join(distDir, 'assets', file), 'utf8').includes('.awards-entry')
+    );
+    if (!logo || !medal || !stylesheet) throw new Error('awards page assets are missing.');
+    const { awards, landing, navigation } = catalog;
+
+    let html = template
+        .replace(/<script\b[^>]*type="application\/ld\+json"[^>]*>[\s\S]*?<\/script>/gi, '')
+        .replace(
+            /<link\b[^>]*rel="canonical"[^>]*>/gi,
+            `<link rel="canonical" href="${siteUrl}/awards" />`
+        )
+        .replace('<html lang="en">', '<html lang="en" data-awards-page>')
+        .replace(/<title>.*?<\/title>/, `<title>${escapeHtml(awards.seoTitle)}</title>`)
+        .replace('</head>', `<link rel="stylesheet" href="/assets/${stylesheet}" />\n</head>`);
+    html = updateMeta(html, 'name', 'description', awards.description);
+    html = updateMeta(html, 'name', 'robots', 'index,follow');
+    html = updateMeta(html, 'property', 'og:title', awards.seoTitle);
+    html = updateMeta(html, 'property', 'og:description', awards.description);
+    html = updateMeta(html, 'property', 'og:url', `${siteUrl}/awards`);
+    html = updateMeta(html, 'name', 'twitter:title', awards.seoTitle);
+    html = updateMeta(html, 'name', 'twitter:description', awards.description);
+    return html.replace(
+        /<div id="root"><\/div>/,
+        `<div id="root">
+        <main class="privacy-page" data-testid="awards-page" aria-labelledby="awards-heading">
+            <div class="privacy-shell">
+                <header class="privacy-header">
+                    <a class="privacy-brand" href="/?landing=1" aria-label="${escapeHtml(navigation.homeLabel)}"><img src="${logo}" width="36" height="36" alt=""><span>Kromacut</span></a>
+                    <a class="privacy-app-link" href="/app">${escapeHtml(navigation.openApp)}</a>
+                </header>
+                <article class="privacy-article">
+                    <p class="privacy-eyebrow">${escapeHtml(awards.eyebrow)}</p>
+                    <h1 id="awards-heading">${escapeHtml(awards.title)}</h1>
+                    <p class="privacy-intro">${escapeHtml(awards.intro)}</p>
+                    <section class="awards-entry" aria-labelledby="award-snapmaker-innovation-fund">
+                        <img class="awards-medal" src="${medal}" width="480" height="480" alt="">
+                        <div>
+                            <h2 id="award-snapmaker-innovation-fund">${escapeHtml(landing.snapmakerInnovationFundWinner)}</h2>
+                            <p><a href="${SNAPMAKER_INNOVATION_FUND_URL}" target="_blank" rel="noopener noreferrer">${escapeHtml(landing.aboutTheSnapmakerInnovationFund)}</a></p>
+                        </div>
+                    </section>
+                </article>
+                <footer class="privacy-footer">
+                    <a href="/?landing=1">${escapeHtml(navigation.home)}</a><a href="/docs/overview">${escapeHtml(navigation.docs)}</a><a href="/privacy">${escapeHtml(navigation.privacy)}</a><a href="/terms">${escapeHtml(navigation.terms)}</a>
+                </footer>
+            </div>
+        </main>
+    </div>`
+    );
+}
+
+function writeAwardsPage(template) {
+    const outputDir = path.join(distDir, 'awards');
+    mkdirSync(outputDir, { recursive: true });
+    writeFileSync(path.join(outputDir, 'index.html'), generateAwardsPage(template));
+}
+
 function writeRobots() {
     writeFileSync(
         path.join(distDir, 'robots.txt'),
@@ -638,6 +707,7 @@ function verifyGeneratedOutput(docs) {
         'docs/index.html',
         'privacy/index.html',
         'terms/index.html',
+        'awards/index.html',
         'robots.txt',
         'sitemap.xml',
         'site.webmanifest',
@@ -675,6 +745,16 @@ function verifyGeneratedOutput(docs) {
             `${kind} page must be indexable and canonical without public review notes or a static email link`
         );
     }
+
+    const awardsHtml = readFileSync(path.join(distDir, 'awards', 'index.html'), 'utf8');
+    assertGenerated(
+        sitemap.includes('<loc>https://kromacut.com/awards</loc>') &&
+            awardsHtml.includes('data-testid="awards-page"') &&
+            awardsHtml.includes('<meta name="robots" content="index,follow"') &&
+            awardsHtml.includes('<link rel="canonical" href="https://kromacut.com/awards"') &&
+            awardsHtml.includes('Snapmaker Innovation Fund Winner'),
+        'awards page must be indexable, canonical, listed in the sitemap, and name its award'
+    );
 
     assertGenerated(
         rootHtml.includes('<link rel="canonical" href="https://kromacut.com/"'),
@@ -766,6 +846,7 @@ writeAppPage(template);
 writeNotFoundPage(template);
 writeLegalPage(template, 'privacy');
 writeLegalPage(template, 'terms');
+writeAwardsPage(template);
 writeSitemap(docs);
 writeRobots();
 verifyGeneratedOutput(docs);
@@ -774,6 +855,7 @@ export {
     parseDocs,
     generateDocPage,
     generateLegalPage,
+    generateAwardsPage,
     generateNotFoundPage,
     updateMeta,
     escapeHtml,

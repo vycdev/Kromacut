@@ -48,6 +48,8 @@ STL enthält keine Filamentfarben oder automatischen Spulenzuweisungen. Verwende
 
 Bei **Flat Paint** bietet das Downloadmenü nur 3MF an: Das Modell enthält je ein Objekt pro tatsächlichem Filament sowie in der Standardanordnung mit Bildseite unten ein transparentes Trägerobjekt. Die optionale Anordnung mit Bildseite oben lässt diesen Träger weg. Eine farblose STL mit nur einer Geometrie wäre bei beiden flachen Platten nutzlos. Beide Ausrichtungen unterstützen alle Stärken der **Glatten Vernetzung**. Baue das Modell nach einer Änderung der Stärke neu, um sie auf die Vorschau und die exportierte Geometrie anzuwenden.
 
+Erfolgreiche **Mehrkopf**-Modelle bieten ebenfalls nur 3MF an, weil STL ihre Druckkopfzuweisungen nicht speichern kann. Fällt der Aufbau auf ein normales Einkopfmodell zurück, steht STL weiterhin zur Verfügung.
+
 ## Druckanweisungen
 
 Der Bereich **Druckanweisungen** enthält:
@@ -67,6 +69,8 @@ Die ungefähre Höhenangabe im Plan erfordert Aufmerksamkeit: Der manuelle Ablau
 
 Im Flat-Paint-Modus gibt es keinen manuellen Wechselplan. Der Bereich fasst stattdessen den gewählten Mehrmaterialablauf zusammen: Weise jedes 3MF-Objekt seinem Filament zu. Nutze dann entweder transparentes Filament und drehe den standardmäßigen Druck mit Bildseite unten um, oder drucke die trägerlose Anordnung mit Bildseite oben. Keine der beiden Anordnungen darf im Slicer gespiegelt werden.
 
+Im **Mehrkopfmodus** zeigt eine erfolgreiche Erstellung statt Startfarbe und Wechselplan einen **Druckkopfplan**: Lade vor dem Druck die aufgeführten Filamente in ihre nummerierten Druckköpfe, lass als **LEER** markierte Köpfe unbenutzt und lade an jedem Schichtkontrollpunkt nur die markierten Köpfe neu. Ist die Erstellung auf ein Einkopfmodell zurückgefallen, erscheinen stattdessen die normale Startfarbe und der Wechselplan. Siehe [Mehrkopfdruck](multi-head-printing#head-schedule-and-export).
+
 ## Empfohlene Slicer-Einstellungen
 
 Kromacut empfiehlt:
@@ -85,6 +89,8 @@ Prüfe kleine Inseln, Schrift, getrennte transparente Aussparungen, Grundschicht
 ## Speichern und Abbrechen
 
 Die Desktop-App öffnet für Dateiexporte einen Dialog **Speichern unter**. Im Browser gelten dessen Download-Einstellungen; ob nach einem Speicherort gefragt wird, hängt also vom Browser ab. Das Abbrechen eines Dateidialogs sendet nichts an den Drucker. Während des Exports können das Schreiben der Geometrie und die Archivkomprimierung Zeit beanspruchen. Warte vor dem Schließen der App, bis das Speichern abgeschlossen ist.
+
+In der Desktop-App erstellt **Im Slicer öffnen** im 3D-Downloadmenü dieselbe 3MF-Datei wie **3MF herunterladen** und öffnet sie ohne Dialog **Speichern unter** in deinem Slicer. Beim ersten Mal fragt Kromacut, welche App verwendet werden soll. Zur Auswahl stehen Bambu Studio, Orca Slicer, PrusaSlicer und UltiMaker Cura, wenn sie an ihrem üblichen Ort installiert sind, sowie **Systemstandard**, die Standard-App deines Systems für `.3mf`-Dateien. Mit **Durchsuchen** wählst du einen Slicer, der woanders installiert ist oder nicht aufgeführt wird. Schalte **Immer diesen Slicer verwenden** ein, damit die Frage beim nächsten Mal entfällt: Der Menüeintrag zeigt dann den Namen des Slicers, und **Slicer auswählen** im selben Menü ändert oder vergisst ihn. Auch die **Einstellungen** zeigen den gespeicherten Slicer, schon bevor ein Modell erstellt ist: **Ändern** speichert einen anderen, ohne etwas zu öffnen, und nach **Vergessen** fragt Kromacut wieder. Wurde der gespeicherte Slicer verschoben oder deinstalliert, fragt Kromacut erneut. Lege bei **Systemstandard** deinen Slicer vorher als Standard-App für `.3mf`-Dateien fest; sonst öffnet sich die Datei womöglich in einem 3D-Betrachter. Wenn der Slicer nicht gestartet werden kann, zeigt Kromacut einen Fehler an. Nutze dann **3MF herunterladen** und öffne die gespeicherte Datei manuell. Kromacut legt diese Kopie in seinem Cache-Ordner ab und kann sie nach einem Tag entfernen. Speichere das Projekt deshalb im Slicer, wenn du es behalten willst. Im Browser nutzt du **3MF herunterladen** und öffnest die heruntergeladene Datei in deinem Slicer.
 
 ## Exporttipps
 

@@ -1,50 +1,36 @@
 import { expect, test, type Page } from '@playwright/test';
 import commonRo from '../../src/locales/ro/common.json' with { type: 'json' };
 import publicRo from '../../src/locales/ro/public.json' with { type: 'json' };
+import { fakeDesktopBeforeLoad } from './helpers/fakeDesktop';
 
-type LegalLinkTestWindow = Window & {
-    isTauri?: boolean;
-    legalLinkTest: { calls: string[]; fail: boolean };
-    __TAURI_INTERNALS__?: {
-        transformCallback: () => number;
-        invoke: (command: string, args?: { path?: string }) => Promise<unknown>;
-    };
-};
+type LegalLinkTestWindow = Window & { legalLinkTest: { calls: string[]; fail: boolean } };
 
 async function prepare(page: Page, desktop = false) {
-    await page.addInitScript((native) => {
+    await page.addInitScript(() => {
         localStorage.clear();
         localStorage.setItem('kromacut.language.v1', 'en');
         localStorage.setItem('legal-link-workspace-sentinel', 'preserved');
-        if (!native) return;
-        const host = window as unknown as LegalLinkTestWindow;
-        host.isTauri = true;
-        host.legalLinkTest = { calls: [], fail: false };
-        host.__TAURI_INTERNALS__ = {
-            transformCallback: () => 1,
-            async invoke(command, args) {
-                if (command === 'get_app_version') return '4.1.0';
-                if (command === 'check_for_updates' || command === 'take_opened_file') return null;
-                if (command === 'plugin:event|listen' || command === 'plugin:event|unlisten')
-                    return 1;
-                if (command === 'open_legal_page') {
-                    if (host.legalLinkTest.fail) throw new Error('Browser unavailable');
-                    host.legalLinkTest.calls.push(args!.path!);
-                    return;
-                }
-                throw new Error(`Unexpected native command: ${command}`);
-            },
-        };
-    }, desktop);
+    });
+    if (desktop) {
+        await fakeDesktopBeforeLoad(page, (native) => {
+            const host = window as unknown as LegalLinkTestWindow;
+            host.legalLinkTest = { calls: [], fail: false };
+            native.handle('open_legal_page', (args: { path: string }) => {
+                if (host.legalLinkTest.fail) throw new Error('Browser unavailable');
+                host.legalLinkTest.calls.push(args.path);
+            });
+        });
+    }
     await page.goto('/app');
     await page.getByRole('button', { name: 'Open settings' }).click();
 }
 
-test('Settings legal links open localized web pages in a new tab', async ({ page }) => {
+test('@smoke Settings legal links open localized web pages in a new tab', async ({ page }) => {
     await prepare(page);
     for (const [path, label] of [
         ['/privacy', 'Privacy & local data'],
         ['/terms', 'Terms & conditions'],
+        ['/awards', 'Awards'],
     ]) {
         const link = page.getByRole('dialog').getByRole('link', { name: label, exact: true });
         await expect(link).toHaveAttribute('href', path);
@@ -63,6 +49,9 @@ test('Settings legal links open localized web pages in a new tab', async ({ page
     await expect(
         page.getByRole('link', { name: publicRo.navigation.terms, exact: true })
     ).toHaveAttribute('href', '/ro/terms');
+    await expect(
+        page.getByRole('link', { name: publicRo.navigation.awards, exact: true })
+    ).toHaveAttribute('href', '/ro/awards');
     const popupEvent = page.waitForEvent('popup');
     await privacy.click();
     const popup = await popupEvent;
@@ -71,7 +60,7 @@ test('Settings legal links open localized web pages in a new tab', async ({ page
     await popup.close();
 });
 
-test('desktop Settings legal links use the native browser command and keep the workspace', async ({
+test('@smoke desktop Settings legal links use the native browser command and keep the workspace', async ({
     page,
 }, testInfo) => {
     await prepare(page, true);
@@ -85,6 +74,9 @@ test('desktop Settings legal links use the native browser command and keep the w
     await page.getByRole('option', { name: 'Română', exact: true }).click();
     const terms = page.getByRole('link', { name: publicRo.navigation.terms, exact: true });
     await expect(terms).toHaveAttribute('href', 'https://kromacut.com/ro/terms');
+    await expect(
+        page.getByRole('link', { name: publicRo.navigation.awards, exact: true })
+    ).toHaveAttribute('href', 'https://kromacut.com/ro/awards');
     await page.setViewportSize({ width: 360, height: 800 });
     await terms.scrollIntoViewIfNeeded();
     const dialog = page.getByRole('dialog');
@@ -105,7 +97,9 @@ test('desktop Settings legal links use the native browser command and keep the w
     await expect(page.getByRole('button', { name: commonRo.settings.open })).toBeVisible();
 });
 
-test('desktop browser-open failure leaves Settings available for retry', async ({ page }) => {
+test('@smoke desktop browser-open failure leaves Settings available for retry', async ({
+    page,
+}) => {
     await prepare(page, true);
     await page.evaluate(() => {
         (window as unknown as LegalLinkTestWindow).legalLinkTest.fail = true;

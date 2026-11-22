@@ -1,0 +1,106 @@
+[
+  {
+    "path": "calibrated-series-summary.json",
+    "sha256": "56b7eea520adeecb53566a867837e7604c0904d0d743700204c3b8d3767340d8"
+  },
+  {
+    "path": "calibratedOptimizer.ts.txt",
+    "sha256": "a743e6346ea2d7b4d1aa7f8f70b7d99dc675c7bc51ecfe7fc94d170091dd395f"
+  },
+  {
+    "path": "calibratedSwatches.ts.txt",
+    "sha256": "fc433e842f977499682e70cbc757f888285a9375ef888b01707bbb2990f9a2a8"
+  },
+  {
+    "path": "cases-exact.json.gz",
+    "sha256": "48d4b977d7f611ed6d2571aeb2a7602a5041529c5f58e6cc1abac596aae974f4",
+    "uncompressedSha256": "076ef1d6dc7460257ac445cd103b5437827a8ab138e12c28a074d94852b39dec"
+  },
+  {
+    "path": "collision-preflight-status.json",
+    "sha256": "1054d2f41acaed99d629a643648cc4da4aa450084a40f9fa4c0379229bd2973c"
+  },
+  {
+    "path": "exact-measured-1.json.gz",
+    "sha256": "37634ed8b593ce3365ba9443b8812c6ebbd41d4b6c1ba4820f56aecd09ddb5ed",
+    "uncompressedSha256": "dcd234c72a9eac30eec4a49a4d681d1ea12cab1d713f931bce45155a861af2b3"
+  },
+  {
+    "path": "exact-measured-2.json.gz",
+    "sha256": "4afbf3835d389193c7cf5b7256b21bb8b27205666f17fb473602ca61127d82a9",
+    "uncompressedSha256": "52425e8cdb94a842044af21980526cc65ad658530f1dcbacba1fbc3cac8495b3"
+  },
+  {
+    "path": "exact-repeated-console.log.gz",
+    "sha256": "4b433f098e74c0ac92fbce1c7fe47b780c637774fc68755bab9dc17c13e18a06",
+    "uncompressedSha256": "6cbaacec07e8d3c3e77467789de792eec4b3ca423428368bfd95e78cd9a57c9f"
+  },
+  {
+    "path": "exact-validation-status.json",
+    "sha256": "ca36c1ccbd42083bb0118e2f5a7532144c393671c7050d341ac806bcb07ab91c"
+  },
+  {
+    "path": "exact-warmup-1.json.gz",
+    "sha256": "6a9be763c21cfe76729de655c2eaaff090f5afcfada0b19202b354ac5432e0f5",
+    "uncompressedSha256": "115b475d151acfd2f0625c4e077eedd46ac781b9bd47d0cbac1a17c6ab04a5ef"
+  },
+  {
+    "path": "fresh-exact-initial-failure.log.gz",
+    "sha256": "d74155c3400acd6f650214825e7c4cf37ef103a4a47362483b2bb8a920fe78b8",
+    "uncompressedSha256": "776eae7799022cab58be7ec7a59e9b558e49bd05df1831fddb93e103ae910906"
+  },
+  {
+    "path": "fresh-exact-initial.json.gz",
+    "sha256": "dd0a7889507c32b7b67e27ce41f4c41d91597d9eeafc1dba4cdb80794555ea1b",
+    "uncompressedSha256": "571c1e3402352fb7604d29423027102f80b44ecbc9fe5b15a09055c7d13e93bb"
+  },
+  {
+    "path": "fresh-exact-multi-head.json",
+    "sha256": "8319e03829c8cf47751d6ccaf83ffe601316ab6dd618e43ed88c47e7675ae19f"
+  },
+  {
+    "path": "matrix-process-status.json",
+    "sha256": "d6e6cb2786fe1554667e99a911a0679465d95d7003459640efa309c127a51f6f"
+  },
+  {
+    "path": "multiHeadAppearance.ts.txt",
+    "sha256": "7b9ec289611315b2fdbb69108908f3b5cf8d94f856737b00604865efe57caaa2"
+  },
+  {
+    "path": "optimizerEvidence.ts.txt",
+    "sha256": "6fbc58be934271de46b53c673450c4559eddfa0b7b60c9c2e90262cefe1d6fa3"
+  },
+  {
+    "path": "recorded-order-176917c.json.gz",
+    "sha256": "1a2f6b9905e485de6bbeb66e2de7b96567f0fe465996cf7cc76723fc76226e02",
+    "uncompressedSha256": "a152c7a215d3cc608e3a738098e89eb0ec304602a98284f192954cd3bb806ba0"
+  },
+  {
+    "path": "recorded-order-1e18d3d.json.gz",
+    "sha256": "031d2c26440522f3206d9f4091e0e2304215e39f2fcf7f836e342b5e57549fdb",
+    "uncompressedSha256": "a94aff7881b4a7335c70661c52f9b77ebb4be15ad58b6d5759830da76d2ce53e"
+  },
+  {
+    "path": "recorded-order-audit.json",
+    "sha256": "f64096008bcb483d03492def2ee7a13723710471ceba929b9d32e1f79c3d61ee"
+  },
+  {
+    "path": "recorded-order-e8e8121.json.gz",
+    "sha256": "241927af65478950613b49f88040f5d3059974ccf16182beea0632f0cb9f9ba7",
+    "uncompressedSha256": "07592958e1954660a85a66fc0926cf1a39470793cc565fc4c1a9ef52d9602741"
+  },
+  {
+    "path": "recorded-order-f4de749.json.gz",
+    "sha256": "f22fd42783efd74c4e2ae1126589a5bd062d32058d4aafaba47778192d0102cf",
+    "uncompressedSha256": "d8f299b9de431b047aa653abbfd729a11bb784f88d43995d523c829f82db38b0"
+  },
+  {
+    "path": "recorded-order-HEAD.json.gz",
+    "sha256": "dd4b121a2723ea6c4c9a1b7808f950afb72b6a88b4f9fd0e3cdd55732981bf7a",
+    "uncompressedSha256": "ccf82de244dd6d5bd1f6f36c2ce88cc416bbee3b65cfe9c76f211b742a457339"
+  },
+  {
+    "path": "saved-result-validation.mjs.txt",
+    "sha256": "c5648859f622d38eb2d6a0c528359a9e528c5690e27e563e484101b1ae17e517"
+  }
+]

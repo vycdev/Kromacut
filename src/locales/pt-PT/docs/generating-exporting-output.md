@@ -48,6 +48,8 @@ STL não contém cores nem atribuições automáticas de bobinas. Use o plano co
 
 Para **Pintura plana** só se oferece 3MF: um objeto por filamento e, na disposição predefinida de face para baixo, um suporte transparente. A opção de face para cima omite-o. Um STL sem cores e de geometria única seria inútil para qualquer placa. Ambas as orientações suportam todas as intensidades de **Malha suavizada**. Gere novamente o modelo depois de alterar a intensidade para a aplicar à pré-visualização e à geometria exportada.
 
+Os modelos **multicabeças** criados com êxito também só oferecem 3MF, porque o STL não consegue preservar as atribuições às cabeças. Se for criado em alternativa um modelo normal de uma só cabeça, o STL continua disponível.
+
 ## Instruções de impressão
 
 O painel **Instruções de impressão** fornece:
@@ -67,6 +69,8 @@ A altura aproximada exige cuidado: Manual mostra o Z do topo da nova camada; Pin
 
 Na pintura plana não há plano manual. O painel resume o fluxo multimaterial: atribua cada objeto ao filamento e use transparente e vire a impressão predefinida de face para baixo, ou imprima sem suporte de face para cima. Nenhuma deve ser espelhada no laminador.
 
+Com o **Modo multicabeças**, uma geração bem-sucedida mostra um **Plano das cabeças** em vez da cor inicial e do plano de trocas: antes de imprimir, carregue os filamentos indicados nas respetivas cabeças numeradas, deixe sem utilização as cabeças marcadas como **VAZIA** e recarregue apenas as cabeças assinaladas em cada ponto de controlo de camada. Se a geração tiver recorrido a um modelo de uma só cabeça, aparecem a cor inicial e o plano de trocas normais. Consulte [Impressão multicabeças](multi-head-printing#head-schedule-and-export).
+
 ## Configuração recomendada do laminador
 
 O Kromacut recomenda:
@@ -85,6 +89,8 @@ Verifique ilhas pequenas, texto, recortes transparentes separados, fundações e
 ## Guardar e cancelar
 
 No ambiente de trabalho, a exportação abre **Guardar como**. No navegador segue as definições de transferência, pelo que pedir localização depende dele. Cancelar não envia nada à impressora. Escrever geometria e comprimir pode demorar; espere que termine antes de fechar.
+
+Na aplicação de ambiente de trabalho, **Abrir no laminador** no menu de transferência 3D gera o mesmo 3MF que **Transferir 3MF** e abre-o no seu laminador, sem mostrar **Guardar como**. Da primeira vez, o Kromacut pergunta que aplicação usar. Apresenta o Bambu Studio, o Orca Slicer, o PrusaSlicer e o UltiMaker Cura quando estão instalados nos locais habituais, bem como **Predefinição do sistema**, a aplicação predefinida do sistema para ficheiros `.3mf`. Use **Procurar** para escolher um laminador instalado noutro local ou que não esteja na lista. Ative **Usar sempre este laminador** para deixar de ser questionado: o item do menu passa a mostrar o nome do laminador, e **Escolher laminador** no mesmo menu altera-o ou esquece-o. As **Definições** também mostram o laminador guardado, mesmo antes de gerar um modelo: **Alterar** guarda outro sem abrir nada e **Esquecer** faz com que o Kromacut volte a perguntar. Se o laminador guardado tiver sido movido ou desinstalado, o Kromacut volta a perguntar. Com **Predefinição do sistema**, defina primeiro o seu laminador como aplicação predefinida para ficheiros `.3mf`; caso contrário, o ficheiro pode abrir num visualizador 3D. Se não for possível iniciar o laminador, o Kromacut mostra um erro; use **Transferir 3MF** e abra manualmente o ficheiro guardado. O Kromacut guarda esta cópia na sua pasta de cache e pode removê-la ao fim de um dia, por isso guarde o projeto no laminador para o manter. No navegador, use **Transferir 3MF** e abra o ficheiro transferido no laminador.
 
 ## Sugestões de exportação
 

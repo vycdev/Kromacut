@@ -76,6 +76,18 @@ Run the focused tests when touching:
 For UI-only edits, lint/build is usually enough. For geometry, export, or auto-paint changes, prefer
 adding a small regression test over relying on screenshots.
 
+Browser tests use Playwright. `npm run test:e2e` runs only the `@smoke` tests against the production
+build. Pages such as docs, landing, privacy, terms, 404, and i18n each have their own
+`playwright.*.config.ts` and `test:e2e:*` script, because they need a different server or port. Run
+an area spec only through its own script; under another config it fails with a message naming the
+right one. Before a change lands, run `npm run test:e2e:all`. It runs `@smoke` and then every area
+suite, always on fresh servers, and fails if any suite fails or if any test is outside every suite.
+The pull request workflow (`.github/workflows/ci.yml`) runs the same suites. The `@full` export
+matrix in `kromacut-flow.spec.ts` is too slow for every change (its large-image cases allow 90
+minutes each), so it is excluded; run it with `test:e2e:matrix`, `test:e2e:stress`, or
+`test:e2e:full` when changing the main export flow. A new e2e test must be tagged `@smoke` or
+matched by an area config, and a new area config must be added to `scripts/run-e2e-suites.mjs`.
+
 ## Changelog Guidance
 
 Update `CHANGELOG.md` under the current unreleased version for most completed changes. In general,

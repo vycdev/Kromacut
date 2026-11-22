@@ -147,6 +147,8 @@ Fotografiază o placă de rețete salvată, verifică alinierea și salvează cu
 
 Trage cu butonul principal al mouse-ului pentru orbitare, folosește rotița pentru zoom și trage cu butonul secundar pentru deplasare. Mișcarea camerei nu schimbă niciodată dimensiunile fizice.
 
+Camera rămâne imediat în afara modelului în ambele proiecții. Zoomul ortografic este limitat astfel încât camera să rămână în exterior și la trecerea în perspectivă.
+
 | Comandă din bară | Utilizare | Efect asupra imprimării |
 | ------------------ | ------------------------------------------------------------------------ | --------------------------------------------------------------------------------- |
 | **Culori exacte** | Compară mostrele selectate fără iluminarea scenei sau mapare tonală cinematografică. | Doar previzualizare. Depinde în continuare de model și ecran; nu validează calibrarea. |
@@ -154,7 +156,7 @@ Trage cu butonul principal al mouse-ului pentru orbitare, folosește rotița pen
 | **Transparent** | Vezi straturile suprapuse. | Doar previzualizare; nu face filamentul transparent. |
 | **Schelet** | Inspectează muchiile elementelor colorate pe straturi. | Doar previzualizare; nu sunt trasee de extrudare. |
 | **Culori de previzualizare** | Comută între amestecurile simulate Auto-paint și culorile fizice ale filamentelor. | Doar previzualizare. Exporturile păstrează atribuirile reale de material. |
-| **Comutator cameră** | Adâncime în perspectivă sau aliniere ortografică fără scurtare perspectivă. | Doar previzualizare. Poziția camerei se păstrează. |
+| **Comutator cameră** | Adâncime în perspectivă sau aliniere ortografică fără scurtare perspectivă. | Doar previzualizare. Unghiul de vizualizare și zoomul se păstrează între moduri. |
 | **Anulează / Refă** | Parcurge istoricul comun al editării imaginii. | Nu este un istoric de anulare pentru câmpuri 3D sau editări de filament. Regenerează după schimbarea imaginii. |
 | **Descarcă** | Exportă STL sau 3MF generat. | Folosește ultimul model generat, nu setări laterale neaplicate. |
 
@@ -163,6 +165,8 @@ Modul de vizualizare și alegerile simulate/fizice sunt memorate. **Culori de pr
 ## Previzualizarea straturilor
 
 Trage mânerele inferior și superior ale barei de jos pentru a izola un interval de înălțime. Pozițiile se aliniază la grila straturilor. Treci cursorul peste segmentele de material pentru informații despre început sau schimbare.
+
+Selectează un mâner și folosește săgețile pentru a avansa câte un strat imprimat. Shift+săgeată sau Page Up/Down mută zece straturi; Home/End duce la limita intervalului. Mânerele nu se pot intersecta.
 
 ![Mânerele limitelor ascund straturi pentru inspecție, dar exportul conține în continuare modelul complet.](19_preview_only.svg)
 

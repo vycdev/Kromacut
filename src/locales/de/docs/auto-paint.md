@@ -11,6 +11,12 @@ Auto-paint sagt das Aussehen dünner, übereinanderliegender Filamentschichten v
 
 Lege [physische Größe, Schichthöhen und effektive Linienbreite](3d-mode#3d-print-settings) fest, füge tatsächlich verfügbare Filamente hinzu, warte auf die Berechnung und klicke auf **3D-Modell erstellen**. Eingaben lösen automatisch eine Neuberechnung aus; die angezeigte Geometrie aktualisiert sich erst beim Erstellen.
 
+## Große Paletten und Abbrechen
+
+Die Suchzeit hängt von der Anzahl verschiedener Zielfarben ab, nicht nur von den Bildmaßen. Ab 1.024 Zielfarben zeigt der erweiterte Farbabgleich Hinweise und wartet auf **Auto-paint starten**. Bei Fotos zuerst **2D → Farbquantisierung → Anwenden** mit 16–32 Farben versuchen. **Gesamtlimit für Wiederholungen** ausschalten oder **Schnell** und **Kompakt** wählen reduziert ebenfalls den Suchaufwand; diese Optionen können das Ergebnis ändern. Die Abkürzung setzt alle drei Optionen und wartet weiterhin auf den Start. Farben werden nicht automatisch reduziert. Der Schwellenwert ist ein Hinweis aus Messungen mit ausgewogener Suche und Wiederholungen, keine Zeitgrenze; kleinere Paletten können bei tieferer Suche oder mehr Filamenten ebenfalls langsam sein.
+
+Während der Filamentsuche beendet **Auto-paint abbrechen** den Hintergrundprozess. Die Suche bleibt bis **Auto-paint starten** oder einer Einstellungsänderung gestoppt. Einstellungsänderungen und der Wechsel zu 2D brechen laufende Arbeit ebenfalls ab. Die Fortschrittsanzeige ist keine Zeitschätzung. Beim Abbrechen entsteht kein neues Modell; eine frühere Vorschau kann sichtbar bleiben. Nach dem Berechnen **3D-Modell erstellen** wählen.
+
 ## Filamenteingaben
 
 | Steuerelement | Eingabe oder Aktion | Wirkung |
@@ -192,5 +198,15 @@ Prüfe diese Datenzusammenfassung nach Änderungen an Prozess oder Schichthöhe.
 | **Zu Filamenten hinzufügen** | Fügt eine Arbeitszeile namens `Kromacut-Suggestion-…` hinzu und berechnet damit neu. |
 
 Suche eine echte Spule, wenn der Vorschlag hilfreich ist, und gib anschließend ihre tatsächliche Farbe und Kalibrierung ein. Drucke nicht in der Annahme, dass die hypothetische Zeile bereits verfügbar sei. Vorschläge werden bei Änderungen der Bildfarben oder des Filamentsets zurückgesetzt. Wird kein Kandidat gefunden, deckt das aktuelle Set das Bild nach dieser Näherungsprüfung bereits gut ab.
+
+## Mehrkopfdruck
+
+Aktiviere den Mehrkopfmodus in Auto-paint und wähle 2–8 Druckköpfe sowie eine Suchtiefe. Beim Erstellen werden die Filamentreihenfolgen im Hintergrund analysiert und jedem Bildbereich wird auf jeder Schicht sein eigenes Filament zugewiesen. Die Vorschau zeigt die simulierte Mischung; die physischen Farben zeigen das tatsächliche Filament. Mehrkopfmodus und Flat Paint schließen sich gegenseitig aus.
+
+Befolge nach erfolgreicher Erstellung den Druckkopfplan in den Druckanweisungen: Lade vor dem Druck die aufgeführten Filamente, lasse mit LEER markierte Druckköpfe unbenutzt und wechsle an jedem Kontrollpunkt nur die markierten Druckköpfe. Exportiere als 3MF, um die physischen Druckkopfzuweisungen, Filamentfarben und M600-Pausenmarkierungen auf denselben Wechselschichten zu erhalten. Verwende einen kompatiblen Mehrkopfdrucker und prüfe Druckkopfzuordnung, Schichthöhen und Pausen im Slicer.
+
+Wenn die Analyse fehlschlägt oder keine nutzbare Verbesserung findet, wird das normale Modell für einen Druckkopf erstellt. Seine Startfarbe, Farbwechselanweisungen und ein entsprechender Hinweis werden angezeigt. Ein Bildwechsel bricht die laufende Analyse ab; erstelle das Modell für das neue Bild erneut.
+
+Abschnitte, Fenster, Suchtiefe und den vollständigen Ablauf erklärt [Mehrkopfdruck](multi-head-printing).
 
 Weiter: [Flat Paint](flat-paint), [Kalibrierabläufe](calibration-workflows) oder [Ergebnisse erzeugen und exportieren](generating-exporting-output).

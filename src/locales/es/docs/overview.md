@@ -45,6 +45,7 @@ Empieza por la tarea que quieras realizar. Cada guía explica los controles, sus
 | Ajustar dimensiones, alturas de capa y orden manual de colores | [Modo 3D](3d-mode) |
 | Elegir filamentos, optimizar mezclas e inspeccionar detalles imprimibles | [Pintura automática](auto-paint) |
 | Crear una placa plana multimaterial boca arriba o boca abajo | [Pintura plana](flat-paint) |
+| Imprimir con varios cabezales y seguir un programa de cabezales | [Impresión multicabezal](multi-head-printing) |
 | Medir HD, comparar pruebas de paleta o fotografiar una matriz de apilamientos | [Flujos de calibración](calibration-workflows) |
 | Preparar la silueta y retocar píxeles | [Cargar imágenes](loading-images) |
 | Ajustar tonos y colores y aplicar el resultado | [Ajustes de imagen](image-adjustments) |

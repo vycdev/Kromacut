@@ -48,6 +48,8 @@ Le STL ne contient ni couleurs de filament ni affectations automatiques de bobin
 
 Pour les modèles de **Peinture à plat**, le menu ne propose que le 3MF : le modèle contient un objet par filament physique et, dans la disposition par défaut face vers le bas, un objet de support transparent. La disposition facultative face vers le haut omet ce support. Un STL sans couleur à géométrie unique de l’une ou l’autre plaque serait inutile. Les deux orientations prennent en charge toutes les intensités de **Maillage lissé**. Reconstruisez le modèle après avoir changé l’intensité pour l’appliquer à l’aperçu et à la géométrie exportée.
 
+Les modèles **multi-têtes** réussis ne proposent eux aussi que le 3MF, car le STL ne peut pas conserver leurs affectations de têtes. Si la construction se rabat sur un modèle normal à une tête, le STL reste disponible.
+
 ## Instructions d’impression
 
 Le panneau **Instructions d’impression** fournit :
@@ -67,6 +69,8 @@ La hauteur approximative du plan demande de l’attention : le parcours Manuel a
 
 En peinture à plat, il n’y a pas de plan de changements manuels. Le panneau résume plutôt la méthode multimatériau choisie : affectez chaque objet 3MF à son filament, puis utilisez un filament transparent et retournez l’impression par défaut face vers le bas, ou imprimez la disposition sans support face vers le haut. Aucune disposition ne doit être mise en miroir dans le logiciel de découpe.
 
+Avec le **Mode multi-têtes**, une génération réussie affiche un **Planning des têtes** à la place de la couleur de départ et du plan de changements : avant l’impression, chargez les filaments indiqués dans leurs têtes numérotées, laissez inutilisées les têtes marquées **VIDE** et, à chaque point de contrôle de couche, ne rechargez que les têtes marquées. Si la génération s’est repliée sur un modèle à une seule tête, la couleur de départ et le plan de changements habituels s’affichent à la place. Consultez [Impression multi-têtes](multi-head-printing#head-schedule-and-export).
+
 ## Paramètres de découpe recommandés
 
 Kromacut recommande :
@@ -85,6 +89,8 @@ Examinez les petits îlots, le texte, les découpes transparentes déconnectées
 ## Enregistrer et annuler
 
 Sur ordinateur, les exports ouvrent une boîte **Enregistrer sous**. Dans le navigateur, ils suivent les paramètres de téléchargement ; l’apparition d’une demande d’emplacement dépend donc du navigateur. Annuler une boîte de dialogue n’envoie rien à l’imprimante. Pendant l’export, l’écriture de la géométrie et la compression de l’archive peuvent prendre du temps ; attendez la fin de l’enregistrement avant de fermer l’application.
+
+Dans l’application de bureau, **Ouvrir dans le logiciel de découpe** du menu de téléchargement 3D génère le même 3MF que **Télécharger le 3MF** et l’ouvre dans votre logiciel de découpe, sans boîte **Enregistrer sous**. La première fois, Kromacut demande quelle application utiliser. Il propose Bambu Studio, Orca Slicer, PrusaSlicer et UltiMaker Cura lorsqu’ils sont installés à leur emplacement habituel, ainsi que **Application par défaut du système**, votre application par défaut pour les fichiers `.3mf`. Utilisez **Parcourir** pour choisir un logiciel de découpe installé ailleurs ou absent de la liste. Activez **Toujours utiliser ce logiciel de découpe** pour ne plus avoir à répondre : l’élément du menu affiche alors son nom, et **Choisir le logiciel de découpe** dans le même menu permet de le changer ou de l’oublier. Les **Paramètres** affichent aussi le logiciel enregistré, même avant la génération d’un modèle : **Modifier** en enregistre un autre sans rien ouvrir, et **Oublier** fait de nouveau poser la question par Kromacut. Si le logiciel enregistré a été déplacé ou désinstallé, Kromacut pose de nouveau la question. Avec **Application par défaut du système**, définissez d’abord votre logiciel de découpe comme application par défaut pour les fichiers `.3mf` ; sinon, le fichier peut s’ouvrir dans une visionneuse 3D. Si le logiciel de découpe ne peut pas être lancé, Kromacut affiche une erreur ; utilisez **Télécharger le 3MF** et ouvrez manuellement le fichier enregistré. Kromacut conserve cette copie dans son dossier de cache et peut la supprimer au bout d’un jour ; enregistrez donc le projet dans votre logiciel de découpe pour le garder. Dans le navigateur, utilisez **Télécharger le 3MF** puis ouvrez le fichier téléchargé dans votre logiciel de découpe.
 
 ## Conseils d’export
 

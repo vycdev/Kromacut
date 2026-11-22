@@ -90,6 +90,8 @@
     "threeJsLayerByLayer3DPreview": "Three.js layer-by-layer 3D preview",
     "calibratedAutoPaintWithDeterministicSearch": "Calibrated Auto-paint with deterministic search",
     "slicerFriendlySTLAndMultiMaterial3MF": "Slicer-friendly STL and multi-material 3MF",
+    "snapmakerInnovationFundWinner": "Snapmaker Innovation Fund Winner",
+    "aboutTheSnapmakerInnovationFund": "About the Snapmaker Innovation Fund",
     "openTheTool": "Open the tool",
     "communityShowcase": "Community showcase",
     "madeByTheKromacutCommunity": "Made by the Kromacut community.",
@@ -118,6 +120,7 @@
     "openApp": "Open Kromacut",
     "home": "Go to homepage",
     "docs": "Browse documentation",
+    "awards": "Awards",
     "privacy": "Privacy & local data",
     "terms": "Terms & conditions"
   },
@@ -161,6 +164,13 @@
     "loading": "Loading documentation…",
     "loadFailed": "This translation could not be loaded. Please try again.",
     "retry": "Try again"
+  },
+  "awards": {
+    "eyebrow": "Recognition",
+    "title": "Awards",
+    "intro": "Awards and recognition for Kromacut.",
+    "seoTitle": "Awards | Kromacut",
+    "description": "Awards and recognition for Kromacut, the free tool that turns images into multicolor 3D prints."
   },
   "seo": {
     "homeTitle": "Kromacut - Free Image-to-3D Color Layer Print Generator",

@@ -1,7 +1,7 @@
 {
     "name": "kromacut",
     "private": true,
-    "version": "4.2.0",
+    "version": "4.3.0",
     "license": "AGPL-3.0-only",
     "type": "module",
     "scripts": {
@@ -16,10 +16,13 @@
         "benchmark:calibrated-exact": "node --expose-gc --no-warnings --experimental-strip-types tests/benchmark/calibratedOptimizer.ts",
         "benchmark:calibrated-series": "node scripts/benchmark-calibrated-series.mjs",
         "benchmark:hotpaths": "node --no-warnings --experimental-strip-types tests/benchmark/performanceHotPaths.ts",
+        "benchmark:multi-head": "node --no-warnings --experimental-strip-types tests/benchmark/multiHeadAppearance.ts",
         "benchmark:meshing": "node --no-warnings --experimental-strip-types tests/benchmark/smoothMeshing.ts",
         "profile:calibrated": "node scripts/profile-calibrated.mjs",
         "profile:compare": "node scripts/compare-calibrated-profiles.mjs",
         "test:e2e": "playwright test --grep @smoke",
+        "test:e2e:all": "node scripts/run-e2e-suites.mjs",
+        "check:e2e": "node scripts/run-e2e-suites.mjs --check",
         "test:docs": "node --no-warnings --experimental-strip-types --test tests/docsContent.test.ts",
         "test:e2e:docs": "playwright test --config playwright.docs.config.ts",
         "test:e2e:not-found": "playwright test --config playwright.not-found.config.ts",

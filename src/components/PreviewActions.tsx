@@ -14,6 +14,8 @@ import {
     X,
     Loader,
     Download,
+    ExternalLink,
+    SlidersHorizontal,
     Grid3x3,
     Upload,
     Trash2,
@@ -49,14 +51,26 @@ export interface PreviewActionsProps {
     onCancelCrop: () => void;
     onToggleCheckerboard: () => void;
     onPickFile: () => void;
+    /** Image imports are refused while quantize or dedither is running. */
+    pickFileDisabled?: boolean;
     onClear: () => void;
     onExportImage: () => Promise<void>;
     onExportStl: () => Promise<void>;
     onExport3MF: () => Promise<void>;
-    /** The currently built model is a Flat Paint slab — STL export is useless for it */
-    flatPaintModel?: boolean;
-    /** No valid model exists for the selected 3D mode/settings. */
+    /** Desktop only: export a 3MF and open it in the chosen slicer, asking first if none is saved. */
+    onOpenInSlicer?: () => Promise<void>;
+    /** Name of the saved slicer that Open in Slicer uses without asking. */
+    savedSlicerName?: string;
+    /** Desktop only, once a slicer is saved: change or forget it. */
+    onChooseSlicer?: () => void;
+    /** Receives the download menu button, so the slicer chooser can return focus to it. */
+    downloadMenuButtonRef?: React.Ref<HTMLButtonElement>;
+    /** The built model is a Flat Paint slab or a multi-head build, so STL can't represent it. */
+    stlUnavailable?: boolean;
+    /** No valid model exists for the selected 3D mode/settings, or a build is running. */
     modelExportDisabled?: boolean;
+    /** Covered by a build overlay: keep keyboard and screen-reader users out as well. */
+    inert?: boolean;
     isOrtho?: boolean;
     onToggleCamera?: () => void;
     previewRenderMode?: PreviewRenderMode;
@@ -94,12 +108,18 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
     onCancelCrop,
     onToggleCheckerboard,
     onPickFile,
+    pickFileDisabled = false,
     onClear,
     onExportImage,
     onExportStl,
     onExport3MF,
-    flatPaintModel = false,
+    onOpenInSlicer,
+    savedSlicerName,
+    onChooseSlicer,
+    downloadMenuButtonRef,
+    stlUnavailable = false,
     modelExportDisabled = false,
+    inert = false,
     isOrtho = false,
     onToggleCamera,
     previewRenderMode = 'shaded',
@@ -202,7 +222,7 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
     };
 
     return (
-        <div className="absolute top-4 right-4 flex flex-wrap justify-end gap-2 z-40">
+        <div className="absolute top-4 right-4 flex flex-wrap justify-end gap-2 z-40" inert={inert}>
             {mode === '3d' && onPreviewRenderModeChange && (
                 <Popover open={previewModeMenuOpen} onOpenChange={setPreviewModeMenuOpen}>
                     <PopoverTrigger asChild>
@@ -411,6 +431,7 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
                 <Popover>
                     <PopoverTrigger asChild>
                         <Button
+                            ref={downloadMenuButtonRef}
                             size="icon"
                             data-testid="download-3d-model"
                             title={
@@ -431,10 +452,10 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
                             )}
                         </Button>
                     </PopoverTrigger>
-                    <PopoverContent align="end" className="w-48 p-1 flex flex-col gap-1">
-                        {/* Flat Paint slabs carry their colors as per-filament 3MF
-                            objects; a single-geometry STL of the slab is useless */}
-                        {!flatPaintModel && (
+                    <PopoverContent align="end" className="w-auto min-w-48 p-1 flex flex-col gap-1">
+                        {/* Flat Paint slabs and multi-head builds need 3MF: one STL
+                            can't carry their per-filament objects or head routing */}
+                        {!stlUnavailable && (
                             <Button
                                 variant="ghost"
                                 onClick={onExportStl}
@@ -456,6 +477,38 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
                             <FileType className="w-4 h-4 text-muted-foreground" />
                             <span>{t('previewActions.download3mf')}</span>
                         </Button>
+                        {onOpenInSlicer && (
+                            <Button
+                                variant="ghost"
+                                onClick={onOpenInSlicer}
+                                data-testid="open-3mf-in-slicer"
+                                title={t('previewActions.openInSlicerHint')}
+                                disabled={exportingSTL || modelExportDisabled}
+                                className="justify-start gap-2 h-9 px-2 font-normal"
+                            >
+                                <ExternalLink className="w-4 h-4 text-muted-foreground" />
+                                <span>
+                                    {savedSlicerName
+                                        ? t('previewActions.openInNamedSlicer', {
+                                              name: savedSlicerName,
+                                          })
+                                        : t('previewActions.openInSlicer')}
+                                </span>
+                            </Button>
+                        )}
+                        {onOpenInSlicer && onChooseSlicer && (
+                            <Button
+                                variant="ghost"
+                                onClick={onChooseSlicer}
+                                data-testid="choose-slicer"
+                                title={t('previewActions.chooseSlicerHint')}
+                                disabled={exportingSTL || modelExportDisabled}
+                                className="justify-start gap-2 h-9 px-2 font-normal"
+                            >
+                                <SlidersHorizontal className="w-4 h-4 text-muted-foreground" />
+                                <span>{t('previewActions.chooseSlicer')}</span>
+                            </Button>
+                        )}
                     </PopoverContent>
                 </Popover>
             )}
@@ -476,6 +529,7 @@ export const PreviewActions: React.FC<PreviewActionsProps> = ({
                         title={t('previewActions.chooseFile')}
                         aria-label={t('previewActions.chooseFile')}
                         onClick={onPickFile}
+                        disabled={pickFileDisabled}
                         className="bg-primary hover:bg-primary/80 text-primary-foreground disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         <Upload className="w-4 h-4" />

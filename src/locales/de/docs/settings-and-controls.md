@@ -22,7 +22,9 @@ Die Auswahl **Sprache** ändert Oberfläche, Dokumentation, Diagramme und öffen
 
 Auch öffentliche Seiten bieten eine Sprachauswahl. Übersetzte Dokumentation verwendet teilbare Links mit Sprachpräfix, etwa `/ro/docs/overview`. Seitennamen und Abschnittsanker bleiben über die Sprachen hinweg stabil. Dateiendungen, numerische Modelldaten, selbst eingegebene Namen und Originaltitel von Community-Kunstwerken werden nicht übersetzt.
 
-Der Einstellungsdialog enthält Links zur Dokumentation, zu Discord, Reddit, GitHub und Patreon und zeigt die aktuelle Kromacut-Version. **Datenschutz und lokale Daten** und **Nutzungsbedingungen** sind ebenfalls hier verfügbar und öffnen sich in deinem Browser in der gewählten Sprache.
+Der Einstellungsdialog enthält Links zur Dokumentation, zu Discord, Reddit, GitHub und Patreon und zeigt die aktuelle Kromacut-Version. **Datenschutz und lokale Daten**, **Nutzungsbedingungen** und **Auszeichnungen** sind ebenfalls hier verfügbar und öffnen sich in deinem Browser in der gewählten Sprache.
+
+In der Desktop-App enthalten die Einstellungen außerdem eine Zeile **Im Slicer öffnen**. Sie zeigt, welchen Slicer **Im Slicer öffnen** verwendet: **Jedes Mal fragen**, **Systemstandard** oder Name und Speicherort des gespeicherten Slicers. **Ändern** öffnet die Slicer-Auswahl und speichert den gewählten Slicer, ohne eine Datei zu öffnen. **Vergessen** erscheint, wenn eine Auswahl gespeichert ist, und sorgt dafür, dass Kromacut wieder fragt. Siehe [Speichern und Abbrechen](generating-exporting-output#saving-and-cancelling).
 
 ## Arbeitsbereichsmodi
 
@@ -37,6 +39,8 @@ Klappe auf kleineren Bildschirmen **Inhalt** auf, um eine Anleitung zu wählen, 
 Die meisten Seitenleistenbereiche lassen sich über ihre Überschrift einklappen. Das versteckt die Steuerelemente, nicht deren Wirkung: Aktive Bildanpassungen, Druckeinstellungen und Optimierungsoptionen gelten weiterhin. Zusammenfassungen und Statuspunkte eingeklappter Bereiche helfen, aktive Änderungen zu erkennen. Der aufgeklappte oder eingeklappte Zustand wird gespeichert. Aufklappen setzt einen Bereich nicht zurück.
 
 **Rückgängig / Wiederholen** teilt den Bildbearbeitungsverlauf zwischen 2D und 3D. Es ist kein Rückgängig-Verlauf für Filamentänderungen, Kalibrierung, Schichthöhen oder Optimierungseinstellungen. Verwende dafür, sofern vorhanden, die Rücksetzfunktion des jeweiligen Bereichs und erstelle nach dem Wiederherstellen eines Bildstands das Modell neu.
+
+Im 2D-Modus macht **Strg+Z** (**Cmd+Z** unter macOS) eine Bildbearbeitung rückgängig, und **Strg+Umschalt+Z** (**Cmd+Umschalt+Z**) stellt sie wieder her. In bearbeitbaren Feldern, Dialogen, Popovers, Menüs und geöffneten Listen, beim Zuschneiden, während der Verarbeitung und im 3D-Modus werden die Kürzel ignoriert. Siehe [Tastenkürzel für den 2D-Verlauf](image-adjustments#2d-history-shortcuts).
 
 ## Experimenteller Mehrplattenmodus
 
@@ -63,6 +67,7 @@ Auto-paint-Einstellungen bleiben sitzungsübergreifend erhalten, darunter:
 - Übergangsdetail und Höhen-Dithering.
 - Effektive Linienbreite, bearbeitet unter **3D-Druckeinstellungen**, für Breitenwarnungen, die Bereinigung isolierter Punkte und Höhen-Dithering sowie die gespeicherte Auswahl **Isolierte Farbpunkte auslassen**. Diese Bereinigungsoption entfernt nicht jede Breitenwarnung und steuert nicht das Höhen-Dithering.
 - Flat Paint und dessen Auswahl für Bildseite oben ohne transparente Schicht.
+- Mehrkopfmodus, Druckkopfzahl, Suchtiefe und Farbgruppierung.
 - Optimierungsalgorithmus und Startwert.
 - Bereichspriorität.
 
@@ -70,7 +75,7 @@ Profile sind von diesem gespeicherten Zustand getrennt. Verwende Profile für be
 
 ## Palettendateien
 
-Eigene Paletten dienen der 2D-Farbreduktion. Palettendateien verwenden `.kpal`.
+Eigene Paletten dienen der 2D-Farbreduktion. Palettendateien verwenden `.kpal`. Beim Export einer Palette in der Desktop-App öffnet sich **Speichern unter**. Wählen Sie einen beschreibbaren Speicherort oder brechen Sie ab, um weiterzuarbeiten. Im Browser erfolgt der übliche Download.
 
 Palettenformat-Version 2 ergänzt zwei optionale Felder: `disabledColors` für gespeicherte, aber von der Quantisierung ausgeschlossene Farben und `colorNames` für optionale Anzeigenamen je Farbe. Beide bleiben beim Exportieren und erneuten Importieren erhalten. Dateien der Version 1 werden unverändert geladen, wobei alle Farben aktiviert und unbenannt sind. Öffnet eine ältere Kromacut-Version eine v2-Datei, behandelt sie einfach alle Farben als aktiviert.
 

@@ -160,6 +160,37 @@
     margin-top: 0.5rem;
 }
 
+.privacy-article .awards-entry {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 1.25rem 2rem;
+    align-items: center;
+    margin-top: 2.5rem;
+    padding: 1.5rem;
+    border: 1px solid var(--border);
+    border-radius: 1rem;
+}
+
+.awards-medal {
+    width: 9rem;
+    height: 9rem;
+}
+
+.privacy-article .awards-entry h2 {
+    margin: 0;
+}
+
+.privacy-article .awards-entry p {
+    margin: 0.5rem 0 0;
+}
+
+@media (max-width: 36rem) {
+    .privacy-article .awards-entry {
+        grid-template-columns: minmax(0, 1fr);
+        justify-items: start;
+    }
+}
+
 .privacy-footer {
     flex-wrap: wrap;
     gap: 0.5rem 1.5rem;
@@ -181,7 +212,9 @@
 }
 
 @media (prefers-color-scheme: dark) {
-    html:is([data-privacy-page], [data-terms-page]):not([style*='color-scheme']) {
+    html:is([data-privacy-page], [data-terms-page], [data-awards-page]):not(
+            [style*='color-scheme']
+        ) {
         --background: #101014;
         --foreground: #e8e8eb;
         --border: #303039;

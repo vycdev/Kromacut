@@ -1,6 +1,9 @@
 import { expect, test } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 import { SUPPORTED_LANGUAGES } from '../../src/lib/languagePreferences';
+import { requirePlaywrightConfig } from './helpers/playwrightConfig';
+
+requirePlaywrightConfig('playwright.i18n-build.config.ts', 'test:e2e:i18n:build');
 
 const catalog = async (language: string, name: string) =>
     JSON.parse(
@@ -55,6 +58,15 @@ test('translated guides and legal pages are complete without JavaScript', async 
                     await expect(page.locator(`#${section.id}`)).toHaveText(section.title);
                 }
             }
+            const messages = await catalog(code, 'public');
+            await page.goto(`http://127.0.0.1:5193${route(code, '/awards')}`);
+            await expect(page.locator('html')).toHaveAttribute('lang', code);
+            await expect(page.getByRole('heading', { level: 1 })).toHaveText(messages.awards.title);
+            await expect(page).toHaveTitle(messages.awards.seoTitle);
+            await expect(page.locator('#award-snapmaker-innovation-fund')).toHaveText(
+                messages.landing.snapmakerInnovationFundWinner
+            );
+            await expect(page.locator('.awards-entry img')).toHaveJSProperty('naturalWidth', 960);
             const metadata = await catalog(code, 'docsMeta');
             await page.goto(
                 `http://127.0.0.1:5193${route(code, '/docs/image-adjustments')}#preview-versus-apply`

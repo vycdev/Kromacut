@@ -9,6 +9,14 @@ description: Problemas habituales y qué probar primero.
 
 Empieza aquí cuando un resultado parezca incorrecto o un control esté desactivado.
 
+## Auto-paint es lento con una foto pequeña
+
+Una foto pequeña sin cuantizar puede contener miles de colores distintos, evaluados para muchas pilas candidatas. Reduce colores en **2D → Ajustes de cuantización → Aplicar** (empieza con 16–32), desactiva las repeticiones o elige **Rápido / Compacto**. A partir de 1024 colores de destino, la coincidencia mejorada muestra consejos y espera a **Iniciar Auto-paint**. Usa **Cancelar Auto-paint** para detener la búsqueda; reiníciala o cambia los ajustes. El porcentaje no estima el tiempo restante. Consulta [Auto-paint](auto-paint).
+
+## Una Imagen Es Demasiado Grande Para Abrirla
+
+Reduce el archivo en un editor de imágenes antes de volver a importarlo. El error muestra las dimensiones y un tamaño conservador para tu dispositivo. Se conservan la imagen actual y el historial de deshacer. Una imagen larga y estrecha puede caber si el navegador admite sus dimensiones; también cuenta el número total de píxeles. Consulta [Cargar imágenes](loading-images).
+
 ## Un enlace muestra «Página no encontrada»
 
 La dirección puede tener una errata o apuntar a una página que ya no existe. Usa **Abrir Kromacut** para ir a la herramienta, **Ir al inicio** para visitar la página principal o **Explorar documentación** para encontrar la guía actual. Una dirección desconocida de documentación no se sustituye automáticamente por otra guía.
@@ -90,6 +98,16 @@ En 3MF, revisa las asignaciones de materiales o filamentos del laminador. Kromac
 STL no incluye asignaciones de color de filamento. Usa las **Instrucciones de impresión** para los cambios.
 
 La vista Simulados muestra mezclas estimadas; los laminadores suelen mostrar colores físicos. Cambia Kromacut a **Físicos** para revisar las asignaciones y después comprueba las bobinas reales. Ninguna vista demuestra el color final impreso.
+
+## El laminador no se abre
+
+**Abrir en el laminador** solo está disponible en la aplicación de escritorio. En un navegador, usa **Descargar 3MF** y abre el archivo en tu laminador.
+
+Si Kromacut indica que no pudo abrir el 3MF, usa **Descargar 3MF** para guardar el archivo y ábrelo desde tu laminador. Si el archivo se abre en un visor 3D u otra aplicación, probablemente se abrió con **Predeterminada del sistema**. Usa **Cambiar** en **Ajustes** para seleccionar el propio laminador; cuando hay una elección guardada, **Elegir laminador** en el menú de descarga también permite cambiarla. Si un laminador guardado se ha movido o desinstalado, Kromacut te pide que elijas de nuevo. Consulta [Guardar y cancelar](generating-exporting-output#saving-and-cancelling).
+
+## El modo multicabezal creó un modelo de un solo cabezal
+
+Un aviso de que se ha creado un modelo normal de un solo cabezal significa que el análisis multicabezal no terminó o no encontró una disposición que mejore lo suficiente la pila normal. Las **Instrucciones de impresión** muestran entonces el color inicial y el plan de cambios normales en lugar de un programa de cabezales, y el archivo exportado no tiene asignaciones de cabezales ni pausas, así que configura los cambios de color en tu laminador como en cualquier impresión de un solo cabezal. Prueba con otros filamentos, otro número de cabezales u otra profundidad de búsqueda y vuelve a pulsar **Generar modelo 3D**. Si el análisis no terminó, prueba primero con menos cabezales. Consulta [Impresión multicabezal](multi-head-printing#fallback-and-rebuilding).
 
 ## El recorte o las ediciones han ido demasiado lejos
 

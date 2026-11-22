@@ -11,6 +11,12 @@ Auto-paint predicts thin filament layers over one another and chooses printable 
 
 Set [physical size, layer heights, and effective line width](3d-mode#3d-print-settings), add filaments you can actually load, wait for calculation, then **Build 3D Model**. Inputs recalculate automatically; displayed geometry updates only when you build.
 
+## Large palettes and cancellation
+
+Search time depends on distinct target colors, not just image dimensions. At 1,024 or more target colors, Enhanced matching waits for **Run Auto-paint** and shows guidance before searching. For photos, try **2D → Quantization Settings → Apply** with 16–32 colors first. Turning **Total repeat limit** off or choosing **Fast** and **Compact** also reduces search work; these choices can change the result. The shortcut sets all three options but still waits for you to run the search. No colors are reduced automatically. The threshold is an advisory based on measured Balanced searches with repeats, not a time limit; smaller palettes can also be slow with deeper search or more filaments.
+
+During the filament search, **Cancel Auto-paint** stops the background worker. A cancelled search stays stopped until you choose **Run Auto-paint** or change settings. Changing settings or switching to 2D also cancels active work. Progress is approximate, not a time estimate. Cancellation creates no new model; a previous built preview can remain visible. After calculation finishes, choose **Build 3D Model**.
+
 ## Filament Inputs
 
 | Control                | What to enter or do                                                                  | Effect                                                                                                             |
@@ -192,5 +198,15 @@ After changing process or layer height, inspect this evidence summary. A high ge
 | **Add to filaments** | Add a working row named `Kromacut-Suggestion-…` and recalculate with it.                                                |
 
 Find a real spool if the suggestion is useful, then enter its real color and calibration. Do not print assuming the hypothetical row is already available. Suggestions reset when the image colors or filament set changes. A no-candidate result says the current set already covers the image well under this approximate test.
+
+## Multi-head printing
+
+Enable Multi-head mode in Auto-paint and choose 2–8 heads and a search depth. Building analyzes filament orders in the background and assigns each image region its own filament on each layer. The preview shows the simulated blend; Physical colors shows the actual filament. Multi-head and Flat Paint are mutually exclusive.
+
+After a successful build, follow the Head Schedule in Print Instructions: load the listed filaments before printing, leave EMPTY heads unused, and replace only the flagged heads at each checkpoint. Export as 3MF to preserve physical head assignments, filament colors, and M600 pause markers at those same swap layers. Use a compatible multi-head printer and verify head mapping, layer heights, and pauses in your slicer.
+
+If analysis fails or finds no usable improving layout, the build uses the normal single-head model and shows its start color and color swap instructions with a notice. Changing the image cancels pending analysis; build again for the new image.
+
+For runs, windows, search depth, and the full workflow, see [Multi-Head Printing](multi-head-printing).
 
 Next: [Flat Paint](flat-paint), [Calibration workflows](calibration-workflows), or [Generating and exporting output](generating-exporting-output).

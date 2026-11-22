@@ -48,6 +48,8 @@ STL non contiene colori né assegnazioni automatiche. Usa il piano copiato con i
 
 Per **Flat Paint** è disponibile solo 3MF: un oggetto per filamento e, a faccia in giù predefinita, un supporto trasparente. L’opzione a faccia in su lo omette. STL senza colore e a geometria unica sarebbe inutile per entrambe le lastre. Entrambi gli orientamenti supportano tutte le intensità di **Mesh levigata**. Ricrea il modello dopo aver cambiato l’intensità per applicarla all’anteprima e alla geometria esportata.
 
+Anche i modelli **multi-testa** riusciti offrono solo 3MF, perché STL non può conservare le assegnazioni alle teste. Se viene creato invece un modello normale a testa singola, STL resta disponibile.
+
 ## Istruzioni di stampa
 
 Il pannello fornisce:
@@ -67,6 +69,8 @@ L’altezza approssimativa richiede attenzione: Manuale mostra Z superiore del n
 
 Flat Paint non ha piano manuale. Il pannello riassume il flusso multimateriale: assegna oggetti ai filamenti, usa trasparente e capovolgi la stampa predefinita, oppure stampa a faccia in su senza supporto. Nessuna disposizione va specchiata nello slicer.
 
+Con la **Modalità multi-testa**, una creazione riuscita mostra il **Programma delle teste** al posto del colore iniziale e del piano dei cambi: prima di stampare carica i filamenti elencati nelle rispettive teste numerate, lascia inutilizzate le teste contrassegnate come **VUOTA** e a ogni punto di controllo di strato ricarica solo le teste indicate. Se la creazione ha ripiegato su un modello a testa singola, compaiono invece il normale colore iniziale e il piano dei cambi. Vedi [Stampa multitesta](multi-head-printing#head-schedule-and-export).
+
 ## Impostazioni consigliate dello slicer
 
 Kromacut consiglia:
@@ -85,6 +89,8 @@ Verifica piccole isole, testo, ritagli trasparenti scollegati, fondazioni e spur
 ## Salvare e annullare
 
 Desktop apre **Salva con nome**; browser usa le impostazioni di download, che decidono se chiedere posizione. Annullare non invia nulla alla stampante. Geometria e compressione possono richiedere tempo: attendi il salvataggio prima di chiudere.
+
+Nell’app desktop, **Apri nello slicer** nel menu di download 3D crea lo stesso 3MF di **Scarica 3MF** e lo apre nel tuo slicer, senza **Salva con nome**. La prima volta Kromacut chiede quale app usare. Elenca Bambu Studio, Orca Slicer, PrusaSlicer e UltiMaker Cura se sono installati nei percorsi abituali, più **Predefinita di sistema**, l’app predefinita del sistema per i file `.3mf`. Usa **Sfoglia** per scegliere uno slicer installato altrove o non elencato. Attiva **Usa sempre questo slicer** per non ricevere più la domanda: la voce di menu mostra allora il nome dello slicer, e **Scegli slicer** nello stesso menu lo cambia o lo dimentica. Anche le **Impostazioni** mostrano lo slicer salvato, prima ancora di creare un modello: **Cambia** ne salva un altro senza aprire nulla e **Dimentica** fa sì che Kromacut lo chieda di nuovo. Se lo slicer salvato è stato spostato o disinstallato, Kromacut lo chiede di nuovo. Con **Predefinita di sistema**, imposta prima lo slicer come app predefinita per i file `.3mf`; altrimenti il file può aprirsi in un visualizzatore 3D. Se lo slicer non si avvia, Kromacut mostra un errore; usa **Scarica 3MF** e apri manualmente il file salvato. Kromacut tiene questa copia nella sua cartella cache e può rimuoverla dopo un giorno: salva il progetto nello slicer per conservarlo. Nel browser usa **Scarica 3MF** e apri il file scaricato nello slicer.
 
 ## Suggerimenti di esportazione
 

@@ -1,5 +1,9 @@
 # Auto-paint benchmark
 
+For issue #103's distinct-target threshold, fixed-seed before/after timings,
+result-equivalence evidence, and a reproducible high-color workload, see
+[High-target Auto-paint search](high-target-search.md).
+
 For diagnostics-only, training-isolated Matrix prediction checks, see
 [Offline Matrix end-to-end validation](appearance-validation.md). Run `npm run benchmark:appearance -- --help`
 for profile/desktop-trace inputs and reporting options. Unlike optimizer quality scores below, it
@@ -16,6 +20,18 @@ To compare current-code predictions with an existing bundle, use the separate
 Run `npm run benchmark:autopaint > benchmark.json` to create a local JSON report. It is deliberately outside normal tests: it measures quality and cost across the saved profiles and image fixtures.
 
 Run `npm run benchmark:hotpaths` for a short, deterministic comparison of the transition mapper, preserve-separation mapper, six-filament Exact search, full-image spatial weighting, and large-palette order reconciliation. Treat its checksums, optimizer score/order, layer count, and final-stack fingerprint as correctness gates: timing improvements are acceptable only when those values remain identical.
+
+For measured-profile multi-head gains, fallback frequency, and Balanced runtime
+across 2–8 heads in both grouping modes, see
+[Full-appearance multi-head search](multi-head-appearance.md). The separate
+`benchmark:multi-head` command replays identical saved stacks for baseline and
+full-appearance shortlist comparisons, with per-color path hashes.
+
+For the independent fresh Exact cats replay, historical fingerprint investigation,
+complete saved results, and warmed repeated 2–8-head measurements, see
+[Cats Exact reproducibility](cats-exact-reproducibility.md). Calibrated benchmarks
+save complete evidence under `.profiles/calibrated` before checking goldens; use
+`--output` to choose a path and `--warmups 1 --runs 3` for same-process samples.
 
 Run `npm run benchmark:calibrated` for the slower real-world eight-filament Exact K-logo case, `npm run benchmark:calibrated -- cats` for the 128-color Exact cats case, `npm run benchmark:calibrated -- desk-landscape` for the 128-color Thorough landscape case, or `npm run benchmark:calibrated -- prismatic-portrait` for the 128-color Thorough portrait case. They load the dated profile under `tests/assets/performance`, fit all saved Palette Proof and Stack Matrix evidence through the production path, then assert the case-specific optimizer result. Use these benchmarks when changing calibrated appearance lookup, preserve-separation scoring, optimizer traversal, optimizer memory behavior, or complex model-build performance. The legacy `benchmark:calibrated-exact` command remains an alias.
 

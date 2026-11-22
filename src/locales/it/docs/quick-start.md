@@ -73,4 +73,6 @@ Fai clic su **Genera modello 3D**. Quando appare, usa **Anteprima strati** per v
 
 Apri il menu di download e scegli **Scarica STL** o **Scarica 3MF**. Copia le **Istruzioni di stampa** per conservare colore iniziale, strati di cambio e impostazioni consigliate.
 
+Nell’app desktop, **Apri nello slicer** nello stesso menu esporta il 3MF e lo apre direttamente nello slicer. Se salvi uno slicer specifico anziché **Predefinita di sistema**, la voce di menu ne mostra il nome, ad esempio **Apri in Bambu Studio**. Vedi [Salvare e annullare](generating-exporting-output#saving-and-cancelling).
+
 Successivo: [Modalità 3D](3d-mode), [Auto-paint](auto-paint) o [Generazione ed esportazione](generating-exporting-output#before-you-export).

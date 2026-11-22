@@ -1,3 +1,4 @@
+import { useImageEditGuard } from './useImageEditGuard';
 import {
     posterizeImageData,
     medianCutImageData,
@@ -11,6 +12,7 @@ import { findBuiltInPalette } from '../data/palettes';
 import { enabledColors } from '../lib/paletteManager';
 import type { CustomPalette } from '../types';
 import { rgbToHsl } from '../lib/color';
+import { decodeImage } from '../lib/decodeImage';
 import {
     clampProgress,
     quantizeAlgorithmProgress,
@@ -88,6 +90,7 @@ export function useQuantize({
     onStage,
     onStepChange,
 }: Params) {
+    const beginEdit = useImageEditGuard(imageSrc, false);
     const applyQuantize = async (
         canvasPreviewRef: React.RefObject<CanvasPreviewHandle | null>,
         options?: {
@@ -95,7 +98,8 @@ export function useQuantize({
             overrideFinalColors?: number;
         }
     ) => {
-        if (!canvasPreviewRef.current || !imageSrc) return;
+        const current = beginEdit();
+        if (!current || !canvasPreviewRef.current || !imageSrc) return;
         const bump = (value: number) => {
             onProgress?.(clampProgress(value));
         };
@@ -115,16 +119,11 @@ export function useQuantize({
         onStage?.('load');
         reportStep(1, 'Loading image data', 0);
         const blob = await canvasPreviewRef.current.exportImageBlob();
-        if (!blob) return;
+        if (!blob || !current()) return;
         reportStep(1, 'Loading image data', 0.2);
         bump(0.02);
-        const img = await new Promise<HTMLImageElement | null>((resolve) => {
-            const i = new Image();
-            i.onload = () => resolve(i);
-            i.onerror = () => resolve(null);
-            i.src = URL.createObjectURL(blob);
-        });
-        if (!img) return;
+        const img = await decodeImage(URL.createObjectURL(blob));
+        if (!img || !current()) return;
         reportStep(1, 'Loading image data', 0.4);
         bump(0.04);
         try {
@@ -137,6 +136,7 @@ export function useQuantize({
         reportStep(1, 'Loading image data', 0.6);
         bump(0.06);
         await yieldFrame();
+        if (!current()) return;
 
         const w = img.naturalWidth;
         const h = img.naturalHeight;
@@ -150,6 +150,7 @@ export function useQuantize({
         reportStep(1, 'Loading image data', 1);
         bump(0.1);
         await yieldFrame();
+        if (!current()) return;
         // helper to finalize alpha after postprocessing
         const finalizeAlpha = (imgd: ImageData) => {
             // Any partially transparent (0<alpha<255) pixel becomes fully opaque
@@ -182,12 +183,14 @@ export function useQuantize({
         reportStep(2, algorithmLabel, 1);
         bump(algoEnd);
         await yieldFrame();
+        if (!current()) return;
 
         // put algorithm result (or original) into canvas
         onStage?.('post');
         ctx.putImageData(data, 0, 0);
         bump(0.68);
         await yieldFrame();
+        if (!current()) return;
         // postprocessing: if an override palette is provided use it; otherwise
         // fall back to selectedPalette (named palettes) or auto (enforce finalColors)
         const overridePalette = options?.overridePalette;
@@ -219,11 +222,13 @@ export function useQuantize({
         reportStep(3, postLabel, 1);
         bump(postEnd);
         await yieldFrame();
+        if (!current()) return;
         // Normalize any partial alpha AFTER post processing so uniqueness isn't skewed
         finalizeAlpha(data);
         ctx.putImageData(data, 0, 0);
         bump(0.88);
         await yieldFrame();
+        if (!current()) return;
         // diagnostic: log final counts and what was applied
 
         // immediate swatches
@@ -238,7 +243,7 @@ export function useQuantize({
             const total = dd.length / 4;
             for (let i = 0; i < dd.length; i += 4) {
                 if ((i / 4) % 10000 === 0) {
-                    const fraction = (i / 4) / total;
+                    const fraction = i / 4 / total;
                     reportStep(4, swatchLabel, fraction);
                     bump(quantizeSwatchProgress(i / 4, total));
                 }
@@ -279,6 +284,7 @@ export function useQuantize({
                     isTransparent: true,
                 });
             }
+            if (!current()) return;
             onImmediateSwatches(structured);
             reportStep(4, swatchLabel, 1);
         } catch (err) {
@@ -290,7 +296,7 @@ export function useQuantize({
         const outBlob = await new Promise<Blob | null>((res) =>
             c.toBlob((b) => res(b), 'image/png')
         );
-        if (!outBlob) return;
+        if (!outBlob || !current()) return;
         reportStep(5, 'Encoding processed image', 1);
         bump(1);
         const url = URL.createObjectURL(outBlob);

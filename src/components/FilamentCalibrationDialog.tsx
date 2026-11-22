@@ -95,7 +95,7 @@ interface FilamentCalibrationDialogProps {
     layerHeight: number;
     firstLayerHeight: number;
     paletteProofSnapshot?: FinalPrintableStackSnapshot;
-    paletteProofImageSrc?: string | null;
+    paletteProofImageCanvas?: HTMLCanvasElement | null;
     paletteProofProfile?: AutoPaintProfile;
     paletteProofProfileDirty?: boolean;
     onRegisterPaletteProof?: (
@@ -213,7 +213,7 @@ export function FilamentCalibrationDialog({
     layerHeight,
     firstLayerHeight,
     paletteProofSnapshot,
-    paletteProofImageSrc,
+    paletteProofImageCanvas,
     paletteProofProfile,
     paletteProofProfileDirty,
     onRegisterPaletteProof,
@@ -1482,7 +1482,7 @@ export function FilamentCalibrationDialog({
             </AlertDialogHeader>
             <PaletteProofPanel
                 snapshot={paletteProofSnapshot}
-                imageSrc={paletteProofImageSrc}
+                imageCanvas={paletteProofImageCanvas}
                 profile={paletteProofProfile}
                 profileDirty={paletteProofProfileDirty}
                 embedded

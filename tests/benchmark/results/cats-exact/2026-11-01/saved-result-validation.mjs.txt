@@ -1,0 +1,34 @@
+import assert from 'node:assert/strict';
+import { readFileSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+const root = 'tests/assets/performance/8-colors-frontlit-2026-08-26';
+const fixture = JSON.parse(readFileSync(`${root}/cats/case.json`, 'utf8'));
+const expected = fixture.replayResult;
+const hash = (value) => createHash('sha256').update(value).digest('hex');
+const files = ['current-first.json', 'exact-repeated.json.warmup-1.json', 'exact-repeated.json.measured-1.json', 'exact-repeated.json.measured-2.json'];
+for (const file of files) {
+    const d = JSON.parse(readFileSync(`.profiles/issue-117/${file}`, 'utf8'));
+    const r = d.result, m = r.optimizerMetadata, s = r.colorSeparation;
+    assert.equal(hash(JSON.stringify(r)), d.resultSha256);
+    assert.equal(d.resultSha256, '1b35967127485e938a5edd824e18c29e1ee559c7006ebeeb71e9cf81531d875b');
+    assert.deepEqual(d.configuration, fixture.settings);
+    assert.equal(m.iterations, expected.optimizerIterations);
+    assert.ok(Math.abs(m.score - expected.optimizerScore) < 1e-6);
+    assert.equal(m.converged, expected.optimizerConverged);
+    assert.equal(m.extraRepeatCount, expected.additionalFilamentRunsUsed);
+    const colors = new Map(d.filaments.map((f) => [f.id, f.color.toLowerCase()]));
+    assert.deepEqual(r.filamentOrder.map((id) => colors.get(id)), expected.filamentOrderColors);
+    assert.equal(r.transitionZones.length, expected.transitionZoneCount);
+    assert.equal(r.finalStack.layers.length, expected.physicalLayerCount);
+    assert.equal(r.totalHeight, expected.totalHeight);
+    assert.equal(r.finalStack.fingerprint, expected.finalStackFingerprint);
+    assert.equal(s.requestedColorCount - s.unacceptableColorCount, expected.colorsWithinThreshold);
+    assert.equal(s.unacceptableColorCount, expected.fallbackColorCount);
+    assert.equal(Number(s.maximumDeltaE.toFixed(1)), expected.worstDeltaE);
+    assert.equal(d.inputs.profile.sha256, fixture.sha256.profile);
+    assert.equal(d.inputs.sourceImage.sha256, fixture.sha256.sourceImage);
+    assert.equal(hash(JSON.stringify(d.swatches)), d.swatchesSha256);
+}
+const status = { goldenValidation: 'passed', fullResults: files.length, resultSha256: '1b35967127485e938a5edd824e18c29e1ee559c7006ebeeb71e9cf81531d875b' };
+writeFileSync('.profiles/issue-117/exact-validation-status.json', JSON.stringify(status, null, 2) + '\n');
+console.log(JSON.stringify(status));

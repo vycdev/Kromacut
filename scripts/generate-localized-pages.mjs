@@ -5,6 +5,7 @@ import {
     parseDocs,
     generateDocPage,
     generateLegalPage,
+    generateAwardsPage,
     generateNotFoundPage,
     updateMeta,
     escapeHtml,
@@ -103,7 +104,7 @@ function localizeShell(html, language, catalog) {
     }
     html = html.replaceAll('Kromacut home</a>', `${escapeHtml(catalog.navigation.home)}</a>`);
     html = html.replace(
-        /href="\/(docs(?:\/[^"#?]*)?|privacy|terms)?([?#][^"]*)?"/g,
+        /href="\/(docs(?:\/[^"#?]*)?|privacy|terms|awards)?([?#][^"]*)?"/g,
         (_, pathname = '', suffix = '') => `href="${prefix(language, `/${pathname}`)}${suffix}"`
     );
     return html;
@@ -115,7 +116,13 @@ function write(filename, html) {
     writeFileSync(target, html);
 }
 
-const urls = ['/', '/privacy', '/terms', ...sourceDocs.map((doc) => `/docs/${doc.slug}`)];
+const urls = [
+    '/',
+    '/privacy',
+    '/terms',
+    '/awards',
+    ...sourceDocs.map((doc) => `/docs/${doc.slug}`),
+];
 for (const { code: language } of SUPPORTED_LANGUAGES) {
     if (language === 'en') continue;
     const dir = path.join(locales, language);
@@ -200,6 +207,16 @@ for (const { code: language } of SUPPORTED_LANGUAGES) {
         html = localeHead(html, language, `/${kind}`, notice.seoTitle, notice.description);
         write(`${language}/${kind}/index.html`, html);
     }
+    write(
+        `${language}/awards/index.html`,
+        localeHead(
+            localizeShell(generateAwardsPage(template, catalog), language, catalog),
+            language,
+            '/awards',
+            catalog.awards.seoTitle,
+            catalog.awards.description
+        )
+    );
     const schema = JSON.stringify({
         '@context': 'https://schema.org',
         '@type': 'SoftwareApplication',
@@ -337,6 +354,16 @@ for (const { code } of SUPPORTED_LANGUAGES) {
                 image.startsWith('/') && existsSync(path.join(dist, image.slice(1))),
                 `${route}: missing image ${image}`
             );
+        }
+        if (route === '/awards') {
+            for (const text of [
+                catalog.awards.title,
+                catalog.awards.intro,
+                catalog.landing.snapmakerInnovationFundWinner,
+                catalog.landing.aboutTheSnapmakerInnovationFund,
+            ]) {
+                assertOutput(html.includes(escapeHtml(text)), `${route}: untranslated ${text}`);
+            }
         }
         if (route === '/privacy' || route === '/terms') {
             const kind = route.slice(1);

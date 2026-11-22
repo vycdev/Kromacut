@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
     APP_PATH,
+    AWARDS_PATH,
     DOCS_PATH,
     LANDING_PATH,
     PRIVACY_PATH,
@@ -72,12 +73,23 @@ test('terms is a public web route and never replaces the desktop workspace', () 
     }
 });
 
+test('awards is a public web route and never replaces the desktop workspace', () => {
+    for (const path of ['/awards', '/awards/', '/awards/index.html', '/ro/awards']) {
+        assert.equal(selectRoute(path), 'awards');
+        assert.equal(selectRoute(path, true), 'app');
+    }
+    for (const path of ['/awards/missing', '/award']) {
+        assert.equal(selectRoute(path), 'not-found', path);
+    }
+});
+
 test('route constants expose stable public paths', () => {
     assert.equal(LANDING_PATH, '/');
     assert.equal(APP_PATH, '/app');
     assert.equal(DOCS_PATH, '/docs');
     assert.equal(PRIVACY_PATH, '/privacy');
     assert.equal(TERMS_PATH, '/terms');
+    assert.equal(AWARDS_PATH, '/awards');
     assert.equal(appPath(false), '/app');
     assert.equal(appPath(true), '/');
     assert.equal(landingPath(false), '/?landing=1');

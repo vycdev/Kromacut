@@ -193,7 +193,7 @@ Imprima face para cima a 100%, com alturas e filamentos exatos. Primeira camada 
 
 ### Carregar e alinhar uma fotografia
 
-Selecione a placa na lista e **Escolher fotografia** ou largue imagem na área. Fotografe sob luz frontal difusa sem reflexos fortes. O ficheiro deve ser descodificável; RAW não substitui uma exportação normalmente visível.
+Selecione a placa na lista e **Escolher fotografia** ou largue imagem na área. Fotografe sob luz frontal difusa sem reflexos fortes. O ficheiro deve ser descodificável; RAW não substitui uma exportação normalmente visível. Se uma fotografia não puder ser lida, por exemplo por estar danificada ou só parcialmente transferida, o Kromacut mostra um erro e mantém a fotografia já carregada, se existir.
 
 ![Quatro pegas pertencem aos centros dos marcadores fora da grelha. A borda fica meia casa além dos centros; uma ampliação distingue centro de canto exterior.](22_matrix_alignment.svg)
 

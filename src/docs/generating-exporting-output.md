@@ -48,6 +48,8 @@ STL does not carry filament colors or automatic spool assignments. Use the copie
 
 For **Flat Paint** models the download menu offers only 3MF: the model contains one object per physical filament and, in the default face-down layout, a transparent carrier object. The optional face-up layout omits that carrier. An uncolored single-geometry STL of either flat slab would be useless. Both orientations support every **Smooth Meshing** strength. Rebuild after changing the strength to apply it to the preview and exported geometry.
 
+Successful **Multi-head** builds also offer only 3MF, because STL can't carry their head assignments. A build that falls back to a normal single-head model still offers STL.
+
 ## Print Instructions
 
 The **Print Instructions** panel gives you:
@@ -67,6 +69,8 @@ The approximate height in the plan needs care: the Manual path shows the new lay
 
 In Flat Paint mode there is no manual swap plan. The panel instead summarizes the selected multi-material workflow: assign each 3MF object to its filament, then either use clear filament and flip the default face-down print or print the carrier-free layout face-up. Neither layout should be mirrored in the slicer.
 
+With **Multi-head mode**, a successful build shows a **Head Schedule** instead of the start color and swap plan: load the listed filaments into their numbered heads before printing, leave **EMPTY** heads unused, and reload only the marked heads at each layer checkpoint. If the build fell back to a single-head model, the normal start color and swap plan appear instead. See [Multi-head printing](multi-head-printing#head-schedule-and-export).
+
 ## Recommended Slicer Setup
 
 Kromacut recommends:
@@ -85,6 +89,8 @@ Review small islands, text, disconnected transparent cutouts, foundations and th
 ## Saving And Cancelling
 
 Desktop file exports open a **Save As** dialog. In a browser they use the browser's download settings, so whether you see a location prompt depends on the browser. Cancelling a file dialog does not send anything to the printer. During export, geometry writing and archive compression can take time; wait for saving to finish before closing the app.
+
+In the desktop app, **Open in Slicer** in the 3D download menu builds the same 3MF as **Download 3MF** and opens it in your slicer instead of showing **Save As**. The first time, Kromacut asks which app to use. It lists Bambu Studio, Orca Slicer, PrusaSlicer, and UltiMaker Cura when they are installed in their usual locations, plus **System default**, your system's default app for `.3mf` files. Use **Browse** to choose a slicer that is installed somewhere else or is not listed. Turn on **Always use this slicer** to skip the question next time: the menu item then shows the slicer's name, and **Choose Slicer** in the same menu changes or forgets it. **Settings** shows the saved slicer as well, even before a model is built: **Change** saves a different one without opening anything, and **Forget** makes Kromacut ask again. If the saved slicer has been moved or uninstalled, Kromacut asks again. With **System default**, make your slicer the default app for `.3mf` files first; otherwise the file may open in a 3D viewer. If the slicer cannot be started, Kromacut shows an error; use **Download 3MF** and open the saved file manually. Kromacut keeps this copy in its cache folder and may remove it after a day, so save the project in your slicer to keep it. In a browser, use **Download 3MF** and open the downloaded file in your slicer.
 
 ## Export Tips
 

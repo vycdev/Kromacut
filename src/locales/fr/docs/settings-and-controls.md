@@ -22,7 +22,9 @@ Le sélecteur **Langue** modifie l’interface, la documentation, les schémas e
 
 Les pages publiques proposent aussi un sélecteur de langue. La documentation traduite utilise des liens partageables préfixés par la langue, comme `/ro/docs/overview`. Les noms de pages et les ancres de section restent stables d’une langue à l’autre. Les extensions de fichiers, données numériques des modèles, noms saisis par l’utilisateur et titres originaux des œuvres communautaires ne sont pas traduits.
 
-La boîte des paramètres contient des liens vers la documentation, Discord, Reddit, GitHub et Patreon, et affiche la version actuelle de Kromacut. **Confidentialité et données locales** et **Conditions d’utilisation** sont également accessibles ici et s’ouvrent dans votre navigateur dans la langue sélectionnée.
+La boîte des paramètres contient des liens vers la documentation, Discord, Reddit, GitHub et Patreon, et affiche la version actuelle de Kromacut. **Confidentialité et données locales**, **Conditions d’utilisation** et **Récompenses** sont également accessibles ici et s’ouvrent dans votre navigateur dans la langue sélectionnée.
+
+Dans l’application de bureau, les paramètres comportent aussi une ligne **Ouvrir dans le logiciel de découpe** qui indique le logiciel utilisé par **Ouvrir dans le logiciel de découpe** : **Toujours demander**, **Application par défaut du système**, ou le nom et l’emplacement du logiciel enregistré. **Modifier** ouvre le sélecteur de logiciel de découpe et enregistre celui que vous choisissez, sans ouvrir de fichier. **Oublier** apparaît lorsqu’un choix est enregistré et oblige Kromacut à poser de nouveau la question. Consultez [Enregistrer et annuler](generating-exporting-output#saving-and-cancelling).
 
 ## Modes de l’espace de travail
 
@@ -37,6 +39,8 @@ Sur les petits écrans, développez **Sommaire** pour choisir un guide ou **Sur 
 La plupart des sections latérales peuvent être repliées par leur titre. Le repli masque les commandes, pas leurs effets : les réglages actifs, les paramètres d’impression et les options d’optimisation restent appliqués. Les résumés repliés et les indicateurs d’état aident à repérer les changements actifs. L’état ouvert/fermé est mémorisé. Développer une section ne la réinitialise pas.
 
 **Annuler / Rétablir** partage l’historique de retouche d’image entre la 2D et la 3D. Ce n’est pas un historique des modifications de filaments, de l’étalonnage, des hauteurs de couche ou des paramètres d’optimisation. Utilisez le bouton de réinitialisation propre à chaque panneau lorsqu’il existe, et régénérez après avoir restauré un état de l’image.
+
+En 2D, **Ctrl+Z** (**Cmd+Z** sous macOS) annule une modification de l’image et **Ctrl+Maj+Z** (**Cmd+Maj+Z**) la rétablit. Ces raccourcis sont ignorés dans les champs modifiables, les boîtes de dialogue, les fenêtres contextuelles, les menus et les listes ouvertes, pendant le recadrage ou le traitement, ainsi qu’en 3D. Consultez [Raccourcis de l’historique 2D](image-adjustments#2d-history-shortcuts).
 
 ## Mode multiplateau expérimental
 
@@ -63,6 +67,7 @@ Les paramètres de peinture automatique sont conservés entre sessions, notammen
 - Le détail des transitions et le tramage de hauteur.
 - La largeur de ligne effective, modifiée dans **Paramètres d’impression 3D**, pour les avertissements de largeur, le nettoyage des points isolés et le tramage de hauteur, ainsi que la préférence **Omettre les points de couleur isolés**. Cette préférence de nettoyage ne supprime pas tous les avertissements de largeur et ne contrôle pas le tramage de hauteur.
 - La peinture à plat et sa préférence face vers le haut sans couche transparente.
+- Le mode multi-têtes, le nombre de têtes, la profondeur de recherche et le regroupement des couleurs.
 - L’algorithme d’optimisation et sa graine.
 - La priorité régionale.
 
@@ -70,7 +75,7 @@ Les profils sont distincts de cet état mémorisé. Utilisez-les pour disposer d
 
 ## Fichiers de palette
 
-Les palettes personnalisées servent à la réduction des couleurs 2D. Leurs fichiers portent l’extension `.kpal`.
+Les palettes personnalisées servent à la réduction des couleurs 2D. Leurs fichiers portent l’extension `.kpal`. Sur ordinateur, l’exportation d’une palette ouvre **Enregistrer sous** ; choisissez un emplacement accessible en écriture ou annulez pour continuer. Dans le navigateur, le téléchargement habituel est utilisé.
 
 La version 2 du format ajoute deux champs facultatifs : `disabledColors` (couleurs conservées mais exclues de la quantification) et `colorNames` (noms d’affichage facultatifs par couleur). Les deux sont conservés à l’export et à l’import. Les fichiers de version 1 se chargent sans modification avec toutes les couleurs activées et sans nom ; un fichier v2 ouvert dans un ancien Kromacut est simplement traité comme si toutes les couleurs étaient activées.
 

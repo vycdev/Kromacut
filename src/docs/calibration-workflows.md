@@ -193,7 +193,7 @@ Print face-up at 100% scale with the exact layer heights and filament assignment
 
 ### Load And Align A Photo
 
-Select the printed board in the saved-matrix dropdown, then **Choose photo** or drop an image onto the photo area. Photograph under diffuse front lighting without strong glare. The file must be decodable by the app; a camera RAW file is not a substitute for a normally viewable image export.
+Select the printed board in the saved-matrix dropdown, then **Choose photo** or drop an image onto the photo area. Photograph under diffuse front lighting without strong glare. The file must be decodable by the app; a camera RAW file is not a substitute for a normally viewable image export. If a photo cannot be read, for example because it is damaged or only partly downloaded, Kromacut shows an error and keeps any photo already loaded.
 
 ![The four handles belong at colored marker-cell centers outside the recipe grid. The board boundary extends half a cell beyond the centers; a magnified inset distinguishes a marker center from the board corner.](22_matrix_alignment.svg)
 

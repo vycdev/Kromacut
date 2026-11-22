@@ -9,6 +9,14 @@ description: Problemi comuni e prime soluzioni da provare.
 
 Parti da qui se un risultato è errato o un controllo disattivato.
 
+## Auto-paint è lento con una piccola foto
+
+Una piccola foto non quantizzata può contenere migliaia di colori distinti, valutati per molte pile candidate. Riduci i colori in **2D → Impostazioni di quantizzazione → Applica** (inizia con 16–32), disattiva le ripetizioni o scegli **Veloce / Compatto**. Da 1.024 colori di destinazione, la corrispondenza avanzata mostra indicazioni e attende **Avvia Auto-paint**. Usa **Annulla Auto-paint** per interrompere la ricerca; riavvia o modifica le impostazioni. La percentuale non indica il tempo restante. Vedi [Auto-paint](auto-paint).
+
+## Un’Immagine È Troppo Grande Per Essere Aperta
+
+Ridimensiona il file in un editor di immagini prima di importarlo di nuovo. L’errore mostra le dimensioni e una misura prudenziale per il dispositivo. L’immagine attuale e la cronologia di annullamento vengono mantenute. Un’immagine lunga e stretta può rientrare nei limiti se il browser ne supporta le dimensioni; conta anche il numero totale di pixel. Vedi [Caricamento delle immagini](loading-images).
+
 ## Un collegamento mostra pagina non trovata
 
 L’indirizzo può contenere un errore o riferirsi a pagina rimossa. Usa **Apri Kromacut**, **Vai alla pagina iniziale** o **Esplora documentazione** per raggiungere strumento, home o guida corrente. Un indirizzo sconosciuto non viene sostituito automaticamente con un’altra guida.
@@ -90,6 +98,16 @@ Con 3MF verifica materiali o filamenti nello slicer. Kromacut conserva le inform
 STL non contiene assegnazioni cromatiche. Usa le **Istruzioni di stampa** per i cambi.
 
 La vista Simulati mostra miscele stimate; gli slicer mostrano normalmente colori fisici. Passa a **Fisici** per confrontare e verifica bobine reali. Nessuna vista prova il colore finale.
+
+## Lo slicer non si apre
+
+**Apri nello slicer** è disponibile solo nell’app desktop. Nel browser usa **Scarica 3MF** e apri il file nello slicer.
+
+Se Kromacut segnala di non essere riuscito ad aprire il 3MF, usa **Scarica 3MF** per salvare il file e aprilo dallo slicer. Se il file si apre in un visualizzatore 3D o in un’altra app, probabilmente è stato aperto con **Predefinita di sistema**. Usa **Cambia** nelle **Impostazioni** per selezionare direttamente il tuo slicer; quando una scelta è salvata, puoi cambiarla anche con **Scegli slicer** nel menu di download. Se uno slicer salvato è stato spostato o disinstallato, Kromacut ti chiede di sceglierne di nuovo uno. Vedi [Salvare e annullare](generating-exporting-output#saving-and-cancelling).
+
+## La modalità multi-testa ha creato un modello a testa singola
+
+Un avviso che indica la creazione di un normale modello a testa singola significa che l’analisi multitesta non è terminata o non ha trovato una disposizione che migliori abbastanza la pila normale. Le **Istruzioni di stampa** mostrano allora il normale colore iniziale e il piano dei cambi invece di un programma delle teste, e il file esportato non contiene assegnazioni delle teste né pause: imposta quindi i cambi colore nello slicer come per qualsiasi stampa a testa singola. Prova filamenti diversi, un altro numero di teste o un’altra profondità di ricerca, poi fai di nuovo clic su **Crea modello 3D**. Se l’analisi non è terminata, prova prima con meno teste. Vedi [Stampa multitesta](multi-head-printing#fallback-and-rebuilding).
 
 ## Ritaglio o modifiche eccessive
 
