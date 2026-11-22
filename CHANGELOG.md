@@ -4,7 +4,12 @@ All notable changes to Kromacut are documented in this file.
 
 ## Unreleased
 
-## v4.3.0 - 2026-11-20
+## v4.3.0 - 2026-11-22
+
+### Upgrade notes
+
+- **Check the first color's height when rebuilding older work.** When First Layer Height is not a multiple of Layer Height, 4.2.0 could lower the first color by one layer after resizing or Undo/Redo. 4.3.0 keeps the height you set, so a rebuilt model can have a taller first color than an earlier export. Check the color heights and the slicer preview before printing.
+- **Existing profiles and palettes remain compatible.** Check new prints in your slicer as usual.
 
 ### Added
 
