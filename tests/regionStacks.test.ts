@@ -219,6 +219,14 @@ test('long shared prefixes are cut to the top layers that still decide their col
             rgbToLab(hexToRgb(mapping.predictedColor.hex))
         );
         assert.ok(entry.deltaE <= shared + 0.1 + 1e-9, `${entry.targetHex} got worse`);
+        // A color may only get (invisibly) worse if it still looks like its old color.
+        if (entry.deltaE > shared + 1e-9) {
+            const shift = deltaE2000Lab(
+                rgbToLab(hexToRgb(entry.predictedHex)),
+                rgbToLab(hexToRgb(mapping.predictedColor.hex))
+            );
+            assert.ok(shift <= 0.5 + 1e-9, `${entry.targetHex} moved ${shift.toFixed(2)} ΔE`);
+        }
     });
 });
 
@@ -229,7 +237,7 @@ test('Preserve color separation keeps separated colors apart with their own stac
         { hex: '#A0A0A0', count: 300 },
         { hex: '#B7B7B7', count: 300 },
         { hex: '#8C8C8C', count: 200 },
-        { hex: '#C8241E', count: 10 },
+        { hex: '#C8241F', count: 10 },
     ];
     const result = generateAutoLayers(
         FILAMENTS,

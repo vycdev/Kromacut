@@ -81,8 +81,13 @@ const CANDIDATE_LIMIT = 12;
  */
 const RUN_PENALTY = 0.2;
 const LAYER_PENALTY = 0.005;
-/** CIEDE2000 within which a stack counts as matching its shared prefix. */
+/**
+ * A stack may match its target up to this much CIEDE2000 worse than the
+ * shared prefix, but only while it still looks like the shared prefix's
+ * color, within SAME_LOOK_TOLERANCE.
+ */
 const SAME_COLOR_TOLERANCE = 0.1;
+const SAME_LOOK_TOLERANCE = 0.5;
 /**
  * With Preserve color separation, two kept-apart colors never end up closer
  * than they were on the shared sequence, up to this clearly visible CIEDE2000.
@@ -96,7 +101,10 @@ export interface RegionStackPlanOptions {
     filaments: readonly Filament[];
     alignment: RegionStackAlignment;
     maxFilamentsPerLayer?: number;
-    /** Runs a stack may add above the foundation. */
+    /**
+     * Runs the search may add above the foundation. Trims of a color's shared
+     * prefix keep that prefix's own runs and are not limited by this.
+     */
     maxRuns?: number;
     beamWidth?: number;
     /** Mean ΔE a stack must gain per extra filament it adds to a layer. */
@@ -578,7 +586,12 @@ export function planRegionStacks(options: RegionStackPlanOptions): RegionStackPl
             .filter(
                 (entry) =>
                     runKey(entry.runs) !== sharedKey &&
-                    entry.deltaE <= sharedDeltaE + SAME_COLOR_TOLERANCE &&
+                    (entry.deltaE <= sharedDeltaE ||
+                        (entry.deltaE <= sharedDeltaE + SAME_COLOR_TOLERANCE &&
+                            deltaE2000Lab(
+                                rgbToLab(hexToRgb(entry.predictedHex)),
+                                rgbToLab(hexToRgb(target.sharedHex))
+                            ) <= SAME_LOOK_TOLERANCE)) &&
                     // A kept-apart color must stay within the separation limit.
                     (!target.keepApart || entry.deltaE <= separationLimit!)
             )
