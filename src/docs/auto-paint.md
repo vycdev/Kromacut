@@ -201,7 +201,7 @@ Find a real spool if the suggestion is useful, then enter its real color and cal
 
 ## Per-region stacks
 
-Turn on **Per-region stacks** to give each image color its own filament stack. Normally every color prints the first layers of one shared filament sequence, so one color that needs an unusual stack makes every color above it print those layers too. With this option, each color starts on the shared foundation and continues with its own short stack of any loaded filaments. A color leaves the shared sequence only when its own stack is predicted to match clearly better.
+Turn on **Per-region stacks** to give each image color its own filament stack. Normally every color prints the first layers of one shared filament sequence, so one color that needs an unusual stack makes every color above it print those layers too. With this option, each color starts on the shared foundation and continues with its own short stack of any loaded filaments. A color switches only when its own stack is predicted to look the same or better. Often that is just the visible top of its old stack, because a few layers down the deeper layers no longer change the color.
 
 - Several filaments share a printed layer, so a multi-material printer (AMS, CFS, or toolchanger) is required. Export as 3MF and assign each filament object in the slicer.
 - **Max filaments per layer** (2–16, default 4) limits how many filaments one layer may hold. In Flat Paint every color ends on the same face layer, so the limit never drops below what plain Flat Paint already needs.

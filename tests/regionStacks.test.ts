@@ -174,6 +174,54 @@ test('large images plan fewer colors so masks stay within the memory budget', ()
     assert.equal(planRegionStacks({ ...options, pixelCount: fits + targets }), null);
 });
 
+test('long shared prefixes are cut to the top layers that still decide their color', () => {
+    // The 8 translucent filaments of a real profile, on thin layers: every
+    // run lets light through, but a few runs deep the color stops changing.
+    const translucent: Filament[] = [
+        ['#ffffff', 0.376],
+        ['#000000', 0.05],
+        ['#ff7eb4', 0.335],
+        ['#f7d000', 0.334],
+        ['#d83400', 0.456],
+        ['#6300c5', 0.328],
+        ['#00b8c4', 0.298],
+        ['#04bb00', 0.259],
+    ].map(([color, td], i) => ({ id: `t${i}`, color: color as string, td: td as number }));
+    const swatches = [
+        '#fe2638',
+        '#fc1980',
+        '#ea1086',
+        '#5b1791',
+        '#301284',
+        '#0068b8',
+        '#009bcd',
+        '#03ab97',
+        '#49b448',
+        '#bccd36',
+        '#ddd03a',
+        '#ff6a1d',
+    ].map((hex) => ({ hex, count: 100 }));
+    const result = generateAutoLayers(translucent, swatches, 0.08, 0.12, 3, true, true, {
+        algorithm: 'fast',
+        maxExtraRepeats: 4,
+    });
+    const plan = planRegionStacks({ result, filaments: translucent, alignment: 'top' });
+    assert.ok(plan);
+    assert.ok(
+        plan.layerCount < result.finalStack.layers.length * 0.6,
+        `slab ${plan.layerCount} layers vs shared ${result.finalStack.layers.length}`
+    );
+    assert.ok(plan.deltaE <= plan.sharedDeltaE + 1e-9);
+    plan.stacks.forEach((entry, i) => {
+        const mapping = result.finalStack.targetMappings[i];
+        const shared = deltaE2000Lab(
+            { L: mapping.targetLab[0], a: mapping.targetLab[1], b: mapping.targetLab[2] },
+            rgbToLab(hexToRgb(mapping.predictedColor.hex))
+        );
+        assert.ok(entry.deltaE <= shared + 0.1 + 1e-9, `${entry.targetHex} got worse`);
+    });
+});
+
 test('palettes above the target limit fall back to the shared sequence', () => {
     const many = Array.from({ length: MAX_REGION_STACK_TARGETS + 1 }, (_, i) => {
         const value = (i * 37) % 256;
@@ -244,7 +292,8 @@ test('no target is predicted worse than its shared prefix', () => {
         );
         // A region leaves its shared prefix only for a strictly better color.
         assert.ok(
-            entry.deltaE <= shared + 0.05,
+            // An invisible tolerance lets a shorter stack stand in for its shared prefix.
+            entry.deltaE <= shared + 0.1 + 1e-9,
             `${entry.targetHex}: ${entry.deltaE} vs shared ${shared}`
         );
     });

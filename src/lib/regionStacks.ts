@@ -74,12 +74,15 @@ const SHORTLIST_SIZE = 24;
 /** Ranked alternatives kept per target for the per-layer cap. */
 const CANDIDATE_LIMIT = 12;
 /**
- * A region leaves its shared prefix only when its own stack predicts a color
- * better by more than these costs: extra runs mean extra tool changes, and
- * shorter stacks win near-ties.
+ * Every stack, the shared prefix included, pays these costs on top of its
+ * color error: extra runs mean extra tool changes, and shorter stacks win
+ * near-ties. A long shared prefix whose deep layers no longer change the
+ * color therefore loses to its own visible top.
  */
 const RUN_PENALTY = 0.2;
 const LAYER_PENALTY = 0.005;
+/** CIEDE2000 within which a stack counts as matching its shared prefix. */
+const SAME_COLOR_TOLERANCE = 0.1;
 const DEFAULT_TOOL_CHANGE_COST = 0.01;
 const HEIGHT_EPSILON = 1e-8;
 
@@ -520,6 +523,29 @@ export function planRegionStacks(options: RegionStackPlanOptions): RegionStackPl
             ranked.push(scoreStack(target, node.runs, node.layerCount, node.color));
         }
 
+        // The search builds stacks bottom-up, so it rarely reaches "just the
+        // visible top of the shared prefix". Light stops within a few
+        // layers, so try the foundation plus the top k layers of that prefix.
+        const prefix = sharedLayers.slice(0, target.sharedLayerCount);
+        for (let k = 1; k <= prefix.length - foundationLayers; k++) {
+            const runs: RegionStackRun[] = [{ ...foundationRun }];
+            for (const layer of prefix.slice(prefix.length - k)) {
+                const last = runs.at(-1)!;
+                if (last.filamentId === layer.filamentId) last.layerCount++;
+                else runs.push({ ...layer, layerCount: 1 });
+            }
+            const layerCount = foundationLayers + k;
+            const key = runKey(runs);
+            if (seen.has(key)) continue;
+            seen.add(key);
+            const color = predictEffectiveRecipeColor(
+                optics,
+                foundationId,
+                anchorLayers(runs).slice(foundationLayers)
+            );
+            if (color) ranked.push(scoreStack(target, runs, layerCount, color));
+        }
+
         // The shared prefix keeps the color Auto-paint already published for
         // it, so the baseline never depends on re-predicting that stack.
         const sharedRuns = layersToRuns(sharedLayers.slice(0, target.sharedLayerCount));
@@ -531,14 +557,19 @@ export function planRegionStacks(options: RegionStackPlanOptions): RegionStackPl
             layerCount: target.sharedLayerCount,
             predictedHex: target.sharedHex,
             deltaE: sharedDeltaE,
-            score: sharedDeltaE,
+            score: sharedDeltaE + stackCost(sharedRuns.length, target.sharedLayerCount),
             shared: true,
         };
 
-        // Keep only stacks at least as good as the shared prefix, so trading
-        // color for fewer tool changes never goes below the shared sequence.
+        // Keep only stacks that look at least as good as the shared prefix, so
+        // trading color for fewer tool changes never goes below the shared
+        // sequence by more than an invisible tolerance.
         const sorted = ranked
-            .filter((entry) => runKey(entry.runs) !== sharedKey && entry.deltaE <= sharedDeltaE)
+            .filter(
+                (entry) =>
+                    runKey(entry.runs) !== sharedKey &&
+                    entry.deltaE <= sharedDeltaE + SAME_COLOR_TOLERANCE
+            )
             .sort((a, b) => a.score - b.score)
             .slice(0, CANDIDATE_LIMIT);
         sorted.push(sharedStack);
