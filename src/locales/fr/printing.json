@@ -47,7 +47,7 @@
     "regionStacks": "Empilements par région",
     "regionStacksDescription": "Chaque couleur reçoit son propre empilement de filaments au lieu de partager une seule séquence. Nécessite une imprimante multimatériau.",
     "regionStacksMaxFilaments": "Filaments max. par couche",
-    "regionStacksIncompatibleWithMultiHead": "Incompatible avec le mode multi-têtes — activer les empilements par région désactive le mode multi-têtes.",
+    "regionStacksIncompatible": "Incompatible avec le mode multi-têtes et la préservation de la séparation des couleurs — activer les empilements par région les désactive.",
     "regionStacksFallback": "Impossible de planifier les empilements par région — le modèle a été créé avec la séquence de filaments commune.",
     "optimizerSettings": "Paramètres de l’optimiseur",
     "algorithm": "Algorithme",

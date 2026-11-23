@@ -206,7 +206,7 @@ Aktiviere **Stapel pro Region**, damit jede Bildfarbe ihren eigenen Filamentstap
 - Mehrere Filamente teilen sich eine gedruckte Schicht, daher ist ein Mehrmaterialdrucker (AMS, CFS oder Werkzeugwechsler) erforderlich. Exportiere als 3MF und weise jedes Filamentobjekt im Slicer zu.
 - **Max. Filamente pro Schicht** (2–16, Standard 4) begrenzt, wie viele Filamente eine Schicht enthalten darf. Bei Flat Paint enden alle Farben auf derselben Bildschicht, daher sinkt das Limit nie unter das, was normales Flat Paint bereits braucht.
 - Reliefdrucke brauchen mehr Werkzeugwechsel als die gemeinsame Abfolge. Flat-Paint-Platten werden meist dünner, bei etwa gleich vielen Werkzeugwechseln.
-- Höhen-Dithering gilt hier nicht. Stapel pro Region und der Mehrkopfmodus schließen sich gegenseitig aus.
+- Höhen-Dithering gilt hier nicht, und Stapel pro Region lassen sich nicht mit dem Mehrkopfmodus oder „Farbtrennung erhalten“ kombinieren. Geplant werden bis zu 128 Bildfarben; bei mehr Farben nutzt das Modell die gemeinsame Abfolge. Reduziere große Paletten daher vorher in 2D.
 
 ## Mehrkopfdruck
 

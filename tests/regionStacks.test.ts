@@ -9,8 +9,13 @@ const { generateAutoLayers, hexToRgb, rgbToLab } =
 const { deltaE2000Lab } = await loadViteModule<typeof import('../src/lib/colorDifference.ts')>(
     '/src/lib/colorDifference.ts'
 );
-const { planRegionStacks, regionStackLayerSets, estimateRegionStackToolChanges, RegionLayerUsage } =
-    await loadViteModule<typeof import('../src/lib/regionStacks.ts')>('/src/lib/regionStacks.ts');
+const {
+    planRegionStacks,
+    regionStackLayerSets,
+    estimateRegionStackToolChanges,
+    RegionLayerUsage,
+    MAX_REGION_STACK_TARGETS,
+} = await loadViteModule<typeof import('../src/lib/regionStacks.ts')>('/src/lib/regionStacks.ts');
 
 const LAYER_HEIGHT = 0.12;
 const FIRST_LAYER_HEIGHT = 0.2;
@@ -107,7 +112,7 @@ test('incremental layer usage matches a full recount for both alignments', () =>
     }
 });
 
-test('shared-sequence prefixes predict the same colors as the Auto-paint result', () => {
+test('shared-sequence prefixes keep the colors Auto-paint published', () => {
     const result = autoPaint();
     const plan = planRegionStacks({ result, filaments: FILAMENTS, alignment: 'bottom' });
     assert.ok(plan);
@@ -123,13 +128,32 @@ test('shared-sequence prefixes predict the same colors as the Auto-paint result'
             return (
                 sum +
                 mapping.usageWeight *
-                    deltaE2000Lab(target, rgbToLab(hexToRgb(mapping.predictedColor.hex)))
+                    deltaE2000Lab(target, {
+                        L: mapping.predictedLab[0],
+                        a: mapping.predictedLab[1],
+                        b: mapping.predictedLab[2],
+                    })
             );
         }, 0) / total;
     assert.ok(
-        Math.abs(plan.sharedDeltaE - expected) < 0.05,
+        Math.abs(plan.sharedDeltaE - expected) < 1e-9,
         `shared ΔE ${plan.sharedDeltaE} should match Auto-paint ${expected}`
     );
+    // A target that stays on its shared prefix shows the published color.
+    for (const [i, entry] of plan.stacks.entries()) {
+        if (entry.shared) assert.equal(entry.predictedHex, mappings[i].predictedColor.hex);
+    }
+});
+
+test('palettes above the target limit fall back to the shared sequence', () => {
+    const many = Array.from({ length: MAX_REGION_STACK_TARGETS + 1 }, (_, i) => {
+        const value = (i * 37) % 256;
+        const hex = value.toString(16).padStart(2, '0');
+        return { hex: `#${hex}${(255 - value).toString(16).padStart(2, '0')}${hex}`, count: 1 };
+    });
+    const result = generateAutoLayers(FILAMENTS, many, LAYER_HEIGHT, FIRST_LAYER_HEIGHT, 3);
+    assert.ok(result.finalStack.targetMappings.length > MAX_REGION_STACK_TARGETS);
+    assert.equal(planRegionStacks({ result, filaments: FILAMENTS, alignment: 'bottom' }), null);
 });
 
 test('every stack starts on the shared foundation and stays on the layer grid', () => {

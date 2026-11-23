@@ -17,6 +17,8 @@ export interface UseRegionStacksWorkerResult {
     isComputing: boolean;
     error?: string;
     run: (options: RegionStackPlanOptions) => Promise<RegionStackPlan | null>;
+    /** Stop planning in flight; its pending run resolves null. */
+    cancel: () => void;
 }
 
 let nextId = 1;
@@ -33,6 +35,11 @@ export function useRegionStacksWorker(): UseRegionStacksWorkerResult {
         pendingResolveRef.current?.(null);
         pendingResolveRef.current = null;
     }, []);
+
+    const cancel = useCallback(() => {
+        cancelWorker();
+        setIsComputing(false);
+    }, [cancelWorker]);
 
     useEffect(() => cancelWorker, [cancelWorker]);
 
@@ -91,5 +98,5 @@ export function useRegionStacksWorker(): UseRegionStacksWorkerResult {
         [cancelWorker]
     );
 
-    return { isComputing, error, run };
+    return { isComputing, error, run, cancel };
 }

@@ -47,7 +47,7 @@
     "regionStacks": "Pilhas por região",
     "regionStacksDescription": "Cada cor recebe a sua própria pilha de filamentos em vez de partilhar uma única sequência. Requer uma impressora multimaterial.",
     "regionStacksMaxFilaments": "Máx. de filamentos por camada",
-    "regionStacksIncompatibleWithMultiHead": "Não é compatível com o modo multicabeças — ativar as pilhas por região desativa o modo multicabeças.",
+    "regionStacksIncompatible": "Não é compatível com o modo multicabeças nem com a preservação da separação de cores — ativar as pilhas por região desativa-os.",
     "regionStacksFallback": "Não foi possível planear as pilhas por região — o modelo foi criado com a sequência de filamentos partilhada.",
     "optimizerSettings": "Definições do otimizador",
     "algorithm": "Algoritmo",

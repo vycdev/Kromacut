@@ -47,7 +47,7 @@
         "regionStacks": "領域ごとの積層",
         "regionStacksDescription": "すべての色で 1 つの順序を共有する代わりに、色ごとに専用のフィラメント積層を使います。マルチマテリアルプリンターが必要です。",
         "regionStacksMaxFilaments": "1 層あたりの最大フィラメント数",
-        "regionStacksIncompatibleWithMultiHead": "マルチヘッドとは併用できません。領域ごとの積層を有効にするとマルチヘッドは無効になります。",
+        "regionStacksIncompatible": "マルチヘッドおよび色分離の保持とは併用できません。領域ごとの積層を有効にするとこれらは無効になります。",
         "regionStacksFallback": "領域ごとの積層を計画できなかったため、共通のフィラメント順序でモデルを生成しました。",
         "optimizerSettings": "最適化の設定",
         "algorithm": "アルゴリズム",

@@ -47,7 +47,7 @@
     "regionStacks": "Pile per regione",
     "regionStacksDescription": "Ogni colore riceve la propria pila di filamenti invece di condividere un'unica sequenza. Richiede una stampante multimateriale.",
     "regionStacksMaxFilaments": "Filamenti max per strato",
-    "regionStacksIncompatibleWithMultiHead": "Non compatibile con la modalità multi-testa — attivare le pile per regione disattiva la modalità multi-testa.",
+    "regionStacksIncompatible": "Non compatibile con la modalità multi-testa né con la preservazione della separazione dei colori — attivare le pile per regione le disattiva.",
     "regionStacksFallback": "Impossibile pianificare le pile per regione — il modello è stato creato con la sequenza di filamenti condivisa.",
     "optimizerSettings": "Impostazioni ottimizzatore",
     "algorithm": "Algoritmo",

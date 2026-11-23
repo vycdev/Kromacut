@@ -571,6 +571,8 @@ export default function AutoPaintTab({
     React.useEffect(() => {
         setLocalSeparationMaxDeltaE(separationMaxDeltaE.toString());
     }, [separationMaxDeltaE]);
+    // Text being typed into Max filaments per layer; null shows the saved value.
+    const [maxFilamentsDraft, setMaxFilamentsDraft] = React.useState<string | null>(null);
     const [localOptimizerSeed, setLocalOptimizerSeed] = React.useState(
         optimizerSeed?.toString() ?? ''
     );
@@ -1331,7 +1333,7 @@ export default function AutoPaintTab({
                             {regionStacks && (
                                 <div className="space-y-2 border-l border-border/50 pl-3 ml-1">
                                     <p className="text-[10px] text-muted-foreground">
-                                        {t('autoPaintTab.regionStacksIncompatibleWithMultiHead')}
+                                        {t('autoPaintTab.regionStacksIncompatible')}
                                     </p>
                                     <div className="flex items-center gap-2">
                                         <Label
@@ -1344,17 +1346,31 @@ export default function AutoPaintTab({
                                             id="region-stacks-max-filaments"
                                             data-testid="autopaint-region-stacks-max-filaments"
                                             className="h-7 text-xs flex-1"
-                                            value={regionStacksMaxFilaments}
+                                            value={maxFilamentsDraft ?? regionStacksMaxFilaments}
                                             min={MIN_MAX_FILAMENTS_PER_LAYER}
                                             max={MAX_MAX_FILAMENTS_PER_LAYER}
                                             step={1}
                                             onChange={(e) => {
-                                                const v = parseInt(e.target.value, 10);
+                                                // Keep partial input such as the "1" of "12";
+                                                // commit only values already in range.
+                                                setMaxFilamentsDraft(e.target.value);
+                                                const v = Number(e.target.value);
+                                                if (
+                                                    Number.isInteger(v) &&
+                                                    v >= MIN_MAX_FILAMENTS_PER_LAYER &&
+                                                    v <= MAX_MAX_FILAMENTS_PER_LAYER
+                                                ) {
+                                                    setRegionStacksMaxFilaments(v);
+                                                }
+                                            }}
+                                            onBlur={(e) => {
+                                                const v = parseFloat(e.target.value);
                                                 if (Number.isFinite(v)) {
                                                     setRegionStacksMaxFilaments(
                                                         normalizeMaxFilamentsPerLayer(v)
                                                     );
                                                 }
+                                                setMaxFilamentsDraft(null);
                                             }}
                                         />
                                     </div>

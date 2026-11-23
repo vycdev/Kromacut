@@ -205,6 +205,11 @@ export interface StackLayoutClass {
     activeCount: number;
     /** Physical filament color of each stack layer, bottom-up. */
     layerFilamentHexes: readonly string[];
+    /**
+     * Identity of each layer's physical filament, bottom-up, when two
+     * filaments can share a color. Defaults to the color itself.
+     */
+    layerFilamentKeys?: readonly string[];
     /** Preview color of the visible top layer. */
     faceHex: string;
 }
@@ -220,8 +225,10 @@ export interface StackLayoutOptions {
     firstLayerThickness?: number;
     /** Filament that backs shorter columns in a uniform slab. */
     foundationHex: string;
-    /** 3MF object grouping key for a physical filament. */
-    filamentGroup?: (hex: string) => string;
+    /** Identity of the foundation filament; defaults to its color. */
+    foundationKey?: string;
+    /** 3MF object grouping key for a physical filament, from its identity. */
+    filamentGroup?: (key: string) => string;
     /** Slicer part name for a physical filament. */
     filamentPartName?: (hex: string) => string;
 }
@@ -329,9 +336,11 @@ export function buildStackLayout(options: StackLayoutOptions): FlatPaintLayout {
         orientation,
         firstLayerThickness = layerHeight,
         foundationHex,
+        foundationKey = foundationHex,
         filamentGroup = flatPaintFilamentGroup,
         filamentPartName = flatPaintFilamentPartName,
     } = options;
+    const foundation = { hex: foundationHex, key: foundationKey };
 
     const parts: FlatPaintPart[] = [];
     const effectiveCarrierThickness =
@@ -369,8 +378,8 @@ export function buildStackLayout(options: StackLayoutOptions): FlatPaintLayout {
         entry: StackLayoutClass,
         baseZ: number,
         topZ: number,
-        filamentHex: string,
-        previewHex = filamentHex
+        filament: { hex: string; key: string },
+        previewHex = filament.hex
     ): FlatPaintPart => ({
         kind,
         classIndex: entry.classIndex,
@@ -379,18 +388,20 @@ export function buildStackLayout(options: StackLayoutOptions): FlatPaintLayout {
         baseZ,
         topZ,
         previewHex,
-        filamentHex,
-        exportGroup: filamentGroup(filamentHex),
-        partName: filamentPartName(filamentHex),
+        filamentHex: filament.hex,
+        exportGroup: filamentGroup(filament.key),
+        partName: filamentPartName(filament.hex),
     });
 
-    /** Runs of equal filaments within stack layers [from, to), bottom-up. */
-    const runs = (hexes: readonly string[], from: number, to: number) => {
-        const result: Array<{ start: number; end: number; hex: string }> = [];
+    /** Runs of the same physical filament within stack layers [from, to), bottom-up. */
+    const runs = (entry: StackLayoutClass, from: number, to: number) => {
+        const result: Array<{ start: number; end: number; hex: string; key: string }> = [];
         for (let layer = from; layer < to; layer++) {
+            const hex = entry.layerFilamentHexes[layer];
+            const key = entry.layerFilamentKeys?.[layer] ?? hex;
             const last = result.at(-1);
-            if (last?.hex === hexes[layer]) last.end = layer;
-            else result.push({ start: layer, end: layer, hex: hexes[layer] });
+            if (last?.key === key) last.end = layer;
+            else result.push({ start: layer, end: layer, hex, key });
         }
         return result;
     };
@@ -423,34 +434,24 @@ export function buildStackLayout(options: StackLayoutOptions): FlatPaintLayout {
 
     // --- Per-class slabs ---
     for (const entry of present) {
-        const hexes = entry.layerFilamentHexes;
-        const k = hexes.length;
-        const topHex = hexes[k - 1];
+        const k = entry.layerFilamentHexes.length;
+        const top = {
+            hex: entry.layerFilamentHexes[k - 1],
+            key: entry.layerFilamentKeys?.[k - 1] ?? entry.layerFilamentHexes[k - 1],
+        };
 
         if (orientation === 'face-down') {
             // Printed level j holds stack layer k-1-j: the face first, then
             // the rest of the column reversed, then foundation behind it.
-            parts.push(part('face', entry, levelBase(0), levelBase(1), topHex, entry.faceHex));
-            for (const run of runs(hexes, 0, k - 1).reverse()) {
+            parts.push(part('face', entry, levelBase(0), levelBase(1), top, entry.faceHex));
+            for (const run of runs(entry, 0, k - 1).reverse()) {
                 parts.push(
-                    part(
-                        'zone',
-                        entry,
-                        levelBase(k - 1 - run.end),
-                        levelBase(k - run.start),
-                        run.hex
-                    )
+                    part('zone', entry, levelBase(k - 1 - run.end), levelBase(k - run.start), run)
                 );
             }
             if (k < effectiveLayerCount) {
                 parts.push(
-                    part(
-                        'backing',
-                        entry,
-                        levelBase(k),
-                        levelBase(effectiveLayerCount),
-                        foundationHex
-                    )
+                    part('backing', entry, levelBase(k), levelBase(effectiveLayerCount), foundation)
                 );
             }
             continue;
@@ -460,28 +461,21 @@ export function buildStackLayout(options: StackLayoutOptions): FlatPaintLayout {
         // flat top surface. Relief keeps each stack on the plate.
         const start = orientation === 'face-up' ? effectiveLayerCount - k : 0;
         if (start > 0) {
-            parts.push(part('backing', entry, 0, levelBase(start), foundationHex));
+            parts.push(part('backing', entry, 0, levelBase(start), foundation));
         }
-        for (const run of runs(hexes, 0, k - 1)) {
+        for (const run of runs(entry, 0, k - 1)) {
             parts.push(
                 part(
                     'zone',
                     entry,
                     levelBase(start + run.start),
                     levelBase(start + run.end + 1),
-                    run.hex
+                    run
                 )
             );
         }
         parts.push(
-            part(
-                'face',
-                entry,
-                levelBase(start + k - 1),
-                levelBase(start + k),
-                topHex,
-                entry.faceHex
-            )
+            part('face', entry, levelBase(start + k - 1), levelBase(start + k), top, entry.faceHex)
         );
     }
 

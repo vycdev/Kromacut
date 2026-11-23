@@ -7,7 +7,7 @@ import { FLAT_PAINT_CARRIER_HEX, type FlatPaintLayout } from '../src/lib/flatPai
 import type { RegionStack, RegionStackPlan, SmoothMeshingStrength } from '../src/types/index.ts';
 import { loadViteModule } from './helpers/viteModule.ts';
 
-const { buildRegionStackLayout, regionStackLabels } = await loadViteModule<
+const { buildRegionStackLayout, regionStackLabels, regionStackClasses } = await loadViteModule<
     typeof import('../src/lib/regionStacks.ts')
 >('/src/lib/regionStacks.ts');
 
@@ -107,6 +107,85 @@ test('region labels match exact targets, fall back to the nearest one, and skip 
         height: 1,
     });
     assert.deepEqual([...labels], [1, 2, 0]);
+});
+
+test('two filaments with the same color stay separate 3MF objects', () => {
+    const sameColor = (id: string, layerCount: number) => ({
+        filamentId: id,
+        filamentColor: '#EEEEEE',
+        layerCount,
+    });
+    const plan = {
+        layerHeight: LAYER_HEIGHT,
+        firstLayerHeight: FIRST_LAYER_HEIGHT,
+        stacks: [
+            {
+                ...region('#E0E0E0', '#E0E0E0', [FOUNDATION, 2]),
+                runs: [
+                    { filamentId: 'base', filamentColor: FOUNDATION, layerCount: 2 },
+                    sameColor('white-thin', 2),
+                ],
+            },
+            {
+                ...region('#F0F0F0', '#F0F0F0', [FOUNDATION, 2]),
+                runs: [
+                    { filamentId: 'base', filamentColor: FOUNDATION, layerCount: 2 },
+                    sameColor('white-dense', 1),
+                    sameColor('white-thin', 1),
+                ],
+            },
+        ],
+    };
+    const labels = Uint16Array.from([1, 2]);
+    for (const orientation of ['relief', 'face-up', 'face-down'] as const) {
+        const result = buildRegionStackLayout({
+            plan,
+            labels,
+            orientation,
+            carrierThickness: CARRIER,
+        });
+        const groups = new Set(
+            result.parts
+                .filter((part) => part.filamentHex === '#EEEEEE')
+                .map((part) => part.exportGroup)
+        );
+        assert.equal(groups.size, 2, `${orientation}: one object per white filament`);
+        // A run change between same-colored filaments still splits the column.
+        const second = result.parts.filter(
+            (part) => part.mask[1] === 1 && part.filamentHex === '#EEEEEE'
+        );
+        assert.equal(second.length, 2, `${orientation}: dense and thin layers stay separate parts`);
+    }
+});
+
+test('targets with identical stacks share one class, label, and set of parts', () => {
+    const shared = region('#808080', '#7F7F7F', [FOUNDATION, 2], ['#F4F4F4', 2]);
+    const plan = {
+        layerHeight: LAYER_HEIGHT,
+        firstLayerHeight: FIRST_LAYER_HEIGHT,
+        stacks: [shared, { ...shared, targetHex: '#828282' }, PLAN.stacks[1]],
+    };
+    assert.deepEqual(regionStackClasses(plan).classOf, [0, 0, 1]);
+    const data = Uint8ClampedArray.from([
+        0x80, 0x80, 0x80, 255, 0x82, 0x82, 0x82, 255, 0x20, 0x40, 0xc0, 255,
+    ]);
+    const labels = regionStackLabels({
+        plan,
+        data,
+        imageWidth: 3,
+        minX: 0,
+        minY: 0,
+        width: 3,
+        height: 1,
+    });
+    assert.deepEqual([...labels], [1, 1, 2]);
+    const result = buildRegionStackLayout({
+        plan,
+        labels,
+        orientation: 'relief',
+        carrierThickness: CARRIER,
+    });
+    assert.equal(result.classCount, 2);
 });
 
 test('relief keeps each region on the plate at its own height', () => {

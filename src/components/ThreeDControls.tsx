@@ -272,6 +272,7 @@ export default function ThreeDControls({
         setPreserveSeparation(enabled);
         if (enabled) {
             setHeightDithering(false);
+            setRegionStacks(false);
         }
     }, []);
 
@@ -309,13 +310,15 @@ export default function ThreeDControls({
     }, []);
 
     // Per-region stacks replace the shared sequence that multi-head routes
-    // through, so the two modes are mutually exclusive as well.
+    // through, and they can give two separated colors near-identical stacks,
+    // so they exclude both Multi-head and Preserve color separation.
     const handleRegionStacksChange = useCallback((enabled: boolean) => {
         setRegionStacks(enabled);
         setRegionStacksNotice(false);
         if (enabled) {
             setMultiHeadMode(false);
             setMultiHeadNotice(undefined);
+            setPreserveSeparation(false);
         }
     }, []);
 
@@ -479,7 +482,11 @@ export default function ThreeDControls({
         run: runMultiHead,
         cancel: cancelMultiHead,
     } = useMultiHeadWorker();
-    const { isComputing: isRegionStacksComputing, run: runRegionStacks } = useRegionStacksWorker();
+    const {
+        isComputing: isRegionStacksComputing,
+        run: runRegionStacks,
+        cancel: cancelRegionStacks,
+    } = useRegionStacksWorker();
     const [buildRevision] = useState(createBuildRevision);
     // Invalidate at commit time, before a worker continuation can publish a
     // snapshot for a previous image. Cleanup also guards component unmounts.
@@ -487,8 +494,9 @@ export default function ThreeDControls({
         () => () => {
             buildRevision.invalidate();
             cancelMultiHead();
+            cancelRegionStacks();
         },
-        [imageSrc, buildRevision, cancelMultiHead]
+        [imageSrc, buildRevision, cancelMultiHead, cancelRegionStacks]
     );
 
     const autoPaintSliceData = useMemo(() => {
@@ -566,7 +574,7 @@ export default function ThreeDControls({
         : multiHeadMode && paintMode === 'autopaint';
     const instructionRegionStacks = builtState
         ? !!builtState.regionStackPlan && instructionPaintMode === 'autopaint'
-        : regionStacks && !multiHeadMode && paintMode === 'autopaint';
+        : regionStacks && !multiHeadMode && !preserveSeparation && paintMode === 'autopaint';
     const instructionFlatPaintFaceUp = builtState
         ? !!builtState.flatPaintFaceUp
         : flatPaintActive && flatPaintFaceUp;
@@ -642,7 +650,11 @@ export default function ThreeDControls({
         }
 
         const regionStacksRequested =
-            regionStacks && !multiHeadRequested && paintMode === 'autopaint' && !!autoPaintResult;
+            regionStacks &&
+            !multiHeadRequested &&
+            !preserveSeparation &&
+            paintMode === 'autopaint' &&
+            !!autoPaintResult;
         let regionStackPlan: RegionStackPlan | null = null;
         if (regionStacksRequested && autoPaintResult) {
             regionStackPlan = await runRegionStacks({

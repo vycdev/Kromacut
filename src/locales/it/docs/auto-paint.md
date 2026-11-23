@@ -206,7 +206,7 @@ Attiva **Pile per regione** per dare a ogni colore dell’immagine la propria pi
 - Più filamenti condividono uno stesso strato stampato, quindi serve una stampante multimateriale (AMS, CFS o cambio utensile). Esporta in 3MF e assegna ogni oggetto filamento nello slicer.
 - **Filamenti max per strato** (2–16, predefinito 4) limita quanti filamenti può contenere uno strato. In Flat Paint tutti i colori terminano sullo stesso strato di faccia, quindi il limite non scende mai sotto quanto già richiesto dal normale Flat Paint.
 - Le stampe in rilievo richiedono più cambi utensile rispetto alla sequenza condivisa. Le lastre Flat Paint risultano di solito più sottili, con circa lo stesso numero di cambi utensile.
-- Il dithering dell’altezza non si applica. Pile per regione e modalità multi-testa si escludono a vicenda.
+- Il dithering dell’altezza non si applica, e le pile per regione non si possono combinare con la modalità multi-testa né con la preservazione della separazione dei colori. Vengono pianificati fino a 128 colori dell’immagine; oltre questo limite il modello usa la sequenza condivisa, quindi riduci prima le palette grandi in 2D.
 
 ## Stampa multi-testa
 

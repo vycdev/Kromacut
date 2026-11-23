@@ -47,7 +47,7 @@
     "regionStacks": "Stive pe regiune",
     "regionStacksDescription": "Fiecare culoare primește propria stivă de filamente, în loc să împartă o singură secvență. Necesită o imprimantă multimaterial.",
     "regionStacksMaxFilaments": "Număr maxim de filamente pe strat",
-    "regionStacksIncompatibleWithMultiHead": "Nu este compatibil cu modul cu mai multe capete — activarea stivelor pe regiune dezactivează modul cu mai multe capete.",
+    "regionStacksIncompatible": "Nu este compatibil cu modul cu mai multe capete sau cu păstrarea separării culorilor — activarea stivelor pe regiune le dezactivează.",
     "regionStacksFallback": "Stivele pe regiune nu au putut fi planificate — modelul a fost construit cu secvența comună de filamente.",
     "optimizerSettings": "Setări de optimizare",
     "algorithm": "Algoritm",
