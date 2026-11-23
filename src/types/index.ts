@@ -215,3 +215,55 @@ export type MultiHeadRoutingPlan = Required<
         | 'filaments'
     >
 >;
+
+/**
+ * Which end of per-region stacks lines up across the image. Relief stacks all
+ * start on the plate ('bottom'); Flat Paint stacks all end at the viewing face
+ * ('top'), with foundation filling the rest of each column.
+ */
+export type RegionStackAlignment = 'bottom' | 'top';
+
+/** One contiguous run of a single filament in a region's stack. */
+export interface RegionStackRun {
+    filamentId: string;
+    filamentColor: string;
+    /** Printed layers in this run, on the Auto-paint layer grid. */
+    layerCount: number;
+}
+
+/** The filament stack chosen for one Auto-paint target color. */
+export interface RegionStack {
+    targetHex: string;
+    usageWeight: number;
+    /** Bottom-up runs; the first run is always the shared opaque foundation. */
+    runs: RegionStackRun[];
+    layerCount: number;
+    predictedHex: string;
+    /** CIEDE2000 between the target and the predicted stack color. */
+    deltaE: number;
+    /** True when this is the target's prefix of the shared Auto-paint sequence. */
+    shared: boolean;
+}
+
+/** Per-region stacks for every Auto-paint target, with per-layer filament use. */
+export interface RegionStackPlan {
+    alignment: RegionStackAlignment;
+    layerHeight: number;
+    firstLayerHeight: number;
+    foundationFilamentId: string;
+    stacks: RegionStack[];
+    /** Layers in the tallest stack. */
+    layerCount: number;
+    /** Requested cap on distinct filaments in any printed layer. */
+    maxFilamentsPerLayer: number;
+    /**
+     * Most distinct filaments used in one layer. Above the cap only when the
+     * shared sequence's own layout already needs more, as Flat Paint faces can.
+     */
+    peakFilamentsPerLayer: number;
+    toolChangeEstimate: number;
+    /** Usage-weighted mean CIEDE2000 of the shared sequence's prefixes. */
+    sharedDeltaE: number;
+    /** Usage-weighted mean CIEDE2000 of the chosen stacks. */
+    deltaE: number;
+}
