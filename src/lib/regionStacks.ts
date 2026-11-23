@@ -293,8 +293,9 @@ export function estimateRegionStackToolChanges(sets: readonly Set<string>[]): nu
 
 /**
  * Plan one stack per Auto-paint target, then enforce the per-layer filament
- * cap. Returns null when the result has no printable stack or targets, has
- * more than MAX_REGION_STACK_TARGETS targets, or no plan fits the cap.
+ * cap. Returns null when the result has no printable stack or targets, when
+ * its targets plus any zero-weight image swatches exceed MAX_REGION_STACK_TARGETS
+ * or the image's share of REGION_STACK_MASK_BUDGET, or when no plan fits the cap.
  */
 export function planRegionStacks(options: RegionStackPlanOptions): RegionStackPlan | null {
     const stack = options.result.finalStack;
@@ -796,9 +797,19 @@ export function buildRegionStackLayout(options: RegionStackLayoutOptions): FlatP
         if (run.filamentName) nameById.set(run.filamentId, run.filamentName);
     }
     const label = orientation === 'relief' ? 'Filament' : 'Flat Paint filament';
+    // A profile name tells filaments apart unless another same-colored
+    // filament has that name too; then the ID does.
+    const tag = (hex: string, id: string) => {
+        const name = nameById.get(id);
+        const ids = idsByHex.get(hex) ?? new Set<string>();
+        const unique =
+            name !== undefined &&
+            [...ids].every((other) => other === id || nameById.get(other) !== name);
+        return unique ? name : id;
+    };
     const partName = (hex: string, id: string) =>
         (idsByHex.get(hex)?.size ?? 0) > 1
-            ? `${label} (${hex}, ${nameById.get(id) ?? id})`
+            ? `${label} (${hex}, ${tag(hex, id)})`
             : `${label} (${hex})`;
 
     // Group parts by filament identity: two loaded filaments can share a color.

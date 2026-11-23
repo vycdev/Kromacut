@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { MINIMAL_PROJECT_SETTINGS, KROMACUT_CONFIG } from './slicerDefaults';
 import { clampProgress, exportMeshProgress, exportZipProgress, progressInSpan } from './progress';
 import { normalizeHexColor } from './colorUtils';
+import { escapeXmlAttribute } from './xml';
 import type { SmoothMeshingStrength } from '../types';
 
 export interface Export3MFOptions {
@@ -562,7 +563,7 @@ ${metadataContentTypes}${metadataContentTypes ? '\n' : ''}</Types>`;
             progressStart: number,
             progressSpan: number
         ) => {
-            write(`<object id="${meshObjectId}" p:UUID="${generateUUID()}" pid="${baseMatId}" pindex="${matIdx}" type="model" name="${meshName}">
+            write(`<object id="${meshObjectId}" p:UUID="${generateUUID()}" pid="${baseMatId}" pindex="${matIdx}" type="model" name="${escapeXmlAttribute(meshName)}">
 `);
             write(` <mesh>
 `);

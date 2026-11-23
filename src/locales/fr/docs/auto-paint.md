@@ -206,7 +206,7 @@ Activez **Empilements par région** pour donner à chaque couleur de l’image s
 - Plusieurs filaments partagent une même couche imprimée : une imprimante multimatériau (AMS, CFS ou changeur d’outils) est donc nécessaire. Exportez en 3MF et attribuez chaque objet de filament dans le trancheur.
 - **Filaments max. par couche** (2–16, 4 par défaut) limite le nombre de filaments qu’une couche peut contenir. En peinture à plat, toutes les couleurs se terminent sur la même couche de face : la limite ne descend donc jamais sous ce que la peinture à plat simple exige déjà.
 - Les impressions en relief demandent plus de changements d’outil que la séquence commune. Les plaques en peinture à plat sont généralement plus fines, avec à peu près le même nombre de changements d’outil.
-- Le tramage de hauteur ne s’applique pas, et les empilements par région ne peuvent pas être combinés avec le mode multi-têtes ni avec la préservation de la séparation des couleurs. Jusqu’à 128 couleurs d’image sont planifiées ; au-delà, le modèle utilise la séquence commune : quantifiez donc les grandes palettes en 2D au préalable.
+- Le tramage de hauteur ne s’applique pas, et les empilements par région ne peuvent pas être combinés avec le mode multi-têtes ni avec la préservation de la séparation des couleurs. Jusqu’à 128 couleurs d’image sont planifiées, moins pour les très grandes images ; au-delà, le modèle utilise la séquence commune : quantifiez donc les grandes palettes en 2D au préalable.
 
 ## Impression multi-têtes
 

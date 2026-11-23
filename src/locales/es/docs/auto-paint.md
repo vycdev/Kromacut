@@ -206,7 +206,7 @@ Activa **Pilas por región** para que cada color de la imagen tenga su propia pi
 - Varios filamentos comparten una misma capa impresa, por lo que se necesita una impresora multimaterial (AMS, CFS o cambiador de herramientas). Exporta en 3MF y asigna cada objeto de filamento en el laminador.
 - **Máx. filamentos por capa** (2–16, 4 por defecto) limita cuántos filamentos puede contener una capa. En pintura plana todos los colores terminan en la misma capa de la cara, así que el límite nunca baja de lo que ya necesita la pintura plana normal.
 - Las impresiones en relieve necesitan más cambios de herramienta que la secuencia compartida. Las placas de pintura plana suelen ser más delgadas, con aproximadamente el mismo número de cambios de herramienta.
-- El tramado de altura no se aplica, y las pilas por región no se pueden combinar con el modo multicabezal ni con conservar la separación de colores. Se planifican hasta 128 colores de la imagen; con más, el modelo usa la secuencia compartida, así que reduce antes las paletas grandes en 2D.
+- El tramado de altura no se aplica, y las pilas por región no se pueden combinar con el modo multicabezal ni con conservar la separación de colores. Se planifican hasta 128 colores de la imagen, menos en imágenes muy grandes; con más, el modelo usa la secuencia compartida, así que reduce antes las paletas grandes en 2D.
 
 ## Impresión multicabezal
 

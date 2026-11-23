@@ -164,6 +164,79 @@ test('two filaments with the same color stay separate 3MF objects', () => {
     }
 });
 
+test('same-named same-color filaments fall back to IDs and export valid XML names', async () => {
+    const { exportObjectTo3MFBlob } =
+        await loadViteModule<typeof import('../src/lib/export3mf.ts')>('/src/lib/export3mf.ts');
+    const white = (id: string, layerCount: number) => ({
+        filamentId: id,
+        filamentColor: '#EEEEEE',
+        layerCount,
+        filamentName: 'White & Pearl',
+    });
+    const base = { filamentId: 'base', filamentColor: FOUNDATION, layerCount: 2 };
+    const plan = {
+        layerHeight: LAYER_HEIGHT,
+        firstLayerHeight: FIRST_LAYER_HEIGHT,
+        stacks: [
+            { ...region('#E0E0E0', '#E0E0E0', [FOUNDATION, 2]), runs: [base, white('a', 2)] },
+            { ...region('#F0F0F0', '#F0F0F0', [FOUNDATION, 2]), runs: [base, white('b', 1)] },
+        ],
+    };
+    const result = buildRegionStackLayout({
+        plan,
+        labels: Uint16Array.from([1, 2]),
+        orientation: 'relief',
+        carrierThickness: CARRIER,
+    });
+    const names = [...new Set(result.parts.map((part) => part.partName))].sort();
+    assert.deepEqual(names, [
+        'Filament (#111111)',
+        'Filament (#EEEEEE, a)',
+        'Filament (#EEEEEE, b)',
+    ]);
+
+    // A profile name with XML metacharacters must not break the model file.
+    const unique = {
+        ...plan,
+        stacks: [
+            plan.stacks[0],
+            { ...plan.stacks[1], runs: [base, { ...white('b', 1), filamentName: 'Pearl <2>' }] },
+        ],
+    };
+    const named = buildRegionStackLayout({
+        plan: unique,
+        labels: Uint16Array.from([1, 2]),
+        orientation: 'relief',
+        carrierThickness: CARRIER,
+    });
+    const meshMask = await createFlatPaintMesher(
+        Uint16Array.from([1, 2]),
+        2,
+        1,
+        0.4,
+        'none',
+        noYieldOptions
+    );
+    const root = new THREE.Group();
+    for (const part of named.parts) {
+        const mesh = await meshMask(part.mask, noYieldOptions);
+        const geometry = new THREE.BufferGeometry();
+        geometry.setAttribute('position', new THREE.BufferAttribute(mesh.positions, 3));
+        geometry.setIndex(mesh.indices);
+        const object = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial());
+        object.userData.kromacutExportGroup = part.exportGroup;
+        object.userData.kromacutFilamentHex = part.filamentHex;
+        object.userData.kromacutMaterialKey = part.exportGroup;
+        object.userData.kromacutPartName = part.partName;
+        root.add(object);
+    }
+    const zip = await JSZip.loadAsync(await (await exportObjectTo3MFBlob(root)).arrayBuffer());
+    const xml = await zip.file('3D/3dmodel.model')!.async('string');
+    assert.ok(xml.includes('name="Filament (#EEEEEE, White &amp; Pearl)"'));
+    assert.ok(xml.includes('name="Filament (#EEEEEE, Pearl &lt;2&gt;)"'));
+    assert.ok(!/name="[^"]*[<&](?!amp;|lt;|gt;|quot;|apos;)/.test(xml), 'object names are escaped');
+});
+
 test('targets with identical stacks share one class, label, and set of parts', () => {
     const shared = region('#808080', '#7F7F7F', [FOUNDATION, 2], ['#F4F4F4', 2]);
     const plan = {
