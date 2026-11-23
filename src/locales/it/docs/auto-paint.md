@@ -199,6 +199,15 @@ Dopo aver cambiato processo o altezza dello strato, esamina questo riepilogo dei
 
 Se il suggerimento è utile, trova una bobina reale, poi inserisci il suo colore e la sua calibrazione effettivi. Non stampare presumendo che la riga ipotetica sia già disponibile. I suggerimenti si azzerano quando cambiano i colori dell’immagine o il set di filamenti. Un risultato senza candidati indica che il set attuale copre già bene l’immagine secondo questo test approssimativo.
 
+## Pile per regione
+
+Attiva **Pile per regione** per dare a ogni colore dell’immagine la propria pila di filamenti. Normalmente ogni colore stampa i primi strati di un’unica sequenza di filamenti condivisa, quindi un colore che richiede una pila insolita costringe tutti i colori sopra di esso a stampare anche quegli strati. Con questa opzione, ogni colore parte dalla base condivisa e prosegue con la propria pila corta, composta da qualsiasi filamento caricato. Un colore lascia la sequenza condivisa solo quando la sua pila promette una corrispondenza nettamente migliore.
+
+- Più filamenti condividono uno stesso strato stampato, quindi serve una stampante multimateriale (AMS, CFS o cambio utensile). Esporta in 3MF e assegna ogni oggetto filamento nello slicer.
+- **Filamenti max per strato** (2–16, predefinito 4) limita quanti filamenti può contenere uno strato. In Flat Paint tutti i colori terminano sullo stesso strato di faccia, quindi il limite non scende mai sotto quanto già richiesto dal normale Flat Paint.
+- Le stampe in rilievo richiedono più cambi utensile rispetto alla sequenza condivisa. Le lastre Flat Paint risultano di solito più sottili, con circa lo stesso numero di cambi utensile.
+- Il dithering dell’altezza non si applica. Pile per regione e modalità multi-testa si escludono a vicenda.
+
 ## Stampa multi-testa
 
 Attiva la modalità multi-testa in Auto-paint e scegli 2–8 teste e una profondità di ricerca. Durante la creazione, l’ordine dei filamenti viene analizzato in background e a ogni regione dell’immagine viene assegnato il proprio filamento per ciascuno strato. L’anteprima mostra la miscela simulata; i colori fisici mostrano il filamento reale. La modalità multi-testa e Flat Paint si escludono a vicenda.

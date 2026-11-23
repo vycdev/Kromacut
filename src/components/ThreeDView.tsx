@@ -1,4 +1,5 @@
-import type { SmoothMeshingStrength } from '../types';
+import type { RegionStackPlan, SmoothMeshingStrength } from '../types';
+import { buildRegionStackLayout, regionStackLabels } from '../lib/regionStacks';
 import { useTranslation } from 'react-i18next';
 import { translateRuntimeMessage } from '../lib/runtimeMessages';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -83,6 +84,8 @@ interface ThreeDViewProps {
     isOrtho?: boolean;
     flatPaint?: boolean; // Build a uniform Flat Paint slab (auto-paint only)
     flatPaintFaceUp?: boolean; // Expose the artwork on top without a transparent carrier
+    /** Per-region filament stacks; every region prints its own stack instead of a shared prefix. */
+    regionStackPlan?: RegionStackPlan;
     previewRenderMode?: PreviewRenderMode;
     /** Auto-paint 3D preview color source: simulated blend vs. physical filament colors. */
     previewColorMode?: PreviewColorMode;
@@ -310,6 +313,7 @@ interface E2EBuildMetrics {
         heightDithering: boolean;
         flatPaint?: boolean;
         flatPaintFaceUp?: boolean;
+        regionStacks?: boolean;
     };
 }
 
@@ -403,6 +407,7 @@ export default function ThreeDView({
     isOrtho = false,
     flatPaint = false,
     flatPaintFaceUp = false,
+    regionStackPlan,
     previewRenderMode = 'shaded',
     previewColorMode = 'simulated',
     onBuildStarted,
@@ -413,6 +418,9 @@ export default function ThreeDView({
     const mountRef = useRef<HTMLDivElement | null>(null);
     const [isBuilding, setIsBuilding] = useState(false);
     const [buildError, setBuildError] = useState<string | null>(null);
+    // Flat Paint and per-region stacks build multi-layer slabs with several
+    // filaments per layer, so Layer Preview steps by physical layer.
+    const slabLayout = flatPaint || !!regionStackPlan;
     const [activeBuildSmoothMeshingStrength, setActiveBuildSmoothMeshingStrength] =
         useState(smoothMeshingStrength);
     const [buildProgress, setBuildProgress] = useState(0);
@@ -653,7 +661,7 @@ export default function ThreeDView({
         if (maxModelHeight <= 0 || colorOrder.length === 0) return [];
         // Spatial material plans contain several filaments side by side, so a
         // single global color sequence cannot describe them — show a plain track.
-        if (flatPaint || multiHeadPlan) return [];
+        if (slabLayout || multiHeadPlan) return [];
 
         const segments: LayerPreviewSegment[] = [];
         let running = 0;
@@ -703,7 +711,7 @@ export default function ThreeDView({
         filamentSwatches,
         swatches,
         layerHeight,
-        flatPaint,
+        slabLayout,
         multiHeadPlan,
     ]);
 
@@ -724,10 +732,10 @@ export default function ThreeDView({
     };
 
     const handlePreviewRangeChange = (value: number[]) => {
-        const low = flatPaint
+        const low = slabLayout
             ? (flatPreviewHeights[value[0]] ?? 0)
             : snapPreviewHeight(value[0] ?? 0);
-        const high = flatPaint
+        const high = slabLayout
             ? (flatPreviewHeights[value[1]] ?? maxModelHeight)
             : snapPreviewHeight(value[1] ?? maxModelHeight);
         setPreviewMinHeight(Math.min(low, high));
@@ -737,8 +745,8 @@ export default function ThreeDView({
     const handleReliefPreviewKeyDown = (event: KeyboardEvent<HTMLSpanElement>, upper: boolean) => {
         // Pointer positions remain proportional to height. Keyboard movement must
         // use printable boundaries: a 0.01 mm increment otherwise snaps back to
-        // the same layer. Flat Paint already uses integer boundary indices.
-        if (flatPaint) return;
+        // the same layer. Slab layouts already use integer boundary indices.
+        if (slabLayout) return;
         const decreasing = ['ArrowLeft', 'ArrowDown', 'PageDown'].includes(event.key);
         const increasing = ['ArrowRight', 'ArrowUp', 'PageUp'].includes(event.key);
         if (!decreasing && !increasing && event.key !== 'Home' && event.key !== 'End') return;
@@ -879,6 +887,7 @@ export default function ThreeDView({
                     heightDithering,
                     flatPaint,
                     flatPaintFaceUp,
+                    regionStacks: !!regionStackPlan,
                 },
             });
 
@@ -974,7 +983,10 @@ export default function ThreeDView({
                         cumulativeHeights[0] ??
                         0;
 
-                    if (multiHeadPlan && autoPaintFinalStack) {
+                    if (regionStackPlan) {
+                        // Per-region stacks label pixels by target color below;
+                        // each region's own stack sets its height.
+                    } else if (multiHeadPlan && autoPaintFinalStack) {
                         // Analysis uses the final printable target assignments,
                         // including when enhanced matching is off. Preserve those
                         // surface heights while changing each pixel's filament path.
@@ -1414,44 +1426,72 @@ export default function ThreeDView({
                         }
                     }
 
-                    if (flatPaint) {
-                        // === FLAT_PAINT: uniform multi-material slab ===
-                        // Face-down reverses and mirrors each color stack under
-                        // a clear carrier. Face-up keeps the normal stack order,
+                    if (flatPaint || regionStackPlan) {
+                        // === SLAB LAYOUTS: several filaments side by side per layer ===
+                        // Flat Paint face-down reverses and mirrors each color stack
+                        // under a clear carrier. Face-up keeps the normal stack order,
                         // does not mirror it, and fills beneath shorter columns.
+                        // Per-region stacks give each target color its own stack,
+                        // in relief or in either Flat Paint orientation.
                         const flatPaintOrientation = flatPaintFaceUp ? 'face-up' : 'face-down';
-                        const rawCounts = flatPaintFaceUp
-                            ? heightMapToLayerCounts(pixelHeightMap, cumulativeHeights)
-                            : heightMapToFlatPaintLayerCounts(
-                                  pixelHeightMap,
-                                  cumulativeHeights,
-                                  layerHeight
-                              );
-                        const orientedCounts = orientFlatPaintLayerCounts(
-                            rawCounts,
-                            boxW,
-                            boxH,
-                            flatPaintOrientation
-                        );
-
-                        const layout = buildFlatPaintLayout({
-                            layerCounts: orientedCounts,
-                            width: boxW,
-                            height: boxH,
-                            layerCount: colorOrder.length,
-                            layerHeight,
-                            carrierThickness: Math.max(slicerFirstLayerHeight, layerHeight),
-                            orientation: flatPaintOrientation,
-                            firstLayerThickness: Math.max(slicerFirstLayerHeight, layerHeight),
-                            layerVirtualHexes: colorOrder.map(
-                                (swatchIdx) => swatches[swatchIdx]?.hex ?? '#888888'
-                            ),
-                            layerFilamentHexes: colorOrder.map(
-                                (swatchIdx) =>
-                                    (filamentSwatches?.[swatchIdx] ?? swatches[swatchIdx])?.hex ??
-                                    '#888888'
-                            ),
-                        });
+                        const carrierThickness = Math.max(slicerFirstLayerHeight, layerHeight);
+                        let labelGrid: Uint16Array;
+                        let layout: ReturnType<typeof buildFlatPaintLayout>;
+                        if (regionStackPlan) {
+                            const orientation = flatPaint ? flatPaintOrientation : 'relief';
+                            labelGrid = orientFlatPaintLayerCounts(
+                                regionStackLabels({
+                                    plan: regionStackPlan,
+                                    data,
+                                    imageWidth: fullW,
+                                    minX,
+                                    minY,
+                                    width: boxW,
+                                    height: boxH,
+                                }),
+                                boxW,
+                                boxH,
+                                orientation === 'face-down' ? 'face-down' : 'face-up'
+                            );
+                            layout = buildRegionStackLayout({
+                                plan: regionStackPlan,
+                                labels: labelGrid,
+                                orientation,
+                                carrierThickness,
+                            });
+                        } else {
+                            const rawCounts = flatPaintFaceUp
+                                ? heightMapToLayerCounts(pixelHeightMap, cumulativeHeights)
+                                : heightMapToFlatPaintLayerCounts(
+                                      pixelHeightMap,
+                                      cumulativeHeights,
+                                      layerHeight
+                                  );
+                            labelGrid = orientFlatPaintLayerCounts(
+                                rawCounts,
+                                boxW,
+                                boxH,
+                                flatPaintOrientation
+                            );
+                            layout = buildFlatPaintLayout({
+                                layerCounts: labelGrid,
+                                width: boxW,
+                                height: boxH,
+                                layerCount: colorOrder.length,
+                                layerHeight,
+                                carrierThickness,
+                                orientation: flatPaintOrientation,
+                                firstLayerThickness: carrierThickness,
+                                layerVirtualHexes: colorOrder.map(
+                                    (swatchIdx) => swatches[swatchIdx]?.hex ?? '#888888'
+                                ),
+                                layerFilamentHexes: colorOrder.map(
+                                    (swatchIdx) =>
+                                        (filamentSwatches?.[swatchIdx] ?? swatches[swatchIdx])
+                                            ?.hex ?? '#888888'
+                                ),
+                            });
+                        }
 
                         const partCount = Math.max(1, layout.parts.length);
                         flatModelHeight = layout.totalHeight;
@@ -1463,7 +1503,7 @@ export default function ThreeDView({
                         ) => {
                             const stepProgress = clampProgress(progress);
                             pushBuildOverlayStep({
-                                stepLabel: `Flat Paint mesh part ${partIndex + 1} of ${partCount}: ${label}`,
+                                stepLabel: `${regionStackPlan ? 'Region stack' : 'Flat Paint'} mesh part ${partIndex + 1} of ${partCount}: ${label}`,
                                 stepIndex: Math.min(partCount + 1, partIndex + 2),
                                 stepCount: partCount + 1,
                                 stepProgress,
@@ -1478,7 +1518,7 @@ export default function ThreeDView({
                         };
 
                         const meshFlatMask = await createFlatPaintMesher(
-                            orientedCounts,
+                            labelGrid,
                             boxW,
                             boxH,
                             pixelSize,
@@ -1950,7 +1990,8 @@ export default function ThreeDView({
 
                 // The STL export checks the mesh itself, because a newer build
                 // snapshot can be committed before this one is replaced.
-                modelGroup.userData.kromacutStlUnavailable = flatPaint || !!multiHeadPlan;
+                modelGroup.userData.kromacutStlUnavailable =
+                    flatPaint || !!multiHeadPlan || !!regionStackPlan;
                 try {
                     (
                         window as unknown as { __KROMACUT_LAST_MESH?: THREE.Object3D }
@@ -1997,6 +2038,7 @@ export default function ThreeDView({
                         heightDithering,
                         flatPaint,
                         flatPaintFaceUp,
+                        regionStacks: !!regionStackPlan,
                     },
                 });
 
@@ -2134,6 +2176,7 @@ export default function ThreeDView({
         smoothMeshingStrength,
         flatPaint,
         flatPaintFaceUp,
+        regionStackPlan,
         frameModel,
         materialRef,
         modelGroupRef,
@@ -2150,10 +2193,10 @@ export default function ThreeDView({
         previewHeight !== null && previewMinHeight > 0.0001
             ? `${previewMinHeight.toFixed(2)} - ${previewHeight.toFixed(2)} mm`
             : `${(previewHeight ?? 0).toFixed(2)} mm`;
-    const previewMinPercent = flatPaint
+    const previewMinPercent = slabLayout
         ? heightToPercent(flatPreviewIndex(previewMinHeight), flatPreviewHeights.length - 1)
         : heightToPercent(previewMinHeight, maxModelHeight);
-    const previewMaxPercent = flatPaint
+    const previewMaxPercent = slabLayout
         ? heightToPercent(
               flatPreviewIndex(previewHeight ?? maxModelHeight),
               flatPreviewHeights.length - 1
@@ -2203,7 +2246,7 @@ export default function ThreeDView({
                         height: modelDimensions.height.toFixed(1),
                         depth: modelDimensions.depth.toFixed(1),
                     })}
-                    {flatPaint &&
+                    {slabLayout &&
                         ` ${t('autoPaintTab.physicalLayers', { count: flatPreviewHeights.length - 1 })}`}
                 </div>
             )}
@@ -2255,7 +2298,7 @@ export default function ThreeDView({
                                 )}
                                 <SliderPrimitive.Root
                                     value={
-                                        flatPaint
+                                        slabLayout
                                             ? [
                                                   flatPreviewIndex(previewMinHeight),
                                                   flatPreviewIndex(previewHeight),
@@ -2264,8 +2307,8 @@ export default function ThreeDView({
                                     }
                                     onValueChange={handlePreviewRangeChange}
                                     min={0}
-                                    max={flatPaint ? flatPreviewHeights.length - 1 : maxModelHeight}
-                                    step={flatPaint ? 1 : 0.01}
+                                    max={slabLayout ? flatPreviewHeights.length - 1 : maxModelHeight}
+                                    step={slabLayout ? 1 : 0.01}
                                     minStepsBetweenThumbs={0}
                                     className="relative flex h-4 w-full touch-none select-none items-center"
                                     data-testid="layer-preview-range"

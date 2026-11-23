@@ -143,6 +143,12 @@ export interface ThreeDControlsStateShape {
     flatPaint?: boolean;
     /** Print Flat Paint face-up without the transparent carrier layer. */
     flatPaintFaceUp?: boolean;
+    /** Give each Auto-paint target color its own filament stack (#151). */
+    regionStacks?: boolean;
+    /** Most distinct filaments per printed layer with per-region stacks (2–16). */
+    regionStacksMaxFilaments?: number;
+    /** Built per-region stacks; present only when the build used them. */
+    regionStackPlan?: RegionStackPlan;
     // Optimizer options (effort tier; legacy values migrate on load)
     optimizerAlgorithm?: 'fast' | 'balanced' | 'thorough' | 'deep' | 'exact';
     optimizerSeed?: number;

@@ -39,6 +39,8 @@ export interface UseSwapPlanOptions {
     flatPaint?: boolean;
     /** Flat Paint is printed face-up without a transparent carrier. */
     flatPaintFaceUp?: boolean;
+    /** Per-region stacks put several filaments on a layer, so there is no manual swap sequence. */
+    regionStacks?: boolean;
     smoothMeshingStrength?: SmoothMeshingStrength;
 }
 
@@ -59,11 +61,12 @@ export function useSwapPlan({
     multiHeadMode = false,
     flatPaint = false,
     flatPaintFaceUp = false,
+    regionStacks = false,
     smoothMeshingStrength = 'none',
 }: UseSwapPlanOptions) {
     const { t } = useTranslation('printing');
     const swapPlan = useMemo(() => {
-        if (flatPaint) {
+        if (flatPaint || regionStacks) {
             return [] as SwapEntry[];
         }
 
@@ -153,6 +156,7 @@ export function useSwapPlan({
         autoPaintResult,
         patchedTransitionZones,
         flatPaint,
+        regionStacks,
     ]);
 
     // Per-checkpoint head schedule for multi-head mode, ordered by layer number.
@@ -217,6 +221,17 @@ export function useSwapPlan({
                 );
                 lines.push('- After printing, flip the piece over: the image side is the bottom.');
             }
+            appendFooter();
+            return lines.map(translateRuntimeMessage).join('\n');
+        }
+
+        if (regionStacks) {
+            lines.push(`${t('printInstructions.regionStacksMultiMaterialPrint')}:`);
+            lines.push('- Export as 3MF: the model contains one object per filament.');
+            lines.push(
+                '- Assign each object to its filament in the slicer (multi-material printer required).'
+            );
+            lines.push('- Print as-is and face-up. Do not mirror the model in the slicer.');
             appendFooter();
             return lines.map(translateRuntimeMessage).join('\n');
         }

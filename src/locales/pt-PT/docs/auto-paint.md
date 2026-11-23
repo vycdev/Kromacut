@@ -199,6 +199,15 @@ Depois de mudar processo ou altura, examine o resumo. Alta calibração geral n�
 
 Encontre uma bobina real se útil e introduza cor/calibração reais. Não imprima assumindo que a linha hipotética existe. Sugestões reiniciam quando mudam cores ou filamentos. Sem candidato significa que o conjunto já cobre bem segundo este teste aproximado.
 
+## Pilhas por região
+
+Ative **Pilhas por região** para dar a cada cor da imagem a sua própria pilha de filamentos. Normalmente, cada cor imprime as primeiras camadas de uma única sequência de filamentos partilhada, pelo que uma cor que precise de uma pilha invulgar obriga todas as cores acima dela a imprimir também essas camadas. Com esta opção, cada cor começa na base partilhada e continua com a sua própria pilha curta, feita de quaisquer filamentos carregados. Uma cor só abandona a sequência partilhada quando se prevê que a sua própria pilha corresponda claramente melhor.
+
+- Vários filamentos partilham a mesma camada impressa, por isso é necessária uma impressora multimaterial (AMS, CFS ou trocador de ferramentas). Exporte em 3MF e atribua cada objeto de filamento no fatiador.
+- **Máx. de filamentos por camada** (2–16, predefinição 4) limita quantos filamentos uma camada pode conter. Na pintura plana, todas as cores terminam na mesma camada de face, pelo que o limite nunca desce abaixo do que a pintura plana normal já precisa.
+- As impressões em relevo precisam de mais trocas de ferramenta do que a sequência partilhada. As placas de pintura plana ficam normalmente mais finas, com aproximadamente o mesmo número de trocas de ferramenta.
+- O pontilhado de altura não se aplica. As pilhas por região e o modo multicabeças são mutuamente exclusivos.
+
 ## Impressão multicabeças
 
 Ativa o modo multicabeças no Auto-paint e escolhe 2–8 cabeças e uma profundidade de pesquisa. Ao criar o modelo, a ordem dos filamentos é analisada em segundo plano e cada região da imagem recebe o seu próprio filamento em cada camada. A pré-visualização mostra a mistura simulada; as cores físicas mostram o filamento real. O modo multicabeças e o Flat Paint excluem-se mutuamente.

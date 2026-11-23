@@ -199,6 +199,15 @@ După schimbarea procesului sau a înălțimii stratului, inspectează acest rez
 
 Găsește o rolă reală dacă sugestia este utilă, apoi introdu culoarea și calibrarea sa reale. Nu imprima presupunând că rândul ipotetic este deja disponibil. Sugestiile se resetează când se schimbă culorile imaginii sau setul de filamente. Un rezultat fără candidat arată că setul curent acoperă deja bine imaginea în cadrul acestui test aproximativ.
 
+## Stive pe regiune
+
+Activează **Stive pe regiune** ca fiecare culoare din imagine să primească propria stivă de filamente. În mod normal, fiecare culoare tipărește primele straturi ale unei singure secvențe comune de filamente, așa că o culoare care are nevoie de o stivă neobișnuită obligă toate culorile de deasupra să tipărească și acele straturi. Cu această opțiune, fiecare culoare pornește de la fundația comună și continuă cu propria stivă scurtă, din orice filamente încărcate. O culoare părăsește secvența comună doar când propria stivă este estimată să se potrivească vizibil mai bine.
+
+- Mai multe filamente împart același strat tipărit, deci este nevoie de o imprimantă multimaterial (AMS, CFS sau schimbător de scule). Exportă ca 3MF și atribuie fiecare obiect de filament în slicer.
+- **Număr maxim de filamente pe strat** (2–16, implicit 4) limitează câte filamente poate conține un strat. În Flat Paint toate culorile se termină pe același strat de față, așa că limita nu coboară niciodată sub ce are deja nevoie Flat Paint obișnuit.
+- Tipăririle în relief au nevoie de mai multe schimbări de sculă decât secvența comună. Plăcile Flat Paint sunt de obicei mai subțiri, cu aproximativ același număr de schimbări de sculă.
+- Dithering-ul de înălțime nu se aplică. Stivele pe regiune și modul cu mai multe capete se exclud reciproc.
+
 ## Imprimarea cu mai multe capete
 
 Activează modul cu mai multe capete în Auto-paint și alege 2–8 capete și o profunzime de căutare. Construirea analizează ordinea filamentelor în fundal și atribuie fiecărei regiuni a imaginii propriul filament pe fiecare strat. Previzualizarea arată amestecul simulat; culorile fizice arată filamentul real. Modul cu mai multe capete și Flat Paint se exclud reciproc.

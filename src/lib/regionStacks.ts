@@ -48,6 +48,18 @@ import type {
 /** Runs a stack may add above the shared foundation. */
 export const DEFAULT_REGION_STACK_RUNS = 3;
 export const DEFAULT_MAX_FILAMENTS_PER_LAYER = 4;
+export const MIN_MAX_FILAMENTS_PER_LAYER = 2;
+export const MAX_MAX_FILAMENTS_PER_LAYER = 16;
+
+/** Clamp a stored or typed per-layer filament cap to a whole number in range. */
+export function normalizeMaxFilamentsPerLayer(value: unknown): number {
+    if (typeof value !== 'number' || !Number.isFinite(value))
+        return DEFAULT_MAX_FILAMENTS_PER_LAYER;
+    return Math.min(
+        MAX_MAX_FILAMENTS_PER_LAYER,
+        Math.max(MIN_MAX_FILAMENTS_PER_LAYER, Math.round(value))
+    );
+}
 const DEFAULT_BEAM_WIDTH = 16;
 /** Stacks per target re-ranked with the full appearance model. */
 const SHORTLIST_SIZE = 24;
