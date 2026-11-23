@@ -276,6 +276,27 @@ test('part names fall back to IDs when any tag in a color would collide', () => 
         result.parts.filter((part) => part.filamentHex === '#EEEEEE').map((part) => part.partName)
     );
     assert.equal(names.size, 3);
+
+    // Names that differ only by XML-forbidden characters export identically, so use IDs.
+    const control = {
+        ...plan,
+        stacks: plan.stacks.slice(0, 2).map((entry, i) => ({
+            ...entry,
+            runs: [base, white(['a', 'b'][i], `Pearl${String.fromCharCode(1 + i)}`)],
+        })),
+    };
+    const controlNames = buildRegionStackLayout({
+        plan: control,
+        labels: Uint16Array.from([1, 2]),
+        orientation: 'relief',
+        carrierThickness: CARRIER,
+    })
+        .parts.filter((part) => part.filamentHex === '#EEEEEE')
+        .map((part) => part.partName);
+    assert.deepEqual([...new Set(controlNames)].sort(), [
+        'Filament (#EEEEEE, a)',
+        'Filament (#EEEEEE, b)',
+    ]);
 });
 
 test('targets with identical stacks share one class, label, and set of parts', () => {
@@ -286,6 +307,20 @@ test('targets with identical stacks share one class, label, and set of parts', (
         stacks: [shared, { ...shared, targetHex: '#828282' }, PLAN.stacks[1]],
     };
     assert.deepEqual(regionStackClasses(plan).classOf, [0, 0, 1]);
+
+    // Filament IDs are imported text: one run of "rx1/g" is not two runs of r and g.
+    const run = (filamentId: string, layerCount: number) => ({
+        filamentId,
+        filamentColor: '#808080',
+        layerCount,
+    });
+    const tricky = {
+        stacks: [
+            { ...shared, runs: [run('r', 1), run('g', 1)] },
+            { ...shared, runs: [run('rx1/g', 1)] },
+        ],
+    };
+    assert.deepEqual(regionStackClasses(tricky).classOf, [0, 1]);
     const data = Uint8ClampedArray.from([
         0x80, 0x80, 0x80, 255, 0x82, 0x82, 0x82, 255, 0x20, 0x40, 0xc0, 255,
     ]);

@@ -33,6 +33,7 @@ import {
     type StackLayoutOrientation,
 } from './flatPaint.ts';
 import { correctedStackColor } from './multiHeadAnalysis.ts';
+import { escapeXmlAttribute } from './xml.ts';
 import type {
     Filament,
     RegionStack,
@@ -127,8 +128,9 @@ interface Target {
     sharedHex: string;
 }
 
+/** Unambiguous identity of a stack; imported filament IDs may contain any text. */
 function runKey(runs: readonly RegionStackRun[]): string {
-    return runs.map((run) => `${run.filamentId}x${run.layerCount}`).join('/');
+    return JSON.stringify(runs.map((run) => [run.filamentId, run.layerCount]));
 }
 
 /** Merge per-layer filaments into runs. */
@@ -806,7 +808,8 @@ export function buildRegionStackLayout(options: RegionStackLayoutOptions): FlatP
     const tagsByHex = new Map<string, Map<string, string>>();
     for (const [hex, ids] of idsByHex) {
         const tags = new Map([...ids].map((id) => [id, nameById.get(id) ?? id]));
-        const unique = new Set(tags.values()).size === tags.size;
+        // Compare as exported: XML replaces forbidden characters in names.
+        const unique = new Set([...tags.values()].map(escapeXmlAttribute)).size === tags.size;
         tagsByHex.set(hex, unique ? tags : new Map([...ids].map((id) => [id, id])));
     }
     const tag = (hex: string, id: string) => tagsByHex.get(hex)?.get(id) ?? id;
