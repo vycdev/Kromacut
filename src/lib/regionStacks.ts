@@ -26,6 +26,12 @@ import {
     resolveEffectiveTransitionOptics,
     type EffectiveTransitionOptics,
 } from './effectiveOptics.ts';
+import { normalizeHexColor } from './colorUtils.ts';
+import {
+    buildStackLayout,
+    type FlatPaintLayout,
+    type StackLayoutOrientation,
+} from './flatPaint.ts';
 import { correctedStackColor } from './multiHeadAnalysis.ts';
 import type {
     Filament,
@@ -581,4 +587,108 @@ function stackCost(runCount: number, layerCount: number): number {
 
 function toRgb(color: readonly [number, number, number]): RGB {
     return { r: color[0], g: color[1], b: color[2] };
+}
+
+export interface RegionStackLabelOptions {
+    plan: Pick<RegionStackPlan, 'stacks'>;
+    /** RGBA pixels of the full image. */
+    data: Uint8ClampedArray;
+    imageWidth: number;
+    minX: number;
+    minY: number;
+    width: number;
+    height: number;
+}
+
+/**
+ * Label every pixel of the crop with its region: 0 for transparent pixels,
+ * otherwise 1 + the index of the stack whose target color it matches. Colors
+ * that are not a target exactly use the nearest target in CIEDE2000.
+ */
+export function regionStackLabels(options: RegionStackLabelOptions): Uint16Array {
+    const { plan, data, imageWidth, minX, minY, width, height } = options;
+    const labels = new Uint16Array(width * height);
+    if (plan.stacks.length === 0) return labels;
+    const byKey = new Map<number, number>();
+    const targetLabs = plan.stacks.map((entry, index) => {
+        const rgb = hexToRgb(entry.targetHex);
+        const key = (rgb.r << 16) | (rgb.g << 8) | rgb.b;
+        if (!byKey.has(key)) byKey.set(key, index + 1);
+        return rgbToLab(rgb);
+    });
+
+    for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+            const source = ((minY + y) * imageWidth + minX + x) * 4;
+            if (!data[source + 3]) continue;
+            const key = (data[source] << 16) | (data[source + 1] << 8) | data[source + 2];
+            let label = byKey.get(key);
+            if (label === undefined) {
+                const lab = rgbToLab({ r: data[source], g: data[source + 1], b: data[source + 2] });
+                let best = 0;
+                for (let i = 1; i < targetLabs.length; i++) {
+                    if (deltaE2000Lab(lab, targetLabs[i]) < deltaE2000Lab(lab, targetLabs[best]))
+                        best = i;
+                }
+                label = best + 1;
+                byKey.set(key, label);
+            }
+            labels[y * width + x] = label;
+        }
+    }
+    return labels;
+}
+
+export interface RegionStackLayoutOptions {
+    plan: Pick<RegionStackPlan, 'stacks' | 'layerHeight' | 'firstLayerHeight'>;
+    /** Region labels from regionStackLabels, already oriented for the scene. */
+    labels: Uint16Array;
+    orientation: StackLayoutOrientation;
+    /** Clear carrier under a face-down slab. */
+    carrierThickness: number;
+}
+
+/**
+ * Plan the solid parts for per-region stacks. Relief keeps every region's
+ * own height; Flat Paint pads them with foundation into one uniform slab.
+ * Parts are grouped for export by physical filament.
+ */
+export function buildRegionStackLayout(options: RegionStackLayoutOptions): FlatPaintLayout {
+    const { plan, labels, orientation } = options;
+    const masks = plan.stacks.map(() => new Uint8Array(labels.length));
+    const counts = plan.stacks.map(() => 0);
+    for (let i = 0; i < labels.length; i++) {
+        const label = labels[i];
+        if (label === 0 || label > masks.length) continue;
+        masks[label - 1][i] = 1;
+        counts[label - 1]++;
+    }
+    const layerHexes = (entry: RegionStack) =>
+        entry.runs.flatMap((run) =>
+            Array.from({ length: run.layerCount }, () =>
+                normalizeHexColor(run.filamentColor, '#888888')
+            )
+        );
+    const relief = orientation === 'relief';
+    return buildStackLayout({
+        classes: plan.stacks.map((entry, index) => ({
+            classIndex: index + 1,
+            mask: masks[index],
+            activeCount: counts[index],
+            layerFilamentHexes: layerHexes(entry),
+            faceHex: entry.predictedHex,
+        })),
+        pixelCount: labels.length,
+        layerHeight: plan.layerHeight,
+        carrierThickness: options.carrierThickness,
+        orientation,
+        firstLayerThickness: plan.firstLayerHeight,
+        foundationHex: normalizeHexColor(plan.stacks[0]?.runs[0]?.filamentColor, '#888888'),
+        ...(relief
+            ? {
+                  filamentGroup: (hex: string) => `region-stacks:filament:${hex}`,
+                  filamentPartName: (hex: string) => `Filament (${hex})`,
+              }
+            : {}),
+    });
 }
