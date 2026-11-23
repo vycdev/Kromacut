@@ -343,7 +343,8 @@ export function planRegionStacks(options: RegionStackPlanOptions): RegionStackPl
     );
     const transitionCache = new Map<string, EffectiveTransitionOptics | undefined>();
     const transition = (foreground: string, substrate: string) => {
-        const key = `${foreground}\u0000${substrate}`;
+        // Imported filament IDs may contain any character, NUL included.
+        const key = JSON.stringify([foreground, substrate]);
         if (!transitionCache.has(key)) {
             transitionCache.set(
                 key,
