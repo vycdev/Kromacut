@@ -778,9 +778,13 @@ export function buildRegionStackLayout(options: RegionStackLayoutOptions): FlatP
     }
     // Only classes present in the crop need a full-size mask.
     const masks = counts.map((count) => (count > 0 ? new Uint8Array(labels.length) : undefined));
+    const opaque = { mask: new Uint8Array(labels.length), count: 0 };
     for (let i = 0; i < labels.length; i++) {
         const mask = masks[labels[i] - 1];
-        if (mask) mask[i] = 1;
+        if (!mask) continue;
+        mask[i] = 1;
+        opaque.mask[i] = 1;
+        opaque.count++;
     }
     const perLayer = <T>(entry: RegionStack, value: (run: RegionStackRun) => T) =>
         entry.runs.flatMap((run) => Array.from({ length: run.layerCount }, () => value(run)));
@@ -797,16 +801,15 @@ export function buildRegionStackLayout(options: RegionStackLayoutOptions): FlatP
         if (run.filamentName) nameById.set(run.filamentId, run.filamentName);
     }
     const label = orientation === 'relief' ? 'Filament' : 'Flat Paint filament';
-    // A profile name tells filaments apart unless another same-colored
-    // filament has that name too; then the ID does.
-    const tag = (hex: string, id: string) => {
-        const name = nameById.get(id);
-        const ids = idsByHex.get(hex) ?? new Set<string>();
-        const unique =
-            name !== undefined &&
-            [...ids].every((other) => other === id || nameById.get(other) !== name);
-        return unique ? name : id;
-    };
+    // A profile name tells same-colored filaments apart unless the names
+    // in that color collide; then every filament in it uses its unique ID.
+    const tagsByHex = new Map<string, Map<string, string>>();
+    for (const [hex, ids] of idsByHex) {
+        const tags = new Map([...ids].map((id) => [id, nameById.get(id) ?? id]));
+        const unique = new Set(tags.values()).size === tags.size;
+        tagsByHex.set(hex, unique ? tags : new Map([...ids].map((id) => [id, id])));
+    }
+    const tag = (hex: string, id: string) => tagsByHex.get(hex)?.get(id) ?? id;
     const partName = (hex: string, id: string) =>
         (idsByHex.get(hex)?.size ?? 0) > 1
             ? `${label} (${hex}, ${tag(hex, id)})`
@@ -831,6 +834,7 @@ export function buildRegionStackLayout(options: RegionStackLayoutOptions): FlatP
                 : [];
         }),
         pixelCount: labels.length,
+        opaque,
         layerHeight: plan.layerHeight,
         carrierThickness: options.carrierThickness,
         orientation,

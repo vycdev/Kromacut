@@ -384,6 +384,7 @@
     "buildingLayer": "A gerar a camada de cor {{layer}} de {{total}}",
     "layerProgress": "Camada {{layer}} de {{total}}: {{label}}",
     "flatPaintPartProgress": "Parte da malha de pintura plana {{part}} de {{total}}: {{label}}",
+    "regionStackPartProgress": "Parte da malha das pilhas por região {{part}} de {{total}}: {{label}}",
     "partMeshComplete": "Malha da peça concluída",
     "selectingPixels": "A selecionar os píxeis ativos",
     "preparingPreview": "A preparar a geometria da pré-visualização",

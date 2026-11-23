@@ -218,6 +218,11 @@ export interface StackLayoutOptions {
     classes: readonly StackLayoutClass[];
     /** Pixels in the grid; class masks all have this length. */
     pixelCount: number;
+    /**
+     * Every opaque pixel, for the face-down carrier. Callers build it in
+     * their own pixel pass; it is derived from the class masks otherwise.
+     */
+    opaque?: { mask: Uint8Array; count: number };
     layerHeight: number;
     carrierThickness: number;
     orientation: StackLayoutOrientation;
@@ -275,9 +280,14 @@ export function buildFlatPaintLayout(options: FlatPaintLayoutOptions): FlatPaint
         if (classActiveCounts[k] > 0) classMasks.set(k, new Uint8Array(pixelCount));
     }
     if (classMasks.size === 0) return empty();
+    const opaqueMask = new Uint8Array(pixelCount);
+    let opaqueCount = 0;
     for (let i = 0; i < pixelCount; i++) {
         const k = layerCounts[i];
-        if (k > 0) classMasks.get(Math.min(layerCount, k))![i] = 1;
+        if (k <= 0) continue;
+        classMasks.get(Math.min(layerCount, k))![i] = 1;
+        opaqueMask[i] = 1;
+        opaqueCount++;
     }
 
     const filamentHex = (layer: number) =>
@@ -298,6 +308,7 @@ export function buildFlatPaintLayout(options: FlatPaintLayoutOptions): FlatPaint
             faceHex: virtualHex(k - 1),
         })),
         pixelCount,
+        opaque: { mask: opaqueMask, count: opaqueCount },
         layerHeight,
         carrierThickness,
         orientation,
@@ -408,21 +419,19 @@ export function buildStackLayout(options: StackLayoutOptions): FlatPaintLayout {
 
     // --- Carrier slab: face-down only, full opaque footprint at the plate ---
     if (orientation === 'face-down' && effectiveCarrierThickness > 0) {
-        const opaqueMask = new Uint8Array(pixelCount);
-        let opaqueCount = 0;
-        for (const entry of present) {
-            for (let i = 0; i < pixelCount; i++) {
-                if (entry.mask[i] && !opaqueMask[i]) {
-                    opaqueMask[i] = 1;
-                    opaqueCount++;
-                }
+        let opaque = options.opaque;
+        if (!opaque) {
+            const mask = new Uint8Array(pixelCount);
+            for (const entry of present) {
+                for (let i = 0; i < pixelCount; i++) mask[i] |= entry.mask[i];
             }
+            opaque = { mask, count: mask.reduce((sum, value) => sum + value, 0) };
         }
         parts.push({
             kind: 'carrier',
             classIndex: 0,
-            mask: opaqueMask,
-            activeCount: opaqueCount,
+            mask: opaque.mask,
+            activeCount: opaque.count,
             baseZ: 0,
             topZ: effectiveCarrierThickness,
             previewHex: FLAT_PAINT_CARRIER_HEX,

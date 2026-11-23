@@ -354,6 +354,7 @@
         "buildingLayer": "Building color layer {{layer}} of {{total}}",
         "layerProgress": "Layer {{layer}} of {{total}}: {{label}}",
         "flatPaintPartProgress": "Flat Paint mesh part {{part}} of {{total}}: {{label}}",
+        "regionStackPartProgress": "Region stack mesh part {{part}} of {{total}}: {{label}}",
         "partMeshComplete": "Part mesh complete",
         "selectingPixels": "Selecting active pixels",
         "preparingPreview": "Preparing preview geometry",

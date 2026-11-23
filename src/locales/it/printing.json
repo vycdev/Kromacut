@@ -384,6 +384,7 @@
     "buildingLayer": "Generazione del livello colore {{layer}} di {{total}}",
     "layerProgress": "Livello {{layer}} di {{total}}: {{label}}",
     "flatPaintPartProgress": "Parte della mesh Flat Paint {{part}} di {{total}}: {{label}}",
+    "regionStackPartProgress": "Parte della mesh delle pile per regione {{part}} di {{total}}: {{label}}",
     "partMeshComplete": "Mesh della parte completata",
     "selectingPixels": "Selezione dei pixel attivi",
     "preparingPreview": "Preparazione della geometria di anteprima",

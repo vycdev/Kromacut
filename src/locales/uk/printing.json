@@ -414,6 +414,7 @@
     "buildingLayer": "Побудова колірного шару {{layer}} із {{total}}",
     "layerProgress": "Шар {{layer}} із {{total}}: {{label}}",
     "flatPaintPartProgress": "Частина сітки Flat Paint {{part}} із {{total}}: {{label}}",
+    "regionStackPartProgress": "Частина сітки стеків за регіонами {{part}} із {{total}}: {{label}}",
     "partMeshComplete": "Сітку частини завершено",
     "selectingPixels": "Вибір активних пікселів",
     "preparingPreview": "Підготовка геометрії перегляду",

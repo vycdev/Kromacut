@@ -384,6 +384,7 @@
     "buildingLayer": "Generando la capa de color {{layer}} de {{total}}",
     "layerProgress": "Capa {{layer}} de {{total}}: {{label}}",
     "flatPaintPartProgress": "Parte de malla de pintura plana {{part}} de {{total}}: {{label}}",
+    "regionStackPartProgress": "Parte de malla de pilas por región {{part}} de {{total}}: {{label}}",
     "partMeshComplete": "Malla de la pieza completada",
     "selectingPixels": "Seleccionando los píxeles activos",
     "preparingPreview": "Preparando la geometría de la vista previa",

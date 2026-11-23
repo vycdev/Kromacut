@@ -235,6 +235,47 @@ test('same-named same-color filaments fall back to IDs and export valid XML name
     assert.ok(xml.includes('name="Filament (#EEEEEE, White &amp; Pearl)"'));
     assert.ok(xml.includes('name="Filament (#EEEEEE, Pearl &lt;2&gt;)"'));
     assert.ok(!/name="[^"]*[<&](?!amp;|lt;|gt;|quot;|apos;)/.test(xml), 'object names are escaped');
+
+    // Profile names are user data: control characters must not reach either XML file.
+    for (const object of root.children) {
+        object.userData.kromacutPartName = `${object.userData.kromacutPartName}\u0001`;
+    }
+    const controlZip = await JSZip.loadAsync(
+        await (await exportObjectTo3MFBlob(root)).arrayBuffer()
+    );
+    for (const file of ['3D/3dmodel.model', 'Metadata/model_settings.config']) {
+        const text = await controlZip.file(file)!.async('string');
+        assert.ok(!text.includes('\u0001'), `${file} has no XML-forbidden characters`);
+    }
+});
+
+test('part names fall back to IDs when any tag in a color would collide', () => {
+    const white = (id: string, name: string) => ({
+        filamentId: id,
+        filamentColor: '#EEEEEE',
+        layerCount: 1,
+        filamentName: name,
+    });
+    const base = { filamentId: 'base', filamentColor: FOUNDATION, layerCount: 2 };
+    // Filament c is named "a", the ID another same-colored filament would fall back to.
+    const plan = {
+        layerHeight: LAYER_HEIGHT,
+        firstLayerHeight: FIRST_LAYER_HEIGHT,
+        stacks: ['a', 'b', 'c'].map((id, i) => ({
+            ...region(`#E${i}E${i}E${i}`, '#EEEEEE', [FOUNDATION, 2]),
+            runs: [base, white(id, ['Pearl', 'Pearl', 'a'][i])],
+        })),
+    };
+    const result = buildRegionStackLayout({
+        plan,
+        labels: Uint16Array.from([1, 2, 3]),
+        orientation: 'relief',
+        carrierThickness: CARRIER,
+    });
+    const names = new Set(
+        result.parts.filter((part) => part.filamentHex === '#EEEEEE').map((part) => part.partName)
+    );
+    assert.equal(names.size, 3);
 });
 
 test('targets with identical stacks share one class, label, and set of parts', () => {

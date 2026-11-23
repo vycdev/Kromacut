@@ -354,6 +354,7 @@
         "buildingLayer": "正在构建颜色层{{layer}}/{{total}}",
         "layerProgress": "第{{layer}}/{{total}}层：{{label}}",
         "flatPaintPartProgress": "平面打印网格部件{{part}}/{{total}}：{{label}}",
+        "regionStackPartProgress": "按区域堆叠网格部件{{part}}/{{total}}：{{label}}",
         "partMeshComplete": "部件网格已完成",
         "selectingPixels": "正在选择有效像素",
         "preparingPreview": "正在准备预览几何体",

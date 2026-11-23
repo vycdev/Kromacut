@@ -354,6 +354,7 @@
     "buildingLayer": "Farbschicht {{layer}} von {{total}} wird erstellt",
     "layerProgress": "Schicht {{layer}} von {{total}}: {{label}}",
     "flatPaintPartProgress": "Flat-Paint-Netzteil {{part}} von {{total}}: {{label}}",
+    "regionStackPartProgress": "Netzteil der Stapel pro Region {{part}} von {{total}}: {{label}}",
     "partMeshComplete": "Teilnetz fertig",
     "selectingPixels": "Aktive Pixel werden ausgewählt",
     "preparingPreview": "Vorschaugeometrie wird vorbereitet",

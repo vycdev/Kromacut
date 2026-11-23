@@ -913,11 +913,7 @@ ${metadataContentTypes}${metadataContentTypes ? '\n' : ''}</Types>`;
   <metadata key="extruder" value="1"/>
 `;
     for (const comp of componentMeta) {
-        const safeName = comp.name
-            .replace(/&/g, '&amp;')
-            .replace(/"/g, '&quot;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;');
+        const safeName = escapeXmlAttribute(comp.name);
         modelSettings += `  <part id="${comp.id}" subtype="normal_part">
    <metadata key="name" value="${safeName}"/>
    <metadata key="extruder" value="${comp.colorIdx}"/>
