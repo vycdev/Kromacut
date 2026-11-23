@@ -228,7 +228,13 @@ export default function ThreeDControls({
     const [omitAtRiskPixels, setOmitAtRiskPixels] = useState(persisted?.omitAtRiskPixels ?? false);
     const [flatPaint, setFlatPaint] = useState(initialFlatPaint);
     const [flatPaintFaceUp, setFlatPaintFaceUp] = useState(persisted?.flatPaintFaceUp ?? false);
-    const [regionStacks, setRegionStacks] = useState(persisted?.regionStacks ?? false);
+    // Settings saved with a conflicting mode (Multi-head or Preserve color
+    // separation) load with Per-region stacks off, as the toggles allow.
+    const [regionStacks, setRegionStacks] = useState(
+        persisted?.regionStacks === true &&
+            !initialPreserveSeparation &&
+            persisted?.multiHeadMode !== true
+    );
     const [regionStacksMaxFilaments, setRegionStacksMaxFilaments] = useState(() =>
         normalizeMaxFilamentsPerLayer(persisted?.regionStacksMaxFilaments)
     );
@@ -662,6 +668,10 @@ export default function ThreeDControls({
                 filaments,
                 alignment: flatPaint ? 'top' : 'bottom',
                 maxFilamentsPerLayer: regionStacksMaxFilaments,
+                imageSwatches: autoPaintImageSwatches,
+                pixelCount: printableFeatureSimulation
+                    ? printableFeatureSimulation.width * printableFeatureSimulation.height
+                    : undefined,
             });
             if (!isCurrentBuild()) return;
             if (!regionStackPlan) setRegionStacksNotice(true);

@@ -15,6 +15,7 @@ const {
     estimateRegionStackToolChanges,
     RegionLayerUsage,
     MAX_REGION_STACK_TARGETS,
+    REGION_STACK_MASK_BUDGET,
 } = await loadViteModule<typeof import('../src/lib/regionStacks.ts')>('/src/lib/regionStacks.ts');
 
 const LAYER_HEIGHT = 0.12;
@@ -128,11 +129,7 @@ test('shared-sequence prefixes keep the colors Auto-paint published', () => {
             return (
                 sum +
                 mapping.usageWeight *
-                    deltaE2000Lab(target, {
-                        L: mapping.predictedLab[0],
-                        a: mapping.predictedLab[1],
-                        b: mapping.predictedLab[2],
-                    })
+                    deltaE2000Lab(target, rgbToLab(hexToRgb(mapping.predictedColor.hex)))
             );
         }, 0) / total;
     assert.ok(
@@ -143,6 +140,38 @@ test('shared-sequence prefixes keep the colors Auto-paint published', () => {
     for (const [i, entry] of plan.stacks.entries()) {
         if (entry.shared) assert.equal(entry.predictedHex, mappings[i].predictedColor.hex);
     }
+});
+
+test('colors Auto-paint drops for zero weight still get their own stack', () => {
+    const result = autoPaint();
+    const extra = '#E05AB0';
+    assert.ok(
+        !result.finalStack.targetMappings.some(
+            (m) => m.targetColor.hex.toLowerCase() === extra.toLowerCase()
+        )
+    );
+    const plan = planRegionStacks({
+        result,
+        filaments: FILAMENTS,
+        alignment: 'bottom',
+        imageSwatches: [...SWATCHES, { hex: extra }],
+    });
+    assert.ok(plan);
+    const entry = plan.stacks.find(
+        (stack) => stack.targetHex.toLowerCase() === extra.toLowerCase()
+    );
+    assert.ok(entry, 'the dropped color is planned');
+    assert.equal(entry.usageWeight, 0);
+    assert.equal(plan.stacks.length, result.finalStack.targetMappings.length + 1);
+});
+
+test('large images plan fewer colors so masks stay within the memory budget', () => {
+    const result = autoPaint();
+    const targets = result.finalStack.targetMappings.length;
+    const fits = Math.floor(REGION_STACK_MASK_BUDGET / targets);
+    const options = { result, filaments: FILAMENTS, alignment: 'bottom' as const };
+    assert.ok(planRegionStacks({ ...options, pixelCount: fits }));
+    assert.equal(planRegionStacks({ ...options, pixelCount: fits + targets }), null);
 });
 
 test('palettes above the target limit fall back to the shared sequence', () => {

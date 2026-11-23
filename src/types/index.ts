@@ -235,6 +235,8 @@ export interface RegionStackRun {
     filamentColor: string;
     /** Printed layers in this run, on the Auto-paint layer grid. */
     layerCount: number;
+    /** Profile name, to tell same-colored filaments apart in the slicer. */
+    filamentName?: string;
 }
 
 /** The filament stack chosen for one Auto-paint target color. */

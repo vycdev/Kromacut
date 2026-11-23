@@ -17,7 +17,7 @@
  */
 
 import type { AutoPaintResult, RGB } from './autoPaint.ts';
-import { hexToRgb, rgbToHex, rgbToLab } from './autoPaint.ts';
+import { hexToRgb, mapTargetsToPrintablePalette, rgbToHex, rgbToLab } from './autoPaint.ts';
 import { deltaE2000Lab, type Lab } from './colorDifference.ts';
 import {
     blendEffectiveTransition,
@@ -54,6 +54,8 @@ export const MIN_MAX_FILAMENTS_PER_LAYER = 2;
  * full-size mask, so larger palettes fall back to the shared sequence.
  */
 export const MAX_REGION_STACK_TARGETS = 128;
+/** Bytes all per-stack masks may use; one byte per pixel per distinct stack. */
+export const REGION_STACK_MASK_BUDGET = 512 * 1024 * 1024;
 export const MAX_MAX_FILAMENTS_PER_LAYER = 16;
 
 /** Clamp a stored or typed per-layer filament cap to a whole number in range. */
@@ -90,6 +92,14 @@ export interface RegionStackPlanOptions {
     beamWidth?: number;
     /** Mean ΔE a stack must gain per extra filament it adds to a layer. */
     toolChangeCost?: number;
+    /**
+     * Every printable image color. Colors Auto-paint dropped from its targets
+     * (zero regional weight) still get their own stack instead of borrowing
+     * the nearest planned color's.
+     */
+    imageSwatches?: readonly { hex: string }[];
+    /** Pixels in the image; with large images fewer colors fit the mask budget. */
+    pixelCount?: number;
 }
 
 interface StackNode {
@@ -115,7 +125,6 @@ interface Target {
     sharedLayerCount: number;
     /** Auto-paint's published color for the shared prefix. */
     sharedHex: string;
-    sharedLab: Lab;
 }
 
 function runKey(runs: readonly RegionStackRun[]): string {
@@ -297,14 +306,7 @@ export function planRegionStacks(options: RegionStackPlanOptions): RegionStackPl
     const beamWidth = Math.max(1, Math.floor(options.beamWidth ?? DEFAULT_BEAM_WIDTH));
     const slotCost = Math.max(0, options.toolChangeCost ?? DEFAULT_TOOL_CHANGE_COST);
     const { layerHeight, firstLayerHeight } = stack.settings;
-    if (
-        !stack.layers.length ||
-        !stack.targetMappings.length ||
-        stack.targetMappings.length > MAX_REGION_STACK_TARGETS ||
-        !(layerHeight > 0)
-    ) {
-        return null;
-    }
+    if (!stack.layers.length || !stack.targetMappings.length || !(layerHeight > 0)) return null;
 
     const foundationLayer = stack.layers[0];
     const foundationId = foundationLayer.filamentId;
@@ -388,26 +390,67 @@ export function planRegionStacks(options: RegionStackPlanOptions): RegionStackPl
         filamentId: layer.filamentId,
         filamentColor: layer.filamentColor,
     }));
+    const sharedLayerCount = (height: number) =>
+        Math.min(stack.layers.length, Math.max(1, layersAtHeight(height)));
     const targets: Target[] = stack.targetMappings.map((mapping) => ({
         hex: mapping.targetColor.hex,
         lab: { L: mapping.targetLab[0], a: mapping.targetLab[1], b: mapping.targetLab[2] },
         weight: Math.max(0, mapping.usageWeight),
-        sharedLayerCount: Math.min(
-            stack.layers.length,
-            Math.max(
-                1,
-                layersAtHeight(
-                    stack.palette[mapping.paletteIndex]?.height ?? mapping.projectedHeight
-                )
-            )
+        sharedLayerCount: sharedLayerCount(
+            stack.palette[mapping.paletteIndex]?.height ?? mapping.projectedHeight
         ),
         sharedHex: mapping.predictedColor.hex,
-        sharedLab: {
-            L: mapping.predictedLab[0],
-            a: mapping.predictedLab[1],
-            b: mapping.predictedLab[2],
-        },
     }));
+
+    // Colors Auto-paint dropped for zero regional weight keep their own
+    // shared baseline: the published palette entry they map to.
+    const planned = new Set(targets.map((target) => rgbKey(target.hex)));
+    for (const swatch of options.imageSwatches ?? []) {
+        const key = rgbKey(swatch.hex);
+        if (planned.has(key) || !stack.palette.length) continue;
+        planned.add(key);
+        const lab = rgbToLab(hexToRgb(swatch.hex));
+        const [mapped] = mapTargetsToPrintablePalette(
+            stack.palette.map((entry) => ({
+                height: entry.height,
+                rgb: {
+                    r: entry.predictedColor.rgb[0],
+                    g: entry.predictedColor.rgb[1],
+                    b: entry.predictedColor.rgb[2],
+                },
+                lab: {
+                    L: entry.predictedLab[0],
+                    a: entry.predictedLab[1],
+                    b: entry.predictedLab[2],
+                },
+                surfaceEligible: entry.surfaceEligible,
+                predictionConfidence: entry.predictionConfidence,
+                exactAnchorId: entry.exactAnchorId,
+                exactAnchorTargetLab: entry.exactAnchorTargetLab
+                    ? {
+                          L: entry.exactAnchorTargetLab[0],
+                          a: entry.exactAnchorTargetLab[1],
+                          b: entry.exactAnchorTargetLab[2],
+                      }
+                    : undefined,
+            })),
+            [{ ...lab, weight: 1 }]
+        );
+        const entry = stack.palette[mapped.paletteIndex];
+        targets.push({
+            hex: rgbToHex(hexToRgb(swatch.hex)),
+            lab,
+            weight: 0,
+            sharedLayerCount: sharedLayerCount(entry.height),
+            sharedHex: entry.predictedColor.hex,
+        });
+    }
+    // Each distinct stack needs a full-size mask, so large images plan fewer colors.
+    const targetLimit = Math.min(
+        MAX_REGION_STACK_TARGETS,
+        Math.floor(REGION_STACK_MASK_BUDGET / Math.max(1, options.pixelCount ?? 0))
+    );
+    if (targets.length > targetLimit) return null;
 
     const foundationRun: RegionStackRun = {
         filamentId: foundationId,
@@ -477,7 +520,8 @@ export function planRegionStacks(options: RegionStackPlanOptions): RegionStackPl
         // it, so the baseline never depends on re-predicting that stack.
         const sharedRuns = layersToRuns(sharedLayers.slice(0, target.sharedLayerCount));
         const sharedKey = runKey(sharedRuns);
-        const sharedDeltaE = deltaE2000Lab(target.lab, target.sharedLab);
+        // Scored from the published uint8 color, like every alternative.
+        const sharedDeltaE = deltaE2000Lab(target.lab, rgbToLab(hexToRgb(target.sharedHex)));
         const sharedStack: ScoredStack = {
             runs: sharedRuns,
             layerCount: target.sharedLayerCount,
@@ -596,7 +640,10 @@ export function planRegionStacks(options: RegionStackPlanOptions): RegionStackPl
         stacks: finalStacks.map((entry, t) => ({
             targetHex: targets[t].hex,
             usageWeight: targets[t].weight,
-            runs: entry.runs.map((run) => ({ ...run })),
+            runs: entry.runs.map((run) => {
+                const name = options.filaments.find((f) => f.id === run.filamentId)?.name;
+                return name ? { ...run, filamentName: name } : { ...run };
+            }),
             layerCount: entry.layerCount,
             predictedHex: entry.predictedHex,
             deltaE: entry.deltaE,
@@ -615,6 +662,11 @@ export function planRegionStacks(options: RegionStackPlanOptions): RegionStackPl
 
 function stackCost(runCount: number, layerCount: number): number {
     return RUN_PENALTY * Math.max(0, runCount - 1) + LAYER_PENALTY * layerCount;
+}
+
+function rgbKey(hex: string): number {
+    const { r, g, b } = hexToRgb(hex);
+    return (r << 16) | (g << 8) | b;
 }
 
 function toRgb(color: readonly [number, number, number]): RGB {
@@ -719,29 +771,54 @@ export interface RegionStackLayoutOptions {
 export function buildRegionStackLayout(options: RegionStackLayoutOptions): FlatPaintLayout {
     const { plan, labels, orientation } = options;
     const classes = regionStackClasses(plan).representatives.map((index) => plan.stacks[index]);
-    const masks = classes.map(() => new Uint8Array(labels.length));
     const counts = classes.map(() => 0);
+    for (const label of labels) {
+        if (label > 0 && label <= counts.length) counts[label - 1]++;
+    }
+    // Only classes present in the crop need a full-size mask.
+    const masks = counts.map((count) => (count > 0 ? new Uint8Array(labels.length) : undefined));
     for (let i = 0; i < labels.length; i++) {
-        const label = labels[i];
-        if (label === 0 || label > masks.length) continue;
-        masks[label - 1][i] = 1;
-        counts[label - 1]++;
+        const mask = masks[labels[i] - 1];
+        if (mask) mask[i] = 1;
     }
     const perLayer = <T>(entry: RegionStack, value: (run: RegionStackRun) => T) =>
         entry.runs.flatMap((run) => Array.from({ length: run.layerCount }, () => value(run)));
     const hexOf = (run?: RegionStackRun) => normalizeHexColor(run?.filamentColor, '#888888');
     const foundation = plan.stacks[0]?.runs[0];
+
+    // Name same-colored filaments apart, so each slicer object can be assigned.
+    const idsByHex = new Map<string, Set<string>>();
+    const nameById = new Map<string, string>();
+    for (const run of plan.stacks.flatMap((entry) => entry.runs)) {
+        const ids = idsByHex.get(hexOf(run)) ?? new Set<string>();
+        ids.add(run.filamentId);
+        idsByHex.set(hexOf(run), ids);
+        if (run.filamentName) nameById.set(run.filamentId, run.filamentName);
+    }
+    const label = orientation === 'relief' ? 'Filament' : 'Flat Paint filament';
+    const partName = (hex: string, id: string) =>
+        (idsByHex.get(hex)?.size ?? 0) > 1
+            ? `${label} (${hex}, ${nameById.get(id) ?? id})`
+            : `${label} (${hex})`;
+
     // Group parts by filament identity: two loaded filaments can share a color.
     const group = orientation === 'relief' ? 'region-stacks:filament' : 'flat-paint:filament';
     return buildStackLayout({
-        classes: classes.map((entry, index) => ({
-            classIndex: index + 1,
-            mask: masks[index],
-            activeCount: counts[index],
-            layerFilamentHexes: perLayer(entry, hexOf),
-            layerFilamentKeys: perLayer(entry, (run) => run.filamentId),
-            faceHex: entry.predictedHex,
-        })),
+        classes: classes.flatMap((entry, index) => {
+            const mask = masks[index];
+            return mask
+                ? [
+                      {
+                          classIndex: index + 1,
+                          mask,
+                          activeCount: counts[index],
+                          layerFilamentHexes: perLayer(entry, hexOf),
+                          layerFilamentKeys: perLayer(entry, (run) => run.filamentId),
+                          faceHex: entry.predictedHex,
+                      },
+                  ]
+                : [];
+        }),
         pixelCount: labels.length,
         layerHeight: plan.layerHeight,
         carrierThickness: options.carrierThickness,
@@ -750,7 +827,6 @@ export function buildRegionStackLayout(options: RegionStackLayoutOptions): FlatP
         foundationHex: hexOf(foundation),
         foundationKey: foundation?.filamentId,
         filamentGroup: (id: string) => `${group}:${id}`,
-        filamentPartName: (hex: string) =>
-            orientation === 'relief' ? `Filament (${hex})` : `Flat Paint filament (${hex})`,
+        filamentPartName: partName,
     });
 }

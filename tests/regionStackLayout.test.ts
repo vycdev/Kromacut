@@ -155,6 +155,12 @@ test('two filaments with the same color stay separate 3MF objects', () => {
             (part) => part.mask[1] === 1 && part.filamentHex === '#EEEEEE'
         );
         assert.equal(second.length, 2, `${orientation}: dense and thin layers stay separate parts`);
+        const names = new Set(
+            result.parts
+                .filter((part) => part.filamentHex === '#EEEEEE')
+                .map((part) => part.partName)
+        );
+        assert.equal(names.size, 2, `${orientation}: same-color filaments get distinct part names`);
     }
 });
 

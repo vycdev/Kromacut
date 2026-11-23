@@ -229,8 +229,8 @@ export interface StackLayoutOptions {
     foundationKey?: string;
     /** 3MF object grouping key for a physical filament, from its identity. */
     filamentGroup?: (key: string) => string;
-    /** Slicer part name for a physical filament. */
-    filamentPartName?: (hex: string) => string;
+    /** Slicer part name for a physical filament, from its color and identity. */
+    filamentPartName?: (hex: string, key: string) => string;
 }
 
 const flatPaintFilamentGroup = (hex: string) => `flat-paint:filament:${hex}`;
@@ -390,7 +390,7 @@ export function buildStackLayout(options: StackLayoutOptions): FlatPaintLayout {
         previewHex,
         filamentHex: filament.hex,
         exportGroup: filamentGroup(filament.key),
-        partName: filamentPartName(filament.hex),
+        partName: filamentPartName(filament.hex, filament.key),
     });
 
     /** Runs of the same physical filament within stack layers [from, to), bottom-up. */
