@@ -199,6 +199,15 @@ After changing process or layer height, inspect this evidence summary. A high ge
 
 Find a real spool if the suggestion is useful, then enter its real color and calibration. Do not print assuming the hypothetical row is already available. Suggestions reset when the image colors or filament set changes. A no-candidate result says the current set already covers the image well under this approximate test.
 
+## Per-region stacks
+
+Turn on **Per-region stacks** to give each image color its own filament stack. Normally every color prints the first layers of one shared filament sequence, so one color that needs an unusual stack makes every color above it print those layers too. With this option, each color starts on the shared foundation and continues with its own short stack of any loaded filaments. A color switches only when its own stack is predicted to look the same or better. Often that is just the visible top of its old stack, because a few layers down the deeper layers no longer change the color.
+
+- Several filaments share a printed layer, so a multi-material printer (AMS, CFS, or toolchanger) is required. Export as 3MF and assign each filament object in the slicer.
+- **Max filaments per layer** (2–16, default 4) limits how many filaments one layer may hold. In Flat Paint every color ends on the same face layer, so the limit never drops below what plain Flat Paint already needs.
+- Relief prints need more tool changes than the shared sequence. Flat Paint slabs are usually thinner, with about the same number of tool changes.
+- Height dithering does not apply, and Per-region stacks can't be combined with Multi-head. With Preserve color separation on, colors it keeps apart also stay apart on their own stacks, within its limit. Up to 128 image colors are planned, fewer on very large images; with more, the build uses the shared sequence, so quantize large palettes in 2D first.
+
 ## Multi-head printing
 
 Enable Multi-head mode in Auto-paint and choose 2–8 heads and a search depth. Building analyzes filament orders in the background and assigns each image region its own filament on each layer. The preview shows the simulated blend; Physical colors shows the actual filament. Multi-head and Flat Paint are mutually exclusive.

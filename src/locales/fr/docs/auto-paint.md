@@ -199,6 +199,15 @@ Après un changement de procédé ou de hauteur de couche, examinez ce résumé.
 
 Trouvez une bobine réelle si la suggestion est utile, puis saisissez sa vraie couleur et son étalonnage. N’imprimez pas en supposant que la ligne hypothétique est déjà disponible. Les suggestions se réinitialisent lorsque les couleurs de l’image ou le jeu de filaments changent. L’absence de candidat indique que le jeu actuel couvre déjà bien l’image selon ce test approximatif.
 
+## Empilements par région
+
+Activez **Empilements par région** pour donner à chaque couleur de l’image son propre empilement de filaments. Normalement, chaque couleur imprime les premières couches d’une seule séquence de filaments commune : une couleur qui demande un empilement inhabituel oblige donc toutes les couleurs situées au-dessus à imprimer aussi ces couches. Avec cette option, chaque couleur part de la base commune puis continue avec son propre empilement court, composé de n’importe quels filaments chargés. Une couleur ne change que si son propre empilement est prédit au moins aussi fidèle. Souvent, il s’agit simplement du haut visible de son ancien empilement, car quelques couches plus bas, les couches profondes ne modifient plus la couleur.
+
+- Plusieurs filaments partagent une même couche imprimée : une imprimante multimatériau (AMS, CFS ou changeur d’outils) est donc nécessaire. Exportez en 3MF et attribuez chaque objet de filament dans le trancheur.
+- **Filaments max. par couche** (2–16, 4 par défaut) limite le nombre de filaments qu’une couche peut contenir. En peinture à plat, toutes les couleurs se terminent sur la même couche de face : la limite ne descend donc jamais sous ce que la peinture à plat simple exige déjà.
+- Les impressions en relief demandent plus de changements d’outil que la séquence commune. Les plaques en peinture à plat sont généralement plus fines, avec à peu près le même nombre de changements d’outil.
+- Le tramage de hauteur ne s’applique pas, et les empilements par région ne peuvent pas être combinés avec le mode multi-têtes. Si la préservation de la séparation des couleurs est activée, les couleurs qu’elle sépare restent aussi séparées sur leurs propres empilements, dans sa limite. Jusqu’à 128 couleurs d’image sont planifiées, moins pour les très grandes images ; au-delà, le modèle utilise la séquence commune : quantifiez donc les grandes palettes en 2D au préalable.
+
 ## Impression multi-têtes
 
 Activez le mode multi-têtes dans Auto-paint, puis choisissez 2 à 8 têtes et une profondeur de recherche. La construction analyse les ordres de filaments en arrière-plan et attribue à chaque région de l’image son propre filament à chaque couche. L’aperçu montre le mélange simulé ; les couleurs physiques montrent le filament réel. Le mode multi-têtes et Flat Paint sont incompatibles.

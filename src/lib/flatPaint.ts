@@ -195,22 +195,58 @@ export function heightMapToFlatPaintLayerCounts(
     return heightMapToLayerCounts(adjustedHeightMap, flatCumulativeHeights, epsilon);
 }
 
+/** Face-down and face-up Flat Paint slabs, or a stepped relief that keeps each column's own height. */
+export type StackLayoutOrientation = FlatPaintOrientation | 'relief';
+
+/** Pixels that print the same bottom-up filament stack. */
+export interface StackLayoutClass {
+    classIndex: number;
+    mask: Uint8Array;
+    activeCount: number;
+    /** Physical filament color of each stack layer, bottom-up. */
+    layerFilamentHexes: readonly string[];
+    /**
+     * Identity of each layer's physical filament, bottom-up, when two
+     * filaments can share a color. Defaults to the color itself.
+     */
+    layerFilamentKeys?: readonly string[];
+    /** Preview color of the visible top layer. */
+    faceHex: string;
+}
+
+export interface StackLayoutOptions {
+    classes: readonly StackLayoutClass[];
+    /** Pixels in the grid; class masks all have this length. */
+    pixelCount: number;
+    /**
+     * Every opaque pixel, for the face-down carrier. Callers build it in
+     * their own pixel pass; it is derived from the class masks otherwise.
+     */
+    opaque?: { mask: Uint8Array; count: number };
+    layerHeight: number;
+    carrierThickness: number;
+    orientation: StackLayoutOrientation;
+    /** Physical thickness of printed level zero, except under a face-down carrier. */
+    firstLayerThickness?: number;
+    /** Filament that backs shorter columns in a uniform slab. */
+    foundationHex: string;
+    /** Identity of the foundation filament; defaults to its color. */
+    foundationKey?: string;
+    /** 3MF object grouping key for a physical filament, from its identity. */
+    filamentGroup?: (key: string) => string;
+    /** Slicer part name for a physical filament, from its color and identity. */
+    filamentPartName?: (hex: string, key: string) => string;
+}
+
+const flatPaintFilamentGroup = (hex: string) => `flat-paint:filament:${hex}`;
+const flatPaintFilamentPartName = (hex: string) => `Flat Paint filament (${hex})`;
+
 /**
  * Plan the solid parts of a uniform Flat Paint slab.
  *
- * Pixels are grouped into classes by their layer count `k`. Each class
- * produces (bottom-up, in printed orientation):
- *
- * - a FACE slab at the plate: the column's top layer (index k-1), colored
- *   with its blended virtual swatch — this is the visible artwork surface;
- * - ZONE slabs for the remaining reversed layers (k-2 down to 0), with
- *   consecutive layers of the same physical filament merged into one box;
- * - a BACKING slab from the end of the column to the slab top, in the
- *   foundation filament (layer 0), when the column is shorter than the stack.
- *
- * In face-down mode every opaque pixel additionally receives the transparent
- * CARRIER slab at [0, carrierThickness]. In face-up mode no carrier is added;
- * the normal-order image stacks are top-aligned over foundation backing.
+ * Pixels are grouped into classes by their layer count `k`, and each class
+ * prints the first k layers of the shared Auto-paint stack. See
+ * buildStackLayout for the parts each class produces.
  */
 export function buildFlatPaintLayout(options: FlatPaintLayoutOptions): FlatPaintLayout {
     const {
@@ -226,34 +262,106 @@ export function buildFlatPaintLayout(options: FlatPaintLayoutOptions): FlatPaint
         layerFilamentHexes,
     } = options;
 
-    const parts: FlatPaintPart[] = [];
     const pixelCount = width * height;
-    const effectiveCarrierThickness =
-        orientation === 'face-down' ? Math.max(0, carrierThickness) : 0;
-    const effectiveFirstLayerThickness = Math.max(layerHeight, firstLayerThickness);
+    const empty = (): FlatPaintLayout => {
+        const carrier = orientation === 'face-down' ? Math.max(0, carrierThickness) : 0;
+        return { parts: [], totalHeight: carrier, carrierThickness: carrier, classCount: 0 };
+    };
+    if (layerCount <= 0 || layerHeight <= 0 || pixelCount === 0) return empty();
 
-    if (layerCount <= 0 || layerHeight <= 0 || pixelCount === 0) {
-        return {
-            parts,
-            totalHeight: effectiveCarrierThickness,
-            carrierThickness: effectiveCarrierThickness,
-            classCount: 0,
-        };
+    const classActiveCounts = new Uint32Array(layerCount + 1);
+    for (let i = 0; i < pixelCount; i++) {
+        const k = layerCounts[i];
+        if (k > 0) classActiveCounts[Math.min(layerCount, k)]++;
     }
 
-    // --- Gather per-class masks (and the opaque mask for the carrier) ---
-    const classActiveCounts = new Uint32Array(layerCount + 1);
+    const classMasks = new Map<number, Uint8Array>();
+    for (let k = 1; k <= layerCount; k++) {
+        if (classActiveCounts[k] > 0) classMasks.set(k, new Uint8Array(pixelCount));
+    }
+    if (classMasks.size === 0) return empty();
+    const opaqueMask = new Uint8Array(pixelCount);
     let opaqueCount = 0;
-
     for (let i = 0; i < pixelCount; i++) {
         const k = layerCounts[i];
         if (k <= 0) continue;
-        const clamped = Math.min(layerCount, k);
-        classActiveCounts[clamped]++;
+        classMasks.get(Math.min(layerCount, k))![i] = 1;
+        opaqueMask[i] = 1;
         opaqueCount++;
     }
 
-    if (opaqueCount === 0) {
+    const filamentHex = (layer: number) =>
+        normalizeHexColor(
+            layerFilamentHexes[layer],
+            normalizeHexColor(layerVirtualHexes[layer], '#888888')
+        );
+    const virtualHex = (layer: number) =>
+        normalizeHexColor(layerVirtualHexes[layer], filamentHex(layer));
+    const stackHexes = Array.from({ length: layerCount }, (_, layer) => filamentHex(layer));
+
+    return buildStackLayout({
+        classes: [...classMasks].map(([k, mask]) => ({
+            classIndex: k,
+            mask,
+            activeCount: classActiveCounts[k],
+            layerFilamentHexes: stackHexes.slice(0, k),
+            faceHex: virtualHex(k - 1),
+        })),
+        pixelCount,
+        opaque: { mask: opaqueMask, count: opaqueCount },
+        layerHeight,
+        carrierThickness,
+        orientation,
+        firstLayerThickness,
+        foundationHex: stackHexes[0],
+    });
+}
+
+/**
+ * Plan the solid parts for classes of pixels that each print their own
+ * filament stack. Each class produces (bottom-up, in printed orientation):
+ *
+ * Face-down (uniform slab under a clear carrier):
+ * - a FACE slab right above the carrier: the stack's top layer, colored with
+ *   its blended preview color — this is the visible artwork surface;
+ * - ZONE slabs for the remaining layers in reverse order, with consecutive
+ *   layers of the same physical filament merged into one box;
+ * - a BACKING slab of foundation up to the slab top when the stack is shorter
+ *   than the tallest one.
+ *
+ * Face-up (uniform slab, artwork on top): BACKING below shorter stacks, then
+ * ZONE runs in normal order, then the FACE on the top layer.
+ *
+ * Relief: ZONE runs in normal order from the plate and the FACE on the
+ * stack's own top layer, so columns end at different heights.
+ *
+ * In face-down mode every opaque pixel also receives the transparent CARRIER
+ * slab at [0, carrierThickness].
+ */
+export function buildStackLayout(options: StackLayoutOptions): FlatPaintLayout {
+    const {
+        classes,
+        pixelCount,
+        layerHeight,
+        carrierThickness,
+        orientation,
+        firstLayerThickness = layerHeight,
+        foundationHex,
+        foundationKey = foundationHex,
+        filamentGroup = flatPaintFilamentGroup,
+        filamentPartName = flatPaintFilamentPartName,
+    } = options;
+    const foundation = { hex: foundationHex, key: foundationKey };
+
+    const parts: FlatPaintPart[] = [];
+    const effectiveCarrierThickness =
+        orientation === 'face-down' ? Math.max(0, carrierThickness) : 0;
+    const effectiveFirstLayerThickness = Math.max(layerHeight, firstLayerThickness);
+    const present = classes.filter(
+        (entry) => entry.activeCount > 0 && entry.layerFilamentHexes.length > 0
+    );
+
+    if (layerHeight <= 0 || pixelCount === 0 || present.length === 0) {
         return {
             parts,
             totalHeight: effectiveCarrierThickness,
@@ -262,17 +370,10 @@ export function buildFlatPaintLayout(options: FlatPaintLayoutOptions): FlatPaint
         };
     }
 
-    // The auto-paint stack can end with layers no pixel actually reaches
-    // (normal mode just skips their empty masks). Padding backing up to those
-    // phantom layers would only waste height and filament, so size the slab
-    // to the tallest column class that is actually present.
-    let effectiveLayerCount = 0;
-    for (let k = layerCount; k >= 1; k--) {
-        if (classActiveCounts[k] > 0) {
-            effectiveLayerCount = k;
-            break;
-        }
-    }
+    // Size the slab to the tallest stack actually present.
+    const effectiveLayerCount = Math.max(
+        ...present.map((entry) => entry.layerFilamentHexes.length)
+    );
 
     const levelBase = (level: number) => {
         if (orientation === 'face-down') {
@@ -283,36 +384,54 @@ export function buildFlatPaintLayout(options: FlatPaintLayoutOptions): FlatPaint
     };
     const totalHeight = levelBase(effectiveLayerCount);
 
-    const opaqueMask = new Uint8Array(pixelCount);
-    const classMasks = new Map<number, Uint8Array>();
-    for (let k = 1; k <= layerCount; k++) {
-        if (classActiveCounts[k] > 0) classMasks.set(k, new Uint8Array(pixelCount));
-    }
+    const part = (
+        kind: FlatPaintPart['kind'],
+        entry: StackLayoutClass,
+        baseZ: number,
+        topZ: number,
+        filament: { hex: string; key: string },
+        previewHex = filament.hex
+    ): FlatPaintPart => ({
+        kind,
+        classIndex: entry.classIndex,
+        mask: entry.mask,
+        activeCount: entry.activeCount,
+        baseZ,
+        topZ,
+        previewHex,
+        filamentHex: filament.hex,
+        exportGroup: filamentGroup(filament.key),
+        partName: filamentPartName(filament.hex, filament.key),
+    });
 
-    for (let i = 0; i < pixelCount; i++) {
-        const k = layerCounts[i];
-        if (k <= 0) continue;
-        opaqueMask[i] = 1;
-        classMasks.get(Math.min(layerCount, k))![i] = 1;
-    }
-
-    const filamentHex = (layer: number) =>
-        normalizeHexColor(
-            layerFilamentHexes[layer],
-            normalizeHexColor(layerVirtualHexes[layer], '#888888')
-        );
-    const virtualHex = (layer: number) =>
-        normalizeHexColor(layerVirtualHexes[layer], filamentHex(layer));
-    const filamentGroup = (hex: string) => `flat-paint:filament:${hex}`;
-    const filamentPartName = (hex: string) => `Flat Paint filament (${hex})`;
+    /** Runs of the same physical filament within stack layers [from, to), bottom-up. */
+    const runs = (entry: StackLayoutClass, from: number, to: number) => {
+        const result: Array<{ start: number; end: number; hex: string; key: string }> = [];
+        for (let layer = from; layer < to; layer++) {
+            const hex = entry.layerFilamentHexes[layer];
+            const key = entry.layerFilamentKeys?.[layer] ?? hex;
+            const last = result.at(-1);
+            if (last?.key === key) last.end = layer;
+            else result.push({ start: layer, end: layer, hex, key });
+        }
+        return result;
+    };
 
     // --- Carrier slab: face-down only, full opaque footprint at the plate ---
     if (orientation === 'face-down' && effectiveCarrierThickness > 0) {
+        let opaque = options.opaque;
+        if (!opaque) {
+            const mask = new Uint8Array(pixelCount);
+            for (const entry of present) {
+                for (let i = 0; i < pixelCount; i++) mask[i] |= entry.mask[i];
+            }
+            opaque = { mask, count: mask.reduce((sum, value) => sum + value, 0) };
+        }
         parts.push({
             kind: 'carrier',
             classIndex: 0,
-            mask: opaqueMask,
-            activeCount: opaqueCount,
+            mask: opaque.mask,
+            activeCount: opaque.count,
             baseZ: 0,
             topZ: effectiveCarrierThickness,
             previewHex: FLAT_PAINT_CARRIER_HEX,
@@ -323,128 +442,50 @@ export function buildFlatPaintLayout(options: FlatPaintLayoutOptions): FlatPaint
     }
 
     // --- Per-class slabs ---
-    const foundationHex = filamentHex(0);
+    for (const entry of present) {
+        const k = entry.layerFilamentHexes.length;
+        const top = {
+            hex: entry.layerFilamentHexes[k - 1],
+            key: entry.layerFilamentKeys?.[k - 1] ?? entry.layerFilamentHexes[k - 1],
+        };
 
-    for (const [k, mask] of classMasks) {
-        const activeCount = classActiveCounts[k];
-
-        if (orientation === 'face-up') {
-            const stackStartLevel = effectiveLayerCount - k;
-
-            // Shorter normal-order image stacks are lifted to the common top
-            // surface. Foundation backing fills the space beneath them.
-            if (stackStartLevel > 0) {
-                parts.push({
-                    kind: 'backing',
-                    classIndex: k,
-                    mask,
-                    activeCount,
-                    baseZ: 0,
-                    topZ: levelBase(stackStartLevel),
-                    previewHex: foundationHex,
-                    filamentHex: foundationHex,
-                    exportGroup: filamentGroup(foundationHex),
-                    partName: filamentPartName(foundationHex),
-                });
+        if (orientation === 'face-down') {
+            // Printed level j holds stack layer k-1-j: the face first, then
+            // the rest of the column reversed, then foundation behind it.
+            parts.push(part('face', entry, levelBase(0), levelBase(1), top, entry.faceHex));
+            for (const run of runs(entry, 0, k - 1).reverse()) {
+                parts.push(
+                    part('zone', entry, levelBase(k - 1 - run.end), levelBase(k - run.start), run)
+                );
             }
-
-            // Preserve the normal bottom-up stack order below the visible top
-            // layer, merging adjacent runs of the same physical filament.
-            let runStart = 0;
-            while (runStart < k - 1) {
-                const runHex = filamentHex(runStart);
-                let runEnd = runStart;
-                while (runEnd + 1 < k - 1 && filamentHex(runEnd + 1) === runHex) {
-                    runEnd++;
-                }
-
-                parts.push({
-                    kind: 'zone',
-                    classIndex: k,
-                    mask,
-                    activeCount,
-                    baseZ: levelBase(stackStartLevel + runStart),
-                    topZ: levelBase(stackStartLevel + runEnd + 1),
-                    previewHex: runHex,
-                    filamentHex: runHex,
-                    exportGroup: filamentGroup(runHex),
-                    partName: filamentPartName(runHex),
-                });
-
-                runStart = runEnd + 1;
+            if (k < effectiveLayerCount) {
+                parts.push(
+                    part('backing', entry, levelBase(k), levelBase(effectiveLayerCount), foundation)
+                );
             }
-
-            parts.push({
-                kind: 'face',
-                classIndex: k,
-                mask,
-                activeCount,
-                baseZ: levelBase(effectiveLayerCount - 1),
-                topZ: totalHeight,
-                previewHex: virtualHex(k - 1),
-                filamentHex: filamentHex(k - 1),
-                exportGroup: filamentGroup(filamentHex(k - 1)),
-                partName: filamentPartName(filamentHex(k - 1)),
-            });
             continue;
         }
 
-        // Face slab: printed level 0 = the column's top (visible) layer k-1.
-        // Preview uses the blended virtual color so the face shows the artwork.
-        parts.push({
-            kind: 'face',
-            classIndex: k,
-            mask,
-            activeCount,
-            baseZ: levelBase(0),
-            topZ: levelBase(1),
-            previewHex: virtualHex(k - 1),
-            filamentHex: filamentHex(k - 1),
-            exportGroup: filamentGroup(filamentHex(k - 1)),
-            partName: filamentPartName(filamentHex(k - 1)),
-        });
-
-        // Zone slabs: printed level j holds original layer k-1-j. Merge runs
-        // of consecutive levels that use the same physical filament.
-        let runStart = 1;
-        while (runStart < k) {
-            const runHex = filamentHex(k - 1 - runStart);
-            let runEnd = runStart;
-            while (runEnd + 1 < k && filamentHex(k - 1 - (runEnd + 1)) === runHex) {
-                runEnd++;
-            }
-
-            parts.push({
-                kind: 'zone',
-                classIndex: k,
-                mask,
-                activeCount,
-                baseZ: levelBase(runStart),
-                topZ: levelBase(runEnd + 1),
-                previewHex: runHex,
-                filamentHex: runHex,
-                exportGroup: filamentGroup(runHex),
-                partName: filamentPartName(runHex),
-            });
-
-            runStart = runEnd + 1;
+        // Face-up lifts shorter stacks onto foundation so every face meets the
+        // flat top surface. Relief keeps each stack on the plate.
+        const start = orientation === 'face-up' ? effectiveLayerCount - k : 0;
+        if (start > 0) {
+            parts.push(part('backing', entry, 0, levelBase(start), foundation));
         }
-
-        // Backing slab: fill behind the column up to the uniform slab top.
-        if (k < effectiveLayerCount) {
-            parts.push({
-                kind: 'backing',
-                classIndex: k,
-                mask,
-                activeCount,
-                baseZ: levelBase(k),
-                topZ: levelBase(effectiveLayerCount),
-                previewHex: foundationHex,
-                filamentHex: foundationHex,
-                exportGroup: filamentGroup(foundationHex),
-                partName: filamentPartName(foundationHex),
-            });
+        for (const run of runs(entry, 0, k - 1)) {
+            parts.push(
+                part(
+                    'zone',
+                    entry,
+                    levelBase(start + run.start),
+                    levelBase(start + run.end + 1),
+                    run
+                )
+            );
         }
+        parts.push(
+            part('face', entry, levelBase(start + k - 1), levelBase(start + k), top, entry.faceHex)
+        );
     }
 
     // Stable build order: bottom-up by baseZ, then by class for determinism.
@@ -454,6 +495,6 @@ export function buildFlatPaintLayout(options: FlatPaintLayoutOptions): FlatPaint
         parts,
         totalHeight,
         carrierThickness: effectiveCarrierThickness,
-        classCount: classMasks.size,
+        classCount: present.length,
     };
 }

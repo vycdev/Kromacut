@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { MINIMAL_PROJECT_SETTINGS, KROMACUT_CONFIG } from './slicerDefaults';
 import { clampProgress, exportMeshProgress, exportZipProgress, progressInSpan } from './progress';
 import { normalizeHexColor } from './colorUtils';
+import { escapeXmlAttribute } from './xml';
 import type { SmoothMeshingStrength } from '../types';
 
 export interface Export3MFOptions {
@@ -562,7 +563,7 @@ ${metadataContentTypes}${metadataContentTypes ? '\n' : ''}</Types>`;
             progressStart: number,
             progressSpan: number
         ) => {
-            write(`<object id="${meshObjectId}" p:UUID="${generateUUID()}" pid="${baseMatId}" pindex="${matIdx}" type="model" name="${meshName}">
+            write(`<object id="${meshObjectId}" p:UUID="${generateUUID()}" pid="${baseMatId}" pindex="${matIdx}" type="model" name="${escapeXmlAttribute(meshName)}">
 `);
             write(` <mesh>
 `);
@@ -912,11 +913,7 @@ ${metadataContentTypes}${metadataContentTypes ? '\n' : ''}</Types>`;
   <metadata key="extruder" value="1"/>
 `;
     for (const comp of componentMeta) {
-        const safeName = comp.name
-            .replace(/&/g, '&amp;')
-            .replace(/"/g, '&quot;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;');
+        const safeName = escapeXmlAttribute(comp.name);
         modelSettings += `  <part id="${comp.id}" subtype="normal_part">
    <metadata key="name" value="${safeName}"/>
    <metadata key="extruder" value="${comp.colorIdx}"/>

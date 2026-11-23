@@ -56,6 +56,11 @@ import { TEMPLATE_PROFILES, isTemplateProfileId } from '../data/supplierFilament
 import { getConfidenceLabel, getConfidenceColor } from '../lib/calibration';
 import { getExactBaseOrderCount } from '../lib/optimizer';
 import { MAX_MULTI_HEAD_HEADS } from '../lib/multiHeadAnalysisColorFirst';
+import {
+    MAX_MAX_FILAMENTS_PER_LAYER,
+    MIN_MAX_FILAMENTS_PER_LAYER,
+    normalizeMaxFilamentsPerLayer,
+} from '../lib/regionStacks';
 import { useNextBestColorWorker } from '../hooks/useNextBestColorWorker';
 import type { PrintableFeatureSimulation } from '../lib/printableFeatures.ts';
 import PrintableFeaturePreview from './PrintableFeaturePreview';
@@ -424,6 +429,11 @@ interface AutoPaintTabProps {
     setFlatPaint: (v: boolean) => void;
     flatPaintFaceUp: boolean;
     setFlatPaintFaceUp: (v: boolean) => void;
+    regionStacks: boolean;
+    setRegionStacks: (v: boolean) => void;
+    regionStacksMaxFilaments: number;
+    setRegionStacksMaxFilaments: (v: number) => void;
+    regionStacksNotice?: string;
 
     // Optimizer options
     optimizerAlgorithm: 'fast' | 'balanced' | 'thorough' | 'deep' | 'exact';
@@ -517,6 +527,11 @@ export default function AutoPaintTab({
     setFlatPaint,
     flatPaintFaceUp,
     setFlatPaintFaceUp,
+    regionStacks,
+    setRegionStacks,
+    regionStacksMaxFilaments,
+    setRegionStacksMaxFilaments,
+    regionStacksNotice,
     optimizerAlgorithm,
     setOptimizerAlgorithm,
     optimizerSeed,
@@ -556,6 +571,8 @@ export default function AutoPaintTab({
     React.useEffect(() => {
         setLocalSeparationMaxDeltaE(separationMaxDeltaE.toString());
     }, [separationMaxDeltaE]);
+    // Text being typed into Max filaments per layer; null shows the saved value.
+    const [maxFilamentsDraft, setMaxFilamentsDraft] = React.useState<string | null>(null);
     const [localOptimizerSeed, setLocalOptimizerSeed] = React.useState(
         optimizerSeed?.toString() ?? ''
     );
@@ -1281,6 +1298,87 @@ export default function AutoPaintTab({
                         </div>
                     )}
 
+                    {/* Per-region stacks */}
+                    {filaments.length > 0 && (
+                        <div className="space-y-3 pt-2">
+                            <div className="h-px bg-border/50" />
+                            <div className="flex items-center justify-between gap-3">
+                                <div className="space-y-0.5">
+                                    <Label
+                                        htmlFor="region-stacks"
+                                        className="text-xs font-medium text-foreground cursor-pointer"
+                                    >
+                                        {t('autoPaintTab.regionStacks')}
+                                    </Label>
+                                    <p className="text-[10px] text-muted-foreground">
+                                        {t('autoPaintTab.regionStacksDescription')}
+                                    </p>
+                                </div>
+                                <Switch
+                                    id="region-stacks"
+                                    data-testid="autopaint-region-stacks"
+                                    checked={regionStacks}
+                                    onCheckedChange={setRegionStacks}
+                                />
+                            </div>
+                            {regionStacksNotice && (
+                                <div
+                                    role="alert"
+                                    data-testid="autopaint-region-stacks-notice"
+                                    className="text-[10px] text-destructive"
+                                >
+                                    {regionStacksNotice}
+                                </div>
+                            )}
+                            {regionStacks && (
+                                <div className="space-y-2 border-l border-border/50 pl-3 ml-1">
+                                    <p className="text-[10px] text-muted-foreground">
+                                        {t('autoPaintTab.regionStacksIncompatible')}
+                                    </p>
+                                    <div className="flex items-center gap-2">
+                                        <Label
+                                            htmlFor="region-stacks-max-filaments"
+                                            className="text-xs text-muted-foreground whitespace-nowrap"
+                                        >
+                                            {t('autoPaintTab.regionStacksMaxFilaments')}
+                                        </Label>
+                                        <NumberInput
+                                            id="region-stacks-max-filaments"
+                                            data-testid="autopaint-region-stacks-max-filaments"
+                                            className="h-7 text-xs flex-1"
+                                            value={maxFilamentsDraft ?? regionStacksMaxFilaments}
+                                            min={MIN_MAX_FILAMENTS_PER_LAYER}
+                                            max={MAX_MAX_FILAMENTS_PER_LAYER}
+                                            step={1}
+                                            onChange={(e) => {
+                                                // Keep partial input such as the "1" of "12";
+                                                // commit only values already in range.
+                                                setMaxFilamentsDraft(e.target.value);
+                                                const v = Number(e.target.value);
+                                                if (
+                                                    Number.isInteger(v) &&
+                                                    v >= MIN_MAX_FILAMENTS_PER_LAYER &&
+                                                    v <= MAX_MAX_FILAMENTS_PER_LAYER
+                                                ) {
+                                                    setRegionStacksMaxFilaments(v);
+                                                }
+                                            }}
+                                            onBlur={(e) => {
+                                                const v = parseFloat(e.target.value);
+                                                if (Number.isFinite(v)) {
+                                                    setRegionStacksMaxFilaments(
+                                                        normalizeMaxFilamentsPerLayer(v)
+                                                    );
+                                                }
+                                                setMaxFilamentsDraft(null);
+                                            }}
+                                        />
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
                     {/* Optimizer Settings */}
                     {filaments.length > 0 && (
                         <div
@@ -1483,6 +1581,9 @@ export default function AutoPaintTab({
                                 <div className="space-y-2 pl-0.5">
                                     <p className="text-[10px] text-muted-foreground">
                                         {t('multiHead.incompatibleWithFlatPaint')}
+                                    </p>
+                                    <p className="text-[10px] text-muted-foreground">
+                                        {t('multiHead.incompatibleWithRegionStacks')}
                                     </p>
                                     <div className="flex items-center gap-2">
                                         <Label htmlFor="multi-head-count" className="text-xs text-muted-foreground whitespace-nowrap">

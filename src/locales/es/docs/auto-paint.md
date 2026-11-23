@@ -199,6 +199,15 @@ Tras cambiar proceso o altura de capa, revisa este resumen. Una puntuación gene
 
 Busca una bobina real si la sugerencia sirve y después introduce su color y calibración. No imprimas suponiendo que la fila hipotética ya está disponible. Las sugerencias se restablecen si cambian colores o filamentos. Si no hay candidato, el conjunto actual ya cubre bien la imagen según esta prueba aproximada.
 
+## Pilas por región
+
+Activa **Pilas por región** para que cada color de la imagen tenga su propia pila de filamentos. Normalmente cada color imprime las primeras capas de una única secuencia de filamentos compartida, así que un color que necesita una pila poco habitual obliga a todos los colores que están por encima a imprimir también esas capas. Con esta opción, cada color parte de la base compartida y continúa con su propia pila corta de cualquiera de los filamentos cargados. Un color solo cambia cuando se prevé que su propia pila se vea igual o mejor. A menudo es simplemente la parte superior visible de su pila anterior, porque unas pocas capas más abajo las capas profundas ya no cambian el color.
+
+- Varios filamentos comparten una misma capa impresa, por lo que se necesita una impresora multimaterial (AMS, CFS o cambiador de herramientas). Exporta en 3MF y asigna cada objeto de filamento en el laminador.
+- **Máx. filamentos por capa** (2–16, 4 por defecto) limita cuántos filamentos puede contener una capa. En pintura plana todos los colores terminan en la misma capa de la cara, así que el límite nunca baja de lo que ya necesita la pintura plana normal.
+- Las impresiones en relieve necesitan más cambios de herramienta que la secuencia compartida. Las placas de pintura plana suelen ser más delgadas, con aproximadamente el mismo número de cambios de herramienta.
+- El tramado de altura no se aplica, y las pilas por región no se pueden combinar con el modo multicabezal. Con la separación de colores activada, los colores que mantiene separados siguen separados también en sus propias pilas, dentro de su límite. Se planifican hasta 128 colores de la imagen, menos en imágenes muy grandes; con más, el modelo usa la secuencia compartida, así que reduce antes las paletas grandes en 2D.
+
 ## Impresión multicabezal
 
 Activa el modo multicabezal en Auto-paint y elige 2–8 cabezales y una profundidad de búsqueda. Al crear el modelo se analiza el orden de los filamentos en segundo plano y se asigna a cada región de la imagen su propio filamento en cada capa. La vista previa muestra la mezcla simulada; los colores físicos muestran el filamento real. El modo multicabezal y Flat Paint se excluyen mutuamente.
