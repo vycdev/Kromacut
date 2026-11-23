@@ -222,6 +222,61 @@ test('long shared prefixes are cut to the top layers that still decide their col
     });
 });
 
+test('Preserve color separation keeps separated colors apart with their own stacks', () => {
+    const limit = 15;
+    const swatches = [
+        ...SWATCHES,
+        { hex: '#A0A0A0', count: 300 },
+        { hex: '#B7B7B7', count: 300 },
+        { hex: '#8C8C8C', count: 200 },
+        { hex: '#C8241E', count: 10 },
+    ];
+    const result = generateAutoLayers(
+        FILAMENTS,
+        swatches,
+        LAYER_HEIGHT,
+        FIRST_LAYER_HEIGHT,
+        3,
+        true,
+        false,
+        {
+            algorithm: 'fast',
+            preserveSeparation: true,
+            separationMaxDeltaE: limit,
+        }
+    );
+    assert.equal(result.finalStack.settings.separationMaxDeltaE, limit);
+    for (const alignment of ['bottom', 'top'] as const) {
+        const plan = planRegionStacks({
+            result,
+            filaments: FILAMENTS,
+            alignment,
+            maxFilamentsPerLayer: FILAMENTS.length,
+        });
+        assert.ok(plan);
+        const lab = (hex: string) => rgbToLab(hexToRgb(hex));
+        const kept = result.finalStack.targetMappings
+            .map((mapping, i) => ({ mapping, entry: plan.stacks[i] }))
+            .filter(({ mapping }) => mapping.preservedWithinThreshold !== false);
+        assert.ok(kept.length > 2);
+        for (const { entry } of kept) assert.ok(entry.deltaE <= limit + 1e-9, entry.targetHex);
+        for (const a of kept) {
+            for (const b of kept) {
+                if (a === b) continue;
+                const before = deltaE2000Lab(
+                    lab(a.mapping.predictedColor.hex),
+                    lab(b.mapping.predictedColor.hex)
+                );
+                const after = deltaE2000Lab(lab(a.entry.predictedHex), lab(b.entry.predictedHex));
+                assert.ok(
+                    after >= Math.min(before, 3) - 1e-9,
+                    `${alignment}: ${a.entry.targetHex}/${b.entry.targetHex} moved from ${before.toFixed(2)} to ${after.toFixed(2)} apart`
+                );
+            }
+        }
+    }
+});
+
 test('palettes above the target limit fall back to the shared sequence', () => {
     const many = Array.from({ length: MAX_REGION_STACK_TARGETS + 1 }, (_, i) => {
         const value = (i * 37) % 256;

@@ -206,7 +206,7 @@ Turn on **Per-region stacks** to give each image color its own filament stack. N
 - Several filaments share a printed layer, so a multi-material printer (AMS, CFS, or toolchanger) is required. Export as 3MF and assign each filament object in the slicer.
 - **Max filaments per layer** (2–16, default 4) limits how many filaments one layer may hold. In Flat Paint every color ends on the same face layer, so the limit never drops below what plain Flat Paint already needs.
 - Relief prints need more tool changes than the shared sequence. Flat Paint slabs are usually thinner, with about the same number of tool changes.
-- Height dithering does not apply, and Per-region stacks can't be combined with Multi-head or Preserve color separation. Up to 128 image colors are planned, fewer on very large images; with more, the build uses the shared sequence, so quantize large palettes in 2D first.
+- Height dithering does not apply, and Per-region stacks can't be combined with Multi-head. With Preserve color separation on, colors it keeps apart also stay apart on their own stacks, within its limit. Up to 128 image colors are planned, fewer on very large images; with more, the build uses the shared sequence, so quantize large palettes in 2D first.
 
 ## Multi-head printing
 

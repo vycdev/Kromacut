@@ -47,7 +47,7 @@
     "regionStacks": "Pilas por región",
     "regionStacksDescription": "Cada color recibe su propia pila de filamentos en lugar de compartir una única secuencia. Requiere una impresora multimaterial.",
     "regionStacksMaxFilaments": "Máx. filamentos por capa",
-    "regionStacksIncompatible": "No es compatible con el modo multicabezal ni con conservar la separación de colores — activar las pilas por región los desactiva.",
+    "regionStacksIncompatible": "No es compatible con el modo multicabezal — activar las pilas por región desactiva el modo multicabezal.",
     "regionStacksFallback": "No se pudieron planificar las pilas por región — se ha creado el modelo con la secuencia de filamentos compartida.",
     "optimizerSettings": "Ajustes del optimizador",
     "algorithm": "Algoritmo",

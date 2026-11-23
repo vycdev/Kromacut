@@ -47,7 +47,7 @@
         "regionStacks": "按区域堆叠",
         "regionStacksDescription": "每种颜色使用各自的耗材堆叠，而不是共用同一个顺序。需要多材料打印机。",
         "regionStacksMaxFilaments": "每层最多耗材数",
-        "regionStacksIncompatible": "与多打印头模式和保持颜色分离不兼容——启用按区域堆叠会关闭它们。",
+        "regionStacksIncompatible": "与多打印头模式不兼容——启用按区域堆叠会关闭多打印头模式。",
         "regionStacksFallback": "无法规划按区域堆叠，已改用共享耗材顺序生成模型。",
         "optimizerSettings": "优化器设置",
         "algorithm": "算法",

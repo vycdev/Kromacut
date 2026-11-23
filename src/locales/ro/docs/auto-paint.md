@@ -206,7 +206,7 @@ Activează **Stive pe regiune** ca fiecare culoare din imagine să primească pr
 - Mai multe filamente împart același strat tipărit, deci este nevoie de o imprimantă multimaterial (AMS, CFS sau schimbător de scule). Exportă ca 3MF și atribuie fiecare obiect de filament în slicer.
 - **Număr maxim de filamente pe strat** (2–16, implicit 4) limitează câte filamente poate conține un strat. În Flat Paint toate culorile se termină pe același strat de față, așa că limita nu coboară niciodată sub ce are deja nevoie Flat Paint obișnuit.
 - Tipăririle în relief au nevoie de mai multe schimbări de sculă decât secvența comună. Plăcile Flat Paint sunt de obicei mai subțiri, cu aproximativ același număr de schimbări de sculă.
-- Dithering-ul de înălțime nu se aplică, iar stivele pe regiune nu pot fi combinate cu modul cu mai multe capete sau cu păstrarea separării culorilor. Sunt planificate cel mult 128 de culori din imagine, mai puține pentru imaginile foarte mari; peste această limită modelul folosește secvența comună, așa că reduce mai întâi paletele mari în 2D.
+- Dithering-ul de înălțime nu se aplică, iar stivele pe regiune nu pot fi combinate cu modul cu mai multe capete. Cu păstrarea separării culorilor activă, culorile pe care le ține separate rămân separate și pe propriile stive, în limita setată. Sunt planificate cel mult 128 de culori din imagine, mai puține pentru imaginile foarte mari; peste această limită modelul folosește secvența comună, așa că reduce mai întâi paletele mari în 2D.
 
 ## Imprimarea cu mai multe capete
 

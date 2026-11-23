@@ -47,7 +47,7 @@
         "regionStacks": "Per-region stacks",
         "regionStacksDescription": "Each color gets its own filament stack instead of sharing one sequence. Needs a multi-material printer.",
         "regionStacksMaxFilaments": "Max filaments per layer",
-        "regionStacksIncompatible": "Not compatible with Multi-head or Preserve color separation — enabling Per-region stacks turns them off.",
+        "regionStacksIncompatible": "Not compatible with Multi-head — enabling Per-region stacks turns Multi-head off.",
         "regionStacksFallback": "Per-region stacks couldn't be planned — built with the shared filament sequence instead.",
         "optimizerSettings": "Optimizer Settings",
         "algorithm": "Algorithm",

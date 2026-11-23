@@ -206,7 +206,7 @@ Ative **Pilhas por região** para dar a cada cor da imagem a sua própria pilha 
 - Vários filamentos partilham a mesma camada impressa, por isso é necessária uma impressora multimaterial (AMS, CFS ou trocador de ferramentas). Exporte em 3MF e atribua cada objeto de filamento no fatiador.
 - **Máx. de filamentos por camada** (2–16, predefinição 4) limita quantos filamentos uma camada pode conter. Na pintura plana, todas as cores terminam na mesma camada de face, pelo que o limite nunca desce abaixo do que a pintura plana normal já precisa.
 - As impressões em relevo precisam de mais trocas de ferramenta do que a sequência partilhada. As placas de pintura plana ficam normalmente mais finas, com aproximadamente o mesmo número de trocas de ferramenta.
-- O pontilhado de altura não se aplica, e as pilhas por região não podem ser combinadas com o modo multicabeças nem com a preservação da separação de cores. São planeadas até 128 cores da imagem, menos em imagens muito grandes; acima disso, o modelo usa a sequência partilhada, por isso reduza primeiro as paletas grandes em 2D.
+- O pontilhado de altura não se aplica, e as pilhas por região não podem ser combinadas com o modo multicabeças. Com a preservação da separação de cores ativa, as cores que ela mantém separadas continuam separadas nas suas próprias pilhas, dentro do seu limite. São planeadas até 128 cores da imagem, menos em imagens muito grandes; acima disso, o modelo usa a sequência partilhada, por isso reduza primeiro as paletas grandes em 2D.
 
 ## Impressão multicabeças
 

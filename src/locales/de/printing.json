@@ -47,7 +47,7 @@
     "regionStacks": "Stapel pro Region",
     "regionStacksDescription": "Jede Farbe erhält einen eigenen Filamentstapel, statt eine gemeinsame Abfolge zu teilen. Erfordert einen Mehrmaterialdrucker.",
     "regionStacksMaxFilaments": "Max. Filamente pro Schicht",
-    "regionStacksIncompatible": "Nicht mit dem Mehrkopfmodus oder „Farbtrennung erhalten“ kompatibel — Stapel pro Region schalten beide aus.",
+    "regionStacksIncompatible": "Nicht mit dem Mehrkopfmodus kompatibel — Stapel pro Region schalten den Mehrkopfmodus aus.",
     "regionStacksFallback": "Die Stapel pro Region konnten nicht geplant werden — stattdessen wurde mit der gemeinsamen Filamentabfolge gebaut.",
     "optimizerSettings": "Optimierungseinstellungen",
     "algorithm": "Algorithmus",

@@ -83,6 +83,11 @@ const RUN_PENALTY = 0.2;
 const LAYER_PENALTY = 0.005;
 /** CIEDE2000 within which a stack counts as matching its shared prefix. */
 const SAME_COLOR_TOLERANCE = 0.1;
+/**
+ * With Preserve color separation, two kept-apart colors never end up closer
+ * than they were on the shared sequence, up to this clearly visible CIEDE2000.
+ */
+const SEPARATION_FLOOR = 3;
 const DEFAULT_TOOL_CHANGE_COST = 0.01;
 const HEIGHT_EPSILON = 1e-8;
 
@@ -129,6 +134,8 @@ interface Target {
     sharedLayerCount: number;
     /** Auto-paint's published color for the shared prefix. */
     sharedHex: string;
+    /** Preserve color separation keeps this color apart from the others. */
+    keepApart: boolean;
 }
 
 /** Unambiguous identity of a stack; imported filament IDs may contain any text. */
@@ -397,6 +404,7 @@ export function planRegionStacks(options: RegionStackPlanOptions): RegionStackPl
         filamentId: layer.filamentId,
         filamentColor: layer.filamentColor,
     }));
+    const separationLimit = stack.settings.separationMaxDeltaE;
     const sharedLayerCount = (height: number) =>
         Math.min(stack.layers.length, Math.max(1, layersAtHeight(height)));
     const targets: Target[] = stack.targetMappings.map((mapping) => ({
@@ -407,6 +415,7 @@ export function planRegionStacks(options: RegionStackPlanOptions): RegionStackPl
             stack.palette[mapping.paletteIndex]?.height ?? mapping.projectedHeight
         ),
         sharedHex: mapping.predictedColor.hex,
+        keepApart: separationLimit !== undefined && mapping.preservedWithinThreshold !== false,
     }));
 
     // Colors Auto-paint dropped for zero regional weight keep their own
@@ -450,6 +459,7 @@ export function planRegionStacks(options: RegionStackPlanOptions): RegionStackPl
             weight: 0,
             sharedLayerCount: sharedLayerCount(entry.height),
             sharedHex: entry.predictedColor.hex,
+            keepApart: false,
         });
     }
     // Each distinct stack needs a full-size mask, so large images plan fewer colors.
@@ -568,7 +578,9 @@ export function planRegionStacks(options: RegionStackPlanOptions): RegionStackPl
             .filter(
                 (entry) =>
                     runKey(entry.runs) !== sharedKey &&
-                    entry.deltaE <= sharedDeltaE + SAME_COLOR_TOLERANCE
+                    entry.deltaE <= sharedDeltaE + SAME_COLOR_TOLERANCE &&
+                    // A kept-apart color must stay within the separation limit.
+                    (!target.keepApart || entry.deltaE <= separationLimit!)
             )
             .sort((a, b) => a.score - b.score)
             .slice(0, CANDIDATE_LIMIT);
@@ -583,6 +595,31 @@ export function planRegionStacks(options: RegionStackPlanOptions): RegionStackPl
     const stacksFor = (choices: readonly number[]) =>
         choices.map((choice, t) => candidates[t][choice]);
     const layersOf = candidates.map((list) => list.map(regionStackLayerFilaments));
+    const sharedStart = candidates.map((list) => list.findIndex((entry) => entry.shared));
+
+    // Preserve color separation: kept-apart colors may not move closer than
+    // their shared colors were, up to SEPARATION_FLOOR. The shared start meets
+    // this by construction, and every move below keeps it.
+    const labs = candidates.map((list) =>
+        list.map((entry) => rgbToLab(hexToRgb(entry.predictedHex)))
+    );
+    const apart = targets.flatMap((target, t) => (target.keepApart ? [t] : []));
+    const required = new Map<number, number>();
+    for (const t of apart) {
+        for (const j of apart) {
+            if (j <= t) continue;
+            const distance = deltaE2000Lab(labs[t][sharedStart[t]], labs[j][sharedStart[j]]);
+            required.set(t * targets.length + j, Math.min(distance, SEPARATION_FLOOR));
+        }
+    }
+    const staysApart = (t: number, c: number, choices: readonly number[]) =>
+        !targets[t].keepApart ||
+        apart.every(
+            (j) =>
+                j === t ||
+                deltaE2000Lab(labs[t][c], labs[j][choices[j]]) >=
+                    required.get(Math.min(t, j) * targets.length + Math.max(t, j))! - 1e-9
+        );
     const usageFor = (choices: readonly number[], limit: number) =>
         new RegionLayerUsage(
             choices.map((choice, t) => layersOf[t][choice]),
@@ -594,7 +631,6 @@ export function planRegionStacks(options: RegionStackPlanOptions): RegionStackPl
     // Every target's shared prefix together meets any cap in relief. Flat Paint
     // faces need one filament per distinct visible color, so there the cap never
     // drops below what the shared layout already uses.
-    const sharedStart = candidates.map((list) => list.findIndex((entry) => entry.shared));
     const limit = Math.max(cap, usageFor(sharedStart, cap).peak);
 
     // Objective: usage-weighted mean score plus a small cost per filament slot,
@@ -621,7 +657,7 @@ export function planRegionStacks(options: RegionStackPlanOptions): RegionStackPl
             for (let t = 0; t < targets.length; t++) {
                 const before = candidates[t][choices[t]].score;
                 for (let c = 0; c < candidates[t].length; c++) {
-                    if (c === choices[t]) continue;
+                    if (c === choices[t] || !staysApart(t, c, choices)) continue;
                     const after = usage.trial(t, layersOf[t][c]);
                     const delta =
                         share[t] * (candidates[t][c].score - before) +
@@ -647,8 +683,10 @@ export function planRegionStacks(options: RegionStackPlanOptions): RegionStackPl
     };
 
     // Start once from every target's best stack and once from the shared
-    // prefixes, which always fit the limit; keep the better result.
-    const [fromBest, fromShared] = [search(candidates.map(() => 0)), search(sharedStart)];
+    // prefixes, which always fit the limit; keep the better result. Kept-apart
+    // colors start only from the shared prefixes, which already stay apart.
+    const fromShared = search(sharedStart);
+    const fromBest = apart.length > 1 ? fromShared : search(candidates.map(() => 0));
     const winner =
         fromShared.overflow < fromBest.overflow ||
         (fromShared.overflow === fromBest.overflow &&

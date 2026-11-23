@@ -228,12 +228,10 @@ export default function ThreeDControls({
     const [omitAtRiskPixels, setOmitAtRiskPixels] = useState(persisted?.omitAtRiskPixels ?? false);
     const [flatPaint, setFlatPaint] = useState(initialFlatPaint);
     const [flatPaintFaceUp, setFlatPaintFaceUp] = useState(persisted?.flatPaintFaceUp ?? false);
-    // Settings saved with a conflicting mode (Multi-head or Preserve color
-    // separation) load with Per-region stacks off, as the toggles allow.
+    // Settings saved with Multi-head on load with Per-region stacks off, as
+    // the toggles allow.
     const [regionStacks, setRegionStacks] = useState(
-        persisted?.regionStacks === true &&
-            !initialPreserveSeparation &&
-            persisted?.multiHeadMode !== true
+        persisted?.regionStacks === true && persisted?.multiHeadMode !== true
     );
     const [regionStacksMaxFilaments, setRegionStacksMaxFilaments] = useState(() =>
         normalizeMaxFilamentsPerLayer(persisted?.regionStacksMaxFilaments)
@@ -278,7 +276,6 @@ export default function ThreeDControls({
         setPreserveSeparation(enabled);
         if (enabled) {
             setHeightDithering(false);
-            setRegionStacks(false);
         }
     }, []);
 
@@ -316,15 +313,14 @@ export default function ThreeDControls({
     }, []);
 
     // Per-region stacks replace the shared sequence that multi-head routes
-    // through, and they can give two separated colors near-identical stacks,
-    // so they exclude both Multi-head and Preserve color separation.
+    // through, so the two modes are mutually exclusive. Preserve color
+    // separation still applies: the planner keeps separated colors apart.
     const handleRegionStacksChange = useCallback((enabled: boolean) => {
         setRegionStacks(enabled);
         setRegionStacksNotice(false);
         if (enabled) {
             setMultiHeadMode(false);
             setMultiHeadNotice(undefined);
-            setPreserveSeparation(false);
         }
     }, []);
 
@@ -580,7 +576,7 @@ export default function ThreeDControls({
         : multiHeadMode && paintMode === 'autopaint';
     const instructionRegionStacks = builtState
         ? !!builtState.regionStackPlan && instructionPaintMode === 'autopaint'
-        : regionStacks && !multiHeadMode && !preserveSeparation && paintMode === 'autopaint';
+        : regionStacks && !multiHeadMode && paintMode === 'autopaint';
     const instructionFlatPaintFaceUp = builtState
         ? !!builtState.flatPaintFaceUp
         : flatPaintActive && flatPaintFaceUp;
@@ -656,11 +652,7 @@ export default function ThreeDControls({
         }
 
         const regionStacksRequested =
-            regionStacks &&
-            !multiHeadRequested &&
-            !preserveSeparation &&
-            paintMode === 'autopaint' &&
-            !!autoPaintResult;
+            regionStacks && !multiHeadRequested && paintMode === 'autopaint' && !!autoPaintResult;
         let regionStackPlan: RegionStackPlan | null = null;
         if (regionStacksRequested && autoPaintResult) {
             regionStackPlan = await runRegionStacks({
