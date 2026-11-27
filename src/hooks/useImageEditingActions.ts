@@ -61,6 +61,8 @@ export function useImageEditingActions({
     const beginSourceEdit = useImageEditGuard(imageSrc, false);
     // Synchronous ownership closes the gap before React renders the processing flag.
     const operation = useRef({ busy: false, generation: 0 });
+    // Cancel Crop ends the crop session, so a crop still encoding cannot land afterwards.
+    const cropSession = useRef(0);
     const beginEdit = () => {
         if (operation.current.busy) return null;
         const current = beginGuardedEdit();
@@ -161,9 +163,14 @@ export function useImageEditingActions({
     const saveCrop = async () => {
         const current = beginEdit();
         if (!current || !canvasPreviewRef.current) return;
+        const session = cropSession.current;
         const blob = await canvasPreviewRef.current.exportCroppedImage();
-        if (!blob || !current()) return;
+        if (!blob || !current() || session !== cropSession.current) return;
         commit(blob);
+        exitCrop();
+    };
+    const cancelCrop = () => {
+        cropSession.current++;
         exitCrop();
     };
     // CanvasPreview already binds asynchronous strokes to their source and tool session.
@@ -224,6 +231,7 @@ export function useImageEditingActions({
         resizeCurrentImage,
         bakeAdjustments,
         saveCrop,
+        cancelCrop,
         commitTouchUp,
         applyQuantize,
         onDeditherWorkingChange,

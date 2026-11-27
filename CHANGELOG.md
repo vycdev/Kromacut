@@ -11,6 +11,7 @@ All notable changes to Kromacut are documented in this file.
 ### Fixed
 
 - **Color height cap off the layer grid (#181)** - A color height at the 10 mm cap no longer rounds up past it. When the first-layer height is not a multiple of the layer height, a first color capped at 10 mm (after its layer was promoted, or by dragging its slider to the end) was snapped up to the next first-layer step, such as 10.03 mm with 0.08 mm layers and a 0.19 mm first layer, and exported at that height. Colors now stop at the last layer boundary at or below 10 mm (9.95 mm in that example). A later color dragged to the end of its slider also stays at or below 10 mm, where it could previously reach 10.05 mm on 0.15 mm layers or 10.08 mm on 0.16, 0.24 or 0.28 mm layers. Swatch reconciliation and height normalization share that rule. Added unit coverage for capped first and later colors on uneven layer grids.
+- **Cancel crop during a save (#190)** - Clicking **Cancel crop** while a crop is still saving now discards that crop. Previously it could replace the image and add an undo step after crop mode had closed, even if Crop had been opened again. Added browser regressions that cancel during the save, with and without reopening Crop.
 
 ## v4.3.0 - 2026-11-22
 
