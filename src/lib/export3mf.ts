@@ -97,6 +97,14 @@ function encodeXmlChunks(chunks: string[]): Uint8Array {
 }
 
 /**
+ * Root `userData` key for a function that returns the meshes to export in
+ * place of the root's own preview meshes, in the root's local coordinates.
+ * Slab layouts preview one part per color class but export merged slabs.
+ */
+export const KROMACUT_BUILD_EXPORT_MESHES = 'kromacutBuildExportMeshes';
+export type BuildExportMeshes = () => Promise<THREE.Mesh[]>;
+
+/**
  * Meshes tagged with the same `userData.kromacutExportGroup` key are merged
  * into a single 3MF object (used by Flat Paint to export one object per
  * physical filament). Untagged meshes keep the one-object-per-mesh behavior.
@@ -184,14 +192,27 @@ ${metadataContentTypes}${metadataContentTypes ? '\n' : ''}</Types>`;
     // but exports must still include every generated physical layer.
     const meshes: THREE.Mesh[] = [];
     root.updateMatrixWorld(true);
-    root.traverse((obj) => {
-        if ((obj as THREE.Mesh).isMesh) {
-            const m = obj as THREE.Mesh;
-            if (m.geometry) {
-                meshes.push(m);
+    const buildExportMeshes = (root.userData as Record<string, unknown> | undefined)?.[
+        KROMACUT_BUILD_EXPORT_MESHES
+    ];
+    if (typeof buildExportMeshes === 'function') {
+        // The model supplies its own export geometry, placed like its preview.
+        const holder = new THREE.Group();
+        holder.matrixAutoUpdate = false;
+        holder.matrix.copy(root.matrixWorld);
+        for (const mesh of await (buildExportMeshes as BuildExportMeshes)()) holder.add(mesh);
+        holder.updateMatrixWorld(true);
+        meshes.push(...(holder.children as THREE.Mesh[]));
+    } else {
+        root.traverse((obj) => {
+            if ((obj as THREE.Mesh).isMesh) {
+                const m = obj as THREE.Mesh;
+                if (m.geometry) {
+                    meshes.push(m);
+                }
             }
-        }
-    });
+        });
+    }
 
     if (meshes.length === 0) throw new Error('No meshes to export');
 

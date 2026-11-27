@@ -3,7 +3,11 @@ import test from 'node:test';
 import * as THREE from 'three';
 import JSZip from 'jszip';
 import { createFlatPaintMesher } from '../src/lib/flatPaintMeshing.ts';
-import { FLAT_PAINT_CARRIER_HEX, type FlatPaintLayout } from '../src/lib/flatPaint.ts';
+import {
+    FLAT_PAINT_CARRIER_HEX,
+    mergeLayoutPartsByFilament,
+    type FlatPaintLayout,
+} from '../src/lib/flatPaint.ts';
 import type { RegionStack, RegionStackPlan, SmoothMeshingStrength } from '../src/types/index.ts';
 import { loadViteModule } from './helpers/viteModule.ts';
 
@@ -503,4 +507,158 @@ for (const orientation of ['relief', 'face-up', 'face-down'] as const) {
             }
         });
     }
+}
+
+/** Vertical wall length per object whose back side is the same object at that height. */
+function sameFilamentSeamLength(modelXml: string) {
+    return Array.from(modelXml.matchAll(/<object\b([^>]*)>([\s\S]*?)<\/object>/g))
+        .filter((match) => match[2].includes('<mesh>'))
+        .map((match) => {
+            const vertices = Array.from(
+                match[2].matchAll(/<vertex x="([^"]+)" y="([^"]+)" z="([^"]+)" \/>/g),
+                (vertex) => ({ xy: `${vertex[1]},${vertex[2]}`, z: Number(vertex[3]) })
+            );
+            const walls = new Map<string, Array<[number, number]>>();
+            const list: Array<{ back: string; z0: number; z1: number }> = [];
+            for (const triangle of match[2].matchAll(
+                /<triangle v1="(\d+)" v2="(\d+)" v3="(\d+)" \/>/g
+            )) {
+                const points = [1, 2, 3].map((i) => vertices[Number(triangle[i])]);
+                const z0 = Math.min(...points.map((point) => point.z));
+                const z1 = Math.max(...points.map((point) => point.z));
+                if (z0 === z1) continue;
+                for (let e = 0; e < 3; e++) {
+                    const a = points[e];
+                    const b = points[(e + 1) % 3];
+                    if (a.z !== z0 || b.z !== z0 || a.xy === b.xy) continue;
+                    const key = `${a.xy}>${b.xy}`;
+                    walls.set(key, [...(walls.get(key) ?? []), [z0, z1]]);
+                    list.push({ back: `${b.xy}>${a.xy}`, z0, z1 });
+                }
+            }
+            let seam = 0;
+            for (const wall of list) {
+                for (const [z0, z1] of walls.get(wall.back) ?? []) {
+                    seam += Math.max(0, Math.min(z1, wall.z1) - Math.max(z0, wall.z0));
+                }
+            }
+            return { name: /name="([^"]*)"/.exec(match[1])?.[1], seam };
+        });
+}
+
+for (const orientation of ['relief', 'face-up', 'face-down'] as const) {
+    test(`${orientation} merged export slabs keep every pixel's filament at every height`, () => {
+        const result = layout(orientation);
+        const merged = mergeLayoutPartsByFilament(result.parts, WIDTH * HEIGHT);
+        const heights = [...new Set(result.parts.flatMap((part) => [part.baseZ, part.topZ]))].sort(
+            (a, b) => a - b
+        );
+        const groupsAt = (parts: FlatPaintLayout['parts'], pixel: number, z: number) =>
+            parts
+                .filter((part) => part.mask[pixel] && part.baseZ < z && z < part.topZ)
+                .map((part) => part.exportGroup)
+                .sort();
+        for (let band = 0; band + 1 < heights.length; band++) {
+            const z = (heights[band] + heights[band + 1]) / 2;
+            for (let pixel = 0; pixel < LABELS.length; pixel++) {
+                assert.deepEqual(
+                    groupsAt(merged, pixel, z),
+                    groupsAt(result.parts, pixel, z),
+                    `pixel ${pixel} at z=${z}`
+                );
+            }
+        }
+        // One slab per filament at any height, so two of them never touch side by side.
+        const groups = new Set(merged.map((part) => part.exportGroup));
+        for (const group of groups) {
+            const slabs = merged.filter((part) => part.exportGroup === group);
+            for (const a of slabs) {
+                for (const b of slabs) {
+                    if (a === b) continue;
+                    assert.ok(
+                        a.topZ <= b.baseZ || b.topZ <= a.baseZ,
+                        `${group} slabs overlap in height`
+                    );
+                }
+            }
+        }
+        // Groups keep their order, which numbers the slicer filaments.
+        assert.deepEqual([...groups], [...new Set(result.parts.map((part) => part.exportGroup))]);
+    });
+
+    test(`${orientation} region stack export has no walls between same-filament regions`, async () => {
+        const { exportObjectTo3MFBlob, KROMACUT_BUILD_EXPORT_MESHES } =
+            await loadViteModule<typeof import('../src/lib/export3mf.ts')>(
+                '/src/lib/export3mf.ts'
+            );
+        const result = layout(orientation);
+        const meshMask = await createFlatPaintMesher(
+            LABELS,
+            WIDTH,
+            HEIGHT,
+            0.4,
+            'medium',
+            noYieldOptions
+        );
+        const toMeshes = async (parts: FlatPaintLayout['parts']) => {
+            const meshes: THREE.Mesh[] = [];
+            for (const part of parts) {
+                const mesh = await meshMask(part.mask, noYieldOptions);
+                for (let i = 2; i < mesh.positions.length; i += 3) {
+                    mesh.positions[i] = part.baseZ + mesh.positions[i] * (part.topZ - part.baseZ);
+                }
+                const geometry = new THREE.BufferGeometry();
+                geometry.setAttribute('position', new THREE.BufferAttribute(mesh.positions, 3));
+                geometry.setIndex(mesh.indices);
+                const object = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial());
+                object.userData.kromacutExportGroup = part.exportGroup;
+                object.userData.kromacutFilamentHex = part.filamentHex;
+                object.userData.kromacutMaterialKey = part.exportGroup;
+                object.userData.kromacutPartName = part.partName;
+                meshes.push(object);
+            }
+            return meshes;
+        };
+        const exportXml = async (root: THREE.Object3D) => {
+            const zip = await JSZip.loadAsync(
+                await (await exportObjectTo3MFBlob(root)).arrayBuffer()
+            );
+            return zip.file('3D/3dmodel.model')!.async('string');
+        };
+
+        // The per-class preview parts touch inside one filament object.
+        const preview = new THREE.Group();
+        preview.add(...(await toMeshes(result.parts)));
+        const previewXml = await exportXml(preview);
+        assert.ok(
+            sameFilamentSeamLength(previewXml).some((object) => object.seam > 0),
+            'fixture should have same-filament seams in the per-class parts'
+        );
+
+        // The model's export builder replaces them with merged slabs.
+        const root = new THREE.Group();
+        root.position.set(3, -2, 0);
+        root.add(...(await toMeshes(result.parts)));
+        root.userData[KROMACUT_BUILD_EXPORT_MESHES] = () =>
+            toMeshes(mergeLayoutPartsByFilament(result.parts, WIDTH * HEIGHT));
+        const xml = await exportXml(root);
+        const objects = parseObjects(xml);
+        assert.deepEqual(
+            objects.map((object) => object.name),
+            parseObjects(previewXml).map((object) => object.name),
+            'same objects in the same filament order'
+        );
+        for (const object of objects) {
+            assert.ok(object.triangles > 0, `${object.name} should have geometry`);
+            assert.equal(object.badEdges, 0, `${object.name} should be closed shells`);
+        }
+        for (const object of sameFilamentSeamLength(xml)) {
+            assert.equal(object.seam, 0, `${object.name} should have no internal walls`);
+        }
+        // Export geometry is placed like the model it replaces.
+        const minX = Math.min(
+            ...Array.from(xml.matchAll(/<vertex x="([^"]+)"/g), (match) => Number(match[1]))
+        );
+        assert.equal(minX, 3, 'root transform applies to export meshes');
+    });
 }

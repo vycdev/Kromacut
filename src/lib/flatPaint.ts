@@ -498,3 +498,125 @@ export function buildStackLayout(options: StackLayoutOptions): FlatPaintLayout {
         classCount: present.length,
     };
 }
+
+/**
+ * Solid parts to export for a slab layout: one slab per physical filament and
+ * run of heights where that filament fills the same pixels.
+ *
+ * Layout parts are per class, so each class can carry its own preview color.
+ * Neighboring classes that print the same filament at the same height would
+ * still export as separate shells that touch, and slicers trace a perimeter
+ * along every such seam. The merged slabs fill exactly the same pixels with
+ * the same filament at every height, and only meet other filaments.
+ */
+export function mergeLayoutPartsByFilament(
+    parts: readonly FlatPaintPart[],
+    pixelCount: number
+): FlatPaintPart[] {
+    const active = parts.filter((part) => part.activeCount > 0 && part.topZ > part.baseZ);
+    const heights = [...new Set(active.flatMap((part) => [part.baseZ, part.topZ]))].sort(
+        (a, b) => a - b
+    );
+
+    // Class masks are disjoint, so one owner per pixel builds any union in one
+    // pass. The carrier (class 0) spans every class but is alone in its group.
+    const maskIds = new Map<Uint8Array, number>();
+    const classMasks = new Set<Uint8Array>();
+    for (const part of active) {
+        if (!maskIds.has(part.mask)) maskIds.set(part.mask, maskIds.size);
+        if (part.classIndex > 0) classMasks.add(part.mask);
+    }
+    const masks = [...maskIds.keys()];
+    const owner = new Int32Array(pixelCount).fill(-1);
+    let disjoint = true;
+    for (const mask of classMasks) {
+        const id = maskIds.get(mask)!;
+        for (let i = 0; i < pixelCount && disjoint; i++) {
+            if (!mask[i]) continue;
+            if (owner[i] !== -1) disjoint = false;
+            else owner[i] = id;
+        }
+    }
+    const unionMask = (ids: number[]) => {
+        // One class keeps its own mask and count.
+        if (ids.length === 1) return { mask: masks[ids[0]], count: undefined };
+        const mask = new Uint8Array(pixelCount);
+        let count = 0;
+        if (disjoint && ids.every((id) => classMasks.has(masks[id]))) {
+            const included = new Uint8Array(masks.length);
+            for (const id of ids) included[id] = 1;
+            for (let i = 0; i < pixelCount; i++) {
+                if (owner[i] >= 0 && included[owner[i]]) {
+                    mask[i] = 1;
+                    count++;
+                }
+            }
+        } else {
+            for (const id of ids) {
+                const source = masks[id];
+                for (let i = 0; i < pixelCount; i++) mask[i] |= source[i];
+            }
+            for (let i = 0; i < pixelCount; i++) count += mask[i];
+        }
+        return { mask, count };
+    };
+
+    const groups = new Map<string, FlatPaintPart[]>();
+    for (const part of active) {
+        const group = groups.get(part.exportGroup) ?? [];
+        group.push(part);
+        groups.set(part.exportGroup, group);
+    }
+
+    const merged: FlatPaintPart[] = [];
+    for (const [exportGroup, members] of groups) {
+        let open: { ids: number[]; key: string; baseZ: number; topZ: number } | undefined;
+        const close = () => {
+            if (!open) return;
+            const sources = members.filter(
+                (part) =>
+                    part.baseZ < open!.topZ &&
+                    part.topZ > open!.baseZ &&
+                    open!.ids.includes(maskIds.get(part.mask)!)
+            );
+            const { mask, count } = unionMask(open.ids);
+            const kinds = new Set(sources.map((part) => part.kind));
+            merged.push({
+                kind: kinds.size === 1 ? sources[0].kind : 'zone',
+                classIndex: Math.min(...sources.map((part) => part.classIndex)),
+                mask,
+                activeCount: count ?? sources[0].activeCount,
+                baseZ: open.baseZ,
+                topZ: open.topZ,
+                previewHex: sources[0].filamentHex,
+                filamentHex: sources[0].filamentHex,
+                exportGroup,
+                partName: sources[0].partName,
+            });
+            open = undefined;
+        };
+        for (let band = 0; band + 1 < heights.length; band++) {
+            const baseZ = heights[band];
+            const topZ = heights[band + 1];
+            const ids = [
+                ...new Set(
+                    members
+                        .filter((part) => part.baseZ <= baseZ && part.topZ >= topZ)
+                        .map((part) => maskIds.get(part.mask)!)
+                ),
+            ].sort((a, b) => a - b);
+            const key = ids.join(',');
+            if (open && open.key === key && open.topZ === baseZ) {
+                open.topZ = topZ;
+                continue;
+            }
+            close();
+            if (ids.length > 0) open = { ids, key, baseZ, topZ };
+        }
+        close();
+    }
+
+    // Groups stay in first-appearance order: the 3MF exporter numbers
+    // filaments in the order it meets them.
+    return merged;
+}

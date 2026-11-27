@@ -27,8 +27,10 @@ import {
     buildFlatPaintLayout,
     heightMapToFlatPaintLayerCounts,
     heightMapToLayerCounts,
+    mergeLayoutPartsByFilament,
     orientFlatPaintLayerCounts,
 } from '../lib/flatPaint';
+import { KROMACUT_BUILD_EXPORT_MESHES, type BuildExportMeshes } from '../lib/export3mf';
 import {
     createFinalStackTargetHeightCache,
     mapTargetsToPrintablePalette,
@@ -349,7 +351,9 @@ function updateE2EBuild(metrics: E2EBuildMetrics) {
     }
 }
 
-function clearLastMeshRef() {
+function clearLastMeshRef(modelGroup: THREE.Object3D) {
+    // Export geometry belongs to the cleared build.
+    delete modelGroup.userData[KROMACUT_BUILD_EXPORT_MESHES];
     if (typeof window === 'undefined') return;
     (window as unknown as { __KROMACUT_LAST_MESH?: THREE.Object3D }).__KROMACUT_LAST_MESH =
         undefined;
@@ -803,7 +807,7 @@ export default function ThreeDView({
             }
             clearWireframeOverlay();
             modelGroup.clear();
-            clearLastMeshRef();
+            clearLastMeshRef(modelGroup);
             setIsBuilding(false);
             setModelDimensions(null);
             setMaxModelHeight(0);
@@ -823,7 +827,7 @@ export default function ThreeDView({
             }
             clearWireframeOverlay();
             modelGroup.clear();
-            clearLastMeshRef();
+            clearLastMeshRef(modelGroup);
             setIsBuilding(false);
             setModelDimensions(null);
             setMaxModelHeight(0);
@@ -845,7 +849,7 @@ export default function ThreeDView({
             }
             clearWireframeOverlay();
             modelGroup.clear();
-            clearLastMeshRef();
+            clearLastMeshRef(modelGroup);
             setIsBuilding(false);
             onBuildStarted?.();
             return;
@@ -916,7 +920,7 @@ export default function ThreeDView({
                 // Clear current model
                 clearWireframeOverlay();
                 modelGroup.clear();
-                clearLastMeshRef();
+                clearLastMeshRef(modelGroup);
 
                 const YIELD_MS = 12;
                 let lastYield = performance.now();
@@ -1612,6 +1616,58 @@ export default function ThreeDView({
                                 lastYield = performance.now();
                             }
                         }
+
+                        // The preview keeps one part per class for its colors.
+                        // Export merges same-filament neighbors into one slab per
+                        // height run: touching shells make slicers trace walls.
+                        const exportParts = layout.parts;
+                        const exportGrid = labelGrid;
+                        const exportStrength = buildSmoothMeshingStrength;
+                        const exportHeightScale = heightScale;
+                        // Timers keep yielding while the window is hidden.
+                        const exportYield = {
+                            onYield: () => new Promise<void>((r) => setTimeout(r, 0)),
+                        };
+                        const buildExportMeshes: BuildExportMeshes = async () => {
+                            const meshMask = await createFlatPaintMesher(
+                                exportGrid,
+                                boxW,
+                                boxH,
+                                pixelSize,
+                                exportStrength,
+                                exportYield
+                            );
+                            const meshes: THREE.Mesh[] = [];
+                            for (const part of mergeLayoutPartsByFilament(
+                                exportParts,
+                                boxW * boxH
+                            )) {
+                                const data = remapMeshZRange(
+                                    await meshMask(part.mask, exportYield),
+                                    part.baseZ,
+                                    part.topZ,
+                                    exportHeightScale
+                                );
+                                const geometry = new THREE.BufferGeometry();
+                                geometry.setAttribute(
+                                    'position',
+                                    new THREE.BufferAttribute(data.positions, 3)
+                                );
+                                geometry.setIndex(data.indices);
+                                geometry.userData.kromacutExportGeometry = {
+                                    positions: data.positions,
+                                    indices: data.indices,
+                                };
+                                const exportMesh = new THREE.Mesh(geometry);
+                                exportMesh.userData.kromacutExportGroup = part.exportGroup;
+                                exportMesh.userData.kromacutFilamentHex = part.filamentHex;
+                                exportMesh.userData.kromacutMaterialKey = part.exportGroup;
+                                exportMesh.userData.kromacutPartName = part.partName;
+                                meshes.push(exportMesh);
+                            }
+                            return meshes;
+                        };
+                        modelGroup.userData[KROMACUT_BUILD_EXPORT_MESHES] = buildExportMeshes;
                     } else if (multiHeadPlan) {
                         for await (const part of generateMultiHeadMeshes({
                             plan: multiHeadPlan,
@@ -2131,7 +2187,7 @@ export default function ThreeDView({
                     materials.forEach((material) => material.dispose());
                 });
                 modelGroup.clear();
-                clearLastMeshRef();
+                clearLastMeshRef(modelGroup);
                 setModelDimensions(null);
                 setMaxModelHeight(0);
                 setPreviewMinHeight(0);
