@@ -125,7 +125,12 @@ export async function createFlatPaintMesher(
             y: center.y + (neighbor.y - center.y) * 0.1,
         };
     };
-    const cellPolygon = (x: number, y: number, includeOwnedDiamonds = true): Point[] => {
+    const cellPolygon = (
+        x: number,
+        y: number,
+        includeOwnedDiamonds = true,
+        cornerVertex: (vx: number, vy: number, east: boolean) => Point = vertex
+    ): Point[] => {
         const polygon: Point[] = [];
         const corners = [
             [x, y],
@@ -139,7 +144,7 @@ export async function createFlatPaintMesher(
             const [vx, vy] = corners[corner];
             const owner = diamondOwners.get(vy * stride + vx);
             if (owner === undefined) {
-                polygon.push(vertex(vx, vy));
+                polygon.push(cornerVertex(vx, vy, vx === x));
             } else if (includeOwnedDiamonds && owner === y * width + x) {
                 for (let step = 0; step < 4; step++) {
                     polygon.push(diamondPoint(vx, vy, (incoming[corner] + step) % 4));
@@ -170,6 +175,21 @@ export async function createFlatPaintMesher(
                 label: strength === 'none' ? 'Building mesh caps' : 'Building smooth mesh caps',
                 progress: lastCapProgress,
             });
+        };
+        // A mask that joins different classes can hold two diagonal cells
+        // without the other two at a corner the label repair left alone. Each
+        // side keeps its own vertex there, so the shell touches itself along a
+        // line, as separate class shells did, instead of four walls sharing an
+        // edge.
+        const cornerVertex = (vx: number, vy: number, east: boolean): Point => {
+            const point = vertex(vx, vy);
+            if (vx <= 0 || vy <= 0 || vx >= width || vy >= height) return point;
+            const nw = mask[(vy - 1) * width + vx - 1];
+            const ne = mask[(vy - 1) * width + vx];
+            const sw = mask[vy * width + vx - 1];
+            const se = mask[vy * width + vx];
+            if (nw === ne || nw !== se || ne !== sw) return point;
+            return { ...point, key: `${point.key}${east ? 'e' : 'w'}` };
         };
         const getVertex = (point: Point, top: boolean) => {
             const key = `${point.key}/${top ? 1 : 0}`;
@@ -218,10 +238,11 @@ export async function createFlatPaintMesher(
                     const polygon: Point[] = [];
                     // Every grid edge is split identically across classes,
                     // the carrier, and differently merged rectangles.
-                    for (let dx = 0; dx < w; dx++) polygon.push(vertex(x + dx, y));
-                    for (let dy = 0; dy < h; dy++) polygon.push(vertex(x + w, y + dy));
-                    for (let dx = w; dx > 0; dx--) polygon.push(vertex(x + dx, y + h));
-                    for (let dy = h; dy > 0; dy--) polygon.push(vertex(x, y + dy));
+                    // Only rectangle corners can be diagonal contacts.
+                    for (let dx = 0; dx < w; dx++) polygon.push(cornerVertex(x + dx, y, true));
+                    for (let dy = 0; dy < h; dy++) polygon.push(cornerVertex(x + w, y + dy, false));
+                    for (let dx = w; dx > 0; dx--) polygon.push(cornerVertex(x + dx, y + h, false));
+                    for (let dy = h; dy > 0; dy--) polygon.push(cornerVertex(x, y + dy, true));
                     if (emitPolygon(polygon)) {
                         completedCapCells += w * h;
                         if (reportChunks) {
@@ -257,13 +278,13 @@ export async function createFlatPaintMesher(
                 if (!mask[index] || visited[index]) continue;
                 if (specialCells[index]) {
                     visited[index] = 1;
-                    if (!emitPolygon(cellPolygon(x, y))) {
+                    if (!emitPolygon(cellPolygon(x, y, true, cornerVertex))) {
                         // A concave corner repair can defeat ear clipping when
                         // almost-collinear edges round differently in Float32
                         // and 3MF coordinates. Split off the owned diamonds:
                         // the same footprint and boundary vertices are retained,
                         // and the internal edges cancel just like rectangle caps.
-                        const pieces = [cellPolygon(x, y, false)];
+                        const pieces = [cellPolygon(x, y, false, cornerVertex)];
                         for (const [vx, vy] of [
                             [x, y],
                             [x + 1, y],
