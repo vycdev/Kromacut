@@ -49,6 +49,8 @@ Other than Exposure and Hue, sliders use integer steps. Alpha remains unchanged.
 
 **Apply** bakes the current appearance into the underlying image, resets sliders to zero, and creates an image-history step. It does not reduce colors, build the model, or change print settings.
 
+Adjustment previews and Apply run in the background where supported. If a preview fails, **Retry preview** renders the current settings again. A failed Apply keeps the current image and slider values so you can retry.
+
 The distinction matters:
 
 - **Quantization, Resize Image, Download image, and 3D generation use the underlying working image**, not unbaked preview adjustments.

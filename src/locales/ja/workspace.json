@@ -29,6 +29,9 @@
         "colorCount_other": "{{count}} 色"
     },
     "adjustmentsPanel": {
+        "previewRenderFailed": "調整のプレビューを作成できませんでした。最後に表示できた画像を表示しています。",
+        "retryPreviewRender": "プレビューを再試行",
+        "applyRenderFailed": "画像の調整を適用できませんでした。もう一度お試しください。",
         "adjustments": "画像調整",
         "fineTuneImageProperties": "画像の各要素を微調整",
         "adjustmentsModified": "画像調整を変更済み",

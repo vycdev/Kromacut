@@ -4,6 +4,8 @@ import type { PatchedSliceData } from '../lib/patchedLayersToPlan';
 import type { FrontlitCalibration } from '../lib/calibration';
 import type { TargetSampleContext } from './appearance';
 
+export type { ImageEditSnapshot } from './imageEditing';
+
 export type SmoothMeshingStrength = 'none' | 'minimal' | 'medium' | 'aggressive';
 
 export type {

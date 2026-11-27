@@ -319,31 +319,56 @@ async function failProcessingEncodes(page: Page, fail: boolean) {
         if (w.failPatched) return;
         w.failPatched = true;
         w.processingInputs = [];
+
+        // Detect the clean 64x64 black/white fixture before quantize or
+        // dedither edits it. Both rendering paths are exercised elsewhere.
+        const recordInput = (canvas: HTMLCanvasElement) => {
+            if (canvas.width !== 64 || canvas.height !== 64) return;
+            const data = canvas.getContext('2d')!.getImageData(0, 0, 64, 64).data;
+            w.processingInputs.push(
+                data.every((value, i) => {
+                    if (i % 4 === 3) return value === 255;
+                    return value === (Math.floor(i / 4) % 64 < 32 ? 0 : 255);
+                })
+            );
+        };
         const toBlob = HTMLCanvasElement.prototype.toBlob;
         HTMLCanvasElement.prototype.toBlob = function (callback, type, quality) {
             if (w.failProcessingEncode) {
-                // Record whether processing read the committed 64x64 fixture: black left
-                // half, white right half, no touch-up pixels.
-                const data =
-                    this.width === 64 && this.height === 64
-                        ? this.getContext('2d')?.getImageData(0, 0, 64, 64).data
-                        : undefined;
-                if (data) {
-                    let clean = true;
-                    for (let i = 0; i < 64 * 64 && clean; i++) {
-                        const v = i % 64 < 32 ? 0 : 255;
-                        clean =
-                            data[i * 4] === v &&
-                            data[i * 4 + 1] === v &&
-                            data[i * 4 + 2] === v &&
-                            data[i * 4 + 3] === 255;
-                    }
-                    w.processingInputs.push(clean);
-                }
+                recordInput(this);
                 queueMicrotask(() => callback(null));
                 return;
             }
             toBlob.call(this, callback, type, quality);
+        };
+        const NativeWorker = Worker;
+        window.Worker = class extends NativeWorker {
+            constructor(url: URL | string, options?: WorkerOptions) {
+                super(url, options);
+                if (!String(url).includes('imageEditing.worker')) return;
+                this.addEventListener('message', (event) => {
+                    const { id, kind, image } = event.data;
+                    if (!w.failProcessingEncode || kind !== 'result' || !(image instanceof Blob))
+                        return;
+                    event.stopImmediatePropagation();
+                    void createImageBitmap(image).then((bitmap) => {
+                        try {
+                            const canvas = document.createElement('canvas');
+                            canvas.width = bitmap.width;
+                            canvas.height = bitmap.height;
+                            canvas.getContext('2d')!.drawImage(bitmap, 0, 0);
+                            recordInput(canvas);
+                        } finally {
+                            bitmap.close();
+                            this.dispatchEvent(
+                                new MessageEvent('message', {
+                                    data: { id, kind: 'error', message: 'Test encode failure' },
+                                })
+                            );
+                        }
+                    });
+                });
+            }
         };
     }, fail);
 }
