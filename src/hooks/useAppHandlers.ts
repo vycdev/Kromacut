@@ -101,7 +101,7 @@ function compressionStepLabel(percent: number) {
 interface ThreeMFDestination {
     stepLabel: string;
     /** Resolves to null when the user cancels, such as closing the desktop save dialog. */
-    deliver: (blob: Blob, fileName: string) => Promise<unknown>;
+    deliver: (blob: Blob, fileName: string) => Promise<string | null>;
     failureMessage: string;
 }
 

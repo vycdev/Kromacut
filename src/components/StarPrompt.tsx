@@ -40,7 +40,7 @@ export function StarPrompt({ onClose }: { onClose: () => void }) {
                             <Star className="w-5 h-5 text-amber-400" aria-hidden="true" />
                         </div>
                     </div>
-                    <div className="flex-1 space-y-2">
+                    <div className="min-w-0 flex-1 space-y-2">
                         <div className="flex items-start justify-between gap-2">
                             <h4
                                 id="star-prompt-title"
@@ -61,7 +61,7 @@ export function StarPrompt({ onClose }: { onClose: () => void }) {
                         <p className="text-xs text-muted-foreground">
                             {t('starPrompt.description')}
                         </p>
-                        <div className="flex gap-2 pt-1">
+                        <div className="flex flex-wrap gap-2 pt-1">
                             <Button asChild size="sm" className="h-7 text-xs">
                                 <a
                                     href={REPOSITORY_URL}

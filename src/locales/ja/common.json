@@ -82,7 +82,7 @@
     },
     "starPrompt": {
         "title": "Kromacut は気に入りましたか？",
-        "description": "Kromacut は無料のオープンソースです。GitHub でスターを付けると、ほかのメイカーが見つけやすくなります。",
+        "description": "Kromacut は無料のオープンソースです。GitHub でスターを付けると、ほかのメイカーが Kromacut を見つけやすくなります。",
         "star": "GitHub でスターを付ける",
         "later": "今はしない",
         "dismiss": "GitHub のスターのお願いを閉じる"

@@ -6,12 +6,12 @@ export const REPOSITORY_URL = 'https://github.com/vycdev/Kromacut';
  * claim could be stored, so a browser that blocks storage is never asked on every export.
  */
 export function claimStarPrompt(): boolean {
-    if (typeof globalThis.localStorage === 'undefined') return false;
-
     try {
-        if (globalThis.localStorage.getItem(STAR_PROMPT_STORAGE_KEY) !== null) return false;
-        globalThis.localStorage.setItem(STAR_PROMPT_STORAGE_KEY, 'true');
-        return globalThis.localStorage.getItem(STAR_PROMPT_STORAGE_KEY) === 'true';
+        // Reading `localStorage` itself throws where the browser blocks storage.
+        const storage = globalThis.localStorage;
+        if (storage.getItem(STAR_PROMPT_STORAGE_KEY) !== null) return false;
+        storage.setItem(STAR_PROMPT_STORAGE_KEY, 'true');
+        return true;
     } catch {
         return false;
     }
