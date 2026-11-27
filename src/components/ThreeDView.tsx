@@ -1624,8 +1624,10 @@ export default function ThreeDView({
                         const exportGrid = labelGrid;
                         const exportStrength = buildSmoothMeshingStrength;
                         const exportHeightScale = heightScale;
-                        // Timers keep yielding while the window is hidden.
+                        // Timers keep yielding while the window is hidden. Each
+                        // yield can wait for a preview frame, so yield rarely.
                         const exportYield = {
+                            yieldIntervalMs: 100,
                             onYield: () => new Promise<void>((r) => setTimeout(r, 0)),
                         };
                         const buildExportMeshes: BuildExportMeshes = async () => {
