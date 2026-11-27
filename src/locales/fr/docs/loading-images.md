@@ -89,3 +89,9 @@ N’utilisez pas **Supprimer** sur un échantillon dans ce but : cela réassocie
 **Retirer l’image** vide l’espace de travail, pas les réglages. Ne considérez pas cette action comme réversible : elle n’ajoute pas l’image retirée à une nouvelle étape d’annulation. Téléchargez d’abord une copie si vous souhaitez la conserver.
 
 Suite : [Réglages d’image](image-adjustments).
+
+## Enregistrer et ouvrir des projets
+
+**Enregistrer le projet** regroupe l’image, les réglages, la quantification, la palette choisie, les paramètres d’impression et les filaments de travail dans un fichier `.kromacut`. Confirmez **Ouvrir le projet** pour remplacer la session. Une palette personnalisée manquante est copiée dans la bibliothèque. Les paramètres d’impression par défaut sont conservés.
+
+L’historique repart de zéro à l’ouverture. Reconstruisez le modèle 3D si nécessaire. L’image est limitée à 16 mégapixels et le fichier à 128 Mio.

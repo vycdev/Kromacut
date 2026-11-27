@@ -89,3 +89,9 @@ Do not use swatch **Delete** for this: it remaps colors instead of making pixels
 **Remove image** clears the workspace, not the settings. Do not rely on it as a reversible edit: it does not add the cleared image as a new Undo step. Download a copy first if you need to preserve it.
 
 Next: [Image adjustments](image-adjustments).
+
+## Save and Open Projects
+
+Use **Save project** to pack the current image, adjustments, quantization settings, selected palette, print settings, and working filaments into a `.kromacut` file. Choose **Open project** and confirm to replace the current workspace. If a required custom palette is missing, the app adds a copy to your library. Built-in palettes are referenced by ID, and existing palettes and saved print defaults keep their values.
+
+Opening starts a fresh undo history. Rebuild the 3D model after opening. The first project format stores the current image and working settings. Undo history, per-color slice edits, and generated models are outside this format. Project images are capped at 16 megapixels and archives at 128 MiB.

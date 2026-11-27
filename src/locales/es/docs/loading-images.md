@@ -89,3 +89,9 @@ No uses **Eliminar** en la muestra para esto: reasigna colores en vez de volver 
 **Quitar imagen** vacía el espacio de trabajo, no los ajustes. No cuentes con que sea reversible: no añade la imagen borrada como nuevo paso de Deshacer. Descarga una copia antes si necesitas conservarla.
 
 Siguiente: [Ajustes de imagen](image-adjustments).
+
+## Guardar y abrir proyectos
+
+**Guardar proyecto** reúne la imagen, los ajustes, la cuantización, la paleta seleccionada, los parámetros de impresión y los filamentos de trabajo en un archivo `.kromacut`. Confirma **Abrir proyecto** para sustituir la sesión. Si falta una paleta personalizada, se crea una copia. Se conservan los ajustes de impresión guardados.
+
+Al abrir se inicia un historial nuevo. Vuelve a generar el modelo 3D cuando sea necesario. Límite de 16 megapíxeles y 128 MiB.

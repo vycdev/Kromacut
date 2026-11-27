@@ -105,9 +105,27 @@ export function useImageHistory(initial: string | null, onBeforeSet?: () => void
         setImageSrc(null);
     }, [imageSrc, past, future, onBeforeSet]);
 
+    const replaceWorkspaceImage = useCallback(
+        (next: string) => {
+            if (onBeforeSet) onBeforeSet();
+            const previous = new Set([imageRef.current, ...pastRef.current, ...futureRef.current]);
+            for (const url of previous) {
+                if (url?.startsWith('blob:') && url !== next) URL.revokeObjectURL(url);
+            }
+            imageRef.current = next;
+            pastRef.current = [];
+            futureRef.current = [];
+            setPast([]);
+            setFuture([]);
+            setImageSrc(next);
+        },
+        [onBeforeSet]
+    );
+
     return {
         imageSrc,
         setImage,
+        replaceWorkspaceImage,
         clearCurrent,
         undo,
         redo,

@@ -194,9 +194,23 @@ export function useBuildWarning({ imageSrc, imageCanvas, initialState }: UseBuil
         setIsBuildStarting(false);
     }, []);
 
+    const restoreThreeDSettings = useCallback((settings: Partial<ThreeDControlsStateShape>) => {
+        if (pendingBuildFrameRef.current !== null) {
+            window.cancelAnimationFrame(pendingBuildFrameRef.current);
+            pendingBuildFrameRef.current = null;
+        }
+        workingSettingsRef.current = settings;
+        setThreeDState(createInitialThreeDState(settings));
+        setBuildWarning(null);
+        setIsBuildStarting(false);
+        setBuiltThreeDState(null);
+        clearLastBuiltMeshRef();
+    }, []);
+
     return {
         threeDState,
         handleThreeDSettingsChange,
+        restoreThreeDSettings,
         threeDBuildSignal,
         builtThreeDState,
         builtFlatPaint,

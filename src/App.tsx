@@ -21,7 +21,14 @@ import AdjustmentsPanel from './components/AdjustmentsPanel';
 import DeditherPanel from './components/DeditherPanel';
 import ImageResizePanel from './components/ImageResizePanel';
 import { ADJUSTMENT_DEFAULTS } from './lib/applyAdjustments';
-import SLIDER_DEFS from './components/sliderDefs';
+import SLIDER_DEFS from './lib/sliderDefs';
+import ProjectControls from './components/ProjectControls';
+import { useProjectWorkspace } from './hooks/useProjectWorkspace';
+import {
+    DEFAULT_PRINT_SETTINGS,
+    loadPrintSettingsFromStorage,
+    type PrintSettings,
+} from './lib/printSettingsStorage';
 import { useSwatches } from './hooks/useSwatches';
 import type { SwatchEntry } from './hooks/useSwatches';
 import { useImageHistory } from './hooks/useImageHistory';
@@ -280,6 +287,7 @@ function App(): React.ReactElement | null {
         allPalettes,
         selectedPalette,
         setSelectedPalette,
+        restoreProjectPalette,
         importFeedback: paletteImportFeedback,
         importInputRef: paletteImportInputRef,
         handleCreatePalette,
@@ -291,6 +299,9 @@ function App(): React.ReactElement | null {
         importText: importPaletteText,
     } = usePaletteManager();
     const [paletteEditorOpen, setPaletteEditorOpen] = useState(false);
+    const [restoringProject, setRestoringProject] = useState(false);
+    const projectRestoreLock = useRef(false);
+    const [projectPrintSettings, setProjectPrintSettings] = useState<PrintSettings>();
     const [calibrationDialogOpen, setCalibrationDialogOpen] = useState(false);
     const [profileSaveNewOpen, setProfileSaveNewOpen] = useState(false);
     const [profileRenameOpen, setProfileRenameOpen] = useState(false);
@@ -299,6 +310,7 @@ function App(): React.ReactElement | null {
     // OS file opens can arrive through an active editor. Keep the request queued
     // until its draft is saved or dismissed, before changing either workspace.
     const desktopFile =
+        restoringProject ||
         paletteEditorOpen ||
         calibrationDialogOpen ||
         profileSaveNewOpen ||
@@ -326,8 +338,18 @@ function App(): React.ReactElement | null {
         dismissImportError,
         cancelPendingImport,
     } = useImageImport();
-    const { imageSrc, setImage, clearCurrent, undo, redo, canUndo, canRedo, past, future } =
-        useImageHistory(logo, cancelPendingImport);
+    const {
+        imageSrc,
+        setImage,
+        replaceWorkspaceImage,
+        clearCurrent,
+        undo,
+        redo,
+        canUndo,
+        canRedo,
+        past,
+        future,
+    } = useImageHistory(logo, cancelPendingImport);
     const { imageCanvas, imageCanvasLoading, prepareImageCanvas } = useImageCanvas(
         imageSrc,
         past,
@@ -489,6 +511,7 @@ function App(): React.ReactElement | null {
     const {
         threeDState,
         handleThreeDSettingsChange,
+        restoreThreeDSettings,
         threeDBuildSignal,
         builtThreeDState,
         builtFlatPaint,
@@ -517,6 +540,7 @@ function App(): React.ReactElement | null {
     const prevModeRef = useRef<typeof mode>(mode);
 
     useEffect(() => {
+        if (projectPrintSettings) return;
         saveAutoPaintPersisted({
             filaments: threeDState.filaments,
             paintMode: threeDState.paintMode ?? 'manual',
@@ -544,6 +568,7 @@ function App(): React.ReactElement | null {
             multiHeadColorMode: threeDState.multiHeadColorMode,
         });
     }, [
+        projectPrintSettings,
         threeDState.filaments,
         threeDState.paintMode,
         threeDState.autoPaintMaxHeight,
@@ -619,9 +644,75 @@ function App(): React.ReactElement | null {
         }
     };
 
-    const processingActive = isQuantizing || isDedithering;
+    const processingActive = isQuantizing || isDedithering || restoringProject;
+    const projectBlocked =
+        processingActive ||
+        threeDBuildBusy ||
+        isImporting ||
+        isCropMode ||
+        paletteEditorOpen ||
+        calibrationDialogOpen ||
+        profileSaveNewOpen ||
+        profileRenameOpen ||
+        filamentEditing;
+    const project = useProjectWorkspace({
+        blocked: projectBlocked,
+        imageCanvas,
+        captureSettings: () => ({
+            name: '',
+            appVersion: __APP_VERSION__,
+            adjustments,
+            quantize: {
+                algorithm,
+                weight,
+                finalColors,
+                paletteId: selectedPalette,
+                palette: customPalettes.find((palette) => palette.id === selectedPalette),
+            },
+            print: hasMountedThreeDControls
+                ? {
+                      layerHeight: threeDState.layerHeight,
+                      slicerFirstLayerHeight:
+                          threeDState.slicerFirstLayerHeight ??
+                          DEFAULT_PRINT_SETTINGS.slicerFirstLayerHeight,
+                      pixelSize: threeDState.pixelSize,
+                      smoothMeshingStrength:
+                          threeDState.smoothMeshingStrength ??
+                          DEFAULT_PRINT_SETTINGS.smoothMeshingStrength,
+                  }
+                : (projectPrintSettings ??
+                  loadPrintSettingsFromStorage() ??
+                  DEFAULT_PRINT_SETTINGS),
+            working3D: threeDState,
+        }),
+        cancelImport: cancelPendingImport,
+        onRestoringChange: (restoring) => {
+            projectRestoreLock.current = restoring;
+            setRestoringProject(restoring);
+        },
+        commit: (settings, src, canvas, file) => {
+            restoreProjectPalette(settings.quantize.paletteId, settings.quantize.palette);
+            setAlgorithm(settings.quantize.algorithm);
+            setWeight(settings.quantize.weight);
+            setFinalColors(settings.quantize.finalColors);
+            setAdjustments(settings.adjustments);
+            setAdjustmentsEpoch((epoch) => epoch + 1);
+            setTouchUpTool(null);
+            setIsCropMode(false);
+            setHasValidCropSelection(false);
+            handleModeChange('2d');
+            setHasMountedThreeDControls(false);
+            setProjectPrintSettings(settings.print);
+            autoPaintWorkingStateInitializedRef.current = true;
+            restoreThreeDSettings({ ...settings.working3D, ...settings.print });
+            prepareImageCanvas(src, canvas, file);
+            invalidate();
+            replaceWorkspaceImage(src);
+        },
+    });
     const imageActions = useImageEditingActions({
         imageSrc,
+        workspaceLock: projectRestoreLock,
         imageCanvasLoading,
         canvasPreviewRef,
         inputRef,
@@ -760,6 +851,14 @@ function App(): React.ReactElement | null {
                     <ResizableSplitter defaultSize={30} minSize={20} maxSize={50}>
                         <aside className="h-full w-full bg-card border-r border-border flex flex-col min-h-0">
                             <ModeTabs mode={mode} onChange={handleModeChange} />
+                            <ProjectControls
+                                disabled={projectBlocked}
+                                canSave={!!imageCanvas}
+                                name={project.name}
+                                onNameChange={project.setName}
+                                onCapture={project.capture}
+                                onRestore={project.restore}
+                            />
                             <div className="flex-1 overflow-y-auto overflow-x-auto p-4">
                                 {mode === '2d' && (
                                     <>
@@ -787,7 +886,7 @@ function App(): React.ReactElement | null {
                                                 disabled={processingActive}
                                                 key={adjustmentsEpoch}
                                                 defs={SLIDER_DEFS}
-                                                initial={ADJUSTMENT_DEFAULTS}
+                                                initial={adjustments}
                                                 onCommit={(vals) => {
                                                     if (!imageActions.beginEdit()) return;
                                                     setTouchUpTool(null);
@@ -904,6 +1003,7 @@ function App(): React.ReactElement | null {
                                                 handleThreeDSettingsChange(partial);
                                             }}
                                             persisted={threeDState}
+                                            projectPrintSettings={projectPrintSettings}
                                             hasAutoPaintWorkingState={
                                                 autoPaintWorkingStateInitializedRef.current
                                             }
@@ -1003,7 +1103,7 @@ function App(): React.ReactElement | null {
                                                 </Button>
                                             </div>
                                         )}
-                                        {processingActive && (
+                                        {(isQuantizing || isDedithering) && (
                                             <ProgressOverlay
                                                 title={progressOperationTitle()}
                                                 stepLabel={
