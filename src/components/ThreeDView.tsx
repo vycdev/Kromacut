@@ -1665,6 +1665,8 @@ export default function ThreeDView({
                                 exportMesh.userData.kromacutFilamentHex = part.filamentHex;
                                 exportMesh.userData.kromacutMaterialKey = part.exportGroup;
                                 exportMesh.userData.kromacutPartName = part.partName;
+                                // Diagonal contacts keep a vertex per side.
+                                exportMesh.userData.kromacutPreserveVertexIndices = true;
                                 meshes.push(exportMesh);
                             }
                             return meshes;

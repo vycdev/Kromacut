@@ -692,9 +692,11 @@ ${metadataContentTypes}${metadataContentTypes ? '\n' : ''}</Types>`;
                 if (source?.indices) {
                     const positions = source.positions;
                     const indices = source.indices;
-                    // Keep the multi-head mesher's vertex indexing instead of
-                    // re-welding by coordinate.
-                    const preserveVertexIndices = typeof mesh.userData.nozzleIndex === 'number';
+                    // Keep the multi-head and merged slab meshers' vertex
+                    // indexing instead of re-welding by coordinate.
+                    const preserveVertexIndices =
+                        typeof mesh.userData.nozzleIndex === 'number' ||
+                        mesh.userData.kromacutPreserveVertexIndices === true;
                     const itemSize = source.itemSize ?? 3;
                     const matrixElements = mesh.matrixWorld.elements;
                     const sourceVertexCount = Math.floor(positions.length / itemSize);

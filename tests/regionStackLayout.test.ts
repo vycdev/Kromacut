@@ -588,9 +588,7 @@ for (const orientation of ['relief', 'face-up', 'face-down'] as const) {
 
     test(`${orientation} region stack export has no walls between same-filament regions`, async () => {
         const { exportObjectTo3MFBlob, KROMACUT_BUILD_EXPORT_MESHES } =
-            await loadViteModule<typeof import('../src/lib/export3mf.ts')>(
-                '/src/lib/export3mf.ts'
-            );
+            await loadViteModule<typeof import('../src/lib/export3mf.ts')>('/src/lib/export3mf.ts');
         const result = layout(orientation);
         const meshMask = await createFlatPaintMesher(
             LABELS,
@@ -660,5 +658,78 @@ for (const orientation of ['relief', 'face-up', 'face-down'] as const) {
             ...Array.from(xml.matchAll(/<vertex x="([^"]+)"/g), (match) => Number(match[1]))
         );
         assert.equal(minX, 3, 'root transform applies to export meshes');
+    });
+}
+
+for (const strength of ['none', 'medium'] as const) {
+    test(`${strength} merged slabs joining different labels diagonally stay manifold`, async () => {
+        const { exportObjectTo3MFBlob } =
+            await loadViteModule<typeof import('../src/lib/export3mf.ts')>('/src/lib/export3mf.ts');
+        // Four labels; the diagonal pair 1 and 4 share a filament above the
+        // foundation, so its merged slab touches itself only at the center.
+        const labels = Uint16Array.from([1, 2, 3, 4]);
+        const plan = {
+            layerHeight: LAYER_HEIGHT,
+            firstLayerHeight: FIRST_LAYER_HEIGHT,
+            stacks: [
+                region('#D01C1C', '#D01C1C', [FOUNDATION, 2], ['#D01C1C', 2]),
+                region('#1C3CD0', '#1C3CD0', [FOUNDATION, 2], ['#1C3CD0', 2]),
+                region('#1CD03C', '#1CD03C', [FOUNDATION, 2], ['#1CD03C', 2]),
+                region('#C02020', '#C02020', [FOUNDATION, 2], ['#D01C1C', 2]),
+            ],
+        };
+        const merged = mergeLayoutPartsByFilament(
+            buildRegionStackLayout({
+                plan,
+                labels,
+                orientation: 'relief',
+                carrierThickness: CARRIER,
+            }).parts,
+            4
+        );
+        assert.ok(
+            merged.some((part) => part.mask.join() === '1,0,0,1'),
+            'fixture should merge the diagonal pair'
+        );
+        const meshMask = await createFlatPaintMesher(labels, 2, 2, 0.4, strength, noYieldOptions);
+        const exportXml = async (preserveVertexIndices: boolean) => {
+            const root = new THREE.Group();
+            for (const part of merged) {
+                const mesh = await meshMask(part.mask, noYieldOptions);
+                for (let i = 2; i < mesh.positions.length; i += 3) {
+                    mesh.positions[i] = part.baseZ + mesh.positions[i] * (part.topZ - part.baseZ);
+                }
+                const geometry = new THREE.BufferGeometry();
+                geometry.setAttribute('position', new THREE.BufferAttribute(mesh.positions, 3));
+                geometry.setIndex(mesh.indices);
+                geometry.userData.kromacutExportGeometry = {
+                    positions: mesh.positions,
+                    indices: mesh.indices,
+                };
+                const object = new THREE.Mesh(geometry);
+                object.userData.kromacutExportGroup = part.exportGroup;
+                object.userData.kromacutFilamentHex = part.filamentHex;
+                object.userData.kromacutPartName = part.partName;
+                object.userData.kromacutPreserveVertexIndices = preserveVertexIndices;
+                root.add(object);
+            }
+            const zip = await JSZip.loadAsync(
+                await (await exportObjectTo3MFBlob(root)).arrayBuffer()
+            );
+            return zip.file('3D/3dmodel.model')!.async('string');
+        };
+
+        // Each side of the contact keeps its own vertex through the export.
+        const objects = parseObjects(await exportXml(true));
+        assert.equal(objects.length, 4);
+        for (const object of objects) {
+            assert.ok(object.triangles > 0, `${object.name} should have geometry`);
+            assert.equal(object.badEdges, 0, `${object.name} should be a manifold closed shell`);
+        }
+        // Re-welding by coordinate pinches the shell into four walls on one edge.
+        assert.ok(
+            parseObjects(await exportXml(false)).some((object) => object.badEdges > 0),
+            'coordinate welding should pinch the diagonal slab'
+        );
     });
 }
