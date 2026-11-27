@@ -128,6 +128,8 @@ test('@smoke desktop Open in Slicer hands the built 3MF to the native app', asyn
     await page.getByTestId('slicer-open').click();
     await expect.poll(async () => (await state()).bytes.length).toBe(1);
     await expect(page.getByTestId('download-3d-model')).toBeEnabled();
+    // A successful handoff counts as the first export.
+    await expect(page.getByTestId('star-prompt')).toBeVisible();
 
     const handoff = await state();
     expect(Object.keys(handoff.headers[0])).toEqual(['X-Kromacut-File-Name']);

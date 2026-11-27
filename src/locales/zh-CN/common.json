@@ -80,6 +80,13 @@
         "checkFailed": "无法检查更新，请稍后重试。",
         "downloadFailed": "无法打开下载页面。"
     },
+    "starPrompt": {
+        "title": "喜欢 Kromacut 吗？",
+        "description": "Kromacut 免费且开源。在 GitHub 上点个星标，能帮助更多创客发现它。",
+        "star": "在 GitHub 上点星标",
+        "later": "以后再说",
+        "dismiss": "关闭 GitHub 星标请求"
+    },
     "app": {
         "checkingImage": "正在检查图像…",
         "uploadImage": "请上传图片文件",

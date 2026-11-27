@@ -80,6 +80,13 @@
     "checkFailed": "Actualizările nu au putut fi verificate. Încearcă din nou mai târziu.",
     "downloadFailed": "Pagina de descărcare nu a putut fi deschisă."
   },
+  "starPrompt": {
+    "title": "Îți place Kromacut?",
+    "description": "Kromacut este gratuit și open source. O stea pe GitHub îi ajută și pe alți makeri să-l descopere.",
+    "star": "Dă o stea pe GitHub",
+    "later": "Nu acum",
+    "dismiss": "Închide cererea de stea pe GitHub"
+  },
   "app": {
     "checkingImage": "Se verifică imaginea…",
     "uploadImage": "Încarcă un fișier imagine",

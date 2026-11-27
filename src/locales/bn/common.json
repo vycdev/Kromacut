@@ -80,6 +80,13 @@
         "checkFailed": "আপডেট খোঁজা যায়নি। পরে আবার চেষ্টা করুন।",
         "downloadFailed": "ডাউনলোডের পাতা খোলা যায়নি।"
     },
+    "starPrompt": {
+        "title": "Kromacut ভালো লাগছে?",
+        "description": "Kromacut বিনামূল্যে ও ওপেন সোর্স। GitHub-এ একটি স্টার দিলে অন্য মেকাররা এটি খুঁজে পান।",
+        "star": "GitHub-এ স্টার দিন",
+        "later": "এখন নয়",
+        "dismiss": "GitHub স্টারের অনুরোধ বন্ধ করুন"
+    },
     "app": {
         "checkingImage": "ছবি পরীক্ষা করা হচ্ছে…",
         "uploadImage": "একটি ছবির ফাইল আপলোড করুন",

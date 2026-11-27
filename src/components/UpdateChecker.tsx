@@ -95,7 +95,7 @@ export function UpdateChecker() {
     };
 
     return (
-        <div className="fixed bottom-4 right-4 z-50 animate-in slide-in-from-bottom-5">
+        <div className="pointer-events-auto animate-in slide-in-from-bottom-5">
             <Card className="max-w-sm overflow-hidden border-primary/60 bg-card p-4 shadow-2xl shadow-black/30">
                 <div className="flex items-start gap-3">
                     <div className="flex-shrink-0">
