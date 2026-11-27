@@ -80,6 +80,13 @@
     "checkFailed": "No se pudieron buscar actualizaciones. Inténtalo de nuevo más tarde.",
     "downloadFailed": "No se pudo abrir la página de descarga."
   },
+  "starPrompt": {
+    "title": "¿Te gusta Kromacut?",
+    "description": "Kromacut es gratuito y de código abierto. Una estrella en GitHub ayuda a otros makers a encontrarlo.",
+    "star": "Dar una estrella en GitHub",
+    "later": "Ahora no",
+    "dismiss": "Cerrar la solicitud de estrella en GitHub"
+  },
   "app": {
     "checkingImage": "Comprobando imagen…",
     "uploadImage": "Importa un archivo de imagen",

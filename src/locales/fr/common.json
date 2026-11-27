@@ -80,6 +80,13 @@
     "checkFailed": "Impossible de rechercher les mises à jour. Réessayez plus tard.",
     "downloadFailed": "Impossible d’ouvrir la page de téléchargement."
   },
+  "starPrompt": {
+    "title": "Vous appréciez Kromacut ?",
+    "description": "Kromacut est gratuit et open source. Une étoile sur GitHub aide d’autres makers à le découvrir.",
+    "star": "Mettre une étoile sur GitHub",
+    "later": "Pas maintenant",
+    "dismiss": "Fermer la demande d’étoile GitHub"
+  },
   "app": {
     "checkingImage": "Vérification de l’image…",
     "uploadImage": "Veuillez importer un fichier image",

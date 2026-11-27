@@ -80,6 +80,13 @@
         "checkFailed": "更新を確認できませんでした。後でもう一度お試しください。",
         "downloadFailed": "ダウンロードページを開けませんでした。"
     },
+    "starPrompt": {
+        "title": "Kromacut は気に入りましたか？",
+        "description": "Kromacut は無料のオープンソースです。GitHub でスターを付けると、ほかのメイカーが見つけやすくなります。",
+        "star": "GitHub でスターを付ける",
+        "later": "今はしない",
+        "dismiss": "GitHub のスターのお願いを閉じる"
+    },
     "app": {
         "checkingImage": "画像を確認中…",
         "uploadImage": "画像ファイルをアップロードしてください",

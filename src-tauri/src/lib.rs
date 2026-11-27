@@ -19,6 +19,7 @@ use slicer_apps::{find_slicer_app, list_slicer_apps, pick_slicer_app};
 use slicer_handoff::open_model_in_slicer;
 
 const RELEASES_URL: &str = "https://github.com/vycdev/Kromacut/releases";
+const REPOSITORY_URL: &str = "https://github.com/vycdev/Kromacut";
 
 #[derive(Debug, Serialize, Deserialize)]
 struct VersionInfo {
@@ -211,6 +212,11 @@ fn open_releases_page() -> Result<(), String> {
     open_external_url(RELEASES_URL)
 }
 
+#[tauri::command]
+fn open_repository_page() -> Result<(), String> {
+    open_external_url(REPOSITORY_URL)
+}
+
 fn legal_page_url(path: &str) -> Result<String, String> {
     let segments: Vec<_> = path.strip_prefix('/').unwrap_or("").split('/').collect();
     let supported = match segments.as_slice() {
@@ -271,6 +277,7 @@ pub fn run() {
             check_for_updates,
             get_app_version,
             open_releases_page,
+            open_repository_page,
             open_legal_page,
             take_opened_file,
             begin_safe_file_save,

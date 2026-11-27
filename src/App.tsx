@@ -56,6 +56,8 @@ import { useSlicerChoice } from './hooks/useSlicerChoice';
 import { DesktopFileDialog } from './components/DesktopFileDialog';
 import { SlicerChooserDialog } from './components/SlicerChooserDialog';
 import { UpdateChecker } from './components/UpdateChecker';
+import { StarPrompt } from './components/StarPrompt';
+import { claimStarPrompt } from './lib/starPrompt';
 import ProgressOverlay from './components/ProgressOverlay';
 import DocsPage from './components/docs/DocsPage';
 import { defaultDocSlug } from './docs';
@@ -258,6 +260,10 @@ function App(): React.ReactElement | null {
     // replay the flourish, so App only reacts to off→on transitions.
     const multiPlateEnabledRef = useRef(getMultiPlateEnabled());
     const [printing, setPrinting] = useState(false);
+    const [starPromptOpen, setStarPromptOpen] = useState(false);
+    const handleModelExported = useCallback(() => {
+        if (claimStarPrompt()) setStarPromptOpen(true);
+    }, []);
 
     useEffect(() => {
         return subscribeToMultiPlateEnabled((enabled) => {
@@ -728,6 +734,7 @@ function App(): React.ReactElement | null {
             }),
         applyQuantize,
         swatches,
+        onModelExported: handleModelExported,
     });
     const slicerChoice = useSlicerChoice(onOpenInSlicer);
 
@@ -1234,8 +1241,12 @@ function App(): React.ReactElement | null {
                         onCancel={slicerChoice.onChooserCancel}
                     />
                 )}
-                {/* Update checker for Tauri desktop app */}
-                <UpdateChecker />
+                {/* Bottom-right notices stack instead of covering each other. */}
+                <div className="pointer-events-none fixed bottom-4 left-4 right-4 z-50 flex flex-col items-end gap-3 sm:left-auto">
+                    {starPromptOpen && <StarPrompt onClose={() => setStarPromptOpen(false)} />}
+                    {/* Update checker for Tauri desktop app */}
+                    <UpdateChecker />
+                </div>
                 {desktopFile &&
                     (desktopFile.content === null || failedPaletteFileId === desktopFile.id) && (
                         <DesktopFileDialog

@@ -37,6 +37,8 @@ export interface UseAppHandlersParams {
         options?: { overridePalette?: string[]; overrideFinalColors?: number }
     ) => Promise<void>;
     swatches: SwatchEntry[];
+    /** Called after a model export reaches its destination (not when a save is cancelled). */
+    onModelExported?: () => void;
 }
 
 export interface ExportProgressStep {
@@ -98,6 +100,7 @@ function compressionStepLabel(percent: number) {
 /** Where a finished 3MF goes: a saved file, or the desktop's default 3MF app. */
 interface ThreeMFDestination {
     stepLabel: string;
+    /** Resolves to null when the user cancels, such as closing the desktop save dialog. */
     deliver: (blob: Blob, fileName: string) => Promise<unknown>;
     failureMessage: string;
 }
@@ -124,6 +127,7 @@ export function useAppHandlers(params: UseAppHandlersParams) {
         exportObjectTo3MFBlob,
         applyQuantize,
         swatches,
+        onModelExported,
     } = params;
 
     const onExportImage = useCallback(async () => {
@@ -170,6 +174,7 @@ export function useAppHandlers(params: UseAppHandlersParams) {
         });
         setExportProgress(0);
         const overlayStartedAt = performance.now();
+        let exported = false;
         try {
             await waitForOverlayPaint();
             // A build may have replaced the mesh while the overlay painted.
@@ -197,11 +202,12 @@ export function useAppHandlers(params: UseAppHandlersParams) {
                 stepProgress: 1,
             });
             setExportProgress(1);
-            await saveBlobToFile(blob, {
+            const savedPath = await saveBlobToFile(blob, {
                 defaultFileName: exportFileName('stl'),
                 extension: 'stl',
                 filterName: 'STL model',
             });
+            exported = savedPath !== null;
         } catch (err) {
             console.warn('STL export failed', err);
             alert(translate('messages:files.stlFailed'));
@@ -213,6 +219,7 @@ export function useAppHandlers(params: UseAppHandlersParams) {
                 setExportStep?.(DEFAULT_EXPORT_STEP);
             }, 300);
         }
+        if (exported) onModelExported?.();
     }, [
         exportingSTL,
         threeDBuildBusy,
@@ -221,6 +228,7 @@ export function useAppHandlers(params: UseAppHandlersParams) {
         setExportingSTL,
         setExportProgress,
         setExportStep,
+        onModelExported,
     ]);
 
     const export3MF = useCallback(
@@ -246,6 +254,7 @@ export function useAppHandlers(params: UseAppHandlersParams) {
             setExportProgress(0);
             const overlayStartedAt = performance.now();
             let delivering = false;
+            let exported = false;
             try {
                 await waitForOverlayPaint();
                 let phase: 'geometry' | 'zip' = 'geometry';
@@ -319,7 +328,7 @@ export function useAppHandlers(params: UseAppHandlersParams) {
                 });
                 setExportProgress(1);
                 delivering = true;
-                await destination.deliver(blob, exportFileName('3mf'));
+                exported = (await destination.deliver(blob, exportFileName('3mf'))) !== null;
             } catch (err) {
                 console.warn(
                     delivering ? `${destination.stepLabel} failed` : '3MF export failed',
@@ -338,6 +347,7 @@ export function useAppHandlers(params: UseAppHandlersParams) {
                     setExportStep?.(DEFAULT_EXPORT_STEP);
                 }, 300);
             }
+            if (exported) onModelExported?.();
         },
         [
             exportingSTL,
@@ -346,6 +356,7 @@ export function useAppHandlers(params: UseAppHandlersParams) {
             setExportingSTL,
             setExportProgress,
             setExportStep,
+            onModelExported,
         ]
     );
 
