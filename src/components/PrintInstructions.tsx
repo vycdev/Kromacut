@@ -17,6 +17,8 @@ interface PrintInstructionsProps {
     flatPaint?: boolean;
     /** Flat Paint is printed face-up without a transparent carrier. */
     flatPaintFaceUp?: boolean;
+    /** Relief per-region stacks print several filaments per layer via AMS. */
+    regionStacks?: boolean;
     smoothMeshingStrength?: SmoothMeshingStrength;
 }
 
@@ -32,6 +34,7 @@ export default function PrintInstructions({
     colorCount = 0,
     flatPaint = false,
     flatPaintFaceUp = false,
+    regionStacks = false,
     smoothMeshingStrength = 'none',
 }: PrintInstructionsProps) {
     const { t } = useTranslation('printing');
@@ -175,6 +178,22 @@ export default function PrintInstructions({
                                     </li>
                                 </>
                             )}
+                        </ul>
+                    </div>
+                ) : regionStacks ? (
+                    <div className="p-3 rounded-lg bg-accent/5 border border-border/50 space-y-2">
+                        <div className="font-semibold text-foreground">
+                            {t('printInstructions.regionStacksMultiMaterialPrint')}
+                        </div>
+                        <ul className="list-disc pl-4 space-y-1 text-muted-foreground text-xs">
+                            <li>
+                                <Trans
+                                    ns="printing"
+                                    i18nKey="printInstructions.exportMultiMaterial"
+                                    components={{ format: <span className="font-semibold" /> }}
+                                />
+                            </li>
+                            <li>{t('printInstructions.printAsIsAndFaceUpDoNotMirror')}</li>
                         </ul>
                     </div>
                 ) : multiHeadPlan ? (

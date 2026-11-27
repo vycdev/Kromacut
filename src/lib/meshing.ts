@@ -32,33 +32,12 @@ export interface MeshYieldOptions {
     yieldIntervalMs?: number;
     onYield?: () => Promise<void>;
     onProgress?: (progress: MeshProgress) => void;
-    /**
-     * Skip the downward-facing bottom cap. Used by the multi-head / per-colour-group
-     * meshing path when stacking sub-meshes on top of a lower layer so interior faces
-     * don't z-fight the layer beneath.
-     */
-    skipBottomCap?: boolean;
-    /**
-     * Skip the binary corner-contact repair pass. Used when a layer is split into
-     * multiple colour groups so adjacent groups aren't independently "repaired" into
-     * overlapping geometry.
-     */
-    skipRepair?: boolean;
-    /**
-     * Union of all colour-group masks on this layer. When provided, boundary smoothing
-     * runs on this combined solid instead of the group's own mask: internal seams
-     * between adjacent groups are never smoothed, and vertices on the true exterior
-     * are moved identically by every group's mesher. Without this, each group smooths
-     * its own outline independently and adjacent colours peel apart at shared edges.
-     */
-    combinedMask?: PixelMask;
 }
 
 interface GridMeshOptions extends MeshYieldOptions {
     mesher: 'greedy' | 'smooth';
     smoothBoundary: boolean;
     strength?: SmoothMeshingStrength;
-    combinedMask?: PixelMask;
 }
 
 interface SmoothMeshOptions extends MeshYieldOptions {
@@ -414,24 +393,15 @@ function createGridVertexMapper(
     width: number,
     height: number,
     smoothBoundary: boolean,
-    strength: SmoothMeshingStrength = 'medium',
-    combinedMask?: PixelMask
+    strength: SmoothMeshingStrength = 'medium'
 ) {
     if (!smoothBoundary) {
         return (x: number, y: number): [number, number] => [x, y];
     }
 
     const stride = width + 1;
-    // Build the smoothing graph from the union of all colour groups on the layer
-    // (falling back to this group's own pixels for single-group layers). Every group
-    // is a subset of the combined mask, so all groups derive the identical boundary
-    // graph and therefore identical smoothed positions — vertices shared between
-    // adjacent groups stay welded instead of each group smoothing them differently.
-    // Seam vertices interior to the combined solid never enter the graph and map to
-    // their original grid position in every group.
-    const solidPixels = combinedMask ?? meshingPixels;
     const getCell = (x: number, y: number) =>
-        x >= 0 && y >= 0 && x < width && y < height && solidPixels[y * width + x] ? 1 : 0;
+        x >= 0 && y >= 0 && x < width && y < height && meshingPixels[y * width + x] ? 1 : 0;
 
     const boundaryNeighbors = new Map<number, Set<number>>();
     const addBoundaryEdge = (ax: number, ay: number, bx: number, by: number) => {
@@ -629,10 +599,7 @@ async function generateGridMesh(
     options: GridMeshOptions
 ): Promise<MeshData> {
     const startedAt = performance.now();
-    const skipBottomCap = options.skipBottomCap ?? false;
-    const meshingPixels = options.skipRepair
-        ? activePixels
-        : repairBinaryCornerContacts(activePixels, width, height);
+    const meshingPixels = repairBinaryCornerContacts(activePixels, width, height);
     const positions: number[] = [];
     const indices: number[] = [];
     let vertCount = 0;
@@ -665,8 +632,7 @@ async function generateGridMesh(
         }
     };
 
-    // Weld within each surface fan. At an unrepaired diagonal contact the two
-    // occupied quadrants need distinct indices, even at identical coordinates.
+    // Vertex welding maps: key = y * (width + 1) + x
     const topMap = new Map<number, number>();
     const bottomMap = new Map<number, number>();
     const stride = width + 1;
@@ -680,22 +646,11 @@ async function generateGridMesh(
         width,
         height,
         options.smoothBoundary,
-        options.strength,
-        options.combinedMask
+        options.strength
     );
 
-    const getOrAddVertex = (x: number, y: number, isTop: boolean, interiorY: number): number => {
-        let fan = 0;
-        if (options.skipRepair && x > 0 && x < width && y > 0 && y < height) {
-            const topLeft = !!meshingPixels[(y - 1) * width + x - 1];
-            const topRight = !!meshingPixels[(y - 1) * width + x];
-            const bottomLeft = !!meshingPixels[y * width + x - 1];
-            const bottomRight = !!meshingPixels[y * width + x];
-            if (topLeft === bottomRight && topRight === bottomLeft && topLeft !== topRight) {
-                fan = interiorY < y ? 0 : 1;
-            }
-        }
-        const key = (y * stride + x) * 2 + fan;
+    const getOrAddVertex = (x: number, y: number, isTop: boolean): number => {
+        const key = y * stride + x;
         const map = isTop ? topMap : bottomMap;
         let idx = map.get(key);
         if (idx !== undefined) return idx;
@@ -779,20 +734,6 @@ async function generateGridMesh(
             if (!verticesAtX.has(xCoord)) verticesAtX.set(xCoord, new Set());
             verticesAtX.get(xCoord)!.add(y);
             verticesAtX.get(xCoord)!.add(y + h);
-        }
-
-        if (options.smoothBoundary && options.combinedMask) {
-            // Other colour groups can end a seam anywhere along this rectangle.
-            // Use the shared unit grid on every cap/wall boundary so all groups
-            // include those junctions before applying the common smoothing map.
-            for (let dx = 1; dx < w; dx++) {
-                verticesAtY.get(y)!.add(x + dx);
-                verticesAtY.get(y + h)!.add(x + dx);
-            }
-            for (let dy = 1; dy < h; dy++) {
-                verticesAtX.get(x)!.add(y + dy);
-                verticesAtX.get(x + w)!.add(y + dy);
-            }
         }
 
         await maybeYield();
@@ -882,8 +823,8 @@ async function generateGridMesh(
 
         for (let i = 0; i < boundary.length; i++) {
             const [vx, vy] = boundary[i];
-            topLoop[i] = getOrAddVertex(vx, vy, true, y);
-            bottomLoop[i] = getOrAddVertex(vx, vy, false, y);
+            topLoop[i] = getOrAddVertex(vx, vy, true);
+            bottomLoop[i] = getOrAddVertex(vx, vy, false);
         }
 
         const facePoints = boundary.map(([vx, vy]) => {
@@ -918,9 +859,7 @@ async function generateGridMesh(
 
         for (const [a, b, c] of faces) {
             indices.push(topLoop[a], topLoop[b], topLoop[c]);
-            if (!skipBottomCap) {
-                indices.push(bottomLoop[a], bottomLoop[c], bottomLoop[b]);
-            }
+            indices.push(bottomLoop[a], bottomLoop[c], bottomLoop[b]);
         }
 
         await maybeYield();
@@ -994,11 +933,10 @@ async function generateGridMesh(
             const mustSplit = requiredVertices.has(runEnd) && isContiguous;
 
             if (!isContiguous || mustSplit || i === xCoords.length) {
-                const interiorY = isSouth ? yCoord - 1 : yCoord;
-                const wTL = getOrAddVertex(runStart, yCoord, true, interiorY);
-                const wTR = getOrAddVertex(runEnd, yCoord, true, interiorY);
-                const wBR = getOrAddVertex(runEnd, yCoord, false, interiorY);
-                const wBL = getOrAddVertex(runStart, yCoord, false, interiorY);
+                const wTL = getOrAddVertex(runStart, yCoord, true);
+                const wTR = getOrAddVertex(runEnd, yCoord, true);
+                const wBR = getOrAddVertex(runEnd, yCoord, false);
+                const wBL = getOrAddVertex(runStart, yCoord, false);
 
                 if (isSouth) {
                     addQuadCCW(wBL, wTL, wTR, wBR);
@@ -1040,10 +978,10 @@ async function generateGridMesh(
             const mustSplit = requiredVertices.has(runEnd) && isContiguous;
 
             if (!isContiguous || mustSplit || i === yCoords.length) {
-                const wTL = getOrAddVertex(xCoord, runStart, true, runStart);
-                const wTR = getOrAddVertex(xCoord, runEnd, true, runStart);
-                const wBR = getOrAddVertex(xCoord, runEnd, false, runStart);
-                const wBL = getOrAddVertex(xCoord, runStart, false, runStart);
+                const wTL = getOrAddVertex(xCoord, runStart, true);
+                const wTR = getOrAddVertex(xCoord, runEnd, true);
+                const wBR = getOrAddVertex(xCoord, runEnd, false);
+                const wBL = getOrAddVertex(xCoord, runStart, false);
 
                 if (isEast) {
                     addQuadCCW(wBR, wTR, wTL, wBL);

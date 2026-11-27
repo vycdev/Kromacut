@@ -57,7 +57,7 @@ After a successful build, the preview shows each region's routed, simulated colo
 
 - Before printing, load each listed filament into its numbered head. Leave **EMPTY** heads unused.
 - At each listed layer checkpoint, reload only the marked heads. Unchanged loads are retained; not every window boundary needs a pause.
-- Export **3MF** to preserve routed geometry, physical filament colors, and head assignments. The file records the selected head count as extruders and adds **M600** pause markers at the schedule's swap checkpoints. STL does not preserve these assignments.
+- Export **3MF** to preserve routed geometry, physical filament colors, and head assignments. The file records the selected head count as extruders and adds **M600** pause markers at the schedule's swap checkpoints. The download menu offers only 3MF for multi-head builds, because STL can't carry these assignments.
 
 ![Three heads retain unchanged filaments between phases; only changed head loads require manual reloads.](02_nozzle_swap_schedule.svg)
 

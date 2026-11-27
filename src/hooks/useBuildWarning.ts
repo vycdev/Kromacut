@@ -130,7 +130,8 @@ export function useBuildWarning({ imageSrc, imageCanvas, initialState }: UseBuil
         (s: ThreeDControlsStateShape) => {
             const warnings: string[] = [];
 
-            const layerCount = s.colorOrder?.length ?? 0;
+            // Per-region stacks print only as many layers as their tallest stack.
+            const layerCount = s.regionStackPlan?.layerCount ?? s.colorOrder?.length ?? 0;
             if (layerCount > LAYER_WARNING_THRESHOLD) {
                 warnings.push(
                     `The model will have ${layerCount} layers to build. Consider reducing colors in 2D mode first for better performance.`
@@ -156,7 +157,13 @@ export function useBuildWarning({ imageSrc, imageCanvas, initialState }: UseBuil
                 );
             }
 
-            if (s.paintMode === 'autopaint' && s.flatPaint && s.heightDithering) {
+            // Per-region stacks label whole regions, so height dithering never applies.
+            if (
+                s.paintMode === 'autopaint' &&
+                s.flatPaint &&
+                s.heightDithering &&
+                !s.regionStackPlan
+            ) {
                 warnings.push(
                     'Flat Paint with height dithering can fragment color regions into many small parts, making builds, exports, and slicer processing much slower.'
                 );

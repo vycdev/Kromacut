@@ -27,9 +27,12 @@ import { useSwapPlan } from '../hooks/useSwapPlan';
 import { useAutoPaintWorker } from '../hooks/useAutoPaintWorker';
 import { usePrintableFeatureSimulation } from '../hooks/usePrintableFeatureSimulation';
 import { useMultiHeadWorker } from '../hooks/useMultiHeadWorker';
+import { useRegionStacksWorker } from '../hooks/useRegionStacksWorker';
+import { normalizeMaxFilamentsPerLayer } from '../lib/regionStacks';
 import type {
     AutoPaintRepeatLimit,
     AutoPaintTransitionOpacity,
+    RegionStackPlan,
     Swatch,
     SmoothMeshingStrength,
     ThreeDControlsStateShape,
@@ -229,6 +232,15 @@ export default function ThreeDControls({
     const [omitAtRiskPixels, setOmitAtRiskPixels] = useState(persisted?.omitAtRiskPixels ?? false);
     const [flatPaint, setFlatPaint] = useState(initialFlatPaint);
     const [flatPaintFaceUp, setFlatPaintFaceUp] = useState(persisted?.flatPaintFaceUp ?? false);
+    // Settings saved with Multi-head on load with Per-region stacks off, as
+    // the toggles allow.
+    const [regionStacks, setRegionStacks] = useState(
+        persisted?.regionStacks === true && persisted?.multiHeadMode !== true
+    );
+    const [regionStacksMaxFilaments, setRegionStacksMaxFilaments] = useState(() =>
+        normalizeMaxFilamentsPerLayer(persisted?.regionStacksMaxFilaments)
+    );
+    const [regionStacksNotice, setRegionStacksNotice] = useState(false);
 
     // --- Optimizer Options ---
     const [optimizerAlgorithm, setOptimizerAlgorithm] = useState<
@@ -300,6 +312,19 @@ export default function ThreeDControls({
         setMultiHeadNotice(undefined);
         if (enabled) {
             setFlatPaint(false);
+            setRegionStacks(false);
+        }
+    }, []);
+
+    // Per-region stacks replace the shared sequence that multi-head routes
+    // through, so the two modes are mutually exclusive. Preserve color
+    // separation still applies: the planner keeps separated colors apart.
+    const handleRegionStacksChange = useCallback((enabled: boolean) => {
+        setRegionStacks(enabled);
+        setRegionStacksNotice(false);
+        if (enabled) {
+            setMultiHeadMode(false);
+            setMultiHeadNotice(undefined);
         }
     }, []);
 
@@ -321,6 +346,8 @@ export default function ThreeDControls({
             omitAtRiskPixels,
             flatPaint,
             flatPaintFaceUp,
+            regionStacks,
+            regionStacksMaxFilaments,
             optimizerAlgorithm,
             optimizerSeed,
             regionWeightingMode,
@@ -350,6 +377,8 @@ export default function ThreeDControls({
         omitAtRiskPixels,
         flatPaint,
         flatPaintFaceUp,
+        regionStacks,
+        regionStacksMaxFilaments,
         optimizerAlgorithm,
         optimizerSeed,
         regionWeightingMode,
@@ -472,6 +501,11 @@ export default function ThreeDControls({
         run: runMultiHead,
         cancel: cancelMultiHead,
     } = useMultiHeadWorker();
+    const {
+        isComputing: isRegionStacksComputing,
+        run: runRegionStacks,
+        cancel: cancelRegionStacks,
+    } = useRegionStacksWorker();
     const [buildRevision] = useState(createBuildRevision);
     // Invalidate at commit time, before a worker continuation can publish a
     // snapshot for a previous image. Cleanup also guards component unmounts.
@@ -479,8 +513,9 @@ export default function ThreeDControls({
         () => () => {
             buildRevision.invalidate();
             cancelMultiHead();
+            cancelRegionStacks();
         },
-        [imageSrc, buildRevision, cancelMultiHead]
+        [imageSrc, buildRevision, cancelMultiHead, cancelRegionStacks]
     );
 
     const autoPaintSliceData = useMemo(() => {
@@ -556,6 +591,9 @@ export default function ThreeDControls({
     const instructionMultiHeadMode = builtState
         ? !!builtState.multiHeadMode && instructionPaintMode === 'autopaint'
         : multiHeadMode && paintMode === 'autopaint';
+    const instructionRegionStacks = builtState
+        ? !!builtState.regionStackPlan && instructionPaintMode === 'autopaint'
+        : regionStacks && !multiHeadMode && paintMode === 'autopaint';
     const instructionFlatPaintFaceUp = builtState
         ? !!builtState.flatPaintFaceUp
         : flatPaintActive && flatPaintFaceUp;
@@ -587,6 +625,7 @@ export default function ThreeDControls({
         multiHeadMode: instructionMultiHeadMode,
         flatPaint: instructionFlatPaint,
         flatPaintFaceUp: instructionFlatPaintFaceUp,
+        regionStacks: instructionRegionStacks,
         smoothMeshingStrength: builtState?.smoothMeshingStrength ?? smoothMeshingStrength,
     });
 
@@ -596,6 +635,7 @@ export default function ThreeDControls({
         const isCurrentBuild = buildRevision.begin();
 
         setMultiHeadNotice(undefined);
+        setRegionStacksNotice(false);
 
         // Multi-head runs only when its mode is on, Flat Paint is off (the two
         // are mutually exclusive), and there is an auto-paint result to reorder.
@@ -626,6 +666,24 @@ export default function ThreeDControls({
                         : undefined,
             });
             if (!isCurrentBuild()) return;
+        }
+
+        const regionStacksRequested =
+            regionStacks && !multiHeadRequested && paintMode === 'autopaint' && !!autoPaintResult;
+        let regionStackPlan: RegionStackPlan | null = null;
+        if (regionStacksRequested && autoPaintResult) {
+            regionStackPlan = await runRegionStacks({
+                result: { finalStack: autoPaintResult.finalStack },
+                filaments,
+                alignment: flatPaint ? 'top' : 'bottom',
+                maxFilamentsPerLayer: regionStacksMaxFilaments,
+                imageSwatches: autoPaintImageSwatches,
+                pixelCount: printableFeatureSimulation
+                    ? printableFeatureSimulation.width * printableFeatureSimulation.height
+                    : undefined,
+            });
+            if (!isCurrentBuild()) return;
+            if (!regionStackPlan) setRegionStacksNotice(true);
         }
 
         if (paintMode === 'autopaint') {
@@ -662,6 +720,9 @@ export default function ThreeDControls({
                     omitAtRiskPixels,
                     flatPaint,
                     flatPaintFaceUp,
+                    regionStacks,
+                    regionStacksMaxFilaments,
+                    regionStackPlan: regionStackPlan ?? undefined,
                     optimizerAlgorithm,
                     optimizerSeed,
                     regionWeightingMode,
@@ -706,6 +767,8 @@ export default function ThreeDControls({
                 paintMode,
                 flatPaint,
                 flatPaintFaceUp,
+                regionStacks,
+                regionStacksMaxFilaments,
                 optimizerAlgorithm,
                 optimizerSeed,
                 regionWeightingMode,
@@ -756,6 +819,9 @@ export default function ThreeDControls({
         multiHeadSearchDepth,
         multiHeadColorMode,
         runMultiHead,
+        regionStacks,
+        regionStacksMaxFilaments,
+        runRegionStacks,
     ]);
 
     const autoPaintBuildUnavailable =
@@ -790,6 +856,7 @@ export default function ThreeDControls({
                         !imageCanvas ||
                         isAutoPaintComputing ||
                         isMultiHeadComputing ||
+                        isRegionStacksComputing ||
                         (autoPaintBuildUnavailable && !isAwaitingStart) ||
                         (paintMode === 'autopaint' &&
                             isAwaitingStart &&
@@ -797,7 +864,7 @@ export default function ThreeDControls({
                     }
                     className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold transition-all duration-200 shadow-md hover:shadow-lg active:scale-95 gap-1.5 disabled:opacity-60"
                 >
-                    {isAutoPaintComputing || isMultiHeadComputing ? (
+                    {isAutoPaintComputing || isMultiHeadComputing || isRegionStacksComputing ? (
                         <>
                             <Loader2 className="w-4 h-4 animate-spin" />
                             <span>
@@ -985,6 +1052,13 @@ export default function ThreeDControls({
                     setFlatPaint={handleFlatPaintChange}
                     flatPaintFaceUp={flatPaintFaceUp}
                     setFlatPaintFaceUp={setFlatPaintFaceUp}
+                    regionStacks={regionStacks}
+                    setRegionStacks={handleRegionStacksChange}
+                    regionStacksMaxFilaments={regionStacksMaxFilaments}
+                    setRegionStacksMaxFilaments={setRegionStacksMaxFilaments}
+                    regionStacksNotice={
+                        regionStacksNotice ? t('autoPaintTab.regionStacksFallback') : undefined
+                    }
                     optimizerAlgorithm={optimizerAlgorithm}
                     setOptimizerAlgorithm={setOptimizerAlgorithm}
                     optimizerSeed={optimizerSeed}
@@ -1101,6 +1175,7 @@ export default function ThreeDControls({
                     colorCount={instructionColorCount}
                     flatPaint={instructionFlatPaint}
                     flatPaintFaceUp={instructionFlatPaintFaceUp}
+                    regionStacks={instructionRegionStacks}
                     smoothMeshingStrength={
                         builtState?.smoothMeshingStrength ?? smoothMeshingStrength
                     }

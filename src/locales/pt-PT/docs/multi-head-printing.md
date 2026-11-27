@@ -57,7 +57,7 @@ Após uma criação bem-sucedida, a pré-visualização mostra a cor simulada at
 
 - Antes de imprimir, carrega cada filamento indicado na respetiva cabeça numerada. Deixa as cabeças assinaladas como **VAZIA** sem utilização.
 - Em cada ponto de controlo de camada indicado, recarrega apenas as cabeças assinaladas. As cargas inalteradas são mantidas; nem todos os limites de janela exigem uma pausa.
-- Exporta em **3MF** para preservar a geometria distribuída, as cores físicas dos filamentos e as atribuições às cabeças. O ficheiro regista o número de cabeças escolhido como número de extrusores e adiciona marcadores de pausa **M600** nos pontos de mudança do plano. STL não preserva estas atribuições.
+- Exporta em **3MF** para preservar a geometria distribuída, as cores físicas dos filamentos e as atribuições às cabeças. O ficheiro regista o número de cabeças escolhido como número de extrusores e adiciona marcadores de pausa **M600** nos pontos de mudança do plano. Para modelos multicabeças, o menu de transferência só oferece 3MF, porque o STL não consegue preservar estas atribuições.
 
 ![Três cabeças mantêm os filamentos inalterados entre fases; apenas as cargas modificadas exigem recargas manuais.](02_nozzle_swap_schedule.svg)
 

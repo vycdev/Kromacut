@@ -199,6 +199,15 @@ Prüfe diese Datenzusammenfassung nach Änderungen an Prozess oder Schichthöhe.
 
 Suche eine echte Spule, wenn der Vorschlag hilfreich ist, und gib anschließend ihre tatsächliche Farbe und Kalibrierung ein. Drucke nicht in der Annahme, dass die hypothetische Zeile bereits verfügbar sei. Vorschläge werden bei Änderungen der Bildfarben oder des Filamentsets zurückgesetzt. Wird kein Kandidat gefunden, deckt das aktuelle Set das Bild nach dieser Näherungsprüfung bereits gut ab.
 
+## Stapel pro Region
+
+Aktiviere **Stapel pro Region**, damit jede Bildfarbe ihren eigenen Filamentstapel erhält. Normalerweise druckt jede Farbe die ersten Schichten einer gemeinsamen Filamentabfolge. Braucht eine Farbe einen ungewöhnlichen Stapel, müssen deshalb alle darüberliegenden Farben diese Schichten ebenfalls drucken. Mit dieser Option beginnt jede Farbe auf dem gemeinsamen Fundament und setzt sich mit ihrem eigenen kurzen Stapel aus beliebigen geladenen Filamenten fort. Eine Farbe wechselt nur, wenn ihr eigener Stapel voraussichtlich gleich gut oder besser aussieht. Oft ist das einfach der sichtbare obere Teil ihres alten Stapels, denn wenige Schichten tiefer verändern die unteren Schichten die Farbe nicht mehr.
+
+- Mehrere Filamente teilen sich eine gedruckte Schicht, daher ist ein Mehrmaterialdrucker (AMS, CFS oder Werkzeugwechsler) erforderlich. Exportiere als 3MF und weise jedes Filamentobjekt im Slicer zu.
+- **Max. Filamente pro Schicht** (2–16, Standard 4) begrenzt, wie viele Filamente eine Schicht enthalten darf. Bei Flat Paint enden alle Farben auf derselben Bildschicht, daher sinkt das Limit nie unter das, was normales Flat Paint bereits braucht.
+- Reliefdrucke brauchen mehr Werkzeugwechsel als die gemeinsame Abfolge. Flat-Paint-Platten werden meist dünner, bei etwa gleich vielen Werkzeugwechseln.
+- Höhen-Dithering gilt hier nicht, und Stapel pro Region lassen sich nicht mit dem Mehrkopfmodus kombinieren. Ist „Farbtrennung erhalten“ aktiv, bleiben die getrennten Farben auch auf ihren eigenen Stapeln innerhalb des Limits getrennt. Geplant werden bis zu 128 Bildfarben, bei sehr großen Bildern weniger; bei mehr Farben nutzt das Modell die gemeinsame Abfolge. Reduziere große Paletten daher vorher in 2D.
+
 ## Mehrkopfdruck
 
 Aktiviere den Mehrkopfmodus in Auto-paint und wähle 2–8 Druckköpfe sowie eine Suchtiefe. Beim Erstellen werden die Filamentreihenfolgen im Hintergrund analysiert und jedem Bildbereich wird auf jeder Schicht sein eigenes Filament zugewiesen. Die Vorschau zeigt die simulierte Mischung; die physischen Farben zeigen das tatsächliche Filament. Mehrkopfmodus und Flat Paint schließen sich gegenseitig aus.

@@ -15,6 +15,8 @@ type SlicerTestWindow = Window & {
         pickRequests: PickRequest[];
     };
     __KROMACUT_E2E: { buildHistory: unknown[] };
+    /** When set, `find_slicer_app` waits for it; `true` makes the check fail. */
+    slicerCheck?: { held: Promise<boolean>; release(fail: boolean): void };
 };
 
 const SLICER_FAILED = 'Could not open the 3MF in your slicer. Use Download 3MF to save it instead.';
@@ -178,9 +180,16 @@ async function setUpChooser(
             });
             desktop.handle('list_slicer_apps', () => host.slicerTest.installed);
             desktop.handle('find_slicer_app', ({ path }: { path: string }) => {
-                const { installed, picked } = host.slicerTest;
-                const known = typeof picked === 'object' ? [...installed, picked] : installed;
-                return known.find((app) => app.path === path) ?? null;
+                const find = () => {
+                    const { installed, picked } = host.slicerTest;
+                    const known = typeof picked === 'object' ? [...installed, picked] : installed;
+                    return known.find((app) => app.path === path) ?? null;
+                };
+                if (!host.slicerCheck) return find();
+                return host.slicerCheck.held.then((fail) => {
+                    if (fail) throw new Error('Mock check failure');
+                    return find();
+                });
             });
             desktop.handle('pick_slicer_app', (request: PickRequest) => {
                 host.slicerTest.pickRequests.push(request);
@@ -353,6 +362,57 @@ test('@smoke desktop Open in Slicer asks again when the saved slicer is gone', a
     expect(await fakeDesktopCalls(page)).not.toContain('open_model_in_slicer');
     expect(errors).toEqual([]);
 });
+
+for (const result of ['found', 'missing', 'failed'] as const) {
+    test(`@smoke a ${result} saved-slicer check finishing late keeps the Settings chooser`, async ({
+        page,
+    }) => {
+        const errors: string[] = [];
+        page.on('pageerror', (error) => errors.push(error.message));
+        // Bambu Studio is saved; it is still installed only when the check finds it.
+        const installed = result === 'found' ? [BAMBU, ORCA] : [ORCA];
+        const slicers = await setUpChooser(page, installed, { kind: 'app', app: BAMBU });
+        const chooser = page.getByTestId('slicer-chooser');
+        await page.evaluate(() => {
+            const host = window as unknown as SlicerTestWindow;
+            let release!: (fail: boolean) => void;
+            const held = new Promise<boolean>((resolve) => (release = resolve));
+            host.slicerCheck = { held, release };
+        });
+
+        // Open in Slicer starts the slow check, then Settings opens the chooser to change it.
+        await slicers.openMenu();
+        await page.getByTestId('open-3mf-in-slicer').click();
+        await expect.poll(() => fakeDesktopCalls(page)).toContain('find_slicer_app');
+        await page.getByRole('button', { name: 'Open settings' }).click();
+        await page.getByTestId('settings-slicer-change').click();
+        await expect(page.getByTestId('slicer-save')).toBeVisible();
+
+        await page.evaluate(async (fail) => {
+            const check = (window as unknown as SlicerTestWindow).slicerCheck!;
+            check.release(fail);
+            await check.held;
+            // Let the check result reach React and render.
+            await new Promise((resolve) => setTimeout(resolve, 100));
+        }, result === 'failed');
+
+        // The late result neither replaced the chooser nor opened the model.
+        await expect(page.getByTestId('slicer-save')).toHaveText('Save');
+        await expect(page.getByTestId('slicer-open')).toHaveCount(0);
+        await expect(page.getByTestId('slicer-remember')).toHaveCount(0);
+        await expect(chooser).not.toContainText('could not be found');
+        expect(await slicers.savedPreference()).toEqual({ kind: 'app', app: BAMBU });
+        expect((await slicers.state()).headers).toHaveLength(0);
+
+        // Saving still only remembers the choice.
+        await chooser.getByText(ORCA.name, { exact: true }).click();
+        await page.getByTestId('slicer-save').click();
+        await expect(chooser).toHaveCount(0);
+        expect(await slicers.savedPreference()).toEqual({ kind: 'app', app: ORCA });
+        expect(await fakeDesktopCalls(page)).not.toContain('open_model_in_slicer');
+        expect(errors).toEqual([]);
+    });
+}
 
 test('@smoke closing the chooser from the download menu returns focus to the menu button', async ({
     page,

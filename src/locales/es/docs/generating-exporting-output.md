@@ -48,6 +48,8 @@ STL no contiene colores de filamento ni asignaciones automáticas de bobinas. Us
 
 Para **Pintura plana**, el menú solo ofrece 3MF: contiene un objeto por filamento físico y, en la disposición predeterminada boca abajo, un soporte transparente. La disposición opcional boca arriba omite ese soporte. Un STL sin colores de una sola geometría de cualquiera de las placas no sería útil. Ambas orientaciones admiten todas las intensidades de **Malla suavizada**. Reconstruye el modelo después de cambiar la intensidad para aplicarla a la vista previa y a la geometría exportada.
 
+Los modelos **multicabezal** creados correctamente también ofrecen solo 3MF, porque STL no puede conservar sus asignaciones de cabezales. Si se crea en su lugar un modelo normal de un solo cabezal, STL sigue disponible.
+
 ## Instrucciones de impresión
 
 El panel **Instrucciones de impresión** proporciona:

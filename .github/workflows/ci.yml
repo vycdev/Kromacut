@@ -21,10 +21,11 @@ concurrency:
     group: ci-${{ github.event.pull_request.number || github.ref }}
     cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+# Runners are pinned rather than ubuntu-latest: Playwright cannot install Chromium on Ubuntu 26.04.
 jobs:
     checks:
         name: Lint, build, and unit tests
-        runs-on: ubuntu-latest
+        runs-on: ubuntu-24.04
         timeout-minutes: 30
         steps:
             - name: Checkout
@@ -55,7 +56,7 @@ jobs:
 
     e2e_suites:
         name: List e2e suites
-        runs-on: ubuntu-latest
+        runs-on: ubuntu-24.04
         timeout-minutes: 5
         outputs:
             suites: ${{ steps.list.outputs.suites }}
@@ -78,7 +79,7 @@ jobs:
     e2e:
         name: E2E (${{ matrix.suite.script }})
         needs: e2e_suites
-        runs-on: ubuntu-latest
+        runs-on: ubuntu-24.04
         timeout-minutes: 60
         strategy:
             fail-fast: false
@@ -99,16 +100,20 @@ jobs:
             - name: Install dependencies
               run: npm ci
 
+            # ImageOS (for example ubuntu24) keys the browser cache by runner image, so a cache built on
+            # another Ubuntu release is never restored here.
             - name: Read Playwright version
               id: playwright
-              run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+              run: |
+                  echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+                  echo "image=$ImageOS" >> "$GITHUB_OUTPUT"
 
             - name: Cache Playwright browsers
               id: browsers
               uses: actions/cache@v4
               with:
                   path: ~/.cache/ms-playwright
-                  key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}-chromium
+                  key: playwright-${{ steps.playwright.outputs.image }}-${{ steps.playwright.outputs.version }}-chromium
 
             - name: Install Playwright Chromium
               if: steps.browsers.outputs.cache-hit != 'true'
@@ -178,7 +183,7 @@ jobs:
         name: CI passed
         if: always()
         needs: [checks, rust_tests, e2e_suites, e2e]
-        runs-on: ubuntu-latest
+        runs-on: ubuntu-24.04
         permissions: {}
         steps:
             - name: Require every CI job to pass

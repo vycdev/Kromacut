@@ -206,6 +206,34 @@ for (const replacement of ['import', 'quantize', 'dedither']) {
     });
 }
 
+for (const reenter of [false, true]) {
+    test(`@smoke Cancel Crop discards a crop still saving${reenter ? ' after crop is reopened' : ''}`, async ({
+        page,
+    }) => {
+        const undo = page.getByRole('button', { name: 'Undo', exact: true });
+        const redo = page.locator('button[aria-label="Redo"]');
+        await page.getByRole('button', { name: 'Crop', exact: true }).click();
+        await holdNextEncoding(page);
+        await page.getByRole('button', { name: 'Save crop', exact: true }).click();
+        await waitForEncoding(page);
+        await page.getByRole('button', { name: 'Cancel crop', exact: true }).click();
+        // An older save must not land in a later crop session either.
+        if (reenter) await page.getByRole('button', { name: 'Crop', exact: true }).click();
+        await releaseEncoding(page);
+        await page.waitForTimeout(300);
+        await expect(page.getByRole('button', { name: 'Cancel crop', exact: true })).toHaveCount(
+            reenter ? 1 : 0
+        );
+        await expect(currentSize(page)).toContainText('64x64');
+        await expect(redo).toBeDisabled();
+        if (reenter) await page.getByRole('button', { name: 'Cancel crop', exact: true }).click();
+        // History still holds only the import.
+        await undo.click();
+        await expect(currentSize(page)).toContainText('1024x1024');
+        await expect(undo).toBeDisabled();
+    });
+}
+
 test('@smoke an import started before processing cannot land after processing completes', async ({
     page,
 }) => {

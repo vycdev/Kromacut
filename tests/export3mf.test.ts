@@ -2157,56 +2157,23 @@ interface MultiHeadArchive {
     contentTypesXml: string;
 }
 
-async function createNozzleOccupancyLayer(
-    rows: string[], nozzle: number, baseZ = 0, topZ = 1, heightScale = 1
-) {
+async function createNozzleLayer(rows: string[], nozzle: number, baseZ = 0, topZ = 1) {
     const mask = maskFromRows(rows);
     const data = await generateGreedyMesh(
-        mask.activePixels, mask.width, mask.height, topZ - baseZ, baseZ, 1, heightScale,
-        { yieldIntervalMs: Infinity, onYield: async () => undefined, skipRepair: true }
+        mask.activePixels, mask.width, mask.height, topZ - baseZ, baseZ, 1, 1,
+        { yieldIntervalMs: Infinity, onYield: async () => undefined }
     );
-    const mesh = createCompactExportLayer(data, mask, 1, topZ * heightScale, 0x0000ff);
+    // Match multi-head preview meshes, which carry only their tessellation.
+    const mesh = createMeshDataLayer(data, 0x0000ff);
+    mesh.geometry.userData.kromacutExportGeometry = { positions: data.positions, indices: data.indices };
     mesh.userData = { nozzleIndex: nozzle, baseZ, topZ };
     return mesh;
 }
 
-test('multi-head occupancy export preserves diagonal shells within and across layers', async () => {
-    for (const masks of [
-        [['#.', '.#']],
-        [['#.'], ['.#']],
-        [['#.', '..'], ['..', '.#']],
-        [['##', '#.'], ['#.', '.#']],
-    ]) {
-        const root = new THREE.Group();
-        for (const [z, rows] of masks.entries()) {
-            root.add(await createNozzleOccupancyLayer(rows, 1, z, z + 1, 2));
-        }
-        const objects = await exportMeshObjects(root, { extruderCount: 2 });
-        assert.equal(objects.length, 1, 'all occupied layers should be merged per nozzle');
-        assertRawExportObjectIsManifold(objects[0], `diagonal occupancy ${JSON.stringify(masks)}`);
-        const volume = masks.flat().join('').split('#').length - 1;
-        assert.ok(Math.abs(inspectMeshIntegrity(objects[0].mesh).signedVolume - volume * 2) < 1e-5);
-    }
-});
-
-test('multi-head occupancy export keeps complementary diagonal materials separate', async () => {
-    const root = new THREE.Group();
-    root.add(await createNozzleOccupancyLayer(['#.', '.#'], 1));
-    root.add(await createNozzleOccupancyLayer(['.#', '#.'], 2));
-    const archive = await exportArchiveXml(root, { extruderCount: 2 });
-    const objects = parseMeshObjects(archive.modelXml);
-    assert.equal(objects.length, 2);
-    assert.deepEqual([...parseModelSettingsPartExtruders(archive.modelSettingsXml).values()], [1, 2]);
-    for (const object of objects) {
-        assertRawExportObjectIsManifold(object, 'diagonal material shells');
-        assert.ok(Math.abs(inspectMeshIntegrity(object.mesh).signedVolume - 2) < 1e-6);
-    }
-});
-
-test('multi-head occupancy export preserves mesh and parent transforms', async () => {
+test('multi-head export preserves mesh and parent transforms', async () => {
     for (const transform of ['translate', 'rotate', 'scale', 'parent'] as const) {
         const root = new THREE.Group();
-        const mesh = await createNozzleOccupancyLayer(['#'], 1);
+        const mesh = await createNozzleLayer(['#'], 1);
         if (transform === 'translate') mesh.position.set(7, 8, 0);
         if (transform === 'rotate') mesh.rotation.set(0.3, 0.5, 0.7);
         if (transform === 'scale') mesh.scale.set(2, 3, 4);
@@ -2245,80 +2212,20 @@ test('multi-head export preserves every source smoothing strength', async () => 
     }
 });
 
-test('smoothed multi-head fallback preserves separate indexed diagonal fans', async () => {
-    for (const strength of ['minimal', 'medium', 'aggressive'] as const) {
-        const root = new THREE.Group();
-        for (const [nozzle, rows] of [[1, ['#.', '.#']], [2, ['.#', '#.']]] as const) {
-            const mask = maskFromRows([...rows]);
-            const data = await generateSmoothMesh(mask.activePixels, 2, 2, 1, 0, 1, 1, {
-                strength, skipRepair: true, combinedMask: new Uint8Array(4).fill(1),
-                yieldIntervalMs: Infinity, onYield: async () => undefined,
-            });
-            const mesh = createCompactExportLayer(data, mask, 1, 1, 0x0000ff, false);
-            mesh.userData = { nozzleIndex: nozzle, baseZ: 0, topZ: 1 };
-            root.add(mesh);
-        }
-        const objects = await exportMeshObjects(root, { extruderCount: 2, smoothMeshingStrength: strength });
-        assert.equal(objects.length, 2);
-        for (const object of objects) assertRawExportObjectIsManifold(object, `${strength} diagonal fans`);
-    }
-});
-
-test('multi-head reconstruction yields to timers while reporting progress', async () => {
+test('multi-head export reports the same progress as single-head export', async () => {
     const { exportObjectTo3MFBlob } = await loadExport3mfModule();
     const root = new THREE.Group();
-    root.add(await createNozzleOccupancyLayer(Array(128).fill('#'.repeat(128)), 1));
-    const samples: number[] = [];
-    const timerProgress: number[] = [];
-    let progress = 0;
-    const timer = setInterval(() => timerProgress.push(progress), 0);
-    try {
-        await exportObjectTo3MFBlob(root, {
-            extruderCount: 2,
-            onProgress: (value) => { progress = value; samples.push(value); },
-        });
-    } finally {
-        clearInterval(timer);
-    }
-    assertMonotonicProgress(samples, 'multi-head reconstruction and export');
-    assert.ok(timerProgress.some((value) => value > 0 && value < 0.2),
-        'timers must run during reconstruction, before mesh serialization');
-    assert.equal(samples.at(-1), 1);
-});
-
-test('multi-head occupancy export retains meshes without compatible voxel metadata', async () => {
-    for (const incompatible of ['untagged', 'different grid'] as const) {
-        const root = new THREE.Group();
-        root.add(await createNozzleOccupancyLayer(['#'], 1));
-        if (incompatible === 'untagged') {
-            root.add(createLayerMesh(new THREE.BoxGeometry(1, 1, 1), 0xff0000));
-        } else {
-            root.add(await createNozzleOccupancyLayer(['##'], 1, 1, 2));
-        }
-        const normal = await exportMeshObjects(root);
-        const multiHead = await exportMeshObjects(root, { extruderCount: 2 });
-        assert.equal(multiHead.length, normal.length, incompatible);
-        assert.deepEqual(multiHead.map((object) => object.mesh), normal.map((object) => object.mesh));
-    }
-});
-
-test('multi-head occupancy export resolves physical colors before nozzle sorting and collapse', async () => {
-    const root = new THREE.Group();
-    const first = await createNozzleOccupancyLayer(['#'], 2, 0, 1);
-    const second = await createNozzleOccupancyLayer(['#'], 1, 1, 2);
-    const third = await createNozzleOccupancyLayer(['#'], 2, 2, 3);
-    first.userData.kromacutFilamentHex = '#FF0000';
-    root.add(first, second, third);
-    const archive = await exportArchiveXml(root, {
-        extruderCount: 2, layerFilamentColors: ['#FFFF00', '#00FF00', '#00FFFF'],
-    });
-    assert.deepEqual(archive.projectSettings.filament_colour, ['#00FF00', '#FF0000']);
-    const colors = parseBaseMaterialColors(archive.modelXml);
-    const objects = parseMeshObjects(archive.modelXml);
-    assert.equal(objects.length, 2);
-    assert.deepEqual(objects.map((object) => colors[object.materialIndex]), ['00FF00', 'FF0000']);
-    assert.equal(first.userData.kromacutFilamentHex, '#FF0000', 'source metadata must stay unchanged');
-    assert.equal(second.userData.kromacutFilamentHex, undefined);
+    root.add(await createNozzleLayer(['##', '#.'], 1), await createNozzleLayer(['#.'], 2, 1, 2));
+    const progressFor = async (extruderCount?: number) => {
+        const samples: number[] = [];
+        await exportObjectTo3MFBlob(root, { extruderCount, onProgress: (value) => samples.push(value) });
+        return samples;
+    };
+    const meshPhase = (samples: number[]) => samples.filter((value) => value < 0.8);
+    const multiHead = await progressFor(2);
+    assertMonotonicProgress(multiHead, 'multi-head export');
+    assert.equal(multiHead.at(-1), 1);
+    assert.deepEqual(meshPhase(multiHead), meshPhase(await progressFor()));
 });
 
 async function exportMultiHead(

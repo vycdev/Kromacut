@@ -57,7 +57,7 @@ Tras crear el modelo correctamente, la vista previa muestra el color simulado as
 
 - Antes de imprimir, carga cada filamento indicado en su cabezal numerado. Deja sin usar los cabezales marcados como **VACÍO**.
 - En cada punto de control de capa indicado, recarga solo los cabezales marcados. Las cargas sin cambios se mantienen; no todos los límites de ventana requieren una pausa.
-- Exporta como **3MF** para conservar la geometría distribuida, los colores físicos de los filamentos y las asignaciones de cabezales. El archivo registra el número elegido de cabezales como extrusores y añade marcadores de pausa **M600** en los puntos de cambio del programa. STL no conserva estas asignaciones.
+- Exporta como **3MF** para conservar la geometría distribuida, los colores físicos de los filamentos y las asignaciones de cabezales. El archivo registra el número elegido de cabezales como extrusores y añade marcadores de pausa **M600** en los puntos de cambio del programa. Para modelos multicabezal, el menú de descarga solo ofrece 3MF, porque STL no puede conservar estas asignaciones.
 
 ![Tres cabezales mantienen los filamentos sin cambios entre fases; solo las cargas modificadas requieren recargas manuales.](02_nozzle_swap_schedule.svg)
 

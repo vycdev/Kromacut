@@ -44,6 +44,7 @@ import { useDropzone } from './hooks/useDropzone';
 import { exportObjectToStlBlob } from './lib/exportStl';
 import { exportObjectTo3MFBlob } from './lib/export3mf';
 import { getMultiHeadRoutingPlan, multiHeadExportOptions } from './lib/multiHeadBuild';
+import { normalizeMaxFilamentsPerLayer } from './lib/regionStacks';
 import { useAppHandlers, type ExportProgressStep } from './hooks/useAppHandlers';
 import { useProcessingState } from './hooks/useProcessingState';
 import { useBuildWarning } from './hooks/useBuildWarning';
@@ -139,6 +140,8 @@ type AutoPaintPersisted = Pick<
     | 'omitAtRiskPixels'
     | 'flatPaint'
     | 'flatPaintFaceUp'
+    | 'regionStacks'
+    | 'regionStacksMaxFilaments'
     | 'multiHeadMode'
     | 'multiHeadCount'
     | 'multiHeadSearchDepth'
@@ -223,6 +226,10 @@ const loadAutoPaintPersisted = (): AutoPaintPersisted | null => {
             omitAtRiskPixels: parsed.omitAtRiskPixels === true,
             flatPaint: parsed.flatPaint ?? false,
             flatPaintFaceUp: parsed.flatPaintFaceUp === true,
+            regionStacks: parsed.regionStacks === true,
+            regionStacksMaxFilaments: normalizeMaxFilamentsPerLayer(
+                parsed.regionStacksMaxFilaments
+            ),
             multiHeadMode: parsed.multiHeadMode ?? false,
             multiHeadCount: parsed.multiHeadCount ?? 4,
             multiHeadSearchDepth: parsed.multiHeadSearchDepth ?? 'balanced',
@@ -525,6 +532,10 @@ function App(): React.ReactElement | null {
         () => getMultiHeadRoutingPlan(builtModelState),
         [builtModelState]
     );
+    const builtRegionStackPlan = builtModelAutoPaint ? builtModelState.regionStackPlan : undefined;
+    // These models are built from parts that only 3MF keeps apart.
+    const builtModelStlUnavailable =
+        builtFlatPaint || builtMultiHeadPlan !== undefined || builtRegionStackPlan !== undefined;
 
     const prevModeRef = useRef<typeof mode>(mode);
 
@@ -549,6 +560,8 @@ function App(): React.ReactElement | null {
             omitAtRiskPixels: threeDState.omitAtRiskPixels,
             flatPaint: threeDState.flatPaint,
             flatPaintFaceUp: threeDState.flatPaintFaceUp,
+            regionStacks: threeDState.regionStacks,
+            regionStacksMaxFilaments: threeDState.regionStacksMaxFilaments,
             multiHeadMode: threeDState.multiHeadMode,
             multiHeadCount: threeDState.multiHeadCount,
             multiHeadSearchDepth: threeDState.multiHeadSearchDepth,
@@ -574,6 +587,8 @@ function App(): React.ReactElement | null {
         threeDState.omitAtRiskPixels,
         threeDState.flatPaint,
         threeDState.flatPaintFaceUp,
+        threeDState.regionStacks,
+        threeDState.regionStacksMaxFilaments,
         threeDState.multiHeadMode,
         threeDState.multiHeadCount,
         threeDState.multiHeadSearchDepth,
@@ -788,6 +803,7 @@ function App(): React.ReactElement | null {
         setExportStep,
         exportingSTL,
         threeDBuildBusy,
+        stlUnavailable: builtModelStlUnavailable,
         exportObjectToStlBlob,
         exportObjectTo3MFBlob: (obj, onProgress, onZipProgress) =>
             exportObjectTo3MFBlob(obj, {
@@ -1170,6 +1186,7 @@ function App(): React.ReactElement | null {
                                                 isOrtho={isOrtho}
                                                 flatPaint={builtFlatPaint}
                                                 flatPaintFaceUp={!!builtModelState.flatPaintFaceUp}
+                                                regionStackPlan={builtRegionStackPlan}
                                                 previewRenderMode={previewRenderMode}
                                                 previewColorMode={previewColorMode}
                                                 onBuildStarted={markBuildStarted}
@@ -1219,7 +1236,7 @@ function App(): React.ReactElement | null {
                                         setIsCropMode(true);
                                     }}
                                     onSaveCrop={imageActions.saveCrop}
-                                    onCancelCrop={() => setIsCropMode(false)}
+                                    onCancelCrop={imageActions.cancelCrop}
                                     onToggleCheckerboard={() => setShowCheckerboard((s) => !s)}
                                     onPickFile={() => inputRef.current?.click()}
                                     pickFileDisabled={processingActive}
@@ -1241,7 +1258,7 @@ function App(): React.ReactElement | null {
                                             : undefined
                                     }
                                     downloadMenuButtonRef={downloadMenuButtonRef}
-                                    flatPaintModel={builtFlatPaint}
+                                    stlUnavailable={builtModelStlUnavailable}
                                     modelExportDisabled={!builtModelValid || threeDBuildBusy}
                                     inert={mode === '3d' && threeDBuildBusy}
                                     isOrtho={isOrtho}

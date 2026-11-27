@@ -2,7 +2,11 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { reconcileColorSliceHeight } from '../src/lib/colorSliceHeight.ts';
+import {
+    MAX_COLOR_SLICE_HEIGHT,
+    reconcileColorSliceHeight,
+    snapColorSliceHeight,
+} from '../src/lib/colorSliceHeight.ts';
 import { reconcileColorOrder } from '../src/lib/colorOrder.ts';
 import { withViteTestServer } from './helpers/viteModule.ts';
 
@@ -64,6 +68,54 @@ test('other colors retain ordinary layer rounding and missing colors keep their 
     assert.equal(reconcileColorSliceHeight(undefined, 0.08, 0.2, false), 0.08);
     assert.equal(reconcileColorSliceHeight(0.2, 0.2, 0.08, true), 0.2);
     assert.equal(reconcileColorSliceHeight(undefined, 0, 0.2, true), 0.2);
+});
+
+test('capped heights stay on the layer grid at or below 10 mm', () => {
+    const settings = [
+        { layer: 0.08, first: 0.19 },
+        { layer: 0.08, first: 0.25 },
+        { layer: 0.12, first: 0.2 },
+        { layer: 0.15, first: 0.2 },
+        { layer: 0.2, first: 0.3 },
+        { layer: 0.07, first: 0.1 },
+        { layer: 0.08, first: 0.2 },
+    ];
+    for (const { layer, first } of settings) {
+        for (const isFirst of [true, false]) {
+            const origin = isFirst ? Math.max(layer, first) : 0;
+            const label = `${layer}/${first} ${isFirst ? 'first' : 'later'}`;
+            for (const height of [9.97, 10, 10.02, 12]) {
+                // Reconciliation clamps first; normalization snaps its result again on the
+                // next render. Both must agree on one value at or below the cap.
+                const reconciled = reconcileColorSliceHeight(height, layer, first, isFirst);
+                assert.ok(reconciled <= MAX_COLOR_SLICE_HEIGHT, `${label}: ${reconciled}`);
+                assert.equal(snapColorSliceHeight(reconciled, layer, first, isFirst), reconciled);
+                const steps = (reconciled - origin) / layer;
+                assert.ok(Math.abs(steps - Math.round(steps)) < 1e-6, `${label}: ${reconciled}`);
+                // It is the last step: one more layer would pass the cap.
+                assert.ok(reconciled + layer > MAX_COLOR_SLICE_HEIGHT + 1e-6, label);
+                assert.ok(
+                    snapColorSliceHeight(height, layer, first, isFirst) <= MAX_COLOR_SLICE_HEIGHT,
+                    label
+                );
+            }
+        }
+    }
+    // The issue's example: 0.19 + 122 × 0.08 mm, not the 10.03 mm the next step would give.
+    assert.equal(reconcileColorSliceHeight(10, 0.08, 0.19, true), 9.95);
+    assert.equal(snapColorSliceHeight(10, 0.08, 0.19, true), 9.95);
+    // An exact 10 mm step is kept.
+    assert.equal(reconcileColorSliceHeight(10, 0.08, 0.24, true), 10);
+    assert.equal(snapColorSliceHeight(10, 0.08, 0, false), 10);
+});
+
+test('snapping keeps ordinary rounding and each grid minimum', () => {
+    assert.equal(snapColorSliceHeight(0.49, 0.08, 0.25, true), 0.49);
+    assert.equal(snapColorSliceHeight(0.52, 0.08, 0.25, true), 0.49);
+    assert.equal(snapColorSliceHeight(0.1, 0.08, 0.25, true), 0.25);
+    assert.equal(snapColorSliceHeight(0.21, 0.08, 0.25, false), 0.24);
+    assert.equal(snapColorSliceHeight(0.01, 0.08, 0.25, false), 0.08);
+    assert.equal(snapColorSliceHeight(0.35, 0.2, 0.1, true), 0.4);
 });
 
 test('manual swap plans stay on the layer following the preserved first color', async () => {

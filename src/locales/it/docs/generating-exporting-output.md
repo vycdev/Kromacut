@@ -48,6 +48,8 @@ STL non contiene colori né assegnazioni automatiche. Usa il piano copiato con i
 
 Per **Flat Paint** è disponibile solo 3MF: un oggetto per filamento e, a faccia in giù predefinita, un supporto trasparente. L’opzione a faccia in su lo omette. STL senza colore e a geometria unica sarebbe inutile per entrambe le lastre. Entrambi gli orientamenti supportano tutte le intensità di **Mesh levigata**. Ricrea il modello dopo aver cambiato l’intensità per applicarla all’anteprima e alla geometria esportata.
 
+Anche i modelli **multi-testa** riusciti offrono solo 3MF, perché STL non può conservare le assegnazioni alle teste. Se viene creato invece un modello normale a testa singola, STL resta disponibile.
+
 ## Istruzioni di stampa
 
 Il pannello fornisce:

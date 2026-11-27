@@ -57,7 +57,7 @@ După o construire reușită, previzualizarea arată culoarea simulată atribuit
 
 - Înainte de imprimare, încarcă fiecare filament indicat în capul numerotat corespunzător. Lasă capetele marcate **GOL** neutilizate.
 - La fiecare punct de control indicat pentru un strat, reîncarcă doar capetele marcate. Încărcările neschimbate sunt păstrate; nu fiecare limită de fereastră necesită pauză.
-- Exportă **3MF** pentru a păstra geometria repartizată, culorile fizice ale filamentelor și atribuirile capetelor. Fișierul înregistrează numărul de capete ales ca număr de extrudoare și adaugă marcaje de pauză **M600** la punctele de schimbare din program. STL nu păstrează aceste atribuiri.
+- Exportă **3MF** pentru a păstra geometria repartizată, culorile fizice ale filamentelor și atribuirile capetelor. Fișierul înregistrează numărul de capete ales ca număr de extrudoare și adaugă marcaje de pauză **M600** la punctele de schimbare din program. Pentru modelele cu mai multe capete, meniul de descărcare oferă doar 3MF, deoarece STL nu poate păstra aceste atribuiri.
 
 ![Trei capete păstrează filamentele neschimbate între faze; doar încărcările modificate necesită reîncărcare manuală.](02_nozzle_swap_schedule.svg)
 
