@@ -8,6 +8,7 @@ use std::collections::HashMap;
 use std::fs::{remove_file, rename, OpenOptions};
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Manager, Runtime, State};
@@ -19,7 +20,19 @@ pub struct SafeSaves {
     pending: Mutex<HashMap<PathBuf, PathBuf>>,
 }
 
+/// Numbers every temporary name this process hands out. A finished or abandoned save leaves its
+/// path forbidden in the fs scope, and forbidding wins over allowing, so a name is never reused.
+static NEXT_TEMP: AtomicU64 = AtomicU64::new(0);
+
 fn create_temp_sibling(destination: &Path) -> Result<PathBuf, String> {
+    let stamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_millis())
+        .unwrap_or_default();
+    create_temp_sibling_at(destination, stamp)
+}
+
+fn create_temp_sibling_at(destination: &Path, stamp: u128) -> Result<PathBuf, String> {
     let directory = destination
         .parent()
         .ok_or_else(|| "The save destination has no parent folder".to_string())?;
@@ -38,12 +51,10 @@ fn create_temp_sibling(destination: &Path) -> Result<PathBuf, String> {
     }
     #[cfg(not(unix))]
     let _ = replacing;
-    let stamp = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|duration| duration.as_millis())
-        .unwrap_or_default();
-    for collision in 0..1_000_u16 {
-        let path = directory.join(format!(".kromacut-save-{stamp}-{collision}.tmp"));
+    // Skip names already taken on disk, such as by another process.
+    for _ in 0..1_000_u16 {
+        let sequence = NEXT_TEMP.fetch_add(1, Ordering::Relaxed);
+        let path = directory.join(format!(".kromacut-save-{stamp}-{sequence}.tmp"));
         match options.open(&path) {
             Ok(_) => return Ok(path),
             Err(error) if error.kind() == ErrorKind::AlreadyExists => continue,
@@ -177,7 +188,7 @@ pub fn discard_safe_file_save<R: Runtime>(
 
 #[cfg(test)]
 mod tests {
-    use super::{commit_temp, create_temp_sibling, discard_temp};
+    use super::{commit_temp, create_temp_sibling, create_temp_sibling_at, discard_temp};
     use std::fs::{create_dir_all, read, read_dir, remove_dir_all, write};
     use std::path::PathBuf;
 
@@ -241,6 +252,23 @@ mod tests {
         assert!(commit_temp(&temp, &blocked).is_err());
 
         assert_eq!(entries(&directory), ["blocked"]);
+        remove_dir_all(directory).unwrap();
+    }
+
+    #[test]
+    fn temp_names_are_not_reused_after_a_discarded_save_in_the_same_millisecond() {
+        let directory = test_directory("reuse");
+        let destination = directory.join("palette.kpal");
+        // Both saves see the same clock, as when they start within one millisecond.
+        let first = create_temp_sibling_at(&destination, 0).unwrap();
+        discard_temp(&first);
+
+        let second = create_temp_sibling_at(&destination, 0).unwrap();
+
+        // The fs scope still forbids the first path, so handing it out again would be refused.
+        assert_ne!(first, second);
+        discard_temp(&second);
+        assert!(entries(&directory).is_empty());
         remove_dir_all(directory).unwrap();
     }
 
