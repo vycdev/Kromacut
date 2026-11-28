@@ -40,6 +40,19 @@ async function image(page: Page, size: number) {
     return { name: `${size}.png`, mimeType: 'image/png', buffer: Buffer.from(png, 'base64') };
 }
 
+/** Applies the resize and returns the URL it committed to history. */
+async function resize(page: Page, size: number) {
+    const before = (await objectUrls(page)).edits.length;
+    await resizeApply(page).click();
+    await expect(currentSize(page)).toContainText(`${size}x${size}`);
+    // Only URLs created by this click count: resizing also decodes from a temporary
+    // URL that it revokes itself, and other edits may keep URLs of their own.
+    const log = await objectUrls(page);
+    const created = log.edits.slice(before).filter((url) => !log.revoked.includes(url));
+    expect(created).toHaveLength(1);
+    return created[0];
+}
+
 test.beforeEach(async ({ page }) => {
     await page.addInitScript(() => {
         localStorage.clear();
@@ -73,31 +86,37 @@ test('@smoke a discarded redo image is released and kept images stay readable', 
     const [imported] = (await objectUrls(page)).imports;
     expect(imported).toMatch(/^blob:/);
 
-    // Resize the import, so history holds an edit URL below the redo branch.
-    await resizeApply(page).click();
-    await expect(currentSize(page)).toContainText('32x32');
-    // Resizing also decodes from a temporary URL that it revokes itself.
-    const log = await objectUrls(page);
-    const resized = log.edits.filter((url) => !log.revoked.includes(url));
-    expect(resized).toHaveLength(1);
+    // Undo a resize and resize again: only the undone resize leaves history, while
+    // the import below it stays undoable.
+    const discarded = await resize(page, 32);
     await undo.click();
     await expect(currentSize(page)).toContainText('64x64');
+    expect(await readable(page, discarded)).toBe(true);
+    const resized = await resize(page, 32);
+    await expect(redo).toBeDisabled();
+    await expect.poll(async () => (await objectUrls(page)).revoked).toContain(discarded);
+    expect(await readable(page, discarded)).toBe(false);
+    expect((await objectUrls(page)).revoked).not.toContain(imported);
+    expect(await readable(page, imported)).toBe(true);
+    await undo.click();
+    await expect(currentSize(page)).toContainText('64x64');
+
+    // Undo past the import, so both blob images are in redo.
     await undo.click();
     await expect(currentSize(page)).toContainText('1024x1024');
     await expect(redo).toBeEnabled();
     expect((await objectUrls(page)).revoked).not.toContain(imported);
     expect(await readable(page, imported)).toBe(true);
-    expect(await readable(page, resized[0])).toBe(true);
+    expect(await readable(page, resized)).toBe(true);
 
     // A new edit discards both redo images: the import and its resize.
-    await resizeApply(page).click();
-    await expect(currentSize(page)).toContainText('512x512');
+    await resize(page, 512);
     await expect(redo).toBeDisabled();
     await expect
         .poll(async () => (await objectUrls(page)).revoked)
-        .toEqual(expect.arrayContaining([imported, resized[0]]));
+        .toEqual(expect.arrayContaining([imported, resized]));
     expect(await readable(page, imported)).toBe(false);
-    expect(await readable(page, resized[0])).toBe(false);
+    expect(await readable(page, resized)).toBe(false);
 
     // The current edit and the image below it are still in history and still load.
     await undo.click();
@@ -112,15 +131,11 @@ test('@smoke removing an image releases it but keeps the images below it', async
     await expect(currentSize(page)).toContainText('64x64');
     await expect(resizeApply(page)).toBeEnabled();
     const [imported] = (await objectUrls(page)).imports;
-    await resizeApply(page).click();
-    await expect(currentSize(page)).toContainText('32x32');
-    const log = await objectUrls(page);
-    const resized = log.edits.filter((url) => !log.revoked.includes(url));
-    expect(resized).toHaveLength(1);
+    const resized = await resize(page, 32);
 
     // Removing drops the resized image from history; the import stays undoable.
     await page.getByRole('button', { name: 'Remove image', exact: true }).click();
-    await expect.poll(async () => (await objectUrls(page)).revoked).toContain(resized[0]);
+    await expect.poll(async () => (await objectUrls(page)).revoked).toContain(resized);
     expect((await objectUrls(page)).revoked).not.toContain(imported);
     await undo.click();
     await expect(currentSize(page)).toContainText('64x64');
