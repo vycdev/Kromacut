@@ -435,3 +435,129 @@ test('multi-head geometry yields and stops publishing when an image build is inv
     assert.ok(yields > 0);
     assert.equal(published, 0);
 });
+
+test('multi-head 3MF parts are named by print layer, head, and filament like the Head Schedule (#201)', async () => {
+    const { state, result, colors, layers } = multiHeadFixture();
+    // One XML-hostile name, one plain name, and unnamed filaments that fall back to hex.
+    const names = ['PLA <Black> & "Matte"', 'Red'];
+    state.filaments = state.filaments.map((filament, i) =>
+        names[i] ? { ...filament, name: names[i] } : filament
+    );
+    const built = multiHeadBuildSnapshot(state, result);
+    const plan = getMultiHeadRoutingPlan(built)!;
+    const rows = ['0101', '1010', '01.1', '10.0'];
+    const pixelHeights = Float32Array.from([...rows.join('')], (value, i) =>
+        value === '.'
+            ? 0
+            : layers[i % 5 === 0 ? 2 : 7].startZ + layers[i % 5 === 0 ? 2 : 7].thickness
+    );
+    const parts: MultiHeadMeshPart[] = [];
+    for await (const part of generateMultiHeadMeshes({
+        plan,
+        data: inputPixels(colors, rows),
+        imageWidth: 4,
+        minX: 0,
+        minY: 0,
+        width: 4,
+        height: 4,
+        pixelHeights,
+        pixelSize: 0.1,
+        heightScale: 1,
+        strength: 'medium',
+        yieldIntervalMs: Infinity,
+        onYield: async () => {},
+    }))
+        parts.push(part);
+    assert.ok(parts.length > layers.length, 'several regions share each print layer');
+    const root = new THREE.Group();
+    root.add(...parts.map((part) => part.mesh));
+    const schedule = buildMultiHeadSchedule(plan)!;
+    const activeEvent = (layer: number) =>
+        schedule.findLast((event) => event.startLayer <= layer + 1)!;
+    const expected = parts.map((part) => {
+        const head = part.mesh.userData.nozzleIndex as number;
+        const entry = activeEvent(part.layerIndex).nozzles[head - 1];
+        assert.equal(entry.filamentHex, part.mesh.userData.kromacutFilamentHex);
+        return `Layer ${part.layerIndex + 1} · Head ${head} · ${entry.filamentName}`;
+    });
+    assert.ok(expected.some((name) => name.endsWith(` · ${names[0]}`)));
+    assert.ok(expected.some((name) => name.endsWith(` · ${names[1]}`)));
+    assert.ok(
+        expected.some((name) => / · #[0-9A-F]{6}$/.test(name)),
+        'hex fallback'
+    );
+
+    await withViteTestServer(async (server) => {
+        const { exportObjectTo3MFBlob } = (await server.ssrLoadModule(
+            '/src/lib/export3mf.ts'
+        )) as typeof import('../src/lib/export3mf.ts');
+        const options = {
+            ...multiHeadExportOptions(plan),
+            layerHeight: built.layerHeight,
+            firstLayerHeight: built.slicerFirstLayerHeight,
+            smoothMeshingStrength: 'medium' as const,
+        };
+        const exportFiles = async () => {
+            const zip = await JSZip.loadAsync(
+                await (await exportObjectTo3MFBlob(root, options)).arrayBuffer()
+            );
+            const files = new Map<string, string>();
+            for (const path of Object.keys(zip.files).sort()) {
+                if (!zip.files[path].dir) files.set(path, await zip.file(path)!.async('string'));
+            }
+            return files;
+        };
+        const unescape = (value: string) =>
+            value
+                .replace(/&lt;/g, '<')
+                .replace(/&gt;/g, '>')
+                .replace(/&quot;/g, '"')
+                .replace(/&apos;/g, "'")
+                .replace(/&amp;/g, '&');
+        const partNames = (files: Map<string, string>) => ({
+            model: [
+                ...files
+                    .get('3D/3dmodel.model')!
+                    .matchAll(/<object\b[^>]*\bname="([^"]*)">\s*<mesh>/g),
+            ].map(([, name]) => unescape(name)),
+            settings: [
+                ...files
+                    .get('Metadata/model_settings.config')!
+                    .matchAll(/<part id="\d+"[^>]*>\s*<metadata key="name" value="([^"]*)"\/>/g),
+            ].map(([, name]) => unescape(name)),
+        });
+        // Names are the only difference from an export without them.
+        const withoutNames = (files: Map<string, string>) =>
+            new Map(
+                [...files].map(([path, text]) => [
+                    path,
+                    text
+                        .replace(/p:UUID="[0-9a-f-]+"/g, 'p:UUID="generated"')
+                        .replace(/(<object\b[^>]*\bname=")[^"]*(">\s*<mesh>)/g, '$1$2')
+                        .replace(
+                            /(<part id="\d+"[^>]*>\s*<metadata key="name" value=")[^"]*/g,
+                            '$1'
+                        ),
+                ])
+            );
+
+        const named = await exportFiles();
+        assert.deepEqual(partNames(named), { model: expected, settings: expected });
+        const escapedName = 'PLA &lt;Black&gt; &amp; &quot;Matte&quot;';
+        assert.ok(named.get('3D/3dmodel.model')!.includes(escapedName));
+        assert.ok(named.get('Metadata/model_settings.config')!.includes(escapedName));
+
+        // Before #201, multi-head parts fell back to the exported group index.
+        for (const part of parts) delete part.mesh.userData.kromacutPartName;
+        const unnamed = await exportFiles();
+        assert.deepEqual(
+            partNames(unnamed).model,
+            parts.map((part, i) => `Layer ${i + 1} (${part.mesh.userData.kromacutFilamentHex})`)
+        );
+        assert.deepEqual(
+            withoutNames(named),
+            withoutNames(unnamed),
+            'geometry, materials, extruders, object order, and pauses are unchanged'
+        );
+    });
+});
