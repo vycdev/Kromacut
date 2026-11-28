@@ -53,6 +53,7 @@ import { ControlsPanel } from './components/ControlsPanel';
 import { usePaletteManager } from './hooks/usePaletteManager';
 import { useDesktopFileOpen } from './hooks/useDesktopFileOpen';
 import { useSlicerChoice } from './hooks/useSlicerChoice';
+import { useExportFocus } from './hooks/useExportFocus';
 import { DesktopFileDialog } from './components/DesktopFileDialog';
 import { SlicerChooserDialog } from './components/SlicerChooserDialog';
 import { UpdateChecker } from './components/UpdateChecker';
@@ -346,6 +347,7 @@ function App(): React.ReactElement | null {
     const inputRef = useRef<HTMLInputElement | null>(null);
     const canvasPreviewRef = useRef<CanvasPreviewHandle | null>(null);
     const downloadMenuButtonRef = useRef<HTMLButtonElement | null>(null);
+    const exportOverlayRef = useRef<HTMLDivElement | null>(null);
     const [showCheckerboard, setShowCheckerboard] = useState<boolean>(false);
     const [isCropMode, setIsCropMode] = useState(false);
     const [hasValidCropSelection, setHasValidCropSelection] = useState(false);
@@ -737,6 +739,7 @@ function App(): React.ReactElement | null {
         onModelExported: handleModelExported,
     });
     const slicerChoice = useSlicerChoice(onOpenInSlicer);
+    useExportFocus(exportingSTL, exportOverlayRef, downloadMenuButtonRef);
 
     return (
         <>
@@ -1110,6 +1113,7 @@ function App(): React.ReactElement | null {
                                             )}
                                             {exportingSTL && (
                                                 <ProgressOverlay
+                                                    focusRef={exportOverlayRef}
                                                     title={exportStep.title}
                                                     stepLabel={exportStep.stepLabel}
                                                     stepIndex={exportStep.stepIndex}
