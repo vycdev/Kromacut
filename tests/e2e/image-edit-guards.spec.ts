@@ -41,6 +41,16 @@ async function releaseEncoding(page: Page) {
 async function blur(page: Page) {
     await page.evaluate(() => (document.activeElement as HTMLElement)?.blur());
 }
+// Reloads the default 1024x1024 image with `navigator.platform` reporting `platform`.
+async function reloadAs(page: Page, platform: string) {
+    await page.addInitScript(
+        (value) => Object.defineProperty(Navigator.prototype, 'platform', { get: () => value }),
+        platform
+    );
+    await page.reload();
+    await expect(currentSize(page)).toContainText('1024x1024');
+    await expect(resizeApply(page)).toBeEnabled();
+}
 
 test.beforeEach(async ({ page }) => {
     await page.addInitScript(() => {
@@ -125,12 +135,14 @@ for (const modifier of ['Control', 'Meta']) {
 test('@smoke Ctrl+Y redoes in 2D, respects fields and follows the physical Y key', async ({
     page,
 }) => {
+    // Pin a Windows platform so the test does not depend on the host OS.
+    await reloadAs(page, 'Win32');
     const redo = page.locator('button[aria-label="Redo"]');
     await resizeApply(page).click();
-    await expect(currentSize(page)).toContainText('32x32');
+    await expect(currentSize(page)).toContainText('512x512');
     await blur(page);
     await page.keyboard.press('Control+z');
-    await expect(currentSize(page)).toContainText('64x64');
+    await expect(currentSize(page)).toContainText('1024x1024');
     await expect(redo).toBeEnabled();
 
     // A text field keeps its own redo shortcut. History updates within the key event,
@@ -151,15 +163,15 @@ test('@smoke Ctrl+Y redoes in 2D, respects fields and follows the physical Y key
     expect(await redo.isEnabled()).toBe(true);
     await page.keyboard.press('Control+Shift+y');
     expect(await redo.isEnabled()).toBe(true);
-    await expect(currentSize(page)).toContainText('64x64');
+    await expect(currentSize(page)).toContainText('1024x1024');
 
     await page.keyboard.press('Control+y');
-    await expect(currentSize(page)).toContainText('32x32');
+    await expect(currentSize(page)).toContainText('512x512');
     await expect(redo).toBeDisabled();
 
     // A Ukrainian layout reports `н` for the physical Y key.
     await page.keyboard.press('Control+z');
-    await expect(currentSize(page)).toContainText('64x64');
+    await expect(currentSize(page)).toContainText('1024x1024');
     await page.evaluate(() =>
         window.dispatchEvent(
             new KeyboardEvent('keydown', {
@@ -171,17 +183,12 @@ test('@smoke Ctrl+Y redoes in 2D, respects fields and follows the physical Y key
             })
         )
     );
-    await expect(currentSize(page)).toContainText('32x32');
+    await expect(currentSize(page)).toContainText('512x512');
     await expect(redo).toBeDisabled();
 });
 
 test('@smoke Ctrl+Y does not redo on macOS', async ({ page }) => {
-    await page.addInitScript(() =>
-        Object.defineProperty(Navigator.prototype, 'platform', { get: () => 'MacIntel' })
-    );
-    await page.reload();
-    await expect(currentSize(page)).toContainText('1024x1024');
-    await expect(resizeApply(page)).toBeEnabled();
+    await reloadAs(page, 'MacIntel');
     const redo = page.locator('button[aria-label="Redo"]');
     await resizeApply(page).click();
     await expect(currentSize(page)).toContainText('512x512');
