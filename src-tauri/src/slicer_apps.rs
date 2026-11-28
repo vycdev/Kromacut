@@ -3,7 +3,8 @@ use std::ffi::OsStr;
 use std::fs::create_dir_all;
 use std::io;
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Child, Command};
+use std::time::{Duration, Instant};
 use tauri::{AppHandle, Manager};
 use tauri_plugin_dialog::DialogExt;
 
@@ -424,9 +425,46 @@ fn find_known_slicer_app(
     }
 }
 
-/// Opens `model` with the slicer at `app`, which must be a detected or picked slicer. Like the
-/// default-app handoff, success means the slicer was started, not that it has loaded the file.
-/// Call off the UI thread.
+/// How long a launched slicer is watched for an early failure, such as `flatpak run` failing to
+/// set up the sandbox. A slicer still running after this counts as started.
+#[cfg(not(target_os = "macos"))]
+const EARLY_EXIT_WINDOW: Duration = Duration::from_millis(1500);
+#[cfg_attr(target_os = "macos", allow(dead_code))]
+const EARLY_EXIT_POLL: Duration = Duration::from_millis(50);
+
+/// Waits up to `window` for `child` to exit and reports a non-zero exit as a failure. A quick
+/// successful exit is fine: some slicers hand the file to an instance that is already open.
+/// A slicer that is still running is reaped in the background once it exits.
+#[cfg_attr(target_os = "macos", allow(dead_code))]
+fn check_early_exit(mut child: Child, window: Duration) -> io::Result<()> {
+    let deadline = Instant::now() + window;
+    loop {
+        match child.try_wait() {
+            Ok(Some(status)) if status.success() => return Ok(()),
+            Ok(Some(status)) => {
+                return Err(io::Error::other(format!(
+                    "The slicer exited right after starting ({status})"
+                )))
+            }
+            Ok(None) => {}
+            // The status is unknown, so the slicer is treated as started.
+            Err(_) => break,
+        }
+        let now = Instant::now();
+        if now >= deadline {
+            break;
+        }
+        std::thread::sleep(EARLY_EXIT_POLL.min(deadline - now));
+    }
+    std::thread::spawn(move || {
+        let _ = child.wait();
+    });
+    Ok(())
+}
+
+/// Opens `model` with the slicer at `app`, which must be a detected or picked slicer. Success
+/// means the slicer started and did not fail right away, not that it has loaded the file. This
+/// blocks for up to `EARLY_EXIT_WINDOW` on Linux and Windows, so call it off the UI thread.
 pub fn open_with_slicer_app(app: &Path, model: &Path, picked_apps: &Path) -> io::Result<()> {
     if find_known_slicer_app(PLATFORM, &SearchRoots::from_env(), picked_apps, app).is_none() {
         return Err(io::Error::new(
@@ -440,14 +478,7 @@ pub fn open_with_slicer_app(app: &Path, model: &Path, picked_apps: &Path) -> io:
     return crate::default_app::checked_launcher(&mut command);
 
     #[cfg(not(target_os = "macos"))]
-    {
-        let mut child = command.spawn()?;
-        // The slicer keeps running after the handoff; reap it when it exits.
-        std::thread::spawn(move || {
-            let _ = child.wait();
-        });
-        Ok(())
-    }
+    check_early_exit(command.spawn()?, EARLY_EXIT_WINDOW)
 }
 
 /// Slicers from the presets that are installed in their usual locations.
@@ -515,13 +546,14 @@ pub async fn pick_slicer_app(
 #[cfg(test)]
 mod tests {
     use super::{
-        describe_slicer_app, detect_slicer_apps, find_known_slicer_app, flatpak_app_id,
-        is_launchable, launch_command, read_picked_apps, remember_picked_app, Platform,
-        SearchRoots, SlicerApp, MAX_PICKED_APPS,
+        check_early_exit, describe_slicer_app, detect_slicer_apps, find_known_slicer_app,
+        flatpak_app_id, is_launchable, launch_command, read_picked_apps, remember_picked_app,
+        Platform, SearchRoots, SlicerApp, MAX_PICKED_APPS,
     };
     use std::fs::{create_dir_all, remove_dir_all, write};
     use std::path::{Path, PathBuf};
-    use std::time::{SystemTime, UNIX_EPOCH};
+    use std::process::Command;
+    use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
     fn test_directory(name: &str) -> PathBuf {
         let nanos = SystemTime::now()
@@ -951,5 +983,60 @@ mod tests {
         assert!(!picked.iter().any(|known| known == saved));
         assert_eq!(picked.first().map(String::as_str), Some("/opt/app-2"));
         remove_dir_all(root).unwrap();
+    }
+
+    /// A stand-in slicer that runs `script` with `sh`.
+    #[cfg(unix)]
+    fn fake_slicer(script: &str, _windows_script: &str) -> Command {
+        let mut command = Command::new("/bin/sh");
+        command.args(["-c", script]);
+        command
+    }
+
+    /// A stand-in slicer that runs `script` with `cmd`.
+    #[cfg(windows)]
+    fn fake_slicer(_unix_script: &str, script: &str) -> Command {
+        use std::os::windows::process::CommandExt;
+        let mut command = Command::new("cmd");
+        command.raw_arg(format!("/C {script}"));
+        command
+    }
+
+    #[test]
+    fn a_slicer_that_fails_right_away_is_reported() {
+        let child = fake_slicer("exit 3", "exit 3").spawn().unwrap();
+        let error = check_early_exit(child, Duration::from_secs(10)).unwrap_err();
+        assert!(error.to_string().contains('3'), "{error}");
+    }
+
+    #[test]
+    fn a_failure_during_the_window_is_reported() {
+        let child = fake_slicer("sleep 0.3; exit 1", "ping -n 2 127.0.0.1 >NUL & exit 1")
+            .spawn()
+            .unwrap();
+        let started = Instant::now();
+        assert!(check_early_exit(child, Duration::from_secs(10)).is_err());
+        assert!(started.elapsed() < Duration::from_secs(8));
+    }
+
+    #[test]
+    fn a_quick_handoff_to_an_open_slicer_succeeds_without_waiting() {
+        let child = fake_slicer("exit 0", "exit 0").spawn().unwrap();
+        let started = Instant::now();
+        check_early_exit(child, Duration::from_secs(10)).unwrap();
+        assert!(started.elapsed() < Duration::from_secs(8));
+    }
+
+    #[test]
+    fn a_slicer_that_keeps_running_succeeds_after_the_window() {
+        let child = fake_slicer("sleep 5; exit 1", "ping -n 6 127.0.0.1 >NUL & exit 1")
+            .spawn()
+            .unwrap();
+        let started = Instant::now();
+        // A failure after the window is the slicer's own business, like quitting it.
+        check_early_exit(child, Duration::from_millis(200)).unwrap();
+        let elapsed = started.elapsed();
+        assert!(elapsed >= Duration::from_millis(200));
+        assert!(elapsed < Duration::from_secs(4));
     }
 }
