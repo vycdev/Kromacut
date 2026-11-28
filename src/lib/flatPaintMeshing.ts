@@ -417,6 +417,8 @@ interface CellEdges {
 }
 
 const NO_RUNS: readonly number[] = [];
+// Whole-mesh loops check for a due yield this often.
+const YIELD_CHECK_EVERY = 1 << 14;
 
 /**
  * Gives each sheet its own vertex copies where a closed surface touches itself
@@ -448,6 +450,7 @@ async function splitPinchedVertices(
         const key = u < v ? u * vertexCount + v : v * vertexCount + u;
         edgeLink[h] = edgeHead.get(key) ?? -1;
         edgeHead.set(key, h);
+        if (h % YIELD_CHECK_EVERY === 0) await maybeYield();
     }
 
     // Half-edge h runs from corner h to corner next(h); its mate runs back.
@@ -501,7 +504,9 @@ async function splitPinchedVertices(
         }
         return order;
     };
+    let checked = 0;
     for (const first of edgeHead.values()) {
+        if (++checked % YIELD_CHECK_EVERY === 0) await maybeYield();
         const edges: number[] = [];
         for (let h = first; h !== -1; h = edgeLink[h]) edges.push(h);
         if (edges.length === 2 && indices[edges[0]] === indices[next(edges[1])]) {
@@ -549,6 +554,7 @@ async function splitPinchedVertices(
         });
         for (let h = 0; h < corners; h++) parent[h] = h;
         for (let h = 0; h < corners; h++) {
+            if (h % YIELD_CHECK_EVERY === 0) await maybeYield();
             const m = mate[h];
             if (m < h) continue;
             union(h, next(m));
@@ -577,6 +583,7 @@ async function splitPinchedVertices(
     const splitPositions: number[] = [];
     const splitIndices = new Array<number>(corners);
     for (let h = 0; h < corners; h++) {
+        if (h % YIELD_CHECK_EVERY === 0) await maybeYield();
         const root = find(h);
         let index = copies.get(root);
         if (index === undefined) {
@@ -788,7 +795,10 @@ export async function createFlatPaintSolidMesher(
             ] as const) {
                 if (cells.length === 0) continue;
                 for (const cell of cells) mask[cell] = 1;
-                for (const index of cells) {
+                for (let k = 0; k < cells.length; k++) {
+                    // Dense regions may hold many small special-cell caps.
+                    if (k % 128 === 0) await yieldMesh();
+                    const index = cells[k];
                     if (visited[index]) continue;
                     const x = index % width;
                     const y = (index - x) / width;
