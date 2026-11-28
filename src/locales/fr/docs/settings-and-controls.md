@@ -40,7 +40,7 @@ La plupart des sections latérales peuvent être repliées par leur titre. Le re
 
 **Annuler / Rétablir** partage l’historique de retouche d’image entre la 2D et la 3D. Ce n’est pas un historique des modifications de filaments, de l’étalonnage, des hauteurs de couche ou des paramètres d’optimisation. Utilisez le bouton de réinitialisation propre à chaque panneau lorsqu’il existe, et régénérez après avoir restauré un état de l’image.
 
-En 2D, **Ctrl+Z** (**Cmd+Z** sous macOS) annule une modification de l’image et **Ctrl+Maj+Z** (**Cmd+Maj+Z**) la rétablit. Ces raccourcis sont ignorés dans les champs modifiables, les boîtes de dialogue, les fenêtres contextuelles, les menus et les listes ouvertes, pendant le recadrage ou le traitement, ainsi qu’en 3D. Consultez [Raccourcis de l’historique 2D](image-adjustments#2d-history-shortcuts).
+En 2D, **Ctrl+Z** (**Cmd+Z** sous macOS) annule une modification de l’image et **Ctrl+Maj+Z** (**Cmd+Maj+Z**) la rétablit. Sous Windows et Linux, **Ctrl+Y** la rétablit aussi. Ces raccourcis sont ignorés dans les champs modifiables, les boîtes de dialogue, les fenêtres contextuelles, les menus et les listes ouvertes, pendant le recadrage ou le traitement, ainsi qu’en 3D. Consultez [Raccourcis de l’historique 2D](image-adjustments#2d-history-shortcuts).
 
 ## Mode multiplateau expérimental
 

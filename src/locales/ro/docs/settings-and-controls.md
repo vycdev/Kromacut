@@ -40,7 +40,7 @@ Majoritatea secțiunilor laterale pot fi restrânse apăsând titlul. Restrânge
 
 **Anulează / Refă** folosește același istoric al editării imaginii în 2D și 3D. Nu este un istoric de anulare pentru editările filamentelor, calibrare, înălțimi de strat sau setările optimizatorului. Folosește resetarea proprie fiecărui panou, unde există, și regenerează după restaurarea unei stări a imaginii.
 
-În 2D, **Ctrl+Z** (**Cmd+Z** pe macOS) anulează o editare a imaginii, iar **Ctrl+Shift+Z** (**Cmd+Shift+Z**) o reface. Comenzile rapide sunt ignorate în câmpurile editabile, în dialoguri, ferestre pop-up, meniuri și liste deschise, în timpul decupării sau al procesării și în 3D. Consultă [Comenzi rapide pentru istoricul 2D](image-adjustments#2d-history-shortcuts).
+În 2D, **Ctrl+Z** (**Cmd+Z** pe macOS) anulează o editare a imaginii, iar **Ctrl+Shift+Z** (**Cmd+Shift+Z**) o reface. Pe Windows și Linux, o reface și **Ctrl+Y**. Comenzile rapide sunt ignorate în câmpurile editabile, în dialoguri, ferestre pop-up, meniuri și liste deschise, în timpul decupării sau al procesării și în 3D. Consultă [Comenzi rapide pentru istoricul 2D](image-adjustments#2d-history-shortcuts).
 
 ## Modul experimental multiplacă
 
