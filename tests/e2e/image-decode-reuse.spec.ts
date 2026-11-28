@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { readFileSync } from 'node:fs';
+import { waitForClicksAfterDrag } from './helpers/dragEnd';
 
 // A Display P3 PNG exported from a color-managed canvas. Its four pixels use
 // P3 (0.8, 0.25, 0.6) with alpha 1, 0.75, 0.5, and 0.25. A fixed tagged fixture
@@ -259,6 +260,7 @@ for (const bits of [8, 16]) {
             await paint();
             await page.mouse.up();
             await expect.poll(rows).toEqual([blueHex, '#000000']);
+            await waitForClicksAfterDrag(page);
             await page.getByRole('button', { name: '2D', exact: true }).click();
             await importFile(2);
             await expect.poll(rows).toEqual([blueHex, '#000000']);
