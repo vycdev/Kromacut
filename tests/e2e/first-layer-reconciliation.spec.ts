@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { waitForClicksAfterDrag } from './helpers/dragEnd';
 
 async function openTwoColorImage(page: Page, edge: number) {
     await page.addInitScript(() => {
@@ -60,8 +61,7 @@ async function moveWhiteFirst(page: Page) {
         'aria-label',
         'Color swatch: #ffffff'
     );
-    // dnd-kit swallows clicks for 50 ms after a drag ends.
-    await page.waitForTimeout(100);
+    await waitForClicksAfterDrag(page);
 }
 
 async function applyResize(page: Page) {
