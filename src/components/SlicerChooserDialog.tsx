@@ -13,7 +13,7 @@ import {
 } from './ui/alert-dialog';
 import { Button } from './ui/button';
 import { Switch } from './ui/switch';
-import { listSlicerApps, pickSlicerApp, type SlicerApp } from '../lib/desktopSlicer';
+import { findSlicerApp, listSlicerApps, pickSlicerApp, type SlicerApp } from '../lib/desktopSlicer';
 import type { SlicerPreference } from '../lib/slicerPreference';
 
 interface Props {
@@ -86,9 +86,23 @@ export function SlicerChooserDialog({
                 savedApp?.path
             );
             if (!app) return;
-            setBrowsed((current) =>
-                current.some((known) => known.path === app.path) ? current : [...current, app]
+            // The native side only keeps the most recent picks launchable, so a new pick can
+            // push out an earlier one. Ask it which of the others it still trusts, so the
+            // chooser cannot save one that Open in Slicer would then treat as missing.
+            const others = browsed.filter((known) => known.path !== app.path);
+            const trusted = await Promise.all(
+                others.map((known) =>
+                    findSlicerApp(known.path).then(
+                        (found) => found !== null,
+                        (err) => {
+                            console.warn('Checking a browsed slicer failed', err);
+                            return true;
+                        }
+                    )
+                )
             );
+            const kept = others.filter((_, index) => trusted[index]);
+            setBrowsed([...kept, app]);
             setSelectedPath(app.path);
         } catch (err) {
             console.warn('Choosing a slicer failed', err);

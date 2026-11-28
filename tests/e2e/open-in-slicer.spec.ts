@@ -13,10 +13,14 @@ type SlicerTestWindow = Window & {
         installed: SlicerApp[];
         picked: SlicerApp | 'cancel' | 'invalid';
         pickRequests: PickRequest[];
+        /** Browsed apps the native side still launches, oldest first, as it stores them. */
+        launchable: SlicerApp[];
     };
     __KROMACUT_E2E: { buildHistory: unknown[] };
     /** When set, `find_slicer_app` waits for it; `true` makes the check fail. */
     slicerCheck?: { held: Promise<boolean>; release(fail: boolean): void };
+    /** When set, opening the model or the Save As dialog waits for it, prolonging the export. */
+    exportHold?: { held: Promise<void>; release(): void };
 };
 
 const SLICER_FAILED = 'Could not open the 3MF in your slicer. Use Download 3MF to save it instead.';
@@ -26,6 +30,8 @@ const SLICER_HEADER = 'X-Kromacut-Slicer-App';
 const BAMBU = { name: 'Bambu Studio', path: 'C:\\Program Files\\Bambu Studio\\bambu-studio.exe' };
 const ORCA = { name: 'Orca Slicer', path: 'C:\\Program Files\\OrcaSlicer\\orca-slicer.exe' };
 const CUSTOM = { name: 'CrealityPrint', path: 'C:\\Users\\José\\Slicers\\CrealityPrint.exe' };
+/** Must match `MAX_PICKED_APPS` in `src-tauri/src/slicer_apps.rs`. */
+const MAX_PICKED_APPS = 16;
 
 async function openApp(page: Page, savedSlicer: unknown = null) {
     await page.addInitScript((saved) => {
@@ -102,6 +108,7 @@ test('@smoke desktop Open in Slicer hands the built 3MF to the native app', asyn
             installed: [],
             picked: 'cancel',
             pickRequests: [],
+            launchable: [],
         };
         desktop.handle('open_model_in_slicer', (model: Uint8Array, _command, options) => {
             const state = host.slicerTest;
@@ -165,7 +172,7 @@ async function setUpChooser(
 ) {
     await fakeDesktopBeforeLoad(
         page,
-        (desktop, apps) => {
+        (desktop, { installed: apps, maxPicked }) => {
             const host = window as unknown as SlicerTestWindow;
             host.slicerTest = {
                 outcome: 'success',
@@ -174,18 +181,24 @@ async function setUpChooser(
                 installed: apps,
                 picked: 'cancel',
                 pickRequests: [],
+                launchable: [],
             };
-            desktop.handle('open_model_in_slicer', (model: Uint8Array, _command, options) => {
+            desktop.handle('open_model_in_slicer', async (model: Uint8Array, _command, options) => {
                 host.slicerTest.bytes.push(Array.from(model.slice(0, 4)));
                 host.slicerTest.headers.push((options.headers ?? {}) as Record<string, string>);
+                await host.exportHold?.held;
                 return '/cache/slicer-handoff/model.3mf';
+            });
+            // A cancelled Save As, for Download 3MF.
+            desktop.handle('plugin:dialog|save', async () => {
+                await host.exportHold?.held;
+                return null;
             });
             desktop.handle('list_slicer_apps', () => host.slicerTest.installed);
             desktop.handle('find_slicer_app', ({ path }: { path: string }) => {
                 const find = () => {
-                    const { installed, picked } = host.slicerTest;
-                    const known = typeof picked === 'object' ? [...installed, picked] : installed;
-                    return known.find((app) => app.path === path) ?? null;
+                    const { installed, launchable } = host.slicerTest;
+                    return [...installed, ...launchable].find((app) => app.path === path) ?? null;
                 };
                 if (!host.slicerCheck) return find();
                 return host.slicerCheck.held.then((fail) => {
@@ -194,13 +207,24 @@ async function setUpChooser(
                 });
             });
             desktop.handle('pick_slicer_app', (request: PickRequest) => {
-                host.slicerTest.pickRequests.push(request);
-                const picked = host.slicerTest.picked;
+                const state = host.slicerTest;
+                state.pickRequests.push(request);
+                const picked = state.picked;
                 if (picked === 'invalid') throw new Error('Not a launchable app');
-                return picked === 'cancel' ? null : picked;
+                if (picked === 'cancel') return null;
+                // Like the native side: the newest picks stay launchable, and so does `keep`.
+                const launchable = state.launchable.filter((app) => app.path !== picked.path);
+                launchable.push(picked);
+                while (launchable.length > maxPicked) {
+                    const oldest = launchable.findIndex((app) => app.path !== request.keep);
+                    if (oldest < 0) break;
+                    launchable.splice(oldest, 1);
+                }
+                state.launchable = launchable;
+                return picked;
             });
         },
-        installed
+        { installed, maxPicked: MAX_PICKED_APPS }
     );
     if (build) await buildModel(page, savedSlicer);
     else await openApp(page, savedSlicer);
@@ -456,6 +480,124 @@ test('@smoke closing the chooser from the download menu returns focus to the men
     await expect(chooser).toHaveCount(0);
     await expect(downloadButton).toBeFocused();
     expect(await slicers.savedPreference()).toEqual({ kind: 'app', app: ORCA });
+    expect(errors).toEqual([]);
+});
+
+test('@smoke focus waits on the export progress and returns to the menu button', async ({
+    page,
+}) => {
+    const errors: string[] = [];
+    page.on('pageerror', (error) => errors.push(error.message));
+    const slicers = await setUpChooser(page, [BAMBU, ORCA]);
+    const chooser = page.getByTestId('slicer-chooser');
+    const downloadButton = page.getByTestId('download-3d-model');
+    const progress = page.getByRole('group', { name: 'Exporting 3MF' });
+    const holdExport = () =>
+        page.evaluate(() => {
+            const host = window as unknown as SlicerTestWindow;
+            let release!: () => void;
+            const held = new Promise<void>((resolve) => (release = resolve));
+            host.exportHold = { held, release };
+        });
+    const releaseExport = () =>
+        page.evaluate(() => (window as unknown as SlicerTestWindow).exportHold!.release());
+    const startFromMenu = async (item: string) => {
+        await downloadButton.focus();
+        await downloadButton.press('Enter');
+        await page.getByTestId(item).focus();
+        await page.getByTestId(item).press('Enter');
+    };
+
+    // Open starts the export as the chooser closes, which disables the download button, so
+    // focus waits on the export's progress instead of the page body.
+    await holdExport();
+    await startFromMenu('open-3mf-in-slicer');
+    await page.getByTestId('slicer-open').focus();
+    await page.keyboard.press('Enter');
+    await expect(chooser).toHaveCount(0);
+    await expect(downloadButton).toBeDisabled();
+    await expect(progress).toBeFocused();
+    await releaseExport();
+    await expect.poll(async () => (await slicers.state()).headers.length).toBe(1);
+    await expect(downloadButton).toBeEnabled();
+    await expect(downloadButton).toBeFocused();
+
+    // Download 3MF and Download STL disable the menu item they were started from in the same
+    // way. The menu stays open after a download.
+    for (const [item, title] of [
+        ['download-3mf', 'Exporting 3MF'],
+        ['download-stl', 'Exporting STL'],
+    ]) {
+        await holdExport();
+        await startFromMenu(item);
+        await expect(page.getByRole('group', { name: title })).toBeFocused();
+        await releaseExport();
+        await expect(downloadButton).toBeEnabled();
+        await expect(downloadButton).toBeFocused();
+        await page.keyboard.press('Escape');
+        await expect(page.getByTestId(item)).toHaveCount(0);
+        await expect(downloadButton).toBeFocused();
+    }
+
+    // Focus moved elsewhere during the export stays there.
+    await holdExport();
+    await startFromMenu('open-3mf-in-slicer');
+    await page.getByTestId('slicer-open').focus();
+    await page.keyboard.press('Enter');
+    await expect(progress).toBeFocused();
+    const settingsButton = page.getByRole('button', { name: 'Open settings' });
+    await settingsButton.focus();
+    await releaseExport();
+    await expect.poll(async () => (await slicers.state()).headers.length).toBe(2);
+    await expect(downloadButton).toBeEnabled();
+    await expect(settingsButton).toBeFocused();
+    expect(errors).toEqual([]);
+});
+
+test('@smoke the chooser drops Browse picks the native side no longer launches', async ({
+    page,
+}) => {
+    const errors: string[] = [];
+    page.on('pageerror', (error) => errors.push(error.message));
+    const slicers = await setUpChooser(page, [], null, false);
+    const chooser = page.getByTestId('slicer-chooser');
+    const options = chooser.getByTestId('slicer-option');
+    const custom = (index: number) => ({
+        name: `Custom Slicer ${index}`,
+        path: `C:\\Slicers\\custom-${index}.exe`,
+    });
+
+    // With nothing saved, pick one more custom app than the native side keeps launchable.
+    await page.getByRole('button', { name: 'Open settings' }).click();
+    await page.getByTestId('settings-slicer-change').click();
+    for (let index = 0; index <= MAX_PICKED_APPS; index++) {
+        await slicers.set({ picked: custom(index) });
+        await page.getByTestId('slicer-browse').click();
+        await expect(options.last()).toHaveAttribute('value', custom(index).path);
+        await expect(options.last()).toBeChecked();
+    }
+
+    // The first pick is no longer launchable, so it is no longer offered.
+    expect((await slicers.state()).launchable).toHaveLength(MAX_PICKED_APPS);
+    await expect(options).toHaveCount(MAX_PICKED_APPS);
+    await expect(chooser.getByText(custom(0).path, { exact: true })).toHaveCount(0);
+    await expect(options.first()).toHaveAttribute('value', custom(1).path);
+
+    // The oldest pick still offered saves and opens the model.
+    await chooser.getByText(custom(1).name, { exact: true }).click();
+    await page.getByTestId('slicer-save').click();
+    await expect(chooser).toHaveCount(0);
+    expect(await slicers.savedPreference()).toEqual({ kind: 'app', app: custom(1) });
+    await buildLoadedModel(page);
+    await slicers.openMenu();
+    await expect(page.getByTestId('open-3mf-in-slicer')).toHaveText(`Open in ${custom(1).name}`);
+    await page.getByTestId('open-3mf-in-slicer').click();
+    await expect.poll(async () => (await slicers.state()).headers.length).toBe(1);
+    await expect(chooser).toHaveCount(0);
+    expect((await slicers.state()).headers[0][SLICER_HEADER]).toBe(
+        encodeURIComponent(custom(1).path)
+    );
+    expect(await slicers.savedPreference()).toEqual({ kind: 'app', app: custom(1) });
     expect(errors).toEqual([]);
 });
 

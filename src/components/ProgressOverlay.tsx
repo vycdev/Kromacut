@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { translateRuntimeMessage } from '../lib/runtimeMessages';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type Ref } from 'react';
 import { clampProgress, progressBarIndicatorClass } from '../lib/progress';
 
 interface ProgressOverlayProps {
@@ -11,6 +11,8 @@ interface ProgressOverlayProps {
     stepProgress?: number;
     progress: number;
     indeterminate?: boolean;
+    /** Makes the overlay focusable, so focus can wait here while the work disables controls. */
+    focusRef?: Ref<HTMLDivElement>;
 }
 
 interface EtaState {
@@ -121,6 +123,7 @@ export default function ProgressOverlay({
     stepProgress,
     progress,
     indeterminate = false,
+    focusRef,
 }: ProgressOverlayProps) {
     const { t } = useTranslation('workspace');
     const startedAtRef = useRef(Date.now());
@@ -190,7 +193,13 @@ export default function ProgressOverlay({
     }, []);
 
     return (
-        <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm cursor-wait">
+        <div
+            ref={focusRef}
+            tabIndex={focusRef ? -1 : undefined}
+            role={focusRef ? 'group' : undefined}
+            aria-label={focusRef ? displayTitle : undefined}
+            className="absolute inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm cursor-wait outline-none"
+        >
             <div className="w-[min(92vw,420px)] overflow-hidden rounded-2xl border border-border/70 bg-background/95 shadow-2xl">
                 <div className="px-4 py-4">
                     <div className="flex items-start justify-between gap-4">
