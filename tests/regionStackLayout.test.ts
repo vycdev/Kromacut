@@ -2,10 +2,10 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import * as THREE from 'three';
 import JSZip from 'jszip';
-import { createFlatPaintMesher } from '../src/lib/flatPaintMeshing.ts';
+import { createFlatPaintMesher, createFlatPaintSolidMesher } from '../src/lib/flatPaintMeshing.ts';
 import {
     FLAT_PAINT_CARRIER_HEX,
-    mergeLayoutPartsByFilament,
+    layoutFilamentColumns,
     type FlatPaintLayout,
 } from '../src/lib/flatPaint.ts';
 import type { RegionStack, RegionStackPlan, SmoothMeshingStrength } from '../src/types/index.ts';
@@ -547,43 +547,44 @@ function sameFilamentSeamLength(modelXml: string) {
 }
 
 for (const orientation of ['relief', 'face-up', 'face-down'] as const) {
-    test(`${orientation} merged export slabs keep every pixel's filament at every height`, () => {
+    test(`${orientation} export columns keep every pixel's filament at every height`, () => {
         const result = layout(orientation);
-        const merged = mergeLayoutPartsByFilament(result.parts, WIDTH * HEIGHT);
-        const heights = [...new Set(result.parts.flatMap((part) => [part.baseZ, part.topZ]))].sort(
-            (a, b) => a - b
-        );
-        const groupsAt = (parts: FlatPaintLayout['parts'], pixel: number, z: number) =>
-            parts
+        const columns = layoutFilamentColumns(result.parts, WIDTH * HEIGHT);
+        const groupsAt = (pixel: number, z: number) =>
+            result.parts
                 .filter((part) => part.mask[pixel] && part.baseZ < z && z < part.topZ)
                 .map((part) => part.exportGroup)
                 .sort();
-        for (let band = 0; band + 1 < heights.length; band++) {
-            const z = (heights[band] + heights[band + 1]) / 2;
+        for (let band = 0; band + 1 < columns.heights.length; band++) {
+            const z = (columns.heights[band] + columns.heights[band + 1]) / 2;
             for (let pixel = 0; pixel < LABELS.length; pixel++) {
-                assert.deepEqual(
-                    groupsAt(merged, pixel, z),
-                    groupsAt(result.parts, pixel, z),
-                    `pixel ${pixel} at z=${z}`
-                );
+                const profile = columns.profiles[pixel];
+                const printed = columns.filaments
+                    .filter((filament) => {
+                        const runs = profile < 0 ? [] : filament.runs[profile];
+                        for (let i = 0; i < runs.length; i += 2) {
+                            if (runs[i] <= band && band < runs[i + 1]) return true;
+                        }
+                        return false;
+                    })
+                    .map((filament) => filament.exportGroup)
+                    .sort();
+                assert.deepEqual(printed, groupsAt(pixel, z), `pixel ${pixel} at z=${z}`);
             }
         }
-        // One slab per filament at any height, so two of them never touch side by side.
-        const groups = new Set(merged.map((part) => part.exportGroup));
-        for (const group of groups) {
-            const slabs = merged.filter((part) => part.exportGroup === group);
-            for (const a of slabs) {
-                for (const b of slabs) {
-                    if (a === b) continue;
-                    assert.ok(
-                        a.topZ <= b.baseZ || b.topZ <= a.baseZ,
-                        `${group} slabs overlap in height`
-                    );
-                }
+        // Transparent pixels print nothing.
+        assert.equal(columns.profiles[3], -1);
+        // Runs of one filament touch only across another filament.
+        for (const filament of columns.filaments) {
+            for (const runs of filament.runs) {
+                for (let i = 2; i < runs.length; i += 2) assert.ok(runs[i] > runs[i - 1]);
             }
         }
         // Groups keep their order, which numbers the slicer filaments.
-        assert.deepEqual([...groups], [...new Set(result.parts.map((part) => part.exportGroup))]);
+        assert.deepEqual(
+            columns.filaments.map((filament) => filament.exportGroup),
+            [...new Set(result.parts.map((part) => part.exportGroup))]
+        );
     });
 
     test(`${orientation} region stack export has no walls between same-filament regions`, async () => {
@@ -617,6 +618,39 @@ for (const orientation of ['relief', 'face-up', 'face-down'] as const) {
             }
             return meshes;
         };
+        const meshSolid = await createFlatPaintSolidMesher(
+            LABELS,
+            WIDTH,
+            HEIGHT,
+            0.4,
+            'medium',
+            noYieldOptions
+        );
+        const toSolids = async () => {
+            const columns = layoutFilamentColumns(result.parts, WIDTH * HEIGHT);
+            const meshes: THREE.Mesh[] = [];
+            for (const filament of columns.filaments) {
+                const mesh = await meshSolid(
+                    { levels: columns.heights, profiles: columns.profiles, runs: filament.runs },
+                    noYieldOptions
+                );
+                const geometry = new THREE.BufferGeometry();
+                geometry.setAttribute('position', new THREE.BufferAttribute(mesh.positions, 3));
+                geometry.setIndex(mesh.indices);
+                geometry.userData.kromacutExportGeometry = {
+                    positions: mesh.positions,
+                    indices: mesh.indices,
+                };
+                const object = new THREE.Mesh(geometry);
+                object.userData.kromacutExportGroup = filament.exportGroup;
+                object.userData.kromacutFilamentHex = filament.filamentHex;
+                object.userData.kromacutMaterialKey = filament.exportGroup;
+                object.userData.kromacutPartName = filament.partName;
+                object.userData.kromacutPreserveVertexIndices = true;
+                meshes.push(object);
+            }
+            return meshes;
+        };
         const exportXml = async (root: THREE.Object3D) => {
             const zip = await JSZip.loadAsync(
                 await (await exportObjectTo3MFBlob(root)).arrayBuffer()
@@ -633,12 +667,11 @@ for (const orientation of ['relief', 'face-up', 'face-down'] as const) {
             'fixture should have same-filament seams in the per-class parts'
         );
 
-        // The model's export builder replaces them with merged slabs.
+        // The model's export builder replaces them with one solid per filament.
         const root = new THREE.Group();
         root.position.set(3, -2, 0);
         root.add(...(await toMeshes(result.parts)));
-        root.userData[KROMACUT_BUILD_EXPORT_MESHES] = () =>
-            toMeshes(mergeLayoutPartsByFilament(result.parts, WIDTH * HEIGHT));
+        root.userData[KROMACUT_BUILD_EXPORT_MESHES] = toSolids;
         const xml = await exportXml(root);
         const objects = parseObjects(xml);
         assert.deepEqual(
@@ -653,6 +686,24 @@ for (const orientation of ['relief', 'face-up', 'face-down'] as const) {
         for (const object of sameFilamentSeamLength(xml)) {
             assert.equal(object.seam, 0, `${object.name} should have no internal walls`);
         }
+        // No cap of an object lies on another of its caps: nothing stacks inside a filament.
+        for (const match of xml.matchAll(/<object\b[^>]*>([\s\S]*?)<\/object>/g)) {
+            const vertices = Array.from(
+                match[1].matchAll(/<vertex x="([^"]+)" y="([^"]+)" z="([^"]+)" \/>/g),
+                (vertex) => vertex.slice(1, 4).join(',')
+            );
+            const faces = new Set<string>();
+            for (const triangle of match[1].matchAll(
+                /<triangle v1="(\d+)" v2="(\d+)" v3="(\d+)" \/>/g
+            )) {
+                const face = [1, 2, 3]
+                    .map((i) => vertices[Number(triangle[i])])
+                    .sort()
+                    .join('|');
+                assert.ok(!faces.has(face), 'no coincident triangles in one object');
+                faces.add(face);
+            }
+        }
         // Export geometry is placed like the model it replaces.
         const minX = Math.min(
             ...Array.from(xml.matchAll(/<vertex x="([^"]+)"/g), (match) => Number(match[1]))
@@ -662,11 +713,11 @@ for (const orientation of ['relief', 'face-up', 'face-down'] as const) {
 }
 
 for (const strength of ['none', 'medium'] as const) {
-    test(`${strength} merged slabs joining different labels diagonally stay manifold`, async () => {
+    test(`${strength} solids joining different labels diagonally export manifold`, async () => {
         const { exportObjectTo3MFBlob } =
             await loadViteModule<typeof import('../src/lib/export3mf.ts')>('/src/lib/export3mf.ts');
         // Four labels; the diagonal pair 1 and 4 share a filament above the
-        // foundation, so its merged slab touches itself only at the center.
+        // foundation, so its solid touches itself only at the center.
         const labels = Uint16Array.from([1, 2, 3, 4]);
         const plan = {
             layerHeight: LAYER_HEIGHT,
@@ -678,7 +729,7 @@ for (const strength of ['none', 'medium'] as const) {
                 region('#C02020', '#C02020', [FOUNDATION, 2], ['#D01C1C', 2]),
             ],
         };
-        const merged = mergeLayoutPartsByFilament(
+        const columns = layoutFilamentColumns(
             buildRegionStackLayout({
                 plan,
                 labels,
@@ -687,18 +738,27 @@ for (const strength of ['none', 'medium'] as const) {
             }).parts,
             4
         );
-        assert.ok(
-            merged.some((part) => part.mask.join() === '1,0,0,1'),
-            'fixture should merge the diagonal pair'
+        const red = columns.filaments.find((filament) => filament.filamentHex === '#D01C1C')!;
+        assert.deepEqual(
+            [...columns.profiles].map((profile) => red.runs[profile].length > 0),
+            [true, false, false, true],
+            'fixture should print red on the diagonal pair'
         );
-        const meshMask = await createFlatPaintMesher(labels, 2, 2, 0.4, strength, noYieldOptions);
+        const meshSolid = await createFlatPaintSolidMesher(
+            labels,
+            2,
+            2,
+            0.4,
+            strength,
+            noYieldOptions
+        );
         const exportXml = async (preserveVertexIndices: boolean) => {
             const root = new THREE.Group();
-            for (const part of merged) {
-                const mesh = await meshMask(part.mask, noYieldOptions);
-                for (let i = 2; i < mesh.positions.length; i += 3) {
-                    mesh.positions[i] = part.baseZ + mesh.positions[i] * (part.topZ - part.baseZ);
-                }
+            for (const filament of columns.filaments) {
+                const mesh = await meshSolid(
+                    { levels: columns.heights, profiles: columns.profiles, runs: filament.runs },
+                    noYieldOptions
+                );
                 const geometry = new THREE.BufferGeometry();
                 geometry.setAttribute('position', new THREE.BufferAttribute(mesh.positions, 3));
                 geometry.setIndex(mesh.indices);
@@ -707,9 +767,9 @@ for (const strength of ['none', 'medium'] as const) {
                     indices: mesh.indices,
                 };
                 const object = new THREE.Mesh(geometry);
-                object.userData.kromacutExportGroup = part.exportGroup;
-                object.userData.kromacutFilamentHex = part.filamentHex;
-                object.userData.kromacutPartName = part.partName;
+                object.userData.kromacutExportGroup = filament.exportGroup;
+                object.userData.kromacutFilamentHex = filament.filamentHex;
+                object.userData.kromacutPartName = filament.partName;
                 object.userData.kromacutPreserveVertexIndices = preserveVertexIndices;
                 root.add(object);
             }
@@ -726,10 +786,10 @@ for (const strength of ['none', 'medium'] as const) {
             assert.ok(object.triangles > 0, `${object.name} should have geometry`);
             assert.equal(object.badEdges, 0, `${object.name} should be a manifold closed shell`);
         }
-        // Re-welding by coordinate pinches the shell into four walls on one edge.
+        // Re-welding by coordinate pinches the solid into four walls on one edge.
         assert.ok(
             parseObjects(await exportXml(false)).some((object) => object.badEdges > 0),
-            'coordinate welding should pinch the diagonal slab'
+            'coordinate welding should pinch the diagonal solid'
         );
     });
 }

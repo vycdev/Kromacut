@@ -15,7 +15,7 @@ import {
     type MeshProgress,
 } from '../lib/meshing';
 import { LAYER_ACTIVATION_EPSILON } from '../lib/layerActivation';
-import { createFlatPaintMesher } from '../lib/flatPaintMeshing';
+import { createFlatPaintMesher, createFlatPaintSolidMesher } from '../lib/flatPaintMeshing';
 import {
     createMultiHeadTargetHeightCache,
     generateMultiHeadMeshes,
@@ -27,7 +27,7 @@ import {
     buildFlatPaintLayout,
     heightMapToFlatPaintLayerCounts,
     heightMapToLayerCounts,
-    mergeLayoutPartsByFilament,
+    layoutFilamentColumns,
     orientFlatPaintLayerCounts,
 } from '../lib/flatPaint';
 import { KROMACUT_BUILD_EXPORT_MESHES, type BuildExportMeshes } from '../lib/export3mf';
@@ -1618,8 +1618,8 @@ export default function ThreeDView({
                         }
 
                         // The preview keeps one part per class for its colors.
-                        // Export merges same-filament neighbors into one slab per
-                        // height run: touching shells make slicers trace walls.
+                        // Export meshes each filament as one stepped solid:
+                        // touching shells make slicers trace walls.
                         const exportParts = layout.parts;
                         const exportGrid = labelGrid;
                         const exportStrength = buildSmoothMeshingStrength;
@@ -1631,7 +1631,7 @@ export default function ThreeDView({
                             onYield: () => new Promise<void>((r) => setTimeout(r, 0)),
                         };
                         const buildExportMeshes: BuildExportMeshes = async () => {
-                            const meshMask = await createFlatPaintMesher(
+                            const meshSolid = await createFlatPaintSolidMesher(
                                 exportGrid,
                                 boxW,
                                 boxH,
@@ -1639,16 +1639,15 @@ export default function ThreeDView({
                                 exportStrength,
                                 exportYield
                             );
+                            const columns = layoutFilamentColumns(exportParts, boxW * boxH);
+                            const levels = columns.heights.map(
+                                (height) => height * exportHeightScale
+                            );
                             const meshes: THREE.Mesh[] = [];
-                            for (const part of mergeLayoutPartsByFilament(
-                                exportParts,
-                                boxW * boxH
-                            )) {
-                                const data = remapMeshZRange(
-                                    await meshMask(part.mask, exportYield),
-                                    part.baseZ,
-                                    part.topZ,
-                                    exportHeightScale
+                            for (const filament of columns.filaments) {
+                                const data = await meshSolid(
+                                    { levels, profiles: columns.profiles, runs: filament.runs },
+                                    exportYield
                                 );
                                 const geometry = new THREE.BufferGeometry();
                                 geometry.setAttribute(
@@ -1661,11 +1660,11 @@ export default function ThreeDView({
                                     indices: data.indices,
                                 };
                                 const exportMesh = new THREE.Mesh(geometry);
-                                exportMesh.userData.kromacutExportGroup = part.exportGroup;
-                                exportMesh.userData.kromacutFilamentHex = part.filamentHex;
-                                exportMesh.userData.kromacutMaterialKey = part.exportGroup;
-                                exportMesh.userData.kromacutPartName = part.partName;
-                                // Diagonal contacts keep a vertex per side.
+                                exportMesh.userData.kromacutExportGroup = filament.exportGroup;
+                                exportMesh.userData.kromacutFilamentHex = filament.filamentHex;
+                                exportMesh.userData.kromacutMaterialKey = filament.exportGroup;
+                                exportMesh.userData.kromacutPartName = filament.partName;
+                                // Self-contacts keep a vertex per side.
                                 exportMesh.userData.kromacutPreserveVertexIndices = true;
                                 meshes.push(exportMesh);
                             }
