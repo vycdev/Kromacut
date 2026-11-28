@@ -88,6 +88,7 @@
   },
   "profiles": {
     "saveFailed": "Impossible d’enregistrer les modifications du profil. Les profils existants et la sélection restent inchangés ; libérez de l’espace de stockage du navigateur puis réessayez.",
+    "backgroundSaveFailed": "Les dernières modifications du profil n’ont pas pu être enregistrées et seront perdues à la fermeture de Kromacut. Exportez vos profils pour les conserver, puis libérez de l’espace de stockage du navigateur.",
     "estimated": "{{name}} chargé — les distances de masquage sont estimées à partir de la couleur. Étalonnez avant d’imprimer.",
     "unsavedExport": "Les modifications non enregistrées des filaments ont été exportées comme nouveau profil sans données d’étalonnage incompatibles.",
     "exportFailed": "Impossible d’exporter le profil de filaments. Réessayez de l’enregistrer.",

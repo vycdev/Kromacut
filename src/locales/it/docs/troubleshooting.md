@@ -113,4 +113,8 @@ Un avviso che indica la creazione di un normale modello a testa singola signific
 
 Usa **Annulla**. Ripeti è disponibile se annulli troppo.
 
+## L’app si è chiusa per errore o è stata ricaricata
+
+Riapri Kromacut nello stesso browser o nella stessa app desktop. L’ultima immagine di lavoro torna con fino a 30 passi di Annulla e 30 di Ripeti. Le regolazioni non applicate, le selezioni di ritaglio, le bozze di testo e i modelli 3D costruiti non tornano: ricostruisci il modello. Non viene ripristinato nulla dopo **Rimuovi immagine**, in una finestra privata che scarta i dati del sito o dopo aver cancellato i dati dell’app o del browser. Vedi [Annullare, scaricare e svuotare](loading-images#undo-download-and-clear).
+
 Successivo: [Domande frequenti](faq).

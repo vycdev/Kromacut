@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import JSZip from 'jszip';
+import { storedProfiles } from './helpers/appStorage';
 
 const repoRoot = path.resolve(fileURLToPath(new URL('../../', import.meta.url)));
 const assetRoot = path.join(repoRoot, 'tests', 'assets');
@@ -182,12 +183,8 @@ test('@smoke Palette Proof stays usable, persists results, and downloads its fro
     await dialog.getByRole('button', { name: 'Delete proof', exact: true }).click();
     await expect(dialog.getByRole('button', { name: 'Delete Palette Proof' })).toHaveCount(0);
     expect(
-        await page.evaluate(() => {
-            const profiles = JSON.parse(
-                localStorage.getItem('kromacut.autopaint.profiles') ?? '[]'
-            );
-            return profiles[0]?.appearance?.proofs?.length;
-        })
+        (await storedProfiles<{ appearance?: { proofs?: unknown[] } }>(page))[0]?.appearance
+            ?.proofs?.length
     ).toBe(0);
     await expect(panel.getByTestId('palette-proof-size-controls')).toBeVisible();
     await expect(panel.getByTestId('palette-proof-target-summary')).toBeVisible();
@@ -233,10 +230,9 @@ test('@smoke Palette Proof stays usable, persists results, and downloads its fro
     await firstMatchQualitySelect.click();
     await page.getByRole('option', { name: 'Dead on', exact: true }).click();
     await expect(firstMatchQualitySelect).toHaveText('Dead on');
-    const inProgressAppearance = await page.evaluate(() => {
-        const profiles = JSON.parse(localStorage.getItem('kromacut.autopaint.profiles') ?? '[]');
-        return profiles[0]?.appearance;
-    });
+    const inProgressAppearance = (await storedProfiles(page))[0]?.appearance as {
+        targetJudgments: { closestCellIds: string[]; matchQuality?: string }[];
+    };
     expect(inProgressAppearance.targetJudgments[0].closestCellIds).toEqual(['B1', 'C1']);
     expect(inProgressAppearance.targetJudgments[0].matchQuality).toBe('exact');
     // Complete this fixture with neutral responses so calibration does not
@@ -291,10 +287,8 @@ test('@smoke Palette Proof stays usable, persists results, and downloads its fro
     await page.getByRole('option', { name: /^Set 1 \/ Initial \// }).click();
     await dialog.getByRole('tab', { name: /Results/ }).click();
 
-    const storedAppearance = await page.evaluate(() => {
-        const profiles = JSON.parse(localStorage.getItem('kromacut.autopaint.profiles') ?? '[]');
-        return profiles[0]?.appearance;
-    });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const storedAppearance = (await storedProfiles(page))[0]?.appearance as any;
     expect(storedAppearance.schemaVersion).toBe(1);
     expect(storedAppearance.proofs).toHaveLength(1);
     expect(storedAppearance.proofs[0].proof.layout.rowCount).toBe(4);

@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url';
 import JSZip from 'jszip';
 import { fakeDesktopAfterLoad } from './helpers/fakeDesktop';
 import type { StackMatrixCalibrationV1 } from '../../src/lib/appearanceProfile';
+import { storedProfilesText } from './helpers/appStorage';
 
 const twoColorProfile = fileURLToPath(
     new URL('../assets/filament-profiles/2_Colors.kapp', import.meta.url)
@@ -77,7 +78,7 @@ async function nativeSaveState(page: Page) {
 }
 
 async function savedProfiles(page: Page) {
-    return page.evaluate(() => localStorage.getItem('kromacut.autopaint.profiles'));
+    return storedProfilesText(page);
 }
 
 function expectSaveDialog(state: NativeSaveState) {

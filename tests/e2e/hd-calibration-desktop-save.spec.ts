@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import JSZip from 'jszip';
 import { fakeDesktopAfterLoad } from './helpers/fakeDesktop';
+import { storedProfilesText } from './helpers/appStorage';
 
 type Format = 'stl' | '3mf';
 type Outcome = 'cancel' | 'failure' | 'success';
@@ -135,9 +136,7 @@ for (const format of ['stl', '3mf'] as const) {
         await installDesktopSave(page, path);
         const browserDownloads: string[] = [];
         page.on('download', (item) => browserDownloads.push(item.suggestedFilename()));
-        const profilesBefore = await page.evaluate(() =>
-            localStorage.getItem('kromacut.autopaint.profiles')
-        );
+        const profilesBefore = await storedProfilesText(page);
 
         for (const outcome of ['cancel', 'failure', 'success'] as const) {
             await page.evaluate((value) => {
@@ -220,9 +219,7 @@ for (const format of ['stl', '3mf'] as const) {
             }
             // Cancel/failure must not replace the previously downloaded 8-layer plan.
             await expectMeasurePlan(dialog, outcome === 'success' ? 12 : 8);
-            expect(
-                await page.evaluate(() => localStorage.getItem('kromacut.autopaint.profiles'))
-            ).toBe(profilesBefore);
+            expect(await storedProfilesText(page)).toBe(profilesBefore);
         }
         expect(browserDownloads).toEqual([]);
         expect(errors).toEqual([]);

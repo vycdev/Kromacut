@@ -82,10 +82,10 @@ Não use **Eliminar** na amostra: remapeia cores em vez de tornar píxeis transp
 
 ## Anular, transferir e limpar
 
-**Anular** e **Refazer** percorrem alterações confirmadas: carregamento, recorte, redimensionamento, incorporação de ajustes, quantização, limpeza, edições de amostras e retoques. Não são histórico de todas as definições ou movimentos de controlos. Uma nova edição elimina o caminho de refazer. O histórico pertence à sessão atual, por isso guarde a imagem se precisar dela depois.
+**Anular** e **Refazer** percorrem alterações confirmadas: carregamento, recorte, redimensionamento, incorporação de ajustes, quantização, limpeza, edições de amostras e retoques. Não são histórico de todas as definições ou movimentos de controlos. Uma nova edição elimina o caminho de refazer. O Kromacut também guarda neste dispositivo uma cópia de recuperação da imagem de trabalho e dos seus últimos 30 passos de Anular e 30 de Refazer, que voltam após uma falha ou um recarregamento. A cópia não é uma cópia de segurança e perde-se quando os dados da aplicação ou do navegador são apagados; transfira a imagem se a quiser manter.
 
 **Transferir imagem** guarda a imagem de trabalho subjacente como PNG à resolução dos píxeis. Exclui zoom, xadrez, pegas de recorte e rascunhos de texto. Confirme o texto e **Aplique os ajustes** primeiro para os incluir. No ambiente de trabalho abre uma janela de gravação; no navegador segue as definições de transferência.
 
-**Remover imagem** limpa a área, não as definições. Não conte com reversibilidade: não acrescenta a imagem removida como novo passo de Anular. Transfira uma cópia antes se a quiser preservar.
+**Remover imagem** limpa a área, não as definições. Não conte com reversibilidade: não acrescenta a imagem removida como novo passo de Anular. Transfira uma cópia antes se a quiser preservar. Remover a imagem também apaga a cópia de recuperação, pelo que ela não volta a aparecer quando abrir o Kromacut novamente.
 
 Seguinte: [Ajustes de imagem](image-adjustments).

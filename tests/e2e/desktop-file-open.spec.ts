@@ -58,6 +58,9 @@ async function mockDesktop(page: Page, initial: DesktopOpenedFile[], entryPath =
     await fakeDesktopBeforeLoad(
         page,
         (desktop, files) => {
+            // Storage-full cases below need saves that fail synchronously, which only the
+            // localStorage fallback has; IndexedDB saves report failures later.
+            Object.defineProperty(window, 'indexedDB', { configurable: true, value: undefined });
             localStorage.clear();
             const host = window as unknown as MockDesktop;
             host.fileOpenTest = { pending: files };

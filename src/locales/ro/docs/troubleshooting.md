@@ -113,4 +113,8 @@ Un mesaj care spune că s-a generat un model normal cu un singur cap înseamnă 
 
 Folosește **Anulează**. Refacerea este disponibilă dacă anulezi prea mult.
 
+## Aplicația s-a blocat sau s-a reîncărcat
+
+Deschide din nou Kromacut în același browser sau în aceeași aplicație desktop. Ultima imagine de lucru revine cu până la 30 de pași de anulare și 30 de refacere. Ajustările neaplicate, selecțiile de decupare, textele nefinalizate și modelele 3D construite nu revin, așa că reconstruiește modelul. Nu se restaurează nimic după **Elimină imaginea**, într-o fereastră privată care renunță la datele site-ului sau după ștergerea datelor aplicației ori ale browserului. Vezi [Anulare, descărcare și golire](loading-images#undo-download-and-clear).
+
 În continuare: [Întrebări frecvente](faq).

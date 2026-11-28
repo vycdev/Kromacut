@@ -28,6 +28,8 @@ import { useImageHistory } from './hooks/useImageHistory';
 import { useImageEditingActions } from './hooks/useImageEditingActions';
 import { useImageHistoryShortcuts } from './hooks/useImageHistoryShortcuts';
 import { useImageCanvas } from './hooks/useImageCanvas';
+import { useImageSessionRecovery } from './hooks/useImageSessionRecovery';
+import { hasPrefetchedImageSession } from './lib/imageSession';
 import { useImageImport, type ImageImportError } from './hooks/useImageImport';
 import { useQuantize } from './hooks/useQuantize';
 import Header from './components/Header';
@@ -332,13 +334,38 @@ function App(): React.ReactElement | null {
         dismissImportError,
         cancelPendingImport,
     } = useImageImport();
-    const { imageSrc, setImage, clearCurrent, undo, redo, canUndo, canRedo, past, future } =
-        useImageHistory(logo, cancelPendingImport);
-    const { imageCanvas, imageCanvasLoading, prepareImageCanvas } = useImageCanvas(
+    // Start empty rather than flash the starter image when a session will be recovered.
+    const [initialImage] = useState(() => (hasPrefetchedImageSession() ? null : logo));
+    const {
+        imageSrc,
+        setImage,
+        restore: restoreImageHistory,
+        clearCurrent,
+        undo,
+        redo,
+        canUndo,
+        canRedo,
+        past,
+        future,
+    } = useImageHistory(initialImage, cancelPendingImport);
+    const {
+        imageCanvas,
+        imageCanvasLoading,
+        prepareImageCanvas,
+        adoptImportedFile,
+        importedFileFor,
+    } = useImageCanvas(imageSrc, past, future);
+    useImageSessionRecovery({
         imageSrc,
         past,
-        future
-    );
+        future,
+        starterSrc: logo,
+        initialSrc: initialImage,
+        restore: restoreImageHistory,
+        prepareImageCanvas,
+        adoptImportedFile,
+        importedFileFor,
+    });
     const { swatches, swatchesLoading, imageDimensions, invalidate, immediateOverride } =
         useSwatches(imageCanvas, imageCanvasLoading);
     // adjustments managed locally inside AdjustmentsPanel now

@@ -9,6 +9,7 @@ import { FRONTLIT_TD_SCALE, sanitizeFrontlitCalibration } from './calibration.ts
 import { normalizeHexColor } from './colorUtils.ts';
 import { deduplicateName } from './nameUtils.ts';
 import { isTemplateProfileId } from './reservedIds.ts';
+import { readStoredProfiles, writeStoredProfiles } from './profileStorage.ts';
 
 export interface AutoPaintProfile {
     id: string;
@@ -35,7 +36,6 @@ export const CURRENT_PROFILE_VERSION = 3;
  *  CURRENT_PROFILE_VERSION, or a future bump would re-scale v2 profiles. */
 export const TD_MIGRATION_VERSION = 2;
 
-const PROFILES_STORAGE_KEY = 'kromacut.autopaint.profiles';
 const LAST_PROFILE_KEY = 'kromacut.autopaint.lastProfileId';
 
 let cachedProfilesRaw: string | null | undefined;
@@ -179,7 +179,7 @@ function sanitizeProfile(value: unknown): AutoPaintProfile | null {
 
 export function loadProfiles(): AutoPaintProfile[] {
     try {
-        const raw = localStorage.getItem(PROFILES_STORAGE_KEY);
+        const raw = readStoredProfiles();
         if (raw === cachedProfilesRaw && cachedProfiles) return cachedProfiles;
         if (!raw) return rememberProfiles(raw, []);
         const parsed = JSON.parse(raw) as AutoPaintProfile[];
@@ -264,11 +264,15 @@ export function saveLastProfileId(id: string | null) {
     }
 }
 
+/**
+ * Returns false when the list is refused or storage rejects it. With IndexedDB
+ * the write finishes after this returns; profileStorage reports a late failure.
+ */
 export function saveProfilesToStorage(profiles: AutoPaintProfile[]): boolean {
     try {
         if (profiles.some((profile) => hasDuplicateFilamentIds(profile.filaments))) return false;
         const raw = JSON.stringify(profiles);
-        localStorage.setItem(PROFILES_STORAGE_KEY, raw);
+        writeStoredProfiles(raw);
         rememberProfiles(raw, profiles);
         return true;
     } catch {

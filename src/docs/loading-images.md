@@ -82,10 +82,10 @@ Do not use swatch **Delete** for this: it remaps colors instead of making pixels
 
 ## Undo, Download, And Clear
 
-**Undo** and **Redo** step through committed image changes such as loading, cropping, resizing, baking adjustments, quantization, dedithering, swatch edits, and touch-ups. They are not a history of every setting or slider movement. A new image edit clears the redo path. History belongs to the current app session, so save the image if you need it later.
+**Undo** and **Redo** step through committed image changes such as loading, cropping, resizing, baking adjustments, quantization, dedithering, swatch edits, and touch-ups. They are not a history of every setting or slider movement. A new image edit clears the redo path. Kromacut also keeps a recovery copy of the working image and its latest 30 Undo and 30 Redo steps on this device, so they come back after a crash or reload. The copy is not a backup and is lost when app or browser data is cleared; download the image if you need to keep it.
 
 **Download image** saves the underlying working image as PNG at image-pixel resolution. It excludes zoom, checkerboard, crop handles, and text drafts. Apply text and **Apply adjustments** first to include them. Desktop uses a file-save dialog; browser placement follows browser download settings.
 
-**Remove image** clears the workspace, not the settings. Do not rely on it as a reversible edit: it does not add the cleared image as a new Undo step. Download a copy first if you need to preserve it.
+**Remove image** clears the workspace, not the settings. Do not rely on it as a reversible edit: it does not add the cleared image as a new Undo step. Download a copy first if you need to preserve it. Removing the image also deletes the recovery copy, so it does not reappear when Kromacut opens again.
 
 Next: [Image adjustments](image-adjustments).

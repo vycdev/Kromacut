@@ -105,9 +105,17 @@ export function useImageHistory(initial: string | null, onBeforeSet?: () => void
         setImageSrc(null);
     }, [imageSrc, past, future, onBeforeSet]);
 
+    // Crash recovery swaps in a stored history; the caller checks nothing has changed yet.
+    const restore = useCallback((next: { imageSrc: string; past: string[]; future: string[] }) => {
+        setImageSrc(next.imageSrc);
+        setPast(next.past);
+        setFuture(next.future);
+    }, []);
+
     return {
         imageSrc,
         setImage,
+        restore,
         clearCurrent,
         undo,
         redo,

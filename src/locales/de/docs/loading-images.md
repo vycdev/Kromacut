@@ -82,10 +82,10 @@ Verwende dafür nicht **Löschen** am Farbfeld: Es ordnet Farben neu zu, statt P
 
 ## Rückgängig, Herunterladen und Leeren
 
-**Rückgängig** und **Wiederholen** durchlaufen übernommene Bildänderungen wie Laden, Zuschneiden, Skalieren, übernommene Anpassungen, Quantisierung, Rasterglättung, Farbfeldbearbeitungen und Retuschen. Sie sind kein Verlauf aller Einstellungen oder Reglerbewegungen. Eine neue Bildbearbeitung löscht den Wiederholen-Zweig. Der Verlauf gehört zur aktuellen App-Sitzung; speichere das Bild, wenn du es später brauchst.
+**Rückgängig** und **Wiederholen** durchlaufen übernommene Bildänderungen wie Laden, Zuschneiden, Skalieren, übernommene Anpassungen, Quantisierung, Rasterglättung, Farbfeldbearbeitungen und Retuschen. Sie sind kein Verlauf aller Einstellungen oder Reglerbewegungen. Eine neue Bildbearbeitung löscht den Wiederholen-Zweig. Kromacut legt außerdem auf diesem Gerät eine Wiederherstellungskopie des Arbeitsbilds und seiner letzten 30 Rückgängig- und 30 Wiederholen-Schritte an, die nach einem Absturz oder Neuladen zurückkommen. Die Kopie ist keine Sicherung und geht verloren, wenn App- oder Browserdaten gelöscht werden; lade das Bild herunter, wenn du es behalten willst.
 
 **Bild herunterladen** speichert das zugrunde liegende Arbeitsbild als PNG in Bildpixelauflösung. Zoom, Schachbrett, Zuschnittgriffe und Textentwürfe werden nicht gespeichert. Übernimm Text und **Bildanpassungen** zuerst, damit sie enthalten sind. Die Desktop-App verwendet einen Speicherdialog; im Browser richtet sich der Speicherort nach dessen Download-Einstellungen.
 
-**Bild entfernen** leert den Arbeitsbereich, nicht die Einstellungen. Verlasse dich nicht darauf, diese Aktion rückgängig machen zu können: Das entfernte Bild wird nicht als neuer Rückgängig-Schritt hinzugefügt. Lade vorher eine Kopie herunter, wenn du es erhalten möchtest.
+**Bild entfernen** leert den Arbeitsbereich, nicht die Einstellungen. Verlasse dich nicht darauf, diese Aktion rückgängig machen zu können: Das entfernte Bild wird nicht als neuer Rückgängig-Schritt hinzugefügt. Lade vorher eine Kopie herunter, wenn du es erhalten möchtest. Das Entfernen des Bilds löscht auch die Wiederherstellungskopie, sodass es beim nächsten Öffnen von Kromacut nicht zurückkommt.
 
 Weiter: [Bildanpassungen](image-adjustments).

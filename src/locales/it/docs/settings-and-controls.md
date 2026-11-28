@@ -54,6 +54,8 @@ Usa ripristino nelle **Impostazioni stampa 3D** per i valori predefiniti, inclus
 
 Le impostazioni sono locali al browser/sito o all’app. Non sono backup dell’immagine o progetto completo e ambienti diversi non necessariamente le condividono. Esporta tavolozze e profili importanti prima di cancellare dati. Un profilo ripristina filamenti ed evidenze, non immagine o mesh pronta.
 
+I profili filamento, con i dati di calibrazione e di aspetto, sono conservati nello spazio IndexedDB del browser, molto più ampio dei pochi megabyte dello spazio ordinario del sito. I profili salvati da versioni precedenti vi vengono spostati automaticamente, senza modifiche, alla prima apertura di questa versione. Se IndexedDB non è disponibile, come in alcune finestre private, i profili restano nello spazio ordinario del sito, dove set di calibrazione molto grandi potrebbero non essere salvati. Anche la copia di recupero dell’immagine di lavoro è in IndexedDB; vedi [Annullare, scaricare e svuotare](loading-images#undo-download-and-clear).
+
 ## Stato Auto-paint salvato
 
 Tra le impostazioni conservate:

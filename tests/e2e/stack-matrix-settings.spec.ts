@@ -4,6 +4,7 @@ import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import JSZip from 'jszip';
 import type { StackMatrixCalibrationV1 } from '../../src/lib/appearanceProfile';
+import { storedProfiles, writeStoredProfilesText } from './helpers/appStorage';
 
 const twoColorProfile = fileURLToPath(
     new URL('../assets/filament-profiles/2_Colors.kapp', import.meta.url)
@@ -269,24 +270,21 @@ test('@smoke @matrix adaptive thickness, swap budget, and completed history surv
 
     // Synthetic observations exist only in this isolated browser fixture. Verify
     // real persistence/worker plumbing without pretending these are physical reads.
-    await page.evaluate((id) => {
-        const key = 'kromacut.autopaint.profiles';
-        const profiles = JSON.parse(localStorage.getItem(key) ?? '[]') as Array<{
-            appearance?: { stackMatrices?: StackMatrixCalibrationV1[] };
-        }>;
-        const record = profiles
-            .flatMap((profile) => profile.appearance?.stackMatrices ?? [])
-            .find((candidate) => candidate.id === id);
-        if (!record) throw new Error('Exported adaptive matrix did not persist');
-        record.status = 'complete';
-        record.completedAt = new Date().toISOString();
-        record.photoName = 'synthetic-browser-fixture.png';
-        record.alignmentMethod = 'manual';
-        record.alignmentConfidence = 1;
-        record.alignmentVerified = true;
-        for (const sample of record.samples) sample.measuredColor = sample.predictedColor;
-        localStorage.setItem(key, JSON.stringify(profiles));
-    }, first.record.id);
+    const profiles = await storedProfiles<{
+        appearance?: { stackMatrices?: StackMatrixCalibrationV1[] };
+    }>(page);
+    const record = profiles
+        .flatMap((profile) => profile.appearance?.stackMatrices ?? [])
+        .find((candidate) => candidate.id === first.record.id);
+    if (!record) throw new Error('Exported adaptive matrix did not persist');
+    record.status = 'complete';
+    record.completedAt = new Date().toISOString();
+    record.photoName = 'synthetic-browser-fixture.png';
+    record.alignmentMethod = 'manual';
+    record.alignmentConfidence = 1;
+    record.alignmentVerified = true;
+    for (const sample of record.samples) sample.measuredColor = sample.predictedColor;
+    await writeStoredProfilesText(page, JSON.stringify(profiles));
     await page.reload();
     await page.getByRole('button', { name: '3D', exact: true }).click();
     await page.getByRole('tab', { name: 'Auto-paint', exact: true }).click();

@@ -54,6 +54,8 @@ Verwende die Rücksetz-Schaltfläche unter **3D-Druckeinstellungen**, um zu den 
 
 Gespeicherte Einstellungen gehören lokal zum aktuellen Browser und zur Website beziehungsweise zur Desktop-App. Sie sind weder eine Sicherung des Motivs noch ein vollständig gespeichertes Projekt. Verschiedene Browser und die Desktop-App müssen sie nicht teilen. Exportiere wichtige Paletten und Filamentprofile, bevor du App- oder Browserdaten löschst. Das Laden eines Profils stellt dessen Filamente und Daten wieder her, kein Bild und kein fertig erstelltes Netz.
 
+Filamentprofile mit ihren Kalibrierungs- und Erscheinungsdaten liegen im größeren IndexedDB-Speicher des Browsers statt in den wenigen Megabyte des gewöhnlichen Website-Speichers. Profile aus früheren Versionen werden beim ersten Öffnen dieser Version automatisch und unverändert dorthin verschoben. Ist IndexedDB nicht verfügbar, etwa in manchen privaten Fenstern, bleiben Profile im gewöhnlichen Website-Speicher, wo sehr große Kalibrierungssätze möglicherweise nicht gespeichert werden können. Auch die Wiederherstellungskopie des Arbeitsbilds liegt in IndexedDB; siehe [Rückgängig, Herunterladen und Leeren](loading-images#undo-download-and-clear).
+
 ## Gespeicherter Auto-paint-Zustand
 
 Auto-paint-Einstellungen bleiben sitzungsübergreifend erhalten, darunter:

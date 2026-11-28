@@ -31,7 +31,13 @@ const route = selectRoute(window.location.pathname, desktopRuntime);
 const PrivacyPage = lazy(() => import('./components/PrivacyPage.tsx'));
 const TermsPage = lazy(() => import('./components/TermsPage.tsx'));
 const AwardsPage = lazy(() => import('./components/AwardsPage.tsx'));
-const App = lazy(() => import('./App.tsx'));
+// The workspace reads stored profiles and the recovered image on its first render.
+const App = lazy(() =>
+    Promise.all([
+        import('./App.tsx'),
+        import('./lib/appStorage').then(({ prepareAppStorage }) => prepareAppStorage()),
+    ]).then(([module]) => module)
+);
 function syncEntrySeo() {
     const currentRoute = selectRoute(window.location.pathname, desktopRuntime);
     if (currentRoute === 'landing') applyHomeSeo();

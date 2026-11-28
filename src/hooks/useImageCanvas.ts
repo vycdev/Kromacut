@@ -16,16 +16,27 @@ export function useImageCanvas(
     const cancelLoadRef = useRef<(() => void) | null>(null);
     // These files share the encoded data already owned by history's object
     // URLs. Keep no decoded bitmaps here, and release unreachable references.
-    const importedFilesRef = useRef(new Map<string, File>());
+    const importedFilesRef = useRef(new Map<string, Blob>());
 
     // Imports already decoded during validation. Publish their snapshot in the
     // same event as the history commit, without a second URL decode.
-    const prepareImageCanvas = useCallback((src: string, canvas: HTMLCanvasElement, file: File) => {
-        cancelLoadRef.current?.();
-        preparedRef.current = { src, canvas };
+    const prepareImageCanvas = useCallback(
+        (src: string, canvas: HTMLCanvasElement, file?: Blob) => {
+            cancelLoadRef.current?.();
+            preparedRef.current = { src, canvas };
+            if (file) importedFilesRef.current.set(src, file);
+            setResult(preparedRef.current);
+        },
+        []
+    );
+    // Recovered imports must decode from their original file again after undo or redo.
+    const adoptImportedFile = useCallback((src: string, file: Blob) => {
         importedFilesRef.current.set(src, file);
-        setResult(preparedRef.current);
     }, []);
+    const importedFileFor = useCallback(
+        (src: string): Blob | undefined => importedFilesRef.current.get(src),
+        []
+    );
 
     useEffect(() => {
         let cancelled = false;
@@ -72,5 +83,7 @@ export function useImageCanvas(
         imageCanvas: result?.src === imageSrc ? result.canvas : null,
         imageCanvasLoading: !!imageSrc && result?.src !== imageSrc,
         prepareImageCanvas,
+        adoptImportedFile,
+        importedFileFor,
     };
 }

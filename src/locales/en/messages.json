@@ -88,6 +88,7 @@
     },
     "profiles": {
         "saveFailed": "Profile changes could not be saved. Existing profiles and selection were left unchanged; free browser storage and try again.",
+        "backgroundSaveFailed": "Recent profile changes could not be stored and will be lost when Kromacut closes. Export your profiles to keep them, then free browser storage.",
         "estimated": "Loaded {{name}} — hiding distances are estimated from color. Calibrate before printing.",
         "unsavedExport": "Exported unsaved filament edits as a new profile without incompatible calibration evidence.",
         "exportFailed": "Could not export the filament profile. Please try saving again.",

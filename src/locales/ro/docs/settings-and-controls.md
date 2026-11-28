@@ -54,6 +54,8 @@ Folosește butonul de resetare din **Setări de imprimare 3D** pentru a reveni l
 
 Setările memorate sunt locale browserului/site-ului sau aplicației desktop curente. Nu sunt o copie de siguranță a imaginii ori un proiect complet salvat, iar browserele separate și aplicația desktop nu trebuie să le partajeze. Exportă paletele și profilurile importante înainte de a șterge datele aplicației/browserului. Încărcarea unui profil restaurează filamentele și datele sale, nu o imagine sau o geometrie deja generată.
 
+Profilurile de filament, cu datele lor de calibrare și de aspect, sunt păstrate în spațiul IndexedDB al browserului, mult mai mare decât cei câțiva megaocteți ai spațiului obișnuit al site-ului. Profilurile salvate de versiunile anterioare sunt mutate acolo automat, nemodificate, la prima deschidere a acestei versiuni. Dacă IndexedDB nu este disponibil, ca în unele ferestre private, profilurile rămân în spațiul obișnuit al site-ului, unde seturile de calibrare foarte mari pot să nu se salveze. Copia de recuperare a imaginii de lucru este păstrată tot în IndexedDB; vezi [Anulare, descărcare și golire](loading-images#undo-download-and-clear).
+
 ## Starea Auto-paint salvată
 
 Setările Auto-paint sunt păstrate între sesiuni, inclusiv:

@@ -82,10 +82,10 @@ Non usare **Elimina** sul campione: rimappa anziché rendere trasparente. Vedi [
 
 ## Annullare, scaricare e svuotare
 
-**Annulla** e **Ripeti** percorrono modifiche confermate: caricamento, ritaglio, ridimensionamento, regolazioni incorporate, quantizzazione, pulizia, campioni e ritocchi. Non registrano ogni impostazione o movimento. Una nuova modifica cancella il percorso di ripetizione. Lo storico è della sessione corrente: salva l’immagine per usarla più tardi.
+**Annulla** e **Ripeti** percorrono modifiche confermate: caricamento, ritaglio, ridimensionamento, regolazioni incorporate, quantizzazione, pulizia, campioni e ritocchi. Non registrano ogni impostazione o movimento. Una nuova modifica cancella il percorso di ripetizione. Kromacut conserva anche su questo dispositivo una copia di recupero dell’immagine di lavoro e dei suoi ultimi 30 passi di Annulla e 30 di Ripeti, che tornano dopo un arresto anomalo o un ricaricamento. La copia non è un backup e si perde se cancelli i dati dell’app o del browser; scarica l’immagine per conservarla.
 
 **Scarica immagine** salva la sorgente di lavoro come PNG alla risoluzione dei pixel. Esclude zoom, scacchiera, maniglie e bozze di testo. Conferma testo e **Applica regolazioni** prima. Desktop apre una finestra di salvataggio; browser segue le sue impostazioni.
 
-**Rimuovi immagine** svuota l’area, non le impostazioni. Non considerarla reversibile: non aggiunge l’immagine rimossa come nuovo passo Annulla. Scarica prima una copia se serve conservarla.
+**Rimuovi immagine** svuota l’area, non le impostazioni. Non considerarla reversibile: non aggiunge l’immagine rimossa come nuovo passo Annulla. Scarica prima una copia se serve conservarla. Rimuovere l’immagine elimina anche la copia di recupero, quindi non ricompare alla successiva apertura di Kromacut.
 
 Successivo: [Regolazioni dell’immagine](image-adjustments).

@@ -113,4 +113,8 @@ A notice saying that a normal single-head model was built means that multi-head 
 
 Use **Undo**. Redo is available if you undo too far.
 
+## The App Crashed Or Reloaded
+
+Open Kromacut again in the same browser or desktop app. The last working image comes back with up to 30 Undo and 30 Redo steps. Adjustments that were not applied, crop selections, text drafts and 3D builds do not come back, so build the model again. Nothing is restored after **Remove image**, in a private window that discards site data, or after clearing app or browser data. See [Undo, Download, And Clear](loading-images#undo-download-and-clear).
+
 Next: [FAQ](faq).
